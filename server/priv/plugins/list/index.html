@@ -11,7 +11,6 @@
      this view's own: the groups, the verdict column and the running tally. */
   .intro { color: var(--dim); max-width: 72ch; margin: 0 0 14px; }
   .intro p:first-child { margin-top: 0; }
-  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 14px; font-size: 12px; color: var(--dim); }
   h2.group { font: inherit; font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 18px 0 8px; display: flex; align-items: baseline; gap: 10px; }
   h2.group:first-of-type { margin-top: 0; }
   h2.group .count { font-family: var(--sans); font-size: 11px; color: var(--faint); }
@@ -43,7 +42,6 @@
 </style>
 </head>
 <body>
-<div id="app" class="plugin-content empty">waiting for the shell…</div>
 <script src="/sdk/v1/wicket-plugin.js"></script>
 <script>
 "use strict";
@@ -51,8 +49,36 @@
    note per item, free-text additions, and an honest `undecided` list. The
    SDK handles the protocol; this file renders and keeps the decision state. */
 
-const app = document.getElementById("app");
 const esc = Wicket.escape, markdown = Wicket.markdown;
+
+/* The header and its controls are built once and stay put; the body is
+   rewritten on every change. */
+const view = Wicket.layout({ header: true });
+view.content.className = "plugin-content empty";
+view.content.textContent = "waiting for the shell…";
+
+const control = (label, onclick) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn ghost";
+  button.textContent = label;
+  button.onclick = onclick;
+  return button;
+};
+
+const acceptRest = control("accept all undecided", () => {
+  for (const id of itemIds()) if (!(S.decisions[id] && S.decisions[id].action)) S.decisions[id] = { ...(S.decisions[id] || {}), action: "accept" };
+  S.armed = false;
+  postDraft();
+  render();
+});
+
+const clearAll = control("clear", () => {
+  S.decisions = {};
+  S.armed = false;
+  postDraft();
+  render();
+});
 let gate = null, previous = null, readonly = false;
 const S = { decisions: {}, additions: [], armed: false, errors: null };
 
@@ -64,12 +90,19 @@ const plugin = Wicket.connect({
     if (readonly) loadDecision(gate.decision && gate.decision.data);
     else if (init.draft && init.draft.decisions) { S.decisions = init.draft.decisions; S.additions = init.draft.additions || []; }
     else { S.decisions = {}; S.additions = []; }
+    syncHeader();
     render();
   },
   onViolations(errors) { S.errors = errors; S.armed = false; render(); },
-  onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); render(); },
+  onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); syncHeader(); render(); },
   onCollect() { handOver(); },
 });
+
+/* The header says how much there is and offers the bulk actions, until the
+   gate is decided and there is nothing left to act on. */
+function syncHeader() {
+  view.title(`${itemIds().length} items`).controls(readonly ? [] : [acceptRest, clearAll]);
+}
 
 /* Drafts: a click posts at once, so a reload right after it loses nothing;
    typing is debounced so every keystroke does not cross the bridge. */
@@ -208,11 +241,6 @@ function render() {
       : `<div class="done notice ok">Closed without a decision (${esc(gate.status)}). Read-only.</div>`;
   }
   if (gate.payload.intro) html += `<div class="intro">${markdown(gate.payload.intro)}</div>`;
-  if (!readonly) {
-    html += `<div class="bar"><span><b>${t.total}</b> items</span><span class="spacer"></span>
-      <button type="button" class="btn ghost" id="accept-rest">accept all undecided</button>
-      <button type="button" class="btn ghost" id="clear-all">clear</button></div>`;
-  }
   if (!groups.length) html += `<div class="empty">Nothing to decide.</div>`;
   for (const g of groups) {
     html += `<h2 class="group">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
@@ -229,14 +257,15 @@ function render() {
       ${S.armed ? `<span class="tally warn">${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.</span><button type="button" class="btn ghost" id="disarm">keep deciding</button>` : ""}
     </div>`;
   }
-  app.className = "plugin-content";
-  app.innerHTML = html;
+  view.content.className = "plugin-content";
+  view.content.innerHTML = html;
   bind();
   if (!readonly) syncStatus();
 }
 
 function bind() {
   if (readonly) return;
+  const app = view.content;
   app.querySelectorAll("button[data-act]").forEach((b) => b.onclick = () => setAction(+b.dataset.id, b.dataset.act));
   app.querySelectorAll("textarea[data-note]").forEach((t) => {
     t.oninput = () => setNote(+t.dataset.note, t.value);
@@ -244,8 +273,6 @@ function bind() {
   });
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
   on("disarm", () => { S.armed = false; render(); });
-  on("accept-rest", () => { for (const id of itemIds()) if (!(S.decisions[id] && S.decisions[id].action)) S.decisions[id] = { ...(S.decisions[id] || {}), action: "accept" }; S.armed = false; postDraft(); render(); });
-  on("clear-all", () => { S.decisions = {}; S.armed = false; postDraft(); render(); });
   on("add-addition", () => { S.additions.push({ group: "", body: "" }); postDraft(); render(); const last = app.querySelector(`textarea[data-add-body="${S.additions.length - 1}"]`); if (last) last.focus(); });
   app.querySelectorAll("[data-add-remove]").forEach((b) => b.onclick = () => { S.additions.splice(+b.dataset.addRemove, 1); postDraft(); render(); });
   app.querySelectorAll("[data-add-body]").forEach((t) => t.oninput = () => { S.additions[+t.dataset.addBody].body = t.value; draft(); });

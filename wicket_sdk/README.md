@@ -60,6 +60,19 @@ notices. A view links it and writes only what is its own.
 It is optional and overridable: a view's own `<style>` comes after it. The
 list of classes is in [`plugins/README.md`](../plugins/README.md).
 
+`Wicket.layout()` builds the skeleton the stylesheet expects and returns its
+elements, so a view can rewrite its body on every change while the header and
+its controls stay put:
+
+```js
+const view = Wicket.layout({ title: "5 items", controls: [button] });
+view.content.innerHTML = rows;
+view.title("4 items").meta(["acme-api", "7 days"]).controls([]);
+```
+
+A header appears only if you ask for one with `title`, `meta`, `controls` or
+`header: true`. `into` puts the skeleton somewhere other than `<body>`.
+
 ## Tests
 
 ```sh

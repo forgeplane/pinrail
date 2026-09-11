@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { Wicket, fakeEnv, shell, gate, init } = require("./helpers");
+const { Wicket, fakeEnv, fakeDocument, shell, gate, init } = require("./helpers");
 
 test("connect posts ready at once, to any origin", () => {
   const env = fakeEnv();
@@ -203,6 +203,51 @@ test("escape, markdown and previousVerdict", () => {
   assert.deepEqual(Wicket.previousVerdict(previous, 2), { action: "undecided", note: "" });
   assert.equal(Wicket.previousVerdict(previous, 3), null);
   assert.equal(Wicket.previousVerdict(null, 1), null);
+});
+
+test("layout builds a body on its own, and a header when asked for one", () => {
+  const bare = fakeDocument();
+  const plain = Wicket.layout({ document: bare });
+  assert.equal(plain.header, null, "no header unless the view wants one");
+  assert.deepEqual(bare.body.children.map((n) => n.className), ["plugin-content"]);
+  assert.equal(plain.content.tag, "main");
+
+  const doc = fakeDocument();
+  const view = Wicket.layout({ document: doc, title: "5 items" });
+  assert.deepEqual(doc.body.children.map((n) => n.className), ["plugin-header", "plugin-content"]);
+  assert.deepEqual(view.header.children.map((n) => n.className), [
+    "plugin-title",
+    "plugin-meta",
+    "plugin-controls",
+  ]);
+  assert.equal(view.header.children[0].textContent, "5 items");
+});
+
+test("layout takes strings or elements, and replaces rather than appends", () => {
+  const doc = fakeDocument();
+  const button = doc.createElement("button");
+  const view = Wicket.layout({ document: doc, meta: ["acme-api", "7 days"], controls: button });
+
+  const [, meta, controls] = view.header.children;
+  assert.deepEqual(meta.children.map((n) => n.textContent), ["acme-api", "7 days"]);
+  assert.deepEqual(controls.children, [button]);
+
+  assert.equal(view.title("4 items").meta("acme-worker"), view, "setters chain");
+  assert.equal(view.header.children[0].textContent, "4 items");
+  assert.deepEqual(meta.children.map((n) => n.textContent), ["acme-worker"]);
+
+  view.meta(null);
+  assert.deepEqual(meta.children, []);
+});
+
+test("layout can be put somewhere other than the body", () => {
+  const doc = fakeDocument();
+  const host = doc.createElement("div");
+  const view = Wicket.layout({ document: doc, into: host, header: true });
+
+  assert.deepEqual(doc.body.children, []);
+  assert.deepEqual(host.children.map((n) => n.className), ["plugin-header", "plugin-content"]);
+  assert.equal(host.children[1], view.content);
 });
 
 test("the module exposes a version and the protocol number", () => {

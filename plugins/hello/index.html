@@ -13,14 +13,15 @@
 </style>
 </head>
 <body>
-<div id="app" class="plugin-content dim">waiting for the shell…</div>
 <script src="/sdk/v1/wicket-plugin.js"></script>
 <script>
 // The smallest complete wicket plugin: one question, yes or no, with an
 // optional comment. The answer is held here; the shell hands it over.
 "use strict";
-const app = document.getElementById("app");
 const esc = Wicket.escape;
+const view = Wicket.layout();
+view.content.className = "plugin-content dim";
+view.content.textContent = "waiting for the shell…";
 let choice = null;
 
 const plugin = Wicket.connect({
@@ -55,8 +56,8 @@ function pick(value) {
 function render(draft) {
   const gate = plugin.gate;
   const decided = gate.decision && gate.decision.data;
-  app.className = "plugin-content";
-  app.innerHTML = `<p>${esc(gate.payload.message)}</p>` + (plugin.readonly
+  view.content.className = "plugin-content";
+  view.content.innerHTML = `<p>${esc(gate.payload.message)}</p>` + (plugin.readonly
     ? `<p class="dim">Decided: <b>${decided && decided.ok ? "yes" : "no"}</b>${decided && decided.comment ? " — " + esc(decided.comment) : ""}</p>`
     : `<div class="choice">
          <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">Yes</button>

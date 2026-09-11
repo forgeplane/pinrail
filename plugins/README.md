@@ -58,6 +58,22 @@ vocabulary of classes:
 <link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
 ```
 
+`Wicket.layout()` builds that skeleton for you, and hands back the elements
+rather than markup, so the header and its controls keep their listeners while
+you rewrite the body on every change:
+
+```js
+const view = Wicket.layout({ title: "5 items", controls: [acceptAll, clear] });
+view.content.innerHTML = rows;          // render into this
+view.title("4 items").meta(["acme-api", "7 days"]);
+```
+
+Ask for a header by passing `title`, `meta`, `controls`, or `header: true`;
+without any of them you get a body and nothing else. Pass `into` to build it
+somewhere other than `<body>`. Writing the markup yourself with the classes
+below works just as well, which is what a view with a header of its own
+should do.
+
 | Class | For |
 |---|---|
 | `.plugin-header`, `.plugin-title`, `.plugin-meta`, `.plugin-controls` | a bar that stays at the top of the frame |

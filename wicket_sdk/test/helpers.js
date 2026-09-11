@@ -28,8 +28,22 @@ function fakeEnv() {
   return env;
 }
 
+/* Enough of a document for Wicket.layout: elements that remember their
+   class, their text and their children. */
+function fakeDocument() {
+  const make = (tag) => ({
+    tag,
+    className: "",
+    textContent: "",
+    children: [],
+    append(...nodes) { this.children.push(...nodes); },
+    replaceChildren(...nodes) { this.children = nodes; },
+  });
+  return { body: make("body"), createElement: make };
+}
+
 const shell = (msg) => Object.assign({ wicket: 1 }, msg);
 const gate = (extra = {}) => Object.assign({ id: "g_1", type: "t", type_version: 1, title: "t", status: "pending", payload: {}, decision: null }, extra);
 const init = (extra = {}) => shell(Object.assign({ type: "init", gate: gate(), previous: null, readonly: false, draft: null, shell_origin: "http://shell.test" }, extra));
 
-module.exports = { Wicket, fakeEnv, shell, gate, init };
+module.exports = { Wicket, fakeEnv, fakeDocument, shell, gate, init };
