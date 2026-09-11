@@ -67,6 +67,15 @@ defmodule Wicket.TypesTest do
     end
   end
 
+  test "directory persistence errors do not change the registry" do
+    File.mkdir_p!(Path.dirname(Types.config_dir()))
+    File.write!(Types.config_dir(), "not a directory")
+    assert {:error, message} = Types.add_dir(fixture_dir("good"))
+    assert message =~ "Could not save"
+    assert {:ok, _} = Types.fetch("list")
+    assert {:error, _} = Types.fetch("echo")
+  end
+
   describe "validation" do
     test "payload violations point into the payload" do
       {:ok, list} = Types.fetch("list")

@@ -69,16 +69,22 @@ defmodule Wicket.Types do
 
       true ->
         before = added_dirs()
-        write_added_dirs(before ++ [dir])
 
-        case Registry.reload() do
-          {:ok, n} ->
-            {:ok, n}
+        with :ok <- write_added_dirs(before ++ [dir]) do
+          case Registry.reload() do
+            {:ok, n} ->
+              {:ok, n}
 
-          {:error, _} = error ->
-            write_added_dirs(before)
-            Registry.reload()
-            error
+            {:error, message} ->
+              case write_added_dirs(before) do
+                :ok ->
+                  Registry.reload()
+                  {:error, message}
+
+                {:error, rollback_error} ->
+                  {:error, "#{message}; #{rollback_error}"}
+              end
+          end
         end
     end
   end
@@ -100,8 +106,25 @@ defmodule Wicket.Types do
   end
 
   defp write_added_dirs(list) do
-    File.mkdir_p!(config_dir())
-    File.write!(Path.join(config_dir(), @dirs_file), JSON.encode!(list) <> "\n")
+    path = Path.join(config_dir(), @dirs_file)
+    tmp = path <> ".#{System.unique_integer([:positive])}.tmp"
+
+    result =
+      with :ok <- File.mkdir_p(config_dir()),
+           :ok <- File.write(tmp, JSON.encode!(list) <> "\n", [:exclusive]),
+           :ok <- File.rename(tmp, path) do
+        :ok
+      end
+
+    File.rm(tmp)
+
+    case result do
+      :ok ->
+        :ok
+
+      {:error, reason} ->
+        {:error, "Could not save plugin directories: #{:file.format_error(reason)}"}
+    end
   end
 
   @spec snapshot_dir(String.t(), pos_integer()) :: Path.t()
