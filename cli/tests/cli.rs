@@ -393,6 +393,9 @@ fn create_auto_starts_the_server_with_the_configured_command() {
         other => panic!("unexpected {other:?}"),
     }));
     let dir = tempdir();
+    // a stale server.json from a previous run points at a dead port, so
+    // discovery never depends on whatever happens to listen on 4747
+    std::fs::write(dir.join("server.json"), r#"{"url":"http://127.0.0.1:9"}"#).unwrap();
     let cmd = format!(
         "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$WICKET_DATA_DIR/server.json\"; sleep 5",
         server.url
@@ -401,6 +404,7 @@ fn create_auto_starts_the_server_with_the_configured_command() {
         .args(["create", "list", "--title", "t"])
         .env("WICKET_DATA_DIR", &dir)
         .env("WICKET_SERVER_CMD", &cmd)
+        .env("WICKET_PORT", "9")
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);

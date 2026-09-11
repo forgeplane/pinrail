@@ -56,6 +56,38 @@ styles, images and fonts must be inline or files inside the plugin
 directory. No fetch, no web fonts, no CDN. Everything the view needs must be
 in the payload.
 
+## The SDK
+
+The app serves the plugin side of the protocol at `/sdk/v1/wicket-plugin.js`.
+Load it and let it do the handshake; the view only renders:
+
+```html
+<script src="/sdk/v1/wicket-plugin.js"></script>
+<script>
+  const plugin = Wicket.connect({
+    resize: "auto",                                  // or "fill" for a viewport-height frame
+    onInit({ gate, previous, readonly, draft }) { render(); },
+    onViolations(errors) { showErrors(errors); },
+    onSubmitted(decision) { render(); },             // read-only from here on
+    onCollect() { submit(); },                       // ⌘/Ctrl+Enter
+  });
+  plugin.submit(data);
+  plugin.draft(data);                                // debounced; { flush: true } posts now
+</script>
+```
+
+`v1` only ever receives fixes. See [`wicket_sdk/`](../wicket_sdk/README.md)
+for the API, the helpers (`escape`, `markdown`, `previousVerdict`), and the
+test harness. The protocol below is what the SDK implements; a plugin can
+speak it directly instead.
+
+## Testing a plugin
+
+Ship `fixtures/*.json` (a partial gate: `title`, `payload`, optionally a
+`decision`) and `tests/*.spec.ts` that mount the view alone under the SDK's
+fake shell; `mise run test:plugins` runs them for every plugin in this folder
+and for the built-in `list`. See any shipped plugin for the pattern.
+
 ## Protocol
 
 All messages are `{ "wicket": 1, "type": "...", ...fields }` over

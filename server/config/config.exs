@@ -22,6 +22,13 @@ config :esbuild,
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
+  ],
+  # The plugin SDK, served to plugins at /sdk/v1/wicket-plugin.js. Source of
+  # truth is wicket_sdk/ at the repo root; this only copies it into priv.
+  sdk: [
+    args:
+      ~w(../../wicket_sdk/src/wicket-plugin.js --target=es2022 --outfile=../priv/static/sdk/v1/wicket-plugin.js),
+    cd: Path.expand("../assets", __DIR__)
   ]
 
 config :tailwind,

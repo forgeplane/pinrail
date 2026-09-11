@@ -21,7 +21,10 @@ defmodule WicketWeb.PluginControllerTest do
     [csp] = get_resp_header(conn, "content-security-policy")
     assert csp =~ "default-src 'none'"
     assert csp =~ "connect-src 'none'"
-    assert csp =~ "script-src 'unsafe-inline' http://www.example.com:80/plugins/list/1/"
+
+    assert csp =~
+             "script-src 'unsafe-inline' http://www.example.com:80/plugins/list/1/ http://www.example.com:80/sdk/"
+
     assert csp =~ "frame-ancestors 'self'"
 
     conn = get(build_conn(), ~p"/plugins/list/1/decision.schema.json")

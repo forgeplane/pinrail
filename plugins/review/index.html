@@ -72,6 +72,7 @@ code.inl { font-family: var(--mono); font-size: 0.92em; background: var(--bg); b
 </head>
 <body>
 <div id="app"></div>
+<script src="/sdk/v1/wicket-plugin.js"></script>
 <script>
 "use strict";
 /* The review gate: a change's diff with the agent's proposed comments
@@ -80,41 +81,32 @@ code.inl { font-family: var(--mono); font-size: 0.92em; background: var(--bg); b
    forge-specific remains. */
 
 /* ---------- bridge ---------- */
-let shellOrigin = null, GATE = null, PREVIOUS = null, RO_FLAG = false;
-const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shellOrigin || "*");
+let GATE = null, PREVIOUS = null, RO_FLAG = false;
+const RO = () => RO_FLAG;
 
-window.addEventListener("message", (event) => {
-  const msg = event.data;
-  if (!msg || msg.wicket !== 1) return;
-  if (shellOrigin && event.origin !== shellOrigin) return;
-  switch (msg.type) {
-    case "init":
-      shellOrigin = msg.shell_origin;
-      GATE = msg.gate; PREVIOUS = msg.previous || null; RO_FLAG = !!msg.readonly;
-      boot(msg.draft);
-      break;
-    case "violations":
-      set(() => { S.errors = msg.errors || []; S.confirmSubmitArm = false; S.showSubmit = true; });
-      break;
-    case "submitted":
-      GATE.decision = msg.decision; RO_FLAG = true;
-      loadDecision(msg.decision && msg.decision.data);
-      set(() => { S.done = true; S.showSubmit = false; S.composer = null; S.noteOpen = {}; S.errors = null; });
-      break;
-    case "collect":
-      collect();
-      break;
-  }
+const plugin = Wicket.connect({
+  resize: "fill",
+  onInit(init) {
+    GATE = init.gate; PREVIOUS = init.previous; RO_FLAG = init.readonly;
+    boot(init.draft);
+  },
+  onViolations(errors) {
+    set(() => { S.errors = errors; S.confirmSubmitArm = false; S.showSubmit = true; });
+  },
+  onSubmitted(decision) {
+    RO_FLAG = true;
+    loadDecision(decision && decision.data);
+    set(() => { S.done = true; S.showSubmit = false; S.composer = null; S.noteOpen = {}; S.errors = null; });
+  },
+  onCollect() { collect(); },
 });
 
-let draftTimer = null;
 function draft() {
   if (RO() || !D) return;
-  clearTimeout(draftTimer);
-  draftTimer = setTimeout(() => post({ type: "draft", data: {
+  plugin.draft({
     decisions: S.decisions, manualComments: S.manualComments, generalComments: S.generalComments,
     generalDraft: S.generalDraft, mseq, gseq,
-  } }), 120);
+  });
 }
 
 /* ---------- state ---------- */
@@ -130,8 +122,7 @@ const S = {
   confirmSubmitArm: false, orderMode: "semantic",
 };
 let mseq = 0, gseq = 0, bulkT = null;
-const RO = () => RO_FLAG;
-const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const esc = Wicket.escape;
 
 function adapt(payload) {
   const files = (payload.files || []).map((f) => ({
@@ -154,14 +145,7 @@ function loadDecision(data) {
   S.generalComments = (data.general_comments || []).map((g, i) => ({ id: "g" + (i + 1), body: g.body }));
 }
 
-function previousVerdict(id) {
-  const data = PREVIOUS && PREVIOUS.decision && PREVIOUS.decision.data;
-  if (!data) return null;
-  const d = (data.decisions || []).find((x) => x.id === id);
-  if (d) return { action: d.action, note: d.note || "" };
-  if ((data.undecided || []).includes(id)) return { action: "undecided", note: "" };
-  return null;
-}
+const previousVerdict = (id) => Wicket.previousVerdict(PREVIOUS, id);
 
 /* ---------- markdown-lite ---------- */
 function inlineHtml(text) {
@@ -906,7 +890,7 @@ function confirmSubmit() {
   const undecidedCount = D.proposals.filter((p) => !decided(p.id)).length;
   if (!S.confirmSubmitArm && undecidedCount) { set(() => { S.confirmSubmitArm = true; }); return; }
   set(() => { S.errors = null; });
-  post({ type: "submit", data: buildDecision() });
+  plugin.submit(buildDecision());
 }
 function collect() {
   if (RO()) return;
@@ -984,7 +968,6 @@ document.addEventListener("keydown", (e) => {
   if (!D) return;
   const tag = e.target && e.target.tagName;
   const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable);
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); collect(); return; }
   if (e.key === "Escape") {
     if (typing && e.target.hasAttribute && e.target.hasAttribute("data-note-ta")) {
       const id = e.target.getAttribute("data-note-ta");
@@ -1048,10 +1031,8 @@ function boot(draftData) {
   const ids = orderedIds();
   S.focusedId = RO() ? null : (ids.find((id) => !decided(id)) ?? (ids.length ? ids[0] : null));
   render();
-  post({ type: "resize", height: "fill" });
 }
 render();
-post({ type: "ready" });
 </script>
 </body>
 </html>

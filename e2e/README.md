@@ -10,6 +10,10 @@ Suites are organised by what they check, not by language:
 | `tests/plugins/*.spec.ts` | each shipped plugin, decided in the browser inside its sandboxed frame, as seen by the waiter |
 | `tests/zz-restart.spec.ts` | a wait survives the server being killed and restarted |
 
+Plugin behaviour in isolation is not here: each plugin has `tests/` mounted
+under the SDK's fake shell, run with `mise run test:plugins` (configured in
+`plugins.config.ts`, sharing this folder's Playwright install).
+
 Global setup builds the CLI if needed, starts the server with `wicket serve`
 on a scratch data dir and a free port, and registers `plugins/`. Teardown
 stops it. Runs are explicit:

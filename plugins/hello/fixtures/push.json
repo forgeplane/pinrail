@@ -1,0 +1,4 @@
+{
+  "title": "Push branch fix/tickets-dedup to origin?",
+  "payload": { "message": "The branch has 3 commits on top of main and CI is green locally. Push it?" }
+}

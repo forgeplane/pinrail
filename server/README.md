@@ -51,6 +51,7 @@ rebuilt from the files at boot.
 | `WicketWeb.InboxLive`, `GateLive`, `HistoryLive`, `TypesLive` | the pages |
 | `assets/js/hooks/plugin_bridge.js` | the shell side of the plugin protocol |
 | `priv/plugins/list` | the built-in gate type |
+| `priv/static/sdk/v1/wicket-plugin.js` | the plugin SDK, copied from `wicket_sdk/` by `mix assets.build` |
 
 ## Tests
 

@@ -7,6 +7,7 @@ config :wicket, WicketWeb.Endpoint,
   secret_key_base: "K9/WmYyq+tY390Td20UyreytfTG0kCffArPcs5CMyOFHZqNwoyVG9eIuv8DZyf94",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:wicket, ~w(--sourcemap=inline --watch)]},
+    sdk: {Esbuild, :install_and_run, [:sdk, ~w(--watch)]},
     tailwind: {Tailwind, :install_and_run, [:wicket, ~w(--watch)]}
   ]
 

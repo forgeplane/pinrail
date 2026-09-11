@@ -18,6 +18,16 @@ description = "CLI tests against a scripted HTTP server"
 dir = "{{config_root}}/cli"
 run = "cargo test"
 
+[tasks."test:sdk"]
+description = "Plugin SDK unit tests"
+dir = "{{config_root}}/wicket_sdk"
+run = "npm test"
+
+[tasks."test:plugins"]
+description = "Each shipped plugin alone, under the SDK's fake shell"
+dir = "{{config_root}}/e2e"
+run = "NODE_PATH={{config_root}}/e2e/node_modules npm run test:plugins"
+
 [tasks.e2e]
 description = "End to end: real server, real CLI, real browser, shipped plugins"
 dir = "{{config_root}}/e2e"
@@ -25,4 +35,4 @@ run = "npm test"
 
 [tasks.test]
 description = "Server, CLI and end-to-end suites"
-depends = ["test:server", "test:cli", "e2e"]
+depends = ["test:server", "test:cli", "test:sdk", "test:plugins", "e2e"]

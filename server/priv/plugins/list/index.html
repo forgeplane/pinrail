@@ -81,75 +81,38 @@
 </head>
 <body>
 <div id="app" class="empty">waiting for the shell…</div>
+<script src="/sdk/v1/wicket-plugin.js"></script>
 <script>
 "use strict";
-/* The built-in list gate. A self-contained view for the wicket plugin
-   protocol: items grouped under headings, accept / reject / note per item,
-   free-text additions, and an honest `undecided` list. Also the reference
-   client for the protocol: every message the shell sends or expects is
-   handled below. */
+/* The built-in list gate: items grouped under headings, accept / reject /
+   note per item, free-text additions, and an honest `undecided` list. The
+   SDK handles the protocol; this file renders and keeps the decision state. */
 
 const app = document.getElementById("app");
-let shellOrigin = null;
+const esc = Wicket.escape, markdown = Wicket.markdown;
 let gate = null, previous = null, readonly = false;
 const S = { decisions: {}, additions: [], armed: false, errors: null };
-let draftTimer = null;
 
-/* ---------- protocol ---------- */
-const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shellOrigin || "*");
-
-window.addEventListener("message", (event) => {
-  const msg = event.data;
-  if (!msg || msg.wicket !== 1) return;
-  if (shellOrigin && event.origin !== shellOrigin) return;
-  switch (msg.type) {
-    case "init":
-      shellOrigin = msg.shell_origin;
-      gate = msg.gate; previous = msg.previous || null; readonly = !!msg.readonly;
-      S.errors = null; S.armed = false;
-      if (readonly) {
-        loadDecision(gate.decision && gate.decision.data);
-      } else if (msg.draft && msg.draft.decisions) {
-        S.decisions = msg.draft.decisions; S.additions = msg.draft.additions || [];
-      } else {
-        S.decisions = {}; S.additions = [];
-      }
-      render();
-      break;
-    case "violations":
-      S.errors = msg.errors || []; S.armed = false;
-      render();
-      break;
-    case "submitted":
-      gate.decision = msg.decision; readonly = true;
-      loadDecision(msg.decision && msg.decision.data);
-      render();
-      break;
-    case "collect":
-      if (!readonly) submit();
-      break;
-  }
+const plugin = Wicket.connect({
+  resize: "auto",
+  onInit(init) {
+    gate = init.gate; previous = init.previous; readonly = init.readonly;
+    S.errors = null; S.armed = false;
+    if (readonly) loadDecision(gate.decision && gate.decision.data);
+    else if (init.draft && init.draft.decisions) { S.decisions = init.draft.decisions; S.additions = init.draft.additions || []; }
+    else { S.decisions = {}; S.additions = []; }
+    render();
+  },
+  onViolations(errors) { S.errors = errors; S.armed = false; render(); },
+  onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); render(); },
+  onCollect() { submit(); },
 });
-
-// The shell only sees ⌘/Ctrl+Enter while focus is outside the frame; once
-// the human has clicked in here, the shortcut has to be ours.
-window.addEventListener("keydown", (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); if (!readonly) submit(); }
-});
-
-function resize() { post({ type: "resize", height: document.documentElement.scrollHeight }); }
-new ResizeObserver(resize).observe(document.body);
 
 /* Drafts: a click posts at once, so a reload right after it loses nothing;
    typing is debounced so every keystroke does not cross the bridge. */
-function postDraft() {
-  clearTimeout(draftTimer);
-  post({ type: "draft", data: { decisions: S.decisions, additions: S.additions } });
-}
-function draft() {
-  clearTimeout(draftTimer);
-  draftTimer = setTimeout(postDraft, 150);
-}
+const draftData = () => ({ decisions: S.decisions, additions: S.additions });
+const postDraft = () => plugin.draft(draftData(), { flush: true });
+const draft = () => plugin.draft(draftData());
 
 /* ---------- state ---------- */
 const items = () => (gate.payload.groups || []).flatMap((g) => g.items.map((i) => ({ ...i, group: g.title })));
@@ -202,61 +165,21 @@ function setNote(id, note) {
 }
 
 function submit() {
+  if (readonly) return;
   const t = tally();
   if (t.undecided > 0 && !S.armed) { S.armed = true; render(); return; }
   S.errors = null;
-  post({ type: "submit", data: decisionData() });
-}
-
-/* ---------- markdown (small and safe: escape first, then mark up) ---------- */
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-
-function inline(s) {
-  return s
-    .replace(/`([^`]+)`/g, (_, c) => `<code class="inl">${c}</code>`)
-    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<i>$2</i>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
-}
-
-function markdown(src) {
-  const lines = esc(src || "").split("\n");
-  let html = "", para = [], list = null, code = null;
-  const flushPara = () => { if (para.length) { html += `<p>${inline(para.join(" "))}</p>`; para = []; } };
-  const flushList = () => { if (list) { html += `<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`; list = null; } };
-  for (const line of lines) {
-    if (code !== null) {
-      if (/^```/.test(line)) { html += `<pre>${code.join("\n")}</pre>`; code = null; } else code.push(line);
-      continue;
-    }
-    if (/^```/.test(line)) { flushPara(); flushList(); code = []; continue; }
-    const li = line.match(/^\s*(?:[-*]|(\d+)\.)\s+(.*)$/);
-    if (li) {
-      flushPara();
-      const tag = li[1] ? "ol" : "ul";
-      if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
-      list.items.push(li[2]);
-      continue;
-    }
-    if (!line.trim()) { flushPara(); flushList(); continue; }
-    flushList();
-    para.push(line.trim());
-  }
-  if (code !== null) html += `<pre>${code.join("\n")}</pre>`;
-  flushPara(); flushList();
-  return html;
+  plugin.submit(decisionData());
 }
 
 /* ---------- render ---------- */
 const sevClass = (s) => ["blocker", "major", "minor", "nit"].includes(s) ? `sev-${s}` : "sev-other";
 
-function previousVerdict(id) {
-  const data = previous && previous.decision && previous.decision.data;
-  if (!data) return null;
-  const d = (data.decisions || []).find((x) => x.id === id);
-  if (d) return `${d.action}${d.note ? ": " + d.note : ""}`;
-  if ((data.undecided || []).includes(id)) return "undecided";
-  return null;
+function previousLine(id) {
+  const prev = Wicket.previousVerdict(previous, id);
+  if (!prev) return "";
+  const text = prev.action + (prev.note ? ": " + prev.note : "");
+  return `<div class="previous"><b>previous round:</b> ${esc(text)}</div>`;
 }
 
 function renderItem(item) {
@@ -265,31 +188,19 @@ function renderItem(item) {
   const meta = item.meta && typeof item.meta === "object"
     ? Object.entries(item.meta).map(([k, v]) => `<span class="meta">${esc(k)}: ${esc(typeof v === "object" ? JSON.stringify(v) : v)}</span>`).join("")
     : "";
-  const prev = previousVerdict(item.id);
-  let controls;
-  if (readonly) {
-    const verdict = d.action || "undecided";
-    controls = `<div class="controls">
-      ${d.note ? `<div class="note-ro"><span class="label">${d.action === "reject" ? "reason" : "note"}</span>${esc(d.note)}</div>` : ""}
-    </div>`;
-    return `<div class="item ${cls}" data-id="${item.id}">
-      <div class="head"><span class="id">#${esc(item.id)}</span>
-        ${item.severity ? `<span class="sev ${sevClass(item.severity)}">${esc(item.severity)}</span>` : ""}
-        <span class="title">${esc(item.title)}</span>${meta}
-        <span class="verdict ${verdict}">${verdict}</span></div>
-      ${item.body ? `<div class="body">${markdown(item.body)}</div>` : ""}
-      ${prev ? `<div class="previous"><b>previous round:</b> ${esc(prev)}</div>` : ""}
-      ${d.note ? controls : ""}
-    </div>`;
-  }
-  const placeholder = d.action === "reject" ? "why (becomes a lesson for the agent)" : d.action === "accept" ? "revise before acting (optional)" : "note (optional)";
-  return `<div class="item ${cls}" data-id="${item.id}">
-    <div class="head"><span class="id">#${esc(item.id)}</span>
+  const verdict = d.action || "undecided";
+  const head = `<div class="head"><span class="id">#${esc(item.id)}</span>
       ${item.severity ? `<span class="sev ${sevClass(item.severity)}">${esc(item.severity)}</span>` : ""}
       <span class="title">${esc(item.title)}</span>${meta}
-      <span class="verdict ${d.action || "undecided"}">${d.action || "undecided"}</span></div>
+      <span class="verdict ${verdict}">${verdict}</span></div>
     ${item.body ? `<div class="body">${markdown(item.body)}</div>` : ""}
-    ${prev ? `<div class="previous"><b>previous round:</b> ${esc(prev)}</div>` : ""}
+    ${previousLine(item.id)}`;
+  if (readonly) {
+    const note = d.note ? `<div class="controls"><div class="note-ro"><span class="label">${d.action === "reject" ? "reason" : "note"}</span>${esc(d.note)}</div></div>` : "";
+    return `<div class="item ${cls}" data-id="${item.id}">${head}${note}</div>`;
+  }
+  const placeholder = d.action === "reject" ? "why (becomes a lesson for the agent)" : d.action === "accept" ? "revise before acting (optional)" : "note (optional)";
+  return `<div class="item ${cls}" data-id="${item.id}">${head}
     <div class="controls">
       <button type="button" class="btn accept ${d.action === "accept" ? "on" : ""}" data-act="accept" data-id="${item.id}" aria-pressed="${d.action === "accept"}">Accept</button>
       <button type="button" class="btn reject ${d.action === "reject" ? "on" : ""}" data-act="reject" data-id="${item.id}" aria-pressed="${d.action === "reject"}">Reject</button>
@@ -353,7 +264,6 @@ function render() {
   app.className = "";
   app.innerHTML = html;
   bind();
-  resize();
 }
 
 function bind() {
@@ -373,8 +283,6 @@ function bind() {
   app.querySelectorAll("[data-add-body]").forEach((t) => t.oninput = () => { S.additions[+t.dataset.addBody].body = t.value; draft(); });
   app.querySelectorAll("[data-add-group]").forEach((s) => s.onchange = () => { S.additions[+s.dataset.addGroup].group = s.value; postDraft(); });
 }
-
-post({ type: "ready" });
 </script>
 </body>
 </html>

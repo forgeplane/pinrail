@@ -60,13 +60,14 @@ defmodule Wicket.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind wicket", "esbuild wicket"],
+      "assets.build": ["compile", "tailwind wicket", "esbuild wicket", "esbuild sdk"],
       "assets.deploy": [
         "tailwind wicket --minify",
         "esbuild wicket --minify",
+        "esbuild sdk",
         "phx.digest"
       ],
-      "test.browser": ["test --only playwright"],
+      "test.browser": ["esbuild sdk", "test --only playwright"],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
     ]
   end

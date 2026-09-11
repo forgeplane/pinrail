@@ -1,7 +1,8 @@
 //! Finding and starting the server.
 //!
 //! The running server writes `<data dir>/server.json`; that file, after
-//! `WICKET_URL` and `--url`, is how the CLI finds it. Starting one needs a
+//! `WICKET_URL` and `--url`, is how the CLI finds it, and `WICKET_PORT`
+//! decides the default when nothing is advertised. Starting one needs a
 //! command: `WICKET_SERVER_CMD` (run through `sh -c`), or `WICKET_SERVER_DIR`
 //! pointing at the Phoenix app (then `mix phx.server` there).
 
@@ -14,7 +15,14 @@ use serde_json::{Value, json};
 
 use crate::api::Client;
 
-pub const DEFAULT_URL: &str = "http://127.0.0.1:4747";
+pub const DEFAULT_PORT: &str = "4747";
+
+/// The URL to try when nothing is advertised: the loopback address on
+/// `WICKET_PORT`, the same variable the server reads, else 4747.
+pub fn default_url() -> String {
+    let port = std::env::var("WICKET_PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
+    format!("http://127.0.0.1:{port}")
+}
 
 pub fn data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("WICKET_DATA_DIR") {
@@ -45,7 +53,7 @@ pub fn resolve_url(explicit: Option<&str>, auto_start: bool) -> Result<String> {
     }
     let url = advertised()
         .and_then(|v| v["url"].as_str().map(str::to_string))
-        .unwrap_or_else(|| DEFAULT_URL.to_string());
+        .unwrap_or_else(default_url);
 
     if auto_start && !Client::new(&url).reachable() {
         eprintln!("wicket: server not running at {url}, starting it");

@@ -2,8 +2,9 @@ defmodule WicketWeb.PluginController do
   @moduledoc """
   Serves a plugin bundle at `/plugins/:type/:version/*path` from the version
   snapshot (or the live directory for a dev plugin), with the CSP that makes
-  the sandbox real: no network at all, scripts and styles only inline or from
-  the bundle's own path on this server.
+  the sandbox real: no network at all, scripts only inline, from the bundle's
+  own path, or the SDK under `/sdk/`; styles, images and fonts only inline
+  or from the bundle.
 
   The iframe loads these without `allow-same-origin`, so the document has an
   opaque origin and `'self'` would match nothing; the bundle path is spelled
@@ -48,12 +49,13 @@ defmodule WicketWeb.PluginController do
   end
 
   defp csp(conn, type, version) do
-    bundle = "#{conn.scheme}://#{conn.host}:#{conn.port}/plugins/#{type}/#{version}/"
+    origin = "#{conn.scheme}://#{conn.host}:#{conn.port}"
+    bundle = "#{origin}/plugins/#{type}/#{version}/"
 
     Enum.join(
       [
         "default-src 'none'",
-        "script-src 'unsafe-inline' #{bundle}",
+        "script-src 'unsafe-inline' #{bundle} #{origin}/sdk/",
         "style-src 'unsafe-inline' #{bundle}",
         "img-src data: blob: #{bundle}",
         "font-src data: #{bundle}",

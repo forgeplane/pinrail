@@ -1,47 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 import { gateUrl, startWaiter, tmpFile, wicketJson } from "../../helpers/wicket";
 
-const diffTickets = [
-  "@@ -145,9 +145,11 @@ defmodule Acme.Tickets do",
-  "   def do_save(items) do",
-  "     items",
-  "-    |> Enum.uniq_by(& &1.id)",
-  "-    |> Enum.reverse()",
-  "+    |> Enum.reverse()",
-  "+    |> Enum.uniq_by(& &1.id)",
-  "+    |> Enum.reverse()",
-  "     |> Repo.insert_all()",
-  "   end",
-  " ",
-  "   defp normalise(item), do: item",
-].join("\n");
-
-const diffMigration = [
-  "@@ -1,6 +1,8 @@",
-  " defmodule Acme.Repo.Migrations.AddBucket do",
-  "   use Ecto.Migration",
-  " ",
-  "   def change do",
-  "-    alter table(:tickets), do: add(:bucket, :string)",
-  "+    alter table(:tickets), do: add(:bucket, :string, default: \"main\")",
-  "+    execute(\"UPDATE tickets SET bucket = COALESCE(bucket, 'main')\", \"\")",
-  "   end",
-  " end",
-].join("\n");
-
-export const reviewPayload = {
-  change: { ref: "!42", title: "Dedup tickets on save", url: "https://example.com/changes/42", description: "Keeps the **first** write per id.\n\nCloses #12.", source: "fix/tickets-dedup", target: "main" },
-  overview: { summary: "Dedups tickets before the bulk insert and backfills the new bucket column.", concerns: "Ordering of the dedup, and whether the backfill runs on read or on write." },
-  files: [
-    { path: "lib/acme/tickets.ex", status: "modified", summary: "the dedup fix", rank: 1, diff: diffTickets },
-    { path: "priv/repo/migrations/20260911_add_bucket.exs", status: "added", summary: "column and backfill", rank: 2, diff: diffMigration },
-  ],
-  proposals: [
-    { id: 18, kind: "comment", severity: "major", title: "reversing twice is a no-op with a cost", body: "The second `Enum.reverse/1` undoes the first, so `uniq_by` still keeps the last write.\n\n```suggestion\n    |> Enum.uniq_by(& &1.id)\n```", file: "lib/acme/tickets.ex", line: 149, side: "new" },
-    { id: 19, kind: "reply", severity: "minor", title: "COALESCE hides a real NULL", body: "Agreed with the backfill, but the default should stay off until it ran.", file: "priv/repo/migrations/20260911_add_bucket.exs", line: 6, side: "new", resolves: true, thread: { round: 1, comments: [{ author: "reviewer-bot", body: "A default on the column masks rows the backfill missed.", ours: true }, { author: "alice", body: "Fair, I added the backfill. Good enough?", ours: false }] } },
-    { id: 20, kind: "comment", severity: "nit", title: "typo in the module doc", body: "\"recieve\" → \"receive\".", file: "lib/acme/docs.md", line: 3, side: "new" },
-  ],
-};
+const reviewPayload = JSON.parse(fs.readFileSync(path.resolve(__dirname, "../../../plugins/review/fixtures/dedup-round-2.json"), "utf8")).payload;
 
 const plugin = (page: Page) => page.frameLocator("#plugin-frame");
 

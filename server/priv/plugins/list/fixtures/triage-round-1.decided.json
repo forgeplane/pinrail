@@ -1,0 +1,9 @@
+{
+  "title": "Sentry triage — round 1",
+  "payload": { "groups": [ { "title": "acme-api", "items": [ { "id": 101, "title": "track: StaleEntryError" }, { "id": 102, "title": "silence: ConnectionError" } ] } ] },
+  "decision": {
+    "decided_by": "alice",
+    "decided_at": "2026-09-10T09:00:00Z",
+    "data": { "decisions": [ { "id": 101, "action": "reject", "note": "not ours, it is the importer" } ], "undecided": [ 102 ] }
+  }
+}
