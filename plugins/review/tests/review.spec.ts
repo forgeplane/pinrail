@@ -123,3 +123,27 @@ test("a superseding gate shows the previous round's verdicts; withdrawn reads as
   await expect(withdrawn.frame.locator("header")).toContainText("READ-ONLY · WITHDRAWN");
   await expect(withdrawn.frame.locator("#submit-modal")).toHaveCount(0);
 });
+
+test("the header leaves out what the shell's own header already shows", async ({ page }) => {
+  const change = round2().payload.change;
+
+  // A gate whose source names the same change: the shell puts the ref and a
+  // link to it above the frame, so the view's header carries neither.
+  const shared = await mountPlugin(page, dir, {
+    gate: { ...round2(), source: { repo: "acme", workflow: "mr-review", ref: "42", url: change.url } },
+  });
+  const header = shared.frame.locator("header").first();
+  await expect(header).toContainText("Dedup tickets on save");
+  await expect(header).toContainText("fix/tickets-dedup");
+  await expect(header).not.toContainText("!42");
+  await expect(header.locator(`a[href="${change.url}"]`)).toHaveCount(0);
+
+  // A gate whose source says nothing about it: the view keeps both, because
+  // nothing else on the page is showing them.
+  const alone = await mountPlugin(page, dir, {
+    gate: { ...round2(), source: { repo: "acme", workflow: "nightly" } },
+  });
+  const own = alone.frame.locator("header").first();
+  await expect(own).toContainText("!42");
+  await expect(own.locator(`a[href="${change.url}"]`)).toHaveCount(1);
+});

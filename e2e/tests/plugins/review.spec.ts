@@ -19,7 +19,10 @@ test("renders the diff, threads and suggestion, and returns exactly what was dec
   const frame = plugin(page);
 
   await expect(frame.locator("header")).toContainText("Dedup tickets on save");
-  await expect(frame.locator("header")).toContainText("!42");
+  await expect(frame.locator("header")).toContainText("fix/tickets-dedup");
+  // The ref belongs to the gate, so the page carries it once, above the frame.
+  await expect(page.locator(".gate-main > header")).toContainText("#42");
+  await expect(frame.locator("header")).not.toContainText("!42");
   await expect(frame.locator("aside")).toContainText("FILES · 2");
   await expect(frame.locator('[data-filesec="lib/acme/tickets.ex"]')).toContainText("+3 −2");
   await expect(frame.locator("#card-18")).toContainText("SUGGESTED CHANGE");

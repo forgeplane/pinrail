@@ -729,6 +729,17 @@ function keysModalHtml() {
       <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:12.5px;color:var(--dim)">${rows}</div>
     </div></div>`;
 }
+/* The shell's own header carries the gate's source: the repository, the
+   workflow, the ref and a link to it. This header says what the shell cannot
+   know, and leaves out whatever it can see is already up there. */
+function shellShows(field) {
+  const source = (GATE && GATE.source) || {};
+  const change = D.change;
+  if (field === "url") return !!source.url && source.url === change.url;
+  const bare = (value) => String(value == null ? "" : value).replace(/^[#!]/, "");
+  return !!source.ref && bare(source.ref) === bare(change.ref);
+}
+
 function headerHtml() {
   const props = D.proposals;
   const decidedCount = props.filter((p) => decided(p.id)).length;
@@ -739,21 +750,19 @@ function headerHtml() {
   const status = GATE.status;
   const roLabel = status === "decided" ? "READ-ONLY · DECIDED" : `READ-ONLY · ${String(status).toUpperCase()}`;
   return `<header style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);flex:none">
-    <div style="min-width:260px;overflow:hidden;flex:0 1 auto">
-      <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
-        <span style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
-        <span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">${esc(c.ref)}</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:2px;font-size:11.5px;color:var(--dim);white-space:nowrap">
+    <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;min-width:260px;overflow:hidden;flex:0 1 auto">
+      <span style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
+      ${shellShows("ref") ? "" : `<span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">${esc(c.ref)}</span>`}
+      <span style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);white-space:nowrap">
         ${c.source ? `<span class="meta">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span style="color:var(--faint)">→</span>` : ""}${c.target ? `<span class="meta">${esc(c.target)}</span>` : ""}
-        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer" style="font-size:11.5px">open ↗</a>` : ""}
-      </div>
+        ${c.url && !shellShows("url") ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer" style="font-size:11.5px">open ↗</a>` : ""}
+      </span>
     </div>
     <span style="flex:1;min-width:16px"></span>
     ${RO() ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.06em;color:var(--accent);border:1px solid color-mix(in oklab, var(--accent) 40%, transparent);border-radius:99px;padding:3px 12px">${roLabel}</span>`
-      : `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;flex:none">
-      <span style="font-size:12px;color:var(--dim)"><b style="color:var(--text)">${decidedCount}</b> of ${props.length} decided</span>
-      <div style="width:150px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden"><div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.2s;width:${pct}%"></div></div>
+      : `<div style="display:flex;align-items:center;gap:10px;flex:none">
+      <span style="font-size:12px;color:var(--dim);white-space:nowrap"><b style="color:var(--text)">${decidedCount}</b> of ${props.length} decided</span>
+      <div style="width:90px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.2s;width:${pct}%"></div></div>
     </div>`}
     <div style="display:flex;align-items:center;gap:6px;flex:none">
       <div style="display:flex;flex:none;border:1px solid var(--border);border-radius:6px;overflow:hidden">
