@@ -49,6 +49,17 @@ italic, inline and fenced code, lists, http links; escapes first), and
 `src/wicket-plugin.js` here; `server/assets` copies it into the app's static
 files at build time, so there is exactly one copy in the repository.
 
+## The stylesheet
+
+`src/wicket-plugin.css` is served beside the SDK at
+`/sdk/v1/wicket-plugin.css`. It carries the app's tokens for both themes, the
+base typography and scrollbars, and a small set of classes for the furniture
+every view needs: header and content, items, severity chips, buttons, fields,
+notices. A view links it and writes only what is its own.
+
+It is optional and overridable: a view's own `<style>` comes after it. The
+list of classes is in [`plugins/README.md`](../plugins/README.md).
+
 ## Tests
 
 ```sh

@@ -48,6 +48,37 @@ hello/
 - `"dev": true` serves the directory live and never snapshots it; use it while
   iterating on a view.
 
+## Looking like the rest of wicket
+
+The app serves a stylesheet next to the SDK. Link it and your view gets the
+app's tokens in both themes, the base typography and scrollbars, and a small
+vocabulary of classes:
+
+```html
+<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+```
+
+| Class | For |
+|---|---|
+| `.plugin-header`, `.plugin-title`, `.plugin-meta`, `.plugin-controls` | a bar that stays at the top of the frame |
+| `.plugin-content`, `.plugin-footer` | the body that scrolls, and a bar that stays at the bottom |
+| `.item` with `.head`, `.id`, `.title`, `.body`, `.controls` | one thing the human says yes or no to |
+| `.sev` with `.sev-blocker`, `.sev-major`, `.sev-minor`, `.sev-nit` | severity, in the app's four levels |
+| `.btn` with `.primary`, `.ghost`, `.danger`, and `aria-pressed` | buttons |
+| `.field`, `.note` | inputs and textareas |
+| `.meta`, `.eyebrow`, `.dim`, `.faint`, `code.inl`, `kbd` | small text and chips |
+| `.notice` with `.ok`, `.warn`, `.danger`, plus `.errors`, `.empty` | something to tell the human |
+
+**These are defaults, not rules.** Your own `<style>` comes after the
+stylesheet, so anything you write wins, and a view that needs a shape this
+does not have should just write it. The reason to start here is that the
+palette stays in step with the app on its own: the three shipped views each
+carried a hand-copied copy of it until this existed, and one of them drifted
+far enough to render white text on a white button in the light theme.
+
+`v1` in the path is the protocol major and only ever receives corrections,
+because a gate decided months ago still loads it.
+
 ## The hand-over belongs to the shell
 
 A view does not render its own submit button. The shell puts one control next

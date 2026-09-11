@@ -27,7 +27,7 @@ config :esbuild,
   # truth is wicket_sdk/ at the repo root; this only copies it into priv.
   sdk: [
     args:
-      ~w(../../wicket_sdk/src/wicket-plugin.js --target=es2022 --outfile=../priv/static/sdk/v1/wicket-plugin.js),
+      ~w(../../wicket_sdk/src/wicket-plugin.js ../../wicket_sdk/src/wicket-plugin.css --target=es2022 --outdir=../priv/static/sdk/v1),
     cd: Path.expand("../assets", __DIR__)
   ]
 

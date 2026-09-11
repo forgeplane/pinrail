@@ -89,6 +89,7 @@ export function fixture(file: string): Gate {
 
 export async function mountPlugin(page: Page, pluginDir: string, opts: MountOptions): Promise<MountedPlugin> {
   const sdk = fs.readFileSync(path.join(sdkRoot, "src", "wicket-plugin.js"), "utf8");
+  const sdkCss = fs.readFileSync(path.join(sdkRoot, "src", "wicket-plugin.css"), "utf8");
   const harness = fs.readFileSync(path.join(sdkRoot, "testing", "harness.html"), "utf8");
 
   await page.route(`${ORIGIN}/**`, async (route) => {
@@ -96,6 +97,7 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
     const p = url.pathname;
     if (p === "/_harness.html") return route.fulfill({ contentType: "text/html", body: harness });
     if (p === "/sdk/v1/wicket-plugin.js") return route.fulfill({ contentType: mime[".js"], body: sdk });
+    if (p === "/sdk/v1/wicket-plugin.css") return route.fulfill({ contentType: mime[".css"], body: sdkCss });
     const file = path.join(pluginDir, decodeURIComponent(p.replace(/^\//, "")));
     if (!file.startsWith(path.resolve(pluginDir)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return route.fulfill({ status: 404, body: "not found" });

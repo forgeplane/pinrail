@@ -4,76 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>list gate</title>
+<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
 <style>
-  :root {
-    --bg:#18191b; --bg-panel:#18191b; --bg-raised:#202124; --bg-hover:#232428;
-    --border:#2b2d31; --border-strong:#44474e;
-    --text:#ededef; --dim:#999ba5; --faint:#7b7d87;
-    --accent:#a1a5ef; --accent-bg:#292a3c; --button-bg:#6873d6;
-    --ok:#7cc79e; --danger:#e48c98;
-    --sev-blocker:#e48c98; --sev-major:#d4ac6a; --sev-minor:#c7bf85; --sev-nit:#a0abc2;
-    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-    --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-    color-scheme: dark;
-  }
-  /* The shell sends its theme; the SDK sets data-theme for us. */
-  [data-theme="light"] {
-    --bg:#ffffff; --bg-panel:#ffffff; --bg-raised:#f6f7f9; --bg-hover:#f3f4f7;
-    --border:#e8e9ed; --border-strong:#cdd0d7;
-    --text:#24262c; --dim:#72757f; --faint:#888b94;
-    --accent:#5965cb; --accent-bg:#f0f0fa; --button-bg:#5965bc;
-    --ok:#28795c; --danger:#bc4655;
-    --sev-blocker:#bc4655; --sev-major:#99651b; --sev-minor:#80721b; --sev-nit:#65738e;
-    color-scheme: light;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 16px 22px 18px; font: 13px/1.5 var(--sans); color: var(--text); background: var(--bg-panel); }
-  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
-  button, textarea, select, input { font: inherit; color: inherit; }
-  button { cursor: pointer; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-  .hidden { display: none !important; }
-
+  /* Tokens, base and the shared pieces (.item, .sev, .btn, .note, .meta,
+     .empty, .notice, code.inl) come from the SDK stylesheet. What is left is
+     this view's own: the groups, the verdict column and the running tally. */
   .intro { color: var(--dim); max-width: 72ch; margin: 0 0 14px; }
   .intro p:first-child { margin-top: 0; }
   .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 14px; font-size: 12px; color: var(--dim); }
-  .bar .spacer { flex: 1; }
-  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
   h2.group { font: inherit; font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 18px 0 8px; display: flex; align-items: baseline; gap: 10px; }
   h2.group:first-of-type { margin-top: 0; }
   h2.group .count { font-family: var(--sans); font-size: 11px; color: var(--faint); }
 
-  .item { border: 0; border-top: 1px solid var(--border); border-radius: 0; background: var(--bg-panel); padding: 16px 0; margin: 0; }
   .item.accepted { box-shadow: inset 2px 0 color-mix(in oklab, var(--ok) 70%, transparent); }
   .item.rejected { box-shadow: inset 2px 0 color-mix(in oklab, var(--danger) 70%, transparent); }
-  .item .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .item .id { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
-  .item .title { font-weight: 600; }
-  .sev { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; color: var(--bg); }
-  .sev-blocker { background: var(--sev-blocker); } .sev-major { background: var(--sev-major); }
-  .sev-minor { background: var(--sev-minor); } .sev-nit { background: var(--sev-nit); }
-  .sev-other { background: var(--border-strong); color: var(--text); }
-  .meta { font-family: var(--mono); font-size: 11px; color: var(--faint); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; }
   .verdict { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
   .verdict.accept { color: var(--ok); } .verdict.reject { color: var(--danger); } .verdict.undecided { color: var(--sev-major); }
-  .body { margin: 6px 0 0; color: var(--dim); max-width: 80ch; }
-  .body p { margin: 4px 0; } .body ul, .body ol { margin: 4px 0; padding-left: 20px; }
-  .body pre { margin: 6px 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
-  code.inl { font-family: var(--mono); font-size: .92em; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
   .previous { margin-top: 6px; font-size: 11.5px; color: var(--faint); }
   .previous b { color: var(--dim); font-weight: 600; }
 
-  .controls { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-  .btn { border: 1px solid var(--border-strong); background: var(--bg); border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--dim); }
-  .btn:hover { color: var(--text); }
+  /* Accept and reject say which they are, so they do not take the shared
+     pressed styling. */
   .btn.accept.on { background: color-mix(in oklab, var(--ok) 80%, oklch(0.3 0.06 150)); border-color: transparent; color: white; }
   .btn.reject.on { background: color-mix(in oklab, var(--danger) 18%, transparent); border-color: color-mix(in oklab, var(--danger) 55%, transparent); color: var(--danger); }
-  .btn.primary { background: var(--button-bg); border-color: transparent; color: white; padding: 6px 16px; }
-  .btn.primary:hover { filter: brightness(1.1); }
-  .btn.danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 45%, transparent); }
-  .btn.ghost { border-color: var(--border); font-weight: 500; }
-  textarea.note { flex: 1 1 260px; min-height: 30px; resize: vertical; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 9px; font-size: 12.5px; color: var(--text); outline: none; }
-  textarea.note:focus { border-color: var(--accent); }
+  textarea.note { flex: 1 1 260px; min-height: 30px; padding: 5px 9px; }
   .note-ro { flex: 1 1 260px; font-size: 12.5px; padding: 4px 0; white-space: pre-wrap; }
   .note-ro .label { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
 
@@ -82,17 +36,14 @@
   .addition select { background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 8px; font-size: 12px; max-width: 260px; }
   .footer { position: sticky; bottom: 0; margin-top: 18px; padding: 10px 0 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
   .footer .tally { color: var(--dim); }
-  .footer .tally.warn { color: var(--sev-major); }
   .footer .tally b { color: var(--text); }
   .footer .tally.warn { color: var(--sev-major); }
-  .errors { margin-top: 10px; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); border-radius: 6px; background: color-mix(in oklab, var(--danger) 8%, transparent); font-family: var(--mono); font-size: 12px; color: var(--danger); white-space: pre-wrap; }
-  .done { padding: 12px 14px; border: 1px solid color-mix(in oklab, var(--ok) 45%, transparent); border-radius: 8px; background: color-mix(in oklab, var(--ok) 6%, transparent); color: var(--dim); margin-bottom: 14px; }
-  .empty { color: var(--dim); padding: 50px 20px; text-align: center; }
-  kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--dim); }
+  .errors { margin-top: 10px; }
+  .done { margin-bottom: 14px; }
 </style>
 </head>
 <body>
-<div id="app" class="empty">waiting for the shell…</div>
+<div id="app" class="plugin-content empty">waiting for the shell…</div>
 <script src="/sdk/v1/wicket-plugin.js"></script>
 <script>
 "use strict";
@@ -253,8 +204,8 @@ function render() {
   if (readonly) {
     const dec = gate.decision;
     html += dec
-      ? `<div class="done">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
-      : `<div class="done">Closed without a decision (${esc(gate.status)}). Read-only.</div>`;
+      ? `<div class="done notice ok">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
+      : `<div class="done notice ok">Closed without a decision (${esc(gate.status)}). Read-only.</div>`;
   }
   if (gate.payload.intro) html += `<div class="intro">${markdown(gate.payload.intro)}</div>`;
   if (!readonly) {
@@ -269,7 +220,7 @@ function render() {
   }
   html += renderAdditions();
   if (S.errors && S.errors.length) {
-    html += `<div class="errors" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
+    html += `<div class="errors notice danger" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
   }
   if (!readonly) {
     html += `<div class="footer">
@@ -278,7 +229,7 @@ function render() {
       ${S.armed ? `<span class="tally warn">${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.</span><button type="button" class="btn ghost" id="disarm">keep deciding</button>` : ""}
     </div>`;
   }
-  app.className = "";
+  app.className = "plugin-content";
   app.innerHTML = html;
   bind();
   if (!readonly) syncStatus();
