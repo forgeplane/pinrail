@@ -3,7 +3,7 @@
 // from it are trusted only when event.source is its window.
 //
 // Every message is {wicket: 1, type, ...}.
-//   plugin -> shell: ready | resize {height} | draft {data} | submit {data}
+//   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data}
 //   shell -> plugin: init {gate, previous, readonly, draft, shell_origin} |
 //                    violations {errors} | submitted {decision} | collect
 
@@ -26,7 +26,13 @@ export const PluginBridge = {
           this.sendInit()
           break
         case "resize":
-          if (typeof msg.height === "number") {
+          if (msg.height === "fill") {
+            // a workbench-style view: the frame takes the viewport and
+            // scrolls inside, the page only scrolls to reach what is below
+            this.fill = true
+            this.applyFill()
+          } else if (typeof msg.height === "number") {
+            this.fill = false
             this.el.style.height = Math.max(this.minHeight, Math.ceil(msg.height)) + "px"
           }
           break
@@ -39,6 +45,9 @@ export const PluginBridge = {
       }
     }
     window.addEventListener("message", this.onMessage)
+
+    this.onResize = () => this.fill && this.applyFill()
+    window.addEventListener("resize", this.onResize)
 
     this.onKey = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -59,6 +68,7 @@ export const PluginBridge = {
 
     this.handleEvent("gate:submitted", ({decision}) => {
       this.clearDraft()
+      if (this.fill) setTimeout(() => this.applyFill(), 50)
       // keep the stored init current, so a frame reload after the decision
       // comes back read-only instead of editable
       if (this.init) {
@@ -71,6 +81,13 @@ export const PluginBridge = {
   destroyed() {
     window.removeEventListener("message", this.onMessage)
     window.removeEventListener("keydown", this.onKey)
+    window.removeEventListener("resize", this.onResize)
+  },
+
+  applyFill() {
+    const top = this.el.getBoundingClientRect().top + window.scrollY
+    const height = window.innerHeight - top - 24
+    this.el.style.height = Math.max(this.minHeight, Math.floor(height)) + "px"
   },
 
   sendInit() {

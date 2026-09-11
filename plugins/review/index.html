@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>review gate</title>
+<style>
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); }
+textarea, button, input { font: inherit; color: inherit; }
+:root {
+  --bg:#101216; --bg-panel:#15181e; --bg-raised:#1a1e26; --bg-hover:#20252f;
+  --border:#262c37; --border-strong:#39414f;
+  --text:#d7dce5; --dim:#9aa3b2; --faint:#67707f;
+  --accent:oklch(0.72 0.12 235); --accent-bg:oklch(0.72 0.12 235 / 0.12);
+  --ok:oklch(0.7 0.13 150); --danger:oklch(0.65 0.16 25);
+  --sev-blocker:oklch(0.64 0.18 25); --sev-major:oklch(0.72 0.14 55);
+  --sev-minor:oklch(0.78 0.11 90); --sev-nit:oklch(0.68 0.02 250);
+  --add-bg:oklch(0.65 0.12 150 / 0.1); --add-gut:oklch(0.65 0.12 150 / 0.18);
+  --del-bg:oklch(0.6 0.15 25 / 0.1); --del-gut:oklch(0.6 0.15 25 / 0.18);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace; --sans:"IBM Plex Sans",system-ui,sans-serif;
+  --ui:13px; --code-size:12.5px;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+#app { font-family: var(--sans); font-size: var(--ui); color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+button.ghost { all: unset; cursor: pointer; font-size: 11.5px; color: var(--dim); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
+button.ghost:hover { color: var(--text); border-color: var(--border-strong); }
+button.bare { all: unset; cursor: pointer; }
+button.link { all: unset; cursor: pointer; color: var(--accent); font-size: 12px; padding: 2px 6px; border-radius: 5px; }
+button.link:hover { background: var(--bg-hover); }
+button.primary { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: oklch(0.99 0 0); background: var(--accent); border-radius: 6px; padding: 5px 16px; white-space: nowrap; }
+button.primary:hover { filter: brightness(1.1); }
+button.accept-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: oklch(0.99 0 0); background: color-mix(in oklab, var(--ok) 82%, oklch(0.3 0.06 150)); padding: 5px 14px; border-radius: 6px; }
+button.accept-btn:hover { filter: brightness(1.12); }
+button.reject-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: var(--danger); border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); padding: 4px 13px; border-radius: 6px; }
+button.reject-btn:hover { background: color-mix(in oklab, var(--danger) 12%, transparent); }
+button.undo-btn { all: unset; cursor: pointer; color: var(--dim); font-size: 12px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 5px; }
+button.undo-btn:hover { border-color: var(--border-strong); color: var(--text); }
+button.save-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12px; color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); padding: 6px 12px; border-radius: 6px; }
+button.save-btn:hover { background: var(--accent-bg); }
+button.dim-btn { all: unset; cursor: pointer; font-size: 12px; color: var(--dim); padding: 6px 8px; }
+button.dim-btn:hover { color: var(--text); }
+button.tiny { all: unset; cursor: pointer; font-size: 11.5px; color: var(--dim); flex: none; }
+button.tiny:hover { color: var(--text); }
+button.tiny.danger:hover { color: var(--danger); }
+button.seg { all: unset; cursor: pointer; font-size: 11.5px; padding: 4px 10px; color: var(--faint); }
+button.seg.on { color: var(--text); background: var(--bg-hover); }
+button.pill { all: unset; cursor: pointer; font-size: 11px; padding: 2px 8px; border-radius: 99px; color: var(--faint); border: 1px solid var(--border); white-space: nowrap; }
+button.pill.on { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, transparent); }
+.tree-row { all: unset; cursor: pointer; display: flex; align-items: center; gap: 7px; width: 100%; padding: 4px 8px; border-radius: 5px; }
+.tree-row:hover { background: var(--bg-hover); }
+textarea.ta { flex: 1; resize: vertical; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; outline: none; min-height: 20px; color: var(--text); }
+textarea.ta:focus { border-color: var(--accent); }
+.diff-row:hover { box-shadow: inset 2px 0 0 var(--accent); }
+.diff-row .addbtn { opacity: 0; transition: opacity 0.08s; pointer-events: none; }
+.diff-row:hover .addbtn, .addbtn:focus-visible { opacity: 1; pointer-events: auto; }
+.addbtn { all: unset; cursor: pointer; position: absolute; right: -9px; top: 50%; transform: translateY(-50%); z-index: 2; width: 16px; height: 16px; border-radius: 4px; background: var(--accent); color: oklch(0.99 0 0); font-size: 13px; line-height: 16px; text-align: center; font-family: var(--sans); }
+.eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; color: var(--faint); }
+.mono-chip { font-family: var(--mono); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; }
+code.inl { font-family: var(--mono); font-size: 0.92em; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+.your-comment { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border-strong); border-left: 3px solid var(--accent); border-radius: 6px; background: var(--bg-raised); padding: 8px 12px; max-width: 860px; }
+.errors { margin: 0 22px 12px 22px; padding: 9px 12px; border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); border-radius: 8px; background: color-mix(in oklab, var(--danger) 8%, transparent); font-family: var(--mono); font-size: 12px; color: var(--danger); white-space: pre-wrap; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+/* The review gate: a change's diff with the agent's proposed comments
+   anchored on lines, the reviewer's verdicts and their own comments. A port
+   of a hand-written review page onto the wicket plugin protocol; nothing
+   forge-specific remains. */
+
+/* ---------- bridge ---------- */
+let shellOrigin = null, GATE = null, PREVIOUS = null, RO_FLAG = false;
+const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shellOrigin || "*");
+
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.wicket !== 1) return;
+  if (shellOrigin && event.origin !== shellOrigin) return;
+  switch (msg.type) {
+    case "init":
+      shellOrigin = msg.shell_origin;
+      GATE = msg.gate; PREVIOUS = msg.previous || null; RO_FLAG = !!msg.readonly;
+      boot(msg.draft);
+      break;
+    case "violations":
+      set(() => { S.errors = msg.errors || []; S.confirmSubmitArm = false; S.showSubmit = true; });
+      break;
+    case "submitted":
+      GATE.decision = msg.decision; RO_FLAG = true;
+      loadDecision(msg.decision && msg.decision.data);
+      set(() => { S.done = true; S.showSubmit = false; S.composer = null; S.noteOpen = {}; S.errors = null; });
+      break;
+    case "collect":
+      collect();
+      break;
+  }
+});
+
+let draftTimer = null;
+function draft() {
+  if (RO() || !D) return;
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => post({ type: "draft", data: {
+    decisions: S.decisions, manualComments: S.manualComments, generalComments: S.generalComments,
+    generalDraft: S.generalDraft, mseq, gseq,
+  } }), 120);
+}
+
+/* ---------- state ---------- */
+let D = null;          // adapted payload
+let PARSED = [];       // per-file parsed rows/splitRows/add/del
+let SEGMENTS = {};     // proposal id -> md segments
+const S = {
+  decisions: {}, focusedId: null, diffMode: "inline",
+  folded: {}, treeOpen: true, findingsOnly: false, descOpen: false,
+  composer: null, generalDraft: "", generalComments: [], manualComments: [],
+  confirmBulk: null, showKeys: false, showSubmit: false, done: false, errors: null,
+  collapsedDirs: {}, activeFile: null, noteOpen: {}, expanded: {},
+  confirmSubmitArm: false, orderMode: "semantic",
+};
+let mseq = 0, gseq = 0, bulkT = null;
+const RO = () => RO_FLAG;
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+function adapt(payload) {
+  const files = (payload.files || []).map((f) => ({
+    path: f.path, oldPath: f.old_path || null, status: f.status || "modified",
+    summary: f.summary || "", rank: f.rank ?? null,
+    diff: (f.diff || "").replace(/\n$/, "").split("\n").filter((l, i, a) => !(i === a.length - 1 && l === "")),
+  }));
+  const proposals = (payload.proposals || []).map((p) => ({
+    id: p.id, kind: p.kind || "comment", severity: p.severity || "minor", title: p.title || "", body: p.body || "",
+    file: p.file || null, line: p.line ?? null, side: p.side || "new", resolves: !!p.resolves, thread: p.thread || null,
+  }));
+  return { change: payload.change || {}, overview: payload.overview || {}, files, proposals };
+}
+
+function loadDecision(data) {
+  S.decisions = {}; S.manualComments = []; S.generalComments = [];
+  if (!data) return;
+  for (const d of data.decisions || []) S.decisions[d.id] = { action: d.action, note: d.note || undefined };
+  S.manualComments = (data.comments || []).map((c, i) => ({ id: "m" + (i + 1), file: c.file, line: c.line, side: c.side || "new", body: c.body }));
+  S.generalComments = (data.general_comments || []).map((g, i) => ({ id: "g" + (i + 1), body: g.body }));
+}
+
+function previousVerdict(id) {
+  const data = PREVIOUS && PREVIOUS.decision && PREVIOUS.decision.data;
+  if (!data) return null;
+  const d = (data.decisions || []).find((x) => x.id === id);
+  if (d) return { action: d.action, note: d.note || "" };
+  if ((data.undecided || []).includes(id)) return { action: "undecided", note: "" };
+  return null;
+}
+
+/* ---------- markdown-lite ---------- */
+function inlineHtml(text) {
+  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean).map((p) => {
+    if (p.startsWith("`")) return `<code class="inl">${esc(p.slice(1, -1))}</code>`;
+    if (p.startsWith("**")) return `<b>${esc(p.slice(2, -2))}</b>`;
+    return esc(p);
+  }).join("");
+}
+function mdSegments(body) {
+  const segs = []; const re = /```([^\n`]*)\n([\s\S]*?)```/g; let last = 0, m;
+  const pushText = (t) => t.split(/\n\n+/).map((s) => s.trim()).filter(Boolean).forEach((p) => segs.push({ kind: "para", html: inlineHtml(p) }));
+  while ((m = re.exec(body))) {
+    if (m.index > last) pushText(body.slice(last, m.index));
+    const info = m[1].trim();
+    const text = m[2].replace(/\n$/, "");
+    if (info.startsWith("suggestion")) {
+      // range modifier: ```suggestion:-A+B replaces lines anchor-A .. anchor+B
+      const mod = info.match(/^suggestion(?::?-(\d+))?(?:\+(\d+))?/);
+      segs.push({ kind: "suggestion", text, above: mod && mod[1] ? parseInt(mod[1], 10) : 0, below: mod && mod[2] ? parseInt(mod[2], 10) : 0 });
+    } else {
+      segs.push({ kind: "code", text });
+    }
+    last = re.lastIndex;
+  }
+  if (last < body.length) pushText(body.slice(last));
+  return segs;
+}
+function mdBlockHtml(body) {
+  return mdSegments(body || "").map((seg) => {
+    if (seg.kind === "para") return `<p style="margin:0 0 6px 0">${seg.html}</p>`;
+    return `<pre style="margin:0 0 6px 0;background:var(--bg-panel);border:1px solid var(--border);border-radius:5px;padding:6px 9px;font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap">${esc(seg.text)}</pre>`;
+  }).join("");
+}
+
+/* ---------- diff parsing ---------- */
+function parseDiff(lines) {
+  const rows = []; let o = 0, n = 0;
+  for (const line of lines) {
+    if (line.startsWith("@@")) {
+      const m = line.match(/-(\d+)(?:,\d+)? \+(\d+)/);
+      if (m) { o = parseInt(m[1], 10); n = parseInt(m[2], 10); }
+      rows.push({ kind: "hunk", text: line });
+    } else if (line.startsWith("\\ No newline")) {
+      continue;
+    } else {
+      const p = line[0], text = line.slice(1);
+      if (p === "+") rows.push({ kind: "add", new: n++, text });
+      else if (p === "-") rows.push({ kind: "del", old: o++, text });
+      else rows.push({ kind: "ctx", old: o++, new: n++, text });
+    }
+  }
+  return rows;
+}
+function buildSplit(rows) {
+  const out = []; let i = 0;
+  while (i < rows.length) {
+    const r = rows[i];
+    if (r.kind === "hunk") { out.push({ kind: "hunk", text: r.text }); i++; continue; }
+    if (r.kind === "ctx") { out.push({ kind: "line", l: r, r: r }); i++; continue; }
+    const dels = [], adds = [];
+    while (i < rows.length && rows[i].kind === "del") dels.push(rows[i++]);
+    while (i < rows.length && rows[i].kind === "add") adds.push(rows[i++]);
+    const len = Math.max(dels.length, adds.length);
+    for (let k = 0; k < len; k++) out.push({ kind: "line", l: dels[k] || null, r: adds[k] || null });
+  }
+  return out;
+}
+
+/* ---------- ordering ---------- */
+const anchorsRow = (p, r) => r.kind !== "hunk" && (p.side === "old" ? r.old === p.line : r.new === p.line);
+function unplaceable(p) {
+  if (!p.file) return true;
+  return !D.files.some((f) => f.path === p.file);
+}
+function orderedFiles() {
+  const idx = D.files.map((f, i) => i);
+  if (S.orderMode === "path") return idx.sort((a, b) => D.files[a].path.localeCompare(D.files[b].path));
+  return idx.sort((a, b) => (D.files[a].rank ?? a) - (D.files[b].rank ?? b));
+}
+function orderedIds() {
+  if (!D) return [];
+  const ids = [];
+  orderedFiles().forEach((i) => {
+    const f = D.files[i];
+    D.proposals.filter((p) => p.file === f.path).sort((a, b) => (a.line || 1e9) - (b.line || 1e9)).forEach((p) => ids.push(p.id));
+  });
+  D.proposals.filter(unplaceable).forEach((p) => ids.push(p.id));
+  return ids;
+}
+const decided = (id) => { const d = S.decisions[id]; return !!(d && d.action); };
+
+/* ---------- data prep ---------- */
+function prep() {
+  PARSED = D.files.map((f) => {
+    const rows = parseDiff(f.diff);
+    return { rows, splitRows: buildSplit(rows), add: rows.filter((r) => r.kind === "add").length, del: rows.filter((r) => r.kind === "del").length };
+  });
+  SEGMENTS = {};
+  D.proposals.forEach((p) => {
+    const segs = mdSegments(p.body);
+    segs.forEach((seg) => {
+      if (seg.kind === "suggestion" && p.file && p.line != null) {
+        const fi = D.files.findIndex((f) => f.path === p.file);
+        if (fi !== -1) {
+          const start = p.line - (seg.above || 0), end = p.line + (seg.below || 0);
+          const old = [];
+          for (let ln = start; ln <= end; ln++) {
+            const row = PARSED[fi].rows.find((r) => r.kind !== "hunk" && r.new === ln);
+            if (row) old.push({ line: ln, text: row.text });
+          }
+          if (old.length) { seg.oldLines = old; seg.line = start; }
+        }
+      }
+    });
+    SEGMENTS[p.id] = segs;
+  });
+}
+
+/* ---------- state mutation ---------- */
+function captureDrafts() {
+  const c = document.getElementById("composer-ta");
+  if (c && S.composer) S.composer.text = c.value;
+  const g = document.getElementById("general-ta");
+  if (g) S.generalDraft = g.value;
+  document.querySelectorAll("[data-note-ta]").forEach((el) => {
+    S.noteOpen[el.getAttribute("data-note-ta")] = { open: true, draft: el.value };
+  });
+}
+function set(mut) { captureDrafts(); mut(); render(); draft(); }
+
+function decide(id, action, advance) {
+  set(() => {
+    S.decisions[id] = { ...(S.decisions[id] || {}), action };
+    delete S.expanded[id];
+    if (action === "reject" && !(S.decisions[id].note)) S.noteOpen[id] = { open: true, draft: "" };
+    else delete S.noteOpen[id];
+  });
+  if (advance) advanceFocus(id);
+}
+function undo(id) { set(() => { delete S.decisions[id]; delete S.noteOpen[id]; delete S.expanded[id]; S.focusedId = id; }); }
+function setNote(id, note) {
+  set(() => {
+    const cur = S.decisions[id] || {};
+    S.decisions[id] = { ...cur, note: note || undefined };
+    delete S.noteOpen[id];
+  });
+  const d = S.decisions[id];
+  if (note && d && d.action) advanceFocus(id);
+}
+function unfoldFor(id) {
+  const p = D.proposals.find((x) => x.id === id);
+  if (p && p.file && S.folded[p.file]) delete S.folded[p.file];
+}
+function advanceFocus(fromId) {
+  const ids = orderedIds();
+  const undecidedIds = ids.filter((id) => !decided(id));
+  if (!undecidedIds.length) { set(() => { S.focusedId = null; }); return; }
+  const start = ids.indexOf(fromId);
+  let next = undecidedIds.find((id) => ids.indexOf(id) > start);
+  if (next == null) next = undecidedIds[0];
+  set(() => { S.focusedId = next; unfoldFor(next); });
+  scrollToCard(next);
+}
+function moveFocus(dir) {
+  const pool = orderedIds();
+  if (!pool.length) return;
+  const cur = pool.indexOf(S.focusedId);
+  const next = cur === -1 ? (dir > 0 ? pool[0] : pool[pool.length - 1]) : pool[(cur + dir + pool.length) % pool.length];
+  set(() => { S.focusedId = next; unfoldFor(next); });
+  scrollToCard(next);
+}
+function scrollToCard(id) {
+  const el = document.getElementById("card-" + id); const c = document.getElementById("main");
+  if (!el || !c) return;
+  const er = el.getBoundingClientRect(), cr = c.getBoundingClientRect();
+  c.scrollTop += er.top - cr.top - cr.height / 3.2;
+}
+function jumpToFile(path) {
+  const el = document.querySelector(`[data-filesec="${CSS.escape(path)}"]`); const c = document.getElementById("main");
+  if (!el || !c) return;
+  const er = el.getBoundingClientRect(), cr = c.getBoundingClientRect();
+  c.scrollTop += er.top - cr.top - 6;
+  set(() => { S.activeFile = path; });
+}
+
+/* ---------- decision ---------- */
+function buildDecision() {
+  const ids = orderedIds();
+  const data = {
+    decisions: ids.filter(decided).map((id) => {
+      const dec = S.decisions[id];
+      const o = { id, action: dec.action };
+      if (dec.note) o.note = dec.note;
+      return o;
+    }),
+    comments: S.manualComments.map((m) => ({ file: m.file, line: m.line, side: m.side, body: m.body })),
+    undecided: ids.filter((id) => !decided(id)),
+  };
+  if (S.generalComments.length) data.general_comments = S.generalComments.map((g) => ({ body: g.body }));
+  return data;
+}
+
+/* ---------- render: proposal card ---------- */
+function sevChip(sev) {
+  return `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;padding:2px 8px;border-radius:99px;color:var(--sev-${esc(sev)});background:color-mix(in oklab, var(--sev-${esc(sev)}) 16%, transparent)">${esc(sev)}</span>`;
+}
+function noteSegsHtml(note) {
+  return note.split(/\n+/).map((s) => s.trim()).filter(Boolean).map((l) => `<span style="display:block">${inlineHtml(l)}</span>`).join("");
+}
+function noteBlockHtml(p, dec, indentless) {
+  const note = dec && dec.note;
+  if (!note) return "";
+  const label = dec.action === "accept" ? "NOTE TO THE AGENT" : dec.action === "reject" ? "REJECTION REASON" : "NOTE — SAVED WITH YOUR DECISION";
+  const edit = RO() ? `<span style="cursor:default;flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.55;color:var(--dim)">
+      <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;color:var(--faint)">${label}</span>${noteSegsHtml(note)}</span>`
+    : `<button class="bare" data-act="open-note" data-id="${p.id}" title="Click to edit" style="cursor:text;flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.55;color:var(--dim);text-align:left">
+      <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;color:var(--faint)">${label}</span>${noteSegsHtml(note)}
+    </button>
+    <button class="bare" data-act="del-note" data-id="${p.id}" title="Delete note" style="flex:none;color:var(--faint);font-size:13px;line-height:1;padding:2px 5px;border-radius:4px">✕</button>`;
+  return `<div style="display:flex;gap:6px;align-items:flex-start;${indentless ? "" : "margin:0 14px 11px 14px;"}padding-left:11px;border-left:2px solid var(--border-strong)">${edit}</div>`;
+}
+function noteEditorHtml(p, dec) {
+  const st = S.noteOpen[p.id];
+  if (!st || !st.open || RO()) return "";
+  const action = dec && dec.action;
+  const label = action === "accept" ? "Instruction to the agent — it revises the comment per this note before posting"
+    : action === "reject" ? "Why reject? This becomes a lesson future reviews follow"
+    : "Note to the agent — saved with whichever decision you make";
+  const ph = action === "accept" ? "e.g. shorten this, drop the second paragraph"
+    : action === "reject" ? "e.g. out of scope for this change"
+    : "e.g. soften the tone, mention the config option";
+  return `<div style="padding:10px 14px;border-top:1px solid var(--border);background:var(--bg)">
+    <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">${label}</div>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <textarea class="ta" data-note-ta="${p.id}" rows="1" placeholder="${esc(ph)}" aria-label="note for proposal ${p.id}" style="background:var(--bg-raised)">${esc(st.draft || "")}</textarea>
+      <button class="save-btn" data-act="save-note" data-id="${p.id}">Save</button>
+    </div>
+    <div style="font-size:11px;color:var(--faint);margin-top:5px">Enter to save · Esc to dismiss</div>
+  </div>`;
+}
+function threadBlockHtml(p) {
+  const tc = p.thread;
+  if (!tc || !tc.comments || !tc.comments.length) return "";
+  const key = "t" + p.id;
+  const theirs = tc.comments.filter((n) => !n.ours);
+  // threads with the developer's responses start open — that is what the decision hinges on
+  const open = key in S.expanded ? !!S.expanded[key] : theirs.length > 0;
+  const header = `<button class="bare" data-act="toggle-thread" data-id="${p.id}" data-open="${open ? 1 : 0}" style="display:flex;align-items:center;gap:8px;width:100%;padding:6px 11px;color:var(--dim);font-size:11.5px">
+    <span style="font-size:9px;color:var(--faint)">${open ? "▾" : "▸"}</span>
+    <span style="font-weight:600;letter-spacing:0.05em;font-size:10.5px;color:var(--faint)">THREAD${tc.round != null ? ` · ROUND ${esc(tc.round)}` : ""}</span>
+    <span style="color:var(--faint)">${tc.comments.length} comment${tc.comments.length === 1 ? "" : "s"}${theirs.length ? ` (${theirs.length} from the developer)` : ""}</span>
+  </button>`;
+  let body = "";
+  if (open) {
+    body = tc.comments.map((n) => `<div style="padding:7px 11px;border-top:1px solid var(--border)">
+      <div style="font-size:10.5px;font-weight:600;color:${n.ours ? "var(--faint)" : "var(--accent)"};margin-bottom:3px">@${esc(n.author || "?")} · ${n.ours ? "us" : "developer"}</div>
+      <div style="font-size:12px;line-height:1.55;color:var(--dim)">${mdBlockHtml(n.body)}</div>
+    </div>`).join("");
+    body = `<div style="max-height:340px;overflow-y:auto">${body}</div>`;
+  }
+  return `<div style="margin:10px 14px 0 14px;border:1px solid var(--border);border-left:2px solid var(--border-strong);background:var(--bg);border-radius:0 6px 6px 0;overflow:hidden">${header}${body}</div>`;
+}
+function segmentsHtml(p) {
+  return (SEGMENTS[p.id] || []).map((seg) => {
+    if (seg.kind === "para") return `<p style="margin:0;color:var(--text)">${seg.html}</p>`;
+    if (seg.kind === "code") return `<pre style="margin:0;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-family:var(--mono);font-size:var(--code-size);line-height:1.55;overflow-x:auto;white-space:pre-wrap;color:var(--text)">${esc(seg.text)}</pre>`;
+    const delRows = (seg.oldLines || []).map((o) => `<div style="display:grid;grid-template-columns:40px 18px 1fr;background:var(--del-bg);font-family:var(--mono);font-size:var(--code-size);line-height:1.6">
+        <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:var(--del-gut);user-select:none;font-variant-numeric:tabular-nums">${o.line}</span>
+        <span style="text-align:center;color:var(--danger);user-select:none">−</span>
+        <span style="white-space:pre-wrap;word-break:break-word;padding-right:12px;color:var(--text)">${esc(o.text)}</span></div>`).join("");
+    const addRows = seg.text.split("\n").map((lineText, i) => `<div style="display:grid;grid-template-columns:40px 18px 1fr;background:var(--add-bg);font-family:var(--mono);font-size:var(--code-size);line-height:1.6">
+        <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:var(--add-gut);user-select:none;font-variant-numeric:tabular-nums">${seg.line != null ? seg.line + i : ""}</span>
+        <span style="text-align:center;color:var(--ok);user-select:none">+</span>
+        <span style="white-space:pre-wrap;word-break:break-word;padding-right:12px;color:var(--text)">${esc(lineText)}</span></div>`).join("");
+    return `<div style="border:1px solid var(--border-strong);border-radius:6px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--bg);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:0.04em;color:var(--dim)">SUGGESTED CHANGE<span style="font-weight:400;color:var(--faint)">— becomes a commit if applied</span></div>
+      ${delRows}${addRows}
+    </div>`;
+  }).join("");
+}
+function previousHtml(p) {
+  const prev = previousVerdict(p.id);
+  if (!prev) return "";
+  const color = prev.action === "accept" ? "var(--ok)" : prev.action === "reject" ? "var(--danger)" : "var(--faint)";
+  return `<div style="margin:8px 14px 0 14px;font-size:11.5px;color:var(--faint)"><span style="font-weight:700;letter-spacing:0.05em;font-size:10px">PREVIOUS ROUND</span> <span style="color:${color};font-weight:600">${esc(prev.action)}</span>${prev.note ? ` — ${esc(prev.note)}` : ""}</div>`;
+}
+function cardHtml(p) {
+  const dec = S.decisions[p.id] || null;
+  const action = dec && dec.action;
+  const isAccepted = action === "accept", isRejected = action === "reject", isPending = !action;
+  const isDecided = !isPending;
+  const collapsed = !RO() && isDecided && !S.expanded[p.id];
+  const focused = S.focusedId === p.id;
+  const note = (dec && dec.note) || "";
+  const verdict = RO() ? (isAccepted ? ["ACCEPTED", "var(--ok)"] : isRejected ? ["REJECTED", "var(--danger)"] : ["UNDECIDED", "var(--sev-major)"]) : null;
+  const borderColor = isAccepted ? "color-mix(in oklab, var(--ok) 40%, var(--border))"
+    : isRejected ? "color-mix(in oklab, var(--danger) 35%, var(--border))"
+    : focused ? "color-mix(in oklab, var(--accent) 50%, var(--border))" : "var(--border)";
+  const ring = focused ? "color-mix(in oklab, var(--accent) 55%, transparent)" : "transparent";
+  const noteEd = noteEditorHtml(p, dec);
+  let inner;
+  if (collapsed) {
+    const stateChip = isAccepted
+      ? `<span style="color:var(--ok);font-weight:600;flex:none;font-size:12px;letter-spacing:0.02em">✓ ACCEPTED</span>`
+      : `<span style="color:var(--danger);font-weight:600;flex:none;font-size:12px;letter-spacing:0.02em">✕ REJECTED</span>`;
+    const titleSpan = isRejected
+      ? `<span style="text-decoration:line-through;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</span>`
+      : `<span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</span>`;
+    const affordance = (!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}">${isAccepted ? "✎ Ask for changes" : "why?"}</button>` : "";
+    inner = `<div style="display:flex;flex-direction:column;padding:7px 12px;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px;min-height:24px">
+        ${stateChip}
+        <button class="bare" data-act="expand" data-id="${p.id}" title="Expand" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">${titleSpan}<span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">#${p.id}</span></button>
+        ${affordance}
+        <button class="undo-btn" data-act="undo" data-id="${p.id}">Undo</button>
+      </div>
+      ${(note && !noteEd) ? noteBlockHtml(p, dec, true) : ""}
+    </div>`;
+  } else {
+    const chips = [sevChip(p.severity),
+      `<span style="font-weight:600;color:var(--text);min-width:0">${esc(p.title)}</span>`,
+      `<span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">#${p.id}</span>`];
+    if (p.kind === "reply") chips.push(`<span style="flex:none;font-size:10.5px;font-weight:600;letter-spacing:0.05em;padding:2px 8px;border-radius:99px;color:var(--accent);border:1px solid color-mix(in oklab, var(--accent) 40%, transparent)">REPLY</span>`);
+    if (p.resolves) chips.push(`<span style="flex:none;font-size:11px;color:var(--ok)">will resolve thread ✓</span>`);
+    chips.push(`<span style="flex:1"></span>`);
+    if (verdict) chips.push(`<span data-verdict="${p.id}" style="flex:none;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:2px 10px;border-radius:99px;color:${verdict[1]};background:color-mix(in oklab, ${verdict[1]} 14%, transparent)">${verdict[0]}</span>`);
+    if (isDecided && !RO() && S.expanded[p.id]) chips.push(`<button class="bare" data-act="collapse" data-id="${p.id}" style="color:var(--faint);font-size:11px;padding:2px 6px">collapse ▴</button>`);
+    let actions = "";
+    if (!RO()) {
+      let inner2;
+      if (isPending) {
+        inner2 = `<button class="accept-btn" data-act="accept" data-id="${p.id}">Accept</button>
+          <button class="reject-btn" data-act="reject" data-id="${p.id}">Reject</button>
+          <span style="color:var(--faint);font-size:11.5px;margin-left:4px">a / x</span>
+          ${(!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}" style="margin-left:6px">✎ Add note</button>` : ""}`;
+      } else if (isAccepted) {
+        inner2 = `<span style="color:var(--ok);font-weight:600;font-size:12px;flex:none">✓ ACCEPTED</span>
+          ${(!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}">✎ Ask for changes</button>` : ""}`;
+      } else {
+        inner2 = `<span style="color:var(--danger);font-weight:600;font-size:12px;flex:none">✕ REJECTED</span>
+          ${(!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}">why?</button>` : ""}`;
+      }
+      actions = `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--border);background:var(--bg)">
+        ${inner2}<span style="flex:1"></span>
+        ${isDecided ? `<button class="undo-btn" data-act="undo" data-id="${p.id}">Undo</button>` : ""}
+      </div>`;
+    }
+    inner = `<div style="display:flex;align-items:center;gap:9px;padding:10px 14px 0 14px;flex-wrap:wrap">${chips.join("")}</div>
+      ${threadBlockHtml(p)}${previousHtml(p)}
+      <div style="padding:4px 14px 12px 14px;display:flex;flex-direction:column;gap:9px;color:var(--text);line-height:1.55">${segmentsHtml(p)}</div>
+      ${(note && !noteEd) ? noteBlockHtml(p, dec, false) : ""}
+      ${actions}`;
+  }
+  return `<div id="card-${p.id}" data-card="${p.id}" style="font-size:var(--ui);background:var(--bg-raised);border:1px solid ${borderColor};border-radius:8px;overflow:hidden;outline:2px solid ${ring};outline-offset:2px;max-width:860px">${inner}${noteEd}</div>`;
+}
+
+/* ---------- render: reviewer's comments / composer ---------- */
+function manualHtml(m) {
+  const controls = RO() ? "" : `<button class="tiny" data-act="edit-manual" data-mid="${m.id}">Edit</button>
+    <button class="tiny danger" data-act="del-manual" data-mid="${m.id}">Delete</button>`;
+  return `<div class="your-comment" data-comment="${m.id}">
+    <div style="min-width:0;flex:1">
+      <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:var(--accent);margin-bottom:2px">YOUR COMMENT · FOR THE AGENT TO ASSESS</div>
+      <div style="line-height:1.5;white-space:pre-wrap">${esc(m.body)}</div>
+    </div>${controls}
+  </div>`;
+}
+function composerHtml() {
+  const c = S.composer;
+  const anchor = `${c.file.split("/").pop()}:${c.line}${c.side === "old" ? " (old)" : ""}`;
+  return `<div style="border:1px solid var(--border-strong);border-left:3px solid var(--accent);border-radius:6px;background:var(--bg-raised);padding:9px 12px;max-width:860px">
+    <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">Your comment on <span style="font-family:var(--mono);color:var(--text)">${esc(anchor)}</span> · the agent assesses it and folds it into the review</div>
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <textarea class="ta" id="composer-ta" rows="2" placeholder="e.g. is this bucket cleanup handled anywhere?" aria-label="your comment">${esc(c.text || "")}</textarea>
+      <button class="save-btn" data-act="save-composer">${c.editId != null ? "Save" : "Add comment"}</button>
+      <button class="dim-btn" data-act="cancel-composer">Cancel</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- render: file sections ---------- */
+function rowAttachments(f, newLn, oldLn, pad) {
+  const at = (x) => x.file === f.path && ((x.side !== "old" && newLn != null && x.line === newLn) || (x.side === "old" && oldLn != null && x.line === oldLn));
+  const anchoredCards = D.proposals.filter(at);
+  const manual = S.manualComments.filter(at);
+  const comp = S.composer && !RO() && at(S.composer);
+  let html = "";
+  anchoredCards.forEach((p) => { html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans)">${cardHtml(p)}</div>`; });
+  manual.forEach((m) => { html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans);font-size:var(--ui)">${manualHtml(m)}</div>`; });
+  if (comp) html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans);font-size:var(--ui)">${composerHtml()}</div>`;
+  return html;
+}
+function addBtn(f, line, side, title) {
+  return RO() ? "" : `<button class="addbtn" data-act="open-composer" data-file="${esc(f.path)}" data-line="${line}" data-side="${side}" title="${title}" aria-label="comment on ${esc(f.path)}:${line}${side === "old" ? " old" : ""}">+</button>`;
+}
+function inlineRowsHtml(f, fi) {
+  const P = PARSED[fi];
+  return P.rows.map((r) => {
+    if (r.kind === "hunk") return `<div style="padding:3px 12px 3px 100px;color:var(--faint);background:var(--bg-panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">${esc(r.text)}</div>`;
+    const isAdd = r.kind === "add", isDel = r.kind === "del";
+    const bg = isAdd ? "var(--add-bg)" : isDel ? "var(--del-bg)" : "transparent";
+    const gut = isAdd ? "var(--add-gut)" : isDel ? "var(--del-gut)" : "var(--bg-panel)";
+    const btn = r.new != null ? addBtn(f, r.new, "new", "Add your comment on this line") : addBtn(f, r.old, "old", "Comment on the old line");
+    return `<div class="diff-row" style="display:grid;grid-template-columns:44px 44px 18px 1fr;background:${bg}">
+      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${gut};user-select:none;font-variant-numeric:tabular-nums">${r.old ?? ""}</span>
+      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${gut};user-select:none;position:relative;font-variant-numeric:tabular-nums">${r.new ?? ""}${btn}</span>
+      <span style="text-align:center;color:${isAdd ? "var(--ok)" : "var(--danger)"};user-select:none">${isAdd ? "+" : isDel ? "−" : ""}</span>
+      <span style="white-space:pre-wrap;word-break:break-word;padding-right:12px;color:var(--text)">${esc(r.text)}</span>
+    </div>` + rowAttachments(f, r.new ?? null, r.old ?? null, 106);
+  }).join("");
+}
+function splitRowsHtml(f, fi) {
+  const P = PARSED[fi];
+  return P.splitRows.map((r) => {
+    if (r.kind === "hunk") return `<div style="padding:3px 12px 3px 52px;color:var(--faint);background:var(--bg-panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">${esc(r.text)}</div>`;
+    const l = r.l, rr = r.r;
+    const lDel = l && l.kind === "del", rAdd = rr && rr.kind === "add";
+    const newLn = rr && rr.new != null ? rr.new : null;
+    const oldLn = l && l.old != null ? l.old : null;
+    const lBtn = lDel ? addBtn(f, oldLn, "old", "Comment on the old line") : "";
+    const rBtn = newLn != null ? addBtn(f, newLn, "new", "Comment on this line") : "";
+    return `<div class="diff-row" style="display:grid;grid-template-columns:40px 1fr 40px 1fr">
+      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${lDel ? "var(--del-gut)" : "var(--bg-panel)"};user-select:none;position:relative;font-variant-numeric:tabular-nums">${oldLn ?? ""}${lBtn}</span>
+      <span style="white-space:pre-wrap;word-break:break-word;padding:0 12px 0 10px;background:${lDel ? "var(--del-bg)" : "transparent"};border-right:1px solid var(--border);color:var(--text)">${esc(l ? l.text : "")}</span>
+      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${rAdd ? "var(--add-gut)" : "var(--bg-panel)"};user-select:none;position:relative;font-variant-numeric:tabular-nums">${newLn ?? ""}${rBtn}</span>
+      <span style="white-space:pre-wrap;word-break:break-word;padding:0 12px 0 10px;background:${rAdd ? "var(--add-bg)" : "transparent"};color:var(--text)">${esc(rr ? rr.text : "")}</span>
+    </div>` + rowAttachments(f, newLn, lDel ? oldLn : null, 52);
+  }).join("");
+}
+function fileSectionHtml(f, fi) {
+  const P = PARSED[fi];
+  const fProps = D.proposals.filter((p) => p.file === f.path);
+  const unanchored = fProps.filter((p) => p.line == null || !P.rows.some((r) => anchorsRow(p, r)));
+  const folded = !!S.folded[f.path];
+  const total = fProps.length, fDecided = fProps.filter((p) => decided(p.id)).length;
+  const badge = f.status === "added" ? "NEW" : f.status === "renamed" ? "RENAMED" : f.status === "deleted" ? "DELETED" : null;
+  const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/") + 1) : "";
+  const base = f.path.split("/").pop();
+  const body = folded ? "" : `<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;font-family:var(--mono);font-size:var(--code-size);line-height:1.6">
+      ${S.diffMode === "inline" ? inlineRowsHtml(f, fi) : splitRowsHtml(f, fi)}</div>`;
+  const summary = f.summary ? `<div style="padding:6px 12px 6px 34px;font-size:12px;line-height:1.5;color:var(--dim);background:var(--bg-panel);border:1px solid var(--border);border-top:none;${folded ? "border-radius:0 0 8px 8px" : ""}">${esc(f.summary)}</div>` : "";
+  const un = unanchored.length ? `<div style="margin-top:8px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:8px;background:var(--bg-panel)">
+      <div style="font-size:11px;color:var(--faint);margin-bottom:8px">Not anchored to a line in this file — posts as a file-level comment</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${unanchored.map(cardHtml).join("")}</div></div>` : "";
+  return `<section data-filesec="${esc(f.path)}" style="margin-bottom:20px">
+    <div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:${folded && !f.summary ? "8px" : "8px 8px 0 0"}">
+      <button class="bare" data-act="fold-file" data-file="${esc(f.path)}" style="color:var(--faint);font-size:10px;width:14px;text-align:center" aria-label="fold ${esc(f.path)}">${folded ? "▸" : "▾"}</button>
+      <span style="font-family:var(--mono);font-size:12.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--faint)">${esc(dir)}</span><span style="color:var(--text);font-weight:600">${esc(base)}</span></span>
+      ${badge ? `<span style="flex:none;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:1px 7px;border-radius:99px;color:var(--ok);border:1px solid color-mix(in oklab, var(--ok) 40%, transparent)">${badge}</span>` : ""}
+      <span style="flex:none;white-space:nowrap;font-size:11px;font-family:var(--mono);font-variant-numeric:tabular-nums"><span style="color:var(--ok)">+${P.add}</span><span style="color:var(--danger)"> −${P.del}</span></span>
+      <span style="flex:1"></span>
+      ${total ? `<span style="flex:none;font-size:11px;color:${fDecided === total ? "var(--ok)" : "var(--dim)"};font-family:var(--mono)">${fDecided}/${total} decided</span>` : ""}
+    </div>
+    ${summary}${body}${un}
+  </section>`;
+}
+
+/* ---------- render: tree ---------- */
+function treeHtml() {
+  const sevRank = { blocker: 0, major: 1, minor: 2, nit: 3 };
+  const sevNames = ["blocker", "major", "minor", "nit"];
+  const order = orderedFiles();
+  const dirs = [];
+  order.forEach((i) => {
+    const f = D.files[i];
+    const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+    let g = dirs.find((x) => x.dir === dir);
+    if (!g) { g = { dir, files: [] }; dirs.push(g); }
+    g.files.push(i);
+  });
+  let rows = "";
+  dirs.forEach((g) => {
+    const collapsed = !!S.collapsedDirs[g.dir];
+    if (g.dir) rows += `<button class="tree-row" data-act="toggle-dir" data-dir="${esc(g.dir)}" style="color:var(--faint);font-size:11.5px;margin-top:5px">
+      <span style="font-size:9px;width:10px;flex:none">${collapsed ? "▸" : "▾"}</span>
+      <span style="font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.dir)}/</span></button>`;
+    if (collapsed) return;
+    g.files.forEach((i) => {
+      const f = D.files[i], P = PARSED[i];
+      const fProps = D.proposals.filter((p) => p.file === f.path);
+      if (S.findingsOnly && !fProps.length) return;
+      const total = fProps.length, fDecided = fProps.filter((p) => decided(p.id)).length;
+      const worst = total ? sevNames[fProps.reduce((w, p) => Math.min(w, sevRank[p.severity] ?? 3), 4)] : null;
+      const active = S.activeFile === f.path;
+      rows += `<button class="tree-row" data-act="jump-file" data-file="${esc(f.path)}" style="padding-left:22px;background:${active ? "var(--accent-bg)" : "transparent"};box-shadow:${active ? "inset 2px 0 0 var(--accent)" : "none"}">
+        <span style="font-family:var(--mono);font-size:12px;color:${total ? "var(--text)" : "var(--faint)"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${esc(f.path.split("/").pop())}</span>
+        <span style="flex:1"></span>
+        ${total ? `<span style="flex:none;font-size:10.5px;font-weight:600;font-family:var(--mono);min-width:16px;text-align:center;border-radius:99px;padding:0 5px;color:var(--sev-${worst});background:color-mix(in oklab, var(--sev-${worst}) 16%, transparent)">${total}</span>` : ""}
+        ${total ? `<span style="flex:none;font-size:10.5px;font-family:var(--mono);color:${fDecided === total ? "var(--ok)" : "var(--faint)"}">${fDecided}/${total}</span>` : ""}
+        <span style="flex:none;white-space:nowrap;font-size:10.5px;font-family:var(--mono);font-variant-numeric:tabular-nums"><span style="color:var(--ok)">+${P.add}</span><span style="color:var(--danger)"> −${P.del}</span></span>
+      </button>`;
+    });
+  });
+  const hasRanks = D.files.some((f) => f.rank != null);
+  return `<aside style="width:284px;flex:none;border-right:1px solid var(--border);background:var(--bg-panel);display:flex;flex-direction:column;min-height:0">
+    <div style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border);flex:none">
+      <span class="eyebrow">FILES · ${D.files.length}</span>
+      <span style="flex:1"></span>
+      ${hasRanks ? `<button class="pill ${S.orderMode === "semantic" ? "on" : ""}" data-act="toggle-order" title="Semantic reading order vs alphabetical">${S.orderMode === "semantic" ? "semantic" : "a→z"}</button>` : ""}
+      <button class="pill ${S.findingsOnly ? "on" : ""}" data-act="toggle-findings-only" title="Show only files with findings">findings only</button>
+      <button class="bare" data-act="toggle-tree" title="Collapse tree" style="color:var(--faint);padding:2px 5px">⟨</button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:6px 6px 20px 6px">${rows}</div>
+  </aside>`;
+}
+
+/* ---------- render: summary, modals, header ---------- */
+function summaryHtml() {
+  const ov = D.overview;
+  const general = S.generalComments.map((g) => `<div class="your-comment" data-general="${g.id}" style="margin-bottom:6px">
+      <div style="min-width:0;flex:1">
+        <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:var(--accent);margin-bottom:2px">YOUR COMMENT · POSTS AS-IS</div>
+        <div style="line-height:1.5;white-space:pre-wrap">${esc(g.body)}</div>
+      </div>
+      ${RO() ? "" : `<button class="tiny" data-act="edit-general" data-gid="${g.id}">Edit</button>
+      <button class="tiny danger" data-act="del-general" data-gid="${g.id}">Delete</button>`}
+    </div>`).join("");
+  const hasOverview = ov.summary || ov.concerns;
+  return `<section style="border:1px solid var(--border);border-radius:10px;background:var(--bg-panel);padding:16px 18px;margin-bottom:22px">
+    ${hasOverview ? `<div style="display:flex;flex-direction:column;gap:14px;max-width:760px">
+      ${ov.summary ? `<div><div class="eyebrow" style="margin-bottom:6px">WHAT &amp; WHY</div><div style="line-height:1.6">${mdBlockHtml(ov.summary)}</div></div>` : ""}
+      ${ov.concerns ? `<div style="border-left:2px solid var(--sev-major);padding-left:12px"><div class="eyebrow" style="margin-bottom:6px">REVIEW CONCERNS</div><div style="line-height:1.6">${mdBlockHtml(ov.concerns)}</div></div>` : ""}
+    </div>` : ""}
+    ${D.change.description ? `<button class="bare" data-act="toggle-desc" style="margin-top:${hasOverview ? 12 : 0}px;font-size:11.5px;color:var(--accent)">${S.descOpen ? "Hide description ▴" : "Show description ▾"}</button>
+    ${S.descOpen ? `<div style="margin:10px 0 0 0;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:12px;line-height:1.6;color:var(--dim)">${mdBlockHtml(D.change.description)}</div>` : ""}` : ""}
+    ${(!RO() || general) ? `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
+        <span class="eyebrow">GENERAL COMMENTS</span>
+        <span style="font-size:11px;color:var(--faint)">on the change as a whole · your words, posted as-is</span>
+      </div>
+      ${general}
+      ${RO() ? "" : `<div style="display:flex;gap:8px;align-items:flex-start;max-width:860px">
+        <textarea class="ta" id="general-ta" rows="1" placeholder="Comment on the change as a whole…" aria-label="general comment" style="border-color:var(--border)">${esc(S.generalDraft || "")}</textarea>
+        <button class="save-btn" data-act="add-general">Add comment</button>
+      </div>`}
+    </div>` : ""}
+  </section>`;
+}
+function submitModalHtml() {
+  if (!S.showSubmit || RO()) return "";
+  const props = D.proposals;
+  const decEntries = props.filter((p) => decided(p.id)).map((p) => ({ p, d: S.decisions[p.id] }));
+  const verbatim = decEntries.filter((e) => e.d.action === "accept" && !e.d.note);
+  const revised = decEntries.filter((e) => e.d.action === "accept" && e.d.note);
+  const rejected = decEntries.filter((e) => e.d.action === "reject");
+  const undecidedList = props.filter((p) => !decided(p.id));
+  const yours = S.manualComments.length + S.generalComments.length;
+  const groups = [];
+  const item = (ref, title, note) => `<div style="display:flex;gap:8px;font-size:12px;align-items:baseline">
+    <span style="font-family:var(--mono);color:var(--faint);flex:none">${esc(ref)}</span>
+    <span style="color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</span>
+    ${note ? `<span style="color:var(--dim);font-style:italic;flex:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">“${esc(note)}”</span>` : ""}</div>`;
+  const group = (title, fg, items) => `<div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.07em;color:${fg};margin-bottom:5px">${title}</div><div style="display:flex;flex-direction:column;gap:3px">${items.join("")}</div></div>`;
+  if (verbatim.length) groups.push(group("POSTED VERBATIM", "var(--ok)", verbatim.map((e) => item("#" + e.p.id, e.p.title))));
+  if (revised.length) groups.push(group("POSTED AFTER REVISION", "var(--accent)", revised.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
+  if (rejected.length) groups.push(group("REJECTED — NOT POSTED", "var(--danger)", rejected.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
+  if (yours) groups.push(group("YOUR COMMENTS — HANDED TO THE AGENT", "var(--accent)", [
+    ...S.manualComments.map((m) => item(m.file.split("/").pop() + ":" + m.line, m.body)),
+    ...S.generalComments.map((g) => item("change", g.body))]));
+  if (undecidedList.length) groups.push(group("UNDECIDED — REPORTED AS SUCH", "var(--sev-major)", undecidedList.map((p) => item("#" + p.id, p.title))));
+  const stats = [
+    [verbatim.length, "posted verbatim", "var(--ok)"],
+    [revised.length, "posted after revision", "var(--accent)"],
+    [rejected.length, "rejected", "var(--danger)"],
+    [yours, "your comments", "var(--accent)"],
+    [undecidedList.length, "left undecided", undecidedList.length ? "var(--sev-major)" : "var(--faint)"],
+  ].map(([n, label, fg]) => `<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg)">
+    <div style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;color:${fg}">${n}</div>
+    <div style="font-size:10.5px;color:var(--dim);line-height:1.3">${label}</div></div>`).join("");
+  const errors = S.errors && S.errors.length ? `<div class="errors" id="errors">The server refused the decision:\n${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>` : "";
+  const body = `
+    <div style="padding:18px 22px 0 22px">
+      <div style="font-size:15px;font-weight:600">Submit review decisions</div>
+      <div style="font-size:12px;color:var(--dim);margin-top:3px">This is the gate. Exactly the following goes back to the workflow — nothing else.</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 22px">${stats}</div>
+    ${undecidedList.length ? `<div style="margin:0 22px 12px 22px;padding:9px 12px;border:1px solid color-mix(in oklab, var(--sev-major) 45%, transparent);background:color-mix(in oklab, var(--sev-major) 10%, transparent);border-radius:8px;font-size:12.5px">⚠ <b>${undecidedList.length} proposal(s) still undecided.</b> They will not be posted; the workflow is told they were left undecided.</div>` : ""}
+    ${errors}
+    <div style="padding:0 22px 8px 22px;display:flex;flex-direction:column;gap:10px">${groups.join("")}</div>
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg-raised)">
+      <span style="flex:1;font-size:11.5px;color:var(--faint)">The note to the agent is the box below the frame.</span>
+      <button class="ghost" data-act="close-submit" style="font-size:12.5px;padding:6px 12px">Keep reviewing</button>
+      <button class="primary" data-act="confirm-submit" style="padding:7px 16px">${S.confirmSubmitArm ? `Confirm — ${undecidedList.length} left undecided` : `Submit ${decEntries.length + yours} decision(s)`}</button>
+    </div>`;
+  return `<div style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.65);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;animation:fade 0.12s ease-out">
+    <div id="submit-modal" style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
+}
+function keysModalHtml() {
+  if (!S.showKeys) return "";
+  const rows = [
+    ["j / k", "next / previous proposal (decided ones included)"], ["a", "accept focused proposal"],
+    ["x", "reject focused proposal (opens reason)"], ["e", "add a note (on the focused card)"],
+    ["c", "comment on the focused card's line"], ["v", "toggle inline / side-by-side diff"],
+    ["o", "toggle semantic / alphabetical file order"], ["s", "submit decisions"],
+    ["⌘/Ctrl + Enter", "submit decisions"], ["esc", "close dialogs / composers"], ["?", "this cheat sheet"],
+  ].map(([k, d]) => `<span style="font-family:var(--mono);color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 7px;text-align:center;justify-self:start">${k}</span><span>${d}</span>`).join("");
+  return `<div data-act-overlay="keys" style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.6);z-index:50;display:flex;align-items:center;justify-content:center;animation:fade 0.12s ease-out">
+    <div style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;padding:20px 24px;min-width:340px;box-shadow:0 20px 60px oklch(0 0 0 / 0.4)">
+      <div style="font-size:13px;font-weight:600;margin-bottom:14px">Keyboard shortcuts</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:12.5px;color:var(--dim)">${rows}</div>
+    </div></div>`;
+}
+function headerHtml() {
+  const props = D.proposals;
+  const decidedCount = props.filter((p) => decided(p.id)).length;
+  const undecidedList = props.filter((p) => !decided(p.id));
+  const allFolded = D.files.every((f) => S.folded[f.path]);
+  const pct = props.length ? Math.round((decidedCount / props.length) * 100) : 0;
+  const c = D.change;
+  const status = GATE.status;
+  const roLabel = status === "decided" ? "READ-ONLY · DECIDED" : `READ-ONLY · ${String(status).toUpperCase()}`;
+  return `<header style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);flex:none">
+    <div style="min-width:260px;overflow:hidden;flex:0 1 auto">
+      <div style="display:flex;align-items:baseline;gap:10px;min-width:0">
+        <span style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
+        <span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">${esc(c.ref)}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:2px;font-size:11.5px;color:var(--dim);white-space:nowrap">
+        ${c.source ? `<span class="mono-chip">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span style="color:var(--faint)">→</span>` : ""}${c.target ? `<span class="mono-chip">${esc(c.target)}</span>` : ""}
+        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer" style="font-size:11.5px">open ↗</a>` : ""}
+      </div>
+    </div>
+    <span style="flex:1;min-width:16px"></span>
+    ${RO() ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.06em;color:var(--accent);border:1px solid color-mix(in oklab, var(--accent) 40%, transparent);border-radius:99px;padding:3px 12px">${roLabel}</span>`
+      : `<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;flex:none">
+      <span style="font-size:12px;color:var(--dim)"><b style="color:var(--text)">${decidedCount}</b> of ${props.length} decided</span>
+      <div style="width:150px;height:4px;background:var(--bg);border-radius:2px;overflow:hidden"><div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.2s;width:${pct}%"></div></div>
+    </div>`}
+    <div style="display:flex;align-items:center;gap:6px;flex:none">
+      <div style="display:flex;flex:none;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        <button class="seg ${S.diffMode === "inline" ? "on" : ""}" data-act="set-inline">Inline</button>
+        <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" style="border-left:1px solid var(--border)">Split</button>
+      </div>
+      <button class="ghost" data-act="fold-all">${allFolded ? "Unfold all" : "Fold all"}</button>
+      ${!RO() ? `<button class="ghost" data-act="bulk-accept" style="color:${S.confirmBulk === "accept" ? "var(--ok)" : "var(--dim)"}">${S.confirmBulk === "accept" ? `Really accept ${undecidedList.length}?` : `Accept remaining (${undecidedList.length})`}</button>
+      <button class="ghost" data-act="bulk-reject" style="color:${S.confirmBulk === "reject" ? "var(--danger)" : "var(--dim)"}">${S.confirmBulk === "reject" ? `Really reject ${undecidedList.length}?` : `Reject remaining (${undecidedList.length})`}</button>` : ""}
+      <button class="ghost" data-act="toggle-keys" title="Keyboard shortcuts" style="padding:4px 9px">?</button>
+      ${!RO() ? `<button class="primary" data-act="open-submit">Submit decisions</button>` : ""}
+    </div>
+  </header>`;
+}
+
+/* ---------- render root ---------- */
+function render() {
+  const app = document.getElementById("app");
+  if (!D) { app.innerHTML = `<div style="padding:40px;color:var(--dim);font-family:var(--sans)">waiting for the shell…</div>`; return; }
+  const main = document.getElementById("main");
+  const scrollTop = main ? main.scrollTop : 0;
+  const focusEl = document.activeElement;
+  const focusDesc = focusEl && focusEl.id === "composer-ta" ? { id: "composer-ta" }
+    : focusEl && focusEl.id === "general-ta" ? { id: "general-ta" }
+    : focusEl && focusEl.hasAttribute && focusEl.hasAttribute("data-note-ta") ? { note: focusEl.getAttribute("data-note-ta") } : null;
+
+  const globalUn = D.proposals.filter(unplaceable);
+  const banner = S.done ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--ok) 12%, var(--bg-panel));border-bottom:1px solid color-mix(in oklab, var(--ok) 35%, var(--border));font-size:12.5px;color:var(--ok);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>` : "";
+  app.innerHTML = `${headerHtml()}${banner}
+  <div style="display:flex;flex:1;min-height:0">
+    ${S.treeOpen ? treeHtml() : `<div style="width:30px;flex:none;border-right:1px solid var(--border);background:var(--bg-panel);padding-top:8px;display:flex;justify-content:center"><button class="bare" data-act="toggle-tree" title="Show file tree" style="color:var(--faint);padding:4px 6px">⟩</button></div>`}
+    <div id="main" style="flex:1;overflow-y:auto;min-width:0">
+      <div style="max-width:1240px;padding:16px 24px 120px 24px">
+        ${summaryHtml()}
+        ${orderedFiles().map((i) => fileSectionHtml(D.files[i], i)).join("")}
+        ${globalUn.length ? `<section style="margin-bottom:20px">
+          <div style="display:flex;align-items:baseline;gap:10px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px 8px 0 0">
+            <span style="font-size:12.5px;font-weight:600">Not anchored to any file</span>
+            <span style="font-size:11px;color:var(--faint)">replies go to their thread; the rest post on the change as a whole</span>
+          </div>
+          <div style="border:1px dashed var(--border-strong);border-top:none;border-radius:0 0 8px 8px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg-panel)">${globalUn.map(cardHtml).join("")}</div>
+        </section>` : ""}
+      </div>
+    </div>
+  </div>
+  ${keysModalHtml()}${submitModalHtml()}`;
+  const nm = document.getElementById("main");
+  if (nm) { nm.scrollTop = scrollTop; nm.addEventListener("scroll", spy, { passive: true }); }
+  let toFocus = null;
+  if (focusDesc) toFocus = focusDesc.id ? document.getElementById(focusDesc.id) : document.querySelector(`[data-note-ta="${focusDesc.note}"]`);
+  else if (S.composer) toFocus = document.getElementById("composer-ta");
+  else { const openNotes = document.querySelectorAll("[data-note-ta]"); if (openNotes.length === 1) toFocus = openNotes[0]; }
+  if (toFocus) { toFocus.focus(); const v = toFocus.value; toFocus.value = ""; toFocus.value = v; }
+}
+
+/* ---------- scrollspy ---------- */
+let spyPending = false;
+function spy() {
+  if (spyPending) return;
+  spyPending = true;
+  requestAnimationFrame(() => {
+    spyPending = false;
+    const c = document.getElementById("main"); if (!c) return;
+    const cr = c.getBoundingClientRect();
+    let best = null, bestTop = -Infinity;
+    c.querySelectorAll("[data-filesec]").forEach((el) => {
+      const t = el.getBoundingClientRect().top - cr.top;
+      if (t <= 80 && t > bestTop) { bestTop = t; best = el.getAttribute("data-filesec"); }
+    });
+    if (best && best !== S.activeFile) {
+      S.activeFile = best;
+      document.querySelectorAll('[data-act="jump-file"]').forEach((el) => {
+        const on = el.getAttribute("data-file") === best;
+        el.style.background = on ? "var(--accent-bg)" : "transparent";
+        el.style.boxShadow = on ? "inset 2px 0 0 var(--accent)" : "none";
+      });
+    }
+  });
+}
+
+/* ---------- actions ---------- */
+function saveComposer() {
+  const ta = document.getElementById("composer-ta");
+  const text = ta ? ta.value.trim() : "";
+  const c = S.composer;
+  if (!c || !text) return;
+  set(() => {
+    if (c.editId != null) S.manualComments = S.manualComments.map((m) => m.id === c.editId ? { ...m, body: text } : m);
+    else S.manualComments.push({ id: "m" + (++mseq), file: c.file, line: c.line, side: c.side, body: text });
+    S.composer = null;
+  });
+}
+function addGeneral() {
+  const ta = document.getElementById("general-ta");
+  const t = ta ? ta.value.trim() : "";
+  if (!t) return;
+  set(() => { S.generalComments.push({ id: "g" + (++gseq), body: t }); S.generalDraft = ""; });
+}
+function bulk(action) {
+  const undecidedList = D.proposals.filter((p) => !decided(p.id));
+  if (S.confirmBulk !== action) {
+    set(() => { S.confirmBulk = action; });
+    clearTimeout(bulkT);
+    bulkT = setTimeout(() => set(() => { S.confirmBulk = null; }), 3000);
+    return;
+  }
+  set(() => {
+    undecidedList.forEach((p) => { S.decisions[p.id] = { ...(S.decisions[p.id] || {}), action }; });
+    S.confirmBulk = null;
+  });
+}
+function confirmSubmit() {
+  captureDrafts();
+  const undecidedCount = D.proposals.filter((p) => !decided(p.id)).length;
+  if (!S.confirmSubmitArm && undecidedCount) { set(() => { S.confirmSubmitArm = true; }); return; }
+  set(() => { S.errors = null; });
+  post({ type: "submit", data: buildDecision() });
+}
+function collect() {
+  if (RO()) return;
+  if (!S.showSubmit) { set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); return; }
+  confirmSubmit();
+}
+
+document.addEventListener("click", (e) => {
+  const cardEl = e.target.closest("[data-card]");
+  const cardId = cardEl ? parseInt(cardEl.getAttribute("data-card"), 10) : null;
+  const t = e.target.closest("[data-act]");
+  if (!t) {
+    const ov = e.target.closest("[data-act-overlay]");
+    if (ov && e.target === ov) { set(() => { S.showKeys = false; }); return; }
+    if (cardId != null && S.focusedId !== cardId) set(() => { S.focusedId = cardId; });
+    return;
+  }
+  if (cardId != null) S.focusedId = cardId;
+  const act = t.getAttribute("data-act");
+  const id = t.hasAttribute("data-id") ? parseInt(t.getAttribute("data-id"), 10) : null;
+  switch (act) {
+    case "accept": decide(id, "accept", true); break;
+    case "reject": decide(id, "reject", false); break;
+    case "undo": undo(id); break;
+    case "expand": set(() => { S.expanded[id] = true; }); break;
+    case "collapse": set(() => { delete S.expanded[id]; }); break;
+    case "toggle-thread": { const k = "t" + t.getAttribute("data-id"); const cur = t.getAttribute("data-open") === "1"; set(() => { S.expanded[k] = !cur; }); break; }
+    case "open-note": set(() => { S.noteOpen[id] = { open: true, draft: (S.decisions[id] && S.decisions[id].note) || "" }; }); break;
+    case "save-note": { const ta = document.querySelector(`[data-note-ta="${id}"]`); setNote(id, ta ? ta.value.trim() : ""); break; }
+    case "del-note": setNote(id, ""); break;
+    case "open-composer": {
+      const file = t.getAttribute("data-file");
+      const line = parseInt(t.getAttribute("data-line"), 10); const side = t.getAttribute("data-side") || "new";
+      set(() => { S.composer = { file, line, side, text: "", editId: null }; });
+      break;
+    }
+    case "save-composer": saveComposer(); break;
+    case "cancel-composer": set(() => { S.composer = null; }); break;
+    case "edit-manual": {
+      const m = S.manualComments.find((x) => x.id === t.getAttribute("data-mid"));
+      if (m) set(() => { S.composer = { file: m.file, line: m.line, side: m.side, text: m.body, editId: m.id }; });
+      break;
+    }
+    case "del-manual": set(() => { S.manualComments = S.manualComments.filter((x) => x.id !== t.getAttribute("data-mid")); }); break;
+    case "add-general": addGeneral(); break;
+    case "edit-general": {
+      const g = S.generalComments.find((x) => x.id === t.getAttribute("data-gid"));
+      if (g) set(() => { S.generalDraft = g.body; S.generalComments = S.generalComments.filter((x) => x.id !== g.id); });
+      break;
+    }
+    case "del-general": set(() => { S.generalComments = S.generalComments.filter((x) => x.id !== t.getAttribute("data-gid")); }); break;
+    case "fold-file": { const f = t.getAttribute("data-file"); set(() => { S.folded[f] = !S.folded[f]; }); break; }
+    case "fold-all": {
+      const all = D.files.every((f) => S.folded[f.path]);
+      set(() => { S.folded = {}; if (!all) D.files.forEach((f) => { S.folded[f.path] = true; }); });
+      break;
+    }
+    case "jump-file": jumpToFile(t.getAttribute("data-file")); break;
+    case "toggle-dir": { const d = t.getAttribute("data-dir"); set(() => { S.collapsedDirs[d] = !S.collapsedDirs[d]; }); break; }
+    case "toggle-tree": set(() => { S.treeOpen = !S.treeOpen; }); break;
+    case "toggle-findings-only": set(() => { S.findingsOnly = !S.findingsOnly; }); break;
+    case "toggle-order": set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); break;
+    case "set-inline": set(() => { S.diffMode = "inline"; }); break;
+    case "set-split": set(() => { S.diffMode = "split"; }); break;
+    case "bulk-accept": bulk("accept"); break;
+    case "bulk-reject": bulk("reject"); break;
+    case "toggle-keys": set(() => { S.showKeys = !S.showKeys; }); break;
+    case "toggle-desc": set(() => { S.descOpen = !S.descOpen; }); break;
+    case "open-submit": set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); break;
+    case "close-submit": set(() => { S.showSubmit = false; S.errors = null; }); break;
+    case "confirm-submit": confirmSubmit(); break;
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (!D) return;
+  const tag = e.target && e.target.tagName;
+  const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable);
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); collect(); return; }
+  if (e.key === "Escape") {
+    if (typing && e.target.hasAttribute && e.target.hasAttribute("data-note-ta")) {
+      const id = e.target.getAttribute("data-note-ta");
+      set(() => { delete S.noteOpen[id]; });
+      return;
+    }
+    set(() => { S.showKeys = false; S.showSubmit = false; S.composer = null; S.confirmBulk = null; S.confirmSubmitArm = false; });
+    return;
+  }
+  if (typing) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      if (e.target.id === "composer-ta") { e.preventDefault(); saveComposer(); }
+      else if (e.target.id === "general-ta") { e.preventDefault(); addGeneral(); }
+      else if (e.target.hasAttribute("data-note-ta")) {
+        e.preventDefault();
+        const id = parseInt(e.target.getAttribute("data-note-ta"), 10);
+        setNote(id, e.target.value.trim());
+      }
+    }
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const fid = S.focusedId;
+  switch (e.key) {
+    case "j": e.preventDefault(); moveFocus(1); break;
+    case "k": e.preventDefault(); moveFocus(-1); break;
+    case "a": if (!RO() && fid != null) { e.preventDefault(); decide(fid, "accept", true); } break;
+    case "x": if (!RO() && fid != null) { e.preventDefault(); decide(fid, "reject", false); } break;
+    case "e": if (!RO() && fid != null) { e.preventDefault(); set(() => { S.noteOpen[fid] = { open: true, draft: (S.decisions[fid] && S.decisions[fid].note) || "" }; }); } break;
+    case "c": if (!RO() && fid != null) {
+      e.preventDefault();
+      const p = D.proposals.find((x) => x.id === fid);
+      if (p && p.file && p.line != null) set(() => { S.composer = { file: p.file, line: p.line, side: p.side, text: "", editId: null }; });
+      break;
+    }
+    case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); break;
+    case "o": e.preventDefault(); set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); break;
+    case "s": if (!RO()) { e.preventDefault(); set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); } break;
+    case "?": e.preventDefault(); set(() => { S.showKeys = !S.showKeys; }); break;
+  }
+});
+
+/* ---------- boot ---------- */
+function boot(draftData) {
+  D = adapt(GATE.payload);
+  if (!D.files.some((f) => f.rank != null)) S.orderMode = "path";
+  prep();
+  S.done = RO() && !!GATE.decision;
+  S.showSubmit = false; S.composer = null; S.noteOpen = {}; S.errors = null;
+  if (RO()) {
+    loadDecision(GATE.decision && GATE.decision.data);
+  } else if (draftData && draftData.decisions) {
+    S.decisions = draftData.decisions || {};
+    S.manualComments = draftData.manualComments || [];
+    S.generalComments = draftData.generalComments || [];
+    S.generalDraft = draftData.generalDraft || "";
+    mseq = draftData.mseq || S.manualComments.length; gseq = draftData.gseq || S.generalComments.length;
+  } else {
+    S.decisions = {}; S.manualComments = []; S.generalComments = []; S.generalDraft = "";
+  }
+  const ids = orderedIds();
+  S.focusedId = RO() ? null : (ids.find((id) => !decided(id)) ?? (ids.length ? ids[0] : null));
+  render();
+  post({ type: "resize", height: "fill" });
+}
+render();
+post({ type: "ready" });
+</script>
+</body>
+</html>

@@ -1,9 +1,14 @@
 # Plugins
 
 A gate type is a directory: a manifest, two JSON Schema documents, and a
-self-contained HTML bundle that wicket renders in a sandboxed iframe. This
-folder holds sample plugins to copy from. The built-in `list` type ships
-with the server under `server/priv/plugins/list`.
+self-contained HTML bundle that wicket renders in a sandboxed iframe. The
+built-in `list` type ships with the server under `server/priv/plugins/list`;
+this folder holds the official plugins and a sample:
+
+| Plugin | What it gates |
+|---|---|
+| [`review/`](review/README.md) | a code review: the diff, the agent's proposed comments, the human's verdicts and own comments |
+| [`hello/`](hello/README.md) | the smallest complete plugin, to copy from |
 
 Register a directory of plugins (each immediate subdirectory is one plugin):
 
@@ -73,11 +78,12 @@ Plugin → shell:
 | type | fields |
 |---|---|
 | `ready` | – |
-| `resize` | `height` in px; the shell sizes the iframe, the page scrolls |
+| `resize` | `height` in px; the shell sizes the iframe, the page scrolls. `"fill"` instead asks for a viewport-height frame that scrolls inside, for workbench-style views such as `review` |
 | `draft` | `data`; the shell keeps it in sessionStorage and hands it back in `init` |
 | `submit` | `data`; validated against `decision_schema` server-side |
 
 The decision schema is the whole contract. What the fields mean is between
 the plugin and the workflow that reads the decision. `hello/index.html` is
 the smallest complete client; `server/priv/plugins/list/index.html` is a
-full one with drafts, read-only rendering and a previous-round overlay.
+full one with drafts, read-only rendering and a previous-round overlay;
+`review/index.html` is a workbench-style one that fills the viewport.
