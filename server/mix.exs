@@ -67,7 +67,8 @@ defmodule Wicket.MixProject do
         "esbuild sdk",
         "phx.digest"
       ],
-      "test.browser": ["esbuild sdk", "test --only playwright"],
+      # The browser suite drives the assets as they are served, so build them.
+      "test.browser": ["assets.build", "test --only playwright"],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
     ]
   end
