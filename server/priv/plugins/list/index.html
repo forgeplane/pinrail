@@ -6,29 +6,28 @@
 <title>list gate</title>
 <style>
   :root {
-    --bg:#101216; --bg-panel:#15181e; --bg-raised:#1a1e26; --bg-hover:#20252f;
-    --border:#262c37; --border-strong:#39414f;
-    --text:#d7dce5; --dim:#9aa3b2; --faint:#67707f;
-    --accent:oklch(0.72 0.12 235); --accent-bg:oklch(0.72 0.12 235 / 0.12);
-    --ok:oklch(0.7 0.13 150); --danger:oklch(0.65 0.16 25);
-    --sev-blocker:oklch(0.64 0.18 25); --sev-major:oklch(0.72 0.14 55);
-    --sev-minor:oklch(0.78 0.11 90); --sev-nit:oklch(0.68 0.02 250);
-    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --bg:#18191b; --bg-panel:#18191b; --bg-raised:#202124; --bg-hover:#232428;
+    --border:#2b2d31; --border-strong:#44474e;
+    --text:#ededef; --dim:#999ba5; --faint:#7b7d87;
+    --accent:#a1a5ef; --accent-bg:#292a3c; --button-bg:#6873d6;
+    --ok:#7cc79e; --danger:#e48c98;
+    --sev-blocker:#e48c98; --sev-major:#d4ac6a; --sev-minor:#c7bf85; --sev-nit:#a0abc2;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
     color-scheme: dark;
   }
   /* The shell sends its theme; the SDK sets data-theme for us. */
   [data-theme="light"] {
-    --bg:#ffffff; --bg-panel:#ffffff; --bg-raised:#f6f7f9; --bg-hover:#f0f1f5;
-    --border:#e5e7eb; --border-strong:#c5c8d1;
-    --text:#24262c; --dim:#656a77; --faint:#737987;
-    --accent:#5965bc; --accent-bg:#f0f0fa;
+    --bg:#ffffff; --bg-panel:#ffffff; --bg-raised:#f6f7f9; --bg-hover:#f3f4f7;
+    --border:#e8e9ed; --border-strong:#cdd0d7;
+    --text:#24262c; --dim:#72757f; --faint:#888b94;
+    --accent:#5965cb; --accent-bg:#f0f0fa; --button-bg:#5965bc;
     --ok:#28795c; --danger:#bc4655;
     --sev-blocker:#bc4655; --sev-major:#99651b; --sev-minor:#80721b; --sev-nit:#65738e;
     color-scheme: light;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 16px 18px 18px; font: 13px/1.5 var(--sans); color: var(--text); background: var(--bg-panel); }
+  body { margin: 0; padding: 16px 22px 18px; font: 13px/1.5 var(--sans); color: var(--text); background: var(--bg-panel); }
   a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
   button, textarea, select, input { font: inherit; color: inherit; }
   button { cursor: pointer; }

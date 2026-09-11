@@ -30,14 +30,15 @@ export const PluginBridge = {
           this.pushEvent("plugin_ready", {})
           break
         case "resize":
+          // The page is the same shape for every gate: a viewport-height
+          // column with the frame taking what is left of it. "fill" uses all
+          // of that; a reported height uses only as much as it needs, and is
+          // capped, so the view scrolls inside rather than growing the page.
           if (msg.height === "fill") {
-            // a workbench-style view: the frame takes the viewport and
-            // scrolls inside, the page only scrolls to reach what is below
-            this.fill = true
-            this.applyFill()
+            this.el.style.height = "100%"
           } else if (typeof msg.height === "number" && Number.isFinite(msg.height)) {
-            this.fill = false
-            this.el.style.height = Math.min(50000, Math.max(this.minHeight, Math.ceil(msg.height))) + "px"
+            const height = Math.min(50000, Math.max(this.minHeight, Math.ceil(msg.height)))
+            this.el.style.height = `min(${height}px, 100%)`
           }
           break
         case "draft":
@@ -57,9 +58,6 @@ export const PluginBridge = {
       }
     }
     window.addEventListener("message", this.onMessage)
-
-    this.onResize = () => this.fill && this.applyFill()
-    window.addEventListener("resize", this.onResize)
 
     this.onKey = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
@@ -95,7 +93,6 @@ export const PluginBridge = {
     this.handleEvent("gate:submitted", ({decision}) => {
       this.submitting = false
       this.clearDraft()
-      if (this.fill) setTimeout(() => this.applyFill(), 50)
       // keep the stored init current, so a frame reload after the decision
       // comes back read-only instead of editable
       if (this.init) {
@@ -108,7 +105,6 @@ export const PluginBridge = {
   destroyed() {
     window.removeEventListener("message", this.onMessage)
     window.removeEventListener("keydown", this.onKey)
-    window.removeEventListener("resize", this.onResize)
     window.removeEventListener("wicket:appearance", this.onAppearance)
     document.removeEventListener("input", this.onInput)
   },
@@ -123,12 +119,6 @@ export const PluginBridge = {
 
   sendAppearance() {
     this.post({type: "appearance", theme: document.documentElement.dataset.theme === "light" ? "light" : "dark"})
-  },
-
-  applyFill() {
-    const top = this.el.getBoundingClientRect().top + window.scrollY
-    const height = window.innerHeight - top - 24
-    this.el.style.height = Math.max(this.minHeight, Math.floor(height)) + "px"
   },
 
   sendInit() {

@@ -15,8 +15,13 @@ function setup() {
     removeEventListener: name => listeners.delete(name),
     location: {origin: "http://localhost:4747"}, innerHeight: 900, scrollY: 0
   }
+  const body = {
+    dataset: {},
+    removeAttribute: (name) => delete body.dataset[name.replace(/^data-(.*)$/, (_, rest) => rest.replace(/-(.)/g, (_, c) => c.toUpperCase()))]
+  }
   const document = {
     documentElement: {dataset: {theme: "light"}},
+    body,
     getElementById: () => note,
     addEventListener() {}, removeEventListener() {}
   }
@@ -32,7 +37,7 @@ function setup() {
   const message = data => listeners.get("message")({source: contentWindow, data: {wicket: 1, ...data}})
   handlers.get("gate:init")({gate: {id: "gate-1"}, readonly: false})
   message({type: "ready"})
-  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow}
+  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow, body}
 }
 
 test("submission includes the current note and suppresses a second in-flight submit", () => {
@@ -65,6 +70,19 @@ test("a draft is stored per gate and cleared once the decision is in", () => {
   assert.equal(storage.has("wicket:draft:gate-1"), false)
 })
 
+test("a reported height is used but capped, and fill takes the whole slot", () => {
+  const {hook, message} = setup()
+
+  message({type: "resize", height: 620})
+  assert.equal(hook.el.style.height, "min(620px, 100%)", "short content stays short")
+
+  message({type: "resize", height: 120})
+  assert.equal(hook.el.style.height, "min(400px, 100%)", "never below the view's minimum")
+
+  message({type: "resize", height: "fill"})
+  assert.equal(hook.el.style.height, "100%")
+})
+
 test("the view is told the theme, without a re-init or a lost draft", () => {
   const {hook, message, sent, storage} = setup()
   message({type: "draft", data: {choice: "reject"}})
@@ -85,7 +103,7 @@ test("foreign frames are ignored and invalid resize values cannot corrupt frame 
   assert.equal(pushed.filter(x => x.name === "submit").length, 0)
   message({type: "resize", height: 500})
   message({type: "resize", height: Infinity})
-  assert.equal(hook.el.style.height, "500px")
+  assert.equal(hook.el.style.height, "min(500px, 100%)")
   hook.destroyed()
   assert.equal(listeners.size, 0)
 })

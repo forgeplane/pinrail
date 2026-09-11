@@ -281,8 +281,26 @@
    Gate page. The plugin's frame sits flush; everything around it is the shell.
    --------------------------------------------------------------------------- */
 
-.gate-main { display: flex; flex-direction: column; gap: 20px; max-width: 1000px; margin: 0 auto; padding: 25px 36px 50px; }
-.gate-main > header h1 { font-size: 24px; letter-spacing: -0.6px; line-height: 1.4; }
+/* Every gate is the same shape, whatever its view: a column exactly as tall
+   as the viewport, the frame taking what the header and the note box leave.
+   A view that scrolls does it inside the frame, so the page itself never
+   scrolls and there is one scrollbar, always in the same place. */
+.gate-main {
+  display: flex; flex-direction: column;
+  height: calc(100dvh - 52px);
+  gap: 14px;
+  padding: 16px 24px 14px;
+}
+.gate-main > * { flex: none; }
+.gate-main #plugin-frame-wrap { flex: 1 1 auto; min-height: 240px; }
+/* A view carries its own heading, so the shell's stays on one line. */
+.gate-main > header { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.gate-main > header > * { margin: 0; }
+.gate-main > header h1 { font-size: 18px; line-height: 1.4; }
+#agent-note-form { display: flex; align-items: center; gap: 12px; }
+#agent-note-form .field-label { flex: 1; }
+#agent-note-form textarea { min-height: 0; height: 38px; }
+#agent-note-form p { max-width: 210px; margin: 0; }
 .gate-main #plugin-frame-wrap { border: 0; border-radius: 0; }
 .gate-main .app-input { background: var(--bg-raised); border-color: var(--border); border-radius: 5px; font-size: 12px; }
 /* A decision cannot leave while the socket is down; say so quietly. */
@@ -305,7 +323,7 @@
   .gate-row { grid-template-columns: 14px minmax(0, 1fr) 90px 43px; }
   .gate-row-type { display: none; }
   .inbox-controls .app-input { max-width: 125px; }
-  .gate-main { padding: 22px 25px 40px; }
+  .gate-main { padding: 14px 18px 12px; }
   .plugin-row { grid-template-columns: 160px minmax(0, 1fr) 70px; }
   .topbar-shortcuts { font-size: 0; }
   .topbar-shortcuts kbd { font-size: 11px; }
@@ -323,7 +341,7 @@
   .gate-row-meta { font-size: 9px; }
   .inbox-repo > summary { padding: 9px 18px; }
   .inbox-footer { padding: 15px 18px; }
-  .gate-main { padding: 20px 18px; }
+  .gate-main { padding: 12px 14px; }
   .plugin-row { display: block; }
   .plugin-row > div, .plugin-row > span { margin: 10px 0; }
   .history-table th, .history-table td { padding: 12px 18px; }

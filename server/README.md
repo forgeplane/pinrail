@@ -86,6 +86,15 @@ open gate view keeps its state. `J` and `K` move between inbox rows, `Enter`
 opens the focused one and `/` focuses search. Inbox searches and history
 filters live in the URL, so a filtered view can be linked or reloaded.
 
+## Gate views in the page
+
+A view sizes itself through the bridge. Most report their content height and
+the frame grows to fit, so the page scrolls as one document and the view has
+no scrollbar of its own. A workbench view such as `review` asks to fill
+instead: the gate page then becomes exactly the viewport, the shell's header
+collapses to a line, the note box sits under the frame, and the view's own
+scrollbar is the only one on screen.
+
 ## The plugin bridge
 
 `assets/js/hooks/plugin_bridge.js` is the shell half of the plugin protocol.

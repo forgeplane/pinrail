@@ -277,9 +277,7 @@ defmodule WicketWeb.GateLive do
           phx-debounce="200"
           placeholder="Add context for what the agent should do next…"
         />
-        <p class="text-xs text-dim">
-          Optional. Sent with your decision. Submit in the view or press ⌘/Ctrl+Enter.
-        </p>
+        <p class="text-xs text-dim">Sent with your decision. ⌘/Ctrl+Enter submits.</p>
       </.form>
     </Layouts.app>
     """
