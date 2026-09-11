@@ -13,6 +13,8 @@ export const PluginBridge = {
   mounted() {
     this.gateId = this.el.dataset.gateId
     this.minHeight = parseInt(this.el.dataset.minHeight || "400", 10)
+    this.connected = true
+    this.submitting = false
     this.ready = false
     this.init = null
 
@@ -24,6 +26,7 @@ export const PluginBridge = {
         case "ready":
           this.ready = true
           this.sendInit()
+          this.pushEvent("plugin_ready", {})
           break
         case "resize":
           if (msg.height === "fill") {
@@ -31,16 +34,24 @@ export const PluginBridge = {
             // scrolls inside, the page only scrolls to reach what is below
             this.fill = true
             this.applyFill()
-          } else if (typeof msg.height === "number") {
+          } else if (typeof msg.height === "number" && Number.isFinite(msg.height)) {
             this.fill = false
-            this.el.style.height = Math.max(this.minHeight, Math.ceil(msg.height)) + "px"
+            this.el.style.height = Math.min(50000, Math.max(this.minHeight, Math.ceil(msg.height))) + "px"
           }
           break
         case "draft":
           this.saveDraft(msg.data)
           break
         case "submit":
-          this.pushEvent("submit", {data: msg.data})
+          if (!this.init || this.init.readonly || this.submitting) return
+          if (!this.connected) {
+            this.post({type: "violations", errors: [{path: "", message: "Reconnect before submitting. Your selections are preserved."}]})
+            return
+          }
+          this.submitting = true
+          // Read the DOM at commit time, not the last debounced server assign.
+          const agentNote = document.getElementById("agent_note")?.value || ""
+          this.pushEvent("submit", {data: msg.data, agent_note: agentNote}, () => { this.submitting = false })
           break
       }
     }
@@ -52,7 +63,7 @@ export const PluginBridge = {
     this.onKey = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault()
-        this.post({type: "collect"})
+        if (this.connected && this.init && !this.init.readonly && !this.submitting) this.post({type: "collect"})
       }
     }
     window.addEventListener("keydown", this.onKey)
@@ -61,12 +72,23 @@ export const PluginBridge = {
       this.init = payload
       this.sendInit()
     })
-    this.handleEvent("gate:violations", ({errors}) => this.post({type: "violations", errors}))
+    this.handleEvent("gate:violations", ({errors}) => {
+      this.submitting = false
+      this.post({type: "violations", errors})
+    })
+    this.onInput = (event) => {
+      if (event.target.id !== "agent_note") return
+      try { sessionStorage.setItem(this.draftKey() + ":note", event.target.value) } catch { /* Optional draft. */ }
+    }
+    document.addEventListener("input", this.onInput)
+    const note = document.getElementById("agent_note")
+    try { if (note) note.value = sessionStorage.getItem(this.draftKey() + ":note") ?? note.value } catch { /* Optional draft. */ }
     // Only now start loading the bundle: the listener above is in place, so
     // the plugin's "ready" cannot race the hook.
     this.el.src = this.el.dataset.src
 
     this.handleEvent("gate:submitted", ({decision}) => {
+      this.submitting = false
       this.clearDraft()
       if (this.fill) setTimeout(() => this.applyFill(), 50)
       // keep the stored init current, so a frame reload after the decision
@@ -82,6 +104,15 @@ export const PluginBridge = {
     window.removeEventListener("message", this.onMessage)
     window.removeEventListener("keydown", this.onKey)
     window.removeEventListener("resize", this.onResize)
+    document.removeEventListener("input", this.onInput)
+  },
+
+  disconnected() { this.connected = false },
+
+  reconnected() {
+    this.connected = true
+    this.submitting = false
+    this.pushEvent("plugin_ready", {})
   },
 
   applyFill() {
@@ -121,6 +152,7 @@ export const PluginBridge = {
   },
 
   saveDraft(data) {
+    if (this.init?.readonly) return
     try {
       sessionStorage.setItem(this.draftKey(), JSON.stringify(data))
     } catch (_e) {
@@ -131,6 +163,7 @@ export const PluginBridge = {
   clearDraft() {
     try {
       sessionStorage.removeItem(this.draftKey())
+      sessionStorage.removeItem(this.draftKey() + ":note")
     } catch (_e) {
       // ignore
     }

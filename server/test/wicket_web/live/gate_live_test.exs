@@ -70,6 +70,25 @@ defmodule WicketWeb.GateLiveTest do
     assert Gates.get!(gate.id).agent_note == "ship it"
   end
 
+  test "submit includes the latest note even before its debounce reaches the server", %{
+    conn: conn
+  } do
+    gate = create_gate!()
+    {:ok, view, _} = live(conn, ~p"/gates/#{gate.id}")
+    render_hook(view, "submit", %{"data" => list_decision(), "agent_note" => "The latest note"})
+    assert Gates.get!(gate.id).agent_note == "The latest note"
+    render_hook(view, "submit", %{"data" => list_decision(), "agent_note" => "Duplicate"})
+    assert Gates.get!(gate.id).agent_note == "The latest note"
+  end
+
+  test "plugin handshake after reconnection replays current read-only state", %{conn: conn} do
+    gate = create_gate!()
+    {:ok, view, _} = live(conn, ~p"/gates/#{gate.id}")
+    {:ok, _} = Gates.withdraw(gate.id)
+    render_hook(view, "plugin_ready", %{})
+    assert_push_event(view, "gate:init", %{readonly: true})
+  end
+
   test "an invalid submit relays violations and keeps the gate pending", %{conn: conn} do
     gate = create_gate!()
     {:ok, view, _html} = live(conn, ~p"/gates/#{gate.id}")

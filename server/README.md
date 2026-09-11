@@ -70,3 +70,20 @@ npx --prefix assets playwright install chromium
 
 They live in `test/wicket_web/browser/`, tagged `:playwright`. Test fixture
 plugins are in `test/fixtures/plugins/`.
+
+The shell's own JavaScript, including the plugin bridge, has unit tests that
+need no browser:
+
+```sh
+npm --prefix assets test      # or mise run test:shell
+```
+
+## The plugin bridge
+
+`assets/js/hooks/plugin_bridge.js` is the shell half of the plugin protocol.
+Beyond relaying messages it guards the decision: the agent note is read from
+the DOM at submit time rather than from the last debounced assign, a second
+submit is ignored while one is in flight, and a submit made while the socket
+is down comes back to the view as a violation instead of being lost. Drafts in
+`sessionStorage` are a convenience only; the decision files on the server
+remain authoritative.

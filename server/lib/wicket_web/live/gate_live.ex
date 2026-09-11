@@ -45,8 +45,23 @@ defmodule WicketWeb.GateLive do
     {:noreply, assign(socket, agent_note: note)}
   end
 
-  def handle_event("submit", %{"data" => data}, socket) do
-    case Gates.decide(socket.assigns.gate.id, data, agent_note: socket.assigns.agent_note) do
+  def handle_event("plugin_ready", _params, socket) do
+    # The gate may have settled between mount and the view saying it listens.
+    {:noreply, socket |> refresh() |> push_init()}
+  end
+
+  def handle_event("submit", %{"data" => data} = params, socket) do
+    # The bridge reads the note from the DOM at submit time, so a decision
+    # never carries a note the human has already replaced.
+    note =
+      case Map.get(params, "agent_note", socket.assigns.agent_note) do
+        value when is_binary(value) -> value
+        _ -> socket.assigns.agent_note
+      end
+
+    socket = assign(socket, agent_note: note)
+
+    case Gates.decide(socket.assigns.gate.id, data, agent_note: note) do
       {:ok, gate} ->
         socket =
           socket
