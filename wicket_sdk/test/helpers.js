@@ -10,11 +10,13 @@ function fakeEnv() {
     nextTimer: 1,
     shortcuts: [],
     observers: [],
+    themes: [],
     post(msg, target) { env.posted.push({ msg, target }); },
     listen(fn) { env.listeners.push(fn); },
     setTimeout(fn, ms) { const id = env.nextTimer++; env.timers.push({ id, fn, ms }); return id; },
     clearTimeout(id) { env.timers = env.timers.filter((t) => t.id !== id); },
     observeSize(cb) { env.observers.push(cb); cb(321); return () => {}; },
+    applyTheme(theme) { env.themes.push(theme); },
     onShortcut(fn) { env.shortcuts.push(fn); },
     // helpers
     deliver(data, origin = "http://shell.test") { env.listeners.forEach((fn) => fn(data, origin)); },

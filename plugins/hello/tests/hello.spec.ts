@@ -42,6 +42,19 @@ test("a typed comment is drafted and restored after a reload", async ({ page }) 
   await expect(plugin.frame.getByPlaceholder("comment (optional)")).toHaveValue("keep this");
 });
 
+test("follows the shell's theme without losing what was typed", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: push() });
+  const comment = plugin.frame.getByPlaceholder("comment (optional)");
+  await comment.fill("keep this");
+
+  await plugin.send({ type: "appearance", theme: "light" });
+  await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(comment).toHaveValue("keep this");
+
+  await plugin.send({ type: "appearance", theme: "dark" });
+  await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "dark");
+});
+
 test("renders a decided gate read-only", async ({ page }) => {
   const gate = { ...push(), decision: { decided_by: "alice", decided_at: "2026-09-11T10:00:00Z", data: { ok: false } } };
   const plugin = await mountPlugin(page, dir, { gate, readonly: true });

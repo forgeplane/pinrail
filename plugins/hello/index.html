@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <title>hello gate</title>
 <style>
-  body { margin: 0; padding: 16px; font: 14px/1.5 system-ui, sans-serif; color: #d7dce5; background: #15181e; }
-  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 6px 14px; border: 1px solid #39414f; background: #1a1e26; color: inherit; margin-right: 6px; }
-  input { font: inherit; color: inherit; background: #101216; border: 1px solid #39414f; border-radius: 6px; padding: 6px 9px; width: 100%; box-sizing: border-box; margin: 10px 0; }
-  .muted { color: #67707f; }
-  .err { color: #e5644e; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+  /* The shell sends its theme; the SDK sets data-theme for us. */
+  :root { --bg:#15181e; --field:#101216; --raised:#1a1e26; --border:#39414f; --text:#d7dce5; --muted:#67707f; --danger:#e5644e; color-scheme: dark; }
+  [data-theme="light"] { --bg:#ffffff; --field:#ffffff; --raised:#f6f7f9; --border:#c5c8d1; --text:#24262c; --muted:#737987; --danger:#bc4655; color-scheme: light; }
+  body { margin: 0; padding: 16px; font: 14px/1.5 system-ui, sans-serif; color: var(--text); background: var(--bg); }
+  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 6px 14px; border: 1px solid var(--border); background: var(--raised); color: inherit; margin-right: 6px; }
+  input { font: inherit; color: inherit; background: var(--field); border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; width: 100%; box-sizing: border-box; margin: 10px 0; }
+  .muted { color: var(--muted); }
+  .err { color: var(--danger); font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>

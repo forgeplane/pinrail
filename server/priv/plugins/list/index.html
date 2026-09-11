@@ -15,6 +15,17 @@
     --sev-minor:oklch(0.78 0.11 90); --sev-nit:oklch(0.68 0.02 250);
     --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
     --sans:"IBM Plex Sans",system-ui,sans-serif;
+    color-scheme: dark;
+  }
+  /* The shell sends its theme; the SDK sets data-theme for us. */
+  [data-theme="light"] {
+    --bg:#ffffff; --bg-panel:#ffffff; --bg-raised:#f6f7f9; --bg-hover:#f0f1f5;
+    --border:#e5e7eb; --border-strong:#c5c8d1;
+    --text:#24262c; --dim:#656a77; --faint:#737987;
+    --accent:#5965bc; --accent-bg:#f0f0fa;
+    --ok:#28795c; --danger:#bc4655;
+    --sev-blocker:#bc4655; --sev-major:#99651b; --sev-minor:#80721b; --sev-nit:#65738e;
+    color-scheme: light;
   }
   * { box-sizing: border-box; }
   body { margin: 0; padding: 16px 18px 18px; font: 13px/1.5 var(--sans); color: var(--text); background: var(--bg-panel); }

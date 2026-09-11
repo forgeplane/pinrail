@@ -12,6 +12,7 @@
  *     onViolations(errors) { … },     // [{ path, message }]
  *     onSubmitted(decision) { … },    // the decision was accepted; render read-only
  *     onCollect() { … },              // Cmd/Ctrl+Enter in the shell or in this frame
+ *     onAppearance(theme) { … },      // optional; "dark" | "light", already applied
  *   });
  *   plugin.submit(data);
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
@@ -22,7 +23,8 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.0.0";
+  const VERSION = "1.1.0";
+  const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
 
   function escape(s) {
@@ -81,7 +83,14 @@
   function createPlugin(env, handlers) {
     handlers = handlers || {};
     const resizeMode = handlers.resize || "auto";
-    const state = { shellOrigin: null, gate: null, previous: null, readonly: false, initialised: false };
+    const state = {
+      shellOrigin: null,
+      gate: null,
+      previous: null,
+      readonly: false,
+      initialised: false,
+      theme: "dark"
+    };
     let draftTimer = null;
     let stopObserving = null;
 
@@ -121,6 +130,15 @@
           if (state.gate) { state.gate.decision = data.decision || null; state.gate.status = "decided"; }
           if (handlers.onSubmitted) handlers.onSubmitted(data.decision || null);
           break;
+        case "appearance":
+          // The shell owns the theme; the plugin follows it. `data-theme` on
+          // the root is set here, so a view only needs the CSS for it.
+          if (THEMES.includes(data.theme)) {
+            state.theme = data.theme;
+            if (env.applyTheme) env.applyTheme(data.theme);
+            if (handlers.onAppearance) handlers.onAppearance(data.theme);
+          }
+          break;
         case "collect":
           collect();
           break;
@@ -137,6 +155,7 @@
       get readonly() { return state.readonly; },
       get shellOrigin() { return state.shellOrigin; },
       get initialised() { return state.initialised; },
+      get theme() { return state.theme; },
       submit(data) { post({ type: "submit", data }); },
       draft(data, opts) {
         if (state.readonly) return;
@@ -164,6 +183,7 @@
         emit();
         return () => ro.disconnect();
       },
+      applyTheme: (theme) => { doc.documentElement.dataset.theme = theme; },
       onShortcut: (fn) => win.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); fn(); }
       }),

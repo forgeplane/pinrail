@@ -21,6 +21,19 @@ textarea, button, input { font: inherit; color: inherit; }
   --del-bg:oklch(0.6 0.15 25 / 0.1); --del-gut:oklch(0.6 0.15 25 / 0.18);
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace; --sans:"IBM Plex Sans",system-ui,sans-serif;
   --ui:13px; --code-size:12.5px;
+  color-scheme: dark;
+}
+/* The shell sends its theme; the SDK sets data-theme for us. */
+[data-theme="light"] {
+  --bg:#ffffff; --bg-panel:#f6f7f9; --bg-raised:#ffffff; --bg-hover:#f0f1f5;
+  --border:#e5e7eb; --border-strong:#c5c8d1;
+  --text:#24262c; --dim:#656a77; --faint:#737987;
+  --accent:#5965bc; --accent-bg:#f0f0fa;
+  --ok:#28795c; --danger:#bc4655;
+  --sev-blocker:#bc4655; --sev-major:#99651b; --sev-minor:#80721b; --sev-nit:#65738e;
+  --add-bg:oklch(0.65 0.13 150 / 0.13); --add-gut:oklch(0.65 0.13 150 / 0.24);
+  --del-bg:oklch(0.6 0.16 25 / 0.11); --del-gut:oklch(0.6 0.16 25 / 0.2);
+  color-scheme: light;
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }

@@ -15,12 +15,24 @@ shortcut.
     onViolations(errors) { showErrors(errors); },   // [{ path, message }]
     onSubmitted(decision) { render(); },           // now read-only
     onCollect() { submit(); },                     // ⌘/Ctrl+Enter, from the shell or in here
+    onAppearance(theme) { … },                     // optional: "dark" | "light"
   });
   plugin.submit(data);
   plugin.draft(data);                   // debounced 150ms; { flush: true } posts at once
   plugin.readonly; plugin.gate; plugin.previous;
 </script>
 ```
+
+The shell owns the theme and sends it before `init` and again whenever it
+changes. The SDK sets `data-theme` on the plugin's root element and exposes
+`plugin.theme`, so a view only has to write the CSS:
+
+```css
+:root { --bg: #18191b; --text: #ededef; color-scheme: dark; }
+[data-theme="light"] { --bg: #fff; --text: #24262c; color-scheme: light; }
+```
+
+A theme change never re-initialises the view or touches its draft.
 
 Helpers: `Wicket.escape(s)`, `Wicket.markdown(s)` (paragraphs, bold,
 italic, inline and fenced code, lists, http links; escapes first), and

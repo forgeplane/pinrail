@@ -104,6 +104,7 @@ Shell → plugin:
 | `violations` | `errors: [{path, message}]`, JSON pointers into the rejected decision |
 | `submitted` | `decision` – the decision was accepted; render read-only |
 | `collect` | the human pressed ⌘/Ctrl+Enter while focus was in the shell; submit if you can. Handle the same shortcut inside your own document too: once the human has clicked in the frame, the shell never sees it |
+| `appearance` | `theme: "dark" \| "light"` – the shell's theme, sent before `init` and again on every change. The SDK applies it as `data-theme` on your root element; write the CSS and you are done |
 
 Plugin → shell:
 

@@ -65,6 +65,20 @@ test("a draft is stored per gate and cleared once the decision is in", () => {
   assert.equal(storage.has("wicket:draft:gate-1"), false)
 })
 
+test("the view is told the theme, without a re-init or a lost draft", () => {
+  const {hook, message, sent, storage} = setup()
+  message({type: "draft", data: {choice: "reject"}})
+  const draft = storage.get("wicket:draft:gate-1")
+  const inits = sent.filter(x => x.type === "init").length
+
+  hook.onAppearance()
+
+  assert.equal(sent.at(-1).type, "appearance")
+  assert.equal(sent.at(-1).theme, "light")
+  assert.equal(sent.filter(x => x.type === "init").length, inits)
+  assert.equal(storage.get("wicket:draft:gate-1"), draft)
+})
+
 test("foreign frames are ignored and invalid resize values cannot corrupt frame height", () => {
   const {hook, listeners, message, pushed} = setup()
   listeners.get("message")({source: {}, data: {wicket: 1, type: "submit", data: {ok: true}}})

@@ -126,6 +126,44 @@ test("resize: auto observes after init, fill posts once, manual posts nothing", 
   assert.deepEqual(manual.last("resize").msg.height, 500);
 });
 
+test("appearance applies the theme, exposes it, and ignores anything else", () => {
+  const env = fakeEnv();
+  const seen = [];
+  const plugin = Wicket.createPlugin(env, { resize: "manual", onAppearance: (t) => seen.push(t) });
+
+  assert.equal(plugin.theme, "dark", "dark until the shell says otherwise");
+
+  // the shell sends it before init, so the first paint is already correct
+  env.deliver(shell({ type: "appearance", theme: "light" }));
+  assert.equal(plugin.theme, "light");
+  assert.deepEqual(env.themes, ["light"]);
+  assert.deepEqual(seen, ["light"]);
+
+  env.deliver(shell({ type: "appearance", theme: "sepia" }));
+  env.deliver(shell({ type: "appearance" }));
+  assert.equal(plugin.theme, "light");
+  assert.deepEqual(env.themes, ["light"]);
+  assert.deepEqual(seen, ["light"]);
+
+  env.deliver(shell({ type: "appearance", theme: "dark" }));
+  assert.deepEqual(env.themes, ["light", "dark"]);
+});
+
+test("a theme change neither re-initialises the view nor disturbs a draft", () => {
+  const env = fakeEnv();
+  let inits = 0;
+  const plugin = Wicket.createPlugin(env, { resize: "manual", onInit: () => inits++ });
+  env.deliver(init());
+  plugin.draft({ n: 1 }, { flush: true });
+
+  env.deliver(shell({ type: "appearance", theme: "light" }));
+
+  assert.equal(inits, 1);
+  assert.equal(env.types().filter((t) => t === "draft").length, 1);
+  assert.deepEqual(env.last("draft").msg.data, { n: 1 });
+  assert.equal(plugin.readonly, false);
+});
+
 test("escape, markdown and previousVerdict", () => {
   assert.equal(Wicket.escape(`<a href="x">&'`), "&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
 

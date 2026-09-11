@@ -5,7 +5,8 @@
 // Every message is {wicket: 1, type, ...}.
 //   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data}
 //   shell -> plugin: init {gate, previous, readonly, draft, shell_origin} |
-//                    violations {errors} | submitted {decision} | collect
+//                    violations {errors} | submitted {decision} | collect |
+//                    appearance {theme}
 
 const DRAFT_PREFIX = "wicket:draft:"
 
@@ -76,6 +77,10 @@ export const PluginBridge = {
       this.submitting = false
       this.post({type: "violations", errors})
     })
+    // The shell owns the theme; tell the view whenever it changes.
+    this.onAppearance = () => this.sendAppearance()
+    window.addEventListener("wicket:appearance", this.onAppearance)
+
     this.onInput = (event) => {
       if (event.target.id !== "agent_note") return
       try { sessionStorage.setItem(this.draftKey() + ":note", event.target.value) } catch { /* Optional draft. */ }
@@ -104,6 +109,7 @@ export const PluginBridge = {
     window.removeEventListener("message", this.onMessage)
     window.removeEventListener("keydown", this.onKey)
     window.removeEventListener("resize", this.onResize)
+    window.removeEventListener("wicket:appearance", this.onAppearance)
     document.removeEventListener("input", this.onInput)
   },
 
@@ -115,6 +121,10 @@ export const PluginBridge = {
     this.pushEvent("plugin_ready", {})
   },
 
+  sendAppearance() {
+    this.post({type: "appearance", theme: document.documentElement.dataset.theme === "light" ? "light" : "dark"})
+  },
+
   applyFill() {
     const top = this.el.getBoundingClientRect().top + window.scrollY
     const height = window.innerHeight - top - 24
@@ -124,6 +134,7 @@ export const PluginBridge = {
   sendInit() {
     if (!this.ready || !this.init) return
     const {gate, previous, readonly} = this.init
+    this.sendAppearance()
     this.post({
       type: "init",
       gate,
