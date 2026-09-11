@@ -92,3 +92,16 @@
 
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* The wicket mark: a gate in a larger door. Drawn as a mask so it takes the
+   colour of whatever it sits in, in either theme. */
+.wicket-mark {
+  display: block;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  background: currentColor;
+  --wicket-mark-src: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 21V3h7v18 M14 21V3h7v18' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  -webkit-mask: var(--wicket-mark-src) center / 22px 22px no-repeat;
+  mask: var(--wicket-mark-src) center / 22px 22px no-repeat;
+}

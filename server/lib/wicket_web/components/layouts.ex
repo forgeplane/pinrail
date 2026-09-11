@@ -22,8 +22,11 @@ defmodule WicketWeb.Layouts do
 
     ~H"""
     <header class="sticky top-0 z-10 flex items-center gap-6 border-b border-border bg-panel px-5 h-12">
-      <.link navigate={~p"/"} class="font-semibold tracking-tight text-text hover:no-underline">
-        wicket
+      <.link
+        navigate={~p"/"}
+        class="flex items-center gap-2 font-semibold tracking-tight text-text hover:no-underline"
+      >
+        <span class="wicket-mark" aria-hidden="true"></span>wicket
       </.link>
       <nav class="flex items-center gap-1" aria-label="Main">
         <.link
