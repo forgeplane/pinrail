@@ -121,6 +121,36 @@ defmodule WicketWeb.Browser.GateTest do
     assert Gate.status(Gates.get!(gate.id)) == :pending
   end
 
+  test "typing a note does not bring the loading cover back", %{conn: conn} do
+    gate = create_gate!()
+
+    conn
+    |> visit("/gates/#{gate.id}")
+    |> within_plugin(&assert_has(&1, "button", text: "accept all undecided"))
+    |> assert_cover_down("the view reported its size")
+    |> fill_in("Note to the agent", with: "one more round, tickets only")
+    |> settle()
+    |> assert_cover_down("a note reaching the server leaves it down")
+    |> fill_in("Note to the agent", with: "changed my mind")
+    |> settle()
+    |> assert_cover_down("and so does the next one")
+  end
+
+  # Past the note's debounce and the round trip that follows it.
+  defp settle(conn) do
+    evaluate(conn, "new Promise((resolve) => setTimeout(() => resolve(true), 700))")
+  end
+
+  defp assert_cover_down(conn, why) do
+    evaluate(
+      conn,
+      ~s|getComputedStyle(document.querySelector(".plugin-loading")).display|,
+      fn display ->
+        assert display == "none", why
+      end
+    )
+  end
+
   test "the note box grows with the note, scrolls past its ceiling, and keeps the button level",
        %{conn: conn} do
     gate = create_gate!()

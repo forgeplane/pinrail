@@ -147,9 +147,15 @@ export const PluginBridge = {
     this.pushEvent("plugin_ready", {})
   },
 
+  // The mark goes on the cover itself, not on the wrapper. The wrapper is the
+  // phx-update="ignore" container, and LiveView strips any data- attribute
+  // there that the server did not render, so a note change would put the cover
+  // back for good: the view has already reported its size and will not again.
+  // Everything inside the container is left alone.
   markLoaded() {
     clearTimeout(this.loadingFallback)
-    if (this.el.parentElement) this.el.parentElement.dataset.loaded = "true"
+    const cover = this.el.parentElement && this.el.parentElement.querySelector(".plugin-loading")
+    if (cover) cover.dataset.done = "true"
   },
 
   collect() {

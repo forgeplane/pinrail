@@ -10,7 +10,8 @@ function setup() {
   const listeners = new Map(), docListeners = new Map(), handlers = new Map(), pushed = [], sent = [], storage = new Map()
   const note = {value: "latest unsent note"}
   const handover = {tagName: "BUTTON", textContent: "Hand over", disabled: false, closest: (s) => s === "[data-handover]" ? handover : null}
-  const wrap = {dataset: {}}
+  const cover = {className: "plugin-loading", dataset: {}}
+  const wrap = {dataset: {}, querySelector: (s) => s === ".plugin-loading" ? cover : null}
   const contentWindow = {postMessage: (message) => sent.push(message)}
   const window = {
     addEventListener: (name, fn) => listeners.set(name, fn),
@@ -46,7 +47,7 @@ function setup() {
   handlers.get("gate:init")({gate: {id: "gate-1"}, readonly: false})
   message({type: "ready"})
   const clickHandover = () => docListeners.get("click")({target: handover, preventDefault() {}})
-  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow, body, handover, clickHandover, wrap}
+  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow, body, handover, clickHandover, wrap, cover}
 }
 
 test("the hand-over button asks the view to collect, and the view labels it", () => {
@@ -109,11 +110,13 @@ test("a draft is stored per gate and cleared once the decision is in", () => {
 })
 
 test("the loading cover stays until the view reports a size", () => {
-  const {message, wrap} = setup()
-  assert.equal(wrap.dataset.loaded, undefined, "ready alone paints nothing")
+  const {message, wrap, cover} = setup()
+  assert.equal(cover.dataset.done, undefined, "ready alone paints nothing")
 
   message({type: "resize", height: 620})
-  assert.equal(wrap.dataset.loaded, "true")
+  assert.equal(cover.dataset.done, "true")
+  // The wrapper is LiveView's; anything left there is wiped on the next patch.
+  assert.deepEqual(wrap.dataset, {}, "the mark is not on the ignored container")
 })
 
 test("a reported height is used but capped, and fill takes the whole slot", () => {
