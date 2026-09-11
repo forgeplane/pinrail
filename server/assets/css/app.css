@@ -316,34 +316,32 @@
 .gate-main #plugin-frame-wrap { border: 0; border-radius: 0; }
 
 /* A gate view is a separate document: it has to be fetched, parsed and told
-   about the gate before it can paint. Cover the empty frame until it has,
-   but only if that takes long enough to notice. */
+   about the gate before it can paint. Cover the frame until it has.
+
+   The cover carries the page's own colour, so it changes nothing on a fast
+   load; only the spinner waits, and appears if the load is slow enough to be
+   worth explaining. The view itself is never faded in: the moment it reports
+   a size it has something to show, and delaying that is the very thing this
+   is meant to avoid. */
 #plugin-frame-wrap { position: relative; }
 .plugin-loading {
   position: absolute; inset: 0; z-index: 1;
   display: flex; align-items: center; justify-content: center; gap: 10px;
   background: var(--bg-panel);
   font-size: 12px; color: var(--dim);
-  opacity: 0;
-  animation: plugin-loading-in 0.2s ease-out 0.15s forwards;
 }
-#plugin-frame-wrap[data-loaded] .plugin-loading { animation: none; opacity: 0; visibility: hidden; }
-#plugin-frame { opacity: 0; }
-#plugin-frame-wrap[data-loaded] #plugin-frame { opacity: 1; }
+.plugin-loading > * { opacity: 0; animation: plugin-loading-in 0.2s ease-out 0.15s forwards; }
+#plugin-frame-wrap[data-loaded] .plugin-loading { display: none; }
 @keyframes plugin-loading-in { to { opacity: 1; } }
 .spinner {
   width: 16px; height: 16px; flex: none;
   border: 2px solid var(--border-strong); border-top-color: var(--accent);
   border-radius: 50%;
-  animation: plugin-spin 0.7s linear infinite;
+  animation: plugin-spin 0.7s linear infinite, plugin-loading-in 0.2s ease-out 0.15s forwards;
 }
 @keyframes plugin-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: no-preference) {
-  #plugin-frame { transition: opacity 0.15s ease-out; }
-  .plugin-loading { transition: opacity 0.15s ease-out; }
-}
 @media (prefers-reduced-motion: reduce) {
-  .spinner { animation: none; border-top-color: var(--border-strong); }
+  .spinner { animation: plugin-loading-in 0.2s ease-out 0.15s forwards; border-top-color: var(--border-strong); }
 }
 .gate-main .app-input { background: var(--bg-raised); border-color: var(--border); border-radius: 5px; font-size: 12px; }
 /* A decision cannot leave while the socket is down; say so quietly. */
