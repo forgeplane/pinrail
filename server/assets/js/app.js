@@ -1,3 +1,4 @@
+import {connectionChanged} from "./ui"
 // If you want to use Phoenix channels, run `mix help phx.gen.channel`
 // to get started and then uncomment the line below.
 // import "./user_socket.js"
@@ -34,11 +35,14 @@ const liveSocket = new LiveSocket("/live", Socket, {
 })
 
 // Show progress bar on live navigation and form submits
-topbar.config({barColors: {0: "oklch(0.72 0.12 235)"}, shadowColor: "rgba(0, 0, 0, .3)"})
+topbar.config({barColors: {0: "#8186dc"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
+liveSocket.socket.onOpen(() => connectionChanged(true))
+liveSocket.socket.onClose(() => connectionChanged(false))
+liveSocket.socket.onError(() => connectionChanged(false))
 liveSocket.connect()
 
 // expose liveSocket on window for web console debug logs and latency simulation:

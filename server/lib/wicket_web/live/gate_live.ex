@@ -33,7 +33,12 @@ defmodule WicketWeb.GateLive do
 
     socket =
       socket
-      |> assign(page: nil, agent_note: "", violations: [])
+      |> assign(
+        page: nil,
+        agent_note: "",
+        note_form: to_form(%{"agent_note" => ""}),
+        violations: []
+      )
       |> put_gate(gate)
       |> push_init()
 
@@ -42,24 +47,19 @@ defmodule WicketWeb.GateLive do
 
   @impl true
   def handle_event("agent_note", %{"agent_note" => note}, socket) do
-    {:noreply, assign(socket, agent_note: note)}
+    {:noreply, assign(socket, agent_note: note, note_form: to_form(%{"agent_note" => note}))}
   end
 
-  def handle_event("plugin_ready", _params, socket) do
-    # The gate may have settled between mount and the view saying it listens.
-    {:noreply, socket |> refresh() |> push_init()}
-  end
+  def handle_event("plugin_ready", _, socket), do: {:noreply, socket |> refresh() |> push_init()}
 
   def handle_event("submit", %{"data" => data} = params, socket) do
-    # The bridge reads the note from the DOM at submit time, so a decision
-    # never carries a note the human has already replaced.
     note =
       case Map.get(params, "agent_note", socket.assigns.agent_note) do
         value when is_binary(value) -> value
         _ -> socket.assigns.agent_note
       end
 
-    socket = assign(socket, agent_note: note)
+    socket = assign(socket, agent_note: note, note_form: to_form(%{"agent_note" => note}))
 
     case Gates.decide(socket.assigns.gate.id, data, agent_note: note) do
       {:ok, gate} ->
@@ -140,7 +140,16 @@ defmodule WicketWeb.GateLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} page={@page}>
+    <Layouts.app
+      flash={@flash}
+      page={@page}
+      pending_count={@pending_count}
+      repositories={@repositories}
+    >
+      <.link navigate={~p"/"} class="flex items-center gap-2 text-xs text-dim"><.icon
+        name="hero-arrow-left"
+        class="size-3.5"
+      />Back to inbox</.link>
       <header class="space-y-2">
         <div class="flex flex-wrap items-center gap-2">
           <.status_badge status={@status} />
@@ -218,7 +227,7 @@ defmodule WicketWeb.GateLive do
           class="rounded-md border border-danger/40 bg-danger/5 px-4 py-3 text-[12.5px] text-danger"
         >
           The view for {@gate.type} v{@gate.type_version} is not available, so this gate cannot be rendered.
-          The decision data above is still complete.
+          No action can be authorized from this unavailable view. Recorded decisions remain preserved.
         </div>
       </div>
 
@@ -252,26 +261,26 @@ defmodule WicketWeb.GateLive do
         </li>
       </ul>
 
-      <form
+      <.form
         :if={@plugin != nil and not @readonly}
+        for={@note_form}
         id="agent-note-form"
         phx-change="agent_note"
         phx-submit="agent_note"
-        class="space-y-1"
+        class="space-y-2"
       >
-        <label for="agent_note" class="text-[11px] font-bold uppercase tracking-[0.08em] text-faint">note to the agent</label>
-        <textarea
-          id="agent_note"
-          name="agent_note"
-          phx-debounce="200"
+        <.input
+          field={@note_form[:agent_note]}
+          label="Note to the agent"
+          type="textarea"
           rows="3"
-          placeholder="Scope for the next round, a correction, anything the per-item notes had nowhere to say. Sent with the decision."
-          class="w-full resize-y rounded-md border border-border-strong bg-bg px-3 py-2 text-[12.5px] text-text outline-none focus:border-accent"
-        >{@agent_note}</textarea>
-        <p class="text-[11.5px] text-faint">
-          Submit from inside the view, or press ⌘/Ctrl+Enter to ask it to collect.
+          phx-debounce="200"
+          placeholder="Add context for what the agent should do next…"
+        />
+        <p class="text-xs text-dim">
+          Optional. Sent with your decision. Submit in the view or press ⌘/Ctrl+Enter.
         </p>
-      </form>
+      </.form>
     </Layouts.app>
     """
   end

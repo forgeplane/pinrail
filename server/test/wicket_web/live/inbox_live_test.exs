@@ -67,4 +67,18 @@ defmodule WicketWeb.InboxLiveTest do
     view |> element("#gate-#{gate.id}") |> render_click()
     assert_redirect(view, ~p"/gates/#{gate.id}")
   end
+
+  test "search is linkable, stays filtered on live updates, and can be cleared", %{conn: conn} do
+    a = create_gate!(%{title: "Authentication"})
+    b = create_gate!(%{title: "Payments"})
+    {:ok, view, _} = live(conn, ~p"/?q=Authentication")
+    assert has_element?(view, "#gate-#{a.id}")
+    refute has_element?(view, "#gate-#{b.id}")
+    c = create_gate!(%{title: "Other"})
+    refute has_element?(view, "#gate-#{c.id}")
+    view |> form("#inbox-search-form", inbox: %{q: ""}) |> render_change()
+    assert has_element?(view, "#gate-#{b.id}")
+    assert has_element?(view, "#sidebar-toggle[aria-controls=app-sidebar]")
+    assert has_element?(view, "#theme-toggle")
+  end
 end

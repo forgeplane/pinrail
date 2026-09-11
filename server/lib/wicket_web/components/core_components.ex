@@ -73,7 +73,7 @@ defmodule WicketWeb.CoreComponents do
       "inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-[12.5px] font-semibold whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
 
     variants = %{
-      "primary" => "bg-accent text-white hover:brightness-110",
+      "primary" => "bg-[var(--button-bg)] text-white hover:brightness-110",
       "ghost" => "border border-border text-dim hover:border-border-strong hover:text-text",
       "danger" => "border border-danger/45 text-danger hover:bg-danger/10"
     }
@@ -105,7 +105,7 @@ defmodule WicketWeb.CoreComponents do
 
   def page_header(assigns) do
     ~H"""
-    <header class="flex items-end justify-between gap-6 pb-2">
+    <header class="page-head">
       <div>
         <h1 class="text-base font-semibold leading-7 text-text">{@title}</h1>
         <p :if={@subtitle != []} class="text-[12.5px] text-dim">{render_slot(@subtitle)}</p>
@@ -119,16 +119,47 @@ defmodule WicketWeb.CoreComponents do
   Centered placeholder for a page with nothing to show.
   """
   attr :id, :string, required: true
-  slot :inner_block, required: true
+  attr :title, :string, default: "Nothing here yet"
+  attr :icon, :string, default: "hero-inbox"
+  slot :inner_block
+  slot :actions
 
   def empty_state(assigns) do
     ~H"""
-    <div
-      id={@id}
-      class="rounded-lg border border-dashed border-border px-6 py-12 text-center text-[12.5px] text-faint"
-    >
-      {render_slot(@inner_block)}
-    </div>
+    <section id={@id} class="empty-state" aria-labelledby={@id <> "-title"}>
+      <div class="empty-emblem"><.icon name={@icon} class="size-7" /></div>
+      <h2 id={@id <> "-title"}>{@title}</h2>
+      <p>{render_slot(@inner_block)}</p>
+      <div :if={@actions != []} class="empty-actions">{render_slot(@actions)}</div>
+    </section>
+    """
+  end
+
+  attr :field, Phoenix.HTML.FormField, required: true
+  attr :label, :string, required: true
+  attr :type, :string, default: "text"
+  attr :class, :string, default: "app-input"
+  attr :options, :list, default: []
+  attr :rest, :global, include: ~w(placeholder autocomplete maxlength required disabled rows)
+
+  def input(assigns) do
+    ~H"""
+    <label class="field-label" for={@field.id}>
+      <span>{@label}</span>
+      <input
+        :if={@type not in ["select", "textarea"]}
+        id={@field.id}
+        name={@field.name}
+        value={@field.value}
+        type={@type}
+        class={@class}
+        {@rest}
+      />
+      <select :if={@type == "select"} id={@field.id} name={@field.name} class={@class} {@rest}>
+        {Phoenix.HTML.Form.options_for_select(@options, @field.value)}
+      </select>
+      <textarea :if={@type == "textarea"} id={@field.id} name={@field.name} class={@class} {@rest}>{@field.value}</textarea>
+    </label>
     """
   end
 

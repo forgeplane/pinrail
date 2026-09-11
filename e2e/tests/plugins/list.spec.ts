@@ -16,7 +16,7 @@ test("accept, reject with a reason, add a note, submit; the waiter gets exactly 
   await frame.getByLabel("note for item 2").fill("not worth a comment");
   await frame.getByRole("button", { name: "+ add a note of your own" }).click();
   await frame.getByLabel("addition 1", { exact: true }).fill("please also check the migration");
-  await page.getByLabel("note to the agent").fill("next round: tickets only");
+  await page.getByLabel("Note to the agent").fill("next round: tickets only");
   await expect(frame.locator(".footer")).toContainText("1 accepted · 1 rejected · 0 undecided");
   await frame.getByRole("button", { name: "Submit decisions" }).click();
 

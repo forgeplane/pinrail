@@ -1,5 +1,7 @@
 /* wicket theme. Tailwind 4 utilities on top of a small token set; dark by
-   default, with a light set kept under [data-theme="light"] for later. */
+   default, light under [data-theme="light"], which the topbar toggle sets.
+   Gate views are sandboxed iframes and inherit none of this: they are told
+   the theme over the plugin protocol and carry their own copy of the roles. */
 
 @import "tailwindcss" source(none);
 @import "phoenix-colocated/wicket/colocated.css";
@@ -12,26 +14,26 @@
 @plugin "../vendor/heroicons";
 
 :root {
-  --bg: #101216; --bg-panel: #15181e; --bg-raised: #1a1e26; --bg-hover: #20252f;
-  --border: #262c37; --border-strong: #39414f;
-  --text: #d7dce5; --dim: #9aa3b2; --faint: #67707f;
-  --accent: oklch(0.72 0.12 235); --accent-bg: oklch(0.72 0.12 235 / 0.12);
-  --ok: oklch(0.7 0.13 150); --danger: oklch(0.65 0.16 25);
-  --sev-blocker: oklch(0.64 0.18 25); --sev-major: oklch(0.72 0.14 55);
-  --sev-minor: oklch(0.78 0.11 90); --sev-nit: oklch(0.68 0.02 250);
+  --bg: #18191b; --bg-panel: #18191b; --bg-raised: #202124; --bg-hover: #232428;
+  --sidebar: #141517;
+  --border: #2b2d31; --border-strong: #44474e;
+  --text: #ededef; --dim: #999ba5; --faint: #7b7d87;
+  --accent: #a1a5ef; --accent-bg: #292a3c; --button-bg: #6873d6;
+  --ok: #7cc79e; --danger: #e48c98;
+  --sev-blocker: #e48c98; --sev-major: #d4ac6a; --sev-minor: #c7bf85; --sev-nit: #a0abc2;
   --add-bg: oklch(0.65 0.12 150 / 0.1); --add-gut: oklch(0.65 0.12 150 / 0.18);
   --del-bg: oklch(0.6 0.15 25 / 0.1); --del-gut: oklch(0.6 0.15 25 / 0.18);
   color-scheme: dark;
 }
 
 [data-theme="light"] {
-  --bg: #fafafa; --bg-panel: #f2f3f5; --bg-raised: #ffffff; --bg-hover: #e9ebee;
-  --border: #e0e2e7; --border-strong: #c4c8d0;
-  --text: #23262d; --dim: #5b6472; --faint: #8b93a1;
-  --accent: oklch(0.55 0.14 240); --accent-bg: oklch(0.55 0.14 240 / 0.1);
-  --ok: oklch(0.55 0.14 150); --danger: oklch(0.55 0.18 25);
-  --sev-blocker: oklch(0.55 0.19 25); --sev-major: oklch(0.6 0.15 55);
-  --sev-minor: oklch(0.6 0.12 90); --sev-nit: oklch(0.55 0.02 250);
+  --bg: #ffffff; --bg-panel: #ffffff; --bg-raised: #f6f7f9; --bg-hover: #f3f4f7;
+  --sidebar: #f7f8fa;
+  --border: #e8e9ed; --border-strong: #cdd0d7;
+  --text: #24262c; --dim: #72757f; --faint: #888b94;
+  --accent: #5965cb; --accent-bg: #f0f0fa; --button-bg: #5965bc;
+  --ok: #28795c; --danger: #bc4655;
+  --sev-blocker: #bc4655; --sev-major: #99651b; --sev-minor: #80721b; --sev-nit: #65738e;
   --add-bg: oklch(0.65 0.13 150 / 0.13); --add-gut: oklch(0.65 0.13 150 / 0.24);
   --del-bg: oklch(0.6 0.16 25 / 0.11); --del-gut: oklch(0.6 0.16 25 / 0.2);
   color-scheme: light;
@@ -39,8 +41,8 @@
 
 /* Expose the tokens as Tailwind colors/fonts: bg-panel, text-dim, border-border, font-mono… */
 @theme inline {
-  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --color-bg: var(--bg);
   --color-panel: var(--bg-panel);
@@ -79,7 +81,17 @@
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
   textarea, button, input, select { font: inherit; color: inherit; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -104,4 +116,219 @@
   --wicket-mark-src: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 21V3h7v18 M14 21V3h7v18' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   -webkit-mask: var(--wicket-mark-src) center / 22px 22px no-repeat;
   mask: var(--wicket-mark-src) center / 22px 22px no-repeat;
+}
+
+/* ---------------------------------------------------------------------------
+   Shell: sidebar, topbar, and the frame every page renders inside.
+   --------------------------------------------------------------------------- */
+
+.skip-link { position: fixed; top: -100px; left: 12px; z-index: 100; background: var(--bg-raised); padding: 10px; border-radius: 5px; }
+.skip-link:focus { top: 10px; }
+
+.app-sidebar {
+  position: fixed; inset: 0 auto 0 0; z-index: 20;
+  width: 196px; padding: 22px 12px 16px;
+  display: flex; flex-direction: column;
+  background: var(--sidebar); border-right: 1px solid var(--border);
+}
+.app-brand { display: flex; align-items: center; gap: 8px; padding: 0 10px; font-size: 21px; font-weight: 650; letter-spacing: -0.8px; color: var(--text); }
+.app-brand:hover, .app-nav a:hover, .sidebar-repo-link:hover { text-decoration: none; }
+.workspace-name { display: flex; align-items: center; gap: 9px; margin: 18px 8px 19px; font-size: 11px; color: var(--dim); }
+
+.app-nav { display: grid; gap: 3px; }
+.app-nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 5px; color: var(--dim); font-size: 12px; }
+.app-nav a:hover, .app-nav a.is-active { background: var(--bg-hover); color: var(--text); }
+.nav-count { margin-left: auto; min-width: 16px; text-align: center; font-size: 11px; color: var(--dim); }
+
+.sidebar-repositories h2 { margin: 28px 10px 8px; font-size: 10px; font-weight: 500; letter-spacing: 0.4px; color: var(--faint); }
+.sidebar-repo-link { display: flex; align-items: center; gap: 10px; padding: 8px 11px; border-radius: 5px; font-size: 11px; color: var(--dim); }
+.sidebar-repo-link:hover { color: var(--text); background: var(--bg-hover); }
+.repo-square { height: 6px; width: 6px; flex: none; border-radius: 2px; background: var(--faint); }
+
+.sidebar-bottom { margin-top: auto; }
+.connection-state { display: flex; align-items: center; gap: 8px; padding: 12px 8px 0; border-top: 1px solid var(--border); font-size: 10px; color: var(--dim); }
+.connection-dot { height: 5px; width: 5px; flex: none; border-radius: 50%; background: var(--sev-major); }
+[data-connected="true"] .connection-dot { background: var(--ok); }
+
+[data-sidebar="collapsed"] .app-sidebar { width: 60px; padding: 24px 8px 16px; }
+[data-sidebar="collapsed"] .sidebar-label { display: none; }
+[data-sidebar="collapsed"] .app-brand { padding: 0; justify-content: center; }
+[data-sidebar="collapsed"] .app-nav { margin-top: 28px; }
+[data-sidebar="collapsed"] .app-nav a { justify-content: center; padding: 10px; }
+[data-sidebar="collapsed"] .app-shell { margin-left: 60px; }
+[data-sidebar="collapsed"] .connection-state { justify-content: center; }
+
+.app-shell { margin-left: 196px; min-width: 0; }
+.app-topbar { height: 52px; display: flex; align-items: center; gap: 9px; padding: 0 26px; border-bottom: 1px solid var(--border); }
+.chrome-button { display: inline-flex; align-items: center; justify-content: center; height: 26px; width: 26px; border-radius: 4px; color: var(--dim); }
+.chrome-button:hover { color: var(--text); background: var(--bg-hover); }
+.theme-moon { display: none; }
+[data-theme="light"] .theme-moon { display: inline-block; }
+[data-theme="light"] .theme-sun { display: none; }
+.topbar-shortcuts { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dim); }
+.topbar-shortcuts kbd { border: 0; background: none; padding: 0; font-size: 11px; }
+.app-main { padding: 0; }
+
+.app-dialog {
+  margin: auto; width: 460px; max-width: calc(100vw - 32px); padding: 26px;
+  background: var(--bg-panel); color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: 10px;
+  box-shadow: 0 25px 100px #0005;
+}
+.app-dialog::backdrop { background: #0007; }
+.app-dialog h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
+.shortcut-list { display: grid; grid-template-columns: 1fr auto; gap: 16px; margin: 25px 0; font-size: 12px; color: var(--dim); }
+
+/* ---------------------------------------------------------------------------
+   Page furniture shared by more than one page.
+   --------------------------------------------------------------------------- */
+
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 28px 30px 20px; }
+.page-head h1, .inbox-head h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.45px; line-height: 1.5; }
+.page-head button, .empty-actions a, .empty-actions button { padding: 7px 11px; border-radius: 5px; font-size: 11px; font-weight: 500; }
+
+.field-label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--dim); }
+.app-input { width: 100%; padding: 9px 11px; background: var(--bg); color: var(--text); border: 1px solid var(--border-strong); border-radius: 5px; font-size: 13px; }
+
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 90px 30px; text-align: center; }
+.empty-emblem { display: grid; place-items: center; height: 44px; width: 44px; margin-bottom: 22px; border-radius: 50%; background: var(--bg-raised); color: var(--dim); }
+.empty-state h2 { font-size: 20px; font-weight: 500; letter-spacing: -0.6px; color: var(--text); }
+.empty-state p { max-width: 350px; margin-top: 12px; font-size: 12px; line-height: 1.5; color: var(--dim); }
+.empty-actions { display: flex; gap: 10px; margin-top: 24px; }
+
+/* ---------------------------------------------------------------------------
+   Inbox.
+   --------------------------------------------------------------------------- */
+
+.inbox-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 30px 30px 22px; }
+.heading-inline { display: flex; align-items: center; gap: 10px; }
+.inbox-total { font-size: 12px; font-weight: 400; color: var(--dim); }
+.inbox-controls { display: flex; align-items: center; gap: 8px; }
+/* The filters are labelled for screen readers; the placeholder is the visible one. */
+.inbox-controls .field-label > span, .history-filters .field-label > span {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.inbox-controls .app-input, .history-filters .app-input { max-width: 160px; padding: 6px 9px; border-color: var(--border); border-radius: 5px; font-size: 11px; }
+.search-wrap { position: relative; }
+.search-wrap .app-input { width: 170px; padding-right: 27px; }
+.search-wrap kbd { position: absolute; right: 8px; top: 6px; border: 0; background: none; padding: 0; font-size: 10px; color: var(--faint); }
+
+.list-tabs { display: flex; align-items: center; gap: 22px; padding: 0 30px; border-bottom: 1px solid var(--border); }
+.list-tabs a { display: block; padding: 0 0 12px; border-bottom: 2px solid transparent; font-size: 12px; color: var(--dim); }
+.list-tabs a:hover { color: var(--text); text-decoration: none; }
+.list-tabs a.active { color: var(--text); border-bottom-color: var(--text); }
+.list-tabs a span { margin-left: 6px; font-size: 10px; color: var(--faint); }
+.list-sort { margin-left: auto; padding-bottom: 12px; font-size: 11px; color: var(--faint); }
+
+.inbox-repo > summary { display: flex; align-items: center; gap: 8px; padding: 10px 30px; background: var(--bg-raised); border-bottom: 1px solid var(--border); font-size: 11px; color: var(--dim); cursor: pointer; list-style: none; }
+.inbox-repo > summary::-webkit-details-marker { display: none; }
+.inbox-repo > summary strong { font-weight: 500; color: var(--text); }
+.inbox-repo > summary > span:last-child { font-size: 10px; color: var(--faint); }
+.inbox-repo[open] > summary .repo-chevron { transform: rotate(90deg); }
+
+.gate-row {
+  display: grid; grid-template-columns: 17px minmax(0, 1fr) 115px 110px 54px;
+  align-items: center; gap: 14px; padding: 16px 30px;
+  border-bottom: 1px solid var(--border); color: var(--text);
+}
+.gate-row:hover { background: var(--bg-hover); text-decoration: none; }
+.gate-row:focus-visible { outline: 0; box-shadow: inset 2px 0 var(--accent); background: var(--bg-hover); }
+.gate-row-marker { display: grid; place-items: center; height: 13px; width: 13px; border: 1.5px solid var(--sev-major); border-radius: 50%; }
+.gate-row-marker::after { content: ""; height: 3px; width: 3px; border-radius: 50%; background: var(--sev-major); }
+.gate-row-main { min-width: 0; }
+.gate-row-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; line-height: 1.5; }
+.gate-row-ref { font-size: 11px; font-weight: 400; color: var(--faint); }
+.gate-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 4px; font-size: 10px; color: var(--dim); }
+.gate-row-type, .gate-row-summary { font-size: 11px; color: var(--dim); }
+/* The row is tight: keep the counts, drop the requester's subtitle. */
+.gate-row-summary > span { gap: 5px; font-size: 10px; }
+.gate-row-summary > span > span { padding: 0; background: none; font-size: 10px; font-weight: 400; }
+.gate-row-summary .summary-subtitle { display: none; }
+.gate-row-time { text-align: right; font-size: 11px; color: var(--faint); }
+
+.inbox-footer { display: flex; justify-content: space-between; gap: 15px; padding: 17px 30px; font-size: 10px; color: var(--faint); }
+.inbox-footer kbd { border: 0; background: none; padding: 0; font-size: 10px; color: var(--dim); }
+
+/* ---------------------------------------------------------------------------
+   History.
+   --------------------------------------------------------------------------- */
+
+.history-filters { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 30px 20px; }
+.history-table-wrap { overflow: auto; }
+.history-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+.history-table th { padding: 10px 30px; background: var(--bg-raised); font-size: 10px; font-weight: 500; color: var(--dim); white-space: nowrap; }
+.history-table td { padding: 16px 30px; border-top: 1px solid var(--border); }
+.history-table td small { display: block; margin-top: 4px; font-size: 10px; color: var(--dim); }
+.history-title { font-weight: 550; color: var(--text); }
+
+/* ---------------------------------------------------------------------------
+   Gate types.
+   --------------------------------------------------------------------------- */
+
+.plugin-toolbar { display: flex; gap: 8px; }
+.plugin-list { margin: 0 30px; border-top: 1px solid var(--border); }
+.plugin-row { display: grid; grid-template-columns: 180px minmax(0, 1fr) 90px; align-items: center; gap: 12px; padding: 22px 0; border-bottom: 1px solid var(--border); }
+.plugin-row h2 { font-size: 14px; font-weight: 550; }
+.plugin-path { font-family: var(--font-mono); font-size: 10px; color: var(--dim); overflow-wrap: anywhere; }
+.plugin-row > span { font-size: 10px; }
+.plugin-error { grid-column: 1 / -1; font-size: 12px; color: var(--danger); }
+.plugin-dirs { margin: 28px 30px 0; padding-top: 20px; border-top: 1px solid var(--border); font-size: 11px; color: var(--dim); }
+.plugin-dirs h2 { margin-bottom: 12px; font-weight: 500; }
+.plugin-dirs li { padding: 5px 0; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------------------
+   Gate page. The plugin's frame sits flush; everything around it is the shell.
+   --------------------------------------------------------------------------- */
+
+.gate-main { display: flex; flex-direction: column; gap: 20px; max-width: 1000px; margin: 0 auto; padding: 25px 36px 50px; }
+.gate-main > header h1 { font-size: 24px; letter-spacing: -0.6px; line-height: 1.4; }
+.gate-main #plugin-frame-wrap { border: 0; border-radius: 0; }
+.gate-main .app-input { background: var(--bg-raised); border-color: var(--border); border-radius: 5px; font-size: 12px; }
+/* A decision cannot leave while the socket is down; say so quietly. */
+.phx-disconnected #agent-note-form { opacity: 0.65; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .chrome-button, .gate-row, .app-nav a, .repo-chevron { transition: background-color 0.12s, color 0.12s, transform 0.12s; }
+}
+
+@media (max-width: 1180px) {
+  .app-sidebar { width: 180px; }
+  .app-shell { margin-left: 180px; }
+  .inbox-head { padding: 25px 24px 20px; }
+  .gate-row { grid-template-columns: 16px minmax(0, 1fr) 96px 90px 45px; gap: 10px; padding: 15px 24px; }
+  .inbox-repo > summary { padding: 10px 24px; }
+  .search-wrap .app-input { width: 140px; }
+}
+
+@media (max-width: 850px) {
+  .gate-row { grid-template-columns: 14px minmax(0, 1fr) 90px 43px; }
+  .gate-row-type { display: none; }
+  .inbox-controls .app-input { max-width: 125px; }
+  .gate-main { padding: 22px 25px 40px; }
+  .plugin-row { grid-template-columns: 160px minmax(0, 1fr) 70px; }
+  .topbar-shortcuts { font-size: 0; }
+  .topbar-shortcuts kbd { font-size: 11px; }
+}
+
+@media (max-width: 650px) {
+  .inbox-head { flex-direction: column; align-items: start; gap: 20px; padding: 23px 18px 16px; }
+  .inbox-controls { width: 100%; flex-wrap: wrap; }
+  .search-wrap { flex: 1; }
+  .search-wrap .app-input { width: 100%; max-width: none; }
+  .list-tabs { padding: 0 18px; }
+  .gate-row { grid-template-columns: 14px minmax(0, 1fr) 35px; gap: 10px; padding: 14px 18px; }
+  .gate-row-summary { display: none; }
+  .gate-row-title { flex-wrap: wrap; gap: 3px 7px; font-size: 12px; }
+  .gate-row-meta { font-size: 9px; }
+  .inbox-repo > summary { padding: 9px 18px; }
+  .inbox-footer { padding: 15px 18px; }
+  .gate-main { padding: 20px 18px; }
+  .plugin-row { display: block; }
+  .plugin-row > div, .plugin-row > span { margin: 10px 0; }
+  .history-table th, .history-table td { padding: 12px 18px; }
+  .page-head { padding: 23px 18px 18px; }
+  .history-filters { padding: 0 18px 18px; }
+  .empty-state { padding: 65px 18px; }
+  .plugin-list, .plugin-dirs { margin-inline: 18px; }
 }

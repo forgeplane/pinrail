@@ -43,7 +43,7 @@ test("renders the diff, threads and suggestion, and returns exactly what was dec
   await frame.getByLabel("general comment").press("Enter");
   await expect(frame.locator("[data-general]")).toContainText("Nice change overall.");
 
-  await page.getByLabel("note to the agent").fill("round 3: only the migration");
+  await page.getByLabel("Note to the agent").fill("round 3: only the migration");
   await frame.getByRole("button", { name: "Submit decisions" }).click();
   await expect(frame.locator("#submit-modal")).toContainText("1 proposal(s) still undecided");
   await frame.getByRole("button", { name: /^Submit \d+ decision/ }).click();

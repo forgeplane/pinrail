@@ -91,7 +91,7 @@ defmodule WicketWeb.GateComponents do
       >
         {n} {label}
       </span>
-      <span :if={@subtitle} class="text-faint">{@subtitle}</span>
+      <span :if={@subtitle} class="summary-subtitle text-faint">{@subtitle}</span>
     </span>
     """
   end
@@ -110,22 +110,29 @@ defmodule WicketWeb.GateComponents do
     <.link
       navigate={~p"/gates/#{@gate.id}"}
       id={"gate-#{@gate.id}"}
-      class="block rounded-lg border border-border bg-panel px-4 py-3 hover:border-border-strong hover:bg-raised hover:no-underline"
+      data-gate-row
+      class="gate-row"
     >
-      <div class="flex items-start justify-between gap-4">
-        <div class="min-w-0">
-          <div class="truncate text-[13.5px] font-semibold text-text">{@gate.title}</div>
-          <div class="mt-1 flex flex-wrap items-center gap-2">
-            <.type_badge type={@gate.type} />
-            <.summary_counts summary={@gate.summary} />
-          </div>
-        </div>
-        <div class="shrink-0 text-right text-[11.5px] text-faint">
-          <div title={stamp(@gate.created_at)}>{age(@gate.created_at, @now)}</div>
-          <div :if={@gate.requested_by} class="mt-0.5">{@gate.requested_by}</div>
-        </div>
-      </div>
-      <.source_line :if={@gate.source != %{}} source={@gate.source} link={false} class="mt-2" />
+      <span class="gate-row-marker" aria-label="Pending"></span>
+      <span class="gate-row-main">
+        <span class="gate-row-title">{@gate.title}<span :if={@gate.source["ref"]} class="gate-row-ref">{@gate.source[
+          "ref"
+        ]}</span></span>
+        <span class="gate-row-meta">
+          <span :if={@gate.requested_by}>{@gate.requested_by}</span>
+          <span :if={@gate.requested_by && @gate.source["workflow"]}>·</span>
+          <span>{@gate.source["workflow"]}</span>
+          <span :if={@gate.supersedes}>· New round</span>
+          <span class="sr-only">{@gate.source["repo"]}</span>
+        </span>
+      </span>
+      <span class="gate-row-type">{@gate.type}</span>
+      <span class="gate-row-summary"><.summary_counts summary={@gate.summary} /></span>
+      <time
+        class="gate-row-time"
+        datetime={DateTime.to_iso8601(@gate.created_at)}
+        title={stamp(@gate.created_at)}
+      >{age(@gate.created_at, @now)}</time>
     </.link>
     """
   end

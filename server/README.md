@@ -78,6 +78,14 @@ need no browser:
 npm --prefix assets test      # or mise run test:shell
 ```
 
+## App controls
+
+The sidebar collapses with ⌘/Ctrl+B and the theme switches with T; both are
+remembered per browser in `localStorage` and neither reloads the page, so an
+open gate view keeps its state. `J` and `K` move between inbox rows, `Enter`
+opens the focused one and `/` focuses search. Inbox searches and history
+filters live in the URL, so a filtered view can be linked or reloaded.
+
 ## The plugin bridge
 
 `assets/js/hooks/plugin_bridge.js` is the shell half of the plugin protocol.

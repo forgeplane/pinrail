@@ -17,6 +17,7 @@ defmodule WicketWeb.Live.PendingCount do
     socket =
       socket
       |> assign(:pending_count, Gates.pending_count())
+      |> assign(:repositories, repositories())
       |> attach_hook(:pending_count, :handle_info, &handle_info/2)
 
     {:cont, socket}
@@ -31,7 +32,7 @@ defmodule WicketWeb.Live.PendingCount do
 
   defp handle_info({:gate, _event, _gate}, socket) do
     count = Gates.pending_count()
-    socket = assign(socket, :pending_count, count)
+    socket = assign(socket, pending_count: count, repositories: repositories())
 
     socket =
       case socket.assigns[:base_title] do
@@ -45,6 +46,14 @@ defmodule WicketWeb.Live.PendingCount do
   end
 
   defp handle_info(_other, socket), do: {:cont, socket}
+
+  defp repositories do
+    Gates.list(status: :pending, superseded: false)
+    |> Enum.map(& &1.source["repo"])
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
 
   defp badge(count) when is_integer(count) and count > 0, do: "(#{count}) "
   defp badge(_), do: ""

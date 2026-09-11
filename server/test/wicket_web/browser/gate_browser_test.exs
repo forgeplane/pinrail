@@ -130,7 +130,7 @@ defmodule WicketWeb.Browser.GateTest do
     conn
     |> visit("/gates/#{gate.id}")
     |> within_plugin(&click_button(&1, "accept all undecided"))
-    |> fill_in("note to the agent", with: "next round: tickets only")
+    |> fill_in("Note to the agent", with: "next round: tickets only")
     |> press("body", "Control+Enter")
     |> assert_has("#gate-decision", text: "next round: tickets only")
 

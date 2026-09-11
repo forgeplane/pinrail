@@ -12,7 +12,11 @@ defmodule WicketWeb.HistoryLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign_title("History") |> assign(page: :history)}
+    {:ok,
+     socket
+     |> assign_title("History")
+     |> assign(page: :history)
+     |> stream_configure(:history_gates, dom_id: &"row-#{&1.id}")}
   end
 
   @impl true
@@ -20,7 +24,7 @@ defmodule WicketWeb.HistoryLive do
     filters =
       Map.take(params, @filter_keys) |> Enum.reject(fn {_k, v} -> v in [nil, ""] end) |> Map.new()
 
-    {:noreply, socket |> assign(filters: filters) |> load()}
+    {:noreply, socket |> assign(filters: filters, filter_form: to_form(filters)) |> load()}
   end
 
   @impl true
@@ -53,74 +57,96 @@ defmodule WicketWeb.HistoryLive do
         |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       )
 
-    assign(socket, gates: gates, now: DateTime.utc_now())
+    socket
+    |> assign(gates_count: length(gates), gates_empty?: gates == [], now: DateTime.utc_now())
+    |> stream(:history_gates, gates, reset: true)
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} page={@page}>
-      <.page_header title="History">
-        <:subtitle>{length(@gates)} gates</:subtitle>
-      </.page_header>
+    <Layouts.app
+      flash={@flash}
+      page={@page}
+      pending_count={@pending_count}
+      repositories={@repositories}
+    >
+      <.page_header title="History" />
 
-      <form id="history-filters" phx-change="filter" class="flex flex-wrap items-end gap-2">
-        <label class="flex flex-col gap-1 text-[11px] text-faint">
-          status
-          <select
-            name="status"
-            class="rounded-md border border-border bg-bg px-2 py-1 text-[12.5px] text-text"
-          >
-            <option value="">all</option>
-            <option
-              :for={s <- ~w(decided withdrawn expired)}
-              value={s}
-              selected={@filters["status"] == s}
-            >
-              {s}
-            </option>
-          </select>
-        </label>
-        <label
+      <.form
+        for={@filter_form}
+        id="history-filters"
+        phx-change="filter"
+        class="history-filters"
+      >
+        <.input
+          field={@filter_form[:status]}
+          label="Status"
+          type="select"
+          options={[
+            {"All statuses", ""},
+            {"Decided", "decided"},
+            {"Withdrawn", "withdrawn"},
+            {"Expired", "expired"}
+          ]}
+        />
+        <.input
           :for={key <- ~w(repo workflow ref type)}
-          class="flex flex-col gap-1 text-[11px] text-faint"
-        >
-          {key}
-          <input
-            type="text"
-            name={key}
-            value={@filters[key]}
-            phx-debounce="300"
-            class="w-32 rounded-md border border-border bg-bg px-2 py-1 text-[12.5px] text-text"
-          />
-        </label>
-        <.button :if={@filters != %{}} navigate={~p"/history"}>clear</.button>
-      </form>
+          field={@filter_form[key]}
+          label={String.capitalize(key)}
+          placeholder={String.capitalize(key) <> "…"}
+          phx-debounce="200"
+          class="app-input w-32"
+        />
+        <.button :if={@filters != %{}} navigate={~p"/history"}>Clear filters</.button>
+      </.form>
 
-      <.empty_state :if={@gates == []} id="history-empty">No gate matches.</.empty_state>
+      <.empty_state
+        :if={@gates_empty?}
+        id="history-empty"
+        title={if @filters == %{}, do: "Your decisions belong here", else: "No matching decisions"}
+        icon="hero-clock"
+      >
+        {if @filters == %{},
+          do:
+            "Every decision keeps its context. Completed, withdrawn, and expired gates will appear here.",
+          else: "Nothing matches these filters. Clear them to explore the full record."}
+        <:actions>
+          <.button :if={@filters != %{}} navigate={~p"/history"}>Clear filters</.button><.button
+            :if={@filters == %{}}
+            navigate={~p"/"}
+          >Back to inbox</.button>
+        </:actions>
+      </.empty_state>
 
-      <div :if={@gates != []} class="overflow-x-auto rounded-lg border border-border">
-        <table id="history-table" class="w-full text-[12.5px]">
-          <thead class="bg-panel text-left text-[11px] uppercase tracking-wide text-faint">
+      <div :if={not @gates_empty?} class="history-table-wrap">
+        <table id="history-table" class="history-table">
+          <thead class="history-table-head">
             <tr>
-              <th class="px-3 py-2 font-semibold">gate</th>
-              <th class="px-3 py-2 font-semibold">status</th>
-              <th class="px-3 py-2 font-semibold">source</th>
-              <th class="px-3 py-2 font-semibold">by</th>
-              <th class="px-3 py-2 text-right font-semibold">when</th>
+              <th>Gate / Requester</th><th>Outcome</th><th>Repository</th><th>Recorded</th><th>
+                <span class="sr-only">Open gate</span>
+              </th>
             </tr>
           </thead>
-          <tbody>
-            <tr :for={g <- @gates} id={"row-#{g.id}"} class="border-t border-border hover:bg-raised">
-              <td class="px-3 py-2">
-                <.link navigate={~p"/gates/#{g.id}"} class="font-medium text-text">{g.title}</.link>
-                <.type_badge type={g.type} class="ml-2" />
+          <tbody id="history-rows" phx-update="stream">
+            <tr
+              :for={{dom_id, g} <- @streams.history_gates}
+              id={dom_id}
+              class="border-t border-border hover:bg-raised"
+            >
+              <td>
+                <.link navigate={~p"/gates/#{g.id}"} class="history-title">{g.title}</.link><small>{g.requested_by}<span> · </span>{g.type}</small>
               </td>
-              <td class="px-3 py-2"><.status_badge status={Wicket.Gate.status(g, @now)} /></td>
-              <td class="px-3 py-2"><.source_line source={g.source} /></td>
-              <td class="px-3 py-2 text-dim">{g.decision && g.decision.decided_by}</td>
-              <td class="px-3 py-2 text-right text-faint" title={stamp(settled_at(g))}>
-                {age(settled_at(g), @now)}
+              <td><.status_badge status={Wicket.Gate.status(g, @now)} /></td>
+              <td>{g.source["repo"]}<small class="font-mono">{g.source["ref"]}</small></td>
+              <td title={stamp(settled_at(g))}>
+                {stamp(settled_at(g))}<small>{g.decision && "Decided by #{g.decision.decided_by}"}</small>
+              </td>
+              <td>
+                <.link navigate={~p"/gates/#{g.id}"} aria-label={"Open #{g.title}"}><.icon
+                  name="hero-arrow-up-right"
+                  class="size-3.5"
+                /></.link>
               </td>
             </tr>
           </tbody>
