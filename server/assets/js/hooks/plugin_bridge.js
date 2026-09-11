@@ -29,6 +29,9 @@ export const PluginBridge = {
           this.ready = true
           this.sendInit()
           this.pushEvent("plugin_ready", {})
+          // A view that never reports a size would otherwise sit behind the
+          // loading cover for good.
+          this.loadingFallback = setTimeout(() => this.markLoaded(), 2500)
           break
         case "resize":
           // The page is the same shape for every gate: a viewport-height
@@ -41,6 +44,8 @@ export const PluginBridge = {
             const height = Math.min(50000, Math.max(this.minHeight, Math.ceil(msg.height)))
             this.el.style.height = `min(${height}px, 100%)`
           }
+          // A size means the view has something to show.
+          this.markLoaded()
           break
         case "draft":
           this.saveDraft(msg.data)
@@ -119,6 +124,7 @@ export const PluginBridge = {
   destroyed() {
     window.removeEventListener("message", this.onMessage)
     window.removeEventListener("keydown", this.onKey)
+    clearTimeout(this.loadingFallback)
     window.removeEventListener("wicket:appearance", this.onAppearance)
     document.removeEventListener("input", this.onInput)
     document.removeEventListener("click", this.onHandover)
@@ -134,6 +140,11 @@ export const PluginBridge = {
     this.submitting = false
     this.syncHandover()
     this.pushEvent("plugin_ready", {})
+  },
+
+  markLoaded() {
+    clearTimeout(this.loadingFallback)
+    if (this.el.parentElement) this.el.parentElement.dataset.loaded = "true"
   },
 
   collect() {

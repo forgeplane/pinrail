@@ -10,6 +10,7 @@ function setup() {
   const listeners = new Map(), docListeners = new Map(), handlers = new Map(), pushed = [], sent = [], storage = new Map()
   const note = {value: "latest unsent note"}
   const handover = {tagName: "BUTTON", textContent: "Hand over", disabled: false, closest: (s) => s === "[data-handover]" ? handover : null}
+  const wrap = {dataset: {}}
   const contentWindow = {postMessage: (message) => sent.push(message)}
   const window = {
     addEventListener: (name, fn) => listeners.set(name, fn),
@@ -28,11 +29,15 @@ function setup() {
     addEventListener: (name, fn) => docListeners.set(name, fn),
     removeEventListener: (name) => docListeners.delete(name)
   }
-  const context = vm.createContext({window, document, console, setTimeout,
+  const context = vm.createContext({window, document, console, setTimeout, clearTimeout,
     sessionStorage: {getItem: k => storage.get(k) ?? null, setItem: (k,v) => storage.set(k,v), removeItem: k => storage.delete(k)}})
   vm.runInContext(source, context)
   const hook = Object.assign({}, context.PluginBridge, {
-    el: {dataset: {gateId: "gate-1", minHeight: "400", src: "/plugin.html"}, contentWindow, style: {}, getBoundingClientRect: () => ({top: 100})},
+    el: {
+      dataset: {gateId: "gate-1", minHeight: "400", src: "/plugin.html"},
+      contentWindow, style: {}, parentElement: wrap,
+      getBoundingClientRect: () => ({top: 100})
+    },
     handleEvent: (name, fn) => handlers.set(name, fn),
     pushEvent: (name, payload, callback) => pushed.push({name, payload, callback})
   })
@@ -41,7 +46,7 @@ function setup() {
   handlers.get("gate:init")({gate: {id: "gate-1"}, readonly: false})
   message({type: "ready"})
   const clickHandover = () => docListeners.get("click")({target: handover, preventDefault() {}})
-  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow, body, handover, clickHandover}
+  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow, body, handover, clickHandover, wrap}
 }
 
 test("the hand-over button asks the view to collect, and the view labels it", () => {
@@ -101,6 +106,14 @@ test("a draft is stored per gate and cleared once the decision is in", () => {
   assert.equal(storage.get("wicket:draft:gate-1"), JSON.stringify({choice: "reject"}))
   handlers.get("gate:submitted")({decision: {data: {}}})
   assert.equal(storage.has("wicket:draft:gate-1"), false)
+})
+
+test("the loading cover stays until the view reports a size", () => {
+  const {message, wrap} = setup()
+  assert.equal(wrap.dataset.loaded, undefined, "ready alone paints nothing")
+
+  message({type: "resize", height: 620})
+  assert.equal(wrap.dataset.loaded, "true")
 })
 
 test("a reported height is used but capped, and fill takes the whole slot", () => {

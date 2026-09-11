@@ -237,6 +237,12 @@ defmodule WicketWeb.GateLive do
         phx-update="ignore"
         class="overflow-hidden rounded-lg border border-border bg-panel"
       >
+        <%!-- Covers the empty frame until the view has painted; the bridge
+        marks the wrapper loaded on the view's first resize. --%>
+        <div class="plugin-loading" role="status">
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Loading the view…</span>
+        </div>
         <iframe
           id="plugin-frame"
           phx-hook="PluginBridge"

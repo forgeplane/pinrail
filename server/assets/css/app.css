@@ -314,6 +314,37 @@
 .handover-hint { font-size: 10px; color: var(--faint); }
 .handover-hint kbd { border: 0; background: none; padding: 0; font-size: 10px; }
 .gate-main #plugin-frame-wrap { border: 0; border-radius: 0; }
+
+/* A gate view is a separate document: it has to be fetched, parsed and told
+   about the gate before it can paint. Cover the empty frame until it has,
+   but only if that takes long enough to notice. */
+#plugin-frame-wrap { position: relative; }
+.plugin-loading {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: var(--bg-panel);
+  font-size: 12px; color: var(--dim);
+  opacity: 0;
+  animation: plugin-loading-in 0.2s ease-out 0.15s forwards;
+}
+#plugin-frame-wrap[data-loaded] .plugin-loading { animation: none; opacity: 0; visibility: hidden; }
+#plugin-frame { opacity: 0; }
+#plugin-frame-wrap[data-loaded] #plugin-frame { opacity: 1; }
+@keyframes plugin-loading-in { to { opacity: 1; } }
+.spinner {
+  width: 16px; height: 16px; flex: none;
+  border: 2px solid var(--border-strong); border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: plugin-spin 0.7s linear infinite;
+}
+@keyframes plugin-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: no-preference) {
+  #plugin-frame { transition: opacity 0.15s ease-out; }
+  .plugin-loading { transition: opacity 0.15s ease-out; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-top-color: var(--border-strong); }
+}
 .gate-main .app-input { background: var(--bg-raised); border-color: var(--border); border-radius: 5px; font-size: 12px; }
 /* A decision cannot leave while the socket is down; say so quietly. */
 .phx-disconnected #agent-note-form { opacity: 0.65; }
