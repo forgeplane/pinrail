@@ -29,16 +29,22 @@ one next to the note box for every gate, and pressing it sends `collect`. Your
 view may submit at once or confirm first and submit on the next `collect`;
 `status` keeps the button's label honest.
 
-The shell owns the theme and sends it before `init` and again whenever it
-changes. The SDK sets `data-theme` on the plugin's root element and exposes
-`plugin.theme`, so a view only has to write the CSS:
+The shell owns the theme. It is on your frame's URL when the frame opens and
+arrives again as an `appearance` message on every change. The SDK reads the
+URL as it loads and sets `data-theme` on your root element there and then, so
+your view is in the shell's theme in the frame it first paints, never a
+default first. It also exposes `plugin.theme`. A view only has to write the
+CSS:
 
 ```css
 :root { --bg: #18191b; --text: #ededef; color-scheme: dark; }
 [data-theme="light"] { --bg: #fff; --text: #24262c; color-scheme: light; }
 ```
 
-A theme change never re-initialises the view or touches its draft.
+Load the SDK with a plain `<script src>` tag for this: a `defer` or `type=
+"module"` script runs after the document has painted, which is too late to
+choose a colour. A theme change never re-initialises the view or touches its
+draft.
 
 Helpers: `Wicket.escape(s)`, `Wicket.markdown(s)` (paragraphs, bold,
 italic, inline and fenced code, lists, http links; escapes first), and

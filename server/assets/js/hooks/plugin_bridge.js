@@ -8,6 +8,9 @@
 //   shell -> plugin: init {gate, previous, readonly, draft, shell_origin} |
 //                    violations {errors} | submitted {decision} | collect |
 //                    appearance {theme}
+//
+// The theme is also on the frame's URL as #wicket-theme=…, which is the only
+// way it can reach the view before the view paints.
 
 const DRAFT_PREFIX = "wicket:draft:"
 
@@ -106,8 +109,10 @@ export const PluginBridge = {
     const note = document.getElementById("agent_note")
     try { if (note) note.value = sessionStorage.getItem(this.draftKey() + ":note") ?? note.value } catch { /* Optional draft. */ }
     // Only now start loading the bundle: the listener above is in place, so
-    // the plugin's "ready" cannot race the hook.
-    this.el.src = this.el.dataset.src
+    // the plugin's "ready" cannot race the hook. The URL carries the theme,
+    // because the "appearance" message below cannot reach the view before it
+    // paints, and a view that painted in the wrong theme would flash.
+    this.el.src = `${this.el.dataset.src}#wicket-theme=${this.theme()}`
 
     this.handleEvent("gate:submitted", ({decision}) => {
       this.setSubmitting(false)
@@ -168,8 +173,12 @@ export const PluginBridge = {
     if (button) button.disabled = this.submitting || !this.connected
   },
 
+  theme() {
+    return document.documentElement.dataset.theme === "light" ? "light" : "dark"
+  },
+
   sendAppearance() {
-    this.post({type: "appearance", theme: document.documentElement.dataset.theme === "light" ? "light" : "dark"})
+    this.post({type: "appearance", theme: this.theme()})
   },
 
   sendInit() {

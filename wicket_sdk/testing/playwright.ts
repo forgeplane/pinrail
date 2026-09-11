@@ -41,6 +41,8 @@ export type MountOptions = {
   previous?: Gate | null;
   readonly?: boolean;
   draft?: any;
+  /** the theme the fake shell is in; the frame URL carries it, as in the app */
+  theme?: "dark" | "light";
 };
 
 export type Message = { wicket: 1; type: string; [k: string]: any };
@@ -111,7 +113,7 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
     });
   });
 
-  await page.goto(`${ORIGIN}/_harness.html`);
+  await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}`);
   const init = { gate: gateFrom(opts.gate), previous: opts.previous ?? null, readonly: !!opts.readonly, draft: opts.draft ?? null };
   await page.evaluate((i) => (window as any).__shell.init(i), init);
 

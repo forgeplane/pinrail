@@ -175,6 +175,11 @@ Shell → plugin:
 | `collect` | the human asked to hand the gate over, with the shell's button or ⌘/Ctrl+Enter. Assemble the decision and submit it, or show a confirmation first and submit on the next `collect` |
 | `appearance` | `theme: "dark" \| "light"` – the shell's theme, sent before `init` and again on every change. The SDK applies it as `data-theme` on your root element; write the CSS and you are done |
 
+Your frame's URL also ends in `#wicket-theme=dark` or `#wicket-theme=light`.
+A message cannot reach your view before it paints, so this is how the first
+theme gets there in time; the SDK reads it as it loads. Read it yourself if
+you do not use the SDK.
+
 Plugin → shell:
 
 | type | fields |

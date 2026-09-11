@@ -14,6 +14,10 @@
  *     onCollect() { … },              // the shell's hand-over button, or Cmd/Ctrl+Enter
  *     onAppearance(theme) { … },      // optional; "dark" | "light", already applied
  *   });
+ *
+ * Load this with a plain <script src> tag, not a deferred or module one: it
+ * reads the theme off the frame's URL and sets data-theme on the document, so
+ * the view is in the shell's theme from the frame it first paints.
  *   plugin.submit(data);
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
@@ -31,7 +35,7 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.4.0";
+  const VERSION = "1.5.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
 
@@ -101,7 +105,7 @@
       previous: null,
       readonly: false,
       initialised: false,
-      theme: "dark"
+      theme: (env.initialTheme && env.initialTheme()) || "dark"
     };
     let draftTimer = null;
     let stopObserving = null;
@@ -268,9 +272,19 @@
     return view;
   }
 
+  /* The shell puts the theme it is in on the frame's URL, so a view is in that
+     theme from the frame it first paints. The `appearance` message cannot
+     arrive that early: it crosses documents, and the view has painted by the
+     time it lands. `appearance` still governs every later change. */
+  function themeFromUrl(win) {
+    const found = /(?:^|[#&])wicket-theme=([a-z]+)/.exec((win.location && win.location.hash) || "");
+    return found && THEMES.includes(found[1]) ? found[1] : null;
+  }
+
   function browserEnv(win) {
     const doc = win.document;
     return {
+      initialTheme: () => themeFromUrl(win),
       post: (msg, targetOrigin) => win.parent.postMessage(msg, targetOrigin),
       listen: (fn) => win.addEventListener("message", (e) => fn(e.data, e.origin)),
       setTimeout: (fn, ms) => win.setTimeout(fn, ms),
@@ -306,6 +320,14 @@
     markdown,
     previousVerdict,
   };
+
+  // Before anything else this file does, and before the view's own script
+  // runs: a plugin that loads the SDK with a plain <script> tag never paints
+  // in the wrong theme.
+  if (root.document && root.document.documentElement) {
+    const initial = themeFromUrl(root);
+    if (initial) root.document.documentElement.dataset.theme = initial;
+  }
 
   root.Wicket = Wicket;
   if (typeof module !== "undefined" && module.exports) module.exports = Wicket;

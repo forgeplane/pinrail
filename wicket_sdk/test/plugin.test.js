@@ -152,14 +152,33 @@ test("collect is what the hand-over asks for, from the shell or the shortcut", (
   assert.equal(asked, 2, "and neither reaches a decided gate");
 });
 
+test("the theme comes from the environment first, and the shell can still change it", () => {
+  // In a browser this is the theme on the frame's URL, which is the only one
+  // that can be in place before the view paints.
+  const env = Object.assign(fakeEnv(), { initialTheme: () => "light" });
+  const seen = [];
+  const plugin = Wicket.createPlugin(env, { resize: "manual", onAppearance: (t) => seen.push(t) });
+
+  assert.equal(plugin.theme, "light", "in the shell's theme before a single message");
+  assert.deepEqual(seen, [], "and without anything to react to");
+
+  env.deliver(shell({ type: "appearance", theme: "dark" }));
+  assert.equal(plugin.theme, "dark", "the shell still owns every later change");
+  assert.deepEqual(env.themes, ["dark"]);
+});
+
+test("an environment with no theme of its own leaves the plugin dark", () => {
+  const plugin = Wicket.createPlugin(fakeEnv(), { resize: "manual" });
+  assert.equal(plugin.theme, "dark");
+});
+
 test("appearance applies the theme, exposes it, and ignores anything else", () => {
   const env = fakeEnv();
   const seen = [];
   const plugin = Wicket.createPlugin(env, { resize: "manual", onAppearance: (t) => seen.push(t) });
 
-  assert.equal(plugin.theme, "dark", "dark until the shell says otherwise");
+  assert.equal(plugin.theme, "dark", "dark until the environment or the shell says otherwise");
 
-  // the shell sends it before init, so the first paint is already correct
   env.deliver(shell({ type: "appearance", theme: "light" }));
   assert.equal(plugin.theme, "light");
   assert.deepEqual(env.themes, ["light"]);

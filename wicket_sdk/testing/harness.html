@@ -32,6 +32,11 @@ window.__shell = {
   reload() { ready = false; frame.src = frame.src; },
 };
 
+// The real shell puts its theme on the frame's URL; mirror that, so a test can
+// mount a plugin in either theme and see what it paints before any message.
+const theme = new URLSearchParams(location.search).get("theme") === "light" ? "light" : "dark";
+document.body.style.background = theme === "light" ? "#ffffff" : "#101216";
+
 window.addEventListener("message", (event) => {
   if (event.source !== frame.contentWindow) return;
   const msg = event.data;
@@ -46,7 +51,7 @@ window.addEventListener("message", (event) => {
     case "status": lastStatus = msg.label; break;
   }
 });
-frame.src = "/index.html";
+frame.src = "/index.html#wicket-theme=" + theme;
 </script>
 </body>
 </html>

@@ -76,3 +76,22 @@ test("renders a decided gate read-only", async ({ page }) => {
   await expect(plugin.frame.locator("p").last()).toContainText("Decided: no");
   await expect(plugin.frame.locator("button")).toHaveCount(0);
 });
+
+test("the view is in the shell's theme with no message from it at all", async ({ page }) => {
+  // The fake shell never sends `appearance`, so the only theme a view can be
+  // in here is the one the frame's URL carried. A view that waited for the
+  // message would paint in the wrong theme first.
+  const plugin = await mountPlugin(page, dir, { gate: push(), theme: "light" });
+  await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "light");
+  expect((await plugin.messages()).some((m) => m.type === "appearance")).toBe(false);
+
+  const background = await plugin.frame
+    .locator("body")
+    .evaluate((body) => getComputedStyle(body).backgroundColor);
+  expect(background).toBe("rgb(255, 255, 255)");
+});
+
+test("a dark shell leaves the view dark", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: push(), theme: "dark" });
+  await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "dark");
+});
