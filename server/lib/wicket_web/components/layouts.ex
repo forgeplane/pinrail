@@ -92,10 +92,4 @@ defmodule WicketWeb.Layouts do
     </div>
     """
   end
-
-  @doc """
-  Prefix for the document title: the pending-gate count, when there is one.
-  """
-  def title_prefix(count) when is_integer(count) and count > 0, do: "(#{count}) "
-  def title_prefix(_), do: nil
 end

@@ -17,9 +17,12 @@ defmodule WicketWeb.Router do
   scope "/", WicketWeb do
     pipe_through :browser
 
-    live "/", InboxLive
-    live "/history", HistoryLive
-    live "/types", TypesLive
+    live_session :default, on_mount: WicketWeb.Live.PendingCount do
+      live "/", InboxLive
+      live "/history", HistoryLive
+      live "/types", TypesLive
+      live "/gates/:id", GateLive
+    end
   end
 
   scope "/api", WicketWeb.API do

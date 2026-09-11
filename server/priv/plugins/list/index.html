@@ -3,8 +3,82 @@
 <head>
 <meta charset="utf-8">
 <title>list gate</title>
+<style>
+  body { margin: 0; padding: 16px; font: 13px/1.5 "IBM Plex Sans", system-ui, sans-serif; color: #d7dce5; background: #15181e; }
+  h2 { font-size: 12px; margin: 16px 0 6px; color: #9aa3b2; text-transform: uppercase; letter-spacing: .06em; }
+  .item { border: 1px solid #262c37; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; }
+  .item .t { font-weight: 600; }
+  .muted { color: #67707f; font-size: 12px; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 6px 14px; border: 1px solid #39414f; background: #1a1e26; color: #d7dce5; }
+  button.primary { background: oklch(0.72 0.12 235); border-color: transparent; color: white; font-weight: 600; }
+  .err { color: oklch(0.65 0.16 25); font-family: ui-monospace, monospace; font-size: 12px; }
+</style>
 </head>
 <body>
-<p>list gate view: arrives in step 6.</p>
+<div id="app" class="muted">waiting for the shell…</div>
+<script>
+// Placeholder view for the built-in list type: shows the payload and submits
+// an "everything undecided" decision. The real view lands in step 6. It is
+// also the reference client for the bridge protocol.
+"use strict";
+let shellOrigin = null, gate = null, readonly = false;
+const app = document.getElementById("app");
+const post = (msg) => parent.postMessage({wicket: 1, ...msg}, shellOrigin || "*");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const itemIds = () => (gate.payload.groups || []).flatMap((g) => g.items.map((i) => i.id));
+
+function render() {
+  const groups = gate.payload.groups || [];
+  let html = gate.payload.intro ? `<p>${esc(gate.payload.intro)}</p>` : "";
+  for (const g of groups) {
+    html += `<h2>${esc(g.title)}</h2>`;
+    for (const i of g.items) {
+      html += `<div class="item"><div class="t">#${esc(i.id)} ${esc(i.title)}</div>` +
+              (i.body ? `<div class="muted">${esc(i.body)}</div>` : "") + `</div>`;
+    }
+  }
+  if (readonly) {
+    html += `<p class="muted">Read-only. Decision: <code>${esc(JSON.stringify(gate.decision && gate.decision.data))}</code></p>`;
+  } else {
+    html += `<p><button class="primary" id="submit">Submit (leave everything undecided)</button>
+             <button id="bad">Submit something invalid</button></p><div id="errors" class="err"></div>`;
+  }
+  app.className = "";
+  app.innerHTML = html;
+  if (!readonly) {
+    document.getElementById("submit").onclick = () => post({type: "submit", data: {decisions: [], undecided: itemIds()}});
+    document.getElementById("bad").onclick = () => post({type: "submit", data: {decisions: [{id: 1, action: "maybe"}]}});
+  }
+  resize();
+}
+
+function resize() { post({type: "resize", height: document.documentElement.scrollHeight}); }
+new ResizeObserver(resize).observe(document.body);
+
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.wicket !== 1) return;
+  if (shellOrigin && event.origin !== shellOrigin) return;
+  switch (msg.type) {
+    case "init":
+      shellOrigin = msg.shell_origin;
+      gate = msg.gate; readonly = !!msg.readonly;
+      render();
+      break;
+    case "violations":
+      document.getElementById("errors").textContent = msg.errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
+      resize();
+      break;
+    case "submitted":
+      gate.decision = msg.decision; readonly = true;
+      render();
+      break;
+    case "collect":
+      if (!readonly) document.getElementById("submit").click();
+      break;
+  }
+});
+post({type: "ready"});
+</script>
 </body>
 </html>

@@ -81,6 +81,9 @@ defmodule WicketWeb do
       import Phoenix.HTML
       # Core UI components
       import WicketWeb.CoreComponents
+      import WicketWeb.GateComponents
+      import WicketWeb.Format
+      import WicketWeb.Live.PendingCount, only: [assign_title: 2]
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

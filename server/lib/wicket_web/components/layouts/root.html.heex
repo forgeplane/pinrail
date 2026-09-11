@@ -6,7 +6,6 @@
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title
       default="wicket"
-      prefix={title_prefix(assigns[:pending_count])}
       suffix=" · wicket"
       phx-no-format
     >{assigns[:page_title]}</.live_title>
