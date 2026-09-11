@@ -1,105 +1,94 @@
-/* See the Tailwind configuration guide for advanced usage
-   https://tailwindcss.com/docs/configuration */
+/* wicket theme. Tailwind 4 utilities on top of a small token set; dark by
+   default, with a light set kept under [data-theme="light"] for later. */
 
 @import "tailwindcss" source(none);
 @import "phoenix-colocated/wicket/colocated.css";
 @source "../css";
 @source "../js";
 @source "../../lib/wicket_web";
-/* Required for Tailwind to automatically pick up changes in colocated CSS files in dev */
 @source "../../_build/dev/phoenix-colocated/wicket/*/";
 
-/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
-   The heroicons installation itself is managed by your mix.exs */
+/* "hero-#{ICON}" classes; the heroicons checkout is managed by mix.exs. */
 @plugin "../vendor/heroicons";
 
-/* daisyUI Tailwind Plugin. */
-@plugin "daisyui/packages/bundle/daisyui" {
-  themes: false;
+:root {
+  --bg: #101216; --bg-panel: #15181e; --bg-raised: #1a1e26; --bg-hover: #20252f;
+  --border: #262c37; --border-strong: #39414f;
+  --text: #d7dce5; --dim: #9aa3b2; --faint: #67707f;
+  --accent: oklch(0.72 0.12 235); --accent-bg: oklch(0.72 0.12 235 / 0.12);
+  --ok: oklch(0.7 0.13 150); --danger: oklch(0.65 0.16 25);
+  --sev-blocker: oklch(0.64 0.18 25); --sev-major: oklch(0.72 0.14 55);
+  --sev-minor: oklch(0.78 0.11 90); --sev-nit: oklch(0.68 0.02 250);
+  --add-bg: oklch(0.65 0.12 150 / 0.1); --add-gut: oklch(0.65 0.12 150 / 0.18);
+  --del-bg: oklch(0.6 0.15 25 / 0.1); --del-gut: oklch(0.6 0.15 25 / 0.18);
+  color-scheme: dark;
 }
 
-/* daisyUI theme plugin.
-  We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
-  on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
-@plugin "daisyui/packages/bundle/daisyui-theme" {
-  name: "dark";
-  default: false;
-  prefersdark: true;
-  color-scheme: "dark";
-  --color-base-100: oklch(30.33% 0.016 252.42);
-  --color-base-200: oklch(25.26% 0.014 253.1);
-  --color-base-300: oklch(20.15% 0.012 254.09);
-  --color-base-content: oklch(97.807% 0.029 256.847);
-  --color-primary: oklch(58% 0.233 277.117);
-  --color-primary-content: oklch(96% 0.018 272.314);
-  --color-secondary: oklch(58% 0.233 277.117);
-  --color-secondary-content: oklch(96% 0.018 272.314);
-  --color-accent: oklch(60% 0.25 292.717);
-  --color-accent-content: oklch(96% 0.016 293.756);
-  --color-neutral: oklch(37% 0.044 257.287);
-  --color-neutral-content: oklch(98% 0.003 247.858);
-  --color-info: oklch(58% 0.158 241.966);
-  --color-info-content: oklch(97% 0.013 236.62);
-  --color-success: oklch(60% 0.118 184.704);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.21875rem;
-  --size-field: 0.21875rem;
-  --border: 1.5px;
-  --depth: 1;
-  --noise: 0;
+[data-theme="light"] {
+  --bg: #fafafa; --bg-panel: #f2f3f5; --bg-raised: #ffffff; --bg-hover: #e9ebee;
+  --border: #e0e2e7; --border-strong: #c4c8d0;
+  --text: #23262d; --dim: #5b6472; --faint: #8b93a1;
+  --accent: oklch(0.55 0.14 240); --accent-bg: oklch(0.55 0.14 240 / 0.1);
+  --ok: oklch(0.55 0.14 150); --danger: oklch(0.55 0.18 25);
+  --sev-blocker: oklch(0.55 0.19 25); --sev-major: oklch(0.6 0.15 55);
+  --sev-minor: oklch(0.6 0.12 90); --sev-nit: oklch(0.55 0.02 250);
+  --add-bg: oklch(0.65 0.13 150 / 0.13); --add-gut: oklch(0.65 0.13 150 / 0.24);
+  --del-bg: oklch(0.6 0.16 25 / 0.11); --del-gut: oklch(0.6 0.16 25 / 0.2);
+  color-scheme: light;
 }
 
-@plugin "daisyui/packages/bundle/daisyui-theme" {
-  name: "light";
-  default: true;
-  prefersdark: false;
-  color-scheme: "light";
-  --color-base-100: oklch(98% 0 0);
-  --color-base-200: oklch(96% 0.001 286.375);
-  --color-base-300: oklch(92% 0.004 286.32);
-  --color-base-content: oklch(21% 0.006 285.885);
-  --color-primary: oklch(70% 0.213 47.604);
-  --color-primary-content: oklch(98% 0.016 73.684);
-  --color-secondary: oklch(55% 0.027 264.364);
-  --color-secondary-content: oklch(98% 0.002 247.839);
-  --color-accent: oklch(0% 0 0);
-  --color-accent-content: oklch(100% 0 0);
-  --color-neutral: oklch(44% 0.017 285.786);
-  --color-neutral-content: oklch(98% 0 0);
-  --color-info: oklch(62% 0.214 259.815);
-  --color-info-content: oklch(97% 0.014 254.604);
-  --color-success: oklch(70% 0.14 182.503);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.21875rem;
-  --size-field: 0.21875rem;
-  --border: 1.5px;
-  --depth: 1;
-  --noise: 0;
+/* Expose the tokens as Tailwind colors/fonts: bg-panel, text-dim, border-border, font-mono… */
+@theme inline {
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-bg: var(--bg);
+  --color-panel: var(--bg-panel);
+  --color-raised: var(--bg-raised);
+  --color-hover: var(--bg-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-dim: var(--dim);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-bg: var(--accent-bg);
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
+  --color-sev-blocker: var(--sev-blocker);
+  --color-sev-major: var(--sev-major);
+  --color-sev-minor: var(--sev-minor);
+  --color-sev-nit: var(--sev-nit);
+  --color-add-bg: var(--add-bg);
+  --color-add-gut: var(--add-gut);
+  --color-del-bg: var(--del-bg);
+  --color-del-gut: var(--del-gut);
 }
 
-/* Add variants based on LiveView classes */
+@layer base {
+  html { background: var(--bg); }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  textarea, button, input, select { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+}
+
+/* LiveView loading-state variants */
 @custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
 @custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
 @custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
 
-/* Use the data attribute for dark mode  */
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
-
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
-
-/* This file is for your main application CSS */

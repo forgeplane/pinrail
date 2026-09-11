@@ -1,19 +1,9 @@
-# This file is responsible for configuring your application
-# and its dependencies with the aid of the Config module.
-#
-# This configuration file is loaded before any dependency and
-# is restricted to this project.
-
-# General application configuration
 import Config
 
-config :wicket,
-  ecto_repos: [Wicket.Repo],
-  generators: [timestamp_type: :utc_datetime]
-
-# Configure the endpoint
 config :wicket, WicketWeb.Endpoint,
   url: [host: "localhost"],
+  # Loopback only: wicket is a single-user localhost tool.
+  http: [ip: {127, 0, 0, 1}, port: 4747],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
     formats: [html: WicketWeb.ErrorHTML, json: WicketWeb.ErrorJSON],
@@ -22,12 +12,9 @@ config :wicket, WicketWeb.Endpoint,
   pubsub_server: Wicket.PubSub,
   live_view: [signing_salt: "rFc96k5X"]
 
-# Configure LiveView
 config :phoenix_live_view,
-  # the attribute set on all root tags. Used for Phoenix.LiveView.ColocatedCSS.
   root_tag_attribute: "phx-r"
 
-# Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
   wicket: [
@@ -37,7 +24,6 @@ config :esbuild,
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
 
-# Configure tailwind (the version is required)
 config :tailwind,
   version: "4.3.0",
   wicket: [
@@ -49,14 +35,10 @@ config :tailwind,
     env: %{"NODE_PATH" => [Path.expand("../deps", __DIR__), Mix.Project.build_path()]}
   ]
 
-# Configure Elixir's Logger
 config :logger, :default_formatter,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
 
-# Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
-# Import environment specific config. This must remain at the bottom
-# of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

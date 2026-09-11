@@ -1,9 +1,17 @@
 defmodule Wicket do
   @moduledoc """
-  Wicket keeps the contexts that define your domain
-  and business logic.
+  wicket is an approval-gate service for agent workflows: a workflow creates a
+  gate carrying a JSON payload and blocks; a human decides it in the browser;
+  the workflow resumes with the decision.
 
-  Contexts are also responsible for managing your data, regardless
-  if it comes from the database, an external API or others.
+  This module holds the few application-wide accessors.
   """
+
+  @doc """
+  The directory holding gates, decisions and plugin snapshots.
+
+  Configured under `config :wicket, :data_dir`; resolved in `config/runtime.exs`.
+  """
+  @spec data_dir() :: Path.t()
+  def data_dir, do: Application.fetch_env!(:wicket, :data_dir)
 end
