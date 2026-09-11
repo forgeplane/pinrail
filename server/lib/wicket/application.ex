@@ -10,6 +10,7 @@ defmodule Wicket.Application do
     children = [
       WicketWeb.Telemetry,
       {Phoenix.PubSub, name: Wicket.PubSub},
+      Wicket.Gates.Index,
       WicketWeb.Endpoint
     ]
 

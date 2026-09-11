@@ -13,6 +13,9 @@ unless config_env() == :test do
 
   config :wicket, data_dir: data_dir
 
+  # Who decides gates on this machine (§14 Q1: single user, $USER is enough).
+  config :wicket, user: System.get_env("USER") || "wicket"
+
   if port = System.get_env("WICKET_PORT") do
     config :wicket, WicketWeb.Endpoint, http: [port: String.to_integer(port)]
   end

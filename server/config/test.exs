@@ -2,6 +2,7 @@ import Config
 
 # Every test run gets a throwaway data directory under server/tmp (gitignored).
 config :wicket, data_dir: Path.expand("../tmp/test-data", __DIR__)
+config :wicket, user: "tester"
 
 config :wicket, WicketWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
