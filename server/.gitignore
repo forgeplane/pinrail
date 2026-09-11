@@ -39,3 +39,6 @@ npm-debug.log
 *.db
 *.db-*
 
+
+# Playwright screenshots taken by browser tests.
+/screenshots/

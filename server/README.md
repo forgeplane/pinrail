@@ -1,0 +1,71 @@
+# wicket server
+
+The Phoenix application: the HTTP API workflows talk to, the inbox and gate
+pages a human decides in, and the plugin registry. Elixir 1.20, Phoenix 1.8,
+LiveView, Tailwind. Storage is plain files; there is no database.
+
+## Run
+
+```sh
+mix setup          # deps, Tailwind and esbuild
+mix phx.server     # http://127.0.0.1:4747
+```
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `WICKET_DATA_DIR` | gates, decisions, plugin snapshots, `server.json` | `$XDG_DATA_HOME/wicket`, i.e. `~/.local/share/wicket` |
+| `WICKET_CONFIG_DIR` | registered plugin directories | `$XDG_CONFIG_HOME/wicket`, i.e. `~/.config/wicket` |
+| `WICKET_PORT` | listen port, loopback only | `4747` |
+| `USER` | `decided_by` on decisions | `wicket` |
+
+A release generates its cookie secret into the data dir on first boot and
+needs no other environment.
+
+## Layout on disk
+
+```
+<data dir>/
+  gates/<id>/gate.json        envelope + payload, written once
+  gates/<id>/decision.json    the decision, created exclusively, never rewritten
+  gates/<id>/withdrawn.json   withdrawal timestamp
+  gates/<id>/events.jsonl     created, viewed, decided, withdrawn, expired
+  plugins/<name>/<version>/   snapshot of a plugin the first time a gate used it
+  server.json                 url, port and pid while the server runs
+```
+
+Status is derived from those files and `expires_at`; nothing is edited in
+place. An in-memory index of envelopes serves listing and filtering and is
+rebuilt from the files at boot.
+
+## Code map
+
+| Module | Role |
+|---|---|
+| `Wicket.Gates` | create, get, list, decide, withdraw, expiry sweep, PubSub |
+| `Wicket.Store` | the only writer to the data dir; atomic and exclusive writes |
+| `Wicket.Gates.Index` | ETS index of envelopes |
+| `Wicket.Types`, `Wicket.Types.Registry`, `Wicket.Types.Plugin` | plugin discovery, JSON Schema validation, snapshots |
+| `Wicket.GateError` | the one error struct: reason, JSON-pointer violations, HTTP status |
+| `WicketWeb.API.*` | `/api/gates`, `/api/types` |
+| `WicketWeb.PluginController` | serves plugin bundles with the sandbox CSP |
+| `WicketWeb.InboxLive`, `GateLive`, `HistoryLive`, `TypesLive` | the pages |
+| `assets/js/hooks/plugin_bridge.js` | the shell side of the plugin protocol |
+| `priv/plugins/list` | the built-in gate type |
+
+## Tests
+
+```sh
+mix test               # unit and LiveView tests
+mix test.browser       # Playwright browser tests, see below
+```
+
+Browser tests drive headless Chromium and run only on request. One-time
+setup:
+
+```sh
+npm --prefix assets install
+npx --prefix assets playwright install chromium
+```
+
+They live in `test/wicket_web/browser/`, tagged `:playwright`. Test fixture
+plugins are in `test/fixtures/plugins/`.

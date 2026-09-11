@@ -327,7 +327,7 @@ defmodule Wicket.Gates do
   defp prefix_violations(:ok, _prefix), do: :ok
 
   defp prefix_violations({:error, %GateError{reason: :invalid} = e}, prefix),
-    do: {:error, %{e | violations: Enum.map(e.violations, &%{&1 | path: prefix <> &1.path})}}
+    do: {:error, GateError.invalid(Enum.map(e.violations, &%{&1 | path: prefix <> &1.path}))}
 
   defp prefix_violations(other, _prefix), do: other
 

@@ -49,6 +49,10 @@ defmodule Wicket.GatesTest do
 
       assert msg == "property 'groups' is required"
       assert Gates.list() == []
+
+      assert {:error,
+              %GateError{message: "validation failed:\n  /payload: property 'groups' is required"}} =
+               Gates.create(%{type: "list", title: "t", payload: %{"intro" => "x"}})
     end
 
     test "snapshots the plugin version on first use" do

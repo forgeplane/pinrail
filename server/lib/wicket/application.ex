@@ -13,7 +13,8 @@ defmodule Wicket.Application do
       Wicket.Gates.Index,
       Wicket.Types.Registry,
       Wicket.Gates.Expiry,
-      WicketWeb.Endpoint
+      WicketWeb.Endpoint,
+      Wicket.ServerInfo
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: Wicket.Supervisor)

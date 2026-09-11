@@ -1,0 +1,21 @@
+[package]
+name = "wicket"
+version = "0.1.0"
+edition = "2024"
+description = "CLI for wicket, the approval-gate service for agent workflows"
+license = "MIT"
+
+[[bin]]
+name = "wicket"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+ureq = { version = "3", features = ["json"] }
+
+[profile.release]
+strip = true
+lto = true

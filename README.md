@@ -17,48 +17,27 @@ running app.
 
 Status: early development.
 
-## Development
+## Layout
 
-Tool versions are pinned in `mise.toml` (Erlang, Elixir, Rust); `mise install`
-sets them up.
+| Directory | Contents |
+|---|---|
+| [`server/`](server/README.md) | the Phoenix app: API, web UI, plugin registry |
+| [`cli/`](cli/README.md) | the Rust CLI workflows call |
+| [`plugins/`](plugins/README.md) | the plugin protocol and a sample plugin |
 
-### Server
+Tool versions are pinned in `mise.toml`; `mise install` sets them up.
 
-```sh
-cd server
-mix setup          # deps, Tailwind and esbuild
-mix phx.server     # http://127.0.0.1:4747
-mix test           # unit and LiveView tests
-```
-
-Data lives under `$XDG_DATA_HOME/wicket` (`~/.local/share/wicket`), or
-`WICKET_DATA_DIR` if set. `WICKET_PORT` overrides the port.
-
-### Browser tests
-
-The gate page talks to a sandboxed iframe over `postMessage`, which only a
-real browser can exercise. Those tests drive headless Chromium through
-Playwright and run only when asked for.
-
-One-time setup, from `server/`:
+## Quick start
 
 ```sh
-npm --prefix assets install
-npx --prefix assets playwright install chromium
+cd server && mix setup && mix phx.server        # http://127.0.0.1:4747
+cd cli && cargo build --release                 # target/release/wicket
+
+wicket create list --title "MR !42" --source repo=acme,workflow=review,ref=42 \
+  --data payload.json --wait --decision-out mr-42.decisions.json
 ```
 
-Then:
-
-```sh
-mix test.browser                  # only the browser tests
-mix test --include playwright     # everything
-```
-
-Tests live in `test/wicket_web/browser/` and are tagged `:playwright`.
-
-## Plugins
-
-A gate type is a directory with a manifest, two JSON Schemas and a
-self-contained HTML view. The built-in `list` type ships with the server;
-`plugins/` holds the protocol reference and a minimal sample to copy from.
-See [plugins/README.md](plugins/README.md).
+The command blocks until someone decides the gate in the browser, then
+prints the decision and exits 0 (3 if the gate was withdrawn, 4 on timeout).
+Payload and decision shapes for the built-in type are in
+[`server/priv/plugins/list`](server/priv/plugins/list/README.md).
