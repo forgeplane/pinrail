@@ -154,10 +154,12 @@ defmodule WicketWeb.GateLive do
         <div class="flex flex-wrap items-center gap-2">
           <.status_badge status={@status} />
           <.type_badge type={@gate.type} version={@gate.type_version} />
-          <span class="font-mono text-[11px] text-faint">{@gate.id}</span>
         </div>
         <h1 class="text-base font-semibold leading-7 text-text">{@gate.title}</h1>
+        <%!-- The id sits with the other identifiers rather than beside the
+        badges, where it competed with the title for the eye. --%>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-dim">
+          <span class="font-mono text-[11px] text-faint">{@gate.id}</span>
           <.source_line source={@gate.source} />
           <span :if={@gate.requested_by}>requested by {@gate.requested_by}</span>
           <span title={stamp(@gate.created_at)}>created {age(@gate.created_at)} ago</span>
