@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>misbehaving</title></head>
+<body>
+<button id="garbage">Submit garbage</button>
+<div id="errors"></div>
+<script>
+// A plugin that submits something its own schema forbids, so tests can see
+// the server refuse it and the shell relay the violations.
+"use strict";
+let shellOrigin = null;
+const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shellOrigin || "*");
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.wicket !== 1) return;
+  if (msg.type === "init") shellOrigin = msg.shell_origin;
+  if (msg.type === "violations") document.getElementById("errors").textContent = msg.errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
+});
+document.getElementById("garbage").onclick = () => post({ type: "submit", data: { ok: "maybe", extra: 1 } });
+post({ type: "ready" });
+</script>
+</body>
+</html>

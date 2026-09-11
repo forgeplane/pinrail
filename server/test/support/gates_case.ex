@@ -13,7 +13,7 @@ defmodule Wicket.GatesCase do
   end
 
   @builtin Path.expand("../../priv/plugins", __DIR__)
-  @fixtures Path.expand("plugins", __DIR__)
+  @fixtures Path.expand("../fixtures/plugins", __DIR__)
 
   setup do
     reset!()
@@ -35,7 +35,7 @@ defmodule Wicket.GatesCase do
     Wicket.Types.reload()
   end
 
-  @doc "A fixture plugin directory under test/support/plugins."
+  @doc "A fixture plugin directory under test/fixtures/plugins."
   def fixture_dir(name), do: Path.join(@fixtures, name)
 
   def builtin_dir, do: @builtin

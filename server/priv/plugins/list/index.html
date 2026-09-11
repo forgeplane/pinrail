@@ -2,58 +2,101 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>list gate</title>
 <style>
-  body { margin: 0; padding: 16px; font: 13px/1.5 "IBM Plex Sans", system-ui, sans-serif; color: #d7dce5; background: #15181e; }
-  h2 { font-size: 12px; margin: 16px 0 6px; color: #9aa3b2; text-transform: uppercase; letter-spacing: .06em; }
-  .item { border: 1px solid #262c37; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; }
-  .item .t { font-weight: 600; }
-  .muted { color: #67707f; font-size: 12px; }
-  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 6px 14px; border: 1px solid #39414f; background: #1a1e26; color: #d7dce5; }
-  button.primary { background: oklch(0.72 0.12 235); border-color: transparent; color: white; font-weight: 600; }
-  .err { color: oklch(0.65 0.16 25); font-family: ui-monospace, monospace; font-size: 12px; }
+  :root {
+    --bg:#101216; --bg-panel:#15181e; --bg-raised:#1a1e26; --bg-hover:#20252f;
+    --border:#262c37; --border-strong:#39414f;
+    --text:#d7dce5; --dim:#9aa3b2; --faint:#67707f;
+    --accent:oklch(0.72 0.12 235); --accent-bg:oklch(0.72 0.12 235 / 0.12);
+    --ok:oklch(0.7 0.13 150); --danger:oklch(0.65 0.16 25);
+    --sev-blocker:oklch(0.64 0.18 25); --sev-major:oklch(0.72 0.14 55);
+    --sev-minor:oklch(0.78 0.11 90); --sev-nit:oklch(0.68 0.02 250);
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px 18px 18px; font: 13px/1.5 var(--sans); color: var(--text); background: var(--bg-panel); }
+  a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+  button, textarea, select, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .hidden { display: none !important; }
+
+  .intro { color: var(--dim); max-width: 72ch; margin: 0 0 14px; }
+  .intro p:first-child { margin-top: 0; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 14px; font-size: 12px; color: var(--dim); }
+  .bar .spacer { flex: 1; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  h2.group { font: inherit; font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 18px 0 8px; display: flex; align-items: baseline; gap: 10px; }
+  h2.group:first-of-type { margin-top: 0; }
+  h2.group .count { font-family: var(--sans); font-size: 11px; color: var(--faint); }
+
+  .item { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-raised); padding: 10px 12px; margin-bottom: 8px; }
+  .item.accepted { border-color: color-mix(in oklab, var(--ok) 45%, var(--border)); }
+  .item.rejected { border-color: color-mix(in oklab, var(--danger) 40%, var(--border)); opacity: .85; }
+  .item .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .item .id { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+  .item .title { font-weight: 600; }
+  .sev { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; color: var(--bg); }
+  .sev-blocker { background: var(--sev-blocker); } .sev-major { background: var(--sev-major); }
+  .sev-minor { background: var(--sev-minor); } .sev-nit { background: var(--sev-nit); }
+  .sev-other { background: var(--border-strong); color: var(--text); }
+  .meta { font-family: var(--mono); font-size: 11px; color: var(--faint); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; }
+  .verdict { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .verdict.accept { color: var(--ok); } .verdict.reject { color: var(--danger); } .verdict.undecided { color: var(--faint); }
+  .body { margin: 6px 0 0; color: var(--dim); max-width: 80ch; }
+  .body p { margin: 4px 0; } .body ul, .body ol { margin: 4px 0; padding-left: 20px; }
+  .body pre { margin: 6px 0; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow-x: auto; font-family: var(--mono); font-size: 12px; white-space: pre-wrap; }
+  code.inl { font-family: var(--mono); font-size: .92em; background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; }
+  .previous { margin-top: 6px; font-size: 11.5px; color: var(--faint); }
+  .previous b { color: var(--dim); font-weight: 600; }
+
+  .controls { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--border-strong); background: var(--bg); border-radius: 6px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--dim); }
+  .btn:hover { color: var(--text); }
+  .btn.accept.on { background: color-mix(in oklab, var(--ok) 80%, oklch(0.3 0.06 150)); border-color: transparent; color: white; }
+  .btn.reject.on { background: color-mix(in oklab, var(--danger) 18%, transparent); border-color: color-mix(in oklab, var(--danger) 55%, transparent); color: var(--danger); }
+  .btn.primary { background: var(--accent); border-color: transparent; color: white; padding: 6px 16px; }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 45%, transparent); }
+  .btn.ghost { border-color: var(--border); font-weight: 500; }
+  textarea.note { flex: 1 1 260px; min-height: 30px; resize: vertical; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 9px; font-size: 12.5px; color: var(--text); outline: none; }
+  textarea.note:focus { border-color: var(--accent); }
+  .note-ro { flex: 1 1 260px; font-size: 12.5px; padding: 4px 0; white-space: pre-wrap; }
+  .note-ro .label { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
+
+  .additions { margin-top: 20px; }
+  .addition { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
+  .addition select { background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 8px; font-size: 12px; max-width: 260px; }
+  .footer { position: sticky; bottom: 0; margin-top: 18px; padding: 10px 0 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
+  .footer .tally { color: var(--dim); }
+  .footer .tally b { color: var(--text); }
+  .errors { margin-top: 10px; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); border-radius: 6px; background: color-mix(in oklab, var(--danger) 8%, transparent); font-family: var(--mono); font-size: 12px; color: var(--danger); white-space: pre-wrap; }
+  .done { padding: 12px 14px; border: 1px solid color-mix(in oklab, var(--ok) 45%, transparent); border-radius: 8px; background: color-mix(in oklab, var(--ok) 6%, transparent); color: var(--dim); margin-bottom: 14px; }
+  .empty { color: var(--faint); padding: 24px 0; text-align: center; }
+  kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--border-strong); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--dim); }
 </style>
 </head>
 <body>
-<div id="app" class="muted">waiting for the shell…</div>
+<div id="app" class="empty">waiting for the shell…</div>
 <script>
-// Placeholder view for the built-in list type: shows the payload and submits
-// an "everything undecided" decision. The real view lands in step 6. It is
-// also the reference client for the bridge protocol.
 "use strict";
-let shellOrigin = null, gate = null, readonly = false;
+/* The built-in list gate. A self-contained view for the wicket plugin
+   protocol: items grouped under headings, accept / reject / note per item,
+   free-text additions, and an honest `undecided` list. Also the reference
+   client for the protocol: every message the shell sends or expects is
+   handled below. */
+
 const app = document.getElementById("app");
-const post = (msg) => parent.postMessage({wicket: 1, ...msg}, shellOrigin || "*");
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const itemIds = () => (gate.payload.groups || []).flatMap((g) => g.items.map((i) => i.id));
+let shellOrigin = null;
+let gate = null, previous = null, readonly = false;
+const S = { decisions: {}, additions: [], armed: false, errors: null };
+let draftTimer = null;
 
-function render() {
-  const groups = gate.payload.groups || [];
-  let html = gate.payload.intro ? `<p>${esc(gate.payload.intro)}</p>` : "";
-  for (const g of groups) {
-    html += `<h2>${esc(g.title)}</h2>`;
-    for (const i of g.items) {
-      html += `<div class="item"><div class="t">#${esc(i.id)} ${esc(i.title)}</div>` +
-              (i.body ? `<div class="muted">${esc(i.body)}</div>` : "") + `</div>`;
-    }
-  }
-  if (readonly) {
-    html += `<p class="muted">Read-only. Decision: <code>${esc(JSON.stringify(gate.decision && gate.decision.data))}</code></p>`;
-  } else {
-    html += `<p><button class="primary" id="submit">Submit (leave everything undecided)</button>
-             <button id="bad">Submit something invalid</button></p><div id="errors" class="err"></div>`;
-  }
-  app.className = "";
-  app.innerHTML = html;
-  if (!readonly) {
-    document.getElementById("submit").onclick = () => post({type: "submit", data: {decisions: [], undecided: itemIds()}});
-    document.getElementById("bad").onclick = () => post({type: "submit", data: {decisions: [{id: 1, action: "maybe"}]}});
-  }
-  resize();
-}
-
-function resize() { post({type: "resize", height: document.documentElement.scrollHeight}); }
-new ResizeObserver(resize).observe(document.body);
+/* ---------- protocol ---------- */
+const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shellOrigin || "*");
 
 window.addEventListener("message", (event) => {
   const msg = event.data;
@@ -62,23 +105,270 @@ window.addEventListener("message", (event) => {
   switch (msg.type) {
     case "init":
       shellOrigin = msg.shell_origin;
-      gate = msg.gate; readonly = !!msg.readonly;
+      gate = msg.gate; previous = msg.previous || null; readonly = !!msg.readonly;
+      S.errors = null; S.armed = false;
+      if (readonly) {
+        loadDecision(gate.decision && gate.decision.data);
+      } else if (msg.draft && msg.draft.decisions) {
+        S.decisions = msg.draft.decisions; S.additions = msg.draft.additions || [];
+      } else {
+        S.decisions = {}; S.additions = [];
+      }
       render();
       break;
     case "violations":
-      document.getElementById("errors").textContent = msg.errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-      resize();
+      S.errors = msg.errors || []; S.armed = false;
+      render();
       break;
     case "submitted":
       gate.decision = msg.decision; readonly = true;
+      loadDecision(msg.decision && msg.decision.data);
       render();
       break;
     case "collect":
-      if (!readonly) document.getElementById("submit").click();
+      if (!readonly) submit();
       break;
   }
 });
-post({type: "ready"});
+
+function resize() { post({ type: "resize", height: document.documentElement.scrollHeight }); }
+new ResizeObserver(resize).observe(document.body);
+
+/* Drafts: a click posts at once, so a reload right after it loses nothing;
+   typing is debounced so every keystroke does not cross the bridge. */
+function postDraft() {
+  clearTimeout(draftTimer);
+  post({ type: "draft", data: { decisions: S.decisions, additions: S.additions } });
+}
+function draft() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(postDraft, 150);
+}
+
+/* ---------- state ---------- */
+const items = () => (gate.payload.groups || []).flatMap((g) => g.items.map((i) => ({ ...i, group: g.title })));
+const itemIds = () => items().map((i) => i.id);
+
+function loadDecision(data) {
+  S.decisions = {}; S.additions = [];
+  if (!data) return;
+  for (const d of data.decisions || []) S.decisions[d.id] = { action: d.action, note: d.note || "" };
+  S.additions = (data.additions || []).map((a) => ({ group: a.group || "", body: a.body }));
+}
+
+function decisionData() {
+  const decisions = [], undecided = [];
+  for (const id of itemIds()) {
+    const d = S.decisions[id];
+    if (d && d.action) {
+      const out = { id, action: d.action };
+      if (d.note && d.note.trim()) out.note = d.note.trim();
+      decisions.push(out);
+    } else {
+      undecided.push(id);
+    }
+  }
+  const data = { decisions, undecided };
+  const additions = S.additions.filter((a) => a.body && a.body.trim()).map((a) => (a.group ? { group: a.group, body: a.body.trim() } : { body: a.body.trim() }));
+  if (additions.length) data.additions = additions;
+  return data;
+}
+
+function tally() {
+  let accept = 0, reject = 0, undecided = 0;
+  for (const id of itemIds()) {
+    const d = S.decisions[id];
+    if (d && d.action === "accept") accept++; else if (d && d.action === "reject") reject++; else undecided++;
+  }
+  return { accept, reject, undecided, total: accept + reject + undecided };
+}
+
+function setAction(id, action) {
+  const cur = S.decisions[id] || { action: null, note: "" };
+  S.decisions[id] = { ...cur, action: cur.action === action ? null : action };
+  S.armed = false;
+  postDraft(); render();
+}
+
+function setNote(id, note) {
+  S.decisions[id] = { ...(S.decisions[id] || { action: null }), note };
+  draft();
+}
+
+function submit() {
+  const t = tally();
+  if (t.undecided > 0 && !S.armed) { S.armed = true; render(); return; }
+  S.errors = null;
+  post({ type: "submit", data: decisionData() });
+}
+
+/* ---------- markdown (small and safe: escape first, then mark up) ---------- */
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, (_, c) => `<code class="inl">${c}</code>`)
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<i>$2</i>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+}
+
+function markdown(src) {
+  const lines = esc(src || "").split("\n");
+  let html = "", para = [], list = null, code = null;
+  const flushPara = () => { if (para.length) { html += `<p>${inline(para.join(" "))}</p>`; para = []; } };
+  const flushList = () => { if (list) { html += `<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`; list = null; } };
+  for (const line of lines) {
+    if (code !== null) {
+      if (/^```/.test(line)) { html += `<pre>${code.join("\n")}</pre>`; code = null; } else code.push(line);
+      continue;
+    }
+    if (/^```/.test(line)) { flushPara(); flushList(); code = []; continue; }
+    const li = line.match(/^\s*(?:[-*]|(\d+)\.)\s+(.*)$/);
+    if (li) {
+      flushPara();
+      const tag = li[1] ? "ol" : "ul";
+      if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
+      list.items.push(li[2]);
+      continue;
+    }
+    if (!line.trim()) { flushPara(); flushList(); continue; }
+    flushList();
+    para.push(line.trim());
+  }
+  if (code !== null) html += `<pre>${code.join("\n")}</pre>`;
+  flushPara(); flushList();
+  return html;
+}
+
+/* ---------- render ---------- */
+const sevClass = (s) => ["blocker", "major", "minor", "nit"].includes(s) ? `sev-${s}` : "sev-other";
+
+function previousVerdict(id) {
+  const data = previous && previous.decision && previous.decision.data;
+  if (!data) return null;
+  const d = (data.decisions || []).find((x) => x.id === id);
+  if (d) return `${d.action}${d.note ? ": " + d.note : ""}`;
+  if ((data.undecided || []).includes(id)) return "undecided";
+  return null;
+}
+
+function renderItem(item) {
+  const d = S.decisions[item.id] || { action: null, note: "" };
+  const cls = d.action === "accept" ? "accepted" : d.action === "reject" ? "rejected" : "";
+  const meta = item.meta && typeof item.meta === "object"
+    ? Object.entries(item.meta).map(([k, v]) => `<span class="meta">${esc(k)}: ${esc(typeof v === "object" ? JSON.stringify(v) : v)}</span>`).join("")
+    : "";
+  const prev = previousVerdict(item.id);
+  let controls;
+  if (readonly) {
+    const verdict = d.action || "undecided";
+    controls = `<div class="controls">
+      ${d.note ? `<div class="note-ro"><span class="label">${d.action === "reject" ? "reason" : "note"}</span>${esc(d.note)}</div>` : ""}
+    </div>`;
+    return `<div class="item ${cls}" data-id="${item.id}">
+      <div class="head"><span class="id">#${esc(item.id)}</span>
+        ${item.severity ? `<span class="sev ${sevClass(item.severity)}">${esc(item.severity)}</span>` : ""}
+        <span class="title">${esc(item.title)}</span>${meta}
+        <span class="verdict ${verdict}">${verdict}</span></div>
+      ${item.body ? `<div class="body">${markdown(item.body)}</div>` : ""}
+      ${prev ? `<div class="previous"><b>previous round:</b> ${esc(prev)}</div>` : ""}
+      ${d.note ? controls : ""}
+    </div>`;
+  }
+  const placeholder = d.action === "reject" ? "why (becomes a lesson for the agent)" : d.action === "accept" ? "revise before acting (optional)" : "note (optional)";
+  return `<div class="item ${cls}" data-id="${item.id}">
+    <div class="head"><span class="id">#${esc(item.id)}</span>
+      ${item.severity ? `<span class="sev ${sevClass(item.severity)}">${esc(item.severity)}</span>` : ""}
+      <span class="title">${esc(item.title)}</span>${meta}
+      <span class="verdict ${d.action || "undecided"}">${d.action || "undecided"}</span></div>
+    ${item.body ? `<div class="body">${markdown(item.body)}</div>` : ""}
+    ${prev ? `<div class="previous"><b>previous round:</b> ${esc(prev)}</div>` : ""}
+    <div class="controls">
+      <button type="button" class="btn accept ${d.action === "accept" ? "on" : ""}" data-act="accept" data-id="${item.id}" aria-pressed="${d.action === "accept"}">Accept</button>
+      <button type="button" class="btn reject ${d.action === "reject" ? "on" : ""}" data-act="reject" data-id="${item.id}" aria-pressed="${d.action === "reject"}">Reject</button>
+      <textarea class="note" rows="1" data-note="${item.id}" placeholder="${placeholder}" aria-label="note for item ${esc(item.id)}">${esc(d.note || "")}</textarea>
+    </div>
+  </div>`;
+}
+
+function renderAdditions() {
+  const groups = (gate.payload.groups || []).map((g) => g.title);
+  if (readonly) {
+    if (!S.additions.length) return "";
+    return `<section class="additions"><div class="eyebrow">your additions</div>
+      ${S.additions.map((a) => `<div class="item"><div class="head">${a.group ? `<span class="meta">${esc(a.group)}</span>` : ""}</div><div class="body">${markdown(a.body)}</div></div>`).join("")}
+    </section>`;
+  }
+  if (!gate.payload.allow_additions) return "";
+  return `<section class="additions"><div class="eyebrow">your additions</div>
+    ${S.additions.map((a, i) => `<div class="addition">
+      <select data-add-group="${i}" aria-label="group for addition ${i + 1}"><option value="">(no group)</option>${groups.map((g) => `<option value="${esc(g)}" ${a.group === g ? "selected" : ""}>${esc(g)}</option>`).join("")}</select>
+      <textarea class="note" rows="2" data-add-body="${i}" placeholder="markdown" aria-label="addition ${i + 1}">${esc(a.body || "")}</textarea>
+      <button type="button" class="btn ghost" data-add-remove="${i}" aria-label="remove addition ${i + 1}">×</button>
+    </div>`).join("")}
+    <div style="margin-top:8px"><button type="button" class="btn ghost" id="add-addition">+ add a note of your own</button></div>
+  </section>`;
+}
+
+function render() {
+  const groups = gate.payload.groups || [];
+  const t = tally();
+  let html = "";
+  if (readonly) {
+    const dec = gate.decision;
+    html += dec
+      ? `<div class="done">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
+      : `<div class="done">Closed without a decision (${esc(gate.status)}). Read-only.</div>`;
+  }
+  if (gate.payload.intro) html += `<div class="intro">${markdown(gate.payload.intro)}</div>`;
+  if (!readonly) {
+    html += `<div class="bar"><span><b>${t.total}</b> items</span><span class="spacer"></span>
+      <button type="button" class="btn ghost" id="accept-rest">accept all undecided</button>
+      <button type="button" class="btn ghost" id="clear-all">clear</button></div>`;
+  }
+  if (!groups.length) html += `<div class="empty">Nothing to decide.</div>`;
+  for (const g of groups) {
+    html += `<h2 class="group">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
+    for (const item of g.items) html += renderItem({ ...item, group: g.title });
+  }
+  html += renderAdditions();
+  if (S.errors && S.errors.length) {
+    html += `<div class="errors" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
+  }
+  if (!readonly) {
+    html += `<div class="footer">
+      <span class="tally"><b>${t.accept}</b> accepted · <b>${t.reject}</b> rejected · <b>${t.undecided}</b> undecided</span>
+      <span class="spacer" style="flex:1"></span>
+      ${S.armed ? `<span class="tally">${t.undecided} left undecided, they will be reported as such.</span><button type="button" class="btn danger" id="submit">Submit anyway</button><button type="button" class="btn ghost" id="disarm">back</button>`
+                : `<button type="button" class="btn primary" id="submit">Submit decisions</button><span class="tally"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>`}
+    </div>`;
+  }
+  app.className = "";
+  app.innerHTML = html;
+  bind();
+  resize();
+}
+
+function bind() {
+  if (readonly) return;
+  app.querySelectorAll("button[data-act]").forEach((b) => b.onclick = () => setAction(+b.dataset.id, b.dataset.act));
+  app.querySelectorAll("textarea[data-note]").forEach((t) => {
+    t.oninput = () => setNote(+t.dataset.note, t.value);
+    t.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !(e.metaKey || e.ctrlKey)) { e.preventDefault(); t.blur(); } };
+  });
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
+  on("submit", submit);
+  on("disarm", () => { S.armed = false; render(); });
+  on("accept-rest", () => { for (const id of itemIds()) if (!(S.decisions[id] && S.decisions[id].action)) S.decisions[id] = { ...(S.decisions[id] || {}), action: "accept" }; S.armed = false; postDraft(); render(); });
+  on("clear-all", () => { S.decisions = {}; S.armed = false; postDraft(); render(); });
+  on("add-addition", () => { S.additions.push({ group: "", body: "" }); postDraft(); render(); const last = app.querySelector(`textarea[data-add-body="${S.additions.length - 1}"]`); if (last) last.focus(); });
+  app.querySelectorAll("[data-add-remove]").forEach((b) => b.onclick = () => { S.additions.splice(+b.dataset.addRemove, 1); postDraft(); render(); });
+  app.querySelectorAll("[data-add-body]").forEach((t) => t.oninput = () => { S.additions[+t.dataset.addBody].body = t.value; draft(); });
+  app.querySelectorAll("[data-add-group]").forEach((s) => s.onchange = () => { S.additions[+s.dataset.addGroup].group = s.value; postDraft(); });
+}
+
+post({ type: "ready" });
 </script>
 </body>
 </html>

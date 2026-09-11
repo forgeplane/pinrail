@@ -1,0 +1,18 @@
+{
+  "name": "hello",
+  "version": 1,
+  "title": "Hello",
+  "payload_schema": {
+    "type": "object",
+    "required": ["message"],
+    "properties": { "message": { "type": "string" } }
+  },
+  "decision_schema": {
+    "type": "object",
+    "required": ["ok"],
+    "additionalProperties": false,
+    "properties": { "ok": { "type": "boolean" }, "comment": { "type": "string" } }
+  },
+  "entry": "index.html",
+  "min_height": 200
+}

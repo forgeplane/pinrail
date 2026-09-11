@@ -17,7 +17,7 @@ config :wicket, WicketWeb.Endpoint,
 # installed under assets/ (see README).
 config :phoenix_test,
   otp_app: :wicket,
-  playwright: [browser: :chromium, headless: true]
+  playwright: [browser: :chromium, headless: true, timeout: :timer.seconds(5)]
 
 config :logger, level: :warning
 

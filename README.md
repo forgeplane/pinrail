@@ -55,3 +55,10 @@ mix test --include playwright     # everything
 ```
 
 Tests live in `test/wicket_web/browser/` and are tagged `:playwright`.
+
+## Plugins
+
+A gate type is a directory with a manifest, two JSON Schemas and a
+self-contained HTML view. The built-in `list` type ships with the server;
+`plugins/` holds the protocol reference and a minimal sample to copy from.
+See [plugins/README.md](plugins/README.md).

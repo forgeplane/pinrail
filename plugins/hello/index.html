@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>hello gate</title>
+<style>
+  body { margin: 0; padding: 16px; font: 14px/1.5 system-ui, sans-serif; color: #d7dce5; background: #15181e; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 6px 14px; border: 1px solid #39414f; background: #1a1e26; color: inherit; margin-right: 6px; }
+  input { font: inherit; color: inherit; background: #101216; border: 1px solid #39414f; border-radius: 6px; padding: 6px 9px; width: 100%; box-sizing: border-box; margin: 10px 0; }
+  .muted { color: #67707f; }
+  .err { color: #e5644e; font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div id="app" class="muted">waiting for the shell…</div>
+<script>
+// The smallest complete wicket plugin: one question, yes or no, with an
+// optional comment. Every protocol message is handled here.
+"use strict";
+let shellOrigin = null, gate = null, readonly = false;
+const app = document.getElementById("app");
+const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shellOrigin || "*");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function render(draft) {
+  const decided = gate.decision && gate.decision.data;
+  app.className = "";
+  app.innerHTML = `<p>${esc(gate.payload.message)}</p>` + (readonly
+    ? `<p class="muted">Decided: <b>${decided && decided.ok ? "yes" : "no"}</b>${decided && decided.comment ? " — " + esc(decided.comment) : ""}</p>`
+    : `<input id="comment" placeholder="comment (optional)" value="${esc(draft && draft.comment)}">
+       <button id="yes">Yes</button><button id="no">No</button><div id="errors" class="err"></div>`);
+  if (!readonly) {
+    const comment = () => document.getElementById("comment").value.trim();
+    document.getElementById("comment").oninput = () => post({ type: "draft", data: { comment: comment() } });
+    const submit = (ok) => post({ type: "submit", data: comment() ? { ok, comment: comment() } : { ok } });
+    document.getElementById("yes").onclick = () => submit(true);
+    document.getElementById("no").onclick = () => submit(false);
+  }
+  post({ type: "resize", height: document.documentElement.scrollHeight });
+}
+
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.wicket !== 1) return;
+  if (shellOrigin && event.origin !== shellOrigin) return;
+  if (msg.type === "init") { shellOrigin = msg.shell_origin; gate = msg.gate; readonly = !!msg.readonly; render(msg.draft); }
+  if (msg.type === "violations") document.getElementById("errors").textContent = msg.errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
+  if (msg.type === "submitted") { gate.decision = msg.decision; readonly = true; render(); }
+  if (msg.type === "collect" && !readonly) document.getElementById("yes").click();
+});
+post({ type: "ready" });
+</script>
+</body>
+</html>
