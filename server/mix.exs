@@ -50,6 +50,15 @@ defmodule Wicket.MixProject do
        app: false,
        compile: false,
        depth: 1},
+      # The icon set plugin views draw from, served as files under /sdk/v1/icons.
+      # Nothing here is checked in: mix.lock pins which icons a build serves.
+      {:lucide,
+       github: "lucide-icons/lucide",
+       tag: "1.45.0",
+       sparse: "icons",
+       app: false,
+       compile: false,
+       depth: 1},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:bandit, "~> 1.5"}
@@ -60,11 +69,12 @@ defmodule Wicket.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind wicket", "esbuild wicket", "esbuild sdk"],
+      "assets.build": ["compile", "tailwind wicket", "esbuild wicket", "esbuild sdk", "wicket.icons"],
       "assets.deploy": [
         "tailwind wicket --minify",
         "esbuild wicket --minify",
         "esbuild sdk",
+        "wicket.icons",
         "phx.digest"
       ],
       # The browser suite drives the assets as they are served, so build them.

@@ -6,8 +6,9 @@
 <link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
 <style>
   /* The tokens, the base and every class below come from the SDK stylesheet;
-     these three rules are all this view needs of its own. */
+     these four rules are all this view needs of its own. */
   .choice { display: flex; gap: 8px; margin: 14px 0 10px; }
+  .choice .btn { display: inline-flex; align-items: center; gap: 6px; }
   #comment { width: 100%; max-width: 420px; }
   .errors { min-height: 16px; margin-top: 10px; }
 </style>
@@ -60,8 +61,8 @@ function render(draft) {
   view.content.innerHTML = `<p>${esc(gate.payload.message)}</p>` + (plugin.readonly
     ? `<p class="dim">Decided: <b>${decided && decided.ok ? "yes" : "no"}</b>${decided && decided.comment ? " — " + esc(decided.comment) : ""}</p>`
     : `<div class="choice">
-         <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">Yes</button>
-         <button type="button" class="btn" id="no" aria-pressed="${choice === false}">No</button>
+         <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${Wicket.icon("check")} Yes</button>
+         <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${Wicket.icon("x")} No</button>
        </div>
        <input class="field" id="comment" placeholder="comment (optional)" aria-label="comment" value="${esc(draft && draft.comment)}">
        <div id="errors" class="errors"></div>`);

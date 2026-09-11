@@ -58,6 +58,12 @@ vocabulary of classes:
 <link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
 ```
 
+It also gives you icons. The app serves the [Lucide](https://lucide.dev) set a
+file at a time at `/sdk/v1/icons/<name>.svg`, and `Wicket.icon("check")` writes
+the markup for one. Any name in the set works and you download only the ones
+you name, so the set costs your view nothing. Icons take `currentColor`, so
+they follow the theme along with the text around them.
+
 `Wicket.layout()` builds that skeleton for you, and hands back the elements
 rather than markup, so the header and its controls keep their listeners while
 you rewrite the body on every change:

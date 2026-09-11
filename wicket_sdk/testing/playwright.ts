@@ -9,6 +9,10 @@ import path from "node:path";
 
 const sdkRoot = path.resolve(__dirname, "..");
 const ORIGIN = "http://plugin.test";
+// The app serves the icon set a file at a time under /sdk/v1/icons; the build
+// puts it here. A view under test reaches icons by the same paths it will use
+// in the app.
+const iconsDir = path.resolve(sdkRoot, "..", "server", "priv", "static", "sdk", "v1", "icons");
 
 const mime: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -25,7 +29,7 @@ function csp(): string {
     "default-src 'none'",
     `script-src 'unsafe-inline' ${ORIGIN}/`,
     `style-src 'unsafe-inline' ${ORIGIN}/`,
-    `img-src data: blob: ${ORIGIN}/`,
+    `img-src data: blob: ${ORIGIN}/ ${ORIGIN}/sdk/`,
     `font-src data: ${ORIGIN}/`,
     `media-src data: blob: ${ORIGIN}/`,
     "connect-src 'none'",
@@ -102,6 +106,19 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
     if (p === "/_harness.html") return route.fulfill({ contentType: "text/html", body: harness });
     if (p === "/sdk/v1/wicket-plugin.js") return route.fulfill({ contentType: mime[".js"], body: sdk });
     if (p === "/sdk/v1/wicket-plugin.css") return route.fulfill({ contentType: mime[".css"], body: sdkCss });
+    if (p.startsWith("/sdk/v1/icons/")) {
+      const icon = path.join(iconsDir, path.basename(p));
+      if (!fs.existsSync(icon)) return route.fulfill({ status: 404, body: "no such icon" });
+      // The app sends this because a view's frame has an opaque origin and a
+      // mask image is fetched under CORS. A fulfilled route is exempt from that
+      // check, so the header here only keeps the harness honest; whether the
+      // real policy lets an icon through is settled by the end-to-end suite.
+      return route.fulfill({
+        contentType: mime[".svg"],
+        body: fs.readFileSync(icon),
+        headers: { "access-control-allow-origin": "*" },
+      });
+    }
     const file = path.join(pluginDir, decodeURIComponent(p.replace(/^\//, "")));
     if (!file.startsWith(path.resolve(pluginDir)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return route.fulfill({ status: 404, body: "not found" });

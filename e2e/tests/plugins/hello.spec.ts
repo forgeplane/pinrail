@@ -41,3 +41,42 @@ test("a plugin that violates its schema is refused and told where", async ({ pag
   expect(result.code).toBe(0);
   expect(JSON.parse(result.stdout).decision.data).toEqual({ ok: false });
 });
+
+test("an icon reaches a gate view across the sandbox and paints", async ({ page }) => {
+  // A view runs with an opaque origin, so a CSS mask image is a cross-origin
+  // fetch. Only a real server proves it gets through: the isolated harness
+  // answers these requests itself and cannot show the policy that governs them.
+  const served: Record<string, number> = {};
+  const refused: string[] = [];
+  page.on("response", (r) => {
+    if (r.url().includes("/sdk/v1/icons/")) served[r.url().split("/").pop()!] = r.status();
+  });
+  page.on("console", (m) => {
+    if (/CORS|Content Security Policy|blocked/i.test(m.text())) refused.push(m.text());
+  });
+
+  const payload = tmpFile("p.json", JSON.stringify({ message: "Push?" }));
+  const waiter = startWaiter(["create", "hello", "--title", "Icons", "--data", payload, "--wait"]);
+  const id = await waiter.gateId;
+
+  await page.goto(gateUrl(id));
+  const frame = page.frameLocator("#plugin-frame");
+  const mark = frame.getByRole("button", { name: "Yes" }).locator(".wi");
+  await expect(mark).toHaveAttribute("data-icon", "check");
+  await expect.poll(() => served["check.svg"]).toBe(200);
+  expect(refused, "the browser refused an icon").toEqual([]);
+
+  const painted = await mark.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+      width: Math.round(box.width),
+      colour: style.backgroundColor,
+      textColour: getComputedStyle(el.closest("button")!).color,
+    };
+  });
+  expect(painted.width).toBeGreaterThan(8);
+  expect(painted.colour).toBe(painted.textColour);
+
+  waiter.proc.kill();
+});

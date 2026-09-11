@@ -95,3 +95,55 @@ test("a dark shell leaves the view dark", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: push(), theme: "dark" });
   await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "dark");
 });
+
+test("an icon paints inside the sandbox and takes the colour of its button", async ({ page }) => {
+  const fetched: Record<string, number> = {};
+  const blocked: string[] = [];
+  page.on("response", (r) => {
+    if (r.url().includes("/sdk/v1/icons/")) fetched[r.url().split("/").pop()!] = r.status();
+  });
+  page.on("console", (m) => {
+    if (/content security policy/i.test(m.text())) blocked.push(m.text());
+  });
+
+  const plugin = await mountPlugin(page, dir, { gate: push(), theme: "light" });
+  const yes = plugin.frame.getByRole("button", { name: "Yes" });
+  await expect(yes).toBeVisible();
+
+  const mark = yes.locator(".wi");
+  await expect(mark).toHaveAttribute("data-icon", "check");
+  // Decorative: the button already says Yes, so the icon is not announced.
+  await expect(mark).toHaveAttribute("aria-hidden", "true");
+
+  const painted = await mark.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return {
+      width: Math.round(box.width),
+      height: Math.round(box.height),
+      colour: style.backgroundColor,
+      textColour: getComputedStyle(el.closest("button")!).color,
+      mask: (style.maskImage || (style as any).webkitMaskImage || "").includes("/sdk/v1/icons/check.svg"),
+    };
+  });
+  expect(painted.width).toBeGreaterThan(8);
+  expect(painted.height).toBeGreaterThan(8);
+  expect(painted.mask).toBe(true);
+  expect(painted.colour).toBe(painted.textColour);
+
+  expect(fetched["check.svg"]).toBe(200);
+  expect(fetched["x.svg"]).toBe(200);
+  expect(blocked).toEqual([]);
+});
+
+test("a name with no icon behind it renders nothing and says which name", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: push() });
+  const missing = await plugin.frame.locator("body").evaluate((body, markup) => {
+    body.insertAdjacentHTML("beforeend", markup);
+    const el = body.querySelector('[data-icon="not-an-icon"]') as HTMLElement;
+    const box = el.getBoundingClientRect();
+    return { name: el.dataset.icon, width: Math.round(box.width) };
+  }, `<span class="wi" data-icon="not-an-icon" style="--wi:url(/sdk/v1/icons/not-an-icon.svg)"></span>`);
+  expect(missing.name).toBe("not-an-icon");
+  expect(missing.width).toBeGreaterThan(8);
+});

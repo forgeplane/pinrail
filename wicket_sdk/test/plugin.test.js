@@ -275,3 +275,28 @@ test("the module exposes a version and the protocol number", () => {
   assert.equal(Wicket.protocol, 1);
   assert.match(Wicket.version, /^\d+\.\d+\.\d+$/);
 });
+
+test("icon markup takes the name, the colour of its text, and nothing from a payload", () => {
+  const plain = Wicket.icon("check");
+  assert.match(plain, /class="wi"/);
+  assert.match(plain, /--wi:url\(\/sdk\/v1\/icons\/check\.svg\)/);
+  assert.match(plain, /aria-hidden="true"/, "decorative unless it is given a name");
+  assert.match(plain, /data-icon="check"/, "the name stays on the element, to find a typo by");
+
+  // A view may take the name from a gate payload, which is not ours to trust.
+  const hostile = Wicket.icon('x.svg) url(https://evil.test/pixel.svg');
+  assert.match(hostile, /--wi:url\(\/sdk\/v1\/icons\/[a-z0-9-]*\.svg\);/);
+  assert.equal(hostile.includes("evil.test"), false, "the host is gone");
+  assert.equal(/url\(/.test(hostile.replace("url(/sdk/v1/icons/", "")), false, "no second url()");
+
+  assert.match(Wicket.icon("check", { size: 18 }), /--wi-size:18px/);
+  assert.match(Wicket.icon("check", { size: "1.25em" }), /--wi-size:1\.25em/);
+  assert.match(Wicket.icon("check", { class: "spacer" }), /class="wi spacer"/);
+
+  const named = Wicket.icon("trash-2", { label: "delete" });
+  assert.match(named, /role="img"/);
+  assert.match(named, /aria-label="delete"/);
+  assert.equal(named.includes("aria-hidden"), false);
+
+  assert.match(Wicket.icon(null), /data-icon=""/, "a missing name is not a crash");
+});

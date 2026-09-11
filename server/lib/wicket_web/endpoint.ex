@@ -12,6 +12,17 @@ defmodule WicketWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
+  # The SDK and the icon set, served to gate views. A view runs in a sandboxed
+  # frame with an opaque origin, and a browser fetches a CSS mask image under
+  # CORS, so an icon has to be readable from that origin. These are public,
+  # immutable files; scripts and stylesheets need nothing extra, only the
+  # icons do.
+  plug Plug.Static,
+    at: "/sdk",
+    from: {:wicket, "priv/static/sdk"},
+    gzip: not code_reloading?,
+    headers: %{"access-control-allow-origin" => "*"}
+
   plug Plug.Static,
     at: "/",
     from: :wicket,

@@ -120,6 +120,27 @@ kbd {
 .spacer { flex: 1; }
 
 /* -------------------------------------------------------------------------
+   Icons. The app serves the Lucide set a file at a time under /sdk/v1/icons,
+   so a view downloads only the icons it names. The glyph is a mask, which is
+   what makes it take currentColor: an icon is the colour of the text it sits
+   in, in either theme, with nothing to configure.
+
+     <span class="wi" style="--wi: url(/sdk/v1/icons/check.svg)"></span>
+
+   Wicket.icon("check") writes that for you. Size follows the font size;
+   override it with --wi-size.
+   ------------------------------------------------------------------------- */
+
+.wi {
+  display: inline-block; flex: none;
+  width: var(--wi-size, 1em); height: var(--wi-size, 1em);
+  vertical-align: -0.14em;
+  background-color: currentColor;
+  -webkit-mask: var(--wi) no-repeat center / contain;
+  mask: var(--wi) no-repeat center / contain;
+}
+
+/* -------------------------------------------------------------------------
    Pieces.
    ------------------------------------------------------------------------- */
 

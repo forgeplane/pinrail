@@ -28,6 +28,12 @@ defmodule WicketWeb.PluginControllerTest do
     assert csp =~
              "style-src 'unsafe-inline' http://www.example.com:80/plugins/list/1/ http://www.example.com:80/sdk/"
 
+    # A CSS mask is an image to the policy, so the icon set the app serves has
+    # to be an image source; nothing else outside the plugin's own bundle is.
+    assert csp =~
+             "img-src data: blob: http://www.example.com:80/plugins/list/1/ http://www.example.com:80/sdk/"
+
+    assert csp =~ "font-src data: http://www.example.com:80/plugins/list/1/"
     assert csp =~ "frame-ancestors 'self'"
 
     conn = get(build_conn(), ~p"/plugins/list/1/decision.schema.json")

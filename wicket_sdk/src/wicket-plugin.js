@@ -22,6 +22,11 @@
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
  *
+ * Wicket.icon("check") returns an icon from the set the app serves, as markup
+ * that takes the colour of the text around it:
+ *
+ *   `<button class="btn">${Wicket.icon("check")} Accept</button>`
+ *
  * Wicket.layout() builds the standard skeleton that goes with the SDK's
  * stylesheet: a header that stays put and a body that scrolls.
  *
@@ -35,9 +40,10 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.5.0";
+  const VERSION = "1.6.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
+  const ICON_BASE = "/sdk/v1/icons/";
 
   function escape(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -281,6 +287,24 @@
     return found && THEMES.includes(found[1]) ? found[1] : null;
   }
 
+  /* An icon from the set the app serves, as markup, so a view that builds
+     HTML strings can drop one in. The name is reduced to the characters an
+     icon file can have: a view may take it from a gate payload, and a payload
+     is not ours to trust. A name with no file behind it renders as nothing,
+     with the name left on the element to find it by.
+
+     Decorative by default; pass a label and it becomes an image with a name. */
+  function icon(name, options) {
+    options = options || {};
+    const safe = String(name == null ? "" : name).toLowerCase().replace(/[^a-z0-9-]/g, "");
+    const size = options.size == null ? "" : `--wi-size:${typeof options.size === "number" ? options.size + "px" : options.size};`;
+    const extra = options.class ? " " + escape(options.class) : "";
+    const described = options.label
+      ? ` role="img" aria-label="${escape(options.label)}"`
+      : ' aria-hidden="true"';
+    return `<span class="wi${extra}" data-icon="${safe}" style="--wi:url(${ICON_BASE}${safe}.svg);${size}"${described}></span>`;
+  }
+
   function browserEnv(win) {
     const doc = win.document;
     return {
@@ -316,6 +340,7 @@
     connect: (handlers) => createPlugin(browserEnv(root), handlers),
     createPlugin,
     layout,
+    icon,
     escape,
     markdown,
     previousVerdict,

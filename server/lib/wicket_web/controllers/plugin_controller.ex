@@ -57,7 +57,9 @@ defmodule WicketWeb.PluginController do
         "default-src 'none'",
         "script-src 'unsafe-inline' #{bundle} #{origin}/sdk/",
         "style-src 'unsafe-inline' #{bundle} #{origin}/sdk/",
-        "img-src data: blob: #{bundle}",
+        # The app's own icon set is an image to the policy, because a CSS mask
+        # is: same origin, same immutable path the SDK is served from.
+        "img-src data: blob: #{bundle} #{origin}/sdk/",
         "font-src data: #{bundle}",
         "media-src data: blob: #{bundle}",
         "connect-src 'none'",
