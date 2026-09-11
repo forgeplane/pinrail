@@ -1,5 +1,7 @@
 defmodule WicketWeb.TypesLive do
-  @moduledoc "Registered gate types."
+  @moduledoc """
+  Registered gate types.
+  """
   use WicketWeb, :live_view
 
   @impl true

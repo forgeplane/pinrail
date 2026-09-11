@@ -77,8 +77,6 @@ defmodule Wicket.Types.Plugin do
     end
   end
 
-  # -- loading --------------------------------------------------------------
-
   defp read_manifest(dir) do
     path = Path.join(dir, @manifest)
 
@@ -158,8 +156,6 @@ defmodule Wicket.Types.Plugin do
     err |> Exception.message() |> String.replace(~r/ with \S+\(.*\), /s, ": ")
   end
 
-  # -- validation -----------------------------------------------------------
-
   defp validate(%__MODULE__{error: nil}, %JSV.Root{} = schema, data) when is_map(data) do
     case JSV.validate(data, schema) do
       {:ok, _} -> :ok
@@ -204,8 +200,6 @@ defmodule Wicket.Types.Plugin do
   end
 
   defp tidy(_kind, _path, message), do: message
-
-  # -- manifest field helpers ---------------------------------------------
 
   defp string_field(m, key, regex) do
     case m[key] do

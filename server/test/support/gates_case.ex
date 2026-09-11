@@ -16,6 +16,11 @@ defmodule Wicket.GatesCase do
   @fixtures Path.expand("plugins", __DIR__)
 
   setup do
+    reset!()
+  end
+
+  @doc "Empties the data and config dirs, resets plugin dirs to the built-ins, rebuilds the index."
+  def reset! do
     File.rm_rf!(Wicket.Store.gates_dir(Wicket.data_dir()))
     File.rm_rf!(Path.join(Wicket.data_dir(), "plugins"))
     File.rm_rf!(Wicket.Types.config_dir())

@@ -1,5 +1,7 @@
 defmodule WicketWeb.HistoryLive do
-  @moduledoc "Decided, withdrawn and expired gates."
+  @moduledoc """
+  Decided, withdrawn and expired gates.
+  """
   use WicketWeb, :live_view
 
   @impl true

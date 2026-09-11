@@ -113,8 +113,6 @@ defmodule Wicket.Store do
     end
   end
 
-  # -- primitives -----------------------------------------------------------
-
   defp write_atomic(path, body) do
     tmp = path <> ".tmp." <> Integer.to_string(System.unique_integer([:positive]))
 

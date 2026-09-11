@@ -3,6 +3,7 @@ import Config
 # Every test run gets a throwaway data directory under server/tmp (gitignored).
 config :wicket, data_dir: Path.expand("../tmp/test-data", __DIR__)
 config :wicket, user: "tester"
+config :wicket, expiry_interval_ms: :timer.hours(1)
 config :wicket, config_dir: Path.expand("../tmp/test-config", __DIR__)
 config :wicket, plugin_dirs: [Path.expand("../priv/plugins", __DIR__)]
 

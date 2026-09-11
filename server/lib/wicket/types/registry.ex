@@ -79,8 +79,6 @@ defmodule Wicket.Types.Registry do
     end
   end
 
-  # -- scanning -------------------------------------------------------------
-
   defp scan do
     loaded =
       for dir <- Wicket.Types.dirs(), sub <- subdirs(dir) do

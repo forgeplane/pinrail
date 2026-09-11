@@ -17,8 +17,6 @@ defmodule Wicket.Types do
 
   @dirs_file "plugin_dirs.json"
 
-  # -- lookup ---------------------------------------------------------------
-
   @spec all() :: [Plugin.t()]
   defdelegate all, to: Registry
 
@@ -41,15 +39,11 @@ defmodule Wicket.Types do
     end
   end
 
-  # -- validation -----------------------------------------------------------
-
   @spec validate_payload(Plugin.t(), term()) :: :ok | {:error, GateError.t()}
   defdelegate validate_payload(plugin, payload), to: Plugin
 
   @spec validate_decision(Plugin.t(), term()) :: :ok | {:error, GateError.t()}
   defdelegate validate_decision(plugin, decision), to: Plugin
-
-  # -- directories ----------------------------------------------------------
 
   @doc "The plugin directories in scan order: configured defaults, then added ones."
   @spec dirs() :: [Path.t()]
@@ -109,8 +103,6 @@ defmodule Wicket.Types do
     File.mkdir_p!(config_dir())
     File.write!(Path.join(config_dir(), @dirs_file), JSON.encode!(list) <> "\n")
   end
-
-  # -- snapshots ------------------------------------------------------------
 
   @spec snapshot_dir(String.t(), pos_integer()) :: Path.t()
   def snapshot_dir(name, version),

@@ -1,5 +1,7 @@
 defmodule WicketWeb.InboxLive do
-  @moduledoc "Pending gates, newest first."
+  @moduledoc """
+  Pending gates, newest first.
+  """
   use WicketWeb, :live_view
 
   @impl true

@@ -12,6 +12,7 @@ defmodule Wicket.Application do
       {Phoenix.PubSub, name: Wicket.PubSub},
       Wicket.Gates.Index,
       Wicket.Types.Registry,
+      Wicket.Gates.Expiry,
       WicketWeb.Endpoint
     ]
 

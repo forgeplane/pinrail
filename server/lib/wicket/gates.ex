@@ -28,8 +28,6 @@ defmodule Wicket.Gates do
           limit: pos_integer()
         ]
 
-  # -- create ---------------------------------------------------------------
-
   @doc """
   Creates a gate. `attrs` keys may be atoms or strings: `type` and `title` are
   required, `source` should be a map with any of `repo`, `workflow`, `run_id`,
@@ -70,8 +68,6 @@ defmodule Wicket.Gates do
       end
     end
   end
-
-  # -- read -----------------------------------------------------------------
 
   @doc "The gate with its payload, from disk."
   @spec get(String.t()) :: {:ok, Gate.t()} | {:error, GateError.t()}
@@ -158,8 +154,6 @@ defmodule Wicket.Gates do
   @spec superseded_by(String.t()) :: Gate.t() | nil
   def superseded_by(id), do: Enum.find(Index.all(), &(&1.supersedes == id))
 
-  # -- transitions ----------------------------------------------------------
-
   @doc """
   Records the decision. `data` is the type-specific decision, validated
   against the decision schema of the type version the gate was created under.
@@ -226,8 +220,6 @@ defmodule Wicket.Gates do
     end
   end
 
-  # -- pubsub ---------------------------------------------------------------
-
   @doc """
   Subscribes the caller to every gate event, or to one gate's events.
   Messages: `{:gate, :created | :decided | :withdrawn | :expired, gate}`.
@@ -241,8 +233,6 @@ defmodule Wicket.Gates do
   @doc "The configured local user, the default `decided_by`."
   @spec current_user() :: String.t()
   def current_user, do: Application.get_env(:wicket, :user) || "wicket"
-
-  # -- internals ------------------------------------------------------------
 
   defp transition(id, fun) do
     with {:ok, gate} <- get(id),
