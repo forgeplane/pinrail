@@ -18,13 +18,20 @@
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
  *
+ * Wicket.layout() builds the standard skeleton that goes with the SDK's
+ * stylesheet: a header that stays put and a body that scrolls.
+ *
+ *   const view = Wicket.layout({ title: "5 items", controls: [button] });
+ *   view.content.innerHTML = …          // render into this
+ *   view.title("4 items").meta(["acme-api", "7 days"]);
+ *
  * The same code runs in Node for tests through Wicket.createPlugin(env, handlers).
  */
 (function (root) {
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.2.0";
+  const VERSION = "1.3.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
 
@@ -171,6 +178,84 @@
     };
   }
 
+  /*
+   * The skeleton the stylesheet expects. Returns the elements rather than
+   * markup, so a view can rewrite its body on every render while the header
+   * and its controls stay put, with their listeners attached.
+   *
+   * Ask for a header by passing any of title, meta or controls (or
+   * `header: true`); without them you get a content element and nothing else.
+   */
+  function layout(options) {
+    options = options || {};
+    const doc = options.document || (typeof document === "undefined" ? null : document);
+    if (!doc) throw new Error("Wicket.layout needs a document");
+
+    const make = (tag, className) => {
+      const node = doc.createElement(tag);
+      node.className = className;
+      return node;
+    };
+
+    const fill = (node, value) => {
+      const items = value == null ? [] : [].concat(value);
+      node.replaceChildren();
+      for (const item of items) {
+        if (typeof item === "string") {
+          const span = doc.createElement("span");
+          span.textContent = item;
+          node.append(span);
+        } else if (item) {
+          node.append(item);
+        }
+      }
+    };
+
+    const into = options.into || doc.body;
+    const wantsHeader =
+      options.header === true || options.title != null || options.meta != null || options.controls != null;
+
+    let header = null;
+    let titleNode = null;
+    let metaNode = null;
+    let controlsNode = null;
+
+    if (wantsHeader) {
+      header = make("header", "plugin-header");
+      titleNode = make("span", "plugin-title");
+      metaNode = make("span", "plugin-meta");
+      controlsNode = make("span", "plugin-controls");
+      header.append(titleNode, metaNode, controlsNode);
+      into.append(header);
+    }
+
+    const content = make("main", "plugin-content");
+    into.append(content);
+
+    const view = {
+      header,
+      content,
+      title(value) {
+        if (titleNode) titleNode.textContent = value == null ? "" : String(value);
+        return view;
+      },
+      meta(value) {
+        if (metaNode) fill(metaNode, value);
+        return view;
+      },
+      controls(value) {
+        if (controlsNode) fill(controlsNode, value);
+        return view;
+      },
+    };
+
+    if (options.title != null) view.title(options.title);
+    if (options.meta != null) view.meta(options.meta);
+    if (options.controls != null) view.controls(options.controls);
+
+    return view;
+  }
+
   function browserEnv(win) {
     const doc = win.document;
     return {
@@ -197,6 +282,7 @@
     protocol: PROTOCOL,
     connect: (handlers) => createPlugin(browserEnv(root), handlers),
     createPlugin,
+    layout,
     escape,
     markdown,
     previousVerdict,

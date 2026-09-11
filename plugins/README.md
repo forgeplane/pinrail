@@ -71,13 +71,15 @@ vocabulary of classes:
 
 **These are defaults, not rules.** Your own `<style>` comes after the
 stylesheet, so anything you write wins, and a view that needs a shape this
-does not have should just write it. The reason to start here is that the
-palette stays in step with the app on its own: the three shipped views each
-carried a hand-copied copy of it until this existed, and one of them drifted
-far enough to render white text on a white button in the light theme.
+does not have should write it.
 
-`v1` in the path is the protocol major and only ever receives corrections,
-because a gate decided months ago still loads it.
+What you get by starting here is that the palette follows the app. When its
+colours change your view changes with them, in both themes, and your bundle
+carries no copy of them to keep in step.
+
+`v1` in the path is the protocol major and only ever receives corrections: a
+gate decided months ago still loads it, and it must render then as it did on
+the day it was decided.
 
 ## The hand-over belongs to the shell
 
