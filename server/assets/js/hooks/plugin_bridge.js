@@ -3,7 +3,8 @@
 // from it are trusted only when event.source is its window.
 //
 // Every message is {wicket: 1, type, ...}.
-//   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data}
+//   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
+//                    status {label}
 //   shell -> plugin: init {gate, previous, readonly, draft, shell_origin} |
 //                    violations {errors} | submitted {decision} | collect |
 //                    appearance {theme}
@@ -44,35 +45,48 @@ export const PluginBridge = {
         case "draft":
           this.saveDraft(msg.data)
           break
+        case "status":
+          // The view says what handing over would do right now.
+          this.setHandoverLabel(msg.label)
+          break
         case "submit":
           if (!this.init || this.init.readonly || this.submitting) return
           if (!this.connected) {
             this.post({type: "violations", errors: [{path: "", message: "Reconnect before submitting. Your selections are preserved."}]})
             return
           }
-          this.submitting = true
+          this.setSubmitting(true)
           // Read the DOM at commit time, not the last debounced server assign.
           const agentNote = document.getElementById("agent_note")?.value || ""
-          this.pushEvent("submit", {data: msg.data, agent_note: agentNote}, () => { this.submitting = false })
+          this.pushEvent("submit", {data: msg.data, agent_note: agentNote}, () => this.setSubmitting(false))
           break
       }
     }
     window.addEventListener("message", this.onMessage)
 
+    // The shell owns the hand-over: one control, in the same place for every
+    // gate. The view is asked to assemble and submit, and may confirm first.
     this.onKey = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault()
-        if (this.connected && this.init && !this.init.readonly && !this.submitting) this.post({type: "collect"})
+        this.collect()
       }
     }
     window.addEventListener("keydown", this.onKey)
+
+    this.onHandover = (event) => {
+      if (!event.target.closest("[data-handover]")) return
+      event.preventDefault()
+      this.collect()
+    }
+    document.addEventListener("click", this.onHandover)
 
     this.handleEvent("gate:init", (payload) => {
       this.init = payload
       this.sendInit()
     })
     this.handleEvent("gate:violations", ({errors}) => {
-      this.submitting = false
+      this.setSubmitting(false)
       this.post({type: "violations", errors})
     })
     // The shell owns the theme; tell the view whenever it changes.
@@ -91,7 +105,7 @@ export const PluginBridge = {
     this.el.src = this.el.dataset.src
 
     this.handleEvent("gate:submitted", ({decision}) => {
-      this.submitting = false
+      this.setSubmitting(false)
       this.clearDraft()
       // keep the stored init current, so a frame reload after the decision
       // comes back read-only instead of editable
@@ -107,14 +121,40 @@ export const PluginBridge = {
     window.removeEventListener("keydown", this.onKey)
     window.removeEventListener("wicket:appearance", this.onAppearance)
     document.removeEventListener("input", this.onInput)
+    document.removeEventListener("click", this.onHandover)
   },
 
-  disconnected() { this.connected = false },
+  disconnected() {
+    this.connected = false
+    this.syncHandover()
+  },
 
   reconnected() {
     this.connected = true
     this.submitting = false
+    this.syncHandover()
     this.pushEvent("plugin_ready", {})
+  },
+
+  collect() {
+    if (this.connected && this.init && !this.init.readonly && !this.submitting) this.post({type: "collect"})
+  },
+
+  setSubmitting(submitting) {
+    this.submitting = submitting
+    this.syncHandover()
+  },
+
+  handover() { return document.querySelector("[data-handover]") },
+
+  setHandoverLabel(label) {
+    const button = this.handover()
+    if (button && typeof label === "string" && label.trim()) button.textContent = label
+  },
+
+  syncHandover() {
+    const button = this.handover()
+    if (button) button.disabled = this.submitting || !this.connected
   },
 
   sendAppearance() {

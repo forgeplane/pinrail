@@ -11,6 +11,8 @@ test("the hello sample asks a question and returns yes with a comment", async ({
   await expect(frame.locator("p").first()).toHaveText("3 commits on top of main. Push?");
   await frame.getByPlaceholder("comment (optional)").fill("after the rebase");
   await frame.getByRole("button", { name: "Yes" }).click();
+  await expect(page.locator("[data-handover]")).toHaveText("Hand over: yes");
+  await page.locator("[data-handover]").click();
   await expect(frame.locator("p").last()).toContainText("Decided: yes");
 
   const result = await waiter.done;
@@ -34,6 +36,7 @@ test("a plugin that violates its schema is refused and told where", async ({ pag
   await expect(frame.locator("#errors")).toContainText("/ok: value is not of type boolean");
 
   await frame.getByRole("button", { name: "No" }).click();
+  await page.locator("[data-handover]").click();
   const result = await waiter.done;
   expect(result.code).toBe(0);
   expect(JSON.parse(result.stdout).decision.data).toEqual({ ok: false });

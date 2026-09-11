@@ -5,13 +5,15 @@
 <title>hello gate</title>
 <style>
   /* The shell sends its theme; the SDK sets data-theme for us. */
-  :root { --bg:#15181e; --field:#101216; --raised:#1a1e26; --border:#39414f; --text:#d7dce5; --muted:#67707f; --danger:#e5644e; color-scheme: dark; }
-  [data-theme="light"] { --bg:#ffffff; --field:#ffffff; --raised:#f6f7f9; --border:#c5c8d1; --text:#24262c; --muted:#737987; --danger:#bc4655; color-scheme: light; }
-  body { margin: 0; padding: 16px; font: 14px/1.5 system-ui, sans-serif; color: var(--text); background: var(--bg); }
-  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 6px 14px; border: 1px solid var(--border); background: var(--raised); color: inherit; margin-right: 6px; }
-  input { font: inherit; color: inherit; background: var(--field); border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; width: 100%; box-sizing: border-box; margin: 10px 0; }
+  :root { --bg:#18191b; --field:#101216; --raised:#202124; --border:#44474e; --text:#ededef; --muted:#999ba5; --accent:#a1a5ef; --danger:#e48c98; color-scheme: dark; }
+  [data-theme="light"] { --bg:#ffffff; --field:#ffffff; --raised:#f6f7f9; --border:#cdd0d7; --text:#24262c; --muted:#72757f; --accent:#5965cb; --danger:#bc4655; color-scheme: light; }
+  body { margin: 0; padding: 16px 22px; font: 14px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--text); background: var(--bg); }
+  .choice { display: flex; gap: 8px; margin: 14px 0 10px; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; padding: 6px 18px; border: 1px solid var(--border); background: var(--raised); color: inherit; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
+  input { font: inherit; color: inherit; background: var(--field); border: 1px solid var(--border); border-radius: 6px; padding: 6px 9px; width: 100%; max-width: 420px; box-sizing: border-box; }
   .muted { color: var(--muted); }
-  .err { color: var(--danger); font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; }
+  .err { color: var(--danger); font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; min-height: 16px; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -19,19 +21,40 @@
 <script src="/sdk/v1/wicket-plugin.js"></script>
 <script>
 // The smallest complete wicket plugin: one question, yes or no, with an
-// optional comment. The SDK does the protocol; this file only renders.
+// optional comment. The answer is held here; the shell hands it over.
 "use strict";
 const app = document.getElementById("app");
 const esc = Wicket.escape;
+let choice = null;
 
 const plugin = Wicket.connect({
-  onInit({ draft }) { render(draft); },
+  onInit({ draft }) {
+    choice = draft && typeof draft.ok === "boolean" ? draft.ok : null;
+    render(draft);
+  },
   onSubmitted() { render(); },
   onViolations(errors) {
     document.getElementById("errors").textContent = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
   },
-  onCollect() { document.getElementById("yes").click(); },
+  onCollect() { handOver(); },
 });
+
+const comment = () => document.getElementById("comment").value.trim();
+
+function handOver() {
+  if (choice === null) {
+    document.getElementById("errors").textContent = "Choose yes or no first.";
+    return;
+  }
+  const note = comment();
+  plugin.submit(note ? { ok: choice, comment: note } : { ok: choice });
+}
+
+function pick(value) {
+  choice = choice === value ? null : value;
+  plugin.draft({ ok: choice, comment: comment() }, { flush: true });
+  render({ ok: choice, comment: comment() });
+}
 
 function render(draft) {
   const gate = plugin.gate;
@@ -39,14 +62,17 @@ function render(draft) {
   app.className = "";
   app.innerHTML = `<p>${esc(gate.payload.message)}</p>` + (plugin.readonly
     ? `<p class="muted">Decided: <b>${decided && decided.ok ? "yes" : "no"}</b>${decided && decided.comment ? " — " + esc(decided.comment) : ""}</p>`
-    : `<input id="comment" placeholder="comment (optional)" value="${esc(draft && draft.comment)}">
-       <button id="yes">Yes</button><button id="no">No</button><div id="errors" class="err"></div>`);
+    : `<div class="choice">
+         <button type="button" id="yes" aria-pressed="${choice === true}">Yes</button>
+         <button type="button" id="no" aria-pressed="${choice === false}">No</button>
+       </div>
+       <input id="comment" placeholder="comment (optional)" aria-label="comment" value="${esc(draft && draft.comment)}">
+       <div id="errors" class="err"></div>`);
   if (plugin.readonly) return;
-  const comment = () => document.getElementById("comment").value.trim();
-  document.getElementById("comment").oninput = () => plugin.draft({ comment: comment() });
-  const submit = (ok) => plugin.submit(comment() ? { ok, comment: comment() } : { ok });
-  document.getElementById("yes").onclick = () => submit(true);
-  document.getElementById("no").onclick = () => submit(false);
+  document.getElementById("comment").oninput = () => plugin.draft({ ok: choice, comment: comment() });
+  document.getElementById("yes").onclick = () => pick(true);
+  document.getElementById("no").onclick = () => pick(false);
+  plugin.status({ label: choice === null ? "Hand over" : `Hand over: ${choice ? "yes" : "no"}` });
 }
 </script>
 </body>

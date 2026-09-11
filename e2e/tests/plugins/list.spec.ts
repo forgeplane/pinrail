@@ -18,7 +18,7 @@ test("accept, reject with a reason, add a note, submit; the waiter gets exactly 
   await frame.getByLabel("addition 1", { exact: true }).fill("please also check the migration");
   await page.getByLabel("Note to the agent").fill("next round: tickets only");
   await expect(frame.locator(".footer")).toContainText("1 accepted · 1 rejected · 0 undecided");
-  await frame.getByRole("button", { name: "Submit decisions" }).click();
+  await page.getByRole("button", { name: "Hand over" }).click();
 
   await expect(page.locator("#gate-decision")).toContainText("next round: tickets only");
   await expect(frame.locator(".done")).toContainText("1 accepted");
@@ -45,9 +45,11 @@ test("items left undecided are confirmed and reported as undecided", async ({ pa
   await page.goto(gateUrl(id));
   const frame = plugin(page);
   await frame.locator('[data-id="1"] button', { hasText: "Accept" }).click();
-  await frame.getByRole("button", { name: "Submit decisions" }).click();
+  const handOver = page.locator("[data-handover]");
+  await handOver.click();
   await expect(frame.locator(".footer")).toContainText("1 left undecided");
-  await frame.getByRole("button", { name: "Submit anyway" }).click();
+  await expect(handOver).toHaveText("Hand over anyway");
+  await handOver.click();
 
   const result = await waiter.done;
   expect(result.code).toBe(0);
@@ -76,7 +78,7 @@ test("a draft survives a reload and the page is read-only after the decision", a
 
   await page.reload();
   await expect(frame.locator(".done")).toContainText("2 accepted");
-  await expect(frame.getByRole("button", { name: "Submit decisions" })).toHaveCount(0);
+  await expect(page.locator("[data-handover]")).toHaveCount(0);
   await expect(page.locator("#agent-note-form")).toHaveCount(0);
 });
 
@@ -93,6 +95,7 @@ test("the inbox shows the gate, the title carries the count, history lists the d
   wicketJson(["withdraw", id]);
   await expect(page.locator("#gate-withdrawn")).toBeVisible();
   await expect(plugin(page).locator(".done")).toContainText("withdrawn");
+  await expect(page.locator("[data-handover]")).toHaveCount(0);
   expect((await waiter.done).code).toBe(3);
 
   await page.goto(`${gateUrl(id).replace(/\/gates\/.*$/, "/history?status=withdrawn")}`);

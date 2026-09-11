@@ -51,9 +51,12 @@ export type MountedPlugin = {
   /** waits for the next `submit` after `after` messages had been seen */
   nextSubmit(after?: number): Promise<any>;
   lastDraft(): Promise<any>;
+  /** the label the view last asked the shell's hand-over button to show */
+  lastStatus(): Promise<string | null>;
   send(msg: Record<string, any>): Promise<void>;
   sendViolations(errors: { path: string; message: string }[]): Promise<void>;
   sendSubmitted(decision: Gate): Promise<void>;
+  /** asks the view to hand over, as the shell's button does */
   collect(): Promise<void>;
   /** re-sends init with the last draft, as the shell does after a reload */
   reinit(overrides?: Partial<MountOptions>): Promise<void>;
@@ -120,6 +123,7 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
       return all.filter((m) => m.type === "submit").pop()!.data;
     },
     lastDraft: () => page.evaluate(() => (window as any).__shell.lastDraft()),
+    lastStatus: () => page.evaluate(() => (window as any).__shell.lastStatus()),
     send,
     sendViolations: (errors) => send({ type: "violations", errors }),
     sendSubmitted: (decision) => send({ type: "submitted", decision }),

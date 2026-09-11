@@ -14,14 +14,20 @@ shortcut.
     onInit({ gate, previous, readonly, draft }) { render(); },
     onViolations(errors) { showErrors(errors); },   // [{ path, message }]
     onSubmitted(decision) { render(); },           // now read-only
-    onCollect() { submit(); },                     // ⌘/Ctrl+Enter, from the shell or in here
+    onCollect() { submit(); },                     // the shell's hand-over button, or ⌘/Ctrl+Enter
     onAppearance(theme) { … },                     // optional: "dark" | "light"
   });
   plugin.submit(data);
   plugin.draft(data);                   // debounced 150ms; { flush: true } posts at once
+  plugin.status({label: "Hand over anyway"});   // what the shell's button should read
   plugin.readonly; plugin.gate; plugin.previous;
 </script>
 ```
+
+The shell owns the hand-over. A view renders no submit button: the shell puts
+one next to the note box for every gate, and pressing it sends `collect`. Your
+view may submit at once or confirm first and submit on the next `collect`;
+`status` keeps the button's label honest.
 
 The shell owns the theme and sends it before `init` and again whenever it
 changes. The SDK sets `data-theme` on the plugin's root element and exposes

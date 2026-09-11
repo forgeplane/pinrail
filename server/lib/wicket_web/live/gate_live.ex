@@ -261,24 +261,24 @@ defmodule WicketWeb.GateLive do
         </li>
       </ul>
 
-      <.form
-        :if={@plugin != nil and not @readonly}
-        for={@note_form}
-        id="agent-note-form"
-        phx-change="agent_note"
-        phx-submit="agent_note"
-        class="space-y-2"
-      >
-        <.input
-          field={@note_form[:agent_note]}
-          label="Note to the agent"
-          type="textarea"
-          rows="3"
-          phx-debounce="200"
-          placeholder="Add context for what the agent should do next…"
-        />
-        <p class="text-xs text-dim">Sent with your decision. ⌘/Ctrl+Enter submits.</p>
-      </.form>
+      <div :if={@plugin != nil and not @readonly} id="gate-handover" class="gate-handover">
+        <.form for={@note_form} id="agent-note-form" phx-change="agent_note" phx-submit="agent_note">
+          <.input
+            field={@note_form[:agent_note]}
+            label="Note to the agent"
+            type="textarea"
+            rows="3"
+            phx-debounce="200"
+            placeholder="Add context for what the agent should do next…"
+          />
+        </.form>
+        <%!-- The view labels this button and the bridge disables it; LiveView
+        must not patch either back. --%>
+        <div id="handover" phx-update="ignore" class="handover">
+          <button type="button" data-handover class="handover-button">Hand over</button>
+          <p class="handover-hint">with your note · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd></p>
+        </div>
+      </div>
     </Layouts.app>
     """
   end

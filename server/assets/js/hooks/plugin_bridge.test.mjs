@@ -7,8 +7,9 @@ const source = readFileSync(new URL("./plugin_bridge.js", import.meta.url), "utf
   .replace("export const PluginBridge =", "globalThis.PluginBridge =")
 
 function setup() {
-  const listeners = new Map(), handlers = new Map(), pushed = [], sent = [], storage = new Map()
+  const listeners = new Map(), docListeners = new Map(), handlers = new Map(), pushed = [], sent = [], storage = new Map()
   const note = {value: "latest unsent note"}
+  const handover = {tagName: "BUTTON", textContent: "Hand over", disabled: false, closest: (s) => s === "[data-handover]" ? handover : null}
   const contentWindow = {postMessage: (message) => sent.push(message)}
   const window = {
     addEventListener: (name, fn) => listeners.set(name, fn),
@@ -23,7 +24,9 @@ function setup() {
     documentElement: {dataset: {theme: "light"}},
     body,
     getElementById: () => note,
-    addEventListener() {}, removeEventListener() {}
+    querySelector: (s) => s === "[data-handover]" ? handover : null,
+    addEventListener: (name, fn) => docListeners.set(name, fn),
+    removeEventListener: (name) => docListeners.delete(name)
   }
   const context = vm.createContext({window, document, console, setTimeout,
     sessionStorage: {getItem: k => storage.get(k) ?? null, setItem: (k,v) => storage.set(k,v), removeItem: k => storage.delete(k)}})
@@ -37,8 +40,38 @@ function setup() {
   const message = data => listeners.get("message")({source: contentWindow, data: {wicket: 1, ...data}})
   handlers.get("gate:init")({gate: {id: "gate-1"}, readonly: false})
   message({type: "ready"})
-  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow, body}
+  const clickHandover = () => docListeners.get("click")({target: handover, preventDefault() {}})
+  return {hook, message, handlers, pushed, sent, storage, listeners, contentWindow, body, handover, clickHandover}
 }
+
+test("the hand-over button asks the view to collect, and the view labels it", () => {
+  const {message, sent, handover, clickHandover} = setup()
+
+  clickHandover()
+  assert.equal(sent.at(-1).type, "collect", "the shell never assembles the decision itself")
+
+  message({type: "status", label: "Hand over anyway"})
+  assert.equal(handover.textContent, "Hand over anyway")
+  message({type: "status", label: "   "})
+  assert.equal(handover.textContent, "Hand over anyway", "an empty label is ignored")
+})
+
+test("the hand-over is disabled while a decision is in flight or the socket is down", () => {
+  const {hook, message, pushed, handover, clickHandover} = setup()
+
+  message({type: "submit", data: {ok: true}})
+  assert.equal(handover.disabled, true)
+  clickHandover()
+  assert.equal(pushed.filter(x => x.name === "submit").length, 1, "a second press does nothing")
+
+  pushed.at(-1).callback()
+  assert.equal(handover.disabled, false)
+
+  hook.disconnected()
+  assert.equal(handover.disabled, true)
+  hook.reconnected()
+  assert.equal(handover.disabled, false)
+})
 
 test("submission includes the current note and suppresses a second in-flight submit", () => {
   const {message, pushed} = setup()

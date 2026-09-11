@@ -126,6 +126,32 @@ test("resize: auto observes after init, fill posts once, manual posts nothing", 
   assert.deepEqual(manual.last("resize").msg.height, 500);
 });
 
+test("status tells the shell what handing over would do", () => {
+  const env = fakeEnv();
+  const plugin = Wicket.createPlugin(env, { resize: "manual" });
+  env.deliver(init());
+
+  plugin.status({ label: "Hand over 3 decisions" });
+  assert.deepEqual(env.last("status").msg, { wicket: 1, type: "status", label: "Hand over 3 decisions" });
+  assert.equal(env.last("status").target, "http://shell.test");
+});
+
+test("collect is what the hand-over asks for, from the shell or the shortcut", () => {
+  const env = fakeEnv();
+  let asked = 0;
+  Wicket.createPlugin(env, { resize: "manual", onCollect: () => asked++ });
+  env.deliver(init());
+
+  env.deliver(shell({ type: "collect" }));
+  env.pressShortcut();
+  assert.equal(asked, 2, "the button and the shortcut are the same request");
+
+  env.deliver(shell({ type: "submitted", decision: null }));
+  env.deliver(shell({ type: "collect" }));
+  env.pressShortcut();
+  assert.equal(asked, 2, "and neither reaches a decided gate");
+});
+
 test("appearance applies the theme, exposes it, and ignores anything else", () => {
   const env = fakeEnv();
   const seen = [];

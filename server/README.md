@@ -95,6 +95,15 @@ instead: the gate page then becomes exactly the viewport, the shell's header
 collapses to a line, the note box sits under the frame, and the view's own
 scrollbar is the only one on screen.
 
+## The hand-over
+
+The shell renders one primary control next to the note box, the same for
+every gate type. Pressing it, or ⌘/Ctrl+Enter anywhere, asks the view to
+assemble its decision and submit it; the view may show a confirmation first
+and submit on the next press. A view says what the button should read
+(`status`), and the bridge disables it while a decision is in flight or the
+socket is down. Views render no submit button of their own.
+
 ## The plugin bridge
 
 `assets/js/hooks/plugin_bridge.js` is the shell half of the plugin protocol.

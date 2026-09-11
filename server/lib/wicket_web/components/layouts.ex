@@ -110,7 +110,7 @@ defmodule WicketWeb.Layouts do
         <dt>Search inbox</dt><dd><kbd>/</kbd></dd>
         <dt>Toggle sidebar</dt><dd><kbd>⌘/Ctrl B</kbd></dd>
         <dt>Switch theme</dt><dd><kbd>T</kbd></dd>
-        <dt>Collect decision</dt><dd><kbd>⌘/Ctrl Enter</kbd></dd>
+        <dt>Hand over to the agent</dt><dd><kbd>⌘/Ctrl Enter</kbd></dd>
       </dl>
       <button type="button" data-close-dialog class="chrome-button">Close <kbd>Esc</kbd></button>
     </dialog>

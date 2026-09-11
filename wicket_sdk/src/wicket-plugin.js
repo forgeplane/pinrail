@@ -11,11 +11,12 @@
  *     onInit({ gate, previous, readonly, draft }) { … },
  *     onViolations(errors) { … },     // [{ path, message }]
  *     onSubmitted(decision) { … },    // the decision was accepted; render read-only
- *     onCollect() { … },              // Cmd/Ctrl+Enter in the shell or in this frame
+ *     onCollect() { … },              // the shell's hand-over button, or Cmd/Ctrl+Enter
  *     onAppearance(theme) { … },      // optional; "dark" | "light", already applied
  *   });
  *   plugin.submit(data);
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
+ *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
  *
  * The same code runs in Node for tests through Wicket.createPlugin(env, handlers).
  */
@@ -23,7 +24,7 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.1.0";
+  const VERSION = "1.2.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
 
@@ -165,6 +166,7 @@
         else draftTimer = env.setTimeout(send, DRAFT_DEBOUNCE_MS);
       },
       resize(height) { post({ type: "resize", height }); },
+      status(status) { post({ type: "status", label: (status || {}).label }); },
       collect,
     };
   }

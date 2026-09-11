@@ -44,10 +44,13 @@ test("renders the diff, threads and suggestion, and returns exactly what was dec
   await expect(frame.locator("[data-general]")).toContainText("Nice change overall.");
 
   await page.getByLabel("Note to the agent").fill("round 3: only the migration");
-  await frame.getByRole("button", { name: "Submit decisions" }).click();
+  const handOver = page.locator("[data-handover]");
+  await expect(handOver).toHaveText("Review and hand over");
+  await handOver.click();
   await expect(frame.locator("#submit-modal")).toContainText("1 proposal(s) still undecided");
-  await frame.getByRole("button", { name: /^Submit \d+ decision/ }).click();
-  await frame.getByRole("button", { name: /^Confirm — 1 left undecided/ }).click();
+  await handOver.click();
+  await expect(handOver).toHaveText("Hand over, 1 undecided");
+  await handOver.click();
 
   await expect(page.locator("#gate-decision")).toContainText("round 3: only the migration");
   await expect(frame.locator("#done-banner")).toBeVisible();
@@ -92,7 +95,7 @@ test("keyboard flow: j/a/x decide, s opens the summary, Ctrl+Enter confirms; a d
   await frame.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("a"); // focus starts on the first undecided: #20
   await page.keyboard.press("s");
-  await expect(frame.locator("#submit-modal")).toContainText("Submit 3 decision(s)");
+  await expect(frame.locator("#submit-modal")).toContainText("Hand over 3 decision(s)");
   await page.keyboard.press("Control+Enter");
   await expect(page.locator("#gate-decision")).toBeVisible();
 
@@ -118,6 +121,6 @@ test("a superseding round shows the previous verdicts and a withdrawn gate reads
   wicketJson(["withdraw", id2]);
   await expect(page.locator("#gate-withdrawn")).toBeVisible();
   await expect(frame.locator("header")).toContainText("READ-ONLY · WITHDRAWN");
-  await expect(frame.getByRole("button", { name: "Submit decisions" })).toHaveCount(0);
+  await expect(page.locator("[data-handover]")).toHaveCount(0);
   expect((await r2.done).code).toBe(3);
 });

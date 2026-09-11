@@ -44,10 +44,12 @@ test("verdicts, notes, own comments and general comments become exactly the deci
   await f.getByLabel("general comment").fill("Nice change overall.");
   await f.getByLabel("general comment").press("Enter");
 
-  await f.getByRole("button", { name: "Submit decisions" }).click();
+  await plugin.collect();
   await expect(f.locator("#submit-modal")).toContainText("1 proposal(s) still undecided");
-  await f.getByRole("button", { name: /^Submit \d+ decision/ }).click();
-  await f.getByRole("button", { name: /^Confirm — 1 left undecided/ }).click();
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over");
+  await plugin.collect();
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over, 1 undecided");
+  await plugin.collect();
 
   expect(await plugin.nextSubmit()).toEqual({
     decisions: [
@@ -64,6 +66,7 @@ test("keyboard: a / x / j decide and move, s opens the summary, collect confirms
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toBeVisible();
+  await expect.poll(() => plugin.lastStatus()).toBe("Review and hand over");
   await f.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("a");
   await expect(f.locator("#card-18")).toContainText("ACCEPTED");
@@ -73,7 +76,7 @@ test("keyboard: a / x / j decide and move, s opens the summary, collect confirms
   await page.keyboard.press("a");
   await expect(f.locator("header")).toContainText("3 of 3 decided");
   await page.keyboard.press("s");
-  await expect(f.locator("#submit-modal")).toContainText("Submit 3 decision(s)");
+  await expect(f.locator("#submit-modal")).toContainText("Hand over 3 decision(s)");
   await plugin.collect();
   const data = await plugin.nextSubmit();
   expect(data.undecided).toEqual([]);
@@ -118,5 +121,5 @@ test("a superseding gate shows the previous round's verdicts; withdrawn reads as
 
   const withdrawn = await mountPlugin(page, dir, { gate: { ...round2(), status: "withdrawn" }, readonly: true });
   await expect(withdrawn.frame.locator("header")).toContainText("READ-ONLY · WITHDRAWN");
-  await expect(withdrawn.frame.getByRole("button", { name: "Submit decisions" })).toHaveCount(0);
+  await expect(withdrawn.frame.locator("#submit-modal")).toHaveCount(0);
 });

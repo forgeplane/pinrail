@@ -732,7 +732,7 @@ function submitModalHtml() {
   const errors = S.errors && S.errors.length ? `<div class="errors" id="errors">The server refused the decision:\n${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>` : "";
   const body = `
     <div style="padding:18px 22px 0 22px">
-      <div style="font-size:15px;font-weight:600">Submit review decisions</div>
+      <div style="font-size:15px;font-weight:600">Hand over to the agent</div>
       <div style="font-size:12px;color:var(--dim);margin-top:3px">This is the gate. Exactly the following goes back to the workflow — nothing else.</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 22px">${stats}</div>
@@ -740,9 +740,9 @@ function submitModalHtml() {
     ${errors}
     <div style="padding:0 22px 8px 22px;display:flex;flex-direction:column;gap:10px">${groups.join("")}</div>
     <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg-raised)">
-      <span style="flex:1;font-size:11.5px;color:var(--faint)">The note to the agent is the box below the frame.</span>
+      <span style="flex:1;font-size:11.5px;color:var(--faint)">Your note to the agent travels with this.</span>
       <button class="ghost" data-act="close-submit" style="font-size:12.5px;padding:6px 12px">Keep reviewing</button>
-      <button class="primary" data-act="confirm-submit" style="padding:7px 16px">${S.confirmSubmitArm ? `Confirm — ${undecidedList.length} left undecided` : `Submit ${decEntries.length + yours} decision(s)`}</button>
+      <button class="primary" data-act="confirm-submit" style="padding:7px 16px">${S.confirmSubmitArm ? `Hand over anyway — ${undecidedList.length} left undecided` : `Hand over ${decEntries.length + yours} decision(s)`}</button>
     </div>`;
   return `<div style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.65);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;animation:fade 0.12s ease-out">
     <div id="submit-modal" style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
@@ -797,7 +797,6 @@ function headerHtml() {
       ${!RO() ? `<button class="ghost" data-act="bulk-accept" style="color:${S.confirmBulk === "accept" ? "var(--ok)" : "var(--dim)"}">${S.confirmBulk === "accept" ? `Really accept ${undecidedList.length}?` : `Accept remaining (${undecidedList.length})`}</button>
       <button class="ghost" data-act="bulk-reject" style="color:${S.confirmBulk === "reject" ? "var(--danger)" : "var(--dim)"}">${S.confirmBulk === "reject" ? `Really reject ${undecidedList.length}?` : `Reject remaining (${undecidedList.length})`}</button>` : ""}
       <button class="ghost" data-act="toggle-keys" title="Keyboard shortcuts" style="padding:4px 9px">?</button>
-      ${!RO() ? `<button class="primary" data-act="open-submit">Submit decisions</button>` : ""}
     </div>
   </header>`;
 }
@@ -840,6 +839,7 @@ function render() {
   else if (S.composer) toFocus = document.getElementById("composer-ta");
   else { const openNotes = document.querySelectorAll("[data-note-ta]"); if (openNotes.length === 1) toFocus = openNotes[0]; }
   if (toFocus) { toFocus.focus(); const v = toFocus.value; toFocus.value = ""; toFocus.value = v; }
+  syncStatus();
 }
 
 /* ---------- scrollspy ---------- */
@@ -905,10 +905,22 @@ function confirmSubmit() {
   set(() => { S.errors = null; });
   plugin.submit(buildDecision());
 }
+/* The shell's hand-over button asks for the decision: the first press opens
+   the summary of exactly what would go back, the next one confirms it. */
 function collect() {
   if (RO()) return;
   if (!S.showSubmit) { set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); return; }
   confirmSubmit();
+}
+
+function syncStatus() {
+  if (RO()) return;
+  const undecided = D.proposals.filter((p) => !decided(p.id)).length;
+  plugin.status({
+    label: !S.showSubmit ? "Review and hand over"
+      : S.confirmSubmitArm ? `Hand over, ${undecided} undecided`
+      : "Hand over",
+  });
 }
 
 document.addEventListener("click", (e) => {

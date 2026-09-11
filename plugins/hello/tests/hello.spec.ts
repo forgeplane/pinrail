@@ -5,23 +5,35 @@ import { fixture, mountPlugin } from "../../../wicket_sdk/testing/playwright";
 const dir = path.resolve(__dirname, "..");
 const push = () => fixture(path.join(dir, "fixtures", "push.json"));
 
-test("asks the question and submits yes with the comment", async ({ page }) => {
+test("the answer is chosen here and handed over by the shell", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: push() });
   await expect(plugin.frame.locator("p").first()).toHaveText(push().payload.message);
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over");
+
   await plugin.frame.getByPlaceholder("comment (optional)").fill("after the rebase");
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
+  await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over: yes");
+  expect((await plugin.messages()).filter((m) => m.type === "submit")).toHaveLength(0);
+
+  await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({ ok: true, comment: "after the rebase" });
 });
 
-test("no without a comment submits only ok", async ({ page }) => {
+test("no without a comment hands over only ok", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: push() });
   await plugin.frame.getByRole("button", { name: "No" }).click();
+  await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({ ok: false });
 });
 
-test("collect presses yes; violations are shown; submitted renders read-only", async ({ page }) => {
+test("handing over without an answer asks for one; violations are shown; submitted renders read-only", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: push() });
-  await expect(plugin.frame.getByRole("button", { name: "Yes" })).toBeVisible();
+  await plugin.collect();
+  await expect(plugin.frame.locator("#errors")).toHaveText("Choose yes or no first.");
+  expect((await plugin.messages()).filter((m) => m.type === "submit")).toHaveLength(0);
+
+  await plugin.frame.getByRole("button", { name: "Yes" }).click();
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({ ok: true });
 
@@ -33,12 +45,15 @@ test("collect presses yes; violations are shown; submitted renders read-only", a
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveCount(0);
 });
 
-test("a typed comment is drafted and restored after a reload", async ({ page }) => {
+test("the answer and the comment survive a reload", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: push() });
+  await plugin.frame.getByRole("button", { name: "No" }).click();
   await plugin.frame.getByPlaceholder("comment (optional)").fill("keep this");
-  await expect.poll(() => plugin.lastDraft()).toEqual({ comment: "keep this" });
+  await expect.poll(() => plugin.lastDraft()).toEqual({ ok: false, comment: "keep this" });
+
   await plugin.reload();
   await plugin.reinit();
+  await expect(plugin.frame.getByRole("button", { name: "No" })).toHaveAttribute("aria-pressed", "true");
   await expect(plugin.frame.getByPlaceholder("comment (optional)")).toHaveValue("keep this");
 });
 

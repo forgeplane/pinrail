@@ -48,6 +48,19 @@ hello/
 - `"dev": true` serves the directory live and never snapshots it; use it while
   iterating on a view.
 
+## The hand-over belongs to the shell
+
+A view does not render its own submit button. The shell puts one control next
+to the note box, in the same place for every gate, and pressing it (or
+⌘/Ctrl+Enter anywhere) sends `collect`. Your view decides what that means: it
+may submit at once, or show what would go back and submit on the next
+`collect`. Say what the button should read with `status`, and the shell keeps
+it disabled while a decision is in flight or the socket is down.
+
+This is why a decision that is only a choice, such as yes or no, is held in
+the view as state rather than as two submitting buttons: the human picks, then
+hands over, and nothing leaves on a single click.
+
 ## Sandbox
 
 The bundle loads in `<iframe sandbox="allow-scripts">` with a Content
@@ -103,7 +116,7 @@ Shell → plugin:
 | `init` | `gate` (the full envelope, payload included), `previous` (the superseded gate's envelope or null), `readonly`, `draft` (what the plugin last posted as a draft, or null), `shell_origin` |
 | `violations` | `errors: [{path, message}]`, JSON pointers into the rejected decision |
 | `submitted` | `decision` – the decision was accepted; render read-only |
-| `collect` | the human pressed ⌘/Ctrl+Enter while focus was in the shell; submit if you can. Handle the same shortcut inside your own document too: once the human has clicked in the frame, the shell never sees it |
+| `collect` | the human asked to hand the gate over, with the shell's button or ⌘/Ctrl+Enter. Assemble the decision and submit it, or show a confirmation first and submit on the next `collect` |
 | `appearance` | `theme: "dark" \| "light"` – the shell's theme, sent before `init` and again on every change. The SDK applies it as `data-theme` on your root element; write the CSS and you are done |
 
 Plugin → shell:
@@ -114,6 +127,7 @@ Plugin → shell:
 | `resize` | `height` in px; the shell sizes the iframe, the page scrolls. `"fill"` instead asks for a viewport-height frame that scrolls inside, for workbench-style views such as `review` |
 | `draft` | `data`; the shell keeps it in sessionStorage and hands it back in `init` |
 | `submit` | `data`; validated against `decision_schema` server-side |
+| `status` | `label`; what the shell's hand-over button should read right now, e.g. "Hand over anyway" once you have warned about something |
 
 The decision schema is the whole contract. What the fields mean is between
 the plugin and the workflow that reads the decision. `hello/index.html` is

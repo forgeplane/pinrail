@@ -29,7 +29,7 @@ test("accept, reject with a note, an addition; the decision is exactly that", as
   await f.getByLabel("addition 1", { exact: true }).fill("also check the importer");
   await f.getByLabel("group for addition 1").selectOption("acme-api");
   await expect(f.locator(".footer")).toContainText("3 accepted · 1 rejected · 0 undecided");
-  await f.getByRole("button", { name: "Submit decisions" }).click();
+  await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({
     decisions: [
       { id: 101, action: "accept" },
@@ -46,15 +46,22 @@ test("undecided items need a confirmation and are reported as undecided", async 
   const plugin = await mountPlugin(page, dir, { gate: triage() });
   const f = plugin.frame;
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
-  await f.getByRole("button", { name: "Submit decisions" }).click();
+  await plugin.collect();
   await expect(f.locator(".footer")).toContainText("3 left undecided");
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over anyway");
   expect((await plugin.messages()).filter((m) => m.type === "submit")).toHaveLength(0);
-  await f.getByRole("button", { name: "Submit anyway" }).click();
+
+  await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({ decisions: [{ id: 101, action: "accept" }], undecided: [102, 104, 105] });
 });
 
-test("collect submits (or arms) like the button", async ({ page }) => {
+test("keeping deciding takes the warning back", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: triage() });
+  await plugin.collect();
+  await expect(plugin.frame.locator(".footer")).toContainText("4 left undecided");
+  await plugin.frame.getByRole("button", { name: "keep deciding" }).click();
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over");
+
   await plugin.frame.getByRole("button", { name: "accept all undecided" }).click();
   await plugin.collect();
   expect((await plugin.nextSubmit()).undecided).toEqual([]);

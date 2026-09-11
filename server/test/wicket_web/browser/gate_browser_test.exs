@@ -37,8 +37,8 @@ defmodule WicketWeb.Browser.GateTest do
       |> click_button("+ add a note of your own")
       |> fill_in("addition 1", with: "please also check the migration")
       |> assert_has(".footer", text: "1 accepted · 1 rejected · 0 undecided")
-      |> click_button("Submit decisions")
     end)
+    |> click_button("[data-handover]", "Hand over")
     |> assert_has("#gate-decision", text: "tester")
     |> refute_has("#agent-note-form")
     |> within_plugin(fn frame ->
@@ -65,13 +65,10 @@ defmodule WicketWeb.Browser.GateTest do
 
     conn
     |> visit("/gates/#{gate.id}")
-    |> within_plugin(fn frame ->
-      frame
-      |> click_button("[data-id='1'] button", "Accept")
-      |> click_button("Submit decisions")
-      |> assert_has(".footer", text: "1 left undecided")
-      |> click_button("Submit anyway")
-    end)
+    |> within_plugin(&click_button(&1, "[data-id='1'] button", "Accept"))
+    |> click_button("[data-handover]", "Hand over")
+    |> within_plugin(&assert_has(&1, ".footer", text: "1 left undecided"))
+    |> click_button("[data-handover]", "Hand over anyway")
     |> assert_has("#gate-decision")
 
     assert %Gate{decision: %{data: %{"undecided" => [2]}}} = Gates.get!(gate.id)
@@ -143,18 +140,15 @@ defmodule WicketWeb.Browser.GateTest do
     conn =
       conn
       |> visit("/gates/#{gate.id}")
-      |> within_plugin(&assert_has(&1, "button", text: "Submit decisions"))
+      |> assert_has("[data-handover]")
 
     {:ok, _} = Gates.withdraw(gate.id)
 
     conn
     |> assert_has("#gate-withdrawn")
     |> refute_has("#agent-note-form")
-    |> within_plugin(fn frame ->
-      frame
-      |> assert_has(".done", text: "Closed without a decision (withdrawn)")
-      |> refute_has("button", text: "Submit decisions")
-    end)
+    |> refute_has("[data-handover]")
+    |> within_plugin(&assert_has(&1, ".done", text: "Closed without a decision (withdrawn)"))
   end
 
   test "the previous round's verdicts show on a superseding gate", %{conn: conn} do
@@ -187,9 +181,8 @@ defmodule WicketWeb.Browser.GateTest do
     |> evaluate(
       "window.__loads = 0; document.getElementById('plugin-frame').addEventListener('load', () => window.__loads++)"
     )
-    |> within_plugin(fn frame ->
-      frame |> click_button("accept all undecided") |> click_button("Submit decisions")
-    end)
+    |> within_plugin(&click_button(&1, "accept all undecided"))
+    |> click_button("[data-handover]", "Hand over")
     |> assert_has("#gate-decision")
     |> evaluate("window.__loads", &assert(&1 == 0))
   end

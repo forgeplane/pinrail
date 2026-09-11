@@ -82,7 +82,9 @@
   .addition select { background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 8px; font-size: 12px; max-width: 260px; }
   .footer { position: sticky; bottom: 0; margin-top: 18px; padding: 10px 0 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
   .footer .tally { color: var(--dim); }
+  .footer .tally.warn { color: var(--sev-major); }
   .footer .tally b { color: var(--text); }
+  .footer .tally.warn { color: var(--sev-major); }
   .errors { margin-top: 10px; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); border-radius: 6px; background: color-mix(in oklab, var(--danger) 8%, transparent); font-family: var(--mono); font-size: 12px; color: var(--danger); white-space: pre-wrap; }
   .done { padding: 12px 14px; border: 1px solid color-mix(in oklab, var(--ok) 45%, transparent); border-radius: 8px; background: color-mix(in oklab, var(--ok) 6%, transparent); color: var(--dim); margin-bottom: 14px; }
   .empty { color: var(--dim); padding: 50px 20px; text-align: center; }
@@ -115,7 +117,7 @@ const plugin = Wicket.connect({
   },
   onViolations(errors) { S.errors = errors; S.armed = false; render(); },
   onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); render(); },
-  onCollect() { submit(); },
+  onCollect() { handOver(); },
 });
 
 /* Drafts: a click posts at once, so a reload right after it loses nothing;
@@ -174,12 +176,18 @@ function setNote(id, note) {
   draft();
 }
 
-function submit() {
+/* The shell's hand-over button asks for the decision. Items left undecided
+   are reported as such, so say so once and let the next press confirm. */
+function handOver() {
   if (readonly) return;
   const t = tally();
   if (t.undecided > 0 && !S.armed) { S.armed = true; render(); return; }
   S.errors = null;
   plugin.submit(decisionData());
+}
+
+function syncStatus() {
+  plugin.status({ label: S.armed ? "Hand over anyway" : "Hand over" });
 }
 
 /* ---------- render ---------- */
@@ -267,13 +275,13 @@ function render() {
     html += `<div class="footer">
       <span class="tally"><b>${t.accept}</b> accepted · <b>${t.reject}</b> rejected · <b>${t.undecided}</b> undecided</span>
       <span class="spacer" style="flex:1"></span>
-      ${S.armed ? `<span class="tally">${t.undecided} left undecided, they will be reported as such.</span><button type="button" class="btn danger" id="submit">Submit anyway</button><button type="button" class="btn ghost" id="disarm">back</button>`
-                : `<button type="button" class="btn primary" id="submit">Submit decisions</button><span class="tally"><kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd></span>`}
+      ${S.armed ? `<span class="tally warn">${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.</span><button type="button" class="btn ghost" id="disarm">keep deciding</button>` : ""}
     </div>`;
   }
   app.className = "";
   app.innerHTML = html;
   bind();
+  if (!readonly) syncStatus();
 }
 
 function bind() {
@@ -284,7 +292,6 @@ function bind() {
     t.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !(e.metaKey || e.ctrlKey)) { e.preventDefault(); t.blur(); } };
   });
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
-  on("submit", submit);
   on("disarm", () => { S.armed = false; render(); });
   on("accept-rest", () => { for (const id of itemIds()) if (!(S.decisions[id] && S.decisions[id].action)) S.decisions[id] = { ...(S.decisions[id] || {}), action: "accept" }; S.armed = false; postDraft(); render(); });
   on("clear-all", () => { S.decisions = {}; S.armed = false; postDraft(); render(); });

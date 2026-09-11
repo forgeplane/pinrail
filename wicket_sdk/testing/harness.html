@@ -13,6 +13,7 @@ const log = [];
 let pending = null; // init to send once the plugin is ready
 let ready = false;
 let lastDraft = null;
+let lastStatus = null;
 
 function send(msg) { frame.contentWindow.postMessage(Object.assign({ wicket: 1 }, msg), "*"); }
 function sendInit(init) { send(Object.assign({ type: "init", shell_origin: location.origin }, init)); }
@@ -23,6 +24,7 @@ window.__shell = {
   send,
   messages: () => log.slice(),
   lastDraft: () => lastDraft,
+  lastStatus: () => lastStatus,
   reload() { ready = false; frame.src = frame.src; },
 };
 
@@ -35,6 +37,7 @@ window.addEventListener("message", (event) => {
     case "ready": ready = true; if (pending) sendInit(pending); break;
     case "resize": frame.style.height = (msg.height === "fill" ? 800 : Math.max(200, Math.ceil(msg.height))) + "px"; break;
     case "draft": lastDraft = msg.data; break;
+    case "status": lastStatus = msg.label; break;
   }
 });
 frame.src = "/index.html";
