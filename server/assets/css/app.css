@@ -302,16 +302,22 @@
    decision is in flight or the socket is down. */
 .gate-handover { display: flex; align-items: flex-end; gap: 14px; }
 .gate-handover #agent-note-form { flex: 1; }
-#agent-note-form textarea { min-height: 0; height: 38px; }
-.handover { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+/* The placeholder says what the box is for, so the label is only read aloud. */
+#agent-note-form .field-label > span {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+#agent-note-form textarea { min-height: 0; height: 36px; padding: 8px 11px; line-height: 1.5; }
+.handover { display: flex; align-items: center; gap: 12px; }
+/* The same height as the note box, so the two read as one row. */
 .handover-button {
-  padding: 9px 18px; border: 0; border-radius: 6px;
+  height: 36px; padding: 0 18px; border: 0; border-radius: 6px;
   background: var(--button-bg); color: #fff;
   font-size: 12.5px; font-weight: 600; white-space: nowrap;
 }
 .handover-button:hover:not(:disabled) { filter: brightness(1.1); }
 .handover-button:disabled { opacity: 0.45; cursor: not-allowed; }
-.handover-hint { font-size: 10px; color: var(--faint); }
+.handover-hint { font-size: 10px; line-height: 1.4; text-align: right; color: var(--faint); }
 .handover-hint kbd { border: 0; background: none; padding: 0; font-size: 10px; }
 .gate-main #plugin-frame-wrap { border: 0; border-radius: 0; }
 

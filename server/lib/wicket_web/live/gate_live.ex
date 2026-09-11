@@ -281,8 +281,8 @@ defmodule WicketWeb.GateLive do
         <%!-- The view labels this button and the bridge disables it; LiveView
         must not patch either back. --%>
         <div id="handover" phx-update="ignore" class="handover">
-          <button type="button" data-handover class="handover-button">Hand over</button>
           <p class="handover-hint">with your note · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd></p>
+          <button type="button" data-handover class="handover-button">Hand over</button>
         </div>
       </div>
     </Layouts.app>
