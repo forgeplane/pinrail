@@ -24,8 +24,11 @@ Status: early development.
 | [`server/`](server/README.md) | the Phoenix app: API, web UI, plugin registry |
 | [`cli/`](cli/README.md) | the Rust CLI workflows call |
 | [`plugins/`](plugins/README.md) | the plugin protocol and a sample plugin |
+| [`e2e/`](e2e/README.md) | end-to-end tests: server, CLI and plugins together |
 
 Tool versions are pinned in `mise.toml`; `mise install` sets them up.
+`mise run test` runs every suite; `mise run e2e`, `mise run test:server` and
+`mise run test:cli` run one.
 
 ## Quick start
 

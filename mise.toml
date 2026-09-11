@@ -2,3 +2,27 @@
 erlang = "29.0.6"
 elixir = "1.20.4-otp-29"
 rust = "1.98.1"
+
+[tasks."test:server"]
+description = "Server unit and LiveView tests"
+dir = "{{config_root}}/server"
+run = "mix test"
+
+[tasks."test:server:browser"]
+description = "Server Playwright tests (shell and bridge)"
+dir = "{{config_root}}/server"
+run = "mix test.browser"
+
+[tasks."test:cli"]
+description = "CLI tests against a scripted HTTP server"
+dir = "{{config_root}}/cli"
+run = "cargo test"
+
+[tasks.e2e]
+description = "End to end: real server, real CLI, real browser, shipped plugins"
+dir = "{{config_root}}/e2e"
+run = "npm test"
+
+[tasks.test]
+description = "Server, CLI and end-to-end suites"
+depends = ["test:server", "test:cli", "e2e"]

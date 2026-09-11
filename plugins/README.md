@@ -66,7 +66,7 @@ Shell → plugin:
 | `init` | `gate` (the full envelope, payload included), `previous` (the superseded gate's envelope or null), `readonly`, `draft` (what the plugin last posted as a draft, or null), `shell_origin` |
 | `violations` | `errors: [{path, message}]`, JSON pointers into the rejected decision |
 | `submitted` | `decision` – the decision was accepted; render read-only |
-| `collect` | the human pressed ⌘/Ctrl+Enter in the shell; submit if you can |
+| `collect` | the human pressed ⌘/Ctrl+Enter while focus was in the shell; submit if you can. Handle the same shortcut inside your own document too: once the human has clicked in the frame, the shell never sees it |
 
 Plugin → shell:
 

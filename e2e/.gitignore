@@ -1,0 +1,4 @@
+/node_modules/
+/.state/
+/test-results/
+/playwright-report/

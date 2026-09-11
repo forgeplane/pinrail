@@ -131,6 +131,12 @@ window.addEventListener("message", (event) => {
   }
 });
 
+// The shell only sees ⌘/Ctrl+Enter while focus is outside the frame; once
+// the human has clicked in here, the shortcut has to be ours.
+window.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); if (!readonly) submit(); }
+});
+
 function resize() { post({ type: "resize", height: document.documentElement.scrollHeight }); }
 new ResizeObserver(resize).observe(document.body);
 

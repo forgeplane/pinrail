@@ -48,6 +48,9 @@ window.addEventListener("message", (event) => {
   if (msg.type === "submitted") { gate.decision = msg.decision; readonly = true; render(); }
   if (msg.type === "collect" && !readonly) document.getElementById("yes").click();
 });
+window.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !readonly) { e.preventDefault(); document.getElementById("yes").click(); }
+});
 post({ type: "ready" });
 </script>
 </body>
