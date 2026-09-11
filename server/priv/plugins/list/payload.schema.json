@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "list gate payload",
+  "type": "object",
+  "required": ["groups"],
+  "additionalProperties": false,
+  "properties": {
+    "intro": { "type": "string", "description": "markdown shown above the list" },
+    "allow_additions": { "type": "boolean", "default": false },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "items"],
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "title"],
+              "additionalProperties": false,
+              "properties": {
+                "id": { "type": "integer", "description": "the workflow's own id; never renumbered" },
+                "severity": { "type": "string" },
+                "title": { "type": "string" },
+                "body": { "type": "string", "description": "markdown" },
+                "meta": { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

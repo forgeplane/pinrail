@@ -12,7 +12,7 @@ defmodule Wicket.Gates do
   """
 
   alias Phoenix.PubSub
-  alias Wicket.{Gate, Gates.Index, Store, ULID}
+  alias Wicket.{Gate, GateError, Gates.Index, Store, Types, ULID}
 
   @pubsub Wicket.PubSub
   @topic "gates"
@@ -33,32 +33,34 @@ defmodule Wicket.Gates do
   @doc """
   Creates a gate. `attrs` keys may be atoms or strings: `type` and `title` are
   required, `source` should be a map with any of `repo`, `workflow`, `run_id`,
-  `ref`, `url`; `payload`, `summary`, `supersedes`, `expires_at`,
-  `requested_by` and `type_version` are optional.
+  `ref`, `url`; `payload`, `summary`, `supersedes`, `expires_at` and
+  `requested_by` are optional.
 
-  Payload validation against the type's schema is not done here; see
-  `Wicket.Types` (step 3).
+  The type must be registered and the payload must satisfy its payload
+  schema; `type_version` is set from the registry. Every failure is an
+  `:invalid` `Wicket.GateError` whose violations point into the attrs.
   """
-  @spec create(map()) :: {:ok, Gate.t()} | {:error, term()}
+  @spec create(map()) :: {:ok, Gate.t()} | {:error, GateError.t()}
   def create(attrs) when is_map(attrs) do
     attrs = Map.new(attrs, fn {k, v} -> {to_string(k), v} end)
+    payload = attrs["payload"] || %{}
 
-    with {:ok, type} <- required_string(attrs, "type"),
-         {:ok, title} <- required_string(attrs, "title"),
-         {:ok, expires_at} <- optional_datetime(attrs["expires_at"]),
-         {:ok, supersedes} <- optional_supersedes(attrs["supersedes"]) do
+    with :ok <- envelope_violations(attrs),
+         {:ok, plugin} <- Types.fetch(attrs["type"]),
+         :ok <- Types.validate_payload(plugin, payload) |> prefix_violations("/payload"),
+         {:ok, _bundle} <- Types.ensure_snapshot(plugin) do
       gate = %Gate{
         id: "g_" <> ULID.next(),
-        type: type,
-        type_version: attrs["type_version"] || 1,
-        title: title,
+        type: plugin.name,
+        type_version: plugin.version,
+        title: attrs["title"],
         source: Gate.normalize_source(attrs["source"]),
         requested_by: attrs["requested_by"],
         created_at: DateTime.utc_now() |> DateTime.truncate(:second),
-        expires_at: expires_at,
-        supersedes: supersedes,
+        expires_at: parse_datetime(attrs["expires_at"]),
+        supersedes: attrs["supersedes"],
         summary: attrs["summary"],
-        payload: attrs["payload"] || %{}
+        payload: payload
       }
 
       with :ok <- Store.write_gate(Wicket.data_dir(), gate) do
@@ -72,20 +74,20 @@ defmodule Wicket.Gates do
   # -- read -----------------------------------------------------------------
 
   @doc "The gate with its payload, from disk."
-  @spec get(String.t()) :: {:ok, Gate.t()} | {:error, :not_found}
+  @spec get(String.t()) :: {:ok, Gate.t()} | {:error, GateError.t()}
   def get(id) when is_binary(id) do
     case Store.load(Wicket.data_dir(), id) do
       {:ok, gate} -> {:ok, gate}
-      {:error, _} -> {:error, :not_found}
+      {:error, _} -> {:error, GateError.not_found(id)}
     end
   end
 
-  @doc "Like `get/1` but raises."
+  @doc "Like `get/1` but raises the `Wicket.GateError`."
   @spec get!(String.t()) :: Gate.t()
   def get!(id) do
     case get(id) do
       {:ok, gate} -> gate
-      {:error, :not_found} -> raise "gate #{id} not found"
+      {:error, error} -> raise error
     end
   end
 
@@ -159,16 +161,16 @@ defmodule Wicket.Gates do
   # -- transitions ----------------------------------------------------------
 
   @doc """
-  Records the decision. `data` is the type-specific decision; `opts` may carry
-  `decided_by` (defaults to the configured user) and `agent_note`.
+  Records the decision. `data` is the type-specific decision, validated
+  against the decision schema of the type version the gate was created under.
+  `opts` may carry `decided_by` (defaults to the configured user) and
+  `agent_note`.
 
-  Returns `{:error, :not_pending}` if the gate is decided, withdrawn or
-  expired, and `{:error, :not_found}` if it does not exist. Validation against
-  the decision schema is the caller's job (step 3).
+  Errors: `:invalid` with violations into `data` (the gate stays pending),
+  `:not_pending` if it is decided, withdrawn or expired, `:not_found`.
   """
-  @spec decide(String.t(), map(), keyword()) ::
-          {:ok, Gate.t()} | {:error, :not_pending | :not_found | term()}
-  def decide(id, data, opts \\ []) when is_binary(id) and is_map(data) do
+  @spec decide(String.t(), term(), keyword()) :: {:ok, Gate.t()} | {:error, GateError.t()}
+  def decide(id, data, opts \\ []) when is_binary(id) do
     transition(id, fn gate ->
       decision = %{
         "decided_by" => opts[:decided_by] || current_user(),
@@ -177,14 +179,16 @@ defmodule Wicket.Gates do
         "agent_note" => blank_to_nil(opts[:agent_note])
       }
 
-      with :ok <- Store.write_decision(Wicket.data_dir(), gate.id, decision) do
+      with {:ok, plugin} <- Types.fetch(gate.type, gate.type_version),
+           :ok <- Types.validate_decision(plugin, data),
+           :ok <- Store.write_decision(Wicket.data_dir(), gate.id, decision) do
         {:ok, :decided}
       end
     end)
   end
 
-  @doc "The requester gives up. Same errors as `decide/3`."
-  @spec withdraw(String.t()) :: {:ok, Gate.t()} | {:error, :not_pending | :not_found | term()}
+  @doc "The requester gives up. Same errors as `decide/3`, minus validation."
+  @spec withdraw(String.t()) :: {:ok, Gate.t()} | {:error, GateError.t()}
   def withdraw(id) when is_binary(id) do
     transition(id, fn gate ->
       withdrawn = %{"withdrawn_at" => Gate.iso(DateTime.utc_now())}
@@ -243,7 +247,7 @@ defmodule Wicket.Gates do
   defp transition(id, fun) do
     with {:ok, gate} <- get(id),
          :ok <- ensure_pending(gate),
-         {:ok, event} <- write_or_conflict(fun.(gate)),
+         {:ok, event} <- write_or_conflict(fun.(gate), id),
          {:ok, updated} <- get(id) do
       Index.put(updated)
       broadcast(event, updated)
@@ -251,11 +255,13 @@ defmodule Wicket.Gates do
     end
   end
 
-  defp ensure_pending(gate), do: if(Gate.pending?(gate), do: :ok, else: {:error, :not_pending})
+  defp ensure_pending(gate),
+    do: if(Gate.pending?(gate), do: :ok, else: {:error, GateError.not_pending(gate.id)})
 
   # A racing writer got there first: the file exists, so the gate is no longer pending.
-  defp write_or_conflict({:error, :eexist}), do: {:error, :not_pending}
-  defp write_or_conflict(other), do: other
+  defp write_or_conflict({:error, :eexist}, id), do: {:error, GateError.not_pending(id)}
+  defp write_or_conflict({:error, :not_found}, id), do: {:error, GateError.not_found(id)}
+  defp write_or_conflict(other, _id), do: other
 
   defp broadcast(event, %Gate{} = gate) do
     msg = {:gate, event, %{gate | payload: nil}}
@@ -266,32 +272,74 @@ defmodule Wicket.Gates do
   defp filter_match?(nil, _), do: true
   defp filter_match?(expected, actual), do: to_string(expected) == actual
 
-  defp required_string(attrs, key) do
+  # Envelope checks that run before the type's schema. All violations at once.
+  defp envelope_violations(attrs) do
+    violations =
+      Enum.reject(
+        [
+          string_violation(attrs, "type"),
+          string_violation(attrs, "title"),
+          datetime_violation(attrs["expires_at"]),
+          supersedes_violation(attrs["supersedes"]),
+          if(attrs["source"] != nil and not is_map(attrs["source"]),
+            do: GateError.violation("/source", "must be an object")
+          ),
+          if(attrs["payload"] != nil and not is_map(attrs["payload"]),
+            do: GateError.violation("/payload", "must be an object")
+          ),
+          if(attrs["summary"] != nil and not is_map(attrs["summary"]),
+            do: GateError.violation("/summary", "must be an object")
+          )
+        ],
+        &is_nil/1
+      )
+
+    if violations == [], do: :ok, else: {:error, GateError.invalid(violations)}
+  end
+
+  defp string_violation(attrs, key) do
     case attrs[key] do
-      s when is_binary(s) and s != "" -> {:ok, s}
-      _ -> {:error, {:missing, key}}
+      s when is_binary(s) and s != "" -> nil
+      _ -> GateError.violation("/" <> key, "is required")
     end
   end
 
-  defp optional_datetime(nil), do: {:ok, nil}
-  defp optional_datetime(%DateTime{} = dt), do: {:ok, dt}
+  defp datetime_violation(nil), do: nil
+  defp datetime_violation(%DateTime{}), do: nil
 
-  defp optional_datetime(s) when is_binary(s) do
+  defp datetime_violation(s) do
+    case parse_datetime(s) do
+      %DateTime{} -> nil
+      nil -> GateError.violation("/expires_at", "must be an ISO 8601 datetime")
+    end
+  end
+
+  defp supersedes_violation(nil), do: nil
+
+  defp supersedes_violation(id) when is_binary(id) do
+    if Index.get(id), do: nil, else: GateError.violation("/supersedes", "unknown gate #{id}")
+  end
+
+  defp supersedes_violation(_), do: GateError.violation("/supersedes", "must be a gate id")
+
+  defp parse_datetime(nil), do: nil
+  defp parse_datetime(%DateTime{} = dt), do: dt
+
+  defp parse_datetime(s) when is_binary(s) do
     case DateTime.from_iso8601(s) do
-      {:ok, dt, _} -> {:ok, dt}
-      _ -> {:error, {:invalid, "expires_at"}}
+      {:ok, dt, _} -> dt
+      _ -> nil
     end
   end
 
-  defp optional_datetime(_), do: {:error, {:invalid, "expires_at"}}
+  defp parse_datetime(_), do: nil
 
-  defp optional_supersedes(nil), do: {:ok, nil}
+  defp prefix_violations(:ok, _prefix), do: :ok
 
-  defp optional_supersedes(id) when is_binary(id) do
-    if Index.get(id), do: {:ok, id}, else: {:error, {:unknown_gate, id}}
-  end
+  defp prefix_violations({:error, %GateError{reason: :invalid} = e}, prefix),
+    do: {:error, %{e | violations: Enum.map(e.violations, &%{&1 | path: prefix <> &1.path})}}
 
-  defp optional_supersedes(_), do: {:error, {:invalid, "supersedes"}}
+  defp prefix_violations(other, _prefix), do: other
 
   defp blank_to_nil(nil), do: nil
 

@@ -11,6 +11,7 @@ defmodule Wicket.Application do
       WicketWeb.Telemetry,
       {Phoenix.PubSub, name: Wicket.PubSub},
       Wicket.Gates.Index,
+      Wicket.Types.Registry,
       WicketWeb.Endpoint
     ]
 

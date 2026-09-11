@@ -13,6 +13,16 @@ unless config_env() == :test do
 
   config :wicket, data_dir: data_dir
 
+  # Plugin directories added with `wicket types add` are remembered here, and
+  # `<config dir>/plugins` is scanned by default.
+  config :wicket,
+    config_dir:
+      System.get_env("WICKET_CONFIG_DIR") ||
+        Path.join(
+          System.get_env("XDG_CONFIG_HOME") || Path.join(System.user_home!(), ".config"),
+          "wicket"
+        )
+
   # Who decides gates on this machine (§14 Q1: single user, $USER is enough).
   config :wicket, user: System.get_env("USER") || "wicket"
 

@@ -1,0 +1,13 @@
+{
+  "name": "echo",
+  "version": 2,
+  "title": "Echo",
+  "payload_schema": { "$ref": "payload.schema.json" },
+  "decision_schema": {
+    "type": "object",
+    "required": ["ok"],
+    "additionalProperties": false,
+    "properties": { "ok": { "type": "boolean" }, "item": { "$ref": "common.json#/$defs/item" } }
+  },
+  "min_height": 320
+}

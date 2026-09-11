@@ -1,0 +1,5 @@
+{
+  "type": "object",
+  "required": ["items"],
+  "properties": { "items": { "type": "array", "items": { "$ref": "common.json#/$defs/item" } } }
+}

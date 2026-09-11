@@ -1,0 +1,9 @@
+{
+  "name": "list",
+  "version": 1,
+  "title": "List",
+  "payload_schema": { "$ref": "payload.schema.json" },
+  "decision_schema": { "$ref": "decision.schema.json" },
+  "entry": "index.html",
+  "min_height": 400
+}
