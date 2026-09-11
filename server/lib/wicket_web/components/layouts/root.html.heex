@@ -1,9 +1,28 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" data-sidebar="expanded">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
+    <script>
+      // The saved appearance, stamped on the document before it is first
+      // painted. app.js is deferred, so a preference applied there arrives a
+      // frame late and the page shows the attributes below for that frame.
+      // The values are the ones ui.js writes and reads.
+      try {
+        const root = document.documentElement.dataset
+        const sidebar = localStorage.getItem("wicket:sidebar")
+        root.theme = localStorage.getItem("wicket:theme") === "light" ? "light" : "dark"
+        root.sidebar =
+          sidebar === "collapsed" || sidebar === "expanded"
+            ? sidebar
+            : matchMedia("(max-width: 760px)").matches
+              ? "collapsed"
+              : "expanded"
+      } catch (e) {
+        // No storage to read: the markup already carries the defaults.
+      }
+    </script>
     <.live_title
       default="wicket"
       suffix=" · wicket"

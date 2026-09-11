@@ -1,9 +1,8 @@
 // Shell preferences never touch LiveView or reload an opaque plugin frame.
+// The root layout has already stamped theme and sidebar onto the document, in
+// time for the first paint; from here on this file owns them.
 const root = document.documentElement
-const read = (key) => { try { return localStorage.getItem(key) } catch { return null } }
 const write = (key, value) => { try { localStorage.setItem(key, value) } catch { /* Optional preference. */ } }
-root.dataset.theme = read("wicket:theme") === "light" ? "light" : "dark"
-root.dataset.sidebar = read("wicket:sidebar") || (matchMedia("(max-width: 760px)").matches ? "collapsed" : "expanded")
 
 function syncChrome() {
   document.querySelector("[data-sidebar-toggle]")?.setAttribute("aria-expanded", String(root.dataset.sidebar !== "collapsed"))
