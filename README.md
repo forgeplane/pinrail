@@ -16,3 +16,42 @@ Stack: Elixir, Phoenix LiveView and plain-file storage for the server
 running app.
 
 Status: early development.
+
+## Development
+
+Tool versions are pinned in `mise.toml` (Erlang, Elixir, Rust); `mise install`
+sets them up.
+
+### Server
+
+```sh
+cd server
+mix setup          # deps, Tailwind and esbuild
+mix phx.server     # http://127.0.0.1:4747
+mix test           # unit and LiveView tests
+```
+
+Data lives under `$XDG_DATA_HOME/wicket` (`~/.local/share/wicket`), or
+`WICKET_DATA_DIR` if set. `WICKET_PORT` overrides the port.
+
+### Browser tests
+
+The gate page talks to a sandboxed iframe over `postMessage`, which only a
+real browser can exercise. Those tests drive headless Chromium through
+Playwright and run only when asked for.
+
+One-time setup, from `server/`:
+
+```sh
+npm --prefix assets install
+npx --prefix assets playwright install chromium
+```
+
+Then:
+
+```sh
+mix test.browser                  # only the browser tests
+mix test --include playwright     # everything
+```
+
+Tests live in `test/wicket_web/browser/` and are tagged `:playwright`.

@@ -24,7 +24,7 @@ defmodule Wicket.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "test.browser": :test]
     ]
   end
 
@@ -39,6 +39,8 @@ defmodule Wicket.MixProject do
       {:phoenix_live_view, "~> 1.2.0"},
       {:jsv, "~> 0.22"},
       {:lazy_html, ">= 0.1.0", only: :test},
+      {:phoenix_test, "~> 0.12", only: :test, runtime: false},
+      {:phoenix_test_playwright, "~> 0.17", only: :test, runtime: false},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
       {:heroicons,
@@ -64,6 +66,7 @@ defmodule Wicket.MixProject do
         "esbuild wicket --minify",
         "phx.digest"
       ],
+      "test.browser": ["test --only playwright"],
       precommit: ["compile --warnings-as-errors", "deps.unlock --unused", "format", "test"]
     ]
   end

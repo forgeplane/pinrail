@@ -10,7 +10,14 @@ config :wicket, plugin_dirs: [Path.expand("../priv/plugins", __DIR__)]
 config :wicket, WicketWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "U3sPGxgLqgJWuPyUR/bqDayOXU2CnVvFJxngnAr0wAomVJY7D3gLdq9tO9Vte6EO",
+  # test_helper.exs turns the server on only when browser tests are included
   server: false
+
+# Browser tests (`mix test.browser`) drive headless Chromium through Playwright,
+# installed under assets/ (see README).
+config :phoenix_test,
+  otp_app: :wicket,
+  playwright: [browser: :chromium, headless: true]
 
 config :logger, level: :warning
 
