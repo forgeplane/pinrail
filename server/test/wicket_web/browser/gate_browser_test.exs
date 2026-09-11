@@ -121,6 +121,74 @@ defmodule WicketWeb.Browser.GateTest do
     assert Gate.status(Gates.get!(gate.id)) == :pending
   end
 
+  test "the note box grows with the note, scrolls past its ceiling, and keeps the button level",
+       %{conn: conn} do
+    gate = create_gate!()
+    lines = fn n -> Enum.map_join(1..n, "\n", &"line #{&1}") end
+
+    conn = visit(conn, "/gates/#{gate.id}")
+    one = note_height(conn)
+
+    conn
+    |> assert_note_scrolls(false)
+    |> assert_button_level_with_note()
+    |> fill_in("Note to the agent", with: lines.(3))
+    |> assert_note_taller_than(one)
+    |> assert_note_scrolls(false)
+    |> assert_button_level_with_note()
+
+    conn = fill_in(conn, "Note to the agent", with: lines.(7))
+    ceiling = note_height(conn)
+
+    conn
+    |> assert_note_scrolls(false)
+    |> fill_in("Note to the agent", with: lines.(40))
+    |> assert_note_height(ceiling)
+    |> assert_note_scrolls(true)
+    |> assert_button_level_with_note()
+    |> fill_in("Note to the agent", with: "back to one line")
+    |> assert_note_height(one)
+    |> assert_note_scrolls(false)
+  end
+
+  defp note_height(conn) do
+    box = self()
+    evaluate(conn, note_metrics(), &send(box, {:note, &1}))
+    receive do: ({:note, metrics} -> metrics["height"])
+  end
+
+  defp assert_note_height(conn, expected) do
+    evaluate(conn, note_metrics(), &assert(&1["height"] == expected))
+  end
+
+  defp assert_note_taller_than(conn, height) do
+    evaluate(conn, note_metrics(), &assert(&1["height"] > height))
+  end
+
+  defp assert_note_scrolls(conn, scrolls?) do
+    evaluate(conn, note_metrics(), &assert(&1["scrolls"] == scrolls?))
+  end
+
+  # The hand-over sits at the end of the note, whatever height the note is.
+  defp assert_button_level_with_note(conn) do
+    evaluate(conn, note_metrics(), &assert(&1["bottom"] == &1["buttonBottom"]))
+  end
+
+  defp note_metrics do
+    """
+    (() => {
+      const note = document.getElementById("agent_note")
+      const button = document.querySelector("[data-handover]")
+      return {
+        height: Math.round(note.getBoundingClientRect().height),
+        bottom: Math.round(note.getBoundingClientRect().bottom),
+        buttonBottom: Math.round(button.getBoundingClientRect().bottom),
+        scrolls: note.scrollHeight > note.clientHeight + 1,
+      }
+    })()
+    """
+  end
+
   test "the agent note travels with a keyboard-collected decision", %{conn: conn} do
     gate = create_gate!()
 

@@ -273,7 +273,8 @@ defmodule WicketWeb.GateLive do
             field={@note_form[:agent_note]}
             label="Note to the agent"
             type="textarea"
-            rows="3"
+            rows="1"
+            phx-hook="NoteAutosize"
             phx-debounce="200"
             placeholder="Add context for what the agent should do next…"
           />

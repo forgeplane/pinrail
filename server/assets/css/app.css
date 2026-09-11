@@ -307,7 +307,13 @@
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
-#agent-note-form textarea { min-height: 0; height: 36px; padding: 8px 11px; line-height: 1.5; }
+/* One line to start with; the hook grows it from there. Seven lines is the
+   ceiling, past which it scrolls rather than crowd out the view above. */
+#agent-note-form textarea {
+  min-height: 36px; max-height: 144px;
+  padding: 8px 11px; line-height: 1.5;
+  overflow-y: auto; resize: none;
+}
 .handover { display: flex; align-items: center; gap: 12px; }
 /* The same height as the note box, so the two read as one row. */
 .handover-button {
