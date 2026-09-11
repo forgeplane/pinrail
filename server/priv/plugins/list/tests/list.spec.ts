@@ -55,6 +55,31 @@ test("undecided items need a confirmation and are reported as undecided", async 
   expect(await plugin.nextSubmit()).toEqual({ decisions: [{ id: 101, action: "accept" }], undecided: [102, 104, 105] });
 });
 
+test("the header and the group heading stay while the body scrolls under them", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  await expect(plugin.frame.locator(".item").first()).toBeVisible();
+  await plugin.setFrameHeight(360);
+
+  const pinned = await plugin.frame.locator(".plugin-scroll").evaluate((scroll) => {
+    scroll.scrollTop = 300;
+    const doc = scroll.ownerDocument;
+    const header = doc.querySelector(".plugin-header").getBoundingClientRect();
+    const subhead = doc.querySelector(".plugin-subhead").getBoundingClientRect();
+    return {
+      scrolled: scroll.scrollTop > 0,
+      documentScrolled: doc.documentElement.scrollTop,
+      headerTop: Math.round(header.top),
+      headerBottom: Math.round(header.bottom),
+      subheadTop: Math.round(subhead.top),
+    };
+  });
+
+  expect(pinned.scrolled).toBe(true);
+  expect(pinned.documentScrolled).toBe(0, "the body scrolls, not the document");
+  expect(pinned.headerTop).toBe(0);
+  expect(pinned.subheadTop).toBe(pinned.headerBottom, "the group pins under the header");
+});
+
 test("keeping deciding takes the warning back", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: triage() });
   await plugin.collect();

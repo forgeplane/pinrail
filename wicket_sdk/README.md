@@ -73,6 +73,11 @@ view.title("4 items").meta(["acme-api", "7 days"]).controls([]);
 A header appears only if you ask for one with `title`, `meta`, `controls` or
 `header: true`. `into` puts the skeleton somewhere other than `<body>`.
 
+The skeleton scrolls its body rather than the document, so a heading marked
+`.plugin-subhead` pins under the header on its own. Auto sizing still reports
+what the view needs, because it measures the header and the body instead of
+the document.
+
 ## Tests
 
 ```sh

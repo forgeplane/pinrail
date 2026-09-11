@@ -31,7 +31,7 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.3.0";
+  const VERSION = "1.4.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
 
@@ -87,6 +87,10 @@
     if ((data.undecided || []).includes(id)) return { action: "undecided", note: "" };
     return null;
   }
+
+  // The skeleton a view built with layout(), so auto sizing can measure the
+  // body rather than the document, which no longer scrolls.
+  let skeleton = null;
 
   function createPlugin(env, handlers) {
     handlers = handlers || {};
@@ -212,6 +216,8 @@
     };
 
     const into = options.into || doc.body;
+    into.className = into.className ? into.className + " plugin-layout" : "plugin-layout";
+
     const wantsHeader =
       options.header === true || options.title != null || options.meta != null || options.controls != null;
 
@@ -229,11 +235,16 @@
       into.append(header);
     }
 
-    const content = make("main", "plugin-content");
-    into.append(content);
+    // The body scrolls, not the document, so a heading inside it can pin to
+    // the top of the scroll without having to know the header's height.
+    const scroll = make("div", "plugin-scroll");
+    const content = make("div", "plugin-content");
+    scroll.append(content);
+    into.append(scroll);
 
     const view = {
       header,
+      scroll,
       content,
       title(value) {
         if (titleNode) titleNode.textContent = value == null ? "" : String(value);
@@ -253,6 +264,7 @@
     if (options.meta != null) view.meta(options.meta);
     if (options.controls != null) view.controls(options.controls);
 
+    skeleton = view;
     return view;
   }
 
@@ -264,9 +276,16 @@
       setTimeout: (fn, ms) => win.setTimeout(fn, ms),
       clearTimeout: (t) => win.clearTimeout(t),
       observeSize: (cb) => {
-        const emit = () => cb(doc.documentElement.scrollHeight);
+        // With a skeleton the document does not scroll, so its height says
+        // nothing; measure the header and the body instead.
+        const emit = () =>
+          cb(
+            skeleton
+              ? (skeleton.header ? skeleton.header.offsetHeight : 0) + skeleton.content.scrollHeight
+              : doc.documentElement.scrollHeight
+          );
         const ro = new win.ResizeObserver(emit);
-        ro.observe(doc.body);
+        ro.observe(skeleton ? skeleton.content : doc.body);
         emit();
         return () => ro.disconnect();
       },

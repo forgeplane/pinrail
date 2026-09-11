@@ -54,6 +54,8 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+html, body { height: 100%; }
+
 body {
   margin: 0;
   font: 13px/1.5 var(--sans);
@@ -88,11 +90,21 @@ kbd {
    frame is already the right size, so neither needs a height.
    ------------------------------------------------------------------------- */
 
+/* Set by layout(): the header stays, the body below it scrolls. */
+.plugin-layout { display: flex; flex-direction: column; }
+.plugin-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
 .plugin-header {
+  flex: none;
   position: sticky; top: 0; z-index: 5;
   display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px;
   padding: 10px 22px;
   background: var(--bg-panel); border-bottom: 1px solid var(--border);
+}
+/* A heading inside the body that should stay while its section is on screen. */
+.plugin-subhead {
+  position: sticky; top: 0; z-index: 4;
+  background: var(--bg-panel);
 }
 .plugin-title { font-size: 13.5px; font-weight: 600; }
 .plugin-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 11.5px; color: var(--dim); }

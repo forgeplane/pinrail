@@ -11,7 +11,7 @@
      this view's own: the groups, the verdict column and the running tally. */
   .intro { color: var(--dim); max-width: 72ch; margin: 0 0 14px; }
   .intro p:first-child { margin-top: 0; }
-  h2.group { font: inherit; font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 18px 0 8px; display: flex; align-items: baseline; gap: 10px; }
+  h2.group { font: inherit; font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 18px 0 8px; padding: 6px 0; display: flex; align-items: baseline; gap: 10px; }
   h2.group:first-of-type { margin-top: 0; }
   h2.group .count { font-family: var(--sans); font-size: 11px; color: var(--faint); }
 
@@ -243,7 +243,7 @@ function render() {
   if (gate.payload.intro) html += `<div class="intro">${markdown(gate.payload.intro)}</div>`;
   if (!groups.length) html += `<div class="empty">Nothing to decide.</div>`;
   for (const g of groups) {
-    html += `<h2 class="group">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
+    html += `<h2 class="group plugin-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
     for (const item of g.items) html += renderItem({ ...item, group: g.title });
   }
   html += renderAdditions();

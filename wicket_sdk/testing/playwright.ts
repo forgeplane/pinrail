@@ -58,6 +58,8 @@ export type MountedPlugin = {
   sendSubmitted(decision: Gate): Promise<void>;
   /** asks the view to hand over, as the shell's button does */
   collect(): Promise<void>;
+  /** holds the frame at a height, so a view taller than that has to scroll */
+  setFrameHeight(px: number): Promise<void>;
   /** re-sends init with the last draft, as the shell does after a reload */
   reinit(overrides?: Partial<MountOptions>): Promise<void>;
   reload(): Promise<void>;
@@ -130,6 +132,7 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
     sendViolations: (errors) => send({ type: "violations", errors }),
     sendSubmitted: (decision) => send({ type: "submitted", decision }),
     collect: () => send({ type: "collect" }),
+    setFrameHeight: (px) => page.evaluate((h) => (window as any).__shell.setFrameHeight(h), px),
     reinit: (overrides = {}) => page.evaluate((o) => (window as any).__shell.reinit(o), overrides as any),
     reload: () => page.evaluate(() => (window as any).__shell.reload()),
   };

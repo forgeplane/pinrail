@@ -74,10 +74,17 @@ somewhere other than `<body>`. Writing the markup yourself with the classes
 below works just as well, which is what a view with a header of its own
 should do.
 
+The body scrolls, not the document, so a `.plugin-subhead` inside it pins
+directly under the header without having to know how tall the header is. The
+frame still shrinks to a short view: the SDK measures the header and the body
+rather than the document.
+
 | Class | For |
 |---|---|
 | `.plugin-header`, `.plugin-title`, `.plugin-meta`, `.plugin-controls` | a bar that stays at the top of the frame |
-| `.plugin-content`, `.plugin-footer` | the body that scrolls, and a bar that stays at the bottom |
+| `.plugin-scroll`, `.plugin-content` | the body that scrolls, and the padded area inside it |
+| `.plugin-subhead` | a heading in the body that pins under the header while its section is on screen |
+| `.plugin-footer` | a bar that stays at the bottom of the body |
 | `.item` with `.head`, `.id`, `.title`, `.body`, `.controls` | one thing the human says yes or no to |
 | `.sev` with `.sev-blocker`, `.sev-major`, `.sev-minor`, `.sev-nit` | severity, in the app's four levels |
 | `.btn` with `.primary`, `.ghost`, `.danger`, and `aria-pressed` | buttons |

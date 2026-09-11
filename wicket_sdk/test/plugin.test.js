@@ -209,12 +209,13 @@ test("layout builds a body on its own, and a header when asked for one", () => {
   const bare = fakeDocument();
   const plain = Wicket.layout({ document: bare });
   assert.equal(plain.header, null, "no header unless the view wants one");
-  assert.deepEqual(bare.body.children.map((n) => n.className), ["plugin-content"]);
-  assert.equal(plain.content.tag, "main");
+  assert.equal(bare.body.className, "plugin-layout");
+  assert.deepEqual(bare.body.children.map((n) => n.className), ["plugin-scroll"]);
+  assert.deepEqual(plain.scroll.children, [plain.content], "the body scrolls, the document does not");
 
   const doc = fakeDocument();
   const view = Wicket.layout({ document: doc, title: "5 items" });
-  assert.deepEqual(doc.body.children.map((n) => n.className), ["plugin-header", "plugin-content"]);
+  assert.deepEqual(doc.body.children.map((n) => n.className), ["plugin-header", "plugin-scroll"]);
   assert.deepEqual(view.header.children.map((n) => n.className), [
     "plugin-title",
     "plugin-meta",
@@ -246,8 +247,9 @@ test("layout can be put somewhere other than the body", () => {
   const view = Wicket.layout({ document: doc, into: host, header: true });
 
   assert.deepEqual(doc.body.children, []);
-  assert.deepEqual(host.children.map((n) => n.className), ["plugin-header", "plugin-content"]);
-  assert.equal(host.children[1], view.content);
+  assert.deepEqual(host.children.map((n) => n.className), ["plugin-header", "plugin-scroll"]);
+  assert.equal(host.children[1], view.scroll);
+  assert.equal(view.scroll.children[0], view.content);
 });
 
 test("the module exposes a version and the protocol number", () => {

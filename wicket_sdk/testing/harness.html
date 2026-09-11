@@ -14,6 +14,7 @@ let pending = null; // init to send once the plugin is ready
 let ready = false;
 let lastDraft = null;
 let lastStatus = null;
+let pinnedHeight = null;
 
 function send(msg) { frame.contentWindow.postMessage(Object.assign({ wicket: 1 }, msg), "*"); }
 function sendInit(init) { send(Object.assign({ type: "init", shell_origin: location.origin }, init)); }
@@ -25,6 +26,9 @@ window.__shell = {
   messages: () => log.slice(),
   lastDraft: () => lastDraft,
   lastStatus: () => lastStatus,
+  // Hold the frame at a height so a test can make the view scroll; the real
+  // shell caps it against the page, the harness otherwise grows to fit.
+  setFrameHeight(px) { pinnedHeight = px; frame.style.height = px + "px"; },
   reload() { ready = false; frame.src = frame.src; },
 };
 
@@ -35,7 +39,9 @@ window.addEventListener("message", (event) => {
   log.push(msg);
   switch (msg.type) {
     case "ready": ready = true; if (pending) sendInit(pending); break;
-    case "resize": frame.style.height = (msg.height === "fill" ? 800 : Math.max(200, Math.ceil(msg.height))) + "px"; break;
+    case "resize":
+      if (pinnedHeight === null) frame.style.height = (msg.height === "fill" ? 800 : Math.max(200, Math.ceil(msg.height))) + "px";
+      break;
     case "draft": lastDraft = msg.data; break;
     case "status": lastStatus = msg.label; break;
   }
