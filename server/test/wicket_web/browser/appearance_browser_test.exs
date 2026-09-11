@@ -26,9 +26,11 @@ defmodule WicketWeb.Browser.AppearanceTest do
   # In the view it does two things. It drops the shell's `appearance` message,
   # so the only theme the view can possibly be in is the one its URL carried,
   # which is what makes this deterministic: without that the two race, and the
-  # message usually wins on a fast machine. Then it reports what the view
-  # looked like in its first animation frame, since the view has no way to
-  # reach the test directly.
+  # message usually wins on a fast machine. Then it records the document at the
+  # instant the SDK finishes loading, which is the ordering that matters and
+  # the one the SDK promises: the theme is on the document before the view's
+  # own script runs, so a view cannot render anything in the wrong one. The
+  # view has no way to reach the test, so it posts what it saw up to the shell.
   @record """
   if (location.pathname.startsWith("/plugins/")) {
     const listen = window.addEventListener
@@ -37,11 +39,16 @@ defmodule WicketWeb.Browser.AppearanceTest do
         : (e) => { if (!(e.data && e.data.type === "appearance")) fn(e) }
       return listen.call(this, type, wrapped, opts)
     }
-    requestAnimationFrame(() => {
-      parent.postMessage({__painted: {
-        theme: document.documentElement.dataset.theme || null,
-        background: document.body ? getComputedStyle(document.body).backgroundColor : null
-      }}, "*")
+    Object.defineProperty(window, "Wicket", {
+      configurable: true,
+      get() { return undefined },
+      set(sdk) {
+        parent.postMessage({__painted: {
+          theme: document.documentElement.dataset.theme || null,
+          background: document.body ? getComputedStyle(document.body).backgroundColor : null
+        }}, "*")
+        Object.defineProperty(window, "Wicket", {value: sdk, writable: true, configurable: true})
+      }
     })
   } else {
     window.__painted = null
@@ -95,7 +102,7 @@ defmodule WicketWeb.Browser.AppearanceTest do
     |> assert_painted(%{"theme" => "light", "sidebar" => "collapsed"})
   end
 
-  test "a gate view is in the light theme without being told, and paints in it", %{conn: conn} do
+  test "a gate view is in the light theme before its own script runs", %{conn: conn} do
     gate = create_gate!(%{title: "Light gate"})
 
     conn
@@ -134,10 +141,25 @@ defmodule WicketWeb.Browser.AppearanceTest do
   defp assert_painted(conn, expected),
     do: evaluate(conn, "window.__painted", &assert(&1 == expected))
 
+  # The hook sets the frame's URL once the socket is up, which is after the
+  # page has rendered, so wait for it rather than read it on the way past.
   defp assert_frame_url_carries(conn, theme) do
-    evaluate(conn, "document.getElementById('plugin-frame').src", fn src ->
-      assert String.ends_with?(src, "#wicket-theme=" <> theme)
-    end)
+    evaluate(
+      conn,
+      """
+      new Promise((resolve, reject) => {
+        const deadline = Date.now() + 4000
+        const poll = () => {
+          const src = document.getElementById("plugin-frame")?.src
+          if (src) return resolve(src)
+          if (Date.now() > deadline) return reject(new Error("the frame was never given a URL"))
+          setTimeout(poll, 20)
+        }
+        poll()
+      })
+      """,
+      fn src -> assert String.ends_with?(src, "#wicket-theme=" <> theme) end
+    )
   end
 
   # The view reports across documents, so wait for its word rather than guess.
