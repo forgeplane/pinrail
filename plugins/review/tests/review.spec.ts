@@ -147,3 +147,60 @@ test("the header leaves out what the shell's own header already shows", async ({
   await expect(own).toContainText("!42");
   await expect(own.locator(`a[href="${change.url}"]`)).toHaveCount(1);
 });
+
+test("the toolbar carries icons, and the control with no words carries its name", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const header = plugin.frame.locator("header").first();
+
+  const icons = await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon));
+  expect(icons).toEqual(["rows-3", "columns-2", "fold-vertical", "list-check", "list-x", "keyboard"]);
+
+  // Beside a word, an icon is decoration and the word is the name.
+  await expect(header.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Fold all" })).toBeVisible();
+  await expect(header.locator('[data-act="bulk-accept"] .wi')).toHaveAttribute("aria-hidden", "true");
+
+  // The diff toggle and the shortcuts button have no words, so they are named.
+  await expect(header.getByRole("button", { name: "Inline diff" })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Split diff" })).toBeVisible();
+  await expect(header.getByRole("button", { name: "Keyboard shortcuts" })).toBeVisible();
+
+  // Folding flips the label and the icon together.
+  await header.getByRole("button", { name: "Fold all" }).click();
+  await expect(header.getByRole("button", { name: "Unfold all" })).toBeVisible();
+  await expect(header.locator('[data-act="fold-all"] .wi')).toHaveAttribute("data-icon", "unfold-vertical");
+
+  // Confirming a bulk action changes the words, not the icon.
+  await header.getByRole("button", { name: "Reject remaining (3)" }).click();
+  await expect(header.getByRole("button", { name: "Really reject 3?" })).toBeVisible();
+  await expect(header.locator('[data-act="bulk-reject"] .wi')).toHaveAttribute("data-icon", "list-x");
+});
+
+test("the file tree's controls carry icons, and the collapse says which way it goes", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const aside = plugin.frame.locator("aside");
+
+  await expect(aside.locator(".wi")).toHaveCount(3);
+  await expect(aside.getByRole("button", { name: "semantic" })).toBeVisible();
+  await expect(aside.getByRole("button", { name: "findings" })).toBeVisible();
+
+  // The order pill's icon says which order is on, along with its label.
+  const order = plugin.frame.locator('[data-act="toggle-order"]');
+  await expect(order.locator(".wi")).toHaveAttribute("data-icon", "list-ordered");
+  await order.click();
+  await expect(order).toHaveText("a→z");
+  await expect(order.locator(".wi")).toHaveAttribute("data-icon", "arrow-down-a-z");
+
+  // The collapse has no words, so it is named, and the name follows the state.
+  const collapse = plugin.frame.locator('[data-act="toggle-tree"]');
+  await expect(collapse.locator(".wi")).toHaveAttribute("data-icon", "panel-left-close");
+  await expect(plugin.frame.getByRole("button", { name: "Collapse the file tree" })).toBeVisible();
+
+  await collapse.click();
+  await expect(plugin.frame.locator("aside")).toHaveCount(0);
+  await expect(plugin.frame.getByRole("button", { name: "Show the file tree" })).toBeVisible();
+  await expect(plugin.frame.locator('[data-act="toggle-tree"] .wi')).toHaveAttribute("data-icon", "panel-left-open");
+
+  await plugin.frame.locator('[data-act="toggle-tree"]').click();
+  await expect(plugin.frame.locator("aside")).toBeVisible();
+});
