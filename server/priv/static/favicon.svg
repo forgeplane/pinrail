@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <title>wicket</title>
+  <!-- The wicket mark, a gate in a larger door, as the sidebar draws it. It
+       is scaled up and thickened from the 1.5 the sidebar uses: at sixteen
+       pixels a hairline disappears, and the padding a logo wants is padding a
+       favicon cannot afford. The colour is the app's accent, which reads on a
+       light tab strip and on a dark one; the theme refines it. -->
+  <style>
+    path { stroke: #6873d6 }
+    @media (prefers-color-scheme: light) { path { stroke: #5965cb } }
+    @media (prefers-color-scheme: dark) { path { stroke: #a1a5ef } }
+  </style>
+  <g transform="translate(12 12) scale(1.12) translate(-12 -12)">
+    <path d="M3 21V3h7v18 M14 21V3h7v18" fill="none" stroke-width="2.75"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

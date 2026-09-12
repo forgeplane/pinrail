@@ -17,7 +17,7 @@ defmodule WicketWeb do
   those modules here.
   """
 
-  def static_paths, do: ~w(assets fonts images sdk favicon.ico robots.txt)
+  def static_paths, do: ~w(assets fonts images sdk favicon.ico favicon.svg robots.txt)
 
   def router do
     quote do

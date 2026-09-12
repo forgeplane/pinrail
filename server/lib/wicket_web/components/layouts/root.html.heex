@@ -23,6 +23,10 @@
         // No storage to read: the markup already carries the defaults.
       }
     </script>
+    <%!-- The mark itself where a browser takes an SVG, so it stays sharp and
+    follows the theme; the raster is for the ones that do not. --%>
+    <link rel="icon" href={~p"/favicon.svg"} type="image/svg+xml" />
+    <link rel="icon" href={~p"/favicon.ico"} sizes="48x48" />
     <.live_title
       default="wicket"
       suffix=" · wicket"
