@@ -76,6 +76,6 @@ test("a refused request exits 2 with the violations on stderr", async () => {
 
 test("types lists the built-in and the registered sample plugins", async () => {
   const types = wicketJson(["types"]);
-  expect(types.types.map((t: any) => t.name)).toEqual(["hello", "list", "review"]);
+  expect(types.types.map((t: any) => t.name)).toEqual(["email", "hello", "list", "review"]);
   expect(types.types.every((t: any) => t.usable)).toBe(true);
 });

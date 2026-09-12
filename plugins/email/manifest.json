@@ -1,0 +1,9 @@
+{
+  "name": "email",
+  "version": 1,
+  "title": "Draft emails",
+  "payload_schema": { "$ref": "payload.schema.json" },
+  "decision_schema": { "$ref": "decision.schema.json" },
+  "entry": "index.html",
+  "min_height": 520
+}

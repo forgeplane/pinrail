@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "email gate payload",
+  "description": "One or more emails an agent has drafted and wants to send. Provider-agnostic: the requester maps its mailbox into the payload and the decision back out.",
+  "type": "object",
+  "required": ["drafts"],
+  "additionalProperties": false,
+  "properties": {
+    "intro": {
+      "type": "string",
+      "description": "markdown; why these drafts exist and what the human is being asked to weigh"
+    },
+    "from": { "type": "string", "description": "the address they would be sent from" },
+    "drafts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "to", "subject", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "to": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "cc": { "type": "array", "items": { "type": "string" } },
+          "bcc": { "type": "array", "items": { "type": "string" } },
+          "subject": { "type": "string" },
+          "body": { "type": "string", "description": "plain text, as it would be sent" },
+          "why": { "type": "string", "description": "the agent's reason for writing it this way" },
+          "thread": {
+            "type": "array",
+            "description": "what this replies to, oldest first",
+            "items": {
+              "type": "object",
+              "required": ["author", "body"],
+              "additionalProperties": false,
+              "properties": {
+                "author": { "type": "string" },
+                "at": { "type": "string" },
+                "body": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

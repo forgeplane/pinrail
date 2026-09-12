@@ -23,7 +23,7 @@ Status: early development.
 |---|---|
 | [`server/`](server/README.md) | the Phoenix app: API, web UI, plugin registry |
 | [`cli/`](cli/README.md) | the Rust CLI workflows call |
-| [`plugins/`](plugins/README.md) | the plugin protocol, the official `review` plugin and a sample |
+| [`plugins/`](plugins/README.md) | the plugin protocol, the official `review` and `email` plugins and a sample |
 | [`wicket_sdk/`](wicket_sdk/README.md) | the plugin SDK the app serves, and the harness for testing a plugin alone |
 | [`e2e/`](e2e/README.md) | end-to-end tests: server, CLI and plugins together |
 

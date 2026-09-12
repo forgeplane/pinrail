@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>email gate</title>
+<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+<style>
+  /* Tokens, base, .btn, .field, .note, .notice and .empty come from the SDK
+     stylesheet. What is left is this view's own: the draft card, the tracked
+     changes, and the human's marks on the agent's words. */
+  .intro { color: var(--dim); max-width: 72ch; margin: 0 0 16px; }
+  .intro p:first-child { margin-top: 0; }
+
+  .draft { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); margin-bottom: 16px; overflow: hidden; }
+  .draft.send { border-color: color-mix(in oklab, var(--ok) 55%, transparent); }
+  .draft.revise { border-color: color-mix(in oklab, var(--sev-major) 55%, transparent); }
+  .draft.discard { border-color: color-mix(in oklab, var(--danger) 45%, transparent); }
+
+  .head { display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .addresses { min-width: 0; flex: 1; font-size: 12px; color: var(--dim); display: flex; flex-direction: column; gap: 2px; }
+  .addresses .line { display: flex; gap: 6px; }
+  .addresses .who { color: var(--faint); flex: none; width: 26px; }
+  .addresses b { color: var(--text); font-weight: 500; }
+  .verdicts { display: flex; gap: 6px; flex: none; }
+
+  .subject { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  .subject .who { font-size: 12px; color: var(--faint); flex: none; }
+  .subject input { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 5px; padding: 3px 6px; }
+  .subject input:hover:not(:disabled) { border-color: var(--border); }
+  .subject input:focus { border-color: var(--accent); background: var(--bg); }
+  .subject.changed input { color: var(--ok); }
+
+  .body { padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+  .body textarea { width: 100%; min-height: 200px; font: inherit; line-height: 1.65; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; padding: 9px 11px; resize: vertical; }
+
+  /* The human's changes, against the agent's words. Nothing the agent wrote
+     is thrown away on screen: it is struck through and still readable, so the
+     two versions can be compared without switching views. */
+  ins { text-decoration: none; background: var(--add-bg); box-shadow: inset 2px 0 var(--add-gut); border-radius: 2px; padding: 1px 2px; }
+  del { background: var(--del-bg); box-shadow: inset 2px 0 var(--del-gut); border-radius: 2px; padding: 1px 2px; opacity: 0.75; }
+  /* A replacement is two marks in a row; keep them from touching. */
+  del + ins { margin-left: 4px; }
+
+  /* A passage the human picked out, and the instruction they hung on it. */
+  .quoted { background: var(--accent-bg); box-shadow: 0 1px 0 var(--accent); cursor: default; }
+  .quoted.on { background: color-mix(in oklab, var(--accent) 26%, transparent); }
+
+  .tools { display: flex; align-items: center; gap: 8px; padding: 0 14px 12px; font-size: 11.5px; color: var(--faint); }
+  .tools .spacer { flex: 1; }
+
+  .marks { border-top: 1px solid var(--border); background: var(--bg); padding: 10px 14px 12px; }
+  .marks .eyebrow { display: block; margin-bottom: 8px; }
+  .mark { display: flex; gap: 9px; align-items: flex-start; margin-top: 8px; }
+  .mark .bar { flex: none; width: 2px; align-self: stretch; background: var(--accent); border-radius: 2px; }
+  .mark .text { flex: 1; min-width: 0; }
+  .mark .quote { font-size: 11.5px; color: var(--dim); font-style: italic; margin-bottom: 4px; }
+  .mark input { width: 100%; }
+  .mark .note-ro { font-size: 12.5px; white-space: pre-wrap; }
+  .mark .drop { flex: none; }
+
+  .whole { display: flex; gap: 9px; align-items: flex-start; margin-top: 12px; }
+  .whole .bar { flex: none; width: 2px; align-self: stretch; background: var(--border-strong); border-radius: 2px; }
+  .whole .text { flex: 1; min-width: 0; }
+  .whole input { width: 100%; }
+
+  .thread { border-top: 1px solid var(--border); padding: 10px 14px; background: var(--bg); }
+  .thread details > summary { cursor: pointer; font-size: 11.5px; color: var(--faint); }
+  .thread .msg { margin-top: 10px; font-size: 12.5px; color: var(--dim); white-space: pre-wrap; }
+  .thread .msg .who { color: var(--faint); font-size: 11px; display: block; margin-bottom: 2px; }
+
+  .why { padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--dim); background: var(--bg); }
+  .why .eyebrow { margin-right: 7px; }
+
+  /* Floats over the selection, inside the frame, so a note starts where the
+     eye already is. */
+  #pick { position: fixed; z-index: 20; display: none; }
+  #pick button { box-shadow: 0 4px 14px rgb(0 0 0 / 0.3); }
+
+  .footer { position: sticky; bottom: 0; margin-top: 4px; padding: 10px 0 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
+  .footer .tally { color: var(--dim); }
+  .footer .tally b { color: var(--text); }
+  .footer .tally.warn { color: var(--sev-major); }
+  .errors { margin-top: 10px; }
+  .done { margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<script src="/sdk/v1/wicket-plugin.js"></script>
+<script>
+"use strict";
+/* The email gate: drafts an agent wants to send, marked up the way you would
+   mark up anyone's writing. Edit the text and the change shows against what
+   the agent wrote; highlight a passage and hang an instruction on it. Both
+   travel back, so the agent can send what you approved and learn from what
+   you changed. */
+
+const esc = Wicket.escape, markdown = Wicket.markdown, icon = Wicket.icon;
+
+const view = Wicket.layout({ header: true });
+view.content.className = "plugin-content empty";
+view.content.textContent = "waiting for the shell…";
+
+let gate = null, readonly = false;
+/* Per draft: the verdict, the working subject and body, the marks against
+   passages, and a note for the whole thing. `editing` is not part of the
+   decision and is not kept. */
+const S = { verdict: {}, subject: {}, body: {}, marks: {}, note: {}, editing: {}, armed: false, errors: null, active: null };
+
+const control = (label, onclick) => {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn ghost";
+  button.textContent = label;
+  button.onclick = onclick;
+  return button;
+};
+
+const sendRest = control("send the rest", () => {
+  for (const d of drafts()) if (!S.verdict[d.id]) S.verdict[d.id] = "send";
+  S.armed = false;
+  postDraft();
+  render();
+});
+
+const clearAll = control("clear", () => {
+  for (const d of drafts()) { delete S.verdict[d.id]; }
+  S.armed = false;
+  postDraft();
+  render();
+});
+
+const plugin = Wicket.connect({
+  resize: "auto",
+  onInit(init) {
+    gate = init.gate; readonly = init.readonly;
+    S.errors = null; S.armed = false; S.editing = {}; S.active = null;
+    reset();
+    if (readonly) loadDecision(gate.decision && gate.decision.data);
+    else if (init.draft) loadDraft(init.draft);
+    syncHeader();
+    render();
+  },
+  onViolations(errors) { S.errors = errors; S.armed = false; render(); },
+  onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); syncHeader(); render(); },
+  onCollect() { handOver(); },
+});
+
+/* ---------- state ---------- */
+
+const drafts = () => gate.payload.drafts || [];
+const byId = (id) => drafts().find((d) => d.id === id);
+
+function reset() {
+  S.verdict = {}; S.subject = {}; S.body = {}; S.marks = {}; S.note = {};
+  for (const d of drafts()) { S.subject[d.id] = d.subject; S.body[d.id] = d.body; S.marks[d.id] = []; S.note[d.id] = ""; }
+}
+
+function loadDraft(draft) {
+  for (const d of drafts()) {
+    const saved = (draft.drafts || {})[d.id];
+    if (!saved) continue;
+    if (saved.verdict) S.verdict[d.id] = saved.verdict;
+    if (typeof saved.subject === "string") S.subject[d.id] = saved.subject;
+    if (typeof saved.body === "string") S.body[d.id] = saved.body;
+    if (Array.isArray(saved.marks)) S.marks[d.id] = saved.marks;
+    if (typeof saved.note === "string") S.note[d.id] = saved.note;
+  }
+}
+
+function loadDecision(data) {
+  reset();
+  if (!data) return;
+  for (const d of data.drafts || []) {
+    if (!byId(d.id)) continue;
+    S.verdict[d.id] = d.action;
+    S.subject[d.id] = d.subject;
+    S.body[d.id] = d.body;
+    S.marks[d.id] = (d.comments || []).map((c) => ({ quote: c.quote, note: c.note }));
+    S.note[d.id] = d.note || "";
+  }
+}
+
+const draftData = () => ({
+  drafts: Object.fromEntries(drafts().map((d) => [d.id, {
+    verdict: S.verdict[d.id] || null, subject: S.subject[d.id], body: S.body[d.id],
+    marks: S.marks[d.id], note: S.note[d.id],
+  }])),
+});
+const postDraft = () => plugin.draft(draftData(), { flush: true });
+const saveDraft = () => plugin.draft(draftData());
+
+function decisionData() {
+  const out = [], undecided = [];
+  for (const d of drafts()) {
+    const action = S.verdict[d.id];
+    if (!action) { undecided.push(d.id); continue; }
+    const entry = { id: d.id, action, subject: S.subject[d.id], body: S.body[d.id] };
+    const edits = editsOf(d);
+    if (edits.length) entry.edits = edits;
+    const comments = (S.marks[d.id] || []).filter((m) => m.note && m.note.trim())
+      .map((m) => ({ quote: m.quote, note: m.note.trim() }));
+    if (comments.length) entry.comments = comments;
+    if (S.note[d.id] && S.note[d.id].trim()) entry.note = S.note[d.id].trim();
+    out.push(entry);
+  }
+  return { drafts: out, undecided };
+}
+
+function tally() {
+  let send = 0, revise = 0, discard = 0, undecided = 0;
+  for (const d of drafts()) {
+    const v = S.verdict[d.id];
+    if (v === "send") send++; else if (v === "revise") revise++; else if (v === "discard") discard++; else undecided++;
+  }
+  return { send, revise, discard, undecided, total: drafts().length };
+}
+
+/* ---------- tracked changes ---------- */
+
+/* Each word carries the space in front of it, so a rejoin is the original
+   string and no bare space is left to be matched. A space on its own matches
+   every other space, which tears one replaced phrase into several. */
+function words(s) {
+  if (s === "") return [];
+  const out = s.match(/\s*\S+/g) || [];
+  const tail = s.match(/\s+$/);
+  if (tail && out.length) out.push(tail[0]);
+  else if (tail) return [s];
+  return out;
+}
+
+/* The longest common subsequence of two word lists, as runs of same, cut and
+   added. Emails are short; if one is long enough for the table to matter,
+   call the whole thing replaced rather than spend the memory. */
+function changes(before, after) {
+  const a = words(before), b = words(after);
+  if (before === after) return a.length ? [{ op: "same", text: before }] : [];
+  if (a.length * b.length > 4000000) {
+    return [{ op: "del", text: before }, { op: "ins", text: after }];
+  }
+  const w = b.length + 1;
+  const table = new Int32Array((a.length + 1) * w);
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      table[i * w + j] = a[i] === b[j]
+        ? table[(i + 1) * w + j + 1] + 1
+        : Math.max(table[(i + 1) * w + j], table[i * w + j + 1]);
+    }
+  }
+  const runs = [];
+  const push = (op, text) => {
+    const last = runs[runs.length - 1];
+    if (last && last.op === op) last.text += text; else runs.push({ op, text });
+  };
+  let i = 0, j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { push("same", a[i]); i++; j++; }
+    else if (table[(i + 1) * w + j] >= table[i * w + j + 1]) { push("del", a[i]); i++; }
+    else { push("ins", b[j]); j++; }
+  }
+  while (i < a.length) push("del", a[i++]);
+  while (j < b.length) push("ins", b[j++]);
+  return runs;
+}
+
+/* What the human changed, as replacements: a cut followed by an addition is
+   one edit, and either alone is an edit with the other side empty. */
+function editsOf(d) {
+  const runs = changes(d.body, S.body[d.id]);
+  const edits = [];
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i];
+    if (run.op === "same") continue;
+    if (run.op === "del" && runs[i + 1] && runs[i + 1].op === "ins") {
+      edits.push({ from: run.text, to: runs[i + 1].text });
+      i++;
+    } else if (run.op === "del") edits.push({ from: run.text, to: "" });
+    else edits.push({ from: "", to: run.text });
+  }
+  const subject = d.subject === S.subject[d.id] ? [] : [{ from: d.subject, to: S.subject[d.id] }];
+  return [...subject, ...edits]
+    .map((e) => ({ from: e.from.trim(), to: e.to.trim() }))
+    .filter((e) => e.from !== e.to);
+}
+
+/* ---------- rendering the body ---------- */
+
+/* A replacement reads as one thing, so the line break in front of it is drawn
+   once and the new words follow the old ones instead of a paragraph later. */
+function paired(runs) {
+  const out = runs.map((r) => ({ ...r }));
+  for (let i = 1; i < out.length; i++) {
+    if (out[i].op !== "ins" || out[i - 1].op !== "del") continue;
+    const lead = (text) => (text.match(/^\s+/) || [""])[0];
+    const shared = lead(out[i - 1].text);
+    if (shared && lead(out[i].text) === shared) out[i].text = out[i].text.slice(shared.length);
+  }
+  return out.filter((r) => r.text !== "");
+}
+
+/* The runs, cut again wherever a highlighted passage starts or ends, so a
+   quote can span a change and still be marked in one piece. */
+function segments(d) {
+  const runs = paired(changes(d.body, S.body[d.id]));
+  const visible = runs.map((r) => r.text).join("");
+  const cuts = new Set([0, visible.length]);
+  const spans = [];
+  (S.marks[d.id] || []).forEach((mark, n) => {
+    const at = visible.indexOf(mark.quote);
+    if (at < 0 || !mark.quote) return;
+    spans.push({ start: at, end: at + mark.quote.length, n });
+    cuts.add(at); cuts.add(at + mark.quote.length);
+  });
+
+  const out = [];
+  let at = 0;
+  for (const run of runs) {
+    const end = at + run.text.length;
+    const inside = [...cuts].filter((c) => c > at && c < end).sort((x, y) => x - y);
+    let from = at;
+    for (const cut of [...inside, end]) {
+      const text = run.text.slice(from - at, cut - at);
+      const mark = spans.find((s) => s.start <= from && s.end >= cut);
+      out.push({ op: run.op, text, mark: mark ? mark.n : null });
+      from = cut;
+    }
+    at = end;
+  }
+  return out.filter((s) => s.text !== "");
+}
+
+function bodyHtml(d) {
+  return segments(d).map((s) => {
+    const tag = s.op === "ins" ? "ins" : s.op === "del" ? "del" : null;
+    let html = esc(s.text);
+    if (tag) {
+      // The space in front of a word belongs to the sentence, not to the
+      // change, so the mark sits on the words it is about.
+      const [, before, core, after] = s.text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+      html = core ? `${esc(before)}<${tag}>${esc(core)}</${tag}>${esc(after)}` : esc(s.text);
+    }
+    if (s.mark !== null) {
+      html = `<span class="quoted ${S.active === `${d.id}:${s.mark}` ? "on" : ""}" data-mark="${s.mark}">${html}</span>`;
+    }
+    return html;
+  }).join("");
+}
+
+/* ---------- rendering ---------- */
+
+function syncHeader() {
+  const n = drafts().length;
+  view.title(n === 1 ? "1 draft" : `${n} drafts`)
+    .meta(gate.payload.from ? [`from ${gate.payload.from}`] : [])
+    .controls(readonly ? [] : [sendRest, clearAll]);
+}
+
+function verdictButton(d, action, label) {
+  const on = S.verdict[d.id] === action;
+  return `<button type="button" class="btn ${action}" data-act="verdict" data-id="${esc(d.id)}" data-verdict="${action}" aria-pressed="${on}">${icon(action === "send" ? "send" : action === "revise" ? "pencil-line" : "trash")}${label}</button>`;
+}
+
+function draftHtml(d) {
+  const verdict = S.verdict[d.id];
+  const marks = S.marks[d.id] || [];
+  const editing = !!S.editing[d.id];
+  const changed = d.subject !== S.subject[d.id];
+  const addresses = [["to", d.to], ["cc", d.cc], ["bcc", d.bcc]]
+    .filter(([, v]) => v && v.length)
+    .map(([who, v]) => `<span class="line"><span class="who">${who}</span><b>${esc(v.join(", "))}</b></span>`).join("");
+
+  return `<article class="draft ${verdict || ""}" data-draft="${esc(d.id)}">
+    <div class="head">
+      <div class="addresses">${addresses}</div>
+      ${readonly
+        ? `<span class="verdict-ro eyebrow" style="color:var(--${verdict === "send" ? "ok" : verdict === "discard" ? "danger" : "sev-major"})">${verdict || "undecided"}</span>`
+        : `<div class="verdicts">
+             ${verdictButton(d, "send", "Send")}
+             ${verdictButton(d, "revise", "Revise")}
+             ${verdictButton(d, "discard", "Discard")}
+           </div>`}
+    </div>
+
+    ${d.why ? `<div class="why"><span class="eyebrow">why</span>${esc(d.why)}</div>` : ""}
+
+    <div class="subject ${changed ? "changed" : ""}">
+      <span class="who">subject</span>
+      <input value="${esc(S.subject[d.id])}" data-act="subject" data-id="${esc(d.id)}" aria-label="subject" ${readonly ? "disabled" : ""}>
+    </div>
+
+    <div class="body" data-body="${esc(d.id)}">${
+      editing
+        ? `<textarea data-act="body" data-id="${esc(d.id)}" aria-label="message">${esc(S.body[d.id])}</textarea>`
+        : bodyHtml(d)
+    }</div>
+
+    ${readonly ? "" : `<div class="tools">
+      <button type="button" class="btn ghost" data-act="edit" data-id="${esc(d.id)}">${icon(editing ? "check" : "pencil")}${editing ? "Done" : "Edit"}</button>
+      ${S.body[d.id] !== d.body ? `<button type="button" class="btn ghost" data-act="revert" data-id="${esc(d.id)}">${icon("undo-2")}Revert</button>` : ""}
+      <span class="spacer"></span>
+      <span>${editing ? "edit the text; your changes show against the draft" : "select any passage to comment on it"}</span>
+    </div>`}
+
+    ${marks.length || (!readonly && S.note[d.id]) || (readonly && S.note[d.id]) ? `<div class="marks">
+      <span class="eyebrow">your instructions to the agent</span>
+      ${marks.map((m, n) => `<div class="mark" data-mark-row="${n}" data-id="${esc(d.id)}">
+        <span class="bar"></span>
+        <span class="text">
+          <div class="quote">“${esc(m.quote)}”</div>
+          ${readonly
+            ? `<div class="note-ro">${esc(m.note)}</div>`
+            : `<input class="field" value="${esc(m.note)}" data-act="mark-note" data-id="${esc(d.id)}" data-n="${n}" placeholder="what should the agent do with this passage?" aria-label="instruction for the highlighted passage">`}
+        </span>
+        ${readonly ? "" : `<button type="button" class="btn ghost drop" data-act="mark-drop" data-id="${esc(d.id)}" data-n="${n}" aria-label="remove this instruction">${icon("x")}</button>`}
+      </div>`).join("")}
+      ${readonly && S.note[d.id] ? `<div class="whole"><span class="bar"></span><span class="text"><div class="quote">the draft as a whole</div><div class="note-ro">${esc(S.note[d.id])}</div></span></div>` : ""}
+    </div>` : ""}
+
+    ${readonly ? "" : `<div class="marks" style="border-top:0;padding-top:0">
+      <div class="whole">
+        <span class="bar"></span>
+        <span class="text">
+          <input class="field" value="${esc(S.note[d.id])}" data-act="note" data-id="${esc(d.id)}" placeholder="a note about this draft as a whole (optional)" aria-label="note about this draft">
+        </span>
+      </div>
+    </div>`}
+
+    ${d.thread && d.thread.length ? `<div class="thread"><details>
+      <summary>${d.thread.length === 1 ? "the message this replies to" : `the ${d.thread.length} messages this replies to`}</summary>
+      ${d.thread.map((m) => `<div class="msg"><span class="who">${esc(m.author)}${m.at ? " · " + esc(m.at) : ""}</span>${esc(m.body)}</div>`).join("")}
+    </details></div>` : ""}
+  </article>`;
+}
+
+function render() {
+  const t = tally();
+  const decided = gate.decision && gate.decision.data;
+  view.content.className = "plugin-content";
+  view.content.innerHTML = `
+    ${readonly && decided ? `<div class="notice ok done">Handed over: ${t.send} to send, ${t.revise} to revise, ${t.discard} discarded${t.undecided ? `, ${t.undecided} left undecided` : ""}.</div>` : ""}
+    ${gate.payload.intro ? `<div class="intro">${markdown(gate.payload.intro)}</div>` : ""}
+    ${drafts().map(draftHtml).join("")}
+    ${readonly ? "" : `<div class="footer">
+      <span class="tally ${t.undecided ? "warn" : ""}"><b>${t.send}</b> to send · <b>${t.revise}</b> to revise · <b>${t.discard}</b> discarded${t.undecided ? ` · <b>${t.undecided}</b> undecided` : ""}</span>
+    </div>`}
+    ${S.armed ? `<div class="notice warn" id="confirm">${t.undecided} draft${t.undecided === 1 ? " is" : "s are"} still undecided and nothing will be sent for ${t.undecided === 1 ? "it" : "them"}. Hand over again to confirm.</div>` : ""}
+    ${S.errors ? `<div class="errors" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>` : ""}
+  `;
+  syncStatus();
+}
+
+function syncStatus() {
+  if (readonly) return;
+  const t = tally();
+  const parts = [];
+  if (t.send) parts.push(`send ${t.send}`);
+  if (t.revise) parts.push(`revise ${t.revise}`);
+  if (t.discard) parts.push(`discard ${t.discard}`);
+  plugin.status({ label: parts.length ? `Hand over: ${parts.join(", ")}` : "Hand over" });
+}
+
+/* ---------- picking a passage ---------- */
+
+const pick = document.createElement("div");
+pick.id = "pick";
+pick.innerHTML = `<button type="button" class="btn" data-act="add-mark">${icon("message-square-quote")}Comment</button>`;
+document.body.appendChild(pick);
+let pending = null;
+
+function hidePick() { pick.style.display = "none"; pending = null; }
+
+document.addEventListener("selectionchange", () => {
+  if (readonly) return;
+  const selection = document.getSelection();
+  if (!selection || selection.isCollapsed) return hidePick();
+  const text = selection.toString().trim();
+  const node = selection.anchorNode;
+  const holder = node && (node.nodeType === 1 ? node : node.parentElement)?.closest("[data-body]");
+  if (!text || !holder || holder.querySelector("textarea")) return hidePick();
+  const box = selection.getRangeAt(0).getBoundingClientRect();
+  pending = { id: holder.getAttribute("data-body"), quote: text };
+  pick.style.display = "block";
+  pick.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - 130))}px`;
+  pick.style.top = `${Math.max(8, box.bottom + 6)}px`;
+});
+
+/* ---------- events ---------- */
+
+document.addEventListener("mousedown", (event) => {
+  if (!event.target.closest("#pick")) return;
+  // Keep the selection alive long enough to read it on click.
+  event.preventDefault();
+});
+
+document.addEventListener("click", (event) => {
+  const el = event.target.closest("[data-act]");
+  if (!el || readonly) return;
+  const id = el.getAttribute("data-id");
+  const act = el.getAttribute("data-act");
+
+  if (act === "add-mark") {
+    if (!pending) return;
+    const { id: draftId, quote } = pending;
+    S.marks[draftId] = [...(S.marks[draftId] || []), { quote, note: "" }];
+    hidePick();
+    document.getSelection().removeAllRanges();
+    postDraft();
+    render();
+    const rows = document.querySelectorAll(`[data-mark-row][data-id="${CSS.escape(draftId)}"] input`);
+    if (rows.length) rows[rows.length - 1].focus();
+    return;
+  }
+  if (act === "verdict") {
+    const want = el.getAttribute("data-verdict");
+    S.verdict[id] = S.verdict[id] === want ? undefined : want;
+    if (!S.verdict[id]) delete S.verdict[id];
+    S.armed = false;
+    postDraft(); render();
+    return;
+  }
+  if (act === "edit") { S.editing[id] = !S.editing[id]; render(); if (S.editing[id]) document.querySelector(`textarea[data-id="${CSS.escape(id)}"]`)?.focus(); return; }
+  if (act === "revert") { S.body[id] = byId(id).body; postDraft(); render(); return; }
+  if (act === "mark-drop") {
+    const n = Number(el.getAttribute("data-n"));
+    S.marks[id] = S.marks[id].filter((_, i) => i !== n);
+    postDraft(); render();
+    return;
+  }
+});
+
+document.addEventListener("mouseover", (event) => {
+  const quoted = event.target.closest(".quoted");
+  const row = event.target.closest("[data-mark-row]");
+  const key = quoted
+    ? `${quoted.closest("[data-body]").getAttribute("data-body")}:${quoted.getAttribute("data-mark")}`
+    : row ? `${row.getAttribute("data-id")}:${row.getAttribute("data-mark-row")}` : null;
+  if (key === S.active) return;
+  S.active = key;
+  document.querySelectorAll(".quoted").forEach((q) => {
+    const own = `${q.closest("[data-body]").getAttribute("data-body")}:${q.getAttribute("data-mark")}`;
+    q.classList.toggle("on", own === key);
+  });
+});
+
+document.addEventListener("input", (event) => {
+  const el = event.target.closest("[data-act]");
+  if (!el || readonly) return;
+  const id = el.getAttribute("data-id");
+  switch (el.getAttribute("data-act")) {
+    case "subject": S.subject[id] = el.value; saveDraft(); el.closest(".subject").classList.toggle("changed", byId(id).subject !== el.value); break;
+    case "body": S.body[id] = el.value; saveDraft(); break;
+    case "note": S.note[id] = el.value; saveDraft(); break;
+    case "mark-note": S.marks[id][Number(el.getAttribute("data-n"))].note = el.value; saveDraft(); break;
+  }
+});
+
+/* ---------- hand over ---------- */
+
+function handOver() {
+  if (readonly) return;
+  const t = tally();
+  if (t.undecided && !S.armed) { S.armed = true; render(); document.getElementById("confirm")?.scrollIntoView({ block: "nearest" }); return; }
+  S.armed = false;
+  plugin.submit(decisionData());
+}
+</script>
+</body>
+</html>

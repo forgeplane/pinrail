@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "email gate decision",
+  "description": "What to do with each draft. `subject` and `body` are the final text: send them as they stand, or rewrite from them. `edits` and `comments` say what the human changed and why, which is the part worth learning from.",
+  "type": "object",
+  "required": ["drafts", "undecided"],
+  "additionalProperties": false,
+  "properties": {
+    "drafts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action", "subject", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "action": {
+            "enum": ["send", "revise", "discard"],
+            "description": "send: this text, as it stands. revise: do not send, write it again from the comments and the note, and open a new round. discard: do not send at all"
+          },
+          "subject": { "type": "string" },
+          "body": { "type": "string" },
+          "edits": {
+            "type": "array",
+            "description": "what the human changed, in order; `from` empty means they added it, `to` empty means they cut it",
+            "items": {
+              "type": "object",
+              "required": ["from", "to"],
+              "additionalProperties": false,
+              "properties": {
+                "from": { "type": "string" },
+                "to": { "type": "string" }
+              }
+            }
+          },
+          "comments": {
+            "type": "array",
+            "description": "an instruction against a passage the human highlighted",
+            "items": {
+              "type": "object",
+              "required": ["quote", "note"],
+              "additionalProperties": false,
+              "properties": {
+                "quote": { "type": "string", "minLength": 1 },
+                "note": { "type": "string", "minLength": 1 }
+              }
+            }
+          },
+          "note": { "type": "string", "description": "an instruction or a reason for the draft as a whole" }
+        }
+      }
+    },
+    "undecided": {
+      "type": "array",
+      "description": "drafts the human did not rule on; nothing is sent for these",
+      "items": { "type": "string" }
+    }
+  }
+}

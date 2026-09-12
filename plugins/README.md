@@ -8,6 +8,7 @@ this folder holds the official plugins and a sample:
 | Plugin | What it gates |
 |---|---|
 | [`review/`](review/README.md) | a code review: the diff, the agent's proposed comments, the human's verdicts and own comments |
+| [`email/`](email/README.md) | emails an agent wants to send: edit them with the changes showing, comment on a passage, send, revise or discard |
 | [`hello/`](hello/README.md) | the smallest complete plugin, to copy from |
 
 Register a directory of plugins (each immediate subdirectory is one plugin):
