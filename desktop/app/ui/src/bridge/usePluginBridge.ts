@@ -25,6 +25,8 @@ export type SubmitResult = { ok: true; decision: Decision } | { ok: false; viola
 
 type Options = {
   frame: RefObject<HTMLIFrameElement | null>;
+  /** the frame is rebuilt per review, so the bundle loads again for each */
+  reviewId: string | null;
   review: Review | null;
   previous: Review | null;
   readonly: boolean;
@@ -46,7 +48,7 @@ export type Bridge = {
 };
 
 export function usePluginBridge(options: Options): Bridge {
-  const { frame, review, previous, readonly, minHeight, src, connected, onSubmit } = options;
+  const { frame, reviewId, review, previous, readonly, minHeight, src, connected, onSubmit } = options;
   const [loaded, setLoaded] = useState(false);
   const [fill, setFill] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -198,7 +200,7 @@ export function usePluginBridge(options: Options): Bridge {
       window.clearTimeout(fallback.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame, src, minHeight, sendInit, markLoaded, collect, post]);
+  }, [frame, reviewId, src, minHeight, sendInit, markLoaded, collect, post]);
 
   // When the review settles from elsewhere, the view flips to read-only.
   const wasReadonly = useRef(readonly);

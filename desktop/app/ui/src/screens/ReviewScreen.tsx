@@ -118,6 +118,7 @@ export function ReviewScreen() {
 
   const bridge = usePluginBridge({
     frame,
+    reviewId: review?.id ?? null,
     review,
     previous: previous ? { ...previous } : null,
     readonly,
@@ -251,6 +252,7 @@ export function ReviewScreen() {
             </div>
           ) : null}
           <iframe
+            key={review.id}
             ref={frame}
             id="plugin-frame"
             sandbox="allow-scripts"
