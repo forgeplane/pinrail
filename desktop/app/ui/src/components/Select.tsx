@@ -171,10 +171,10 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => choose(option)}
                 >
-                  <span className="select-option-check">{option.value === value ? <Check size={14} /> : null}</span>
                   {option.icon ? <span className="select-option-icon">{option.icon}</span> : null}
                   <span className="select-option-label">{option.label}</span>
                   {option.hint ? <span className="select-option-hint">{option.hint}</span> : null}
+                  <span className="select-option-check">{option.value === value ? <Check size={14} /> : null}</span>
                 </li>
               ))}
             </ul>,

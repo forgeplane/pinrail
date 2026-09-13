@@ -177,17 +177,18 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .select-list.is-placed { animation: tooltip-in 100ms ease-out forwards; }
 @media (prefers-reduced-motion: reduce) { .select-list.is-placed { animation: none; opacity: 1; transform: none; } }
 .select-option {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 10px 6px 6px; border-radius: 5px; cursor: default;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px 6px 10px; border-radius: 5px; cursor: default;
   font-size: 12.5px; color: var(--text); white-space: nowrap;
 }
 .select-option.is-active { background: var(--accent-bg); }
 .select-option[aria-selected="true"] { font-weight: 500; }
-.select-option-check { width: 16px; display: inline-flex; justify-content: center; color: var(--accent); flex: none; }
+.select-option-check { width: 14px; margin-left: auto; padding-left: 10px; box-sizing: content-box; display: inline-flex; justify-content: center; color: var(--accent); flex: none; }
 .select-option-icon { display: inline-flex; color: var(--faint); flex: none; }
 .select-option.is-active .select-option-icon, .select-option[aria-selected="true"] .select-option-icon { color: var(--accent); }
 .select-option-label { overflow: hidden; text-overflow: ellipsis; }
 .select-option-hint { margin-left: auto; padding-left: 12px; font-size: 11.5px; color: var(--faint); }
+.select-option-hint + .select-option-check { margin-left: 0; }
 
 /* the search palette */
 /* anchored near the top, so the field stays put as results come and go */
