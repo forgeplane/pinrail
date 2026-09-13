@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Sun, SunMoon, X } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, inTauri } from "../api/client";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
@@ -157,26 +157,30 @@ export function Layout({ children }: { children: ReactNode }) {
             </NavLink>
           )}
           <nav className="app-nav" aria-label="Main">
-            <button type="button" className="nav-search" onClick={() => setPalette(true)}>
-              <span className="nav-label">
-                <Search size={15} strokeWidth={1.75} />
-                Search
-              </span>
-              <span className="nav-keys">
-                <kbd>{MOD}</kbd>
-                <kbd>K</kbd>
-              </span>
-            </button>
             {NAV.map(({ key, label, to, Icon, keys }) => (
-              <Tooltip key={key} label={label} keys={keys} side="bottom">
-                <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
-                  <span className="nav-label">
-                    <Icon size={15} strokeWidth={1.75} />
-                    {label}
-                  </span>
-                  {key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
-                </NavLink>
-              </Tooltip>
+              <Fragment key={key}>
+                <Tooltip label={label} keys={keys} side="bottom">
+                  <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
+                    <span className="nav-label">
+                      <Icon size={15} strokeWidth={1.75} />
+                      {label}
+                    </span>
+                    {key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
+                  </NavLink>
+                </Tooltip>
+                {key === "history" ? (
+                  <button type="button" className="nav-search" onClick={() => setPalette(true)}>
+                    <span className="nav-label">
+                      <Search size={15} strokeWidth={1.75} />
+                      Search
+                    </span>
+                    <span className="nav-keys">
+                      <kbd>{MOD}</kbd>
+                      <kbd>K</kbd>
+                    </span>
+                  </button>
+                ) : null}
+              </Fragment>
             ))}
           </nav>
           {live.repositories.length > 0 ? (
