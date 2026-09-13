@@ -335,8 +335,6 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .composer.is-busy .handover-button { opacity: 0.7; }
 
 /* history */
-.history-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.history-filters input { width: 130px; }
 .history-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
 .history-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .history-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); padding: 8px 12px; background: var(--bg-raised); }
