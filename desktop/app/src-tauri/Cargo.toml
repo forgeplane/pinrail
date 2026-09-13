@@ -15,4 +15,5 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["rt-multi-thread", "signal"] }
 wicket-core = { path = "../../core" }

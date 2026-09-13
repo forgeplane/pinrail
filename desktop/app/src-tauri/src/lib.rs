@@ -1,5 +1,7 @@
 //! The desktop app starts the review server on loopback and shows the shell.
 
+mod headless;
+
 use std::sync::Arc;
 
 use tauri::State;
@@ -15,9 +17,25 @@ fn server_url(url: State<'_, ServerUrl>) -> String {
 }
 
 pub fn run() {
+    let args: Vec<String> = std::env::args().collect();
+    match headless::parse(&args) {
+        Ok(Some(options)) => std::process::exit(headless::run(options)),
+        Ok(None) => {}
+        Err(message) => {
+            eprintln!("wicket: {message}");
+            std::process::exit(2);
+        }
+    }
+
     let config = Config::from_env();
-    let url = format!("http://{}", config.bind_addr());
-    let state: Arc<AppState> = AppState::new(config);
+    let url = config.url();
+    let state: Arc<AppState> = match AppState::open(config) {
+        Ok(state) => state,
+        Err(error) => {
+            eprintln!("wicket: cannot open the data directory: {error}");
+            std::process::exit(1);
+        }
+    };
 
     tauri::Builder::default()
         .manage(ServerUrl(url))
