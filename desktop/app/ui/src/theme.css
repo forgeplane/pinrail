@@ -65,8 +65,12 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 /* the window's top strip: a drag handle, room for the traffic lights */
 .sidebar-bar, .app-topbar { height: 38px; flex: none; display: flex; align-items: center; user-select: none; -webkit-user-select: none; }
 .sidebar-bar { gap: 4px; padding: 0 2px; }
-.has-overlay-bar .sidebar-bar { padding-left: 70px; }
-.has-overlay-bar.sidebar-closed .app-topbar { padding-left: 80px; }
+/* the toggle sits 70px from the window edge in both bars, the sidebar's own
+   10px side padding included, and a touch below centre to sit on the traffic
+   lights' line */
+.has-overlay-bar .sidebar-bar, .has-overlay-bar .app-topbar { padding-top: 2px; }
+.has-overlay-bar .sidebar-bar { padding-left: 60px; }
+.has-overlay-bar.sidebar-closed .app-topbar { padding-left: 70px; }
 .bar-button {
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim);
@@ -94,7 +98,8 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .connection-dot.is-on { background: var(--ok); }
 
 .app-shell { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100vh; }
-.app-topbar { gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+/* the rule is a shadow, not a border, so the bar's box matches the sidebar bar's */
+.app-topbar { gap: 10px; padding: 0 12px; box-shadow: 0 1px 0 var(--border); background: var(--bg-panel); position: relative; z-index: 1; }
 .topbar-title { font-size: 12px; color: var(--dim); margin-right: auto; margin-left: 6px; }
 .chrome-button {
   display: inline-flex; align-items: center; gap: 6px;
