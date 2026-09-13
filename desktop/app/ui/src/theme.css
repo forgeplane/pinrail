@@ -10,7 +10,7 @@
   --accent: #a1a5ef; --accent-bg: #292a3c; --button-bg: #6873d6;
   --ok: #7cc79e; --danger: #e48c98;
   --sev-blocker: #e48c98; --sev-major: #d4ac6a; --sev-minor: #c7bf85; --sev-nit: #a0abc2;
-  --tip-bg: #f3f3f5; --tip-text: #1c1d21; --tip-key-bg: #dcdde3; --tip-key-text: #4a4c55;
+  --tip-bg: #26272c; --tip-text: #ededef; --tip-key-bg: #3a3c44; --tip-key-text: #c9cad2;
   --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
@@ -23,7 +23,7 @@
   --accent: #5965cb; --accent-bg: #f0f0fa; --button-bg: #5965bc;
   --ok: #28795c; --danger: #bc4655;
   --sev-blocker: #bc4655; --sev-major: #99651b; --sev-minor: #80721b; --sev-nit: #65738e;
-  --tip-bg: #202126; --tip-text: #f4f4f6; --tip-key-bg: #3a3c44; --tip-key-text: #d6d7de;
+  --tip-bg: #ffffff; --tip-text: #24262c; --tip-key-bg: #eceef2; --tip-key-text: #5a5d68;
   color-scheme: light;
 }
 
@@ -117,14 +117,15 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .app-main > * { flex: 1 0 auto; padding: 20px 24px 40px; max-width: 1100px; width: 100%; }
 .app-main > .review-page { flex: 1 1 auto; min-height: 0; }
 
-/* tooltips: inverted on the theme, the shortcut as keys */
+/* tooltips: a raised panel in the theme, the shortcut as keys */
 .tooltip {
   position: fixed; z-index: 50; pointer-events: none;
   display: inline-flex; align-items: center; gap: 8px;
   padding: 5px 8px; border-radius: 6px;
   background: var(--tip-bg); color: var(--tip-text);
   font-size: 12px; line-height: 1.3; white-space: nowrap;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(0 0 0 / 0.06);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
   opacity: 0; transform: translateY(-2px);
 }
 .tooltip.is-placed { animation: tooltip-in 120ms ease-out forwards; }
