@@ -188,7 +188,8 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .select-option-hint { margin-left: auto; padding-left: 12px; font-size: 11.5px; color: var(--faint); }
 
 /* the search palette */
-.palette-backdrop { align-items: start; padding-top: 12vh; }
+/* anchored near the top, so the field stays put as results come and go */
+.app-dialog-backdrop.palette-backdrop { align-items: start; padding-top: 12vh; }
 .palette {
   width: min(640px, calc(100vw - 32px)); max-height: 70vh;
   display: flex; flex-direction: column;
