@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
+import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { SummaryCounts } from "../components/Badges";
@@ -199,7 +200,10 @@ export function Inbox() {
                         {review.revises ? <span>· New round</span> : null}
                       </span>
                     </span>
-                    <span className="review-row-plugin">{review.plugin}</span>
+                    <span className="review-row-plugin">
+                      <PluginIcon icon={live.pluginIcon(review.plugin)} size={13} />
+                      {review.plugin}
+                    </span>
                     <span className="review-row-summary">
                       <SummaryCounts summary={review.summary} />
                     </span>

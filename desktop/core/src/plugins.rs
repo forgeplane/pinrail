@@ -32,6 +32,8 @@ pub struct Plugin {
     pub min_height: u32,
     pub dev: bool,
     pub editorial: bool,
+    /// A lucide icon name, shown wherever the plugin is named.
+    pub icon: Option<String>,
     pub manifest: Map<String, Value>,
     pub payload_schema: Option<Schema>,
     pub decision_schema: Option<Schema>,
@@ -56,6 +58,7 @@ impl Plugin {
                 min_height: 400,
                 dev: false,
                 editorial: false,
+                icon: None,
                 manifest: Map::new(),
                 payload_schema: None,
                 decision_schema: None,
@@ -98,6 +101,15 @@ impl Plugin {
         if !dir.join(&entry).is_file() {
             return Err(format!("entry {entry} not found"));
         }
+        let icon = match manifest.get("icon") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(s)) if valid_icon(s) => Some(s.clone()),
+            Some(other) => {
+                return Err(format!(
+                    "icon {other} is not valid: a lucide icon name, like \"mail\" or \"git-pull-request\""
+                ));
+            }
+        };
 
         let payload_schema = Schema::compile(
             dir,
@@ -132,6 +144,7 @@ impl Plugin {
                 .unwrap_or(400),
             dev: manifest.get("dev") == Some(&Value::Bool(true)),
             editorial: manifest.get("editorial") == Some(&Value::Bool(true)),
+            icon,
             manifest,
             payload_schema: Some(payload_schema),
             decision_schema: Some(decision_schema),
@@ -169,6 +182,7 @@ impl Plugin {
             "min_height": self.min_height,
             "dev": self.dev,
             "editorial": self.editorial,
+            "icon": self.icon,
             "usable": self.usable(),
             "error": self.error,
             "payload_schema": self.manifest.get("payload_schema"),
@@ -181,6 +195,17 @@ fn valid_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// Lucide names an icon in lowercase words joined by dashes.
+fn valid_icon(name: &str) -> bool {
+    !name.is_empty()
+        && !name.starts_with('-')
+        && !name.ends_with('-')
+        && !name.contains("--")
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
 fn string_field(manifest: &Map<String, Value>, key: &str) -> Result<String, String> {
@@ -439,6 +464,24 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn icon_names_are_lucide_names() {
+        for ok in ["mail", "git-pull-request", "list-checks", "a1"] {
+            assert!(super::valid_icon(ok), "{ok}");
+        }
+        for bad in [
+            "",
+            "Mail",
+            "git_pull",
+            "-mail",
+            "mail-",
+            "git--pull",
+            "mail icon",
+        ] {
+            assert!(!super::valid_icon(bad), "{bad}");
+        }
+    }
+
     use super::*;
 
     fn registry(tmp: &Path) -> Registry {

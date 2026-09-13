@@ -3,7 +3,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, subscribe } from "../api/client";
-import type { Notice, Review } from "../api/types";
+import type { Notice, Plugin, Review } from "../api/types";
 
 type Live = {
   connected: boolean;
@@ -13,6 +13,10 @@ type Live = {
   /** advances on every server event; depend on it to refetch */
   tick: number;
   lastNotice: Notice | null;
+  /** the registered plugins, by name */
+  plugins: Map<string, Plugin>;
+  /** the icon a plugin declares, if any */
+  pluginIcon: (name: string) => string | null;
   refresh: () => Promise<void>;
 };
 
@@ -23,6 +27,16 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<Review[]>([]);
   const [tick, setTick] = useState(0);
   const [lastNotice, setLastNotice] = useState<Notice | null>(null);
+  const [plugins, setPlugins] = useState<Map<string, Plugin>>(new Map());
+
+  const loadPlugins = useCallback(async () => {
+    try {
+      const { plugins } = await api.plugins();
+      setPlugins(new Map(plugins.map((p) => [p.name, p])));
+    } catch {
+      // the list stays as it was; the next reload event retries
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -34,19 +48,22 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
+    loadPlugins();
     return subscribe({
       onOpen: () => {
         setConnected(true);
         refresh();
+        loadPlugins();
       },
       onError: () => setConnected(false),
       onNotice: (notice) => {
         setLastNotice(notice);
         setTick((t) => t + 1);
         if (notice.review_id) refresh();
+        if (notice.kind === "plugins_reloaded") loadPlugins();
       },
     });
-  }, [refresh]);
+  }, [refresh, loadPlugins]);
 
   const repositories = useMemo(
     () => [...new Set(pending.map((r) => r.origin.repo).filter((r): r is string => !!r))].sort(),
@@ -58,9 +75,10 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     document.title = `${badge}Wicket`;
   }, [pending.length]);
 
+  const pluginIcon = useCallback((name: string) => plugins.get(name)?.icon ?? null, [plugins]);
   const value = useMemo<Live>(
-    () => ({ connected, pending, pendingCount: pending.length, repositories, tick, lastNotice, refresh }),
-    [connected, pending, repositories, tick, lastNotice, refresh],
+    () => ({ connected, pending, pendingCount: pending.length, repositories, tick, lastNotice, plugins, pluginIcon, refresh }),
+    [connected, pending, repositories, tick, lastNotice, plugins, pluginIcon, refresh],
   );
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }

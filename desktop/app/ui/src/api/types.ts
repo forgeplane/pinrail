@@ -48,6 +48,8 @@ export type Plugin = {
   min_height: number;
   dev: boolean;
   editorial: boolean;
+  /** a lucide icon name, when the manifest sets one */
+  icon: string | null;
   usable: boolean;
   error: string | null;
 };

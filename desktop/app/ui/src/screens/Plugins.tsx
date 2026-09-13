@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, serverUrl } from "../api/client";
 import type { Plugin } from "../api/types";
 import { PluginBadge } from "../components/Badges";
+import { PluginIcon } from "../components/PluginIcon";
 import { EmptyState } from "../components/EmptyState";
 import { Tooltip } from "../components/Tooltip";
 import { useLive } from "../state/live";
@@ -65,10 +66,13 @@ export function Plugins() {
         <div className="plugin-list">
           {plugins.map((p) => (
             <article key={p.name} className="plugin-row">
+              <span className="plugin-row-icon">
+                <PluginIcon icon={p.icon} size={20} strokeWidth={1.5} />
+              </span>
               <div>
                 <h2>{p.title || p.name}</h2>
                 <div className="mt">
-                  <PluginBadge name={p.name} version={p.version} />
+                  <PluginBadge name={p.name} version={p.version} icon={p.icon} />
                 </div>
               </div>
               <div className="plugin-path">

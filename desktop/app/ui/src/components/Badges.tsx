@@ -1,13 +1,17 @@
 import { ExternalLink } from "lucide-react";
 import type { Origin, Status, Summary } from "../api/types";
+import { useLive } from "../state/live";
+import { PluginIcon } from "./PluginIcon";
 
 export function StatusBadge({ status }: { status: Status }) {
   return <span className={`status-badge status-${status}`}>{status}</span>;
 }
 
-export function PluginBadge({ name, version }: { name: string; version?: number }) {
+export function PluginBadge({ name, version, icon }: { name: string; version?: number; icon?: string | null }) {
+  const live = useLive();
   return (
     <span className="plugin-badge">
+      <PluginIcon icon={icon === undefined ? live.pluginIcon(name) : icon} size={12} strokeWidth={2} />
       {name}
       {version ? <span className="faint">v{version}</span> : null}
     </span>

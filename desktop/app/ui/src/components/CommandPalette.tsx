@@ -2,7 +2,7 @@
 // shell's actions, from one field. Cmd+K opens it; arrows move, Enter opens,
 // Tab cycles the filter, Escape closes.
 
-import { Blocks, CircleDot, Inbox, Search, Zap, type LucideIcon } from "lucide-react";
+import { Search, Zap, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../api/client";
@@ -10,6 +10,7 @@ import type { Plugin, Review } from "../api/types";
 import { age } from "../lib/format";
 import { useLive } from "../state/live";
 import { StatusBadge } from "./Badges";
+import { PluginIcon } from "./PluginIcon";
 
 export type PaletteAction = {
   id: string;
@@ -89,7 +90,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
         out.push({
           key: `inbox:${r.id}`,
           group: "inbox",
-          icon: <Inbox size={15} />,
+          icon: <PluginIcon icon={live.pluginIcon(r.plugin)} />,
           title: r.title,
           meta: (
             <>
@@ -106,7 +107,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
         out.push({
           key: `history:${r.id}`,
           group: "history",
-          icon: <CircleDot size={15} />,
+          icon: <PluginIcon icon={live.pluginIcon(r.plugin)} />,
           title: r.title,
           meta: (
             <>
@@ -125,7 +126,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
         out.push({
           key: `plugin:${p.name}`,
           group: "plugins",
-          icon: <Blocks size={15} />,
+          icon: <PluginIcon icon={p.icon} />,
           title: p.title || p.name,
           meta: (
             <span className="mono">

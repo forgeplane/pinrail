@@ -175,8 +175,20 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             &MenuItem::with_id(app, "search", "Search…", true, Some("CmdOrCtrl+K"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "go-inbox", "Inbox", true, Some("CmdOrCtrl+I"))?,
-            &MenuItem::with_id(app, "go-history", "History", true, Some("CmdOrCtrl+Shift+H"))?,
-            &MenuItem::with_id(app, "go-plugins", "Plugins", true, Some("CmdOrCtrl+Shift+P"))?,
+            &MenuItem::with_id(
+                app,
+                "go-history",
+                "History",
+                true,
+                Some("CmdOrCtrl+Shift+H"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                "go-plugins",
+                "Plugins",
+                true,
+                Some("CmdOrCtrl+Shift+P"),
+            )?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,
