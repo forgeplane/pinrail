@@ -22,30 +22,30 @@ export function wicketJson(args: string[], opts: { input?: string } = {}): any {
 
 export type Waiter = {
   proc: ChildProcess;
-  /** the gate id, parsed from the "gate g_…: url" line on stderr */
-  gateId: Promise<string>;
+  /** the review id, parsed from the "review r_…: url" line on stderr */
+  reviewId: Promise<string>;
   done: Promise<Run>;
 };
 
-/** Starts `wicket create … --wait` (or `wicket wait`) in the background. */
+/** Starts `wicket submit … --wait` (or `wicket wait`) in the background. */
 export function startWaiter(args: string[]): Waiter {
   const state = loadState();
   const proc = spawn(state.cli, args, { env: cliEnv(state) });
   let stdout = "";
   let stderr = "";
   proc.stdout!.on("data", (d) => (stdout += d));
-  // `create` announces the gate on stderr; `wait` already knows it
-  const gateId = new Promise<string>((resolve) => {
-    if (args[0] !== "create") return resolve(args[1]);
+  // `submit` announces the review on stderr; `wait` already knows it
+  const reviewId = new Promise<string>((resolve) => {
+    if (args[0] !== "submit") return resolve(args[1]);
     proc.stderr!.on("data", (d) => {
       stderr += d;
-      const m = stderr.match(/gate (g_[0-9A-Z]+):/);
+      const m = stderr.match(/review (r_[0-9A-Z]+):/);
       if (m) resolve(m[1]);
     });
   });
-  if (args[0] !== "create") proc.stderr!.on("data", (d) => (stderr += d));
+  if (args[0] !== "submit") proc.stderr!.on("data", (d) => (stderr += d));
   const done = new Promise<Run>((resolve) => proc.on("exit", (code) => resolve({ code, stdout, stderr })));
-  return { proc, gateId, done };
+  return { proc, reviewId, done };
 }
 
 export function tmpFile(name: string, content: string): string {
@@ -69,11 +69,11 @@ export const listPayload = {
   ],
 };
 
-export function createListGate(title: string, extra: string[] = []): Waiter {
+export function submitListReview(title: string, extra: string[] = []): Waiter {
   const payload = tmpFile("payload.json", JSON.stringify(listPayload));
-  return startWaiter(["create", "list", "--title", title, "--source", "repo=acme,workflow=review,ref=42", "--data", payload, "--wait", ...extra]);
+  return startWaiter(["submit", "list", "--title", title, "--origin", "repo=acme,workflow=review,ref=42", "--data", payload, "--wait", ...extra]);
 }
 
-export function gateUrl(id: string): string {
-  return `${loadState().url}/gates/${id}`;
+export function reviewUrl(id: string): string {
+  return `${loadState().url}/reviews/${id}`;
 }

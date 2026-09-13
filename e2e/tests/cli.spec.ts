@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { createListGate, listPayload, startWaiter, tmpFile, wicket, wicketJson } from "../helpers/wicket";
+import { listPayload, startWaiter, submitListReview, tmpFile, wicket, wicketJson } from "../helpers/wicket";
 
 const decision = { decisions: [{ id: 1, action: "accept" }, { id: 2, action: "reject", note: "no" }], undecided: [] };
 
-test("create --wait blocks until a decision and writes the decision file", async () => {
+test("submit --wait blocks until a decision and writes the decision file", async () => {
   const out = path.join(path.dirname(tmpFile("x", "")), "mr-42.decisions.json");
-  const waiter = createListGate("gate A", ["--decision-out", out]);
-  const id = await waiter.gateId;
+  const waiter = submitListReview("review A", ["--decision-out", out]);
+  const id = await waiter.reviewId;
 
   expect(wicketJson(["show", id]).status).toBe("pending");
   wicketJson(["decide", id, "--data", tmpFile("d.json", JSON.stringify(decision)), "--note", "ship it"]);
@@ -23,10 +23,10 @@ test("create --wait blocks until a decision and writes the decision file", async
   expect(fs.readFileSync(out, "utf8").endsWith("\n")).toBe(true);
 });
 
-test("two pending gates decided in reverse order each wake their own waiter", async () => {
-  const a = createListGate("gate B1");
-  const b = createListGate("gate B2");
-  const [idA, idB] = await Promise.all([a.gateId, b.gateId]);
+test("two pending reviews decided in reverse order each wake their own waiter", async () => {
+  const a = submitListReview("review B1");
+  const b = submitListReview("review B2");
+  const [idA, idB] = await Promise.all([a.reviewId, b.reviewId]);
 
   const pending = wicketJson(["list", "--status", "pending", "--ref", "42"]).map((g: any) => g.id);
   expect(pending).toEqual(expect.arrayContaining([idA, idB]));
@@ -44,8 +44,8 @@ test("two pending gates decided in reverse order each wake their own waiter", as
 });
 
 test("withdraw unblocks a waiter with exit 3", async () => {
-  const waiter = createListGate("gate C");
-  const id = await waiter.gateId;
+  const waiter = submitListReview("review C");
+  const id = await waiter.reviewId;
   wicketJson(["withdraw", id]);
   const result = await waiter.done;
   expect(result.code).toBe(3);
@@ -53,29 +53,29 @@ test("withdraw unblocks a waiter with exit 3", async () => {
   expect(JSON.parse(result.stdout).status).toBe("withdrawn");
 });
 
-test("wait times out with exit 4 and the gate stays pending", async () => {
-  const gate = wicketJson(["create", "list", "--title", "gate D", "--data", tmpFile("p.json", JSON.stringify(listPayload))]);
-  const result = await startWaiter(["wait", gate.id, "--timeout", "1"]).done;
+test("wait times out with exit 4 and the review stays pending", async () => {
+  const review = wicketJson(["submit", "list", "--title", "review D", "--data", tmpFile("p.json", JSON.stringify(listPayload))]);
+  const result = await startWaiter(["wait", review.id, "--timeout", "1"]).done;
   expect(result.code).toBe(4);
   expect(result.stdout).toBe("");
-  expect(wicketJson(["show", gate.id]).status).toBe("pending");
+  expect(wicketJson(["show", review.id]).status).toBe("pending");
 });
 
 test("a refused request exits 2 with the violations on stderr", async () => {
-  const r = wicket(["create", "list", "--title", "bad", "--data", tmpFile("p.json", '{"intro": 1}')]);
+  const r = wicket(["submit", "list", "--title", "bad", "--data", tmpFile("p.json", '{"intro": 1}')]);
   expect(r.code).toBe(2);
   expect(r.stdout).toBe("");
   const body = JSON.parse(r.stderr.replace(/^wicket: /, ""));
   expect(body.error).toBe("invalid");
   expect(body.violations.map((v: any) => v.path)).toEqual(["/payload", "/payload/intro"]);
 
-  const bad = wicket(["decide", "g_nope", "--data", tmpFile("d.json", "{}")]);
+  const bad = wicket(["decide", "r_nope", "--data", tmpFile("d.json", "{}")]);
   expect(bad.code).toBe(2);
   expect(bad.stderr).toContain("not_found");
 });
 
-test("types lists the built-in and the registered sample plugins", async () => {
-  const types = wicketJson(["types"]);
-  expect(types.types.map((t: any) => t.name)).toEqual(["email", "hello", "list", "review"]);
-  expect(types.types.every((t: any) => t.usable)).toBe(true);
+test("plugins lists the built-in and the registered sample plugins", async () => {
+  const plugins = wicketJson(["plugins"]);
+  expect(plugins.plugins.map((p: any) => p.name)).toEqual(["email", "hello", "list", "review"]);
+  expect(plugins.plugins.every((p: any) => p.usable)).toBe(true);
 });

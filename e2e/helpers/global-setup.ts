@@ -25,8 +25,20 @@ function buildCli(): string {
   return cli;
 }
 
+function buildDesktop(): string | undefined {
+  if (process.env.WICKET_E2E_SERVER !== "desktop") return undefined;
+  const bin = process.env.WICKET_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "wicket-desktop");
+  if (!process.env.WICKET_DESKTOP_BIN) {
+    console.log("e2e: building the desktop app");
+    execFileSync("cargo", ["build", "--quiet", "-p", "wicket-desktop"], { cwd: path.join(root, "desktop"), stdio: "inherit" });
+  }
+  if (!fs.existsSync(bin)) throw new Error(`desktop binary not found at ${bin}`);
+  return bin;
+}
+
 export default async function globalSetup() {
   const cli = buildCli();
+  const desktopBin = buildDesktop();
   const port = await freePort();
   const run = path.join(stateDir, `run-${Date.now()}`);
   const state: State = {
@@ -36,6 +48,7 @@ export default async function globalSetup() {
     dataDir: path.join(run, "data"),
     configDir: path.join(run, "config"),
     serverDir: path.join(root, "server"),
+    desktopBin,
   };
   fs.mkdirSync(state.dataDir, { recursive: true });
   fs.mkdirSync(state.configDir, { recursive: true });
@@ -47,6 +60,6 @@ export default async function globalSetup() {
     throw new Error(`wicket serve failed (${serve.status}):\n${serve.stderr}\n${serve.stdout}`);
   }
 
-  const add = spawnSync(cli, ["types", "add", path.join(root, "plugins")], { env: cliEnv(state), encoding: "utf8" });
-  if (add.status !== 0) throw new Error(`wicket types add failed:\n${add.stderr}`);
+  const add = spawnSync(cli, ["plugins", "add", path.join(root, "plugins")], { env: cliEnv(state), encoding: "utf8" });
+  if (add.status !== 0) throw new Error(`wicket plugins add failed:\n${add.stderr}`);
 }

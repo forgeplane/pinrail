@@ -12,6 +12,8 @@ export type State = {
   dataDir: string;
   configDir: string;
   serverDir: string;
+  /** set when WICKET_E2E_SERVER=desktop: the headless desktop binary runs the server */
+  desktopBin?: string;
 };
 
 export function saveState(state: State) {
@@ -25,15 +27,21 @@ export function loadState(): State {
 
 /** The env the CLI needs to find (and start) this run's server. */
 export function cliEnv(state: State = loadState()): NodeJS.ProcessEnv {
-  return {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     WICKET_DATA_DIR: state.dataDir,
     WICKET_CONFIG_DIR: state.configDir,
     WICKET_PORT: String(state.port),
-    WICKET_SERVER_DIR: state.serverDir,
     WICKET_URL: undefined,
     WICKET_SERVER_CMD: undefined,
+    WICKET_SERVER_DIR: undefined,
   };
+  if (state.desktopBin) {
+    env.WICKET_SERVER_CMD = `exec "${state.desktopBin}" --headless --port ${state.port} --data-dir "${state.dataDir}"`;
+  } else {
+    env.WICKET_SERVER_DIR = state.serverDir;
+  }
+  return env;
 }
 
 export function serverPid(state: State = loadState()): number | null {

@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import { loadState, serverPid } from "../helpers/state";
-import { createListGate, tmpFile, wicket, wicketJson } from "../helpers/wicket";
+import { submitListReview, tmpFile, wicket, wicketJson } from "../helpers/wicket";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Last on purpose: it takes the shared server down and brings it back.
 test("a waiter survives the server being killed and restarted", async () => {
   test.setTimeout(180_000);
-  const waiter = createListGate("restart", ["--timeout", "150"]);
-  const id = await waiter.gateId;
+  const waiter = submitListReview("restart", ["--timeout", "150"]);
+  const id = await waiter.reviewId;
 
   const pid = serverPid();
   expect(pid).not.toBeNull();
