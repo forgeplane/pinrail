@@ -17,7 +17,8 @@ type Props = {
 const kindLabel = (k: Comment["kind"]) => KINDS.find((x) => x.key === k)?.label ?? k;
 
 export function CommentsPanel({ comments, pins, focused, readonly, previous, onFocus, onEdit, onRemove }: Props) {
-  const [showPrevious, setShowPrevious] = useState(false);
+  // a settled round with nothing of its own opens on what came before
+  const [showPrevious, setShowPrevious] = useState(readonly && comments.length === 0 && previous.length > 0);
   return (
     <aside className="panel" data-panel-list>
       <div className="panel-head">
