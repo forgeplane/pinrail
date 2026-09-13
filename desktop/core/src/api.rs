@@ -5,6 +5,7 @@ use std::sync::Arc;
 use axum::{Json, Router, extract::State, routing::get};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::Config;
 
@@ -36,7 +37,26 @@ pub struct Info {
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/api/v1/info", get(info))
+        .layer(cors())
         .with_state(state)
+}
+
+/// The shell runs on the desktop app's own origin and calls this loopback
+/// API from there, so those origins are allowed; in debug builds the Vite dev
+/// server is too. Nothing else is: a page in the user's browser cannot read
+/// the API.
+fn cors() -> CorsLayer {
+    let mut origins = vec![
+        "tauri://localhost".parse().unwrap(),
+        "http://tauri.localhost".parse().unwrap(),
+    ];
+    if cfg!(debug_assertions) {
+        origins.push("http://localhost:5173".parse().unwrap());
+    }
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+        .allow_headers([axum::http::header::CONTENT_TYPE])
 }
 
 async fn info(State(state): State<Arc<AppState>>) -> Json<Info> {
