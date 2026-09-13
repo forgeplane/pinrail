@@ -122,7 +122,7 @@ export function Inbox() {
             icon={<FolderGit2 size={14} />}
             value={repo}
             onChange={(v) => setParam("repo", v)}
-            options={[{ value: "", label: "All repositories" }, ...live.repositories.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> }))]}
+            options={[{ value: "", label: "All repositories", icon: <FolderGit2 size={14} /> }, ...live.repositories.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> }))]}
           />
           <Select
             id="inbox-plugin"
@@ -130,7 +130,7 @@ export function Inbox() {
             icon={<Blocks size={14} />}
             value={plugin}
             onChange={(v) => setParam("plugin", v)}
-            options={[{ value: "", label: "All plugins" }, ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> }))]}
+            options={[{ value: "", label: "All plugins", icon: <Blocks size={14} /> }, ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> }))]}
           />
         </div>
       </header>
