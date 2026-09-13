@@ -1,35 +1,19 @@
+import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, Sun, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { inTauri } from "../api/client";
 import { useLive } from "../state/live";
-import { toggleTheme } from "../lib/theme";
+import { toggleTheme, useTheme } from "../lib/theme";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
 const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
 const SIDEBAR_KEY = "wicket:sidebar";
 
-function SidebarGlyph() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-      <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
-      <path d="M6 2.5v11" />
-    </svg>
-  );
-}
-
-function Arrow({ back }: { back?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {back ? <path d="M10 3 5 8l5 5M5 8h9" /> : <path d="m6 3 5 5-5 5M11 8H2" />}
-    </svg>
-  );
-}
-
 const NAV = [
-  { key: "inbox", label: "Inbox", to: "/" },
-  { key: "history", label: "History", to: "/history" },
-  { key: "plugins", label: "Plugins", to: "/plugins" },
+  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox },
+  { key: "history", label: "History", to: "/history", Icon: History },
+  { key: "plugins", label: "Plugins", to: "/plugins", Icon: Blocks },
 ];
 
 const pageTitle = (path: string) =>
@@ -44,6 +28,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
   const location = useLocation();
   const navigate = useNavigate();
+  const theme = useTheme();
   const [help, setHelp] = useState(false);
   const [sidebar, setSidebar] = useState(() => {
     try {
@@ -64,7 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
   };
   const sidebarButton = (
     <button type="button" className="bar-button" onClick={toggleSidebar} title={sidebar ? "Hide sidebar" : "Show sidebar"} aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}>
-      <SidebarGlyph />
+      <PanelLeft size={16} />
     </button>
   );
 
@@ -86,56 +71,59 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}>
       {sidebar ? (
-      <aside className="app-sidebar" aria-label="Workspace">
-        <div className="sidebar-bar" data-tauri-drag-region>
-          {sidebarButton}
-        </div>
-        <NavLink to="/" className="app-brand" aria-label="Wicket home">
-          <span className="wicket-mark" aria-hidden="true" />
-          <span>Wicket</span>
-        </NavLink>
-        <nav className="app-nav" aria-label="Main">
-          {NAV.map((item) => (
-            <NavLink key={item.key} to={item.to} end={item.to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
-              <span>{item.label}</span>
-              {item.key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
-            </NavLink>
-          ))}
-        </nav>
-        {live.repositories.length > 0 ? (
-          <section className="sidebar-repositories" aria-label="Repositories">
-            <h2>Repositories</h2>
-            {live.repositories.map((repo) => (
-              <NavLink key={repo} to={`/?repo=${encodeURIComponent(repo)}`} className="sidebar-repo">
-                <span className="repo-square" />
-                {repo}
+        <aside className="app-sidebar" aria-label="Workspace">
+          <div className="sidebar-bar" data-tauri-drag-region>
+            {sidebarButton}
+          </div>
+          <NavLink to="/" className="app-brand" aria-label="Wicket home">
+            <span className="wicket-mark" aria-hidden="true" />
+            <span>Wicket</span>
+          </NavLink>
+          <nav className="app-nav" aria-label="Main">
+            {NAV.map(({ key, label, to, Icon }) => (
+              <NavLink key={key} to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
+                <span className="nav-label">
+                  <Icon size={15} strokeWidth={1.75} />
+                  {label}
+                </span>
+                {key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
               </NavLink>
             ))}
-          </section>
-        ) : null}
-        <div className="sidebar-bottom">
-          <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
-          <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
-        </div>
-      </aside>
+          </nav>
+          {live.repositories.length > 0 ? (
+            <section className="sidebar-repositories" aria-label="Repositories">
+              <h2>Repositories</h2>
+              {live.repositories.map((repo) => (
+                <NavLink key={repo} to={`/?repo=${encodeURIComponent(repo)}`} className="sidebar-repo">
+                  <FolderGit2 size={14} strokeWidth={1.75} />
+                  {repo}
+                </NavLink>
+              ))}
+            </section>
+          ) : null}
+          <div className="sidebar-bottom">
+            <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
+            <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
+          </div>
+        </aside>
       ) : null}
       <div className="app-shell">
         <header className="app-topbar" data-tauri-drag-region>
           {sidebar ? null : sidebarButton}
           <span className="topbar-history">
             <button type="button" className="bar-button" onClick={() => navigate(-1)} title="Back" aria-label="Back">
-              <Arrow back />
+              <ArrowLeft size={16} />
             </button>
             <button type="button" className="bar-button" onClick={() => navigate(1)} title="Forward" aria-label="Forward">
-              <Arrow />
+              <ArrowRight size={16} />
             </button>
           </span>
           <span className="topbar-title">{pageTitle(location.pathname)}</span>
-          <button type="button" className="chrome-button" onClick={() => setHelp(true)}>
-            Keyboard shortcuts <kbd>?</kbd>
+          <button type="button" className="bar-button" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+            <Keyboard size={16} />
           </button>
-          <button type="button" className="chrome-button" onClick={toggleTheme} title="Switch theme (T)" aria-label="Toggle light and dark theme">
-            Theme
+          <button type="button" className="bar-button" onClick={toggleTheme} title={theme === "dark" ? "Switch to light theme (T)" : "Switch to dark theme (T)"} aria-label="Toggle light and dark theme">
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
           </button>
         </header>
         <main className="app-main" tabIndex={-1}>
@@ -145,7 +133,12 @@ export function Layout({ children }: { children: ReactNode }) {
       {help ? (
         <div className="app-dialog-backdrop" onClick={() => setHelp(false)}>
           <div className="app-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
-            <h2 id="keyboard-title">Keyboard shortcuts</h2>
+            <div className="dialog-head">
+              <h2 id="keyboard-title">Keyboard shortcuts</h2>
+              <button type="button" className="bar-button" onClick={() => setHelp(false)} aria-label="Close">
+                <X size={16} />
+              </button>
+            </div>
             <dl className="shortcut-list">
               <dt>Next / previous review</dt>
               <dd>
@@ -171,10 +164,11 @@ export function Layout({ children }: { children: ReactNode }) {
               <dd>
                 <kbd>[</kbd> <kbd>]</kbd>
               </dd>
+              <dt>Close this</dt>
+              <dd>
+                <kbd>Esc</kbd>
+              </dd>
             </dl>
-            <button type="button" className="chrome-button" onClick={() => setHelp(false)}>
-              Close <kbd>Esc</kbd>
-            </button>
           </div>
         </div>
       ) : null}

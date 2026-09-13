@@ -1,3 +1,4 @@
+import { CheckCheck, Search, SearchX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { Review } from "../api/types";
@@ -95,18 +96,21 @@ export function Inbox() {
           <span className="inbox-total">{live.pendingCount}</span>
         </div>
         <div className="inbox-controls">
-          <input
-            ref={search}
-            id="inbox-search"
-            type="search"
-            placeholder="Search inbox…"
-            aria-label="Search inbox"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              setParam("q", e.target.value);
-            }}
-          />
+          <label className="search-field">
+            <Search size={14} aria-hidden="true" />
+            <input
+              ref={search}
+              id="inbox-search"
+              type="search"
+              placeholder="Search inbox…"
+              aria-label="Search inbox"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                setParam("q", e.target.value);
+              }}
+            />
+          </label>
           <select id="inbox-repo" aria-label="Repository" value={repo} onChange={(e) => setParam("repo", e.target.value)}>
             <option value="">All repositories</option>
             {live.repositories.map((r) => (
@@ -137,6 +141,7 @@ export function Inbox() {
       {groups.length === 0 ? (
         <EmptyState
           title={filtered ? "No matching reviews" : "All caught up"}
+          icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <CheckCheck size={28} strokeWidth={1.5} />}
           actions={
             filtered ? (
               <button

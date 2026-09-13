@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
+    "lucide-react": "1.45.0",
     "react": "^19",
     "react-dom": "^19",
     "react-router": "^7"

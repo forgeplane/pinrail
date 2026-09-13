@@ -1,3 +1,4 @@
+import { ArrowLeft, Bot, Clock, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
@@ -147,8 +148,8 @@ export function ReviewScreen() {
   if (error) {
     return (
       <div className="review-page">
-        <Link to="/" className="back-link">
-          ← Back to inbox
+        <Link to="/" className="back-link with-icon">
+          <ArrowLeft size={14} /> Back to inbox
         </Link>
         <p className="notice notice-danger">{error}</p>
       </div>
@@ -158,8 +159,8 @@ export function ReviewScreen() {
 
   return (
     <div className="review-page">
-      <Link to="/" className="back-link">
-        ← Back to inbox
+      <Link to="/" className="back-link with-icon">
+        <ArrowLeft size={14} /> Back to inbox
       </Link>
       <header className="review-head">
         <div className="badges">
@@ -170,9 +171,17 @@ export function ReviewScreen() {
         <div className="review-meta">
           <span className="mono faint">{review.id}</span>
           <OriginLine origin={review.origin} />
-          {review.requested_by ? <span>requested by {review.requested_by}</span> : null}
+          {review.requested_by ? (
+            <span className="with-icon">
+              <Bot size={13} /> {review.requested_by}
+            </span>
+          ) : null}
           <span title={stamp(review.created_at)}>submitted {age(review.created_at)} ago</span>
-          {review.expires_at ? <span title={stamp(review.expires_at)}>expires {stamp(review.expires_at)}</span> : null}
+          {review.expires_at ? (
+            <span className="with-icon" title={stamp(review.expires_at)}>
+              <Clock size={13} /> expires {stamp(review.expires_at)}
+            </span>
+          ) : null}
         </div>
         {earlier.length > 0 || revisedBy ? (
           <div className="review-rounds">
@@ -271,8 +280,8 @@ export function ReviewScreen() {
             <p className="handover-hint">
               with your note · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd>
             </p>
-            <button type="button" className="handover-button" data-handover disabled={bridge.submitting || !live.connected} onClick={bridge.collect}>
-              {bridge.handoverLabel}
+            <button type="button" className="handover-button with-icon" data-handover disabled={bridge.submitting || !live.connected} onClick={bridge.collect}>
+              {bridge.handoverLabel} <Send size={14} />
             </button>
           </div>
         </div>

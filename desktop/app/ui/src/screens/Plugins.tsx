@@ -1,3 +1,4 @@
+import { Blocks, CircleCheck, ExternalLink, FolderPlus, RefreshCw, TriangleAlert, Wrench } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api, serverUrl } from "../api/client";
 import type { Plugin } from "../api/types";
@@ -51,12 +52,12 @@ export function Plugins() {
       <header className="page-head">
         <h1>Plugins</h1>
         <button type="button" className="chrome-button" onClick={reload}>
-          Reload
+          <RefreshCw size={14} /> Reload
         </button>
       </header>
       {message ? <p className="notice">{message}</p> : null}
       {plugins.length === 0 ? (
-        <EmptyState title="A view for every decision">No plugins are registered. Point wicket at a directory of plugins to give your agents a view to ask through.</EmptyState>
+        <EmptyState title="A view for every decision" icon={<Blocks size={28} strokeWidth={1.5} />}>No plugins are registered. Point wicket at a directory of plugins to give your agents a view to ask through.</EmptyState>
       ) : (
         <div className="plugin-list">
           {plugins.map((p) => (
@@ -72,13 +73,16 @@ export function Plugins() {
                 {p.usable ? (
                   <div className="mt">
                     entry {p.entry} ·{" "}
-                    <a href={`${base}/plugins/${p.name}/${p.version}/${p.entry}`} target="_blank" rel="noreferrer">
-                      bundle ↗
+                    <a href={`${base}/plugins/${p.name}/${p.version}/${p.entry}`} target="_blank" rel="noreferrer" className="with-icon">
+                      bundle <ExternalLink size={12} />
                     </a>
                   </div>
                 ) : null}
               </div>
-              <span className={p.error ? "danger" : "ok"}>{p.error ? "broken" : p.dev ? "development" : "ready"}</span>
+              <span className={`with-icon ${p.error ? "danger" : "ok"}`}>
+                {p.error ? <TriangleAlert size={14} /> : p.dev ? <Wrench size={14} /> : <CircleCheck size={14} />}
+                {p.error ? "broken" : p.dev ? "development" : "ready"}
+              </span>
               {p.error ? <p className="plugin-error">{p.error}</p> : null}
             </article>
           ))}
@@ -94,7 +98,7 @@ export function Plugins() {
         <div className="add-dir">
           <input aria-label="Directory to add" placeholder="/path/to/plugins" value={newDir} onChange={(e) => setNewDir(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} />
           <button type="button" className="chrome-button" onClick={add}>
-            Add directory
+            <FolderPlus size={14} /> Add directory
           </button>
         </div>
       </section>

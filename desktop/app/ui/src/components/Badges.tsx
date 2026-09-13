@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import type { Origin, Status, Summary } from "../api/types";
 
 export function StatusBadge({ status }: { status: Status }) {
@@ -21,8 +22,8 @@ export function OriginLine({ origin, link = true }: { origin: Origin; link?: boo
       {origin.workflow ? <span>{origin.workflow}</span> : null}
       {origin.ref ? <span className="mono faint">#{origin.ref}</span> : null}
       {link && origin.url ? (
-        <a href={origin.url} target="_blank" rel="noreferrer" className="accent">
-          open ↗
+        <a href={origin.url} target="_blank" rel="noreferrer" className="accent with-icon">
+          open <ExternalLink size={12} />
         </a>
       ) : null}
     </span>

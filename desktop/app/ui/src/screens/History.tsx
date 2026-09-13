@@ -1,3 +1,4 @@
+import { Archive, SearchX } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../api/client";
@@ -61,7 +62,10 @@ export function History() {
         ) : null}
       </div>
       {reviews.length === 0 ? (
-        <EmptyState title={filtered ? "No matching decisions" : "Your decisions belong here"}>
+        <EmptyState
+          title={filtered ? "No matching decisions" : "Your decisions belong here"}
+          icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <Archive size={28} strokeWidth={1.5} />}
+        >
           {filtered ? "Nothing matches these filters." : "Decided, withdrawn and expired reviews appear here, with the view they were decided in."}
         </EmptyState>
       ) : (

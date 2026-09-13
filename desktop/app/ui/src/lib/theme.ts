@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 // The shell owns the theme: dark by default, the choice kept in localStorage,
 // stamped on the root element so the stylesheet and the plugins follow it.
 
@@ -31,4 +33,15 @@ export function setTheme(theme: Theme) {
 
 export function toggleTheme() {
   setTheme(currentTheme() === "dark" ? "light" : "dark");
+}
+
+/** The theme as it changes, for controls that show it. */
+export function useTheme(): Theme {
+  const [theme, setThemeState] = useState<Theme>(currentTheme);
+  useEffect(() => {
+    const update = () => setThemeState(currentTheme());
+    window.addEventListener("wicket:appearance", update);
+    return () => window.removeEventListener("wicket:appearance", update);
+  }, []);
+  return theme;
 }
