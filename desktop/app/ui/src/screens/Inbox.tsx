@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
+import { Tooltip } from "../components/Tooltip";
 import { SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { useLive } from "../state/live";
@@ -96,21 +97,23 @@ export function Inbox() {
           <span className="inbox-total">{live.pendingCount}</span>
         </div>
         <div className="inbox-controls">
-          <label className="search-field">
-            <Search size={14} aria-hidden="true" />
-            <input
-              ref={search}
-              id="inbox-search"
-              type="search"
-              placeholder="Search inbox…"
-              aria-label="Search inbox"
-              value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                setParam("q", e.target.value);
-              }}
-            />
-          </label>
+          <Tooltip label="Search the inbox" keys={["/"]} hoverOnly>
+            <label className="search-field">
+              <Search size={14} aria-hidden="true" />
+              <input
+                ref={search}
+                id="inbox-search"
+                type="search"
+                placeholder="Search inbox…"
+                aria-label="Search inbox"
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setParam("q", e.target.value);
+                }}
+              />
+            </label>
+          </Tooltip>
           <select id="inbox-repo" aria-label="Repository" value={repo} onChange={(e) => setParam("repo", e.target.value)}>
             <option value="">All repositories</option>
             {live.repositories.map((r) => (

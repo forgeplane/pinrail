@@ -10,6 +10,7 @@
   --accent: #a1a5ef; --accent-bg: #292a3c; --button-bg: #6873d6;
   --ok: #7cc79e; --danger: #e48c98;
   --sev-blocker: #e48c98; --sev-major: #d4ac6a; --sev-minor: #c7bf85; --sev-nit: #a0abc2;
+  --tip-bg: #f3f3f5; --tip-text: #1c1d21; --tip-key-bg: #dcdde3; --tip-key-text: #4a4c55;
   --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
@@ -22,6 +23,7 @@
   --accent: #5965cb; --accent-bg: #f0f0fa; --button-bg: #5965bc;
   --ok: #28795c; --danger: #bc4655;
   --sev-blocker: #bc4655; --sev-major: #99651b; --sev-minor: #80721b; --sev-nit: #65738e;
+  --tip-bg: #202126; --tip-text: #f4f4f6; --tip-key-bg: #3a3c44; --tip-key-text: #d6d7de;
   color-scheme: light;
 }
 
@@ -114,6 +116,26 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .app-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 .app-main > * { flex: 1 0 auto; padding: 20px 24px 40px; max-width: 1100px; width: 100%; }
 .app-main > .review-page { flex: 1 1 auto; min-height: 0; }
+
+/* tooltips: inverted on the theme, the shortcut as keys */
+.tooltip {
+  position: fixed; z-index: 50; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: 6px;
+  background: var(--tip-bg); color: var(--tip-text);
+  font-size: 12px; line-height: 1.3; white-space: nowrap;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(0 0 0 / 0.06);
+  opacity: 0; transform: translateY(-2px);
+}
+.tooltip.is-placed { animation: tooltip-in 120ms ease-out forwards; }
+@keyframes tooltip-in { to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .tooltip.is-placed { animation: none; opacity: 1; transform: none; } }
+.tooltip-keys { display: inline-flex; gap: 3px; }
+.tooltip-keys kbd {
+  font: 11px var(--mono); min-width: 18px; text-align: center;
+  padding: 1px 5px; border: 0; border-radius: 4px;
+  background: var(--tip-key-bg); color: var(--tip-key-text);
+}
 
 /* dialogs and notices */
 .app-dialog-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 0.5); display: grid; place-items: center; z-index: 10; }

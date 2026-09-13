@@ -2,8 +2,10 @@ import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Mo
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { inTauri } from "../api/client";
+import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
 import { toggleTheme, useTheme } from "../lib/theme";
+import { Tooltip } from "./Tooltip";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
@@ -48,13 +50,28 @@ export function Layout({ children }: { children: ReactNode }) {
     });
   };
   const sidebarButton = (
-    <button type="button" className="bar-button" onClick={toggleSidebar} title={sidebar ? "Hide sidebar" : "Show sidebar"} aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}>
-      <PanelLeft size={16} />
-    </button>
+    <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
+      <button type="button" className="bar-button" onClick={toggleSidebar} aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}>
+        <PanelLeft size={16} />
+      </button>
+    </Tooltip>
   );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (hasMod(event) && !event.altKey && !event.shiftKey) {
+        if (event.key === "b" || event.key === "B") {
+          event.preventDefault();
+          toggleSidebar();
+        } else if (event.key === "[") {
+          event.preventDefault();
+          navigate(-1);
+        } else if (event.key === "]") {
+          event.preventDefault();
+          navigate(1);
+        }
+        return;
+      }
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Escape") {
         setHelp(false);
@@ -66,7 +83,7 @@ export function Layout({ children }: { children: ReactNode }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [navigate]);
 
   return (
     <div className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}>
@@ -111,20 +128,28 @@ export function Layout({ children }: { children: ReactNode }) {
         <header className="app-topbar" data-tauri-drag-region>
           {sidebar ? null : sidebarButton}
           <span className="topbar-history">
-            <button type="button" className="bar-button" onClick={() => navigate(-1)} title="Back" aria-label="Back">
-              <ArrowLeft size={16} />
-            </button>
-            <button type="button" className="bar-button" onClick={() => navigate(1)} title="Forward" aria-label="Forward">
-              <ArrowRight size={16} />
-            </button>
+            <Tooltip label="Back" keys={[MOD, "["]}>
+              <button type="button" className="bar-button" onClick={() => navigate(-1)} aria-label="Back">
+                <ArrowLeft size={16} />
+              </button>
+            </Tooltip>
+            <Tooltip label="Forward" keys={[MOD, "]"]}>
+              <button type="button" className="bar-button" onClick={() => navigate(1)} aria-label="Forward">
+                <ArrowRight size={16} />
+              </button>
+            </Tooltip>
           </span>
           <span className="topbar-title">{pageTitle(location.pathname)}</span>
-          <button type="button" className="bar-button" onClick={() => setHelp(true)} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
-            <Keyboard size={16} />
-          </button>
-          <button type="button" className="bar-button" onClick={toggleTheme} title={theme === "dark" ? "Switch to light theme (T)" : "Switch to dark theme (T)"} aria-label="Toggle light and dark theme">
-            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+          <Tooltip label="Keyboard shortcuts" keys={["?"]}>
+            <button type="button" className="bar-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
+              <Keyboard size={16} />
+            </button>
+          </Tooltip>
+          <Tooltip label={theme === "dark" ? "Light theme" : "Dark theme"} keys={["T"]}>
+            <button type="button" className="bar-button" onClick={toggleTheme} aria-label="Toggle light and dark theme">
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </Tooltip>
         </header>
         <main className="app-main" tabIndex={-1}>
           {children}
@@ -135,9 +160,11 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="app-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-head">
               <h2 id="keyboard-title">Keyboard shortcuts</h2>
-              <button type="button" className="bar-button" onClick={() => setHelp(false)} aria-label="Close">
-                <X size={16} />
-              </button>
+              <Tooltip label="Close" keys={["Esc"]}>
+                <button type="button" className="bar-button" onClick={() => setHelp(false)} aria-label="Close">
+                  <X size={16} />
+                </button>
+              </Tooltip>
             </div>
             <dl className="shortcut-list">
               <dt>Next / previous review</dt>
@@ -156,9 +183,17 @@ export function Layout({ children }: { children: ReactNode }) {
               <dd>
                 <kbd>T</kbd>
               </dd>
+              <dt>Show or hide the sidebar</dt>
+              <dd>
+                <kbd>{MOD}</kbd> <kbd>B</kbd>
+              </dd>
+              <dt>Back / forward</dt>
+              <dd>
+                <kbd>{MOD}</kbd> <kbd>[</kbd> <kbd>]</kbd>
+              </dd>
               <dt>Hand over to the agent</dt>
               <dd>
-                <kbd>⌘/Ctrl</kbd> <kbd>Enter</kbd>
+                <kbd>{MOD}</kbd> <kbd>Enter</kbd>
               </dd>
               <dt>Previous / next round</dt>
               <dd>

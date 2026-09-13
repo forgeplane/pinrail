@@ -4,6 +4,7 @@ import { ApiError, api, serverUrl } from "../api/client";
 import type { Plugin } from "../api/types";
 import { PluginBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
+import { Tooltip } from "../components/Tooltip";
 import { useLive } from "../state/live";
 
 export function Plugins() {
@@ -51,9 +52,11 @@ export function Plugins() {
     <div className="plugins">
       <header className="page-head">
         <h1>Plugins</h1>
-        <button type="button" className="chrome-button" onClick={reload}>
-          <RefreshCw size={14} /> Reload
-        </button>
+        <Tooltip label="Read the plugin directories again">
+          <button type="button" className="chrome-button" onClick={reload}>
+            <RefreshCw size={14} /> Reload
+          </button>
+        </Tooltip>
       </header>
       {message ? <p className="notice">{message}</p> : null}
       {plugins.length === 0 ? (

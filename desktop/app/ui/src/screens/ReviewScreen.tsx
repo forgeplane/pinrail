@@ -5,6 +5,8 @@ import { ApiError, api } from "../api/client";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { OriginLine, PluginBadge, StatusBadge } from "../components/Badges";
+import { Tooltip } from "../components/Tooltip";
+import { MOD } from "../lib/keys";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
 
@@ -277,12 +279,12 @@ export function ReviewScreen() {
             <textarea rows={1} value={note} placeholder="Add context for what the agent should do next…" onChange={(e) => onNote(e.target.value)} />
           </label>
           <div className="handover-actions">
-            <p className="handover-hint">
-              with your note · <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Enter</kbd>
-            </p>
-            <button type="button" className="handover-button with-icon" data-handover disabled={bridge.submitting || !live.connected} onClick={bridge.collect}>
-              {bridge.handoverLabel} <Send size={14} />
-            </button>
+            <p className="handover-hint">your note travels with the decision</p>
+            <Tooltip label={live.connected ? "Hand over to the agent" : "Reconnect to hand over"} keys={[MOD, "Enter"]} side="top">
+              <button type="button" className="handover-button with-icon" data-handover disabled={bridge.submitting || !live.connected} onClick={bridge.collect}>
+                {bridge.handoverLabel} <Send size={14} />
+              </button>
+            </Tooltip>
           </div>
         </div>
       ) : null}
