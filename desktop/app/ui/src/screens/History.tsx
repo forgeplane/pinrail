@@ -141,7 +141,7 @@ export function History() {
               {reviews.map((r) => (
                 <tr key={r.id}>
                   <td>
-                    <Link to={`/reviews/${r.id}`} className="history-title">
+                    <Link to={`/reviews/${r.id}`} state={{ from: "history" }} className="history-title">
                       {r.title}
                     </Link>
                     <small>

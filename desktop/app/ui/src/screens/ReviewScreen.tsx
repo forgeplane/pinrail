@@ -1,6 +1,6 @@
 import { ArrowLeft, Bot, Clock, Maximize2, Minimize2, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
@@ -17,6 +17,10 @@ export function ReviewScreen() {
   const { id = "" } = useParams();
   const live = useLive();
   const navigate = useNavigate();
+  const location = useLocation();
+  // the way back is where the review was opened from
+  const fromHistory = (location.state as { from?: string } | null)?.from === "history";
+  const back = fromHistory ? { to: "/history", label: "Back to history" } : { to: "/", label: "Back to inbox" };
   const [review, setReview] = useState<Review | null>(null);
   const [rounds, setRounds] = useState<Review[]>([]);
   const [plugin, setPlugin] = useState<Plugin | null | undefined>(undefined);
@@ -172,8 +176,8 @@ export function ReviewScreen() {
   if (error) {
     return (
       <div className="review-page">
-        <Link to="/" className="back-link with-icon">
-          <ArrowLeft size={14} /> Back to inbox
+        <Link to={back.to} className="back-link with-icon">
+          <ArrowLeft size={14} /> {back.label}
         </Link>
         <p className="notice notice-danger">{error}</p>
       </div>
@@ -183,8 +187,8 @@ export function ReviewScreen() {
 
   return (
     <div className="review-page">
-      <Link to="/" className="back-link with-icon">
-        <ArrowLeft size={14} /> Back to inbox
+      <Link to={back.to} className="back-link with-icon">
+        <ArrowLeft size={14} /> {back.label}
       </Link>
       <header className="review-head">
         <div className="badges">
