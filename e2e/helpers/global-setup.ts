@@ -27,7 +27,7 @@ function buildCli(): string {
 
 function buildDesktop(): string | undefined {
   if (process.env.WICKET_E2E_SERVER !== "desktop") return undefined;
-  const bin = process.env.WICKET_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "wicket-desktop");
+  const bin = process.env.WICKET_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "Wicket");
   if (!process.env.WICKET_DESKTOP_BIN) {
     console.log("e2e: building the desktop app");
     execFileSync("cargo", ["build", "--quiet", "-p", "wicket-desktop"], { cwd: path.join(root, "desktop"), stdio: "inherit" });

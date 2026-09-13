@@ -1,4 +1,4 @@
-//! `wicket-desktop --headless`: the server without a window or tray, for
+//! `Wicket --headless`: the server without a window or tray, for
 //! tests and machines without a display. Exits on SIGTERM or Ctrl-C.
 
 use std::path::PathBuf;
