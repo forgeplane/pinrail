@@ -11,9 +11,10 @@ use objc2::runtime::{Bool, ProtocolObject};
 use objc2::{AnyThread, define_class, msg_send};
 use objc2_foundation::{NSBundle, NSError, NSObject, NSObjectProtocol, NSString};
 use objc2_user_notifications::{
-    UNAuthorizationOptions, UNMutableNotificationContent, UNNotification,
-    UNNotificationPresentationOptions, UNNotificationRequest, UNNotificationResponse,
-    UNNotificationSound, UNUserNotificationCenter, UNUserNotificationCenterDelegate,
+    UNAlertStyle, UNAuthorizationOptions, UNAuthorizationStatus, UNMutableNotificationContent,
+    UNNotification, UNNotificationPresentationOptions, UNNotificationRequest,
+    UNNotificationResponse, UNNotificationSetting, UNNotificationSettings, UNNotificationSound,
+    UNUserNotificationCenter, UNUserNotificationCenterDelegate,
 };
 use tauri::AppHandle;
 
@@ -92,6 +93,34 @@ pub fn setup(app: &AppHandle) {
             | UNAuthorizationOptions::Badge,
         &done,
     );
+
+    // what macOS will actually do with a notification, for the log
+    let report = RcBlock::new(|settings: std::ptr::NonNull<UNNotificationSettings>| {
+        let s = unsafe { settings.as_ref() };
+        let status = match s.authorizationStatus() {
+            UNAuthorizationStatus::Authorized => "authorized",
+            UNAuthorizationStatus::Denied => "denied",
+            UNAuthorizationStatus::Provisional => "provisional",
+            _ => "not determined",
+        };
+        let style = match s.alertStyle() {
+            UNAlertStyle::Banner => "banners",
+            UNAlertStyle::Alert => "alerts",
+            _ => "no alert style",
+        };
+        let setting = |v: UNNotificationSetting| match v {
+            UNNotificationSetting::Enabled => "on",
+            UNNotificationSetting::Disabled => "off",
+            _ => "n/a",
+        };
+        eprintln!(
+            "wicket: notifications {status}, {style}, alerts {}, notification center {}, lock screen {}",
+            setting(s.alertSetting()),
+            setting(s.notificationCenterSetting()),
+            setting(s.lockScreenSetting())
+        );
+    });
+    center.getNotificationSettingsWithCompletionHandler(&report);
 }
 
 /// Posts a notification; a click opens the review when one is named.
