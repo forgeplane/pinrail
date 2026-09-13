@@ -1,31 +1,24 @@
-import { useEffect, useState } from "react";
-import { getInfo, type Info } from "./api/client";
+import { HashRouter, Route, Routes } from "react-router";
+import { Layout } from "./components/Layout";
+import { History } from "./screens/History";
+import { Inbox } from "./screens/Inbox";
+import { Plugins } from "./screens/Plugins";
+import { ReviewScreen } from "./screens/ReviewScreen";
+import { LiveProvider } from "./state/live";
 
 export function App() {
-  const [info, setInfo] = useState<Info | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    getInfo().then(setInfo, (e: Error) => setError(e.message));
-  }, []);
-
   return (
-    <main className="shell">
-      <header className="topbar">
-        <span className="wordmark">wicket</span>
-        <span className="count" aria-label="pending reviews">0 pending</span>
-      </header>
-      <section className="empty">
-        <h1>No reviews waiting</h1>
-        <p>Submit one from a terminal to see it here:</p>
-        <pre>wicket submit code_review --data review.json --wait</pre>
-        {info && (
-          <p className="meta">
-            server {info.version} · port {info.port} · {info.data_dir}
-          </p>
-        )}
-        {error && <p className="meta error">The server did not answer: {error}</p>}
-      </section>
-    </main>
+    <HashRouter>
+      <LiveProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Inbox />} />
+            <Route path="/reviews/:id" element={<ReviewScreen />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/plugins" element={<Plugins />} />
+          </Routes>
+        </Layout>
+      </LiveProvider>
+    </HashRouter>
   );
 }
