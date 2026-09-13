@@ -289,7 +289,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .review-page { display: flex; flex-direction: column; gap: 14px; }
 .back-link { font-size: 12px; color: var(--dim); align-self: flex-start; }
 .review-head { display: grid; gap: 6px; }
-.badges { display: flex; gap: 6px; }
+.badges { display: flex; gap: 6px; align-items: center; }
 .review-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); }
 .review-rounds { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--dim); }
 .round-link { margin-left: 6px; }
@@ -300,19 +300,15 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .decision-box summary { cursor: pointer; color: var(--faint); }
 .decision-box pre { margin: 4px 0 0; overflow-x: auto; background: var(--bg); padding: 8px; border-radius: 4px; font: 11.5px var(--mono); color: var(--dim); }
 .plugin-frame-wrap { position: relative; flex: 1 1 auto; min-height: 240px; }
-/* the view can take the whole window; Esc or the same button brings it back */
-.plugin-frame-wrap.is-maximized { position: fixed; inset: 0; z-index: 30; min-height: 0; background: var(--bg); }
-.plugin-frame-wrap.is-maximized .plugin-frame { height: 100%; border: 0; border-radius: 0; }
-.plugin-frame-wrap.is-maximized .plugin-loading { border: 0; border-radius: 0; }
-.frame-toggle {
-  position: absolute; top: 8px; right: 8px; z-index: 2;
-  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
-  border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg-raised); color: var(--dim);
-  opacity: 0; transition: opacity 120ms ease;
-}
-.plugin-frame-wrap:hover .frame-toggle, .frame-toggle:focus-visible, .plugin-frame-wrap.is-maximized .frame-toggle { opacity: 1; }
-.frame-toggle:hover { color: var(--text); background: var(--bg-hover); }
-.plugin-frame-wrap.is-maximized .frame-toggle { top: 10px; right: 12px; box-shadow: 0 2px 8px rgb(0 0 0 / 0.3); }
+/* the view can take the whole window under a bar of its own, which stays a
+   drag handle and keeps the restore button; Esc brings it back */
+.head-maximize { margin-left: auto; }
+.plugin-frame-wrap.is-maximized { position: fixed; inset: 0; z-index: 30; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
+.plugin-frame-wrap.is-maximized .plugin-frame { flex: 1; height: auto !important; min-height: 0; border: 0; border-radius: 0; }
+.plugin-frame-wrap.is-maximized .plugin-loading { top: 38px; border: 0; border-radius: 0; }
+.frame-bar { display: flex; align-items: center; gap: 10px; height: 38px; flex: none; padding: 2px 8px 0 12px; box-shadow: 0 1px 0 var(--border); user-select: none; -webkit-user-select: none; }
+.plugin-frame-wrap.has-overlay-bar .frame-bar { padding-left: 78px; }
+.frame-bar-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--dim); }
 .plugin-frame { display: block; width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-panel); }
 .plugin-frame-wrap.is-fill .plugin-frame { height: 100%; }
 .plugin-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--dim); background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; z-index: 1; }

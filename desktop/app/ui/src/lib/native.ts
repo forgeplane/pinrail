@@ -7,6 +7,9 @@ import { useNavigate } from "react-router";
 import { inTauri } from "../api/client";
 
 const OPEN_EVENT = "wicket:open";
+
+/** On macOS the app draws its own title bar; the traffic lights overlay the top-left. */
+export const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
 const COMMAND_EVENT = "wicket:command";
 
 /** Inside the app a link to the outside world opens in the system browser. */

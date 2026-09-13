@@ -7,6 +7,7 @@ import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { OriginLine, PluginBadge, StatusBadge } from "../components/Badges";
 import { Tooltip } from "../components/Tooltip";
 import { MOD } from "../lib/keys";
+import { overlayTitleBar } from "../lib/native";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
 
@@ -177,6 +178,13 @@ export function ReviewScreen() {
         <div className="badges">
           <StatusBadge status={review.status} />
           <PluginBadge name={review.plugin} version={review.plugin_version} />
+          {plugin ? (
+            <Tooltip label="Maximize the view" side="bottom">
+              <button type="button" className="bar-button head-maximize" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>
+                <Maximize2 size={15} />
+              </button>
+            </Tooltip>
+          ) : null}
         </div>
         <h1>{review.title}</h1>
         <div className="review-meta">
@@ -252,12 +260,17 @@ export function ReviewScreen() {
       ) : null}
 
       {plugin ? (
-        <div className={`plugin-frame-wrap ${bridge.fill ? "is-fill" : ""} ${maximized ? "is-maximized" : ""}`}>
-          <Tooltip label={maximized ? "Restore the view" : "Maximize the view"} keys={maximized ? ["Esc"] : undefined} side={maximized ? "bottom" : "top"}>
-            <button type="button" className="frame-toggle" onClick={() => setMaximized((m) => !m)} aria-label={maximized ? "Restore the view" : "Maximize the view"} data-maximize>
-              {maximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-            </button>
-          </Tooltip>
+        <div className={`plugin-frame-wrap ${bridge.fill ? "is-fill" : ""} ${maximized ? "is-maximized" : ""} ${overlayTitleBar ? "has-overlay-bar" : ""}`}>
+          {maximized ? (
+            <div className="frame-bar" data-tauri-drag-region>
+              <span className="frame-bar-title">{review.title}</span>
+              <Tooltip label="Restore the view" keys={["Esc"]} side="bottom">
+                <button type="button" className="bar-button" onClick={() => setMaximized(false)} aria-label="Restore the view" data-restore>
+                  <Minimize2 size={15} />
+                </button>
+              </Tooltip>
+            </div>
+          ) : null}
           {!bridge.loaded ? (
             <div className="plugin-loading" role="status">
               <span className="spinner" aria-hidden="true" />

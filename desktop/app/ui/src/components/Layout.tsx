@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Mo
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, inTauri } from "../api/client";
+import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
@@ -10,7 +11,6 @@ import { Tooltip } from "./Tooltip";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
-const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
 const SIDEBAR_KEY = "wicket:sidebar";
 
 // Cmd+I for the inbox; History and Plugins take the shift, as Cmd+H hides
