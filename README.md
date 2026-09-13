@@ -26,6 +26,7 @@ Status: early development.
 | [`plugins/`](plugins/README.md) | the plugin protocol, the official `review` and `email` plugins and a sample |
 | [`wicket_sdk/`](wicket_sdk/README.md) | the plugin SDK the app serves, and the harness for testing a plugin alone |
 | [`e2e/`](e2e/README.md) | end-to-end tests: server, CLI and plugins together |
+| [`desktop/`](desktop/) | the desktop app: Rust core, Tauri shell, React UI; the reference implementation, in progress |
 
 Tool versions are pinned in `mise.toml`; `mise install` sets them up.
 `mise run test` runs every suite; `mise run test:server`, `mise run test:cli`,

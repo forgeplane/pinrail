@@ -38,6 +38,21 @@ description = "End to end: real server, real CLI, real browser, shipped plugins"
 dir = "{{config_root}}/e2e"
 run = "npm test"
 
+[tasks."test:desktop"]
+description = "Desktop app: core crate tests and a UI typecheck"
+dir = "{{config_root}}/desktop"
+run = ["cargo test", "npm --prefix app test"]
+
+[tasks."build:desktop"]
+description = "Desktop app: build the UI and the app binary"
+dir = "{{config_root}}/desktop"
+run = ["npm --prefix app run build", "cargo build -p wicket-desktop"]
+
+[tasks."dev:desktop"]
+description = "Desktop app with the UI dev server and live reload"
+dir = "{{config_root}}/desktop/app"
+run = "npx tauri dev"
+
 [tasks.test]
 description = "Server, CLI and end-to-end suites"
 depends = ["test:server", "test:shell", "test:cli", "test:sdk", "test:plugins", "e2e"]
