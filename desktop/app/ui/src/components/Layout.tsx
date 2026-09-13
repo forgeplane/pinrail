@@ -14,9 +14,9 @@ const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
 const SIDEBAR_KEY = "wicket:sidebar";
 
 const NAV = [
-  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox },
-  { key: "history", label: "History", to: "/history", Icon: History },
-  { key: "plugins", label: "Plugins", to: "/plugins", Icon: Blocks },
+  { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, digit: "1" },
+  { key: "history", label: "History", to: "/history", Icon: History, digit: "2" },
+  { key: "plugins", label: "Plugins", to: "/plugins", Icon: Blocks, digit: "3" },
 ];
 
 const pageTitle = (path: string) =>
@@ -60,13 +60,13 @@ export function Layout({ children }: { children: ReactNode }) {
   );
 
   const actions: PaletteAction[] = [
-    { id: "inbox", label: "Go to inbox", icon: Inbox, run: () => navigate("/") },
+    { id: "inbox", label: "Go to inbox", keys: [MOD, "1"], icon: Inbox, run: () => navigate("/") },
     { id: "oldest", label: "Open the oldest pending review", icon: Inbox, run: () => {
       const oldest = live.pending[live.pending.length - 1];
       navigate(oldest ? `/reviews/${oldest.id}` : "/");
     } },
-    { id: "history", label: "Go to history", icon: History, run: () => navigate("/history") },
-    { id: "plugins", label: "Go to plugins", icon: Blocks, run: () => navigate("/plugins") },
+    { id: "history", label: "Go to history", keys: [MOD, "2"], icon: History, run: () => navigate("/history") },
+    { id: "plugins", label: "Go to plugins", keys: [MOD, "3"], icon: Blocks, run: () => navigate("/plugins") },
     { id: "reload-plugins", label: "Reload plugins", icon: RefreshCw, run: () => void api.reloadPlugins().catch(() => {}) },
     { id: "theme", label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme", keys: ["T"], icon: SunMoon, run: toggleTheme },
     { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
@@ -76,7 +76,11 @@ export function Layout({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (hasMod(event) && !event.altKey && !event.shiftKey) {
-        if (event.key === "k" || event.key === "K") {
+        const page = NAV.find((n) => n.digit === event.key);
+        if (page) {
+          event.preventDefault();
+          navigate(page.to);
+        } else if (event.key === "k" || event.key === "K") {
           event.preventDefault();
           setPalette((p) => !p);
         } else if (event.key === "b" || event.key === "B") {
@@ -104,6 +108,15 @@ export function Layout({ children }: { children: ReactNode }) {
       switch ((event as CustomEvent<string>).detail) {
         case "search":
           setPalette((p) => !p);
+          break;
+        case "go-inbox":
+          navigate("/");
+          break;
+        case "go-history":
+          navigate("/history");
+          break;
+        case "go-plugins":
+          navigate("/plugins");
           break;
         case "toggle-sidebar":
           toggleSidebar();
@@ -148,14 +161,16 @@ export function Layout({ children }: { children: ReactNode }) {
                 <kbd>K</kbd>
               </span>
             </button>
-            {NAV.map(({ key, label, to, Icon }) => (
-              <NavLink key={key} to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
-                <span className="nav-label">
-                  <Icon size={15} strokeWidth={1.75} />
-                  {label}
-                </span>
-                {key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
-              </NavLink>
+            {NAV.map(({ key, label, to, Icon, digit }) => (
+              <Tooltip key={key} label={label} keys={[MOD, digit]} side="bottom">
+                <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
+                  <span className="nav-label">
+                    <Icon size={15} strokeWidth={1.75} />
+                    {label}
+                  </span>
+                  {key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
+                </NavLink>
+              </Tooltip>
             ))}
           </nav>
           {live.repositories.length > 0 ? (
@@ -230,6 +245,10 @@ export function Layout({ children }: { children: ReactNode }) {
               <dt>Search the inbox</dt>
               <dd>
                 <kbd>/</kbd>
+              </dd>
+              <dt>Inbox / History / Plugins</dt>
+              <dd>
+                <kbd>{MOD}</kbd> <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>
               </dd>
               <dt>Search everything</dt>
               <dd>

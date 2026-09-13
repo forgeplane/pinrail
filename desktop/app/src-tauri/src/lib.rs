@@ -7,7 +7,7 @@ mod native;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -127,7 +127,16 @@ pub fn run() {
         })
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
-            if matches!(id, "search" | "toggle-sidebar" | "back" | "forward") {
+            if matches!(
+                id,
+                "search"
+                    | "go-inbox"
+                    | "go-history"
+                    | "go-plugins"
+                    | "toggle-sidebar"
+                    | "back"
+                    | "forward"
+            ) {
                 let _ = app.emit(COMMAND_EVENT, id.to_string());
             }
         })
@@ -164,6 +173,11 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         &[
             &MenuItem::with_id(app, "search", "Search…", true, Some("CmdOrCtrl+K"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "go-inbox", "Inbox", true, Some("CmdOrCtrl+1"))?,
+            &MenuItem::with_id(app, "go-history", "History", true, Some("CmdOrCtrl+2"))?,
+            &MenuItem::with_id(app, "go-plugins", "Plugins", true, Some("CmdOrCtrl+3"))?,
+            &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(
                 app,
                 "toggle-sidebar",
