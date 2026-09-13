@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { Review } from "../api/types";
-import { StatusBadge } from "../components/Badges";
+import { OutcomeBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
@@ -151,7 +151,7 @@ export function History() {
                     </small>
                   </td>
                   <td>
-                    <StatusBadge status={r.status} />
+                    <OutcomeBadge review={r} />
                   </td>
                   <td>
                     {r.origin.repo}

@@ -9,7 +9,7 @@ import { api } from "../api/client";
 import type { Plugin, Review } from "../api/types";
 import { age } from "../lib/format";
 import { useLive } from "../state/live";
-import { StatusBadge } from "./Badges";
+import { OutcomeBadge } from "./Badges";
 import { PluginIcon } from "./PluginIcon";
 
 export type PaletteAction = {
@@ -111,7 +111,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
           title: r.title,
           meta: (
             <>
-              <StatusBadge status={r.status} />
+              <OutcomeBadge review={r} />
               <span className="mono">{r.plugin}</span>
               <span>{age(r.decision?.decided_at ?? r.withdrawn_at ?? r.expires_at)}</span>
             </>

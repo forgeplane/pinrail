@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
-import { PluginBadge, StatusBadge } from "../components/Badges";
+import { OutcomeBadge, PluginBadge } from "../components/Badges";
 import { Tooltip } from "../components/Tooltip";
 import { MOD, hasMod } from "../lib/keys";
 import { overlayTitleBar } from "../lib/native";
@@ -189,7 +189,7 @@ export function ReviewScreen() {
     () =>
       review ? (
         <>
-          <StatusBadge status={review.status} />
+          <OutcomeBadge review={review} />
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
               <button type="button" className="bar-button" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>

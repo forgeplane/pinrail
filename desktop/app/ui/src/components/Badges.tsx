@@ -1,10 +1,27 @@
 import { ExternalLink } from "lucide-react";
-import type { Origin, Status, Summary } from "../api/types";
+import type { Origin, Review, Status, Summary } from "../api/types";
 import { useLive } from "../state/live";
 import { PluginIcon } from "./PluginIcon";
 
 export function StatusBadge({ status }: { status: Status }) {
   return <span className={`status-badge status-${status}`}>{status}</span>;
+}
+
+/**
+ * A decision that says "approve" or "revise" in a top-level `verdict` is
+ * shown as such; a plugin whose decision has no verdict stays "decided".
+ */
+export function outcomeOf(review: Pick<Review, "status" | "decision">): { label: string; tone: string } {
+  const verdict = review.status === "decided" ? (review.decision?.data as { verdict?: unknown } | null)?.verdict : undefined;
+  if (verdict === "approve") return { label: "approved", tone: "approved" };
+  if (verdict === "revise") return { label: "changes requested", tone: "revise" };
+  if (typeof verdict === "string" && verdict.length <= 24) return { label: verdict, tone: "decided" };
+  return { label: review.status, tone: review.status };
+}
+
+export function OutcomeBadge({ review }: { review: Pick<Review, "status" | "decision"> }) {
+  const { label, tone } = outcomeOf(review);
+  return <span className={`status-badge status-${tone}`}>{label}</span>;
 }
 
 export function PluginBadge({ name, version, icon }: { name: string; version?: number; icon?: string | null }) {

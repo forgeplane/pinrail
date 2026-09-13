@@ -125,6 +125,12 @@ This is why a decision that is only a choice, such as yes or no, is held in
 the view as state rather than as two submitting buttons: the human picks, then
 hands over, and nothing leaves on a single click.
 
+One field of the decision the shell does read: a top-level `verdict` of
+`"approve"` or `"revise"`. A decided review with one shows as *approved* or
+*changes requested* in the history, the search and the review's bar, instead
+of a bare *decided*. Any other short string is shown as it is; without the
+field the shell says *decided*. The `artifact` plugin uses it.
+
 ## Sandbox
 
 The bundle loads in `<iframe sandbox="allow-scripts">` with a Content
