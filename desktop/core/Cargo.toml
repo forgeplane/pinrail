@@ -1,0 +1,17 @@
+[package]
+name = "wicket-core"
+description = "The wicket review server as a library: storage, plugins, validation and the HTTP API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+axum = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
