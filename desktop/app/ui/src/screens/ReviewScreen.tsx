@@ -1,4 +1,4 @@
-import { ArrowLeft, Bot, Clock, Send } from "lucide-react";
+import { ArrowLeft, Bot, Clock, Maximize2, Minimize2, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
@@ -24,6 +24,7 @@ export function ReviewScreen() {
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [maximized, setMaximized] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const noteRef = useRef(note);
   noteRef.current = note;
@@ -130,6 +131,10 @@ export function ReviewScreen() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && maximized) {
+        setMaximized(false);
+        return;
+      }
       const el = event.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
       if (event.key === "[" && previous) navigate(`/reviews/${previous.id}`);
@@ -137,7 +142,10 @@ export function ReviewScreen() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [previous, revisedBy, navigate]);
+  }, [previous, revisedBy, navigate, maximized]);
+
+  // the view leaves with the review
+  useEffect(() => setMaximized(false), [id]);
 
   const onNote = (value: string) => {
     setNote(value);
@@ -244,7 +252,12 @@ export function ReviewScreen() {
       ) : null}
 
       {plugin ? (
-        <div className={`plugin-frame-wrap ${bridge.fill ? "is-fill" : ""}`}>
+        <div className={`plugin-frame-wrap ${bridge.fill ? "is-fill" : ""} ${maximized ? "is-maximized" : ""}`}>
+          <Tooltip label={maximized ? "Restore the view" : "Maximize the view"} keys={maximized ? ["Esc"] : undefined} side={maximized ? "bottom" : "top"}>
+            <button type="button" className="frame-toggle" onClick={() => setMaximized((m) => !m)} aria-label={maximized ? "Restore the view" : "Maximize the view"} data-maximize>
+              {maximized ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
+          </Tooltip>
           {!bridge.loaded ? (
             <div className="plugin-loading" role="status">
               <span className="spinner" aria-hidden="true" />
