@@ -1,0 +1,65 @@
+/* The palette from the server's app.css, dark first. */
+:root {
+  color-scheme: dark light;
+  --bg: #18191b;
+  --bg-raised: #202124;
+  --border: #2b2d31;
+  --text: #ededef;
+  --dim: #999ba5;
+  --accent: #a1a5ef;
+  --danger: #e48c98;
+  --font: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #ffffff;
+    --bg-raised: #f6f7f9;
+    --border: #e8e9ed;
+    --text: #24262c;
+    --dim: #72757f;
+    --accent: #5965cb;
+    --danger: #bc4655;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+.shell { min-height: 100vh; display: flex; flex-direction: column; }
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+.wordmark { font-weight: 600; letter-spacing: 0.02em; }
+.count { color: var(--dim); font-variant-numeric: tabular-nums; }
+.empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 24px;
+}
+.empty h1 { font-size: 18px; font-weight: 600; margin: 0; }
+.empty p { margin: 0; color: var(--dim); }
+.empty pre {
+  margin: 8px auto 0;
+  padding: 10px 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: 12.5px var(--mono);
+  color: var(--text);
+}
+.meta { font-size: 12px; }
+.error { color: var(--danger); }
