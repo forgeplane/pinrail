@@ -18,7 +18,7 @@ export class ApiError extends Error {
 
 let baseUrl: Promise<string> | undefined;
 
-const inTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+export const inTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function serverUrl(): Promise<string> {
   baseUrl ??= (async () => {

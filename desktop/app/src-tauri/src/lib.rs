@@ -1,13 +1,17 @@
 //! The desktop app starts the review server on loopback and shows the shell.
+//! Closing the window hides it; the app lives in the menu bar until "Quit".
 
 mod headless;
+mod native;
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::{Manager, State};
+use tauri::{Manager, RunEvent, State, WindowEvent};
 use wicket_core::Config;
 use wicket_core::api::{self, AppState};
+
+use native::Native;
 
 /// Where the shell finds the server the app started.
 struct ServerUrl(String);
@@ -15,6 +19,12 @@ struct ServerUrl(String);
 #[tauri::command]
 fn server_url(url: State<'_, ServerUrl>) -> String {
     url.0.clone()
+}
+
+/// The route the shell should show, sent before it was listening.
+#[tauri::command]
+fn take_pending_route(native: State<'_, Native>) -> Option<String> {
+    native.take_pending_route()
 }
 
 pub fn run() {
@@ -31,7 +41,8 @@ pub fn run() {
     let config = Config::from_env();
     let url = config.url();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(ServerUrl(url))
         .setup(move |app| {
             let mut config = config;
@@ -43,17 +54,34 @@ pub fn run() {
                 std::io::Error::other(error.to_string())
             })?;
             let handle = app.handle().clone();
+            let server = state.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = api::serve(state, std::future::pending()).await {
+                if let Err(error) = api::serve(server, std::future::pending()).await {
                     eprintln!("wicket: the server could not start: {error}");
                     handle.exit(1);
                 }
             });
+            app.manage(Native::new(state));
+            native::build_tray(app.handle())?;
+            native::watch(app.handle().clone());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![server_url])
-        .run(tauri::generate_context!())
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
+        .invoke_handler(tauri::generate_handler![server_url, take_pending_route])
+        .build(tauri::generate_context!())
         .expect("wicket could not start its window");
+
+    app.run(|app, event| {
+        // The Dock icon brings the hidden window back.
+        if let RunEvent::Reopen { .. } = event {
+            native::open(app, "");
+        }
+    });
 }
 
 /// The SDK bundled with the app, or the one the UI build produced next to
