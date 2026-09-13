@@ -1,7 +1,8 @@
-import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, Sun, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Sun, SunMoon, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { inTauri } from "../api/client";
+import { api, inTauri } from "../api/client";
+import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
 import { toggleTheme, useTheme } from "../lib/theme";
@@ -32,6 +33,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const theme = useTheme();
   const [help, setHelp] = useState(false);
+  const [palette, setPalette] = useState(false);
   const [sidebar, setSidebar] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) !== "closed";
@@ -57,10 +59,27 @@ export function Layout({ children }: { children: ReactNode }) {
     </Tooltip>
   );
 
+  const actions: PaletteAction[] = [
+    { id: "inbox", label: "Go to inbox", icon: Inbox, run: () => navigate("/") },
+    { id: "oldest", label: "Open the oldest pending review", icon: Inbox, run: () => {
+      const oldest = live.pending[live.pending.length - 1];
+      navigate(oldest ? `/reviews/${oldest.id}` : "/");
+    } },
+    { id: "history", label: "Go to history", icon: History, run: () => navigate("/history") },
+    { id: "plugins", label: "Go to plugins", icon: Blocks, run: () => navigate("/plugins") },
+    { id: "reload-plugins", label: "Reload plugins", icon: RefreshCw, run: () => void api.reloadPlugins().catch(() => {}) },
+    { id: "theme", label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme", keys: ["T"], icon: SunMoon, run: toggleTheme },
+    { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
+    { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
+  ];
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (hasMod(event) && !event.altKey && !event.shiftKey) {
-        if (event.key === "b" || event.key === "B") {
+        if (event.key === "k" || event.key === "K") {
+          event.preventDefault();
+          setPalette((p) => !p);
+        } else if (event.key === "b" || event.key === "B") {
           event.preventDefault();
           toggleSidebar();
         } else if (event.key === "[") {
@@ -83,6 +102,9 @@ export function Layout({ children }: { children: ReactNode }) {
     };
     const onCommand = (event: Event) => {
       switch ((event as CustomEvent<string>).detail) {
+        case "search":
+          setPalette((p) => !p);
+          break;
         case "toggle-sidebar":
           toggleSidebar();
           break;
@@ -116,6 +138,16 @@ export function Layout({ children }: { children: ReactNode }) {
             </NavLink>
           )}
           <nav className="app-nav" aria-label="Main">
+            <button type="button" className="nav-search" onClick={() => setPalette(true)}>
+              <span className="nav-label">
+                <Search size={15} strokeWidth={1.75} />
+                Search
+              </span>
+              <span className="nav-keys">
+                <kbd>{MOD}</kbd>
+                <kbd>K</kbd>
+              </span>
+            </button>
             {NAV.map(({ key, label, to, Icon }) => (
               <NavLink key={key} to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
                 <span className="nav-label">
@@ -174,6 +206,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
       {help ? (
         <div className="app-dialog-backdrop" onClick={() => setHelp(false)}>
           <div className="app-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
@@ -197,6 +230,10 @@ export function Layout({ children }: { children: ReactNode }) {
               <dt>Search the inbox</dt>
               <dd>
                 <kbd>/</kbd>
+              </dd>
+              <dt>Search everything</dt>
+              <dd>
+                <kbd>{MOD}</kbd> <kbd>K</kbd>
               </dd>
               <dt>Switch theme</dt>
               <dd>

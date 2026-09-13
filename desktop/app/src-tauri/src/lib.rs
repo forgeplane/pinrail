@@ -127,7 +127,7 @@ pub fn run() {
         })
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
-            if matches!(id, "toggle-sidebar" | "back" | "forward") {
+            if matches!(id, "search" | "toggle-sidebar" | "back" | "forward") {
                 let _ = app.emit(COMMAND_EVENT, id.to_string());
             }
         })
@@ -163,6 +163,7 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         "Navigate",
         true,
         &[
+            &MenuItem::with_id(app, "search", "Search…", true, Some("CmdOrCtrl+K"))?,
             &MenuItem::with_id(
                 app,
                 "toggle-sidebar",
