@@ -132,7 +132,8 @@ fn on_menu(app: &AppHandle, id: &str) {
     }
 }
 
-/// Rebuilds the tray's title, tooltip and menu from the pending reviews.
+/// Rebuilds the tray's title, tooltip and menu, and the Dock badge, from the
+/// pending reviews.
 /// Menus are main-thread objects on macOS; call this there.
 pub fn refresh_tray(app: &AppHandle) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else {
@@ -155,6 +156,10 @@ pub fn refresh_tray(app: &AppHandle) {
     }));
     if let Ok(menu) = menu(app, &pending, native.paused.load(Ordering::Relaxed)) {
         let _ = tray.set_menu(Some(menu));
+    }
+    // The Dock icon carries the count too, for a menu bar that hides the tray.
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_badge_count((count > 0).then_some(count as i64));
     }
 }
 
