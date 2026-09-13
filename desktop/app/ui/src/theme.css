@@ -184,6 +184,8 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .select-option.is-active { background: var(--accent-bg); }
 .select-option[aria-selected="true"] { font-weight: 500; }
 .select-option-check { width: 16px; display: inline-flex; justify-content: center; color: var(--accent); flex: none; }
+.select-option-icon { display: inline-flex; color: var(--faint); flex: none; }
+.select-option.is-active .select-option-icon, .select-option[aria-selected="true"] .select-option-icon { color: var(--accent); }
 .select-option-label { overflow: hidden; text-overflow: ellipsis; }
 .select-option-hint { margin-left: auto; padding-left: 12px; font-size: 11.5px; color: var(--faint); }
 

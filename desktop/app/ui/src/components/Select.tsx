@@ -7,7 +7,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-export type SelectOption = { value: string; label: string; hint?: string };
+export type SelectOption = { value: string; label: string; hint?: string; icon?: ReactNode };
 
 type Props = {
   value: string;
@@ -145,7 +145,7 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
       >
-        {icon ? <span className="select-icon">{icon}</span> : null}
+        {current?.icon ?? icon ? <span className="select-icon">{current?.icon ?? icon}</span> : null}
         <span className="select-value">{current?.label ?? label}</span>
         <ChevronDown size={14} className="select-chevron" aria-hidden="true" />
       </button>
@@ -172,6 +172,7 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
                   onClick={() => choose(option)}
                 >
                   <span className="select-option-check">{option.value === value ? <Check size={14} /> : null}</span>
+                  {option.icon ? <span className="select-option-icon">{option.icon}</span> : null}
                   <span className="select-option-label">{option.label}</span>
                   {option.hint ? <span className="select-option-hint">{option.hint}</span> : null}
                 </li>
