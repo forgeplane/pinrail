@@ -55,7 +55,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const badge = pending.length > 0 ? `(${pending.length}) ` : "";
-    document.title = `${badge}wicket`;
+    document.title = `${badge}Wicket`;
   }, [pending.length]);
 
   const value = useMemo<Live>(

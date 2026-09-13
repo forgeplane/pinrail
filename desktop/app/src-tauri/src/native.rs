@@ -105,7 +105,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .icon_as_template(true)
-        .tooltip("wicket")
+        .tooltip("Wicket")
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .build(app)?;
@@ -150,9 +150,9 @@ pub fn refresh_tray(app: &AppHandle) {
         Some(count.to_string())
     });
     let _ = tray.set_tooltip(Some(match count {
-        0 => "wicket: nothing pending".to_string(),
-        1 => "wicket: 1 review pending".to_string(),
-        n => format!("wicket: {n} reviews pending"),
+        0 => "Wicket: nothing pending".to_string(),
+        1 => "Wicket: 1 review pending".to_string(),
+        n => format!("Wicket: {n} reviews pending"),
     }));
     if let Ok(menu) = menu(app, &pending, native.paused.load(Ordering::Relaxed)) {
         let _ = tray.set_menu(Some(menu));
@@ -221,7 +221,7 @@ fn menu(app: &AppHandle, pending: &[Review], paused: bool) -> tauri::Result<Menu
     menu.append(&MenuItem::with_id(
         app,
         "quit",
-        "Quit wicket",
+        "Quit Wicket",
         true,
         Some("CmdOrCtrl+Q"),
     )?)?;
