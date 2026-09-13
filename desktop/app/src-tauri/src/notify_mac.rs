@@ -94,31 +94,18 @@ pub fn setup(app: &AppHandle) {
         &done,
     );
 
-    // what macOS will actually do with a notification, for the log
+    // a word on stderr when macOS will not show a banner, and nothing when
+    // it will
     let report = RcBlock::new(|settings: std::ptr::NonNull<UNNotificationSettings>| {
         let s = unsafe { settings.as_ref() };
-        let status = match s.authorizationStatus() {
-            UNAuthorizationStatus::Authorized => "authorized",
-            UNAuthorizationStatus::Denied => "denied",
-            UNAuthorizationStatus::Provisional => "provisional",
-            _ => "not determined",
+        let why = match (s.authorizationStatus(), s.alertStyle(), s.alertSetting()) {
+            (UNAuthorizationStatus::Denied, _, _) => "not allowed in System Settings",
+            (UNAuthorizationStatus::NotDetermined, _, _) => "not yet allowed",
+            (_, UNAlertStyle::None, _) => "the alert style is None in System Settings",
+            (_, _, UNNotificationSetting::Disabled) => "alerts are off in System Settings",
+            _ => return,
         };
-        let style = match s.alertStyle() {
-            UNAlertStyle::Banner => "banners",
-            UNAlertStyle::Alert => "alerts",
-            _ => "no alert style",
-        };
-        let setting = |v: UNNotificationSetting| match v {
-            UNNotificationSetting::Enabled => "on",
-            UNNotificationSetting::Disabled => "off",
-            _ => "n/a",
-        };
-        eprintln!(
-            "wicket: notifications {status}, {style}, alerts {}, notification center {}, lock screen {}",
-            setting(s.alertSetting()),
-            setting(s.notificationCenterSetting()),
-            setting(s.lockScreenSetting())
-        );
+        eprintln!("wicket: notifications will not show: {why}");
     });
     center.getNotificationSettingsWithCompletionHandler(&report);
 }
