@@ -51,15 +51,28 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .mt { margin-top: 6px; }
 
 /* app frame */
-#root { display: grid; grid-template-columns: 220px 1fr; height: 100vh; }
+#root { height: 100vh; }
+.app-frame { display: grid; grid-template-columns: 220px 1fr; height: 100vh; }
+.app-frame.sidebar-closed { grid-template-columns: 1fr; }
 .app-sidebar {
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column; gap: 14px;
-  padding: 14px 10px;
+  padding: 0 10px 14px;
   min-height: 0;
   overflow-y: auto;
 }
+/* the window's top strip: a drag handle, room for the traffic lights */
+.sidebar-bar, .app-topbar { height: 38px; flex: none; display: flex; align-items: center; user-select: none; -webkit-user-select: none; }
+.sidebar-bar { gap: 4px; padding: 0 2px; }
+.has-overlay-bar .sidebar-bar { padding-left: 70px; }
+.has-overlay-bar.sidebar-closed .app-topbar { padding-left: 80px; }
+.bar-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--dim);
+}
+.bar-button:hover { background: var(--bg-hover); color: var(--text); }
+.topbar-history { display: inline-flex; gap: 2px; }
 .app-brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); padding: 4px 8px; }
 .app-brand:hover { text-decoration: none; }
 .wicket-mark {
@@ -81,8 +94,8 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .connection-dot.is-on { background: var(--ok); }
 
 .app-shell { display: flex; flex-direction: column; min-width: 0; min-height: 0; height: 100vh; }
-.app-topbar { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
-.topbar-title { font-size: 12px; color: var(--dim); margin-right: auto; }
+.app-topbar { gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+.topbar-title { font-size: 12px; color: var(--dim); margin-right: auto; margin-left: 6px; }
 .chrome-button {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px;

@@ -1,7 +1,30 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { NavLink, useLocation } from "react-router";
+import { NavLink, useLocation, useNavigate } from "react-router";
+import { inTauri } from "../api/client";
 import { useLive } from "../state/live";
 import { toggleTheme } from "../lib/theme";
+
+// On macOS the window has no title bar of its own: the traffic lights sit
+// over the sidebar's first row and the bars are the drag handles.
+const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
+const SIDEBAR_KEY = "wicket:sidebar";
+
+function SidebarGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+      <path d="M6 2.5v11" />
+    </svg>
+  );
+}
+
+function Arrow({ back }: { back?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {back ? <path d="M10 3 5 8l5 5M5 8h9" /> : <path d="m6 3 5 5-5 5M11 8H2" />}
+    </svg>
+  );
+}
 
 const NAV = [
   { key: "inbox", label: "Inbox", to: "/" },
@@ -20,7 +43,30 @@ function isTyping(target: EventTarget | null) {
 export function Layout({ children }: { children: ReactNode }) {
   const live = useLive();
   const location = useLocation();
+  const navigate = useNavigate();
   const [help, setHelp] = useState(false);
+  const [sidebar, setSidebar] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) !== "closed";
+    } catch {
+      return true;
+    }
+  });
+  const toggleSidebar = () => {
+    setSidebar((open) => {
+      try {
+        localStorage.setItem(SIDEBAR_KEY, open ? "closed" : "open");
+      } catch {
+        // a preference that cannot be saved still applies for this session
+      }
+      return !open;
+    });
+  };
+  const sidebarButton = (
+    <button type="button" className="bar-button" onClick={toggleSidebar} title={sidebar ? "Hide sidebar" : "Show sidebar"} aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}>
+      <SidebarGlyph />
+    </button>
+  );
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -38,8 +84,12 @@ export function Layout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <>
+    <div className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}>
+      {sidebar ? (
       <aside className="app-sidebar" aria-label="Workspace">
+        <div className="sidebar-bar" data-tauri-drag-region>
+          {sidebarButton}
+        </div>
         <NavLink to="/" className="app-brand" aria-label="wicket home">
           <span className="wicket-mark" aria-hidden="true" />
           <span>wicket</span>
@@ -68,8 +118,18 @@ export function Layout({ children }: { children: ReactNode }) {
           <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
         </div>
       </aside>
+      ) : null}
       <div className="app-shell">
-        <header className="app-topbar">
+        <header className="app-topbar" data-tauri-drag-region>
+          {sidebar ? null : sidebarButton}
+          <span className="topbar-history">
+            <button type="button" className="bar-button" onClick={() => navigate(-1)} title="Back" aria-label="Back">
+              <Arrow back />
+            </button>
+            <button type="button" className="bar-button" onClick={() => navigate(1)} title="Forward" aria-label="Forward">
+              <Arrow />
+            </button>
+          </span>
           <span className="topbar-title">{pageTitle(location.pathname)}</span>
           <button type="button" className="chrome-button" onClick={() => setHelp(true)}>
             Keyboard shortcuts <kbd>?</kbd>
@@ -118,6 +178,6 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
