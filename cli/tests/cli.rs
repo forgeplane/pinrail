@@ -104,30 +104,30 @@ fn run(server: &MockServer, args: &[&str]) -> (i32, String, String) {
     )
 }
 
-fn gate(status: &str) -> String {
+fn review(status: &str) -> String {
     let decision = if status == "decided" {
         r#"{"decided_by":"tester","decided_at":"2026-09-11T10:00:00Z","data":{"decisions":[{"id":1,"action":"accept"}],"undecided":[]}}"#
     } else {
         "null"
     };
     format!(
-        r#"{{"id":"g_1","type":"list","title":"t","status":"{status}","decision":{decision},"payload":{{}}}}"#
+        r#"{{"id":"r_1","plugin":"list","title":"t","status":"{status}","decision":{decision},"payload":{{}}}}"#
     )
 }
 
 #[test]
-fn create_prints_the_envelope_and_the_url_on_stderr() {
+fn submit_prints_the_review_and_the_url_on_stderr() {
     let server = MockServer::start(Box::new(|method, path, body| {
-        assert_eq!((method, path), ("POST", "/api/gates"));
+        assert_eq!((method, path), ("POST", "/api/v1/reviews"));
         let sent: serde_json::Value = serde_json::from_str(body).unwrap();
-        assert_eq!(sent["type"], "list");
+        assert_eq!(sent["plugin"], "list");
         assert_eq!(sent["title"], "MR !42");
-        assert_eq!(sent["source"]["repo"], "acme");
-        assert_eq!(sent["source"]["ref"], "42");
+        assert_eq!(sent["origin"]["repo"], "acme");
+        assert_eq!(sent["origin"]["ref"], "42");
         assert_eq!(sent["payload"]["groups"], serde_json::json!([]));
         assert_eq!(sent["requested_by"], "agent");
         assert_eq!(sent["summary"]["subtitle"], "3 new");
-        (201, gate("pending"))
+        (201, review("pending"))
     }));
     let dir = tempdir();
     std::fs::write(dir.join("p.json"), r#"{"groups":[]}"#).unwrap();
@@ -135,11 +135,11 @@ fn create_prints_the_envelope_and_the_url_on_stderr() {
     let (code, stdout, stderr) = run(
         &server,
         &[
-            "create",
+            "submit",
             "list",
             "--title",
             "MR !42",
-            "--source",
+            "--origin",
             "repo=acme,ref=42",
             "--data",
             dir.join("p.json").to_str().unwrap(),
@@ -151,24 +151,24 @@ fn create_prints_the_envelope_and_the_url_on_stderr() {
         ],
     );
     assert_eq!(code, 0, "{stderr}");
-    assert!(stdout.starts_with(r#"{"id":"g_1""#), "{stdout}");
+    assert!(stdout.starts_with(r#"{"id":"r_1""#), "{stdout}");
     assert!(
-        stderr.contains(&format!("gate g_1: {}/gates/g_1", server.url)),
+        stderr.contains(&format!("review r_1: {}/reviews/r_1", server.url)),
         "{stderr}"
     );
 }
 
 #[test]
-fn create_wait_loops_through_204_then_prints_the_decision_and_writes_the_file() {
+fn create_alias_wait_loops_through_204_then_prints_the_decision_and_writes_the_file() {
     let mut polls = 0;
     let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
-        ("POST", "/api/gates") => (201, gate("pending")),
-        ("GET", p) if p.starts_with("/api/gates/g_1/wait") => {
+        ("POST", "/api/v1/reviews") => (201, review("pending")),
+        ("GET", p) if p.starts_with("/api/v1/reviews/r_1/wait") => {
             polls += 1;
             if polls < 3 {
                 (204, String::new())
             } else {
-                (200, gate("decided"))
+                (200, review("decided"))
             }
         }
         other => panic!("unexpected {other:?}"),
@@ -208,9 +208,9 @@ fn create_wait_loops_through_204_then_prints_the_decision_and_writes_the_file() 
 }
 
 #[test]
-fn wait_exits_3_when_the_gate_is_withdrawn() {
-    let server = MockServer::start(Box::new(|_, _, _| (200, gate("withdrawn"))));
-    let (code, stdout, stderr) = run(&server, &["wait", "g_1"]);
+fn wait_exits_3_when_the_review_is_withdrawn() {
+    let server = MockServer::start(Box::new(|_, _, _| (200, review("withdrawn"))));
+    let (code, stdout, stderr) = run(&server, &["wait", "r_1"]);
     assert_eq!(code, 3);
     assert!(stdout.contains(r#""status":"withdrawn""#));
     assert!(stderr.contains("was withdrawn"), "{stderr}");
@@ -219,10 +219,10 @@ fn wait_exits_3_when_the_gate_is_withdrawn() {
 #[test]
 fn wait_exits_4_on_timeout() {
     let server = MockServer::start(Box::new(|_, path, _| {
-        assert!(path.starts_with("/api/gates/g_1/wait?timeout="));
+        assert!(path.starts_with("/api/v1/reviews/r_1/wait?timeout="));
         (204, String::new())
     }));
-    let (code, stdout, stderr) = run(&server, &["wait", "g_1", "--timeout", "1"]);
+    let (code, stdout, stderr) = run(&server, &["wait", "r_1", "--timeout", "1"]);
     assert_eq!(code, 4, "{stderr}");
     assert!(stdout.is_empty());
     assert!(stderr.contains("timed out"), "{stderr}");
@@ -244,13 +244,13 @@ fn wait_survives_the_server_going_away_and_coming_back() {
         thread::sleep(std::time::Duration::from_millis(2500));
         let listener = TcpListener::bind(addr).unwrap();
         let handler: Arc<Mutex<Handler>> =
-            Arc::new(Mutex::new(Box::new(|_, _, _| (200, gate("decided")))));
+            Arc::new(Mutex::new(Box::new(|_, _, _| (200, review("decided")))));
         let (stream, _) = listener.accept().unwrap();
         serve_one(stream, handler, Arc::new(Mutex::new(Vec::new())));
     });
 
     let out = wicket()
-        .args(["wait", "g_1", "--timeout", "20"])
+        .args(["wait", "r_1", "--timeout", "20"])
         .env("WICKET_URL", &url)
         .output()
         .unwrap();
@@ -268,7 +268,7 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
     let server = MockServer::start(Box::new(|_, _, _| {
         (422, r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/title","message":"is required"}]}"#.into())
     }));
-    let (code, stdout, stderr) = run(&server, &["create", "list", "--title", "", "--no-start"]);
+    let (code, stdout, stderr) = run(&server, &["submit", "list", "--title", "", "--no-start"]);
     assert_eq!(code, 2);
     assert!(stdout.is_empty());
     assert!(stderr.contains(r#""path": "/title""#), "{stderr}");
@@ -276,31 +276,40 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
     let server = MockServer::start(Box::new(|_, _, _| {
         (
             404,
-            r#"{"error":"not_found","message":"gate g_x not found","violations":[]}"#.into(),
+            r#"{"error":"not_found","message":"review r_x not found","violations":[]}"#.into(),
         )
     }));
-    let (code, _, stderr) = run(&server, &["show", "g_x"]);
+    let (code, _, stderr) = run(&server, &["show", "r_x"]);
     assert_eq!(code, 2);
     assert!(stderr.contains("not_found"));
 }
 
 #[test]
-fn list_show_withdraw_decide_and_types_hit_the_right_endpoints() {
+fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
     let server = MockServer::start(Box::new(|method, path, body| match (method, path) {
-        ("GET", "/api/gates?status=pending&repo=acme&superseded=false") => (200, "[]".into()),
-        ("GET", "/api/gates/g_1") => (200, gate("pending")),
-        ("POST", "/api/gates/g_1/withdraw") => (200, gate("withdrawn")),
-        ("POST", "/api/gates/g_1/decision") => {
+        ("GET", "/api/v1/reviews?status=pending&repo=acme") => (200, "[]".into()),
+        ("GET", "/api/v1/reviews?include_revised=true") => (200, "[]".into()),
+        ("GET", "/api/v1/reviews/r_1") => (200, review("pending")),
+        ("GET", "/api/v1/reviews/r_1/rounds") => (200, "[]".into()),
+        ("POST", "/api/v1/reviews/r_1/withdraw") => {
+            let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+            assert_eq!(sent, serde_json::json!({"reason":"moved on"}));
+            (200, review("withdrawn"))
+        }
+        ("POST", "/api/v1/reviews/r_1/decision") => {
             let sent: serde_json::Value = serde_json::from_str(body).unwrap();
             assert_eq!(
                 sent,
-                serde_json::json!({"data":{"ok":true},"agent_note":"fine","decided_by":"bot"})
+                serde_json::json!({"data":{"ok":true},"agent_note":"fine"})
             );
-            (200, gate("decided"))
+            (200, review("decided"))
         }
-        ("GET", "/api/types") => (200, r#"{"dirs":[],"types":[]}"#.into()),
-        ("POST", "/api/types/reload") => (200, r#"{"ok":true,"count":1}"#.into()),
-        ("POST", "/api/types/dirs") => {
+        ("GET", "/api/v1/plugins") => (200, r#"{"dirs":[],"plugins":[]}"#.into()),
+        ("GET", "/api/v1/plugins/list/versions") => {
+            (200, r#"{"name":"list","versions":[1]}"#.into())
+        }
+        ("POST", "/api/v1/plugins/reload") => (200, r#"{"ok":true,"count":1}"#.into()),
+        ("POST", "/api/v1/plugins/dirs") => {
             let sent: serde_json::Value = serde_json::from_str(body).unwrap();
             assert!(sent["dir"].as_str().unwrap().starts_with('/'), "{body}");
             (200, r#"{"ok":true,"count":2,"dirs":[]}"#.into())
@@ -314,36 +323,41 @@ fn list_show_withdraw_decide_and_types_hit_the_right_endpoints() {
         run(&server, &["list", "--status", "pending", "--repo", "acme"]).0,
         0
     );
-    let (code, stdout, _) = run(&server, &["show", "g_1", "--pretty"]);
+    assert_eq!(run(&server, &["list", "--include-revised"]).0, 0);
+    let (code, stdout, _) = run(&server, &["show", "r_1", "--pretty"]);
     assert_eq!(code, 0);
-    assert!(stdout.contains("\n  \"id\": \"g_1\""));
-    assert_eq!(run(&server, &["withdraw", "g_1"]).0, 0);
+    assert!(stdout.contains("\n  \"id\": \"r_1\""));
+    assert_eq!(run(&server, &["rounds", "r_1"]).0, 0);
+    assert_eq!(
+        run(&server, &["withdraw", "r_1", "--reason", "moved on"]).0,
+        0
+    );
     assert_eq!(
         run(
             &server,
             &[
                 "decide",
-                "g_1",
+                "r_1",
                 "--data",
                 dir.join("d.json").to_str().unwrap(),
                 "--note",
-                "fine",
-                "--by",
-                "bot"
+                "fine"
             ]
         )
         .0,
         0
     );
+    assert_eq!(run(&server, &["plugins"]).0, 0);
     assert_eq!(run(&server, &["types"]).0, 0);
-    assert_eq!(run(&server, &["types", "reload"]).0, 0);
-    assert_eq!(run(&server, &["types", "add", "."]).0, 0);
+    assert_eq!(run(&server, &["plugins", "reload"]).0, 0);
+    assert_eq!(run(&server, &["plugins", "versions", "list"]).0, 0);
+    assert_eq!(run(&server, &["plugins", "add", "."]).0, 0);
 }
 
 #[test]
 fn unreachable_server_exits_1_without_auto_start_config() {
     let out = wicket()
-        .args(["show", "g_1"])
+        .args(["show", "r_1"])
         .env("WICKET_URL", "http://127.0.0.1:9")
         .output()
         .unwrap();
@@ -352,7 +366,7 @@ fn unreachable_server_exits_1_without_auto_start_config() {
 
     let dir = tempdir();
     let out = wicket()
-        .args(["create", "list", "--title", "t"])
+        .args(["submit", "list", "--title", "t"])
         .env("WICKET_URL", "http://127.0.0.1:9")
         .env("WICKET_DATA_DIR", &dir)
         .output()
@@ -364,7 +378,7 @@ fn unreachable_server_exits_1_without_auto_start_config() {
 
 #[test]
 fn discovers_the_server_from_server_json_in_the_data_dir() {
-    let server = MockServer::start(Box::new(|_, _, _| (200, gate("pending"))));
+    let server = MockServer::start(Box::new(|_, _, _| (200, review("pending"))));
     let dir = tempdir();
     std::fs::write(
         dir.join("server.json"),
@@ -372,7 +386,7 @@ fn discovers_the_server_from_server_json_in_the_data_dir() {
     )
     .unwrap();
     let out = wicket()
-        .args(["show", "g_1"])
+        .args(["show", "r_1"])
         .env("WICKET_DATA_DIR", &dir)
         .output()
         .unwrap();
@@ -388,8 +402,8 @@ fn discovers_the_server_from_server_json_in_the_data_dir() {
 fn create_auto_starts_the_server_with_the_configured_command() {
     // the "server" is a shell one-liner that writes server.json pointing at a mock
     let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
-        ("GET", "/api/types") => (200, "{}".into()),
-        ("POST", "/api/gates") => (201, gate("pending")),
+        ("GET", "/api/v1/info") => (200, "{}".into()),
+        ("POST", "/api/v1/reviews") => (201, review("pending")),
         other => panic!("unexpected {other:?}"),
     }));
     let dir = tempdir();
@@ -401,7 +415,7 @@ fn create_auto_starts_the_server_with_the_configured_command() {
         server.url
     );
     let out = wicket()
-        .args(["create", "list", "--title", "t"])
+        .args(["submit", "list", "--title", "t"])
         .env("WICKET_DATA_DIR", &dir)
         .env("WICKET_SERVER_CMD", &cmd)
         .env("WICKET_PORT", "9")

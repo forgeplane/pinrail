@@ -54,33 +54,44 @@ impl Client {
         &self.base
     }
 
-    /// True if something answers at /api/types.
+    /// True if something answers at /api/v1/info.
     pub fn reachable(&self) -> bool {
         let quick = Agent::config_builder()
             .http_status_as_error(false)
             .timeout_global(Some(Duration::from_secs(2)))
             .build();
         Agent::new_with_config(quick)
-            .get(format!("{}/api/types", self.base))
+            .get(format!("{}/api/v1/info", self.base))
             .call()
             .is_ok()
     }
 
-    pub fn create_gate(&self, body: &Value) -> Result<Value> {
-        self.post("/api/gates", Some(body))
+    pub fn submit(&self, body: &Value) -> Result<Value> {
+        self.post("/api/v1/reviews", Some(body))
     }
 
-    pub fn get_gate(&self, id: &str) -> Result<Value> {
-        self.get(&format!("/api/gates/{id}"), &[])
+    pub fn get_review(&self, id: &str) -> Result<Value> {
+        self.get(&format!("/api/v1/reviews/{id}"), &[])
     }
 
-    /// `Some(gate)` when the server answered 200 (settled, or pending if it
+    pub fn rounds(&self, id: &str) -> Result<Value> {
+        self.get(&format!("/api/v1/reviews/{id}/rounds"), &[])
+    }
+
+    pub fn events(&self, id: &str) -> Result<Value> {
+        self.get(&format!("/api/v1/reviews/{id}/events"), &[])
+    }
+
+    /// `Some(review)` when the server answered 200 (settled, or pending if it
     /// chose to answer early), `None` on 204. Every poll uses a fresh
     /// connection, so a pooled one to a server that has since gone away is
     /// never reused.
-    pub fn wait_gate(&self, id: &str, timeout_secs: u64) -> Result<Option<Value>> {
+    pub fn wait(&self, id: &str, timeout_secs: u64) -> Result<Option<Value>> {
         let timeout_secs = timeout_secs.min(Self::POLL_SECS);
-        let url = format!("{}/api/gates/{id}/wait?timeout={timeout_secs}", self.base);
+        let url = format!(
+            "{}/api/v1/reviews/{id}/wait?timeout={timeout_secs}",
+            self.base
+        );
         let agent = Self::agent(Duration::from_secs(timeout_secs + 5));
         let mut resp = agent.get(&url).call().context("connecting to the server")?;
         match resp.status().as_u16() {
@@ -89,41 +100,40 @@ impl Client {
         }
     }
 
-    pub fn decide(
-        &self,
-        id: &str,
-        data: Value,
-        note: Option<String>,
-        by: Option<String>,
-    ) -> Result<Value> {
+    pub fn decide(&self, id: &str, data: Value, note: Option<String>) -> Result<Value> {
         let mut body = serde_json::json!({ "data": data });
         if let Some(note) = note {
             body["agent_note"] = Value::String(note);
         }
-        if let Some(by) = by {
-            body["decided_by"] = Value::String(by);
-        }
-        self.post(&format!("/api/gates/{id}/decision"), Some(&body))
+        self.post(&format!("/api/v1/reviews/{id}/decision"), Some(&body))
     }
 
-    pub fn withdraw(&self, id: &str) -> Result<Value> {
-        self.post(&format!("/api/gates/{id}/withdraw"), None)
+    pub fn withdraw(&self, id: &str, reason: Option<String>) -> Result<Value> {
+        let body = reason.map(|r| serde_json::json!({ "reason": r }));
+        self.post(&format!("/api/v1/reviews/{id}/withdraw"), body.as_ref())
     }
 
-    pub fn list_gates(&self, query: &[(&str, String)]) -> Result<Value> {
-        self.get("/api/gates", query)
+    pub fn list(&self, query: &[(&str, String)]) -> Result<Value> {
+        self.get("/api/v1/reviews", query)
     }
 
-    pub fn types(&self) -> Result<Value> {
-        self.get("/api/types", &[])
+    pub fn plugins(&self) -> Result<Value> {
+        self.get("/api/v1/plugins", &[])
     }
 
-    pub fn types_add(&self, dir: &str) -> Result<Value> {
-        self.post("/api/types/dirs", Some(&serde_json::json!({ "dir": dir })))
+    pub fn plugin_versions(&self, name: &str) -> Result<Value> {
+        self.get(&format!("/api/v1/plugins/{name}/versions"), &[])
     }
 
-    pub fn types_reload(&self) -> Result<Value> {
-        self.post("/api/types/reload", None)
+    pub fn plugins_add(&self, dir: &str) -> Result<Value> {
+        self.post(
+            "/api/v1/plugins/dirs",
+            Some(&serde_json::json!({ "dir": dir })),
+        )
+    }
+
+    pub fn plugins_reload(&self) -> Result<Value> {
+        self.post("/api/v1/plugins/reload", None)
     }
 
     fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value> {

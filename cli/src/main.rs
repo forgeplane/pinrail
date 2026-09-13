@@ -7,8 +7,8 @@
 //! | 0 | done |
 //! | 1 | error: bad arguments, server unreachable, I/O |
 //! | 2 | the server refused the request (404, 409, 422); the body is on stderr |
-//! | 3 | the gate was withdrawn or expired instead of decided |
-//! | 4 | `wait` timed out; the gate is still pending |
+//! | 3 | the review was withdrawn or expired instead of decided |
+//! | 4 | `wait` timed out; the review is still pending |
 
 mod api;
 mod out;
@@ -47,45 +47,58 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Create a gate; with --wait, block until it is decided and print the decision
-    Create(CreateArgs),
-    /// Block until a gate leaves pending; print its envelope
+    /// Submit a review; with --wait, block until it is decided and print the decision
+    #[command(alias = "create")]
+    Submit(SubmitArgs),
+    /// Block until a review leaves pending; print it
     Wait(WaitArgs),
-    /// Print a gate's envelope, payload and decision
+    /// Print a review: envelope, payload and decision
     Show { id: String },
-    /// List gates, newest first, without payloads
+    /// Every round of a review, oldest first, without payloads
+    Rounds { id: String },
+    /// A review's event log
+    Events { id: String },
+    /// List reviews, newest first, without payloads
     List(ListArgs),
-    /// Record a decision from a script (the browser is the usual way)
+    /// Record a decision from a script (the app is the usual way)
     Decide(DecideArgs),
-    /// Withdraw a pending gate; its waiter exits 3
-    Withdraw { id: String },
-    /// Registered gate types
-    Types(TypesArgs),
+    /// Withdraw a pending review; its waiter exits 3
+    Withdraw {
+        id: String,
+        /// Why the requester gave up
+        #[arg(long)]
+        reason: Option<String>,
+    },
+    /// Registered plugins
+    #[command(alias = "types")]
+    Plugins(PluginsArgs),
+    /// Write every review as JSON files under a directory
+    Export { dir: PathBuf },
     /// Start the server if it is not running; print its URL
     Serve,
-    /// Open a gate's page in the browser
+    /// Open a review in the app
     Open { id: String },
 }
 
 #[derive(Args)]
-struct CreateArgs {
-    /// Gate type, e.g. list
-    r#type: String,
+struct SubmitArgs {
+    /// The plugin that defines this sort of review, e.g. code_review
+    plugin: String,
     #[arg(long)]
     title: String,
-    /// Where the gate comes from: repo=acme,workflow=review,run_id=…,ref=42,url=…
-    #[arg(long, value_parser = parse_source)]
-    source: Option<BTreeMap<String, String>>,
+    /// Where the review comes from: repo=acme,workflow=review,run_id=…,ref=42,url=…
+    #[arg(long, alias = "source", value_parser = parse_origin)]
+    origin: Option<BTreeMap<String, String>>,
     /// Payload JSON: a file path, or - for stdin
     #[arg(long, value_name = "FILE|-")]
     data: Option<String>,
     /// Inbox summary JSON, e.g. '{"counts":[["major",2]],"subtitle":"3 new"}'
     #[arg(long, value_parser = parse_json)]
     summary: Option<Value>,
-    /// The gate this one revises
-    #[arg(long)]
-    supersedes: Option<String>,
-    /// ISO 8601 timestamp after which the gate expires
+    /// The review this one is a new round of
+    #[arg(long, alias = "supersedes")]
+    revises: Option<String>,
+    /// ISO 8601 timestamp after which the review expires
     #[arg(long)]
     expires_at: Option<String>,
     #[arg(long, env = "WICKET_REQUESTED_BY", default_value = "wicket-cli")]
@@ -130,13 +143,19 @@ struct ListArgs {
     reference: Option<String>,
     #[arg(long)]
     run_id: Option<String>,
-    #[arg(long = "type")]
-    gate_type: Option<String>,
+    #[arg(long, alias = "type")]
+    plugin: Option<String>,
+    /// Text to look for in titles and payloads
+    #[arg(long)]
+    q: Option<String>,
+    /// Only reviews older than this id
+    #[arg(long)]
+    cursor: Option<String>,
     #[arg(long)]
     limit: Option<u32>,
-    /// Include gates another gate supersedes
-    #[arg(long)]
-    superseded: bool,
+    /// Include rounds that a later round revises
+    #[arg(long, alias = "superseded")]
+    include_revised: bool,
 }
 
 #[derive(Args)]
@@ -148,22 +167,22 @@ struct DecideArgs {
     /// Free-text note to the requesting agent
     #[arg(long)]
     note: Option<String>,
-    #[arg(long)]
-    by: Option<String>,
 }
 
 #[derive(Args)]
-struct TypesArgs {
+struct PluginsArgs {
     #[command(subcommand)]
-    command: Option<TypesCommand>,
+    command: Option<PluginsCommand>,
 }
 
 #[derive(Subcommand)]
-enum TypesCommand {
+enum PluginsCommand {
     /// Register a directory whose subdirectories are plugins
     Add { dir: PathBuf },
     /// Rescan the plugin directories
     Reload,
+    /// The versions of a plugin that reviews can still render with
+    Versions { name: String },
 }
 
 fn main() -> ExitCode {
@@ -191,15 +210,23 @@ fn run(cli: Cli) -> Result<u8> {
         return Ok(0);
     }
 
-    let auto_start = matches!(&cli.command, Command::Create(args) if !args.no_start);
+    let auto_start = matches!(&cli.command, Command::Submit(args) if !args.no_start);
     let base = server::resolve_url(cli.url.as_deref(), auto_start)?;
     let client = Client::new(&base);
 
     match cli.command {
-        Command::Create(args) => create(&client, args, pretty),
+        Command::Submit(args) => submit(&client, args, pretty),
         Command::Wait(args) => wait(&client, &args.id, &args.opts, pretty),
         Command::Show { id } => {
-            out::print_json(&client.get_gate(&id)?, pretty);
+            out::print_json(&client.get_review(&id)?, pretty);
+            Ok(0)
+        }
+        Command::Rounds { id } => {
+            out::print_json(&client.rounds(&id)?, pretty);
+            Ok(0)
+        }
+        Command::Events { id } => {
+            out::print_json(&client.events(&id)?, pretty);
             Ok(0)
         }
         Command::List(args) => {
@@ -210,43 +237,51 @@ fn run(cli: Cli) -> Result<u8> {
                 ("workflow", args.workflow),
                 ("ref", args.reference),
                 ("run_id", args.run_id),
-                ("type", args.gate_type),
+                ("plugin", args.plugin),
+                ("q", args.q),
+                ("cursor", args.cursor),
                 ("limit", args.limit.map(|n| n.to_string())),
             ] {
                 if let Some(v) = v {
                     query.push((k, v));
                 }
             }
-            if !args.superseded {
-                query.push(("superseded", "false".into()));
+            if args.include_revised {
+                query.push(("include_revised", "true".into()));
             }
-            out::print_json(&client.list_gates(&query)?, pretty);
+            out::print_json(&client.list(&query)?, pretty);
             Ok(0)
         }
         Command::Decide(args) => {
             let data = read_json_arg(&args.data)?;
-            let gate = client.decide(&args.id, data, args.note, args.by)?;
-            out::print_json(&gate, pretty);
+            let review = client.decide(&args.id, data, args.note)?;
+            out::print_json(&review, pretty);
             Ok(0)
         }
-        Command::Withdraw { id } => {
-            out::print_json(&client.withdraw(&id)?, pretty);
+        Command::Withdraw { id, reason } => {
+            out::print_json(&client.withdraw(&id, reason)?, pretty);
             Ok(0)
         }
-        Command::Types(args) => {
+        Command::Plugins(args) => {
             let value = match args.command {
-                None => client.types()?,
-                Some(TypesCommand::Add { dir }) => {
+                None => client.plugins()?,
+                Some(PluginsCommand::Add { dir }) => {
                     let dir = std::path::absolute(&dir)?;
-                    client.types_add(&dir.to_string_lossy())?
+                    client.plugins_add(&dir.to_string_lossy())?
                 }
-                Some(TypesCommand::Reload) => client.types_reload()?,
+                Some(PluginsCommand::Reload) => client.plugins_reload()?,
+                Some(PluginsCommand::Versions { name }) => client.plugin_versions(&name)?,
             };
             out::print_json(&value, pretty);
             Ok(0)
         }
+        Command::Export { dir } => {
+            let count = out::export(&client, &dir)?;
+            eprintln!("wicket: {count} reviews written to {}", dir.display());
+            Ok(0)
+        }
         Command::Open { id } => {
-            let url = format!("{base}/gates/{id}");
+            let url = format!("{base}/reviews/{id}");
             server::open_browser(&url)?;
             eprintln!("{url}");
             Ok(0)
@@ -255,47 +290,47 @@ fn run(cli: Cli) -> Result<u8> {
     }
 }
 
-fn create(client: &Client, args: CreateArgs, pretty: bool) -> Result<u8> {
+fn submit(client: &Client, args: SubmitArgs, pretty: bool) -> Result<u8> {
     let payload = match &args.data {
         Some(spec) => read_json_arg(spec)?,
         None => json!({}),
     };
     let mut body = json!({
-        "type": args.r#type,
+        "plugin": args.plugin,
         "title": args.title,
         "payload": payload,
         "requested_by": args.requested_by,
     });
-    if let Some(source) = &args.source {
-        body["source"] = json!(source);
+    if let Some(origin) = &args.origin {
+        body["origin"] = json!(origin);
     }
     if let Some(summary) = &args.summary {
         body["summary"] = summary.clone();
     }
-    if let Some(id) = &args.supersedes {
-        body["supersedes"] = json!(id);
+    if let Some(id) = &args.revises {
+        body["revises"] = json!(id);
     }
     if let Some(at) = &args.expires_at {
         body["expires_at"] = json!(at);
     }
 
-    let gate = client.create_gate(&body)?;
-    let id = gate["id"]
+    let review = client.submit(&body)?;
+    let id = review["id"]
         .as_str()
-        .context("server returned a gate without an id")?
+        .context("server returned a review without an id")?
         .to_string();
-    eprintln!("gate {id}: {}/gates/{id}", client.base());
+    eprintln!("review {id}: {}/reviews/{id}", client.base());
 
     if args.wait {
         wait(client, &id, &args.wait_opts, pretty)
     } else {
-        out::print_json(&gate, pretty);
+        out::print_json(&review, pretty);
         Ok(0)
     }
 }
 
-/// Long-polls until the gate settles. Each poll asks the server for at most
-/// `Client::POLL_SECS`; a 204 or a dropped connection (the server
+/// Long-polls until the review settles. Each poll asks the server for at
+/// most `Client::POLL_SECS`; a 204 or a dropped connection (the server
 /// restarting) just loops, so a wait survives the app coming and going.
 fn wait(client: &Client, id: &str, opts: &WaitOpts, pretty: bool) -> Result<u8> {
     let deadline = (opts.timeout > 0).then(|| Instant::now() + Duration::from_secs(opts.timeout));
@@ -307,7 +342,7 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, pretty: bool) -> Result<u8> 
                 let left = d.saturating_duration_since(Instant::now());
                 if left.is_zero() {
                     eprintln!(
-                        "wicket: timed out after {}s, gate {id} is still pending",
+                        "wicket: timed out after {}s, review {id} is still pending",
                         opts.timeout
                     );
                     return Ok(EXIT_TIMEOUT);
@@ -317,23 +352,26 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, pretty: bool) -> Result<u8> 
             None => Client::POLL_SECS,
         };
 
-        match client.wait_gate(id, remaining) {
-            Ok(Some(gate)) => {
-                let status = gate["status"].as_str().unwrap_or("");
+        match client.wait(id, remaining) {
+            Ok(Some(review)) => {
+                let status = review["status"].as_str().unwrap_or("");
                 if status == "pending" {
                     continue;
                 }
-                if let Some(path) = &opts.decision_out
-                    && status == "decided"
-                {
-                    out::write_decision(path, &gate["decision"]["data"])?;
-                    eprintln!("wicket: decision written to {}", path.display());
+                if status == "decided" {
+                    if let Some(path) = &opts.decision_out {
+                        out::write_decision(path, &review["decision"]["data"])?;
+                        eprintln!("wicket: decision written to {}", path.display());
+                    }
+                    if let Some(counts) = out::editorial_counts(&review["decision"]["data"]) {
+                        eprintln!("wicket: {counts}");
+                    }
                 }
-                out::print_json(&gate, pretty);
+                out::print_json(&review, pretty);
                 return Ok(if status == "decided" {
                     0
                 } else {
-                    eprintln!("wicket: gate {id} was {status}, not decided");
+                    eprintln!("wicket: review {id} was {status}, not decided");
                     EXIT_CLOSED
                 });
             }
@@ -364,7 +402,7 @@ fn parse_json(s: &str) -> Result<Value, String> {
     serde_json::from_str(s).map_err(|e| e.to_string())
 }
 
-fn parse_source(s: &str) -> Result<BTreeMap<String, String>, String> {
+fn parse_origin(s: &str) -> Result<BTreeMap<String, String>, String> {
     let mut map = BTreeMap::new();
     for pair in s.split(',').filter(|p| !p.trim().is_empty()) {
         let (k, v) = pair
@@ -373,7 +411,7 @@ fn parse_source(s: &str) -> Result<BTreeMap<String, String>, String> {
         map.insert(k.trim().to_string(), v.trim().to_string());
     }
     if map.is_empty() {
-        return Err("source needs at least one key=value".into());
+        return Err("origin needs at least one key=value".into());
     }
     Ok(map)
 }
