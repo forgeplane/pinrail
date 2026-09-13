@@ -575,16 +575,30 @@ async fn bundles_are_served_from_snapshots_with_the_sandbox_csp() {
             .body(Body::empty())
             .unwrap()
     };
+    // a snapshot is taken on first use, whether that is a submission or a
+    // request for the bundle; a version that never existed has none
+    let response = app
+        .router
+        .clone()
+        .oneshot(request("/plugins/list/7/index.html"))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
     let response = app
         .router
         .clone()
         .oneshot(request("/plugins/list/1/index.html"))
         .await
         .unwrap();
-    assert_eq!(
-        response.status(),
-        StatusCode::NOT_FOUND,
-        "no snapshot before a submission"
+    assert_eq!(response.status(), StatusCode::OK, "served, and snapshotted");
+    assert!(
+        app.state
+            .config
+            .snapshots_dir()
+            .join("list")
+            .join("1")
+            .join("manifest.json")
+            .is_file()
     );
 
     submit(&app, submission()).await;

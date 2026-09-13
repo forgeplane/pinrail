@@ -425,12 +425,15 @@ impl Registry {
         Ok(dest)
     }
 
-    /// The directory a plugin's bundle is served from.
+    /// The directory a plugin's bundle is served from: the live directory
+    /// for a plugin in development, the snapshot otherwise, taken now if it
+    /// is missing.
     pub fn bundle_dir(&self, plugin: &Plugin) -> PathBuf {
         if plugin.dev {
             plugin.path.clone()
         } else {
-            self.snapshot_dir(&plugin.name, plugin.version)
+            self.ensure_snapshot(plugin)
+                .unwrap_or_else(|_| self.snapshot_dir(&plugin.name, plugin.version))
         }
     }
 }
