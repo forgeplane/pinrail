@@ -144,11 +144,12 @@ pub fn refresh_tray(app: &AppHandle) {
     };
     let pending = pending(&native.state);
     let count = pending.len();
-    let _ = tray.set_title(if count == 0 {
-        None
+    // an empty title, not None: None leaves the old title in place on macOS
+    let _ = tray.set_title(Some(if count == 0 {
+        String::new()
     } else {
-        Some(count.to_string())
-    });
+        count.to_string()
+    }));
     let _ = tray.set_tooltip(Some(match count {
         0 => "Wicket: nothing pending".to_string(),
         1 => "Wicket: 1 review pending".to_string(),
