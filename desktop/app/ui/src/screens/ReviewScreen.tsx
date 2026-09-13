@@ -273,16 +273,31 @@ export function ReviewScreen() {
       ) : null}
 
       {plugin && !readonly ? (
-        <div className="handover">
-          <label className="note-field">
-            <span>Note to the agent</span>
-            <textarea rows={1} value={note} placeholder="Add context for what the agent should do next…" onChange={(e) => onNote(e.target.value)} />
-          </label>
-          <div className="handover-actions">
-            <p className="handover-hint">your note travels with the decision</p>
+        <div className={`composer ${bridge.submitting ? "is-busy" : ""}`}>
+          <textarea
+            rows={1}
+            value={note}
+            aria-label="Note to the agent"
+            placeholder="Add a note for the agent…"
+            onChange={(e) => onNote(e.target.value)}
+            onInput={(e) => {
+              const el = e.currentTarget;
+              el.style.height = "auto";
+              el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+            }}
+          />
+          <div className="composer-bar">
+            <span className="composer-hint">
+              {live.connected ? "The note travels with your decision" : "Reconnecting — hand-over resumes when the server is back"}
+            </span>
             <Tooltip label={live.connected ? "Hand over to the agent" : "Reconnect to hand over"} keys={[MOD, "Enter"]} side="top">
               <button type="button" className="handover-button with-icon" data-handover disabled={bridge.submitting || !live.connected} onClick={bridge.collect}>
-                {bridge.handoverLabel} <Send size={14} />
+                {bridge.handoverLabel}
+                <Send size={13} />
+                <span className="handover-keys" aria-hidden="true">
+                  <kbd>{MOD}</kbd>
+                  <kbd>↵</kbd>
+                </span>
               </button>
             </Tooltip>
           </div>
