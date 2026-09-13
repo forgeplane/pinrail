@@ -325,12 +325,18 @@ fn notify(app: &AppHandle, notice: &Notice) {
         Some(by) => format!("{plugin} · requested by {by}"),
         None => plugin.to_string(),
     });
-    let _ = app
-        .notification()
-        .builder()
-        .title(title)
-        .body(lines.join("\n"))
-        .show();
+    let body = lines.join("\n");
+    #[cfg(target_os = "macos")]
+    if crate::notify_mac::available() {
+        let title = title.to_string();
+        let id = notice.review_id.clone();
+        let _ =
+            app.run_on_main_thread(move || crate::notify_mac::notify(&title, &body, id.as_deref()));
+        return;
+    }
+    if let Err(error) = app.notification().builder().title(title).body(body).show() {
+        eprintln!("wicket: notification not shown: {error}");
+    }
 }
 
 #[cfg(test)]

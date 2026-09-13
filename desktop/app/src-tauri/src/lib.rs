@@ -3,6 +3,8 @@
 
 mod headless;
 mod native;
+#[cfg(target_os = "macos")]
+mod notify_mac;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -108,6 +110,10 @@ pub fn run() {
                 }
             });
             app.manage(Native::new(state));
+            #[cfg(target_os = "macos")]
+            if notify_mac::available() {
+                notify_mac::setup(app.handle());
+            }
             app.set_menu(app_menu(app.handle())?)?;
             native::build_tray(app.handle())?;
             native::watch(app.handle().clone());
