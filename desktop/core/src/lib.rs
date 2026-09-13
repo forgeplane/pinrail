@@ -5,6 +5,7 @@
 //! decision; a revised submission is a new round of the same review. Nothing
 //! is edited after it is written: status is derived from what exists.
 
+pub mod api;
 pub mod config;
 pub mod db;
 pub mod error;
@@ -12,7 +13,9 @@ pub mod events;
 pub mod id;
 pub mod plugins;
 pub mod review;
+pub mod reviews;
 pub mod schema;
+pub mod server_info;
 
 pub use config::Config;
 pub use error::{Error, Violation};

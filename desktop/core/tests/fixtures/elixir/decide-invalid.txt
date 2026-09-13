@@ -1,0 +1,2 @@
+{"error":"invalid","message":"validation failed:\n  /: property 'undecided' is required\n  /decisions/0/action: value must be one of the enum values: \"accept\" or \"reject\"","violations":[{"message":"property 'undecided' is required","path":""},{"message":"value must be one of the enum values: \"accept\" or \"reject\"","path":"/decisions/0/action"}]}
+422

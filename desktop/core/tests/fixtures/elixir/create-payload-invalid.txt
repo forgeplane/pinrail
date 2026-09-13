@@ -1,0 +1,2 @@
+{"error":"invalid","message":"validation failed:\n  /payload: property 'groups' is required\n  /payload/intro: value is not of type string","violations":[{"message":"property 'groups' is required","path":"/payload"},{"message":"value is not of type string","path":"/payload/intro"}]}
+422

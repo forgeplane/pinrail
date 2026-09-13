@@ -1,0 +1,2 @@
+{"error":"invalid","message":"validation failed:\n  /payload/groups/0/items/0: additional properties are not allowed but found property 'bogus'\n  /payload/groups/0/items/0/bogus: unexpected property\n  /payload/groups/0/items/0/id: value is not of type integer","violations":[{"message":"additional properties are not allowed but found property 'bogus'","path":"/payload/groups/0/items/0"},{"message":"unexpected property","path":"/payload/groups/0/items/0/bogus"},{"message":"value is not of type integer","path":"/payload/groups/0/items/0/id"}]}
+422

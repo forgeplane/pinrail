@@ -1,0 +1,2 @@
+{"error":"invalid","message":"validation failed:\n  /status: unknown status bogus","violations":[{"message":"unknown status bogus","path":"/status"}]}
+422
