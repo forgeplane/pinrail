@@ -8,11 +8,18 @@ license.workspace = true
 [dependencies]
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
+futures-util = "0.3"
+include_dir = "0.7"
+jsonschema = { version = "0.56", default-features = false }
+mime_guess = "2"
+rusqlite = { version = "0.40", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "net", "signal", "sync", "time"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
 tower-http = { version = "0.6", features = ["cors"] }
 
 [dev-dependencies]
 http-body-util = "0.1"
+tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
