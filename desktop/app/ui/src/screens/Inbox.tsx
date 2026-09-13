@@ -1,8 +1,9 @@
-import { CheckCheck, Search, SearchX } from "lucide-react";
+import { Blocks, CheckCheck, FolderGit2, Search, SearchX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
+import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
@@ -114,22 +115,22 @@ export function Inbox() {
               />
             </label>
           </Tooltip>
-          <select id="inbox-repo" aria-label="Repository" value={repo} onChange={(e) => setParam("repo", e.target.value)}>
-            <option value="">All repositories</option>
-            {live.repositories.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <select id="inbox-plugin" aria-label="Plugin" value={plugin} onChange={(e) => setParam("plugin", e.target.value)}>
-            <option value="">All plugins</option>
-            {plugins.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="inbox-repo"
+            label="Repository"
+            icon={<FolderGit2 size={14} />}
+            value={repo}
+            onChange={(v) => setParam("repo", v)}
+            options={[{ value: "", label: "All repositories" }, ...live.repositories.map((r) => ({ value: r, label: r }))]}
+          />
+          <Select
+            id="inbox-plugin"
+            label="Plugin"
+            icon={<Blocks size={14} />}
+            value={plugin}
+            onChange={(v) => setParam("plugin", v)}
+            options={[{ value: "", label: "All plugins" }, ...plugins.map((p) => ({ value: p, label: p }))]}
+          />
         </div>
       </header>
       <nav className="list-tabs" aria-label="Inbox views">

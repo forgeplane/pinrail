@@ -1,10 +1,11 @@
-import { Archive, SearchX } from "lucide-react";
+import { Archive, CircleDot, SearchX } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { Review } from "../api/types";
 import { StatusBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
+import { Select } from "../components/Select";
 import { stamp } from "../lib/format";
 import { useLive } from "../state/live";
 
@@ -46,12 +47,18 @@ export function History() {
         <h1>History</h1>
       </header>
       <div className="history-filters">
-        <select aria-label="Status" value={filters.status} onChange={(e) => setFilter("status", e.target.value)}>
-          <option value="">All statuses</option>
-          <option value="decided">Decided</option>
-          <option value="withdrawn">Withdrawn</option>
-          <option value="expired">Expired</option>
-        </select>
+        <Select
+          label="Status"
+          icon={<CircleDot size={14} />}
+          value={filters.status}
+          onChange={(v) => setFilter("status", v)}
+          options={[
+            { value: "", label: "All outcomes" },
+            { value: "decided", label: "Decided" },
+            { value: "withdrawn", label: "Withdrawn" },
+            { value: "expired", label: "Expired" },
+          ]}
+        />
         {(["repo", "workflow", "ref", "plugin"] as const).map((key) => (
           <input key={key} aria-label={key} placeholder={`${key[0].toUpperCase()}${key.slice(1)}…`} value={filters[key]} onChange={(e) => setFilter(key, e.target.value)} />
         ))}
