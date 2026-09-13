@@ -448,11 +448,17 @@ fn subdirs(dir: &Path) -> Vec<PathBuf> {
     subs
 }
 
+/// Copies a plugin directory for a snapshot: what the view is served from,
+/// not the sources it was built from.
 fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
         let entry = entry?;
-        let target = to.join(entry.file_name());
+        let name = entry.file_name();
+        if name == "node_modules" || name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let target = to.join(name);
         if entry.file_type()?.is_dir() {
             copy_dir(&entry.path(), &target)?;
         } else {

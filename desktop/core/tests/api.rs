@@ -528,9 +528,12 @@ async fn plugins_are_listed_added_and_reloaded() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["count"], 4);
+    assert_eq!(body["count"], 5);
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    assert_eq!(names(&body), vec!["email", "hello", "list", "review"]);
+    assert_eq!(
+        names(&body),
+        vec!["artifact", "email", "hello", "list", "review"]
+    );
     assert!(
         body["plugins"]
             .as_array()
@@ -552,7 +555,7 @@ async fn plugins_are_listed_added_and_reloaded() {
 
     let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["count"], 4);
+    assert_eq!(body["count"], 5);
 
     let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/versions", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
