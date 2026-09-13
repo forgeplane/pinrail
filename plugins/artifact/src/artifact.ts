@@ -48,9 +48,14 @@ export function mount(host: HTMLElement, html: string): { root: ShadowRoot; body
   return { root, body };
 }
 
-/** `body` and `html` in the artifact's CSS become the stand-in element. */
+/**
+ * `:root`, `html` and `body` in the artifact's CSS become the stand-in
+ * element: custom properties declared there inherit down from it, as they
+ * would from the document element.
+ */
 function rescope(css: string): string {
   return css
+    .replace(/(^|[\s,}>~+]):root(?=[\s,{.#:[])/g, `$1.${BODY_CLASS}`)
     .replace(/(^|[\s,}>~+])html\s*,\s*body(?=[\s,{.#:[])/g, `$1.${BODY_CLASS}`)
     .replace(/(^|[\s,}>~+])body(?=[\s,{.#:[])/g, `$1.${BODY_CLASS}`)
     .replace(/(^|[\s,}>~+])html(?=[\s,{.#:[])/g, `$1.${BODY_CLASS}`);

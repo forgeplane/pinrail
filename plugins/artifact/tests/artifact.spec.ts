@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, mountPlugin } from "../../../wicket_sdk/testing/playwright";
+import { fixture, gateFrom, mountPlugin } from "../../../wicket_sdk/testing/playwright";
 
 const dir = path.resolve(__dirname, "..");
 const landing = () => fixture(path.join(dir, "fixtures", "landing.json"));
@@ -98,4 +98,18 @@ test("the viewport presets resize the artifact", async ({ page }) => {
   const f = plugin.frame;
   await f.getByRole("button", { name: /Phone/ }).click();
   await expect.poll(() => f.locator(".frame").evaluate((el) => el.getBoundingClientRect().width)).toBe(390);
+});
+
+test("custom properties on :root, html and body reach the artifact's elements", async ({ page }) => {
+  const html = `<!doctype html><html><head><style>
+    :root { --ink: rgb(10, 20, 30); --paper: rgb(250, 240, 230); }
+    html { --edge: rgb(1, 2, 3); }
+    body { background: var(--paper); }
+    .btn { color: var(--ink); border: 1px solid var(--edge); }
+  </style></head><body><a class="btn" id="go">Go</a></body></html>`;
+  const plugin = await mountPlugin(page, dir, { gate: gateFrom({ title: "tokens", payload: { html } }) });
+  const btn = plugin.frame.locator("[data-artifact] #go");
+  await expect(btn).toHaveCSS("color", "rgb(10, 20, 30)");
+  await expect(btn).toHaveCSS("border-top-color", "rgb(1, 2, 3)");
+  await expect(plugin.frame.locator("[data-artifact] .artifact-body")).toHaveCSS("background-color", "rgb(250, 240, 230)");
 });
