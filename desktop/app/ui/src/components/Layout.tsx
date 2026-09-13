@@ -255,7 +255,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <dd>
                 <kbd>Enter</kbd>
               </dd>
-              <dt>Search the inbox</dt>
+              <dt>Search the inbox or the history</dt>
               <dd>
                 <kbd>/</kbd>
               </dd>

@@ -1,6 +1,6 @@
 import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import type { Review } from "../api/types";
 import { OutcomeBadge } from "../components/Badges";
@@ -30,7 +30,10 @@ function matches(review: Review, q: string) {
 export function History() {
   const live = useLive();
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const [all, setAll] = useState<Review[]>([]);
+  const [focused, setFocused] = useState(0);
+  const search = useRef<HTMLInputElement>(null);
   const status = params.get("status") ?? "";
   const plugin = params.get("plugin") ?? "";
   const repo = params.get("repo") ?? "";
@@ -57,6 +60,37 @@ export function History() {
     [all, q, plugin, repo],
   );
   const plugins = useMemo(() => [...new Set(all.map((r) => r.plugin))].sort(), [all]);
+
+  useEffect(() => {
+    setFocused((f) => Math.min(f, Math.max(0, reviews.length - 1)));
+  }, [reviews.length]);
+
+  // the same keys as the inbox: j/k move, enter opens, / searches
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const el = event.target as HTMLElement | null;
+      const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
+      if (event.key === "/" && !typing) {
+        event.preventDefault();
+        search.current?.focus();
+        return;
+      }
+      if (typing) {
+        if (event.key === "Escape") el.blur();
+        return;
+      }
+      if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
+      if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
+      if (event.key === "Enter" && reviews[focused]) navigate(`/reviews/${reviews[focused].id}`, { state: { from: "history" } });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [reviews, focused, navigate]);
+
+  useEffect(() => {
+    document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [focused]);
   const repos = useMemo(() => [...new Set(all.map((r) => r.origin.repo).filter((r): r is string => !!r))].sort(), [all]);
 
   return (
@@ -68,6 +102,7 @@ export function History() {
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
               <input
+                ref={search}
                 type="search"
                 placeholder="Search history…"
                 aria-label="Search history"
@@ -138,8 +173,8 @@ export function History() {
               </tr>
             </thead>
             <tbody>
-              {reviews.map((r) => (
-                <tr key={r.id}>
+              {reviews.map((r, i) => (
+                <tr key={r.id} className={i === focused ? "is-focused" : ""} data-history-row={i} onMouseEnter={() => setFocused(i)} onClick={() => navigate(`/reviews/${r.id}`, { state: { from: "history" } })}>
                   <td>
                     <Link to={`/reviews/${r.id}`} state={{ from: "history" }} className="history-title">
                       {r.title}

@@ -353,7 +353,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .history-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .history-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); padding: 8px 12px; background: var(--bg-raised); }
 .history-table td { padding: 8px 12px; border-top: 1px solid var(--border); vertical-align: middle; }
-.history-table tr:hover td { background: var(--bg-hover); }
+.history-table tbody tr { cursor: pointer; }
+.history-table tr:hover td, .history-table tr.is-focused td { background: var(--bg-hover); }
+.history-table tr.is-focused td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
 .history-table small { display: block; color: var(--faint); font-size: 11.5px; }
 .history-title { color: var(--text); font-weight: 500; }
 
