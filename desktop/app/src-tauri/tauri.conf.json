@@ -13,14 +13,15 @@
     "windows": [
       {
         "title": "wicket",
-        "width": 960,
-        "height": 640,
-        "minWidth": 640,
-        "minHeight": 420
+        "width": 1040,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 480
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://127.0.0.1:*; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:*; frame-src http://127.0.0.1:*; form-action 'none'; base-uri 'none'",
+      "devCsp": "default-src 'self'; script-src 'self' http://localhost:5173; style-src 'self' 'unsafe-inline'; img-src 'self' data: http://127.0.0.1:*; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* ws://localhost:5173 http://localhost:5173; frame-src http://127.0.0.1:*; form-action 'none'; base-uri 'none'"
     }
   },
   "bundle": {
@@ -32,6 +33,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "../sdk/v1": "sdk/v1"
+    }
   }
 }

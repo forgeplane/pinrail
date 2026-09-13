@@ -4,21 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "npm run sdk:build && vite",
+    "build": "npm run sdk:build && tsc --noEmit && vite build",
+    "sdk:build": "node scripts/build-sdk.mjs",
     "tauri": "tauri",
     "test": "tsc --noEmit"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "react-router": "^7"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5",
+    "lucide-static": "1.45.0",
     "typescript": "^5",
     "vite": "^7"
   }

@@ -2,9 +2,10 @@
 
 mod headless;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::State;
+use tauri::{Manager, State};
 use wicket_core::Config;
 use wicket_core::api::{self, AppState};
 
@@ -29,18 +30,18 @@ pub fn run() {
 
     let config = Config::from_env();
     let url = config.url();
-    let state: Arc<AppState> = match AppState::open(config) {
-        Ok(state) => state,
-        Err(error) => {
-            eprintln!("wicket: cannot open the data directory: {error}");
-            std::process::exit(1);
-        }
-    };
 
     tauri::Builder::default()
         .manage(ServerUrl(url))
         .setup(move |app| {
-            let state = state.clone();
+            let mut config = config;
+            if config.sdk_dir.is_none() {
+                config.sdk_dir = sdk_dir(app);
+            }
+            let state: Arc<AppState> = AppState::open(config).map_err(|error| {
+                eprintln!("wicket: cannot open the data directory: {error}");
+                std::io::Error::other(error.to_string())
+            })?;
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = api::serve(state, std::future::pending()).await {
@@ -53,4 +54,19 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![server_url])
         .run(tauri::generate_context!())
         .expect("wicket could not start its window");
+}
+
+/// The SDK bundled with the app, or the one the UI build produced next to
+/// the sources during development.
+fn sdk_dir(app: &tauri::App) -> Option<PathBuf> {
+    let bundled = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|dir| dir.join("sdk").join("v1"))
+        .filter(|dir| dir.join("wicket-plugin.js").is_file());
+    bundled.or_else(|| {
+        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/v1");
+        dev.join("wicket-plugin.js").is_file().then_some(dev)
+    })
 }
