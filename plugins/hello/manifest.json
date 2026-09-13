@@ -2,6 +2,7 @@
   "name": "hello",
   "version": 1,
   "title": "Hello",
+  "icon": "hand",
   "payload_schema": {
     "type": "object",
     "required": ["message"],

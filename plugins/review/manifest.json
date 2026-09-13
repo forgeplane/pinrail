@@ -2,6 +2,7 @@
   "name": "review",
   "version": 1,
   "title": "Code review",
+  "icon": "git-pull-request",
   "payload_schema": { "$ref": "payload.schema.json" },
   "decision_schema": { "$ref": "decision.schema.json" },
   "entry": "index.html",
