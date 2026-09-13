@@ -40,7 +40,17 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* focus: a soft ring on the element's own shape, never an offset outline */
+:focus { outline: none; }
+:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); }
+input:focus, textarea:focus, .select-trigger:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+input:focus-visible, textarea:focus-visible, .select-trigger:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+input, textarea, .select-trigger { transition: border-color 120ms ease, box-shadow 120ms ease; }
 kbd { font: 11px var(--mono); background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
 h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .mono { font-family: var(--mono); }
