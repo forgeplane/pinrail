@@ -77,5 +77,10 @@ test("a refused request exits 2 with the violations on stderr", async () => {
 test("plugins lists the built-in and the registered sample plugins", async () => {
   const plugins = wicketJson(["plugins"]);
   expect(plugins.plugins.map((p: any) => p.name)).toEqual(["artifact", "email", "hello", "list", "review"]);
-  expect(plugins.plugins.every((p: any) => p.usable)).toBe(true);
+  // artifact is usable once built; unbuilt it is listed with the reason
+  for (const p of plugins.plugins) {
+    if (p.usable) continue;
+    expect(p.name).toBe("artifact");
+    expect(p.error).toContain("entry index.html not found");
+  }
 });

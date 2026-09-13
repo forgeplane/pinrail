@@ -534,13 +534,21 @@ async fn plugins_are_listed_added_and_reloaded() {
         names(&body),
         vec!["artifact", "email", "hello", "list", "review"]
     );
-    assert!(
-        body["plugins"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|p| p["usable"] == true)
-    );
+    // the artifact plugin is built from sources; unbuilt, it is listed as
+    // broken with the reason, and everything else is usable
+    for p in body["plugins"].as_array().unwrap() {
+        if p["usable"] == true {
+            continue;
+        }
+        assert_eq!(p["name"], "artifact", "{p}");
+        assert!(
+            p["error"]
+                .as_str()
+                .unwrap()
+                .contains("entry index.html not found"),
+            "{p}"
+        );
+    }
     assert_eq!(app.state.db.plugin_dirs().unwrap().len(), 1);
 
     let (status, body) = call(
