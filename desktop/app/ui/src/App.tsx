@@ -6,6 +6,7 @@ import { Inbox } from "./screens/Inbox";
 import { Plugins } from "./screens/Plugins";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { LiveProvider } from "./state/live";
+import { TopBarProvider } from "./state/topbar";
 
 function Shell() {
   useNativeRoutes();
@@ -26,7 +27,9 @@ export function App() {
   return (
     <HashRouter>
       <LiveProvider>
-        <Shell />
+        <TopBarProvider>
+          <Shell />
+        </TopBarProvider>
       </LiveProvider>
     </HashRouter>
   );

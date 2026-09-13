@@ -6,6 +6,7 @@ import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
+import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
 
@@ -34,6 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
+  const topbar = useTopBarContent();
   const [help, setHelp] = useState(false);
   const [palette, setPalette] = useState(false);
   const [sidebar, setSidebar] = useState(() => {
@@ -215,7 +217,8 @@ export function Layout({ children }: { children: ReactNode }) {
               </button>
             </Tooltip>
           </span>
-          <span className="topbar-title">{pageTitle(location.pathname)}</span>
+          {topbar?.crumb ?? <span className="topbar-title">{pageTitle(location.pathname)}</span>}
+          {topbar?.actions}
           <Tooltip label="Keyboard shortcuts" keys={["?"]}>
             <button type="button" className="bar-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
               <Keyboard size={16} />

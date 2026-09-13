@@ -1,0 +1,36 @@
+// What a screen puts in the top bar: a breadcrumb in place of the page
+// name, and actions at the right end. Cleared when the screen leaves.
+
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+
+export type TopBarContent = {
+  /** the breadcrumb, shown instead of the page title */
+  crumb?: ReactNode;
+  /** controls before the shell's own buttons */
+  actions?: ReactNode;
+};
+
+type TopBar = { content: TopBarContent | null; set: (content: TopBarContent | null) => void };
+
+const TopBarContext = createContext<TopBar | null>(null);
+
+export function TopBarProvider({ children }: { children: ReactNode }) {
+  const [content, set] = useState<TopBarContent | null>(null);
+  const value = useMemo(() => ({ content, set }), [content]);
+  return <TopBarContext.Provider value={value}>{children}</TopBarContext.Provider>;
+}
+
+export function useTopBarContent(): TopBarContent | null {
+  return useContext(TopBarContext)?.content ?? null;
+}
+
+/** Sets the top bar for as long as the calling screen is mounted. */
+export function useTopBar(content: TopBarContent | null) {
+  const bar = useContext(TopBarContext);
+  const set = bar?.set;
+  useEffect(() => {
+    set?.(content);
+    return () => set?.(null);
+    // the screen re-renders with fresh nodes; the bar follows them
+  }, [set, content]);
+}

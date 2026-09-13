@@ -121,6 +121,14 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 /* the rule is a shadow, not a border, so the bar's box matches the sidebar bar's */
 .app-topbar { gap: 10px; padding: 0 12px; box-shadow: 0 1px 0 var(--border); background: var(--bg-panel); position: relative; z-index: 1; }
 .topbar-title { font-size: 12px; color: var(--dim); margin-right: auto; margin-left: 6px; }
+/* a screen's breadcrumb in the bar: where it came from, its title, a link out */
+.crumb { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1; margin-left: 6px; font-size: 12px; }
+.crumb-root { color: var(--dim); }
+.crumb-root:hover { color: var(--text); text-decoration: none; }
+.crumb-sep { color: var(--faint); }
+.crumb-title { color: var(--text); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crumb-link { width: 22px; height: 22px; color: var(--accent); }
+.crumb-link:hover { text-decoration: none; }
 .chrome-button {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px;
@@ -130,6 +138,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .chrome-button svg { flex: none; color: var(--dim); }
 .app-main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
 .app-main > * { flex: 1 0 auto; padding: 20px 24px 40px; width: 100%; }
+.app-main > .review-page { padding-top: 12px; }
 .app-main > .review-page { flex: 1 1 auto; min-height: 0; }
 
 /* tooltips: a raised panel in the theme, the shortcut as keys */
@@ -290,12 +299,14 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 
 /* review page */
 .review-page { display: flex; flex-direction: column; gap: 14px; }
-.back-link { font-size: 12px; color: var(--dim); align-self: flex-start; }
-.review-head { display: grid; gap: 6px; }
-.badges { display: flex; gap: 6px; align-items: center; }
-.review-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dim); }
-.review-rounds { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--dim); }
-.round-link { margin-left: 6px; }
+/* one strip of what the plugin does not show; the rounds at its end */
+.review-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12px; color: var(--dim); }
+.strip-spacer { flex: 1; }
+.rounds { display: inline-flex; align-items: center; gap: 4px; }
+.rounds-cap { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin-right: 2px; }
+.round-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; font: 11px var(--mono); color: var(--dim); }
+.round-pill:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
+.round-pill.is-current { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 .decision-box { border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 5%, transparent); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; }
 .decision-box .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
 .decision-box p { white-space: pre-wrap; margin: 2px 0 0; }
@@ -305,7 +316,6 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .plugin-frame-wrap { position: relative; flex: 1 1 auto; min-height: 240px; }
 /* the view can take the whole window under a bar of its own, which stays a
    drag handle and keeps the restore button; Esc brings it back */
-.head-maximize { margin-left: auto; }
 .plugin-frame-wrap.is-maximized { position: fixed; inset: 0; z-index: 30; min-height: 0; display: flex; flex-direction: column; background: var(--bg); }
 .plugin-frame-wrap.is-maximized .plugin-frame { flex: 1; height: auto !important; min-height: 0; border: 0; border-radius: 0; }
 .plugin-frame-wrap.is-maximized .plugin-loading { top: 38px; border: 0; border-radius: 0; }

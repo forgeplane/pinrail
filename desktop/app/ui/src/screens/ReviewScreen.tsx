@@ -1,15 +1,16 @@
-import { ArrowLeft, Bot, Clock, Maximize2, Minimize2, Send } from "lucide-react";
+import { Bot, Clock, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
-import { OriginLine, PluginBadge, StatusBadge } from "../components/Badges";
+import { PluginBadge, StatusBadge } from "../components/Badges";
 import { Tooltip } from "../components/Tooltip";
 import { MOD, hasMod } from "../lib/keys";
 import { overlayTitleBar } from "../lib/native";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
+import { useTopBar } from "../state/topbar";
 
 const NOTE_PREFIX = "wicket:draft:";
 
@@ -20,7 +21,7 @@ export function ReviewScreen() {
   const location = useLocation();
   // the way back is where the review was opened from
   const fromHistory = (location.state as { from?: string } | null)?.from === "history";
-  const back = fromHistory ? { to: "/history", label: "Back to history" } : { to: "/", label: "Back to inbox" };
+  const back = fromHistory ? { to: "/history", label: "History" } : { to: "/", label: "Inbox" };
   const [review, setReview] = useState<Review | null>(null);
   const [rounds, setRounds] = useState<Review[]>([]);
   const [plugin, setPlugin] = useState<Plugin | null | undefined>(undefined);
@@ -88,11 +89,6 @@ export function ReviewScreen() {
     return rounds.find((r) => r.id === review.revises) ?? null;
   }, [review, rounds]);
   const revisedBy = useMemo(() => rounds.find((r) => r.revises === review?.id) ?? null, [rounds, review]);
-  const earlier = useMemo(() => {
-    if (!review) return [];
-    const at = rounds.findIndex((r) => r.id === review.id);
-    return at > 0 ? rounds.slice(0, at).reverse() : [];
-  }, [rounds, review]);
 
   const readonly = !review || review.status !== "pending";
 
@@ -164,6 +160,50 @@ export function ReviewScreen() {
   // the view leaves with the review
   useEffect(() => setMaximized(false), [id]);
 
+  // the bar: where this came from, the title, its origin link; status and
+  // maximize at the right
+  const originUrl = review?.origin.url ?? null;
+  const crumb = useMemo(
+    () =>
+      review ? (
+        <span className="crumb">
+          <Link to={back.to} state={location.state} className="crumb-root">
+            {back.label}
+          </Link>
+          <span className="crumb-sep">›</span>
+          <span className="crumb-title" title={review.title}>
+            {review.title}
+          </span>
+          {originUrl ? (
+            <Tooltip label={`Open ${review.origin.ref ?? "the origin"} in the browser`}>
+              <a href={originUrl} target="_blank" rel="noreferrer" className="bar-button crumb-link" aria-label="Open the origin">
+                <ExternalLink size={13} />
+              </a>
+            </Tooltip>
+          ) : null}
+        </span>
+      ) : null,
+    [review?.title, review?.origin.ref, originUrl, back.to, back.label, location.state], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const actions = useMemo(
+    () =>
+      review ? (
+        <>
+          <StatusBadge status={review.status} />
+          {plugin ? (
+            <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
+              <button type="button" className="bar-button" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>
+                <Maximize2 size={15} />
+              </button>
+            </Tooltip>
+          ) : null}
+        </>
+      ) : null,
+    [review?.status, plugin], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const topbar = useMemo(() => (review ? { crumb, actions } : null), [review, crumb, actions]);
+  useTopBar(topbar);
+
   const onNote = (value: string) => {
     setNote(value);
     try {
@@ -176,68 +216,51 @@ export function ReviewScreen() {
   if (error) {
     return (
       <div className="review-page">
-        <Link to={back.to} className="back-link with-icon">
-          <ArrowLeft size={14} /> {back.label}
-        </Link>
         <p className="notice notice-danger">{error}</p>
       </div>
     );
   }
   if (!review) return <div className="review-page" />;
 
+  const origin = review.origin;
+  const originText = [origin.repo, origin.workflow].filter(Boolean).join(" / ");
+
   return (
     <div className="review-page">
-      <Link to={back.to} className="back-link with-icon">
-        <ArrowLeft size={14} /> {back.label}
-      </Link>
-      <header className="review-head">
-        <div className="badges">
-          <StatusBadge status={review.status} />
-          <PluginBadge name={review.plugin} version={review.plugin_version} />
-          {plugin ? (
-            <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
-              <button type="button" className="bar-button head-maximize" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>
-                <Maximize2 size={15} />
-              </button>
-            </Tooltip>
-          ) : null}
-        </div>
-        <h1>{review.title}</h1>
-        <div className="review-meta">
-          <span className="mono faint">{review.id}</span>
-          <OriginLine origin={review.origin} />
-          {review.requested_by ? (
-            <span className="with-icon">
-              <Bot size={13} /> {review.requested_by}
-            </span>
-          ) : null}
-          <span title={stamp(review.created_at)}>submitted {age(review.created_at)} ago</span>
-          {review.expires_at ? (
-            <span className="with-icon" title={stamp(review.expires_at)}>
-              <Clock size={13} /> expires {stamp(review.expires_at)}
-            </span>
-          ) : null}
-        </div>
-        {earlier.length > 0 || revisedBy ? (
-          <div className="review-rounds">
-            {revisedBy ? (
-              <span>
-                revised by <Link to={`/reviews/${revisedBy.id}`}>{revisedBy.title}</Link>
-              </span>
-            ) : null}
-            {earlier.length > 0 ? (
-              <span>
-                previous rounds:
-                {earlier.map((r) => (
-                  <Link key={r.id} to={`/reviews/${r.id}`} className="round-link">
-                    {r.title}
-                  </Link>
-                ))}
-              </span>
-            ) : null}
-          </div>
+      <div className="review-strip">
+        <PluginBadge name={review.plugin} version={review.plugin_version} />
+        {originText ? (
+          <span>
+            {originText}
+            {origin.ref ? <span className="mono faint"> #{origin.ref}</span> : null}
+          </span>
         ) : null}
-      </header>
+        {review.requested_by ? (
+          <span className="with-icon">
+            <Bot size={13} /> {review.requested_by}
+          </span>
+        ) : null}
+        <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
+        {review.expires_at ? (
+          <span className="with-icon" title={stamp(review.expires_at)}>
+            <Clock size={13} /> expires {stamp(review.expires_at)}
+          </span>
+        ) : null}
+        <span className="mono faint">{review.id}</span>
+        <span className="strip-spacer" />
+        {rounds.length > 1 ? (
+          <span className="rounds" role="navigation" aria-label="Rounds">
+            <span className="rounds-cap">rounds</span>
+            {rounds.map((r, i) => (
+              <Tooltip key={r.id} label={r.title} side="bottom">
+                <Link to={`/reviews/${r.id}`} state={location.state} className={`round-pill ${r.id === review.id ? "is-current" : ""}`} aria-current={r.id === review.id ? "page" : undefined}>
+                  {i + 1}
+                </Link>
+              </Tooltip>
+            ))}
+          </span>
+        ) : null}
+      </div>
 
       {flash ? (
         <p className="notice" onAnimationEnd={() => setFlash(null)}>
