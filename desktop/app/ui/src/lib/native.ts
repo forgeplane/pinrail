@@ -7,6 +7,7 @@ import { useNavigate } from "react-router";
 import { inTauri } from "../api/client";
 
 const OPEN_EVENT = "wicket:open";
+const COMMAND_EVENT = "wicket:command";
 
 export function useNativeRoutes() {
   const navigate = useNavigate();
@@ -19,7 +20,16 @@ export function useNativeRoutes() {
       const go = (route: string) => {
         if (route) navigate(route);
       };
-      const stop = await listen<string>(OPEN_EVENT, (event) => go(event.payload));
+      const stopOpen = await listen<string>(OPEN_EVENT, (event) => go(event.payload));
+      // menu accelerators arrive as commands and are re-issued as a DOM
+      // event, so the shell handles them like its own shortcuts
+      const stopCommand = await listen<string>(COMMAND_EVENT, (event) => {
+        window.dispatchEvent(new CustomEvent(COMMAND_EVENT, { detail: event.payload }));
+      });
+      const stop = () => {
+        stopOpen();
+        stopCommand();
+      };
       if (cancelled) {
         stop();
         return;

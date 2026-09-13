@@ -7,7 +7,8 @@ mod native;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::{AppHandle, Manager, RunEvent, State, WindowEvent};
+use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::ShortcutState;
@@ -18,6 +19,9 @@ use native::Native;
 
 /// Opens the oldest pending review, or the inbox, from anywhere.
 const SHORTCUT: &str = "alt+shift+w";
+
+/// The shell listens for this; the payload names the command.
+const COMMAND_EVENT: &str = "wicket:command";
 
 /// Where the shell finds the server the app started.
 struct ServerUrl(String);
@@ -104,6 +108,7 @@ pub fn run() {
                 }
             });
             app.manage(Native::new(state));
+            app.set_menu(app_menu(app.handle())?)?;
             native::build_tray(app.handle())?;
             native::watch(app.handle().clone());
 
@@ -119,6 +124,12 @@ pub fn run() {
                 open_urls(app.handle(), urls.iter().map(|url| url.as_str()));
             }
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            let id = event.id().as_ref();
+            if matches!(id, "toggle-sidebar" | "back" | "forward") {
+                let _ = app.emit(COMMAND_EVENT, id.to_string());
+            }
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
@@ -141,6 +152,36 @@ pub fn run() {
             native::open(app, "");
         }
     });
+}
+
+/// The standard menus plus a Navigate menu, whose accelerators reach the
+/// shell even while a plugin view has the keyboard.
+fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let menu = Menu::default(app)?;
+    let navigate = Submenu::with_items(
+        app,
+        "Navigate",
+        true,
+        &[
+            &MenuItem::with_id(
+                app,
+                "toggle-sidebar",
+                "Toggle Sidebar",
+                true,
+                Some("CmdOrCtrl+B"),
+            )?,
+            &MenuItem::with_id(app, "back", "Back", true, Some("CmdOrCtrl+["))?,
+            &MenuItem::with_id(app, "forward", "Forward", true, Some("CmdOrCtrl+]"))?,
+        ],
+    )?;
+    // before the Window menu, where macOS expects app-specific menus
+    let at = menu
+        .items()?
+        .iter()
+        .position(|item| item.as_submenu().and_then(|s| s.text().ok()).as_deref() == Some("Window"))
+        .unwrap_or(0);
+    menu.insert(&navigate, at)?;
+    Ok(menu)
 }
 
 /// Opens the first URL that leads somewhere in the shell; with none, just

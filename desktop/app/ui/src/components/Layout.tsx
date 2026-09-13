@@ -81,8 +81,25 @@ export function Layout({ children }: { children: ReactNode }) {
       if (event.key === "?") setHelp((h) => !h);
       if (event.key === "t" || event.key === "T") toggleTheme();
     };
+    const onCommand = (event: Event) => {
+      switch ((event as CustomEvent<string>).detail) {
+        case "toggle-sidebar":
+          toggleSidebar();
+          break;
+        case "back":
+          navigate(-1);
+          break;
+        case "forward":
+          navigate(1);
+          break;
+      }
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("wicket:command", onCommand);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("wicket:command", onCommand);
+    };
   }, [navigate]);
 
   return (
