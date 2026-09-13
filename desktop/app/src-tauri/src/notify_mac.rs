@@ -65,9 +65,12 @@ define_class!(
     }
 );
 
-/// True inside an app bundle, where the framework works.
+/// True inside an app bundle, where the framework works. A bundle identifier
+/// alone is not enough: the development binary carries one in an embedded
+/// Info.plist, and the framework throws for it all the same.
 pub fn available() -> bool {
-    NSBundle::mainBundle().bundleIdentifier().is_some()
+    let bundle = NSBundle::mainBundle();
+    bundle.bundleIdentifier().is_some() && bundle.bundlePath().to_string().ends_with(".app")
 }
 
 /// Asks for permission and takes the delegate. Call once, on the main thread.
