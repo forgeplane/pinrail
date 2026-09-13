@@ -81,6 +81,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 }
 .bar-button:hover { background: var(--bg-hover); color: var(--text); }
 .topbar-history { display: inline-flex; gap: 2px; }
+/* the app has its name in the title bar and the Dock; the brand is for a browser */
 .app-brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); padding: 4px 8px; }
 .app-brand:hover { text-decoration: none; }
 .wicket-mark {

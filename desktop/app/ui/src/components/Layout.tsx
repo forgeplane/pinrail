@@ -109,10 +109,12 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="sidebar-bar" data-tauri-drag-region>
             {sidebarButton}
           </div>
-          <NavLink to="/" className="app-brand" aria-label="Wicket home">
-            <span className="wicket-mark" aria-hidden="true" />
-            <span>Wicket</span>
-          </NavLink>
+          {inTauri() ? null : (
+            <NavLink to="/" className="app-brand" aria-label="Wicket home">
+              <span className="wicket-mark" aria-hidden="true" />
+              <span>Wicket</span>
+            </NavLink>
+          )}
           <nav className="app-nav" aria-label="Main">
             {NAV.map(({ key, label, to, Icon }) => (
               <NavLink key={key} to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
