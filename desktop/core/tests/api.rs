@@ -599,7 +599,7 @@ async fn bundles_are_served_from_snapshots_with_the_sandbox_csp() {
     assert!(csp.starts_with("default-src 'none'; script-src 'unsafe-inline' http://127.0.0.1:4747/plugins/list/1/ http://127.0.0.1:4747/sdk/"), "{csp}");
     assert!(
         csp.ends_with(
-            "connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'"
+            "connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self' tauri://localhost http://tauri.localhost http://localhost:5173"
         ),
         "{csp}"
     );

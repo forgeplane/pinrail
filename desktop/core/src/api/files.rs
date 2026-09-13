@@ -59,7 +59,10 @@ async fn bundle(
         "connect-src 'none'".to_string(),
         "form-action 'none'".to_string(),
         "base-uri 'none'".to_string(),
-        "frame-ancestors 'self'".to_string(),
+        format!(
+            "frame-ancestors 'self' {}",
+            super::shell_origins().join(" ")
+        ),
     ]
     .join("; ");
 
@@ -78,6 +81,12 @@ async fn bundle(
             (
                 header::X_CONTENT_TYPE_OPTIONS,
                 HeaderValue::from_static("nosniff"),
+            ),
+            // A sandboxed view has an opaque origin, and CSS masks (the icon
+            // set) and fonts load only from a server that says so.
+            (
+                header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                HeaderValue::from_static("*"),
             ),
         ],
         body,
@@ -106,6 +115,12 @@ async fn sdk(State(state): State<Arc<AppState>>, Path(path): Path<String>) -> Re
             (
                 header::X_CONTENT_TYPE_OPTIONS,
                 HeaderValue::from_static("nosniff"),
+            ),
+            // A sandboxed view has an opaque origin, and CSS masks (the icon
+            // set) and fonts load only from a server that says so.
+            (
+                header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                HeaderValue::from_static("*"),
             ),
         ],
         body,

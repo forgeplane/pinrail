@@ -124,18 +124,23 @@ pub async fn serve(
     result
 }
 
-/// The shell runs on the desktop app's own origin and calls this loopback
-/// API from there, so those origins are allowed; in debug builds the Vite dev
-/// server is too. Nothing else is: a page in the user's browser cannot read
-/// the API.
-fn cors() -> CorsLayer {
-    let mut origins = vec![
-        "tauri://localhost".parse().unwrap(),
-        "http://tauri.localhost".parse().unwrap(),
-    ];
+/// The origins the shell runs on: the desktop app's own origin, plus the
+/// Vite dev server in debug builds. The API answers cross-origin requests
+/// from these only, and plugin bundles let only these frame them. Nothing
+/// else can read the API or embed a view.
+pub(crate) fn shell_origins() -> Vec<&'static str> {
+    let mut origins = vec!["tauri://localhost", "http://tauri.localhost"];
     if cfg!(debug_assertions) {
-        origins.push("http://localhost:5173".parse().unwrap());
+        origins.push("http://localhost:5173");
     }
+    origins
+}
+
+fn cors() -> CorsLayer {
+    let origins = shell_origins()
+        .into_iter()
+        .map(|origin| origin.parse().unwrap())
+        .collect::<Vec<_>>();
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
         .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
