@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HTML artifact decision",
+  "description": "The verdict, and every comment anchored to an element of the artifact by a CSS selector the agent can resolve against the same document.",
+  "type": "object",
+  "required": ["verdict", "comments"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": { "type": "string", "enum": ["approve", "revise"] },
+    "comments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "selector", "tag", "kind", "text"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "selector": { "type": "string", "minLength": 1, "description": "A CSS selector for the element, relative to <body>, unique in the document as reviewed" },
+          "tag": { "type": "string", "description": "The element's tag name" },
+          "kind": { "type": "string", "enum": ["change", "question", "praise"] },
+          "text": { "type": "string", "minLength": 1, "maxLength": 4000 },
+          "snippet": { "type": "string", "description": "The element's text, shortened, to find it again if the selector no longer matches" },
+          "html": { "type": "string", "description": "The start of the element's markup as reviewed" }
+        }
+      }
+    }
+  }
+}

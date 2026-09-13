@@ -1,0 +1,4 @@
+node_modules/
+# the build: npm run build puts index.html and assets/ here
+/index.html
+/assets/
