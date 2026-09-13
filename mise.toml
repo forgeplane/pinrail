@@ -28,6 +28,10 @@ description = "Plugin SDK unit tests"
 dir = "{{config_root}}/wicket_sdk"
 run = "npm test"
 
+[tasks."dev:plugin"]
+description = "One plugin in a browser shell, without the app: mise run dev:plugin plugins/artifact"
+run = "node {{config_root}}/wicket_sdk/testing/serve.mjs {{arg(name='plugin')}} --open"
+
 [tasks."test:plugins"]
 description = "Each shipped plugin alone, under the SDK's fake shell"
 dir = "{{config_root}}/e2e"

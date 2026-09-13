@@ -165,6 +165,11 @@ Ship `fixtures/*.json` (a partial gate: `title`, `payload`, optionally a
 fake shell; `mise run test:plugins` runs them for every plugin in this folder
 and for the built-in `list`. See any shipped plugin for the pattern.
 
+While building one, `mise run dev:plugin <directory>` (or `node
+wicket_sdk/testing/serve.mjs <directory> --open`) opens the view in a
+browser under a shell of its own: pick a fixture, collect a decision, read
+what the view posts, and see every file change reloaded. No app needed.
+
 ## Protocol
 
 All messages are `{ "wicket": 1, "type": "...", ...fields }` over

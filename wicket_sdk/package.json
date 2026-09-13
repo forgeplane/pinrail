@@ -5,5 +5,8 @@
   "description": "The plugin side of the wicket protocol, served by the app at /sdk/v1/wicket-plugin.js",
   "scripts": {
     "test": "node --test"
+  },
+  "bin": {
+    "wicket-plugin-shell": "testing/serve.mjs"
   }
 }

@@ -112,6 +112,25 @@ the document.
 npm test            # Node's test runner, against a fake shell environment
 ```
 
+## Running a plugin in the browser
+
+`testing/serve.mjs` is a shell for one plugin, without the app: point it at
+a plugin directory and it serves the view under the app's CSP with the SDK
+beside it, and opens a page that plays the shell.
+
+```sh
+node wicket_sdk/testing/serve.mjs ./plugins/artifact --open   # or: mise run dev:plugin plugins/artifact
+```
+
+The page lists the plugin's `fixtures/*.json` to initialise the view with,
+lets a decided fixture stand in as the previous round, toggles read-only and
+the theme, sends `collect` the way the app's hand-over button does, and
+answers a submit with `violations` you type or with `submitted`. Everything
+the view posts — `ready`, `resize`, `draft`, `status`, `submit` — appears in
+a log beside it. A change to any file in the plugin reloads the view, with
+the last draft handed back on the next `init`, so it pairs with a build in
+watch mode. Node is the only requirement.
+
 ## Testing a plugin in isolation
 
 `testing/playwright.ts` mounts a plugin directory in a sandboxed iframe under
