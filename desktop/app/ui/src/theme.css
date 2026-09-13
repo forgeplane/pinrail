@@ -51,6 +51,8 @@ input:focus-visible, textarea:focus-visible, .select-trigger:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 input, textarea, .select-trigger { transition: border-color 120ms ease, box-shadow 120ms ease; }
+/* containers that take focus for the keyboard, never a ring */
+.app-main:focus, .app-main:focus-visible, .app-frame:focus, .app-frame:focus-visible { box-shadow: none; outline: none; }
 kbd { font: 11px var(--mono); background: var(--bg-raised); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
 h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .mono { font-family: var(--mono); }
