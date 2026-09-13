@@ -7,11 +7,17 @@ mod native;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tauri::{Manager, RunEvent, State, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, State, WindowEvent};
+use tauri_plugin_autostart::ManagerExt as _;
+use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_global_shortcut::ShortcutState;
 use wicket_core::Config;
 use wicket_core::api::{self, AppState};
 
 use native::Native;
+
+/// Opens the oldest pending review, or the inbox, from anywhere.
+const SHORTCUT: &str = "alt+shift+w";
 
 /// Where the shell finds the server the app started.
 struct ServerUrl(String);
@@ -25,6 +31,22 @@ fn server_url(url: State<'_, ServerUrl>) -> String {
 #[tauri::command]
 fn take_pending_route(native: State<'_, Native>) -> Option<String> {
     native.take_pending_route()
+}
+
+#[tauri::command]
+fn autostart_enabled(app: AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
+}
+
+#[tauri::command]
+fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let launch = app.autolaunch();
+    if enabled {
+        launch.enable()
+    } else {
+        launch.disable()
+    }
+    .map_err(|error| error.to_string())
 }
 
 pub fn run() {
@@ -42,7 +64,27 @@ pub fn run() {
     let url = config.url();
 
     let app = tauri::Builder::default()
+        // A second launch, with or without a URL, lands in the first one.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            open_urls(app, args.iter().map(String::as_str));
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_shortcuts([SHORTCUT])
+                .expect("the default shortcut parses")
+                .with_handler(|app, _shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        native::open_next(app);
+                    }
+                })
+                .build(),
+        )
         .manage(ServerUrl(url))
         .setup(move |app| {
             let mut config = config;
@@ -64,6 +106,18 @@ pub fn run() {
             app.manage(Native::new(state));
             native::build_tray(app.handle())?;
             native::watch(app.handle().clone());
+
+            // wicket:// links; a packaged app registers the scheme through
+            // its bundle, a development build registers it here.
+            #[cfg(any(windows, target_os = "linux"))]
+            app.deep_link().register_all()?;
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                open_urls(&handle, event.urls().iter().map(|url| url.as_str()));
+            });
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                open_urls(app.handle(), urls.iter().map(|url| url.as_str()));
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -72,7 +126,12 @@ pub fn run() {
                 let _ = window.hide();
             }
         })
-        .invoke_handler(tauri::generate_handler![server_url, take_pending_route])
+        .invoke_handler(tauri::generate_handler![
+            server_url,
+            take_pending_route,
+            autostart_enabled,
+            set_autostart
+        ])
         .build(tauri::generate_context!())
         .expect("wicket could not start its window");
 
@@ -82,6 +141,13 @@ pub fn run() {
             native::open(app, "");
         }
     });
+}
+
+/// Opens the first URL that leads somewhere in the shell; with none, just
+/// brings the window forward.
+fn open_urls<'a>(app: &AppHandle, urls: impl Iterator<Item = &'a str>) {
+    let route = urls.filter_map(native::route_for_url).next();
+    native::open(app, route.as_deref().unwrap_or(""));
 }
 
 /// The SDK bundled with the app, or the one the UI build produced next to

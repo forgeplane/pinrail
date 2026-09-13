@@ -1,6 +1,6 @@
 //! What the app does beyond the window: the menu-bar tray with the pending
 //! reviews, a notification when one arrives, and the routes the shell is
-//! sent to from the tray and the Dock.
+//! sent to from the tray, the shortcut, a deep link or a second launch.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -68,6 +68,25 @@ pub fn open_next(app: &AppHandle) {
     match oldest {
         Some(review) => open_review(app, &review.id),
         None => open(app, "/"),
+    }
+}
+
+/// Where `wicket://reviews/<id>` and the HTTP URL the CLI prints lead.
+pub fn route_for_url(url: &str) -> Option<String> {
+    let (scheme, rest) = url.split_once("://")?;
+    let path = if scheme == "wicket" {
+        rest
+    } else {
+        rest.split_once('/').map(|(_, path)| path).unwrap_or("")
+    };
+    let path = path.split(['?', '#']).next().unwrap_or("");
+    let mut parts = path.trim_matches('/').split('/');
+    match (parts.next(), parts.next()) {
+        (Some("reviews"), Some(id)) if !id.is_empty() => Some(format!("/reviews/{id}")),
+        (Some("") | Some("inbox") | None, _) => Some("/".to_string()),
+        (Some("history"), _) => Some("/history".to_string()),
+        (Some("plugins"), _) => Some("/plugins".to_string()),
+        _ => None,
     }
 }
 
@@ -312,6 +331,27 @@ fn notify(app: &AppHandle, notice: &Notice) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn routes_for_urls() {
+        assert_eq!(
+            route_for_url("wicket://reviews/r_01"),
+            Some("/reviews/r_01".to_string())
+        );
+        assert_eq!(
+            route_for_url("http://127.0.0.1:4747/reviews/r_01?x=1"),
+            Some("/reviews/r_01".to_string())
+        );
+        assert_eq!(route_for_url("wicket://"), Some("/".to_string()));
+        assert_eq!(route_for_url("wicket://inbox"), Some("/".to_string()));
+        assert_eq!(
+            route_for_url("wicket://history"),
+            Some("/history".to_string())
+        );
+        assert_eq!(route_for_url("wicket://reviews/"), None);
+        assert_eq!(route_for_url("wicket://settings"), None);
+        assert_eq!(route_for_url("not a url"), None);
+    }
 
     #[test]
     fn summary_counts_read_the_pairs() {
