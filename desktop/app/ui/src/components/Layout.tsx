@@ -284,6 +284,10 @@ export function Layout({ children }: { children: ReactNode }) {
               <dd>
                 <kbd>{MOD}</kbd> <kbd>Enter</kbd>
               </dd>
+              <dt>Maximize / restore the view</dt>
+              <dd>
+                <kbd>{MOD}</kbd> <kbd>⇧</kbd> <kbd>M</kbd>
+              </dd>
               <dt>Previous / next round</dt>
               <dd>
                 <kbd>[</kbd> <kbd>]</kbd>

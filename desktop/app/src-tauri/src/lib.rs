@@ -141,6 +141,7 @@ pub fn run() {
                     | "go-history"
                     | "go-plugins"
                     | "toggle-sidebar"
+                    | "maximize-view"
                     | "back"
                     | "forward"
             ) {
@@ -197,6 +198,13 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 Some("CmdOrCtrl+Shift+P"),
             )?,
             &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(
+                app,
+                "maximize-view",
+                "Maximize View",
+                true,
+                Some("CmdOrCtrl+Shift+M"),
+            )?,
             &MenuItem::with_id(
                 app,
                 "toggle-sidebar",

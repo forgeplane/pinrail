@@ -6,7 +6,7 @@ import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { OriginLine, PluginBadge, StatusBadge } from "../components/Badges";
 import { Tooltip } from "../components/Tooltip";
-import { MOD } from "../lib/keys";
+import { MOD, hasMod } from "../lib/keys";
 import { overlayTitleBar } from "../lib/native";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
@@ -136,14 +136,26 @@ export function ReviewScreen() {
         setMaximized(false);
         return;
       }
+      if (hasMod(event) && event.shiftKey && !event.altKey && (event.key === "m" || event.key === "M")) {
+        event.preventDefault();
+        if (plugin) setMaximized((m) => !m);
+        return;
+      }
       const el = event.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
       if (event.key === "[" && previous) navigate(`/reviews/${previous.id}`);
       if (event.key === "]" && revisedBy) navigate(`/reviews/${revisedBy.id}`);
     };
+    const onCommand = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === "maximize-view" && plugin) setMaximized((m) => !m);
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [previous, revisedBy, navigate, maximized]);
+    window.addEventListener("wicket:command", onCommand);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("wicket:command", onCommand);
+    };
+  }, [previous, revisedBy, navigate, maximized, plugin]);
 
   // the view leaves with the review
   useEffect(() => setMaximized(false), [id]);
@@ -179,7 +191,7 @@ export function ReviewScreen() {
           <StatusBadge status={review.status} />
           <PluginBadge name={review.plugin} version={review.plugin_version} />
           {plugin ? (
-            <Tooltip label="Maximize the view" side="bottom">
+            <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
               <button type="button" className="bar-button head-maximize" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>
                 <Maximize2 size={15} />
               </button>
@@ -264,7 +276,7 @@ export function ReviewScreen() {
           {maximized ? (
             <div className="frame-bar" data-tauri-drag-region>
               <span className="frame-bar-title">{review.title}</span>
-              <Tooltip label="Restore the view" keys={["Esc"]} side="bottom">
+              <Tooltip label="Restore the view" keys={[MOD, "⇧", "M"]} side="bottom">
                 <button type="button" className="bar-button" onClick={() => setMaximized(false)} aria-label="Restore the view" data-restore>
                   <Minimize2 size={15} />
                 </button>
