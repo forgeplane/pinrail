@@ -368,6 +368,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 
 /* settings: a rail, a page of groups, rows that end in a control */
 .settings { display: grid; grid-template-columns: 180px 1fr; width: min(760px, calc(100vw - 32px)); height: min(560px, calc(100vh - 48px)); background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: 0 24px 60px rgb(0 0 0 / 0.45); overflow: hidden; }
+/* dialogs are chrome, not a page: nothing to drag-select, except what is typed or worth copying */
+.settings, .app-dialog, .palette { user-select: none; -webkit-user-select: none; cursor: default; }
+.settings input, .settings textarea, .settings .mono, .palette input { user-select: text; -webkit-user-select: text; cursor: text; }
 .settings-rail { display: flex; flex-direction: column; gap: 2px; padding: 14px 10px; background: var(--sidebar); border-right: 1px solid var(--border); }
 .settings-rail-title { font-size: 12px; font-weight: 600; color: var(--faint); padding: 0 10px 10px; letter-spacing: 0.02em; }
 .settings-rail button { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border: 0; border-radius: 6px; background: none; color: var(--dim); font-size: 13px; text-align: left; }
