@@ -153,7 +153,7 @@ test("the toolbar carries icons, and the control with no words carries its name"
   const header = plugin.frame.locator("header").first();
 
   const icons = await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon));
-  expect(icons).toEqual(["panel-left-close", "rows-3", "columns-2", "fold-vertical", "list-check", "list-x"]);
+  expect(icons).toEqual(["panel-left-close", "rows-3", "columns-2", "message-square", "fold-vertical", "list-check", "list-x"]);
 
   // Beside a word, an icon is decoration and the word is the name.
   await expect(header.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
@@ -240,5 +240,27 @@ test("a declared key forwarded by the shell works like one typed in the frame", 
   await expect(f.locator("#card-18")).toContainText("ACCEPTED");
   await plugin.sendKey("v");
   await expect(f.locator(".diff-row.split").first()).toBeVisible();
+});
+
+test("the brief is a strip under the header; details drop down; the comments sit after the last file", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const f = plugin.frame;
+  const brief = f.locator("#brief");
+  await expect(brief).toContainText("Dedups tickets before the bulk insert");
+  await expect(brief).not.toContainText("REVIEW CONCERNS");
+  await brief.getByRole("button", { name: "Details" }).click();
+  await expect(brief).toContainText("REVIEW CONCERNS");
+  await expect(brief).toContainText("Ordering of the dedup");
+  await brief.getByRole("button", { name: "Hide details" }).click();
+  await expect(brief).not.toContainText("REVIEW CONCERNS");
+  // the comments come after the files, and the header's button lands on them
+  const general = f.locator("#general-comments");
+  const last = f.locator("[data-filesec]").last();
+  expect((await general.boundingBox())!.y).toBeGreaterThan((await last.boundingBox())!.y);
+  await f.locator('[data-act="jump-general"]').click();
+  await expect(f.getByLabel("general comment")).toBeFocused();
+  await f.getByLabel("general comment").fill("Overall fine.");
+  await f.getByLabel("general comment").press("Enter");
+  await expect(f.locator('[data-act="jump-general"]')).toContainText("1");
 });
 

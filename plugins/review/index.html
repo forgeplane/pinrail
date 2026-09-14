@@ -122,7 +122,7 @@ let PARSED = [];       // per-file parsed rows/splitRows/add/del
 let SEGMENTS = {};     // proposal id -> md segments
 const S = {
   decisions: {}, focusedId: null, diffMode: "inline",
-  folded: {}, treeOpen: true, findingsOnly: false, descOpen: false,
+  folded: {}, treeOpen: true, findingsOnly: false, briefOpen: false,
   composer: null, generalDraft: "", generalComments: [], manualComments: [],
   confirmBulk: null, showSubmit: false, done: false, errors: null,
   collapsedDirs: {}, activeFile: null, noteOpen: {}, expanded: {},
@@ -728,8 +728,29 @@ function treeHtml() {
 }
 
 /* ---------- render: summary, modals, header ---------- */
-function summaryHtml() {
+/* The brief: one line under the header — the summary, an amber chip for
+   the concerns, Details — and a panel that drops down with the full
+   summary, the concerns and the description. Read once, out of the way. */
+function briefHtml() {
   const ov = D.overview;
+  const summary = (ov.summary || "").split("\n").map((l) => l.trim()).find(Boolean) || D.change.title;
+  const hasMore = !!(ov.concerns || D.change.description || (ov.summary || "").trim().length > summary.length);
+  const panel = S.briefOpen ? `<div style="padding:12px 16px 14px;border-bottom:1px solid var(--border);background:var(--bg-panel);display:flex;flex-direction:column;gap:14px">
+      ${ov.summary && ov.summary.trim() !== summary ? `<div style="max-width:760px"><div class="eyebrow" style="margin-bottom:6px">WHAT &amp; WHY</div><div style="line-height:1.6">${mdBlockHtml(ov.summary)}</div></div>` : ""}
+      ${ov.concerns ? `<div style="max-width:760px;border-left:2px solid var(--sev-major);padding-left:12px"><div class="eyebrow" style="margin-bottom:6px">REVIEW CONCERNS</div><div style="line-height:1.6">${mdBlockHtml(ov.concerns)}</div></div>` : ""}
+      ${D.change.description ? `<div style="max-width:760px"><div class="eyebrow" style="margin-bottom:6px">DESCRIPTION</div><div style="font-size:12px;line-height:1.6;color:var(--dim)">${mdBlockHtml(D.change.description)}</div></div>` : ""}
+    </div>` : "";
+  return `<div id="brief" style="flex:none">
+    <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);font-size:12.5px">
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(summary)}">${esc(summary)}</span>
+      ${ov.concerns ? `<button class="pill" data-act="toggle-brief" style="color:var(--sev-major);border-color:color-mix(in oklab, var(--sev-major) 40%, transparent);background:color-mix(in oklab, var(--sev-major) 8%, transparent)" title="What the review focused on">${ico("triangle-alert")}concerns</button>` : ""}
+      ${hasMore ? `<button class="bare" data-act="toggle-brief" style="flex:none;font-size:11.5px;color:var(--accent)">${S.briefOpen ? "Hide details ▴" : "Details ▾"}</button>` : ""}
+    </div>${panel}</div>`;
+}
+
+/* Comments on the change as a whole, after the last file: where the
+   reviewer is once everything is read. Posted as written. */
+function generalHtml() {
   const general = S.generalComments.map((g) => `<div class="your-comment" data-general="${g.id}" style="margin-bottom:6px">
       <div style="min-width:0;flex:1">
         <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:var(--accent);margin-bottom:2px">YOUR COMMENT · POSTS AS-IS</div>
@@ -738,25 +759,17 @@ function summaryHtml() {
       ${RO() ? "" : `<button class="tiny" data-act="edit-general" data-gid="${g.id}">Edit</button>
       <button class="tiny danger" data-act="del-general" data-gid="${g.id}">Delete</button>`}
     </div>`).join("");
-  const hasOverview = ov.summary || ov.concerns;
-  return `<section style="border:1px solid var(--border);border-radius:10px;background:var(--bg-panel);padding:16px 18px;margin-bottom:22px">
-    ${hasOverview ? `<div style="display:flex;flex-direction:column;gap:14px;max-width:760px">
-      ${ov.summary ? `<div><div class="eyebrow" style="margin-bottom:6px">WHAT &amp; WHY</div><div style="line-height:1.6">${mdBlockHtml(ov.summary)}</div></div>` : ""}
-      ${ov.concerns ? `<div style="border-left:2px solid var(--sev-major);padding-left:12px"><div class="eyebrow" style="margin-bottom:6px">REVIEW CONCERNS</div><div style="line-height:1.6">${mdBlockHtml(ov.concerns)}</div></div>` : ""}
-    </div>` : ""}
-    ${D.change.description ? `<button class="bare" data-act="toggle-desc" style="margin-top:${hasOverview ? 12 : 0}px;font-size:11.5px;color:var(--accent)">${S.descOpen ? "Hide description ▴" : "Show description ▾"}</button>
-    ${S.descOpen ? `<div style="margin:10px 0 0 0;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:12px;line-height:1.6;color:var(--dim)">${mdBlockHtml(D.change.description)}</div>` : ""}` : ""}
-    ${(!RO() || general) ? `<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">
-        <span class="eyebrow">GENERAL COMMENTS</span>
-        <span style="font-size:11px;color:var(--faint)">on the change as a whole · your words, posted as-is</span>
-      </div>
-      ${general}
-      ${RO() ? "" : `<div style="display:flex;gap:8px;align-items:flex-start">
-        <textarea class="ta" id="general-ta" rows="1" placeholder="Comment on the change as a whole…" aria-label="general comment" style="border-color:var(--border)">${esc(S.generalDraft || "")}</textarea>
-        <button class="save-btn" data-act="add-general">Add comment</button>
-      </div>`}
-    </div>` : ""}
+  if (RO() && !general) return "";
+  return `<section id="general-comments" style="border:1px solid var(--border);border-radius:10px;background:var(--bg-panel);padding:14px 16px;margin-bottom:22px">
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+      <span class="eyebrow">COMMENTS ON THE CHANGE AS A WHOLE</span>
+      <span style="font-size:11px;color:var(--faint)">your words, posted as-is</span>
+    </div>
+    ${general}
+    ${RO() ? "" : `<div style="display:flex;gap:8px;align-items:flex-start">
+      <textarea class="ta" id="general-ta" rows="1" placeholder="Comment on the change as a whole…" aria-label="general comment" style="border-color:var(--border)">${esc(S.generalDraft || "")}</textarea>
+      <button class="save-btn" data-act="add-general">Add comment</button>
+    </div>`}
   </section>`;
 }
 function submitModalHtml() {
@@ -853,6 +866,7 @@ function headerHtml() {
         <button class="seg ${S.diffMode === "inline" ? "on" : ""}" data-act="set-inline" title="Inline diff">${Wicket.icon("rows-3", { size: 14, label: "Inline diff" })}</button>
         <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" style="border-left:1px solid var(--border)" title="Split diff">${Wicket.icon("columns-2", { size: 14, label: "Split diff" })}</button>
       </div>
+      ${!RO() || S.generalComments.length ? `<button class="ghost" data-act="jump-general" title="Comments on the change as a whole">${ico("message-square")}${S.generalComments.length || ""}</button>` : ""}
       <button class="ghost" data-act="fold-all">${ico(allFolded ? "unfold-vertical" : "fold-vertical")}${allFolded ? "Unfold all" : "Fold all"}</button>
       ${!RO() ? `<button class="ghost" data-act="bulk-accept" style="color:${S.confirmBulk === "accept" ? "var(--ok)" : "var(--dim)"}">${ico("list-check")}${S.confirmBulk === "accept" ? `Really accept ${undecidedList.length}?` : `Accept remaining (${undecidedList.length})`}</button>
       <button class="ghost" data-act="bulk-reject" style="color:${S.confirmBulk === "reject" ? "var(--danger)" : "var(--dim)"}">${ico("list-x")}${S.confirmBulk === "reject" ? `Really reject ${undecidedList.length}?` : `Reject remaining (${undecidedList.length})`}</button>` : ""}
@@ -893,7 +907,8 @@ function render() {
   HUNKS = new Map();
   regions.set("header", region("header", headerHtml()));
   regions.set("tree", region("tree", S.treeOpen ? treeHtml() : ""));
-  regions.set("summary", region("summary", summaryHtml()));
+  regions.set("brief", region("brief", briefHtml()));
+  regions.set("general", region("general", generalHtml()));
   for (const i of order) regions.set(`file:${D.files[i].path}`, region(`file:${D.files[i].path}`, fileSectionHtml(D.files[i], i)));
   regions.set("unanchored", region("unanchored", globalUn.length ? `<section style="margin-bottom:20px">
           <div style="display:flex;align-items:baseline;gap:10px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px 8px 0 0">
@@ -933,14 +948,14 @@ function render() {
   }
 
   const banner = S.done ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--ok) 12%, var(--bg-panel));border-bottom:1px solid color-mix(in oklab, var(--ok) 35%, var(--border));font-size:12.5px;color:var(--ok);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>` : "";
-  app.innerHTML = `${regions.get("header")}${banner}
+  app.innerHTML = `${regions.get("header")}${banner}${regions.get("brief")}
   <div style="display:flex;flex:1;min-height:0">
     ${regions.get("tree")}
     <div id="main" style="flex:1;overflow-y:auto;min-width:0">
       <div style="padding:16px 24px 120px 24px">
-        ${regions.get("summary")}
         ${order.map((i) => compose(regions.get(`file:${D.files[i].path}`))).join("")}
         ${regions.get("unanchored")}
+        ${regions.get("general")}
       </div>
     </div>
   </div>
@@ -1102,7 +1117,8 @@ document.addEventListener("click", (e) => {
     case "set-split": set(() => { S.diffMode = "split"; }); keep("diff", "split"); break;
     case "bulk-accept": bulk("accept"); break;
     case "bulk-reject": bulk("reject"); break;
-    case "toggle-desc": set(() => { S.descOpen = !S.descOpen; }); break;
+    case "toggle-brief": set(() => { S.briefOpen = !S.briefOpen; }); break;
+    case "jump-general": scrollTo(document.getElementById("general-comments"), () => 12); document.getElementById("general-ta")?.focus(); break;
     case "open-submit": set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); break;
     case "close-submit": set(() => { S.showSubmit = false; S.errors = null; }); break;
     case "confirm-submit": confirmSubmit(); break;
