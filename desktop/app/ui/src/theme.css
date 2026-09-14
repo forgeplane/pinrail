@@ -252,7 +252,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .shortcut-plugin-title svg { color: var(--accent); }
 .shortcut-list .is-shadowed { opacity: 0.55; }
 .shortcut-list dt { color: var(--dim); }
-.shortcut-list dd { margin: 0; }
+.shortcut-list dd { margin: 0; text-align: right; }
 .notice { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; color: var(--dim); margin: 0 0 14px; }
 .notice-danger { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 6%, transparent); color: var(--danger); }
 .empty-state { text-align: center; padding: 60px 20px; color: var(--dim); display: grid; gap: 8px; justify-items: center; }
