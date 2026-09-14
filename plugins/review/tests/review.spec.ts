@@ -153,7 +153,7 @@ test("the toolbar carries icons, and the control with no words carries its name"
   const header = plugin.frame.locator("header").first();
 
   const icons = await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon));
-  expect(icons).toEqual(["rows-3", "columns-2", "fold-vertical", "list-check", "list-x"]);
+  expect(icons).toEqual(["panel-left-close", "rows-3", "columns-2", "fold-vertical", "list-check", "list-x"]);
 
   // Beside a word, an icon is decoration and the word is the name.
   await expect(header.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
@@ -175,11 +175,11 @@ test("the toolbar carries icons, and the control with no words carries its name"
   await expect(header.locator('[data-act="bulk-reject"] .wi')).toHaveAttribute("data-icon", "list-x");
 });
 
-test("the file tree's controls carry icons, and the collapse says which way it goes", async ({ page }) => {
+test("the file tree's controls carry icons, and the collapse in the header says which way it goes", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const aside = plugin.frame.locator("aside");
 
-  await expect(aside.locator(".wi")).toHaveCount(3);
+  await expect(aside.locator(".wi")).toHaveCount(2);
   await expect(aside.getByRole("button", { name: "semantic" })).toBeVisible();
   await expect(aside.getByRole("button", { name: "findings" })).toBeVisible();
 
