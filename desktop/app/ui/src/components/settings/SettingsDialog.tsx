@@ -1,11 +1,11 @@
 // The settings dialog: a rail of sections, each a page of groups. Every
 // control applies as it changes; nothing to save. Esc closes.
 
-import { Bell, Blocks, Database, Info, Keyboard, Palette, Settings2, X } from "lucide-react";
+import { Bell, Blocks, Database, Info, Keyboard, Palette, Settings, Settings2, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { Select } from "../Select";
-import { api } from "../../api/client";
+import { api, inTauri } from "../../api/client";
 import type { Info as ServerInfo } from "../../api/types";
 import { GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useLive } from "../../state/live";
@@ -43,6 +43,46 @@ const pauseUntil = (choice: string): string | null => {
   return null;
 };
 
+/** What macOS reports for the app's notifications; null outside the app bundle. */
+type NotificationStatus = { authorization: "authorized" | "denied" | "not_determined" | "provisional"; alert_style: "none" | "banner" | "alert"; alerts: boolean; sound: boolean; badge: boolean; shows: boolean };
+type SystemState = { known: boolean; status: NotificationStatus | null };
+
+/** Asked while the dialog is open, and again each time the window comes back (from System Settings, say). */
+function useNotificationStatus(open: boolean): SystemState {
+  const [state, setState] = useState<SystemState>({ known: false, status: null });
+  useEffect(() => {
+    if (!open || !inTauri()) return;
+    let cancelled = false;
+    const ask = () =>
+      import("@tauri-apps/api/core").then(({ invoke }) =>
+        invoke<NotificationStatus | null>("notification_status")
+          .then((s) => !cancelled && setState({ known: true, status: s }))
+          .catch(() => !cancelled && setState({ known: true, status: null })),
+      );
+    ask();
+    window.addEventListener("focus", ask);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", ask);
+    };
+  }, [open]);
+  return state;
+}
+
+const describeSystem = ({ known, status }: SystemState) => {
+  if (!inTauri()) return "What macOS allows shows here in the app";
+  if (!known) return "…";
+  if (!status) return "Through the notification plugin in this development build; macOS reports nothing for it";
+  if (status.authorization === "denied") return "Not allowed in System Settings";
+  if (status.authorization === "not_determined") return "Not yet allowed; macOS asks the first time";
+  if (status.alert_style === "none") return "Allowed, but the alert style is None in System Settings, so nothing appears";
+  if (!status.alerts) return "Allowed, but alerts are off in System Settings";
+  const parts = [status.alert_style === "alert" ? "Alerts" : "Banners", status.sound ? "sound on" : "sound off in System Settings", status.badge ? "badge" : "no badge"];
+  return `Allowed: ${parts.join(", ")}`;
+};
+
+const openNotificationSettings = () => import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_notification_settings")).catch(() => {});
+
 const Keys = ({ keys }: { keys: string[][] }) => (
   <span className="settings-keys">
     {keys.map((combo, i) => (
@@ -61,6 +101,7 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [copied, setCopied] = useState(false);
   const paused = pausedUntil(settings.notifications.paused_until);
+  const system = useNotificationStatus(open);
 
   // a pause ends on its own: the row says so within the minute
   const [, tick] = useState(0);
@@ -167,7 +208,13 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
                 <SettingsRow label="Sound" description="The system's notification sound with each one">
                   <Toggle label="Sound" checked={settings.notifications.sound} onChange={(v) => update({ notifications: { sound: v } })} />
                 </SettingsRow>
-                <SettingsRow label="Quiet hours and muted plugins" description="Coming next: no notifications between two times, and none for chosen plugins" />
+                <SettingsRow label="System" description={describeSystem(system)}>
+                  {system.status && !system.status.shows ? (
+                    <button type="button" className="chrome-button" onClick={openNotificationSettings}>
+                      <Settings size={14} /> Open System Settings
+                    </button>
+                  ) : null}
+                </SettingsRow>
               </SettingsGroup>
             </SettingsPage>
           ) : null}

@@ -39,6 +39,35 @@ fn take_pending_route(native: State<'_, Native>) -> Option<String> {
     native.take_pending_route()
 }
 
+/// What macOS will do with a notification; `None` outside an app bundle,
+/// where the plugin's notification is all there is.
+#[tauri::command]
+async fn notification_status(app: AppHandle) -> Option<notify_mac::Status> {
+    if !notify_mac::available() {
+        return None;
+    }
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let tx = std::sync::Mutex::new(Some(tx));
+    app.run_on_main_thread(move || {
+        notify_mac::status(move |status| {
+            if let Some(tx) = tx.lock().unwrap().take() {
+                let _ = tx.send(status);
+            }
+        })
+    })
+    .ok()?;
+    rx.await.ok()
+}
+
+/// System Settings, at the app's notification page.
+#[tauri::command]
+fn open_notification_settings(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url(notify_mac::settings_url(), None::<&str>)
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 fn autostart_enabled(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
@@ -179,6 +208,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_url,
             take_pending_route,
+            notification_status,
+            open_notification_settings,
             autostart_enabled,
             set_autostart
         ])

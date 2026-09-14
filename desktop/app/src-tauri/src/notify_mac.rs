@@ -18,6 +18,56 @@ use objc2_user_notifications::{
 };
 use tauri::AppHandle;
 
+/// What macOS will do with the app's notifications, for the settings row.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct Status {
+    /// `authorized`, `denied`, `not_determined` or `provisional`
+    pub authorization: &'static str,
+    /// `none`, `banner` or `alert`
+    pub alert_style: &'static str,
+    pub alerts: bool,
+    pub sound: bool,
+    pub badge: bool,
+    /// whether a notification would appear on screen at all
+    pub shows: bool,
+}
+
+fn status_of(s: &UNNotificationSettings) -> Status {
+    let authorization = match s.authorizationStatus() {
+        UNAuthorizationStatus::Denied => "denied",
+        UNAuthorizationStatus::NotDetermined => "not_determined",
+        UNAuthorizationStatus::Provisional => "provisional",
+        _ => "authorized",
+    };
+    let alert_style = match s.alertStyle() {
+        UNAlertStyle::None => "none",
+        UNAlertStyle::Alert => "alert",
+        _ => "banner",
+    };
+    let alerts = s.alertSetting() != UNNotificationSetting::Disabled;
+    Status {
+        authorization,
+        alert_style,
+        alerts,
+        sound: s.soundSetting() != UNNotificationSetting::Disabled,
+        badge: s.badgeSetting() != UNNotificationSetting::Disabled,
+        shows: authorization != "denied"
+            && authorization != "not_determined"
+            && alert_style != "none"
+            && alerts,
+    }
+}
+
+/// Asks the notification center how the app stands. Call on the main
+/// thread; the answer comes on the center's own queue.
+pub fn status(done: impl Fn(Status) + 'static) {
+    let report = RcBlock::new(move |settings: std::ptr::NonNull<UNNotificationSettings>| {
+        done(status_of(unsafe { settings.as_ref() }));
+    });
+    UNUserNotificationCenter::currentNotificationCenter()
+        .getNotificationSettingsWithCompletionHandler(&report);
+}
+
 static APP: OnceLock<AppHandle> = OnceLock::new();
 
 /// The request identifier carries the review, so a click knows where to go.
@@ -99,21 +149,28 @@ pub fn setup(app: &AppHandle) {
 
     // a word on stderr when macOS will not show a banner, and nothing when
     // it will
-    let report = RcBlock::new(|settings: std::ptr::NonNull<UNNotificationSettings>| {
-        let s = unsafe { settings.as_ref() };
-        if s.soundSetting() == UNNotificationSetting::Disabled {
+    status(|s| {
+        if !s.sound {
             eprintln!("wicket: notifications will not sound: the sound is off in System Settings");
         }
-        let why = match (s.authorizationStatus(), s.alertStyle(), s.alertSetting()) {
-            (UNAuthorizationStatus::Denied, _, _) => "not allowed in System Settings",
-            (UNAuthorizationStatus::NotDetermined, _, _) => "not yet allowed",
-            (_, UNAlertStyle::None, _) => "the alert style is None in System Settings",
-            (_, _, UNNotificationSetting::Disabled) => "alerts are off in System Settings",
+        let why = match (s.authorization, s.alert_style, s.alerts) {
+            ("denied", _, _) => "not allowed in System Settings",
+            ("not_determined", _, _) => "not yet allowed",
+            (_, "none", _) => "the alert style is None in System Settings",
+            (_, _, false) => "alerts are off in System Settings",
             _ => return,
         };
         eprintln!("wicket: notifications will not show: {why}");
     });
-    center.getNotificationSettingsWithCompletionHandler(&report);
+}
+
+/// The system's notification settings, at the app's own page.
+pub fn settings_url() -> String {
+    let id = NSBundle::mainBundle()
+        .bundleIdentifier()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
+    format!("x-apple.systempreferences:com.apple.Notifications-Settings.extension?id={id}")
 }
 
 /// Posts a notification; a click opens the review when one is named.
