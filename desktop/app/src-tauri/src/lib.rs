@@ -13,14 +13,10 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
-use tauri_plugin_global_shortcut::ShortcutState;
 use wicket_core::Config;
 use wicket_core::api::{self, AppState};
 
 use native::Native;
-
-/// Opens the oldest pending review, or the inbox, from anywhere.
-const SHORTCUT: &str = "alt+shift+w";
 
 /// The shell listens for this; the payload names the command.
 const COMMAND_EVENT: &str = "wicket:command";
@@ -37,6 +33,12 @@ fn server_url(url: State<'_, ServerUrl>) -> String {
 #[tauri::command]
 fn take_pending_route(native: State<'_, Native>) -> Option<String> {
     native.take_pending_route()
+}
+
+/// The global shortcut as registered, with the error when it is not.
+#[tauri::command]
+fn shortcut_state(native: State<'_, Native>) -> native::ShortcutState {
+    native.shortcut_state()
 }
 
 /// What macOS will do with a notification; `None` outside an app bundle,
@@ -120,17 +122,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
-        .plugin(
-            tauri_plugin_global_shortcut::Builder::new()
-                .with_shortcuts([SHORTCUT])
-                .expect("the default shortcut parses")
-                .with_handler(|app, _shortcut, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        native::open_next(app);
-                    }
-                })
-                .build(),
-        )
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(ServerUrl(url))
         .setup(move |app| {
             let mut config = config;
@@ -157,6 +149,7 @@ pub fn run() {
             app.set_menu(app_menu(app.handle())?)?;
             native::build_tray(app.handle())?;
             native::apply_menu_bar_icon(app.handle(), &state);
+            native::apply_shortcut(app.handle(), &state);
             native::refresh_tray_at_pause_end(app.handle(), &state);
             native::watch(app.handle().clone());
 
@@ -208,6 +201,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_url,
             take_pending_route,
+            shortcut_state,
             notification_status,
             open_notification_settings,
             autostart_enabled,

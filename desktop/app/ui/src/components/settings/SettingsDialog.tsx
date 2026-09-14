@@ -7,11 +7,11 @@ import { Link } from "react-router";
 import { Select } from "../Select";
 import { api, inTauri } from "../../api/client";
 import type { Info as ServerInfo } from "../../api/types";
-import { GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
+import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
 import { Tooltip } from "../Tooltip";
-import { Segmented, Toggle } from "./controls";
+import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
 
 export type SettingsSection = "general" | "appearance" | "shortcuts" | "plugins" | "data" | "about";
@@ -81,6 +81,38 @@ const describeSystem = ({ known, status }: SystemState) => {
   return `Allowed: ${parts.join(", ")}`;
 };
 
+/** The shortcut as the app registered it; null in a browser. */
+type ShortcutState = { shortcut: string; error: string | null };
+
+function useShortcutState(open: boolean): ShortcutState | null {
+  const [state, setState] = useState<ShortcutState | null>(null);
+  useEffect(() => {
+    if (!open || !inTauri()) return;
+    let cancelled = false;
+    let stop: (() => void) | undefined;
+    (async () => {
+      const [{ invoke }, { listen }] = await Promise.all([import("@tauri-apps/api/core"), import("@tauri-apps/api/event")]);
+      invoke<ShortcutState>("shortcut_state")
+        .then((s) => !cancelled && setState(s))
+        .catch(() => {});
+      const unlisten = await listen<ShortcutState>("wicket:shortcut", (e) => setState(e.payload));
+      if (cancelled) unlisten();
+      else stop = unlisten;
+    })();
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [open]);
+  return state;
+}
+
+const describeShortcut = (state: ShortcutState | null, wanted: string) => {
+  if (!inTauri()) return "Registered by the app";
+  if (!state || state.shortcut !== wanted) return undefined;
+  return state.error ? `Not registered: ${state.error}` : undefined;
+};
+
 const openNotificationSettings = () => import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_notification_settings")).catch(() => {});
 
 const Keys = ({ keys }: { keys: string[][] }) => (
@@ -102,6 +134,7 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
   const [copied, setCopied] = useState(false);
   const paused = pausedUntil(settings.notifications.paused_until);
   const system = useNotificationStatus(open);
+  const shortcut = useShortcutState(open);
 
   // a pause ends on its own: the row says so within the minute
   const [, tick] = useState(0);
@@ -115,7 +148,8 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
     if (!open) return;
     api.info().then(setInfo).catch(() => setInfo(null));
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      // Esc while recording a shortcut is the recorder's, not the dialog's
+      if (e.key === "Escape" && !document.querySelector(".shortcut-recorder.is-recording")) {
         e.stopPropagation();
         onClose();
       }
@@ -253,8 +287,24 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
           {section === "shortcuts" ? (
             <SettingsPage title="Shortcuts">
               <SettingsGroup caption="Anywhere on the Mac">
-                <SettingsRow label="Open the oldest pending review" description="Or the inbox when nothing is pending. Changing the keys is coming with settings in the core">
-                  <Keys keys={[GLOBAL_SHORTCUT]} />
+                <SettingsRow label="Open Wicket" description="Click the keys and press a new combination; it needs ⌘, ⌃ or ⌥" note={describeShortcut(shortcut, settings.shortcut.global)}>
+                  <ShortcutRecorder label="Global shortcut" value={settings.shortcut.global} onChange={(v) => update({ shortcut: { global: v } })} />
+                  {settings.shortcut.global !== DEFAULT_GLOBAL_SHORTCUT ? (
+                    <button type="button" className="chrome-button settings-reset" onClick={() => update({ shortcut: { global: DEFAULT_GLOBAL_SHORTCUT } })}>
+                      Reset
+                    </button>
+                  ) : null}
+                </SettingsRow>
+                <SettingsRow label="It opens" description={settings.shortcut.global_opens === "inbox" ? "The inbox, whatever is pending" : "The oldest pending review, or the inbox when nothing is pending"}>
+                  <Segmented
+                    label="The shortcut opens"
+                    value={settings.shortcut.global_opens}
+                    onChange={(v) => update({ shortcut: { global_opens: v } })}
+                    options={[
+                      { value: "oldest", label: "Oldest review" },
+                      { value: "inbox", label: "Inbox" },
+                    ]}
+                  />
                 </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="In the app">

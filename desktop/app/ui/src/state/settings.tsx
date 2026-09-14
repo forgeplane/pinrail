@@ -7,6 +7,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, inTauri } from "../api/client";
 import type { ServerSettings } from "../api/types";
+import { DEFAULT_GLOBAL_SHORTCUT } from "../lib/shortcuts";
 import { cacheAppearance, setThemePreference, type ThemePreference } from "../lib/theme";
 import { useLive } from "./live";
 
@@ -18,6 +19,7 @@ export type Settings = {
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean };
+  shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
 };
@@ -28,6 +30,7 @@ type Patch = {
   close_window?: Settings["close_window"];
   menu_bar_icon?: boolean;
   notifications?: Partial<Settings["notifications"]>;
+  shortcut?: Partial<Settings["shortcut"]>;
   autostart?: boolean;
 };
 
@@ -42,13 +45,14 @@ export function applyTextSize(size: TextSize) {
   if (root) (root.style as CSSStyleDeclaration & { zoom: string }).zoom = ZOOM[size];
 }
 
-type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications">;
+type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut">;
 const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
   sidebar: { open: s.sidebar.open },
   close_window: s.close_window,
   menu_bar_icon: s.menu_bar_icon,
   notifications: { enabled: s.notifications.enabled, paused_until: s.notifications.paused_until, sound: s.notifications.sound },
+  shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
 });
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -60,6 +64,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     close_window: "hide",
     menu_bar_icon: true,
     notifications: { enabled: true, paused_until: null, sound: true },
+    shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);
@@ -112,13 +117,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback(
     async (patch: Patch) => {
       // the core's settings go to the core; applied at once, confirmed by the response
-      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications) {
+      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut) {
         const next: Served = {
           appearance: { ...settings.appearance, ...patch.appearance },
           sidebar: { ...settings.sidebar, ...patch.sidebar },
           close_window: patch.close_window ?? settings.close_window,
           menu_bar_icon: patch.menu_bar_icon ?? settings.menu_bar_icon,
           notifications: { ...settings.notifications, ...patch.notifications },
+          shortcut: { ...settings.shortcut, ...patch.shortcut },
         };
         apply(next);
         setSettings((s) => ({ ...s, ...next }));
@@ -128,6 +134,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.close_window !== undefined) body.close_window = patch.close_window;
         if (patch.menu_bar_icon !== undefined) body.menu_bar_icon = patch.menu_bar_icon;
         if (patch.notifications) body.notifications = patch.notifications;
+        if (patch.shortcut) body.shortcut = patch.shortcut;
         try {
           const s = fromServer(await api.patchSettings(body));
           apply(s);
@@ -142,7 +149,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setSettings((s) => ({ ...s, autostart: patch.autostart ?? s.autostart }));
       }
     },
-    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, settings.notifications, apply],
+    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, settings.notifications, settings.shortcut, apply],
   );
 
   const value = useMemo(() => ({ settings, update, native, loaded }), [settings, update, native, loaded]);

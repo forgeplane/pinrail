@@ -17,6 +17,10 @@ use wicket_core::review::{Review, Status};
 
 /// The shell listens for this and navigates to the payload.
 pub const OPEN_EVENT: &str = "wicket:open";
+/// The global shortcut as registered, or why it is not; the shell shows it.
+pub const SHORTCUT_EVENT: &str = "wicket:shortcut";
+/// What the shortcut is when the setting is unreadable.
+const DEFAULT_SHORTCUT: &str = "alt+shift+w";
 const TRAY_ID: &str = "main";
 const TRAY_ROWS: usize = 8;
 const TRAY_TITLE_CHARS: usize = 48;
@@ -25,6 +29,8 @@ pub struct Native {
     pub state: Arc<AppState>,
     /// A route the shell has not picked up yet: it may still be loading.
     pending_route: Mutex<Option<String>>,
+    /// The global shortcut as last registered.
+    shortcut: Mutex<ShortcutState>,
 }
 
 impl Native {
@@ -32,11 +38,77 @@ impl Native {
         Native {
             state,
             pending_route: Mutex::new(None),
+            shortcut: Mutex::new(ShortcutState {
+                shortcut: DEFAULT_SHORTCUT.to_string(),
+                error: None,
+            }),
         }
     }
 
     pub fn take_pending_route(&self) -> Option<String> {
         self.pending_route.lock().unwrap().take()
+    }
+
+    pub fn shortcut_state(&self) -> ShortcutState {
+        self.shortcut.lock().unwrap().clone()
+    }
+}
+
+/// The keys the app listens for everywhere, and the error when the system
+/// would not give them.
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct ShortcutState {
+    pub shortcut: String,
+    pub error: Option<String>,
+}
+
+fn shortcut_keys(state: &AppState) -> String {
+    state
+        .settings
+        .value("/shortcut/global")
+        .as_str()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or(DEFAULT_SHORTCUT)
+        .to_string()
+}
+
+/// Registers the global shortcut from the settings in place of the last
+/// one, records how that went and tells the shell. Main thread.
+pub fn apply_shortcut(app: &AppHandle, state: &AppState) {
+    use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState as Pressed};
+    let keys = shortcut_keys(state);
+    let shortcuts = app.global_shortcut();
+    let _ = shortcuts.unregister_all();
+    let result = shortcuts.on_shortcut(keys.as_str(), |app, _shortcut, event| {
+        if event.state() == Pressed::Pressed {
+            open_from_shortcut(app);
+        }
+    });
+    let error = result.err().map(|error| error.to_string());
+    if let Some(error) = &error {
+        eprintln!("wicket: the shortcut {keys} is not registered: {error}");
+    }
+    let registered = ShortcutState {
+        shortcut: keys,
+        error,
+    };
+    if let Some(native) = app.try_state::<Native>() {
+        *native.shortcut.lock().unwrap() = registered.clone();
+    }
+    let _ = app.emit(SHORTCUT_EVENT, registered);
+    refresh_tray(app);
+}
+
+/// What the shortcut opens: the oldest pending review, or the inbox when
+/// the setting says so or nothing is pending.
+pub fn open_from_shortcut(app: &AppHandle) {
+    let inbox = app
+        .try_state::<Native>()
+        .is_some_and(|native| native.state.settings.value("/shortcut/global_opens") == "inbox");
+    if inbox {
+        open(app, "/");
+    } else {
+        open_next(app);
     }
 }
 
@@ -187,7 +259,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
 fn on_menu(app: &AppHandle, id: &str) {
     match id {
         "inbox" => open(app, "/"),
-        "next" => open_next(app),
+        "next" => open_from_shortcut(app),
         "pause:15" | "pause:60" | "pause:tomorrow" | "resume" => {
             if let Some(native) = app.try_state::<Native>() {
                 let until = match id {
@@ -276,20 +348,29 @@ fn menu(
         }
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
-    menu.append(&MenuItem::with_id(
-        app,
-        "inbox",
-        "Open inbox",
-        true,
-        None::<&str>,
-    )?)?;
-    menu.append(&MenuItem::with_id(
-        app,
-        "next",
-        "Open oldest review",
-        true,
-        Some("Alt+Shift+W"),
-    )?)?;
+    // the shortcut's row carries its keys; the parser and the system may
+    // yet refuse them, and the row then goes without
+    let native = app.try_state::<Native>();
+    let opens_inbox = native
+        .as_ref()
+        .is_some_and(|n| n.state.settings.value("/shortcut/global_opens") == "inbox");
+    let keys = native.as_ref().map(|n| n.shortcut_state().shortcut);
+    let with_keys = |id: &str, label: &str| {
+        MenuItem::with_id(app, id, label, true, keys.as_deref())
+            .or_else(|_| MenuItem::with_id(app, id, label, true, None::<&str>))
+    };
+    if opens_inbox {
+        menu.append(&with_keys("inbox", "Open inbox")?)?;
+    } else {
+        menu.append(&MenuItem::with_id(
+            app,
+            "inbox",
+            "Open inbox",
+            true,
+            None::<&str>,
+        )?)?;
+        menu.append(&with_keys("next", "Open oldest review")?)?;
+    }
     // the pause, as a submenu: how long, or resume with the time it ends
     if !notifications.enabled {
         menu.append(&MenuItem::with_id(
@@ -406,7 +487,9 @@ pub fn watch(app: AppHandle) {
                     {
                         let menu_bar = keys.iter().any(|p| p == "/menu_bar_icon");
                         let notifications = keys.iter().any(|p| p.starts_with("/notifications/"));
-                        if menu_bar || notifications {
+                        let shortcut = keys.iter().any(|p| p == "/shortcut/global");
+                        let opens = keys.iter().any(|p| p == "/shortcut/global_opens");
+                        if menu_bar || notifications || shortcut || opens {
                             let handle = app.clone();
                             let state = native.state.clone();
                             let _ = app.run_on_main_thread(move || {
@@ -415,6 +498,9 @@ pub fn watch(app: AppHandle) {
                                 }
                                 if notifications {
                                     refresh_tray_at_pause_end(&handle, &state);
+                                }
+                                if shortcut {
+                                    apply_shortcut(&handle, &state);
                                 }
                                 refresh_tray(&handle);
                             });
