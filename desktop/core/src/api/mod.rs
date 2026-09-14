@@ -4,6 +4,7 @@
 mod files;
 mod plugins;
 mod reviews;
+mod settings;
 mod sse;
 
 use std::sync::Arc;
@@ -26,6 +27,7 @@ use crate::{Config, server_info};
 pub struct AppState {
     pub config: Config,
     pub started_at: DateTime<Utc>,
+    pub settings: Arc<crate::settings::Store>,
     pub db: Arc<Db>,
     pub registry: Arc<Registry>,
     pub reviews: Reviews,
@@ -36,6 +38,7 @@ impl AppState {
     /// directories and wires the service together.
     pub fn open(config: Config) -> Result<Arc<Self>, Error> {
         std::fs::create_dir_all(&config.data_dir)?;
+        let settings = Arc::new(crate::settings::Store::open(&config.data_dir));
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
         let user = config.user_plugins_dir();
@@ -55,6 +58,7 @@ impl AppState {
         Ok(Arc::new(Self {
             config,
             started_at: Utc::now(),
+            settings,
             db,
             registry,
             reviews,
@@ -79,6 +83,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .merge(plugins::routes())
         .merge(sse::routes())
         .merge(files::routes())
+        .merge(settings::routes())
         .layer(cors())
         .with_state(state)
 }
@@ -115,11 +120,27 @@ pub async fn serve(
             }
         })
     };
+    // an edit to settings.json outside the app is noticed within a second
+    let watcher = {
+        let state = state.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(Duration::from_secs(1));
+            loop {
+                tick.tick().await;
+                if let Some(keys) = state.settings.reload_if_changed()
+                    && let Err(error) = settings::announce(&state, &keys)
+                {
+                    eprintln!("wicket: settings change not announced: {error}");
+                }
+            }
+        })
+    };
 
     let result = axum::serve(listener, router(state.clone()))
         .with_graceful_shutdown(shutdown)
         .await;
     sweeper.abort();
+    watcher.abort();
     server_info::remove(&state.config);
     result
 }

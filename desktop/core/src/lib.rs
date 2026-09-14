@@ -16,6 +16,7 @@ pub mod review;
 pub mod reviews;
 pub mod schema;
 pub mod server_info;
+pub mod settings;
 
 pub use config::Config;
 pub use error::{Error, Violation};

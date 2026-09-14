@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE INDEX IF NOT EXISTS events_review ON events(review_id, id);
 
 CREATE TABLE IF NOT EXISTS plugin_dirs (path TEXT PRIMARY KEY, added_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+DROP TABLE IF EXISTS settings;
 "#;
 
 #[derive(Debug, Default, Clone)]
@@ -390,25 +390,6 @@ impl Db {
         conn.execute(
             "INSERT OR IGNORE INTO plugin_dirs (path, added_at) VALUES (?1, ?2)",
             params![path, crate::review::iso(Utc::now())],
-        )?;
-        Ok(())
-    }
-
-    pub fn setting(&self, key: &str) -> rusqlite::Result<Option<String>> {
-        let conn = self.conn.lock().unwrap();
-        conn.query_row(
-            "SELECT value FROM settings WHERE key = ?1",
-            params![key],
-            |row| row.get(0),
-        )
-        .optional()
-    }
-
-    pub fn set_setting(&self, key: &str, value: &str) -> rusqlite::Result<()> {
-        let conn = self.conn.lock().unwrap();
-        conn.execute(
-            "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![key, value],
         )?;
         Ok(())
     }

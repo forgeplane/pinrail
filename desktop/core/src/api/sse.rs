@@ -16,6 +16,8 @@ use serde_json::json;
 use tokio_stream::wrappers::BroadcastStream;
 
 use super::AppState;
+use serde_json::Value;
+
 use crate::events::Notice;
 
 const CATCH_UP_LIMIT: usize = 1000;
@@ -46,6 +48,12 @@ async fn events(
                     .and_then(|id| state.db.get_review(id).ok().flatten())
                     .map(|r| r.to_json(false)),
                 review_id: e.review_id,
+                keys: e.attrs.get("keys").and_then(Value::as_array).map(|k| {
+                    k.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                }),
             })
             .collect(),
         None => Vec::new(),

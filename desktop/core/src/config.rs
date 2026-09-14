@@ -32,6 +32,12 @@ impl Config {
             env::var_os("HOME").map(PathBuf::from),
             env::var("WICKET_PORT").ok(),
         );
+        // the file's port, unless the environment says otherwise
+        if env::var_os("WICKET_PORT").is_none()
+            && let Some(port) = crate::settings::port_in(&config.data_dir)
+        {
+            config.port = port;
+        }
         config.user = env::var("WICKET_USER")
             .or_else(|_| env::var("USER"))
             .ok()
