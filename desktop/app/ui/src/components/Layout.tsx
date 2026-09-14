@@ -271,7 +271,7 @@ export function Layout({ children }: { children: ReactNode }) {
       />
       {help ? (
         <div className="app-dialog-backdrop" onClick={() => setHelp(false)}>
-          <div className="app-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
+          <div className="app-dialog shortcuts-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
             <div className="dialog-head">
               <h2 id="keyboard-title">Keyboard shortcuts</h2>
               <Tooltip label="Close" keys={["Esc"]}>
@@ -280,7 +280,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 </button>
               </Tooltip>
             </div>
-            <dl className="shortcut-list">
+            <div className="shortcuts-body">
+              <dl className="shortcut-list">
               {SHORTCUTS.map((s) => (
                 <Fragment key={s.what}>
                   <dt>{s.what}</dt>
@@ -324,6 +325,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 </dl>
               </>
             ) : null}
+            </div>
           </div>
         </div>
       ) : null}
