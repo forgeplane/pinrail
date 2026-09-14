@@ -52,6 +52,25 @@ export type Plugin = {
   icon: string | null;
   usable: boolean;
   error: string | null;
+  /** the plugin's own settings, as the manifest declares them; null when it declares none */
+  settings_schema: SettingsSchema | null;
+  /** why a declared schema was dropped */
+  settings_error: string | null;
+  /** the values as they stand: defaults under what someone changed */
+  settings: Record<string, unknown> | null;
+};
+
+/** A flat JSON Schema: one row per property, each a scalar with a default. */
+export type SettingsSchema = { properties: Record<string, SettingProperty> };
+export type SettingProperty = {
+  type: "boolean" | "string" | "integer" | "number";
+  title?: string;
+  description?: string;
+  default: unknown;
+  enum?: unknown[];
+  oneOf?: { const: unknown; title?: string }[];
+  minimum?: number;
+  maximum?: number;
 };
 
 export type Violation = { path: string; message: string };
@@ -82,6 +101,8 @@ export type ServerSettings = {
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
+  /** each plugin's own settings, only the values someone changed */
+  plugins: Record<string, Record<string, unknown>>;
   [key: string]: unknown;
 };
 

@@ -49,6 +49,42 @@ hello/
   gates keep rendering and validating from that snapshot afterwards.
 - `"dev": true` serves the directory live and never snapshots it; use it while
   iterating on a view.
+- `settings_schema` declares settings of the plugin's own, shown as rows under
+  the plugin in *Settings › Plugins*. See below.
+
+## Settings of your own
+
+A plugin with knobs — a diff shown inline or side by side, how files are
+ordered — declares them in the manifest, and the app draws a row for each
+under the plugin in *Settings › Plugins*:
+
+```json
+"settings_schema": {
+  "type": "object",
+  "properties": {
+    "diff": { "type": "string", "title": "Diff", "description": "How a file's changes are laid out",
+              "oneOf": [{ "const": "inline", "title": "Inline" }, { "const": "split", "title": "Side by side" }],
+              "default": "inline" },
+    "wrap": { "type": "boolean", "title": "Wrap long lines", "default": true },
+    "context": { "type": "integer", "title": "Context lines", "minimum": 0, "maximum": 20, "default": 3 }
+  }
+}
+```
+
+It is a JSON Schema, inline or by relative `$ref` like the other two, one
+level deep: every property is a `boolean`, a `string`, an `integer` or a
+`number`, and every property has a `default`. `title` is the row's label,
+`description` the line under it, and property order is row order. A string
+with an `enum`, or a `oneOf` of `const` values with titles, becomes a choice;
+a number with `minimum` and `maximum` keeps to them. A schema that breaks
+these rules does not break the plugin: it loads without settings and the
+row in Settings says why.
+
+The values live in the app's `settings.json` under `plugins.<name>`, and
+`PATCH /api/v1/settings` with `{"plugins": {"review": {"diff": "split"}}}`
+changes one; the app checks the change against your schema. The plugin's
+row in `GET /api/v1/plugins` carries the schema and the values as they
+stand.
 
 ## Looking like the rest of wicket
 

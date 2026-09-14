@@ -40,6 +40,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [help, setHelp] = useState(false);
   const [palette, setPalette] = useState(false);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
+  const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, update } = useSettings();
   const sidebar = prefs.sidebar.open;
   const toggleSidebar = () => update({ sidebar: { open: !sidebar } });
@@ -68,9 +69,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   // a link to /plugins lands in the settings section
   useEffect(() => {
-    const wanted = (location.state as { settings?: SettingsSection } | null)?.settings;
-    if (wanted) {
-      setSettings(wanted);
+    const state = location.state as { settings?: SettingsSection; plugin?: string } | null;
+    if (state?.settings) {
+      setSettings(state.settings);
+      setSettingsPlugin(state.plugin ?? null);
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location.state, location.pathname, navigate]);
@@ -252,7 +254,19 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
-      <SettingsDialog open={settings !== null} section={settings ?? "general"} onSection={setSettings} onClose={() => setSettings(null)} />
+      <SettingsDialog
+        open={settings !== null}
+        section={settings ?? "general"}
+        plugin={settingsPlugin}
+        onSection={(s) => {
+          setSettings(s);
+          setSettingsPlugin(null);
+        }}
+        onClose={() => {
+          setSettings(null);
+          setSettingsPlugin(null);
+        }}
+      />
       {help ? (
         <div className="app-dialog-backdrop" onClick={() => setHelp(false)}>
           <div className="app-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>

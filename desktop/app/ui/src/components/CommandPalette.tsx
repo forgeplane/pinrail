@@ -133,7 +133,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
               {p.name} v{p.version}
             </span>
           ),
-          run: () => navigate("/plugins"),
+          run: () => navigate("/", { state: { settings: "plugins", plugin: p.name } }),
         });
       }
     }

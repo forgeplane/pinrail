@@ -127,7 +127,7 @@ const Keys = ({ keys }: { keys: string[][] }) => (
   </span>
 );
 
-export function SettingsDialog({ open, section, onSection, onClose }: { open: boolean; section: SettingsSection; onSection: (s: SettingsSection) => void; onClose: () => void }) {
+export function SettingsDialog({ open, section, plugin, onSection, onClose }: { open: boolean; section: SettingsSection; plugin?: string | null; onSection: (s: SettingsSection) => void; onClose: () => void }) {
   const { settings, update, native } = useSettings();
   const live = useLive();
   const [info, setInfo] = useState<ServerInfo | null>(null);
@@ -314,7 +314,7 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
             </SettingsPage>
           ) : null}
 
-          {section === "plugins" ? <PluginsSection /> : null}
+          {section === "plugins" ? <PluginsSection focus={plugin ?? null} /> : null}
 
           {section === "data" ? (
             <SettingsPage title="Data">

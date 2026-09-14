@@ -20,6 +20,8 @@ export type Settings = {
   menu_bar_icon: boolean;
   notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
+  /** each plugin's own settings, only the values someone changed */
+  plugins: Record<string, Record<string, unknown>>;
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
 };
@@ -31,6 +33,8 @@ type Patch = {
   menu_bar_icon?: boolean;
   notifications?: Partial<Settings["notifications"]>;
   shortcut?: Partial<Settings["shortcut"]>;
+  /** a change to one or more plugins' settings, merged key by key */
+  plugins?: Record<string, Record<string, unknown>>;
   autostart?: boolean;
 };
 
@@ -45,7 +49,7 @@ export function applyTextSize(size: TextSize) {
   if (root) (root.style as CSSStyleDeclaration & { zoom: string }).zoom = ZOOM[size];
 }
 
-type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut">;
+type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins">;
 const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
   sidebar: { open: s.sidebar.open },
@@ -53,7 +57,15 @@ const fromServer = (s: ServerSettings): Served => ({
   menu_bar_icon: s.menu_bar_icon,
   notifications: { enabled: s.notifications.enabled, paused_until: s.notifications.paused_until, sound: s.notifications.sound, muted_plugins: s.notifications.muted_plugins },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
+  plugins: s.plugins ?? {},
 });
+
+const mergePlugins = (current: Settings["plugins"], patch?: Settings["plugins"]): Settings["plugins"] => {
+  if (!patch) return current;
+  const out = { ...current };
+  for (const [name, values] of Object.entries(patch)) out[name] = { ...current[name], ...values };
+  return out;
+};
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const native = inTauri();
@@ -65,6 +77,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     menu_bar_icon: true,
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
+    plugins: {},
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);
@@ -117,7 +130,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback(
     async (patch: Patch) => {
       // the core's settings go to the core; applied at once, confirmed by the response
-      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut) {
+      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins) {
         const next: Served = {
           appearance: { ...settings.appearance, ...patch.appearance },
           sidebar: { ...settings.sidebar, ...patch.sidebar },
@@ -125,6 +138,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           menu_bar_icon: patch.menu_bar_icon ?? settings.menu_bar_icon,
           notifications: { ...settings.notifications, ...patch.notifications },
           shortcut: { ...settings.shortcut, ...patch.shortcut },
+          plugins: mergePlugins(settings.plugins, patch.plugins),
         };
         apply(next);
         setSettings((s) => ({ ...s, ...next }));
@@ -135,6 +149,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.menu_bar_icon !== undefined) body.menu_bar_icon = patch.menu_bar_icon;
         if (patch.notifications) body.notifications = patch.notifications;
         if (patch.shortcut) body.shortcut = patch.shortcut;
+        if (patch.plugins) body.plugins = patch.plugins;
         try {
           const s = fromServer(await api.patchSettings(body));
           apply(s);
@@ -149,7 +164,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setSettings((s) => ({ ...s, autostart: patch.autostart ?? s.autostart }));
       }
     },
-    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, settings.notifications, settings.shortcut, apply],
+    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, settings.notifications, settings.shortcut, settings.plugins, apply],
   );
 
   const value = useMemo(() => ({ settings, update, native, loaded }), [settings, update, native, loaded]);
