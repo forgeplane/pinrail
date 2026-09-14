@@ -739,14 +739,13 @@ function briefHtml() {
   const hasDetails = longer || !!D.change.description;
   // the chip opens the concerns alone, right under the line; Details opens
   // the rest of the summary and the description — the line is never repeated
-  const concerns = S.concernsOpen && ov.concerns ? `<div style="padding:8px 16px 10px;border-bottom:1px solid var(--border);background:var(--bg-panel)">
-      <div style="border:1px solid color-mix(in oklab, var(--sev-major) 40%, transparent);border-left:3px solid var(--sev-major);border-radius:8px;background:color-mix(in oklab, var(--sev-major) 10%, var(--bg-panel));padding:10px 14px"><div class="eyebrow" style="color:var(--sev-major);margin-bottom:6px">REVIEW CONCERNS</div><div style="line-height:1.6">${mdBlockHtml(ov.concerns)}</div></div>
+  // the boxes run edge to edge under the line, flush like a thread on the diff
+  const concerns = S.concernsOpen && ov.concerns ? `<div style="padding:10px 16px 12px;border-bottom:1px solid var(--border);border-left:3px solid var(--sev-major);background:color-mix(in oklab, var(--sev-major) 10%, var(--bg-panel))">
+      <div class="eyebrow" style="color:var(--sev-major);margin-bottom:6px">REVIEW CONCERNS</div><div style="line-height:1.6">${mdBlockHtml(ov.concerns)}</div>
     </div>` : "";
-  const details = S.briefOpen && hasDetails ? `<div style="padding:8px 16px 10px;border-bottom:1px solid var(--border);background:var(--bg-panel)">
-      <div style="border:1px solid var(--border);border-radius:8px;background:var(--bg-raised);padding:10px 14px;display:flex;flex-direction:column;gap:12px">
+  const details = S.briefOpen && hasDetails ? `<div style="padding:10px 16px 12px;border-bottom:1px solid var(--border);background:var(--bg-raised);display:flex;flex-direction:column;gap:12px">
       ${longer ? `<div style="line-height:1.6">${mdBlockHtml(full)}</div>` : ""}
       ${D.change.description ? `<div><div class="eyebrow" style="margin-bottom:6px">DESCRIPTION</div><div style="font-size:12px;line-height:1.6;color:var(--dim)">${mdBlockHtml(D.change.description)}</div></div>` : ""}
-      </div>
     </div>` : "";
   return `<div id="brief" style="flex:none">
     <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);font-size:12.5px">
