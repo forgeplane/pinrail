@@ -53,6 +53,18 @@ test("withdraw unblocks a waiter with exit 3", async () => {
   expect(JSON.parse(result.stdout).status).toBe("withdrawn");
 });
 
+test("discard unblocks a waiter with exit 5 and the reason", async () => {
+  const waiter = submitListReview("review C2");
+  const id = await waiter.reviewId;
+  const discarded = wicketJson(["discard", id, "--reason", "not now", "--by", "pat"]);
+  expect(discarded.status).toBe("discarded");
+  expect(discarded.discarded_by).toBe("pat");
+  const result = await waiter.done;
+  expect(result.code).toBe(5);
+  expect(result.stderr).toContain("discarded by pat: not now");
+  expect(JSON.parse(result.stdout).discarded_reason).toBe("not now");
+});
+
 test("wait times out with exit 4 and the review stays pending", async () => {
   const review = wicketJson(["submit", "list", "--title", "review D", "--data", tmpFile("p.json", JSON.stringify(listPayload))]);
   const result = await startWaiter(["wait", review.id, "--timeout", "1"]).done;

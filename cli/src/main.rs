@@ -9,6 +9,7 @@
 //! | 2 | the server refused the request (404, 409, 422); the body is on stderr |
 //! | 3 | the review was withdrawn or expired instead of decided |
 //! | 4 | `wait` timed out; the review is still pending |
+//! | 5 | the person discarded the review: stop the work it was gating |
 
 mod api;
 mod out;
@@ -29,6 +30,8 @@ pub const EXIT_ERROR: u8 = 1;
 pub const EXIT_REFUSED: u8 = 2;
 pub const EXIT_CLOSED: u8 = 3;
 pub const EXIT_TIMEOUT: u8 = 4;
+/// The person said no, and stop; the reason, if any, is in the envelope.
+pub const EXIT_DISCARDED: u8 = 5;
 
 #[derive(Parser)]
 #[command(name = "wicket", version, about, long_about = None)]
@@ -68,6 +71,17 @@ enum Command {
         /// Why the requester gave up
         #[arg(long)]
         reason: Option<String>,
+    },
+    /// Discard a pending review as the person would in the app; its waiter
+    /// exits 5 and is told to stop
+    Discard {
+        id: String,
+        /// Why, for the agent
+        #[arg(long)]
+        reason: Option<String>,
+        /// Who discards it; the server's user when omitted
+        #[arg(long)]
+        by: Option<String>,
     },
     /// Registered plugins
     #[command(alias = "types")]
@@ -262,6 +276,10 @@ fn run(cli: Cli) -> Result<u8> {
             out::print_json(&client.withdraw(&id, reason)?, pretty);
             Ok(0)
         }
+        Command::Discard { id, reason, by } => {
+            out::print_json(&client.discard(&id, reason, by)?, pretty);
+            Ok(0)
+        }
         Command::Plugins(args) => {
             let value = match args.command {
                 None => client.plugins()?,
@@ -368,11 +386,25 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, pretty: bool) -> Result<u8> 
                     }
                 }
                 out::print_json(&review, pretty);
-                return Ok(if status == "decided" {
-                    0
-                } else {
-                    eprintln!("wicket: review {id} was {status}, not decided");
-                    EXIT_CLOSED
+                return Ok(match status {
+                    "decided" => 0,
+                    "discarded" => {
+                        // the person's "no, and stop": say so, with their reason
+                        let by = review["discarded_by"].as_str().unwrap_or("the reviewer");
+                        match review["discarded_reason"].as_str() {
+                            Some(reason) => eprintln!(
+                                "wicket: review {id} was discarded by {by}: {reason}. Stop the work it was gating."
+                            ),
+                            None => eprintln!(
+                                "wicket: review {id} was discarded by {by}. Stop the work it was gating."
+                            ),
+                        }
+                        EXIT_DISCARDED
+                    }
+                    _ => {
+                        eprintln!("wicket: review {id} was {status}, not decided");
+                        EXIT_CLOSED
+                    }
                 });
             }
             Ok(None) => continue,

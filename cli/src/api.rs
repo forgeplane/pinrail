@@ -113,6 +113,18 @@ impl Client {
         self.post(&format!("/api/v1/reviews/{id}/withdraw"), body.as_ref())
     }
 
+    pub fn discard(&self, id: &str, reason: Option<String>, by: Option<String>) -> Result<Value> {
+        let mut body = serde_json::Map::new();
+        if let Some(reason) = reason {
+            body.insert("reason".into(), Value::String(reason));
+        }
+        if let Some(by) = by {
+            body.insert("by".into(), Value::String(by));
+        }
+        let body = (!body.is_empty()).then_some(Value::Object(body));
+        self.post(&format!("/api/v1/reviews/{id}/discard"), body.as_ref())
+    }
+
     pub fn list(&self, query: &[(&str, String)]) -> Result<Value> {
         self.get("/api/v1/reviews", query)
     }

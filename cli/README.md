@@ -37,7 +37,8 @@ wicket show <id>
 wicket list [--status S[,S]] [--repo R] [--workflow W] [--ref X] [--run-id R] [--type T]
             [--limit N] [--superseded]
 wicket decide <id> --data FILE|- [--note TEXT] [--by NAME]
-wicket withdraw <id>
+wicket withdraw <id> [--reason TEXT]
+wicket discard <id> [--reason TEXT] [--by NAME]
 wicket types | wicket types add <dir> | wicket types reload
 wicket serve
 wicket open <id>
@@ -63,3 +64,10 @@ server in the middle of shutting down is abandoned after about 20 seconds.
 | 2 | the server refused the request (404, 409, 422); its JSON body is on stderr |
 | 3 | the gate was withdrawn or expired instead of decided |
 | 4 | `wait` timed out; the gate is still pending |
+| 5 | the person discarded the gate: stop the work it was gating |
+
+A discard is the person's "no, and stop", made in the app or with `wicket
+discard`. The envelope carries `discarded_by` and `discarded_reason`; an
+agent that gets exit 5 stops the work the gate was about, reports the
+reason, and neither retries nor posts anything. `--decision-out` writes
+nothing: there is no decision.
