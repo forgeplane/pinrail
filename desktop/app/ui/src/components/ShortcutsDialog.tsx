@@ -53,6 +53,10 @@ export function ShortcutsDialog({ plugin, onClose }: { plugin?: OpenPlugin; onCl
             type="search"
             placeholder="Search shortcuts…"
             aria-label="Search shortcuts"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => {
