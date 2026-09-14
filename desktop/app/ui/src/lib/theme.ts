@@ -7,7 +7,9 @@ import { useEffect, useState } from "react";
 export type Theme = "dark" | "light";
 export type ThemePreference = Theme | "system";
 
-const KEY = "wicket:theme";
+// the last appearance the core reported, for the first paint before the
+// server answers; the server's value wins as soon as it arrives
+const CACHE = "wicket:appearance";
 const media = typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
 let following = false;
 
@@ -15,12 +17,25 @@ export function currentTheme(): Theme {
   return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 }
 
-export function themePreference(): ThemePreference {
+export type Appearance = { theme: ThemePreference; text_size: "small" | "default" | "large" };
+
+export function cachedAppearance(): Appearance {
   try {
-    const saved = localStorage.getItem(KEY);
-    return saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+    const saved = JSON.parse(localStorage.getItem(CACHE) ?? "{}") as Partial<Appearance>;
+    return {
+      theme: saved.theme === "light" || saved.theme === "dark" || saved.theme === "system" ? saved.theme : "system",
+      text_size: saved.text_size === "small" || saved.text_size === "large" ? saved.text_size : "default",
+    };
   } catch {
-    return "system";
+    return { theme: "system", text_size: "default" };
+  }
+}
+
+export function cacheAppearance(appearance: Appearance) {
+  try {
+    localStorage.setItem(CACHE, JSON.stringify(appearance));
+  } catch {
+    // no cache: the first paint is the default until the server answers
   }
 }
 
@@ -35,27 +50,21 @@ const onMediaChange = () => {
   if (following) apply(resolve("system"));
 };
 
+/** The cached appearance, before the server answers. */
 export function applySavedTheme() {
-  setThemePreference(themePreference(), false);
+  setThemePreference(cachedAppearance().theme);
 }
 
-export function setThemePreference(pref: ThemePreference, save = true) {
+export function setThemePreference(pref: ThemePreference) {
   following = pref === "system";
   media?.removeEventListener("change", onMediaChange);
   if (following) media?.addEventListener("change", onMediaChange);
   apply(resolve(pref));
-  if (save) {
-    try {
-      localStorage.setItem(KEY, pref);
-    } catch {
-      // a preference that cannot be saved still applies for this session
-    }
-  }
 }
 
-/** Kept for the T key: an explicit flip of whatever is showing. */
+/** The T key asks for an explicit flip; the settings store records it. */
 export function toggleTheme() {
-  setThemePreference(currentTheme() === "dark" ? "light" : "dark");
+  window.dispatchEvent(new CustomEvent("wicket:theme-toggle", { detail: currentTheme() === "dark" ? "light" : "dark" }));
 }
 
 /** The resolved theme as it changes, for controls that show it. */

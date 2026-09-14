@@ -8,13 +8,13 @@ import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog"
 import { SHORTCUTS } from "../lib/shortcuts";
 import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
+import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
-const SIDEBAR_KEY = "wicket:sidebar";
 
 // Cmd+I for the inbox; History and Plugins take the shift, as Cmd+H hides
 // the app and Cmd+P is printing.
@@ -41,23 +41,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const [help, setHelp] = useState(false);
   const [palette, setPalette] = useState(false);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
-  const [sidebar, setSidebar] = useState(() => {
-    try {
-      return localStorage.getItem(SIDEBAR_KEY) !== "closed";
-    } catch {
-      return true;
-    }
-  });
-  const toggleSidebar = () => {
-    setSidebar((open) => {
-      try {
-        localStorage.setItem(SIDEBAR_KEY, open ? "closed" : "open");
-      } catch {
-        // a preference that cannot be saved still applies for this session
-      }
-      return !open;
-    });
-  };
+  const { settings: prefs, update } = useSettings();
+  const sidebar = prefs.sidebar.open;
+  const toggleSidebar = () => update({ sidebar: { open: !sidebar } });
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
       <button type="button" className="bar-button" onClick={toggleSidebar} aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}>
@@ -147,13 +133,16 @@ export function Layout({ children }: { children: ReactNode }) {
           break;
       }
     };
+    const onThemeToggle = (event: Event) => update({ appearance: { theme: (event as CustomEvent<"dark" | "light">).detail } });
     window.addEventListener("keydown", onKey);
     window.addEventListener("wicket:command", onCommand);
+    window.addEventListener("wicket:theme-toggle", onThemeToggle);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("wicket:command", onCommand);
+      window.removeEventListener("wicket:theme-toggle", onThemeToggle);
     };
-  }, [navigate]);
+  }, [navigate, update]);
 
   return (
     <div className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}>

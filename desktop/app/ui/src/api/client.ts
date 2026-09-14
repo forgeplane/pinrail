@@ -2,7 +2,7 @@
 // server's URL; in a browser (development, tests) it uses VITE_WICKET_URL or
 // the default port.
 
-import type { Info, Notice, Plugin, Review, Violation } from "./types";
+import type { Info, Notice, Plugin, Review, ServerSettings, Violation } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -66,6 +66,8 @@ export const api = {
   reloadPlugins: () => request<{ ok: boolean; count: number }>("POST", "/api/v1/plugins/reload"),
   addPluginDir: (dir: string) =>
     request<{ ok: boolean; count: number; dirs: string[] }>("POST", "/api/v1/plugins/dirs", { dir }),
+  settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
+  patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** The URL a plugin's bundle is loaded from; the iframe adds the theme. */
   bundleUrl: async (review: Review, entry: string) =>
     `${await serverUrl()}/plugins/${review.plugin}/${review.plugin_version}/${entry}`,
@@ -91,7 +93,7 @@ export function subscribe(handlers: {
         // a malformed event is dropped; the next refresh catches up
       }
     };
-    for (const kind of ["created", "decided", "withdrawn", "expired", "viewed", "plugins_reloaded"]) {
+    for (const kind of ["created", "decided", "withdrawn", "expired", "viewed", "plugins_reloaded", "settings_changed"]) {
       source.addEventListener(kind, (event) => {
         try {
           handlers.onNotice(JSON.parse((event as MessageEvent).data));

@@ -70,6 +70,15 @@ export type Notice = {
   kind: string;
   review_id: string | null;
   review: Review | null;
+  /** for settings_changed: the settings that changed, as JSON pointers */
+  keys?: string[];
+};
+
+/** What /api/v1/settings returns; the shell reads the keys it applies. */
+export type ServerSettings = {
+  appearance: { theme: "system" | "dark" | "light"; text_size: "small" | "default" | "large" };
+  sidebar: { open: boolean };
+  [key: string]: unknown;
 };
 
 export type Info = {

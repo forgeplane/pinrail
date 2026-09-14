@@ -164,7 +164,12 @@ fn cors() -> CorsLayer {
         .collect::<Vec<_>>();
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
-        .allow_methods([axum::http::Method::GET, axum::http::Method::POST])
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PATCH,
+            axum::http::Method::DELETE,
+        ])
         .allow_headers([axum::http::header::CONTENT_TYPE])
 }
 
