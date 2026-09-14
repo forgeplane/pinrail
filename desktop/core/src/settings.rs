@@ -47,7 +47,7 @@ const LEAVES: &[(&str, Kind, fn() -> Value)] = &[
     ("/close_window", Kind::Enum(&["hide", "quit"]), || {
         json!("hide")
     }),
-    ("/dock_icon", Kind::Bool, || json!(true)),
+    ("/menu_bar_icon", Kind::Bool, || json!(true)),
     ("/sidebar/open", Kind::Bool, || json!(true)),
     ("/notifications/enabled", Kind::Bool, || json!(true)),
     ("/notifications/paused_until", Kind::NullableTime, || {

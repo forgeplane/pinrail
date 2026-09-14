@@ -130,13 +130,14 @@ pub fn run() {
                     handle.exit(1);
                 }
             });
-            app.manage(Native::new(state));
+            app.manage(Native::new(state.clone()));
             #[cfg(target_os = "macos")]
             if notify_mac::available() {
                 notify_mac::setup(app.handle());
             }
             app.set_menu(app_menu(app.handle())?)?;
             native::build_tray(app.handle())?;
+            native::apply_menu_bar_icon(app.handle(), &state);
             native::watch(app.handle().clone());
 
             // wicket:// links; a packaged app registers the scheme through
@@ -171,8 +172,17 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                // the close button hides the window, unless settings say quit
+                let quit = window
+                    .app_handle()
+                    .try_state::<Native>()
+                    .is_some_and(|n| n.state.settings.value("/close_window") == "quit");
+                if quit {
+                    window.app_handle().exit(0);
+                } else {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![

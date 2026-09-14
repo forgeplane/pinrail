@@ -96,7 +96,20 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
                 <SettingsRow label="Launch at login" description="Open Wicket when you sign in, in the menu bar" note={native ? undefined : "Only in the app"}>
                   <Toggle label="Launch at login" checked={settings.autostart === true} disabled={!native || settings.autostart === null} onChange={(v) => update({ autostart: v })} />
                 </SettingsRow>
-                <SettingsRow label="Closing the window" description="Hides it; Wicket stays in the menu bar until you quit" note="Quitting on close is coming with settings in the core" />
+                <SettingsRow label="Closing the window" description={settings.close_window === "quit" ? "Quits Wicket; the tray goes with it" : "Hides it; Wicket stays in the menu bar until you quit"}>
+                  <Segmented
+                    label="Closing the window"
+                    value={settings.close_window}
+                    onChange={(v) => update({ close_window: v })}
+                    options={[
+                      { value: "hide", label: "Hide to tray" },
+                      { value: "quit", label: "Quit" },
+                    ]}
+                  />
+                </SettingsRow>
+                <SettingsRow label="Show in the menu bar" description="The tray icon with the pending count and its menu; off leaves the Dock icon, the shortcut and notifications" note={native ? undefined : "Only in the app"}>
+                  <Toggle label="Show in the menu bar" checked={settings.menu_bar_icon} disabled={!native} onChange={(v) => update({ menu_bar_icon: v })} />
+                </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="Notifications">
                 <SettingsRow label="System notifications" description="A notification when a review arrives; the same switch as the tray's Pause" note={native ? undefined : "Only in the app"}>

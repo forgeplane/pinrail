@@ -78,6 +78,8 @@ export type Notice = {
 export type ServerSettings = {
   appearance: { theme: "system" | "dark" | "light"; text_size: "small" | "default" | "large" };
   sidebar: { open: boolean };
+  close_window: "hide" | "quit";
+  menu_bar_icon: boolean;
   [key: string]: unknown;
 };
 

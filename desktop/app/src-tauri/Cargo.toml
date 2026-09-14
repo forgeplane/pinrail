@@ -30,7 +30,7 @@ tauri-plugin-notification = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-window-state = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "signal", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "signal", "sync", "time"] }
 wicket-core = { path = "../../core" }
 
 [target.'cfg(target_os = "macos")'.dependencies]

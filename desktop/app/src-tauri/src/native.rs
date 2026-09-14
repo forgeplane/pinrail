@@ -98,6 +98,19 @@ pub fn route_for_url(url: &str) -> Option<String> {
     }
 }
 
+/// The tray icon shown or hidden, as settings say; the Dock icon stays
+/// either way. Applied at start and whenever the setting changes.
+pub fn apply_menu_bar_icon(app: &AppHandle, state: &AppState) {
+    let shown = state
+        .settings
+        .value("/menu_bar_icon")
+        .as_bool()
+        .unwrap_or(true);
+    if let Some(tray) = app.tray_by_id(TRAY_ID) {
+        let _ = tray.set_visible(shown);
+    }
+}
+
 /// Pending reviews, newest first, as the API lists them.
 fn pending(state: &AppState) -> Vec<Review> {
     let filters = Filters {
@@ -302,6 +315,18 @@ pub fn watch(app: AppHandle) {
                     }
                     if notice.kind == events::CREATED {
                         notify(&app, &notice);
+                    }
+                    if notice.kind == events::SETTINGS_CHANGED
+                        && notice
+                            .keys
+                            .as_ref()
+                            .is_some_and(|k| k.iter().any(|p| p == "/menu_bar_icon"))
+                        && let Some(native) = app.try_state::<Native>()
+                    {
+                        let handle = app.clone();
+                        let state = native.state.clone();
+                        let _ =
+                            app.run_on_main_thread(move || apply_menu_bar_icon(&handle, &state));
                     }
                 }
                 Err(RecvError::Lagged(_)) => {

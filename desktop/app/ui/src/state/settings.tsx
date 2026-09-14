@@ -16,6 +16,8 @@ export type TextSize = "small" | "default" | "large";
 export type Settings = {
   appearance: { theme: ThemePreference; text_size: TextSize };
   sidebar: { open: boolean };
+  close_window: "hide" | "quit";
+  menu_bar_icon: boolean;
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
   notifications: { enabled: boolean | null };
@@ -24,6 +26,8 @@ export type Settings = {
 type Patch = {
   appearance?: Partial<Settings["appearance"]>;
   sidebar?: Partial<Settings["sidebar"]>;
+  close_window?: Settings["close_window"];
+  menu_bar_icon?: boolean;
   autostart?: boolean;
   notifications?: Partial<Settings["notifications"]>;
 };
@@ -39,9 +43,12 @@ export function applyTextSize(size: TextSize) {
   if (root) (root.style as CSSStyleDeclaration & { zoom: string }).zoom = ZOOM[size];
 }
 
-const fromServer = (s: ServerSettings): Pick<Settings, "appearance" | "sidebar"> => ({
+type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon">;
+const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
   sidebar: { open: s.sidebar.open },
+  close_window: s.close_window,
+  menu_bar_icon: s.menu_bar_icon,
 });
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -50,6 +57,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => ({
     appearance: { theme: "system", text_size: "default" },
     sidebar: { open: true },
+    close_window: "hide",
+    menu_bar_icon: true,
     autostart: null,
     notifications: { enabled: null },
   }));
@@ -108,17 +117,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const update = useCallback(
     async (patch: Patch) => {
-      // the shell's own settings go to the core; applied at once, confirmed by the response
-      if (patch.appearance || patch.sidebar) {
-        const next = {
+      // the core's settings go to the core; applied at once, confirmed by the response
+      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined) {
+        const next: Served = {
           appearance: { ...settings.appearance, ...patch.appearance },
           sidebar: { ...settings.sidebar, ...patch.sidebar },
+          close_window: patch.close_window ?? settings.close_window,
+          menu_bar_icon: patch.menu_bar_icon ?? settings.menu_bar_icon,
         };
         apply(next);
         setSettings((s) => ({ ...s, ...next }));
         const body: Record<string, unknown> = {};
         if (patch.appearance) body.appearance = patch.appearance;
         if (patch.sidebar) body.sidebar = patch.sidebar;
+        if (patch.close_window !== undefined) body.close_window = patch.close_window;
+        if (patch.menu_bar_icon !== undefined) body.menu_bar_icon = patch.menu_bar_icon;
         try {
           const s = fromServer(await api.patchSettings(body));
           apply(s);
@@ -138,7 +151,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         }));
       }
     },
-    [native, settings.appearance, settings.sidebar, apply],
+    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, apply],
   );
 
   const value = useMemo(() => ({ settings, update, native, loaded }), [settings, update, native, loaded]);
