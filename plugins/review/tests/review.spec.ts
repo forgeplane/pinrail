@@ -208,7 +208,7 @@ test("the file tree's controls carry icons, and the collapse says which way it g
 test("settings lay out the view; a pill or a key asks the shell to keep the choice", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2(), settings: { diff: "split", order: "path", findings_only: true, tree_open: false } });
   const f = plugin.frame;
-  const splitRows = f.locator('.diff-row[style*="40px 1fr 40px 1fr"]');
+  const splitRows = f.locator(".diff-row.split");
   await expect(f.locator("#card-18")).toBeVisible();
   await expect(splitRows.first()).toBeVisible();
   await expect(f.locator("aside")).toHaveCount(0);

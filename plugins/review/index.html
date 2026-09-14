@@ -42,7 +42,29 @@ button.pill.on { color: var(--accent); border-color: color-mix(in oklab, var(--a
 .tree-row:hover { background: var(--bg-hover); }
 textarea.ta { flex: 1; resize: vertical; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; outline: none; min-height: 20px; color: var(--text); }
 textarea.ta:focus { border-color: var(--accent); }
-.diff-row:hover { box-shadow: inset 2px 0 0 var(--accent); }
+/* diff rows: one class each, so three thousand rows cost bytes, not kilobytes */
+.diff-row { display: grid; }
+.diff-row.inline { grid-template-columns: 44px 44px 18px 1fr; }
+.diff-row.split { grid-template-columns: 40px 1fr 40px 1fr; }
+.diff-row.inline.add { background: var(--add-bg); }
+.diff-row.inline.del { background: var(--del-bg); }
+.diff-row .ln { text-align: right; padding: 0 8px 0 4px; color: var(--faint); background: var(--bg-panel); user-select: none; position: relative; font-variant-numeric: tabular-nums; }
+.diff-row.inline.add .ln, .diff-row.split .ln.add { background: var(--add-gut); }
+.diff-row.inline.del .ln, .diff-row.split .ln.del { background: var(--del-gut); }
+.diff-row .sign { text-align: center; user-select: none; }
+.diff-row.add .sign { color: var(--ok); }
+.diff-row.del .sign { color: var(--danger); }
+.diff-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--text); }
+.diff-row.split .code { padding: 0 12px 0 10px; }
+.diff-row.split .code.l { border-right: 1px solid var(--border); }
+.diff-row.split .code.add { background: var(--add-bg); }
+.diff-row.split .code.del { background: var(--del-bg); }
+.hunk { padding: 3px 12px 3px 100px; color: var(--faint); background: var(--bg-panel); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.hunk.split { padding-left: 52px; }
+/* each file section is laid out and painted on its own, and skipped while
+   off screen: a change in one file never costs the others, and scrolling
+   twenty files costs what the two on screen do */
+[data-filesec] { content-visibility: auto; contain: content; }
 .diff-row .addbtn { opacity: 0; transition: opacity 0.08s; pointer-events: none; }
 .diff-row:hover .addbtn, .addbtn:focus-visible { opacity: 1; pointer-events: auto; }
 .addbtn { all: unset; cursor: pointer; position: absolute; right: -9px; top: 50%; transform: translateY(-50%); z-index: 2; width: 16px; height: 16px; border-radius: 4px; background: var(--accent); color: oklch(0.99 0 0); font-size: 13px; line-height: 16px; text-align: center; font-family: var(--sans); }
@@ -318,18 +340,22 @@ function moveFocus(dir) {
   set(() => { S.focusedId = next; unfoldFor(next); });
   scrollToCard(next);
 }
-function scrollToCard(id) {
-  const el = document.getElementById("card-" + id); const c = document.getElementById("main");
+/* Sections off screen are skipped until scrolled to, so their place is an
+   estimate: scroll, let the browser lay the target out, then correct. */
+function scrollTo(el, offset) {
+  const c = document.getElementById("main");
   if (!el || !c) return;
-  const er = el.getBoundingClientRect(), cr = c.getBoundingClientRect();
-  c.scrollTop += er.top - cr.top - cr.height / 3.2;
+  const place = () => { const er = el.getBoundingClientRect(), cr = c.getBoundingClientRect(); c.scrollTop += er.top - cr.top - offset(cr); };
+  place();
+  requestAnimationFrame(place);
+}
+function scrollToCard(id) {
+  scrollTo(document.getElementById("card-" + id), (cr) => cr.height / 3.2);
 }
 function jumpToFile(path) {
-  const el = document.querySelector(`[data-filesec="${CSS.escape(path)}"]`); const c = document.getElementById("main");
-  if (!el || !c) return;
-  const er = el.getBoundingClientRect(), cr = c.getBoundingClientRect();
-  c.scrollTop += er.top - cr.top - 6;
-  set(() => { S.activeFile = path; });
+  scrollTo(document.querySelector(`[data-filesec="${CSS.escape(path)}"]`), () => 6);
+  S.activeFile = path;
+  highlightTree(path);
 }
 
 /* ---------- decision ---------- */
@@ -539,42 +565,78 @@ function rowAttachments(f, newLn, oldLn, pad) {
   if (comp) html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans);font-size:var(--ui)">${composerHtml()}</div>`;
   return html;
 }
-function addBtn(f, line, side, title) {
-  return RO() ? "" : `<button class="addbtn" data-act="open-composer" data-file="${esc(f.path)}" data-line="${line}" data-side="${side}" title="${title}" aria-label="comment on ${esc(f.path)}:${line}${side === "old" ? " old" : ""}">+</button>`;
+/* One "+" for the whole diff: it moves to the line-number cell of the row
+   under the pointer, so three thousand rows carry a number each and not a
+   button each. Rows say which lines they are; the section says which file. */
+function ensureAddBtn() {
+  let btn = document.getElementById("addbtn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "addbtn"; btn.className = "addbtn"; btn.textContent = "+";
+    btn.setAttribute("data-act", "open-composer");
+  }
+  return btn;
+}
+document.addEventListener("mouseover", (e) => {
+  if (RO() || !D) return;
+  const row = e.target.closest && e.target.closest(".diff-row");
+  if (!row) return;
+  const sec = row.closest("[data-filesec]");
+  if (!sec) return;
+  const newLn = row.getAttribute("data-n"), oldLn = row.getAttribute("data-o");
+  const side = newLn ? "new" : oldLn ? "old" : null;
+  if (!side) return;
+  const cells = row.querySelectorAll(".ln");
+  const cell = side === "new" ? cells[cells.length - 1] : cells[0];
+  const btn = ensureAddBtn();
+  btn.setAttribute("data-file", sec.getAttribute("data-filesec"));
+  btn.setAttribute("data-line", side === "new" ? newLn : oldLn);
+  btn.setAttribute("data-side", side);
+  const label = `comment on ${sec.getAttribute("data-filesec")}:${side === "new" ? newLn : oldLn}${side === "old" ? " old" : ""}`;
+  btn.setAttribute("aria-label", label); btn.title = side === "new" ? "Add your comment on this line" : "Comment on the old line";
+  if (btn.parentNode !== cell) cell.appendChild(btn);
+});
+/* The rows of a file come in hunks, and each hunk is a region of its own
+   (see render): a verdict or a composer on one line re-renders its hunk,
+   not the file. */
+let HUNKS = new Map(); // hunk region key -> html, filled while rendering
+function hunked(f, rows, rowHtml) {
+  let n = 0, chunk = [], out = "";
+  const flush = () => {
+    if (!chunk.length) return;
+    const key = `hunk:${f.path}:${n++}`;
+    const html = `<div data-region="${esc(key)}">${chunk.join("")}</div>`;
+    HUNKS.set(key, html);
+    out += `<!--region:${esc(key)}-->`;
+    chunk = [];
+  };
+  for (const r of rows) {
+    if (r.kind === "hunk") flush();
+    chunk.push(rowHtml(r));
+  }
+  flush();
+  return out;
 }
 function inlineRowsHtml(f, fi) {
   const P = PARSED[fi];
-  return P.rows.map((r) => {
-    if (r.kind === "hunk") return `<div style="padding:3px 12px 3px 100px;color:var(--faint);background:var(--bg-panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">${esc(r.text)}</div>`;
+  return hunked(f, P.rows, (r) => {
+    if (r.kind === "hunk") return `<div class="hunk">${esc(r.text)}</div>`;
     const isAdd = r.kind === "add", isDel = r.kind === "del";
-    const bg = isAdd ? "var(--add-bg)" : isDel ? "var(--del-bg)" : "transparent";
-    const gut = isAdd ? "var(--add-gut)" : isDel ? "var(--del-gut)" : "var(--bg-panel)";
-    const btn = r.new != null ? addBtn(f, r.new, "new", "Add your comment on this line") : addBtn(f, r.old, "old", "Comment on the old line");
-    return `<div class="diff-row" style="display:grid;grid-template-columns:44px 44px 18px 1fr;background:${bg}">
-      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${gut};user-select:none;font-variant-numeric:tabular-nums">${r.old ?? ""}</span>
-      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${gut};user-select:none;position:relative;font-variant-numeric:tabular-nums">${r.new ?? ""}${btn}</span>
-      <span style="text-align:center;color:${isAdd ? "var(--ok)" : "var(--danger)"};user-select:none">${isAdd ? "+" : isDel ? "−" : ""}</span>
-      <span style="white-space:pre-wrap;word-break:break-word;padding-right:12px;color:var(--text)">${esc(r.text)}</span>
-    </div>` + rowAttachments(f, r.new ?? null, r.old ?? null, 106);
-  }).join("");
+    return `<div class="diff-row inline${isAdd ? " add" : isDel ? " del" : ""}"${r.new != null ? ` data-n="${r.new}"` : ""}${r.old != null ? ` data-o="${r.old}"` : ""}><span class="ln">${r.old ?? ""}</span><span class="ln">${r.new ?? ""}</span><span class="sign">${isAdd ? "+" : isDel ? "−" : ""}</span><span class="code">${esc(r.text)}</span></div>` +
+      rowAttachments(f, r.new ?? null, r.old ?? null, 106);
+  });
 }
 function splitRowsHtml(f, fi) {
   const P = PARSED[fi];
-  return P.splitRows.map((r) => {
-    if (r.kind === "hunk") return `<div style="padding:3px 12px 3px 52px;color:var(--faint);background:var(--bg-panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">${esc(r.text)}</div>`;
+  return hunked(f, P.splitRows, (r) => {
+    if (r.kind === "hunk") return `<div class="hunk split">${esc(r.text)}</div>`;
     const l = r.l, rr = r.r;
     const lDel = l && l.kind === "del", rAdd = rr && rr.kind === "add";
     const newLn = rr && rr.new != null ? rr.new : null;
     const oldLn = l && l.old != null ? l.old : null;
-    const lBtn = lDel ? addBtn(f, oldLn, "old", "Comment on the old line") : "";
-    const rBtn = newLn != null ? addBtn(f, newLn, "new", "Comment on this line") : "";
-    return `<div class="diff-row" style="display:grid;grid-template-columns:40px 1fr 40px 1fr">
-      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${lDel ? "var(--del-gut)" : "var(--bg-panel)"};user-select:none;position:relative;font-variant-numeric:tabular-nums">${oldLn ?? ""}${lBtn}</span>
-      <span style="white-space:pre-wrap;word-break:break-word;padding:0 12px 0 10px;background:${lDel ? "var(--del-bg)" : "transparent"};border-right:1px solid var(--border);color:var(--text)">${esc(l ? l.text : "")}</span>
-      <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:${rAdd ? "var(--add-gut)" : "var(--bg-panel)"};user-select:none;position:relative;font-variant-numeric:tabular-nums">${newLn ?? ""}${rBtn}</span>
-      <span style="white-space:pre-wrap;word-break:break-word;padding:0 12px 0 10px;background:${rAdd ? "var(--add-bg)" : "transparent"};color:var(--text)">${esc(rr ? rr.text : "")}</span>
-    </div>` + rowAttachments(f, newLn, lDel ? oldLn : null, 52);
-  }).join("");
+    return `<div class="diff-row split"${newLn != null ? ` data-n="${newLn}"` : ""}${lDel && oldLn != null ? ` data-o="${oldLn}"` : ""}><span class="ln${lDel ? " del" : ""}">${oldLn ?? ""}</span><span class="code l${lDel ? " del" : ""}">${esc(l ? l.text : "")}</span><span class="ln${rAdd ? " add" : ""}">${newLn ?? ""}</span><span class="code${rAdd ? " add" : ""}">${esc(rr ? rr.text : "")}</span></div>` +
+      rowAttachments(f, newLn, lDel ? oldLn : null, 52);
+  });
 }
 function fileSectionHtml(f, fi) {
   const P = PARSED[fi];
@@ -591,15 +653,21 @@ function fileSectionHtml(f, fi) {
   const un = unanchored.length ? `<div style="margin-top:8px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:8px;background:var(--bg-panel)">
       <div style="font-size:11px;color:var(--faint);margin-bottom:8px">Not anchored to a line in this file — posts as a file-level comment</div>
       <div style="display:flex;flex-direction:column;gap:8px">${unanchored.map(cardHtml).join("")}</div></div>` : "";
-  return `<section data-filesec="${esc(f.path)}" style="margin-bottom:20px">
-    <div style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:${folded && !f.summary ? "8px" : "8px 8px 0 0"}">
+  const rowsShown = folded ? 0 : (S.diffMode === "inline" ? P.rows.length : P.splitRows.length);
+  const estimate = 44 + rowsShown * 20 + (f.summary ? 34 : 0) + fProps.length * 140;
+  // the header is a region of its own, like a hunk: a verdict changes its
+  // counts without re-rendering the diff under it
+  const headKey = `hunk:${f.path}:head`;
+  HUNKS.set(headKey, `<div data-region="${esc(headKey)}" style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:${folded && !f.summary ? "8px" : "8px 8px 0 0"}">
       <button class="bare" data-act="fold-file" data-file="${esc(f.path)}" style="color:var(--faint);font-size:10px;width:14px;text-align:center" aria-label="fold ${esc(f.path)}">${folded ? "▸" : "▾"}</button>
       <span style="font-family:var(--mono);font-size:12.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--faint)">${esc(dir)}</span><span style="color:var(--text);font-weight:600">${esc(base)}</span></span>
       ${badge ? `<span style="flex:none;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:1px 7px;border-radius:99px;color:var(--ok);border:1px solid color-mix(in oklab, var(--ok) 40%, transparent)">${badge}</span>` : ""}
       <span style="flex:none;white-space:nowrap;font-size:11px;font-family:var(--mono);font-variant-numeric:tabular-nums"><span style="color:var(--ok)">+${P.add}</span><span style="color:var(--danger)"> −${P.del}</span></span>
       <span style="flex:1"></span>
       ${total ? `<span style="flex:none;font-size:11px;color:${fDecided === total ? "var(--ok)" : "var(--dim)"};font-family:var(--mono)">${fDecided}/${total} decided</span>` : ""}
-    </div>
+    </div>`);
+  return `<section data-filesec="${esc(f.path)}" style="margin-bottom:20px;contain-intrinsic-size:auto ${estimate}px">
+    <!--region:${esc(headKey)}-->
     ${summary}${body}${un}
   </section>`;
 }
@@ -802,9 +870,25 @@ function headerHtml() {
 }
 
 /* ---------- render root ---------- */
+/* The document is a set of regions — header, tree, summary, one section per
+   file, the unanchored cards, the modals — each rendered to a string. A
+   change re-renders the strings and swaps only the regions whose string
+   differs, so accepting a comment touches one file's section rather than
+   three thousand diff rows. The whole document is rebuilt only when its
+   shape changes: the tree opens or closes, files reorder, the round is
+   done. */
+let RENDERED = null; // { shape, regions: Map(key -> html), hunks: Map(key -> html) }
+function region(key, html) {
+  // the region's root carries its key; an empty region keeps a placeholder
+  if (!html) return `<span data-region="${esc(key)}" hidden></span>`;
+  return html.replace(/^\s*<([a-z0-9]+)/i, `<$1 data-region="${esc(key)}"`);
+}
+// a file region holds markers where its hunks go; composing fills them in
+const compose = (html) => html.replace(/<!--region:([^>]*)-->/g, (_, key) => HUNKS.get(key) || "");
+const hunkFile = (key) => "file:" + key.slice("hunk:".length, key.lastIndexOf(":"));
 function render() {
   const app = document.getElementById("app");
-  if (!D) { app.innerHTML = `<div style="padding:40px;color:var(--dim);font-family:var(--sans)">waiting for the shell…</div>`; return; }
+  if (!D) { app.innerHTML = `<div style="padding:40px;color:var(--dim);font-family:var(--sans)">waiting for the shell…</div>`; RENDERED = null; return; }
   const main = document.getElementById("main");
   const scrollTop = main ? main.scrollTop : 0;
   const focusEl = document.activeElement;
@@ -813,33 +897,76 @@ function render() {
     : focusEl && focusEl.hasAttribute && focusEl.hasAttribute("data-note-ta") ? { note: focusEl.getAttribute("data-note-ta") } : null;
 
   const globalUn = D.proposals.filter(unplaceable);
-  const banner = S.done ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--ok) 12%, var(--bg-panel));border-bottom:1px solid color-mix(in oklab, var(--ok) 35%, var(--border));font-size:12.5px;color:var(--ok);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>` : "";
-  app.innerHTML = `${headerHtml()}${banner}
-  <div style="display:flex;flex:1;min-height:0">
-    ${S.treeOpen ? treeHtml() : `<div style="width:30px;flex:none;border-right:1px solid var(--border);background:var(--bg-panel);padding-top:8px;display:flex;justify-content:center"><button class="bare" data-act="toggle-tree" style="color:var(--faint);padding:4px 6px">${Wicket.icon("panel-left-open", { size: 15, label: "Show the file tree" })}</button></div>`}
-    <div id="main" style="flex:1;overflow-y:auto;min-width:0">
-      <div style="max-width:1240px;padding:16px 24px 120px 24px">
-        ${summaryHtml()}
-        ${orderedFiles().map((i) => fileSectionHtml(D.files[i], i)).join("")}
-        ${globalUn.length ? `<section style="margin-bottom:20px">
+  const order = orderedFiles();
+  const regions = new Map();
+  HUNKS = new Map();
+  regions.set("header", region("header", headerHtml()));
+  regions.set("tree", region("tree", S.treeOpen ? treeHtml() : `<div style="width:30px;flex:none;border-right:1px solid var(--border);background:var(--bg-panel);padding-top:8px;display:flex;justify-content:center"><button class="bare" data-act="toggle-tree" style="color:var(--faint);padding:4px 6px">${Wicket.icon("panel-left-open", { size: 15, label: "Show the file tree" })}</button></div>`));
+  regions.set("summary", region("summary", summaryHtml()));
+  for (const i of order) regions.set(`file:${D.files[i].path}`, region(`file:${D.files[i].path}`, fileSectionHtml(D.files[i], i)));
+  regions.set("unanchored", region("unanchored", globalUn.length ? `<section style="margin-bottom:20px">
           <div style="display:flex;align-items:baseline;gap:10px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px 8px 0 0">
             <span style="font-size:12.5px;font-weight:600">Not anchored to any file</span>
             <span style="font-size:11px;color:var(--faint)">replies go to their thread; the rest post on the change as a whole</span>
           </div>
           <div style="border:1px dashed var(--border-strong);border-top:none;border-radius:0 0 8px 8px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg-panel)">${globalUn.map(cardHtml).join("")}</div>
-        </section>` : ""}
+        </section>` : ""));
+  regions.set("keys", region("keys", keysModalHtml()));
+  regions.set("submit", region("submit", submitModalHtml()));
+  const shape = JSON.stringify([S.treeOpen, S.done, order.map((i) => D.files[i].path), globalUn.map((p) => p.id)]);
+
+  if (RENDERED && RENDERED.shape === shape) {
+    // the same shape: swap only what changed — a region, or a hunk inside one
+    let missing = false;
+    const swapped = new Set();
+    for (const [key, html] of regions) {
+      if (RENDERED.regions.get(key) === html) continue;
+      const el = app.querySelector(`[data-region="${CSS.escape(key)}"]`);
+      if (!el) { missing = true; break; }
+      el.outerHTML = compose(html);
+      swapped.add(key);
+    }
+    if (!missing) {
+      for (const [key, html] of HUNKS) {
+        if (RENDERED.hunks.get(key) === html || swapped.has(hunkFile(key))) continue;
+        const el = app.querySelector(`[data-region="${CSS.escape(key)}"]`);
+        if (!el) { missing = true; break; }
+        el.outerHTML = html;
+      }
+    }
+    if (!missing) {
+      RENDERED = { shape, regions, hunks: HUNKS };
+      restoreFocus(focusDesc);
+      syncStatus();
+      return;
+    }
+  }
+
+  const banner = S.done ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--ok) 12%, var(--bg-panel));border-bottom:1px solid color-mix(in oklab, var(--ok) 35%, var(--border));font-size:12.5px;color:var(--ok);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>` : "";
+  app.innerHTML = `${regions.get("header")}${banner}
+  <div style="display:flex;flex:1;min-height:0">
+    ${regions.get("tree")}
+    <div id="main" style="flex:1;overflow-y:auto;min-width:0">
+      <div style="max-width:1240px;padding:16px 24px 120px 24px">
+        ${regions.get("summary")}
+        ${order.map((i) => compose(regions.get(`file:${D.files[i].path}`))).join("")}
+        ${regions.get("unanchored")}
       </div>
     </div>
   </div>
-  ${keysModalHtml()}${submitModalHtml()}`;
+  ${regions.get("keys")}${regions.get("submit")}`;
+  RENDERED = { shape, regions, hunks: HUNKS };
   const nm = document.getElementById("main");
   if (nm) { nm.scrollTop = scrollTop; nm.addEventListener("scroll", spy, { passive: true }); }
+  restoreFocus(focusDesc);
+  syncStatus();
+}
+function restoreFocus(focusDesc) {
   let toFocus = null;
   if (focusDesc) toFocus = focusDesc.id ? document.getElementById(focusDesc.id) : document.querySelector(`[data-note-ta="${focusDesc.note}"]`);
   else if (S.composer) toFocus = document.getElementById("composer-ta");
   else { const openNotes = document.querySelectorAll("[data-note-ta]"); if (openNotes.length === 1) toFocus = openNotes[0]; }
-  if (toFocus) { toFocus.focus(); const v = toFocus.value; toFocus.value = ""; toFocus.value = v; }
-  syncStatus();
+  if (toFocus && toFocus !== document.activeElement) { toFocus.focus(); const v = toFocus.value; toFocus.value = ""; toFocus.value = v; }
 }
 
 /* ---------- scrollspy ---------- */
@@ -858,12 +985,15 @@ function spy() {
     });
     if (best && best !== S.activeFile) {
       S.activeFile = best;
-      document.querySelectorAll('[data-act="jump-file"]').forEach((el) => {
-        const on = el.getAttribute("data-file") === best;
-        el.style.background = on ? "var(--accent-bg)" : "transparent";
-        el.style.boxShadow = on ? "inset 2px 0 0 var(--accent)" : "none";
-      });
+      highlightTree(best);
     }
+  });
+}
+function highlightTree(path) {
+  document.querySelectorAll('[data-act="jump-file"]').forEach((el) => {
+    const on = el.getAttribute("data-file") === path;
+    el.style.background = on ? "var(--accent-bg)" : "transparent";
+    el.style.boxShadow = on ? "inset 2px 0 0 var(--accent)" : "none";
   });
 }
 
