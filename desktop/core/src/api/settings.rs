@@ -29,12 +29,7 @@ async fn change(State(state): State<Arc<AppState>>, body: Bytes) -> Response {
 }
 
 fn apply(state: &AppState, body: &[u8]) -> Result<Value, Error> {
-    let patch = parse_body(body)?;
-    let (after, keys) = state.settings.patch(&patch)?;
-    if !keys.is_empty() {
-        announce(state, &keys)?;
-    }
-    Ok(after)
+    state.change_settings(&parse_body(body)?)
 }
 
 /// Records and broadcasts which settings changed, from a patch or from an

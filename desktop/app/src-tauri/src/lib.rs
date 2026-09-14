@@ -40,16 +40,6 @@ fn take_pending_route(native: State<'_, Native>) -> Option<String> {
 }
 
 #[tauri::command]
-fn notifications_paused(native: State<'_, Native>) -> bool {
-    native.paused.load(std::sync::atomic::Ordering::Relaxed)
-}
-
-#[tauri::command]
-fn set_notifications_paused(app: AppHandle, native: State<'_, Native>, paused: bool) {
-    native.set_paused(&app, paused);
-}
-
-#[tauri::command]
 fn autostart_enabled(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
 }
@@ -138,6 +128,7 @@ pub fn run() {
             app.set_menu(app_menu(app.handle())?)?;
             native::build_tray(app.handle())?;
             native::apply_menu_bar_icon(app.handle(), &state);
+            native::refresh_tray_at_pause_end(app.handle(), &state);
             native::watch(app.handle().clone());
 
             // wicket:// links; a packaged app registers the scheme through
@@ -188,8 +179,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_url,
             take_pending_route,
-            notifications_paused,
-            set_notifications_paused,
             autostart_enabled,
             set_autostart
         ])

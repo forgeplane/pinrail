@@ -2,11 +2,10 @@
 //! reviews, a notification when one arrives, and the routes the shell is
 //! sent to from the tray, the shortcut, a deep link or a second launch.
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
-use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{AppHandle, Emitter, Manager, Wry};
 use tauri_plugin_notification::NotificationExt;
@@ -24,7 +23,6 @@ const TRAY_TITLE_CHARS: usize = 48;
 
 pub struct Native {
     pub state: Arc<AppState>,
-    pub paused: AtomicBool,
     /// A route the shell has not picked up yet: it may still be loading.
     pending_route: Mutex<Option<String>>,
 }
@@ -33,7 +31,6 @@ impl Native {
     pub fn new(state: Arc<AppState>) -> Self {
         Native {
             state,
-            paused: AtomicBool::new(false),
             pending_route: Mutex::new(None),
         }
     }
@@ -41,14 +38,67 @@ impl Native {
     pub fn take_pending_route(&self) -> Option<String> {
         self.pending_route.lock().unwrap().take()
     }
+}
 
-    /// Pauses or resumes notifications; the tray and the shell both follow.
-    pub fn set_paused(&self, app: &AppHandle, paused: bool) {
-        self.paused.store(paused, Ordering::Relaxed);
-        let _ = app.emit("wicket:notifications", paused);
-        let handle = app.clone();
-        let _ = app.run_on_main_thread(move || refresh_tray(&handle));
+/// How notifications stand, from the settings: off, paused until a moment
+/// still to come, or on; and whether they sound.
+struct NotificationSettings {
+    enabled: bool,
+    paused_until: Option<DateTime<Utc>>,
+    sound: bool,
+}
+
+fn notification_settings(state: &AppState) -> NotificationSettings {
+    let s = state.settings.get();
+    let n = &s["notifications"];
+    let paused_until = n["paused_until"]
+        .as_str()
+        .and_then(|t| DateTime::parse_from_rfc3339(t).ok())
+        .map(|t| t.with_timezone(&Utc))
+        .filter(|t| *t > Utc::now());
+    NotificationSettings {
+        enabled: n["enabled"].as_bool().unwrap_or(true),
+        paused_until,
+        sound: n["sound"].as_bool().unwrap_or(true),
     }
+}
+
+/// Pauses notifications until a moment, or resumes them with `None`. The
+/// setting is what the dialog shows too; the tray follows through the
+/// change event, like any other way of setting it.
+fn pause_notifications(state: &AppState, until: Option<DateTime<Utc>>) {
+    let value = until.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+    if let Err(error) =
+        state.change_settings(&serde_json::json!({ "notifications": { "paused_until": value } }))
+    {
+        eprintln!("wicket: pause not recorded: {error}");
+    }
+}
+
+/// Refreshes the tray once the current pause runs out, so "Resume" gives
+/// way to "Pause" without anyone touching a setting.
+pub fn refresh_tray_at_pause_end(app: &AppHandle, state: &AppState) {
+    let Some(until) = notification_settings(state).paused_until else {
+        return;
+    };
+    let wait = (until - Utc::now()).to_std().unwrap_or_default();
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(wait + std::time::Duration::from_secs(1)).await;
+        let again = handle.clone();
+        let _ = handle.run_on_main_thread(move || refresh_tray(&again));
+    });
+}
+
+/// The start of tomorrow, local time.
+fn tomorrow() -> DateTime<Utc> {
+    use chrono::TimeZone;
+    let local = chrono::Local::now().date_naive() + chrono::Days::new(1);
+    chrono::Local
+        .from_local_datetime(&local.and_hms_opt(0, 0, 0).unwrap())
+        .single()
+        .map(|t| t.with_timezone(&Utc))
+        .unwrap_or_else(|| Utc::now() + chrono::Duration::hours(12))
 }
 
 /// Shows the window and sends the shell to a route.
@@ -138,10 +188,15 @@ fn on_menu(app: &AppHandle, id: &str) {
     match id {
         "inbox" => open(app, "/"),
         "next" => open_next(app),
-        "pause" => {
+        "pause:15" | "pause:60" | "pause:tomorrow" | "resume" => {
             if let Some(native) = app.try_state::<Native>() {
-                let paused = !native.paused.load(Ordering::Relaxed);
-                native.set_paused(app, paused);
+                let until = match id {
+                    "pause:15" => Some(Utc::now() + chrono::Duration::minutes(15)),
+                    "pause:60" => Some(Utc::now() + chrono::Duration::hours(1)),
+                    "pause:tomorrow" => Some(tomorrow()),
+                    _ => None,
+                };
+                pause_notifications(&native.state, until);
             }
         }
         "quit" => app.exit(0),
@@ -176,7 +231,7 @@ pub fn refresh_tray(app: &AppHandle) {
         1 => "Wicket: 1 review pending".to_string(),
         n => format!("Wicket: {n} reviews pending"),
     }));
-    if let Ok(menu) = menu(app, &pending, native.paused.load(Ordering::Relaxed)) {
+    if let Ok(menu) = menu(app, &pending, &notification_settings(&native.state)) {
         let _ = tray.set_menu(Some(menu));
     }
     // The Dock icon carries the count too, for a menu bar that hides the tray.
@@ -185,7 +240,11 @@ pub fn refresh_tray(app: &AppHandle) {
     }
 }
 
-fn menu(app: &AppHandle, pending: &[Review], paused: bool) -> tauri::Result<Menu<Wry>> {
+fn menu(
+    app: &AppHandle,
+    pending: &[Review],
+    notifications: &NotificationSettings,
+) -> tauri::Result<Menu<Wry>> {
     let menu = Menu::new(app)?;
     if pending.is_empty() {
         menu.append(&MenuItem::with_id(
@@ -231,14 +290,39 @@ fn menu(app: &AppHandle, pending: &[Review], paused: bool) -> tauri::Result<Menu
         true,
         Some("Alt+Shift+W"),
     )?)?;
-    menu.append(&CheckMenuItem::with_id(
-        app,
-        "pause",
-        "Pause notifications",
-        true,
-        paused,
-        None::<&str>,
-    )?)?;
+    // the pause, as a submenu: how long, or resume with the time it ends
+    if !notifications.enabled {
+        menu.append(&MenuItem::with_id(
+            app,
+            "notifications-off",
+            "Notifications are off in Settings",
+            false,
+            None::<&str>,
+        )?)?;
+    } else if let Some(until) = notifications.paused_until {
+        let local = until.with_timezone(&chrono::Local);
+        menu.append(&MenuItem::with_id(
+            app,
+            "resume",
+            format!(
+                "Resume notifications (paused until {})",
+                local.format("%H:%M")
+            ),
+            true,
+            None::<&str>,
+        )?)?;
+    } else {
+        menu.append(&Submenu::with_items(
+            app,
+            "Pause notifications",
+            true,
+            &[
+                &MenuItem::with_id(app, "pause:15", "For 15 minutes", true, None::<&str>)?,
+                &MenuItem::with_id(app, "pause:60", "For 1 hour", true, None::<&str>)?,
+                &MenuItem::with_id(app, "pause:tomorrow", "Until tomorrow", true, None::<&str>)?,
+            ],
+        )?)?;
+    }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
     menu.append(&MenuItem::with_id(
         app,
@@ -317,16 +401,24 @@ pub fn watch(app: AppHandle) {
                         notify(&app, &notice);
                     }
                     if notice.kind == events::SETTINGS_CHANGED
-                        && notice
-                            .keys
-                            .as_ref()
-                            .is_some_and(|k| k.iter().any(|p| p == "/menu_bar_icon"))
+                        && let Some(keys) = &notice.keys
                         && let Some(native) = app.try_state::<Native>()
                     {
-                        let handle = app.clone();
-                        let state = native.state.clone();
-                        let _ =
-                            app.run_on_main_thread(move || apply_menu_bar_icon(&handle, &state));
+                        let menu_bar = keys.iter().any(|p| p == "/menu_bar_icon");
+                        let notifications = keys.iter().any(|p| p.starts_with("/notifications/"));
+                        if menu_bar || notifications {
+                            let handle = app.clone();
+                            let state = native.state.clone();
+                            let _ = app.run_on_main_thread(move || {
+                                if menu_bar {
+                                    apply_menu_bar_icon(&handle, &state);
+                                }
+                                if notifications {
+                                    refresh_tray_at_pause_end(&handle, &state);
+                                }
+                                refresh_tray(&handle);
+                            });
+                        }
                     }
                 }
                 Err(RecvError::Lagged(_)) => {
@@ -343,7 +435,8 @@ fn notify(app: &AppHandle, notice: &Notice) {
     let Some(native) = app.try_state::<Native>() else {
         return;
     };
-    if native.paused.load(Ordering::Relaxed) {
+    let settings = notification_settings(&native.state);
+    if !settings.enabled || settings.paused_until.is_some() {
         return;
     }
     let Some(review) = &notice.review else {
@@ -364,11 +457,17 @@ fn notify(app: &AppHandle, notice: &Notice) {
     if crate::notify_mac::available() {
         let title = title.to_string();
         let id = notice.review_id.clone();
-        let _ =
-            app.run_on_main_thread(move || crate::notify_mac::notify(&title, &body, id.as_deref()));
+        let sound = settings.sound;
+        let _ = app.run_on_main_thread(move || {
+            crate::notify_mac::notify(&title, &body, id.as_deref(), sound)
+        });
         return;
     }
-    if let Err(error) = app.notification().builder().title(title).body(body).show() {
+    let mut builder = app.notification().builder().title(title).body(body);
+    if settings.sound {
+        builder = builder.sound("default");
+    }
+    if let Err(error) = builder.show() {
         eprintln!("wicket: notification not shown: {error}");
     }
 }

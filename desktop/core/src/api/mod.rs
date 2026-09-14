@@ -36,6 +36,16 @@ pub struct AppState {
 impl AppState {
     /// Opens the database, writes out the built-in plugin, scans the plugin
     /// directories and wires the service together.
+    /// Applies a partial change to the settings and announces what changed,
+    /// for the API and for the app itself (the tray's pause, for one).
+    pub fn change_settings(&self, patch: &serde_json::Value) -> Result<serde_json::Value, Error> {
+        let (after, keys) = self.settings.patch(patch)?;
+        if !keys.is_empty() {
+            settings::announce(self, &keys)?;
+        }
+        Ok(after)
+    }
+
     pub fn open(config: Config) -> Result<Arc<Self>, Error> {
         std::fs::create_dir_all(&config.data_dir)?;
         let settings = Arc::new(crate::settings::Store::open(&config.data_dir));

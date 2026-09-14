@@ -101,6 +101,9 @@ pub fn setup(app: &AppHandle) {
     // it will
     let report = RcBlock::new(|settings: std::ptr::NonNull<UNNotificationSettings>| {
         let s = unsafe { settings.as_ref() };
+        if s.soundSetting() == UNNotificationSetting::Disabled {
+            eprintln!("wicket: notifications will not sound: the sound is off in System Settings");
+        }
         let why = match (s.authorizationStatus(), s.alertStyle(), s.alertSetting()) {
             (UNAuthorizationStatus::Denied, _, _) => "not allowed in System Settings",
             (UNAuthorizationStatus::NotDetermined, _, _) => "not yet allowed",
@@ -114,11 +117,13 @@ pub fn setup(app: &AppHandle) {
 }
 
 /// Posts a notification; a click opens the review when one is named.
-pub fn notify(title: &str, body: &str, review_id: Option<&str>) {
+pub fn notify(title: &str, body: &str, review_id: Option<&str>, sound: bool) {
     let content = UNMutableNotificationContent::new();
     content.setTitle(&NSString::from_str(title));
     content.setBody(&NSString::from_str(body));
-    content.setSound(Some(&UNNotificationSound::defaultSound()));
+    if sound {
+        content.setSound(Some(&UNNotificationSound::defaultSound()));
+    }
     let identifier = match review_id {
         Some(id) => format!("{REVIEW_PREFIX}{id}"),
         None => format!(

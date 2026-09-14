@@ -4,6 +4,7 @@
 import { Bell, Blocks, Database, Info, Keyboard, Palette, Settings2, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router";
+import { Select } from "../Select";
 import { api } from "../../api/client";
 import type { Info as ServerInfo } from "../../api/types";
 import { GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
@@ -24,6 +25,24 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "about", label: "About", icon: <Info size={15} /> },
 ];
 
+/** The pause as a moment still to come, or null. */
+const pausedUntil = (iso: string | null) => {
+  if (!iso) return null;
+  const t = new Date(iso);
+  return t.getTime() > Date.now() ? t : null;
+};
+
+const clock = (t: Date) => t.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
+/** What a choice in the pause menu means, as a timestamp or null. */
+const pauseUntil = (choice: string): string | null => {
+  const now = new Date();
+  if (choice === "15") return new Date(now.getTime() + 15 * 60_000).toISOString();
+  if (choice === "60") return new Date(now.getTime() + 60 * 60_000).toISOString();
+  if (choice === "tomorrow") return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).toISOString();
+  return null;
+};
+
 const Keys = ({ keys }: { keys: string[][] }) => (
   <span className="settings-keys">
     {keys.map((combo, i) => (
@@ -41,6 +60,15 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
   const live = useLive();
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [copied, setCopied] = useState(false);
+  const paused = pausedUntil(settings.notifications.paused_until);
+
+  // a pause ends on its own: the row says so within the minute
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!open || !paused) return;
+    const timer = window.setInterval(() => tick((n) => n + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, [open, paused]);
 
   useEffect(() => {
     if (!open) return;
@@ -112,12 +140,34 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
                 </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="Notifications">
-                <SettingsRow label="System notifications" description="A notification when a review arrives; the same switch as the tray's Pause" note={native ? undefined : "Only in the app"}>
-                  <Toggle label="System notifications" checked={settings.notifications.enabled === true} disabled={!native || settings.notifications.enabled === null} onChange={(v) => update({ notifications: { enabled: v } })} />
+                <SettingsRow label="System notifications" description="A notification when a review arrives; the tray keeps its count either way">
+                  <Toggle label="System notifications" checked={settings.notifications.enabled} onChange={(v) => update({ notifications: { enabled: v } })} />
                 </SettingsRow>
-                <SettingsRow label="Sound, quiet hours, muted plugins" description="Per-plugin mutes and quiet hours arrive with settings in the core">
-                  <Bell size={15} className="faint" />
+                <SettingsRow label="Pause" description={paused ? `Nothing is announced until ${clock(paused)}; the tray's menu says so too` : "Nothing is announced while paused; the tray's menu offers the same"}>
+                  <Select
+                    label="Pause notifications"
+                    icon={<Bell size={14} />}
+                    value={paused ? "paused" : ""}
+                    onChange={(v) => update({ notifications: { paused_until: pauseUntil(v) } })}
+                    options={
+                      paused
+                        ? [
+                            { value: "paused", label: `Paused until ${clock(paused)}` },
+                            { value: "", label: "Resume" },
+                          ]
+                        : [
+                            { value: "", label: "Not paused" },
+                            { value: "15", label: "For 15 minutes" },
+                            { value: "60", label: "For 1 hour" },
+                            { value: "tomorrow", label: "Until tomorrow" },
+                          ]
+                    }
+                  />
                 </SettingsRow>
+                <SettingsRow label="Sound" description="The system's notification sound with each one">
+                  <Toggle label="Sound" checked={settings.notifications.sound} onChange={(v) => update({ notifications: { sound: v } })} />
+                </SettingsRow>
+                <SettingsRow label="Quiet hours and muted plugins" description="Coming next: no notifications between two times, and none for chosen plugins" />
               </SettingsGroup>
             </SettingsPage>
           ) : null}
