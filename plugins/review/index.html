@@ -749,8 +749,8 @@ function briefHtml() {
   return `<div id="brief" style="flex:none">
     <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);font-size:12.5px">
       <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(line)}">${esc(line)}</span>
-      ${ov.concerns ? `<button class="pill${S.concernsOpen ? " on" : ""}" data-act="toggle-concerns" style="color:var(--sev-major);border-color:color-mix(in oklab, var(--sev-major) ${S.concernsOpen ? 70 : 40}%, transparent);background:color-mix(in oklab, var(--sev-major) ${S.concernsOpen ? 14 : 8}%, transparent)" title="What the review focused on" aria-expanded="${S.concernsOpen ? "true" : "false"}">${ico("triangle-alert")}concerns</button>` : ""}
-      ${hasDetails ? `<button class="bare" data-act="toggle-brief" style="flex:none;font-size:11.5px;color:var(--accent)">${S.briefOpen ? "Hide details ▴" : "Details ▾"}</button>` : ""}
+      ${ov.concerns ? `<button class="pill" data-act="toggle-concerns" style="color:#fff;background:var(--sev-major);border-color:var(--sev-major);${S.concernsOpen ? "box-shadow:0 0 0 2px color-mix(in oklab, var(--sev-major) 35%, transparent)" : ""}" title="What the review focused on" aria-expanded="${S.concernsOpen ? "true" : "false"}">${ico("triangle-alert")}concerns</button>` : ""}
+      ${hasDetails ? `<button class="pill${S.briefOpen ? " on" : ""}" data-act="toggle-brief" title="${longer ? "The full summary and the description" : "The change's description"}" aria-expanded="${S.briefOpen ? "true" : "false"}">${ico("file-text")}description</button>` : ""}
     </div>${concerns}${details}</div>`;
 }
 

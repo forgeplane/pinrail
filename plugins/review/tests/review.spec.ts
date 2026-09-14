@@ -252,11 +252,12 @@ test("the brief is a strip under the header; details drop down; the comments sit
   await brief.getByRole("button", { name: "concerns" }).click();
   await expect(brief).toContainText("Ordering of the dedup");
   await expect(brief).not.toContainText("DESCRIPTION");
-  await brief.getByRole("button", { name: "Details" }).click();
+  await brief.getByRole("button", { name: "description" }).click();
   await expect(brief).toContainText("DESCRIPTION");
   await expect(brief).toContainText("Closes #12");
   expect((await brief.innerText()).split("Dedups tickets before the bulk insert").length).toBe(2);
-  await brief.getByRole("button", { name: "Hide details" }).click();
+  await brief.getByRole("button", { name: "description" }).click();
+  await expect(brief).not.toContainText("Closes #12");
   await brief.getByRole("button", { name: "concerns" }).click();
   await expect(brief).not.toContainText("Ordering of the dedup");
   // the comments come after the files, and the header's button lands on them
