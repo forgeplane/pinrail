@@ -526,7 +526,7 @@ function cardHtml(p) {
       ${(note && !noteEd) ? noteBlockHtml(p, dec, false) : ""}
       ${actions}`;
   }
-  return `<div id="card-${p.id}" data-card="${p.id}" style="font-size:var(--ui);background:var(--bg-raised);border:1px solid ${borderColor};border-radius:8px;overflow:hidden;outline:2px solid ${ring};outline-offset:2px;max-width:860px">${inner}${noteEd}</div>`;
+  return `<div id="card-${p.id}" data-card="${p.id}" style="font-size:var(--ui);background:var(--bg-raised);border:1px solid ${borderColor};border-radius:8px;overflow:hidden;outline:2px solid ${ring};outline-offset:2px">${inner}${noteEd}</div>`;
 }
 
 /* ---------- render: reviewer's comments / composer ---------- */
@@ -543,7 +543,7 @@ function manualHtml(m) {
 function composerHtml() {
   const c = S.composer;
   const anchor = `${c.file.split("/").pop()}:${c.line}${c.side === "old" ? " (old)" : ""}`;
-  return `<div style="border:1px solid var(--border-strong);border-left:3px solid var(--accent);border-radius:6px;background:var(--bg-raised);padding:9px 12px;max-width:860px">
+  return `<div style="border:1px solid var(--border-strong);border-left:3px solid var(--accent);border-radius:6px;background:var(--bg-raised);padding:9px 12px">
     <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">Your comment on <span style="font-family:var(--mono);color:var(--text)">${esc(anchor)}</span> · the agent assesses it and folds it into the review</div>
     <div style="display:flex;gap:8px;align-items:flex-start">
       <textarea class="ta" id="composer-ta" rows="2" placeholder="e.g. is this bucket cleanup handled anywhere?" aria-label="your comment">${esc(c.text || "")}</textarea>
@@ -745,7 +745,7 @@ function summaryHtml() {
         <span style="font-size:11px;color:var(--faint)">on the change as a whole · your words, posted as-is</span>
       </div>
       ${general}
-      ${RO() ? "" : `<div style="display:flex;gap:8px;align-items:flex-start;max-width:860px">
+      ${RO() ? "" : `<div style="display:flex;gap:8px;align-items:flex-start">
         <textarea class="ta" id="general-ta" rows="1" placeholder="Comment on the change as a whole…" aria-label="general comment" style="border-color:var(--border)">${esc(S.generalDraft || "")}</textarea>
         <button class="save-btn" data-act="add-general">Add comment</button>
       </div>`}
