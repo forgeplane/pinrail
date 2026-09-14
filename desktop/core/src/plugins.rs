@@ -194,8 +194,33 @@ impl Plugin {
         schema
             .validate(patch)
             .into_iter()
-            .map(|v| Violation::new(format!("{prefix}{}", v.path), v.message))
+            .map(|v| {
+                // a property with choices names them, not the schema keyword
+                let message = self
+                    .setting_choices(v.path.trim_start_matches('/'))
+                    .map(|choices| format!("must be one of {}", choices.join(", ")))
+                    .unwrap_or(v.message);
+                Violation::new(format!("{prefix}{}", v.path), message)
+            })
             .collect()
+    }
+
+    /// The values a string setting may take, when the schema lists them.
+    fn setting_choices(&self, key: &str) -> Option<Vec<String>> {
+        let property = self.settings_schema.as_ref()?.get("properties")?.get(key)?;
+        let values: Vec<String> =
+            if let Some(items) = property.get("enum").and_then(Value::as_array) {
+                items.iter().map(Value::to_string).collect()
+            } else if let Some(items) = property.get("oneOf").and_then(Value::as_array) {
+                items
+                    .iter()
+                    .filter_map(|i| i.get("const"))
+                    .map(Value::to_string)
+                    .collect()
+            } else {
+                return None;
+            };
+        (!values.is_empty()).then_some(values)
     }
 
     /// The settings as they stand: every declared default, with the
@@ -760,6 +785,11 @@ mod tests {
         );
         let bad =
             p.validate_settings(&serde_json::json!({"diff": "wide", "context": 99, "nope": 1}));
+        let diff = bad
+            .iter()
+            .find(|v| v.path == "/plugins/knobs/diff")
+            .unwrap();
+        assert_eq!(diff.message, "must be one of \"inline\", \"split\"");
         let paths: Vec<&str> = bad.iter().map(|v| v.path.as_str()).collect();
         assert!(paths.contains(&"/plugins/knobs/diff"), "{bad:?}");
         assert!(paths.contains(&"/plugins/knobs/context"), "{bad:?}");
