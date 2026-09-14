@@ -238,7 +238,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .app-dialog h2 { margin: 0; font-size: 14px; }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 /* the list grows with the plugin's keys; the dialog stays inside the window and its body scrolls */
-.shortcuts-dialog { max-height: calc(100vh - 48px); grid-template-rows: auto minmax(0, 1fr); }
+.shortcuts-dialog { max-height: calc(100vh - 48px); grid-template-rows: auto auto minmax(0, 1fr); }
+.shortcuts-search input { width: 100%; min-width: 0; }
+.shortcuts-empty { margin: 4px 0 8px; font-size: 12.5px; }
 .shortcuts-body { overflow-y: auto; min-height: 0; margin: 0 -22px; padding: 0 22px; }
 .shortcut-list { display: grid; grid-template-columns: 1fr auto; gap: 8px 20px; margin: 0; font-size: 12.5px; }
 .shortcut-plugin-title { display: flex; align-items: center; gap: 6px; margin: 16px 0 10px; font-size: 12px; font-weight: 600; color: var(--dim); }

@@ -1,12 +1,11 @@
-import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon } from "lucide-react";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, inTauri } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
-import { SHORTCUTS, isShadowed, shortcutGlyphs } from "../lib/shortcuts";
-import { PluginIcon } from "./PluginIcon";
+import { ShortcutsDialog } from "./ShortcutsDialog";
 import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -119,7 +118,11 @@ export function Layout({ children }: { children: ReactNode }) {
         return;
       }
       if (isTyping(event.target)) return;
-      if (event.key === "?") setHelp((h) => !h);
+      if (event.key === "?") {
+        // the key must not land in the dialog's search field
+        event.preventDefault();
+        setHelp((h) => !h);
+      }
       if (event.key === "t" || event.key === "T") toggleTheme();
     };
     const onCommand = (event: Event) => {
@@ -269,66 +272,7 @@ export function Layout({ children }: { children: ReactNode }) {
           setSettingsPlugin(null);
         }}
       />
-      {help ? (
-        <div className="app-dialog-backdrop" onClick={() => setHelp(false)}>
-          <div className="app-dialog shortcuts-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
-            <div className="dialog-head">
-              <h2 id="keyboard-title">Keyboard shortcuts</h2>
-              <Tooltip label="Close" keys={["Esc"]}>
-                <button type="button" className="bar-button" onClick={() => setHelp(false)} aria-label="Close">
-                  <X size={16} />
-                </button>
-              </Tooltip>
-            </div>
-            <div className="shortcuts-body">
-              <dl className="shortcut-list">
-              {SHORTCUTS.map((s) => (
-                <Fragment key={s.what}>
-                  <dt>{s.what}</dt>
-                  <dd>
-                    {s.keys.map((combo, i) => (
-                      <span key={i} className="combo">
-                        {combo.map((k, j) => (
-                          <kbd key={j}>{k}</kbd>
-                        ))}
-                      </span>
-                    ))}
-                  </dd>
-                </Fragment>
-              ))}
-            </dl>
-            {topbar?.plugin && topbar.plugin.shortcuts.length ? (
-              <>
-                <h3 className="shortcut-plugin-title">
-                  <PluginIcon icon={topbar.plugin.icon} size={14} />
-                  In {topbar.plugin.title}
-                </h3>
-                <dl className="shortcut-list" data-plugin-shortcuts>
-                  {topbar.plugin.shortcuts.map((s, i) => {
-                    const shadowed = isShadowed(s.keys);
-                    return (
-                      <Fragment key={i}>
-                        <dt className={shadowed ? "is-shadowed" : ""}>
-                          {s.does}
-                          {shadowed ? <span className="faint"> · the app uses this key</span> : null}
-                        </dt>
-                        <dd className={shadowed ? "is-shadowed" : ""}>
-                          <span className="combo">
-                            {shortcutGlyphs(s.keys).map((k, j) => (
-                              <kbd key={j}>{k}</kbd>
-                            ))}
-                          </span>
-                        </dd>
-                      </Fragment>
-                    );
-                  })}
-                </dl>
-              </>
-            ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {help ? <ShortcutsDialog plugin={topbar?.plugin} onClose={() => setHelp(false)} /> : null}
     </div>
   );
 }
