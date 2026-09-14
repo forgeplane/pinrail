@@ -6,5 +6,26 @@
   "payload_schema": { "$ref": "payload.schema.json" },
   "decision_schema": { "$ref": "decision.schema.json" },
   "entry": "index.html",
-  "min_height": 600
+  "min_height": 600,
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "diff": {
+        "type": "string",
+        "title": "Diff",
+        "description": "How a file's changes are laid out",
+        "oneOf": [{ "const": "inline", "title": "Inline" }, { "const": "split", "title": "Side by side" }],
+        "default": "inline"
+      },
+      "order": {
+        "type": "string",
+        "title": "File order",
+        "description": "The order the agent suggests, or by path; a change without an order is by path",
+        "oneOf": [{ "const": "semantic", "title": "Semantic" }, { "const": "path", "title": "By path" }],
+        "default": "semantic"
+      },
+      "findings_only": { "type": "boolean", "title": "Only files with findings", "description": "Hide files the agent had nothing to say about", "default": false },
+      "tree_open": { "type": "boolean", "title": "File tree open", "description": "Start with the file tree beside the diff", "default": true }
+    }
+  }
 }

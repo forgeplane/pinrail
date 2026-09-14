@@ -70,3 +70,11 @@ drafts across reloads, read-only rendering with verdicts overlaid, and the
 previous round's verdict on each proposal when the gate supersedes another.
 
 The view asks the shell for a viewport-height frame and scrolls inside it.
+
+## Settings
+
+The manifest declares four, shown under *Code review* in *Settings ›
+Plugins*: the diff inline or side by side, files in the agent's order or
+by path, only files with findings, and whether the tree starts open. The
+pills in the view and the V and O keys change the same settings, so a
+choice made while reviewing holds for the next review too.

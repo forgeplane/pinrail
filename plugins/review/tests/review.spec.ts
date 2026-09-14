@@ -204,3 +204,28 @@ test("the file tree's controls carry icons, and the collapse says which way it g
   await plugin.frame.locator('[data-act="toggle-tree"]').click();
   await expect(plugin.frame.locator("aside")).toBeVisible();
 });
+
+test("settings lay out the view; a pill or a key asks the shell to keep the choice", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2(), settings: { diff: "split", order: "path", findings_only: true, tree_open: false } });
+  const f = plugin.frame;
+  const splitRows = f.locator('.diff-row[style*="40px 1fr 40px 1fr"]');
+  await expect(f.locator("#card-18")).toBeVisible();
+  await expect(splitRows.first()).toBeVisible();
+  await expect(f.locator("aside")).toHaveCount(0);
+
+  // the app's Settings changed: the view follows without a re-init
+  await plugin.settings({ diff: "inline", order: "path", findings_only: false, tree_open: true });
+  await expect(splitRows).toHaveCount(0);
+  await expect(f.locator("aside")).toContainText("FILES · 2");
+
+  // the pill and the key go through the shell, and the view shows the choice at once
+  await f.locator('[data-act="set-split"]').click();
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ diff: "split" });
+  await expect(splitRows.first()).toBeVisible();
+  await f.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("v");
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ diff: "inline" });
+  await f.locator('[data-act="toggle-findings-only"]').click();
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ findings_only: true });
+});
+

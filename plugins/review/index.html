@@ -68,7 +68,12 @@ const plugin = Wicket.connect({
   resize: "fill",
   onInit(init) {
     GATE = init.gate; PREVIOUS = init.previous; RO_FLAG = init.readonly;
+    applySettings(init.settings);
     boot(init.draft);
+  },
+  onSettings(settings) {
+    // changed in the app's Settings, or the answer to a pill here
+    set(() => applySettings(settings));
   },
   onViolations(errors) {
     set(() => { S.errors = errors; S.confirmSubmitArm = false; S.showSubmit = true; });
@@ -256,6 +261,21 @@ function captureDrafts() {
   });
 }
 function set(mut) { captureDrafts(); mut(); render(); draft(); }
+
+/* The plugin's settings, as the manifest declares them: how the diff is
+   laid out, how files are ordered, whether only files with findings show,
+   and whether the tree starts open. The toolbar pills and the V and O keys
+   change the same settings through the shell, so a choice here is the
+   choice in Settings, for every review from now on. */
+function applySettings(settings) {
+  const s = settings || {};
+  if (s.diff === "inline" || s.diff === "split") S.diffMode = s.diff;
+  if (s.order === "semantic" || s.order === "path") S.orderMode = s.order;
+  if (typeof s.findings_only === "boolean") S.findingsOnly = s.findings_only;
+  if (typeof s.tree_open === "boolean") S.treeOpen = s.tree_open;
+  if (D && !D.files.some((f) => f.rank != null)) S.orderMode = "path";
+}
+function keep(key, value) { plugin.setSetting(key, value); }
 
 function decide(id, action, advance) {
   set(() => {
@@ -955,11 +975,11 @@ document.addEventListener("click", (e) => {
     }
     case "jump-file": jumpToFile(t.getAttribute("data-file")); break;
     case "toggle-dir": { const d = t.getAttribute("data-dir"); set(() => { S.collapsedDirs[d] = !S.collapsedDirs[d]; }); break; }
-    case "toggle-tree": set(() => { S.treeOpen = !S.treeOpen; }); break;
-    case "toggle-findings-only": set(() => { S.findingsOnly = !S.findingsOnly; }); break;
-    case "toggle-order": set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); break;
-    case "set-inline": set(() => { S.diffMode = "inline"; }); break;
-    case "set-split": set(() => { S.diffMode = "split"; }); break;
+    case "toggle-tree": set(() => { S.treeOpen = !S.treeOpen; }); keep("tree_open", S.treeOpen); break;
+    case "toggle-findings-only": set(() => { S.findingsOnly = !S.findingsOnly; }); keep("findings_only", S.findingsOnly); break;
+    case "toggle-order": set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); keep("order", S.orderMode); break;
+    case "set-inline": set(() => { S.diffMode = "inline"; }); keep("diff", "inline"); break;
+    case "set-split": set(() => { S.diffMode = "split"; }); keep("diff", "split"); break;
     case "bulk-accept": bulk("accept"); break;
     case "bulk-reject": bulk("reject"); break;
     case "toggle-keys": set(() => { S.showKeys = !S.showKeys; }); break;
@@ -1008,8 +1028,8 @@ document.addEventListener("keydown", (e) => {
       if (p && p.file && p.line != null) set(() => { S.composer = { file: p.file, line: p.line, side: p.side, text: "", editId: null }; });
       break;
     }
-    case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); break;
-    case "o": e.preventDefault(); set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); break;
+    case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); keep("diff", S.diffMode); break;
+    case "o": e.preventDefault(); set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); keep("order", S.orderMode); break;
     case "s": if (!RO()) { e.preventDefault(); set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); } break;
     case "?": e.preventDefault(); set(() => { S.showKeys = !S.showKeys; }); break;
   }
