@@ -42,6 +42,13 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   reason       TEXT
 );
 
+CREATE TABLE IF NOT EXISTS discards (
+  review_id    TEXT PRIMARY KEY REFERENCES reviews(id),
+  discarded_at TEXT NOT NULL,
+  discarded_by TEXT NOT NULL,
+  reason       TEXT
+);
+
 CREATE TABLE IF NOT EXISTS events (
   id        INTEGER PRIMARY KEY,
   review_id TEXT REFERENCES reviews(id),
@@ -322,6 +329,33 @@ impl Db {
         Ok(Some(event_id))
     }
 
+    /// Records the person's "no, and stop". The primary key makes it
+    /// terminal: `None` when the review was already discarded.
+    pub fn insert_discard(
+        &self,
+        id: &str,
+        at: DateTime<Utc>,
+        by: &str,
+        reason: Option<&str>,
+    ) -> rusqlite::Result<Option<i64>> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        let inserted = tx.execute(
+            "INSERT OR IGNORE INTO discards (review_id, discarded_at, discarded_by, reason) VALUES (?1, ?2, ?3, ?4)",
+            params![id, crate::review::iso(at), by, reason],
+        )?;
+        if inserted == 0 {
+            return Ok(None);
+        }
+        let attrs = match reason {
+            Some(r) => serde_json::json!({ "by": by, "reason": r }),
+            None => serde_json::json!({ "by": by }),
+        };
+        let event_id = insert_event(&tx, Some(id), crate::events::DISCARDED, Some(by), &attrs)?;
+        tx.commit()?;
+        Ok(Some(event_id))
+    }
+
     pub fn append_event(
         &self,
         review_id: Option<&str>,
@@ -368,7 +402,7 @@ impl Db {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(&format!(
             "{SELECT} WHERE r.expires_at IS NOT NULL AND r.expires_at <= ?1
-               AND d.review_id IS NULL AND w.review_id IS NULL
+               AND d.review_id IS NULL AND w.review_id IS NULL AND x.review_id IS NULL
                AND NOT EXISTS (SELECT 1 FROM events e WHERE e.review_id = r.id AND e.kind = 'expired')
              ORDER BY r.id"
         ))?;
@@ -398,10 +432,12 @@ impl Db {
 const SELECT: &str = "SELECT r.id, r.plugin, r.plugin_version, r.title, r.origin, r.requested_by, r.payload, r.summary,
     r.revises, r.expires_at, r.created_at,
     d.decided_by, d.decided_at, d.data, d.agent_note,
-    w.withdrawn_at, w.reason
+    w.withdrawn_at, w.reason,
+    x.discarded_at, x.discarded_by, x.reason
   FROM reviews r
   LEFT JOIN decisions d ON d.review_id = r.id
-  LEFT JOIN withdrawals w ON w.review_id = r.id";
+  LEFT JOIN withdrawals w ON w.review_id = r.id
+  LEFT JOIN discards x ON x.review_id = r.id";
 
 fn insert_event(
     conn: &Connection,
@@ -437,6 +473,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     let decided_at: Option<String> = row.get(12)?;
     let data: Option<String> = row.get(13)?;
     let withdrawn_at: Option<String> = row.get(15)?;
+    let discarded_at: Option<String> = row.get(17)?;
     let decision = match (decided_by, decided_at, data) {
         (Some(decided_by), Some(at), Some(data)) => Some(Decision {
             decided_by,
@@ -468,6 +505,9 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
         agent_note: row.get(14)?,
         withdrawn_at: withdrawn_at.and_then(|s| parse_datetime(&s)),
         withdrawn_reason: row.get(16)?,
+        discarded_at: discarded_at.and_then(|s| parse_datetime(&s)),
+        discarded_by: row.get(18)?,
+        discarded_reason: row.get(19)?,
     })
 }
 

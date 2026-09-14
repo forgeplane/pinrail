@@ -1,9 +1,10 @@
-//! The reviews service: submit, read, list, decide, withdraw, wait, expire.
+//! The reviews service: submit, read, list, decide, withdraw, discard,
+//! wait, expire.
 //!
 //! Writes go to the database, then out on the bus. Status transitions are
-//! `pending -> decided | withdrawn | expired` and nothing else; the database
-//! enforces that with the primary keys on `decisions` and `withdrawals`, so
-//! two racing decisions cannot both win.
+//! `pending -> decided | withdrawn | discarded | expired` and nothing else;
+//! the database enforces that with the primary keys on `decisions`,
+//! `withdrawals` and `discards`, so two racing decisions cannot both win.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -93,6 +94,9 @@ impl Reviews {
             agent_note: None,
             withdrawn_at: None,
             withdrawn_reason: None,
+            discarded_at: None,
+            discarded_by: None,
+            discarded_reason: None,
         };
         let event_id = self.db.insert_review(&review, actor)?;
         self.publish(event_id, events::CREATED, &review);
@@ -184,6 +188,31 @@ impl Reviews {
         };
         let review = self.get(id)?;
         self.publish(event_id, events::WITHDRAWN, &review);
+        Ok(review)
+    }
+
+    /// The person's "no, and stop": nothing is decided, the review leaves
+    /// the inbox, and the agent waiting on it is told, reason included.
+    pub fn discard(
+        &self,
+        id: &str,
+        by: Option<&str>,
+        reason: Option<&str>,
+    ) -> Result<Review, Error> {
+        let review = self.get(id)?;
+        if !review.is_pending(Utc::now()) {
+            return Err(Error::NotPending(id.to_string()));
+        }
+        let by = by
+            .map(str::trim)
+            .filter(|b| !b.is_empty())
+            .unwrap_or(&self.user);
+        let reason = reason.map(str::trim).filter(|r| !r.is_empty());
+        let Some(event_id) = self.db.insert_discard(id, Utc::now(), by, reason)? else {
+            return Err(Error::NotPending(id.to_string()));
+        };
+        let review = self.get(id)?;
+        self.publish(event_id, events::DISCARDED, &review);
         Ok(review)
     }
 

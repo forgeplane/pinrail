@@ -14,6 +14,8 @@ pub enum Status {
     Decided,
     Withdrawn,
     Expired,
+    /// the person said no, and stop: nothing decided, the agent told
+    Discarded,
 }
 
 impl Status {
@@ -23,6 +25,7 @@ impl Status {
             Status::Decided => "decided",
             Status::Withdrawn => "withdrawn",
             Status::Expired => "expired",
+            Status::Discarded => "discarded",
         }
     }
 
@@ -32,6 +35,7 @@ impl Status {
             "decided" => Some(Status::Decided),
             "withdrawn" => Some(Status::Withdrawn),
             "expired" => Some(Status::Expired),
+            "discarded" => Some(Status::Discarded),
             _ => None,
         }
     }
@@ -62,6 +66,9 @@ pub struct Review {
     pub agent_note: Option<String>,
     pub withdrawn_at: Option<DateTime<Utc>>,
     pub withdrawn_reason: Option<String>,
+    pub discarded_at: Option<DateTime<Utc>>,
+    pub discarded_by: Option<String>,
+    pub discarded_reason: Option<String>,
 }
 
 impl Review {
@@ -70,6 +77,8 @@ impl Review {
             Status::Decided
         } else if self.withdrawn_at.is_some() {
             Status::Withdrawn
+        } else if self.discarded_at.is_some() {
+            Status::Discarded
         } else if self.expires_at.is_some_and(|at| at <= now) {
             Status::Expired
         } else {
@@ -103,6 +112,9 @@ impl Review {
             "agent_note": self.agent_note,
             "withdrawn_at": self.withdrawn_at.map(iso),
             "withdrawn_reason": self.withdrawn_reason,
+            "discarded_at": self.discarded_at.map(iso),
+            "discarded_by": self.discarded_by,
+            "discarded_reason": self.discarded_reason,
         });
         if with_payload {
             map["payload"] = self.payload.clone().unwrap_or(Value::Null);
@@ -166,6 +178,9 @@ mod tests {
             agent_note: None,
             withdrawn_at: None,
             withdrawn_reason: None,
+            discarded_at: None,
+            discarded_by: None,
+            discarded_reason: None,
         }
     }
 
@@ -178,6 +193,8 @@ mod tests {
         assert_eq!(r.status(now), Status::Expired);
         r.expires_at = Some(parse_datetime("2026-09-11T13:00:00Z").unwrap());
         assert_eq!(r.status(now), Status::Pending);
+        r.discarded_at = Some(now);
+        assert_eq!(r.status(now), Status::Discarded);
         r.withdrawn_at = Some(now);
         assert_eq!(r.status(now), Status::Withdrawn);
         r.decision = Some(Decision {

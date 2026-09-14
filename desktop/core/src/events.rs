@@ -10,6 +10,7 @@ pub const VIEWED: &str = "viewed";
 pub const DECIDED: &str = "decided";
 pub const WITHDRAWN: &str = "withdrawn";
 pub const EXPIRED: &str = "expired";
+pub const DISCARDED: &str = "discarded";
 pub const PLUGINS_RELOADED: &str = "plugins_reloaded";
 pub const SETTINGS_CHANGED: &str = "settings_changed";
 

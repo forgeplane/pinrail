@@ -693,3 +693,99 @@ async fn info_and_viewed() {
     assert_eq!(events[1]["kind"], "viewed");
     assert_eq!(events[1]["actor"], "tester");
 }
+
+#[tokio::test]
+async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
+    let app = app();
+    let id = submit(&app, submission()).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let mut rx = app.state.reviews.bus().subscribe();
+
+    // an agent blocked on the review hears the discard at once
+    let waiter = {
+        let router = app.router.clone();
+        let id = id.clone();
+        tokio::spawn(async move {
+            let request = Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/reviews/{id}/wait?timeout=10"))
+                .body(Body::empty())
+                .unwrap();
+            let response = router.oneshot(request).await.unwrap();
+            let status = response.status();
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            (status, serde_json::from_slice::<Value>(&bytes).unwrap())
+        })
+    };
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let path = format!("/api/v1/reviews/{id}/discard");
+    let started = std::time::Instant::now();
+    let (status, review) = call(&app, "POST", &path, Some(json!({"reason": "  not now  "}))).await;
+    assert_eq!(status, StatusCode::OK, "{review}");
+    assert_eq!(review["status"], "discarded");
+    assert_eq!(review["discarded_reason"], "not now");
+    assert_eq!(review["discarded_by"], "tester");
+    assert!(review["discarded_at"].is_string());
+    assert!(review["decision"].is_null() && review["withdrawn_at"].is_null());
+
+    let (status, seen) = waiter.await.unwrap();
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(seen["status"], "discarded");
+    assert_eq!(seen["discarded_reason"], "not now");
+    assert!(started.elapsed() < Duration::from_secs(5));
+
+    // the event names the person and the reason, on the bus and on record
+    let notice = rx.recv().await.unwrap();
+    assert_eq!(notice.kind, "discarded");
+    assert_eq!(notice.review_id.as_deref(), Some(id.as_str()));
+    let (_, events) = call(&app, "GET", &format!("/api/v1/reviews/{id}/events"), None).await;
+    let event = events
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["kind"] == "discarded")
+        .unwrap();
+    assert_eq!(event["actor"], "tester");
+    assert_eq!(event["attrs"]["reason"], "not now");
+
+    // terminal: no second discard, no decision, no withdrawal
+    for (method, path, body) in [
+        ("POST", format!("/api/v1/reviews/{id}/discard"), None),
+        (
+            "POST",
+            format!("/api/v1/reviews/{id}/decision"),
+            Some(json!({"data": {"decisions": [], "undecided": []}})),
+        ),
+        ("POST", format!("/api/v1/reviews/{id}/withdraw"), None),
+    ] {
+        let (status, _) = call(&app, method, &path, body).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{method} {path}");
+    }
+
+    // listed under its own status, and out of the pending set
+    let (_, listed) = call(&app, "GET", "/api/v1/reviews?status=discarded", None).await;
+    assert_eq!(listed[0]["id"], id);
+    let (_, pending) = call(&app, "GET", "/api/v1/reviews?status=pending", None).await;
+    assert!(pending.as_array().unwrap().iter().all(|r| r["id"] != id));
+
+    // without a body: no reason, the server's user
+    let other = submit(&app, submission()).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let (status, review) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{other}/discard"),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{review}");
+    assert!(review["discarded_reason"].is_null());
+    assert_eq!(review["discarded_by"], "tester");
+    let (status, _) = call(&app, "POST", "/api/v1/reviews/r_nope/discard", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}

@@ -1,5 +1,5 @@
 //! `/api/v1/reviews`: submit, read, list, rounds, long-poll wait, decide,
-//! withdraw, events.
+//! withdraw, discard, events.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -29,6 +29,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/reviews/{id}/wait", get(wait))
         .route("/api/v1/reviews/{id}/decision", post(decide))
         .route("/api/v1/reviews/{id}/withdraw", post(withdraw))
+        .route("/api/v1/reviews/{id}/discard", post(discard))
         .route("/api/v1/reviews/{id}/viewed", post(viewed))
         .route("/api/v1/reviews/{id}/events", get(events))
 }
@@ -108,6 +109,21 @@ async fn withdraw(
     let body = parse_body(&body)?;
     let reason = body.get("reason").and_then(Value::as_str);
     Ok(Json(state.reviews.withdraw(&id, reason)?.to_json(true)))
+}
+
+async fn discard(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Result<Json<Value>, Error> {
+    let body = if body.is_empty() {
+        json!({})
+    } else {
+        parse_body(&body)?
+    };
+    let reason = body.get("reason").and_then(Value::as_str);
+    let by = body.get("by").and_then(Value::as_str);
+    Ok(Json(state.reviews.discard(&id, by, reason)?.to_json(true)))
 }
 
 async fn viewed(
