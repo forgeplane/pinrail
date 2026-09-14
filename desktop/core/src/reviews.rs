@@ -3,8 +3,8 @@
 //!
 //! Writes go to the database, then out on the bus. Status transitions are
 //! `pending -> decided | withdrawn | discarded | expired` and nothing else;
-//! the database enforces that with the primary keys on `decisions`,
-//! `withdrawals` and `discards`, so two racing decisions cannot both win.
+//! the database enforces that with the primary key on `outcomes`, so a
+//! review ends once, whichever way, and no two racing endings both win.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -121,10 +121,9 @@ impl Reviews {
     pub fn pending_count(&self) -> Result<usize, Error> {
         let filters = Filters {
             statuses: vec![Status::Pending],
-            limit: MAX_LIMIT,
             ..Filters::default()
         };
-        Ok(self.db.list(&filters, Utc::now())?.len())
+        Ok(self.db.count(&filters, Utc::now())?)
     }
 
     pub fn rounds(&self, id: &str) -> Result<Vec<Review>, Error> {
