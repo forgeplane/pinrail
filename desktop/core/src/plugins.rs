@@ -42,6 +42,11 @@ pub struct Plugin {
     pub settings_schema: Option<Value>,
     settings_validator: Option<Schema>,
     pub settings_error: Option<String>,
+    /// The keys the view answers, as the manifest declares them: the app
+    /// lists them and hands them to the view whether or not the frame has
+    /// focus. `shortcuts_error` says why a declared list was dropped.
+    pub shortcuts: Vec<Value>,
+    pub shortcuts_error: Option<String>,
     /// Set when the plugin could not be loaded; it is listed but unusable.
     pub error: Option<String>,
 }
@@ -70,6 +75,8 @@ impl Plugin {
                 settings_schema: None,
                 settings_validator: None,
                 settings_error: None,
+                shortcuts: Vec::new(),
+                shortcuts_error: None,
                 error: Some(message),
             },
         }
@@ -143,6 +150,15 @@ impl Plugin {
                 },
             };
 
+        // likewise a bad shortcuts list
+        let (shortcuts, shortcuts_error) = match manifest.get("shortcuts") {
+            None | Some(Value::Null) => (Vec::new(), None),
+            Some(raw) => match shortcuts::load(raw) {
+                Ok(list) => (list, None),
+                Err(message) => (Vec::new(), Some(message)),
+            },
+        };
+
         Ok(Plugin {
             title: manifest
                 .get("title")
@@ -168,6 +184,8 @@ impl Plugin {
             settings_schema,
             settings_validator,
             settings_error,
+            shortcuts,
+            shortcuts_error,
             error: None,
         })
     }
@@ -279,7 +297,78 @@ impl Plugin {
             "decision_schema": self.manifest.get("decision_schema"),
             "settings_schema": self.settings_schema,
             "settings_error": self.settings_error,
+            "shortcuts": self.shortcuts,
+            "shortcuts_error": self.shortcuts_error,
         })
+    }
+}
+
+/// The keys a plugin's view answers: a list of `{keys, does, group?}`,
+/// `keys` in the app's shortcut form (`cmd+shift+m`, `j`, `shift+/`).
+mod shortcuts {
+    use serde_json::{Map, Value};
+
+    const MODIFIERS: &[&str] = &[
+        "cmd",
+        "command",
+        "super",
+        "meta",
+        "ctrl",
+        "control",
+        "alt",
+        "option",
+        "shift",
+        "cmdorctrl",
+        "commandorcontrol",
+    ];
+
+    pub fn load(raw: &Value) -> Result<Vec<Value>, String> {
+        let Value::Array(items) = raw else {
+            return Err("shortcuts must be a list of {keys, does}".into());
+        };
+        let mut out = Vec::new();
+        for (i, item) in items.iter().enumerate() {
+            let Value::Object(entry) = item else {
+                return Err(format!(
+                    "shortcuts[{i}] must be an object with keys and does"
+                ));
+            };
+            let keys = match entry.get("keys").and_then(Value::as_str) {
+                Some(k) if !k.trim().is_empty() => normalize(k).ok_or_else(|| {
+                    format!("shortcuts[{i}]: keys {k:?} is not a key combination")
+                })?,
+                _ => return Err(format!("shortcuts[{i}] needs keys, a string")),
+            };
+            let does = match entry.get("does").and_then(Value::as_str) {
+                Some(d) if !d.trim().is_empty() => d.trim().to_string(),
+                _ => return Err(format!("shortcuts[{i}] needs does, a string")),
+            };
+            let mut clean = Map::new();
+            clean.insert("keys".into(), Value::String(keys));
+            clean.insert("does".into(), Value::String(does));
+            match entry.get("group") {
+                None | Some(Value::Null) => {}
+                Some(Value::String(g)) if !g.trim().is_empty() => {
+                    clean.insert("group".into(), Value::String(g.trim().to_string()));
+                }
+                Some(_) => return Err(format!("shortcuts[{i}]: group must be a string")),
+            }
+            out.push(Value::Object(clean));
+        }
+        Ok(out)
+    }
+
+    /// Modifiers in any order and case, then one key; back in lowercase.
+    fn normalize(keys: &str) -> Option<String> {
+        let parts: Vec<String> = keys.split('+').map(|p| p.trim().to_lowercase()).collect();
+        let (key, modifiers) = parts.split_last()?;
+        if key.is_empty() || key.chars().any(char::is_whitespace) {
+            return None;
+        }
+        if modifiers.iter().any(|m| !MODIFIERS.contains(&m.as_str())) {
+            return None;
+        }
+        Some(parts.join("+"))
     }
 }
 
@@ -799,6 +888,45 @@ mod tests {
             p.to_json()["settings_schema"]["properties"]["diff"]["title"],
             "Diff"
         );
+    }
+
+    #[test]
+    fn shortcuts_are_checked_and_normalized() {
+        let tmp = tempfile::tempdir().unwrap();
+        let good = r#","shortcuts":[{"keys":"j","does":"Next"},{"keys":" Cmd + Shift+M ","does":"Maximize","group":"View"},{"keys":"shift+/","does":"Help"}]"#;
+        let p = Plugin::load(&plugin_dir(tmp.path(), "keys", good));
+        assert!(p.usable(), "{:?}", p.error);
+        assert_eq!(p.shortcuts_error, None);
+        assert_eq!(
+            p.shortcuts,
+            vec![
+                serde_json::json!({"keys": "j", "does": "Next"}),
+                serde_json::json!({"keys": "cmd+shift+m", "does": "Maximize", "group": "View"}),
+                serde_json::json!({"keys": "shift+/", "does": "Help"}),
+            ]
+        );
+        assert_eq!(p.to_json()["shortcuts"][1]["keys"], "cmd+shift+m");
+
+        let cases = [
+            (r#","shortcuts":{"keys":"j"}"#, "must be a list"),
+            (r#","shortcuts":[{"does":"Next"}]"#, "needs keys"),
+            (r#","shortcuts":[{"keys":"j"}]"#, "needs does"),
+            (
+                r#","shortcuts":[{"keys":"hyper+j","does":"x"}]"#,
+                "not a key combination",
+            ),
+            (
+                r#","shortcuts":[{"keys":"j","does":"x","group":3}]"#,
+                "group must be a string",
+            ),
+        ];
+        for (i, (extra, expected)) in cases.iter().enumerate() {
+            let p = Plugin::load(&plugin_dir(tmp.path(), &format!("k{i}"), extra));
+            assert!(p.usable(), "{extra}: {:?}", p.error);
+            assert!(p.shortcuts.is_empty());
+            let why = p.shortcuts_error.clone().unwrap_or_default();
+            assert!(why.contains(expected), "{extra}: {why}");
+        }
     }
 
     #[test]
