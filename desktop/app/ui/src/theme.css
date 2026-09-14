@@ -239,8 +239,8 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 /* the list grows with the plugin's keys; the dialog stays inside the window and its body scrolls */
 /* hung from the top like the palette, at a fixed width: typing changes what is listed, never where the dialog sits */
-.app-dialog-backdrop.shortcuts-backdrop { align-items: start; padding-top: 10vh; }
-.shortcuts-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 48px); grid-template-rows: auto auto minmax(0, 1fr); }
+.app-dialog-backdrop.shortcuts-backdrop { --dialog-top: max(24px, 8vh); align-items: start; padding-top: var(--dialog-top); }
+.shortcuts-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - var(--dialog-top) - 24px); grid-template-rows: auto auto minmax(0, 1fr); }
 /* the field looks like the palette's: bare, a rule under it, no ring */
 .shortcuts-search { margin: -6px -22px 0; padding: 8px 22px 12px; }
 .shortcuts-search input { width: 100%; min-width: 0; font-size: 14px; }
