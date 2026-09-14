@@ -238,8 +238,13 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .app-dialog h2 { margin: 0; font-size: 14px; }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 /* the list grows with the plugin's keys; the dialog stays inside the window and its body scrolls */
-.shortcuts-dialog { max-height: calc(100vh - 48px); grid-template-rows: auto auto minmax(0, 1fr); }
-.shortcuts-search input { width: 100%; min-width: 0; }
+/* hung from the top like the palette, at a fixed width: typing changes what is listed, never where the dialog sits */
+.app-dialog-backdrop.shortcuts-backdrop { align-items: start; padding-top: 10vh; }
+.shortcuts-dialog { width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 48px); grid-template-rows: auto auto minmax(0, 1fr); }
+/* the field looks like the palette's: bare, a rule under it, no ring */
+.shortcuts-search { margin: -6px -22px 0; padding: 8px 22px 12px; }
+.shortcuts-search input { width: 100%; min-width: 0; font-size: 14px; }
+.shortcuts-search input:focus, .shortcuts-search input:focus-visible { box-shadow: none; border: 0; }
 .shortcuts-empty { margin: 4px 0 8px; font-size: 12.5px; }
 .shortcuts-body { overflow-y: auto; min-height: 0; margin: 0 -22px; padding: 0 22px; }
 .shortcut-list { display: grid; grid-template-columns: 1fr auto; gap: 8px 20px; margin: 0; font-size: 12.5px; }

@@ -36,7 +36,7 @@ export function ShortcutsDialog({ plugin, onClose }: { plugin?: OpenPlugin; onCl
   );
 
   return (
-    <div className="app-dialog-backdrop" onClick={onClose}>
+    <div className="app-dialog-backdrop shortcuts-backdrop" onClick={onClose}>
       <div className="app-dialog shortcuts-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head">
           <h2 id="keyboard-title">Keyboard shortcuts</h2>
@@ -46,8 +46,8 @@ export function ShortcutsDialog({ plugin, onClose }: { plugin?: OpenPlugin; onCl
             </button>
           </Tooltip>
         </div>
-        <label className="search-field shortcuts-search">
-          <Search size={14} aria-hidden="true" />
+        <label className="palette-field shortcuts-search">
+          <Search size={15} aria-hidden="true" />
           <input
             ref={field}
             type="search"
