@@ -153,17 +153,16 @@ test("the toolbar carries icons, and the control with no words carries its name"
   const header = plugin.frame.locator("header").first();
 
   const icons = await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon));
-  expect(icons).toEqual(["rows-3", "columns-2", "fold-vertical", "list-check", "list-x", "keyboard"]);
+  expect(icons).toEqual(["rows-3", "columns-2", "fold-vertical", "list-check", "list-x"]);
 
   // Beside a word, an icon is decoration and the word is the name.
   await expect(header.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
   await expect(header.getByRole("button", { name: "Fold all" })).toBeVisible();
   await expect(header.locator('[data-act="bulk-accept"] .wi')).toHaveAttribute("aria-hidden", "true");
 
-  // The diff toggle and the shortcuts button have no words, so they are named.
+  // The diff toggle has no words, so its two buttons are named.
   await expect(header.getByRole("button", { name: "Inline diff" })).toBeVisible();
   await expect(header.getByRole("button", { name: "Split diff" })).toBeVisible();
-  await expect(header.getByRole("button", { name: "Keyboard shortcuts" })).toBeVisible();
 
   // Folding flips the label and the icon together.
   await header.getByRole("button", { name: "Fold all" }).click();
@@ -227,5 +226,19 @@ test("settings lay out the view; a pill or a key asks the shell to keep the choi
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ diff: "inline" });
   await f.locator('[data-act="toggle-findings-only"]').click();
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ findings_only: true });
+});
+
+test("a declared key forwarded by the shell works like one typed in the frame", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const f = plugin.frame;
+  await expect(f.locator("#card-18")).toBeVisible();
+  await plugin.sendKey("j");
+  await expect(f.locator("#card-19")).toHaveAttribute("style", /outline:2px solid color-mix/);
+  await plugin.sendKey("k");
+  await expect(f.locator("#card-18")).toHaveAttribute("style", /outline:2px solid color-mix/);
+  await plugin.sendKey("a");
+  await expect(f.locator("#card-18")).toContainText("ACCEPTED");
+  await plugin.sendKey("v");
+  await expect(f.locator(".diff-row.split").first()).toBeVisible();
 });
 

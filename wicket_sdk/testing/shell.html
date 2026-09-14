@@ -72,6 +72,8 @@
   <aside class="side">
     <h2>Settings</h2>
     <div class="state" id="settings"><div class="empty" style="padding:0 0 4px">The manifest declares none.</div></div>
+    <h2>Shortcuts</h2>
+    <div class="state" id="shortcuts"><div class="empty" style="padding:0 0 4px">The manifest declares none; declared keys reach the view from this page too.</div></div>
     <h2>State</h2>
     <div class="state">
       <div><span>status</span><code id="s-status">—</code></div>
@@ -284,6 +286,17 @@ setInterval(async () => {
   manifest = await (await fetch("/dev/manifest")).json();
   try { stored = JSON.parse(localStorage.getItem(SETTINGS_KEY()) || "{}"); } catch { stored = {}; }
   drawSettings();
+  if (Array.isArray(manifest.shortcuts) && manifest.shortcuts.length) {
+    const box = $("shortcuts");
+    box.replaceChildren();
+    for (const s of manifest.shortcuts) {
+      const row = document.createElement("div");
+      const keys = document.createElement("span"); keys.textContent = s.keys;
+      const does = document.createElement("code"); does.textContent = s.does;
+      row.append(keys, does);
+      box.append(row);
+    }
+  }
   $("name").textContent = manifest.title || manifest.name;
   $("version").textContent = `${manifest.name} v${manifest.version}`;
   document.title = `${manifest.name} · wicket plugin shell`;

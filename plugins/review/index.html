@@ -124,7 +124,7 @@ const S = {
   decisions: {}, focusedId: null, diffMode: "inline",
   folded: {}, treeOpen: true, findingsOnly: false, descOpen: false,
   composer: null, generalDraft: "", generalComments: [], manualComments: [],
-  confirmBulk: null, showKeys: false, showSubmit: false, done: false, errors: null,
+  confirmBulk: null, showSubmit: false, done: false, errors: null,
   collapsedDirs: {}, activeFile: null, noteOpen: {}, expanded: {},
   confirmSubmitArm: false, orderMode: "semantic",
 };
@@ -802,21 +802,6 @@ function submitModalHtml() {
   return `<div style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.65);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;animation:fade 0.12s ease-out">
     <div id="submit-modal" style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
 }
-function keysModalHtml() {
-  if (!S.showKeys) return "";
-  const rows = [
-    ["j / k", "next / previous proposal (decided ones included)"], ["a", "accept focused proposal"],
-    ["x", "reject focused proposal (opens reason)"], ["e", "add a note (on the focused card)"],
-    ["c", "comment on the focused card's line"], ["v", "toggle inline / side-by-side diff"],
-    ["o", "toggle semantic / alphabetical file order"], ["s", "submit decisions"],
-    ["⌘/Ctrl + Enter", "submit decisions"], ["esc", "close dialogs / composers"], ["?", "this cheat sheet"],
-  ].map(([k, d]) => `<span style="font-family:var(--mono);color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:0 7px;text-align:center;justify-self:start">${k}</span><span>${d}</span>`).join("");
-  return `<div data-act-overlay="keys" style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.6);z-index:50;display:flex;align-items:center;justify-content:center;animation:fade 0.12s ease-out">
-    <div style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;padding:20px 24px;min-width:340px;box-shadow:0 20px 60px oklch(0 0 0 / 0.4)">
-      <div style="font-size:13px;font-weight:600;margin-bottom:14px">Keyboard shortcuts</div>
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 18px;font-size:12.5px;color:var(--dim)">${rows}</div>
-    </div></div>`;
-}
 /* The shell's own header carries the gate's source: the repository, the
    workflow, the ref and a link to it. This header says what the shell cannot
    know, and leaves out whatever it can see is already up there. */
@@ -864,7 +849,6 @@ function headerHtml() {
       <button class="ghost" data-act="fold-all">${ico(allFolded ? "unfold-vertical" : "fold-vertical")}${allFolded ? "Unfold all" : "Fold all"}</button>
       ${!RO() ? `<button class="ghost" data-act="bulk-accept" style="color:${S.confirmBulk === "accept" ? "var(--ok)" : "var(--dim)"}">${ico("list-check")}${S.confirmBulk === "accept" ? `Really accept ${undecidedList.length}?` : `Accept remaining (${undecidedList.length})`}</button>
       <button class="ghost" data-act="bulk-reject" style="color:${S.confirmBulk === "reject" ? "var(--danger)" : "var(--dim)"}">${ico("list-x")}${S.confirmBulk === "reject" ? `Really reject ${undecidedList.length}?` : `Reject remaining (${undecidedList.length})`}</button>` : ""}
-      <button class="ghost" data-act="toggle-keys" title="Keyboard shortcuts" style="padding:4px 9px">${Wicket.icon("keyboard", { size: 14, label: "Keyboard shortcuts" })}</button>
     </div>
   </header>`;
 }
@@ -911,7 +895,6 @@ function render() {
           </div>
           <div style="border:1px dashed var(--border-strong);border-top:none;border-radius:0 0 8px 8px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg-panel)">${globalUn.map(cardHtml).join("")}</div>
         </section>` : ""));
-  regions.set("keys", region("keys", keysModalHtml()));
   regions.set("submit", region("submit", submitModalHtml()));
   const shape = JSON.stringify([S.treeOpen, S.done, order.map((i) => D.files[i].path), globalUn.map((p) => p.id)]);
 
@@ -954,7 +937,7 @@ function render() {
       </div>
     </div>
   </div>
-  ${regions.get("keys")}${regions.get("submit")}`;
+  ${regions.get("submit")}`;
   RENDERED = { shape, regions, hunks: HUNKS };
   const nm = document.getElementById("main");
   if (nm) { nm.scrollTop = scrollTop; nm.addEventListener("scroll", spy, { passive: true }); }
@@ -1059,7 +1042,7 @@ document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-act]");
   if (!t) {
     const ov = e.target.closest("[data-act-overlay]");
-    if (ov && e.target === ov) { set(() => { S.showKeys = false; }); return; }
+    if (ov && e.target === ov) return;
     if (cardId != null && S.focusedId !== cardId) set(() => { S.focusedId = cardId; });
     return;
   }
@@ -1112,7 +1095,6 @@ document.addEventListener("click", (e) => {
     case "set-split": set(() => { S.diffMode = "split"; }); keep("diff", "split"); break;
     case "bulk-accept": bulk("accept"); break;
     case "bulk-reject": bulk("reject"); break;
-    case "toggle-keys": set(() => { S.showKeys = !S.showKeys; }); break;
     case "toggle-desc": set(() => { S.descOpen = !S.descOpen; }); break;
     case "open-submit": set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); break;
     case "close-submit": set(() => { S.showSubmit = false; S.errors = null; }); break;
@@ -1129,7 +1111,7 @@ document.addEventListener("keydown", (e) => {
       set(() => { delete S.noteOpen[id]; });
       return;
     }
-    set(() => { S.showKeys = false; S.showSubmit = false; S.composer = null; S.confirmBulk = null; S.confirmSubmitArm = false; });
+    set(() => { S.showSubmit = false; S.composer = null; S.confirmBulk = null; S.confirmSubmitArm = false; });
     return;
   }
   if (typing) {
@@ -1161,7 +1143,6 @@ document.addEventListener("keydown", (e) => {
     case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); keep("diff", S.diffMode); break;
     case "o": e.preventDefault(); set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); keep("order", S.orderMode); break;
     case "s": if (!RO()) { e.preventDefault(); set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); } break;
-    case "?": e.preventDefault(); set(() => { S.showKeys = !S.showKeys; }); break;
   }
 });
 
