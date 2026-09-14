@@ -5,7 +5,8 @@ import { api, inTauri } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
-import { SHORTCUTS } from "../lib/shortcuts";
+import { SHORTCUTS, isShadowed, shortcutGlyphs } from "../lib/shortcuts";
+import { PluginIcon } from "./PluginIcon";
 import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -295,6 +296,34 @@ export function Layout({ children }: { children: ReactNode }) {
                 </Fragment>
               ))}
             </dl>
+            {topbar?.plugin && topbar.plugin.shortcuts.length ? (
+              <>
+                <h3 className="shortcut-plugin-title">
+                  <PluginIcon icon={topbar.plugin.icon} size={14} />
+                  In {topbar.plugin.title}
+                </h3>
+                <dl className="shortcut-list" data-plugin-shortcuts>
+                  {topbar.plugin.shortcuts.map((s, i) => {
+                    const shadowed = isShadowed(s.keys);
+                    return (
+                      <Fragment key={i}>
+                        <dt className={shadowed ? "is-shadowed" : ""}>
+                          {s.does}
+                          {shadowed ? <span className="faint"> · the app uses this key</span> : null}
+                        </dt>
+                        <dd className={shadowed ? "is-shadowed" : ""}>
+                          <span className="combo">
+                            {shortcutGlyphs(s.keys).map((k, j) => (
+                              <kbd key={j}>{k}</kbd>
+                            ))}
+                          </span>
+                        </dd>
+                      </Fragment>
+                    );
+                  })}
+                </dl>
+              </>
+            ) : null}
           </div>
         </div>
       ) : null}

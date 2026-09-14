@@ -62,7 +62,12 @@ export type Plugin = {
   settings_error: string | null;
   /** the values as they stand: defaults under what someone changed */
   settings: Record<string, unknown> | null;
+  /** the keys the view answers, as the manifest declares them */
+  shortcuts: PluginShortcut[];
+  shortcuts_error: string | null;
 };
+
+export type PluginShortcut = { keys: string; does: string; group?: string };
 
 /** A flat JSON Schema: one row per property, each a scalar with a default. */
 export type SettingsSchema = { properties: Record<string, SettingProperty> };

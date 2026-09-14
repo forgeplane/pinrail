@@ -8,6 +8,7 @@ import { OutcomeBadge, PluginBadge } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { Tooltip } from "../components/Tooltip";
 import { MOD, hasMod } from "../lib/keys";
+import { comboFromEvent, isShadowed } from "../lib/shortcuts";
 import { overlayTitleBar } from "../lib/native";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
@@ -78,7 +79,7 @@ export function ReviewScreen() {
         const resolved =
           current && current.version === review.plugin_version && current.usable
             ? current
-            : { name: review.plugin, version: review.plugin_version, title: review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null };
+            : { name: review.plugin, version: review.plugin_version, title: review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null };
         setPlugin(resolved);
         return api.bundleUrl(review, resolved.entry).then((url) => !cancelled && setSrc(url));
       })
@@ -169,9 +170,19 @@ export function ReviewScreen() {
         return;
       }
       const el = event.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
       if (event.key === "[" && previous) navigate(`/reviews/${previous.id}`);
       if (event.key === "]" && revisedBy) navigate(`/reviews/${revisedBy.id}`);
+      // one of the plugin's declared keys, pressed with the shell in focus:
+      // it goes to the view as if typed there
+      const combo = comboFromEvent(event);
+      if (combo && !isShadowed(combo) && plugin?.shortcuts?.some((s) => s.keys === combo)) {
+        event.preventDefault();
+        frame.current?.contentWindow?.postMessage(
+          { wicket: 1, type: "key", key: event.key, code: event.code, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey },
+          "*",
+        );
+      }
     };
     const onCommand = (event: Event) => {
       if ((event as CustomEvent<string>).detail === "maximize-view" && plugin) setMaximized((m) => !m);
@@ -239,7 +250,11 @@ export function ReviewScreen() {
       ) : null,
     [review?.status, plugin], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const topbar = useMemo(() => (review ? { crumb, actions } : null), [review, crumb, actions]);
+  const forPlugin = useMemo(
+    () => (plugin ? { name: plugin.name, title: plugin.title || plugin.name, icon: plugin.icon, shortcuts: plugin.shortcuts ?? [] } : undefined),
+    [plugin],
+  );
+  const topbar = useMemo(() => (review ? { crumb, actions, plugin: forPlugin } : null), [review, crumb, actions, forPlugin]);
   useTopBar(topbar);
 
   const onNote = (value: string) => {

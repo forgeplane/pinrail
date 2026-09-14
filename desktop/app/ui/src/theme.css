@@ -238,6 +238,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .app-dialog h2 { margin: 0; font-size: 14px; }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .shortcut-list { display: grid; grid-template-columns: 1fr auto; gap: 8px 20px; margin: 0; font-size: 12.5px; }
+.shortcut-plugin-title { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 12px; font-weight: 600; color: var(--dim); }
+.shortcut-plugin-title svg { color: var(--accent); }
+.shortcut-list .is-shadowed { opacity: 0.55; }
 .shortcut-list dt { color: var(--dim); }
 .shortcut-list dd { margin: 0; }
 .notice { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; color: var(--dim); margin: 0 0 14px; }

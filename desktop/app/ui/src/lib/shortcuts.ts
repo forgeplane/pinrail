@@ -81,6 +81,45 @@ export function shortcutGlyphs(shortcut: string): string[] {
 
 const MODIFIER_CODES = /^(Shift|Control|Alt|Meta|OS)(Left|Right)?$/;
 
+const CODE_NAMES: Record<string, string> = {
+  Slash: "/",
+  BracketLeft: "[",
+  BracketRight: "]",
+  Comma: ",",
+  Period: ".",
+  Minus: "-",
+  Equal: "=",
+  Semicolon: ";",
+  Quote: "'",
+  Backquote: "`",
+  Backslash: "\\",
+};
+
+/**
+ * The combination a key press is, in the form a manifest declares it:
+ * modifiers then one key, lowercase, a bare key allowed. Null for a
+ * modifier on its own.
+ */
+export function comboFromEvent(event: KeyboardEvent): string | null {
+  if (!event.code || MODIFIER_CODES.test(event.code)) return null;
+  const named = /^(?:Key|Digit)(.)$/.exec(event.code);
+  const name = named ? named[1].toLowerCase() : (CODE_NAMES[event.code] ?? event.code.toLowerCase());
+  const parts: string[] = [];
+  if (event.ctrlKey) parts.push("ctrl");
+  if (event.altKey) parts.push("alt");
+  if (event.shiftKey) parts.push("shift");
+  if (event.metaKey) parts.push("cmd");
+  parts.push(name);
+  return parts.join("+");
+}
+
+/**
+ * The keys the app itself answers on the review screen. A plugin that
+ * declares one of these is told so, and never receives it.
+ */
+export const REVIEW_SCREEN_KEYS = new Set(["shift+/", "t", "[", "]", "escape", "cmd+shift+m", "cmd+enter", "ctrl+enter"]);
+export const isShadowed = (combo: string) => REVIEW_SCREEN_KEYS.has(combo) || combo.startsWith("cmd+") || combo.startsWith("ctrl+");
+
 /**
  * The shortcut a key press asks for, in the form the app registers, or
  * null when the press is a modifier alone or carries none: a global
