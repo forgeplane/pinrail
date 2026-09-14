@@ -254,7 +254,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .status-decided { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
 .status-approved { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
 .status-revise { background: color-mix(in srgb, var(--sev-major) 15%, transparent); color: var(--sev-major); }
-.status-withdrawn, .status-discarded { background: var(--bg-hover); color: var(--dim); }
+.status-withdrawn { background: var(--bg-hover); color: var(--dim); }
+/* a discard is the person's deliberate no: the amber of "changes requested", not the red of an expiry */
+.status-discarded { background: color-mix(in srgb, var(--sev-major) 15%, transparent); color: var(--sev-major); }
 .status-expired { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
 .plugin-badge { display: inline-flex; gap: 4px; align-items: center; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; font: 11px var(--mono); color: var(--dim); background: var(--bg); }
 .origin-line { display: inline-flex; flex-wrap: wrap; gap: 0 8px; font-size: 12px; color: var(--dim); }
