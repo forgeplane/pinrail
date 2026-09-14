@@ -930,7 +930,7 @@ function render() {
   <div style="display:flex;flex:1;min-height:0">
     ${regions.get("tree")}
     <div id="main" style="flex:1;overflow-y:auto;min-width:0">
-      <div style="max-width:1240px;padding:16px 24px 120px 24px">
+      <div style="padding:16px 24px 120px 24px">
         ${regions.get("summary")}
         ${order.map((i) => compose(regions.get(`file:${D.files[i].path}`))).join("")}
         ${regions.get("unanchored")}
