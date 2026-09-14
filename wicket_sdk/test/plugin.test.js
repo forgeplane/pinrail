@@ -300,3 +300,31 @@ test("icon markup takes the name, the colour of its text, and nothing from a pay
 
   assert.match(Wicket.icon(null), /data-icon=""/, "a missing name is not a crash");
 });
+
+test("settings arrive with init and again as a message; setSetting asks the shell", () => {
+  const env = fakeEnv();
+  const seen = [];
+  const plugin = Wicket.createPlugin(env, {
+    resize: "manual",
+    onInit: (i) => seen.push(["init", i.settings]),
+    onSettings: (s) => seen.push(["settings", s]),
+  });
+  env.deliver(init({ settings: { diff: "split", wrap: true } }));
+  assert.deepEqual(plugin.settings, { diff: "split", wrap: true });
+  env.deliver(shell({ type: "settings", settings: { diff: "inline", wrap: true } }));
+  assert.deepEqual(plugin.settings, { diff: "inline", wrap: true });
+  assert.deepEqual(seen, [
+    ["init", { diff: "split", wrap: true }],
+    ["settings", { diff: "inline", wrap: true }],
+  ]);
+
+  plugin.setSetting("diff", "split");
+  assert.deepEqual(env.last("settings_set").msg, { wicket: 1, type: "settings_set", patch: { diff: "split" } });
+
+  // a shell that says nothing, or nonsense, about settings leaves them empty
+  env.deliver(init());
+  assert.deepEqual(plugin.settings, {});
+  env.deliver(shell({ type: "settings", settings: [1, 2] }));
+  assert.deepEqual(plugin.settings, {});
+});
+

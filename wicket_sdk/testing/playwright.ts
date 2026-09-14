@@ -47,6 +47,8 @@ export type MountOptions = {
   draft?: any;
   /** the theme the fake shell is in; the frame URL carries it, as in the app */
   theme?: "dark" | "light";
+  /** the plugin's own settings, every key the manifest declares */
+  settings?: Record<string, any>;
 };
 
 export type Message = { wicket: 1; type: string; [k: string]: any };
@@ -59,6 +61,10 @@ export type MountedPlugin = {
   lastDraft(): Promise<any>;
   /** the label the view last asked the shell's hand-over button to show */
   lastStatus(): Promise<string | null>;
+  /** the last setting the view asked the shell to keep, as a patch */
+  lastSettingsSet(): Promise<Record<string, any> | null>;
+  /** the plugin's settings changed in the app: sends them as they stand */
+  settings(values: Record<string, any>): Promise<void>;
   send(msg: Record<string, any>): Promise<void>;
   sendViolations(errors: { path: string; message: string }[]): Promise<void>;
   sendSubmitted(decision: Gate): Promise<void>;
@@ -131,7 +137,7 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
   });
 
   await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}`);
-  const init = { gate: gateFrom(opts.gate), previous: opts.previous ?? null, readonly: !!opts.readonly, draft: opts.draft ?? null };
+  const init = { gate: gateFrom(opts.gate), previous: opts.previous ?? null, readonly: !!opts.readonly, draft: opts.draft ?? null, settings: opts.settings ?? {} };
   await page.evaluate((i) => (window as any).__shell.init(i), init);
 
   const messages = () => page.evaluate(() => (window as any).__shell.messages() as Message[]);
@@ -147,6 +153,8 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
     },
     lastDraft: () => page.evaluate(() => (window as any).__shell.lastDraft()),
     lastStatus: () => page.evaluate(() => (window as any).__shell.lastStatus()),
+    lastSettingsSet: () => page.evaluate(() => (window as any).__shell.lastSettingsSet()),
+    settings: (values) => page.evaluate((v) => (window as any).__shell.settings(v), values),
     send,
     sendViolations: (errors) => send({ type: "violations", errors }),
     sendSubmitted: (decision) => send({ type: "submitted", decision }),

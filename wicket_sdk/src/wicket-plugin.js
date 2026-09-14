@@ -8,11 +8,12 @@
  *
  *   const plugin = Wicket.connect({
  *     resize: "auto",                 // "auto" (content height), "fill" (viewport), or "manual"
- *     onInit({ gate, previous, readonly, draft }) { … },
+ *     onInit({ gate, previous, readonly, draft, settings }) { … },
  *     onViolations(errors) { … },     // [{ path, message }]
  *     onSubmitted(decision) { … },    // the decision was accepted; render read-only
  *     onCollect() { … },              // the shell's hand-over button, or Cmd/Ctrl+Enter
  *     onAppearance(theme) { … },      // optional; "dark" | "light", already applied
+ *     onSettings(settings) { … },     // optional; the plugin's own settings changed
  *   });
  *
  * Load this with a plain <script src> tag, not a deferred or module one: it
@@ -21,6 +22,8 @@
  *   plugin.submit(data);
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
+ *   plugin.settings;                  // the plugin's own settings, as the manifest declares them
+ *   plugin.setSetting("diff", "split"); // asks the shell to keep one; it comes back as `settings`
  *
  * Wicket.icon("check") returns an icon from the set the app serves, as markup
  * that takes the colour of the text around it:
@@ -40,7 +43,7 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.6.0";
+  const VERSION = "1.7.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
   const ICON_BASE = "/sdk/v1/icons/";
@@ -111,7 +114,8 @@
       previous: null,
       readonly: false,
       initialised: false,
-      theme: (env.initialTheme && env.initialTheme()) || "dark"
+      theme: (env.initialTheme && env.initialTheme()) || "dark",
+      settings: {}
     };
     let draftTimer = null;
     let stopObserving = null;
@@ -131,6 +135,10 @@
       if (handlers.onCollect) handlers.onCollect();
     }
 
+    // The plugin's own settings, as the manifest declares them and the
+    // person set them; anything but an object means none.
+    const settingsOf = (value) => (value && typeof value === "object" && !Array.isArray(value) ? value : {});
+
     function handle(data, origin) {
       if (!data || data.wicket !== PROTOCOL || typeof data.type !== "string") return;
       if (state.shellOrigin && origin !== state.shellOrigin) return;
@@ -140,9 +148,16 @@
           state.gate = data.gate;
           state.previous = data.previous || null;
           state.readonly = !!data.readonly;
+          state.settings = settingsOf(data.settings);
           state.initialised = true;
-          if (handlers.onInit) handlers.onInit({ gate: state.gate, previous: state.previous, readonly: state.readonly, draft: data.draft || null });
+          if (handlers.onInit) handlers.onInit({ gate: state.gate, previous: state.previous, readonly: state.readonly, draft: data.draft || null, settings: state.settings });
           startResize();
+          break;
+        case "settings":
+          // A change in Settings, or the answer to setSetting: the values
+          // as they stand now, every key the manifest declares.
+          state.settings = settingsOf(data.settings);
+          if (handlers.onSettings) handlers.onSettings(state.settings);
           break;
         case "violations":
           if (handlers.onViolations) handlers.onViolations(Array.isArray(data.errors) ? data.errors : []);
@@ -178,7 +193,12 @@
       get shellOrigin() { return state.shellOrigin; },
       get initialised() { return state.initialised; },
       get theme() { return state.theme; },
+      get settings() { return state.settings; },
       submit(data) { post({ type: "submit", data }); },
+      /* Asks the shell to keep a setting of this plugin's; the shell checks
+         it against the manifest and answers with `settings` (or with
+         `violations` when it will not have it). */
+      setSetting(key, value) { post({ type: "settings_set", patch: { [key]: value } }); },
       draft(data, opts) {
         if (state.readonly) return;
         env.clearTimeout(draftTimer);

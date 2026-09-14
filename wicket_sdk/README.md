@@ -16,11 +16,14 @@ shortcut.
     onSubmitted(decision) { render(); },           // now read-only
     onCollect() { submit(); },                     // the shell's hand-over button, or ⌘/Ctrl+Enter
     onAppearance(theme) { … },                     // optional: "dark" | "light"
+    onSettings(settings) { render(); },            // optional: the plugin's own settings changed
   });
   plugin.submit(data);
   plugin.draft(data);                   // debounced 150ms; { flush: true } posts at once
   plugin.status({label: "Hand over anyway"});   // what the shell's button should read
   plugin.readonly; plugin.gate; plugin.previous;
+  plugin.settings;                      // the plugin's own settings, every key the manifest declares
+  plugin.setSetting("diff", "split");   // asks the shell to keep one; it comes back as `settings`
 </script>
 ```
 
@@ -45,6 +48,21 @@ Load the SDK with a plain `<script src>` tag for this: a `defer` or `type=
 "module"` script runs after the document has painted, which is too late to
 choose a colour. A theme change never re-initialises the view or touches its
 draft.
+
+## Settings of the plugin's own
+
+A manifest with a `settings_schema` (see [`plugins/README.md`](../plugins/README.md))
+gets its values in `init` as `settings`, every key the schema declares with
+its default under what the person set, and again as a `settings` message
+whenever they change — in the app's Settings, or from the view itself.
+`plugin.settings` holds them; `onSettings` fires on a change and never
+re-initialises the view or touches its draft.
+
+A view writes one with `plugin.setSetting(key, value)`. The shell fills in
+the plugin's name, so a view can only ever write its own, and the app checks
+the value against the schema: what it keeps comes back as `settings`, what it
+refuses as `violations` with the path under `/plugins/<name>`. That is what
+makes a toggle in the view and the row in Settings the same control.
 
 ## Icons
 

@@ -10,6 +10,7 @@ import { MOD, hasMod } from "../lib/keys";
 import { overlayTitleBar } from "../lib/native";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
+import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 
 const NOTE_PREFIX = "wicket:draft:";
@@ -17,6 +18,7 @@ const NOTE_PREFIX = "wicket:draft:";
 export function ReviewScreen() {
   const { id = "" } = useParams();
   const live = useLive();
+  const { settings: prefs } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
   // the way back is where the review was opened from
@@ -118,6 +120,27 @@ export function ReviewScreen() {
     [id, load],
   );
 
+  // the plugin's own settings as they stand: its defaults under what was set
+  const stored = plugin ? prefs.plugins[plugin.name] : undefined;
+  const pluginSettings = useMemo(() => {
+    if (!plugin?.settings_schema) return null;
+    const out: Record<string, unknown> = {};
+    for (const [key, property] of Object.entries(plugin.settings_schema.properties)) out[key] = stored && key in stored ? stored[key] : property.default;
+    return out;
+  }, [plugin, stored]);
+  const onSetSetting = useCallback(
+    async (patch: Record<string, unknown>): Promise<Violation[]> => {
+      if (!plugin) return [];
+      try {
+        await api.patchSettings({ plugins: { [plugin.name]: patch } });
+        return [];
+      } catch (e) {
+        return e instanceof ApiError ? e.violations : [{ path: "", message: e instanceof Error ? e.message : "The setting was not kept" }];
+      }
+    },
+    [plugin],
+  );
+
   const bridge = usePluginBridge({
     frame,
     reviewId: review?.id ?? null,
@@ -128,6 +151,8 @@ export function ReviewScreen() {
     src,
     connected: live.connected,
     onSubmit,
+    settings: pluginSettings,
+    onSetSetting,
   });
 
   useEffect(() => {

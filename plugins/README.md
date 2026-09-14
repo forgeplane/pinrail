@@ -86,6 +86,14 @@ changes one; the app checks the change against your schema. The plugin's
 row in `GET /api/v1/plugins` carries the schema and the values as they
 stand.
 
+The view gets them in `init` as `settings`, every key with its value, and
+again as a `settings` message whenever they change; `plugin.settings` holds
+them and `onSettings` fires on a change. A control in the view writes one
+back with `plugin.setSetting("diff", "split")`: the app checks it against
+the schema, keeps it, and every open view of the plugin hears the new values
+— the toolbar in the view and the row in Settings are one control. A value
+the schema refuses comes back as `violations`.
+
 ## Looking like the rest of wicket
 
 The app serves a stylesheet next to the SDK. Link it and your view gets the

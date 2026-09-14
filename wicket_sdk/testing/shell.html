@@ -70,6 +70,8 @@
 <div class="main">
   <div class="stage" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe></div>
   <aside class="side">
+    <h2>Settings</h2>
+    <div class="state" id="settings"><div class="empty" style="padding:0 0 4px">The manifest declares none.</div></div>
     <h2>State</h2>
     <div class="state">
       <div><span>status</span><code id="s-status">—</code></div>
@@ -123,7 +125,65 @@ const show = (id, v) => { $(id).textContent = v == null ? "—" : typeof v === "
 function sendInit() {
   if (!ready || !gate) return;
   post({ type: "appearance", theme });
-  post({ type: "init", gate, previous, readonly: $("readonly").checked || gate.status !== "pending", draft, shell_origin: location.origin });
+  post({ type: "init", gate, previous, readonly: $("readonly").checked || gate.status !== "pending", draft, settings: settingsNow(), shell_origin: location.origin });
+}
+
+// The plugin's own settings, from the manifest's settings_schema: the
+// defaults under what was set here, kept per plugin in localStorage. A row
+// per property, as the app draws them; a change goes to the view as
+// `settings`, and a `settings_set` from the view lands here and goes back.
+const SETTINGS_KEY = () => "wicket-shell:settings:" + manifest.name;
+let stored = {};
+const schemaProps = () => (manifest.settings_schema && manifest.settings_schema.properties) || {};
+function settingsNow() {
+  const out = {};
+  for (const [key, p] of Object.entries(schemaProps())) out[key] = key in stored ? stored[key] : p.default;
+  return out;
+}
+function setStored(patch) {
+  stored = { ...stored, ...patch };
+  localStorage.setItem(SETTINGS_KEY(), JSON.stringify(stored));
+  drawSettings();
+  if (ready) post({ type: "settings", settings: settingsNow() });
+}
+function drawSettings() {
+  const box = $("settings");
+  const props = Object.entries(schemaProps());
+  if (!props.length) return;
+  box.replaceChildren();
+  const now = settingsNow();
+  for (const [key, p] of props) {
+    const row = document.createElement("div");
+    const label = document.createElement("span");
+    label.textContent = p.title || key;
+    label.title = key;
+    let control;
+    const choices = p.oneOf ? p.oneOf.map((c) => [String(c.const), c.title || String(c.const)]) : p.enum ? p.enum.map((v) => [String(v), String(v)]) : null;
+    if (p.type === "boolean") {
+      control = document.createElement("input");
+      control.type = "checkbox";
+      control.checked = now[key] === true;
+      control.addEventListener("change", () => setStored({ [key]: control.checked }));
+    } else if (choices) {
+      control = document.createElement("select");
+      for (const [value, text] of choices) {
+        const o = document.createElement("option");
+        o.value = value; o.textContent = text; o.selected = String(now[key]) === value;
+        control.append(o);
+      }
+      control.addEventListener("change", () => setStored({ [key]: control.value }));
+    } else {
+      control = document.createElement("input");
+      control.type = p.type === "string" ? "text" : "number";
+      control.value = now[key] == null ? "" : String(now[key]);
+      if (p.minimum != null) control.min = p.minimum;
+      if (p.maximum != null) control.max = p.maximum;
+      control.addEventListener("change", () => setStored({ [key]: p.type === "string" ? control.value : Number(control.value) }));
+    }
+    control.setAttribute("aria-label", p.title || key);
+    row.append(label, control);
+    box.append(row);
+  }
 }
 
 async function loadFixture(name) {
@@ -157,6 +217,13 @@ window.addEventListener("message", (event) => {
       break;
     case "draft": draft = msg.data; show("s-draft", draft); break;
     case "status": show("s-status", msg.label); break;
+    case "settings_set":
+      // as the app: the core keeps what the schema allows, then everyone hears the values
+      if (msg.patch && typeof msg.patch === "object") {
+        const known = Object.fromEntries(Object.entries(msg.patch).filter(([k]) => k in schemaProps()));
+        setStored(known);
+      }
+      break;
     case "submit": lastSubmit = msg.data; show("s-submit", lastSubmit); break;
   }
 });
@@ -195,6 +262,8 @@ setInterval(async () => {
 
 (async () => {
   manifest = await (await fetch("/dev/manifest")).json();
+  try { stored = JSON.parse(localStorage.getItem(SETTINGS_KEY()) || "{}"); } catch { stored = {}; }
+  drawSettings();
   $("name").textContent = manifest.title || manifest.name;
   $("version").textContent = `${manifest.name} v${manifest.version}`;
   document.title = `${manifest.name} · wicket plugin shell`;

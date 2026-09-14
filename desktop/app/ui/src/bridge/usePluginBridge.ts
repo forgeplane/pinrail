@@ -4,10 +4,10 @@
 //
 // Every message is {wicket: 1, type, ...}.
 //   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
-//                    status {label}
-//   shell -> plugin: init {gate, previous, readonly, draft, shell_origin} |
+//                    status {label} | settings_set {patch}
+//   shell -> plugin: init {gate, previous, readonly, draft, settings, shell_origin} |
 //                    violations {errors} | submitted {decision} | collect |
-//                    appearance {theme}
+//                    appearance {theme} | settings {settings}
 //
 // The theme is also on the frame's URL as #wicket-theme=…, which is the only
 // way it can reach the view before the view paints.
@@ -35,6 +35,10 @@ type Options = {
   src: string | null;
   connected: boolean;
   onSubmit: (data: unknown) => Promise<SubmitResult>;
+  /** the plugin's own settings as they stand; null for a plugin that declares none */
+  settings: Record<string, unknown> | null;
+  /** the view asks to keep one of its settings; violations when the core refuses */
+  onSetSetting: (patch: Record<string, unknown>) => Promise<Violation[]>;
 };
 
 export type Bridge = {
@@ -48,15 +52,15 @@ export type Bridge = {
 };
 
 export function usePluginBridge(options: Options): Bridge {
-  const { frame, reviewId, review, previous, readonly, minHeight, src, connected, onSubmit } = options;
+  const { frame, reviewId, review, previous, readonly, minHeight, src, connected, onSubmit, settings, onSetSetting } = options;
   const [loaded, setLoaded] = useState(false);
   const [fill, setFill] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [handoverLabel, setHandoverLabel] = useState("Hand over");
   const ready = useRef(false);
   const fallback = useRef<number | undefined>(undefined);
-  const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit });
-  latest.current = { review, previous, readonly, connected, submitting, onSubmit };
+  const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit, settings, onSetSetting });
+  latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting };
 
   const post = useCallback(
     (msg: Record<string, unknown>) => frame.current?.contentWindow?.postMessage({ wicket: PROTOCOL, ...msg }, "*"),
@@ -90,7 +94,7 @@ export function usePluginBridge(options: Options): Bridge {
   };
 
   const sendInit = useCallback(() => {
-    const { review, previous, readonly } = latest.current;
+    const { review, previous, readonly, settings } = latest.current;
     if (!ready.current || !review) return;
     post({ type: "appearance", theme: currentTheme() });
     post({
@@ -99,6 +103,7 @@ export function usePluginBridge(options: Options): Bridge {
       previous,
       readonly,
       draft: readonly ? null : loadDraft(),
+      settings: settings ?? {},
       shell_origin: window.location.origin,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -152,6 +157,15 @@ export function usePluginBridge(options: Options): Bridge {
         case "status":
           if (typeof msg.label === "string" && msg.label.trim()) setHandoverLabel(msg.label);
           break;
+        case "settings_set": {
+          // the view may only ever write its own settings: the handler
+          // fills in the plugin's name, and the core checks the values
+          const patch = msg.patch;
+          if (!patch || typeof patch !== "object" || Array.isArray(patch)) return;
+          const violations = await latest.current.onSetSetting(patch as Record<string, unknown>);
+          if (violations.length) post({ type: "violations", errors: violations });
+          break;
+        }
         case "submit": {
           const { readonly, submitting, connected, onSubmit } = latest.current;
           if (readonly || submitting) return;
@@ -201,6 +215,19 @@ export function usePluginBridge(options: Options): Bridge {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [frame, reviewId, src, minHeight, sendInit, markLoaded, collect, post]);
+
+  // The plugin's settings changed, in Settings or through the view itself:
+  // the view hears the values as they stand now.
+  const sentSettings = useRef<string | null>(null);
+  useEffect(() => {
+    const now = settings ? JSON.stringify(settings) : null;
+    if (!ready.current || now === null || now === sentSettings.current) {
+      sentSettings.current = now;
+      return;
+    }
+    sentSettings.current = now;
+    post({ type: "settings", settings });
+  }, [settings, post]);
 
   // When the review settles from elsewhere, the view flips to read-only.
   const wasReadonly = useRef(readonly);
