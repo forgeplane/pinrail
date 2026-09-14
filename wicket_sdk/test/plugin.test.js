@@ -328,3 +328,19 @@ test("settings arrive with init and again as a message; setSetting asks the shel
   assert.deepEqual(plugin.settings, {});
 });
 
+test("a forwarded key lands on the document and on onKey; junk is ignored", () => {
+  const env = fakeEnv();
+  const seen = [];
+  Wicket.createPlugin(env, { resize: "manual", onKey: (k) => seen.push(k) });
+  env.deliver(init());
+  env.deliver(shell({ type: "key", key: "j", code: "KeyJ" }));
+  env.deliver(shell({ type: "key", key: "M", code: "KeyM", metaKey: true, shiftKey: true }));
+  env.deliver(shell({ type: "key" }));
+  const expected = [
+    { key: "j", code: "KeyJ", metaKey: false, ctrlKey: false, altKey: false, shiftKey: false },
+    { key: "M", code: "KeyM", metaKey: true, ctrlKey: false, altKey: false, shiftKey: true },
+  ];
+  assert.deepEqual(env.keys, expected);
+  assert.deepEqual(seen, expected);
+});
+

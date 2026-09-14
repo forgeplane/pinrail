@@ -17,6 +17,7 @@ shortcut.
     onCollect() { submit(); },                     // the shell's hand-over button, or ⌘/Ctrl+Enter
     onAppearance(theme) { … },                     // optional: "dark" | "light"
     onSettings(settings) { render(); },            // optional: the plugin's own settings changed
+    onKey(key) { … },                              // optional: a declared shortcut, pressed with the app in focus
   });
   plugin.submit(data);
   plugin.draft(data);                   // debounced 150ms; { flush: true } posts at once
@@ -63,6 +64,14 @@ the plugin's name, so a view can only ever write its own, and the app checks
 the value against the schema: what it keeps comes back as `settings`, what it
 refuses as `violations` with the path under `/plugins/<name>`. That is what
 makes a toggle in the view and the row in Settings the same control.
+
+## Keys of the plugin's own
+
+A manifest with `shortcuts` (see [`plugins/README.md`](../plugins/README.md))
+gets those keys as `key` messages when the person presses them with the
+app rather than the frame in focus. The SDK dispatches each as a `keydown`
+on the document, marked `wicketForwarded`, so the listener a view already
+has handles a forwarded key like a typed one; `onKey(key)` fires as well.
 
 ## Icons
 

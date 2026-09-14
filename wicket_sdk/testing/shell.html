@@ -250,6 +250,26 @@ $("theme").addEventListener("click", () => {
   post({ type: "appearance", theme });
 });
 
+// The manifest's shortcuts, pressed while this page rather than the frame
+// has focus, go to the view as the app sends them: a `key` message the SDK
+// turns into a keydown on the view's document.
+const comboOf = (e) => {
+  const names = { Slash: "/", BracketLeft: "[", BracketRight: "]", Comma: ",", Period: ".", Minus: "-", Equal: "=", Semicolon: ";", Quote: "'", Backquote: "`", Backslash: "\\" };
+  let name = /^Key(.)$/.test(e.code) ? e.code.slice(3).toLowerCase() : /^Digit(.)$/.test(e.code) ? e.code.slice(5) : names[e.code] || e.code.toLowerCase();
+  if (!name || /^(shift|control|alt|meta)(left|right)?$/.test(name)) return null;
+  const mods = [e.ctrlKey && "ctrl", e.altKey && "alt", e.shiftKey && "shift", e.metaKey && "cmd"].filter(Boolean);
+  return [...mods, name].join("+");
+};
+window.addEventListener("keydown", (e) => {
+  const tag = e.target && e.target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  const combo = comboOf(e);
+  const declared = (manifest.shortcuts || []).some((s) => s.keys === combo);
+  if (!combo || !declared || !ready) return;
+  e.preventDefault();
+  post({ type: "key", key: e.key, code: e.code, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey });
+});
+
 // files change, the view reloads; the draft comes back with the next init
 setInterval(async () => {
   try {

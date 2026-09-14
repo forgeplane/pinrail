@@ -14,6 +14,7 @@
  *     onCollect() { … },              // the shell's hand-over button, or Cmd/Ctrl+Enter
  *     onAppearance(theme) { … },      // optional; "dark" | "light", already applied
  *     onSettings(settings) { … },     // optional; the plugin's own settings changed
+ *     onKey(key) { … },               // optional; a declared shortcut pressed while the shell had focus
  *   });
  *
  * Load this with a plain <script src> tag, not a deferred or module one: it
@@ -43,7 +44,7 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.7.0";
+  const VERSION = "1.8.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
   const ICON_BASE = "/sdk/v1/icons/";
@@ -178,6 +179,19 @@
           break;
         case "collect":
           collect();
+          break;
+        case "key":
+          // One of the manifest's shortcuts, pressed while the shell rather
+          // than the frame had focus. It lands as a keydown on the document,
+          // so a view that already listens for its keys needs no change.
+          if (typeof data.key === "string") {
+            const key = {
+              key: data.key, code: typeof data.code === "string" ? data.code : "",
+              metaKey: !!data.metaKey, ctrlKey: !!data.ctrlKey, altKey: !!data.altKey, shiftKey: !!data.shiftKey,
+            };
+            if (env.dispatchKey) env.dispatchKey(key);
+            if (handlers.onKey) handlers.onKey(key);
+          }
           break;
       }
     }
@@ -348,6 +362,12 @@
         return () => ro.disconnect();
       },
       applyTheme: (theme) => { doc.documentElement.dataset.theme = theme; },
+      dispatchKey: (key) => {
+        const event = new win.KeyboardEvent("keydown", Object.assign({ bubbles: true, cancelable: true }, key));
+        // so a handler can tell a forwarded key from one typed in the frame
+        Object.defineProperty(event, "wicketForwarded", { value: true });
+        doc.dispatchEvent(event);
+      },
       onShortcut: (fn) => win.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); fn(); }
       }),

@@ -51,6 +51,8 @@ hello/
   iterating on a view.
 - `settings_schema` declares settings of the plugin's own, shown as rows under
   the plugin in *Settings › Plugins*. See below.
+- `shortcuts` declares the keys your view answers, so the app lists them and
+  hands them over whether or not the frame has focus. See below.
 
 ## Settings of your own
 
@@ -93,6 +95,35 @@ back with `plugin.setSetting("diff", "split")`: the app checks it against
 the schema, keeps it, and every open view of the plugin hears the new values
 — the toolbar in the view and the row in Settings are one control. A value
 the schema refuses comes back as `violations`.
+
+## Keys of your own
+
+A view that answers keys says so in the manifest, and two things follow:
+the app's keyboard-shortcuts dialog (`?`) lists them under your plugin
+while one of its reviews is open, and the app forwards them to your view
+when the person presses them with the app rather than the frame in focus —
+after clicking the top bar, say, or arriving from the inbox.
+
+```json
+"shortcuts": [
+  { "keys": "j", "does": "Next proposal" },
+  { "keys": "a", "does": "Accept the focused proposal", "group": "Verdicts" },
+  { "keys": "cmd+shift+f", "does": "Fold every file" }
+]
+```
+
+`keys` is modifiers (`cmd`, `ctrl`, `alt`, `shift`) joined by `+` and one
+key, named as `KeyboardEvent.code` spells it with `Key`/`Digit` dropped:
+`j`, `1`, `/`, `enter`, `escape`, `arrowdown`. A bare key is fine. `does`
+is the one-line label; `group` puts entries under a caption. Order is
+display order. A key the app already uses on the review screen — `?`, `t`,
+`[`, `]`, `esc`, ⌘⇧M, ⌘⏎ and the ⌘ keys of its menu — stays the app's: the
+dialog says so next to your entry, and the key is not forwarded. The
+app's dialog lists your keys, so a view needs no help overlay of its own.
+
+A forwarded key arrives as a `keydown` on your document, exactly as a press
+inside the frame would, so the listener you already have handles both.
+Only declared keys are forwarded; a view that declares none gets none.
 
 ## Looking like the rest of wicket
 
@@ -237,6 +268,7 @@ Shell → plugin:
 | `submitted` | `decision` – the decision was accepted; render read-only |
 | `collect` | the human asked to hand the gate over, with the shell's button or ⌘/Ctrl+Enter. Assemble the decision and submit it, or show a confirmation first and submit on the next `collect` |
 | `appearance` | `theme: "dark" \| "light"` – the shell's theme, sent before `init` and again on every change. The SDK applies it as `data-theme` on your root element; write the CSS and you are done |
+| `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` – one of the manifest's `shortcuts`, pressed while the app rather than your frame had focus. The SDK dispatches it as a `keydown` on your document (with `wicketForwarded: true` on the event), so a view that listens for its keys needs no change; `onKey` is there as well |
 
 `readonly` is true whenever the gate is not pending, and `gate.status` says
 why: `decided`, `withdrawn` (the requester took it back), `discarded` (the

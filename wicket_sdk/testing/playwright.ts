@@ -65,6 +65,8 @@ export type MountedPlugin = {
   lastSettingsSet(): Promise<Record<string, any> | null>;
   /** the plugin's settings changed in the app: sends them as they stand */
   settings(values: Record<string, any>): Promise<void>;
+  /** a declared shortcut pressed while the shell had focus: "j", "cmd+shift+m" */
+  sendKey(combo: string): Promise<void>;
   send(msg: Record<string, any>): Promise<void>;
   sendViolations(errors: { path: string; message: string }[]): Promise<void>;
   sendSubmitted(decision: Gate): Promise<void>;
@@ -155,6 +157,7 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
     lastStatus: () => page.evaluate(() => (window as any).__shell.lastStatus()),
     lastSettingsSet: () => page.evaluate(() => (window as any).__shell.lastSettingsSet()),
     settings: (values) => page.evaluate((v) => (window as any).__shell.settings(v), values),
+    sendKey: (combo) => page.evaluate((c) => (window as any).__shell.sendKey(c), combo),
     send,
     sendViolations: (errors) => send({ type: "violations", errors }),
     sendSubmitted: (decision) => send({ type: "submitted", decision }),
