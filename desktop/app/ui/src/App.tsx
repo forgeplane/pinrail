@@ -6,6 +6,7 @@ import { Inbox } from "./screens/Inbox";
 import { Plugins } from "./screens/Plugins";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { LiveProvider } from "./state/live";
+import { SettingsProvider } from "./state/settings";
 import { TopBarProvider } from "./state/topbar";
 
 function Shell() {
@@ -28,7 +29,9 @@ export function App() {
     <HashRouter>
       <LiveProvider>
         <TopBarProvider>
-          <Shell />
+          <SettingsProvider>
+            <Shell />
+          </SettingsProvider>
         </TopBarProvider>
       </LiveProvider>
     </HashRouter>

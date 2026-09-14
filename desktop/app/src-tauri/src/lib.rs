@@ -40,6 +40,16 @@ fn take_pending_route(native: State<'_, Native>) -> Option<String> {
 }
 
 #[tauri::command]
+fn notifications_paused(native: State<'_, Native>) -> bool {
+    native.paused.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+#[tauri::command]
+fn set_notifications_paused(app: AppHandle, native: State<'_, Native>, paused: bool) {
+    native.set_paused(&app, paused);
+}
+
+#[tauri::command]
 fn autostart_enabled(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
 }
@@ -137,6 +147,7 @@ pub fn run() {
             if matches!(
                 id,
                 "search"
+                    | "settings"
                     | "go-inbox"
                     | "go-history"
                     | "go-plugins"
@@ -157,6 +168,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_url,
             take_pending_route,
+            notifications_paused,
+            set_notifications_paused,
             autostart_enabled,
             set_autostart
         ])
@@ -181,6 +194,7 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         true,
         &[
             &MenuItem::with_id(app, "search", "Search…", true, Some("CmdOrCtrl+K"))?,
+            &MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "go-inbox", "Inbox", true, Some("CmdOrCtrl+I"))?,
             &MenuItem::with_id(

@@ -1,9 +1,11 @@
-import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Sun, SunMoon, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon, X } from "lucide-react";
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, inTauri } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
+import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
+import { SHORTCUTS } from "../lib/shortcuts";
 import { MOD, hasMod } from "../lib/keys";
 import { useLive } from "../state/live";
 import { useTopBarContent } from "../state/topbar";
@@ -38,6 +40,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const topbar = useTopBarContent();
   const [help, setHelp] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [sidebar, setSidebar] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) !== "closed";
@@ -75,6 +78,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { id: "theme", label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme", keys: ["T"], icon: SunMoon, run: toggleTheme },
     { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
+    { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
   ];
 
   useEffect(() => {
@@ -91,6 +95,9 @@ export function Layout({ children }: { children: ReactNode }) {
         if (event.key === "k" || event.key === "K") {
           event.preventDefault();
           setPalette((p) => !p);
+        } else if (event.key === ",") {
+          event.preventDefault();
+          setSettings((s) => (s ? null : "general"));
         } else if (event.key === "b" || event.key === "B") {
           event.preventDefault();
           toggleSidebar();
@@ -116,6 +123,9 @@ export function Layout({ children }: { children: ReactNode }) {
       switch ((event as CustomEvent<string>).detail) {
         case "search":
           setPalette((p) => !p);
+          break;
+        case "settings":
+          setSettings((s) => (s ? null : "general"));
           break;
         case "go-inbox":
           navigate("/");
@@ -199,6 +209,11 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="sidebar-bottom">
             <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
             <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
+            <Tooltip label="Settings" keys={[MOD, ","]} side="top">
+              <button type="button" className="bar-button sidebar-gear" onClick={() => setSettings("general")} aria-label="Settings">
+                <Settings size={15} />
+              </button>
+            </Tooltip>
           </div>
         </aside>
       ) : null}
@@ -235,6 +250,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
+      <SettingsDialog open={settings !== null} section={settings ?? "general"} onSection={setSettings} onClose={() => setSettings(null)} />
       {help ? (
         <div className="app-dialog-backdrop" onClick={() => setHelp(false)}>
           <div className="app-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
@@ -247,58 +263,20 @@ export function Layout({ children }: { children: ReactNode }) {
               </Tooltip>
             </div>
             <dl className="shortcut-list">
-              <dt>Next / previous review</dt>
-              <dd>
-                <kbd>J</kbd> <kbd>K</kbd>
-              </dd>
-              <dt>Open the focused review</dt>
-              <dd>
-                <kbd>Enter</kbd>
-              </dd>
-              <dt>Search the inbox or the history</dt>
-              <dd>
-                <kbd>/</kbd>
-              </dd>
-              <dt>Inbox</dt>
-              <dd>
-                <kbd>{MOD}</kbd> <kbd>I</kbd>
-              </dd>
-              <dt>History / Plugins</dt>
-              <dd>
-                <kbd>{MOD}</kbd> <kbd>⇧</kbd> <kbd>H</kbd> <kbd>P</kbd>
-              </dd>
-              <dt>Search everything</dt>
-              <dd>
-                <kbd>{MOD}</kbd> <kbd>K</kbd>
-              </dd>
-              <dt>Switch theme</dt>
-              <dd>
-                <kbd>T</kbd>
-              </dd>
-              <dt>Show or hide the sidebar</dt>
-              <dd>
-                <kbd>{MOD}</kbd> <kbd>B</kbd>
-              </dd>
-              <dt>Back / forward</dt>
-              <dd>
-                <kbd>{MOD}</kbd> <kbd>[</kbd> <kbd>]</kbd>
-              </dd>
-              <dt>Hand over to the agent</dt>
-              <dd>
-                <kbd>{MOD}</kbd> <kbd>Enter</kbd>
-              </dd>
-              <dt>Maximize / restore the view</dt>
-              <dd>
-                <kbd>{MOD}</kbd> <kbd>⇧</kbd> <kbd>M</kbd>
-              </dd>
-              <dt>Previous / next round</dt>
-              <dd>
-                <kbd>[</kbd> <kbd>]</kbd>
-              </dd>
-              <dt>Close this</dt>
-              <dd>
-                <kbd>Esc</kbd>
-              </dd>
+              {SHORTCUTS.map((s) => (
+                <Fragment key={s.what}>
+                  <dt>{s.what}</dt>
+                  <dd>
+                    {s.keys.map((combo, i) => (
+                      <span key={i} className="combo">
+                        {combo.map((k, j) => (
+                          <kbd key={j}>{k}</kbd>
+                        ))}
+                      </span>
+                    ))}
+                  </dd>
+                </Fragment>
+              ))}
             </dl>
           </div>
         </div>

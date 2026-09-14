@@ -41,6 +41,14 @@ impl Native {
     pub fn take_pending_route(&self) -> Option<String> {
         self.pending_route.lock().unwrap().take()
     }
+
+    /// Pauses or resumes notifications; the tray and the shell both follow.
+    pub fn set_paused(&self, app: &AppHandle, paused: bool) {
+        self.paused.store(paused, Ordering::Relaxed);
+        let _ = app.emit("wicket:notifications", paused);
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || refresh_tray(&handle));
+    }
 }
 
 /// Shows the window and sends the shell to a route.
@@ -119,9 +127,9 @@ fn on_menu(app: &AppHandle, id: &str) {
         "next" => open_next(app),
         "pause" => {
             if let Some(native) = app.try_state::<Native>() {
-                native.paused.fetch_xor(true, Ordering::Relaxed);
+                let paused = !native.paused.load(Ordering::Relaxed);
+                native.set_paused(app, paused);
             }
-            refresh_tray(app);
         }
         "quit" => app.exit(0),
         other => {
