@@ -459,7 +459,11 @@ function previousHtml(p) {
   const color = prev.action === "accept" ? "var(--ok)" : prev.action === "reject" ? "var(--danger)" : "var(--faint)";
   return `<div style="margin:8px 14px 0 14px;font-size:11.5px;color:var(--faint)"><span style="font-weight:700;letter-spacing:0.05em;font-size:10px">PREVIOUS ROUND</span> <span style="color:${color};font-weight:600">${esc(prev.action)}</span>${prev.note ? ` — ${esc(prev.note)}` : ""}</div>`;
 }
-function cardHtml(p) {
+/* A proposal. Anchored on a diff row it is `flush`: full width, flush with
+   the rows above and below like a forge's own thread, a rule top and
+   bottom, the focus as a bar down its left edge. Elsewhere — a file's
+   unanchored comments, the change-wide ones — it is a card. */
+function cardHtml(p, flush = false) {
   const dec = S.decisions[p.id] || null;
   const action = dec && dec.action;
   const isAccepted = action === "accept", isRejected = action === "reject", isPending = !action;
@@ -526,7 +530,10 @@ function cardHtml(p) {
       ${(note && !noteEd) ? noteBlockHtml(p, dec, false) : ""}
       ${actions}`;
   }
-  return `<div id="card-${p.id}" data-card="${p.id}" style="font-size:var(--ui);background:var(--bg-raised);border:1px solid ${borderColor};border-radius:8px;overflow:hidden;outline:2px solid ${ring};outline-offset:2px">${inner}${noteEd}</div>`;
+  const frame = flush
+    ? `border-top:1px solid ${borderColor};border-bottom:1px solid ${borderColor};box-shadow:inset 3px 0 0 ${focused ? "var(--accent)" : "transparent"}`
+    : `border:1px solid ${borderColor};border-radius:8px;outline:2px solid ${ring};outline-offset:2px`;
+  return `<div id="card-${p.id}" data-card="${p.id}" style="font-size:var(--ui);background:var(--bg-raised);overflow:hidden;${frame}">${inner}${noteEd}</div>`;
 }
 
 /* ---------- render: reviewer's comments / composer ---------- */
@@ -560,7 +567,7 @@ function rowAttachments(f, newLn, oldLn, pad) {
   const manual = S.manualComments.filter(at);
   const comp = S.composer && !RO() && at(S.composer);
   let html = "";
-  anchoredCards.forEach((p) => { html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans)">${cardHtml(p)}</div>`; });
+  anchoredCards.forEach((p) => { html += `<div style="font-family:var(--sans)">${cardHtml(p, true)}</div>`; });
   manual.forEach((m) => { html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans);font-size:var(--ui)">${manualHtml(m)}</div>`; });
   if (comp) html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans);font-size:var(--ui)">${composerHtml()}</div>`;
   return html;

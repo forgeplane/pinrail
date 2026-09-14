@@ -233,9 +233,9 @@ test("a declared key forwarded by the shell works like one typed in the frame", 
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toBeVisible();
   await plugin.sendKey("j");
-  await expect(f.locator("#card-19")).toHaveAttribute("style", /outline:2px solid color-mix/);
+  await expect(f.locator("#card-19")).toHaveAttribute("style", /inset 3px 0 0 var\(--accent\)/);
   await plugin.sendKey("k");
-  await expect(f.locator("#card-18")).toHaveAttribute("style", /outline:2px solid color-mix/);
+  await expect(f.locator("#card-18")).toHaveAttribute("style", /inset 3px 0 0 var\(--accent\)/);
   await plugin.sendKey("a");
   await expect(f.locator("#card-18")).toContainText("ACCEPTED");
   await plugin.sendKey("v");
