@@ -4,7 +4,7 @@
 import { Bell, BellOff, ChevronRight, CircleCheck, FolderOpen, FolderPlus, RefreshCw, TriangleAlert, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
-import type { Plugin, SettingProperty, SettingsSchema } from "../../api/types";
+import type { Plugin, SettingProperty } from "../../api/types";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
 import { Select } from "../Select";
@@ -90,49 +90,9 @@ export function PluginsSection({ focus }: { focus: string | null }) {
       >
         {plugins.length === 0 ? <SettingsRow label="No plugins yet" description="Add a directory of plugins below to give your agents a view to ask through" /> : null}
         {plugins.map((p) => (
-          <SettingsRow
-            key={p.name}
-            icon={<PluginIcon icon={p.icon} size={16} strokeWidth={1.75} />}
-            label={p.title || p.name}
-            description={
-              <span className="settings-plugin-line">
-                <PluginBadge name={p.name} version={p.version} icon={p.icon} />
-                <span className={`with-icon ${p.error ? "danger" : "ok"}`}>
-                  {p.error ? <TriangleAlert size={12} /> : p.dev ? <Wrench size={12} /> : <CircleCheck size={12} />}
-                  {p.error ? "broken" : p.dev ? "development" : "ready"}
-                </span>
-              </span>
-            }
-            note={p.error ? <span className="danger">{p.error}</span> : p.settings_error ? <span className="danger">settings dropped: {p.settings_error}</span> : <span className="mono">{p.path}</span>}
-          >
-            {native ? (
-              <Tooltip label="Show in Finder">
-                <button type="button" className="bar-button" onClick={() => reveal(p.path)} aria-label={`Reveal ${p.name}`}>
-                  <FolderOpen size={15} />
-                </button>
-              </Tooltip>
-            ) : null}
-            <Tooltip label={muted.includes(p.name) ? "Muted: its reviews arrive without a notification. Click to notify again" : "Notifies when one of its reviews arrives. Click to mute"}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={!muted.includes(p.name)}
-                aria-label={`Notify for ${p.name}`}
-                className={`bar-button settings-notify ${muted.includes(p.name) ? "is-muted" : ""}`}
-                onClick={() => setNotify(p.name, muted.includes(p.name))}
-              >
-                {muted.includes(p.name) ? <BellOff size={15} /> : <Bell size={15} />}
-              </button>
-            </Tooltip>
-          </SettingsRow>
+          <PluginEntry key={p.name} plugin={p} native={native} muted={muted.includes(p.name)} stored={settings.plugins[p.name] ?? {}} open={focus === p.name} onReveal={() => reveal(p.path)} onNotify={(on) => setNotify(p.name, on)} onChange={(values) => update({ plugins: { [p.name]: values } })} />
         ))}
       </SettingsGroup>
-
-      {plugins
-        .filter((p) => p.usable && p.settings_schema)
-        .map((p) => (
-          <PluginSettings key={p.name} plugin={p} schema={p.settings_schema!} stored={settings.plugins[p.name] ?? {}} open={focus === p.name} onChange={(values) => update({ plugins: { [p.name]: values } })} />
-        ))}
 
       <SettingsGroup caption="Directories">
         {dirs.map((d) => (
@@ -182,44 +142,79 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
   return null;
 };
 
-/** One plugin's settings: a collapsed group under the registered list, rows from the schema. */
-function PluginSettings({ plugin, schema, stored, open: openAtStart, onChange }: { plugin: Plugin; schema: SettingsSchema; stored: Record<string, unknown>; open: boolean; onChange: (values: Record<string, unknown>) => void }) {
-  const [open, setOpen] = useState(openAtStart);
-  const group = useRef<HTMLDivElement>(null);
-  const entries = Object.entries(schema.properties);
+/** One registered plugin: its row, and its settings folded under it when it declares any. */
+function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void }) {
+  const schema = p.usable ? p.settings_schema : null;
+  const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
+  const [open, setOpen] = useState(openAtStart && entries.length > 0);
+  const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (openAtStart) {
+    if (openAtStart && entries.length) {
       setOpen(true);
-      group.current?.scrollIntoView({ block: "start" });
+      box.current?.scrollIntoView({ block: "start" });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openAtStart]);
 
   const resetAll = () => onChange(Object.fromEntries(entries.map(([key, property]) => [key, property.default])));
+  const toggle = () => entries.length && setOpen((o) => !o);
 
   return (
-    <div ref={group} className="settings-group settings-plugin" data-plugin-settings={plugin.name}>
-      <div className="settings-group-head">
-        <button type="button" className="settings-group-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <ChevronRight size={14} className={open ? "is-open" : ""} />
-          <PluginIcon icon={plugin.icon} size={13} strokeWidth={1.75} />
-          <h3>{plugin.title || plugin.name}</h3>
-          <span className="faint">
-            {entries.length} setting{entries.length === 1 ? "" : "s"}
-            {changed.length ? `, ${changed.length} changed` : ""}
+    <div ref={box} className={`settings-plugin ${entries.length ? "has-settings" : ""} ${open ? "is-open" : ""}`} data-plugin-settings={p.name}>
+      <SettingsRow
+        icon={<PluginIcon icon={p.icon} size={16} strokeWidth={1.75} />}
+        label={p.title || p.name}
+        description={
+          <span className="settings-plugin-line">
+            <PluginBadge name={p.name} version={p.version} icon={p.icon} />
+            <span className={`with-icon ${p.error ? "danger" : "ok"}`}>
+              {p.error ? <TriangleAlert size={12} /> : p.dev ? <Wrench size={12} /> : <CircleCheck size={12} />}
+              {p.error ? "broken" : p.dev ? "development" : "ready"}
+            </span>
+            {entries.length ? (
+              <span className="faint">
+                {entries.length} setting{entries.length === 1 ? "" : "s"}
+                {changed.length ? `, ${changed.length} changed` : ""}
+              </span>
+            ) : null}
           </span>
-        </button>
-        {open && changed.length ? (
-          <button type="button" className="chrome-button settings-caption-action" onClick={resetAll}>
-            Reset all
-          </button>
+        }
+        note={p.error ? <span className="danger">{p.error}</span> : p.settings_error ? <span className="danger">settings dropped: {p.settings_error}</span> : <span className="mono">{p.path}</span>}
+        onClick={entries.length ? toggle : undefined}
+      >
+        {native ? (
+          <Tooltip label="Show in Finder">
+            <button type="button" className="bar-button" onClick={onReveal} aria-label={`Reveal ${p.name}`}>
+              <FolderOpen size={15} />
+            </button>
+          </Tooltip>
         ) : null}
-      </div>
+        <Tooltip label={muted ? "Muted: its reviews arrive without a notification. Click to notify again" : "Notifies when one of its reviews arrives. Click to mute"}>
+          <button type="button" role="switch" aria-checked={!muted} aria-label={`Notify for ${p.name}`} className={`bar-button settings-notify ${muted ? "is-muted" : ""}`} onClick={() => onNotify(muted)}>
+            {muted ? <BellOff size={15} /> : <Bell size={15} />}
+          </button>
+        </Tooltip>
+        {entries.length ? (
+          <Tooltip label={open ? "Hide its settings" : "Show its settings"}>
+            <button type="button" className="bar-button settings-plugin-toggle" aria-expanded={open} aria-label={`Settings of ${p.name}`} onClick={toggle}>
+              <ChevronRight size={15} className={open ? "is-open" : ""} />
+            </button>
+          </Tooltip>
+        ) : null}
+      </SettingsRow>
       {open ? (
-        <div className="settings-card">
+        <div className="settings-subrows">
+          {changed.length ? (
+            <div className="settings-subrows-head">
+              <button type="button" className="settings-reset-link" onClick={resetAll}>
+                Reset all to defaults
+              </button>
+            </div>
+          ) : null}
           {entries.map(([key, property]) => (
-            <SettingRow key={key} plugin={plugin.name} name={key} property={property} value={valueOf(property, stored, key)} onChange={(v) => onChange({ [key]: v })} />
+            <SettingRow key={key} plugin={p.name} name={key} property={property} value={valueOf(property, stored, key)} onChange={(v) => onChange({ [key]: v })} />
           ))}
         </div>
       ) : null}

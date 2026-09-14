@@ -26,11 +26,15 @@ export function SettingsGroup({ caption, action, children }: { caption?: string;
   );
 }
 
-export function SettingsRow({ label, description, children, note, icon }: { label: string; description?: ReactNode; children?: ReactNode; note?: ReactNode; icon?: ReactNode }) {
+export function SettingsRow({ label, description, children, note, icon, onClick }: { label: string; description?: ReactNode; children?: ReactNode; note?: ReactNode; icon?: ReactNode; onClick?: () => void }) {
   return (
-    <div className="settings-row">
-      {icon ? <span className="settings-row-icon">{icon}</span> : null}
-      <div className="settings-text">
+    <div className={`settings-row ${onClick ? "is-clickable" : ""}`}>
+      {icon ? (
+        <span className="settings-row-icon" onClick={onClick}>
+          {icon}
+        </span>
+      ) : null}
+      <div className="settings-text" onClick={onClick}>
         <div className="settings-label">{label}</div>
         {description ? <div className="settings-desc">{description}</div> : null}
         {note ? <div className="settings-note">{note}</div> : null}
