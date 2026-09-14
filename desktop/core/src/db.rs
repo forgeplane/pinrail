@@ -53,14 +53,63 @@ CREATE TABLE IF NOT EXISTS plugin_dirs (path TEXT PRIMARY KEY, added_at TEXT NOT
 DROP TABLE IF EXISTS settings;
 "#;
 
-/// The schema as this build writes it; `PRAGMA user_version` on the file.
-pub const SCHEMA_VERSION: i64 = 1;
+/// One step of the schema's history. The file's `PRAGMA user_version` is
+/// how many of these it has been through; opening runs the rest, each in
+/// its own transaction with the version bump inside it, so a crash leaves
+/// the file at a version it wholly is.
+struct Migration {
+    name: &'static str,
+    run: fn(&Connection) -> rusqlite::Result<()>,
+}
 
-/// Version 1: one `outcomes` table in place of `decisions`, `withdrawals`
-/// and `discards`, so a review ends once whichever way. Rows are copied
+const MIGRATIONS: &[Migration] = &[
+    Migration {
+        name: "the tables",
+        run: |conn| conn.execute_batch(SCHEMA),
+    },
+    Migration {
+        name: "one outcomes table for decisions, withdrawals and discards",
+        run: migrate_outcomes,
+    },
+];
+
+/// The schema as this build writes it; `PRAGMA user_version` on the file.
+pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
+
+/// Brings the file up to this build's schema. A file from a newer build is
+/// refused rather than misread.
+fn migrate(conn: &Connection) -> rusqlite::Result<()> {
+    let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    if version > SCHEMA_VERSION {
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_SCHEMA),
+            Some(format!(
+                "the database is at schema version {version}, newer than this build's {SCHEMA_VERSION}"
+            )),
+        ));
+    }
+    for (i, step) in MIGRATIONS.iter().enumerate().skip(version as usize) {
+        let tx = conn.unchecked_transaction()?;
+        (step.run)(&tx)?;
+        tx.execute_batch(&format!("PRAGMA user_version = {}", i + 1))?;
+        tx.commit()?;
+        if version > 0 {
+            eprintln!(
+                "wicket: database migrated to version {}: {}",
+                i + 1,
+                step.name
+            );
+        }
+    }
+    Ok(())
+}
+
+/// One `outcomes` table in place of `decisions`, `withdrawals` and
+/// `discards`, so a review ends once whichever way. Rows are copied
 /// earliest first; a review that had ended twice (a race the old tables
-/// allowed) keeps its first ending and the rest are logged.
-fn migrate_to_1(conn: &Connection) -> rusqlite::Result<()> {
+/// allowed) keeps its first ending and the rest are logged. A file that
+/// never had the old tables passes through untouched.
+fn migrate_outcomes(conn: &Connection) -> rusqlite::Result<()> {
     let has = |table: &str| -> rusqlite::Result<bool> {
         conn.query_row(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
@@ -70,7 +119,6 @@ fn migrate_to_1(conn: &Connection) -> rusqlite::Result<()> {
         .optional()
         .map(|r| r.is_some())
     };
-    conn.execute_batch("BEGIN")?;
     let mut rows: Vec<(
         String,
         String,
@@ -143,8 +191,7 @@ fn migrate_to_1(conn: &Connection) -> rusqlite::Result<()> {
         }
     }
     conn.execute_batch(
-        "DROP TABLE IF EXISTS decisions; DROP TABLE IF EXISTS withdrawals; DROP TABLE IF EXISTS discards;
-         PRAGMA user_version = 1; COMMIT",
+        "DROP TABLE IF EXISTS decisions; DROP TABLE IF EXISTS withdrawals; DROP TABLE IF EXISTS discards;",
     )?;
     Ok(())
 }
@@ -211,20 +258,7 @@ impl Db {
     }
 
     fn init(conn: Connection) -> rusqlite::Result<Db> {
-        // a database from a newer core is refused rather than misread
-        let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-        if version > SCHEMA_VERSION {
-            return Err(rusqlite::Error::SqliteFailure(
-                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_SCHEMA),
-                Some(format!(
-                    "the database is at schema version {version}, newer than this build's {SCHEMA_VERSION}"
-                )),
-            ));
-        }
-        conn.execute_batch(SCHEMA)?;
-        if version < 1 {
-            migrate_to_1(&conn)?;
-        }
+        migrate(&conn)?;
         Ok(Db {
             conn: Mutex::new(conn),
         })
