@@ -482,7 +482,11 @@ pub fn watch(app: AppHandle) {
                 Ok(notice) => {
                     if matches!(
                         notice.kind.as_str(),
-                        events::CREATED | events::DECIDED | events::WITHDRAWN | events::EXPIRED
+                        events::CREATED
+                            | events::DECIDED
+                            | events::WITHDRAWN
+                            | events::DISCARDED
+                            | events::EXPIRED
                     ) {
                         let handle = app.clone();
                         let _ = app.run_on_main_thread(move || refresh_tray(&handle));

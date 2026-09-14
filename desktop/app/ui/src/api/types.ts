@@ -1,4 +1,4 @@
-export type Status = "pending" | "decided" | "withdrawn" | "expired";
+export type Status = "pending" | "decided" | "withdrawn" | "expired" | "discarded";
 
 export type Origin = {
   repo?: string | null;
@@ -35,6 +35,10 @@ export type Review = {
   agent_note: string | null;
   withdrawn_at: string | null;
   withdrawn_reason: string | null;
+  /** the person's "no, and stop", with who and why */
+  discarded_at: string | null;
+  discarded_by: string | null;
+  discarded_reason: string | null;
   /** present on single-review responses, absent in listings */
   payload?: unknown;
 };

@@ -1,8 +1,9 @@
-import { Blocks, CheckCheck, FolderGit2, Search, SearchX } from "lucide-react";
+import { Ban, Blocks, CheckCheck, FolderGit2, Search, SearchX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
+import { DiscardDialog } from "../components/DiscardDialog";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
@@ -30,6 +31,7 @@ export function Inbox() {
   const plugin = params.get("plugin") ?? "";
   const rounds = params.get("rounds") ?? "";
   const [focused, setFocused] = useState(0);
+  const [discarding, setDiscarding] = useState<Review | null>(null);
   const search = useRef<HTMLInputElement>(null);
 
   const setParam = (key: string, value: string) => {
@@ -79,13 +81,19 @@ export function Inbox() {
         if (event.key === "Escape") (el as HTMLElement).blur();
         return;
       }
+      if (discarding) return;
       if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
       if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
       if (event.key === "Enter" && reviews[focused]) navigate(`/reviews/${reviews[focused].id}`);
+      if (event.key === "d" && reviews[focused]) {
+        // the key must not land in the reason field that opens
+        event.preventDefault();
+        setDiscarding(reviews[focused]);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [reviews, focused, navigate]);
+  }, [reviews, focused, navigate, discarding]);
 
   const filtered = !!(q || repo || plugin || rounds);
   const now = Date.now();
@@ -207,9 +215,25 @@ export function Inbox() {
                     <span className="review-row-summary">
                       <SummaryCounts summary={review.summary} />
                     </span>
-                    <time className="review-row-time" dateTime={review.created_at}>
-                      {age(review.created_at, now)}
-                    </time>
+                    <span className="review-row-end">
+                      <time className="review-row-time" dateTime={review.created_at}>
+                        {age(review.created_at, now)}
+                      </time>
+                      <Tooltip label="Discard: the agent is told to stop" keys={["D"]} side="top">
+                        <button
+                          type="button"
+                          className="bar-button"
+                          aria-label={`Discard ${review.title}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDiscarding(review);
+                          }}
+                        >
+                          <Ban size={14} />
+                        </button>
+                      </Tooltip>
+                    </span>
                   </Link>
                 );
               })}
@@ -217,6 +241,7 @@ export function Inbox() {
           ))}
         </div>
       )}
+      {discarding ? <DiscardDialog review={discarding} onClose={() => setDiscarding(null)} onDone={() => setDiscarding(null)} /> : null}
       <footer className="inbox-footer">
         <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>/</kbd> search
       </footer>

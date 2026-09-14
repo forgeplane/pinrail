@@ -61,6 +61,9 @@ export const api = {
     request<Review>("POST", `/api/v1/reviews/${id}/decision`, { data, agent_note: agentNote }),
   withdraw: (id: string, reason?: string) =>
     request<Review>("POST", `/api/v1/reviews/${id}/withdraw`, reason ? { reason } : {}),
+  /** the person's "no, and stop": nothing decided, the agent told */
+  discard: (id: string, reason?: string) =>
+    request<Review>("POST", `/api/v1/reviews/${id}/discard`, reason ? { reason } : {}),
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${id}/viewed`),
   plugins: () => request<{ dirs: string[]; plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   reloadPlugins: () => request<{ ok: boolean; count: number }>("POST", "/api/v1/plugins/reload"),
@@ -93,7 +96,7 @@ export function subscribe(handlers: {
         // a malformed event is dropped; the next refresh catches up
       }
     };
-    for (const kind of ["created", "decided", "withdrawn", "expired", "viewed", "plugins_reloaded", "settings_changed"]) {
+    for (const kind of ["created", "decided", "withdrawn", "discarded", "expired", "viewed", "plugins_reloaded", "settings_changed"]) {
       source.addEventListener(kind, (event) => {
         try {
           handlers.onNotice(JSON.parse((event as MessageEvent).data));

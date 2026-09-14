@@ -254,7 +254,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .status-decided { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
 .status-approved { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
 .status-revise { background: color-mix(in srgb, var(--sev-major) 15%, transparent); color: var(--sev-major); }
-.status-withdrawn { background: var(--bg-hover); color: var(--dim); }
+.status-withdrawn, .status-discarded { background: var(--bg-hover); color: var(--dim); }
 .status-expired { background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger); }
 .plugin-badge { display: inline-flex; gap: 4px; align-items: center; padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; font: 11px var(--mono); color: var(--dim); background: var(--bg); }
 .origin-line { display: inline-flex; flex-wrap: wrap; gap: 0 8px; font-size: 12px; color: var(--dim); }
@@ -286,7 +286,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .inbox-repo summary::-webkit-details-marker { display: none; }
 .inbox-repo summary strong { color: var(--text); font-weight: 600; }
 .review-row {
-  display: grid; grid-template-columns: 8px 1fr auto auto 44px; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: 8px 1fr auto auto auto; gap: 12px; align-items: center;
   padding: 9px 10px; border-radius: 6px; color: var(--text);
 }
 .review-row:hover, .review-row.is-focused { background: var(--bg-hover); text-decoration: none; }
@@ -299,6 +299,16 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .review-row-plugin { display: inline-flex; align-items: center; gap: 5px; font: 11px var(--mono); color: var(--dim); }
 .review-row-plugin svg { color: var(--faint); }
 .review-row-time { font-size: 11.5px; color: var(--faint); text-align: right; font-variant-numeric: tabular-nums; }
+.review-row-end { display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px; min-width: 44px; }
+.review-row-end .bar-button { width: 22px; height: 22px; opacity: 0; }
+.review-row:hover .review-row-end .bar-button, .review-row.is-focused .review-row-end .bar-button, .review-row-end .bar-button:focus-visible { opacity: 1; }
+.discard-dialog { width: min(440px, calc(100vw - 32px)); }
+.discard-dialog p { margin: 0; font-size: 13px; line-height: 1.45; }
+.discard-what { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.discard-reason { width: 100%; resize: vertical; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.button-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.button-danger:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
 .inbox-footer { margin-top: 18px; font-size: 11.5px; color: var(--faint); }
 
 /* review page */

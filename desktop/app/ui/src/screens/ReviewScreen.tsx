@@ -1,10 +1,11 @@
-import { Bot, Clock, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
+import { Ban, Bot, Clock, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { OutcomeBadge, PluginBadge } from "../components/Badges";
+import { DiscardDialog } from "../components/DiscardDialog";
 import { Tooltip } from "../components/Tooltip";
 import { MOD, hasMod } from "../lib/keys";
 import { overlayTitleBar } from "../lib/native";
@@ -31,6 +32,7 @@ export function ReviewScreen() {
   const [violations, setViolations] = useState<Violation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [discarding, setDiscarding] = useState(false);
   const [note, setNote] = useState("");
   const [maximized, setMaximized] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -174,11 +176,15 @@ export function ReviewScreen() {
     const onCommand = (event: Event) => {
       if ((event as CustomEvent<string>).detail === "maximize-view" && plugin) setMaximized((m) => !m);
     };
+    // the palette's "Discard this review"
+    const onDiscard = () => setDiscarding(true);
     window.addEventListener("keydown", onKey);
     window.addEventListener("wicket:command", onCommand);
+    window.addEventListener("wicket:discard", onDiscard);
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("wicket:command", onCommand);
+      window.removeEventListener("wicket:discard", onDiscard);
     };
   }, [previous, revisedBy, navigate, maximized, plugin]);
 
@@ -215,6 +221,13 @@ export function ReviewScreen() {
       review ? (
         <>
           <OutcomeBadge review={review} />
+          {review.status === "pending" ? (
+            <Tooltip label="Discard: the agent is told to stop" side="bottom">
+              <button type="button" className="bar-button" onClick={() => setDiscarding(true)} aria-label="Discard this review" data-discard>
+                <Ban size={15} />
+              </button>
+            </Tooltip>
+          ) : null}
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
               <button type="button" className="bar-button" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>
@@ -299,6 +312,23 @@ export function ReviewScreen() {
         </p>
       ) : null}
       {review.status === "expired" ? <p className="notice notice-danger">This review expired at {stamp(review.expires_at)} without a decision.</p> : null}
+      {review.status === "discarded" ? (
+        <p className="notice">
+          <span className="text">{review.discarded_by}</span> discarded this review {age(review.discarded_at)} ago
+          {review.discarded_reason ? `: ${review.discarded_reason}` : "."} The agent was told to stop; nothing was decided.
+        </p>
+      ) : null}
+      {discarding && review.status === "pending" ? (
+        <DiscardDialog
+          review={review}
+          onClose={() => setDiscarding(false)}
+          onDone={() => {
+            setDiscarding(false);
+            setFlash("Discarded. The agent was told to stop.");
+            load();
+          }}
+        />
+      ) : null}
       {review.decision ? (
         <section className="decision-box">
           <div className="dim">

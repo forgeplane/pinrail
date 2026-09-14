@@ -11,7 +11,7 @@ import { Tooltip } from "../components/Tooltip";
 import { stamp } from "../lib/format";
 import { useLive } from "../state/live";
 
-const settledAt = (r: Review) => r.decision?.decided_at ?? r.withdrawn_at ?? r.expires_at;
+const settledAt = (r: Review) => r.decision?.decided_at ?? r.withdrawn_at ?? r.discarded_at ?? r.expires_at;
 
 /** Any word of the query in any of the review's names. */
 function matches(review: Review, q: string) {
@@ -43,7 +43,7 @@ export function History() {
 
   useEffect(() => {
     api
-      .listReviews({ status: status || "decided,withdrawn,expired", include_revised: "true", limit: "500" })
+      .listReviews({ status: status || "decided,withdrawn,discarded,expired", include_revised: "true", limit: "500" })
       .then(setAll)
       .catch(() => setAll([]));
   }, [status, live.tick]);
@@ -123,6 +123,7 @@ export function History() {
               { value: "", label: "All outcomes", icon: <CircleDot size={14} /> },
               { value: "decided", label: "Decided" },
               { value: "withdrawn", label: "Withdrawn" },
+              { value: "discarded", label: "Discarded" },
               { value: "expired", label: "Expired" },
             ]}
           />
@@ -159,7 +160,7 @@ export function History() {
           title={filtered ? "No matching decisions" : "Your decisions belong here"}
           icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <Archive size={28} strokeWidth={1.5} />}
         >
-          {filtered ? "Nothing matches these filters." : "Decided, withdrawn and expired reviews appear here, with the view they were decided in."}
+          {filtered ? "Nothing matches these filters." : "Decided, withdrawn, discarded and expired reviews appear here, with the view they were decided in."}
         </EmptyState>
       ) : (
         <div className="history-table-wrap">
