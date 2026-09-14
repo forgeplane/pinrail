@@ -3,7 +3,6 @@
 
 import { Bell, Blocks, Database, Info, Keyboard, Palette, Settings, Settings2, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link } from "react-router";
 import { Select } from "../Select";
 import { api, inTauri } from "../../api/client";
 import type { Info as ServerInfo } from "../../api/types";
@@ -13,6 +12,7 @@ import { useSettings } from "../../state/settings";
 import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
+import { PluginsSection } from "./PluginsSection";
 
 export type SettingsSection = "general" | "appearance" | "shortcuts" | "plugins" | "data" | "about";
 
@@ -171,9 +171,6 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
     }
   };
 
-  const plugins = [...live.plugins.values()];
-  const broken = plugins.filter((p) => !p.usable).length;
-
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
       <div className="settings" role="dialog" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()} data-settings>
@@ -317,18 +314,7 @@ export function SettingsDialog({ open, section, onSection, onClose }: { open: bo
             </SettingsPage>
           ) : null}
 
-          {section === "plugins" ? (
-            <SettingsPage title="Plugins">
-              <SettingsGroup>
-                <SettingsRow label="Registered plugins" description={`${plugins.length} plugin${plugins.length === 1 ? "" : "s"}${broken ? `, ${broken} broken` : ""}`}>
-                  <Link to="/plugins" className="chrome-button" onClick={onClose}>
-                    Open plugins
-                  </Link>
-                </SettingsRow>
-                <SettingsRow label="Directories" description="Add, remove and reload plugin directories on the plugins page; installing from a path or a repository is coming" />
-              </SettingsGroup>
-            </SettingsPage>
-          ) : null}
+          {section === "plugins" ? <PluginsSection /> : null}
 
           {section === "data" ? (
             <SettingsPage title="Data">

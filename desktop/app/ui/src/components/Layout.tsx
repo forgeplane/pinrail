@@ -16,16 +16,15 @@ import { Tooltip } from "./Tooltip";
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
 
-// Cmd+I for the inbox; History and Plugins take the shift, as Cmd+H hides
-// the app and Cmd+P is printing.
+// Cmd+I for the inbox; History takes the shift, as Cmd+H hides the app.
+// Plugins live in the settings: Cmd+Shift+P opens that section.
 const NAV = [
   { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, letter: "i", shift: false, keys: [MOD, "I"] },
   { key: "history", label: "History", to: "/history", Icon: History, letter: "h", shift: true, keys: [MOD, "⇧", "H"] },
-  { key: "plugins", label: "Plugins", to: "/plugins", Icon: Blocks, letter: "p", shift: true, keys: [MOD, "⇧", "P"] },
 ];
+const PLUGINS_KEYS = [MOD, "⇧", "P"];
 
-const pageTitle = (path: string) =>
-  path === "/" ? "Inbox" : path.startsWith("/history") ? "History" : path.startsWith("/plugins") ? "Plugins" : "Review";
+const pageTitle = (path: string) => (path === "/" ? "Inbox" : path.startsWith("/history") ? "History" : "Review");
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -59,13 +58,22 @@ export function Layout({ children }: { children: ReactNode }) {
       navigate(oldest ? `/reviews/${oldest.id}` : "/");
     } },
     { id: "history", label: "Go to history", keys: NAV[1].keys, icon: History, run: () => navigate("/history") },
-    { id: "plugins", label: "Go to plugins", keys: NAV[2].keys, icon: Blocks, run: () => navigate("/plugins") },
+    { id: "plugins", label: "Plugins", keys: PLUGINS_KEYS, icon: Blocks, run: () => setSettings("plugins") },
     { id: "reload-plugins", label: "Reload plugins", icon: RefreshCw, run: () => void api.reloadPlugins().catch(() => {}) },
     { id: "theme", label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme", keys: ["T"], icon: SunMoon, run: toggleTheme },
     { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
     { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
   ];
+
+  // a link to /plugins lands in the settings section
+  useEffect(() => {
+    const wanted = (location.state as { settings?: SettingsSection } | null)?.settings;
+    if (wanted) {
+      setSettings(wanted);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -74,6 +82,11 @@ export function Layout({ children }: { children: ReactNode }) {
         if (page) {
           event.preventDefault();
           navigate(page.to);
+          return;
+        }
+        if (event.shiftKey && event.key.toLowerCase() === "p") {
+          event.preventDefault();
+          setSettings("plugins");
           return;
         }
       }
@@ -120,7 +133,7 @@ export function Layout({ children }: { children: ReactNode }) {
           navigate("/history");
           break;
         case "go-plugins":
-          navigate("/plugins");
+          setSettings("plugins");
           break;
         case "toggle-sidebar":
           toggleSidebar();

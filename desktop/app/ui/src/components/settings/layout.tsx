@@ -12,18 +12,24 @@ export function SettingsPage({ title, children }: { title: string; children: Rea
   );
 }
 
-export function SettingsGroup({ caption, children }: { caption?: string; children: ReactNode }) {
+export function SettingsGroup({ caption, action, children }: { caption?: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div className="settings-group">
-      {caption ? <h3>{caption}</h3> : null}
+      {caption || action ? (
+        <div className="settings-group-head">
+          {caption ? <h3>{caption}</h3> : null}
+          {action}
+        </div>
+      ) : null}
       <div className="settings-card">{children}</div>
     </div>
   );
 }
 
-export function SettingsRow({ label, description, children, note }: { label: string; description?: ReactNode; children?: ReactNode; note?: ReactNode }) {
+export function SettingsRow({ label, description, children, note, icon }: { label: string; description?: ReactNode; children?: ReactNode; note?: ReactNode; icon?: ReactNode }) {
   return (
     <div className="settings-row">
+      {icon ? <span className="settings-row-icon">{icon}</span> : null}
       <div className="settings-text">
         <div className="settings-label">{label}</div>
         {description ? <div className="settings-desc">{description}</div> : null}

@@ -80,7 +80,7 @@ export type ServerSettings = {
   sidebar: { open: boolean };
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;
-  notifications: { enabled: boolean; paused_until: string | null; sound: boolean };
+  notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   [key: string]: unknown;
 };

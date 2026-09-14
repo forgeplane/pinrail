@@ -118,6 +118,7 @@ struct NotificationSettings {
     enabled: bool,
     paused_until: Option<DateTime<Utc>>,
     sound: bool,
+    muted_plugins: Vec<String>,
 }
 
 fn notification_settings(state: &AppState) -> NotificationSettings {
@@ -132,6 +133,14 @@ fn notification_settings(state: &AppState) -> NotificationSettings {
         enabled: n["enabled"].as_bool().unwrap_or(true),
         paused_until,
         sound: n["sound"].as_bool().unwrap_or(true),
+        muted_plugins: n["muted_plugins"]
+            .as_array()
+            .map(|list| {
+                list.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
 }
 
@@ -530,6 +539,10 @@ fn notify(app: &AppHandle, notice: &Notice) {
     };
     let title = review["title"].as_str().unwrap_or("A review is waiting");
     let plugin = review["plugin"].as_str().unwrap_or("");
+    // muted: still counted in the tray, never announced
+    if settings.muted_plugins.iter().any(|m| m == plugin) {
+        return;
+    }
     let mut lines = Vec::new();
     if let Some(counts) = summary_counts(review.get("summary")) {
         lines.push(counts);

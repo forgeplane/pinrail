@@ -18,7 +18,7 @@ export type Settings = {
   sidebar: { open: boolean };
   close_window: "hide" | "quit";
   menu_bar_icon: boolean;
-  notifications: { enabled: boolean; paused_until: string | null; sound: boolean };
+  notifications: { enabled: boolean; paused_until: string | null; sound: boolean; muted_plugins: string[] };
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
@@ -51,7 +51,7 @@ const fromServer = (s: ServerSettings): Served => ({
   sidebar: { open: s.sidebar.open },
   close_window: s.close_window,
   menu_bar_icon: s.menu_bar_icon,
-  notifications: { enabled: s.notifications.enabled, paused_until: s.notifications.paused_until, sound: s.notifications.sound },
+  notifications: { enabled: s.notifications.enabled, paused_until: s.notifications.paused_until, sound: s.notifications.sound, muted_plugins: s.notifications.muted_plugins },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
 });
 
@@ -63,7 +63,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     sidebar: { open: true },
     close_window: "hide",
     menu_bar_icon: true,
-    notifications: { enabled: true, paused_until: null, sound: true },
+    notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     autostart: null,
   }));
