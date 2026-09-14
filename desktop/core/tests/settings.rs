@@ -216,3 +216,123 @@ async fn the_settings_table_is_gone() {
         .unwrap();
     assert_eq!(n, 0);
 }
+
+/// A registered plugin with settings of its own, and one without.
+async fn with_knobs(app: &App) -> tempfile::TempDir {
+    let dir = tempfile::tempdir().unwrap();
+    let plugin = dir.path().join("knobs");
+    std::fs::create_dir_all(&plugin).unwrap();
+    std::fs::write(plugin.join("index.html"), "<html></html>").unwrap();
+    std::fs::write(
+        plugin.join("manifest.json"),
+        r#"{"name":"knobs","version":1,"title":"Knobs","payload_schema":{},"decision_schema":{},
+            "settings_schema":{"type":"object","properties":{
+              "diff":{"type":"string","title":"Diff","enum":["inline","split"],"default":"inline"},
+              "wrap":{"type":"boolean","title":"Wrap","default":true}}}}"#,
+    )
+    .unwrap();
+    let (status, body) = call(
+        app,
+        "POST",
+        "/api/v1/plugins/dirs",
+        Some(json!({"dir": dir.path().display().to_string()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    dir
+}
+
+#[tokio::test]
+async fn a_plugin_declares_settings_and_the_core_keeps_them() {
+    let app = app();
+    let _dir = with_knobs(&app).await;
+    let mut rx = app.state.reviews.bus().subscribe();
+
+    // the row carries the schema and the values as they stand
+    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let knobs = body["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "knobs")
+        .unwrap();
+    assert_eq!(
+        knobs["settings_schema"]["properties"]["diff"]["title"],
+        "Diff"
+    );
+    assert_eq!(knobs["settings"], json!({"diff": "inline", "wrap": true}));
+    let list = body["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "list")
+        .unwrap();
+    assert!(list["settings_schema"].is_null() && list["settings"].is_null());
+
+    // a change is checked against the plugin's schema and announced leaf by leaf
+    let (status, body) = call(
+        &app,
+        "PATCH",
+        "/api/v1/settings",
+        Some(json!({"plugins": {"knobs": {"diff": "split"}}})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["plugins"], json!({"knobs": {"diff": "split"}}));
+    let notice = rx.try_recv().unwrap();
+    assert_eq!(notice.keys, Some(vec!["/plugins/knobs/diff".to_string()]));
+    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let knobs = body["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "knobs")
+        .unwrap();
+    assert_eq!(knobs["settings"], json!({"diff": "split", "wrap": true}));
+
+    // refused: a value outside the schema, a key it does not have, a plugin without settings
+    for (patch, path) in [
+        (
+            json!({"plugins": {"knobs": {"diff": "wide"}}}),
+            "/plugins/knobs/diff",
+        ),
+        (
+            json!({"plugins": {"knobs": {"nope": 1}}}),
+            "/plugins/knobs/nope",
+        ),
+        (
+            json!({"plugins": {"list": {"anything": 1}}}),
+            "/plugins/list",
+        ),
+        (
+            json!({"plugins": {"knobs": {"wrap": {"deep": true}}}}),
+            "/plugins/knobs/wrap",
+        ),
+    ] {
+        let (status, body) = call(&app, "PATCH", "/api/v1/settings", Some(patch.clone())).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{patch}: {body}");
+        let paths: Vec<&str> = body["violations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["path"].as_str().unwrap())
+            .collect();
+        assert!(paths.contains(&path), "{patch}: {body}");
+    }
+    assert!(rx.try_recv().is_err(), "a refusal announces nothing");
+
+    // a plugin that is not registered now keeps what a newer or older setup wrote
+    let (status, body) = call(
+        &app,
+        "PATCH",
+        "/api/v1/settings",
+        Some(json!({"plugins": {"gone": {"mode": "x"}}})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["plugins"]["gone"], json!({"mode": "x"}));
+    assert_eq!(
+        rx.try_recv().unwrap().keys,
+        Some(vec!["/plugins/gone/mode".to_string()])
+    );
+}

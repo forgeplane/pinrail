@@ -68,12 +68,18 @@ const LEAVES: &[(&str, Kind, fn() -> Value)] = &[
     ("/history/keep_days", Kind::NullableDays, || Value::Null),
 ];
 
+/// The group that holds each plugin's own settings, plugin name to an
+/// object of the values someone changed; the shape of the values is the
+/// plugin's schema, checked where the registry is at hand.
+pub const PLUGINS: &str = "/plugins";
+
 /// Every setting at its default.
 pub fn defaults() -> Value {
     let mut out = Value::Object(Map::new());
     for (path, _, default) in LEAVES {
         set_at(&mut out, path, default());
     }
+    set_at(&mut out, PLUGINS, Value::Object(Map::new()));
     out
 }
 
@@ -241,12 +247,33 @@ fn set_at(root: &mut Value, pointer: &str, value: Value) {
     }
 }
 
-/// The leaves whose value differs, as pointers.
+/// The leaves whose value differs, as pointers; a plugin's settings leaf
+/// by leaf.
 fn changed(before: &Value, after: &Value) -> Vec<String> {
     let mut out = Vec::new();
     for (path, _, _) in LEAVES {
         if before.pointer(path) != after.pointer(path) {
             out.push((*path).to_string());
+        }
+    }
+    let empty = Map::new();
+    let plugins = |v: &Value| {
+        v.pointer(PLUGINS)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let (a, b) = (plugins(before), plugins(after));
+    for name in a.keys().chain(b.keys()) {
+        let (x, y) = (
+            a.get(name).and_then(Value::as_object).unwrap_or(&empty),
+            b.get(name).and_then(Value::as_object).unwrap_or(&empty),
+        );
+        for key in x.keys().chain(y.keys()) {
+            let pointer = format!("{PLUGINS}/{name}/{key}");
+            if x.get(key) != y.get(key) && !out.contains(&pointer) {
+                out.push(pointer);
+            }
         }
     }
     out
@@ -255,6 +282,10 @@ fn changed(before: &Value, after: &Value) -> Vec<String> {
 /// Walks a patch: known leaves are checked, groups are entered, anything
 /// else is refused.
 fn validate(value: &Value, pointer: &str, out: &mut Vec<Violation>) {
+    if pointer == PLUGINS {
+        validate_plugins(value, out);
+        return;
+    }
     if let Some((_, kind, _)) = LEAVES.iter().find(|(p, _, _)| *p == pointer) {
         if let Some(message) = check(*kind, value) {
             out.push(Violation::new(pointer, message));
@@ -275,6 +306,31 @@ fn validate(value: &Value, pointer: &str, out: &mut Vec<Violation>) {
             }
         }
         _ => out.push(Violation::new(pointer, "must be a JSON object")),
+    }
+}
+
+/// Plugin settings are one object per plugin, each value a scalar; what
+/// the values may be is the plugin's schema, checked by the caller that
+/// has the registry.
+fn validate_plugins(value: &Value, out: &mut Vec<Violation>) {
+    let Value::Object(plugins) = value else {
+        out.push(Violation::new(PLUGINS, "must be a JSON object"));
+        return;
+    };
+    for (name, settings) in plugins {
+        let pointer = format!("{PLUGINS}/{name}");
+        let Value::Object(map) = settings else {
+            out.push(Violation::new(pointer, "must be a JSON object"));
+            continue;
+        };
+        for (key, v) in map {
+            if !(v.is_boolean() || v.is_number() || v.is_string()) {
+                out.push(Violation::new(
+                    format!("{pointer}/{key}"),
+                    "must be true or false, a number or a string",
+                ));
+            }
+        }
     }
 }
 

@@ -37,6 +37,11 @@ pub struct Plugin {
     pub manifest: Map<String, Value>,
     pub payload_schema: Option<Schema>,
     pub decision_schema: Option<Schema>,
+    /// The plugin's own settings, as the manifest declares them: the
+    /// resolved schema document, its compiled form, or why it was dropped.
+    pub settings_schema: Option<Value>,
+    settings_validator: Option<Schema>,
+    pub settings_error: Option<String>,
     /// Set when the plugin could not be loaded; it is listed but unusable.
     pub error: Option<String>,
 }
@@ -62,6 +67,9 @@ impl Plugin {
                 manifest: Map::new(),
                 payload_schema: None,
                 decision_schema: None,
+                settings_schema: None,
+                settings_validator: None,
+                settings_error: None,
                 error: Some(message),
             },
         }
@@ -125,6 +133,15 @@ impl Plugin {
             "decision_schema",
             &manifest["decision_schema"],
         )?;
+        // a bad settings schema costs the plugin its settings, not its place
+        let (settings_schema, settings_validator, settings_error) =
+            match manifest.get("settings_schema") {
+                None | Some(Value::Null) => (None, None, None),
+                Some(raw) => match settings::load(dir, &name, version, raw) {
+                    Ok((document, validator)) => (Some(document), Some(validator), None),
+                    Err(message) => (None, None, Some(message)),
+                },
+            };
 
         Ok(Plugin {
             title: manifest
@@ -148,12 +165,60 @@ impl Plugin {
             manifest,
             payload_schema: Some(payload_schema),
             decision_schema: Some(decision_schema),
+            settings_schema,
+            settings_validator,
+            settings_error,
             error: None,
         })
     }
 
     pub fn usable(&self) -> bool {
         self.error.is_none()
+    }
+
+    /// Whether the manifest declares settings the core accepted.
+    pub fn has_settings(&self) -> bool {
+        self.settings_validator.is_some()
+    }
+
+    /// A change to the plugin's settings checked against its schema; the
+    /// paths come back under `/plugins/<name>`.
+    pub fn validate_settings(&self, patch: &Value) -> Vec<Violation> {
+        let prefix = format!("/plugins/{}", self.name);
+        let Some(schema) = &self.settings_validator else {
+            return vec![Violation::new(&prefix, "the plugin has no settings")];
+        };
+        if !patch.is_object() {
+            return vec![Violation::new(&prefix, "must be a JSON object")];
+        }
+        schema
+            .validate(patch)
+            .into_iter()
+            .map(|v| Violation::new(format!("{prefix}{}", v.path), v.message))
+            .collect()
+    }
+
+    /// The settings as they stand: every declared default, with the
+    /// values stored for this plugin over them. Keys the schema does not
+    /// know are left out.
+    pub fn effective_settings(&self, stored: &Value) -> Value {
+        let mut out = Map::new();
+        if let Some(properties) = self
+            .settings_schema
+            .as_ref()
+            .and_then(|s| s.get("properties"))
+            .and_then(Value::as_object)
+        {
+            for (key, property) in properties {
+                let value = stored
+                    .get(key)
+                    .or_else(|| property.get("default"))
+                    .cloned()
+                    .unwrap_or(Value::Null);
+                out.insert(key.clone(), value);
+            }
+        }
+        Value::Object(out)
     }
 
     pub fn validate_payload(&self, payload: &Value) -> Vec<Violation> {
@@ -187,7 +252,128 @@ impl Plugin {
             "error": self.error,
             "payload_schema": self.manifest.get("payload_schema"),
             "decision_schema": self.manifest.get("decision_schema"),
+            "settings_schema": self.settings_schema,
+            "settings_error": self.settings_error,
         })
+    }
+}
+
+/// The settings a plugin declares: a flat object schema, every property a
+/// boolean, string, integer or number with a default.
+mod settings {
+    use std::path::Path;
+
+    use serde_json::Value;
+
+    use crate::schema::{Schema, safe_join};
+
+    const TYPES: &[&str] = &["boolean", "string", "integer", "number"];
+
+    /// Resolves a top-level `$ref` to a file in the plugin directory, checks
+    /// the shape, and compiles the document with unknown keys refused.
+    pub fn load(
+        dir: &Path,
+        name: &str,
+        version: u32,
+        raw: &Value,
+    ) -> Result<(Value, Schema), String> {
+        let document = resolve(dir, raw)?;
+        let Value::Object(map) = &document else {
+            return Err("settings_schema must be a JSON Schema object".into());
+        };
+        if let Some(t) = map.get("type")
+            && t != "object"
+        {
+            return Err("settings_schema must describe an object".into());
+        }
+        let Some(Value::Object(properties)) = map.get("properties") else {
+            return Err("settings_schema must have properties".into());
+        };
+        for (key, property) in properties {
+            check_property(key, property)?;
+        }
+        let mut root = map.clone();
+        root.insert("type".into(), Value::String("object".into()));
+        root.insert("additionalProperties".into(), Value::Bool(false));
+        let validator =
+            Schema::compile(dir, name, version, "settings_schema", &Value::Object(root))?;
+        Ok((Value::Object(map.clone()), validator))
+    }
+
+    fn resolve(dir: &Path, raw: &Value) -> Result<Value, String> {
+        let Value::Object(map) = raw else {
+            return Err("settings_schema must be a JSON Schema object".into());
+        };
+        let Some(reference) = map.get("$ref") else {
+            return Ok(raw.clone());
+        };
+        let Some(relative) = reference.as_str() else {
+            return Err("settings_schema $ref must be a relative path".into());
+        };
+        let path = safe_join(dir, relative).ok_or_else(|| {
+            format!("settings_schema $ref {relative} leaves the plugin directory")
+        })?;
+        let text = std::fs::read_to_string(&path)
+            .map_err(|e| format!("settings_schema $ref {relative} cannot be read ({e})"))?;
+        serde_json::from_str(&text)
+            .map_err(|e| format!("settings_schema $ref {relative} is not valid JSON ({e})"))
+    }
+
+    fn check_property(key: &str, property: &Value) -> Result<(), String> {
+        let Value::Object(p) = property else {
+            return Err(format!("settings_schema property {key} must be an object"));
+        };
+        let kind = match p.get("type").and_then(Value::as_str) {
+            Some(t) if TYPES.contains(&t) => t,
+            _ => {
+                return Err(format!(
+                    "settings_schema property {key} must have a type of {}",
+                    TYPES.join(", ")
+                ));
+            }
+        };
+        let Some(default) = p.get("default") else {
+            return Err(format!("settings_schema property {key} needs a default"));
+        };
+        if !fits(kind, default) {
+            return Err(format!(
+                "settings_schema property {key}: the default is not a {kind}"
+            ));
+        }
+        if let Some(options) = p.get("enum") {
+            let ok = options
+                .as_array()
+                .is_some_and(|items| !items.is_empty() && items.iter().all(|i| fits(kind, i)));
+            if !ok {
+                return Err(format!(
+                    "settings_schema property {key}: enum must list {kind} values"
+                ));
+            }
+        }
+        if let Some(choices) = p.get("oneOf") {
+            let ok = choices.as_array().is_some_and(|items| {
+                !items.is_empty()
+                    && items
+                        .iter()
+                        .all(|i| i.get("const").is_some_and(|c| fits(kind, c)))
+            });
+            if !ok {
+                return Err(format!(
+                    "settings_schema property {key}: oneOf must list {{\"const\": …}} {kind} values"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn fits(kind: &str, value: &Value) -> bool {
+        match kind {
+            "boolean" => value.is_boolean(),
+            "string" => value.is_string(),
+            "integer" => value.is_i64() || value.is_u64(),
+            "number" => value.is_number(),
+            _ => false,
+        }
     }
 }
 
@@ -530,6 +716,116 @@ mod tests {
             Some("version is required and must be a positive integer")
         );
         assert!(r.fetch("broken").is_err());
+    }
+
+    /// A plugin directory with the given manifest fields on top of the
+    /// minimum, and an empty view.
+    fn plugin_dir(root: &Path, name: &str, extra: &str) -> PathBuf {
+        let dir = root.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+        std::fs::write(
+            dir.join("manifest.json"),
+            format!(
+                "{{\"name\":\"{name}\",\"version\":1,\"payload_schema\":{{}},\"decision_schema\":{{}}{extra}}}"
+            ),
+        )
+        .unwrap();
+        dir
+    }
+
+    const KNOBS: &str = r#","settings_schema":{"type":"object","properties":{
+        "diff":{"type":"string","title":"Diff","enum":["inline","split"],"default":"inline"},
+        "wrap":{"type":"boolean","default":true},
+        "context":{"type":"integer","minimum":0,"maximum":20,"default":3}}}"#;
+
+    #[test]
+    fn a_settings_schema_gives_defaults_and_checks_changes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = Plugin::load(&plugin_dir(tmp.path(), "knobs", KNOBS));
+        assert!(p.usable() && p.has_settings(), "{:?}", p.error);
+        assert_eq!(p.settings_error, None);
+        assert_eq!(
+            p.effective_settings(&Value::Null),
+            serde_json::json!({"diff": "inline", "wrap": true, "context": 3})
+        );
+        assert_eq!(
+            p.effective_settings(&serde_json::json!({"diff": "split", "stale": 1})),
+            serde_json::json!({"diff": "split", "wrap": true, "context": 3}),
+            "stored values win; keys the schema does not know are left out"
+        );
+        assert!(
+            p.validate_settings(&serde_json::json!({"diff": "split"}))
+                .is_empty()
+        );
+        let bad =
+            p.validate_settings(&serde_json::json!({"diff": "wide", "context": 99, "nope": 1}));
+        let paths: Vec<&str> = bad.iter().map(|v| v.path.as_str()).collect();
+        assert!(paths.contains(&"/plugins/knobs/diff"), "{bad:?}");
+        assert!(paths.contains(&"/plugins/knobs/context"), "{bad:?}");
+        assert!(paths.contains(&"/plugins/knobs/nope"), "{bad:?}");
+        // the row carries the schema for the rows in Settings
+        assert_eq!(
+            p.to_json()["settings_schema"]["properties"]["diff"]["title"],
+            "Diff"
+        );
+    }
+
+    #[test]
+    fn a_bad_settings_schema_costs_only_the_settings() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cases = [
+            (
+                r#","settings_schema":{"properties":{"a":{"type":"string"}}}"#,
+                "needs a default",
+            ),
+            (
+                r#","settings_schema":{"properties":{"a":{"type":"object","default":{}}}}"#,
+                "must have a type of",
+            ),
+            (
+                r#","settings_schema":{"properties":{"a":{"type":"integer","default":"3"}}}"#,
+                "the default is not a integer",
+            ),
+            (
+                r#","settings_schema":{"type":"array"}"#,
+                "must describe an object",
+            ),
+            (
+                r#","settings_schema":{"$ref":"../outside.json"}"#,
+                "leaves the plugin directory",
+            ),
+        ];
+        for (i, (extra, expected)) in cases.iter().enumerate() {
+            let p = Plugin::load(&plugin_dir(tmp.path(), &format!("p{i}"), extra));
+            assert!(p.usable(), "{extra}: {:?}", p.error);
+            assert!(!p.has_settings());
+            let why = p.settings_error.clone().unwrap_or_default();
+            assert!(why.contains(expected), "{extra}: {why}");
+            assert!(p.to_json()["settings_schema"].is_null());
+            assert_eq!(p.to_json()["settings_error"], why);
+        }
+    }
+
+    #[test]
+    fn a_settings_schema_may_live_in_its_own_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = plugin_dir(
+            tmp.path(),
+            "filed",
+            r#","settings_schema":{"$ref":"settings.schema.json"}"#,
+        );
+        std::fs::write(
+            dir.join("settings.schema.json"),
+            r#"{"type":"object","properties":{"wrap":{"type":"boolean","default":false}}}"#,
+        )
+        .unwrap();
+        let p = Plugin::load(&dir);
+        assert!(p.has_settings(), "{:?}", p.settings_error);
+        assert_eq!(
+            p.effective_settings(&Value::Null),
+            serde_json::json!({"wrap": false})
+        );
     }
 
     #[test]

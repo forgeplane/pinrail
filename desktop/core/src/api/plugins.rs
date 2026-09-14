@@ -23,9 +23,24 @@ pub fn routes() -> Router<Arc<AppState>> {
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> Json<Value> {
+    let stored = state.settings.value(crate::settings::PLUGINS);
+    let plugins = state
+        .registry
+        .all()
+        .iter()
+        .map(|p| {
+            let mut row = p.to_json();
+            // the plugin's settings as they stand: defaults under the stored values
+            row["settings"] = p
+                .has_settings()
+                .then(|| p.effective_settings(&stored[&p.name]))
+                .into();
+            row
+        })
+        .collect::<Vec<_>>();
     Json(json!({
         "dirs": state.registry.dirs().iter().map(|d| d.display().to_string()).collect::<Vec<_>>(),
-        "plugins": state.registry.all().iter().map(|p| p.to_json()).collect::<Vec<_>>(),
+        "plugins": plugins,
     }))
 }
 

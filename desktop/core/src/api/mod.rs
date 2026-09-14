@@ -39,6 +39,20 @@ impl AppState {
     /// Applies a partial change to the settings and announces what changed,
     /// for the API and for the app itself (the tray's pause, for one).
     pub fn change_settings(&self, patch: &serde_json::Value) -> Result<serde_json::Value, Error> {
+        // a plugin's own settings are the plugin's schema to judge; a name
+        // that is not registered now is kept as it is
+        let mut violations = Vec::new();
+        if let Some(plugins) = patch.get("plugins").and_then(serde_json::Value::as_object) {
+            for (name, change) in plugins {
+                if let Some(plugin) = self.registry.get(name) {
+                    violations.extend(plugin.validate_settings(change));
+                }
+            }
+        }
+        if !violations.is_empty() {
+            violations.sort_by(|a, b| a.path.cmp(&b.path));
+            return Err(Error::Invalid(violations));
+        }
         let (after, keys) = self.settings.patch(patch)?;
         if !keys.is_empty() {
             settings::announce(self, &keys)?;
