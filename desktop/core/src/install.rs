@@ -423,12 +423,152 @@ pub fn install(
     options: Options,
     progress: &dyn Fn(Progress),
 ) -> Result<InstalledRecord, Error> {
+    let prepared = prepare(registry, source, &options, progress)?;
+    let scratch = prepared.scratch.clone();
+    let result = install_dir(
+        db,
+        registry,
+        &prepared.dir,
+        options,
+        progress,
+        prepared.origin,
+    );
+    if let Some(scratch) = scratch {
+        let _ = std::fs::remove_dir_all(scratch);
+    }
+    result
+}
+
+/// What installing `source` would do, without doing it: the plugin the
+/// manifest describes, where it comes from, whether a build runs and what
+/// it executes, and what is installed under that name already. Fetches
+/// the source the way an install does and drops it afterwards.
+pub fn inspect(
+    db: &Db,
+    registry: &Registry,
+    source: &str,
+    options: Options,
+    progress: &dyn Fn(Progress),
+) -> Result<Value, Error> {
+    let prepared = prepare(registry, source, &options, progress)?;
+    let summary = summarize(db, &prepared, &options);
+    if let Some(scratch) = &prepared.scratch {
+        let _ = std::fs::remove_dir_all(scratch);
+    }
+    summary
+}
+
+fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, Error> {
+    let dir = &prepared.dir;
+    if !dir.is_dir() {
+        return Err(Error::invalid(
+            "/source",
+            format!("{} is not a directory", dir.display()),
+        ));
+    }
+    let manifest = read_manifest(dir)?;
+    let build = if prepared.origin.build {
+        build_command(&manifest)?
+    } else {
+        None
+    };
+    // what the registry would say of the folder as it is; a source that
+    // builds first is judged after the build
+    let plugin = Plugin::load(dir);
+    if let Some(why) = &plugin.error
+        && (build.is_none() || options.link)
+    {
+        return Err(Error::invalid(
+            "/source",
+            if options.link || prepared.origin.kind == "release" {
+                format!("not a plugin: {why}")
+            } else {
+                format!(
+                    "not a plugin: {why}; a source that needs building declares its build in the manifest"
+                )
+            },
+        ));
+    }
+    let (version, major) = manifest
+        .get("version")
+        .and_then(crate::plugins::version_of)
+        .filter(|(_, major)| *major > 0)
+        .ok_or_else(|| {
+            Error::invalid(
+                "/source",
+                "not a plugin: version is required: a positive integer, or a semantic version like \"1.2.0\"",
+            )
+        })?;
+    let name = manifest
+        .get("name")
+        .and_then(Value::as_str)
+        .filter(|n| crate::plugins::valid_name(n))
+        .ok_or_else(|| Error::invalid("/source", "not a plugin: name is required"))?
+        .to_string();
+    let installed = db
+        .installed_plugins()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .map(|r| {
+            serde_json::json!({ "version": r.version, "major": r.major, "linked": r.linked, "kind": r.kind })
+        });
+    let older = installed.as_ref().is_some_and(|r| {
+        !r["linked"].as_bool().unwrap_or(false)
+            && r["major"].as_i64() == Some(major)
+            && semver(&version) < semver(r["version"].as_str().unwrap_or_default())
+    });
+    let resolved: Value = serde_json::from_str(&prepared.origin.resolved)
+        .unwrap_or_else(|_| Value::String(prepared.origin.resolved.clone()));
+    Ok(serde_json::json!({
+        "source": prepared.origin.source,
+        "link": options.link,
+        "name": name,
+        "version": version,
+        "major": major,
+        "title": manifest.get("title").and_then(Value::as_str).unwrap_or(&name),
+        "icon": manifest.get("icon").and_then(Value::as_str),
+        "entry": manifest.get("entry").and_then(Value::as_str).unwrap_or("index.html"),
+        "build": build,
+        "origin": { "kind": prepared.origin.kind, "resolved": resolved, "commit": prepared.origin.commit },
+        "installed": installed,
+        "older": older,
+    }))
+}
+
+/// A source fetched and ready: the folder holding the manifest, where it
+/// came from, and the scratch to drop when done with it.
+struct Prepared {
+    scratch: Option<PathBuf>,
+    dir: PathBuf,
+    origin: Origin,
+}
+
+fn prepare(
+    registry: &Registry,
+    source: &str,
+    options: &Options,
+    progress: &dyn Fn(Progress),
+) -> Result<Prepared, Error> {
     match Source::parse(
         source,
         options.reference.as_deref(),
         options.path.as_deref(),
     )? {
-        Source::Folder(folder) => install_path(db, registry, &folder, options, progress),
+        Source::Folder(folder) => {
+            let dir = std::path::absolute(&folder)?;
+            Ok(Prepared {
+                scratch: None,
+                origin: Origin {
+                    kind: "path",
+                    source: folder.display().to_string(),
+                    resolved: dir.display().to_string(),
+                    commit: None,
+                    asset_hash: None,
+                    build: true,
+                },
+                dir,
+            })
+        }
         Source::Git {
             url,
             path,
@@ -446,18 +586,19 @@ pub fn install(
                 Some(p) => fetched.root.join(p),
                 None => fetched.root.clone(),
             };
-            let origin = Origin {
-                kind: "git",
-                source: source.trim().to_string(),
-                resolved: serde_json::json!({ "url": url, "path": path, "ref": reference })
-                    .to_string(),
-                commit: Some(fetched.commit.clone()),
-                asset_hash: None,
-                build: true,
-            };
-            let result = install_dir(db, registry, &dir, options, progress, origin);
-            let _ = std::fs::remove_dir_all(&fetched.root);
-            result
+            Ok(Prepared {
+                scratch: Some(fetched.root.clone()),
+                dir,
+                origin: Origin {
+                    kind: "git",
+                    source: source.trim().to_string(),
+                    resolved: serde_json::json!({ "url": url, "path": path, "ref": reference })
+                        .to_string(),
+                    commit: Some(fetched.commit.clone()),
+                    asset_hash: None,
+                    build: true,
+                },
+            })
         }
         Source::Release { owner, repo, tag } => {
             if options.link {
@@ -485,21 +626,23 @@ pub fn install(
                     ),
                 ));
             }
-            let origin = Origin {
-                kind: "release",
-                source: source.trim().to_string(),
-                resolved: serde_json::json!({
-                    "owner": owner, "repo": repo, "tag": release.tag, "pinned": tag.is_some(),
-                    "asset": release.asset_name, "asset_url": release.asset_url,
-                })
-                .to_string(),
-                commit: None,
-                asset_hash: Some(release.asset_hash.clone()),
-                build: false,
-            };
-            let result = install_dir(db, registry, &release.root, options, progress, origin);
-            let _ = std::fs::remove_dir_all(&release.scratch);
-            result
+            Ok(Prepared {
+                scratch: Some(release.scratch.clone()),
+                dir: release.root.clone(),
+                origin: Origin {
+                    kind: "release",
+                    source: source.trim().to_string(),
+                    resolved: serde_json::json!({
+                        "owner": owner, "repo": repo, "tag": release.tag, "pinned": tag.is_some(),
+                        "asset": release.asset_name, "asset_url": release.asset_url,
+                        "asset_size": release.asset_size,
+                    })
+                    .to_string(),
+                    commit: None,
+                    asset_hash: Some(release.asset_hash.clone()),
+                    build: false,
+                },
+            })
         }
     }
 }
@@ -523,6 +666,7 @@ struct FetchedRelease {
     tag: String,
     asset_name: String,
     asset_url: String,
+    asset_size: u64,
     asset_hash: String,
 }
 
@@ -659,6 +803,7 @@ fn fetch_release(
         tag: tag_name,
         asset_name,
         asset_url,
+        asset_size: size,
         asset_hash,
     })
 }
@@ -870,8 +1015,13 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             }
         }
         "path" => {
+            // the folder as the bundle would be copied from it, against the
+            // bundle that was
             let source = Path::new(&record.resolved);
-            match (hash_dir(source), &record.hash) {
+            match (
+                crate::plugins::hash_dir_where(source, &in_the_bundle),
+                &record.hash,
+            ) {
                 (Ok(now), Some(then)) if &now == then => serde_json::json!({ "state": "up_to_date" }),
                 (Ok(_), Some(_)) => serde_json::json!({ "state": "available", "message": "the folder changed since it was installed" }),
                 _ => serde_json::json!({ "state": "unknown", "message": "the folder cannot be read" }),
@@ -974,27 +1124,6 @@ impl Jobs {
             }
         }
     }
-}
-
-/// Installs the plugin at `source`, telling `progress` as it goes. Returns
-/// its record; the registry has been reloaded with it.
-pub fn install_path(
-    db: &Db,
-    registry: &Registry,
-    source: &Path,
-    options: Options,
-    progress: &dyn Fn(Progress),
-) -> Result<InstalledRecord, Error> {
-    let dir = std::path::absolute(source)?;
-    let origin = Origin {
-        kind: "path",
-        source: source.display().to_string(),
-        resolved: dir.display().to_string(),
-        commit: None,
-        asset_hash: None,
-        build: true,
-    };
-    install_dir(db, registry, &dir, options, progress, origin)
 }
 
 /// Installs the plugin in `dir`, wherever it was fetched from.

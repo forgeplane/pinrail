@@ -1051,6 +1051,72 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
 }
 
 /// A plugin whose bundle only exists after its build runs.
+#[tokio::test]
+async fn inspecting_says_what_an_install_would_do_without_doing_it() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let plain = plugin_copy(scratch.path(), "hello", "1.4.0");
+    let (status, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": plain.display().to_string()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["name"], "hello");
+    assert_eq!(seen["version"], "1.4.0");
+    assert_eq!(seen["major"], 1);
+    assert_eq!(seen["build"], Value::Null);
+    assert_eq!(seen["origin"]["kind"], "path");
+    assert_eq!(seen["installed"], Value::Null);
+    assert_eq!(seen["link"], false);
+    let store = app.state.config.plugin_store_dir().join("hello");
+    assert!(!store.exists(), "inspecting placed something");
+
+    // a source that builds says what it will run; once something is
+    // installed under the name, the inspection says what it replaces
+    let (_, plugin) = install(&app, &plain, json!({})).await;
+    assert_eq!(plugin["name"], "hello");
+
+    // checking for updates compares the folder with the store: what the
+    // bundle leaves behind does not count as a change
+    std::fs::create_dir_all(plain.join("tests")).unwrap();
+    std::fs::write(plain.join("tests/plain.spec.ts"), "test").unwrap();
+    std::fs::write(plain.join(".editorconfig"), "root = true").unwrap();
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
+    assert_eq!(updates["state"], "up_to_date", "{updates}");
+    std::fs::write(plain.join("index.html"), "<html>changed</html>").unwrap();
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
+    assert_eq!(updates["state"], "available", "{updates}");
+    let built = buildable_plugin(scratch.path(), "hello", "npm run build");
+    let (status, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": built.display().to_string()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["build"], "npm run build");
+    assert_eq!(seen["installed"]["version"], "1.4.0");
+    assert_eq!(seen["older"], true, "{seen}");
+
+    // not a plugin at all
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": scratch.path().display().to_string()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"].as_str().unwrap().contains("manifest.json"),
+        "{body}"
+    );
+}
+
 fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(dir.join("src")).unwrap();
@@ -1605,6 +1671,22 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     .await;
     let message = body["message"].as_str().unwrap();
     assert!(message.contains("404"), "{message}");
+
+    // inspecting a release names the tag and the asset, and runs no build
+    let (status, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": "https://github.com/acme/thing/releases"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["origin"]["kind"], "release");
+    assert_eq!(seen["origin"]["resolved"]["tag"], "v1.3.0");
+    assert_eq!(seen["origin"]["resolved"]["asset"], "thing-1.3.0.zip");
+    assert!(seen["origin"]["resolved"]["asset_size"].as_u64().unwrap() > 0);
+    assert_eq!(seen["build"], Value::Null);
+    assert_eq!(seen["installed"]["version"], "1.3.0");
 
     // a release cannot be linked
     let (_, body) = install(

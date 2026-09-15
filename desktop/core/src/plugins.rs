@@ -120,17 +120,28 @@ pub fn version_of(value: &Value) -> Option<(String, i64)> {
 /// SHA-256 over a directory's files: each relative path and its bytes, in
 /// sorted order, with the same exclusions the snapshot copier applies.
 pub fn hash_dir(dir: &Path) -> std::io::Result<String> {
+    hash_dir_where(dir, &|name| {
+        name != "node_modules" && !name.starts_with('.')
+    })
+}
+
+/// `hash_dir` over the entries `keep` admits, by name, at every level.
+pub fn hash_dir_where(dir: &Path, keep: &dyn Fn(&str) -> bool) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};
-    fn walk(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    fn walk(
+        root: &Path,
+        dir: &Path,
+        keep: &dyn Fn(&str) -> bool,
+        out: &mut Vec<PathBuf>,
+    ) -> std::io::Result<()> {
         for entry in std::fs::read_dir(dir)? {
             let entry = entry?;
-            let name = entry.file_name();
-            if name == "node_modules" || name.to_string_lossy().starts_with('.') {
+            if !keep(&entry.file_name().to_string_lossy()) {
                 continue;
             }
             let path = entry.path();
             if entry.file_type()?.is_dir() {
-                walk(root, &path, out)?;
+                walk(root, &path, keep, out)?;
             } else {
                 out.push(path.strip_prefix(root).unwrap_or(&path).to_path_buf());
             }
@@ -138,7 +149,7 @@ pub fn hash_dir(dir: &Path) -> std::io::Result<String> {
         Ok(())
     }
     let mut files = Vec::new();
-    walk(dir, dir, &mut files)?;
+    walk(dir, dir, keep, &mut files)?;
     files.sort();
     let mut hasher = Sha256::new();
     for relative in files {
@@ -603,7 +614,7 @@ mod settings {
     }
 }
 
-fn valid_name(name: &str) -> bool {
+pub(crate) fn valid_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')

@@ -21,6 +21,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/plugins", get(index))
         .route("/api/v1/plugins/reload", post(reload))
         .route("/api/v1/plugins/dirs", post(add_dir))
+        .route("/api/v1/plugins/inspect", post(inspect))
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/jobs/{id}", get(job))
         .route("/api/v1/plugins/{name}/updates", get(updates))
@@ -82,10 +83,10 @@ async fn versions(
     })))
 }
 
-/// Starts installing one plugin from a folder: `{source, link?, force?}`.
-/// Answers at once with the job to follow; a build can take a minute.
-async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Response, Error> {
-    let body = parse_body(&body)?;
+/// The source and the options an install or an inspect takes:
+/// `{source, link?, force?, ref?, path?}`.
+fn install_request(body: &Bytes) -> Result<(String, crate::install::Options), Error> {
+    let body = parse_body(body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
         return Err(Error::invalid("/source", "is required"));
     };
@@ -95,8 +96,28 @@ async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Resp
         reference: body.get("ref").and_then(Value::as_str).map(str::to_string),
         path: body.get("path").and_then(Value::as_str).map(str::to_string),
     };
-    let id = state.jobs.start(source);
-    let source = source.to_string();
+    Ok((source.to_string(), options))
+}
+
+/// What installing a source would do, for the dialog to show before the
+/// person says yes: the manifest's plugin, the origin, the build command,
+/// what is installed under that name. Fetches the source and drops it.
+async fn inspect(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json<Value>, Error> {
+    let (source, options) = install_request(&body)?;
+    let worker = state.clone();
+    tokio::task::spawn_blocking(move || {
+        crate::install::inspect(&worker.db, &worker.registry, &source, options, &|_| {})
+    })
+    .await
+    .map_err(|e| Error::Internal(e.to_string()))?
+    .map(Json)
+}
+
+/// Starts installing one plugin: `{source, link?, force?, ref?, path?}`.
+/// Answers at once with the job to follow; a build can take a minute.
+async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Response, Error> {
+    let (source, options) = install_request(&body)?;
+    let id = state.jobs.start(&source);
     let job_id = id.clone();
     let worker = state.clone();
     tokio::task::spawn_blocking(move || {

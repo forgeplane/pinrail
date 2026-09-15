@@ -178,14 +178,23 @@ pub async fn serve(
     result
 }
 
-/// The origins the shell runs on: the desktop app's own origin, plus the
-/// Vite dev server in debug builds. The API answers cross-origin requests
-/// from these only, and plugin bundles let only these frame them. Nothing
-/// else can read the API or embed a view.
-pub(crate) fn shell_origins() -> Vec<&'static str> {
-    let mut origins = vec!["tauri://localhost", "http://tauri.localhost"];
+/// The origins the shell runs on: the desktop app's own origin, plus, in
+/// debug builds, the Vite dev server and whatever `WICKET_SHELL_ORIGIN`
+/// names (the shell's tests run it elsewhere). The API answers
+/// cross-origin requests from these only, and plugin bundles let only
+/// these frame them. Nothing else can read the API or embed a view.
+pub(crate) fn shell_origins() -> Vec<String> {
+    let mut origins = vec![
+        "tauri://localhost".to_string(),
+        "http://tauri.localhost".to_string(),
+    ];
     if cfg!(debug_assertions) {
-        origins.push("http://localhost:5173");
+        origins.push("http://localhost:5173".to_string());
+        if let Ok(extra) = std::env::var("WICKET_SHELL_ORIGIN")
+            && !extra.is_empty()
+        {
+            origins.push(extra);
+        }
     }
     origins
 }
