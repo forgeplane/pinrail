@@ -169,6 +169,10 @@ export type ServerSettings = {
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
+  /** the loopback server's port; applies at the next start */
+  port: number;
+  /** how long ended reviews are kept, in days; null keeps them forever */
+  history: { keep_days: number | null };
   [key: string]: unknown;
 };
 

@@ -22,6 +22,10 @@ export type Settings = {
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
+  /** the loopback server's port; applies at the next start */
+  port: number;
+  /** how long ended reviews are kept, in days; null keeps them forever */
+  history: { keep_days: number | null };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
 };
@@ -35,6 +39,8 @@ type Patch = {
   shortcut?: Partial<Settings["shortcut"]>;
   /** a change to one or more plugins' settings, merged key by key */
   plugins?: Record<string, Record<string, unknown>>;
+  port?: number;
+  history?: Partial<Settings["history"]>;
   autostart?: boolean;
 };
 
@@ -49,7 +55,7 @@ export function applyTextSize(size: TextSize) {
   if (root) (root.style as CSSStyleDeclaration & { zoom: string }).zoom = ZOOM[size];
 }
 
-type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins">;
+type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins" | "port" | "history">;
 const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
   sidebar: { open: s.sidebar.open },
@@ -58,6 +64,8 @@ const fromServer = (s: ServerSettings): Served => ({
   notifications: { enabled: s.notifications.enabled, paused_until: s.notifications.paused_until, sound: s.notifications.sound, muted_plugins: s.notifications.muted_plugins },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   plugins: s.plugins ?? {},
+  port: s.port,
+  history: { keep_days: s.history?.keep_days ?? null },
 });
 
 const mergePlugins = (current: Settings["plugins"], patch?: Settings["plugins"]): Settings["plugins"] => {
@@ -78,6 +86,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     plugins: {},
+    port: 4747,
+    history: { keep_days: null },
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);
@@ -130,7 +140,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback(
     async (patch: Patch) => {
       // the core's settings go to the core; applied at once, confirmed by the response
-      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins) {
+      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins || patch.port !== undefined || patch.history) {
         const next: Served = {
           appearance: { ...settings.appearance, ...patch.appearance },
           sidebar: { ...settings.sidebar, ...patch.sidebar },
@@ -139,6 +149,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           notifications: { ...settings.notifications, ...patch.notifications },
           shortcut: { ...settings.shortcut, ...patch.shortcut },
           plugins: mergePlugins(settings.plugins, patch.plugins),
+          port: patch.port ?? settings.port,
+          history: { ...settings.history, ...patch.history },
         };
         apply(next);
         setSettings((s) => ({ ...s, ...next }));
@@ -150,6 +162,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.notifications) body.notifications = patch.notifications;
         if (patch.shortcut) body.shortcut = patch.shortcut;
         if (patch.plugins) body.plugins = patch.plugins;
+        if (patch.port !== undefined) body.port = patch.port;
+        if (patch.history) body.history = patch.history;
         try {
           const s = fromServer(await api.patchSettings(body));
           apply(s);

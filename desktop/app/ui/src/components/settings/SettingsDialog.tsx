@@ -1,7 +1,7 @@
 // The settings dialog: a rail of sections, each a page of groups. Every
 // control applies as it changes; nothing to save. Esc closes.
 
-import { Bell, Blocks, Database, Info, Keyboard, Palette, Settings, Settings2, X } from "lucide-react";
+import { Bell, Blocks, Database, FolderOpen, Info, Keyboard, Palette, Settings, Settings2, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Select } from "../Select";
 import { api, inTauri } from "../../api/client";
@@ -24,6 +24,21 @@ const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "data", label: "Data", icon: <Database size={15} /> },
   { key: "about", label: "About", icon: <Info size={15} /> },
 ];
+
+/** The port, committed on Enter or blur when it is a port and it changed. */
+function PortField({ value, onChange }: { value: number; onChange: (port: number) => void }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const commit = () => {
+    const port = parseInt(text, 10);
+    if (Number.isNaN(port) || port < 1024 || port > 65535) {
+      setText(String(value));
+      return;
+    }
+    if (port !== value) onChange(port);
+  };
+  return <input className="settings-input" type="number" aria-label="Port" min={1024} max={65535} step={1} value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()} data-setting-port />;
+}
 
 /** The pause as a moment still to come, or null. */
 const pausedUntil = (iso: string | null) => {
@@ -320,11 +335,37 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "data" ? (
             <SettingsPage title="Data">
               <SettingsGroup caption="Where things are">
-                <SettingsRow label="Data directory" description={<span className="mono">{info?.data_dir ?? "…"}</span>} />
+                <SettingsRow label="Data directory" description={<span className="mono">{info?.data_dir ?? "…"}</span>}>
+                  {native ? (
+                    <Tooltip label="Show in Finder">
+                      <button type="button" className="bar-button" aria-label="Reveal the data directory" disabled={!info} onClick={() => info && import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => revealItemInDir(info.data_dir).catch(() => {}))}>
+                        <FolderOpen size={15} />
+                      </button>
+                    </Tooltip>
+                  ) : null}
+                </SettingsRow>
                 <SettingsRow label="Server" description={info ? <span className="mono">http://127.0.0.1:{info.port}</span> : "…"}>
                   <button type="button" className="chrome-button" onClick={copyUrl} disabled={!info}>
                     {copied ? "Copied" : "Copy URL"}
                   </button>
+                </SettingsRow>
+                <SettingsRow label="Port" description="Where the server listens for the CLI and the agents" note={info && settings.port !== info.port ? <span>Takes effect when Wicket starts next; until then the server stays on {info.port}. The CLI follows either.</span> : undefined}>
+                  <PortField value={settings.port} onChange={(port) => update({ port })} />
+                </SettingsRow>
+              </SettingsGroup>
+              <SettingsGroup caption="History">
+                <SettingsRow label="Keep reviews for" description="Decided, withdrawn, discarded and expired reviews older than this are removed; pending ones stay">
+                  <Select
+                    label="Keep reviews for"
+                    value={settings.history.keep_days === null ? "forever" : String(settings.history.keep_days)}
+                    options={[
+                      { value: "forever", label: "Forever" },
+                      { value: "30", label: "30 days" },
+                      { value: "90", label: "90 days" },
+                      { value: "365", label: "A year" },
+                    ]}
+                    onChange={(v) => update({ history: { keep_days: v === "forever" ? null : Number(v) } })}
+                  />
                 </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="Housekeeping">
