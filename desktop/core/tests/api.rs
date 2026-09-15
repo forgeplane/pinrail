@@ -1165,3 +1165,186 @@ async fn the_artifact_plugin_installs_from_its_sources() {
             && !entry.join("package.json").exists()
     );
 }
+
+/// A repository with the hello plugin in a folder, tagged, and a bare
+/// clone of it a URL can reach.
+fn git_repo(root: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) {
+    let work = root.join("work");
+    let hello = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/hello");
+    std::fs::create_dir_all(work.join("tools/hello")).unwrap();
+    for file in std::fs::read_dir(&hello).unwrap().flatten() {
+        if file.file_type().unwrap().is_file() {
+            std::fs::copy(file.path(), work.join("tools/hello").join(file.file_name())).unwrap();
+        }
+    }
+    let git = |args: &[&str]| {
+        let out = std::process::Command::new("git")
+            .args(args)
+            .current_dir(&work)
+            .env("GIT_AUTHOR_NAME", "t")
+            .env("GIT_AUTHOR_EMAIL", "t@t")
+            .env("GIT_COMMITTER_NAME", "t")
+            .env("GIT_COMMITTER_EMAIL", "t@t")
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "git {args:?}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["add", "."]);
+    git(&["commit", "-q", "-m", "hello 1.0.0"]);
+    git(&["tag", "v1"]);
+    let bare = root.join("plugins.git");
+    let out = std::process::Command::new("git")
+        .args([
+            "clone",
+            "-q",
+            "--bare",
+            work.to_str().unwrap(),
+            bare.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    (work, bare)
+}
+
+fn git_in(dir: &std::path::Path, args: &[&str]) -> String {
+    let out = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir)
+        .env("GIT_AUTHOR_NAME", "t")
+        .env("GIT_AUTHOR_EMAIL", "t@t")
+        .env("GIT_COMMITTER_NAME", "t")
+        .env("GIT_COMMITTER_EMAIL", "t@t")
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "git {args:?}: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+#[tokio::test]
+async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let (work, bare) = git_repo(scratch.path());
+    let url = format!("file://{}", bare.display());
+
+    // a folder in the repository at a tag, the ref and folder given beside the URL
+    let (status, row) = install(
+        &app,
+        Path::new(&url),
+        json!({"ref": "v1", "path": "tools/hello"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["name"], "hello");
+    assert_eq!(row["install"]["kind"], "git");
+    let tagged = git_in(&work, &["rev-parse", "v1"]);
+    assert_eq!(row["install"]["commit"], tagged);
+    assert!(row["install"]["hash"].is_string());
+    let record = app
+        .state
+        .db
+        .installed_plugins()
+        .unwrap()
+        .into_iter()
+        .find(|r| r.name == "hello")
+        .unwrap();
+    let resolved: Value = serde_json::from_str(&record.resolved).unwrap();
+    assert_eq!(
+        resolved,
+        json!({"url": url, "path": "tools/hello", "ref": "v1"})
+    );
+    let fetched: Vec<_> = std::fs::read_dir(
+        app.state
+            .config
+            .plugin_store_dir()
+            .parent()
+            .unwrap()
+            .join("fetch"),
+    )
+    .map(|d| d.flatten().collect())
+    .unwrap_or_default();
+    assert!(fetched.is_empty(), "the clone is gone once placed");
+
+    // a tag is pinned: nothing to update, however the branch moves
+    let (status, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
+    assert_eq!(status, StatusCode::OK, "{updates}");
+    assert_eq!(updates["state"], "pinned");
+
+    // the same folder on the branch, then a newer commit on it
+    let (status, row) = install(
+        &app,
+        Path::new(&url),
+        json!({"ref": "main", "path": "tools/hello"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
+    assert_eq!(updates["state"], "up_to_date", "{updates}");
+    let manifest = std::fs::read_to_string(work.join("tools/hello/manifest.json")).unwrap();
+    std::fs::write(
+        work.join("tools/hello/manifest.json"),
+        manifest.replace("\"version\": 1", "\"version\": \"1.0.1\""),
+    )
+    .unwrap();
+    git_in(&work, &["commit", "-q", "-am", "hello 1.0.1"]);
+    git_in(&work, &["push", "-q", bare.to_str().unwrap(), "main"]);
+    let newer = git_in(&work, &["rev-parse", "main"]);
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
+    assert_eq!(updates["state"], "available", "{updates}");
+    assert_eq!(updates["commit"], newer);
+    let (status, row) = install(
+        &app,
+        Path::new(&url),
+        json!({"ref": "main", "path": "tools/hello"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["release"], "1.0.1");
+    assert_eq!(row["install"]["commit"], newer);
+
+    // a commit is pinned too; a ref that does not exist fails with git's word
+    let (status, row) = install(
+        &app,
+        Path::new(&url),
+        json!({"ref": tagged, "path": "tools/hello", "force": true}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
+    assert_eq!(updates["state"], "pinned");
+    let (status, body) = install(
+        &app,
+        Path::new(&url),
+        json!({"ref": "nope", "path": "tools/hello"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("git clone failed"),
+        "{body}"
+    );
+    // a link needs a folder
+    let (status, body) = install(&app, Path::new(&url), json!({"link": true})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("a link needs a folder"),
+        "{body}"
+    );
+}

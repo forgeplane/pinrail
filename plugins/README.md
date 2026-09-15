@@ -60,12 +60,21 @@ hello/
 
 ## Installing
 
-The app installs one plugin at a time, from its folder:
+The app installs one plugin at a time. The source is one string, and its
+shape says where the plugin is:
 
 ```sh
-wicket plugins install ./plugins/review          # a copy, in the app's store
-wicket plugins install ./plugins/review --link   # served live from the folder, while you work on it
+wicket plugins install ./plugins/review                                # a folder: a copy, in the app's store
+wicket plugins install ./plugins/review --link                         # a folder served live, while you work on it
+wicket plugins install github.com/acme/plugins/review@v3               # a folder in a repository, at a tag: "this folder, at this version"
+wicket plugins install https://github.com/acme/plugins/tree/v3/review  # the same, as the browser shows it
+wicket plugins install github.com/acme/wicket-review                   # a repository's root, default branch
+wicket plugins install git@acme.internal:plugins.git --ref v3 --path review   # SSH, the two beside it
 ```
+
+A ref is a branch, a tag or a commit; without one, the default branch. A
+tag or a commit is pinned: checking for updates says so rather than
+moving it. GitLab's `/-/tree/<ref>/<folder>` URLs read the same way.
 
 A copy lands in the app's store under the plugin's name and major
 version, hashed and recorded with where it came from; a review renders

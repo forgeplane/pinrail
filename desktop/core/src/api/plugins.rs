@@ -23,6 +23,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/plugins/dirs", post(add_dir))
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/jobs/{id}", get(job))
+        .route("/api/v1/plugins/{name}/updates", get(updates))
         .route("/api/v1/plugins/{name}/versions", get(versions))
 }
 
@@ -91,6 +92,8 @@ async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Resp
     let options = crate::install::Options {
         link: body.get("link").and_then(Value::as_bool).unwrap_or(false),
         force: body.get("force").and_then(Value::as_bool).unwrap_or(false),
+        reference: body.get("ref").and_then(Value::as_str).map(str::to_string),
+        path: body.get("path").and_then(Value::as_str).map(str::to_string),
     };
     let id = state.jobs.start(source);
     let source = source.to_string();
@@ -99,29 +102,43 @@ async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Resp
     tokio::task::spawn_blocking(move || {
         let jobs = worker.jobs.clone();
         let progress = |p| jobs.note(&job_id, p);
-        let outcome = crate::install::install_path(
-            &worker.db,
-            &worker.registry,
-            FsPath::new(&source),
-            options,
-            &progress,
-        )
-        .and_then(|record| {
-            announce(&worker)?;
-            worker
-                .registry
-                .get(&record.name)
-                .map(|p| p.to_json())
-                .ok_or_else(|| {
-                    Error::Internal(format!(
-                        "{} was installed and is not registered",
-                        record.name
-                    ))
-                })
-        });
+        let outcome =
+            crate::install::install(&worker.db, &worker.registry, &source, options, &progress)
+                .and_then(|record| {
+                    announce(&worker)?;
+                    worker
+                        .registry
+                        .get(&record.name)
+                        .map(|p| p.to_json())
+                        .ok_or_else(|| {
+                            Error::Internal(format!(
+                                "{} was installed and is not registered",
+                                record.name
+                            ))
+                        })
+                });
         worker.jobs.finish(&job_id, outcome);
     });
     Ok((StatusCode::ACCEPTED, Json(json!({ "job": id }))).into_response())
+}
+
+/// What is new for an installed plugin, asked of its source.
+async fn updates(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, Error> {
+    let record = state
+        .db
+        .installed_plugins()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .ok_or(Error::NotFound(name))?;
+    let registry = state.registry.clone();
+    let answer =
+        tokio::task::spawn_blocking(move || crate::install::check_updates(&registry, &record))
+            .await
+            .map_err(|e| Error::Internal(e.to_string()))?;
+    Ok(Json(answer))
 }
 
 /// An install job as it stands: its step, its log so far, and how it ended.

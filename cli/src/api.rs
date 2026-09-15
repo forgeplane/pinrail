@@ -135,8 +135,8 @@ impl Client {
 
     /// Starts the install and follows its job, printing the build's output
     /// as it comes; the plugin's row when done.
-    pub fn plugins_install(&self, source: &str, link: bool, force: bool) -> Result<Value> {
-        let body = serde_json::json!({ "source": source, "link": link, "force": force });
+    pub fn plugins_install(&self, source: &str, link: bool, force: bool, reference: Option<&str>, path: Option<&str>) -> Result<Value> {
+        let body = serde_json::json!({ "source": source, "link": link, "force": force, "ref": reference, "path": path });
         let started = self.post("/api/v1/plugins/install", Some(&body))?;
         let id = started["job"].as_str().unwrap_or_default().to_string();
         let mut shown = 0;

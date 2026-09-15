@@ -191,16 +191,24 @@ struct PluginsArgs {
 
 #[derive(Subcommand)]
 enum PluginsCommand {
-    /// Install one plugin from a folder into the app's store
+    /// Install one plugin into the app's store: a folder, a repository
+    /// (github.com/acme/plugins/review@v3, or the folder's URL in the
+    /// browser), or a GitHub release
     Install {
-        /// the plugin's folder
+        /// the plugin's folder, repository or release
         source: String,
-        /// serve the folder live instead of copying it, for development
+        /// serve a folder live instead of copying it, for development
         #[arg(long)]
         link: bool,
         /// replace a newer version that is already installed
         #[arg(long)]
         force: bool,
+        /// a branch, tag or commit, for a git source that does not say
+        #[arg(long = "ref")]
+        reference: Option<String>,
+        /// the plugin's folder inside the repository, likewise
+        #[arg(long)]
+        path: Option<String>,
     },
     /// Link every plugin found in a directory
     Add { dir: PathBuf },
@@ -298,13 +306,15 @@ fn run(cli: Cli) -> Result<u8> {
                     source,
                     link,
                     force,
+                    reference,
+                    path,
                 }) => {
                     // a folder that exists is sent as an absolute path
                     let source = match std::path::absolute(&source) {
-                        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
+                        Ok(p) if p.is_dir() => p.to_string_lossy().into_owned(),
                         _ => source,
                     };
-                    client.plugins_install(&source, link, force)?
+                    client.plugins_install(&source, link, force, reference.as_deref(), path.as_deref())?
                 }
                 Some(PluginsCommand::Add { dir }) => {
                     let dir = std::path::absolute(&dir)?;
