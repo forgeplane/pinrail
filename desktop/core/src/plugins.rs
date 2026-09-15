@@ -893,6 +893,19 @@ impl Registry {
         self.snapshots_dir.join(name).join(version.to_string())
     }
 
+    /// Forgets a version's snapshot, in memory and on disk. For when no
+    /// review renders from it any more.
+    pub fn drop_snapshot(&self, name: &str, version: u32) {
+        self.state
+            .write()
+            .unwrap()
+            .snapshots
+            .remove(&(name.to_string(), version));
+        let dir = self.snapshot_dir(name, version);
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir(self.snapshots_dir.join(name));
+    }
+
     /// Makes sure the plugin's version is snapshotted, unless it is a dev
     /// plugin. Returns the directory its bundle is served from.
     pub fn ensure_snapshot(&self, plugin: &Plugin) -> std::io::Result<PathBuf> {

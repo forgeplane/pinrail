@@ -814,6 +814,124 @@ async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
 
 /// A store entry: the built-in list plugin copied under another name, as
 /// an install would place it, with its record and hash.
+#[tokio::test]
+async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept_and_their_snapshots() {
+    let app = app();
+    let decision = json!({ "data": { "decisions": [], "undecided": [1, 2] }, "agent_note": null });
+
+    // decided, withdrawn, pending, and a pending round revising the decided one
+    let decided = submit(&app, submission()).await;
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!(
+            "/api/v1/reviews/{}/decision",
+            decided["id"].as_str().unwrap()
+        ),
+        Some(decision.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let withdrawn = submit(&app, submission()).await;
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!(
+            "/api/v1/reviews/{}/withdraw",
+            withdrawn["id"].as_str().unwrap()
+        ),
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let pending = submit(&app, submission()).await;
+    let mut round = submission();
+    round["revises"] = decided["id"].clone();
+    let round = submit(&app, round).await;
+    // the bundle served once, so the snapshot exists
+    let (status, _) = call(&app, "GET", "/plugins/list/1/index.html", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let snapshot = app.state.config.snapshots_dir().join("list/1");
+    assert!(snapshot.join("manifest.json").is_file());
+
+    // nothing to keep for: everything stays
+    assert_eq!(app.state.reviews.sweep_history(None).unwrap(), 0);
+    let tomorrow = chrono::Utc::now() + chrono::Duration::days(1);
+    // the withdrawn one goes; the decided one stays while the round revising it is pending
+    assert_eq!(app.state.reviews.sweep_history_before(tomorrow).unwrap(), 1);
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", withdrawn["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", decided["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        snapshot.join("manifest.json").is_file(),
+        "reviews still render from it"
+    );
+
+    // the round decided, the chain goes together; the pending review keeps the snapshot
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{}/decision", round["id"].as_str().unwrap()),
+        Some(decision.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(app.state.reviews.sweep_history_before(tomorrow).unwrap(), 2);
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", decided["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", pending["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(snapshot.join("manifest.json").is_file());
+
+    // the last review gone, the snapshot goes with it
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!(
+            "/api/v1/reviews/{}/decision",
+            pending["id"].as_str().unwrap()
+        ),
+        Some(decision),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(app.state.reviews.sweep_history_before(tomorrow).unwrap(), 1);
+    assert!(!snapshot.exists());
+    let (_, listed) = call(
+        &app,
+        "GET",
+        "/api/v1/reviews?status=decided,withdrawn,pending",
+        None,
+    )
+    .await;
+    assert_eq!(listed.as_array().map(Vec::len), Some(0), "{listed}");
+}
+
 fn store_entry(app: &App, name: &str) -> (std::path::PathBuf, String) {
     let entry = app.state.config.plugin_store_dir().join(name).join("1");
     std::fs::create_dir_all(&entry).unwrap();

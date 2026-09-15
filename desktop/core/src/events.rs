@@ -13,6 +13,8 @@ pub const EXPIRED: &str = "expired";
 pub const DISCARDED: &str = "discarded";
 pub const PLUGINS_RELOADED: &str = "plugins_reloaded";
 pub const SETTINGS_CHANGED: &str = "settings_changed";
+/// Reviews past the history's keep-days were deleted.
+pub const HISTORY_SWEPT: &str = "history_swept";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Notice {

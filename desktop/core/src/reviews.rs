@@ -9,7 +9,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
 use crate::db::{Db, Event, Filters};
@@ -237,6 +237,53 @@ impl Reviews {
             self.publish(event_id, events::EXPIRED, review);
         }
         Ok(expired)
+    }
+
+    /// Deletes the reviews that ended more than `keep_days` ago, with their
+    /// events and outcomes, and the plugin snapshots nothing renders from
+    /// any more. `None` keeps everything. Returns how many reviews went.
+    pub fn sweep_history(&self, keep_days: Option<u32>) -> Result<usize, Error> {
+        match keep_days {
+            Some(days) => {
+                self.sweep_history_before(Utc::now() - chrono::Duration::days(days as i64))
+            }
+            None => Ok(0),
+        }
+    }
+
+    /// `sweep_history` with the moment spelled out.
+    pub fn sweep_history_before(&self, before: DateTime<Utc>) -> Result<usize, Error> {
+        let ended = self.db.ended_before(before)?;
+        if ended.is_empty() {
+            return Ok(0);
+        }
+        let ids: Vec<&str> = ended.iter().map(|(id, _, _)| id.as_str()).collect();
+        let count = self.db.delete_reviews(&ids)?;
+        // what rendered them, when nothing else does: the snapshot, and a
+        // store entry kept past the plugin's removal
+        let versions: std::collections::BTreeSet<(String, u32)> = ended
+            .into_iter()
+            .map(|(_, plugin, version)| (plugin, version))
+            .collect();
+        let records = self.registry.records();
+        for (plugin, version) in versions {
+            if self.db.reviews_use(&plugin, version)? {
+                continue;
+            }
+            self.registry.drop_snapshot(&plugin, version);
+            if !records.iter().any(|r| r.name == plugin) {
+                let _ = std::fs::remove_dir_all(self.registry.store_entry(&plugin, version as i64));
+                let _ = std::fs::remove_dir(self.registry.store_dir().join(&plugin));
+            }
+        }
+        let event_id = self.db.append_event(
+            None,
+            events::HISTORY_SWEPT,
+            None,
+            &serde_json::json!({ "count": count }),
+        )?;
+        self.publish_plain(event_id, events::HISTORY_SWEPT);
+        Ok(count)
     }
 
     /// Blocks until the review leaves pending, or `timeout` passes.

@@ -133,7 +133,9 @@ async fn info(State(state): State<Arc<AppState>>) -> Json<Info> {
 }
 
 /// Serves the API until `shutdown` resolves. Advertises itself in
-/// `server.json` while it runs and sweeps expired reviews every 30 seconds.
+/// `server.json` while it runs; every 30 seconds it sweeps expired reviews
+/// and, when the history keeps a limited number of days, the reviews past
+/// them.
 pub async fn serve(
     state: Arc<AppState>,
     shutdown: impl Future<Output = ()> + Send + 'static,
@@ -149,6 +151,14 @@ pub async fn serve(
                 tick.tick().await;
                 if let Err(error) = state.reviews.sweep_expired() {
                     eprintln!("wicket: expiry sweep failed: {error}");
+                }
+                let keep_days = state
+                    .settings
+                    .value("/history/keep_days")
+                    .as_u64()
+                    .map(|d| d as u32);
+                if let Err(error) = state.reviews.sweep_history(keep_days) {
+                    eprintln!("wicket: history sweep failed: {error}");
                 }
             }
         })

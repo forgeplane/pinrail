@@ -722,6 +722,73 @@ impl Db {
         rows.collect()
     }
 
+    /// Reviews that ended before `before`, as (id, plugin, major): decided,
+    /// withdrawn or discarded then, or expired then with nothing recorded.
+    /// A round that a round still here revises stays with it, so a chain
+    /// goes as a whole and `revises` never dangles.
+    pub fn ended_before(
+        &self,
+        before: DateTime<Utc>,
+    ) -> rusqlite::Result<Vec<(String, String, u32)>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT r.id, r.plugin, r.plugin_version FROM reviews r
+               LEFT JOIN outcomes o ON o.review_id = r.id
+              WHERE (o.at IS NOT NULL AND o.at < ?1)
+                 OR (o.review_id IS NULL AND r.expires_at IS NOT NULL AND r.expires_at < ?1)
+              ORDER BY r.id",
+        )?;
+        let ended: Vec<(String, String, u32)> = stmt
+            .query_map(params![crate::review::iso(before)], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut stmt = conn.prepare("SELECT id, revises FROM reviews WHERE revises IS NOT NULL")?;
+        let links: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<_>>()?;
+        let mut going: std::collections::BTreeSet<String> =
+            ended.iter().map(|(id, _, _)| id.clone()).collect();
+        // a revised round stays while the round revising it stays
+        loop {
+            let before_len = going.len();
+            for (newer, older) in &links {
+                if !going.contains(newer) {
+                    going.remove(older);
+                }
+            }
+            if going.len() == before_len {
+                break;
+            }
+        }
+        Ok(ended
+            .into_iter()
+            .filter(|(id, _, _)| going.contains(id))
+            .collect())
+    }
+
+    /// Deletes reviews with their events and outcomes, all or nothing. A
+    /// round among them that revises another among them lets go of it
+    /// first, so the order they go in does not matter.
+    pub fn delete_reviews(&self, ids: &[&str]) -> rusqlite::Result<usize> {
+        let mut conn = self.conn.lock().unwrap();
+        let tx = conn.transaction()?;
+        let mut count = 0;
+        for id in ids {
+            tx.execute(
+                "UPDATE reviews SET revises = NULL WHERE id = ?1",
+                params![id],
+            )?;
+        }
+        for id in ids {
+            tx.execute("DELETE FROM events WHERE review_id = ?1", params![id])?;
+            tx.execute("DELETE FROM outcomes WHERE review_id = ?1", params![id])?;
+            count += tx.execute("DELETE FROM reviews WHERE id = ?1", params![id])?;
+        }
+        tx.commit()?;
+        Ok(count)
+    }
+
     pub fn installed_plugins(&self) -> rusqlite::Result<Vec<InstalledRecord>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
