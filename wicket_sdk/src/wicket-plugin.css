@@ -81,8 +81,8 @@ kbd {
   color: var(--dim);
 }
 
-/* narrow scrollbars, the same as the shell's */
-* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+/* narrow scrollbars, the same as the shell's; the ::-webkit rules only, since
+   scrollbar-width would make WebKit fall back to its own bar that widens on hover */
 ::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; border: 1.5px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--faint); }

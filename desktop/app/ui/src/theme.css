@@ -38,8 +38,9 @@ body {
 }
 a { color: var(--accent); text-decoration: none; }
 
-/* narrow scrollbars everywhere; plugin frames carry the same rule in the SDK stylesheet */
-* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+/* narrow scrollbars everywhere; plugin frames carry the same rule in the SDK
+   stylesheet. The ::-webkit rules only: scrollbar-width would make WebKit fall
+   back to its own bar, which widens on hover */
 ::-webkit-scrollbar { width: 7px; height: 7px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; border: 1.5px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--faint); }
