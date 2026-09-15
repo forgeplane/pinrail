@@ -505,12 +505,29 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
         .filter(|n| crate::plugins::valid_name(n))
         .ok_or_else(|| Error::invalid("/source", "not a plugin: name is required"))?
         .to_string();
+    // what is installed under the name, and whether this source is the
+    // very thing that was installed: the same files from a folder, the
+    // same commit, the same asset
     let installed = db
         .installed_plugins()?
         .into_iter()
         .find(|r| r.name == name)
         .map(|r| {
-            serde_json::json!({ "version": r.version, "major": r.major, "linked": r.linked, "kind": r.kind })
+            let unchanged = !r.linked
+                && r.version == version
+                && match prepared.origin.kind {
+                    "path" => {
+                        build.is_none()
+                            && r.hash.is_some()
+                            && crate::plugins::hash_dir_where(dir, &in_the_bundle).ok() == r.hash
+                    }
+                    "git" => r.commit.is_some() && r.commit == prepared.origin.commit,
+                    _ => r.asset_hash.is_some() && r.asset_hash == prepared.origin.asset_hash,
+                };
+            serde_json::json!({
+                "version": r.version, "major": r.major, "linked": r.linked, "kind": r.kind,
+                "path": r.path, "unchanged": unchanged,
+            })
         });
     let older = installed.as_ref().is_some_and(|r| {
         !r["linked"].as_bool().unwrap_or(false)

@@ -1078,6 +1078,15 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     // installed under the name, the inspection says what it replaces
     let (_, plugin) = install(&app, &plain, json!({})).await;
     assert_eq!(plugin["name"], "hello");
+    let (_, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": plain.display().to_string()})),
+    )
+    .await;
+    assert_eq!(seen["installed"]["version"], "1.4.0");
+    assert_eq!(seen["installed"]["unchanged"], true, "{seen}");
 
     // checking for updates compares the folder with the store: what the
     // bundle leaves behind does not count as a change
@@ -1089,6 +1098,14 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     std::fs::write(plain.join("index.html"), "<html>changed</html>").unwrap();
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
     assert_eq!(updates["state"], "available", "{updates}");
+    let (_, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": plain.display().to_string()})),
+    )
+    .await;
+    assert_eq!(seen["installed"]["unchanged"], false, "{seen}");
     let built = buildable_plugin(scratch.path(), "hello", "npm run build");
     let (status, seen) = call(
         &app,

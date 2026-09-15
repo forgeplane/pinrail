@@ -22,9 +22,9 @@ async function openInstall(page: Page) {
   await page.goto("/#/plugins");
   await expect(page.locator("[data-settings]")).toBeVisible();
   await page.locator("[data-install-open]").click();
-  const dialog = page.locator("[data-install-dialog]");
-  await expect(dialog).toBeVisible();
-  return dialog;
+  const panel = page.locator("[data-install-panel]");
+  await expect(panel).toBeVisible();
+  return panel;
 }
 
 test("the Plugins section lists what is installed and has no directories", async ({ page }) => {
@@ -70,7 +70,11 @@ test("a folder is looked at before it is installed, and its row says where it ca
   const again = await openInstall(page);
   await again.getByLabel("Source").fill(source);
   await again.locator("[data-install-look]").click();
-  await expect(again.locator('[data-replaces="same"]')).toContainText("Replaces greeter 1.2.0");
+  await expect(again.locator('[data-replaces="unchanged"]')).toContainText("greeter 1.2.0 is installed already, from this source, and nothing has changed");
+  // once the folder changes, the same version replaces what is there
+  fs.appendFileSync(path.join(source, "index.html"), "<!-- edited -->");
+  await again.locator("[data-install-look]").click();
+  await expect(again.locator('[data-replaces="same"]')).toContainText("greeter 1.2.0 is installed already. Installing replaces it.");
 });
 
 test("a source that builds shows the exact command as the consent, then runs it", async ({ page }) => {
@@ -113,8 +117,8 @@ test("a link serves the folder live and offers to install a copy", async ({ page
 
   // a copy from the row: the dialog opens looked at already, and says it replaces the link
   await row.getByRole("button", { name: "Install a copy of wip" }).click();
-  const copy = page.locator("[data-install-dialog]");
-  await expect(copy.locator('[data-replaces="link"]')).toContainText("Replaces the link to wip 1.0.0");
+  const copy = page.locator("[data-install-panel]");
+  await expect(copy.locator('[data-replaces="link"]')).toContainText("wip 1.0.0 is installed already, as a link to this very folder");
   await copy.locator("[data-install-confirm]").click();
   await expect(copy.locator("[data-install-done]")).toBeVisible();
   await copy.locator("[data-install-close]").click();
@@ -129,8 +133,9 @@ test("what is not a plugin is refused before anything runs", async ({ page }) =>
   await expect(dialog.locator(".install-error")).toContainText("manifest.json");
   await expect(dialog.locator("[data-install-confirm]")).toHaveCount(0);
 
-  // Esc closes the dialog, not the settings behind it
-  await page.keyboard.press("Escape");
+  // Esc in the field closes the panel, not the settings around it
+  await dialog.getByLabel("Source").press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(page.locator("[data-settings]")).toBeVisible();
+  await expect(page.locator("[data-install-open]")).toBeVisible();
 });

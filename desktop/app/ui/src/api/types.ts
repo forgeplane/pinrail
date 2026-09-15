@@ -103,7 +103,7 @@ export type Inspection = {
     commit: string | null;
   };
   /** what is installed under the name already */
-  installed: { version: string; major: number; linked: boolean; kind: string } | null;
+  installed: { version: string; major: number; linked: boolean; kind: string; path: string; unchanged: boolean } | null;
   /** the source is older than what is installed on the same line */
   older: boolean;
 };

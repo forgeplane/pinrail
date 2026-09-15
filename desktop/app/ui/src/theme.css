@@ -468,15 +468,16 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .segmented button:disabled { opacity: 0.5; }
 .sidebar-gear { margin-left: auto; }
 
-/* installing a plugin: the source, what it is, what will run, the log */
-.install-dialog { width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; font-size: 12.5px; }
-.install-dialog p { margin: 0; line-height: 1.45; }
+/* installing a plugin, in the Install card: the source, what it is, what will run, the log */
+.install-panel { display: grid; gap: 12px; padding: 12px 14px 14px; font-size: 12.5px; }
+.install-panel p { margin: 0; line-height: 1.45; }
+.install-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .install-source { display: flex; align-items: center; gap: 8px; }
 .install-source .settings-input.install-source-field { flex: 1; width: auto; min-width: 0; }
 .install-beside { display: flex; gap: 8px; }
 .install-beside .settings-input { flex: 1; width: auto; min-width: 0; }
 .install-link { display: flex; align-items: center; gap: 10px; }
-.install-seen { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-raised); }
+.install-seen { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-panel); }
 .install-seen-head { display: flex; align-items: center; gap: 12px; }
 .install-seen-title { font-size: 13.5px; font-weight: 600; }
 .install-seen .mono { font-size: 12px; }

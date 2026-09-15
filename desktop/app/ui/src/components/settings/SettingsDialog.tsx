@@ -148,9 +148,9 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
     if (!open) return;
     api.info().then(setInfo).catch(() => setInfo(null));
     const onKey = (e: KeyboardEvent) => {
-      // Esc while recording a shortcut is the recorder's, and while
-      // installing a plugin it is that dialog's, not this one's
-      if (e.key === "Escape" && !document.querySelector(".shortcut-recorder.is-recording, [data-install-dialog]")) {
+      // Esc while recording a shortcut is the recorder's, and in the
+      // install panel's field it closes the panel, not the dialog
+      if (e.key === "Escape" && !document.querySelector(".shortcut-recorder.is-recording") && !document.activeElement?.closest("[data-install-panel]")) {
         e.stopPropagation();
         onClose();
       }

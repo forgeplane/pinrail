@@ -1,6 +1,7 @@
-// Installing a plugin: one field for the source, a look at what it is
-// before anything runs, the words that say what will run on this machine,
-// and the log as the install goes. Install is the consent.
+// Installing a plugin, in place in the Plugins section: one field for the
+// source, a look at what it is before anything runs, the words that say
+// what will run on this machine, and the log as the install goes. Install
+// is the consent.
 
 import { FolderOpen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -107,21 +108,28 @@ function Consequences({ seen }: { seen: Inspection }) {
         </p>
       )}
       {installed ? (
-        <p className="install-replaces" data-replaces={installed.linked ? "link" : installed.major === seen.major ? (seen.older ? "older" : "same") : "beside"}>
+        <p className="install-replaces" data-replaces={installed.linked ? "link" : installed.unchanged ? "unchanged" : installed.major === seen.major ? (seen.older ? "older" : "same") : "beside"}>
+          <b>
+            {seen.name} {installed.version} is installed already
+          </b>
           {installed.linked
-            ? `Replaces the link to ${seen.name} ${installed.version}.`
-            : installed.major !== seen.major
-              ? `A new line beside ${seen.name} ${installed.version}, which stays while a review still renders from it.`
-              : seen.older
-                ? `Older than the installed ${installed.version}. Installing replaces it anyway.`
-                : `Replaces ${seen.name} ${installed.version}.`}
+            ? installed.path === String(seen.origin.resolved)
+              ? `, as a link to this very folder. Installing makes a copy in the store and drops the link.`
+              : `, as a link to ${installed.path}. Installing makes a copy of this folder and drops the link.`
+            : installed.unchanged
+              ? `, from this source, and nothing has changed. Installing again puts the same files back.`
+              : installed.major !== seen.major
+                ? `. This is a new line beside it, and the old one stays while a review still renders from it.`
+                : seen.older
+                  ? `, and it is newer than this. Installing replaces it anyway.`
+                  : `. Installing replaces it.`}
         </p>
       ) : null}
     </>
   );
 }
 
-export function InstallDialog({ initial, onClose }: { initial?: string; onClose: () => void }) {
+export function InstallPanel({ initial, onClose }: { initial?: string; onClose: () => void }) {
   const [source, setSource] = useState(initial ?? "");
   const [ref, setRef] = useState("");
   const [path, setPath] = useState("");
@@ -130,18 +138,19 @@ export function InstallDialog({ initial, onClose }: { initial?: string; onClose:
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const logBox = useRef<HTMLPreElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const actions = useRef<HTMLDivElement>(null);
   const native = inTauri();
 
   useEffect(() => {
     field.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.stopImmediatePropagation();
-      onClose();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+    panel.current?.scrollIntoView({ block: "nearest" });
+  }, []);
+
+  // what a look or an install adds sits below the field: bring it into view
+  useEffect(() => {
+    if (stage.at !== "source") actions.current?.scrollIntoView({ block: "nearest" });
+  }, [stage.at]);
 
   // the log keeps up with the build
   useEffect(() => {
@@ -215,16 +224,15 @@ export function InstallDialog({ initial, onClose }: { initial?: string; onClose:
   const job = "job" in stage ? stage.job : null;
 
   return (
-    <div className="app-dialog-backdrop" onMouseDown={busy ? undefined : onClose}>
-      <div className="app-dialog install-dialog" role="dialog" aria-labelledby="install-title" onMouseDown={(e) => e.stopPropagation()} data-install-dialog>
-        <div className="dialog-head">
-          <h2 id="install-title">{stage.at === "done" ? "Installed" : "Install a plugin"}</h2>
-          <Tooltip label="Close" keys={["Esc"]}>
-            <button type="button" className="bar-button" onClick={onClose} aria-label="Close" disabled={busy}>
-              <X size={16} />
-            </button>
-          </Tooltip>
-        </div>
+    <div ref={panel} className="install-panel" data-install-panel>
+      <div className="install-panel-head">
+        <div className="settings-label">{stage.at === "done" ? "Installed" : "Install a plugin"}</div>
+        <Tooltip label="Close">
+          <button type="button" className="bar-button" onClick={onClose} aria-label="Close the install" disabled={busy}>
+            <X size={15} />
+          </button>
+        </Tooltip>
+      </div>
 
         {stage.at === "source" || stage.at === "looking" || stage.at === "seen" ? (
           <>
@@ -245,7 +253,13 @@ export function InstallDialog({ initial, onClose }: { initial?: string; onClose:
                   setSource(e.target.value);
                   if (stage.at === "seen") setStage({ at: "source" });
                 }}
-                onKeyDown={(e) => e.key === "Enter" && look()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") look();
+                  if (e.key === "Escape" && !busy) {
+                    e.stopPropagation();
+                    onClose();
+                  }
+                }}
               />
               {native ? (
                 <Tooltip label="Choose a folder">
@@ -325,38 +339,23 @@ export function InstallDialog({ initial, onClose }: { initial?: string; onClose:
           </p>
         ) : null}
 
-        <div className="dialog-actions">
+        <div ref={actions} className="dialog-actions install-actions">
           {stage.at === "seen" ? (
-            <>
-              <button type="button" className="chrome-button" onClick={onClose}>
-                Cancel
-              </button>
-              <button type="button" className="chrome-button button-primary" onClick={() => install(stage.seen)} data-install-confirm>
-                {stage.seen.link ? "Link" : "Install"}
-              </button>
-            </>
+            <button type="button" className="chrome-button button-primary" onClick={() => install(stage.seen)} data-install-confirm>
+              {stage.seen.link ? "Link" : stage.seen.installed?.unchanged ? "Install again" : "Install"}
+            </button>
           ) : stage.at === "failed" ? (
-            <>
-              <button type="button" className="chrome-button" onClick={onClose}>
-                Close
-              </button>
-              <button type="button" className="chrome-button" onClick={() => setStage({ at: "seen", seen: stage.seen })}>
-                Back
-              </button>
-            </>
+            <button type="button" className="chrome-button" onClick={() => setStage({ at: "seen", seen: stage.seen })}>
+              Back
+            </button>
           ) : stage.at === "done" ? (
             <button type="button" className="chrome-button button-primary" onClick={onClose} data-install-close>
               Done
             </button>
           ) : stage.at === "installing" ? (
             <span className="dim install-wait">{job?.status === "building" ? "Building…" : "Working…"}</span>
-          ) : (
-            <button type="button" className="chrome-button" onClick={onClose}>
-              Cancel
-            </button>
-          )}
+          ) : null}
         </div>
-      </div>
     </div>
   );
 }

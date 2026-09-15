@@ -13,7 +13,7 @@ import { Tooltip } from "../Tooltip";
 import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
 import { Segmented, Toggle } from "./controls";
-import { InstallDialog } from "./InstallDialog";
+import { InstallPanel } from "./InstallPanel";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
 
 /** `focus` names a plugin whose settings open at once, from the palette. */
@@ -22,7 +22,7 @@ export function PluginsSection({ focus }: { focus: string | null }) {
   const { settings, update } = useSettings();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  /** the install dialog, with the source it opens on */
+  /** the install panel, with the source it opens on */
   const [installing, setInstalling] = useState<{ source?: string } | null>(null);
   const native = inTauri();
   const muted = settings.notifications.muted_plugins;
@@ -60,6 +60,18 @@ export function PluginsSection({ focus }: { focus: string | null }) {
 
   return (
     <SettingsPage title="Plugins">
+      <SettingsGroup caption="Install">
+        {installing ? (
+          <InstallPanel key={installing.source ?? ""} initial={installing.source} onClose={() => setInstalling(null)} />
+        ) : (
+          <SettingsRow label="Install a plugin" description="From a folder on this machine, a repository, or a GitHub release">
+            <button type="button" className="chrome-button" onClick={() => setInstalling({})} data-install-open>
+              <PackagePlus size={14} /> Install…
+            </button>
+          </SettingsRow>
+        )}
+      </SettingsGroup>
+
       <SettingsGroup
         caption={plugins.length ? `Installed · ${plugins.length}${broken ? `, ${broken} broken` : ""}` : "Installed"}
         action={
@@ -70,7 +82,7 @@ export function PluginsSection({ focus }: { focus: string | null }) {
           </Tooltip>
         }
       >
-        {plugins.length === 0 ? <SettingsRow label="No plugins yet" description="Install one below to give your agents a view to ask through" /> : null}
+        {plugins.length === 0 ? <SettingsRow label="No plugins yet" description="Install one above to give your agents a view to ask through" /> : null}
         {plugins.map((p) => (
           <PluginEntry
             key={p.name}
@@ -88,15 +100,6 @@ export function PluginsSection({ focus }: { focus: string | null }) {
         {message ? <SettingsRow label={message} /> : null}
       </SettingsGroup>
 
-      <SettingsGroup caption="Install">
-        <SettingsRow label="Install a plugin" description="From a folder on this machine, a repository, or a GitHub release">
-          <button type="button" className="chrome-button" onClick={() => setInstalling({})} data-install-open>
-            <PackagePlus size={14} /> Install…
-          </button>
-        </SettingsRow>
-      </SettingsGroup>
-
-      {installing ? <InstallDialog initial={installing.source} onClose={() => setInstalling(null)} /> : null}
     </SettingsPage>
   );
 }
