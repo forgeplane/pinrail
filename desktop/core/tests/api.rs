@@ -1134,6 +1134,76 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     );
 }
 
+#[tokio::test]
+async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let source = plugin_copy(scratch.path(), "hello", "1.0.0");
+    let (status, row) = install(&app, &source, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let entry = app.state.config.plugin_store_dir().join("hello/1");
+    assert!(entry.join("manifest.json").is_file());
+
+    // a built-in has no record to remove
+    let (status, body) = call(&app, "DELETE", "/api/v1/plugins/list", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+
+    // nothing renders from it: the entry goes with the record
+    let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["entries_removed"], json!([1]));
+    assert_eq!(answer["entries_kept"], json!([]));
+    assert!(!entry.exists());
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    assert!(
+        listed["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["name"] != "hello"),
+        "{listed}"
+    );
+
+    // a review still rendering from the entry keeps it, and it is still served
+    let (status, row) = install(&app, &source, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let mut body = submission();
+    body["plugin"] = json!("hello");
+    body["payload"] = json!({"message": "keep me"});
+    let review = submit(&app, body).await;
+    let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["entries_kept"], json!([1]), "{answer}");
+    assert!(entry.join("manifest.json").is_file());
+    let (status, _) = call(
+        &app,
+        "GET",
+        &format!("/plugins/hello/{}/index.html", review["plugin_version"]),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    assert!(
+        listed["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["name"] != "hello"),
+        "{listed}"
+    );
+
+    // a link loses its record and nothing else
+    let (status, row) = install(&app, &source, json!({"link": true})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["linked"], true);
+    assert!(source.join("manifest.json").is_file());
+    let (status, _) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
 fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(dir.join("src")).unwrap();
@@ -1386,15 +1456,34 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
     assert_eq!(updates["state"], "available", "{updates}");
     assert_eq!(updates["commit"], newer);
+    // update installs again from where it came, as a job
+    let (status, started) = call(&app, "POST", "/api/v1/plugins/hello/update", None).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let job = follow(&app, started["job"].as_str().unwrap()).await;
+    assert_eq!(job["status"], "done", "{job}");
+    let row = &job["plugin"];
+    assert_eq!(row["release"], "1.0.1");
+    assert_eq!(row["install"]["commit"], newer);
+    // and says when there is nothing to do
+    let (status, answer) = call(&app, "POST", "/api/v1/plugins/hello/update", None).await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["state"], "up_to_date");
+    assert_eq!(answer["version"], "1.0.1");
+
+    // a pinned tag refuses to move
     let (status, row) = install(
         &app,
         Path::new(&url),
-        json!({"ref": "main", "path": "tools/hello"}),
+        json!({"ref": "v1", "path": "tools/hello", "force": true}),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["release"], "1.0.1");
-    assert_eq!(row["install"]["commit"], newer);
+    let (status, answer) = call(&app, "POST", "/api/v1/plugins/hello/update", None).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{answer}");
+    assert!(
+        answer["message"].as_str().unwrap().contains("pinned to v1"),
+        "{answer}"
+    );
 
     // a commit is pinned too; a ref that does not exist fails with git's word
     let (status, row) = install(

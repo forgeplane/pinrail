@@ -40,6 +40,7 @@ wicket decide <id> --data FILE|- [--note TEXT] [--by NAME]
 wicket withdraw <id> [--reason TEXT]
 wicket discard <id> [--reason TEXT] [--by NAME]
 wicket plugins | wicket plugins install <source> [--link] [--force] [--ref R] [--path P]
+wicket plugins update [name] | wicket plugins remove <name>
 wicket plugins add <dir> | wicket plugins reload
 wicket serve
 wicket open <id>

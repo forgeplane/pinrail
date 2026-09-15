@@ -8,7 +8,7 @@ use axum::body::Bytes;
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
@@ -25,6 +25,8 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/jobs/{id}", get(job))
         .route("/api/v1/plugins/{name}/updates", get(updates))
+        .route("/api/v1/plugins/{name}/update", post(update))
+        .route("/api/v1/plugins/{name}", delete(remove))
         .route("/api/v1/plugins/{name}/versions", get(versions))
 }
 
@@ -159,6 +161,93 @@ async fn updates(
         tokio::task::spawn_blocking(move || crate::install::check_updates(&registry, &record))
             .await
             .map_err(|e| Error::Internal(e.to_string()))?;
+    Ok(Json(answer))
+}
+
+/// Installs a plugin again from where it came. Asks the source first: a
+/// link or a pinned source is refused with that said, nothing new answers
+/// `{state: "up_to_date"}` at once, and otherwise the install runs as a
+/// job to follow, into the same line or a new one beside it.
+async fn update(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> Result<Response, Error> {
+    let record = state
+        .db
+        .installed_plugins()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .ok_or_else(|| Error::NotFound(name.clone()))?;
+    let registry = state.registry.clone();
+    let checked = record.clone();
+    let answer =
+        tokio::task::spawn_blocking(move || crate::install::check_updates(&registry, &checked))
+            .await
+            .map_err(|e| Error::Internal(e.to_string()))?;
+    match answer["state"].as_str().unwrap_or("unknown") {
+        "linked" => {
+            return Err(Error::invalid(
+                "/name",
+                format!("{name} is a link: it is always what its folder holds"),
+            ));
+        }
+        "pinned" => {
+            let at = answer["tag"]
+                .as_str()
+                .or(answer["ref"].as_str())
+                .unwrap_or("this version");
+            return Err(Error::invalid(
+                "/name",
+                format!("{name} is pinned to {at}; install another ref to move it"),
+            ));
+        }
+        "up_to_date" => {
+            return Ok(
+                Json(json!({ "state": "up_to_date", "version": record.version })).into_response(),
+            );
+        }
+        _ => {}
+    }
+    let (source, options) = crate::install::source_of(&record);
+    let id = state.jobs.start(&source);
+    let job_id = id.clone();
+    let worker = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let jobs = worker.jobs.clone();
+        let progress = |p| jobs.note(&job_id, p);
+        let outcome =
+            crate::install::install(&worker.db, &worker.registry, &source, options, &progress)
+                .and_then(|record| {
+                    announce(&worker)?;
+                    worker
+                        .registry
+                        .get(&record.name)
+                        .map(|p| p.to_json())
+                        .ok_or_else(|| {
+                            Error::Internal(format!(
+                                "{} was installed and is not registered",
+                                record.name
+                            ))
+                        })
+                });
+        worker.jobs.finish(&job_id, outcome);
+    });
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(json!({ "job": id, "state": "updating" })),
+    )
+        .into_response())
+}
+
+/// Removes an installed plugin: the record and the store entries no
+/// review renders from; the ones a review still uses stay, and the answer
+/// names them. A built-in has no record and cannot be removed.
+async fn remove(
+    State(state): State<Arc<AppState>>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, Error> {
+    let answer = crate::install::remove(&state.db, &state.registry, &name)?;
+    announce(&state)?;
     Ok(Json(answer))
 }
 

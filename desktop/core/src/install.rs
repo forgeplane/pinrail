@@ -29,6 +29,7 @@ use crate::db::{Db, InstalledRecord};
 use crate::error::Error;
 use crate::plugins::{Plugin, Registry, hash_dir};
 
+#[derive(Debug, Default, Clone)]
 pub struct Options {
     /// serve the folder live instead of copying it
     pub link: bool,
@@ -437,6 +438,88 @@ pub fn install(
         let _ = std::fs::remove_dir_all(scratch);
     }
     result
+}
+
+/// The source an installed plugin came from, as an install takes it: the
+/// path, or the URL with its ref and folder, or the release's page.
+pub fn source_of(record: &InstalledRecord) -> (String, Options) {
+    let resolved: Value = serde_json::from_str(&record.resolved).unwrap_or(Value::Null);
+    match record.kind.as_str() {
+        "git" => (
+            resolved["url"]
+                .as_str()
+                .unwrap_or(&record.source)
+                .to_string(),
+            Options {
+                reference: resolved["ref"].as_str().map(str::to_string),
+                path: resolved["path"].as_str().map(str::to_string),
+                ..Options::default()
+            },
+        ),
+        "release" => (
+            match (resolved["owner"].as_str(), resolved["repo"].as_str()) {
+                (Some(owner), Some(repo)) => {
+                    let page = format!("https://github.com/{owner}/{repo}/releases");
+                    match (resolved["pinned"].as_bool(), resolved["tag"].as_str()) {
+                        (Some(true), Some(tag)) => format!("{page}/tag/{tag}"),
+                        _ => page,
+                    }
+                }
+                _ => record.source.clone(),
+            },
+            Options::default(),
+        ),
+        _ => (
+            record.resolved.clone(),
+            Options {
+                link: record.linked,
+                ..Options::default()
+            },
+        ),
+    }
+}
+
+/// Removes an installed plugin: its record, and its store entries no
+/// review renders from. An entry a review still uses stays, and the
+/// answer says which. A link loses only its record.
+pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> {
+    let record = db
+        .installed_plugins()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .ok_or_else(|| Error::NotFound(name.to_string()))?;
+    let mut kept: Vec<i64> = Vec::new();
+    let mut removed: Vec<i64> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(registry.store_dir().join(name)) {
+        for entry in entries.flatten() {
+            let Ok(major) = entry.file_name().to_string_lossy().parse::<i64>() else {
+                continue;
+            };
+            if db.reviews_use(name, major as u32)? {
+                kept.push(major);
+            } else {
+                std::fs::remove_dir_all(entry.path())?;
+                removed.push(major);
+            }
+        }
+    }
+    if kept.is_empty() {
+        let _ = std::fs::remove_dir(registry.store_dir().join(name));
+    }
+    db.remove_installed(name)?;
+    let records = db.installed_plugins()?;
+    registry
+        .reload_with(records)
+        .map_err(|message| Error::invalid("/name", message))?;
+    kept.sort_unstable();
+    removed.sort_unstable();
+    Ok(serde_json::json!({
+        "removed": name,
+        "linked": record.linked,
+        "version": record.version,
+        "entries_removed": removed,
+        "entries_kept": kept,
+    }))
 }
 
 /// What installing `source` would do, without doing it: the plugin the

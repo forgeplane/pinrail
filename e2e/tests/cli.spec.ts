@@ -105,6 +105,33 @@ test("plugins install places a copy in the store, and a link serves the folder l
   expect(refused.stderr).toContain("not a plugin");
 });
 
+test("plugins update says when there is nothing new, and remove drops the record", async () => {
+  const hello = path.resolve(__dirname, "../../plugins/hello");
+  const installed = wicketJson(["plugins", "install", hello]);
+  expect(installed.install.linked).toBe(false);
+
+  const same = wicketJson(["plugins", "update", "hello"]);
+  expect(same.state).toBe("up_to_date");
+  expect(same.version).toBe("1.0.0");
+
+  const linked = wicketJson(["plugins", "install", hello, "--link"]);
+  expect(linked.install.linked).toBe(true);
+  const refused = wicket(["plugins", "update", "hello"]);
+  expect(refused.code).toBe(2);
+  expect(refused.stderr).toContain("is a link");
+
+  const removed = wicketJson(["plugins", "remove", "hello"]);
+  expect(removed.removed).toBe("hello");
+  expect(removed.linked).toBe(true);
+  const names = wicketJson(["plugins"]).plugins.map((p: any) => p.name);
+  expect(names).not.toContain("hello");
+  const gone = wicket(["plugins", "remove", "hello"]);
+  expect(gone.code).toBe(2);
+
+  // the sample stays registered for the tests after this one
+  wicketJson(["plugins", "install", hello, "--link"]);
+});
+
 test("plugins lists the built-in and the registered sample plugins", async () => {
   const plugins = wicketJson(["plugins"]);
   expect(plugins.plugins.map((p: any) => p.name)).toEqual(["artifact", "email", "hello", "list", "review"]);

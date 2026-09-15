@@ -210,6 +210,18 @@ enum PluginsCommand {
         #[arg(long)]
         path: Option<String>,
     },
+    /// Install a plugin again from where it came, whatever is new there;
+    /// every installed plugin when no name is given
+    Update {
+        /// the plugin's name, as `wicket plugins` lists it
+        name: Option<String>,
+    },
+    /// Remove an installed plugin; store entries a review still renders
+    /// from are kept
+    Remove {
+        /// the plugin's name
+        name: String,
+    },
     /// Link every plugin found in a directory
     Add { dir: PathBuf },
     /// Rescan the plugin directories
@@ -316,6 +328,30 @@ fn run(cli: Cli) -> Result<u8> {
                     };
                     client.plugins_install(&source, link, force, reference.as_deref(), path.as_deref())?
                 }
+                Some(PluginsCommand::Update { name }) => {
+                    let names: Vec<String> = match name {
+                        Some(name) => vec![name],
+                        None => client.plugins()?["plugins"]
+                            .as_array()
+                            .map(|rows| {
+                                rows.iter()
+                                    .filter(|p| p["install"].is_object() && p["install"]["linked"] != true)
+                                    .filter_map(|p| p["name"].as_str().map(str::to_string))
+                                    .collect()
+                            })
+                            .unwrap_or_default(),
+                    };
+                    let mut answers = Vec::new();
+                    for name in names {
+                        eprintln!("wicket: {name}");
+                        answers.push(client.plugins_update(&name)?);
+                    }
+                    match answers.len() {
+                        1 => answers.remove(0),
+                        _ => serde_json::Value::Array(answers),
+                    }
+                }
+                Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
                 Some(PluginsCommand::Add { dir }) => {
                     let dir = std::path::absolute(&dir)?;
                     client.plugins_add(&dir.to_string_lossy())?

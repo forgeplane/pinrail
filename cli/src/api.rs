@@ -138,7 +138,33 @@ impl Client {
     pub fn plugins_install(&self, source: &str, link: bool, force: bool, reference: Option<&str>, path: Option<&str>) -> Result<Value> {
         let body = serde_json::json!({ "source": source, "link": link, "force": force, "ref": reference, "path": path });
         let started = self.post("/api/v1/plugins/install", Some(&body))?;
-        let id = started["job"].as_str().unwrap_or_default().to_string();
+        self.follow_job(started["job"].as_str().unwrap_or_default())
+    }
+
+    /// Installs a plugin again from where it came; the core says at once
+    /// when there is nothing new, and otherwise the job is followed like
+    /// an install's.
+    pub fn plugins_update(&self, name: &str) -> Result<Value> {
+        let started = self.post(&format!("/api/v1/plugins/{name}/update"), None)?;
+        match started["job"].as_str() {
+            Some(id) => {
+                let plugin = self.follow_job(id)?;
+                Ok(serde_json::json!({ "state": "updated", "version": plugin["release"], "plugin": plugin }))
+            }
+            None => {
+                eprintln!("wicket: {name} {} is up to date", started["version"].as_str().unwrap_or(""));
+                Ok(started)
+            }
+        }
+    }
+
+    pub fn plugins_remove(&self, name: &str) -> Result<Value> {
+        self.delete(&format!("/api/v1/plugins/{name}"))
+    }
+
+    /// Follows an install job to its end, printing each step and the log
+    /// as it comes; the plugin's row when done.
+    fn follow_job(&self, id: &str) -> Result<Value> {
         let mut shown = 0;
         let mut step = String::new();
         loop {
@@ -200,6 +226,15 @@ impl Client {
             None => self.agent.post(&url).send_empty(),
         }
         .context("connecting to the server")?;
+        Self::body(resp.status().as_u16(), &mut resp)
+    }
+
+    fn delete(&self, path: &str) -> Result<Value> {
+        let mut resp = self
+            .agent
+            .delete(format!("{}{path}", self.base))
+            .call()
+            .context("connecting to the server")?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
