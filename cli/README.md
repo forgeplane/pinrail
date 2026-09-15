@@ -57,6 +57,18 @@ so a workflow that already reads a decisions file keeps working unchanged.
 connection, so it survives the server restarting. A poll that lands on a
 server in the middle of shutting down is abandoned after about 20 seconds.
 
+`plugins install` takes one plugin from a folder, a repository or a GitHub
+release and puts it in the app's store; a folder can be linked instead with
+`--link`, served live while you work on it. A manifest that declares a
+`build` has it run before the bundle is placed, and the build's output
+streams to stderr as it comes. `plugins update` installs a plugin again from
+where it came when there is something new there, every installed plugin
+when no name is given; a link or a pinned tag is refused with that said.
+`plugins remove` drops a plugin, keeping a store entry that a review still
+renders from. `plugins add` links every plugin found in a folder, and
+`plugins reload` reads the store and the links again. The grammar of a
+source is in [`plugins/README.md`](../plugins/README.md#installing).
+
 ## Exit codes
 
 | code | meaning |

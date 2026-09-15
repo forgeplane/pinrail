@@ -41,14 +41,18 @@ hello/
 }
 ```
 
-- `name` is `[a-z][a-z0-9_]*`, unique across all registered directories.
+- `name` is `[a-z][a-z0-9_]*`, unique across the installed plugins.
 - Schemas are JSON Schema 2020-12, inline or by relative `$ref` to files in
-  the plugin directory. A `$ref` cannot leave the directory.
-- Bump `version` when a schema or the view changes. The first gate created
-  under a version snapshots the whole directory into wicket's data dir, and
-  gates keep rendering and validating from that snapshot afterwards.
-- `"dev": true` serves the directory live and never snapshots it; use it while
-  iterating on a view.
+  the plugin's folder. A `$ref` cannot leave the folder.
+- `version` is semantic (`"1.2.0"`; a bare integer reads as `N.0.0`). Bump
+  the major when a schema or the view changes in a way an old review
+  would not survive: the app keeps one copy per major, and a review keeps
+  rendering and validating from the major it was created under, even
+  after the plugin moves on or is removed.
+- A folder that is linked rather than copied (`--link`, or the toggle in
+  the app) is served live, so a change shows on the next open. A review
+  still snapshots what it rendered from; `"dev": true` in the manifest
+  skips that too, for a view being iterated on.
 - `settings_schema` declares settings of the plugin's own, shown as rows under
   the plugin in *Settings › Plugins*. See below.
 - `shortcuts` declares the keys your view answers, so the app lists them and
@@ -111,6 +115,18 @@ the command needs (`node`, `pnpm`, `deno`) must be on the `PATH`. Only the
 bundle enters the store: `src/`, `tests/`, `fixtures/`, `node_modules/`,
 dot-entries and the package and tool config files stay behind. A manifest
 without `build` whose `entry` is missing is refused with that said.
+
+### What runs on your machine
+
+A view runs in the app in a sandbox: an opaque origin, no network, no
+storage. It can draw and talk to the shell, and nothing else, whichever
+way it was installed. A build is different: `npm ci` runs the dependency
+tree's scripts and `npm run build` runs whatever the package says, on your
+machine with your rights. That is what you are trusting when you install a
+source that builds, which is why the app shows the exact command before
+anything runs, and why a release, whose bundle needs no build, runs
+nothing at all. Releases are not signed and publishers are not vetted:
+install from people and repositories you would run code from.
 
 ### Publishing a release
 

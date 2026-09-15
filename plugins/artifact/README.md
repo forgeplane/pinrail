@@ -66,14 +66,19 @@ with "entry index.html not found".
 ```sh
 npm install
 npm run build      # index.html and assets/
-npm run watch      # rebuild on change; mark the manifest dev: true meanwhile
+npm run watch      # rebuild on change, with the folder linked (below)
 npm test           # the plugin's own tests under the SDK harness
 ```
+
+Installing it runs the build for you: the manifest declares
+`"build": { "command": "npm ci && npm run build" }`, and only the bundle
+enters the app's store.
 
 ## Trying it
 
 ```sh
-wicket plugins add ./plugins
+wicket plugins install ./plugins/artifact           # builds, then copies the bundle into the store
+wicket plugins install ./plugins/artifact --link    # or serve the folder live while working on it
 wicket submit artifact --title "Landing page — first draft" \
   --data <(jq .payload plugins/artifact/fixtures/landing.json) --wait
 ```
