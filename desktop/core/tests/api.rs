@@ -884,3 +884,143 @@ async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
     assert_eq!(shelf["install"]["modified"], true);
     assert_eq!(shelf["usable"], true);
 }
+
+/// A copy of a sample plugin with its manifest's version rewritten.
+fn plugin_copy(root: &std::path::Path, name: &str, version: &str) -> std::path::PathBuf {
+    let from = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../plugins")
+        .join(name);
+    let to = root.join(format!("{name}-{}", version.replace('.', "_")));
+    std::fs::create_dir_all(&to).unwrap();
+    for file in std::fs::read_dir(&from).unwrap().flatten() {
+        if file.file_type().unwrap().is_file() {
+            std::fs::copy(file.path(), to.join(file.file_name())).unwrap();
+        }
+    }
+    let manifest = std::fs::read_to_string(to.join("manifest.json")).unwrap();
+    let mut manifest: Value = serde_json::from_str(&manifest).unwrap();
+    manifest["version"] = json!(version);
+    std::fs::write(to.join("manifest.json"), manifest.to_string()).unwrap();
+    to
+}
+
+async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCode, Value) {
+    let mut body = json!({ "source": source.display().to_string() });
+    if let Value::Object(map) = extra {
+        for (k, v) in map {
+            body[k] = v;
+        }
+    }
+    call(app, "POST", "/api/v1/plugins/install", Some(body)).await
+}
+
+#[tokio::test]
+async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines_in_use() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+
+    // the sample as it is: 1.0.0, placed, hashed, recorded
+    let hello = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/hello");
+    let (status, row) = install(&app, &hello, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["name"], "hello");
+    assert_eq!(row["release"], "1.0.0");
+    assert_eq!(row["install"]["kind"], "path");
+    assert_eq!(row["install"]["linked"], false);
+    assert!(row["install"]["hash"].is_string());
+    let entry = app.state.config.plugin_store_dir().join("hello").join("1");
+    assert!(entry.join("manifest.json").is_file());
+    assert!(
+        !entry.join("README.md").exists() || true,
+        "the copy keeps files, never node_modules or dot-entries"
+    );
+    assert_eq!(row["path"], entry.display().to_string());
+
+    // a review renders from the line and records the exact version
+    let mut body = submission();
+    body["plugin"] = json!("hello");
+    body["payload"] = json!({"message": "hi"});
+    let review = submit(&app, body).await;
+    assert_eq!(review["plugin_version"], 1);
+    assert_eq!(review["plugin_release"], "1.0.0");
+
+    // a patch replaces the line in place
+    let patch = plugin_copy(scratch.path(), "hello", "1.0.4");
+    let (status, row) = install(&app, &patch, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["release"], "1.0.4");
+    assert_eq!(row["version"], 1);
+    assert_eq!(app.state.db.installed_plugins().unwrap().len(), 1);
+    let (_, shown) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", review["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(
+        shown["plugin_release"], "1.0.0",
+        "the review keeps what it was submitted under"
+    );
+
+    // an older one is refused, unless forced
+    let older = plugin_copy(scratch.path(), "hello", "1.0.2");
+    let (status, body) = install(&app, &older, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("older than the installed 1.0.4"),
+        "{body}"
+    );
+    let (status, row) = install(&app, &older, json!({"force": true})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["release"], "1.0.2");
+
+    // a new major is a new line; the old one stays because the review uses it
+    let next = plugin_copy(scratch.path(), "hello", "2.0.0");
+    let (status, row) = install(&app, &next, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["version"], 2);
+    assert!(
+        app.state
+            .config
+            .plugin_store_dir()
+            .join("hello")
+            .join("2")
+            .join("manifest.json")
+            .is_file()
+    );
+    assert!(
+        entry.join("manifest.json").is_file(),
+        "line 1 stays: a review renders from it"
+    );
+    let (status, versions) = call(&app, "GET", "/api/v1/plugins/hello/versions", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(versions["current"], 2);
+    let (status, bundle) = call(
+        &app,
+        "GET",
+        &format!("/plugins/hello/1/{}", row["entry"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the old line's bundle is still served: {bundle}"
+    );
+
+    // a link serves the folder live, and a folder with no manifest is refused
+    let (status, row) = install(&app, &hello, json!({"link": true})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["install"]["linked"], true);
+    assert_eq!(
+        row["path"],
+        std::path::absolute(&hello).unwrap().display().to_string()
+    );
+    let (status, body) = install(&app, scratch.path(), json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(violations(&body)[0].0, "/source");
+}

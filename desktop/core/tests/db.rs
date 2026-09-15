@@ -15,6 +15,7 @@ fn review(id: &str, expires_in: Option<Duration>) -> Review {
         id: id.into(),
         plugin: "list".into(),
         plugin_version: 1,
+        plugin_release: "1.0.0".into(),
         title: format!("review {id}"),
         origin: Map::new(),
         requested_by: None,

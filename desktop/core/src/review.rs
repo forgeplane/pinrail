@@ -52,7 +52,10 @@ pub struct Decision {
 pub struct Review {
     pub id: String,
     pub plugin: String,
+    /// the major line the review renders from
     pub plugin_version: u32,
+    /// the exact version it was submitted under, `1.2.3`
+    pub plugin_release: String,
     pub title: String,
     pub origin: Map<String, Value>,
     pub requested_by: Option<String>,
@@ -96,6 +99,7 @@ impl Review {
             "id": self.id,
             "plugin": self.plugin,
             "plugin_version": self.plugin_version,
+            "plugin_release": self.plugin_release,
             "title": self.title,
             "origin": self.origin,
             "requested_by": self.requested_by,
@@ -166,6 +170,7 @@ mod tests {
             id: "r_1".into(),
             plugin: "list".into(),
             plugin_version: 1,
+            plugin_release: "1.0.0".into(),
             title: "t".into(),
             origin: Map::new(),
             requested_by: None,

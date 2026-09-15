@@ -133,6 +133,11 @@ impl Client {
         self.get("/api/v1/plugins", &[])
     }
 
+    pub fn plugins_install(&self, source: &str, link: bool, force: bool) -> Result<Value> {
+        let body = serde_json::json!({ "source": source, "link": link, "force": force });
+        self.post("/api/v1/plugins/install", Some(&body))
+    }
+
     pub fn plugin_versions(&self, name: &str) -> Result<Value> {
         self.get(&format!("/api/v1/plugins/{name}/versions"), &[])
     }

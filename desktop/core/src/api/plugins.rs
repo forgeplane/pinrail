@@ -19,6 +19,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/plugins", get(index))
         .route("/api/v1/plugins/reload", post(reload))
         .route("/api/v1/plugins/dirs", post(add_dir))
+        .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/{name}/versions", get(versions))
 }
 
@@ -75,6 +76,29 @@ async fn versions(
         "current": current.as_ref().filter(|p| p.usable()).map(|p| p.version),
         "versions": versions,
     })))
+}
+
+/// Installs one plugin from a folder: `{source, link?, force?}`. Answers
+/// with the plugin's row.
+async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json<Value>, Error> {
+    let body = parse_body(&body)?;
+    let Some(source) = body.get("source").and_then(Value::as_str) else {
+        return Err(Error::invalid("/source", "is required"));
+    };
+    let options = crate::install::Options {
+        link: body.get("link").and_then(Value::as_bool).unwrap_or(false),
+        force: body.get("force").and_then(Value::as_bool).unwrap_or(false),
+    };
+    let record =
+        crate::install::install_path(&state.db, &state.registry, FsPath::new(source), options)?;
+    announce(&state)?;
+    let plugin = state.registry.get(&record.name).ok_or_else(|| {
+        Error::Internal(format!(
+            "{} was installed and is not registered",
+            record.name
+        ))
+    })?;
+    Ok(Json(plugin.to_json()))
 }
 
 async fn reload(State(state): State<Arc<AppState>>) -> Result<Json<Value>, Error> {

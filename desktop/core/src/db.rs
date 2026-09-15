@@ -68,6 +68,10 @@ const MIGRATIONS: &[Migration] = &[
         name: "installed plugins in place of plugin directories",
         run: migrate_installed_plugins,
     },
+    Migration {
+        name: "the exact plugin version on a review",
+        run: |conn| conn.execute_batch("ALTER TABLE reviews ADD COLUMN plugin_release TEXT"),
+    },
 ];
 
 /// The schema as this build writes it; `PRAGMA user_version` on the file.
@@ -380,8 +384,8 @@ impl Db {
         let mut conn = self.conn.lock().unwrap();
         let tx = conn.transaction()?;
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_version, title, origin, requested_by, payload, summary, revises, expires_at, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, payload, summary, revises, expires_at, created_at)
+             VALUES (?1, ?2, ?3, ?12, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 review.id,
                 review.plugin,
@@ -394,6 +398,7 @@ impl Db {
                 review.revises,
                 review.expires_at.map(crate::review::iso),
                 crate::review::iso(review.created_at),
+                review.plugin_release,
             ],
         )?;
         let event_id = insert_event(
@@ -769,6 +774,18 @@ impl Db {
         Ok(())
     }
 
+    /// Whether any review renders from this plugin's line.
+    pub fn reviews_use(&self, plugin: &str, major: u32) -> rusqlite::Result<bool> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT 1 FROM reviews WHERE plugin = ?1 AND plugin_version = ?2 LIMIT 1",
+            params![plugin, major],
+            |_| Ok(()),
+        )
+        .optional()
+        .map(|r| r.is_some())
+    }
+
     pub fn remove_installed(&self, name: &str) -> rusqlite::Result<bool> {
         let conn = self.conn.lock().unwrap();
         Ok(conn.execute(
@@ -780,7 +797,8 @@ impl Db {
 
 const SELECT: &str = "SELECT r.id, r.plugin, r.plugin_version, r.title, r.origin, r.requested_by, r.payload, r.summary,
     r.revises, r.expires_at, r.created_at,
-    o.kind, o.at, o.by, o.reason, o.data, o.agent_note
+    o.kind, o.at, o.by, o.reason, o.data, o.agent_note,
+    r.plugin_release
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id";
 
@@ -849,6 +867,8 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     let reason: Option<String> = row.get(14)?;
     let data: Option<String> = row.get(15)?;
     let agent_note: Option<String> = row.get(16)?;
+    let plugin_release: Option<String> = row.get(17)?;
+    let plugin_version = row.get::<_, i64>(2)? as u32;
     let at = at.and_then(|s| parse_datetime(&s));
     let (
         mut decision,
@@ -883,7 +903,8 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     Ok(Review {
         id: row.get(0)?,
         plugin: row.get(1)?,
-        plugin_version: row.get::<_, i64>(2)? as u32,
+        plugin_version,
+        plugin_release: plugin_release.unwrap_or_else(|| format!("{plugin_version}.0.0")),
         title: row.get(3)?,
         origin: serde_json::from_str::<Value>(&origin)
             .ok()

@@ -11,6 +11,7 @@ pub mod db;
 pub mod error;
 pub mod events;
 pub mod id;
+pub mod install;
 pub mod plugins;
 pub mod review;
 pub mod reviews;

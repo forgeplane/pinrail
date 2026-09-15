@@ -191,7 +191,18 @@ struct PluginsArgs {
 
 #[derive(Subcommand)]
 enum PluginsCommand {
-    /// Register a directory whose subdirectories are plugins
+    /// Install one plugin from a folder into the app's store
+    Install {
+        /// the plugin's folder
+        source: String,
+        /// serve the folder live instead of copying it, for development
+        #[arg(long)]
+        link: bool,
+        /// replace a newer version that is already installed
+        #[arg(long)]
+        force: bool,
+    },
+    /// Link every plugin found in a directory
     Add { dir: PathBuf },
     /// Rescan the plugin directories
     Reload,
@@ -283,6 +294,18 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Plugins(args) => {
             let value = match args.command {
                 None => client.plugins()?,
+                Some(PluginsCommand::Install {
+                    source,
+                    link,
+                    force,
+                }) => {
+                    // a folder that exists is sent as an absolute path
+                    let source = match std::path::absolute(&source) {
+                        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
+                        _ => source,
+                    };
+                    client.plugins_install(&source, link, force)?
+                }
                 Some(PluginsCommand::Add { dir }) => {
                     let dir = std::path::absolute(&dir)?;
                     client.plugins_add(&dir.to_string_lossy())?

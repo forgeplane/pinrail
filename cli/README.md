@@ -39,7 +39,8 @@ wicket list [--status S[,S]] [--repo R] [--workflow W] [--ref X] [--run-id R] [-
 wicket decide <id> --data FILE|- [--note TEXT] [--by NAME]
 wicket withdraw <id> [--reason TEXT]
 wicket discard <id> [--reason TEXT] [--by NAME]
-wicket types | wicket types add <dir> | wicket types reload
+wicket plugins | wicket plugins install <folder> [--link] [--force]
+wicket plugins add <dir> | wicket plugins reload
 wicket serve
 wicket open <id>
 ```

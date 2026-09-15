@@ -73,6 +73,7 @@ impl Reviews {
             id: crate::id::next(),
             plugin: plugin.name.clone(),
             plugin_version: plugin.version,
+            plugin_release: plugin.release.clone(),
             title: attrs["title"].as_str().unwrap_or_default().to_string(),
             origin: Review::normalize_origin(attrs.get("origin")),
             requested_by: attrs

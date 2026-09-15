@@ -86,6 +86,25 @@ test("a refused request exits 2 with the violations on stderr", async () => {
   expect(bad.stderr).toContain("not_found");
 });
 
+test("plugins install places a copy in the store, and a link serves the folder live", async () => {
+  const hello = path.resolve(__dirname, "../../plugins/hello");
+  const installed = wicketJson(["plugins", "install", hello]);
+  expect(installed.name).toBe("hello");
+  expect(installed.release).toBe("1.0.0");
+  expect(installed.install.linked).toBe(false);
+  expect(installed.install.hash).toMatch(/^[0-9a-f]{64}$/);
+  expect(installed.path).toMatch(/plugins\/store\/hello\/1$/);
+  expect(fs.existsSync(path.join(installed.path, "manifest.json"))).toBe(true);
+
+  const linked = wicketJson(["plugins", "install", hello, "--link"]);
+  expect(linked.install.linked).toBe(true);
+  expect(linked.path).toBe(hello);
+
+  const refused = wicket(["plugins", "install", path.resolve(__dirname, "..")]);
+  expect(refused.code).toBe(2);
+  expect(refused.stderr).toContain("not a plugin");
+});
+
 test("plugins lists the built-in and the registered sample plugins", async () => {
   const plugins = wicketJson(["plugins"]);
   expect(plugins.plugins.map((p: any) => p.name)).toEqual(["artifact", "email", "hello", "list", "review"]);

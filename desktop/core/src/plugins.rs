@@ -26,7 +26,10 @@ const MANIFEST: &str = "manifest.json";
 #[derive(Debug)]
 pub struct Plugin {
     pub name: String,
+    /// The major version: the line a review renders from.
     pub version: u32,
+    /// The exact version, `1.2.3`; an integer in the manifest is `N.0.0`.
+    pub release: String,
     pub title: String,
     pub path: PathBuf,
     pub entry: String,
@@ -157,6 +160,7 @@ impl Plugin {
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default(),
                 version: 0,
+                release: "0.0.0".into(),
                 title: String::new(),
                 path: dir.to_path_buf(),
                 entry: "index.html".into(),
@@ -191,12 +195,14 @@ impl Plugin {
         if !valid_name(&name) {
             return Err(format!("name {name:?} is not valid"));
         }
-        let version = match manifest.get("version") {
-            Some(Value::Number(n)) if n.as_u64().is_some_and(|v| v > 0) => {
-                n.as_u64().unwrap() as u32
-            }
-            _ => return Err("version is required and must be a positive integer".into()),
-        };
+        let (release, major) = manifest
+            .get("version")
+            .and_then(version_of)
+            .filter(|(_, major)| *major > 0)
+            .ok_or(
+                "version is required: a positive integer, or a semantic version like \"1.2.0\"",
+            )?;
+        let version = major as u32;
         let entry = match manifest.get("entry") {
             None => "index.html".to_string(),
             Some(Value::String(s)) if !s.is_empty() && !s.starts_with('/') && !s.contains('\0') => {
@@ -263,6 +269,7 @@ impl Plugin {
                 .unwrap_or_else(|| name.clone()),
             name,
             version,
+            release,
             path: dir.to_path_buf(),
             entry,
             min_height: manifest
@@ -381,6 +388,7 @@ impl Plugin {
         serde_json::json!({
             "name": self.name,
             "version": self.version,
+            "release": self.release,
             "title": self.title,
             "path": self.path.display().to_string(),
             "entry": self.entry,
@@ -740,7 +748,10 @@ impl Registry {
         {
             return Ok(p.clone());
         }
-        let dir = self.snapshot_dir(name, version);
+        let mut dir = self.snapshot_dir(name, version);
+        if !dir.join(MANIFEST).is_file() {
+            dir = self.store_entry(name, version as i64);
+        }
         if dir.join(MANIFEST).is_file() {
             let plugin = Plugin::load(&dir);
             if plugin.version == version && plugin.usable() {
@@ -906,9 +917,9 @@ fn subdirs(dir: &Path) -> Vec<PathBuf> {
     subs
 }
 
-/// Copies a plugin directory for a snapshot: what the view is served from,
-/// not the sources it was built from.
-fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+/// Copies a plugin directory for a snapshot or a store entry: what the view
+/// is served from, not the sources it was built from.
+pub(crate) fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
         let entry = entry?;
@@ -989,7 +1000,7 @@ mod tests {
         let broken = r.get("broken").unwrap();
         assert_eq!(
             broken.error.as_deref(),
-            Some("version is required and must be a positive integer")
+            Some("version is required: a positive integer, or a semantic version like \"1.2.0\"")
         );
         assert!(r.fetch("broken").is_err());
     }
