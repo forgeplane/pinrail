@@ -78,6 +78,12 @@ export function History() {
       }
       if (typing) {
         if (event.key === "Escape") el.blur();
+        // Enter leaves the field for the results, so J, K and Enter work on them
+        if (event.key === "Enter" && el === search.current) {
+          event.preventDefault();
+          el.blur();
+          setFocused(0);
+        }
         return;
       }
       if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
@@ -104,6 +110,10 @@ export function History() {
               <input
                 ref={search}
                 type="search"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
                 placeholder="Search history…"
                 aria-label="Search history"
                 value={q}
