@@ -368,8 +368,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                   />
                 </SettingsRow>
               </SettingsGroup>
-              <SettingsGroup caption="Housekeeping">
-                <SettingsRow label="Export and import" description="A file with your reviews, decisions and settings; coming with settings in the core" />
+              <SettingsGroup caption="Command line">
                 <SettingsRow label="Install the CLI" description="Put wicket on your PATH; coming with the packaged app" />
               </SettingsGroup>
             </SettingsPage>
