@@ -31,6 +31,8 @@ pub struct AppState {
     pub db: Arc<Db>,
     pub registry: Arc<Registry>,
     pub reviews: Reviews,
+    /// plugin installs under way or done, by job id
+    pub jobs: Arc<crate::install::Jobs>,
 }
 
 impl AppState {
@@ -92,6 +94,7 @@ impl AppState {
             db,
             registry,
             reviews,
+            jobs: Arc::new(crate::install::Jobs::default()),
         }))
     }
 }

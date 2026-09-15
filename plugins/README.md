@@ -53,6 +53,42 @@ hello/
   the plugin in *Settings › Plugins*. See below.
 - `shortcuts` declares the keys your view answers, so the app lists them and
   hands them over whether or not the frame has focus. See below.
+- `build` names the command that produces the bundle, for a plugin written
+  with a framework: `"build": { "command": "npm ci && npm run build" }`.
+  Installing runs it, in a copy, and keeps what it produced. See
+  *Installing* below.
+
+## Installing
+
+The app installs one plugin at a time, from its folder:
+
+```sh
+wicket plugins install ./plugins/review          # a copy, in the app's store
+wicket plugins install ./plugins/review --link   # served live from the folder, while you work on it
+```
+
+A copy lands in the app's store under the plugin's name and major
+version, hashed and recorded with where it came from; a review renders
+from it from then on. Versions are semantic (`"version": "1.2.0"`; a bare
+integer reads as `N.0.0`): installing an equal or higher version replaces
+the line in place, an older one is refused unless `--force`, and a new
+major is a new line beside the old, which stays while a review still
+renders from it.
+
+A plugin that is built — React, Svelte, anything that compiles — declares
+the command in its manifest, and never relies on the app guessing:
+
+```json
+"build": { "command": "npm ci && npm run build" }
+```
+
+Installing copies the folder without `node_modules` and `.git`, runs the
+command there through the shell, shows its output as it comes, and keeps
+the log; a non-zero exit stops the install with the log's tail. Whatever
+the command needs (`node`, `pnpm`, `deno`) must be on the `PATH`. Only the
+bundle enters the store: `src/`, `tests/`, `fixtures/`, `node_modules/`,
+dot-entries and the package and tool config files stay behind. A manifest
+without `build` whose `entry` is missing is refused with that said.
 
 ## Settings of your own
 

@@ -6,6 +6,8 @@ use std::sync::Arc;
 
 use axum::body::Bytes;
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
@@ -20,6 +22,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/plugins/reload", post(reload))
         .route("/api/v1/plugins/dirs", post(add_dir))
         .route("/api/v1/plugins/install", post(install))
+        .route("/api/v1/plugins/jobs/{id}", get(job))
         .route("/api/v1/plugins/{name}/versions", get(versions))
 }
 
@@ -78,9 +81,9 @@ async fn versions(
     })))
 }
 
-/// Installs one plugin from a folder: `{source, link?, force?}`. Answers
-/// with the plugin's row.
-async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json<Value>, Error> {
+/// Starts installing one plugin from a folder: `{source, link?, force?}`.
+/// Answers at once with the job to follow; a build can take a minute.
+async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Response, Error> {
     let body = parse_body(&body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
         return Err(Error::invalid("/source", "is required"));
@@ -89,16 +92,48 @@ async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json
         link: body.get("link").and_then(Value::as_bool).unwrap_or(false),
         force: body.get("force").and_then(Value::as_bool).unwrap_or(false),
     };
-    let record =
-        crate::install::install_path(&state.db, &state.registry, FsPath::new(source), options)?;
-    announce(&state)?;
-    let plugin = state.registry.get(&record.name).ok_or_else(|| {
-        Error::Internal(format!(
-            "{} was installed and is not registered",
-            record.name
-        ))
-    })?;
-    Ok(Json(plugin.to_json()))
+    let id = state.jobs.start(source);
+    let source = source.to_string();
+    let job_id = id.clone();
+    let worker = state.clone();
+    tokio::task::spawn_blocking(move || {
+        let jobs = worker.jobs.clone();
+        let progress = |p| jobs.note(&job_id, p);
+        let outcome = crate::install::install_path(
+            &worker.db,
+            &worker.registry,
+            FsPath::new(&source),
+            options,
+            &progress,
+        )
+        .and_then(|record| {
+            announce(&worker)?;
+            worker
+                .registry
+                .get(&record.name)
+                .map(|p| p.to_json())
+                .ok_or_else(|| {
+                    Error::Internal(format!(
+                        "{} was installed and is not registered",
+                        record.name
+                    ))
+                })
+        });
+        worker.jobs.finish(&job_id, outcome);
+    });
+    Ok((StatusCode::ACCEPTED, Json(json!({ "job": id }))).into_response())
+}
+
+/// An install job as it stands: its step, its log so far, and how it ended.
+async fn job(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, Error> {
+    state
+        .jobs
+        .get(&id)
+        .map(|job| Json(job.to_json()))
+        .ok_or(Error::NotFound(id))
 }
 
 async fn reload(State(state): State<Arc<AppState>>) -> Result<Json<Value>, Error> {

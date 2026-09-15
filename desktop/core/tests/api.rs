@@ -904,6 +904,8 @@ fn plugin_copy(root: &std::path::Path, name: &str, version: &str) -> std::path::
     to
 }
 
+/// Starts an install and follows its job to the end: the plugin's row
+/// with 200, or the failure as a 422 body, the way a caller sees them.
 async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCode, Value) {
     let mut body = json!({ "source": source.display().to_string() });
     if let Value::Object(map) = extra {
@@ -911,7 +913,30 @@ async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCo
             body[k] = v;
         }
     }
-    call(app, "POST", "/api/v1/plugins/install", Some(body)).await
+    let (status, started) = call(app, "POST", "/api/v1/plugins/install", Some(body)).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let id = started["job"].as_str().unwrap().to_string();
+    let job = follow(app, &id).await;
+    if job["status"] == "done" {
+        (StatusCode::OK, job["plugin"].clone())
+    } else {
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            json!({ "error": "install_failed", "message": job["error"], "violations": [{"path": "/source", "message": job["error"]}] }),
+        )
+    }
+}
+
+async fn follow(app: &App, id: &str) -> Value {
+    for _ in 0..600 {
+        let (status, job) = call(app, "GET", &format!("/api/v1/plugins/jobs/{id}"), None).await;
+        assert_eq!(status, StatusCode::OK, "{job}");
+        if job["status"] == "done" || job["status"] == "failed" {
+            return job;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    panic!("the install job {id} never ended");
 }
 
 #[tokio::test]
@@ -1023,4 +1048,120 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     let (status, body) = install(&app, scratch.path(), json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(violations(&body)[0].0, "/source");
+}
+
+/// A plugin whose bundle only exists after its build runs.
+fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
+    let dir = root.join(name);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("src/view.txt"), "sources").unwrap();
+    std::fs::write(dir.join("package.json"), "{}").unwrap();
+    std::fs::write(
+        dir.join("manifest.json"),
+        json!({"name": name, "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "build": {"command": command}}).to_string(),
+    )
+    .unwrap();
+    dir
+}
+
+#[tokio::test]
+async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bundle_is_placed() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let built = buildable_plugin(
+        scratch.path(),
+        "built",
+        "echo building && mkdir -p assets && printf '<html>ok</html>' > index.html && printf 'x' > assets/a.js",
+    );
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/install",
+        Some(json!({"source": built.display().to_string()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let job = follow(&app, started["job"].as_str().unwrap()).await;
+    assert_eq!(job["status"], "done", "{job}");
+    assert!(
+        job["log"].as_str().unwrap().contains("$ echo building"),
+        "{job}"
+    );
+    assert!(
+        job["log"].as_str().unwrap().contains("\nbuilding\n"),
+        "{job}"
+    );
+    let entry = app.state.config.plugin_store_dir().join("built").join("1");
+    assert_eq!(
+        std::fs::read_to_string(entry.join("index.html")).unwrap(),
+        "<html>ok</html>"
+    );
+    assert!(entry.join("assets/a.js").is_file());
+    assert!(!entry.join("src").exists(), "sources never enter the store");
+    assert!(!entry.join("package.json").exists(), "nor the tooling");
+    assert!(
+        !built.join("index.html").exists(),
+        "the source folder was not written to"
+    );
+    assert!(job["plugin"]["install"]["hash"].is_string());
+    let log_path = app.state.db.installed_plugins().unwrap()[0]
+        .build_log
+        .clone()
+        .unwrap();
+    assert!(
+        std::fs::read_to_string(log_path)
+            .unwrap()
+            .contains("building")
+    );
+
+    // a failing build stops the install with the tail of its log; a manifest
+    // without a build and without its entry is told what to declare
+    let broken = buildable_plugin(scratch.path(), "broken", "echo nope && exit 3");
+    let (status, body) = install(&app, &broken, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let message = body["message"].as_str().unwrap();
+    assert!(
+        message.contains("the build failed") && message.contains("nope"),
+        "{message}"
+    );
+    assert!(app.state.registry.get("broken").is_none());
+    let bare = scratch.path().join("bare");
+    std::fs::create_dir_all(&bare).unwrap();
+    std::fs::write(
+        bare.join("manifest.json"),
+        json!({"name": "bare", "version": 1, "payload_schema": {}, "decision_schema": {}})
+            .to_string(),
+    )
+    .unwrap();
+    let (status, body) = install(&app, &bare, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("declares its build"),
+        "{body}"
+    );
+}
+
+#[tokio::test]
+async fn the_artifact_plugin_installs_from_its_sources() {
+    let app = app();
+    let artifact = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/artifact");
+    let (status, row) = install(&app, &artifact, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["usable"], true, "{row}");
+    let entry = app
+        .state
+        .config
+        .plugin_store_dir()
+        .join("artifact")
+        .join("1");
+    assert!(entry.join("index.html").is_file());
+    assert!(entry.join("assets").is_dir());
+    assert!(
+        !entry.join("src").exists()
+            && !entry.join("node_modules").exists()
+            && !entry.join("package.json").exists()
+    );
 }

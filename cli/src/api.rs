@@ -133,9 +133,40 @@ impl Client {
         self.get("/api/v1/plugins", &[])
     }
 
+    /// Starts the install and follows its job, printing the build's output
+    /// as it comes; the plugin's row when done.
     pub fn plugins_install(&self, source: &str, link: bool, force: bool) -> Result<Value> {
         let body = serde_json::json!({ "source": source, "link": link, "force": force });
-        self.post("/api/v1/plugins/install", Some(&body))
+        let started = self.post("/api/v1/plugins/install", Some(&body))?;
+        let id = started["job"].as_str().unwrap_or_default().to_string();
+        let mut shown = 0;
+        let mut step = String::new();
+        loop {
+            let job = self.get(&format!("/api/v1/plugins/jobs/{id}"), &[])?;
+            let status = job["status"].as_str().unwrap_or("");
+            if status != step {
+                step = status.to_string();
+                if !matches!(status, "done" | "failed") {
+                    eprintln!("wicket: {status}…");
+                }
+            }
+            let log = job["log"].as_str().unwrap_or("");
+            if log.len() > shown {
+                eprint!("{}", &log[shown..]);
+                shown = log.len();
+            }
+            match status {
+                "done" => return Ok(job["plugin"].clone()),
+                "failed" => {
+                    return Err(ApiError {
+                        status: 422,
+                        body: serde_json::json!({ "error": "install_failed", "message": job["error"] }),
+                    }
+                    .into());
+                }
+                _ => std::thread::sleep(std::time::Duration::from_millis(300)),
+            }
+        }
     }
 
     pub fn plugin_versions(&self, name: &str) -> Result<Value> {
