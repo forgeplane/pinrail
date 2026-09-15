@@ -452,15 +452,55 @@ pub fn install(
                 resolved: serde_json::json!({ "url": url, "path": path, "ref": reference })
                     .to_string(),
                 commit: Some(fetched.commit.clone()),
+                asset_hash: None,
+                build: true,
             };
             let result = install_dir(db, registry, &dir, options, progress, origin);
             let _ = std::fs::remove_dir_all(&fetched.root);
             result
         }
-        Source::Release { .. } => Err(Error::invalid(
-            "/source",
-            "installing from a GitHub release is not here yet; install the repository, or the folder",
-        )),
+        Source::Release { owner, repo, tag } => {
+            if options.link {
+                return Err(Error::invalid(
+                    "/source",
+                    "a link needs a folder; a release is a bundle",
+                ));
+            }
+            progress(Progress::Step("fetching"));
+            let release = fetch_release(registry, &owner, &repo, tag.as_deref(), progress)?;
+            // the tag and the manifest must agree on the version
+            let declared = read_manifest(&release.root)
+                .ok()
+                .and_then(|m| m.get("version").and_then(crate::plugins::version_of))
+                .map(|(v, _)| v);
+            let tagged = release.tag.trim_start_matches('v');
+            if declared.as_deref() != Some(tagged) {
+                let _ = std::fs::remove_dir_all(&release.scratch);
+                return Err(Error::invalid(
+                    "/source",
+                    format!(
+                        "the release is tagged {} but its manifest says version {}",
+                        release.tag,
+                        declared.unwrap_or_else(|| "nothing".into())
+                    ),
+                ));
+            }
+            let origin = Origin {
+                kind: "release",
+                source: source.trim().to_string(),
+                resolved: serde_json::json!({
+                    "owner": owner, "repo": repo, "tag": release.tag, "pinned": tag.is_some(),
+                    "asset": release.asset_name, "asset_url": release.asset_url,
+                })
+                .to_string(),
+                commit: None,
+                asset_hash: Some(release.asset_hash.clone()),
+                build: false,
+            };
+            let result = install_dir(db, registry, &release.root, options, progress, origin);
+            let _ = std::fs::remove_dir_all(&release.scratch);
+            result
+        }
     }
 }
 
@@ -470,6 +510,199 @@ struct Origin {
     source: String,
     resolved: String,
     commit: Option<String>,
+    asset_hash: Option<String>,
+    /// whether a build the manifest declares runs: never for a release,
+    /// whose asset is the bundle already
+    build: bool,
+}
+
+/// What fetching a release produced: the unpacked bundle and its asset.
+struct FetchedRelease {
+    scratch: PathBuf,
+    root: PathBuf,
+    tag: String,
+    asset_name: String,
+    asset_url: String,
+    asset_hash: String,
+}
+
+/// The GitHub API's root; a test points it at a server of its own.
+fn github_api() -> String {
+    std::env::var("WICKET_GITHUB_API").unwrap_or_else(|_| "https://api.github.com".into())
+}
+
+/// The most an asset may weigh.
+const ASSET_LIMIT: u64 = 200 * 1024 * 1024;
+
+/// One request to the releases API, the asset that is the bundle downloaded
+/// and hashed, the archive unpacked. The bundle's manifest sits at the
+/// archive's root, or in the single folder at its root.
+fn fetch_release(
+    registry: &Registry,
+    owner: &str,
+    repo: &str,
+    tag: Option<&str>,
+    progress: &dyn Fn(Progress),
+) -> Result<FetchedRelease, Error> {
+    let api = format!(
+        "{}/repos/{owner}/{repo}/releases/{}",
+        github_api(),
+        match tag {
+            Some(t) => format!("tags/{t}"),
+            None => "latest".into(),
+        }
+    );
+    progress(Progress::Log(format!("GET {api}")));
+    let release: Value = github_get(&api)?
+        .body_mut()
+        .read_json()
+        .map_err(|e| Error::invalid("/source", format!("GitHub's answer is not a release: {e}")))?;
+    let tag_name = release["tag_name"]
+        .as_str()
+        .ok_or_else(|| Error::invalid("/source", "GitHub's answer is not a release: no tag_name"))?
+        .to_string();
+    let assets: Vec<(String, String, u64)> = release["assets"]
+        .as_array()
+        .map(|list| {
+            list.iter()
+                .filter_map(|a| {
+                    Some((
+                        a["name"].as_str()?.to_string(),
+                        a["browser_download_url"].as_str()?.to_string(),
+                        a["size"].as_u64().unwrap_or(0),
+                    ))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let zips: Vec<&(String, String, u64)> = assets
+        .iter()
+        .filter(|(n, _, _)| n.ends_with(".zip"))
+        .collect();
+    let (asset_name, asset_url, size) = zips
+        .iter()
+        .find(|(n, _, _)| n == "wicket-plugin.zip")
+        .copied()
+        .or_else(|| (zips.len() == 1).then(|| zips[0]))
+        .cloned()
+        .ok_or_else(|| {
+            let names = if assets.is_empty() {
+                "none".to_string()
+            } else {
+                assets.iter().map(|(n, _, _)| n.as_str()).collect::<Vec<_>>().join(", ")
+            };
+            Error::invalid(
+                "/source",
+                format!(
+                    "the release {tag_name} needs one .zip asset that is the bundle, or one named wicket-plugin.zip; it has: {names}"
+                ),
+            )
+        })?;
+    if size > ASSET_LIMIT {
+        return Err(Error::invalid(
+            "/source",
+            format!("{asset_name} is {size} bytes, more than the {ASSET_LIMIT} allowed"),
+        ));
+    }
+    progress(Progress::Log(format!(
+        "downloading {asset_name} ({size} bytes)"
+    )));
+    let bytes = github_get(&asset_url)?
+        .body_mut()
+        .with_config()
+        .limit(ASSET_LIMIT)
+        .read_to_vec()
+        .map_err(|e| Error::invalid("/source", format!("downloading {asset_name} failed: {e}")))?;
+    let asset_hash = {
+        use sha2::{Digest, Sha256};
+        format!("{:x}", Sha256::digest(&bytes))
+    };
+
+    let scratch = fetch_dir(registry).join(format!(
+        "release-{}",
+        crate::id::next().trim_start_matches("r_")
+    ));
+    let tree = scratch.join("tree");
+    std::fs::create_dir_all(&tree)?;
+    std::fs::write(scratch.join(&asset_name), &bytes)?;
+    progress(Progress::Log(format!("unpacking {asset_name}")));
+    let unpacked = unzip(&bytes, &tree).and_then(|_| {
+        // the manifest at the root, or inside the one folder at the root
+        if tree.join("manifest.json").is_file() {
+            return Ok(tree.clone());
+        }
+        let entries: Vec<PathBuf> = std::fs::read_dir(&tree)?
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        match entries.as_slice() {
+            [only] if only.is_dir() && only.join("manifest.json").is_file() => Ok(only.clone()),
+            _ => Err(Error::invalid(
+                "/source",
+                format!("{asset_name} has no manifest.json at its root"),
+            )),
+        }
+    });
+    let root = match unpacked {
+        Ok(root) => root,
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&scratch);
+            return Err(match e {
+                Error::Invalid(_) => e,
+                other => Error::invalid("/source", format!("{asset_name}: {other}")),
+            });
+        }
+    };
+    Ok(FetchedRelease {
+        scratch,
+        root,
+        tag: tag_name,
+        asset_name,
+        asset_url,
+        asset_hash,
+    })
+}
+
+/// The archive's entries under `into`; an entry that would leave the folder
+/// fails the whole thing.
+fn unzip(bytes: &[u8], into: &Path) -> Result<(), Error> {
+    let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
+        .map_err(|e| Error::invalid("/source", format!("not a zip archive: {e}")))?;
+    for i in 0..archive.len() {
+        let mut file = archive
+            .by_index(i)
+            .map_err(|e| Error::invalid("/source", format!("bad zip entry: {e}")))?;
+        let Some(relative) = file.enclosed_name() else {
+            return Err(Error::invalid(
+                "/source",
+                "the archive has an entry that leaves the archive",
+            ));
+        };
+        let target = into.join(relative);
+        if file.is_dir() {
+            std::fs::create_dir_all(&target)?;
+            continue;
+        }
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let mut out = std::fs::File::create(&target)?;
+        std::io::copy(&mut file, &mut out)?;
+    }
+    Ok(())
+}
+
+fn github_get(url: &str) -> Result<ureq::http::Response<ureq::Body>, Error> {
+    ureq::get(url)
+        .header("accept", "application/vnd.github+json")
+        .header("user-agent", "wicket")
+        .call()
+        .map_err(|e| match e {
+            ureq::Error::StatusCode(code) => {
+                Error::invalid("/source", format!("GitHub answered {code} for {url}"))
+            }
+            other => Error::invalid("/source", format!("{url}: {other}")),
+        })
 }
 
 /// A shallow clone into the fetch directory, at the ref when given: a
@@ -607,6 +840,35 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
                 None => serde_json::json!({ "state": "unknown", "message": format!("{} has no such ref", reference.unwrap_or_else(|| "HEAD".into())) }),
             }
         }
+        "release" => {
+            let resolved: Value = serde_json::from_str(&record.resolved).unwrap_or(Value::Null);
+            if resolved["pinned"].as_bool().unwrap_or(false) {
+                return serde_json::json!({ "state": "pinned", "tag": resolved["tag"] });
+            }
+            let owner = resolved["owner"].as_str().unwrap_or_default();
+            let repo = resolved["repo"].as_str().unwrap_or_default();
+            let latest = github_get(&format!(
+                "{}/repos/{owner}/{repo}/releases/latest",
+                github_api()
+            ))
+            .and_then(|mut r| {
+                r.body_mut()
+                    .read_json::<Value>()
+                    .map_err(|e| Error::Internal(e.to_string()))
+            });
+            match latest {
+                Ok(v) => {
+                    let tag = v["tag_name"].as_str().unwrap_or_default().to_string();
+                    let version = tag.trim_start_matches('v').to_string();
+                    if semver(&version) > semver(&record.version) {
+                        serde_json::json!({ "state": "available", "tag": tag, "version": version, "installed": record.version })
+                    } else {
+                        serde_json::json!({ "state": "up_to_date", "tag": tag })
+                    }
+                }
+                Err(e) => serde_json::json!({ "state": "unknown", "message": e.to_string() }),
+            }
+        }
         "path" => {
             let source = Path::new(&record.resolved);
             match (hash_dir(source), &record.hash) {
@@ -729,6 +991,8 @@ pub fn install_path(
         source: source.display().to_string(),
         resolved: dir.display().to_string(),
         commit: None,
+        asset_hash: None,
+        build: true,
     };
     install_dir(db, registry, &dir, options, progress, origin)
 }
@@ -751,7 +1015,11 @@ fn install_dir(
         ));
     }
     let manifest = read_manifest(&dir)?;
-    let build = build_command(&manifest)?;
+    let build = if origin.build {
+        build_command(&manifest)?
+    } else {
+        None
+    };
 
     // a link serves the folder as it is; what the folder has to be, the
     // registry says when it loads it
@@ -966,7 +1234,7 @@ fn record_for(
         source: origin.source.clone(),
         resolved: origin.resolved.clone(),
         commit: origin.commit.clone(),
-        asset_hash: None,
+        asset_hash: origin.asset_hash.clone(),
         hash,
         build_log,
         installed_at: crate::review::iso(Utc::now()),

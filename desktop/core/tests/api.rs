@@ -1348,3 +1348,286 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
         "{body}"
     );
 }
+
+/// A zip of `files` as `path → content`, the way a release asset carries
+/// a bundle.
+fn zipped(files: &[(&str, &str)]) -> Vec<u8> {
+    use std::io::Write;
+    let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let plain = zip::write::SimpleFileOptions::default();
+    for (path, content) in files {
+        out.start_file(*path, plain).unwrap();
+        out.write_all(content.as_bytes()).unwrap();
+    }
+    out.finish().unwrap().into_inner()
+}
+
+fn bundle_manifest(name: &str, version: &str) -> String {
+    json!({"name": name, "version": version, "payload_schema": {}, "decision_schema": {}, "build": {"command": "false"}}).to_string()
+}
+
+/// A stand-in for GitHub's releases API: a release per (repo, tag), a
+/// changeable latest per repo, and the assets themselves.
+struct Releases {
+    latest: std::sync::Mutex<std::collections::HashMap<String, String>>,
+    releases: std::sync::Mutex<std::collections::HashMap<(String, String), Value>>,
+    assets: std::collections::HashMap<String, Vec<u8>>,
+    base: std::sync::OnceLock<String>,
+}
+
+async fn releases_server(fake: Arc<Releases>) -> String {
+    use axum::extract::{Path as P, State};
+    use axum::routing::get;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    fake.base.set(base.clone()).unwrap();
+    let router = Router::new()
+        .route(
+            "/repos/{owner}/{repo}/releases/latest",
+            get(
+                |State(f): State<Arc<Releases>>, P((owner, repo)): P<(String, String)>| async move {
+                    let name = format!("{owner}/{repo}");
+                    let tag = f.latest.lock().unwrap().get(&name).cloned();
+                    match tag.and_then(|t| f.releases.lock().unwrap().get(&(name, t)).cloned()) {
+                        Some(v) => (StatusCode::OK, axum::Json(v)),
+                        None => (
+                            StatusCode::NOT_FOUND,
+                            axum::Json(json!({"message": "Not Found"})),
+                        ),
+                    }
+                },
+            ),
+        )
+        .route(
+            "/repos/{owner}/{repo}/releases/tags/{tag}",
+            get(
+                |State(f): State<Arc<Releases>>,
+                 P((owner, repo, tag)): P<(String, String, String)>| async move {
+                    match f
+                        .releases
+                        .lock()
+                        .unwrap()
+                        .get(&(format!("{owner}/{repo}"), tag))
+                        .cloned()
+                    {
+                        Some(v) => (StatusCode::OK, axum::Json(v)),
+                        None => (
+                            StatusCode::NOT_FOUND,
+                            axum::Json(json!({"message": "Not Found"})),
+                        ),
+                    }
+                },
+            ),
+        )
+        .route(
+            "/assets/{name}",
+            get(
+                |State(f): State<Arc<Releases>>, P(name): P<String>| async move {
+                    match f.assets.get(&name) {
+                        Some(bytes) => (StatusCode::OK, bytes.clone()),
+                        None => (StatusCode::NOT_FOUND, Vec::new()),
+                    }
+                },
+            ),
+        )
+        .with_state(fake);
+    tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    base
+}
+
+impl Releases {
+    fn release(&self, repo: &str, tag: &str, assets: &[&str]) {
+        let base = self.base.get().unwrap();
+        let list: Vec<Value> = assets
+            .iter()
+            .map(|a| json!({"name": a, "browser_download_url": format!("{base}/assets/{a}"), "size": self.assets.get(*a).map(Vec::len).unwrap_or(0)}))
+            .collect();
+        self.releases.lock().unwrap().insert(
+            (repo.to_string(), tag.to_string()),
+            json!({"tag_name": tag, "assets": list}),
+        );
+    }
+    fn latest(&self, repo: &str, tag: &str) {
+        self.latest.lock().unwrap().insert(repo.into(), tag.into());
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_latest() {
+    let app = app();
+    let thing_120 = zipped(&[
+        ("manifest.json", &bundle_manifest("thing", "1.2.0")),
+        ("index.html", "<html>1.2.0</html>"),
+    ]);
+    let thing_130 = zipped(&[
+        ("manifest.json", &bundle_manifest("thing", "1.3.0")),
+        ("index.html", "<html>1.3.0</html>"),
+    ]);
+    // a bundle inside the one folder at the archive's root, as GitHub's
+    // own source archives and most zip tools lay it out
+    let pinned = zipped(&[
+        (
+            "pinned-1.0.1/manifest.json",
+            &bundle_manifest("pinned", "1.0.1"),
+        ),
+        ("pinned-1.0.1/index.html", "<html>pinned</html>"),
+    ]);
+    let lying = zipped(&[
+        ("manifest.json", &bundle_manifest("lying", "1.0.0")),
+        ("index.html", "<html>lying</html>"),
+    ]);
+    let mut assets = std::collections::HashMap::new();
+    assets.insert("thing-1.2.0.zip".to_string(), thing_120.clone());
+    assets.insert("thing-1.3.0.zip".to_string(), thing_130);
+    assets.insert("wicket-plugin.zip".to_string(), pinned);
+    assets.insert(
+        "notes.zip".to_string(),
+        zipped(&[("notes.txt", "not a bundle")]),
+    );
+    assets.insert("lying-2.0.0.zip".to_string(), lying);
+    assets.insert("thing.tar.gz".to_string(), b"not a zip".to_vec());
+    let fake = Arc::new(Releases {
+        latest: Default::default(),
+        releases: Default::default(),
+        assets,
+        base: Default::default(),
+    });
+    let base = releases_server(fake.clone()).await;
+    // the core asks the API where this points; the only test that sets it
+    unsafe { std::env::set_var("WICKET_GITHUB_API", &base) };
+    fake.release("acme/thing", "v1.2.0", &["thing-1.2.0.zip", "thing.tar.gz"]);
+    fake.release("acme/thing", "v1.3.0", &["thing-1.3.0.zip"]);
+    fake.latest("acme/thing", "v1.2.0");
+    fake.release("acme/pinned", "v1.0.1", &["wicket-plugin.zip", "notes.zip"]);
+    fake.latest("acme/pinned", "v1.0.1");
+    fake.release("acme/lying", "v2.0.0", &["lying-2.0.0.zip"]);
+    fake.release("acme/bare", "v1.0.0", &["thing.tar.gz"]);
+    fake.latest("acme/bare", "v1.0.0");
+
+    // the latest release: its one zip is the bundle, placed without a build
+    let (status, plugin) = install(
+        &app,
+        Path::new("https://github.com/acme/thing/releases"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{plugin}");
+    assert_eq!(plugin["name"], "thing");
+    assert_eq!(plugin["install"]["kind"], "release");
+    assert_eq!(plugin["install"]["version"], "1.2.0");
+    let expected_hash = {
+        use sha2::{Digest, Sha256};
+        format!("{:x}", Sha256::digest(&thing_120))
+    };
+    assert_eq!(plugin["install"]["asset_hash"], expected_hash);
+    assert_eq!(plugin["install"]["tag"], "v1.2.0");
+    let dir = app.state.config.plugin_store_dir().join("thing/1");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("index.html")).unwrap(),
+        "<html>1.2.0</html>"
+    );
+    assert!(!dir.join("thing-1.2.0.zip").exists());
+
+    // updates come from the latest release
+    let (status, updates) = call(&app, "GET", "/api/v1/plugins/thing/updates", None).await;
+    assert_eq!(status, StatusCode::OK, "{updates}");
+    assert_eq!(updates["state"], "up_to_date", "{updates}");
+    fake.latest("acme/thing", "v1.3.0");
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/thing/updates", None).await;
+    assert_eq!(updates["state"], "available", "{updates}");
+    assert_eq!(updates["version"], "1.3.0");
+    assert_eq!(updates["installed"], "1.2.0");
+    let (status, plugin) = install(
+        &app,
+        Path::new("https://github.com/acme/thing/releases"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{plugin}");
+    assert_eq!(plugin["install"]["version"], "1.3.0");
+    let dir = app.state.config.plugin_store_dir().join("thing/1");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("index.html")).unwrap(),
+        "<html>1.3.0</html>"
+    );
+
+    // a tag pins: wicket-plugin.zip wins among several zips, the folder at
+    // the archive's root is the bundle, and no update is ever offered
+    let (status, plugin) = install(
+        &app,
+        Path::new("https://github.com/acme/pinned/releases/tag/v1.0.1"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{plugin}");
+    assert_eq!(plugin["install"]["version"], "1.0.1");
+    assert_eq!(plugin["install"]["tag"], "v1.0.1");
+    let dir = app.state.config.plugin_store_dir().join("pinned/1");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("index.html")).unwrap(),
+        "<html>pinned</html>"
+    );
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/pinned/updates", None).await;
+    assert_eq!(updates["state"], "pinned", "{updates}");
+    assert_eq!(updates["tag"], "v1.0.1");
+
+    // the tag and the manifest disagree
+    let (status, body) = install(
+        &app,
+        Path::new("https://github.com/acme/lying/releases/tag/v2.0.0"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let message = body["message"].as_str().unwrap();
+    assert!(
+        message.contains("tagged v2.0.0") && message.contains("1.0.0"),
+        "{message}"
+    );
+
+    // no zip among the assets, and a release that is not there
+    let (_, body) = install(
+        &app,
+        Path::new("https://github.com/acme/bare/releases"),
+        json!({}),
+    )
+    .await;
+    let message = body["message"].as_str().unwrap();
+    assert!(
+        message.contains("one .zip asset") && message.contains("thing.tar.gz"),
+        "{message}"
+    );
+    let (_, body) = install(
+        &app,
+        Path::new("https://github.com/acme/thing/releases/tag/v9.9.9"),
+        json!({}),
+    )
+    .await;
+    let message = body["message"].as_str().unwrap();
+    assert!(message.contains("404"), "{message}");
+
+    // a release cannot be linked
+    let (_, body) = install(
+        &app,
+        Path::new("https://github.com/acme/thing/releases"),
+        json!({"link": true}),
+    )
+    .await;
+    assert!(
+        body["message"].as_str().unwrap().contains("bundle"),
+        "{body}"
+    );
+
+    // the fetch folder is left clean
+    let fetch = app
+        .state
+        .config
+        .plugin_store_dir()
+        .parent()
+        .unwrap()
+        .join("fetch");
+    let left: Vec<_> = std::fs::read_dir(&fetch)
+        .map(|d| d.flatten().collect())
+        .unwrap_or_default();
+    assert!(left.is_empty(), "{left:?}");
+}

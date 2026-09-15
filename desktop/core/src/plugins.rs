@@ -66,6 +66,10 @@ pub struct Install {
     pub version: String,
     pub linked: bool,
     pub commit: Option<String>,
+    /// for a release, the tag it came from
+    pub tag: Option<String>,
+    /// for a release, the SHA-256 of the asset downloaded
+    pub asset_hash: Option<String>,
     pub hash: Option<String>,
     /// the store entry's files no longer match the hash recorded at install
     pub modified: bool,
@@ -80,6 +84,8 @@ impl Install {
             "version": self.version,
             "linked": self.linked,
             "commit": self.commit,
+            "tag": self.tag,
+            "asset_hash": self.asset_hash,
             "hash": self.hash,
             "modified": self.modified,
             "installed_at": self.installed_at,
@@ -812,6 +818,11 @@ impl Registry {
                 version: record.version.clone(),
                 linked: record.linked,
                 commit: record.commit.clone(),
+                tag: (record.kind == "release")
+                    .then(|| serde_json::from_str::<Value>(&record.resolved).ok())
+                    .flatten()
+                    .and_then(|r| r["tag"].as_str().map(str::to_string)),
+                asset_hash: record.asset_hash.clone(),
                 hash: record.hash.clone(),
                 modified,
                 installed_at: record.installed_at.clone(),

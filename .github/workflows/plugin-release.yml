@@ -1,0 +1,46 @@
+# A tag named plugin-<name>-v<version> (plugin-review-v1.2.0) builds that
+# plugin and attaches its bundle, <name>-<version>.zip, to a GitHub release
+# of the same tag. Installing it then needs no toolchain:
+#
+#   wicket plugins install https://github.com/<owner>/wicket/releases/tag/plugin-review-v1.2.0
+#
+# The manifest's version must be the tag's, or the install refuses it.
+name: plugin release
+
+on:
+  push:
+    tags: ["plugin-*-v*"]
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Name and version from the tag
+        id: tag
+        run: |
+          ref="${GITHUB_REF_NAME#plugin-}"
+          echo "name=${ref%-v*}" >> "$GITHUB_OUTPUT"
+          echo "version=${ref##*-v}" >> "$GITHUB_OUTPUT"
+      - name: Build when the manifest declares a build
+        working-directory: plugins/${{ steps.tag.outputs.name }}
+        run: |
+          command=$(node -e 'const m=require("./manifest.json"); process.stdout.write(m.build?.command ?? "")')
+          if [ -n "$command" ]; then sh -c "$command"; fi
+          declared=$(node -e 'const v=require("./manifest.json").version; process.stdout.write(typeof v==="number" ? v+".0.0" : v)')
+          test "$declared" = "${{ steps.tag.outputs.version }}" || { echo "manifest says $declared, tag says ${{ steps.tag.outputs.version }}"; exit 1; }
+      - name: The bundle, and nothing else
+        working-directory: plugins/${{ steps.tag.outputs.name }}
+        run: |
+          zip -r "../../${{ steps.tag.outputs.name }}-${{ steps.tag.outputs.version }}.zip" . \
+            -x "node_modules/*" "src/*" "tests/*" "test/*" "fixtures/*" ".*" "*/.*" \
+               "package.json" "package-lock.json" "pnpm-lock.yaml" "yarn.lock" "bun.lockb" \
+               "tsconfig*.json" "vite.config.*" "vitest.config.*" "playwright.config.*"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.tag.outputs.name }}-${{ steps.tag.outputs.version }}.zip

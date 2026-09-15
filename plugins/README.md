@@ -70,6 +70,8 @@ wicket plugins install github.com/acme/plugins/review@v3               # a folde
 wicket plugins install https://github.com/acme/plugins/tree/v3/review  # the same, as the browser shows it
 wicket plugins install github.com/acme/wicket-review                   # a repository's root, default branch
 wicket plugins install git@acme.internal:plugins.git --ref v3 --path review   # SSH, the two beside it
+wicket plugins install https://github.com/acme/wicket-review/releases            # the latest GitHub release: its bundle, no build
+wicket plugins install https://github.com/acme/wicket-review/releases/tag/v1.2.0 # that release, pinned
 ```
 
 A ref is a branch, a tag or a commit; without one, the default branch. A
@@ -98,6 +100,26 @@ the command needs (`node`, `pnpm`, `deno`) must be on the `PATH`. Only the
 bundle enters the store: `src/`, `tests/`, `fixtures/`, `node_modules/`,
 dot-entries and the package and tool config files stay behind. A manifest
 without `build` whose `entry` is missing is refused with that said.
+
+### Publishing a release
+
+A GitHub release spares the people installing your plugin the toolchain:
+the app downloads its asset, checks it and serves it as it is, and never
+runs a build. The release carries one `.zip` that is the bundle (or, with
+several zips attached, one named `wicket-plugin.zip`), with
+`manifest.json` at the archive's root or inside the one folder there, as
+most zip tools lay it out. The tag is the manifest's version, with or
+without a leading `v`; a release tagged `v1.2.0` whose manifest says
+`1.1.0` is refused. Installing from `/releases` follows the latest
+release, and checking for updates compares its tag with what is installed;
+installing from `/releases/tag/<tag>` pins that one.
+
+This repository's workflow in `.github/workflows/plugin-release.yml` does
+it for the plugins here: a tag `plugin-<name>-v<version>` builds the
+plugin when its manifest says so, zips the bundle as
+`<name>-<version>.zip` and attaches it to the release of that tag. For a
+plugin of your own the recipe is the same three lines: build, zip the
+folder without its sources, attach.
 
 ## Settings of your own
 
