@@ -14,6 +14,7 @@ use std::sync::{Arc, RwLock};
 use include_dir::{Dir, include_dir};
 use serde_json::{Map, Value};
 
+use crate::db::InstalledRecord;
 use crate::error::{Error, Violation};
 use crate::schema::Schema;
 
@@ -47,8 +48,102 @@ pub struct Plugin {
     /// focus. `shortcuts_error` says why a declared list was dropped.
     pub shortcuts: Vec<Value>,
     pub shortcuts_error: Option<String>,
+    /// How the plugin got here: a link served live, or a store entry with
+    /// its record; none for the built-in and for a configured directory.
+    pub install: Option<Install>,
     /// Set when the plugin could not be loaded; it is listed but unusable.
     pub error: Option<String>,
+}
+
+/// What the registry knows about an installed plugin, for its row.
+#[derive(Debug, Clone)]
+pub struct Install {
+    pub kind: String,
+    pub source: String,
+    pub version: String,
+    pub linked: bool,
+    pub commit: Option<String>,
+    pub hash: Option<String>,
+    /// the store entry's files no longer match the hash recorded at install
+    pub modified: bool,
+    pub installed_at: String,
+}
+
+impl Install {
+    pub fn to_json(&self) -> Value {
+        serde_json::json!({
+            "kind": self.kind,
+            "source": self.source,
+            "version": self.version,
+            "linked": self.linked,
+            "commit": self.commit,
+            "hash": self.hash,
+            "modified": self.modified,
+            "installed_at": self.installed_at,
+        })
+    }
+}
+
+/// A manifest's version as text and its major: an integer is `N.0.0`,
+/// a semantic version keeps its text. None for anything else.
+pub fn version_of(value: &Value) -> Option<(String, i64)> {
+    match value {
+        Value::Number(n) => {
+            let v = n.as_u64().filter(|v| *v > 0)?;
+            Some((format!("{v}.0.0"), v as i64))
+        }
+        Value::String(s) => {
+            let parts: Vec<&str> = s.trim().split('.').collect();
+            if parts.len() != 3
+                || parts
+                    .iter()
+                    .any(|p| p.is_empty() || !p.chars().all(|c| c.is_ascii_digit()))
+            {
+                return None;
+            }
+            let major: i64 = parts[0].parse().ok()?;
+            Some((s.trim().to_string(), major))
+        }
+        _ => None,
+    }
+}
+
+/// SHA-256 over a directory's files: each relative path and its bytes, in
+/// sorted order, with the same exclusions the snapshot copier applies.
+pub fn hash_dir(dir: &Path) -> std::io::Result<String> {
+    use sha2::{Digest, Sha256};
+    fn walk(root: &Path, dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            if name == "node_modules" || name.to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let path = entry.path();
+            if entry.file_type()?.is_dir() {
+                walk(root, &path, out)?;
+            } else {
+                out.push(path.strip_prefix(root).unwrap_or(&path).to_path_buf());
+            }
+        }
+        Ok(())
+    }
+    let mut files = Vec::new();
+    walk(dir, dir, &mut files)?;
+    files.sort();
+    let mut hasher = Sha256::new();
+    for relative in files {
+        hasher.update(relative.to_string_lossy().as_bytes());
+        hasher.update([0]);
+        hasher.update(std::fs::read(dir.join(&relative))?);
+        hasher.update([0]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+/// The plugin directories inside a directory: those with a manifest.
+pub fn plugin_subdirs(dir: &Path) -> Vec<PathBuf> {
+    subdirs(dir)
 }
 
 impl Plugin {
@@ -77,6 +172,7 @@ impl Plugin {
                 settings_error: None,
                 shortcuts: Vec::new(),
                 shortcuts_error: None,
+                install: None,
                 error: Some(message),
             },
         }
@@ -186,6 +282,7 @@ impl Plugin {
             settings_error,
             shortcuts,
             shortcuts_error,
+            install: None,
             error: None,
         })
     }
@@ -299,6 +396,7 @@ impl Plugin {
             "settings_error": self.settings_error,
             "shortcuts": self.shortcuts,
             "shortcuts_error": self.shortcuts_error,
+            "install": self.install.as_ref().map(Install::to_json),
         })
     }
 }
@@ -529,46 +627,69 @@ pub fn install_builtin(dir: &Path) -> std::io::Result<PathBuf> {
 struct RegistryState {
     plugins: BTreeMap<String, Arc<Plugin>>,
     snapshots: HashMap<(String, u32), Arc<Plugin>>,
-    added_dirs: Vec<PathBuf>,
+    /// the installed plugins, links and store entries, as last given
+    records: Vec<InstalledRecord>,
 }
 
-/// The registered plugins, and the snapshots of versions still in use.
+/// The registered plugins — the built-in and configured directories, the
+/// linked folders, the store — and the snapshots of versions still in use.
 #[derive(Debug)]
 pub struct Registry {
     default_dirs: Vec<PathBuf>,
+    store_dir: PathBuf,
     snapshots_dir: PathBuf,
     state: RwLock<RegistryState>,
 }
 
 impl Registry {
-    /// Scans `default_dirs` and `added_dirs`. Fails when two plugins share a name.
+    /// Loads the plugins in `default_dirs` and the installed `records`.
+    /// Fails when two plugins share a name.
     pub fn open(
         default_dirs: Vec<PathBuf>,
-        added_dirs: Vec<PathBuf>,
+        records: Vec<InstalledRecord>,
+        store_dir: PathBuf,
         snapshots_dir: PathBuf,
     ) -> Result<Registry, String> {
         let registry = Registry {
             default_dirs,
+            store_dir,
             snapshots_dir,
             state: RwLock::new(RegistryState {
                 plugins: BTreeMap::new(),
                 snapshots: HashMap::new(),
-                added_dirs,
+                records,
             }),
         };
         registry.reload()?;
         Ok(registry)
     }
 
+    /// The directories plugins are read from: the defaults, then the
+    /// parents of the linked folders.
     pub fn dirs(&self) -> Vec<PathBuf> {
         let state = self.state.read().unwrap();
         let mut dirs = self.default_dirs.clone();
-        for dir in &state.added_dirs {
-            if !dirs.contains(dir) {
-                dirs.push(dir.clone());
+        for record in state.records.iter().filter(|r| r.linked) {
+            if let Some(parent) = Path::new(&record.path).parent().map(Path::to_path_buf)
+                && !dirs.contains(&parent)
+            {
+                dirs.push(parent);
             }
         }
         dirs
+    }
+
+    pub fn store_dir(&self) -> &Path {
+        &self.store_dir
+    }
+
+    /// Where a store entry lives: one per plugin and major.
+    pub fn store_entry(&self, name: &str, major: i64) -> PathBuf {
+        self.store_dir.join(name).join(major.to_string())
+    }
+
+    pub fn records(&self) -> Vec<InstalledRecord> {
+        self.state.read().unwrap().records.clone()
     }
 
     pub fn all(&self) -> Vec<Arc<Plugin>> {
@@ -638,14 +759,53 @@ impl Registry {
         ))
     }
 
-    /// Rescans every directory. On a duplicate name the old state is kept.
+    /// Loads everything again with a new set of records. On a duplicate
+    /// name the old state is kept.
+    pub fn reload_with(&self, records: Vec<InstalledRecord>) -> Result<usize, String> {
+        self.state.write().unwrap().records = records;
+        self.reload()
+    }
+
+    /// Reads every plugin again: the default directories, the linked
+    /// folders, the store entries — each of the last with its record and,
+    /// for a store entry, its files hashed against what was installed. On
+    /// a duplicate name the old state is kept.
     pub fn reload(&self) -> Result<usize, String> {
-        let dirs = self.dirs();
+        let records = self.state.read().unwrap().records.clone();
         let mut loaded: Vec<Plugin> = Vec::new();
-        for dir in &dirs {
+        for dir in &self.default_dirs {
             for sub in subdirs(dir) {
                 loaded.push(Plugin::load(&sub));
             }
+        }
+        for record in &records {
+            let dir = if record.linked {
+                PathBuf::from(&record.path)
+            } else {
+                self.store_entry(&record.name, record.major)
+            };
+            let mut plugin = Plugin::load(&dir);
+            let modified = match (&record.hash, record.linked) {
+                (Some(expected), false) => hash_dir(&dir).map(|h| &h != expected).unwrap_or(true),
+                _ => false,
+            };
+            if plugin.error.is_none() && plugin.name != record.name {
+                plugin.error = Some(format!(
+                    "the manifest names {}, the record {}",
+                    plugin.name, record.name
+                ));
+            }
+            plugin.install = Some(Install {
+                kind: record.kind.clone(),
+                source: record.source.clone(),
+                version: record.version.clone(),
+                linked: record.linked,
+                commit: record.commit.clone(),
+                hash: record.hash.clone(),
+                modified,
+                installed_at: record.installed_at.clone(),
+            });
+            loaded.push(plugin);
         }
         let mut by_name: BTreeMap<String, Vec<&Plugin>> = BTreeMap::new();
         for p in &loaded {
@@ -676,29 +836,24 @@ impl Registry {
         Ok(state.plugins.len())
     }
 
-    /// Registers a directory whose subdirectories are plugins, then reloads.
-    /// On failure the directory is not kept.
-    pub fn add_dir(&self, dir: &Path) -> Result<usize, String> {
+    /// Links every plugin inside a directory: the records for its
+    /// subdirectories with a manifest, the ones not yet installed. The
+    /// caller persists them and reloads; on a duplicate name the reload
+    /// says which, and nothing was kept.
+    pub fn link_all(&self, dir: &Path) -> Result<Vec<InstalledRecord>, String> {
         if !dir.is_dir() {
             return Err(format!("{} is not a directory", dir.display()));
         }
-        let dir = std::path::absolute(dir).map_err(|e| e.to_string())?;
-        if self.dirs().contains(&dir) {
-            return self.reload();
-        }
-        self.state.write().unwrap().added_dirs.push(dir.clone());
-        match self.reload() {
-            Ok(n) => Ok(n),
-            Err(message) => {
-                self.state.write().unwrap().added_dirs.retain(|d| d != &dir);
-                let _ = self.reload();
-                Err(message)
+        let known: Vec<String> = self.records().iter().map(|r| r.name.clone()).collect();
+        let mut out = Vec::new();
+        for sub in subdirs(dir) {
+            if let Some(record) = InstalledRecord::linked(&sub)
+                && !known.contains(&record.name)
+            {
+                out.push(record);
             }
         }
-    }
-
-    pub fn added_dirs(&self) -> Vec<PathBuf> {
-        self.state.read().unwrap().added_dirs.clone()
+        Ok(out)
     }
 
     pub fn snapshot_dir(&self, name: &str, version: u32) -> PathBuf {
@@ -795,7 +950,13 @@ mod tests {
 
     fn registry(tmp: &Path) -> Registry {
         let builtin = install_builtin(&tmp.join("builtin")).unwrap();
-        Registry::open(vec![builtin], vec![], tmp.join("plugins")).unwrap()
+        Registry::open(
+            vec![builtin],
+            vec![],
+            tmp.join("store"),
+            tmp.join("plugins"),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -821,6 +982,7 @@ mod tests {
         let r = Registry::open(
             vec![tmp.path().join("user")],
             vec![],
+            tmp.path().join("store"),
             tmp.path().join("plugins"),
         )
         .unwrap();
@@ -992,9 +1154,10 @@ mod tests {
         let r = registry(tmp.path());
         let other = tmp.path().join("other");
         install_builtin(&other).unwrap();
-        let error = r.add_dir(&other).unwrap_err();
+        let links = r.link_all(&other).unwrap();
+        assert_eq!(links.len(), 1, "the other list is offered as a link");
+        let error = r.reload_with(links).unwrap_err();
         assert!(error.contains("plugin list is defined at"), "{error}");
-        assert_eq!(r.dirs().len(), 1);
-        assert!(r.fetch("list").is_ok());
+        assert!(r.fetch("list").is_ok(), "the old state stands");
     }
 }

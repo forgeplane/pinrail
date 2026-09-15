@@ -69,9 +69,15 @@ impl AppState {
         let _ = std::fs::create_dir_all(&user);
         let mut defaults = vec![builtin, user];
         defaults.extend(config.plugin_dirs.iter().cloned());
-        let added = db.plugin_dirs()?.into_iter().map(Into::into).collect();
+        let records = db.installed_plugins()?;
         let registry = Arc::new(
-            Registry::open(defaults, added, config.snapshots_dir()).map_err(Error::Internal)?,
+            Registry::open(
+                defaults,
+                records,
+                config.plugin_store_dir(),
+                config.snapshots_dir(),
+            )
+            .map_err(Error::Internal)?,
         );
         let reviews = Reviews::new(
             db.clone(),

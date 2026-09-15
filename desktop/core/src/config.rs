@@ -98,6 +98,11 @@ impl Config {
     pub fn snapshots_dir(&self) -> PathBuf {
         self.data_dir.join("plugins")
     }
+
+    /// Installed plugins: one entry per plugin and major version.
+    pub fn plugin_store_dir(&self) -> PathBuf {
+        self.data_dir.join("plugins").join("store")
+    }
 }
 
 #[cfg(test)]

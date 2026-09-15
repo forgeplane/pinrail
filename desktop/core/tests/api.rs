@@ -549,7 +549,29 @@ async fn plugins_are_listed_added_and_reloaded() {
             "{p}"
         );
     }
-    assert_eq!(app.state.db.plugin_dirs().unwrap().len(), 1);
+    // each plugin in the directory is a link of its own now
+    let links = app.state.db.installed_plugins().unwrap();
+    assert_eq!(links.len(), 4);
+    assert!(links.iter().all(|r| r.linked && r.kind == "path"));
+    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let hello = body["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "hello")
+        .unwrap();
+    assert_eq!(hello["install"]["linked"], true);
+    assert_eq!(hello["install"]["kind"], "path");
+    assert_eq!(hello["install"]["version"], "1.0.0");
+    assert!(
+        body["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "list")
+            .unwrap()["install"]
+            .is_null()
+    );
 
     let (status, body) = call(
         &app,
@@ -788,4 +810,77 @@ async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
     assert_eq!(review["discarded_by"], "tester");
     let (status, _) = call(&app, "POST", "/api/v1/reviews/r_nope/discard", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+/// A store entry: the built-in list plugin copied under another name, as
+/// an install would place it, with its record and hash.
+fn store_entry(app: &App, name: &str) -> (std::path::PathBuf, String) {
+    let entry = app.state.config.plugin_store_dir().join(name).join("1");
+    std::fs::create_dir_all(&entry).unwrap();
+    let source = app.state.config.builtin_plugins_dir().join("list");
+    for file in std::fs::read_dir(&source).unwrap().flatten() {
+        std::fs::copy(file.path(), entry.join(file.file_name())).unwrap();
+    }
+    let manifest = std::fs::read_to_string(entry.join("manifest.json"))
+        .unwrap()
+        .replace("\"list\"", &format!("\"{name}\""));
+    std::fs::write(entry.join("manifest.json"), manifest).unwrap();
+    let hash = wicket_core::plugins::hash_dir(&entry).unwrap();
+    (entry, hash)
+}
+
+#[tokio::test]
+async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
+    let app = app();
+    let (entry, hash) = store_entry(&app, "shelf");
+    app.state
+        .db
+        .upsert_installed(&wicket_core::db::InstalledRecord {
+            name: "shelf".into(),
+            version: "1.0.0".into(),
+            major: 1,
+            kind: "path".into(),
+            source: "/somewhere/shelf".into(),
+            resolved: "/somewhere/shelf".into(),
+            commit: None,
+            asset_hash: None,
+            hash: Some(hash.clone()),
+            build_log: None,
+            installed_at: "2026-09-15T10:00:00Z".into(),
+            linked: false,
+            path: entry.display().to_string(),
+        })
+        .unwrap();
+    let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let shelf = body["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "shelf")
+        .unwrap();
+    assert_eq!(shelf["usable"], true, "{shelf}");
+    assert_eq!(shelf["install"]["modified"], false);
+    assert_eq!(shelf["install"]["hash"], hash);
+    assert_eq!(shelf["path"], entry.display().to_string());
+
+    // a review renders from the entry itself
+    let mut body = submission();
+    body["plugin"] = json!("shelf");
+    let review = submit(&app, body).await;
+    assert_eq!(review["plugin"], "shelf", "{review}");
+
+    // a file changed behind the app's back: still served, but said so
+    std::fs::write(entry.join("index.html"), "<html>changed</html>").unwrap();
+    call(&app, "POST", "/api/v1/plugins/reload", None).await;
+    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let shelf = body["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "shelf")
+        .unwrap();
+    assert_eq!(shelf["install"]["modified"], true);
+    assert_eq!(shelf["usable"], true);
 }

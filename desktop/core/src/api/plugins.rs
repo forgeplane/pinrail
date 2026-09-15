@@ -78,7 +78,11 @@ async fn versions(
 }
 
 async fn reload(State(state): State<Arc<AppState>>) -> Result<Json<Value>, Error> {
-    let count = state.registry.reload().map_err(Error::Internal)?;
+    let records = state.db.installed_plugins()?;
+    let count = state
+        .registry
+        .reload_with(records)
+        .map_err(Error::Internal)?;
     announce(&state)?;
     Ok(Json(json!({ "ok": true, "count": count })))
 }
@@ -88,12 +92,23 @@ async fn add_dir(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json
     let Some(dir) = body.get("dir").and_then(Value::as_str) else {
         return Err(Error::invalid("/dir", "is required"));
     };
-    let count = state
+    // every plugin in the directory becomes a link, served live from where
+    // it is; a duplicate name refuses the whole directory and keeps nothing
+    let links = state
         .registry
-        .add_dir(FsPath::new(dir))
+        .link_all(FsPath::new(dir))
         .map_err(|message| Error::invalid("/dir", message))?;
-    for added in state.registry.added_dirs() {
-        state.db.add_plugin_dir(&added.display().to_string())?;
+    let mut records = state.db.installed_plugins()?;
+    records.extend(links.iter().cloned());
+    let count = match state.registry.reload_with(records) {
+        Ok(count) => count,
+        Err(message) => {
+            let _ = state.registry.reload_with(state.db.installed_plugins()?);
+            return Err(Error::invalid("/dir", message));
+        }
+    };
+    for record in &links {
+        state.db.upsert_installed(record)?;
     }
     announce(&state)?;
     Ok(Json(json!({
