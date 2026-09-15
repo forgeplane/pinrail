@@ -442,6 +442,8 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .settings-row-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 7px; background: var(--accent-bg); color: var(--accent); }
 .settings-plugin-line { display: inline-flex; align-items: center; gap: 10px; margin-top: 2px; }
 .settings-plugin-origin { display: inline-flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.settings-plugin-ask { display: inline-flex; gap: 8px; align-items: center; }
+.settings-reset-link.danger { color: var(--danger); }
 .settings-notify { color: var(--text); }
 .settings-notify.is-muted { color: var(--faint); }
 .settings-notify.is-muted:hover { color: var(--dim); }

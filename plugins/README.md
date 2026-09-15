@@ -83,8 +83,11 @@ looks before it installs: it fetches the source, shows the plugin the
 manifest describes, where it comes from, whether a build runs and the
 exact command, and what is installed under that name already. *Install*
 is the yes. Each plugin's row says where it came from, checks for updates
-on request, and offers *Install a copy* on a linked folder once you are
-done iterating.
+on request and updates when there is something new, removes the plugin
+(a store entry a review still renders from stays), and offers *Install a
+copy* on a linked folder once you are done iterating. The CLI does the
+same with `wicket plugins update [name]` and `wicket plugins remove
+<name>`.
 
 A copy lands in the app's store under the plugin's name and major
 version, hashed and recorded with where it came from; a review renders

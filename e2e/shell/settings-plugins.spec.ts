@@ -66,6 +66,15 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await row.getByRole("button", { name: "Check for updates of greeter" }).click();
   await expect(row.locator("[data-plugin-updates]")).toHaveText("Up to date");
 
+  // once the folder changes, the check offers an update, which copies it again
+  fs.writeFileSync(path.join(source, "index.html"), "<html>second</html>");
+  await row.getByRole("button", { name: "Check for updates of greeter" }).click();
+  await expect(row.locator("[data-plugin-updates]")).toHaveText("The folder changed since it was copied");
+  await row.locator("[data-plugin-update]").click();
+  await expect(row.locator("[data-plugin-updates]")).toHaveText("Updated to 1.2.0");
+  const served = await (await page.request.get(`${core}/plugins/greeter/1/index.html`)).text();
+  expect(served).toBe("<html>second</html>");
+
   // the same version again says what it replaces
   const again = await openInstall(page);
   await again.getByLabel("Source").fill(source);
@@ -75,6 +84,15 @@ test("a folder is looked at before it is installed, and its row says where it ca
   fs.appendFileSync(path.join(source, "index.html"), "<!-- edited -->");
   await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="same"]')).toContainText("greeter 1.2.0 is installed already. Installing replaces it.");
+  await again.getByLabel("Source").press("Escape");
+
+  // removing asks once, in the row, then the row goes
+  await row.getByRole("button", { name: "Remove greeter" }).click();
+  await expect(row.locator("[data-plugin-remove-ask]")).toContainText("Remove Hello?");
+  await row.locator("[data-plugin-remove-confirm]").click();
+  await expect(page.locator('[data-plugin-row="greeter"]')).toHaveCount(0);
+  const after = await (await page.request.get(`${core}/api/v1/plugins`)).json();
+  expect(after.plugins.some((p: { name: string }) => p.name === "greeter")).toBe(false);
 });
 
 test("a source that builds shows the exact command as the consent, then runs it", async ({ page }) => {

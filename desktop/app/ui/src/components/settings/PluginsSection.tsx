@@ -2,9 +2,9 @@
 // from, a Notify toggle and its own settings folded under it; and the way
 // in, the install dialog.
 
-import { Bell, BellOff, ChevronRight, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, TriangleAlert, Wrench } from "lucide-react";
+import { Bell, BellOff, ChevronRight, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, Trash2, TriangleAlert, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, inTauri } from "../../api/client";
+import { ApiError, api, inTauri } from "../../api/client";
 import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
@@ -124,15 +124,17 @@ function originOf(p: Plugin): string | null {
   return `copied from ${i.source}`;
 }
 
+type Line = { text: string; tone: "ok" | "dim" | "danger"; updatable?: boolean };
+
 /** What "check for updates" found, in a few words. */
-function updatesLine(u: PluginUpdates): { text: string; tone: "ok" | "dim" | "danger" } {
+function updatesLine(u: PluginUpdates): Line {
   switch (u.state) {
     case "up_to_date":
       return { text: "Up to date", tone: "ok" };
     case "available":
-      if (u.version) return { text: `${u.version} is available`, tone: "ok" };
-      if (u.commit) return { text: `A newer commit is available: ${u.commit.slice(0, 7)}`, tone: "ok" };
-      return { text: "The folder changed since it was copied", tone: "ok" };
+      if (u.version) return { text: `${u.version} is available`, tone: "ok", updatable: true };
+      if (u.commit) return { text: `A newer commit is available: ${u.commit.slice(0, 7)}`, tone: "ok", updatable: true };
+      return { text: "The folder changed since it was copied", tone: "ok", updatable: true };
     case "pinned":
       return { text: `Pinned to ${u.tag ?? u.ref ?? "this version"}`, tone: "dim" };
     case "linked":
@@ -148,7 +150,10 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
   const [open, setOpen] = useState(openAtStart && entries.length > 0);
-  const [updates, setUpdates] = useState<{ text: string; tone: string } | "checking" | null>(null);
+  const [updates, setUpdates] = useState<Line | "checking" | null>(null);
+  /** an update under way: the job's step */
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<"asking" | "busy" | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -171,6 +176,48 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
     }
   };
 
+  // installs again from where it came; the row follows the job's steps
+  const updateNow = async () => {
+    setUpdating("starting");
+    setUpdates(null);
+    try {
+      const started = await api.updatePlugin(p.name);
+      if (!started.job) {
+        setUpdating(null);
+        setUpdates({ text: "Up to date", tone: "ok" });
+        return;
+      }
+      const follow = async () => {
+        const job = await api.pluginJob(started.job!);
+        if (job.status === "done") {
+          setUpdating(null);
+          setUpdates({ text: `Updated to ${job.plugin?.install?.version ?? ""}`.trim(), tone: "ok" });
+        } else if (job.status === "failed") {
+          setUpdating(null);
+          setUpdates({ text: `Update failed: ${job.error ?? "unknown"}`, tone: "danger" });
+        } else {
+          setUpdating(job.status);
+          window.setTimeout(follow, 300);
+        }
+      };
+      follow();
+    } catch (e) {
+      setUpdating(null);
+      setUpdates({ text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Update failed", tone: "danger" });
+    }
+  };
+
+  const remove = async () => {
+    setRemoving("busy");
+    try {
+      await api.removePlugin(p.name);
+      // the row goes with the plugins_reloaded notice
+    } catch (e) {
+      setRemoving(null);
+      setUpdates({ text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Could not remove it", tone: "danger" });
+    }
+  };
+
   const linked = p.install?.linked ?? false;
   const origin = originOf(p);
   const note = p.error ? (
@@ -185,7 +232,34 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           <TriangleAlert size={11} /> modified since install
         </span>
       ) : null}
-      {updates === "checking" ? <span className="faint">Checking…</span> : updates ? <span className={updates.tone} data-plugin-updates>{updates.text}</span> : null}
+      {removing ? (
+        <span className="settings-plugin-ask" data-plugin-remove-ask>
+          Remove {p.title || p.name}?{linked ? " The folder stays where it is." : " Reviews that rendered from it keep doing so."}
+          <button type="button" className="settings-reset-link danger" onClick={remove} disabled={removing === "busy"} data-plugin-remove-confirm>
+            {removing === "busy" ? "Removing…" : "Remove"}
+          </button>
+          <button type="button" className="settings-reset-link" onClick={() => setRemoving(null)} disabled={removing === "busy"}>
+            Keep
+          </button>
+        </span>
+      ) : updating ? (
+        <span className="faint" data-plugin-updating>
+          Updating: {updating}…
+        </span>
+      ) : updates === "checking" ? (
+        <span className="faint">Checking…</span>
+      ) : updates ? (
+        <span className="settings-plugin-ask">
+          <span className={updates.tone} data-plugin-updates>
+            {updates.text}
+          </span>
+          {updates.updatable ? (
+            <button type="button" className="settings-reset-link" onClick={updateNow} data-plugin-update>
+              Update
+            </button>
+          ) : null}
+        </span>
+      ) : null}
     </span>
   );
 
@@ -230,6 +304,13 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           <Tooltip label="Check for updates">
             <button type="button" className="bar-button" onClick={check} aria-label={`Check for updates of ${p.name}`} disabled={updates === "checking"}>
               <CloudDownload size={15} />
+            </button>
+          </Tooltip>
+        ) : null}
+        {p.install ? (
+          <Tooltip label="Remove">
+            <button type="button" className="bar-button" onClick={() => setRemoving("asking")} aria-label={`Remove ${p.name}`} disabled={removing !== null || updating !== null}>
+              <Trash2 size={15} />
             </button>
           </Tooltip>
         ) : null}

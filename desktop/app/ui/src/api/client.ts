@@ -75,6 +75,10 @@ export const api = {
   installPlugin: (body: InstallRequest) => request<{ job: string }>("POST", "/api/v1/plugins/install", body),
   pluginJob: (id: string) => request<InstallJob>("GET", `/api/v1/plugins/jobs/${id}`),
   pluginUpdates: (name: string) => request<PluginUpdates>("GET", `/api/v1/plugins/${name}/updates`),
+  /** installs again from where it came: a job to follow, or up_to_date at once */
+  updatePlugin: (name: string) => request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${name}/update`),
+  /** drops the record and the store entries no review renders from */
+  removePlugin: (name: string) => request<{ removed: string; linked: boolean; entries_kept: number[] }>("DELETE", `/api/v1/plugins/${name}`),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** The URL a plugin's bundle is loaded from; the iframe adds the theme. */
