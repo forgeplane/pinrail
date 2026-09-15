@@ -1,10 +1,11 @@
-// The Plugins section: the registered plugins with a Notify toggle each,
-// the directories they come from, and the place installation will take.
+// The Plugins section: the registered plugins, each with where it came
+// from, a Notify toggle and its own settings folded under it; and the way
+// in, the install dialog.
 
-import { Bell, BellOff, ChevronRight, CircleCheck, FolderOpen, FolderPlus, RefreshCw, TriangleAlert, Wrench } from "lucide-react";
+import { Bell, BellOff, ChevronRight, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, TriangleAlert, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, api, inTauri } from "../../api/client";
-import type { Plugin, SettingProperty } from "../../api/types";
+import { api, inTauri } from "../../api/client";
+import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
 import { Select } from "../Select";
@@ -12,6 +13,7 @@ import { Tooltip } from "../Tooltip";
 import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
 import { Segmented, Toggle } from "./controls";
+import { InstallDialog } from "./InstallDialog";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
 
 /** `focus` names a plugin whose settings open at once, from the palette. */
@@ -19,16 +21,15 @@ export function PluginsSection({ focus }: { focus: string | null }) {
   const live = useLive();
   const { settings, update } = useSettings();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
-  const [dirs, setDirs] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  const [newDir, setNewDir] = useState("");
+  /** the install dialog, with the source it opens on */
+  const [installing, setInstalling] = useState<{ source?: string } | null>(null);
   const native = inTauri();
   const muted = settings.notifications.muted_plugins;
 
   const load = useCallback(async () => {
-    const { plugins, dirs } = await api.plugins();
+    const { plugins } = await api.plugins();
     setPlugins(plugins);
-    setDirs(dirs);
   }, []);
 
   useEffect(() => {
@@ -43,25 +44,6 @@ export function PluginsSection({ focus }: { focus: string | null }) {
       setMessage(e instanceof Error ? e.message : "Reload failed");
     }
     load().catch(() => {});
-  };
-
-  const add = async (dir: string) => {
-    if (!dir.trim()) return;
-    try {
-      const { count } = await api.addPluginDir(dir.trim());
-      setMessage(`${count} plugin${count === 1 ? "" : "s"} registered`);
-      setNewDir("");
-    } catch (e) {
-      setMessage(e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Could not add the directory");
-    }
-    load().catch(() => {});
-  };
-
-  // the app has a folder picker; a browser takes a path
-  const choose = async () => {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ directory: true, multiple: false, title: "Add a plugin directory" });
-    if (typeof picked === "string") add(picked);
   };
 
   const reveal = async (path: string) => {
@@ -79,55 +61,42 @@ export function PluginsSection({ focus }: { focus: string | null }) {
   return (
     <SettingsPage title="Plugins">
       <SettingsGroup
-        caption={plugins.length ? `Registered · ${plugins.length}${broken ? `, ${broken} broken` : ""}` : "Registered"}
+        caption={plugins.length ? `Installed · ${plugins.length}${broken ? `, ${broken} broken` : ""}` : "Installed"}
         action={
-          <Tooltip label="Read the plugin directories again">
+          <Tooltip label="Read the store and the links again">
             <button type="button" className="chrome-button settings-caption-action" onClick={reload}>
               <RefreshCw size={13} /> Reload
             </button>
           </Tooltip>
         }
       >
-        {plugins.length === 0 ? <SettingsRow label="No plugins yet" description="Add a directory of plugins below to give your agents a view to ask through" /> : null}
+        {plugins.length === 0 ? <SettingsRow label="No plugins yet" description="Install one below to give your agents a view to ask through" /> : null}
         {plugins.map((p) => (
-          <PluginEntry key={p.name} plugin={p} native={native} muted={muted.includes(p.name)} stored={settings.plugins[p.name] ?? {}} open={focus === p.name} onReveal={() => reveal(p.path)} onNotify={(on) => setNotify(p.name, on)} onChange={(values) => update({ plugins: { [p.name]: values } })} />
+          <PluginEntry
+            key={p.name}
+            plugin={p}
+            native={native}
+            muted={muted.includes(p.name)}
+            stored={settings.plugins[p.name] ?? {}}
+            open={focus === p.name}
+            onReveal={() => reveal(p.path)}
+            onNotify={(on) => setNotify(p.name, on)}
+            onChange={(values) => update({ plugins: { [p.name]: values } })}
+            onCopy={() => setInstalling({ source: p.path })}
+          />
         ))}
-      </SettingsGroup>
-
-      <SettingsGroup caption="Directories">
-        {dirs.map((d) => (
-          <SettingsRow key={d} label={d} description="Scanned at start and on Reload">
-            <Tooltip label="Removing a directory is coming; its plugins stay registered">
-              <button type="button" className="chrome-button" disabled>
-                Remove
-              </button>
-            </Tooltip>
-          </SettingsRow>
-        ))}
-        <SettingsRow label="Add a directory" description={native ? "Every plugin inside it is registered at once" : "A path on the machine the server runs on"}>
-          {native ? (
-            <button type="button" className="chrome-button" onClick={choose}>
-              <FolderPlus size={14} /> Choose…
-            </button>
-          ) : (
-            <span className="settings-add">
-              <input aria-label="Directory to add" placeholder="/path/to/plugins" value={newDir} onChange={(e) => setNewDir(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add(newDir)} />
-              <button type="button" className="chrome-button" onClick={() => add(newDir)}>
-                <FolderPlus size={14} /> Add
-              </button>
-            </span>
-          )}
-        </SettingsRow>
         {message ? <SettingsRow label={message} /> : null}
       </SettingsGroup>
 
       <SettingsGroup caption="Install">
-        <SettingsRow label="Install from a path or a repository" description="Coming: a source, the manifest to check, the build log">
-          <button type="button" className="chrome-button" disabled>
-            Install…
+        <SettingsRow label="Install a plugin" description="From a folder on this machine, a repository, or a GitHub release">
+          <button type="button" className="chrome-button" onClick={() => setInstalling({})} data-install-open>
+            <PackagePlus size={14} /> Install…
           </button>
         </SettingsRow>
       </SettingsGroup>
+
+      {installing ? <InstallDialog initial={installing.source} onClose={() => setInstalling(null)} /> : null}
     </SettingsPage>
   );
 }
@@ -142,12 +111,41 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
   return null;
 };
 
-/** One registered plugin: its row, and its settings folded under it when it declares any. */
-function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void }) {
+/** Where an installed plugin came from, in a few words. */
+function originOf(p: Plugin): string | null {
+  const i = p.install;
+  if (!i) return null;
+  if (i.linked) return `linked · ${p.path}`;
+  if (i.kind === "git") return `${i.source}${i.commit ? ` · ${i.commit.slice(0, 7)}` : ""}`;
+  if (i.kind === "release") return `${i.source}${i.tag ? ` · ${i.tag}` : ""}`;
+  return `copied from ${i.source}`;
+}
+
+/** What "check for updates" found, in a few words. */
+function updatesLine(u: PluginUpdates): { text: string; tone: "ok" | "dim" | "danger" } {
+  switch (u.state) {
+    case "up_to_date":
+      return { text: "Up to date", tone: "ok" };
+    case "available":
+      if (u.version) return { text: `${u.version} is available`, tone: "ok" };
+      if (u.commit) return { text: `A newer commit is available: ${u.commit.slice(0, 7)}`, tone: "ok" };
+      return { text: "The folder changed since it was copied", tone: "ok" };
+    case "pinned":
+      return { text: `Pinned to ${u.tag ?? u.ref ?? "this version"}`, tone: "dim" };
+    case "linked":
+      return { text: "A link is always what the folder holds", tone: "dim" };
+    default:
+      return { text: `Could not check: ${u.message ?? "unknown"}`, tone: "danger" };
+  }
+}
+
+/** One installed plugin: its row, and its settings folded under it when it declares any. */
+function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange, onCopy }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void }) {
   const schema = p.usable ? p.settings_schema : null;
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
   const [open, setOpen] = useState(openAtStart && entries.length > 0);
+  const [updates, setUpdates] = useState<{ text: string; tone: string } | "checking" | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -161,8 +159,35 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
   const resetAll = () => onChange(Object.fromEntries(entries.map(([key, property]) => [key, property.default])));
   const toggle = () => entries.length && setOpen((o) => !o);
 
+  const check = async () => {
+    setUpdates("checking");
+    try {
+      setUpdates(updatesLine(await api.pluginUpdates(p.name)));
+    } catch (e) {
+      setUpdates({ text: `Could not check: ${e instanceof Error ? e.message : "unknown"}`, tone: "danger" });
+    }
+  };
+
+  const linked = p.install?.linked ?? false;
+  const origin = originOf(p);
+  const note = p.error ? (
+    <span className="danger">{p.error}</span>
+  ) : p.settings_error ? (
+    <span className="danger">settings dropped: {p.settings_error}</span>
+  ) : (
+    <span className="settings-plugin-origin">
+      <span className="mono">{origin ?? p.path}</span>
+      {p.install?.modified ? (
+        <span className="danger with-icon">
+          <TriangleAlert size={11} /> modified since install
+        </span>
+      ) : null}
+      {updates === "checking" ? <span className="faint">Checking…</span> : updates ? <span className={updates.tone} data-plugin-updates>{updates.text}</span> : null}
+    </span>
+  );
+
   return (
-    <div ref={box} className={`settings-plugin ${entries.length ? "has-settings" : ""} ${open ? "is-open" : ""}`} data-plugin-settings={p.name}>
+    <div ref={box} className={`settings-plugin ${entries.length ? "has-settings" : ""} ${open ? "is-open" : ""}`} data-plugin-settings={p.name} data-plugin-row={p.name}>
       <SettingsRow
         icon={<PluginIcon icon={p.icon} size={16} strokeWidth={1.75} />}
         label={p.title || p.name}
@@ -170,9 +195,10 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           <span className="settings-plugin-line">
             <PluginBadge name={p.name} version={p.version} icon={p.icon} />
             <span className={`with-icon ${p.error ? "danger" : "ok"}`}>
-              {p.error ? <TriangleAlert size={12} /> : p.dev ? <Wrench size={12} /> : <CircleCheck size={12} />}
-              {p.error ? "broken" : p.dev ? "development" : "ready"}
+              {p.error ? <TriangleAlert size={12} /> : linked ? <Link2 size={12} /> : p.dev ? <Wrench size={12} /> : <CircleCheck size={12} />}
+              {p.error ? "broken" : linked ? "linked" : p.dev ? "development" : "ready"}
             </span>
+            {p.install && !linked ? <span className="faint">{p.install.version}</span> : null}
             {entries.length ? (
               <span className="faint">
                 {entries.length} setting{entries.length === 1 ? "" : "s"}
@@ -181,13 +207,26 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
             ) : null}
           </span>
         }
-        note={p.error ? <span className="danger">{p.error}</span> : p.settings_error ? <span className="danger">settings dropped: {p.settings_error}</span> : <span className="mono">{p.path}</span>}
+        note={note}
         onClick={entries.length ? toggle : undefined}
       >
         {native ? (
           <Tooltip label="Show in Finder">
             <button type="button" className="bar-button" onClick={onReveal} aria-label={`Reveal ${p.name}`}>
               <FolderOpen size={15} />
+            </button>
+          </Tooltip>
+        ) : null}
+        {p.install && linked ? (
+          <Tooltip label="Install a copy: done iterating, put it in the store">
+            <button type="button" className="bar-button" onClick={onCopy} aria-label={`Install a copy of ${p.name}`}>
+              <PackagePlus size={15} />
+            </button>
+          </Tooltip>
+        ) : p.install ? (
+          <Tooltip label="Check for updates">
+            <button type="button" className="bar-button" onClick={check} aria-label={`Check for updates of ${p.name}`} disabled={updates === "checking"}>
+              <CloudDownload size={15} />
             </button>
           </Tooltip>
         ) : null}

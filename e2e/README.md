@@ -9,6 +9,7 @@ Suites are organised by what they check, not by language:
 | `tests/cli.spec.ts` | the CLI against the server: create with wait, two waiters, withdraw, timeout, refusal, types |
 | `tests/plugins/*.spec.ts` | each shipped plugin, decided in the browser inside its sandboxed frame, as seen by the waiter |
 | `tests/zz-restart.spec.ts` | a wait survives the server being killed and restarted |
+| `shell/*.spec.ts` | the desktop shell in a browser against the headless desktop server: installing a plugin from Settings, its rows (`shell.config.ts`, `mise run e2e:shell`) |
 
 Plugin behaviour in isolation is not here: each plugin has `tests/` mounted
 under the SDK's fake shell, run with `mise run test:plugins` (configured in

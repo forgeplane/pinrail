@@ -65,7 +65,64 @@ export type Plugin = {
   /** the keys the view answers, as the manifest declares them */
   shortcuts: PluginShortcut[];
   shortcuts_error: string | null;
+  /** how it got here; null for a built-in */
+  install: PluginInstall | null;
 };
+
+/** The record an install left: where the plugin came from and what was placed. */
+export type PluginInstall = {
+  kind: "path" | "git" | "release";
+  source: string;
+  version: string;
+  /** served live from its folder rather than copied */
+  linked: boolean;
+  commit: string | null;
+  tag: string | null;
+  asset_hash: string | null;
+  hash: string | null;
+  /** the store entry's files no longer match the hash recorded at install */
+  modified: boolean;
+  installed_at: string;
+};
+
+/** What installing a source would do, as the core reports it before anything runs. */
+export type Inspection = {
+  source: string;
+  link: boolean;
+  name: string;
+  version: string;
+  major: number;
+  title: string;
+  icon: string | null;
+  entry: string;
+  /** the exact command a build runs; null when nothing runs */
+  build: string | null;
+  origin: {
+    kind: "path" | "git" | "release";
+    resolved: string | { url?: string; path?: string | null; ref?: string | null; owner?: string; repo?: string; tag?: string; asset?: string; asset_size?: number; pinned?: boolean };
+    commit: string | null;
+  };
+  /** what is installed under the name already */
+  installed: { version: string; major: number; linked: boolean; kind: string } | null;
+  /** the source is older than what is installed on the same line */
+  older: boolean;
+};
+
+export type InstallJob = {
+  id: string;
+  source: string;
+  status: "fetching" | "inspecting" | "building" | "placing" | "done" | "failed";
+  log: string;
+  error: string | null;
+  plugin: Plugin | null;
+};
+
+export type PluginUpdates =
+  | { state: "up_to_date"; commit?: string; tag?: string }
+  | { state: "available"; version?: string; commit?: string; tag?: string; installed?: string; message?: string }
+  | { state: "pinned"; ref?: string; tag?: string }
+  | { state: "linked" }
+  | { state: "unknown"; message?: string };
 
 export type PluginShortcut = { keys: string; does: string; group?: string };
 

@@ -52,6 +52,11 @@ description = "The CLI end-to-end specs against the headless desktop server"
 dir = "{{config_root}}/e2e"
 run = "WICKET_E2E_SERVER=desktop npx playwright test tests/cli.spec.ts tests/zz-restart.spec.ts"
 
+[tasks."e2e:shell"]
+description = "The desktop shell in a browser against the headless desktop server: settings, installing"
+dir = "{{config_root}}/e2e"
+run = "npx playwright test -c shell.config.ts"
+
 [tasks."build:desktop"]
 description = "Desktop app: build the UI and the app binary"
 dir = "{{config_root}}/desktop"

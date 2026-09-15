@@ -2,7 +2,7 @@
 // server's URL; in a browser (development, tests) it uses VITE_WICKET_URL or
 // the default port.
 
-import type { Info, Notice, Plugin, Review, ServerSettings, Violation } from "./types";
+import type { Info, InstallJob, Inspection, Notice, Plugin, PluginUpdates, Review, ServerSettings, Violation } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -44,6 +44,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return parsed as T;
 }
 
+export type InstallRequest = { source: string; link?: boolean; force?: boolean; ref?: string; path?: string };
+
 const query = (params: Record<string, string | undefined>) => {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) q.set(k, v);
@@ -67,8 +69,12 @@ export const api = {
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${id}/viewed`),
   plugins: () => request<{ dirs: string[]; plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   reloadPlugins: () => request<{ ok: boolean; count: number }>("POST", "/api/v1/plugins/reload"),
-  addPluginDir: (dir: string) =>
-    request<{ ok: boolean; count: number; dirs: string[] }>("POST", "/api/v1/plugins/dirs", { dir }),
+  /** what installing a source would do; the source is fetched and dropped */
+  inspectPlugin: (body: InstallRequest) => request<Inspection>("POST", "/api/v1/plugins/inspect", body),
+  /** starts an install; the job says how it goes */
+  installPlugin: (body: InstallRequest) => request<{ job: string }>("POST", "/api/v1/plugins/install", body),
+  pluginJob: (id: string) => request<InstallJob>("GET", `/api/v1/plugins/jobs/${id}`),
+  pluginUpdates: (name: string) => request<PluginUpdates>("GET", `/api/v1/plugins/${name}/updates`),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** The URL a plugin's bundle is loaded from; the iframe adds the theme. */

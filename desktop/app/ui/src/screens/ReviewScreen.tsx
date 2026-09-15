@@ -79,7 +79,7 @@ export function ReviewScreen() {
         const resolved =
           current && current.version === review.plugin_version && current.usable
             ? current
-            : { name: review.plugin, version: review.plugin_version, title: review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null };
+            : { name: review.plugin, version: review.plugin_version, title: review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null, install: null };
         setPlugin(resolved);
         return api.bundleUrl(review, resolved.entry).then((url) => !cancelled && setSrc(url));
       })

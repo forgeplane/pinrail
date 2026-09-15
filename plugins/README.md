@@ -78,6 +78,14 @@ A ref is a branch, a tag or a commit; without one, the default branch. A
 tag or a commit is pinned: checking for updates says so rather than
 moving it. GitLab's `/-/tree/<ref>/<folder>` URLs read the same way.
 
+The same sources go into *Settings › Plugins › Install…* in the app, which
+looks before it installs: it fetches the source, shows the plugin the
+manifest describes, where it comes from, whether a build runs and the
+exact command, and what is installed under that name already. *Install*
+is the yes. Each plugin's row says where it came from, checks for updates
+on request, and offers *Install a copy* on a linked folder once you are
+done iterating.
+
 A copy lands in the app's store under the plugin's name and major
 version, hashed and recorded with where it came from; a review renders
 from it from then on. Versions are semantic (`"version": "1.2.0"`; a bare

@@ -285,7 +285,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .heading-inline { display: flex; align-items: baseline; gap: 8px; }
 .inbox-total { color: var(--faint); font-variant-numeric: tabular-nums; }
 .inbox-controls { display: flex; gap: 8px; flex-wrap: wrap; }
-.inbox-controls input, .history-filters input, .settings-add input {
+.inbox-controls input, .history-filters input {
   padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); font-size: 12.5px;
 }
 .search-field { position: relative; display: inline-flex; align-items: center; }
@@ -324,6 +324,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .discard-what { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .discard-reason { width: 100%; resize: vertical; font: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); color: var(--text); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.button-primary { background: var(--button-bg); border-color: var(--button-bg); color: #fff; }
+.button-primary:hover { background: color-mix(in srgb, var(--button-bg) 85%, black); }
+.button-primary:disabled { opacity: 0.5; }
 .button-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .button-danger:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
 .inbox-footer { margin-top: 18px; font-size: 11.5px; color: var(--faint); }
@@ -429,11 +432,10 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .settings-reset-link:hover { text-decoration: underline; }
 .settings-row-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 30px; border-radius: 7px; background: var(--accent-bg); color: var(--accent); }
 .settings-plugin-line { display: inline-flex; align-items: center; gap: 10px; margin-top: 2px; }
+.settings-plugin-origin { display: inline-flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .settings-notify { color: var(--text); }
 .settings-notify.is-muted { color: var(--faint); }
 .settings-notify.is-muted:hover { color: var(--dim); }
-.settings-add { display: inline-flex; gap: 8px; }
-.settings-add input { width: 220px; }
 .settings-control .chrome-button:disabled { opacity: 0.5; cursor: default; }
 .settings-card { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-raised); }
 .settings-row { display: flex; align-items: center; gap: 18px; padding: 12px 14px; }
@@ -465,3 +467,30 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .segmented button.is-on { background: var(--bg-panel); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 0.25), 0 0 0 1px var(--border-strong); }
 .segmented button:disabled { opacity: 0.5; }
 .sidebar-gear { margin-left: auto; }
+
+/* installing a plugin: the source, what it is, what will run, the log */
+.install-dialog { width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; font-size: 12.5px; }
+.install-dialog p { margin: 0; line-height: 1.45; }
+.install-source { display: flex; align-items: center; gap: 8px; }
+.install-source .settings-input.install-source-field { flex: 1; width: auto; min-width: 0; }
+.install-beside { display: flex; gap: 8px; }
+.install-beside .settings-input { flex: 1; width: auto; min-width: 0; }
+.install-link { display: flex; align-items: center; gap: 10px; }
+.install-seen { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-raised); }
+.install-seen-head { display: flex; align-items: center; gap: 12px; }
+.install-seen-title { font-size: 13.5px; font-weight: 600; }
+.install-seen .mono { font-size: 12px; }
+.install-runs { display: grid; gap: 4px; }
+.install-runs.is-warning { padding: 8px 10px; border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 6%, transparent); border-radius: 0 6px 6px 0; }
+.install-runs code { background: var(--bg); padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); }
+.install-replaces { color: var(--dim); }
+.install-progress { display: grid; gap: 10px; }
+.install-steps { display: flex; gap: 14px; margin: 0; padding: 0; list-style: none; font: 11.5px var(--mono); color: var(--faint); }
+.install-steps li::before { content: "○ "; }
+.install-steps li.done { color: var(--ok); } .install-steps li.done::before { content: "● "; }
+.install-steps li.now { color: var(--accent); } .install-steps li.now::before { content: "◉ "; }
+.install-steps li.failed { color: var(--danger); } .install-steps li.failed::before { content: "● "; }
+.install-log { margin: 0; max-height: 200px; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font: 11.5px/1.5 var(--mono); color: var(--dim); white-space: pre-wrap; word-break: break-word; user-select: text; -webkit-user-select: text; cursor: text; }
+.install-error { margin: 0; }
+.install-done { font-size: 13px; }
+.install-wait { font-size: 12.5px; align-self: center; }
