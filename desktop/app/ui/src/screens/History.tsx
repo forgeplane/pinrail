@@ -34,6 +34,17 @@ export function History() {
   const [all, setAll] = useState<Review[]>([]);
   const [focused, setFocused] = useState(0);
   const search = useRef<HTMLInputElement>(null);
+  // While the keyboard moves the focus the list scrolls under a still
+  // pointer, and the row that slides under it must not take the focus
+  // back; the next real movement of the pointer hands it over again.
+  const keyboard = useRef(false);
+  useEffect(() => {
+    const onMove = () => {
+      keyboard.current = false;
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
   const status = params.get("status") ?? "";
   const plugin = params.get("plugin") ?? "";
   const repo = params.get("repo") ?? "";
@@ -86,6 +97,7 @@ export function History() {
         }
         return;
       }
+      if (event.key === "j" || event.key === "k") keyboard.current = true;
       if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
       if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
       if (event.key === "Enter" && reviews[focused]) navigate(`/reviews/${reviews[focused].id}`, { state: { from: "history" } });
@@ -185,7 +197,7 @@ export function History() {
             </thead>
             <tbody>
               {reviews.map((r, i) => (
-                <tr key={r.id} className={i === focused ? "is-focused" : ""} data-history-row={i} onMouseEnter={() => setFocused(i)} onClick={() => navigate(`/reviews/${r.id}`, { state: { from: "history" } })}>
+                <tr key={r.id} className={i === focused ? "is-focused" : ""} data-history-row={i} onMouseEnter={() => !keyboard.current && setFocused(i)} onClick={() => navigate(`/reviews/${r.id}`, { state: { from: "history" } })}>
                   <td>
                     <Link to={`/reviews/${r.id}`} state={{ from: "history" }} className="history-title">
                       {r.title}

@@ -33,6 +33,17 @@ export function Inbox() {
   const [focused, setFocused] = useState(0);
   const [discarding, setDiscarding] = useState<Review | null>(null);
   const search = useRef<HTMLInputElement>(null);
+  // While the keyboard moves the focus the list scrolls under a still
+  // pointer, and the row that slides under it must not take the focus
+  // back; the next real movement of the pointer hands it over again.
+  const keyboard = useRef(false);
+  useEffect(() => {
+    const onMove = () => {
+      keyboard.current = false;
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -82,6 +93,7 @@ export function Inbox() {
         return;
       }
       if (discarding) return;
+      if (event.key === "j" || event.key === "k") keyboard.current = true;
       if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
       if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
       if (event.key === "Enter" && reviews[focused]) navigate(`/reviews/${reviews[focused].id}`);
@@ -192,7 +204,7 @@ export function Inbox() {
                     key={review.id}
                     to={`/reviews/${review.id}`}
                     className={`review-row ${here === focused ? "is-focused" : ""}`}
-                    onMouseEnter={() => setFocused(here)}
+                    onMouseEnter={() => !keyboard.current && setFocused(here)}
                     data-review-row
                   >
                     <span className="review-row-marker" aria-label="Pending" />
