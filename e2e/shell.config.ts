@@ -23,7 +23,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `cargo build -q -p wicket-desktop && rm -rf "${data}" && ./target/debug/Wicket --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk")}"`,
+      command: `cargo build -q -p wicket-desktop && rm -rf "${data}" && ./target/debug/Wicket --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}"`,
       cwd: path.join(root, "desktop"),
       env: { WICKET_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
       url: `http://127.0.0.1:${corePort}/api/v1/info`,
