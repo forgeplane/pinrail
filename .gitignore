@@ -1,3 +1,7 @@
 .DS_Store
 # local plans and design docs, not part of the repository
 agent-docs/
+
+# the website and its docs, kept out of the repository until they are ready
+website/
+docs/
