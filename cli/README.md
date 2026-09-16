@@ -46,7 +46,13 @@ wicket serve
 wicket open <id>
 ```
 
-`--pretty` on any command pretty-prints the output.
+`--pretty` on any command pretty-prints the output. `--format markdown` (or
+`WICKET_FORMAT=markdown` in the environment) prints a review as markdown
+instead of JSON, on `create`, `wait`, `show` and `decide`: the title,
+where it sits, who decided and when with a tally, the reviewer's note,
+then every item with its verdict and note. Made for an agent reading the
+decision in a session; a script keeps JSON, and `--decision-out` always
+writes JSON.
 
 `create --wait` is the one-liner for workflows: create the gate, print its
 URL to stderr, block until a human decides, print the envelope, exit 0. With

@@ -44,8 +44,41 @@ struct Cli {
     #[arg(long, global = true)]
     pretty: bool,
 
+    /// How a review is printed: json (the default, for scripts) or
+    /// markdown (for a session reading the decision); WICKET_FORMAT sets it
+    #[arg(long, global = true, env = "WICKET_FORMAT", value_enum, default_value_t = Format::Json)]
+    format: Format,
+
     #[command(subcommand)]
     command: Command,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum Format {
+    Json,
+    #[value(alias = "md")]
+    Markdown,
+}
+
+/// How reviews are printed: JSON as the API gives them, or the markdown
+/// the server renders. Everything that is not a review stays JSON.
+#[derive(Clone, Copy)]
+struct Output {
+    pretty: bool,
+    markdown: bool,
+}
+
+impl Output {
+    fn review(&self, client: &Client, review: &serde_json::Value) -> Result<()> {
+        if self.markdown
+            && let Some(id) = review["id"].as_str()
+        {
+            println!("{}", client.review_markdown(id)?.trim_end());
+        } else {
+            out::print_json(review, self.pretty);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Subcommand)]
@@ -248,6 +281,10 @@ fn main() -> ExitCode {
 
 fn run(cli: Cli) -> Result<u8> {
     let pretty = cli.pretty;
+    let output = Output {
+        pretty,
+        markdown: cli.format == Format::Markdown,
+    };
 
     if let Command::Serve = cli.command {
         let info = server::ensure_running(cli.url.as_deref())?;
@@ -260,10 +297,10 @@ fn run(cli: Cli) -> Result<u8> {
     let client = Client::new(&base);
 
     match cli.command {
-        Command::Submit(args) => submit(&client, args, pretty),
-        Command::Wait(args) => wait(&client, &args.id, &args.opts, pretty),
+        Command::Submit(args) => submit(&client, args, output),
+        Command::Wait(args) => wait(&client, &args.id, &args.opts, output),
         Command::Show { id } => {
-            out::print_json(&client.get_review(&id)?, pretty);
+            output.review(&client, &client.get_review(&id)?)?;
             Ok(0)
         }
         Command::Rounds { id } => {
@@ -300,7 +337,7 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Decide(args) => {
             let data = read_json_arg(&args.data)?;
             let review = client.decide(&args.id, data, args.note)?;
-            out::print_json(&review, pretty);
+            output.review(&client, &review)?;
             Ok(0)
         }
         Command::Withdraw { id, reason } => {
@@ -326,7 +363,13 @@ fn run(cli: Cli) -> Result<u8> {
                         Ok(p) if p.is_dir() => p.to_string_lossy().into_owned(),
                         _ => source,
                     };
-                    client.plugins_install(&source, link, force, reference.as_deref(), path.as_deref())?
+                    client.plugins_install(
+                        &source,
+                        link,
+                        force,
+                        reference.as_deref(),
+                        path.as_deref(),
+                    )?
                 }
                 Some(PluginsCommand::Update { name }) => {
                     let names: Vec<String> = match name {
@@ -335,7 +378,9 @@ fn run(cli: Cli) -> Result<u8> {
                             .as_array()
                             .map(|rows| {
                                 rows.iter()
-                                    .filter(|p| p["install"].is_object() && p["install"]["linked"] != true)
+                                    .filter(|p| {
+                                        p["install"].is_object() && p["install"]["linked"] != true
+                                    })
                                     .filter_map(|p| p["name"].as_str().map(str::to_string))
                                     .collect()
                             })
@@ -377,7 +422,7 @@ fn run(cli: Cli) -> Result<u8> {
     }
 }
 
-fn submit(client: &Client, args: SubmitArgs, pretty: bool) -> Result<u8> {
+fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     let payload = match &args.data {
         Some(spec) => read_json_arg(spec)?,
         None => json!({}),
@@ -409,9 +454,9 @@ fn submit(client: &Client, args: SubmitArgs, pretty: bool) -> Result<u8> {
     eprintln!("review {id}: {}/reviews/{id}", client.base());
 
     if args.wait {
-        wait(client, &id, &args.wait_opts, pretty)
+        wait(client, &id, &args.wait_opts, output)
     } else {
-        out::print_json(&review, pretty);
+        output.review(client, &review)?;
         Ok(0)
     }
 }
@@ -419,7 +464,7 @@ fn submit(client: &Client, args: SubmitArgs, pretty: bool) -> Result<u8> {
 /// Long-polls until the review settles. Each poll asks the server for at
 /// most `Client::POLL_SECS`; a 204 or a dropped connection (the server
 /// restarting) just loops, so a wait survives the app coming and going.
-fn wait(client: &Client, id: &str, opts: &WaitOpts, pretty: bool) -> Result<u8> {
+fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8> {
     let deadline = (opts.timeout > 0).then(|| Instant::now() + Duration::from_secs(opts.timeout));
     let mut last_error = String::new();
 
@@ -454,7 +499,7 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, pretty: bool) -> Result<u8> 
                         eprintln!("wicket: {counts}");
                     }
                 }
-                out::print_json(&review, pretty);
+                output.review(client, &review)?;
                 return Ok(match status {
                     "decided" => 0,
                     "discarded" => {

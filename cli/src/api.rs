@@ -135,7 +135,14 @@ impl Client {
 
     /// Starts the install and follows its job, printing the build's output
     /// as it comes; the plugin's row when done.
-    pub fn plugins_install(&self, source: &str, link: bool, force: bool, reference: Option<&str>, path: Option<&str>) -> Result<Value> {
+    pub fn plugins_install(
+        &self,
+        source: &str,
+        link: bool,
+        force: bool,
+        reference: Option<&str>,
+        path: Option<&str>,
+    ) -> Result<Value> {
         let body = serde_json::json!({ "source": source, "link": link, "force": force, "ref": reference, "path": path });
         let started = self.post("/api/v1/plugins/install", Some(&body))?;
         self.follow_job(started["job"].as_str().unwrap_or_default())
@@ -149,10 +156,15 @@ impl Client {
         match started["job"].as_str() {
             Some(id) => {
                 let plugin = self.follow_job(id)?;
-                Ok(serde_json::json!({ "state": "updated", "version": plugin["release"], "plugin": plugin }))
+                Ok(
+                    serde_json::json!({ "state": "updated", "version": plugin["release"], "plugin": plugin }),
+                )
             }
             None => {
-                eprintln!("wicket: {name} {} is up to date", started["version"].as_str().unwrap_or(""));
+                eprintln!(
+                    "wicket: {name} {} is up to date",
+                    started["version"].as_str().unwrap_or("")
+                );
                 Ok(started)
             }
         }
@@ -208,6 +220,23 @@ impl Client {
 
     pub fn plugins_reload(&self) -> Result<Value> {
         self.post("/api/v1/plugins/reload", None)
+    }
+
+    /// The review rendered as markdown by the server.
+    pub fn review_markdown(&self, id: &str) -> Result<String> {
+        let mut resp = self
+            .agent
+            .get(format!("{}/api/v1/reviews/{id}", self.base))
+            .query("format", "markdown")
+            .call()
+            .context("connecting to the server")?;
+        let status = resp.status().as_u16();
+        if !(200..300).contains(&status) {
+            return Self::body(status, &mut resp).map(|_| String::new());
+        }
+        resp.body_mut()
+            .read_to_string()
+            .context("reading the response")
     }
 
     fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value> {
