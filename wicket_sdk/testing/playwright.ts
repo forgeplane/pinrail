@@ -138,7 +138,8 @@ export async function mountPlugin(page: Page, pluginDir: string, opts: MountOpti
     });
   });
 
-  await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}`);
+  const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8")) as { entry?: string };
+  await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(manifest.entry ?? "index.html")}`);
   const init = { gate: gateFrom(opts.gate), previous: opts.previous ?? null, readonly: !!opts.readonly, draft: opts.draft ?? null, settings: opts.settings ?? {} };
   await page.evaluate((i) => (window as any).__shell.init(i), init);
 

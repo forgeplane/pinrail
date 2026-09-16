@@ -68,7 +68,9 @@ window.addEventListener("message", (event) => {
     case "status": lastStatus = msg.label; break;
   }
 });
-frame.src = "/index.html#wicket-theme=" + theme;
+// the view is whatever the manifest names as its entry; index.html by default
+const entry = new URLSearchParams(location.search).get("entry") || "index.html";
+frame.src = "/" + entry + "#wicket-theme=" + theme;
 </script>
 </body>
 </html>
