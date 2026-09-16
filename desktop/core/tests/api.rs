@@ -545,7 +545,7 @@ async fn plugins_are_listed_added_and_reloaded() {
             p["error"]
                 .as_str()
                 .unwrap()
-                .contains("entry index.html not found"),
+                .contains("entry view/index.html not found"),
             "{p}"
         );
     }
