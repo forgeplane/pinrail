@@ -67,23 +67,35 @@ export function ReviewScreen() {
   }, [live.lastNotice, id, load]);
 
   // The plugin at the review's version: the current one when it matches,
-  // otherwise the snapshot, whose entry we assume is index.html.
+  // otherwise the store entry kept for it, whose entry we assume is
+  // index.html; null when neither is there, and the review says so.
   useEffect(() => {
     if (!review) return;
     let cancelled = false;
-    api
-      .plugins()
-      .then(({ plugins }) => {
+    (async () => {
+      try {
+        const { plugins } = await api.plugins();
         if (cancelled) return;
         const current = plugins.find((p) => p.name === review.plugin);
-        const resolved =
-          current && current.version === review.plugin_version && current.usable
-            ? current
-            : { name: review.plugin, version: review.plugin_version, title: review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null, install: null };
+        let resolved: Plugin | null = null;
+        if (current && current.version === review.plugin_version && current.usable) {
+          resolved = current;
+        } else {
+          const kept = await api.pluginVersions(review.plugin).catch(() => null);
+          if (kept?.versions.includes(review.plugin_version)) {
+            resolved = { name: review.plugin, version: review.plugin_version, title: current?.title ?? review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: current?.icon ?? null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null, install: null };
+          }
+        }
+        if (cancelled) return;
         setPlugin(resolved);
-        return api.bundleUrl(review, resolved.entry).then((url) => !cancelled && setSrc(url));
-      })
-      .catch(() => !cancelled && setPlugin(null));
+        if (resolved) {
+          const url = await api.bundleUrl(review, resolved.entry);
+          if (!cancelled) setSrc(url);
+        }
+      } catch {
+        if (!cancelled) setPlugin(null);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -363,9 +375,14 @@ export function ReviewScreen() {
         </section>
       ) : null}
       {plugin === null ? (
-        <p className="notice notice-danger">
-          The view for {review.plugin} v{review.plugin_version} is not available, so this review cannot be rendered. Recorded decisions remain.
-        </p>
+        <div className="notice notice-danger plugin-missing" data-plugin-missing>
+          <p>
+            <b>{review.plugin} v{review.plugin_version}</b> is not installed, so this review has no view. What was decided is still on record.
+          </p>
+          <button type="button" className="chrome-button" onClick={() => navigate("/", { state: { settings: "plugins" } })}>
+            Open Plugins…
+          </button>
+        </div>
       ) : null}
 
       {plugin ? (

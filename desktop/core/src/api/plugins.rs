@@ -1,4 +1,4 @@
-//! `/api/v1/plugins`: registered plugins, snapshot versions, reload, and
+//! `/api/v1/plugins`: registered plugins, the versions reviews render with, reload, and
 //! adding a plugin directory.
 
 use std::path::Path as FsPath;
@@ -56,9 +56,11 @@ async fn versions(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, Error> {
+    // the majors that render: the current plugin, and the store entries
+    // kept for reviews that still point at them
     let current = state.registry.get(&name);
     let mut versions: Vec<u32> = Vec::new();
-    let dir = state.config.snapshots_dir().join(&name);
+    let dir = state.config.plugin_store_dir().join(&name);
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
             if let Ok(v) = entry.file_name().to_string_lossy().parse::<u32>()

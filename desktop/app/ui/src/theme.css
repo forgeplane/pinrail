@@ -264,6 +264,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .shortcut-list dd { margin: 0; text-align: right; }
 .notice { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; color: var(--dim); margin: 0 0 14px; }
 .notice-danger { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 6%, transparent); color: var(--danger); }
+.plugin-missing { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.plugin-missing p { margin: 0; }
+.plugin-missing b { font-weight: 600; }
 .empty-state { text-align: center; padding: 60px 20px; color: var(--dim); display: grid; gap: 8px; justify-items: center; }
 .empty-icon { color: var(--faint); margin-bottom: 4px; }
 .empty-state h2 { margin: 0; font-size: 15px; color: var(--text); }

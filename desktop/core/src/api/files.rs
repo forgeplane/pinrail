@@ -1,7 +1,7 @@
 //! Plugin bundles and the SDK.
 //!
-//! A bundle is served from its version snapshot, or the live directory for a
-//! dev plugin, with the CSP that makes the sandbox real: no network at all.
+//! A bundle is served from the plugin's own folder, the store entry or the
+//! linked directory, with the CSP that makes the sandbox real: no network at all.
 //! Scripts and styles only inline, from the bundle's own path, or the SDK
 //! under `/sdk/`; images and fonts only inline or from the bundle. The iframe
 //! loads these without `allow-same-origin`, so the document has an opaque
@@ -36,7 +36,7 @@ async fn bundle(
     let Ok(plugin) = state.registry.fetch_version(&name, version) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let dir = state.registry.bundle_dir(&plugin);
+    let dir = plugin.path.clone();
     let Some(file) = safe_join(&dir, &path).filter(|f| f.is_file()) else {
         return StatusCode::NOT_FOUND.into_response();
     };

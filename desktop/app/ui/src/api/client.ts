@@ -75,6 +75,8 @@ export const api = {
   installPlugin: (body: InstallRequest) => request<{ job: string }>("POST", "/api/v1/plugins/install", body),
   pluginJob: (id: string) => request<InstallJob>("GET", `/api/v1/plugins/jobs/${id}`),
   pluginUpdates: (name: string) => request<PluginUpdates>("GET", `/api/v1/plugins/${name}/updates`),
+  /** the majors of a plugin that reviews can still render with; 404 for an unknown plugin */
+  pluginVersions: (name: string) => request<{ name: string; current: number | null; versions: number[] }>("GET", `/api/v1/plugins/${name}/versions`),
   /** installs again from where it came: a job to follow, or up_to_date at once */
   updatePlugin: (name: string) => request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${name}/update`),
   /** drops the record and the store entries no review renders from */

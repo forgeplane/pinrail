@@ -597,7 +597,7 @@ async fn plugins_are_listed_added_and_reloaded() {
 }
 
 #[tokio::test]
-async fn bundles_are_served_from_snapshots_with_the_sandbox_csp() {
+async fn bundles_are_served_with_the_sandbox_csp() {
     let app = app();
     let request = |path: &str| {
         Request::get(path)
@@ -605,8 +605,7 @@ async fn bundles_are_served_from_snapshots_with_the_sandbox_csp() {
             .body(Body::empty())
             .unwrap()
     };
-    // a snapshot is taken on first use, whether that is a submission or a
-    // request for the bundle; a version that never existed has none
+    // a version that never existed is not served
     let response = app
         .router
         .clone()
@@ -620,16 +619,7 @@ async fn bundles_are_served_from_snapshots_with_the_sandbox_csp() {
         .oneshot(request("/plugins/list/1/index.html"))
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::OK, "served, and snapshotted");
-    assert!(
-        app.state
-            .config
-            .snapshots_dir()
-            .join("list")
-            .join("1")
-            .join("manifest.json")
-            .is_file()
-    );
+    assert_eq!(response.status(), StatusCode::OK);
 
     submit(&app, submission()).await;
     let response = app
@@ -815,7 +805,7 @@ async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
 /// A store entry: the built-in list plugin copied under another name, as
 /// an install would place it, with its record and hash.
 #[tokio::test]
-async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept_and_their_snapshots() {
+async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     let app = app();
     let decision = json!({ "data": { "decisions": [], "undecided": [1, 2] }, "agent_note": null });
 
@@ -848,11 +838,6 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept_and_their_sn
     let mut round = submission();
     round["revises"] = decided["id"].clone();
     let round = submit(&app, round).await;
-    // the bundle served once, so the snapshot exists
-    let (status, _) = call(&app, "GET", "/plugins/list/1/index.html", None).await;
-    assert_eq!(status, StatusCode::OK);
-    let snapshot = app.state.config.snapshots_dir().join("list/1");
-    assert!(snapshot.join("manifest.json").is_file());
 
     // nothing to keep for: everything stays
     assert_eq!(app.state.reviews.sweep_history(None).unwrap(), 0);
@@ -875,12 +860,8 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept_and_their_sn
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(
-        snapshot.join("manifest.json").is_file(),
-        "reviews still render from it"
-    );
 
-    // the round decided, the chain goes together; the pending review keeps the snapshot
+    // the round decided, the chain goes together; the pending review stays
     let (status, _) = call(
         &app,
         "POST",
@@ -906,9 +887,8 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept_and_their_sn
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(snapshot.join("manifest.json").is_file());
 
-    // the last review gone, the snapshot goes with it
+    // the last review gone too
     let (status, _) = call(
         &app,
         "POST",
@@ -921,7 +901,6 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept_and_their_sn
     .await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(app.state.reviews.sweep_history_before(tomorrow).unwrap(), 1);
-    assert!(!snapshot.exists());
     let (_, listed) = call(
         &app,
         "GET",
@@ -1323,7 +1302,7 @@ async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
 }
 
 #[tokio::test]
-async fn a_patch_update_is_what_the_app_serves_and_a_store_entry_takes_no_snapshot() {
+async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let first = plugin_copy(scratch.path(), "hello", "1.0.0");
@@ -1342,9 +1321,6 @@ async fn a_patch_update_is_what_the_app_serves_and_a_store_entry_takes_no_snapsh
     body["plugin"] = json!("hello");
     body["payload"] = json!({"message": "hi"});
     submit(&app, body).await;
-    let snapshot = app.state.config.snapshots_dir().join("hello/1");
-    assert!(!snapshot.exists(), "a store entry is its own snapshot");
-
     // the patch replaces the line, and the app serves it at once
     let second = plugin_copy(scratch.path(), "hello", "1.0.1");
     std::fs::write(second.join("index.html"), "<html>second</html>").unwrap();
@@ -1358,33 +1334,7 @@ async fn a_patch_update_is_what_the_app_serves_and_a_store_entry_takes_no_snapsh
         "<html>second</html>"
     );
 
-    // a snapshot left from before the plugin was installed goes with the update
-    std::fs::create_dir_all(&snapshot).unwrap();
-    std::fs::write(snapshot.join("manifest.json"), "{}").unwrap();
-    std::fs::write(snapshot.join("index.html"), "<html>stale</html>").unwrap();
-    let third = plugin_copy(scratch.path(), "hello", "1.0.2");
-    std::fs::write(third.join("index.html"), "<html>third</html>").unwrap();
-    let (status, _) = install(&app, &third, json!({})).await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(!snapshot.exists(), "the stale snapshot is gone");
-    let (_, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
-    assert_eq!(
-        body.as_str().unwrap_or(&body.to_string()),
-        "<html>third</html>"
-    );
-
-    // a snapshot left from an older build goes on the next reload too
-    std::fs::create_dir_all(&snapshot).unwrap();
-    std::fs::write(snapshot.join("manifest.json"), "{}").unwrap();
-    let (status, _) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(
-        !snapshot.exists(),
-        "reload clears a store entry's stale snapshot"
-    );
-
-    // a link is served live: an edit shows on the next request, even
-    // though a review took a snapshot of it
+    // a link is served live: an edit shows on the next request
     let live = plugin_copy(scratch.path(), "hello", "1.1.0");
     std::fs::write(live.join("index.html"), "<html>live</html>").unwrap();
     let (status, _) = install(&app, &live, json!({"link": true})).await;
@@ -1393,11 +1343,37 @@ async fn a_patch_update_is_what_the_app_serves_and_a_store_entry_takes_no_snapsh
     body["plugin"] = json!("hello");
     body["payload"] = json!({"message": "again"});
     submit(&app, body).await;
-    assert!(
-        snapshot.join("manifest.json").is_file(),
-        "a review keeps a snapshot of a link"
-    );
     std::fs::write(live.join("index.html"), "<html>edited</html>").unwrap();
+    let (_, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    assert_eq!(
+        body.as_str().unwrap_or(&body.to_string()),
+        "<html>edited</html>"
+    );
+    // the link removed: the store entry the link had replaced is still
+    // referenced by reviews, so it is kept and serves them, and the
+    // versions endpoint lists it with no current plugin
+    let (status, _) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "the kept store entry serves the reviews"
+    );
+    assert_eq!(
+        body.as_str().unwrap_or(&body.to_string()),
+        "<html>second</html>"
+    );
+    let (status, versions) = call(&app, "GET", "/api/v1/plugins/hello/versions", None).await;
+    assert_eq!(status, StatusCode::OK, "{versions}");
+    assert_eq!(versions["current"], Value::Null);
+    assert_eq!(versions["versions"], json!([1]));
+
+    // installed again from the live folder, the line is replaced and current
+    let (status, _) = install(&app, &live, json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, versions) = call(&app, "GET", "/api/v1/plugins/hello/versions", None).await;
+    assert_eq!(versions["current"], 1);
     let (_, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
     assert_eq!(
         body.as_str().unwrap_or(&body.to_string()),

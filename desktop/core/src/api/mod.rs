@@ -73,13 +73,8 @@ impl AppState {
         defaults.extend(config.plugin_dirs.iter().cloned());
         let records = db.installed_plugins()?;
         let registry = Arc::new(
-            Registry::open(
-                defaults,
-                records,
-                config.plugin_store_dir(),
-                config.snapshots_dir(),
-            )
-            .map_err(Error::Internal)?,
+            Registry::open(defaults, records, config.plugin_store_dir())
+                .map_err(Error::Internal)?,
         );
         let reviews = Reviews::new(
             db.clone(),

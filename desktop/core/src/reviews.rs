@@ -67,8 +67,6 @@ impl Reviews {
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
         }
-        self.registry.ensure_snapshot(&plugin)?;
-
         let review = Review {
             id: crate::id::next(),
             plugin: plugin.name.clone(),
@@ -240,7 +238,7 @@ impl Reviews {
     }
 
     /// Deletes the reviews that ended more than `keep_days` ago, with their
-    /// events and outcomes, and the plugin snapshots nothing renders from
+    /// events and outcomes, and the store entries nothing renders from
     /// any more. `None` keeps everything. Returns how many reviews went.
     pub fn sweep_history(&self, keep_days: Option<u32>) -> Result<usize, Error> {
         match keep_days {
@@ -259,8 +257,8 @@ impl Reviews {
         }
         let ids: Vec<&str> = ended.iter().map(|(id, _, _)| id.as_str()).collect();
         let count = self.db.delete_reviews(&ids)?;
-        // what rendered them, when nothing else does: the snapshot, and a
-        // store entry kept past the plugin's removal
+        // a store entry kept past the plugin's removal goes once nothing
+        // renders from it
         let versions: std::collections::BTreeSet<(String, u32)> = ended
             .into_iter()
             .map(|(_, plugin, version)| (plugin, version))
@@ -270,7 +268,6 @@ impl Reviews {
             if self.db.reviews_use(&plugin, version)? {
                 continue;
             }
-            self.registry.drop_snapshot(&plugin, version);
             if !records.iter().any(|r| r.name == plugin) {
                 let _ = std::fs::remove_dir_all(self.registry.store_entry(&plugin, version as i64));
                 let _ = std::fs::remove_dir(self.registry.store_dir().join(&plugin));

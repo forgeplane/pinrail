@@ -50,9 +50,9 @@ hello/
   rendering and validating from the major it was created under, even
   after the plugin moves on or is removed.
 - A folder that is linked rather than copied (`--link`, or the toggle in
-  the app) is served live, so a change shows on the next open. A review
-  still snapshots what it rendered from; `"dev": true` in the manifest
-  skips that too, for a view being iterated on.
+  the app) is served live, so a change shows on the next open, and its
+  reviews render from the folder as it is now. Remove the link and they
+  say the plugin is not installed until it is again.
 - `settings_schema` declares settings of the plugin's own, shown as rows under
   the plugin in *Settings › Plugins*. See below.
 - `shortcuts` declares the keys your view answers, so the app lists them and

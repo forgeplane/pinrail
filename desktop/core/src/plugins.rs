@@ -1,11 +1,11 @@
-//! Plugins: discovery, the compiled schemas, and version snapshots.
+//! Plugins: discovery, the compiled schemas, and the version a review keeps.
 //!
 //! A plugin is a directory with a `manifest.json`, two schemas and a view.
 //! One plugin defines one sort of review. History must render what was
 //! shown: the first review submitted under a plugin version copies the
 //! directory into `<data dir>/plugins/<name>/<version>/`, and reviews keep
 //! validating and rendering from that copy after the live plugin moves on. A
-//! manifest with `"dev": true` is served live and never snapshotted.
+//! manifest with `"dev": true` is served live.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -118,7 +118,7 @@ pub fn version_of(value: &Value) -> Option<(String, i64)> {
 }
 
 /// SHA-256 over a directory's files: each relative path and its bytes, in
-/// sorted order, with the same exclusions the snapshot copier applies.
+/// sorted order, with the same exclusions the copier applies.
 pub fn hash_dir(dir: &Path) -> std::io::Result<String> {
     hash_dir_where(dir, &|name| {
         name != "node_modules" && !name.starts_with('.')
@@ -651,18 +651,18 @@ pub fn install_builtin(dir: &Path) -> std::io::Result<PathBuf> {
 #[derive(Debug)]
 struct RegistryState {
     plugins: BTreeMap<String, Arc<Plugin>>,
-    snapshots: HashMap<(String, u32), Arc<Plugin>>,
+    /// store entries a review still renders from, loaded on demand
+    kept: HashMap<(String, u32), Arc<Plugin>>,
     /// the installed plugins, links and store entries, as last given
     records: Vec<InstalledRecord>,
 }
 
 /// The registered plugins — the built-in and configured directories, the
-/// linked folders, the store — and the snapshots of versions still in use.
+/// linked folders, the store — and the store entries kept for reviews.
 #[derive(Debug)]
 pub struct Registry {
     default_dirs: Vec<PathBuf>,
     store_dir: PathBuf,
-    snapshots_dir: PathBuf,
     state: RwLock<RegistryState>,
 }
 
@@ -673,15 +673,13 @@ impl Registry {
         default_dirs: Vec<PathBuf>,
         records: Vec<InstalledRecord>,
         store_dir: PathBuf,
-        snapshots_dir: PathBuf,
     ) -> Result<Registry, String> {
         let registry = Registry {
             default_dirs,
             store_dir,
-            snapshots_dir,
             state: RwLock::new(RegistryState {
                 plugins: BTreeMap::new(),
-                snapshots: HashMap::new(),
+                kept: HashMap::new(),
                 records,
             }),
         };
@@ -747,8 +745,9 @@ impl Registry {
         }
     }
 
-    /// The plugin at the version a review was submitted under: the current
-    /// one when the version matches, else the snapshot.
+    /// The plugin at the version a review was created under: the current
+    /// one when the version matches, else the store entry kept for the
+    /// reviews that still render from it.
     pub fn fetch_version(&self, name: &str, version: u32) -> Result<Arc<Plugin>, Error> {
         if let Some(p) = self.get(name)
             && p.version == version
@@ -760,15 +759,12 @@ impl Registry {
             .state
             .read()
             .unwrap()
-            .snapshots
+            .kept
             .get(&(name.to_string(), version))
         {
             return Ok(p.clone());
         }
-        let mut dir = self.snapshot_dir(name, version);
-        if !dir.join(MANIFEST).is_file() {
-            dir = self.store_entry(name, version as i64);
-        }
+        let dir = self.store_entry(name, version as i64);
         if dir.join(MANIFEST).is_file() {
             let plugin = Plugin::load(&dir);
             if plugin.version == version && plugin.usable() {
@@ -776,14 +772,14 @@ impl Registry {
                 self.state
                     .write()
                     .unwrap()
-                    .snapshots
+                    .kept
                     .insert((name.to_string(), version), plugin.clone());
                 return Ok(plugin);
             }
         }
         Err(Error::invalid(
             "/plugin",
-            format!("plugin {name} version {version} is not available"),
+            format!("plugin {name} version {version} is not installed"),
         ))
     }
 
@@ -807,12 +803,6 @@ impl Registry {
             }
         }
         for record in &records {
-            // a store entry serves itself; a snapshot of its line, left
-            // from before it was one or from an older build, would only
-            // confuse and goes
-            if !record.linked {
-                self.drop_snapshot(&record.name, record.major as u32);
-            }
             let dir = if record.linked {
                 PathBuf::from(&record.path)
             } else {
@@ -871,7 +861,7 @@ impl Registry {
             .into_iter()
             .map(|p| (p.name.clone(), Arc::new(p)))
             .collect();
-        state.snapshots.clear();
+        state.kept.clear();
         Ok(state.plugins.len())
     }
 
@@ -894,66 +884,6 @@ impl Registry {
         }
         Ok(out)
     }
-
-    pub fn snapshot_dir(&self, name: &str, version: u32) -> PathBuf {
-        self.snapshots_dir.join(name).join(version.to_string())
-    }
-
-    /// Forgets a version's snapshot, in memory and on disk. For when no
-    /// review renders from it any more.
-    pub fn drop_snapshot(&self, name: &str, version: u32) {
-        self.state
-            .write()
-            .unwrap()
-            .snapshots
-            .remove(&(name.to_string(), version));
-        let dir = self.snapshot_dir(name, version);
-        let _ = std::fs::remove_dir_all(&dir);
-        let _ = std::fs::remove_dir(self.snapshots_dir.join(name));
-    }
-
-    /// A store entry is the frozen copy already: one per major, replaced
-    /// in place by a patch, kept while a review renders from it. It needs
-    /// no snapshot, and taking one would serve the old files after an
-    /// update.
-    fn is_store_entry(plugin: &Plugin) -> bool {
-        plugin.install.as_ref().is_some_and(|i| !i.linked)
-    }
-
-    /// Makes sure the plugin's version is snapshotted, unless it is a dev
-    /// plugin or a store entry. Returns the directory its bundle is served
-    /// from.
-    pub fn ensure_snapshot(&self, plugin: &Plugin) -> std::io::Result<PathBuf> {
-        if plugin.dev || Self::is_store_entry(plugin) {
-            return Ok(plugin.path.clone());
-        }
-        let dest = self.snapshot_dir(&plugin.name, plugin.version);
-        if dest.join(MANIFEST).is_file() {
-            return Ok(dest);
-        }
-        let tmp = dest.with_extension("tmp");
-        let _ = std::fs::remove_dir_all(&tmp);
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        copy_dir(&plugin.path, &tmp)?;
-        std::fs::rename(&tmp, &dest)?;
-        Ok(dest)
-    }
-
-    /// The directory a plugin's bundle is served from: its own folder for
-    /// a plugin in development, a link or a store entry (a link is served
-    /// live, that is the point of it; the snapshot a review took of it is
-    /// for when the link is gone), the snapshot otherwise, taken now if it
-    /// is missing.
-    pub fn bundle_dir(&self, plugin: &Plugin) -> PathBuf {
-        if plugin.dev || plugin.install.is_some() {
-            plugin.path.clone()
-        } else {
-            self.ensure_snapshot(plugin)
-                .unwrap_or_else(|_| self.snapshot_dir(&plugin.name, plugin.version))
-        }
-    }
 }
 
 fn subdirs(dir: &Path) -> Vec<PathBuf> {
@@ -967,26 +897,6 @@ fn subdirs(dir: &Path) -> Vec<PathBuf> {
         .collect();
     subs.sort();
     subs
-}
-
-/// Copies a plugin directory for a snapshot or a store entry: what the view
-/// is served from, not the sources it was built from.
-pub(crate) fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(to)?;
-    for entry in std::fs::read_dir(from)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        if name == "node_modules" || name.to_string_lossy().starts_with('.') {
-            continue;
-        }
-        let target = to.join(name);
-        if entry.file_type()?.is_dir() {
-            copy_dir(&entry.path(), &target)?;
-        } else {
-            std::fs::copy(entry.path(), target)?;
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -1013,25 +923,16 @@ mod tests {
 
     fn registry(tmp: &Path) -> Registry {
         let builtin = install_builtin(&tmp.join("builtin")).unwrap();
-        Registry::open(
-            vec![builtin],
-            vec![],
-            tmp.join("store"),
-            tmp.join("plugins"),
-        )
-        .unwrap()
+        Registry::open(vec![builtin], vec![], tmp.join("store")).unwrap()
     }
 
     #[test]
-    fn the_builtin_list_plugin_loads_and_snapshots() {
+    fn the_builtin_list_plugin_loads_and_is_fetched_by_version() {
         let tmp = tempfile::tempdir().unwrap();
         let r = registry(tmp.path());
         let list = r.fetch("list").unwrap();
         assert_eq!((list.version, list.title.as_str()), (1, "List"));
         assert!(r.fetch("nope").is_err());
-        let dir = r.ensure_snapshot(&list).unwrap();
-        assert!(dir.join("manifest.json").is_file());
-        assert!(dir.ends_with("plugins/list/1"));
         assert!(r.fetch_version("list", 1).is_ok());
         assert!(r.fetch_version("list", 9).is_err());
     }
@@ -1046,7 +947,6 @@ mod tests {
             vec![tmp.path().join("user")],
             vec![],
             tmp.path().join("store"),
-            tmp.path().join("plugins"),
         )
         .unwrap();
         let broken = r.get("broken").unwrap();
