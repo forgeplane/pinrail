@@ -5,6 +5,7 @@
   "icon": "git-pull-request",
   "payload_schema": { "$ref": "payload.schema.json" },
   "decision_schema": { "$ref": "decision.schema.json" },
+  "decision_template": "decision.md.j2",
   "entry": "index.html",
   "min_height": 600,
   "shortcuts": [

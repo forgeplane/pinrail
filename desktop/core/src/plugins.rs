@@ -51,6 +51,11 @@ pub struct Plugin {
     /// focus. `shortcuts_error` says why a declared list was dropped.
     pub shortcuts: Vec<Value>,
     pub shortcuts_error: Option<String>,
+    /// The plugin's own markdown rendering of a decision (the manifest's
+    /// `decision_template`, a MiniJinja file beside it), compiled at load;
+    /// `template_error` says why a declared one was dropped.
+    pub decision_template: Option<String>,
+    pub template_error: Option<String>,
     /// How the plugin got here: a link served live, or a store entry with
     /// its record; none for the built-in and for a configured directory.
     pub install: Option<Install>,
@@ -193,6 +198,8 @@ impl Plugin {
                 settings_error: None,
                 shortcuts: Vec::new(),
                 shortcuts_error: None,
+                decision_template: None,
+                template_error: None,
                 install: None,
                 error: Some(message),
             },
@@ -277,6 +284,24 @@ impl Plugin {
                 Err(message) => (Vec::new(), Some(message)),
             },
         };
+        let (decision_template, template_error) = match manifest.get("decision_template") {
+            None | Some(Value::Null) => (None, None),
+            Some(Value::String(file))
+                if !file.is_empty() && !file.contains("..") && !file.starts_with('/') =>
+            {
+                match std::fs::read_to_string(dir.join(file)) {
+                    Ok(source) => match crate::markdown::compile(&source) {
+                        Ok(()) => (Some(source), None),
+                        Err(message) => (None, Some(format!("{file}: {message}"))),
+                    },
+                    Err(e) => (None, Some(format!("{file}: cannot read ({e})"))),
+                }
+            }
+            Some(_) => (
+                None,
+                Some("decision_template must name a file beside the manifest".into()),
+            ),
+        };
 
         Ok(Plugin {
             title: manifest
@@ -306,6 +331,8 @@ impl Plugin {
             settings_error,
             shortcuts,
             shortcuts_error,
+            decision_template,
+            template_error,
             install: None,
             error: None,
         })
@@ -421,6 +448,7 @@ impl Plugin {
             "settings_error": self.settings_error,
             "shortcuts": self.shortcuts,
             "shortcuts_error": self.shortcuts_error,
+            "template_error": self.template_error,
             "install": self.install.as_ref().map(Install::to_json),
         })
     }

@@ -87,7 +87,12 @@ fn review_response(
                 .map(|i| (i + 1, rounds.len()))
         })
         .flatten();
-    let text = crate::markdown::render(&review.to_json(true), round);
+    let template = state
+        .registry
+        .fetch_version(&review.plugin, review.plugin_version)
+        .ok()
+        .and_then(|p| p.decision_template.clone());
+    let text = crate::markdown::render(&review.to_json(true), round, template.as_deref());
     Ok((
         [(header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
         text,

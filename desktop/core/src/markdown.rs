@@ -10,11 +10,20 @@
 //! recognised reads as prose.
 
 use chrono::{DateTime, Local, Utc};
-use serde_json::Value;
+use serde_json::{Map, Value, json};
+
+/// Checks a plugin's template compiles, at load, so a bad one is reported
+/// on the plugin's row rather than at the first review.
+pub fn compile(source: &str) -> Result<(), String> {
+    let mut env = minijinja::Environment::new();
+    env.add_template("decision", source)
+        .map_err(|e| e.to_string())
+}
 
 /// Renders a review, as `Review::to_json` shapes it. `round` is `(n, of)`
-/// when the review is one of a chain.
-pub fn render(review: &Value, round: Option<(usize, usize)>) -> String {
+/// when the review is one of a chain; `template` is the plugin's own
+/// rendering of the body, when it declares one.
+pub fn render(review: &Value, round: Option<(usize, usize)>, template: Option<&str>) -> String {
     let mut out = String::new();
     let title = review["title"].as_str().unwrap_or("Review");
     out.push_str(&format!("# {title}\n\n"));
@@ -99,8 +108,69 @@ pub fn render(review: &Value, round: Option<(usize, usize)>) -> String {
             out.push_str(&format!("> {line}\n"));
         }
     }
-    out.push_str(&render_data(data));
+    // the plugin's own body when it has one and it renders; the generic
+    // one otherwise, so a template that fails at runtime costs nothing
+    let body = template
+        .and_then(|t| render_template(t, review).ok())
+        .unwrap_or_else(|| render_data(data));
+    if !body.is_empty() {
+        out.push('\n');
+        out.push_str(body.trim_start_matches('\n'));
+        if !out.ends_with('\n') {
+            out.push('\n');
+        }
+    }
     out
+}
+
+/// The body through the plugin's template. The context: `review` (the
+/// envelope with its payload), `decision`, `data` (the decision's data),
+/// `note`, and `items`: every object in the decision's arrays, each with
+/// `payload` set to the payload object of the same id, when there is one.
+fn render_template(source: &str, review: &Value) -> Result<String, String> {
+    let mut env = minijinja::Environment::new();
+    env.add_template("decision", source)
+        .map_err(|e| e.to_string())?;
+    let data = review["decision"]["data"].clone();
+    let payload_items: Vec<&Value> = review["payload"]
+        .as_object()
+        .map(|p| {
+            p.values()
+                .filter_map(Value::as_array)
+                .flatten()
+                .filter(|v| v.is_object() && v.get("id").is_some())
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut items: Vec<Value> = Vec::new();
+    if let Some(map) = data.as_object() {
+        for value in map.values() {
+            let Some(list) = value.as_array() else {
+                continue;
+            };
+            for item in list.iter().filter(|i| i.is_object()) {
+                let mut joined: Map<String, Value> = item.as_object().cloned().unwrap_or_default();
+                let payload = item
+                    .get("id")
+                    .and_then(|id| payload_items.iter().find(|p| p.get("id") == Some(id)))
+                    .map(|p| (*p).clone())
+                    .unwrap_or(Value::Null);
+                joined.insert("payload".into(), payload);
+                items.push(Value::Object(joined));
+            }
+        }
+    }
+    let context = json!({
+        "review": review,
+        "decision": review["decision"],
+        "data": data,
+        "note": review["agent_note"],
+        "items": items,
+    });
+    env.get_template("decision")
+        .map_err(|e| e.to_string())?
+        .render(minijinja::Value::from_serialize(&context))
+        .map_err(|e| e.to_string())
 }
 
 /// The decision data, by the shared vocabulary. Scalars first, then one
@@ -362,7 +432,7 @@ mod tests {
                 "undecided": []
             }),
         );
-        let md = render(&review, Some((2, 2)));
+        let md = render(&review, Some((2, 2)), None);
         let lines: Vec<&str> = md.lines().collect();
         assert_eq!(lines[0], "# Dedup tickets on save");
         assert_eq!(
@@ -397,7 +467,7 @@ mod tests {
                 "undecided": [2, 4, 5]
             }),
         );
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("· 1 accepted, 1 rejected\n"), "{md}");
         assert!(
             md.contains("\n## Additions\n\n- Also rotate the key.\n"),
@@ -421,7 +491,7 @@ mod tests {
                 "undecided": ["brightside"]
             }),
         );
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("· 1 sent, 1 discarded\n"), "{md}");
         assert!(md.contains("- **`northwind`** **sent** — Your Acme renewal on 12 October\n  - “at your earliest convenience” → “this week”\n  - “I wanted to reach out”\n    > we never say reach out\n"), "{md}");
         assert!(
@@ -442,7 +512,7 @@ mod tests {
                 "comments": [{"id": "c1", "kind": "element", "selector": "#features > div:nth-of-type(2) > h3", "tag": "h3", "text": "too small on mobile", "snippet": "<h3>Draft close</h3>"}]
             }),
         );
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("· changes requested\n"), "{md}");
         assert!(md.contains("\nVerdict: changes requested\n"), "{md}");
         assert!(
@@ -458,7 +528,7 @@ mod tests {
         review["decision"] = Value::Null;
         review["withdrawn_at"] = json!("2026-09-16T09:00:00Z");
         review["withdrawn_reason"] = json!("the branch was force-pushed");
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("Withdrawn by the agent at "), "{md}");
         assert!(
             md.trim_end().ends_with("the branch was force-pushed"),
@@ -469,17 +539,17 @@ mod tests {
         review["discarded_at"] = json!("2026-09-16T09:00:00Z");
         review["discarded_by"] = json!("pnezis");
         review["discarded_reason"] = json!("wrong branch");
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("Discarded by pnezis at "), "{md}");
         assert!(md.trim_end().ends_with("wrong branch"), "{md}");
 
         review["status"] = json!("expired");
         review["expires_at"] = json!("2026-09-16T10:00:00Z");
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("Expired at "), "{md}");
 
         review["status"] = json!("pending");
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("Pending since "), "{md}");
         assert!(md.contains("https://x/42\n"), "{md}");
         assert!(md.trim_end().ends_with("Waiting for a decision."), "{md}");
@@ -499,7 +569,7 @@ mod tests {
             "origin": {"repo": "acme/api", "workflow": "pr-review"},
             "status": "decided", "decision": fixture["decision"], "agent_note": null
         });
-        let md = render(&review, Some((1, 2)));
+        let md = render(&review, Some((1, 2)), None);
         assert!(
             md.contains(
                 "review · acme/api · pr-review · round 1 of 2
@@ -534,6 +604,35 @@ Undecided: #19, #20
     }
 
     #[test]
+    fn the_review_plugins_template_names_the_proposals_from_the_payload() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/review");
+        let fixture: Value = serde_json::from_str(
+            &std::fs::read_to_string(root.join("fixtures/dedup-round-1.decided.json")).unwrap(),
+        )
+        .unwrap();
+        let template = std::fs::read_to_string(root.join("decision.md.j2")).unwrap();
+        compile(&template).unwrap();
+        let review = json!({
+            "id": "r_1", "plugin": "review", "plugin_version": 1, "title": fixture["title"],
+            "origin": {"repo": "acme/api"}, "status": "decided",
+            "payload": fixture["payload"], "decision": fixture["decision"], "agent_note": "dont nitpick the docs"
+        });
+        let md = render(&review, None, Some(&template));
+        assert!(md.contains("\n## Proposals\n\n- **#18 reject** `lib/acme/tickets.ex:149` — reversing twice is a no-op with a cost (major)\n  > dont nitpick\n"), "{md}");
+        assert!(md.contains("\nUndecided: #19, #20\n"), "{md}");
+        assert!(
+            !md.contains("## Decisions"),
+            "the template replaces the generic body: {md}"
+        );
+
+        // a template that fails to compile is reported; one that fails to
+        // render falls back to the generic body
+        assert!(compile("{% if %}").is_err());
+        let md = render(&review, None, Some("{{ items | nosuchfilter }}"));
+        assert!(md.contains("## Decisions"), "{md}");
+    }
+
+    #[test]
     fn unknown_shapes_are_not_dropped() {
         let review = decided(
             "custom",
@@ -544,7 +643,7 @@ Undecided: #19, #20
                 "things": [{"id": 1, "weird": true}]
             }),
         );
-        let md = render(&review, None);
+        let md = render(&review, None, None);
         assert!(md.contains("\nMood: fine\n"), "{md}");
         assert!(md.contains("\nScores: [1,2,3]\n"), "{md}");
         assert!(md.contains("\nMeta: {\"k\":\"v\"}\n"), "{md}");
