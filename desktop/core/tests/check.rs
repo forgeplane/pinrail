@@ -20,7 +20,10 @@ fn repo() -> PathBuf {
 
 /// The JavaScript verdict, or None when node is not on the path.
 fn js_check(dir: &Path) -> Option<Value> {
-    let bin = repo().join("wicket-plugin").join("bin").join("wicket-plugin.mjs");
+    let bin = repo()
+        .join("wicket-plugin")
+        .join("bin")
+        .join("wicket-plugin.mjs");
     let out = Command::new("node")
         .arg(&bin)
         .arg("check")
@@ -30,7 +33,11 @@ fn js_check(dir: &Path) -> Option<Value> {
         .ok()?;
     let text = String::from_utf8_lossy(&out.stdout);
     Some(serde_json::from_str(&text).unwrap_or_else(|e| {
-        panic!("check --json on {}: {e}\n{text}\n{}", dir.display(), String::from_utf8_lossy(&out.stderr))
+        panic!(
+            "check --json on {}: {e}\n{text}\n{}",
+            dir.display(),
+            String::from_utf8_lossy(&out.stderr)
+        )
     }))
 }
 
@@ -67,7 +74,11 @@ fn agree(dir: &Path, js: &Value) {
             dropped,
             "{}: {key}: core says {:?}, check warns {:?}",
             dir.display(),
-            (&plugin.settings_error, &plugin.shortcuts_error, &plugin.template_error),
+            (
+                &plugin.settings_error,
+                &plugin.shortcuts_error,
+                &plugin.template_error
+            ),
             warned
         );
     }
@@ -113,31 +124,104 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
     };
     let entry: &[(&str, &str)] = &[("index.html", "<html></html>")];
     let cases: Vec<(&str, Value, &[(&str, &str)])> = vec![
-        ("fine", base(json!({"title": "Sample", "icon": "mail", "min_height": 300})), entry),
+        (
+            "fine",
+            base(json!({"title": "Sample", "icon": "mail", "min_height": 300})),
+            entry,
+        ),
         ("young", base(json!({"version": "0.1.0"})), entry),
         ("zero", base(json!({"version": "0.0.0"})), entry),
         ("integer", base(json!({"version": 2})), entry),
         ("no_version", base(json!({"version": null})), entry),
         ("bad_name", base(json!({"name": "Bad-Name"})), entry),
         ("no_entry", base(json!({"entry": "view/index.html"})), entry),
-        ("builds_later", base(json!({"entry": "view/index.html", "build": {"command": "npm run build"}})), &[]),
+        (
+            "builds_later",
+            base(json!({"entry": "view/index.html", "build": {"command": "npm run build"}})),
+            &[],
+        ),
         ("abs_entry", base(json!({"entry": "/index.html"})), entry),
         ("no_schema", base(json!({"decision_schema": null})), entry),
-        ("ref_out", base(json!({"payload_schema": {"$ref": "../x.json"}})), entry),
-        ("ref_missing", base(json!({"payload_schema": {"$ref": "schemas/p.json"}})), entry),
-        ("ref_ok", base(json!({"payload_schema": {"$ref": "schemas/p.json"}})), &[("index.html", ""), ("schemas/p.json", r#"{"type":"object"}"#)]),
+        (
+            "ref_out",
+            base(json!({"payload_schema": {"$ref": "../x.json"}})),
+            entry,
+        ),
+        (
+            "ref_missing",
+            base(json!({"payload_schema": {"$ref": "schemas/p.json"}})),
+            entry,
+        ),
+        (
+            "ref_ok",
+            base(json!({"payload_schema": {"$ref": "schemas/p.json"}})),
+            &[
+                ("index.html", ""),
+                ("schemas/p.json", r#"{"type":"object"}"#),
+            ],
+        ),
         ("bad_icon", base(json!({"icon": "Mail"})), entry),
-        ("settings_ok", base(json!({"settings_schema": {"type": "object", "properties": {"wrap": {"type": "boolean", "default": true}}}})), entry),
-        ("settings_no_default", base(json!({"settings_schema": {"properties": {"wrap": {"type": "boolean"}}}})), entry),
-        ("settings_object", base(json!({"settings_schema": {"properties": {"a": {"type": "object", "default": {}}}}})), entry),
-        ("settings_enum", base(json!({"settings_schema": {"properties": {"a": {"type": "string", "default": "x", "enum": [1]}}}})), entry),
-        ("shortcuts_ok", base(json!({"shortcuts": [{"keys": "Cmd+Shift+F", "does": "Fold", "group": "View"}]})), entry),
-        ("shortcuts_modifier", base(json!({"shortcuts": [{"keys": "hyper+j", "does": "x"}]})), entry),
-        ("shortcuts_no_does", base(json!({"shortcuts": [{"keys": "j"}]})), entry),
-        ("shortcuts_shape", base(json!({"shortcuts": {"keys": "j"}})), entry),
-        ("template_ok", base(json!({"decision_template": "t.j2"})), &[("index.html", ""), ("t.j2", "{{ note }}")]),
-        ("template_missing", base(json!({"decision_template": "t.j2"})), entry),
-        ("template_out", base(json!({"decision_template": "../t.j2"})), entry),
+        (
+            "settings_ok",
+            base(
+                json!({"settings_schema": {"type": "object", "properties": {"wrap": {"type": "boolean", "default": true}}}}),
+            ),
+            entry,
+        ),
+        (
+            "settings_no_default",
+            base(json!({"settings_schema": {"properties": {"wrap": {"type": "boolean"}}}})),
+            entry,
+        ),
+        (
+            "settings_object",
+            base(
+                json!({"settings_schema": {"properties": {"a": {"type": "object", "default": {}}}}}),
+            ),
+            entry,
+        ),
+        (
+            "settings_enum",
+            base(
+                json!({"settings_schema": {"properties": {"a": {"type": "string", "default": "x", "enum": [1]}}}}),
+            ),
+            entry,
+        ),
+        (
+            "shortcuts_ok",
+            base(json!({"shortcuts": [{"keys": "Cmd+Shift+F", "does": "Fold", "group": "View"}]})),
+            entry,
+        ),
+        (
+            "shortcuts_modifier",
+            base(json!({"shortcuts": [{"keys": "hyper+j", "does": "x"}]})),
+            entry,
+        ),
+        (
+            "shortcuts_no_does",
+            base(json!({"shortcuts": [{"keys": "j"}]})),
+            entry,
+        ),
+        (
+            "shortcuts_shape",
+            base(json!({"shortcuts": {"keys": "j"}})),
+            entry,
+        ),
+        (
+            "template_ok",
+            base(json!({"decision_template": "t.j2"})),
+            &[("index.html", ""), ("t.j2", "{{ note }}")],
+        ),
+        (
+            "template_missing",
+            base(json!({"decision_template": "t.j2"})),
+            entry,
+        ),
+        (
+            "template_out",
+            base(json!({"decision_template": "../t.j2"})),
+            entry,
+        ),
     ];
     for (name, manifest, files) in cases {
         let dir = folder(tmp.path(), name, manifest, files);

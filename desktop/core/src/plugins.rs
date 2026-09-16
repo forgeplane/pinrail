@@ -1023,7 +1023,13 @@ mod tests {
         assert_eq!((p.version, p.release.as_str()), (3, "3.0.0"));
         for bad in ["\"0.0.0\"", "0", "\"1.2\"", "\"v1.2.0\"", "true"] {
             let p = with(bad);
-            assert!(p.error.as_deref().is_some_and(|e| e.starts_with("version is required")), "{bad}: {:?}", p.error);
+            assert!(
+                p.error
+                    .as_deref()
+                    .is_some_and(|e| e.starts_with("version is required")),
+                "{bad}: {:?}",
+                p.error
+            );
         }
     }
 
