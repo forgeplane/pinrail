@@ -7,7 +7,7 @@ import { fixture, mountPlugin } from "wicket-plugin/testing";
 
 // A scaffolded plugin, before a line of it is changed, under the harness:
 // what `create` writes has to work, not only exist.
-const sdk = path.resolve(__dirname, "..", "..", "wicket_sdk");
+const sdk = path.resolve(__dirname, "..", "..", "wicket-plugin");
 const bin = path.join(sdk, "bin", "wicket-plugin.mjs");
 
 function scaffold(name: string, template: "plain" | "vite"): string {

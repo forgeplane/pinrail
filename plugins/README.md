@@ -425,7 +425,7 @@ Load it and let it do the handshake; the view only renders:
 </script>
 ```
 
-`v1` only ever receives fixes. See [`wicket_sdk/`](../wicket_sdk/README.md),
+`v1` only ever receives fixes. See [`wicket-plugin/`](../wicket-plugin/README.md),
 the `wicket-plugin` package, for the API, the helpers (`escape`, `markdown`,
 `previousVerdict`), the dev shell and the test harness. The protocol below is what the SDK implements; a plugin can
 speak it directly instead.
@@ -435,7 +435,7 @@ speak it directly instead.
 `npx wicket-plugin create <name>` (`--template vite` for a build) writes a
 folder in the layout above with a working view, a fixture, a test and a
 release workflow; `wicket-plugin dev`, `test` and `check` take it from
-there. See [`wicket_sdk/`](../wicket_sdk/README.md). The samples here are
+there. See [`wicket-plugin/`](../wicket-plugin/README.md). The samples here are
 what to read once it runs.
 
 ## Testing a plugin

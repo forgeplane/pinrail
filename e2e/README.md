@@ -14,7 +14,7 @@ Suites are organised by what they check, not by language:
 Plugin behaviour in isolation is not here: each plugin has `tests/` mounted
 under the `wicket-plugin` harness, run with `mise run test:plugins`
 (configured in `plugins.config.ts`, sharing this folder's Playwright install
-and its link to `wicket_sdk/`).
+and its link to `wicket-plugin/`).
 
 Global setup builds the CLI if needed, starts the server with `wicket serve`
 on a scratch data dir and a free port, and registers `plugins/`. Teardown

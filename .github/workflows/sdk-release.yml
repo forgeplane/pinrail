@@ -1,5 +1,5 @@
 # A tag sdk-v<version> (sdk-v1.8.0) releases the wicket-plugin package from
-# wicket_sdk/: its tests and the samples' check run, the tag has to name the
+# wicket-plugin/: its tests and the samples' check run, the tag has to name the
 # package's version, and the tarball npm pack writes is attached to a GitHub
 # release of the same tag. That tarball is what a scaffolded plugin depends
 # on until the package is on npm:
@@ -8,7 +8,7 @@
 #
 # Publishing to npm is the last job, and runs only once the repository
 # variable PUBLISH_WICKET_PLUGIN is "npm" (Settings › Variables) and the
-# NPM_TOKEN secret is set; wicket_sdk/lib/create.mjs then switches the
+# NPM_TOKEN secret is set; wicket-plugin/lib/create.mjs then switches the
 # scaffold's dependency to a caret range.
 name: sdk release
 
@@ -30,28 +30,28 @@ jobs:
           node-version: 22
       - name: The version, from the tag and the package
         id: version
-        working-directory: wicket_sdk
+        working-directory: wicket-plugin
         run: |
           tagged="${GITHUB_REF_NAME#sdk-v}"
           declared=$(node -p 'require("./package.json").version')
           test "$declared" = "$tagged" || { echo "package.json says $declared, tag says $tagged"; exit 1; }
           echo "version=$tagged" >> "$GITHUB_OUTPUT"
       - name: The package's tests
-        working-directory: wicket_sdk
+        working-directory: wicket-plugin
         run: |
           npm ci
           npm test
       - name: The samples pass check
         run: |
           for dir in plugins/*/; do
-            node wicket_sdk/bin/wicket-plugin.mjs check "$dir"
+            node wicket-plugin/bin/wicket-plugin.mjs check "$dir"
           done
       - name: Pack
-        working-directory: wicket_sdk
+        working-directory: wicket-plugin
         run: npm pack
       - uses: softprops/action-gh-release@v2
         with:
-          files: wicket_sdk/wicket-plugin-${{ steps.version.outputs.version }}.tgz
+          files: wicket-plugin/wicket-plugin-${{ steps.version.outputs.version }}.tgz
 
   npm:
     needs: tarball
@@ -66,7 +66,7 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - working-directory: wicket_sdk
+      - working-directory: wicket-plugin
         run: |
           npm ci
           npm publish --provenance --access public

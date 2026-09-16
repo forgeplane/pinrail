@@ -20,7 +20,7 @@ fn repo() -> PathBuf {
 
 /// The JavaScript verdict, or None when node is not on the path.
 fn js_check(dir: &Path) -> Option<Value> {
-    let bin = repo().join("wicket_sdk").join("bin").join("wicket-plugin.mjs");
+    let bin = repo().join("wicket-plugin").join("bin").join("wicket-plugin.mjs");
     let out = Command::new("node")
         .arg(&bin)
         .arg("check")

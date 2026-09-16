@@ -149,7 +149,7 @@ test("plugins update says when there is nothing new, and remove drops the record
 });
 
 test("a plugin wicket-plugin create wrote installs as a link and decides a review", async () => {
-  const bin = path.resolve(__dirname, "../../wicket_sdk/bin/wicket-plugin.mjs");
+  const bin = path.resolve(__dirname, "../../wicket-plugin/bin/wicket-plugin.mjs");
   const dir = path.join(path.dirname(tmpFile("x", "")), "triage");
   execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir], { stdio: "pipe" });
 

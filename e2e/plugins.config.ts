@@ -3,7 +3,7 @@ import path from "node:path";
 
 // Isolated plugin tests: each plugin's tests/*.spec.ts, mounted under the
 // wicket-plugin harness, and sdk/ here, what `wicket-plugin create` writes
-// under the same harness. No server, no CLI; see wicket_sdk/.
+// under the same harness. No server, no CLI; see wicket-plugin/.
 export default defineConfig({
   testDir: path.resolve(__dirname, ".."),
   testMatch: /((plugins|server\/priv\/plugins)\/[^/]+\/tests|e2e\/sdk)\/.*\.spec\.ts$/,

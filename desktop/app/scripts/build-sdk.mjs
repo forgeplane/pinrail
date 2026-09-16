@@ -1,12 +1,12 @@
 // Assembles the directory the server serves at /sdk/v1/: the plugin SDK from
-// wicket_sdk/src and the icon set plugin views draw from. The icons come from
+// wicket-plugin/src and the icon set plugin views draw from. The icons come from
 // the pinned lucide-static package, the same release the Elixir server pins.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const app = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const sdkSrc = path.resolve(app, "..", "..", "wicket_sdk", "src");
+const sdkSrc = path.resolve(app, "..", "..", "wicket-plugin", "src");
 const icons = path.resolve(app, "node_modules", "lucide-static", "icons");
 const out = path.join(app, "sdk", "v1");
 

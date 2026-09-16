@@ -17,7 +17,7 @@ Everything for writing a wicket plugin, as one npm package:
 
 The package is authoring-time only: a shipped plugin loads the SDK from the
 app, never from `node_modules`. Until the first release it is installed
-from this repository (`"wicket-plugin": "file:../../wicket_sdk"`, or the
+from this repository (`"wicket-plugin": "file:../../wicket-plugin"`, or the
 tarball `npm pack` writes here); it goes to npm with the app's release.
 
 ```html
