@@ -1134,12 +1134,22 @@ fn plugin_copy(root: &std::path::Path, name: &str, version: &str) -> std::path::
         .join("../../plugins")
         .join(name);
     let to = root.join(format!("{name}-{}", version.replace('.', "_")));
-    std::fs::create_dir_all(&to).unwrap();
-    for file in std::fs::read_dir(&from).unwrap().flatten() {
-        if file.file_type().unwrap().is_file() {
-            std::fs::copy(file.path(), to.join(file.file_name())).unwrap();
+    fn copy_tree(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for file in std::fs::read_dir(from).unwrap().flatten() {
+            let name = file.file_name();
+            // the plugin as a bundle: without its tests and fixtures
+            if name == "tests" || name == "fixtures" || name == "node_modules" {
+                continue;
+            }
+            if file.file_type().unwrap().is_dir() {
+                copy_tree(&file.path(), &to.join(&name));
+            } else {
+                std::fs::copy(file.path(), to.join(&name)).unwrap();
+            }
         }
     }
+    copy_tree(&from, &to);
     let manifest = std::fs::read_to_string(to.join("manifest.json")).unwrap();
     let mut manifest: Value = serde_json::from_str(&manifest).unwrap();
     manifest["version"] = json!(version);
@@ -1338,7 +1348,7 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     std::fs::write(plain.join(".editorconfig"), "root = true").unwrap();
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
     assert_eq!(updates["state"], "up_to_date", "{updates}");
-    std::fs::write(plain.join("index.html"), "<html>changed</html>").unwrap();
+    std::fs::write(plain.join("view/index.html"), "<html>changed</html>").unwrap();
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
     assert_eq!(updates["state"], "available", "{updates}");
     let (_, seen) = call(
@@ -1421,7 +1431,10 @@ async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
     let (status, _) = call(
         &app,
         "GET",
-        &format!("/plugins/hello/{}/index.html", review["plugin_version"]),
+        &format!(
+            "/plugins/hello/{}/view/index.html",
+            review["plugin_version"]
+        ),
         None,
     )
     .await;
@@ -1452,12 +1465,12 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let first = plugin_copy(scratch.path(), "hello", "1.0.0");
-    std::fs::write(first.join("index.html"), "<html>first</html>").unwrap();
+    std::fs::write(first.join("view/index.html"), "<html>first</html>").unwrap();
     let (status, row) = install(&app, &first, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
 
     // rendered once, and a review created against it, as the app does
-    let (status, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    let (status, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         body.as_str().unwrap_or(&body.to_string()),
@@ -1469,11 +1482,11 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     submit(&app, body).await;
     // the patch replaces the line, and the app serves it at once
     let second = plugin_copy(scratch.path(), "hello", "1.0.1");
-    std::fs::write(second.join("index.html"), "<html>second</html>").unwrap();
+    std::fs::write(second.join("view/index.html"), "<html>second</html>").unwrap();
     let (status, row) = install(&app, &second, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["install"]["version"], "1.0.1");
-    let (status, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    let (status, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         body.as_str().unwrap_or(&body.to_string()),
@@ -1482,15 +1495,15 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
 
     // a link is served live: an edit shows on the next request
     let live = plugin_copy(scratch.path(), "hello", "1.1.0");
-    std::fs::write(live.join("index.html"), "<html>live</html>").unwrap();
+    std::fs::write(live.join("view/index.html"), "<html>live</html>").unwrap();
     let (status, _) = install(&app, &live, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK);
     let mut body = submission();
     body["plugin"] = json!("hello");
     body["payload"] = json!({"message": "again"});
     submit(&app, body).await;
-    std::fs::write(live.join("index.html"), "<html>edited</html>").unwrap();
-    let (_, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    std::fs::write(live.join("view/index.html"), "<html>edited</html>").unwrap();
+    let (_, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
     assert_eq!(
         body.as_str().unwrap_or(&body.to_string()),
         "<html>edited</html>"
@@ -1500,7 +1513,7 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     // versions endpoint lists it with no current plugin
     let (status, _) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    let (status, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
     assert_eq!(
         status,
         StatusCode::OK,
@@ -1520,7 +1533,7 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     assert_eq!(status, StatusCode::OK);
     let (_, versions) = call(&app, "GET", "/api/v1/plugins/hello/versions", None).await;
     assert_eq!(versions["current"], 1);
-    let (_, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    let (_, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
     assert_eq!(
         body.as_str().unwrap_or(&body.to_string()),
         "<html>edited</html>"
@@ -1700,8 +1713,9 @@ async fn the_artifact_plugin_installs_from_its_sources() {
         .plugin_store_dir()
         .join("artifact")
         .join("1");
-    assert!(entry.join("index.html").is_file());
-    assert!(entry.join("assets").is_dir());
+    assert!(entry.join("view/index.html").is_file());
+    assert!(entry.join("view/assets").is_dir());
+    assert!(entry.join("schemas/payload.schema.json").is_file());
     assert!(
         !entry.join("src").exists()
             && !entry.join("node_modules").exists()
@@ -1713,13 +1727,10 @@ async fn the_artifact_plugin_installs_from_its_sources() {
 /// clone of it a URL can reach.
 fn git_repo(root: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) {
     let work = root.join("work");
-    let hello = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/hello");
-    std::fs::create_dir_all(work.join("tools/hello")).unwrap();
-    for file in std::fs::read_dir(&hello).unwrap().flatten() {
-        if file.file_type().unwrap().is_file() {
-            std::fs::copy(file.path(), work.join("tools/hello").join(file.file_name())).unwrap();
-        }
-    }
+    // the hello plugin as a bundle, under tools/ in the repository
+    let hello = plugin_copy(&root.join("stage"), "hello", "1.0.0");
+    std::fs::create_dir_all(work.join("tools")).unwrap();
+    std::fs::rename(&hello, work.join("tools/hello")).unwrap();
     let git = |args: &[&str]| {
         let out = std::process::Command::new("git")
             .args(args)
@@ -1834,12 +1845,12 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
     assert_eq!(status, StatusCode::OK, "{row}");
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
     assert_eq!(updates["state"], "up_to_date", "{updates}");
-    let manifest = std::fs::read_to_string(work.join("tools/hello/manifest.json")).unwrap();
-    std::fs::write(
-        work.join("tools/hello/manifest.json"),
-        manifest.replace("\"version\": 1", "\"version\": \"1.0.1\""),
+    let mut manifest: Value = serde_json::from_str(
+        &std::fs::read_to_string(work.join("tools/hello/manifest.json")).unwrap(),
     )
     .unwrap();
+    manifest["version"] = json!("1.0.1");
+    std::fs::write(work.join("tools/hello/manifest.json"), manifest.to_string()).unwrap();
     git_in(&work, &["commit", "-q", "-am", "hello 1.0.1"]);
     git_in(&work, &["push", "-q", bare.to_str().unwrap(), "main"]);
     let newer = git_in(&work, &["rev-parse", "main"]);

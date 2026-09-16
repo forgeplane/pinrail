@@ -629,7 +629,7 @@ Undecided: #19, #20
             &std::fs::read_to_string(root.join("fixtures/dedup-round-1.decided.json")).unwrap(),
         )
         .unwrap();
-        let template = std::fs::read_to_string(root.join("decision.md.j2")).unwrap();
+        let template = std::fs::read_to_string(root.join("templates/decision.md.j2")).unwrap();
         compile(&template).unwrap();
         let review = json!({
             "id": "r_1", "plugin": "review", "plugin_version": 1, "title": fixture["title"],

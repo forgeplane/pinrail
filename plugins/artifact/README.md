@@ -59,13 +59,13 @@ find the element again if it has since moved the markup around.
 ## Building
 
 The view is a React app built with Vite. The build is not checked in: run
-it once and the directory is a complete plugin, with `index.html` and
-`assets/` next to the manifest. Until then wicket lists the plugin as broken
-with "entry index.html not found".
+it once and the directory is a complete plugin, with `view/index.html` and
+`view/assets/` beside the manifest. Until then wicket lists the plugin as
+broken with "entry view/index.html not found".
 
 ```sh
 npm install
-npm run build      # index.html and assets/
+npm run build      # view/index.html and view/assets/
 npm run watch      # rebuild on change, with the folder linked (below)
 npm test           # the plugin's own tests under the SDK harness
 ```

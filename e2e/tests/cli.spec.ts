@@ -154,6 +154,6 @@ test("plugins lists the built-in and the registered sample plugins", async () =>
   for (const p of plugins.plugins) {
     if (p.usable) continue;
     expect(p.name).toBe("artifact");
-    expect(p.error).toContain("entry index.html not found");
+    expect(p.error).toContain("entry view/index.html not found");
   }
 });

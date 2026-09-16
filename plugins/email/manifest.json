@@ -3,8 +3,8 @@
   "version": 1,
   "title": "Draft emails",
   "icon": "mail",
-  "payload_schema": { "$ref": "payload.schema.json" },
-  "decision_schema": { "$ref": "decision.schema.json" },
-  "entry": "index.html",
+  "payload_schema": { "$ref": "schemas/payload.schema.json" },
+  "decision_schema": { "$ref": "schemas/decision.schema.json" },
+  "entry": "view/index.html",
   "min_height": 520
 }

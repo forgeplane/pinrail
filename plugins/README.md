@@ -21,10 +21,21 @@ wicket types add ./plugins        # or via the API: POST /api/types/dirs {"dir":
 ## Layout
 
 ```
-hello/
-  manifest.json
-  index.html              # inline CSS and JS, or relative assets next to it
+review/
+  manifest.json           # name, version, the schemas and the entry, by path
+  README.md
+  view/index.html         # what the app serves: the entry, and anything it loads beside it
+  schemas/                # payload.schema.json, decision.schema.json, by $ref
+  templates/              # decision.md.j2, when the plugin renders its own markdown
+  fixtures/               # payloads to develop and test with; *.decided.json with their .md
+  tests/                  # the plugin's Playwright spec under the SDK's harness
+  src/                    # only for a plugin that builds: the sources; the build writes view/
 ```
+
+Every path is the manifest's to choose (`entry`, the `$ref`s,
+`decision_template`); this is the layout the samples use and the SDK
+scaffolds. The bundle the app installs is the folder without `src/`,
+`tests/`, `fixtures/`, `node_modules/` and dot-entries.
 
 `manifest.json`:
 
@@ -33,9 +44,9 @@ hello/
   "name": "hello",
   "version": 1,
   "title": "Hello",
-  "payload_schema": { "$ref": "payload.schema.json" },
+  "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "type": "object", "required": ["ok"], "properties": { "ok": { "type": "boolean" } } },
-  "entry": "index.html",
+  "entry": "view/index.html",
   "min_height": 200,
   "dev": false
 }
@@ -174,7 +185,7 @@ recognise prints as the key and its JSON, so nothing is dropped.
 A plugin whose decision needs the payload to read well ships a template:
 
 ```json
-"decision_template": "decision.md.j2"
+"decision_template": "templates/decision.md.j2"
 ```
 
 A [MiniJinja](https://docs.rs/minijinja) file beside the manifest that
@@ -191,7 +202,7 @@ rendering by shape.
 
 ### Adding a template
 
-1. Write `decision.md.j2` beside the manifest. Start from what the
+1. Write `templates/decision.md.j2`. Start from what the
    rendering by shape gives you (`wicket show <id> --format markdown` on
    a decided review) and improve the bullets that need the payload. The
    syntax is Jinja's: `{% for item in items %}`, `{% if item.note %}`,
@@ -200,7 +211,7 @@ rendering by shape.
    body uses (`accept` → `accepted`). Use `{%-` and `-%}` to keep blank
    lines out. The context is the four names above; anything else is
    undefined and renders empty.
-2. Name it in the manifest: `"decision_template": "decision.md.j2"`.
+2. Name it in the manifest: `"decision_template": "templates/decision.md.j2"`.
 3. Reload. The manifest and the template are read when the plugin loads,
    so after an edit run `wicket plugins reload` (or *Reload* in Settings
    › Plugins). A copied plugin needs installing again; a linked one only

@@ -3,9 +3,9 @@
   "version": 1,
   "title": "HTML artifact",
   "icon": "layout-template",
-  "payload_schema": { "$ref": "payload.schema.json" },
-  "decision_schema": { "$ref": "decision.schema.json" },
-  "entry": "index.html",
+  "payload_schema": { "$ref": "schemas/payload.schema.json" },
+  "decision_schema": { "$ref": "schemas/decision.schema.json" },
+  "entry": "view/index.html",
   "min_height": 640,
   "build": { "command": "npm ci && npm run build" },
   "shortcuts": [

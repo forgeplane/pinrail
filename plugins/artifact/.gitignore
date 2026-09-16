@@ -1,4 +1,3 @@
 node_modules/
-# the build: npm run build puts index.html and assets/ here
-/index.html
-/assets/
+# the build: npm run build writes view/, the manifest's entry and its assets
+/view/

@@ -10,9 +10,8 @@ const core = "http://127.0.0.1:4799";
 function pluginCopy(sample: string, name: string, version: string, extra: Record<string, unknown> = {}): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `wicket-${name}-`));
   const from = path.join(root, "plugins", sample);
-  for (const entry of fs.readdirSync(from, { withFileTypes: true })) {
-    if (entry.isFile()) fs.copyFileSync(path.join(from, entry.name), path.join(dir, entry.name));
-  }
+  // the plugin as a bundle: the folder without its tests and fixtures
+  fs.cpSync(from, dir, { recursive: true, filter: (src) => !/\/(tests|fixtures|node_modules)(\/|$)/.test(src) });
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
   fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ ...manifest, name, version, ...extra }));
   return dir;
@@ -67,12 +66,12 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await expect(row.locator("[data-plugin-updates]")).toHaveText("Up to date");
 
   // once the folder changes, the check offers an update, which copies it again
-  fs.writeFileSync(path.join(source, "index.html"), "<html>second</html>");
+  fs.writeFileSync(path.join(source, "view/index.html"), "<html>second</html>");
   await row.getByRole("button", { name: "Check for updates of greeter" }).click();
   await expect(row.locator("[data-plugin-updates]")).toHaveText("The folder changed since it was copied");
   await row.locator("[data-plugin-update]").click();
   await expect(row.locator("[data-plugin-updates]")).toHaveText("Updated to 1.2.0");
-  const served = await (await page.request.get(`${core}/plugins/greeter/1/index.html`)).text();
+  const served = await (await page.request.get(`${core}/plugins/greeter/1/view/index.html`)).text();
   expect(served).toBe("<html>second</html>");
 
   // the same version again says what it replaces
@@ -81,7 +80,7 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="unchanged"]')).toContainText("greeter 1.2.0 is installed already, from this source, and nothing has changed");
   // once the folder changes, the same version replaces what is there
-  fs.appendFileSync(path.join(source, "index.html"), "<!-- edited -->");
+  fs.appendFileSync(path.join(source, "view/index.html"), "<!-- edited -->");
   await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="same"]')).toContainText("greeter 1.2.0 is installed already. Installing replaces it.");
   await again.getByLabel("Source").press("Escape");
@@ -97,15 +96,15 @@ test("a folder is looked at before it is installed, and its row says where it ca
 
 test("a source that builds shows the exact command as the consent, then runs it", async ({ page }) => {
   const source = pluginCopy("hello", "compiled", "1.0.0", {
-    build: { command: "echo building the view && printf '<html>built</html>' > index.html" },
+    build: { command: "echo building the view && mkdir -p view && printf '<html>built</html>' > view/index.html" },
   });
-  fs.rmSync(path.join(source, "index.html"));
+  fs.rmSync(path.join(source, "view/index.html"));
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(source);
   await dialog.locator("[data-install-look]").click();
 
   const runs = dialog.locator('[data-runs="build"]');
-  await expect(runs).toContainText("echo building the view && printf '<html>built</html>' > index.html");
+  await expect(runs).toContainText("echo building the view && mkdir -p view && printf '<html>built</html>' > view/index.html");
   await expect(runs).toContainText("with your rights");
 
   await dialog.locator("[data-install-confirm]").click();
@@ -113,7 +112,7 @@ test("a source that builds shows the exact command as the consent, then runs it"
   await dialog.locator("[data-install-close]").click();
   await expect(page.locator('[data-plugin-row="compiled"]')).toContainText("ready");
 
-  const bundle = await (await page.request.get(`${core}/plugins/compiled/1/index.html`)).text();
+  const bundle = await (await page.request.get(`${core}/plugins/compiled/1/view/index.html`)).text();
   expect(bundle).toBe("<html>built</html>");
 });
 
