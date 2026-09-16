@@ -224,7 +224,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 /* anchored near the top, so the field stays put as results come and go */
 .app-dialog-backdrop.palette-backdrop { align-items: start; padding-top: 12vh; }
 .palette {
-  width: min(640px, calc(100vw - 32px)); max-height: 70vh;
+  width: min(820px, calc(100vw - 32px)); max-height: 70vh;
   display: flex; flex-direction: column;
   background: var(--bg-panel); border: 1px solid var(--border-strong); border-radius: 12px;
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
