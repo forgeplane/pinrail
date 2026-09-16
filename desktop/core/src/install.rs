@@ -1030,6 +1030,66 @@ fn fetch_git(
     Ok(Fetched { root, commit })
 }
 
+/// How many build logs a plugin keeps; older ones go when a new one is written.
+const LOGS_KEPT: usize = 5;
+
+/// Tidies `<data>/plugins` at start. The folder holds `store`, `fetch`
+/// and `logs`; anything else at its top level is a snapshot from before
+/// the store existed and goes, since the store or a link has what it
+/// held. `fetch` is scratch and no install survives a restart, so it is
+/// emptied.
+pub fn tidy(plugins_dir: &Path) -> std::io::Result<()> {
+    let Ok(entries) = std::fs::read_dir(plugins_dir) else {
+        return Ok(());
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        match name.to_str() {
+            Some("store") | Some("logs") => {}
+            Some("fetch") => {
+                for leftover in std::fs::read_dir(entry.path())?.flatten() {
+                    let path = leftover.path();
+                    if path.is_dir() {
+                        std::fs::remove_dir_all(&path)?;
+                    } else {
+                        std::fs::remove_file(&path)?;
+                    }
+                }
+            }
+            _ => {
+                let path = entry.path();
+                if path.is_dir() {
+                    std::fs::remove_dir_all(&path)?;
+                } else {
+                    std::fs::remove_file(&path)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Keeps the last `LOGS_KEPT` logs of a plugin, by name.
+fn trim_logs(logs: &Path, name: &str) {
+    let Ok(entries) = std::fs::read_dir(logs) else {
+        return;
+    };
+    let prefix = format!("{name}-");
+    let mut mine: Vec<PathBuf> = entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|f| f.to_str())
+                .is_some_and(|f| f.starts_with(&prefix) && f.ends_with(".log"))
+        })
+        .collect();
+    mine.sort();
+    while mine.len() > LOGS_KEPT {
+        let _ = std::fs::remove_file(mine.remove(0));
+    }
+}
+
 fn fetch_dir(registry: &Registry) -> PathBuf {
     registry
         .store_dir()
@@ -1386,8 +1446,12 @@ fn run_build(
         .unwrap_or_else(|| registry.store_dir().to_path_buf())
         .join("logs");
     std::fs::create_dir_all(&logs)?;
-    let log_path = logs.join(format!("{name}-{}.log", Utc::now().format("%Y%m%dT%H%M%S")));
+    let log_path = logs.join(format!(
+        "{name}-{}.log",
+        Utc::now().format("%Y%m%dT%H%M%S%.3f")
+    ));
     let mut log = std::fs::File::create(&log_path)?;
+    trim_logs(&logs, name);
     use std::io::Write;
     writeln!(log, "$ {command}")?;
     progress(Progress::Log(format!("$ {command}")));

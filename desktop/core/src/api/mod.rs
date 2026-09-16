@@ -72,6 +72,9 @@ impl AppState {
         let mut defaults = vec![builtin, user];
         defaults.extend(config.plugin_dirs.iter().cloned());
         let records = db.installed_plugins()?;
+        if let Some(plugins_dir) = config.plugin_store_dir().parent() {
+            crate::install::tidy(plugins_dir)?;
+        }
         let registry = Arc::new(
             Registry::open(defaults, records, config.plugin_store_dir())
                 .map_err(Error::Internal)?,

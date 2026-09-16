@@ -1381,6 +1381,73 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     );
 }
 
+#[tokio::test]
+async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() {
+    // a data directory laid out the old way: snapshots at the top level,
+    // a clone left in fetch by a crash, a store entry to keep
+    let dir = tempfile::tempdir().unwrap();
+    let plugins = dir.path().join("plugins");
+    std::fs::create_dir_all(plugins.join("review/1")).unwrap();
+    std::fs::write(plugins.join("review/1/manifest.json"), "{}").unwrap();
+    std::fs::create_dir_all(plugins.join("fetch/git-abc")).unwrap();
+    std::fs::write(plugins.join("fetch/git-abc/file"), "x").unwrap();
+    std::fs::create_dir_all(plugins.join("store/hello/1")).unwrap();
+    std::fs::write(plugins.join("store/hello/1/keep"), "x").unwrap();
+    std::fs::create_dir_all(plugins.join("logs")).unwrap();
+    std::fs::write(plugins.join("logs/old.log"), "x").unwrap();
+    let mut config = Config::new(dir.path(), 0);
+    config.user = "tester".into();
+    let state = AppState::open(config).unwrap();
+    assert!(!plugins.join("review").exists(), "the old snapshot is gone");
+    assert!(
+        plugins.join("fetch").is_dir()
+            && std::fs::read_dir(plugins.join("fetch"))
+                .unwrap()
+                .next()
+                .is_none(),
+        "fetch is emptied"
+    );
+    assert!(
+        plugins.join("store/hello/1/keep").is_file(),
+        "the store is untouched"
+    );
+    assert!(
+        plugins.join("logs/old.log").is_file(),
+        "logs are untouched at start"
+    );
+    let mut names: Vec<String> = std::fs::read_dir(&plugins)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(names, vec!["fetch", "logs", "store"]);
+
+    // six builds, five logs
+    let app = App {
+        router: router(state.clone()),
+        state,
+        _dir: dir,
+    };
+    let scratch = tempfile::tempdir().unwrap();
+    let built = buildable_plugin(
+        scratch.path(),
+        "built",
+        "printf '<html>ok</html>' > index.html",
+    );
+    for _ in 0..6 {
+        let (status, row) = install(&app, &built, json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{row}");
+    }
+    let logs: Vec<String> = std::fs::read_dir(plugins.join("logs"))
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with("built-"))
+        .collect();
+    assert_eq!(logs.len(), 5, "{logs:?}");
+}
+
 fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(dir.join("src")).unwrap();
