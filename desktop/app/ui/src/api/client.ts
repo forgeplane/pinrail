@@ -84,6 +84,12 @@ export const api = {
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** The URL a plugin's bundle is loaded from; the iframe adds the theme. */
+  /** the review rendered as markdown by the core, for the clipboard */
+  reviewMarkdown: async (id: string) => {
+    const response = await fetch(`${await serverUrl()}/api/v1/reviews/${id}?format=markdown`);
+    if (!response.ok) throw new ApiError(response.status, null);
+    return response.text();
+  },
   bundleUrl: async (review: Review, entry: string) =>
     `${await serverUrl()}/plugins/${review.plugin}/${review.plugin_version}/${entry}`,
 };

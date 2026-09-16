@@ -1,4 +1,4 @@
-import { Ban, Bot, Clock, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
+import { Ban, Bot, Check, Clock, Copy, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
@@ -22,6 +22,18 @@ export function ReviewScreen() {
   const live = useLive();
   const { settings: prefs } = useSettings();
   const navigate = useNavigate();
+  const [copied, setCopied] = useState(false);
+  // the review as the core renders it in markdown, for a merge request or a thread
+  const copyMarkdown = async () => {
+    if (!id) return;
+    try {
+      await navigator.clipboard.writeText(await api.reviewMarkdown(id));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1400);
+    } catch {
+      // the clipboard is not available here; the tooltip stays as it was
+    }
+  };
   const location = useLocation();
   // the way back is where the review was opened from
   const fromHistory = (location.state as { from?: string } | null)?.from === "history";
@@ -251,6 +263,11 @@ export function ReviewScreen() {
               </button>
             </Tooltip>
           ) : null}
+          <Tooltip label={copied ? "Copied" : "Copy as markdown"} side="bottom">
+            <button type="button" className="bar-button" onClick={copyMarkdown} aria-label="Copy the review as markdown" data-copy-markdown>
+              {copied ? <Check size={15} /> : <Copy size={15} />}
+            </button>
+          </Tooltip>
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
               <button type="button" className="bar-button" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>
