@@ -220,8 +220,8 @@ with a `decision` for a read-only or previous-round case. Tests live in
 Playwright from the plugin's own dependencies and the plugin's
 `playwright.config` when it has one (the package's otherwise), and hands
 anything else on the line to Playwright: `-g "hands over"`, `--headed`.
-In this repository `mise run test:plugins` runs every sample's tests and
-the scaffold's, resolving the package from `e2e/node_modules`.
+In this repository `mise run test:plugins` runs every sample's tests from
+`plugins/`, which depends on this package by path.
 
 ## Checking a plugin
 

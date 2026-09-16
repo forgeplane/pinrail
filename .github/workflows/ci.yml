@@ -122,6 +122,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: |
+            plugins/package-lock.json
             e2e/package-lock.json
             wicket-plugin/package-lock.json
             plugins/artifact/package-lock.json
@@ -140,16 +141,23 @@ jobs:
         run: |
           npm ci
           npm run build
-      - name: Install Playwright
+      - name: Plugin tests
+        working-directory: plugins
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npm test
+      - name: Scaffold tests
         working-directory: e2e
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: Plugin tests
-        run: NODE_PATH=$PWD/e2e/node_modules npx --prefix e2e playwright test -c e2e/plugins.config.ts
+          npm run test:sdk
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: plugin-traces
-          path: e2e/test-results
+          path: |
+            plugins/test-results
+            e2e/test-results
           if-no-files-found: ignore

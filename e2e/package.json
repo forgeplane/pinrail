@@ -4,7 +4,7 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:plugins": "playwright test -c plugins.config.ts"
+    "test:sdk": "playwright test -c plugins.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

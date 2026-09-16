@@ -442,9 +442,10 @@ what to read once it runs.
 
 Ship `fixtures/*.json` (a partial gate: `title`, `payload`, optionally a
 `decision`) and `tests/*.spec.ts` that mount the view alone under the
-harness in `wicket-plugin/testing`; `mise run test:plugins` runs them for
-every plugin in this folder and for the built-in `list`. See any shipped
-plugin for the pattern.
+harness in `wicket-plugin/testing`; `npm test` here (`mise run test:plugins`
+from anywhere) runs them for every plugin in this folder and for the
+built-in `list`, with Playwright from this folder's `package.json`. See any
+shipped plugin for the pattern.
 
 While building one, `mise run dev:plugin <directory>` (`npx wicket-plugin
 dev <directory>` outside this repository) opens the view in a browser under

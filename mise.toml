@@ -33,9 +33,9 @@ description = "One plugin in a browser shell, without the app: mise run dev:plug
 run = "node {{config_root}}/wicket-plugin/bin/wicket-plugin.mjs dev {{arg(name='plugin')}}"
 
 [tasks."test:plugins"]
-description = "Each shipped plugin alone, under the SDK's fake shell"
-dir = "{{config_root}}/e2e"
-run = "NODE_PATH={{config_root}}/e2e/node_modules npm run test:plugins"
+description = "Each shipped plugin alone, under the wicket-plugin harness"
+dir = "{{config_root}}/plugins"
+run = "npm test"
 
 [tasks.e2e]
 description = "End to end: real server, real CLI, real browser, shipped plugins"
