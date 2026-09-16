@@ -1322,6 +1322,79 @@ async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+#[tokio::test]
+async fn a_patch_update_is_what_the_app_serves_and_a_store_entry_takes_no_snapshot() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let first = plugin_copy(scratch.path(), "hello", "1.0.0");
+    std::fs::write(first.join("index.html"), "<html>first</html>").unwrap();
+    let (status, row) = install(&app, &first, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+
+    // rendered once, and a review created against it, as the app does
+    let (status, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body.as_str().unwrap_or(&body.to_string()),
+        "<html>first</html>"
+    );
+    let mut body = submission();
+    body["plugin"] = json!("hello");
+    body["payload"] = json!({"message": "hi"});
+    submit(&app, body).await;
+    let snapshot = app.state.config.snapshots_dir().join("hello/1");
+    assert!(!snapshot.exists(), "a store entry is its own snapshot");
+
+    // the patch replaces the line, and the app serves it at once
+    let second = plugin_copy(scratch.path(), "hello", "1.0.1");
+    std::fs::write(second.join("index.html"), "<html>second</html>").unwrap();
+    let (status, row) = install(&app, &second, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["install"]["version"], "1.0.1");
+    let (status, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body.as_str().unwrap_or(&body.to_string()),
+        "<html>second</html>"
+    );
+
+    // a snapshot left from before the plugin was installed goes with the update
+    std::fs::create_dir_all(&snapshot).unwrap();
+    std::fs::write(snapshot.join("manifest.json"), "{}").unwrap();
+    std::fs::write(snapshot.join("index.html"), "<html>stale</html>").unwrap();
+    let third = plugin_copy(scratch.path(), "hello", "1.0.2");
+    std::fs::write(third.join("index.html"), "<html>third</html>").unwrap();
+    let (status, _) = install(&app, &third, json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(!snapshot.exists(), "the stale snapshot is gone");
+    let (_, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    assert_eq!(
+        body.as_str().unwrap_or(&body.to_string()),
+        "<html>third</html>"
+    );
+
+    // a link is served live: an edit shows on the next request, even
+    // though a review took a snapshot of it
+    let live = plugin_copy(scratch.path(), "hello", "1.1.0");
+    std::fs::write(live.join("index.html"), "<html>live</html>").unwrap();
+    let (status, _) = install(&app, &live, json!({"link": true})).await;
+    assert_eq!(status, StatusCode::OK);
+    let mut body = submission();
+    body["plugin"] = json!("hello");
+    body["payload"] = json!({"message": "again"});
+    submit(&app, body).await;
+    assert!(
+        snapshot.join("manifest.json").is_file(),
+        "a review keeps a snapshot of a link"
+    );
+    std::fs::write(live.join("index.html"), "<html>edited</html>").unwrap();
+    let (_, body) = call(&app, "GET", "/plugins/hello/1/index.html", None).await;
+    assert_eq!(
+        body.as_str().unwrap_or(&body.to_string()),
+        "<html>edited</html>"
+    );
+}
+
 fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(dir.join("src")).unwrap();

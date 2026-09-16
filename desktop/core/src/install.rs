@@ -1486,6 +1486,11 @@ fn commit(db: &Db, registry: &Registry, record: InstalledRecord) -> Result<Insta
     {
         let _ = std::fs::remove_dir_all(registry.store_entry(&previous.name, previous.major));
     }
+    // a snapshot taken of this line before it was a store entry would be
+    // served instead of what was just placed: it goes
+    if !record.linked {
+        registry.drop_snapshot(&record.name, record.major as u32);
+    }
     db.upsert_installed(&record)?;
     let records = db.installed_plugins()?;
     registry

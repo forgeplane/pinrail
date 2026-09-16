@@ -906,10 +906,19 @@ impl Registry {
         let _ = std::fs::remove_dir(self.snapshots_dir.join(name));
     }
 
+    /// A store entry is the frozen copy already: one per major, replaced
+    /// in place by a patch, kept while a review renders from it. It needs
+    /// no snapshot, and taking one would serve the old files after an
+    /// update.
+    fn is_store_entry(plugin: &Plugin) -> bool {
+        plugin.install.as_ref().is_some_and(|i| !i.linked)
+    }
+
     /// Makes sure the plugin's version is snapshotted, unless it is a dev
-    /// plugin. Returns the directory its bundle is served from.
+    /// plugin or a store entry. Returns the directory its bundle is served
+    /// from.
     pub fn ensure_snapshot(&self, plugin: &Plugin) -> std::io::Result<PathBuf> {
-        if plugin.dev {
+        if plugin.dev || Self::is_store_entry(plugin) {
             return Ok(plugin.path.clone());
         }
         let dest = self.snapshot_dir(&plugin.name, plugin.version);
@@ -926,11 +935,13 @@ impl Registry {
         Ok(dest)
     }
 
-    /// The directory a plugin's bundle is served from: the live directory
-    /// for a plugin in development, the snapshot otherwise, taken now if it
+    /// The directory a plugin's bundle is served from: its own folder for
+    /// a plugin in development, a link or a store entry (a link is served
+    /// live, that is the point of it; the snapshot a review took of it is
+    /// for when the link is gone), the snapshot otherwise, taken now if it
     /// is missing.
     pub fn bundle_dir(&self, plugin: &Plugin) -> PathBuf {
-        if plugin.dev {
+        if plugin.dev || plugin.install.is_some() {
             plugin.path.clone()
         } else {
             self.ensure_snapshot(plugin)
