@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
 use wicket_core::Config;
@@ -43,6 +43,7 @@ fn shortcut_state(native: State<'_, Native>) -> native::ShortcutState {
 
 /// What macOS will do with a notification; `None` outside an app bundle,
 /// where the plugin's notification is all there is.
+#[cfg(target_os = "macos")]
 #[tauri::command]
 async fn notification_status(app: AppHandle) -> Option<notify_mac::Status> {
     if !notify_mac::available() {
@@ -61,13 +62,28 @@ async fn notification_status(app: AppHandle) -> Option<notify_mac::Status> {
     rx.await.ok()
 }
 
+/// Elsewhere the system has no say the app can read: the plugin's
+/// notification is all there is, and the shell shows no status row.
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+async fn notification_status() -> Option<()> {
+    None
+}
+
 /// System Settings, at the app's notification page.
+#[cfg(target_os = "macos")]
 #[tauri::command]
 fn open_notification_settings(app: AppHandle) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
     app.opener()
         .open_url(notify_mac::settings_url(), None::<&str>)
         .map_err(|error| error.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn open_notification_settings() -> Result<(), String> {
+    Err("this system has no notification settings page for the app".into())
 }
 
 #[tauri::command]
@@ -214,9 +230,12 @@ pub fn run() {
 
     app.run(|app, event| {
         // The Dock icon brings the hidden window back.
-        if let RunEvent::Reopen { .. } = event {
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen { .. } = event {
             native::open(app, "");
         }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (app, event);
     });
 }
 
