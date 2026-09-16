@@ -103,11 +103,12 @@ const THEME_KEY = "wicket-shell:theme";
 let theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
 document.documentElement.dataset.theme = theme;
 
+// The envelope as the app hands it to a view, around the fixture's fields.
 const gateFrom = (partial, name) => ({
-  id: "g_dev", type: name, plugin: name, type_version: manifest.version ?? 1, plugin_version: manifest.version ?? 1,
-  title: "dev gate", source: { repo: "dev", workflow: "shell" }, origin: { repo: "dev", workflow: "shell" },
-  requested_by: "dev", created_at: new Date().toISOString(), expires_at: null, supersedes: null, revises: null,
-  summary: null, status: partial.decision ? "decided" : "pending", decision: null, agent_note: null, ...partial,
+  id: "g_dev", plugin: name, plugin_version: Number(String(manifest.version ?? 1).split(".")[0]) || 1,
+  title: "dev gate", origin: { repo: "dev", workflow: "shell" },
+  requested_by: "dev", created_at: new Date().toISOString(), expires_at: null, revises: null,
+  summary: null, status: partial.decision ? "decided" : "pending", decision: null, agent_note: null, payload: {}, ...partial,
 });
 
 function post(msg) { frame.contentWindow.postMessage({ wicket: 1, ...msg }, "*"); note(msg, "out"); }

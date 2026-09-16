@@ -40,22 +40,23 @@ function csp() {
   ].join("; ");
 }
 
-/** A gate envelope with defaults, from a fixture's partial gate. */
+/** A gate envelope with defaults, from a fixture's partial gate: what the app hands a view. */
 function gateFrom(partial) {
   return {
     id: "g_test",
-    type: "test",
-    type_version: 1,
+    plugin: "test",
+    plugin_version: 1,
     title: "test gate",
-    source: { repo: "acme", workflow: "test" },
+    origin: { repo: "acme", workflow: "test" },
     requested_by: "test",
     created_at: "2026-09-11T10:00:00Z",
     expires_at: null,
-    supersedes: null,
+    revises: null,
     summary: null,
     status: partial.decision ? "decided" : "pending",
     decision: null,
     agent_note: null,
+    payload: {},
     ...partial,
   };
 }

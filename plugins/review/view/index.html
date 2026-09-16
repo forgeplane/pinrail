@@ -828,15 +828,15 @@ function submitModalHtml() {
   return `<div style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.65);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;animation:fade 0.12s ease-out">
     <div id="submit-modal" style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
 }
-/* The shell's own header carries the gate's source: the repository, the
+/* The shell's own header carries the gate's origin: the repository, the
    workflow, the ref and a link to it. This header says what the shell cannot
    know, and leaves out whatever it can see is already up there. */
 function shellShows(field) {
-  const source = (GATE && GATE.source) || {};
+  const origin = (GATE && GATE.origin) || {};
   const change = D.change;
-  if (field === "url") return !!source.url && source.url === change.url;
+  if (field === "url") return !!origin.url && origin.url === change.url;
   const bare = (value) => String(value == null ? "" : value).replace(/^[#!]/, "");
-  return !!source.ref && bare(source.ref) === bare(change.ref);
+  return !!origin.ref && bare(origin.ref) === bare(change.ref);
 }
 
 /* Toolbar icons sit beside their label, so they are decoration and the label
