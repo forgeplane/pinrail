@@ -689,6 +689,152 @@ async fn the_sdk_is_served_only_when_configured() {
 }
 
 #[tokio::test]
+async fn a_review_is_served_as_markdown_on_request() {
+    let app = app();
+    let review = submit(&app, submission()).await;
+    let id = review["id"].as_str().unwrap();
+    let text = |path: &str, accept: Option<&str>| {
+        let mut req = Request::get(path).header("host", "127.0.0.1:4747");
+        if let Some(a) = accept {
+            req = req.header("accept", a);
+        }
+        req.body(Body::empty()).unwrap()
+    };
+
+    // pending, by the query parameter
+    let response = app
+        .router
+        .clone()
+        .oneshot(text(&format!("/api/v1/reviews/{id}?format=markdown"), None))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        response.headers()["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("text/markdown")
+    );
+    let body = String::from_utf8(
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(
+        body.starts_with(
+            "# MR !42
+
+list · acme · review · 42
+Pending since "
+        ),
+        "{body}"
+    );
+    assert!(
+        body.trim_end().ends_with("Waiting for a decision."),
+        "{body}"
+    );
+
+    // decided, by the Accept header, with the note and the tally
+    let (status, _) = call(&app, "POST", &format!("/api/v1/reviews/{id}/decision"), Some(json!({"data": {"decisions": [{"id": 1, "action": "accept"}, {"id": 2, "action": "reject", "note": "typo is fine"}], "undecided": []}, "agent_note": "ship it"}))).await;
+    assert_eq!(status, StatusCode::OK);
+    let response = app
+        .router
+        .clone()
+        .oneshot(text(
+            &format!("/api/v1/reviews/{id}"),
+            Some("text/markdown, application/json;q=0.5"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = String::from_utf8(
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(body.contains("Decided by tester at "), "{body}");
+    assert!(
+        body.contains(
+            "· 1 accepted, 1 rejected
+
+> ship it
+
+## Decisions
+
+- **#1** **accepted**
+- **#2** **rejected**
+  > typo is fine
+"
+        ),
+        "{body}"
+    );
+
+    // JSON stays the default, and Accept that prefers JSON gets JSON
+    let response = app
+        .router
+        .clone()
+        .oneshot(text(
+            &format!("/api/v1/reviews/{id}"),
+            Some("application/json, text/markdown"),
+        ))
+        .await
+        .unwrap();
+    assert!(
+        response.headers()["content-type"]
+            .to_str()
+            .unwrap()
+            .starts_with("application/json")
+    );
+    let (status, shown) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(shown["status"], "decided");
+
+    // a second round says where it stands in the chain
+    let mut next = submission();
+    next["revises"] = json!(id);
+    let round = submit(&app, next).await;
+    let response = app
+        .router
+        .clone()
+        .oneshot(text(
+            &format!(
+                "/api/v1/reviews/{}?format=md",
+                round["id"].as_str().unwrap()
+            ),
+            None,
+        ))
+        .await
+        .unwrap();
+    let body = String::from_utf8(
+        response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes()
+            .to_vec(),
+    )
+    .unwrap();
+    assert!(
+        body.contains(
+            "list · acme · review · 42 · round 2 of 2
+"
+        ),
+        "{body}"
+    );
+}
+
+#[tokio::test]
 async fn info_and_viewed() {
     let app = app();
     let (status, info) = call(&app, "GET", "/api/v1/info", None).await;

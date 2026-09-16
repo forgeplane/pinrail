@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -51,11 +51,58 @@ async fn list(
     )))
 }
 
+/// Whether the caller wants the review as markdown: `?format=markdown`,
+/// or an Accept header that names text/markdown ahead of JSON.
+fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> bool {
+    if let Some(f) = params.get("format") {
+        return f == "markdown" || f == "md";
+    }
+    headers
+        .get(header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|accept| {
+            let md = accept.find("text/markdown");
+            let json = accept.find("application/json");
+            matches!((md, json), (Some(m), Some(j)) if m < j)
+                || matches!((md, json), (Some(_), None))
+        })
+}
+
+/// A review as the caller asked for it: markdown with its round placed
+/// in the chain, or the JSON everything else reads.
+fn review_response(
+    state: &AppState,
+    review: &crate::review::Review,
+    markdown: bool,
+) -> Result<Response, Error> {
+    if !markdown {
+        return Ok(Json(review.to_json(true)).into_response());
+    }
+    let rounds = state.reviews.rounds(&review.id)?;
+    let round = (rounds.len() > 1)
+        .then(|| {
+            rounds
+                .iter()
+                .position(|r| r.id == review.id)
+                .map(|i| (i + 1, rounds.len()))
+        })
+        .flatten();
+    let text = crate::markdown::render(&review.to_json(true), round);
+    Ok((
+        [(header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
+        text,
+    )
+        .into_response())
+}
+
 async fn show(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
-) -> Result<Json<Value>, Error> {
-    Ok(Json(state.reviews.get(&id)?.to_json(true)))
+    Query(params): Query<HashMap<String, String>>,
+    headers: HeaderMap,
+) -> Result<Response, Error> {
+    let review = state.reviews.get(&id)?;
+    review_response(&state, &review, wants_markdown(&headers, &params))
 }
 
 async fn rounds(
@@ -72,6 +119,7 @@ async fn wait(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
+    headers: HeaderMap,
 ) -> Result<Response, Error> {
     let timeout = params
         .get("timeout")
@@ -83,7 +131,7 @@ async fn wait(
         .wait(&id, Duration::from_secs(timeout))
         .await?
     {
-        Some(review) => Ok(Json(review.to_json(true)).into_response()),
+        Some(review) => review_response(&state, &review, wants_markdown(&headers, &params)),
         None => Ok(StatusCode::NO_CONTENT.into_response()),
     }
 }
@@ -91,14 +139,17 @@ async fn wait(
 async fn decide(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
+    headers: HeaderMap,
     body: Bytes,
-) -> Result<Json<Value>, Error> {
+) -> Result<Response, Error> {
     let body = parse_body(&body)?;
     let Some(data) = body.get("data") else {
         return Err(Error::invalid("/data", "is required"));
     };
     let note = body.get("agent_note").and_then(Value::as_str);
-    Ok(Json(state.reviews.decide(&id, data, note)?.to_json(true)))
+    let review = state.reviews.decide(&id, data, note)?;
+    review_response(&state, &review, wants_markdown(&headers, &params))
 }
 
 async fn withdraw(
