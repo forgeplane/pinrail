@@ -35,7 +35,7 @@ jobs:
           cargo fmt --all --check --manifest-path desktop/Cargo.toml
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: desktop/app/package-lock.json
       - name: Type check the shell
@@ -61,7 +61,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: |
             desktop/app/package-lock.json
@@ -119,7 +119,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: |
             plugins/package-lock.json

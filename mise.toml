@@ -2,6 +2,7 @@
 erlang = "29.0.6"
 elixir = "1.20.4-otp-29"
 rust = "1.98.1"
+node = "24"
 
 [tasks."test:server"]
 description = "Server unit and LiveView tests"
