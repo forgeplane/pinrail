@@ -9,7 +9,7 @@
 //! `line`, `undecided`…), so nothing is lost silently and anything
 //! recognised reads as prose.
 
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, FixedOffset, Local, Utc};
 use serde_json::{Map, Value, json};
 
 /// Checks a plugin's template compiles, at load, so a bad one is reported
@@ -22,8 +22,21 @@ pub fn compile(source: &str) -> Result<(), String> {
 
 /// Renders a review, as `Review::to_json` shapes it. `round` is `(n, of)`
 /// when the review is one of a chain; `template` is the plugin's own
-/// rendering of the body, when it declares one.
+/// rendering of the body, when it declares one. Times read in the local
+/// zone.
 pub fn render(review: &Value, round: Option<(usize, usize)>, template: Option<&str>) -> String {
+    render_in(review, round, template, None)
+}
+
+/// `render`, with times in `zone` rather than the local one; the fixture
+/// tests pass UTC so their expected files hold anywhere.
+pub fn render_in(
+    review: &Value,
+    round: Option<(usize, usize)>,
+    template: Option<&str>,
+    zone: Option<FixedOffset>,
+) -> String {
+    let when = |iso: Option<&str>| when_in(iso, zone);
     let mut out = String::new();
     let title = review["title"].as_str().unwrap_or("Review");
     out.push_str(&format!("# {title}\n\n"));
@@ -129,6 +142,8 @@ pub fn render(review: &Value, round: Option<(usize, usize)>, template: Option<&s
 /// `payload` set to the payload object of the same id, when there is one.
 fn render_template(source: &str, review: &Value) -> Result<String, String> {
     let mut env = minijinja::Environment::new();
+    // `{{ item.action | verb }}`: accept → accepted, the way the generic body says it
+    env.add_filter("verb", |v: String| verb(&v).unwrap_or(v));
     env.add_template("decision", source)
         .map_err(|e| e.to_string())?;
     let data = review["decision"]["data"].clone();
@@ -394,10 +409,14 @@ fn first_line(s: &str, max: usize) -> String {
     }
 }
 
-/// An ISO time as the local clock reads it, `2026-09-16 09:14`.
-fn when(iso: Option<&str>) -> String {
+/// An ISO time as a clock reads it, `2026-09-16 09:14`: the local clock,
+/// or the zone given.
+fn when_in(iso: Option<&str>, zone: Option<FixedOffset>) -> String {
     iso.and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-        .map(|t| t.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string())
+        .map(|t| match zone {
+            Some(z) => t.with_timezone(&z).format("%Y-%m-%d %H:%M").to_string(),
+            None => t.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string(),
+        })
         .or_else(|| iso.map(str::to_string))
         .unwrap_or_else(|| Utc::now().format("%Y-%m-%d %H:%M").to_string())
 }
@@ -618,7 +637,7 @@ Undecided: #19, #20
             "payload": fixture["payload"], "decision": fixture["decision"], "agent_note": "dont nitpick the docs"
         });
         let md = render(&review, None, Some(&template));
-        assert!(md.contains("\n## Proposals\n\n- **#18 reject** `lib/acme/tickets.ex:149` — reversing twice is a no-op with a cost (major)\n  > dont nitpick\n"), "{md}");
+        assert!(md.contains("\n## Proposals\n\n- **#18 rejected** `lib/acme/tickets.ex:149` — reversing twice is a no-op with a cost (major)\n  > dont nitpick\n"), "{md}");
         assert!(md.contains("\nUndecided: #19, #20\n"), "{md}");
         assert!(
             !md.contains("## Decisions"),
@@ -630,6 +649,74 @@ Undecided: #19, #20
         assert!(compile("{% if %}").is_err());
         let md = render(&review, None, Some("{{ items | nosuchfilter }}"));
         assert!(md.contains("## Decisions"), "{md}");
+    }
+
+    /// Every `plugins/*/fixtures/*.decided.json` renders, through the
+    /// plugin's template when it has one, to the `.decided.md` beside it.
+    /// `UPDATE_FIXTURES=1 cargo test` rewrites the expected files.
+    #[test]
+    fn decided_fixtures_render_to_their_expected_markdown() {
+        let plugins = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+        let update = std::env::var("UPDATE_FIXTURES").is_ok();
+        let mut seen = 0;
+        for plugin in std::fs::read_dir(&plugins).unwrap().flatten() {
+            let dir = plugin.path();
+            let Ok(manifest) = std::fs::read_to_string(dir.join("manifest.json")) else {
+                continue;
+            };
+            let manifest: Value = serde_json::from_str(&manifest).unwrap();
+            let template = manifest["decision_template"]
+                .as_str()
+                .map(|f| std::fs::read_to_string(dir.join(f)).unwrap());
+            let Ok(fixtures) = std::fs::read_dir(dir.join("fixtures")) else {
+                continue;
+            };
+            for fixture in fixtures.flatten() {
+                let path = fixture.path();
+                let name = path.file_name().unwrap().to_string_lossy().to_string();
+                let Some(stem) = name.strip_suffix(".decided.json") else {
+                    continue;
+                };
+                let fixture: Value =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                let review = json!({
+                    "id": "r_fixture", "plugin": manifest["name"], "plugin_version": 1,
+                    "title": fixture["title"],
+                    "origin": fixture.get("origin").cloned().unwrap_or(json!({"repo": "acme/api", "workflow": "review", "ref": "42"})),
+                    "created_at": "2026-09-10T08:00:00Z", "status": "decided",
+                    "payload": fixture["payload"], "decision": fixture["decision"],
+                    "agent_note": fixture.get("agent_note").cloned().unwrap_or(Value::Null),
+                });
+                let rendered = render_in(
+                    &review,
+                    None,
+                    template.as_deref(),
+                    Some(FixedOffset::east_opt(0).unwrap()),
+                );
+                let expected_path = path.with_file_name(format!("{stem}.decided.md"));
+                if update {
+                    std::fs::write(&expected_path, &rendered).unwrap();
+                }
+                let expected = std::fs::read_to_string(&expected_path).unwrap_or_else(|_| {
+                    panic!(
+                        "{} is missing; run with UPDATE_FIXTURES=1 to write it",
+                        expected_path.display()
+                    )
+                });
+                assert_eq!(
+                    rendered,
+                    expected,
+                    "{} does not match {}",
+                    path.display(),
+                    expected_path.display()
+                );
+                seen += 1;
+            }
+        }
+        assert!(
+            seen >= 3,
+            "expected the decided fixtures of the sample plugins, found {seen}"
+        );
     }
 
     #[test]

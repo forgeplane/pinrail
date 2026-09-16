@@ -6,7 +6,7 @@
 {%- if proposals %}
 ## Proposals
 {% for item in proposals %}
-- **#{{ item.id }} {{ item.action }}**{% if item.payload %} `{{ item.payload.file }}:{{ item.payload.line }}` — {{ item.payload.title }}{% if item.payload.severity %} ({{ item.payload.severity }}){% endif %}{% endif %}
+- **#{{ item.id }} {{ item.action | verb }}**{% if item.payload %} `{{ item.payload.file }}:{{ item.payload.line }}` — {{ item.payload.title }}{% if item.payload.severity %} ({{ item.payload.severity }}){% endif %}{% endif %}
 {%- if item.note %}
   > {{ item.note }}
 {%- endif %}

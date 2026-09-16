@@ -196,8 +196,10 @@ rendering by shape.
    a decided review) and improve the bullets that need the payload. The
    syntax is Jinja's: `{% for item in items %}`, `{% if item.note %}`,
    `{{ item.payload.title }}`, filters such as `selectattr`, `length`,
-   `join`. Use `{%-` and `-%}` to keep blank lines out. The context is
-   the four names above; anything else is undefined and renders empty.
+   `join`, and `verb`, which turns an action into the word the generic
+   body uses (`accept` → `accepted`). Use `{%-` and `-%}` to keep blank
+   lines out. The context is the four names above; anything else is
+   undefined and renders empty.
 2. Name it in the manifest: `"decision_template": "decision.md.j2"`.
 3. Reload. The manifest and the template are read when the plugin loads,
    so after an edit run `wicket plugins reload` (or *Reload* in Settings
@@ -218,14 +220,19 @@ wicket decide "$(jq -r .id /tmp/r.json)" --data <(jq .decision.data fixtures/ded
 wicket show "$(jq -r .id /tmp/r.json)" --format markdown
 ```
 
-A decided fixture (`fixtures/<name>.decided.json`, `{ title, payload,
-decision }`) is worth keeping for exactly this: the review plugin's
-`dedup-round-1.decided.json` is one, and the core's own test renders it
-through the template and checks the lines it expects, so a change to
-the template or the renderer that breaks it fails a test. For a plugin
-outside this repository, the same three commands in a script against a
-scratch data directory (`wicket serve` with `WICKET_DATA_DIR` set) are
-the test; `grep` the lines that matter.
+A decided fixture (`fixtures/<name>.decided.json`: `title`, `payload`,
+`decision`, and optionally `origin` and `agent_note`) is worth keeping
+for exactly this. For the plugins in this repository the core's tests
+render every one, through the plugin's template when it has one, and
+compare the result with the `<name>.decided.md` beside it, byte for
+byte, with times in UTC so the file holds anywhere. Change the template
+or the renderer and the test shows the diff; when the new output is the
+intended one, `UPDATE_FIXTURES=1 cargo test -p wicket-core --lib
+decided_fixtures` rewrites the expected files, and the diff of those
+files in the commit is the review of the change. For a plugin outside
+this repository, the three commands above in a script against a scratch
+data directory (`wicket serve` with `WICKET_DATA_DIR` set), diffed
+against a checked-in `.md`, are the same test.
 
 ## Settings of your own
 
