@@ -807,6 +807,12 @@ impl Registry {
             }
         }
         for record in &records {
+            // a store entry serves itself; a snapshot of its line, left
+            // from before it was one or from an older build, would only
+            // confuse and goes
+            if !record.linked {
+                self.drop_snapshot(&record.name, record.major as u32);
+            }
             let dir = if record.linked {
                 PathBuf::from(&record.path)
             } else {

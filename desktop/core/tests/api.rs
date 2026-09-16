@@ -1373,6 +1373,16 @@ async fn a_patch_update_is_what_the_app_serves_and_a_store_entry_takes_no_snapsh
         "<html>third</html>"
     );
 
+    // a snapshot left from an older build goes on the next reload too
+    std::fs::create_dir_all(&snapshot).unwrap();
+    std::fs::write(snapshot.join("manifest.json"), "{}").unwrap();
+    let (status, _) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        !snapshot.exists(),
+        "reload clears a store entry's stale snapshot"
+    );
+
     // a link is served live: an edit shows on the next request, even
     // though a review took a snapshot of it
     let live = plugin_copy(scratch.path(), "hello", "1.1.0");
