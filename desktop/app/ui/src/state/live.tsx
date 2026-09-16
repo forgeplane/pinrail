@@ -9,7 +9,10 @@ type Live = {
   connected: boolean;
   pending: Review[];
   pendingCount: number;
-  repositories: string[];
+  /** the projects (`origin.repo`) of what is pending, sorted */
+  projects: string[];
+  /** how many pending reviews name no project */
+  unassigned: number;
   /** advances on every server event; depend on it to refetch */
   tick: number;
   lastNotice: Notice | null;
@@ -65,10 +68,11 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     });
   }, [refresh, loadPlugins]);
 
-  const repositories = useMemo(
+  const projects = useMemo(
     () => [...new Set(pending.map((r) => r.origin.repo).filter((r): r is string => !!r))].sort(),
     [pending],
   );
+  const unassigned = useMemo(() => pending.filter((r) => !r.origin.repo).length, [pending]);
 
   useEffect(() => {
     const badge = pending.length > 0 ? `(${pending.length}) ` : "";
@@ -77,8 +81,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   const pluginIcon = useCallback((name: string) => plugins.get(name)?.icon ?? null, [plugins]);
   const value = useMemo<Live>(
-    () => ({ connected, pending, pendingCount: pending.length, repositories, tick, lastNotice, plugins, pluginIcon, refresh }),
-    [connected, pending, repositories, tick, lastNotice, plugins, pluginIcon, refresh],
+    () => ({ connected, pending, pendingCount: pending.length, projects, unassigned, tick, lastNotice, plugins, pluginIcon, refresh }),
+    [connected, pending, projects, unassigned, tick, lastNotice, plugins, pluginIcon, refresh],
   );
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;
 }

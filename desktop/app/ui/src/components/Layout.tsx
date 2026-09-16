@@ -7,6 +7,7 @@ import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { MOD, hasMod } from "../lib/keys";
+import { NO_PROJECT } from "../lib/shortcuts";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
@@ -85,8 +86,8 @@ export function Layout({ children }: { children: ReactNode }) {
   // The reviews waiting, oldest first, the order the global shortcut uses;
   // kept in a ref so the key handler below sees the current list.
   const waiting = useMemo(() => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [live.pending]);
-  // how many wait per repository, beside the inbox's quick filters
-  const perRepo = useMemo(() => {
+  // how many wait per project, beside the inbox's quick filters
+  const perProject = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of live.pending) if (r.origin.repo) counts.set(r.origin.repo, (counts.get(r.origin.repo) ?? 0) + 1);
     return counts;
@@ -251,16 +252,23 @@ export function Layout({ children }: { children: ReactNode }) {
               ) : null}
             </section>
           ) : null}
-          {live.repositories.length > 0 ? (
-            <section className="sidebar-repositories" aria-label="Repositories" data-repositories>
-              <h2>Repositories</h2>
-              {live.repositories.map((repo) => (
-                <NavLink key={repo} to={`/?repo=${encodeURIComponent(repo)}`} className="sidebar-repo" data-repo={repo}>
+          {live.projects.length > 0 || live.unassigned > 0 ? (
+            <section className="sidebar-repositories" aria-label="Projects" data-projects>
+              <h2>Projects</h2>
+              {live.projects.map((project) => (
+                <NavLink key={project} to={`/?repo=${encodeURIComponent(project)}`} className="sidebar-repo" data-project={project}>
                   <FolderGit2 size={14} strokeWidth={1.75} />
-                  <span className="sidebar-review-title">{repo}</span>
-                  <span className="nav-count">{perRepo.get(repo) ?? 0}</span>
+                  <span className="sidebar-review-title">{project}</span>
+                  <span className="nav-count">{perProject.get(project) ?? 0}</span>
                 </NavLink>
               ))}
+              {live.unassigned > 0 ? (
+                <NavLink to={`/?repo=${NO_PROJECT}`} className="sidebar-repo" data-project={NO_PROJECT}>
+                  <FolderGit2 size={14} strokeWidth={1.75} className="is-faint" />
+                  <span className="sidebar-review-title">No project</span>
+                  <span className="nav-count">{live.unassigned}</span>
+                </NavLink>
+              ) : null}
             </section>
           ) : null}
           <div className="sidebar-bottom">

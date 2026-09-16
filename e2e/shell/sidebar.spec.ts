@@ -8,9 +8,9 @@ const payload = {
   groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "major", title: "do_save dedups without reversing" }, { id: 2, severity: "minor", title: "moduledoc typo" }] }],
 };
 
-async function createReview(request: APIRequestContext, title: string, workflow: string) {
+async function createReview(request: APIRequestContext, title: string, workflow: string, repo: string | null = "acme/api") {
   const response = await request.post(`${core}/api/v1/reviews`, {
-    data: { plugin: "list", title, origin: { repo: "acme/api", workflow }, requested_by: "spec", payload },
+    data: { plugin: "list", title, origin: repo ? { repo, workflow } : { workflow }, requested_by: "spec", payload },
   });
   expect(response.status(), await response.text()).toBe(201);
   return (await response.json()) as { id: string };
@@ -32,12 +32,23 @@ test("the sidebar lists what is waiting on every page, oldest first, and ⌥↓ 
   const first = await createReview(page.request, "Sidebar: the older one", "pr-review");
   const second = await createReview(page.request, "Sidebar: the newer one", "triage");
 
+  const loose = await createReview(page.request, "Sidebar: no project", "cron", null);
+
   // on the history page, not the inbox: what waits is listed, and the
-  // repositories with their counts, the same as everywhere else
+  // projects with their counts, the same as everywhere else; a review
+  // that names no project has a row of its own
   await page.goto("/#/history");
   const waiting = page.locator("[data-waiting]");
   await expect(waiting).toBeVisible();
-  await expect(page.locator('[data-repo="acme/api"]')).toContainText("2");
+  await expect(page.locator('[data-project="acme/api"]')).toContainText("2");
+  await expect(page.locator('[data-project="-"]')).toContainText("1");
+  await page.locator('[data-project="-"]').click();
+  await expect(page).toHaveURL(/repo=-/);
+  await expect(page.locator(".inbox-repo summary strong")).toHaveText(["No project"]);
+  await expect(page.locator("#inbox-repo")).toContainText("No project");
+  await decide(page.request, loose.id);
+  await expect(page.locator('[data-project="-"]')).toHaveCount(0);
+  await page.goto("/#/history");
   const rows = waiting.locator("[data-waiting-review]");
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText("the older one");

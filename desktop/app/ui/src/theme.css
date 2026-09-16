@@ -131,6 +131,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .sidebar-more { color: var(--faint); font-size: 12px; }
 .sidebar-repo { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 6px; color: var(--dim); font-size: 12.5px; min-width: 0; }
 .sidebar-repo .nav-count { margin-left: auto; }
+.sidebar-repo svg.is-faint { opacity: 0.55; }
 .sidebar-repo:hover { background: var(--bg-hover); text-decoration: none; }
 .sidebar-repo svg { color: var(--faint); flex: none; }
 .sidebar-bottom { margin-top: auto; display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px; color: var(--faint); }

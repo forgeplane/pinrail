@@ -10,6 +10,7 @@ import { Tooltip } from "../components/Tooltip";
 import { SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { useLive } from "../state/live";
+import { NO_PROJECT, inProject } from "../lib/shortcuts";
 
 function matches(review: Review, q: string) {
   if (!q) return true;
@@ -57,7 +58,7 @@ export function Inbox() {
       live.pending.filter(
         (r) =>
           matches(r, q) &&
-          (!repo || r.origin.repo === repo) &&
+          inProject(r.origin.repo, repo) &&
           (!plugin || r.plugin === plugin) &&
           (rounds !== "new" || !!r.revises),
       ),
@@ -138,11 +139,15 @@ export function Inbox() {
           </Tooltip>
           <Select
             id="inbox-repo"
-            label="Repository"
+            label="Project"
             icon={<FolderGit2 size={14} />}
             value={repo}
             onChange={(v) => setParam("repo", v)}
-            options={[{ value: "", label: "All repositories", icon: <FolderGit2 size={14} /> }, ...live.repositories.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> }))]}
+            options={[
+              { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
+              ...live.projects.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
+              ...(live.unassigned > 0 || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
+            ]}
           />
           <Select
             id="inbox-plugin"
@@ -193,7 +198,7 @@ export function Inbox() {
           {groups.map(([repoName, items]) => (
             <details key={repoName || "none"} className="inbox-repo" open>
               <summary>
-                <strong>{repoName || "No repository"}</strong>
+                <strong>{repoName || "No project"}</strong>
                 <span>{items.length}</span>
               </summary>
               {items.map((review) => {

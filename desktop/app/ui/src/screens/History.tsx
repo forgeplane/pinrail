@@ -10,6 +10,7 @@ import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { stamp } from "../lib/format";
 import { useLive } from "../state/live";
+import { NO_PROJECT, inProject } from "../lib/shortcuts";
 
 const settledAt = (r: Review) => r.decision?.decided_at ?? r.withdrawn_at ?? r.discarded_at ?? r.expires_at;
 
@@ -67,7 +68,7 @@ export function History() {
   };
 
   const reviews = useMemo(
-    () => all.filter((r) => matches(r, q) && (!plugin || r.plugin === plugin) && (!repo || r.origin.repo === repo)),
+    () => all.filter((r) => matches(r, q) && (!plugin || r.plugin === plugin) && inProject(r.origin.repo, repo)),
     [all, q, plugin, repo],
   );
   const plugins = useMemo(() => [...new Set(all.map((r) => r.plugin))].sort(), [all]);
@@ -116,7 +117,7 @@ export function History() {
       <header className="page-head">
         <h1>History</h1>
         <div className="inbox-controls">
-          <Tooltip label="Search titles, plugins, requesters, repositories, workflows and refs" hoverOnly>
+          <Tooltip label="Search titles, plugins, requesters, projects, workflows and refs" hoverOnly>
             <label className="search-field">
               <Search size={14} aria-hidden="true" />
               <input
@@ -150,11 +151,15 @@ export function History() {
             ]}
           />
           <Select
-            label="Repository"
+            label="Project"
             icon={<FolderGit2 size={14} />}
             value={repo}
             onChange={(v) => setFilter("repo", v)}
-            options={[{ value: "", label: "All repositories", icon: <FolderGit2 size={14} /> }, ...repos.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> }))]}
+            options={[
+              { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
+              ...repos.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
+              ...(all.some((r) => !r.origin.repo) || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
+            ]}
           />
           <Select
             label="Plugin"
