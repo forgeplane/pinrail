@@ -67,6 +67,16 @@ description = "Desktop app with the UI dev server and live reload"
 dir = "{{config_root}}/desktop/app"
 run = "npx tauri dev"
 
+[tasks.lint]
+description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked"
+run = [
+  "cargo fmt --check --manifest-path {{config_root}}/cli/Cargo.toml",
+  "cargo fmt --all --check --manifest-path {{config_root}}/desktop/Cargo.toml",
+  "cargo clippy --manifest-path {{config_root}}/cli/Cargo.toml --all-targets -- -D warnings",
+  "cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
+  "npm --prefix {{config_root}}/desktop/app test",
+]
+
 [tasks.test]
 description = "Server, CLI and end-to-end suites"
 depends = ["test:server", "test:shell", "test:cli", "test:sdk", "test:plugins", "e2e"]

@@ -31,6 +31,10 @@ Status: early development.
 Tool versions are pinned in `mise.toml`; `mise install` sets them up.
 `mise run test` runs every suite; `mise run test:server`, `mise run test:cli`,
 `mise run test:sdk`, `mise run test:plugins` and `mise run e2e` run one.
+`mise run lint` runs what CI enforces: rustfmt, clippy with warnings denied,
+and the shell's type check. CI (`.github/workflows/ci.yml`) runs the lint,
+the Rust tests and the end-to-end suites on Linux and macOS, and the
+plugins and the SDK package on their own, for every push and pull request.
 
 ## Quick start
 

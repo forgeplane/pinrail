@@ -1,0 +1,132 @@
+# Every push to main and every pull request: the Rust side formatted,
+# linted and tested on Linux and macOS, the shell type-checked and built,
+# the CLI and the shell driven end to end against the headless desktop
+# core, and the plugins and the SDK package tested on their own. No
+# release artifacts: that is a workflow of its own, once signing is in.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  # The core, the app crate and the CLI: rustfmt, clippy, cargo test, then
+  # the end-to-end suites, which need the built desktop binary and the CLI.
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tauri's Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            desktop/app/package-lock.json
+            e2e/package-lock.json
+            wicket-plugin/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            desktop
+            cli
+      - name: Format
+        run: |
+          cargo fmt --check --manifest-path cli/Cargo.toml
+          cargo fmt --all --check --manifest-path desktop/Cargo.toml
+      - name: The shell, type-checked and built
+        working-directory: desktop/app
+        run: |
+          npm ci
+          npm run build
+      - name: Clippy
+        run: |
+          cargo clippy --manifest-path cli/Cargo.toml --all-targets
+          cargo clippy --manifest-path desktop/Cargo.toml --workspace --all-targets
+      - name: The package the core's check test compares against
+        working-directory: wicket-plugin
+        run: npm ci
+      - name: Tests
+        run: |
+          cargo test --manifest-path cli/Cargo.toml
+          cargo test --manifest-path desktop/Cargo.toml --workspace
+      - name: Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: The CLI against the headless desktop core
+        working-directory: e2e
+        run: WICKET_E2E_SERVER=desktop npx playwright test tests/cli.spec.ts tests/zz-restart.spec.ts
+      - name: The shell in a browser against the headless desktop core
+        working-directory: e2e
+        run: npx playwright test -c shell.config.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-traces-${{ matrix.os }}
+          path: e2e/test-results
+          if-no-files-found: ignore
+
+  # The plugins alone under the harness, and the wicket-plugin package:
+  # its unit tests, check over the samples, and what create writes.
+  plugins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            e2e/package-lock.json
+            wicket-plugin/package-lock.json
+            plugins/artifact/package-lock.json
+      - name: The package's own tests
+        working-directory: wicket-plugin
+        run: |
+          npm ci
+          npm test
+      - name: The samples pass check
+        run: |
+          for dir in plugins/*/; do
+            node wicket-plugin/bin/wicket-plugin.mjs check "$dir"
+          done
+      - name: The artifact plugin's build
+        working-directory: plugins/artifact
+        run: |
+          npm ci
+          npm run build
+      - name: Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Every plugin under the harness, and the scaffolds
+        run: NODE_PATH=$PWD/e2e/node_modules npx --prefix e2e playwright test -c e2e/plugins.config.ts
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: plugin-traces
+          path: e2e/test-results
+          if-no-files-found: ignore
