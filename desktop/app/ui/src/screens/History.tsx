@@ -210,7 +210,10 @@ export function History() {
                     <small>
                       {r.requested_by}
                       {r.requested_by ? " · " : ""}
-                      {r.plugin}
+                      <span className="history-plugin">
+                        <PluginIcon icon={live.pluginIcon(r.plugin)} size={12} />
+                        {r.plugin}
+                      </span>
                     </small>
                   </td>
                   <td>
