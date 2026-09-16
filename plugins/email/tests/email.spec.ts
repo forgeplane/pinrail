@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, mountPlugin } from "../../../wicket_sdk/testing/playwright";
+import { fixture, mountPlugin } from "wicket-plugin/testing";
 
 const dir = path.resolve(__dirname, "..");
 const renewals = () => fixture(path.join(dir, "fixtures", "renewals.json"));

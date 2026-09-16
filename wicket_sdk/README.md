@@ -1,10 +1,21 @@
-# wicket SDK
+# wicket-plugin
 
-The plugin side of the wicket protocol, as one dependency-free file the app
-serves at `/sdk/v1/wicket-plugin.js`. A plugin loads it with a single script
-tag and has the whole handshake done for it: `ready`, origin pinning,
-resize, drafts, `submitted`, `violations`, `collect` and the ⌘/Ctrl+Enter
-shortcut.
+Everything for writing a wicket plugin, as one npm package:
+
+- the SDK, `src/wicket-plugin.js` and its stylesheet: the plugin side of the
+  protocol as one dependency-free file, which the app serves at
+  `/sdk/v1/wicket-plugin.js`. A plugin loads it with a single script tag and
+  has the whole handshake done for it: `ready`, origin pinning, resize,
+  drafts, `submitted`, `violations`, `collect` and the ⌘/Ctrl+Enter shortcut;
+- `wicket-plugin dev`, a shell that runs a plugin in the browser without the
+  app;
+- `wicket-plugin/testing`, a Playwright harness that mounts a plugin alone;
+- `wicket-plugin/types`, the protocol and the manifest as TypeScript.
+
+The package is authoring-time only: a shipped plugin loads the SDK from the
+app, never from `node_modules`. Until the first release it is installed
+from this repository (`"wicket-plugin": "file:../../wicket_sdk"`, or the
+tarball `npm pack` writes here); it goes to npm with the app's release.
 
 ```html
 <script src="/sdk/v1/wicket-plugin.js"></script>
@@ -141,12 +152,13 @@ npm test            # Node's test runner, against a fake shell environment
 
 ## Running a plugin in the browser
 
-`testing/serve.mjs` is a shell for one plugin, without the app: point it at
+`wicket-plugin dev` is a shell for one plugin, without the app: point it at
 a plugin directory and it serves the view under the app's CSP with the SDK
 beside it, and opens a page that plays the shell.
 
 ```sh
-node wicket_sdk/testing/serve.mjs ./plugins/artifact --open   # or: mise run dev:plugin plugins/artifact
+npx wicket-plugin dev ./plugins/artifact      # or: mise run dev:plugin plugins/artifact
+                                              # --port N (4790), --no-open
 ```
 
 The page lists the plugin's `fixtures/*.json` to initialise the view with,
@@ -156,16 +168,17 @@ answers a submit with `violations` you type or with `submitted`. Everything
 the view posts — `ready`, `resize`, `draft`, `status`, `submit` — appears in
 a log beside it. A change to any file in the plugin reloads the view, with
 the last draft handed back on the next `init`, so it pairs with a build in
-watch mode. Node is the only requirement.
+watch mode. The app can serve the same folder at the same time:
+`wicket plugins install <dir> --link`, which `dev` prints at start.
 
 ## Testing a plugin in isolation
 
-`testing/playwright.ts` mounts a plugin directory in a sandboxed iframe under
-a fake shell (`testing/harness.html`) with the SDK and the app's CSP, so a
-view is tested alone, without the server or the CLI:
+`wicket-plugin/testing` (`harness/`) mounts a plugin directory in a sandboxed
+iframe under a fake shell with the SDK and the app's CSP, so a
+view is tested alone, without the app or the CLI:
 
 ```ts
-import { fixture, mountPlugin } from "../../../wicket_sdk/testing/playwright";
+import { fixture, mountPlugin } from "wicket-plugin/testing";
 
 const plugin = await mountPlugin(page, pluginDir, { gate: fixture("fixtures/basic.json") });
 await plugin.frame.getByRole("button", { name: "Yes" }).click();
@@ -174,4 +187,22 @@ expect(await plugin.nextSubmit()).toEqual({ ok: true });
 
 A fixture is a partial gate envelope, usually `{ "title", "payload" }`, or
 with a `decision` for a read-only or previous-round case. Tests live in
-`<plugin>/tests/*.spec.ts` and run with `mise run test:plugins`.
+`<plugin>/tests/*.spec.ts` and run with `mise run test:plugins`, which
+resolves the package from `e2e/node_modules`.
+
+## Types
+
+```ts
+import type { Manifest, Init, Gate, ShellMessage, PluginMessage } from "wicket-plugin/types";
+```
+
+`types.d.ts` is the protocol written down: the manifest with every key the
+app reads, the envelope a view is handed, the messages both ways, and the
+shape of `window.Wicket`.
+
+## Versions
+
+The package's version is the SDK's (`Wicket.version`), and its major is the
+protocol's: `1.x` serves `sdk/v1`. The app copies `src/` into what it serves
+at `/sdk/v1` on every build, so the app and the package carry the same bytes
+at the same commit.

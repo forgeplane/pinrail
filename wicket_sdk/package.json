@@ -1,12 +1,52 @@
 {
-  "name": "wicket-sdk",
-  "private": true,
-  "version": "1.0.0",
-  "description": "The plugin side of the wicket protocol, served by the app at /sdk/v1/wicket-plugin.js",
+  "name": "wicket-plugin",
+  "version": "1.8.0",
+  "description": "Write and test a wicket plugin: the SDK the app serves, a shell to develop a view in the browser, and a Playwright harness to test it alone",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forgeplane/wicket.git",
+    "directory": "wicket_sdk"
+  },
+  "type": "module",
+  "bin": {
+    "wicket-plugin": "bin/wicket-plugin.mjs"
+  },
+  "exports": {
+    "./testing": {
+      "types": "./harness/index.d.cts",
+      "default": "./harness/index.cjs"
+    },
+    "./types": {
+      "types": "./types.d.ts"
+    },
+    "./sdk/v1/wicket-plugin.js": "./src/wicket-plugin.js",
+    "./sdk/v1/wicket-plugin.css": "./src/wicket-plugin.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "harness",
+    "lib",
+    "licenses",
+    "shell",
+    "src",
+    "types.d.ts"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test"
   },
-  "bin": {
-    "wicket-plugin-shell": "testing/serve.mjs"
+  "dependencies": {
+    "lucide-static": "1.45.0"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
   }
 }

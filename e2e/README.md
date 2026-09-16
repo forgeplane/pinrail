@@ -12,8 +12,9 @@ Suites are organised by what they check, not by language:
 | `shell/*.spec.ts` | the desktop shell in a browser against the headless desktop server: installing a plugin from Settings, its rows (`shell.config.ts`, `mise run e2e:shell`) |
 
 Plugin behaviour in isolation is not here: each plugin has `tests/` mounted
-under the SDK's fake shell, run with `mise run test:plugins` (configured in
-`plugins.config.ts`, sharing this folder's Playwright install).
+under the `wicket-plugin` harness, run with `mise run test:plugins`
+(configured in `plugins.config.ts`, sharing this folder's Playwright install
+and its link to `wicket_sdk/`).
 
 Global setup builds the CLI if needed, starts the server with `wicket serve`
 on a scratch data dir and a free port, and registers `plugins/`. Teardown

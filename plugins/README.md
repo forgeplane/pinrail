@@ -425,22 +425,24 @@ Load it and let it do the handshake; the view only renders:
 </script>
 ```
 
-`v1` only ever receives fixes. See [`wicket_sdk/`](../wicket_sdk/README.md)
-for the API, the helpers (`escape`, `markdown`, `previousVerdict`), and the
-test harness. The protocol below is what the SDK implements; a plugin can
+`v1` only ever receives fixes. See [`wicket_sdk/`](../wicket_sdk/README.md),
+the `wicket-plugin` package, for the API, the helpers (`escape`, `markdown`,
+`previousVerdict`), the dev shell and the test harness. The protocol below is what the SDK implements; a plugin can
 speak it directly instead.
 
 ## Testing a plugin
 
 Ship `fixtures/*.json` (a partial gate: `title`, `payload`, optionally a
-`decision`) and `tests/*.spec.ts` that mount the view alone under the SDK's
-fake shell; `mise run test:plugins` runs them for every plugin in this folder
-and for the built-in `list`. See any shipped plugin for the pattern.
+`decision`) and `tests/*.spec.ts` that mount the view alone under the
+harness in `wicket-plugin/testing`; `mise run test:plugins` runs them for
+every plugin in this folder and for the built-in `list`. See any shipped
+plugin for the pattern.
 
-While building one, `mise run dev:plugin <directory>` (or `node
-wicket_sdk/testing/serve.mjs <directory> --open`) opens the view in a
-browser under a shell of its own: pick a fixture, collect a decision, read
-what the view posts, and see every file change reloaded. No app needed.
+While building one, `mise run dev:plugin <directory>` (`npx wicket-plugin
+dev <directory>` outside this repository) opens the view in a browser under
+a shell of its own: pick a fixture, collect a decision, read what the view
+posts, and see every file change reloaded. No app needed; the app can link
+the same folder meanwhile with `wicket plugins install <directory> --link`.
 
 ## Protocol
 

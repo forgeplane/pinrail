@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { Wicket, fakeEnv, fakeDocument, shell, gate, init } = require("./helpers");
+const { Wicket, fakeEnv, fakeDocument, shell, gate, init } = require("./helpers.cjs");
 
 test("connect posts ready at once, to any origin", () => {
   const env = fakeEnv();
@@ -344,3 +344,9 @@ test("a forwarded key lands on the document and on onKey; junk is ignored", () =
   assert.deepEqual(seen, expected);
 });
 
+test("the SDK announces the package's version", () => {
+  const pkg = require("../package.json");
+  assert.equal(Wicket.version, pkg.version);
+  assert.equal(Wicket.protocol, 1);
+  assert.equal(pkg.version.split(".")[0], String(Wicket.protocol));
+});
