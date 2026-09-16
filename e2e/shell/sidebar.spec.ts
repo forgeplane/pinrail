@@ -32,15 +32,12 @@ test("the sidebar lists what is waiting on every page, oldest first, and ⌥↓ 
   const first = await createReview(page.request, "Sidebar: the older one", "pr-review");
   const second = await createReview(page.request, "Sidebar: the newer one", "triage");
 
-  // on the history page, not the inbox: what waits is listed, the
-  // repositories are not (they filter the inbox, and only live there)
+  // on the history page, not the inbox: what waits is listed, and the
+  // repositories with their counts, the same as everywhere else
   await page.goto("/#/history");
   const waiting = page.locator("[data-waiting]");
   await expect(waiting).toBeVisible();
-  await expect(page.locator("[data-repositories]")).toHaveCount(0);
-  await page.goto("/#/");
   await expect(page.locator('[data-repo="acme/api"]')).toContainText("2");
-  await page.goto("/#/history");
   const rows = waiting.locator("[data-waiting-review]");
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText("the older one");

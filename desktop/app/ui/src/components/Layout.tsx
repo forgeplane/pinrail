@@ -85,13 +85,12 @@ export function Layout({ children }: { children: ReactNode }) {
   // The reviews waiting, oldest first, the order the global shortcut uses;
   // kept in a ref so the key handler below sees the current list.
   const waiting = useMemo(() => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [live.pending]);
-  // how many wait per repository, for the inbox's quick filters
+  // how many wait per repository, beside the inbox's quick filters
   const perRepo = useMemo(() => {
     const counts = new Map<string, number>();
     for (const r of live.pending) if (r.origin.repo) counts.set(r.origin.repo, (counts.get(r.origin.repo) ?? 0) + 1);
     return counts;
   }, [live.pending]);
-  const onInbox = location.pathname === "/";
   const waitingRef = useRef(waiting);
   waitingRef.current = waiting;
   const pathRef = useRef(location.pathname);
@@ -252,7 +251,7 @@ export function Layout({ children }: { children: ReactNode }) {
               ) : null}
             </section>
           ) : null}
-          {onInbox && live.repositories.length > 0 ? (
+          {live.repositories.length > 0 ? (
             <section className="sidebar-repositories" aria-label="Repositories" data-repositories>
               <h2>Repositories</h2>
               {live.repositories.map((repo) => (
