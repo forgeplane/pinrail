@@ -189,6 +189,44 @@ template that does not compile is dropped with the reason on the
 plugin's row, and one that fails while rendering falls back to the
 rendering by shape.
 
+### Adding a template
+
+1. Write `decision.md.j2` beside the manifest. Start from what the
+   rendering by shape gives you (`wicket show <id> --format markdown` on
+   a decided review) and improve the bullets that need the payload. The
+   syntax is Jinja's: `{% for item in items %}`, `{% if item.note %}`,
+   `{{ item.payload.title }}`, filters such as `selectattr`, `length`,
+   `join`. Use `{%-` and `-%}` to keep blank lines out. The context is
+   the four names above; anything else is undefined and renders empty.
+2. Name it in the manifest: `"decision_template": "decision.md.j2"`.
+3. Reload. The manifest and the template are read when the plugin loads,
+   so after an edit run `wicket plugins reload` (or *Reload* in Settings
+   › Plugins). A copied plugin needs installing again; a linked one only
+   the reload.
+4. Look at the row. `wicket plugins` lists `template_error` on the
+   plugin when the template does not compile, with the line, and the
+   row in Settings says the same.
+
+### Testing a template
+
+The quickest loop is a decided review in the running app: create one
+from a fixture, decide it, and read it back.
+
+```sh
+wicket create review --data <(jq .payload fixtures/dedup-round-2.json) --title "Template check" > /tmp/r.json
+wicket decide "$(jq -r .id /tmp/r.json)" --data <(jq .decision.data fixtures/dedup-round-1.decided.json) --note "looks right"
+wicket show "$(jq -r .id /tmp/r.json)" --format markdown
+```
+
+A decided fixture (`fixtures/<name>.decided.json`, `{ title, payload,
+decision }`) is worth keeping for exactly this: the review plugin's
+`dedup-round-1.decided.json` is one, and the core's own test renders it
+through the template and checks the lines it expects, so a change to
+the template or the renderer that breaks it fails a test. For a plugin
+outside this repository, the same three commands in a script against a
+scratch data directory (`wicket serve` with `WICKET_DATA_DIR` set) are
+the test; `grep` the lines that matter.
+
 ## Settings of your own
 
 A plugin with knobs — a diff shown inline or side by side, how files are
