@@ -1,8 +1,8 @@
-# Every push to main and every pull request: the Rust side formatted,
-# linted and tested on Linux and macOS, the shell type-checked and built,
+# Every push to main and every pull request: formatting and the shell's
+# type check once, then on Linux and macOS clippy, the Rust tests, and
 # the CLI and the shell driven end to end against the headless desktop
-# core, and the plugins and the SDK package tested on their own. No
-# release artifacts: that is a workflow of its own, once signing is in.
+# core; the plugins and the SDK package tested on their own. No release
+# artifacts: that is a workflow of its own, once signing is in.
 name: ci
 
 on:
@@ -19,8 +19,33 @@ env:
   RUSTFLAGS: -D warnings
 
 jobs:
-  # The core, the app crate and the CLI: rustfmt, clippy, cargo test, then
-  # the end-to-end suites, which need the built desktop binary and the CLI.
+  # What gives the same answer on any system, once: rustfmt and the
+  # shell's type check. Clippy is not here: it only sees the code that
+  # compiles for its target, and the app crate has branches per system.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Format
+        run: |
+          cargo fmt --check --manifest-path cli/Cargo.toml
+          cargo fmt --all --check --manifest-path desktop/Cargo.toml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/app/package-lock.json
+      - name: The shell, type-checked
+        working-directory: desktop/app
+        run: |
+          npm ci
+          npm test
+
+  # The core, the app crate and the CLI on each system: clippy, cargo test,
+  # then the end-to-end suites, which need the built desktop binary and the CLI.
   desktop:
     strategy:
       fail-fast: false
@@ -44,17 +69,13 @@ jobs:
             wicket-plugin/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
             desktop
             cli
-      - name: Format
-        run: |
-          cargo fmt --check --manifest-path cli/Cargo.toml
-          cargo fmt --all --check --manifest-path desktop/Cargo.toml
-      - name: The shell, type-checked and built
+      - name: The shell, built for the app crate to embed
         working-directory: desktop/app
         run: |
           npm ci
