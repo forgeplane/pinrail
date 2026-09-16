@@ -157,7 +157,8 @@ a plugin directory and it serves the view under the app's CSP with the SDK
 beside it, and opens a page that plays the shell.
 
 ```sh
-npx wicket-plugin dev ./plugins/artifact      # or: mise run dev:plugin plugins/artifact
+npx wicket-plugin dev .                       # in a plugin folder that has the package installed
+mise run dev:plugin plugins/artifact          # in this repository, where nothing at the root links it
                                               # --port N (4790), --no-open
 ```
 
