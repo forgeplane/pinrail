@@ -57,6 +57,10 @@ hello/
   the plugin in *Settings › Plugins*. See below.
 - `shortcuts` declares the keys your view answers, so the app lists them and
   hands them over whether or not the frame has focus. See below.
+- `decision_template` names a file beside the manifest that renders a
+  decision as markdown, for `wicket --format markdown` and *Copy as
+  markdown* in the app. Without one the app renders the decision by its
+  shape. See *Decisions as markdown* below.
 - `build` names the command that produces the bundle, for a plugin written
   with a framework: `"build": { "command": "npm ci && npm run build" }`.
   Installing runs it, in a copy, and keeps what it produced. See
@@ -154,6 +158,36 @@ plugin when its manifest says so, zips the bundle as
 `<name>-<version>.zip` and attaches it to the release of that tag. For a
 plugin of your own the recipe is the same three lines: build, zip the
 folder without its sources, attach.
+
+## Decisions as markdown
+
+An agent that ran `wicket create … --wait --format markdown` reads the
+decision as prose: the title, where the review sits, who decided and
+when with a tally, the reviewer's note, then the decision. The app renders
+the decision by its shape: every array of objects becomes a headed list,
+an `id` and an `action` or `verdict` lead each bullet in bold, a `file`
+and `line` or a `selector` come next in backticks, a `title`, `subject`,
+`text` or `body` follows a dash, a `note` becomes a nested quote, `edits`
+read as before → after, and `undecided` is one line. Anything it does not
+recognise prints as the key and its JSON, so nothing is dropped.
+
+A plugin whose decision needs the payload to read well ships a template:
+
+```json
+"decision_template": "decision.md.j2"
+```
+
+A [MiniJinja](https://docs.rs/minijinja) file beside the manifest that
+renders the body only; the head stays the app's, so every plugin's
+output starts the same way. The context: `review` (the envelope with its
+payload), `decision`, `data` (the decision's data), `note`, and `items`,
+every object in the decision's arrays with a `payload` field holding the
+payload object of the same `id`, so `{{ item.payload.title }}` sits next
+to `{{ item.action }}`. The code review plugin's `decision.md.j2` is the
+example: each proposal by file and line with its verdict and note. A
+template that does not compile is dropped with the reason on the
+plugin's row, and one that fails while rendering falls back to the
+rendering by shape.
 
 ## Settings of your own
 
