@@ -181,7 +181,7 @@ mod tests {
     use serde_json::json;
 
     fn list_dir() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../server/priv/plugins/list")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("builtin/list")
     }
 
     fn payload_schema() -> Schema {

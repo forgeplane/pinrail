@@ -2,7 +2,7 @@
 
 A gate type is a directory: a manifest, two JSON Schema documents, and a
 self-contained HTML bundle that wicket renders in a sandboxed iframe. The
-built-in `list` type ships with the server under `server/priv/plugins/list`;
+built-in `list` type ships inside the app, from `desktop/core/builtin/list`;
 this folder holds the official plugins and a sample:
 
 | Plugin | What it gates |
@@ -494,6 +494,6 @@ Plugin → shell:
 
 The decision schema is the whole contract. What the fields mean is between
 the plugin and the workflow that reads the decision. `hello/index.html` is
-the smallest complete client; `server/priv/plugins/list/index.html` is a
+the smallest complete client; `desktop/core/builtin/list/index.html` is a
 full one with drafts, read-only rendering and a previous-round overlay;
 `review/index.html` is a workbench-style one that fills the viewport.

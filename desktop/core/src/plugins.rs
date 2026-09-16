@@ -19,7 +19,7 @@ use crate::error::{Error, Violation};
 use crate::schema::Schema;
 
 /// The plugin every server has, embedded from the reference server's tree.
-static BUILTIN_LIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../server/priv/plugins/list");
+static BUILTIN_LIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/builtin/list");
 
 const MANIFEST: &str = "manifest.json";
 

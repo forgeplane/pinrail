@@ -2,7 +2,7 @@
 
 The built-in gate type: items grouped under headings, accept or reject each
 with an optional note, free-text additions, and an honest `undecided` list.
-Ships with the server; every workflow can use it before it has a view of its
+Ships inside the app; every workflow can use it before it has a view of its
 own. It is also the fullest reference client of the plugin protocol: drafts,
 read-only rendering, the previous round's verdicts.
 

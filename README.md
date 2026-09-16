@@ -49,4 +49,4 @@ wicket create list --title "MR !42" --source repo=acme,workflow=review,ref=42 \
 The command blocks until someone decides the gate in the browser, then
 prints the decision and exits 0 (3 if the gate was withdrawn, 4 on timeout).
 Payload and decision shapes for the built-in type are in
-[`server/priv/plugins/list`](server/priv/plugins/list/README.md).
+[`desktop/core/builtin/list`](desktop/core/builtin/list/README.md).
