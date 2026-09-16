@@ -29,7 +29,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - name: Format
+      - name: rustfmt
         run: |
           cargo fmt --check --manifest-path cli/Cargo.toml
           cargo fmt --all --check --manifest-path desktop/Cargo.toml
@@ -38,7 +38,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: desktop/app/package-lock.json
-      - name: The shell, type-checked
+      - name: Type check the shell
         working-directory: desktop/app
         run: |
           npm ci
@@ -54,7 +54,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Tauri's Linux dependencies
+      - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -75,31 +75,33 @@ jobs:
           workspaces: |
             desktop
             cli
-      - name: The shell, built for the app crate to embed
+      # the app crate embeds dist/ at compile time
+      - name: Build the shell
         working-directory: desktop/app
         run: |
           npm ci
           npm run build
-      - name: Clippy
+      - name: clippy
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets
           cargo clippy --manifest-path desktop/Cargo.toml --workspace --all-targets
-      - name: The package the core's check test compares against
+      # the core's check test runs wicket-plugin check and compares
+      - name: Install wicket-plugin
         working-directory: wicket-plugin
         run: npm ci
-      - name: Tests
+      - name: Rust tests
         run: |
           cargo test --manifest-path cli/Cargo.toml
           cargo test --manifest-path desktop/Cargo.toml --workspace
-      - name: Playwright
+      - name: Install Playwright
         working-directory: e2e
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: The CLI against the headless desktop core
+      - name: CLI end to end
         working-directory: e2e
         run: WICKET_E2E_SERVER=desktop npx playwright test tests/cli.spec.ts tests/zz-restart.spec.ts
-      - name: The shell in a browser against the headless desktop core
+      - name: Shell end to end
         working-directory: e2e
         run: npx playwright test -c shell.config.ts
       - uses: actions/upload-artifact@v4
@@ -123,27 +125,27 @@ jobs:
             e2e/package-lock.json
             wicket-plugin/package-lock.json
             plugins/artifact/package-lock.json
-      - name: The package's own tests
+      - name: wicket-plugin tests
         working-directory: wicket-plugin
         run: |
           npm ci
           npm test
-      - name: The samples pass check
+      - name: Check the sample plugins
         run: |
           for dir in plugins/*/; do
             node wicket-plugin/bin/wicket-plugin.mjs check "$dir"
           done
-      - name: The artifact plugin's build
+      - name: Build the artifact plugin
         working-directory: plugins/artifact
         run: |
           npm ci
           npm run build
-      - name: Playwright
+      - name: Install Playwright
         working-directory: e2e
         run: |
           npm ci
           npx playwright install --with-deps chromium
-      - name: Every plugin under the harness, and the scaffolds
+      - name: Plugin tests
         run: NODE_PATH=$PWD/e2e/node_modules npx --prefix e2e playwright test -c e2e/plugins.config.ts
       - uses: actions/upload-artifact@v4
         if: failure()
