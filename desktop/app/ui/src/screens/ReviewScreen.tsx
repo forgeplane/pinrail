@@ -2,6 +2,7 @@ import { Ban, Bot, Check, Clock, Copy, ExternalLink, Maximize2, Minimize2, Send 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
+import { copyText } from "../lib/clipboard";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { OutcomeBadge, PluginBadge } from "../components/Badges";
@@ -22,17 +23,17 @@ export function ReviewScreen() {
   const live = useLive();
   const { settings: prefs } = useSettings();
   const navigate = useNavigate();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"done" | "failed" | null>(null);
   // the review as the core renders it in markdown, for a merge request or a thread
   const copyMarkdown = async () => {
     if (!id) return;
     try {
-      await navigator.clipboard.writeText(await api.reviewMarkdown(id));
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
+      await copyText(await api.reviewMarkdown(id));
+      setCopied("done");
     } catch {
-      // the clipboard is not available here; the tooltip stays as it was
+      setCopied("failed");
     }
+    window.setTimeout(() => setCopied(null), 1600);
   };
   const location = useLocation();
   // the way back is where the review was opened from
@@ -263,9 +264,9 @@ export function ReviewScreen() {
               </button>
             </Tooltip>
           ) : null}
-          <Tooltip label={copied ? "Copied" : "Copy as markdown"} side="bottom">
-            <button type="button" className="bar-button" onClick={copyMarkdown} aria-label="Copy the review as markdown" data-copy-markdown>
-              {copied ? <Check size={15} /> : <Copy size={15} />}
+          <Tooltip label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy as markdown"} side="bottom">
+            <button type="button" className={`bar-button ${copied === "failed" ? "danger" : ""}`} onClick={copyMarkdown} aria-label="Copy the review as markdown" data-copy-markdown>
+              {copied === "done" ? <Check size={15} /> : <Copy size={15} />}
             </button>
           </Tooltip>
           {plugin ? (

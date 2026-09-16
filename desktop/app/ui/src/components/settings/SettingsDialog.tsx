@@ -5,6 +5,7 @@ import { Bell, Blocks, Database, FolderOpen, Info, Keyboard, Palette, Settings, 
 import { useEffect, useState, type ReactNode } from "react";
 import { Select } from "../Select";
 import { api, inTauri } from "../../api/client";
+import { copyText } from "../../lib/clipboard";
 import type { Info as ServerInfo } from "../../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useLive } from "../../state/live";
@@ -179,7 +180,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
   const copyUrl = async () => {
     if (!info) return;
     try {
-      await navigator.clipboard.writeText(`http://127.0.0.1:${info.port}`);
+      await copyText(`http://127.0.0.1:${info.port}`);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1200);
     } catch {
