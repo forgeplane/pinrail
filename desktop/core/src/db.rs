@@ -133,7 +133,9 @@ CREATE INDEX IF NOT EXISTS outcomes_kind ON outcomes(kind);
         .optional()
         .map(|r| r.is_some())
     };
-    let mut rows: Vec<(
+    // review_id, at, by, data, note, reason, discarded_by: one row per
+    // outcome from any of the three old tables
+    type OldOutcome = (
         String,
         String,
         String,
@@ -141,7 +143,8 @@ CREATE INDEX IF NOT EXISTS outcomes_kind ON outcomes(kind);
         Option<String>,
         Option<String>,
         Option<String>,
-    )> = Vec::new();
+    );
+    let mut rows: Vec<OldOutcome> = Vec::new();
     if has("decisions")? {
         let mut stmt = conn
             .prepare("SELECT review_id, decided_at, decided_by, data, agent_note FROM decisions")?;

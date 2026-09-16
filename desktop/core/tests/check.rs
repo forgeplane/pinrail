@@ -84,7 +84,10 @@ fn agree(dir: &Path, js: &Value) {
     }
 }
 
-fn folder(root: &Path, name: &str, manifest: Value, files: &[(&str, &str)]) -> PathBuf {
+/// Files beside the manifest: relative path and content.
+type Files = &'static [(&'static str, &'static str)];
+
+fn folder(root: &Path, name: &str, manifest: Value, files: Files) -> PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
@@ -122,8 +125,8 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
         }
         m
     };
-    let entry: &[(&str, &str)] = &[("index.html", "<html></html>")];
-    let cases: Vec<(&str, Value, &[(&str, &str)])> = vec![
+    let entry: Files = &[("index.html", "<html></html>")];
+    let cases: Vec<(&str, Value, Files)> = vec![
         (
             "fine",
             base(json!({"title": "Sample", "icon": "mail", "min_height": 300})),

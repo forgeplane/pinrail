@@ -31,8 +31,11 @@ enum Kind {
     NullableDays,
 }
 
+/// A setting: its JSON pointer, its kind and its default.
+type Leaf = (&'static str, Kind, fn() -> Value);
+
 /// Every setting, its kind and its default. Paths are JSON pointers.
-const LEAVES: &[(&str, Kind, fn() -> Value)] = &[
+const LEAVES: &[Leaf] = &[
     (
         "/appearance/theme",
         Kind::Enum(&["system", "dark", "light"]),

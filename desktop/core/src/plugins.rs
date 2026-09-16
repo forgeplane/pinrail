@@ -379,14 +379,14 @@ impl Plugin {
         let values: Vec<String> =
             if let Some(items) = property.get("enum").and_then(Value::as_array) {
                 items.iter().map(Value::to_string).collect()
-            } else if let Some(items) = property.get("oneOf").and_then(Value::as_array) {
-                items
+            } else {
+                property
+                    .get("oneOf")
+                    .and_then(Value::as_array)?
                     .iter()
                     .filter_map(|i| i.get("const"))
                     .map(Value::to_string)
                     .collect()
-            } else {
-                return None;
             };
         (!values.is_empty()).then_some(values)
     }
