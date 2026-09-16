@@ -575,7 +575,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
     let (version, major) = manifest
         .get("version")
         .and_then(crate::plugins::version_of)
-        .filter(|(_, major)| *major > 0)
+        .filter(|(release, _)| release != "0.0.0")
         .ok_or_else(|| {
             Error::invalid(
                 "/source",

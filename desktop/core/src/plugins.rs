@@ -219,10 +219,12 @@ impl Plugin {
         if !valid_name(&name) {
             return Err(format!("name {name:?} is not valid"));
         }
+        // A major of 0 is a plugin still finding its shape, and fine; the one
+        // release refused is the placeholder a broken plugin is listed under.
         let (release, major) = manifest
             .get("version")
             .and_then(version_of)
-            .filter(|(_, major)| *major > 0)
+            .filter(|(release, _)| release != "0.0.0")
             .ok_or(
                 "version is required: a positive integer, or a semantic version like \"1.2.0\"",
             )?;
@@ -999,6 +1001,37 @@ mod tests {
         )
         .unwrap();
         dir
+    }
+
+    #[test]
+    fn a_version_reads_as_its_release_and_major_and_zero_point_x_is_a_plugin_too() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = plugin_dir(tmp.path(), "young", "");
+        let manifest = dir.join("manifest.json");
+        let with = |version: &str| {
+            let text = std::fs::read_to_string(&manifest).unwrap();
+            let re = regex_lite_version(&text, version);
+            std::fs::write(&manifest, re).unwrap();
+            Plugin::load(&dir)
+        };
+        let p = with("\"0.1.0\"");
+        assert_eq!(p.error, None, "{:?}", p.error);
+        assert_eq!((p.version, p.release.as_str()), (0, "0.1.0"));
+        let p = with("\"2.3.4\"");
+        assert_eq!((p.version, p.release.as_str()), (2, "2.3.4"));
+        let p = with("3");
+        assert_eq!((p.version, p.release.as_str()), (3, "3.0.0"));
+        for bad in ["\"0.0.0\"", "0", "\"1.2\"", "\"v1.2.0\"", "true"] {
+            let p = with(bad);
+            assert!(p.error.as_deref().is_some_and(|e| e.starts_with("version is required")), "{bad}: {:?}", p.error);
+        }
+    }
+
+    /// The manifest text with its `"version":…` field replaced.
+    fn regex_lite_version(text: &str, version: &str) -> String {
+        let start = text.find("\"version\":").unwrap() + "\"version\":".len();
+        let end = start + text[start..].find(',').unwrap();
+        format!("{}{version}{}", &text[..start], &text[end..])
     }
 
     const KNOBS: &str = r#","settings_schema":{"type":"object","properties":{

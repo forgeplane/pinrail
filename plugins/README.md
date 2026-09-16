@@ -55,9 +55,9 @@ scaffolds. The bundle the app installs is the folder without `src/`,
 - `name` is `[a-z][a-z0-9_]*`, unique across the installed plugins.
 - Schemas are JSON Schema 2020-12, inline or by relative `$ref` to files in
   the plugin's folder. A `$ref` cannot leave the folder.
-- `version` is semantic (`"1.2.0"`; a bare integer reads as `N.0.0`). Bump
-  the major when a schema or the view changes in a way an old review
-  would not survive: the app keeps one copy per major, and a review keeps
+- `version` is semantic (`"1.2.0"`; a bare integer reads as `N.0.0`; a
+  plugin still finding its shape starts at `"0.1.0"`). Bump the major when
+  a schema or the view changes in a way an old review would not survive: the app keeps one copy per major, and a review keeps
   rendering and validating from the major it was created under, even
   after the plugin moves on or is removed.
 - A folder that is linked rather than copied (`--link`, or the toggle in
@@ -429,6 +429,13 @@ Load it and let it do the handshake; the view only renders:
 the `wicket-plugin` package, for the API, the helpers (`escape`, `markdown`,
 `previousVerdict`), the dev shell and the test harness. The protocol below is what the SDK implements; a plugin can
 speak it directly instead.
+
+## Starting a plugin
+
+`npx wicket-plugin create <name>` (`--template vite` for a build) writes a
+folder in the layout above with a working view, a fixture, a test and a
+release workflow; see [`wicket_sdk/`](../wicket_sdk/README.md). The samples
+here are what to read once it runs.
 
 ## Testing a plugin
 
