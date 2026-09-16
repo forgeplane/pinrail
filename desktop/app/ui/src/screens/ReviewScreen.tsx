@@ -41,8 +41,15 @@ export function ReviewScreen() {
   const back = fromHistory ? { to: "/history", label: "History" } : { to: "/", label: "Inbox" };
   const [review, setReview] = useState<Review | null>(null);
   const [rounds, setRounds] = useState<Review[]>([]);
-  const [plugin, setPlugin] = useState<Plugin | null | undefined>(undefined);
-  const [src, setSrc] = useState<string | null>(null);
+  // The plugin and its bundle URL, resolved together for one plugin at one
+  // version. The screen outlives a change of review, so what was resolved
+  // for the last review stays in state until the lookup for this one lands:
+  // it counts only when it was resolved for the review on screen.
+  const [resolved, setResolved] = useState<{ key: string; plugin: Plugin | null; src: string | null } | null>(null);
+  const pluginKey = review ? `${review.plugin}@${review.plugin_version}` : null;
+  const current = resolved && resolved.key === pluginKey ? resolved : null;
+  const plugin: Plugin | null | undefined = current ? current.plugin : undefined;
+  const src = current?.src ?? null;
   const [violations, setViolations] = useState<Violation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -53,13 +60,19 @@ export function ReviewScreen() {
   const noteRef = useRef(note);
   noteRef.current = note;
 
+  // the review the route names now: a fetch for one clicked past lands late
+  // and is dropped, so the screen never settles on a review nobody picked
+  const wanted = useRef(id);
+  wanted.current = id;
   const load = useCallback(async () => {
     try {
       const [r, rs] = await Promise.all([api.getReview(id), api.rounds(id).catch(() => [] as Review[])]);
+      if (wanted.current !== id) return;
       setReview(r);
       setRounds(rs);
       setError(null);
     } catch (e) {
+      if (wanted.current !== id) return;
       setError(e instanceof ApiError ? e.message : "The server did not answer.");
     }
   }, [id]);
@@ -83,36 +96,34 @@ export function ReviewScreen() {
   // otherwise the store entry kept for it, whose entry we assume is
   // index.html; null when neither is there, and the review says so.
   useEffect(() => {
-    if (!review) return;
+    if (!review || !pluginKey) return;
+    if (resolved?.key === pluginKey) return;
     let cancelled = false;
     (async () => {
       try {
         const { plugins } = await api.plugins();
         if (cancelled) return;
-        const current = plugins.find((p) => p.name === review.plugin);
-        let resolved: Plugin | null = null;
-        if (current && current.version === review.plugin_version && current.usable) {
-          resolved = current;
+        const installed = plugins.find((p) => p.name === review.plugin);
+        let found: Plugin | null = null;
+        if (installed && installed.version === review.plugin_version && installed.usable) {
+          found = installed;
         } else {
           const kept = await api.pluginVersions(review.plugin).catch(() => null);
           if (kept?.versions.includes(review.plugin_version)) {
-            resolved = { name: review.plugin, version: review.plugin_version, title: current?.title ?? review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: current?.icon ?? null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null, install: null };
+            found = { name: review.plugin, version: review.plugin_version, title: installed?.title ?? review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: installed?.icon ?? null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null, install: null };
           }
         }
-        if (cancelled) return;
-        setPlugin(resolved);
-        if (resolved) {
-          const url = await api.bundleUrl(review, resolved.entry);
-          if (!cancelled) setSrc(url);
-        }
+        const url = found ? await api.bundleUrl(review, found.entry) : null;
+        // the plugin and its URL arrive in one update, for the key they were looked up for
+        if (!cancelled) setResolved({ key: pluginKey, plugin: found, src: url });
       } catch {
-        if (!cancelled) setPlugin(null);
+        if (!cancelled) setResolved({ key: pluginKey, plugin: null, src: null });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [review?.plugin, review?.plugin_version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pluginKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const previous = useMemo(() => {
     if (!review?.revises) return null;

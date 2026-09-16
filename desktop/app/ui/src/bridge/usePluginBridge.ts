@@ -59,8 +59,8 @@ export function usePluginBridge(options: Options): Bridge {
   const [handoverLabel, setHandoverLabel] = useState("Hand over");
   const ready = useRef(false);
   const fallback = useRef<number | undefined>(undefined);
-  const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit, settings, onSetSetting });
-  latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting };
+  const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit, settings, onSetSetting, minHeight });
+  latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting, minHeight };
 
   const post = useCallback(
     (msg: Record<string, unknown>) => frame.current?.contentWindow?.postMessage({ wicket: PROTOCOL, ...msg }, "*"),
@@ -120,7 +120,9 @@ export function usePluginBridge(options: Options): Bridge {
   }, [post]);
 
   // Listen first, then load the bundle: the plugin's "ready" can never be
-  // posted before the shell can hear it.
+  // posted before the shell can hear it. Runs once per review and bundle:
+  // pointing the frame at the URL it already shows would not reload it, and
+  // the view would wait for an init that never comes.
   useEffect(() => {
     const el = frame.current;
     if (!el || !src) return;
@@ -146,7 +148,7 @@ export function usePluginBridge(options: Options): Bridge {
             el.style.height = "";
             setFill(true);
           } else if (typeof msg.height === "number" && Number.isFinite(msg.height)) {
-            const height = Math.min(MAX_HEIGHT, Math.max(minHeight, Math.ceil(msg.height)));
+            const height = Math.min(MAX_HEIGHT, Math.max(latest.current.minHeight, Math.ceil(msg.height)));
             el.style.height = `min(${height}px, 100%)`;
           }
           markLoaded();
@@ -214,7 +216,7 @@ export function usePluginBridge(options: Options): Bridge {
       window.clearTimeout(fallback.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame, reviewId, src, minHeight, sendInit, markLoaded, collect, post]);
+  }, [frame, reviewId, src, sendInit, markLoaded, collect, post]);
 
   // The plugin's settings changed, in Settings or through the view itself:
   // the view hears the values as they stand now.
