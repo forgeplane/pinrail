@@ -1,0 +1,13 @@
+{
+  "name": "wicket-plugin-__NAME__",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "wicket-plugin dev",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56",
+    "wicket-plugin": "__SDK_DEP__"
+  }
+}

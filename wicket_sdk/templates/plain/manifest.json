@@ -1,0 +1,10 @@
+{
+  "name": "__NAME__",
+  "version": "0.1.0",
+  "title": "__TITLE__",
+  "icon": "circle-help",
+  "payload_schema": { "$ref": "schemas/payload.schema.json" },
+  "decision_schema": { "$ref": "schemas/decision.schema.json" },
+  "entry": "view/index.html",
+  "min_height": 200
+}

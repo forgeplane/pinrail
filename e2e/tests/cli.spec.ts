@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { listPayload, startWaiter, submitListReview, tmpFile, wicket, wicketJson } from "../helpers/wicket";
@@ -145,6 +146,29 @@ test("plugins update says when there is nothing new, and remove drops the record
 
   // the sample stays registered for the tests after this one
   wicketJson(["plugins", "install", hello, "--link"]);
+});
+
+test("a plugin wicket-plugin create wrote installs as a link and decides a review", async () => {
+  const bin = path.resolve(__dirname, "../../wicket_sdk/bin/wicket-plugin.mjs");
+  const dir = path.join(path.dirname(tmpFile("x", "")), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir], { stdio: "pipe" });
+
+  const linked = wicketJson(["plugins", "install", dir, "--link"]);
+  expect(linked.name).toBe("triage");
+  expect(linked.release).toBe("0.1.0");
+  expect(wicketJson(["plugins"]).plugins.find((p: any) => p.name === "triage").usable).toBe(true);
+
+  const payload = tmpFile("payload.json", JSON.stringify({ message: "Push it?" }));
+  const created = wicketJson(["create", "triage", "--title", "Push the branch?", "--data", payload]);
+  wicketJson(["decide", created.id, "--data", tmpFile("d.json", JSON.stringify({ ok: true, comment: "go" }))]);
+  const shown = wicketJson(["show", created.id]);
+  expect(shown.status).toBe("decided");
+  expect(shown.decision.data).toEqual({ ok: true, comment: "go" });
+
+  const refused = wicket(["create", "triage", "--title", "Bad", "--data", tmpFile("bad.json", JSON.stringify({ msg: 1 }))]);
+  expect(refused.code).not.toBe(0);
+
+  wicketJson(["plugins", "remove", "triage"]);
 });
 
 test("plugins lists the built-in and the registered sample plugins", async () => {

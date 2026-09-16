@@ -7,6 +7,7 @@ Everything for writing a wicket plugin, as one npm package:
   `/sdk/v1/wicket-plugin.js`. A plugin loads it with a single script tag and
   has the whole handshake done for it: `ready`, origin pinning, resize,
   drafts, `submitted`, `violations`, `collect` and the ⌘/Ctrl+Enter shortcut;
+- `wicket-plugin create`, a plugin folder to start from;
 - `wicket-plugin dev`, a shell that runs a plugin in the browser without the
   app;
 - `wicket-plugin/testing`, a Playwright harness that mounts a plugin alone;
@@ -149,6 +150,31 @@ the document.
 ```sh
 npm test            # Node's test runner, against a fake shell environment
 ```
+
+## Starting a plugin
+
+`wicket-plugin create` writes a folder that runs under `dev`, passes its
+own tests and installs with `--link` before a line of it is changed:
+
+```sh
+npx wicket-plugin create ticket_triage                    # one HTML file, the script inline
+npx wicket-plugin create ticket_triage --template vite    # src/ in TypeScript, built by Vite into view/
+```
+
+What it writes: `manifest.json` at `0.1.0` with the schemas by `$ref` and
+the entry; `schemas/` with one property each and a description saying what
+to replace; `view/index.html` (or `src/`, `vite.config.ts` and
+`tsconfig.json`), a yes-or-no question with a comment in the style of the
+sample plugins; `fixtures/basic.json`; `tests/<name>.spec.ts` under the
+harness with its `playwright.config.ts`; `package.json` depending on this
+package and Playwright; a `.gitignore`; a README with the commands; and
+`.github/workflows/release.yml`, which attaches `<name>-<version>.zip` to a
+GitHub release on a `v<version>` tag, for `wicket plugins install
+<releases URL>`.
+
+`--dir` puts it somewhere other than `./<name>`. `--sdk` sets where
+`package.json` gets this package from; the default is the tarball of the
+SDK's own release, until it is on npm.
 
 ## Running a plugin in the browser
 
