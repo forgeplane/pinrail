@@ -95,6 +95,7 @@ export function PluginsSection({ focus }: { focus: string | null }) {
             onNotify={(on) => setNotify(p.name, on)}
             onChange={(values) => update({ plugins: { [p.name]: values } })}
             onCopy={() => setInstalling({ source: p.path })}
+            onMessage={setMessage}
           />
         ))}
         {message ? <SettingsRow label={message} /> : null}
@@ -145,7 +146,7 @@ function updatesLine(u: PluginUpdates): Line {
 }
 
 /** One installed plugin: its row, and its settings folded under it when it declares any. */
-function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange, onCopy }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void }) {
+function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange, onCopy, onMessage }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void; onMessage: (text: string) => void }) {
   const schema = p.usable ? p.settings_schema : null;
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
@@ -191,7 +192,9 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
         const job = await api.pluginJob(started.job!);
         if (job.status === "done") {
           setUpdating(null);
-          setUpdates({ text: `Updated to ${job.plugin?.install?.version ?? ""}`.trim(), tone: "ok" });
+          const version = job.plugin?.install?.version ?? "";
+          setUpdates({ text: `Updated to ${version}`.trim(), tone: "ok" });
+          onMessage(`${p.title || p.name} updated to ${version}`.trim());
         } else if (job.status === "failed") {
           setUpdating(null);
           setUpdates({ text: `Update failed: ${job.error ?? "unknown"}`, tone: "danger" });
@@ -212,6 +215,7 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
     try {
       await api.removePlugin(p.name);
       // the row goes with the plugins_reloaded notice
+      onMessage(`${p.title || p.name} removed`);
     } catch (e) {
       setRemoving(null);
       setUpdates({ text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Could not remove it", tone: "danger" });
