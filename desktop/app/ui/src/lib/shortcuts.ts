@@ -4,6 +4,7 @@ import { MOD, isMac } from "./keys";
 export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Next / previous review", keys: [["J"], ["K"]] },
   { what: "Open the focused review", keys: [["Enter"]] },
+  { what: "Next / previous waiting review", keys: [["⌥", "↓"], ["⌥", "↑"]] },
   { what: "Discard the focused review", keys: [["D"]] },
   { what: "Search the inbox or the history", keys: [["/"]] },
   { what: "Search everything", keys: [[MOD, "K"]] },

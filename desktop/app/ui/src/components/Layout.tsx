@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon } from "lucide-react";
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api, inTauri } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
@@ -12,6 +12,10 @@ import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
+import { PluginIcon } from "./PluginIcon";
+
+/** How many waiting reviews the sidebar lists before pointing at the inbox. */
+const WAITING_SHOWN = 5;
 
 // On macOS the window has no title bar of its own: the traffic lights sit
 // over the sidebar's first row and the bars are the drag handles.
@@ -78,8 +82,34 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [location.state, location.pathname, navigate]);
 
+  // The reviews waiting, oldest first, the order the global shortcut uses;
+  // kept in a ref so the key handler below sees the current list.
+  const waiting = useMemo(() => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [live.pending]);
+  // how many wait per repository, for the inbox's quick filters
+  const perRepo = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of live.pending) if (r.origin.repo) counts.set(r.origin.repo, (counts.get(r.origin.repo) ?? 0) + 1);
+    return counts;
+  }, [live.pending]);
+  const onInbox = location.pathname === "/";
+  const waitingRef = useRef(waiting);
+  waitingRef.current = waiting;
+  const pathRef = useRef(location.pathname);
+  pathRef.current = location.pathname;
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // ⌥↓ and ⌥↑ walk the waiting reviews from wherever you are
+      if (event.altKey && !hasMod(event) && !event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+        const list = waitingRef.current;
+        if (!list.length) return;
+        event.preventDefault();
+        const current = pathRef.current.match(/^\/reviews\/([^/]+)/)?.[1];
+        const at = list.findIndex((r) => r.id === current);
+        const next = at < 0 ? (event.key === "ArrowDown" ? 0 : list.length - 1) : (at + (event.key === "ArrowDown" ? 1 : list.length - 1)) % list.length;
+        navigate(`/reviews/${list[next].id}`);
+        return;
+      }
       if (hasMod(event) && !event.altKey) {
         const page = NAV.find((n) => n.letter === event.key.toLowerCase() && n.shift === event.shiftKey);
         if (page) {
@@ -204,13 +234,32 @@ export function Layout({ children }: { children: ReactNode }) {
               </Fragment>
             ))}
           </nav>
-          {live.repositories.length > 0 ? (
-            <section className="sidebar-repositories" aria-label="Repositories">
+          {waiting.length > 0 ? (
+            <section className="sidebar-waiting" aria-label="Waiting" data-waiting>
+              <h2>Waiting</h2>
+              {waiting.slice(0, WAITING_SHOWN).map((r) => (
+                <Tooltip key={r.id} label={[r.origin.repo, r.origin.workflow].filter(Boolean).join(" · ") || r.plugin} side="top">
+                  <NavLink to={`/reviews/${r.id}`} className="sidebar-review" data-waiting-review={r.id}>
+                    <PluginIcon icon={live.pluginIcon(r.plugin)} size={14} strokeWidth={1.75} />
+                    <span className="sidebar-review-title">{r.title}</span>
+                  </NavLink>
+                </Tooltip>
+              ))}
+              {waiting.length > WAITING_SHOWN ? (
+                <NavLink to="/" end className="sidebar-review sidebar-more">
+                  <span className="sidebar-review-title">{waiting.length - WAITING_SHOWN} more in the inbox</span>
+                </NavLink>
+              ) : null}
+            </section>
+          ) : null}
+          {onInbox && live.repositories.length > 0 ? (
+            <section className="sidebar-repositories" aria-label="Repositories" data-repositories>
               <h2>Repositories</h2>
               {live.repositories.map((repo) => (
-                <NavLink key={repo} to={`/?repo=${encodeURIComponent(repo)}`} className="sidebar-repo">
+                <NavLink key={repo} to={`/?repo=${encodeURIComponent(repo)}`} className="sidebar-repo" data-repo={repo}>
                   <FolderGit2 size={14} strokeWidth={1.75} />
-                  {repo}
+                  <span className="sidebar-review-title">{repo}</span>
+                  <span className="nav-count">{perRepo.get(repo) ?? 0}</span>
                 </NavLink>
               ))}
             </section>
