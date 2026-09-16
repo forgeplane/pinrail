@@ -6,7 +6,7 @@ const served = async (request: import("@playwright/test").APIRequestContext) => 
 
 test("keep-days is chosen from the menu and read back from the core", async ({ page }) => {
   await page.goto("/#/");
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await expect(page.locator("[data-settings]")).toBeVisible();
   await page.locator('[data-section="data"]').click();
 
@@ -24,7 +24,7 @@ test("keep-days is chosen from the menu and read back from the core", async ({ p
 
 test("the port is stored for the next start and the row says the server has not moved", async ({ page }) => {
   await page.goto("/#/");
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await page.locator('[data-section="data"]').click();
 
   // the field shows the stored port, which is where the next start listens;

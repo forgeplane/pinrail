@@ -68,7 +68,7 @@ test("the sidebar lists what is waiting on every page, oldest first, and ⌥↓ 
   await expect(page).toHaveURL(new RegExp(`/reviews/${second.id}$`));
 
   // still there inside settings
-  await page.keyboard.press("Meta+,");
+  await page.keyboard.press("ControlOrMeta+,");
   await expect(page.locator("[data-settings]")).toBeVisible();
   await expect(waiting).toBeVisible();
   await page.keyboard.press("Escape");
