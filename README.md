@@ -1,52 +1,100 @@
-# wicket
+# Wicket
 
 A wicket is the small gate in a larger door: a person waits at it, looks at
 what is being carried through, and lets it pass or not.
 
-wicket is a standalone approval-gate service for agent workflows. A workflow
-that is about to do something outward-facing (post review comments, silence a
-Sentry issue, open an issue, push a branch) creates a gate with a JSON payload
-and blocks. The web app shows the gate in an inbox, renders it with the view
-registered for its type, records the human's decision, and the blocked
-workflow resumes with that decision. Every decision is kept, so past rounds
-can be rendered again and rejection reasons become training data.
+Wicket is a desktop app that puts a person in the loop of an agent's work.
+Before an agent does something that matters, like posting review comments,
+sending emails or shipping a page, it asks through Wicket and waits. You see
+the request in the app, rendered for what it is, decide, and the agent carries
+on with your decision.
 
-Stack: Elixir, Phoenix LiveView and plain-file storage for the server
-(`server/`). The CLI agents call is a Rust binary (`cli/`) talking HTTP to the
-running app.
+Two ideas shape it. **The agent decides when to ask**: its own instructions
+say which steps need a person and what to send, so Wicket fits any agent that
+can run a command. **You decide what asking looks like**: every kind of
+request is a plugin, and anyone can write one specialised for their own work.
 
 Status: early development.
 
-## Layout
+## How it works
+
+You tell the agent when to stop for you, in whatever instructions it follows:
+a skill, a project's agent file, a prompt. "Before posting review comments,
+submit them to Wicket as a `review` and wait." When it reaches that step, the
+agent calls the `wicket` CLI with a review: a plugin name, a title and a JSON
+payload. The app shows it in its inbox, notifies you, and renders it with
+that plugin's view: a diff with proposed comments, a set of draft emails, an
+HTML page to comment on element by element. You accept, reject, edit or
+comment, then hand the decision over. The CLI returns it to the agent.
+
+```sh
+wicket submit review --title "Dedup tickets on save" \
+  --origin repo=acme/api,workflow=pr-review,ref=42 \
+  --data proposals.json --wait --format markdown
+```
+
+The command blocks until you decide, then prints the decision as markdown
+for the agent to act on (or JSON for a script), and exits with a code that
+says how the review ended: decided, withdrawn, timed out, or discarded with
+an instruction to stop.
+
+When you ask for changes, the agent submits a new round that revises the
+last one, and the app shows your previous verdicts beside it. Every round
+and decision is kept, so history can be reopened and rendered again.
+
+## The app
+
+- **Inbox and history.** What is waiting, grouped by project, and everything
+  decided before. The sidebar keeps the oldest waiting reviews one click away
+  on every page.
+- **Notifications and the menu bar.** A new review raises a notification;
+  the menu bar shows the count. The window can close while the app keeps
+  listening.
+- **Local by design.** The app runs its server on loopback, and reviews and
+  decisions stay on your machine.
+
+## Plugins
+
+A plugin defines one kind of request: the payload an agent sends, the
+decision you give back, and the view you decide in. The plugins below are
+samples bundled with Wicket. Anyone can create their own for whatever their
+agents do, like triaging alerts, approving a deploy, picking between designs
+or answering an agent's questions, and share it for others to install.
+
+| Plugin | For |
+|---|---|
+| `list` (built in) | items grouped under headings, each accepted or rejected with a note |
+| [`review`](plugins/review/README.md) | a code review: the diff and the agent's proposed comments |
+| [`email`](plugins/email/README.md) | draft emails to edit, send, revise or discard |
+| [`artifact`](plugins/artifact/README.md) | an HTML page to comment on, element by element |
+
+A plugin is a manifest, two JSON schemas and an HTML view. The
+[`wicket-plugin`](wicket-plugin/README.md) package scaffolds one
+(`wicket-plugin create`), runs it in a browser without the app, and tests it.
+To share a plugin, publish its repository or a GitHub release; the app
+installs it from either, or from a folder, and serves a linked folder live
+while you work on it.
+
+## Repository
 
 | Directory | Contents |
 |---|---|
-| [`server/`](server/README.md) | the Phoenix app: API, web UI, plugin registry |
-| [`cli/`](cli/README.md) | the Rust CLI workflows call |
-| [`plugins/`](plugins/README.md) | the plugin protocol, the official `review` and `email` plugins and a sample |
-| [`wicket-plugin/`](wicket-plugin/README.md) | the `wicket-plugin` package: the SDK the app serves, a dev shell and the harness for testing a plugin alone |
-| [`e2e/`](e2e/README.md) | end-to-end tests: server, CLI and plugins together |
-| [`desktop/`](desktop/) | the desktop app: Rust core, Tauri shell, React UI; the reference implementation, in progress |
+| [`desktop/`](desktop/) | the app: a Rust core (API, storage, plugins), a Tauri shell and a React UI |
+| [`cli/`](cli/README.md) | the `wicket` CLI agents call |
+| [`plugins/`](plugins/README.md) | the official plugins and the plugin protocol |
+| [`wicket-plugin/`](wicket-plugin/README.md) | the plugin SDK, dev shell and test harness |
+| [`e2e/`](e2e/README.md) | end-to-end tests: the CLI and the app's UI against the headless core |
+| `server/` | the original Elixir server, no longer developed |
+
+## Development
 
 Tool versions are pinned in `mise.toml`; `mise install` sets them up.
-`mise run test` runs every suite; `mise run test:server`, `mise run test:cli`,
-`mise run test:sdk`, `mise run test:plugins` and `mise run e2e` run one.
-`mise run lint` runs what CI enforces: rustfmt, clippy with warnings denied,
-and the shell's type check. CI (`.github/workflows/ci.yml`) runs the lint,
-the Rust tests and the end-to-end suites on Linux and macOS, and the
-plugins and the SDK package on their own, for every push and pull request.
-
-## Quick start
 
 ```sh
-cd server && mix setup && mix phx.server        # http://127.0.0.1:4747
-cd cli && cargo build --release                 # target/release/wicket
-
-wicket create list --title "MR !42" --source repo=acme,workflow=review,ref=42 \
-  --data payload.json --wait --decision-out mr-42.decisions.json
+mise run dev:desktop        # the app with live reload
+mise run test:desktop       # the core's tests and the UI's type check
+mise run e2e:desktop        # the CLI against the headless core
+mise run e2e:shell          # the app's UI in a browser against the headless core
+mise run test:plugins       # every plugin under the harness
+mise run lint               # rustfmt, clippy and the type check, as CI runs them
 ```
-
-The command blocks until someone decides the gate in the browser, then
-prints the decision and exits 0 (3 if the gate was withdrawn, 4 on timeout).
-Payload and decision shapes for the built-in type are in
-[`desktop/core/builtin/list`](desktop/core/builtin/list/README.md).
