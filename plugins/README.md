@@ -99,7 +99,14 @@ from it from then on. Versions are semantic (`"version": "1.2.0"`; a bare
 integer reads as `N.0.0`): installing an equal or higher version replaces
 the line in place, an older one is refused unless `--force`, and a new
 major is a new line beside the old, which stays while a review still
-renders from it.
+renders from it. A major is the compatibility promise: every review
+created under it renders with the latest copy of it, which is the one
+with the fixes.
+
+On disk, under the data directory, `plugins/` holds three folders:
+`store/<name>/<major>/` for the installed copies, `fetch/` for the
+scratch an install uses and empties, and `logs/` for the last few build
+logs of each plugin.
 
 A plugin that is built — React, Svelte, anything that compiles — declares
 the command in its manifest, and never relies on the app guessing:

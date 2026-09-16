@@ -335,7 +335,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "data" ? (
             <SettingsPage title="Data">
               <SettingsGroup caption="Where things are">
-                <SettingsRow label="Data directory" description={<span className="mono">{info?.data_dir ?? "…"}</span>}>
+                <SettingsRow label="Data directory" description={<span className="mono">{info?.data_dir ?? "…"}</span>} note="The database, the settings file, and under plugins/ the installed copies, build logs and scratch">
                   {native ? (
                     <Tooltip label="Show in Finder">
                       <button type="button" className="bar-button" aria-label="Reveal the data directory" disabled={!info} onClick={() => info && import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => revealItemInDir(info.data_dir).catch(() => {}))}>
