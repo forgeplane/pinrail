@@ -10,6 +10,8 @@ Everything for writing a wicket plugin, as one npm package:
 - `wicket-plugin create`, a plugin folder to start from;
 - `wicket-plugin dev`, a shell that runs a plugin in the browser without the
   app;
+- `wicket-plugin test`, the plugin's tests under the harness, and
+  `wicket-plugin check`, what the app would say of the folder;
 - `wicket-plugin/testing`, a Playwright harness that mounts a plugin alone;
 - `wicket-plugin/types`, the protocol and the manifest as TypeScript.
 
@@ -214,8 +216,25 @@ expect(await plugin.nextSubmit()).toEqual({ ok: true });
 
 A fixture is a partial gate envelope, usually `{ "title", "payload" }`, or
 with a `decision` for a read-only or previous-round case. Tests live in
-`<plugin>/tests/*.spec.ts` and run with `mise run test:plugins`, which
-resolves the package from `e2e/node_modules`.
+`<plugin>/tests/*.spec.ts`; `wicket-plugin test [dir]` runs them, with
+Playwright from the plugin's own dependencies and the plugin's
+`playwright.config` when it has one (the package's otherwise), and hands
+anything else on the line to Playwright: `-g "hands over"`, `--headed`.
+In this repository `mise run test:plugins` runs every sample's tests and
+the scaffold's, resolving the package from `e2e/node_modules`.
+
+## Checking a plugin
+
+`wicket-plugin check [dir]` says what the app's inspect would say, without
+the app: the manifest, the name, the version, the entry (or the build that
+writes it), the schemas and their `$ref`s, the icon are *problems* that
+refuse the folder; a `settings_schema`, `shortcuts` list or
+`decision_template` with the wrong shape is a *warning*, the feature the
+app drops with the reason on the plugin's row. `--json` gives the same as
+data. The rules are the core's, carried in JavaScript; a test in the core
+runs both over the same folders and compares. The one thing `check` cannot
+do is compile a template: the app does that on install, and rendering a
+decided fixture shows the result.
 
 ## Types
 

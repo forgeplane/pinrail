@@ -109,5 +109,6 @@ next:
   cd ${shown} && npm install && npx playwright install chromium
   npx wicket-plugin dev                 the view in a browser, on fixtures/basic.json${template === "vite" ? "\n  npm run watch                         rebuilds view/ as you edit src/" : ""}
   npm test                              tests/ under the harness
+  npx wicket-plugin check               what the app would say of the folder
   wicket plugins install . --link       the app serves the folder live`);
 }

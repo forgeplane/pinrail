@@ -11,6 +11,7 @@ npx playwright install chromium       # once, for the tests
 npm run watch                         # rebuilds view/ on every change…
 npx wicket-plugin dev                 # …and the view is in a browser, on fixtures/basic.json, reloading
 npm test                              # builds, then tests/ under the harness, no app needed
+npm run check                         # what the app would say of the folder
 wicket plugins install . --link       # the app serves this folder live; keep the watch running
 ```
 

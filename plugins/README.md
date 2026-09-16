@@ -434,8 +434,9 @@ speak it directly instead.
 
 `npx wicket-plugin create <name>` (`--template vite` for a build) writes a
 folder in the layout above with a working view, a fixture, a test and a
-release workflow; see [`wicket_sdk/`](../wicket_sdk/README.md). The samples
-here are what to read once it runs.
+release workflow; `wicket-plugin dev`, `test` and `check` take it from
+there. See [`wicket_sdk/`](../wicket_sdk/README.md). The samples here are
+what to read once it runs.
 
 ## Testing a plugin
 

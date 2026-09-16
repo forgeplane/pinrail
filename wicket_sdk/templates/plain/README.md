@@ -10,6 +10,7 @@ npm install
 npx playwright install chromium       # once, for the tests
 npx wicket-plugin dev                 # the view in a browser, on fixtures/basic.json, reloading on change
 npm test                              # tests/ under the harness, no app needed
+npm run check                         # what the app would say of the folder
 wicket plugins install . --link       # the app serves this folder live
 ```
 

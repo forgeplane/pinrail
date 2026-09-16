@@ -5,7 +5,7 @@
   "scripts": {
     "build": "rm -rf assets && tsc --noEmit && vite build",
     "watch": "vite build --watch",
-    "test": "NODE_PATH=../../e2e/node_modules npx --prefix ../../e2e playwright test -c ../../e2e/plugins.config.ts artifact"
+    "test": "NODE_PATH=../../e2e/node_modules npx --prefix ../../e2e wicket-plugin test"
   },
   "dependencies": {
     "lucide-react": "1.45.0",

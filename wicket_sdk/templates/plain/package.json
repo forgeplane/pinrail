@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "wicket-plugin dev",
-    "test": "playwright test"
+    "check": "wicket-plugin check",
+    "test": "wicket-plugin test"
   },
   "devDependencies": {
     "@playwright/test": "^1.56",

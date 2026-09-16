@@ -3,6 +3,8 @@
 //
 //   wicket-plugin create <name> [--template plain|vite]   a plugin folder to start from
 //   wicket-plugin dev [dir] [--port N] [--no-open]        the fake shell in a browser, reloading on change
+//   wicket-plugin test [dir] [playwright arguments]       the plugin's tests/ under the harness
+//   wicket-plugin check [dir] [--json]                    what the app's inspect would say
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -16,6 +18,10 @@ const usage = `usage: wicket-plugin <command> [options]
                   --template plain|vite (default plain), --dir path (default ./<name>)
   dev [dir]       the fake shell in a browser, serving the plugin in dir (default .), reloading on change
                   --port N (default 4790), --no-open
+  test [dir]      the plugin's tests/ under the harness, with Playwright from its dependencies
+                  anything else on the line goes to Playwright: -g "hands over", --headed
+  check [dir]     what the app would say of the folder: problems that refuse it, warnings that cost a feature
+                  --json
 
 Then, in the app:  wicket plugins install <dir> --link`;
 
@@ -28,6 +34,16 @@ switch (command) {
   case "dev": {
     const { serve } = await import(pathToFileURL(path.join(here, "..", "shell", "serve.mjs")).href);
     serve(rest);
+    break;
+  }
+  case "test": {
+    const { runTests } = await import(pathToFileURL(path.join(here, "..", "lib", "test.mjs")).href);
+    runTests(rest);
+    break;
+  }
+  case "check": {
+    const { check } = await import(pathToFileURL(path.join(here, "..", "lib", "check.mjs")).href);
+    check(rest);
     break;
   }
   case undefined:

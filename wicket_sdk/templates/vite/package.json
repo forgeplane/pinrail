@@ -6,7 +6,8 @@
     "build": "tsc --noEmit && vite build",
     "watch": "vite build --watch",
     "dev": "wicket-plugin dev",
-    "test": "npm run build && playwright test"
+    "check": "wicket-plugin check",
+    "test": "npm run build && wicket-plugin test"
   },
   "devDependencies": {
     "@playwright/test": "^1.56",
