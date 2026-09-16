@@ -3,12 +3,10 @@
   "private": true,
   "scripts": {
     "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:sdk": "playwright test -c plugins.config.ts"
+    "test:headed": "playwright test --headed"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "@types/node": "^24.0.0",
-    "wicket-plugin": "file:../wicket-plugin"
+    "@types/node": "^24.0.0"
   }
 }

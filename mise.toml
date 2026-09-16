@@ -24,7 +24,7 @@ dir = "{{config_root}}/server/assets"
 run = "npm test"
 
 [tasks."test:sdk"]
-description = "Plugin SDK unit tests"
+description = "The wicket-plugin package: unit tests, and what create writes under the harness"
 dir = "{{config_root}}/wicket-plugin"
 run = "npm test"
 

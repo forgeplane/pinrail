@@ -38,7 +38,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test test/*.test.cjs && playwright test"
   },
   "dependencies": {
     "lucide-static": "1.45.0"
@@ -50,5 +50,8 @@
     "@playwright/test": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }

@@ -88,7 +88,7 @@ jobs:
       # the core's check test runs wicket-plugin check and compares
       - name: Install wicket-plugin
         working-directory: wicket-plugin
-        run: npm ci
+        run: npm ci --omit=dev
       - name: Rust tests
         run: |
           cargo test --manifest-path cli/Cargo.toml
@@ -112,7 +112,7 @@ jobs:
           if-no-files-found: ignore
 
   # The plugins alone under the harness, and the wicket-plugin package:
-  # its unit tests, check over the samples, and what create writes.
+  # its unit tests, what create writes, and check over the samples.
   plugins:
     runs-on: ubuntu-latest
     steps:
@@ -123,13 +123,13 @@ jobs:
           cache: npm
           cache-dependency-path: |
             plugins/package-lock.json
-            e2e/package-lock.json
             wicket-plugin/package-lock.json
             plugins/artifact/package-lock.json
       - name: wicket-plugin tests
         working-directory: wicket-plugin
         run: |
           npm ci
+          npx playwright install --with-deps chromium
           npm test
       - name: Check the sample plugins
         run: |
@@ -147,17 +147,11 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm test
-      - name: Scaffold tests
-        working-directory: e2e
-        run: |
-          npm ci
-          npx playwright install --with-deps chromium
-          npm run test:sdk
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: plugin-traces
           path: |
             plugins/test-results
-            e2e/test-results
+            wicket-plugin/test-results
           if-no-files-found: ignore

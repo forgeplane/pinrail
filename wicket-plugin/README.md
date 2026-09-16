@@ -150,7 +150,8 @@ the document.
 ## Tests
 
 ```sh
-npm test            # Node's test runner, against a fake shell environment
+npm test            # the unit tests, against a fake shell environment; then
+                    # test/scaffold.spec.ts, what create writes under the harness
 ```
 
 ## Starting a plugin
