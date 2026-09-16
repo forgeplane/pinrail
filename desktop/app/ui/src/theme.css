@@ -274,6 +274,11 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .shortcut-list dd { margin: 0; text-align: right; }
 .notice { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; color: var(--dim); margin: 0 0 14px; }
 .notice-danger { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 6%, transparent); color: var(--danger); }
+.bar-button.copy-button.ok, .bar-button.copy-button.ok:hover { color: var(--ok); }
+.bar-button.copy-button.danger, .bar-button.copy-button.danger:hover { color: var(--danger); }
+.copy-done { animation: copy-pop 220ms ease-out; }
+@keyframes copy-pop { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .copy-done { animation: none; } }
 .plugin-missing { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .plugin-missing p { margin: 0; }
 .plugin-missing b { font-weight: 600; }

@@ -1,4 +1,4 @@
-import { Ban, Bot, Check, Clock, Copy, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
+import { Ban, Bot, ClipboardCheck, ClipboardX, Clock, Copy, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
@@ -33,7 +33,7 @@ export function ReviewScreen() {
     } catch {
       setCopied("failed");
     }
-    window.setTimeout(() => setCopied(null), 1600);
+    window.setTimeout(() => setCopied(null), 3500);
   };
   const location = useLocation();
   // the way back is where the review was opened from
@@ -265,8 +265,8 @@ export function ReviewScreen() {
             </Tooltip>
           ) : null}
           <Tooltip label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy as markdown"} side="bottom">
-            <button type="button" className={`bar-button ${copied === "failed" ? "danger" : ""}`} onClick={copyMarkdown} aria-label="Copy the review as markdown" data-copy-markdown>
-              {copied === "done" ? <Check size={15} /> : <Copy size={15} />}
+            <button type="button" className={`bar-button copy-button ${copied === "done" ? "ok" : copied === "failed" ? "danger" : ""}`} onClick={copyMarkdown} aria-label="Copy the review as markdown" data-copy-markdown>
+              {copied === "done" ? <ClipboardCheck size={15} className="copy-done" /> : copied === "failed" ? <ClipboardX size={15} /> : <Copy size={15} />}
             </button>
           </Tooltip>
           {plugin ? (
@@ -278,7 +278,7 @@ export function ReviewScreen() {
           ) : null}
         </>
       ) : null,
-    [review?.status, plugin], // eslint-disable-line react-hooks/exhaustive-deps
+    [review?.status, plugin, copied], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const forPlugin = useMemo(
     () => (plugin ? { name: plugin.name, title: plugin.title || plugin.name, icon: plugin.icon, shortcuts: plugin.shortcuts ?? [] } : undefined),
