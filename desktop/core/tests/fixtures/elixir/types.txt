@@ -1,2 +1,0 @@
-{"dirs":["/Users/pnezis/code/wicket/server/_build/dev/lib/wicket/priv/plugins","/tmp/wicket-fixture/config/plugins"],"types":[{"decision_schema":{"$ref":"decision.schema.json"},"dev":false,"entry":"index.html","error":null,"min_height":400,"name":"list","path":"/Users/pnezis/code/wicket/server/_build/dev/lib/wicket/priv/plugins/list","payload_schema":{"$ref":"payload.schema.json"},"title":"List","usable":true,"version":1}]}
-200

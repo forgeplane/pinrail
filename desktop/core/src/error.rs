@@ -109,7 +109,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn messages_follow_the_reference_wording() {
+    fn messages_keep_their_wording() {
         let e = Error::Invalid(vec![
             Violation::new("", "property 'undecided' is required"),
             Violation::new("/title", "is required"),

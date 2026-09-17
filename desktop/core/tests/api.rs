@@ -1,6 +1,6 @@
-//! The API against fixtures recorded from the reference server, with the v1
-//! renames applied: `type` is `plugin`, `source` is `origin`, `supersedes`
-//! is `revises`.
+//! The API end to end over its router. The envelope's fields and the exact
+//! wording and order of violations, which plugins render, are checked against
+//! the recorded responses in `tests/fixtures/api`.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -57,34 +57,16 @@ async fn call(app: &App, method: &str, path: &str, body: Option<Value>) -> (Stat
 }
 
 fn fixture(name: &str) -> (u16, Value) {
-    let path =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/elixir/{name}.txt"));
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/api/{name}.txt"));
     let text = std::fs::read_to_string(&path).unwrap();
     let (body, status) = text.trim_end().rsplit_once('\n').unwrap();
     (status.parse().unwrap(), serde_json::from_str(body).unwrap())
 }
 
-/// The fixture's violations with the v1 names.
+/// The fixture's violations, as (path, message) pairs.
 fn fixture_violations(name: &str) -> Vec<(String, String)> {
     let (_, body) = fixture(name);
-    body["violations"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| {
-            let path = v["path"]
-                .as_str()
-                .unwrap()
-                .replace("/source", "/origin")
-                .replace("/supersedes", "/revises")
-                .replace("/type", "/plugin");
-            let message = v["message"]
-                .as_str()
-                .unwrap()
-                .replace("unknown gate g_nope", "unknown review r_nope");
-            (path, message)
-        })
-        .collect()
+    violations(&body)
 }
 
 fn violations(body: &Value) -> Vec<(String, String)> {
@@ -133,28 +115,12 @@ async fn submit(app: &App, body: Value) -> Value {
 }
 
 #[tokio::test]
-async fn submit_returns_the_envelope_the_reference_returns() {
+async fn submit_returns_every_field_of_the_envelope() {
     let app = app();
     let review = submit(&app, submission()).await;
-    let (_, reference) = fixture("create-ok");
+    let (_, recorded) = fixture("create-ok");
 
-    let mut expected: Vec<&str> = reference
-        .as_object()
-        .unwrap()
-        .keys()
-        .map(String::as_str)
-        .collect();
-    let renamed: Vec<String> = expected
-        .drain(..)
-        .map(|k| match k {
-            "type" => "plugin".to_string(),
-            "type_version" => "plugin_version".to_string(),
-            "source" => "origin".to_string(),
-            "supersedes" => "revises".to_string(),
-            other => other.to_string(),
-        })
-        .collect();
-    for key in &renamed {
+    for key in recorded.as_object().unwrap().keys() {
         assert!(review.get(key).is_some(), "missing {key} in {review}");
     }
     assert!(review["id"].as_str().unwrap().starts_with("r_"));
@@ -173,7 +139,7 @@ async fn submit_returns_the_envelope_the_reference_returns() {
 }
 
 #[tokio::test]
-async fn payload_violations_match_the_reference() {
+async fn payload_violations_keep_their_recorded_wording() {
     let app = app();
     for (name, payload) in [
         ("create-payload-invalid", json!({"intro": 1})),
@@ -196,7 +162,7 @@ async fn payload_violations_match_the_reference() {
 }
 
 #[tokio::test]
-async fn envelope_violations_match_the_reference() {
+async fn envelope_violations_keep_their_recorded_wording() {
     let app = app();
     let body = json!({"plugin": "list", "payload": {"groups": []}, "expires_at": "soon", "revises": "r_nope", "origin": "x"});
     let (status, response) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;

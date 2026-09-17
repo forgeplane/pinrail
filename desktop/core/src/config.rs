@@ -5,7 +5,7 @@ use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 
-/// The port the Elixir server has always used; the CLI falls back to it.
+/// The port the server listens on unless told otherwise; the CLI falls back to it.
 pub const DEFAULT_PORT: u16 = 4747;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,9 +22,9 @@ pub struct Config {
 
 impl Config {
     /// Reads `WICKET_DATA_DIR`, `WICKET_PORT`, `WICKET_USER` and
-    /// `WICKET_SDK_DIR` from the environment, with the same data dir fallbacks
-    /// as the Elixir server: `$XDG_DATA_HOME/wicket`, then
-    /// `~/.local/share/wicket`, on every platform.
+    /// `WICKET_SDK_DIR` from the environment. The data dir falls back to
+    /// `$XDG_DATA_HOME/wicket`, then `~/.local/share/wicket`, on every
+    /// platform, where the CLI looks for it too.
     pub fn from_env() -> Self {
         let mut config = Self::from_vars(
             env::var_os("WICKET_DATA_DIR").map(PathBuf::from),

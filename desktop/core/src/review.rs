@@ -149,7 +149,7 @@ impl Review {
     }
 }
 
-/// ISO 8601 at second precision, `Z` suffixed, as the reference server writes it.
+/// ISO 8601 at second precision, `Z` suffixed, as every timestamp in the API is written.
 pub fn iso(dt: DateTime<Utc>) -> String {
     dt.trunc_subsecs(0)
         .to_rfc3339_opts(SecondsFormat::Secs, true)

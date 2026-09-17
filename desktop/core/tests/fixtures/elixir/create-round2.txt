@@ -1,2 +1,0 @@
-{"agent_note":null,"created_at":"2026-09-13T14:20:20Z","decision":null,"expires_at":null,"id":"g_01M2DJ7Y1W5N7BGNR00000000H","payload":{"groups":[]},"requested_by":null,"source":{},"status":"pending","summary":null,"supersedes":"g_01M2DJ7WRC5N7BGNR000000003","title":"round 2","type":"list","type_version":1,"withdrawn_at":null}
-201

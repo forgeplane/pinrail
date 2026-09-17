@@ -1,2 +1,0 @@
-{"error":"invalid","message":"validation failed:\n  /type: unknown gate type nope","violations":[{"message":"unknown gate type nope","path":"/type"}]}
-422

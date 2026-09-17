@@ -18,7 +18,7 @@ use crate::db::InstalledRecord;
 use crate::error::{Error, Violation};
 use crate::schema::Schema;
 
-/// The plugin every server has, embedded from the reference server's tree.
+/// The plugin every server has, embedded from `builtin/list`.
 static BUILTIN_LIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/builtin/list");
 
 const MANIFEST: &str = "manifest.json";

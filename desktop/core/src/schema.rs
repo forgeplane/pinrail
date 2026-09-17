@@ -4,8 +4,8 @@
 //! `wicket-plugin://<name>/<version>/<key>`, so a relative `$ref` such as
 //! `payload.schema.json` resolves to a URI under that prefix, and the
 //! retriever maps such URIs back to files in the plugin directory and nowhere
-//! else. Violations use the wording of the reference server, because plugins
-//! render them.
+//! else. Violations keep a fixed wording and order, recorded in the API tests'
+//! fixtures, because plugins render them.
 
 use std::path::{Component, Path, PathBuf};
 
@@ -196,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    fn violations_match_the_reference_wording_and_order() {
+    fn violations_keep_their_wording_and_order() {
         let s = payload_schema();
         assert_eq!(
             s.validate(&json!({ "intro": 1 })),
@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn refs_cannot_leave_the_plugin_directory() {
-        let schema = json!({ "$ref": "../../../mix.exs" });
+        let schema = json!({ "$ref": "../../../Cargo.toml" });
         let error = Schema::compile(&list_dir(), "list", 1, "payload_schema", &schema).unwrap_err();
         assert!(error.starts_with("payload_schema:"), "{error}");
         assert!(safe_join(Path::new("/p"), "../x").is_none());

@@ -1,2 +1,0 @@
-{"error":"invalid","message":"validation failed:\n  /title: is required\n  /expires_at: must be an ISO 8601 datetime\n  /supersedes: unknown gate g_nope\n  /source: must be an object","violations":[{"message":"is required","path":"/title"},{"message":"must be an ISO 8601 datetime","path":"/expires_at"},{"message":"unknown gate g_nope","path":"/supersedes"},{"message":"must be an object","path":"/source"}]}
-422
