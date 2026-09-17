@@ -3,8 +3,8 @@
 //! The running server writes `<data dir>/server.json`; that file, after
 //! `WICKET_URL` and `--url`, is how the CLI finds it, and `WICKET_PORT`
 //! decides the default when nothing is advertised. Starting one needs a
-//! command: `WICKET_SERVER_CMD` (run through `sh -c`), or `WICKET_SERVER_DIR`
-//! pointing at the Phoenix app (then `mix phx.server` there).
+//! command, `WICKET_SERVER_CMD`, run through `sh -c`: usually the desktop
+//! app's binary with `--headless`.
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -73,44 +73,33 @@ pub fn ensure_running(explicit: Option<&str>) -> Result<Value> {
 }
 
 fn start() -> Result<Value> {
-    let (program, args, cwd): (String, Vec<String>, Option<PathBuf>) =
-        if let Ok(cmd) = std::env::var("WICKET_SERVER_CMD") {
-            ("sh".into(), vec!["-c".into(), cmd], None)
-        } else if let Ok(dir) = std::env::var("WICKET_SERVER_DIR") {
-            (
-                "mix".into(),
-                vec!["phx.server".into()],
-                Some(PathBuf::from(dir)),
-            )
-        } else {
-            bail!(
-                "the server is not running and no way to start it is configured; \
-                 set WICKET_SERVER_CMD (a shell command) or WICKET_SERVER_DIR (the Phoenix app), \
-                 or start it yourself and retry"
-            );
-        };
+    let Ok(command) = std::env::var("WICKET_SERVER_CMD") else {
+        bail!(
+            "the server is not running; open the Wicket app, or set WICKET_SERVER_CMD \
+             to a command that starts it (the app's binary with --headless) and retry"
+        );
+    };
 
     let dir = data_dir();
     std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
     let log = std::fs::File::create(dir.join("server.log")).context("opening server.log")?;
     let _ = std::fs::remove_file(info_path());
 
-    let mut cmd = Command::new(&program);
-    cmd.args(&args)
+    let mut cmd = Command::new("sh");
+    cmd.args(["-c", &command])
         .stdin(Stdio::null())
         .stdout(Stdio::from(log.try_clone()?))
         .stderr(Stdio::from(log))
         .env("WICKET_DATA_DIR", &dir);
-    if let Some(cwd) = cwd {
-        cmd.current_dir(cwd);
-    }
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
         // its own process group: it outlives this CLI invocation
         cmd.process_group(0);
     }
-    let child = cmd.spawn().with_context(|| format!("starting {program}"))?;
+    let child = cmd
+        .spawn()
+        .with_context(|| format!("starting the server with {command}"))?;
     eprintln!(
         "wicket: started server (pid {}), log at {}",
         child.id(),

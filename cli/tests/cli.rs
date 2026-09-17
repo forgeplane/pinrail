@@ -84,9 +84,7 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
 
 fn wicket() -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_wicket"));
-    cmd.env_remove("WICKET_URL")
-        .env_remove("WICKET_SERVER_CMD")
-        .env_remove("WICKET_SERVER_DIR");
+    cmd.env_remove("WICKET_URL").env_remove("WICKET_SERVER_CMD");
     cmd.stdin(Stdio::null());
     cmd
 }
