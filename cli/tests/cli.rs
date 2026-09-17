@@ -285,6 +285,52 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
 }
 
 #[test]
+fn list_all_follows_the_cursor_to_the_last_page() {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        match (method, path) {
+        ("GET", "/api/v1/reviews?status=decided&limit=2") => (
+            200,
+            r#"{"reviews":[{"id":"r_4"},{"id":"r_3"}],"total":5,"has_more":true,"next_cursor":"r_3"}"#.into(),
+        ),
+        ("GET", "/api/v1/reviews?status=decided&limit=2&cursor=r_3") => (
+            200,
+            r#"{"reviews":[{"id":"r_2"},{"id":"r_1"}],"total":5,"has_more":true,"next_cursor":"r_1"}"#.into(),
+        ),
+        ("GET", "/api/v1/reviews?status=decided&limit=2&cursor=r_1") => (
+            200,
+            r#"{"reviews":[{"id":"r_0"}],"total":5,"has_more":false,"next_cursor":null}"#.into(),
+        ),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let (code, stdout, stderr) = run(
+        &server,
+        &["list", "--status", "decided", "--limit", "2", "--all"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let ids: Vec<String> = serde_json::from_str::<serde_json::Value>(&stdout)
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["id"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(ids, vec!["r_4", "r_3", "r_2", "r_1", "r_0"]);
+    assert_eq!(server.requests().len(), 3);
+
+    // without --all, one page, as a plain array
+    let (code, stdout, _) = run(&server, &["list", "--status", "decided", "--limit", "2"]);
+    assert_eq!(code, 0);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&stdout)
+            .unwrap()
+            .as_array()
+            .map(Vec::len),
+        Some(2)
+    );
+}
+
+#[test]
 fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
     let server = MockServer::start(Box::new(|method, path, body| match (method, path) {
         ("GET", "/api/v1/reviews?status=pending&repo=acme") => (

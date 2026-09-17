@@ -178,7 +178,7 @@ the latest round of each review unless `--include-revised` is given, and
   reviews that name no project), `--workflow`, `--ref`, `--run-id`,
   `--plugin` and `--q`, whose words must all appear somewhere among the
   title, payload, plugin, requester, origin and who decided; it pages with
-  `--limit` and `--cursor`.
+  `--limit` and `--cursor`, and `--all` follows the pages to the end.
 - **`decide`** takes `--data` with the decision and `--note` for the agent.
   `withdraw` and `discard` take `--reason`.
 - **Every command** accepts `--url`, `--pretty` and `--format`.

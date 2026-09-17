@@ -199,8 +199,12 @@ struct ListArgs {
     /// Only reviews older than this id
     #[arg(long)]
     cursor: Option<String>,
+    /// How many reviews to ask for; with --all, how many per request
     #[arg(long)]
     limit: Option<u32>,
+    /// Every matching review, following the cursor to the last page
+    #[arg(long)]
+    all: bool,
     /// Include rounds that a later round revises
     #[arg(long, alias = "superseded")]
     include_revised: bool,
@@ -333,8 +337,27 @@ fn run(cli: Cli) -> Result<u8> {
                 query.push(("include_revised", "true".into()));
             }
             // the reviews alone, as before the API wrapped them with its paging
-            let listing = client.list(&query)?;
-            out::print_json(&listing["reviews"], pretty);
+            let mut listing = client.list(&query)?;
+            if !args.all {
+                out::print_json(&listing["reviews"], pretty);
+                return Ok(0);
+            }
+            let mut reviews = Vec::new();
+            loop {
+                if let Some(page) = listing["reviews"].as_array_mut() {
+                    reviews.append(page);
+                }
+                match listing["next_cursor"].as_str() {
+                    Some(next) if listing["has_more"] == true => {
+                        let next = next.to_string();
+                        query.retain(|(k, _)| *k != "cursor");
+                        query.push(("cursor", next));
+                        listing = client.list(&query)?;
+                    }
+                    _ => break,
+                }
+            }
+            out::print_json(&Value::Array(reviews), pretty);
             Ok(0)
         }
         Command::Decide(args) => {
