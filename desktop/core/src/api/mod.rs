@@ -15,87 +15,8 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
-use crate::db::Db;
 use crate::error::Error;
-use crate::events::Bus;
-use crate::plugins::{self as plugin_store, Registry};
-use crate::reviews::Reviews;
-use crate::{Config, server_info};
-
-/// What every handler can reach.
-#[derive(Debug)]
-pub struct AppState {
-    pub config: Config,
-    pub started_at: DateTime<Utc>,
-    pub settings: Arc<crate::settings::Store>,
-    pub db: Arc<Db>,
-    pub registry: Arc<Registry>,
-    pub reviews: Reviews,
-    /// plugin installs under way or done, by job id
-    pub jobs: Arc<crate::install::Jobs>,
-}
-
-impl AppState {
-    /// Opens the database, writes out the built-in plugin, scans the plugin
-    /// directories and wires the service together.
-    /// Applies a partial change to the settings and announces what changed,
-    /// for the API and for the app itself (the tray's pause, for one).
-    pub fn change_settings(&self, patch: &serde_json::Value) -> Result<serde_json::Value, Error> {
-        // a plugin's own settings are the plugin's schema to judge; a name
-        // that is not registered now is kept as it is
-        let mut violations = Vec::new();
-        if let Some(plugins) = patch.get("plugins").and_then(serde_json::Value::as_object) {
-            for (name, change) in plugins {
-                if let Some(plugin) = self.registry.get(name) {
-                    violations.extend(plugin.validate_settings(change));
-                }
-            }
-        }
-        if !violations.is_empty() {
-            violations.sort_by(|a, b| a.path.cmp(&b.path));
-            return Err(Error::Invalid(violations));
-        }
-        let (after, keys) = self.settings.patch(patch)?;
-        if !keys.is_empty() {
-            settings::announce(self, &keys)?;
-        }
-        Ok(after)
-    }
-
-    pub fn open(config: Config) -> Result<Arc<Self>, Error> {
-        std::fs::create_dir_all(&config.data_dir)?;
-        let settings = Arc::new(crate::settings::Store::open(&config.data_dir));
-        let db = Arc::new(Db::open(&config.db_path())?);
-        let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
-        let user = config.user_plugins_dir();
-        let _ = std::fs::create_dir_all(&user);
-        let mut defaults = vec![builtin, user];
-        defaults.extend(config.plugin_dirs.iter().cloned());
-        let records = db.installed_plugins()?;
-        if let Some(plugins_dir) = config.plugin_store_dir().parent() {
-            crate::install::tidy(plugins_dir)?;
-        }
-        let registry = Arc::new(
-            Registry::open(defaults, records, config.plugin_store_dir())
-                .map_err(Error::Internal)?,
-        );
-        let reviews = Reviews::new(
-            db.clone(),
-            registry.clone(),
-            Bus::new(),
-            config.user.clone(),
-        );
-        Ok(Arc::new(Self {
-            config,
-            started_at: Utc::now(),
-            settings,
-            db,
-            registry,
-            reviews,
-            jobs: Arc::new(crate::install::Jobs::default()),
-        }))
-    }
-}
+use crate::{Wicket, server_info};
 
 #[derive(Debug, Serialize)]
 pub struct Info {
@@ -107,7 +28,7 @@ pub struct Info {
     pub user: String,
 }
 
-pub fn router(state: Arc<AppState>) -> Router {
+pub fn router(state: Arc<Wicket>) -> Router {
     Router::new()
         .route("/api/v1/info", get(info))
         .merge(reviews::routes())
@@ -119,7 +40,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .with_state(state)
 }
 
-async fn info(State(state): State<Arc<AppState>>) -> Json<Info> {
+async fn info(State(state): State<Arc<Wicket>>) -> Json<Info> {
     Json(Info {
         version: crate::VERSION,
         data_dir: state.config.data_dir.display().to_string(),
@@ -135,7 +56,7 @@ async fn info(State(state): State<Arc<AppState>>) -> Json<Info> {
 /// and, when the history keeps a limited number of days, the reviews past
 /// them.
 pub async fn serve(
-    state: Arc<AppState>,
+    state: Arc<Wicket>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
     let listener = tokio::net::TcpListener::bind(state.config.bind_addr()).await?;
@@ -168,9 +89,7 @@ pub async fn serve(
             let mut tick = tokio::time::interval(Duration::from_secs(1));
             loop {
                 tick.tick().await;
-                if let Some(keys) = state.settings.reload_if_changed()
-                    && let Err(error) = settings::announce(&state, &keys)
-                {
+                if let Err(error) = state.reload_settings() {
                     eprintln!("wicket: settings change not announced: {error}");
                 }
             }

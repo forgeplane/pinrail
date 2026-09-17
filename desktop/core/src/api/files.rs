@@ -17,17 +17,17 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 
-use super::AppState;
+use crate::Wicket;
 use crate::schema::safe_join;
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router<Arc<Wicket>> {
     Router::new()
         .route("/plugins/{name}/{version}/{*path}", get(bundle))
         .route("/sdk/v1/{*path}", get(sdk))
 }
 
 async fn bundle(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path((name, version, path)): Path<(String, String, String)>,
     headers: HeaderMap,
 ) -> Response {
@@ -95,7 +95,7 @@ async fn bundle(
         .into_response()
 }
 
-async fn sdk(State(state): State<Arc<AppState>>, Path(path): Path<String>) -> Response {
+async fn sdk(State(state): State<Arc<Wicket>>, Path(path): Path<String>) -> Response {
     let Some(dir) = &state.config.sdk_dir else {
         return StatusCode::NOT_FOUND.into_response();
     };

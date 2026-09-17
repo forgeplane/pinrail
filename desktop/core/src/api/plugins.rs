@@ -12,11 +12,12 @@ use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
-use super::{AppState, parse_body};
+use super::parse_body;
+use crate::Wicket;
 use crate::error::Error;
 use crate::events;
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router<Arc<Wicket>> {
     Router::new()
         .route("/api/v1/plugins", get(index))
         .route("/api/v1/plugins/reload", post(reload))
@@ -30,7 +31,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/plugins/{name}/versions", get(versions))
 }
 
-async fn index(State(state): State<Arc<AppState>>) -> Json<Value> {
+async fn index(State(state): State<Arc<Wicket>>) -> Json<Value> {
     let stored = state.settings.value(crate::settings::PLUGINS);
     let plugins = state
         .registry
@@ -53,7 +54,7 @@ async fn index(State(state): State<Arc<AppState>>) -> Json<Value> {
 }
 
 async fn versions(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, Error> {
     // the majors that render: the current plugin, and the store entries
@@ -106,7 +107,7 @@ fn install_request(body: &Bytes) -> Result<(String, crate::install::Options), Er
 /// What installing a source would do, for the dialog to show before the
 /// person says yes: the manifest's plugin, the origin, the build command,
 /// what is installed under that name. Fetches the source and drops it.
-async fn inspect(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json<Value>, Error> {
+async fn inspect(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Json<Value>, Error> {
     let (source, options) = install_request(&body)?;
     let worker = state.clone();
     tokio::task::spawn_blocking(move || {
@@ -119,7 +120,7 @@ async fn inspect(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json
 
 /// Starts installing one plugin: `{source, link?, force?, ref?, path?}`.
 /// Answers at once with the job to follow; a build can take a minute.
-async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Response, Error> {
+async fn install(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Response, Error> {
     let (source, options) = install_request(&body)?;
     let id = state.jobs.start(&source);
     let job_id = id.clone();
@@ -149,7 +150,7 @@ async fn install(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Resp
 
 /// What is new for an installed plugin, asked of its source.
 async fn updates(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, Error> {
     let record = state
@@ -171,7 +172,7 @@ async fn updates(
 /// `{state: "up_to_date"}` at once, and otherwise the install runs as a
 /// job to follow, into the same line or a new one beside it.
 async fn update(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(name): Path<String>,
 ) -> Result<Response, Error> {
     let record = state
@@ -245,7 +246,7 @@ async fn update(
 /// review renders from; the ones a review still uses stay, and the answer
 /// names them. A built-in has no record and cannot be removed.
 async fn remove(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, Error> {
     let answer = crate::install::remove(&state.db, &state.registry, &name)?;
@@ -255,7 +256,7 @@ async fn remove(
 
 /// An install job as it stands: its step, its log so far, and how it ended.
 async fn job(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
     state
@@ -265,7 +266,7 @@ async fn job(
         .ok_or(Error::NotFound(id))
 }
 
-async fn reload(State(state): State<Arc<AppState>>) -> Result<Json<Value>, Error> {
+async fn reload(State(state): State<Arc<Wicket>>) -> Result<Json<Value>, Error> {
     let records = state.db.installed_plugins()?;
     let count = state
         .registry
@@ -275,7 +276,7 @@ async fn reload(State(state): State<Arc<AppState>>) -> Result<Json<Value>, Error
     Ok(Json(json!({ "ok": true, "count": count })))
 }
 
-async fn add_dir(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json<Value>, Error> {
+async fn add_dir(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Json<Value>, Error> {
     let body = parse_body(&body)?;
     let Some(dir) = body.get("dir").and_then(Value::as_str) else {
         return Err(Error::invalid("/dir", "is required"));
@@ -306,7 +307,7 @@ async fn add_dir(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Json
     })))
 }
 
-fn announce(state: &AppState) -> Result<(), Error> {
+fn announce(state: &Wicket) -> Result<(), Error> {
     let event_id = state
         .db
         .append_event(None, events::PLUGINS_RELOADED, None, &Value::Null)?;

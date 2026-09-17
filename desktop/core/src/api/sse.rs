@@ -15,19 +15,19 @@ use futures_util::stream::{self, Stream};
 use serde_json::json;
 use tokio_stream::wrappers::BroadcastStream;
 
-use super::AppState;
+use crate::Wicket;
 use serde_json::Value;
 
 use crate::events::Notice;
 
 const CATCH_UP_LIMIT: usize = 1000;
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router<Arc<Wicket>> {
     Router::new().route("/api/v1/events", get(events))
 }
 
 async fn events(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     // Subscribe before reading the backlog, so nothing between the two is lost.

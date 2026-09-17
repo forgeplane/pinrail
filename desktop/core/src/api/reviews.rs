@@ -13,7 +13,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
-use super::{AppState, parse_body};
+use super::parse_body;
+use crate::Wicket;
 use crate::db::Filters;
 use crate::error::Error;
 use crate::review::Status;
@@ -21,7 +22,7 @@ use crate::review::Status;
 const DEFAULT_WAIT: u64 = 300;
 const MAX_WAIT: u64 = 600;
 
-pub fn routes() -> Router<Arc<AppState>> {
+pub fn routes() -> Router<Arc<Wicket>> {
     Router::new()
         .route("/api/v1/reviews", post(submit).get(list))
         .route("/api/v1/reviews/{id}", get(show))
@@ -34,7 +35,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/reviews/{id}/events", get(events))
 }
 
-async fn submit(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Response, Error> {
+async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Response, Error> {
     let body = parse_body(&body)?;
     let review = state.reviews.submit(&body, None)?;
     Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
@@ -45,7 +46,7 @@ async fn submit(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Respo
 /// `include=facets`. Walk everything with `cursor=<next_cursor>`; number
 /// pages with `offset`.
 async fn list(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, Error> {
     let filters = filters(&params)?;
@@ -97,7 +98,7 @@ fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> bool
 /// A review as the caller asked for it: markdown with its round placed
 /// in the chain, or the JSON everything else reads.
 fn review_response(
-    state: &AppState,
+    state: &Wicket,
     review: &crate::review::Review,
     markdown: bool,
 ) -> Result<Response, Error> {
@@ -127,7 +128,7 @@ fn review_response(
 }
 
 async fn show(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -137,7 +138,7 @@ async fn show(
 }
 
 async fn rounds(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
     let rounds = state.reviews.rounds(&id)?;
@@ -147,7 +148,7 @@ async fn rounds(
 }
 
 async fn wait(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -168,7 +169,7 @@ async fn wait(
 }
 
 async fn decide(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -184,7 +185,7 @@ async fn decide(
 }
 
 async fn withdraw(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Result<Json<Value>, Error> {
@@ -194,7 +195,7 @@ async fn withdraw(
 }
 
 async fn discard(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Result<Json<Value>, Error> {
@@ -209,7 +210,7 @@ async fn discard(
 }
 
 async fn viewed(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
     state.reviews.mark_viewed(&id)?;
@@ -217,7 +218,7 @@ async fn viewed(
 }
 
 async fn events(
-    State(state): State<Arc<AppState>>,
+    State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
     let events = state.reviews.events(&id)?;

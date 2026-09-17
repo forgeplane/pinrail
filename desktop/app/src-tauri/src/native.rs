@@ -10,7 +10,7 @@ use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{AppHandle, Emitter, Manager, Wry};
 use tauri_plugin_notification::NotificationExt;
 use tokio::sync::broadcast::error::RecvError;
-use wicket_core::api::AppState;
+use wicket_core::Wicket;
 use wicket_core::db::Filters;
 use wicket_core::events::{self, Notice};
 use wicket_core::review::{Review, Status};
@@ -26,7 +26,7 @@ const TRAY_ROWS: usize = 8;
 const TRAY_TITLE_CHARS: usize = 48;
 
 pub struct Native {
-    pub state: Arc<AppState>,
+    pub state: Arc<Wicket>,
     /// A route the shell has not picked up yet: it may still be loading.
     pending_route: Mutex<Option<String>>,
     /// The global shortcut as last registered.
@@ -34,7 +34,7 @@ pub struct Native {
 }
 
 impl Native {
-    pub fn new(state: Arc<AppState>) -> Self {
+    pub fn new(state: Arc<Wicket>) -> Self {
         Native {
             state,
             pending_route: Mutex::new(None),
@@ -62,7 +62,7 @@ pub struct ShortcutState {
     pub error: Option<String>,
 }
 
-fn shortcut_keys(state: &AppState) -> String {
+fn shortcut_keys(state: &Wicket) -> String {
     state
         .settings
         .value("/shortcut/global")
@@ -74,7 +74,7 @@ fn shortcut_keys(state: &AppState) -> String {
 
 /// Registers the global shortcut from the settings in place of the last
 /// one, records how that went and tells the shell. Main thread.
-pub fn apply_shortcut(app: &AppHandle, state: &AppState) {
+pub fn apply_shortcut(app: &AppHandle, state: &Wicket) {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState as Pressed};
     let keys = shortcut_keys(state);
     let shortcuts = app.global_shortcut();
@@ -121,7 +121,7 @@ struct NotificationSettings {
     muted_plugins: Vec<String>,
 }
 
-fn notification_settings(state: &AppState) -> NotificationSettings {
+fn notification_settings(state: &Wicket) -> NotificationSettings {
     let s = state.settings.get();
     let n = &s["notifications"];
     let paused_until = n["paused_until"]
@@ -147,7 +147,7 @@ fn notification_settings(state: &AppState) -> NotificationSettings {
 /// Pauses notifications until a moment, or resumes them with `None`. The
 /// setting is what the dialog shows too; the tray follows through the
 /// change event, like any other way of setting it.
-fn pause_notifications(state: &AppState, until: Option<DateTime<Utc>>) {
+fn pause_notifications(state: &Wicket, until: Option<DateTime<Utc>>) {
     let value = until.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
     if let Err(error) =
         state.change_settings(&serde_json::json!({ "notifications": { "paused_until": value } }))
@@ -158,7 +158,7 @@ fn pause_notifications(state: &AppState, until: Option<DateTime<Utc>>) {
 
 /// Refreshes the tray once the current pause runs out, so "Resume" gives
 /// way to "Pause" without anyone touching a setting.
-pub fn refresh_tray_at_pause_end(app: &AppHandle, state: &AppState) {
+pub fn refresh_tray_at_pause_end(app: &AppHandle, state: &Wicket) {
     let Some(until) = notification_settings(state).paused_until else {
         return;
     };
@@ -231,7 +231,7 @@ pub fn route_for_url(url: &str) -> Option<String> {
 
 /// The tray icon shown or hidden, as settings say; the Dock icon stays
 /// either way. Applied at start and whenever the setting changes.
-pub fn apply_menu_bar_icon(app: &AppHandle, state: &AppState) {
+pub fn apply_menu_bar_icon(app: &AppHandle, state: &Wicket) {
     let shown = state
         .settings
         .value("/menu_bar_icon")
@@ -243,7 +243,7 @@ pub fn apply_menu_bar_icon(app: &AppHandle, state: &AppState) {
 }
 
 /// Pending reviews, newest first, as the API lists them.
-fn pending(state: &AppState) -> Vec<Review> {
+fn pending(state: &Wicket) -> Vec<Review> {
     let filters = Filters {
         statuses: vec![Status::Pending],
         limit: 500,

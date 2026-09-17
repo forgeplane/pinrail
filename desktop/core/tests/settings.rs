@@ -10,17 +10,17 @@ use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use wicket_core::Config;
-use wicket_core::api::{self, AppState};
+use wicket_core::{Wicket, api};
 
 struct App {
     dir: tempfile::TempDir,
-    state: Arc<AppState>,
+    state: Arc<Wicket>,
     router: Router,
 }
 
 fn app() -> App {
     let dir = tempfile::tempdir().unwrap();
-    let state = AppState::open(Config::new(dir.path(), 0)).unwrap();
+    let state = Wicket::open(Config::new(dir.path(), 0)).unwrap();
     let router = api::router(state.clone());
     App { dir, state, router }
 }

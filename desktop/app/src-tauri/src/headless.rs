@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use wicket_core::Config;
-use wicket_core::api::{self, AppState};
+use wicket_core::{Wicket, api};
 
 #[derive(Debug, Default)]
 pub struct Options {
@@ -64,7 +64,7 @@ pub fn run(options: Options) -> i32 {
         }
     };
     runtime.block_on(async {
-        let state = match AppState::open(config) {
+        let state = match Wicket::open(config) {
             Ok(state) => state,
             Err(error) => {
                 eprintln!("wicket: cannot open the data directory: {error}");

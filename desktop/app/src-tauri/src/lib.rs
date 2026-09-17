@@ -15,7 +15,7 @@ use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
 use wicket_core::Config;
-use wicket_core::api::{self, AppState};
+use wicket_core::{Wicket, api};
 
 use native::Native;
 
@@ -216,7 +216,7 @@ pub fn run() {
             if config.sdk_dir.is_none() {
                 config.sdk_dir = sdk_dir(app);
             }
-            let state: Arc<AppState> = AppState::open(config).map_err(|error| {
+            let state: Arc<Wicket> = Wicket::open(config).map_err(|error| {
                 eprintln!("wicket: cannot open the data directory: {error}");
                 std::io::Error::other(error.to_string())
             })?;

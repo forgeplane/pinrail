@@ -6,6 +6,7 @@
 //! is edited after it is written: status is derived from what exists.
 
 pub mod api;
+pub mod app;
 pub mod config;
 pub mod db;
 pub mod error;
@@ -20,6 +21,7 @@ pub mod schema;
 pub mod server_info;
 pub mod settings;
 
+pub use app::Wicket;
 pub use config::Config;
 pub use error::{Error, Violation};
 
