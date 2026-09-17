@@ -96,9 +96,14 @@ async fn cli_status() -> Result<cli_install::Status, String> {
         let home = std::env::var_os("HOME")
             .map(PathBuf::from)
             .ok_or("HOME is not set")?;
+        let bundled = cli_install::bundled();
+        let mode = bundled.as_deref().map_or(cli_install::Mode::Link, |b| {
+            cli_install::mode(b, cli_install::in_appimage())
+        });
         let shell = cli_install::ask_login_shell();
         Ok(cli_install::status(
-            cli_install::bundled().as_deref(),
+            mode,
+            bundled.as_deref(),
             &cli_install::link_path(&home),
             shell.as_ref(),
         ))
@@ -107,7 +112,8 @@ async fn cli_status() -> Result<cli_install::Status, String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Links `~/.local/bin/wicket` to the bundled CLI, then reports as `cli_status`.
+/// Links or copies the bundled CLI to `~/.local/bin/wicket`, as the way the
+/// app was installed calls for, then reports as `cli_status`.
 #[tauri::command]
 async fn install_cli() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -116,10 +122,16 @@ async fn install_cli() -> Result<cli_install::Status, String> {
             .ok_or("HOME is not set")?;
         let bundled = cli_install::bundled()
             .ok_or("this build of Wicket carries no CLI; the packaged app does")?;
+        let mode = cli_install::mode(&bundled, cli_install::in_appimage());
         let link = cli_install::link_path(&home);
-        cli_install::install(&bundled, &link)?;
+        cli_install::install(mode, &bundled, &link)?;
         let shell = cli_install::ask_login_shell();
-        Ok(cli_install::status(Some(&bundled), &link, shell.as_ref()))
+        Ok(cli_install::status(
+            mode,
+            Some(&bundled),
+            &link,
+            shell.as_ref(),
+        ))
     })
     .await
     .map_err(|e| e.to_string())?
