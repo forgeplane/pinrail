@@ -151,6 +151,13 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
   const [copied, setCopied] = useState(false);
   const paused = pausedUntil(settings.notifications.paused_until);
   const system = useNotificationStatus(open);
+  const [noticesError, setNoticesError] = useState<string | null>(null);
+  const openNotices = () => {
+    setNoticesError(null);
+    import("@tauri-apps/api/core")
+      .then(({ invoke }) => invoke("open_notices"))
+      .catch((e) => setNoticesError(String(e)));
+  };
   const shortcut = useShortcutState(open);
 
   // a pause ends on its own: the row says so within the minute
@@ -382,6 +389,13 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                 <SettingsRow label="Wicket" description={info ? `Version ${info.version} · server started ${new Date(info.started_at).toLocaleString()}` : "…"} />
                 <SettingsRow label="Updates" description="Checking for updates comes with the packaged app" />
                 <SettingsRow label="Plugins" description="How to write one: plugins/README.md in the repository" />
+                <SettingsRow label="License" description="Apache License 2.0" note={noticesError ?? undefined}>
+                  {native ? (
+                    <button type="button" className="chrome-button" onClick={openNotices} data-open-notices>
+                      Third-party notices
+                    </button>
+                  ) : null}
+                </SettingsRow>
               </SettingsGroup>
             </SettingsPage>
           ) : null}

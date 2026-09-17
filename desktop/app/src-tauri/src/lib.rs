@@ -125,6 +125,24 @@ async fn install_cli() -> Result<cli_install::Status, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Opens the third-party notices a release bundle carries, in the system's
+/// text viewer. A development build has none, and says so.
+#[tauri::command]
+fn open_notices(app: AppHandle) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let file = app
+        .path()
+        .resource_dir()
+        .map_err(|e| e.to_string())?
+        .join("THIRD_PARTY_NOTICES.txt");
+    if !file.is_file() {
+        return Err("the packaged app carries the notices; this development build does not".into());
+    }
+    app.opener()
+        .open_path(file.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn autostart_enabled(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
@@ -264,7 +282,8 @@ pub fn run() {
             autostart_enabled,
             set_autostart,
             cli_status,
-            install_cli
+            install_cli,
+            open_notices
         ])
         .build(tauri::generate_context!())
         .expect("wicket could not start its window");
