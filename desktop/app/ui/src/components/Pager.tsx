@@ -1,6 +1,10 @@
 // The pager under a list: where this page sits in the whole, the way to the
 // pages either side, and how many rows a page holds. Hidden when everything
 // fits on one page at the smallest size.
+//
+// Previous and Next ask for a step rather than a page number: a second click
+// arrives before this pager has been drawn again, and a number worked out
+// here would be worked out from the page already left behind.
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Select } from "./Select";
@@ -22,7 +26,8 @@ type Props = {
   page: number;
   size: number;
   total: number;
-  onPage: (page: number) => void;
+  /** a page number, or a step from the page the URL is on */
+  onPage: (page: number | ((current: number) => number)) => void;
   onSize: (size: number) => void;
   label: string;
 };
@@ -38,14 +43,14 @@ export function Pager({ page, size, total, onPage, onSize, label }: Props) {
         {first}–{last} of {total}
       </span>
       <span className="pager-steps">
-        <button type="button" className="chrome-button" onClick={() => onPage(page - 1)} disabled={page <= 1} aria-label="Previous page" data-pager-previous>
+        <button type="button" className="chrome-button" onClick={() => onPage((p) => p - 1)} disabled={page <= 1} aria-label="Previous page" data-pager-previous>
           <ChevronLeft size={14} />
           Previous
         </button>
         <span className="pager-page">
           Page {page} of {pages}
         </span>
-        <button type="button" className="chrome-button" onClick={() => onPage(page + 1)} disabled={page >= pages} aria-label="Next page" data-pager-next>
+        <button type="button" className="chrome-button" onClick={() => onPage((p) => p + 1)} disabled={page >= pages} aria-label="Next page" data-pager-next>
           Next
           <ChevronRight size={14} />
         </button>

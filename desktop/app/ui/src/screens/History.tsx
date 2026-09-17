@@ -1,6 +1,6 @@
 import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { Review, ReviewListing } from "../api/types";
 import { OutcomeBadge } from "../components/Badges";
@@ -10,6 +10,7 @@ import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { stamp } from "../lib/format";
+import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { NO_PROJECT } from "../lib/shortcuts";
 
@@ -21,7 +22,7 @@ const SEARCH_DELAY_MS = 250;
 
 export function History() {
   const live = useLive();
-  const [params, setParams] = useSearchParams();
+  const [params, updateParams] = useUrlParams();
   const navigate = useNavigate();
   const [data, setData] = useState<ReviewListing | null>(null);
   const [focused, setFocused] = useState(0);
@@ -67,6 +68,7 @@ export function History() {
 
   const reviews = data?.reviews ?? [];
   const total = data?.total ?? 0;
+  const pages = Math.max(1, Math.ceil(total / size));
 
   // a page past the end, after a filter or a sweep shrank the list: the last page
   useEffect(() => {
@@ -75,26 +77,36 @@ export function History() {
 
   /** Changing a filter starts again from the first page. */
   const setFilter = (key: string, value: string) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    next.delete("page");
-    setParams(next, { replace: true });
+    updateParams(
+      (next) => {
+        if (value) next.set(key, value);
+        else next.delete(key);
+        next.delete("page");
+      },
+      { replace: true },
+    );
   };
-  const setPage = (n: number) => {
-    const next = new URLSearchParams(params);
-    if (n > 1) next.set("page", String(n));
-    else next.delete("page");
-    setParams(next);
+  /** A page number, or a step from the page the URL is on. */
+  const setPage = (n: number | ((current: number) => number)) => {
+    updateParams((next) => {
+      const now = Math.min(pageOf(next.get("page")), pages);
+      const wanted = typeof n === "function" ? n(now) : n;
+      const value = Math.min(Math.max(1, wanted), pages);
+      if (value > 1) next.set("page", String(value));
+      else next.delete("page");
+    });
     setFocused(0);
     document.querySelector(".history-table-wrap")?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
   };
   const setSize = (n: number) => {
-    const next = new URLSearchParams(params);
-    next.set("per", String(n));
-    next.delete("page");
-    setParams(next, { replace: true });
+    updateParams(
+      (next) => {
+        next.set("per", String(n));
+        next.delete("page");
+      },
+      { replace: true },
+    );
   };
 
   const plugins = data?.facets?.plugins ?? [];
@@ -200,7 +212,7 @@ export function History() {
               className="chrome-button"
               onClick={() => {
                 setQ("");
-                setParams({}, { replace: true });
+                updateParams(clearAll, { replace: true });
               }}
             >
               Clear

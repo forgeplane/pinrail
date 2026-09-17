@@ -60,6 +60,18 @@ test("history shows 50 a page, pages through the rest, and starts again at page 
   await expect(rows).toHaveCount(5);
   await expect(range).toHaveText("26–30 of 30");
 
+  // two clicks in one frame step two pages, here against the server's paging
+  await page.goto("/#/history?q=paging&per=25");
+  await expect(range).toHaveText("1–25 of 60");
+  await page.goto("/#/history?q=paging&per=25&page=3");
+  await expect(range).toHaveText("51–60 of 60");
+  await page.evaluate(() => {
+    const previous = document.querySelector<HTMLButtonElement>("[data-pager-previous]");
+    previous?.click();
+    previous?.click();
+  });
+  await expect(range).toHaveText("1–25 of 60");
+
   // the search reads the requester and the project as well as the title
   await page.goto("/#/history?q=acme/even%20spec");
   await expect(rows).toHaveCount(30);
@@ -88,10 +100,16 @@ test("the inbox holds every pending review, 50 a page, and Enter opens the row t
   await expect(rows).toHaveCount(5);
   await expect(range).toHaveText("101–105 of 105");
 
-  // J moves down the rows as drawn, and Enter opens the one that is lit
-  await page.locator("[data-pager-previous]").click();
-  await page.locator("[data-pager-previous]").click();
+  // two clicks in one frame step two pages: the second lands before the pager
+  // has been drawn again, so it must step from the page the URL is on
+  await page.evaluate(() => {
+    const previous = document.querySelector<HTMLButtonElement>("[data-pager-previous]");
+    previous?.click();
+    previous?.click();
+  });
   await expect(range).toHaveText("1–50 of 105");
+
+  // J moves down the rows as drawn, and Enter opens the one that is lit
   // the pointer out of the way: a row under it would take the focus
   await page.mouse.move(0, 0);
   await page.locator("h1").click();

@@ -1,6 +1,6 @@
 import { Ban, Blocks, CheckCheck, FolderGit2, Search, SearchX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
@@ -10,6 +10,7 @@ import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
+import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { NO_PROJECT, inProject } from "../lib/shortcuts";
 
@@ -25,7 +26,7 @@ function matches(review: Review, q: string) {
 export function Inbox() {
   const live = useLive();
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
+  const [params, updateParams] = useUrlParams();
   // The search box keeps its own text: a router navigation per keystroke is
   // deferred, and a controlled input bound to the URL would snap back.
   const [q, setQ] = useState(params.get("q") ?? "");
@@ -52,25 +53,35 @@ export function Inbox() {
 
   /** Changing a filter starts again from the first page. */
   const setParam = (key: string, value: string) => {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    next.delete("page");
-    setParams(next, { replace: true });
+    updateParams(
+      (next) => {
+        if (value) next.set(key, value);
+        else next.delete(key);
+        next.delete("page");
+      },
+      { replace: true },
+    );
   };
-  const setPage = (n: number) => {
-    const next = new URLSearchParams(params);
-    if (n > 1) next.set("page", String(n));
-    else next.delete("page");
-    setParams(next);
+  /** A page number, or a step from the page the URL is on. */
+  const setPage = (n: number | ((current: number) => number)) => {
+    updateParams((next) => {
+      const now = Math.min(pageOf(next.get("page")), pages);
+      const wanted = typeof n === "function" ? n(now) : n;
+      const value = Math.min(Math.max(1, wanted), pages);
+      if (value > 1) next.set("page", String(value));
+      else next.delete("page");
+    });
     setFocused(0);
     window.scrollTo({ top: 0 });
   };
   const setSize = (n: number) => {
-    const next = new URLSearchParams(params);
-    next.set("per", String(n));
-    next.delete("page");
-    setParams(next, { replace: true });
+    updateParams(
+      (next) => {
+        next.set("per", String(n));
+        next.delete("page");
+      },
+      { replace: true },
+    );
   };
 
   const reviews = useMemo(
@@ -215,7 +226,7 @@ export function Inbox() {
                 className="chrome-button"
                 onClick={() => {
                   setQ("");
-                  setParams({}, { replace: true });
+                  updateParams(clearAll, { replace: true });
                 }}
               >
                 Clear filters
