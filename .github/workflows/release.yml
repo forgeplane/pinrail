@@ -1,7 +1,8 @@
 # A tag v<version> (v0.1.0) releases the desktop app: the full CI runs first,
 # then a draft GitHub Release gets a universal macOS build (.dmg, and the
-# .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), a
-# build provenance attestation for each installer, and a SHA256SUMS file.
+# .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), each
+# with the wicket CLI inside as the wicket-cli sidecar, a build provenance
+# attestation for each installer, and a SHA256SUMS file.
 # The draft is published by hand after a smoke test. The tag has to name
 # the version in desktop/Cargo.toml and tauri.conf.json.
 #
@@ -75,6 +76,7 @@ jobs:
         include:
           - name: macos
             runner: macos-latest
+            triple: universal-apple-darwin
             args: --target universal-apple-darwin
             targets: aarch64-apple-darwin,x86_64-apple-darwin
             bundles: |
@@ -82,6 +84,7 @@ jobs:
           - name: linux
             # the oldest supported Ubuntu, so the AppImage runs on older glibc
             runner: ubuntu-22.04
+            triple: x86_64-unknown-linux-gnu
             args: ""
             targets: ""
             bundles: |
@@ -114,7 +117,9 @@ jobs:
           targets: ${{ matrix.targets }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: desktop
+          workspaces: |
+            desktop
+            cli
           key: release-${{ matrix.name }}
           cache-on-failure: true
           # a cache saved under a tag is visible to that tag only; a manual
@@ -123,6 +128,10 @@ jobs:
       - name: Install the shell's dependencies
         working-directory: desktop/app
         run: npm ci
+      # the CLI ships inside the bundle as the wicket-cli sidecar
+      - name: Build the CLI
+        working-directory: desktop/app
+        run: npm run cli:build -- ${{ matrix.triple }}
       - name: Build
         id: build
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
@@ -131,7 +140,7 @@ jobs:
         with:
           projectPath: desktop/app
           tauriScript: npx tauri
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
           releaseId: ${{ needs.draft.outputs.id }}
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: true

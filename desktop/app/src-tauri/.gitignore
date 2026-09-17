@@ -1,1 +1,3 @@
 gen/schemas/
+# the CLI built for a release bundle: scripts/build-cli.mjs
+binaries/
