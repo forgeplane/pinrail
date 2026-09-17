@@ -47,13 +47,15 @@ dir = "{{config_root}}/desktop/app"
 run = "npx tauri dev"
 
 [tasks.lint]
-description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked"
+description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, dependency licences"
 run = [
   "cargo fmt --check --manifest-path {{config_root}}/cli/Cargo.toml",
   "cargo fmt --all --check --manifest-path {{config_root}}/desktop/Cargo.toml",
   "cargo clippy --manifest-path {{config_root}}/cli/Cargo.toml --all-targets -- -D warnings",
   "cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
   "npm --prefix {{config_root}}/desktop/app test",
+  "cargo deny --manifest-path {{config_root}}/desktop/Cargo.toml --config {{config_root}}/deny.toml check licenses",
+  "cargo deny --manifest-path {{config_root}}/cli/Cargo.toml --config {{config_root}}/deny.toml check licenses",
 ]
 
 [tasks.test]
