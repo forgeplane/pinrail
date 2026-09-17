@@ -19,6 +19,9 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
+  # no debug info: a far smaller target directory to cache, restore and link
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
   # What gives the same answer on any system, once: rustfmt and the
