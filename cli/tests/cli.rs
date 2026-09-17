@@ -287,8 +287,14 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
 #[test]
 fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
     let server = MockServer::start(Box::new(|method, path, body| match (method, path) {
-        ("GET", "/api/v1/reviews?status=pending&repo=acme") => (200, "[]".into()),
-        ("GET", "/api/v1/reviews?include_revised=true") => (200, "[]".into()),
+        ("GET", "/api/v1/reviews?status=pending&repo=acme") => (
+            200,
+            r#"{"reviews":[],"total":0,"has_more":false,"next_cursor":null}"#.into(),
+        ),
+        ("GET", "/api/v1/reviews?include_revised=true") => (
+            200,
+            r#"{"reviews":[],"total":0,"has_more":false,"next_cursor":null}"#.into(),
+        ),
         ("GET", "/api/v1/reviews/r_1") => (200, review("pending")),
         ("GET", "/api/v1/reviews/r_1/rounds") => (200, "[]".into()),
         ("POST", "/api/v1/reviews/r_1/withdraw") => {

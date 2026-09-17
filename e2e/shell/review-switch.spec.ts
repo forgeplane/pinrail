@@ -13,7 +13,7 @@ async function createReview(request: APIRequestContext, plugin: string, title: s
 }
 
 async function clearInbox(request: APIRequestContext) {
-  const pending = (await (await request.get(`${core}/api/v1/reviews?status=pending&limit=500`)).json()) as { id: string }[];
+  const pending = (await (await request.get(`${core}/api/v1/reviews?status=pending&limit=500`)).json()).reviews as { id: string }[];
   for (const r of pending) await request.post(`${core}/api/v1/reviews/${r.id}/discard`, { data: { reason: "spec cleanup" } });
 }
 

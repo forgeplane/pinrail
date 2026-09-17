@@ -2,7 +2,7 @@ import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
-import type { Review, ReviewPage } from "../api/types";
+import type { Review, ReviewListing } from "../api/types";
 import { OutcomeBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
@@ -23,7 +23,7 @@ export function History() {
   const live = useLive();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
-  const [data, setData] = useState<ReviewPage | null>(null);
+  const [data, setData] = useState<ReviewListing | null>(null);
   const [focused, setFocused] = useState(0);
   const search = useRef<HTMLInputElement>(null);
   // While the keyboard moves the focus the list scrolls under a still
@@ -57,7 +57,7 @@ export function History() {
   useEffect(() => {
     let cancelled = false;
     api
-      .reviewsPage({ status: status || ENDED, include_revised: "true", q: debounced, plugin, repo, offset: String((page - 1) * size), limit: String(size) })
+      .listReviews({ status: status || ENDED, include_revised: "true", q: debounced, plugin, repo, offset: String((page - 1) * size), limit: String(size), include: "facets" })
       .then((p) => !cancelled && setData(p))
       .catch(() => !cancelled && setData(null));
     return () => {
@@ -97,7 +97,7 @@ export function History() {
     setParams(next, { replace: true });
   };
 
-  const plugins = data?.facets.plugins ?? [];
+  const plugins = data?.facets?.plugins ?? [];
 
   useEffect(() => {
     setFocused((f) => Math.min(f, Math.max(0, reviews.length - 1)));
@@ -136,7 +136,7 @@ export function History() {
   useEffect(() => {
     document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`)?.scrollIntoView({ block: "nearest" });
   }, [focused]);
-  const repos = data?.facets.repos ?? [];
+  const repos = data?.facets?.repos ?? [];
 
   return (
     <div className="history">
@@ -184,7 +184,7 @@ export function History() {
             options={[
               { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
               ...repos.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-              ...(data?.facets.unassigned || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
+              ...(data?.facets?.unassigned || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
             ]}
           />
           <Select

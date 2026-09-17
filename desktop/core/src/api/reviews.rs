@@ -1,5 +1,5 @@
-//! `/api/v1/reviews`: submit, read, list, a numbered page, rounds, long-poll
-//! wait, decide, withdraw, discard, events.
+//! `/api/v1/reviews`: submit, read, list, rounds, long-poll wait, decide,
+//! withdraw, discard, events.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -24,7 +24,6 @@ const MAX_WAIT: u64 = 600;
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/v1/reviews", post(submit).get(list))
-        .route("/api/v1/reviews/page", get(page))
         .route("/api/v1/reviews/{id}", get(show))
         .route("/api/v1/reviews/{id}/rounds", get(rounds))
         .route("/api/v1/reviews/{id}/wait", get(wait))
@@ -41,36 +40,41 @@ async fn submit(State(state): State<Arc<AppState>>, body: Bytes) -> Result<Respo
     Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
 }
 
+/// A page of reviews, newest first, without payloads, in an envelope:
+/// `reviews`, `total`, `has_more` and `next_cursor`, and `facets` with
+/// `include=facets`. Walk everything with `cursor=<next_cursor>`; number
+/// pages with `offset`.
 async fn list(
     State(state): State<Arc<AppState>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, Error> {
     let filters = filters(&params)?;
-    let reviews = state.reviews.list(&filters)?;
-    Ok(Json(Value::Array(
-        reviews.iter().map(|r| r.to_json(false)).collect(),
-    )))
-}
-
-/// A numbered page for the app's lists: `offset` and `limit` over the same
-/// filters as the listing, with the total and the filter menus' values.
-async fn page(
-    State(state): State<Arc<AppState>>,
-    Query(params): Query<HashMap<String, String>>,
-) -> Result<Json<Value>, Error> {
-    let filters = filters(&params)?;
-    let page = state.reviews.page(&filters)?;
-    Ok(Json(json!({
-        "reviews": page.reviews.iter().map(|r| r.to_json(false)).collect::<Vec<_>>(),
-        "total": page.total,
-        "offset": page.offset,
-        "limit": page.limit,
-        "facets": {
-            "plugins": page.facets.plugins,
-            "repos": page.facets.repos,
-            "unassigned": page.facets.unassigned,
-        },
-    })))
+    let mut facets = false;
+    if let Some(include) = params.get("include") {
+        for name in include.split(',').map(str::trim).filter(|n| !n.is_empty()) {
+            match name {
+                "facets" => facets = true,
+                other => {
+                    return Err(Error::invalid(
+                        "/include",
+                        format!("unknown include {other}"),
+                    ));
+                }
+            }
+        }
+    }
+    let listing = state.reviews.listing(&filters, facets)?;
+    let mut body = json!({
+        "reviews": listing.reviews.iter().map(|r| r.to_json(false)).collect::<Vec<_>>(),
+        "total": listing.total,
+        "has_more": listing.has_more,
+        "next_cursor": listing.next_cursor,
+    });
+    if let Some(f) = listing.facets {
+        body["facets"] =
+            json!({ "plugins": f.plugins, "repos": f.repos, "unassigned": f.unassigned });
+    }
+    Ok(Json(body))
 }
 
 /// Whether the caller wants the review as markdown: `?format=markdown`,

@@ -332,7 +332,9 @@ fn run(cli: Cli) -> Result<u8> {
             if args.include_revised {
                 query.push(("include_revised", "true".into()));
             }
-            out::print_json(&client.list(&query)?, pretty);
+            // the reviews alone, as before the API wrapped them with its paging
+            let listing = client.list(&query)?;
+            out::print_json(&listing["reviews"], pretty);
             Ok(0)
         }
         Command::Decide(args) => {

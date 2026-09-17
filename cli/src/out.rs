@@ -82,12 +82,8 @@ pub fn export(client: &Client, dir: &Path) -> Result<usize> {
         if let Some(c) = &cursor {
             query.push(("cursor", c.clone()));
         }
-        let page = client.list(&query)?;
-        let Some(items) = page.as_array() else { break };
-        if items.is_empty() {
-            break;
-        }
-        for item in items {
+        let listing = client.list(&query)?;
+        for item in listing["reviews"].as_array().into_iter().flatten() {
             let id = item["id"].as_str().context("review without an id")?;
             let review = client.get_review(id)?;
             let events = client.events(id)?;
@@ -103,7 +99,10 @@ pub fn export(client: &Client, dir: &Path) -> Result<usize> {
             }
             std::fs::write(target.join("events.jsonl"), log)?;
             count += 1;
-            cursor = Some(id.to_string());
+        }
+        match listing["next_cursor"].as_str() {
+            Some(next) if listing["has_more"] == true => cursor = Some(next.to_string()),
+            _ => break,
         }
     }
     Ok(count)

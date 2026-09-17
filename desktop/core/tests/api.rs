@@ -412,8 +412,11 @@ async fn listing_filters_hides_revised_rounds_and_pages() {
         .unwrap()
         .to_string();
 
+    // a listing's envelope, or the plain array /rounds answers with
     let ids = |body: &Value| -> Vec<String> {
-        body.as_array()
+        body.get("reviews")
+            .unwrap_or(body)
+            .as_array()
             .unwrap()
             .iter()
             .map(|r| r["id"].as_str().unwrap().to_string())
@@ -421,7 +424,7 @@ async fn listing_filters_hides_revised_rounds_and_pages() {
     };
     let (_, all) = call(&app, "GET", "/api/v1/reviews", None).await;
     assert_eq!(ids(&all), vec![round2_id.clone(), other_id.clone()]);
-    assert!(all[0].get("payload").is_none());
+    assert!(all["reviews"][0].get("payload").is_none());
 
     let (_, with_revised) = call(&app, "GET", "/api/v1/reviews?include_revised=true", None).await;
     assert_eq!(
@@ -474,7 +477,7 @@ async fn listing_filters_hides_revised_rounds_and_pages() {
 }
 
 #[tokio::test]
-async fn a_page_counts_skips_searches_every_field_and_offers_its_filters() {
+async fn a_listing_pages_by_cursor_or_offset_searches_every_field_and_offers_its_filters() {
     let app = app();
     // five reviews, oldest first: three in acme, one elsewhere, one with no project
     let mut made = Vec::new();
@@ -515,27 +518,54 @@ async fn a_page_counts_skips_searches_every_field_and_offers_its_filters() {
             .collect()
     };
 
-    // newest first, two at a time, with the total for the pager
-    let (status, one) = call(&app, "GET", "/api/v1/reviews/page?limit=2", None).await;
+    // newest first, two at a time, with the total and the way on
+    let (status, one) = call(&app, "GET", "/api/v1/reviews?limit=2", None).await;
     assert_eq!(status, StatusCode::OK, "{one}");
     assert_eq!(titles(&one), vec!["fifth", "fourth"]);
-    assert_eq!(
-        (
-            one["total"].as_u64(),
-            one["offset"].as_u64(),
-            one["limit"].as_u64()
+    assert_eq!(one["total"], 5);
+    assert_eq!(one["has_more"], true);
+    assert_eq!(one["next_cursor"], json!(made[3]));
+    assert!(one.get("facets").is_none(), "facets only when asked for");
+
+    // the cursor walks the rest, and the last page says there is no more
+    let (_, two) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews?limit=2&cursor={}", made[3]),
+        None,
+    )
+    .await;
+    assert_eq!(titles(&two), vec!["third", "second"]);
+    assert_eq!(two["total"], 5, "the total ignores the cursor");
+    let (_, last) = call(
+        &app,
+        "GET",
+        &format!(
+            "/api/v1/reviews?limit=2&cursor={}",
+            two["next_cursor"].as_str().unwrap()
         ),
-        (Some(5), Some(0), Some(2))
+        None,
+    )
+    .await;
+    assert_eq!(titles(&last), vec!["first"]);
+    assert_eq!(
+        (last["has_more"].clone(), last["next_cursor"].clone()),
+        (json!(false), Value::Null)
     );
-    let (_, three) = call(&app, "GET", "/api/v1/reviews/page?limit=2&offset=4", None).await;
+
+    // numbered pages by offset
+    let (_, three) = call(&app, "GET", "/api/v1/reviews?limit=2&offset=4", None).await;
     assert_eq!(titles(&three), vec!["first"]);
-    assert_eq!(three["total"], 5);
+    assert_eq!(
+        (three["total"].clone(), three["has_more"].clone()),
+        (json!(5), json!(false))
+    );
 
     // the menus offer everything the status filter admits, whatever else is filtered
     let (_, acme) = call(
         &app,
         "GET",
-        "/api/v1/reviews/page?repo=acme&plugin=list",
+        "/api/v1/reviews?repo=acme&plugin=list&include=facets",
         None,
     )
     .await;
@@ -545,25 +575,35 @@ async fn a_page_counts_skips_searches_every_field_and_offers_its_filters() {
     assert_eq!(acme["facets"]["unassigned"], json!(true));
 
     // "-" is the reviews that name no project
-    let (_, loose) = call(&app, "GET", "/api/v1/reviews/page?repo=-", None).await;
+    let (_, loose) = call(&app, "GET", "/api/v1/reviews?repo=-", None).await;
     assert_eq!(titles(&loose), vec!["fourth"]);
 
     // every word, in any of the fields the list shows: requester, project, decider
-    let (_, nightly) = call(&app, "GET", "/api/v1/reviews/page?q=NIGHTLY%20other", None).await;
+    let (_, nightly) = call(&app, "GET", "/api/v1/reviews?q=NIGHTLY%20other", None).await;
     assert_eq!(titles(&nightly), vec!["third"]);
-    let (_, decided_by) = call(&app, "GET", "/api/v1/reviews/page?q=tester", None).await;
+    let (_, decided_by) = call(&app, "GET", "/api/v1/reviews?q=tester", None).await;
     assert_eq!(titles(&decided_by), vec!["second"]);
-    let (_, nothing) = call(&app, "GET", "/api/v1/reviews/page?q=nightly%20fifth", None).await;
+    let (_, nothing) = call(&app, "GET", "/api/v1/reviews?q=nightly%20fifth", None).await;
     assert_eq!(nothing["total"], 0);
 
     // decided only: the menus narrow to what that status holds
-    let (_, decided) = call(&app, "GET", "/api/v1/reviews/page?status=decided", None).await;
+    let (_, decided) = call(
+        &app,
+        "GET",
+        "/api/v1/reviews?status=decided&include=facets",
+        None,
+    )
+    .await;
     assert_eq!(titles(&decided), vec!["second"]);
     assert_eq!(decided["facets"]["repos"], json!(["acme"]));
     assert_eq!(decided["facets"]["unassigned"], json!(false));
 
+    // an include the server does not know is refused
+    let (status, _) = call(&app, "GET", "/api/v1/reviews?include=everything", None).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
     // a literal % or _ in a search is not a wildcard
-    let (_, percent) = call(&app, "GET", "/api/v1/reviews/page?q=%25", None).await;
+    let (_, percent) = call(&app, "GET", "/api/v1/reviews?q=%25", None).await;
     assert_eq!(percent["total"], 0);
 }
 
@@ -1019,9 +1059,15 @@ async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
 
     // listed under its own status, and out of the pending set
     let (_, listed) = call(&app, "GET", "/api/v1/reviews?status=discarded", None).await;
-    assert_eq!(listed[0]["id"], id);
+    assert_eq!(listed["reviews"][0]["id"], id);
     let (_, pending) = call(&app, "GET", "/api/v1/reviews?status=pending", None).await;
-    assert!(pending.as_array().unwrap().iter().all(|r| r["id"] != id));
+    assert!(
+        pending["reviews"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["id"] != id)
+    );
 
     // without a body: no reason, the server's user
     let other = submit(&app, submission()).await["id"]
@@ -1148,7 +1194,11 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
         None,
     )
     .await;
-    assert_eq!(listed.as_array().map(Vec::len), Some(0), "{listed}");
+    assert_eq!(
+        listed["reviews"].as_array().map(Vec::len),
+        Some(0),
+        "{listed}"
+    );
 }
 
 fn store_entry(app: &App, name: &str) -> (std::path::PathBuf, String) {

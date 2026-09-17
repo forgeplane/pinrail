@@ -75,7 +75,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
     const timer = window.setTimeout(() => {
       api
         .listReviews({ status: "decided,withdrawn,expired", q: q || undefined, include_revised: "true", limit: all ? "5" : "20" })
-        .then(setHistory)
+        .then((listing) => setHistory(listing.reviews))
         .catch(() => setHistory([]));
     }, q ? 150 : 0);
     return () => window.clearTimeout(timer);

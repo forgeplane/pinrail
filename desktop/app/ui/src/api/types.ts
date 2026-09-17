@@ -43,13 +43,14 @@ export type Review = {
   payload?: unknown;
 };
 
-/** A numbered page of reviews, with the total and what the filter menus can offer. */
-export type ReviewPage = {
+/** A page of reviews: the total that match, the cursor to the next page, and
+ *  with `include=facets` what the filter menus can offer. */
+export type ReviewListing = {
   reviews: Review[];
   total: number;
-  offset: number;
-  limit: number;
-  facets: { plugins: string[]; repos: string[]; unassigned: boolean };
+  has_more: boolean;
+  next_cursor: string | null;
+  facets?: { plugins: string[]; repos: string[]; unassigned: boolean };
 };
 
 export type Plugin = {

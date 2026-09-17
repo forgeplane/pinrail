@@ -20,14 +20,17 @@ use crate::review::{Decision, Review, Status, parse_datetime};
 
 const DEFAULT_LIMIT: usize = 100;
 
-/// A numbered page of reviews; see `Reviews::page`.
+/// One page of a listing; see `Reviews::listing`.
 #[derive(Debug)]
-pub struct Page {
+pub struct Listing {
     pub reviews: Vec<Review>,
+    /// every review the filters match, whatever the cursor, offset or limit
     pub total: usize,
-    pub offset: usize,
-    pub limit: usize,
-    pub facets: crate::db::Facets,
+    /// whether a next page exists; `next_cursor` fetches it
+    pub has_more: bool,
+    pub next_cursor: Option<String>,
+    /// the filter menus' values, when asked for
+    pub facets: Option<crate::db::Facets>,
 }
 const MAX_LIMIT: usize = 500;
 
@@ -127,22 +130,35 @@ impl Reviews {
         Ok(self.db.list(&filters, Utc::now())?)
     }
 
-    /// One numbered page of a listing: the reviews, how many match in all,
-    /// and what the filter menus can offer.
-    pub fn page(&self, filters: &Filters) -> Result<Page, Error> {
+    /// One page of a listing, newest first: the reviews, how many match in
+    /// all, whether there is more and the cursor to it, and, when asked, the
+    /// values the filter menus can offer. A page follows from `cursor` (the
+    /// way to walk everything) or from `offset` (numbered pages).
+    pub fn listing(&self, filters: &Filters, facets: bool) -> Result<Listing, Error> {
         let now = Utc::now();
         let mut filters = filters.clone();
-        filters.cursor = None;
         filters.limit = match filters.limit {
             0 => DEFAULT_LIMIT,
             n => n.min(MAX_LIMIT),
         };
-        Ok(Page {
-            reviews: self.db.list(&filters, now)?,
+        let limit = filters.limit;
+        // one row past the page says whether there is another
+        filters.limit = limit + 1;
+        let mut reviews = self.db.list(&filters, now)?;
+        let has_more = reviews.len() > limit;
+        reviews.truncate(limit);
+        Ok(Listing {
+            next_cursor: has_more
+                .then(|| reviews.last().map(|r| r.id.clone()))
+                .flatten(),
+            has_more,
             total: self.db.count(&filters, now)?,
-            offset: filters.offset,
-            limit: filters.limit,
-            facets: self.db.facets(&filters, now)?,
+            facets: if facets {
+                Some(self.db.facets(&filters, now)?)
+            } else {
+                None
+            },
+            reviews,
         })
     }
 
