@@ -13,6 +13,7 @@ import { useSettings } from "../../state/settings";
 import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
+import { CliRow } from "./CliRow";
 import { PluginsSection } from "./PluginsSection";
 
 export type SettingsSection = "general" | "appearance" | "shortcuts" | "plugins" | "data" | "about";
@@ -370,7 +371,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                 </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="Command line">
-                <SettingsRow label="Install the CLI" description="Put wicket on your PATH; coming with the packaged app" />
+                <CliRow open={open && section === "data"} />
               </SettingsGroup>
             </SettingsPage>
           ) : null}
