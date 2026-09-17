@@ -1,0 +1,8 @@
+<!-- The menu bar icon: the app's two-arch mark, drawn for a 22pt menu bar at 2x.
+     44px canvas, 4px strokes centred on whole pixels so the straight edges
+     are crisp and only the round caps and joins are smoothed. macOS uses it
+     as a template: only the alpha counts. Rendered to tray.png with
+     rsvg-convert -w 44 -h 44 tray.svg -o tray.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+  <path d="M8 36V8h10v28M26 36V8h10v28" fill="none" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
