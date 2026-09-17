@@ -113,6 +113,7 @@ jobs:
         with:
           workspaces: desktop
           key: release-${{ matrix.name }}
+          cache-on-failure: true
       - name: Install the shell's dependencies
         working-directory: desktop/app
         run: npm ci

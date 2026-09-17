@@ -74,6 +74,8 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
+          # a red run still built its dependencies; keep them
+          cache-on-failure: true
           workspaces: |
             desktop
             cli
