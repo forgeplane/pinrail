@@ -2,7 +2,8 @@
 // app ships that someone else wrote. The Rust crates of the desktop app and of
 // the bundled CLI come from cargo-about; the npm packages in the UI bundle from
 // the production build (vite.config.ts writes notices/npm.json); the Lucide
-// icons the app serves to plugins are added by hand. Each distinct licence
+// icons the app serves to plugins and the font the window draws in are added
+// by hand. Each distinct licence
 // text is printed once, after the packages that use it.
 //
 //   npm run build && npm run notices
@@ -36,6 +37,18 @@ function rust(manifest) {
     .filter((l) => l.packages.length > 0);
 }
 
+/** A font package whose files ship in the bundle, from its own LICENSE. */
+function font(name) {
+  const dir = path.join(app, "node_modules", name);
+  const version = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).version;
+  return {
+    name: "SIL Open Font License 1.1",
+    id: "OFL-1.1",
+    text: fs.readFileSync(path.join(dir, "LICENSE"), "utf8"),
+    packages: [`${name} ${version} (npm)`],
+  };
+}
+
 if (!fs.existsSync(npmFile)) {
   console.error("notices: no notices/npm.json; run the production build (npm run build) first");
   process.exit(1);
@@ -56,6 +69,10 @@ const entries = [
     text: fs.readFileSync(path.join(root, "wicket-plugin", "licenses", "lucide-icons.txt"), "utf8"),
     packages: ["Lucide icons (lucide-static 1.45.0)"],
   },
+  // The font files the window draws in. They are imported as CSS, so the
+  // bundle's licence plugin never sees the package; its licence is read from
+  // the copy npm installed.
+  font("@fontsource-variable/inter"),
 ];
 
 // one section per distinct text, the packages sorted and without repeats

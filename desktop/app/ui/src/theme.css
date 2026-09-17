@@ -11,7 +11,7 @@
   --ok: #7cc79e; --danger: #e48c98;
   --sev-blocker: #e48c98; --sev-major: #d4ac6a; --sev-minor: #c7bf85; --sev-nit: #a0abc2;
   --tip-bg: #26272c; --tip-text: #ededef; --tip-key-bg: #3a3c44; --tip-key-text: #c9cad2;
-  --font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
 }
