@@ -406,6 +406,12 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .composer.is-busy .handover-button { opacity: 0.7; }
 
 /* history */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--dim); }
+.pager-range { font-variant-numeric: tabular-nums; }
+.pager-steps { display: inline-flex; align-items: center; gap: 10px; }
+.pager-steps .chrome-button { gap: 4px; }
+.pager-steps .chrome-button:disabled { opacity: 0.45; cursor: default; }
+.pager-page { font-variant-numeric: tabular-nums; }
 .history-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
 .history-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .history-table th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); padding: 8px 12px; background: var(--bg-raised); }

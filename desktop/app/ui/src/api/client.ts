@@ -2,7 +2,7 @@
 // server's URL; in a browser (development, tests) it uses VITE_WICKET_URL or
 // the default port.
 
-import type { Info, InstallJob, Inspection, Notice, Plugin, PluginUpdates, Review, ServerSettings, Violation } from "./types";
+import type { Info, InstallJob, Inspection, Notice, Plugin, PluginUpdates, Review, ReviewPage, ServerSettings, Violation } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -55,6 +55,8 @@ const query = (params: Record<string, string | undefined>) => {
 
 export const api = {
   info: () => request<Info>("GET", "/api/v1/info"),
+  reviewsPage: (params: Record<string, string | undefined> = {}) =>
+    request<ReviewPage>("GET", `/api/v1/reviews/page${query(params)}`),
   listReviews: (params: Record<string, string | undefined> = {}) =>
     request<Review[]>("GET", `/api/v1/reviews${query(params)}`),
   getReview: (id: string) => request<Review>("GET", `/api/v1/reviews/${id}`),

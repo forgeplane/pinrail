@@ -43,6 +43,15 @@ export type Review = {
   payload?: unknown;
 };
 
+/** A numbered page of reviews, with the total and what the filter menus can offer. */
+export type ReviewPage = {
+  reviews: Review[];
+  total: number;
+  offset: number;
+  limit: number;
+  facets: { plugins: string[]; repos: string[]; unassigned: boolean };
+};
+
 export type Plugin = {
   name: string;
   version: number;

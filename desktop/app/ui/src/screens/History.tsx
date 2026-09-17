@@ -1,38 +1,29 @@
 import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
-import type { Review } from "../api/types";
+import type { Review, ReviewPage } from "../api/types";
 import { OutcomeBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
+import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { stamp } from "../lib/format";
 import { useLive } from "../state/live";
-import { NO_PROJECT, inProject } from "../lib/shortcuts";
+import { NO_PROJECT } from "../lib/shortcuts";
 
 const settledAt = (r: Review) => r.decision?.decided_at ?? r.withdrawn_at ?? r.discarded_at ?? r.expires_at;
 
-/** Any word of the query in any of the review's names. */
-function matches(review: Review, q: string) {
-  if (!q) return true;
-  const text = [review.title, review.plugin, review.requested_by, review.origin.repo, review.origin.workflow, review.origin.ref, review.decision?.decided_by]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return q
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((word) => text.includes(word));
-}
+const ENDED = "decided,withdrawn,discarded,expired";
+/** How long the search waits for typing to pause before it asks the server. */
+const SEARCH_DELAY_MS = 250;
 
 export function History() {
   const live = useLive();
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
-  const [all, setAll] = useState<Review[]>([]);
+  const [data, setData] = useState<ReviewPage | null>(null);
   const [focused, setFocused] = useState(0);
   const search = useRef<HTMLInputElement>(null);
   // While the keyboard moves the focus the list scrolls under a still
@@ -51,27 +42,62 @@ export function History() {
   const repo = params.get("repo") ?? "";
   // the search box keeps its own text; see the inbox for why
   const [q, setQ] = useState(params.get("q") ?? "");
+  const query = params.get("q") ?? "";
+  const page = pageOf(params.get("page"));
+  const size = pageSizeOf(params.get("per"));
   const filtered = !!(q || status || plugin || repo);
 
+  // The server filters and pages: the history can be far longer than any
+  // one fetch. The search waits for typing to pause.
+  const [debounced, setDebounced] = useState(query);
   useEffect(() => {
+    const t = window.setTimeout(() => setDebounced(query), SEARCH_DELAY_MS);
+    return () => window.clearTimeout(t);
+  }, [query]);
+  useEffect(() => {
+    let cancelled = false;
     api
-      .listReviews({ status: status || "decided,withdrawn,discarded,expired", include_revised: "true", limit: "500" })
-      .then(setAll)
-      .catch(() => setAll([]));
-  }, [status, live.tick]);
+      .reviewsPage({ status: status || ENDED, include_revised: "true", q: debounced, plugin, repo, offset: String((page - 1) * size), limit: String(size) })
+      .then((p) => !cancelled && setData(p))
+      .catch(() => !cancelled && setData(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [status, debounced, plugin, repo, page, size, live.tick]);
 
+  const reviews = data?.reviews ?? [];
+  const total = data?.total ?? 0;
+
+  // a page past the end, after a filter or a sweep shrank the list: the last page
+  useEffect(() => {
+    if (data && total > 0 && reviews.length === 0 && page > 1) setPage(Math.ceil(total / size));
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Changing a filter starts again from the first page. */
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
+    next.delete("page");
+    setParams(next, { replace: true });
+  };
+  const setPage = (n: number) => {
+    const next = new URLSearchParams(params);
+    if (n > 1) next.set("page", String(n));
+    else next.delete("page");
+    setParams(next);
+    setFocused(0);
+    document.querySelector(".history-table-wrap")?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  };
+  const setSize = (n: number) => {
+    const next = new URLSearchParams(params);
+    next.set("per", String(n));
+    next.delete("page");
     setParams(next, { replace: true });
   };
 
-  const reviews = useMemo(
-    () => all.filter((r) => matches(r, q) && (!plugin || r.plugin === plugin) && inProject(r.origin.repo, repo)),
-    [all, q, plugin, repo],
-  );
-  const plugins = useMemo(() => [...new Set(all.map((r) => r.plugin))].sort(), [all]);
+  const plugins = data?.facets.plugins ?? [];
 
   useEffect(() => {
     setFocused((f) => Math.min(f, Math.max(0, reviews.length - 1)));
@@ -110,7 +136,7 @@ export function History() {
   useEffect(() => {
     document.querySelector<HTMLElement>(`[data-history-row="${focused}"]`)?.scrollIntoView({ block: "nearest" });
   }, [focused]);
-  const repos = useMemo(() => [...new Set(all.map((r) => r.origin.repo).filter((r): r is string => !!r))].sort(), [all]);
+  const repos = data?.facets.repos ?? [];
 
   return (
     <div className="history">
@@ -158,7 +184,7 @@ export function History() {
             options={[
               { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
               ...repos.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-              ...(all.some((r) => !r.origin.repo) || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
+              ...(data?.facets.unassigned || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
             ]}
           />
           <Select
@@ -182,7 +208,7 @@ export function History() {
           ) : null}
         </div>
       </header>
-      {reviews.length === 0 ? (
+      {!data ? null : total === 0 ? (
         <EmptyState
           title={filtered ? "No matching decisions" : "Your decisions belong here"}
           icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <Archive size={28} strokeWidth={1.5} />}
@@ -233,6 +259,7 @@ export function History() {
           </table>
         </div>
       )}
+      {data ? <Pager label="History" page={page} size={size} total={total} onPage={setPage} onSize={setSize} /> : null}
     </div>
   );
 }
