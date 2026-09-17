@@ -736,7 +736,9 @@ async fn bundles_are_served_with_the_sandbox_csp() {
     assert!(csp.starts_with("default-src 'none'; script-src 'unsafe-inline' http://127.0.0.1:4747/plugins/list/1/ http://127.0.0.1:4747/sdk/"), "{csp}");
     // the SDK stylesheet names a typeface the SDK itself serves
     assert!(
-        csp.contains("font-src data: http://127.0.0.1:4747/plugins/list/1/ http://127.0.0.1:4747/sdk/"),
+        csp.contains(
+            "font-src data: http://127.0.0.1:4747/plugins/list/1/ http://127.0.0.1:4747/sdk/"
+        ),
         "{csp}"
     );
     assert!(
