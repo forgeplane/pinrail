@@ -1,0 +1,153 @@
+# A tag v<version> (v0.1.0) releases the desktop app: the full CI runs first,
+# then a draft GitHub Release gets a universal macOS build (.dmg, and the
+# .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), a
+# build provenance attestation for each installer, and a SHA256SUMS file.
+# The draft is published by hand after a smoke test. The tag has to name
+# the version in desktop/Cargo.toml and tauri.conf.json.
+#
+# Unsigned for now: no Apple secrets and no updater key are read, so macOS
+# warns on first launch. Signing is switched on by adding the APPLE_* and
+# TAURI_SIGNING_* secrets to the build step's environment
+# (agent-docs/release-checklist.md §1 and §2).
+#
+# Run it by hand (Actions › release › Run workflow) to build without
+# releasing: the bundles are kept as workflow artifacts.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  draft:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      id: ${{ steps.release.outputs.id }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check the version
+        id: version
+        run: |
+          tagged="${GITHUB_REF_NAME#v}"
+          workspace=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop/Cargo.toml | head -1)
+          app=$(jq -r .version desktop/app/src-tauri/tauri.conf.json)
+          for found in "$workspace" "$app"; do
+            test "$found" = "$tagged" || { echo "the tag says $tagged, desktop/Cargo.toml says $workspace, tauri.conf.json says $app"; exit 1; }
+          done
+          echo "version=$tagged" >> "$GITHUB_OUTPUT"
+      - name: Create the draft release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<'EOF'
+          **Unsigned build.** macOS will say the app cannot be checked for malicious software. Open it once with right-click › Open, or run `xattr -dr com.apple.quarantine /Applications/Wicket.app`.
+
+          Verify a download with `gh attestation verify <file> --repo ${{ github.repository }}`, or against `SHA256SUMS`.
+          EOF
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "Wicket ${{ steps.version.outputs.version }}" --notes-file notes.md
+          id=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id")
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: [test, draft]
+    # a tag builds into its draft; a manual run builds with nothing to release
+    if: always() && needs.test.result == 'success' && (needs.draft.result == 'success' || needs.draft.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macos
+            runner: macos-latest
+            args: --target universal-apple-darwin
+            targets: aarch64-apple-darwin,x86_64-apple-darwin
+            bundles: |
+              desktop/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          - name: linux
+            # the oldest supported Ubuntu, so the AppImage runs on older glibc
+            runner: ubuntu-22.04
+            args: ""
+            targets: ""
+            bundles: |
+              desktop/target/release/bundle/appimage/*.AppImage
+              desktop/target/release/bundle/deb/*.deb
+              desktop/target/release/bundle/rpm/*.rpm
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: desktop/app/package-lock.json
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.targets }}
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: desktop
+          key: release-${{ matrix.name }}
+      - name: Install the shell's dependencies
+        working-directory: desktop/app
+        run: npm ci
+      - name: Build
+        id: build
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          projectPath: desktop/app
+          tauriScript: npx tauri
+          args: ${{ matrix.args }}
+          releaseId: ${{ needs.draft.outputs.id }}
+          uploadUpdaterJson: false
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: wicket-[platform]-[arch]-[bundle]
+      - name: Build provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ matrix.bundles }}
+
+  checksums:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [draft, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: SHA256SUMS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir assets && cd assets
+          gh release download "$GITHUB_REF_NAME" --repo "${{ github.repository }}"
+          sha256sum -- * > ../SHA256SUMS
+          cat ../SHA256SUMS
+          gh release upload "$GITHUB_REF_NAME" ../SHA256SUMS --repo "${{ github.repository }}" --clobber

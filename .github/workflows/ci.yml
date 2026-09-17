@@ -9,6 +9,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # the release workflow runs all of this before it builds
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
