@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
+import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
@@ -46,10 +47,29 @@ export function Inbox() {
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
+  const page = pageOf(params.get("page"));
+  const size = pageSizeOf(params.get("per"));
+
+  /** Changing a filter starts again from the first page. */
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
     else next.delete(key);
+    next.delete("page");
+    setParams(next, { replace: true });
+  };
+  const setPage = (n: number) => {
+    const next = new URLSearchParams(params);
+    if (n > 1) next.set("page", String(n));
+    else next.delete("page");
+    setParams(next);
+    setFocused(0);
+    window.scrollTo({ top: 0 });
+  };
+  const setSize = (n: number) => {
+    const next = new URLSearchParams(params);
+    next.set("per", String(n));
+    next.delete("page");
     setParams(next, { replace: true });
   };
 
@@ -67,18 +87,34 @@ export function Inbox() {
   const newRounds = live.pending.filter((r) => r.revises).length;
   const plugins = [...new Set(live.pending.map((r) => r.plugin))].sort();
 
-  const groups = useMemo(() => {
+  // In the order the rows are drawn: by project, newest first within one.
+  // J, K and Enter walk this order, so the row they open is the row lit.
+  const ordered = useMemo(() => {
     const byRepo = new Map<string, Review[]>();
     for (const r of reviews) {
       const key = r.origin.repo ?? "";
       byRepo.set(key, [...(byRepo.get(key) ?? []), r]);
     }
-    return [...byRepo.entries()].sort(([a], [b]) => a.localeCompare(b));
+    return [...byRepo.entries()].sort(([a], [b]) => a.localeCompare(b)).flatMap(([, items]) => items);
   }, [reviews]);
 
+  // a page past the end, after reviews were decided: the last page there is
+  const pages = Math.max(1, Math.ceil(ordered.length / size));
+  const current = Math.min(page, pages);
+  const shown = useMemo(() => ordered.slice((current - 1) * size, current * size), [ordered, current, size]);
+
+  const groups = useMemo(() => {
+    const byRepo = new Map<string, Review[]>();
+    for (const r of shown) {
+      const key = r.origin.repo ?? "";
+      byRepo.set(key, [...(byRepo.get(key) ?? []), r]);
+    }
+    return [...byRepo.entries()];
+  }, [shown]);
+
   useEffect(() => {
-    setFocused((f) => Math.min(f, Math.max(0, reviews.length - 1)));
-  }, [reviews.length]);
+    setFocused((f) => Math.min(f, Math.max(0, shown.length - 1)));
+  }, [shown.length]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -95,18 +131,18 @@ export function Inbox() {
       }
       if (discarding) return;
       if (event.key === "j" || event.key === "k") keyboard.current = true;
-      if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
+      if (event.key === "j") setFocused((f) => Math.min(f + 1, shown.length - 1));
       if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
-      if (event.key === "Enter" && reviews[focused]) navigate(`/reviews/${reviews[focused].id}`);
-      if (event.key === "d" && reviews[focused]) {
+      if (event.key === "Enter" && shown[focused]) navigate(`/reviews/${shown[focused].id}`);
+      if (event.key === "d" && shown[focused]) {
         // the key must not land in the reason field that opens
         event.preventDefault();
-        setDiscarding(reviews[focused]);
+        setDiscarding(shown[focused]);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [reviews, focused, navigate, discarding]);
+  }, [shown, focused, navigate, discarding]);
 
   const filtered = !!(q || repo || plugin || rounds);
   const now = Date.now();
@@ -199,7 +235,7 @@ export function Inbox() {
             <details key={repoName || "none"} className="inbox-repo" open>
               <summary>
                 <strong>{repoName || "No project"}</strong>
-                <span>{items.length}</span>
+                <span>{reviews.filter((r) => (r.origin.repo ?? "") === repoName).length}</span>
               </summary>
               {items.map((review) => {
                 index += 1;
@@ -258,6 +294,7 @@ export function Inbox() {
           ))}
         </div>
       )}
+      <Pager label="Inbox" page={current} size={size} total={ordered.length} onPage={setPage} onSize={setSize} />
       {discarding ? <DiscardDialog review={discarding} onClose={() => setDiscarding(null)} onDone={() => setDiscarding(null)} /> : null}
       <footer className="inbox-footer">
         <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>/</kbd> search

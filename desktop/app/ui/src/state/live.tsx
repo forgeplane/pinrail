@@ -43,7 +43,9 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      setPending(await api.listReviews({ status: "pending" }));
+      // every pending review, up to the server's maximum: the sidebar, the
+      // project counts and the inbox's pages are all drawn from this list
+      setPending(await api.listReviews({ status: "pending", limit: "500" }));
     } catch {
       // the connection indicator reports the outage; the next event retries
     }

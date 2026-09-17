@@ -64,3 +64,41 @@ test("history shows 50 a page, pages through the rest, and starts again at page 
   await page.goto("/#/history?q=acme/even%20spec");
   await expect(rows).toHaveCount(30);
 });
+
+test("the inbox holds every pending review, 50 a page, and Enter opens the row that is lit", async ({ page }) => {
+  await clearInbox(page.request);
+  // 105: past the 100 the inbox used to stop at, across two projects
+  for (let i = 1; i <= 105; i++) {
+    await createReview(page.request, `Paging inbox ${String(i).padStart(3, "0")}`, i % 3 ? "acme/api" : "acme/web");
+  }
+
+  await page.goto("/#/");
+  const rows = page.locator("[data-review-row]");
+  const range = page.locator("[data-pager-range]");
+  await expect(rows).toHaveCount(50);
+  await expect(range).toHaveText("1–50 of 105");
+
+  // the project headers count the whole project, not the page
+  await expect(page.locator(".inbox-repo summary").filter({ hasText: "acme/api" })).toContainText("70");
+
+  await page.locator("[data-pager-next]").click();
+  await expect(rows).toHaveCount(50);
+  await expect(range).toHaveText("51–100 of 105");
+  await page.locator("[data-pager-next]").click();
+  await expect(rows).toHaveCount(5);
+  await expect(range).toHaveText("101–105 of 105");
+
+  // J moves down the rows as drawn, and Enter opens the one that is lit
+  await page.locator("[data-pager-previous]").click();
+  await page.locator("[data-pager-previous]").click();
+  await expect(range).toHaveText("1–50 of 105");
+  // the pointer out of the way: a row under it would take the focus
+  await page.mouse.move(0, 0);
+  await page.locator("h1").click();
+  for (let i = 0; i < 3; i++) await page.keyboard.press("j");
+  const lit = page.locator("[data-review-row].is-focused");
+  await expect(lit).toHaveCount(1);
+  const href = await lit.getAttribute("href");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`${href!.replace(/^#/, "")}$`));
+});
