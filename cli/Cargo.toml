@@ -3,7 +3,7 @@ name = "wicket"
 version = "0.1.0"
 edition = "2024"
 description = "CLI for wicket, the approval-gate service for agent workflows"
-license = "MIT"
+license = "Apache-2.0"
 
 [[bin]]
 name = "wicket"

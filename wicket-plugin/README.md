@@ -253,3 +253,11 @@ The package's version is the SDK's (`Wicket.version`), and its major is the
 protocol's: `1.x` serves `sdk/v1`. The app copies `src/` into what it serves
 at `/sdk/v1` on every build, so the app and the package carry the same bytes
 at the same commit.
+
+## License
+
+The package is licensed under the Apache License 2.0; see `LICENSE` and
+`NOTICE`. The files `wicket-plugin create` writes into a new plugin come from
+`templates/`, which is licensed under MIT No Attribution
+(`templates/LICENSE`): a plugin made from them is yours to license however you
+like, with no notice to keep.

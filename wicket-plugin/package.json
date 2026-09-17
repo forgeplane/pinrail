@@ -2,6 +2,7 @@
   "name": "wicket-plugin",
   "version": "1.8.0",
   "description": "Write and test a wicket plugin: the SDK the app serves, a shell to develop a view in the browser, and a Playwright harness to test it alone",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/forgeplane/wicket.git",
@@ -24,6 +25,8 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "LICENSE",
+    "NOTICE",
     "CHANGELOG.md",
     "bin",
     "harness",

@@ -97,3 +97,8 @@ mise run e2e:shell          # the app's UI in a browser against the headless cor
 mise run test:plugins       # every plugin under the harness
 mise run lint               # rustfmt, clippy and the type check, as CI runs them
 ```
+
+## License
+
+Wicket is licensed under the [Apache License 2.0](LICENSE). See
+[`NOTICE`](NOTICE) for the copyright and the third-party notices.

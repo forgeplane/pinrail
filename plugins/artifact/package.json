@@ -2,6 +2,7 @@
   "name": "wicket-plugin-artifact",
   "private": true,
   "version": "1.0.0",
+  "license": "Apache-2.0",
   "scripts": {
     "build": "rm -rf assets && tsc --noEmit && vite build",
     "watch": "vite build --watch",

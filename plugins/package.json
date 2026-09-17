@@ -2,6 +2,7 @@
   "name": "wicket-plugins",
   "private": true,
   "description": "The sample plugins' tests, and the built-in plugin's, under the wicket-plugin harness",
+  "license": "Apache-2.0",
   "scripts": {
     "test": "NODE_PATH=node_modules playwright test"
   },
