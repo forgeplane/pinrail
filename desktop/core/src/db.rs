@@ -328,7 +328,22 @@ pub struct Filters {
     /// Only reviews with an id below this one, for paging newest first.
     pub cursor: Option<String>,
     pub limit: usize,
+    /// Rows to skip before the limit, for numbered pages.
+    pub offset: usize,
 }
+
+/// The values a list's filter menus offer, over the reviews its status
+/// filter admits: every plugin and project among them, and whether any has
+/// no project.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Facets {
+    pub plugins: Vec<String>,
+    pub repos: Vec<String>,
+    pub unassigned: bool,
+}
+
+/// `repo=-` asks for the reviews that name no project.
+pub const NO_PROJECT: &str = "-";
 
 #[derive(Debug, Clone)]
 pub struct Event {
@@ -439,6 +454,10 @@ impl Db {
         if filters.limit > 0 {
             args.push(filters.limit.to_string());
             sql.push_str(&format!(" LIMIT ?{}", args.len()));
+            if filters.offset > 0 {
+                args.push(filters.offset.to_string());
+                sql.push_str(&format!(" OFFSET ?{}", args.len()));
+            }
         }
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(&sql)?;
@@ -466,6 +485,45 @@ impl Db {
         .map(|n| n as usize)
     }
 
+    /// The plugins and projects among the reviews the status filter (and
+    /// `include_revised`) admits; the other filters play no part, so a menu
+    /// keeps offering what it is filtering by.
+    pub fn facets(&self, filters: &Filters, now: DateTime<Utc>) -> rusqlite::Result<Facets> {
+        let scope = Filters {
+            statuses: filters.statuses.clone(),
+            include_revised: filters.include_revised,
+            ..Filters::default()
+        };
+        let (sql, args) = self.where_clause(&scope, now);
+        let conn = self.conn.lock().unwrap();
+        let params: Vec<&dyn rusqlite::ToSql> =
+            args.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+        let from = format!("FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id{sql}");
+        let strings = |select: &str| -> rusqlite::Result<Vec<String>> {
+            let mut stmt = conn.prepare(&format!("{select} {from} ORDER BY 1"))?;
+            let rows = stmt.query_map(params.as_slice(), |row| row.get::<_, Option<String>>(0))?;
+            Ok(rows
+                .filter_map(|r| r.ok().flatten())
+                .filter(|v| !v.is_empty())
+                .collect())
+        };
+        let plugins = strings("SELECT DISTINCT r.plugin")?;
+        let repos = strings("SELECT DISTINCT json_extract(r.origin, '$.repo')")?;
+        let unassigned = conn
+            .query_row(
+                &format!(
+                    "SELECT EXISTS (SELECT 1 {from} AND COALESCE(json_extract(r.origin, '$.repo'), '') = '')"
+                ),
+                params.as_slice(),
+                |row| row.get::<_, bool>(0),
+            )?;
+        Ok(Facets {
+            plugins,
+            repos,
+            unassigned,
+        })
+    }
+
     /// The `WHERE` for the filters, status included, with its parameters.
     fn where_clause(&self, filters: &Filters, now: DateTime<Utc>) -> (String, Vec<String>) {
         let mut sql = " WHERE 1=1".to_string();
@@ -474,9 +532,14 @@ impl Db {
             args.push(value.to_string());
             args.len()
         };
+        let no_project = filters.repo.as_deref() == Some(NO_PROJECT);
+        if no_project {
+            sql.push_str(" AND COALESCE(json_extract(r.origin, '$.repo'), '') = ''");
+        }
+        let repo = if no_project { &None } else { &filters.repo };
         let exact = [
             ("r.plugin", &filters.plugin),
-            ("json_extract(r.origin, '$.repo')", &filters.repo),
+            ("json_extract(r.origin, '$.repo')", repo),
             ("json_extract(r.origin, '$.workflow')", &filters.workflow),
             ("json_extract(r.origin, '$.ref')", &filters.reference),
             ("json_extract(r.origin, '$.run_id')", &filters.run_id),
@@ -487,11 +550,32 @@ impl Db {
                 sql.push_str(&format!(" AND {column} = ?{n}"));
             }
         }
+        // Every word somewhere among what a list shows or holds: the title,
+        // the payload, the plugin, who asked, where it came from, who
+        // decided. Case-insensitive, as LIKE is for ASCII.
         if let Some(v) = &filters.text {
-            let n = push(&format!("%{}%", v.replace('%', "\\%")));
-            sql.push_str(&format!(
-                " AND (r.title LIKE ?{n} ESCAPE '\\' OR r.payload LIKE ?{n} ESCAPE '\\')"
-            ));
+            for word in v.split_whitespace() {
+                let escaped = word
+                    .replace('\\', "\\\\")
+                    .replace('%', "\\%")
+                    .replace('_', "\\_");
+                let n = push(&format!("%{escaped}%"));
+                let columns = [
+                    "r.title",
+                    "r.payload",
+                    "r.plugin",
+                    "r.requested_by",
+                    "json_extract(r.origin, '$.repo')",
+                    "json_extract(r.origin, '$.workflow')",
+                    "json_extract(r.origin, '$.ref')",
+                    "o.by",
+                ];
+                let any: Vec<String> = columns
+                    .iter()
+                    .map(|c| format!("{c} LIKE ?{n} ESCAPE '\\'"))
+                    .collect();
+                sql.push_str(&format!(" AND ({})", any.join(" OR ")));
+            }
         }
         if let Some(c) = &filters.cursor {
             let n = push(c);

@@ -182,6 +182,7 @@ struct ListArgs {
     /// pending, decided, withdrawn, expired; comma-separated for several
     #[arg(long)]
     status: Option<String>,
+    /// The project (origin repo); "-" for reviews that name none
     #[arg(long)]
     repo: Option<String>,
     #[arg(long)]
@@ -192,7 +193,7 @@ struct ListArgs {
     run_id: Option<String>,
     #[arg(long, alias = "type")]
     plugin: Option<String>,
-    /// Text to look for in titles and payloads
+    /// Words to look for, all of them, in titles, payloads, plugins, requesters, origins and who decided
     #[arg(long)]
     q: Option<String>,
     /// Only reviews older than this id

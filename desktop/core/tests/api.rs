@@ -474,6 +474,100 @@ async fn listing_filters_hides_revised_rounds_and_pages() {
 }
 
 #[tokio::test]
+async fn a_page_counts_skips_searches_every_field_and_offers_its_filters() {
+    let app = app();
+    // five reviews, oldest first: three in acme, one elsewhere, one with no project
+    let mut made = Vec::new();
+    for (title, repo, requested_by) in [
+        ("first", Some("acme"), "agent"),
+        ("second", Some("acme"), "agent"),
+        ("third", Some("other"), "nightly"),
+        ("fourth", None, "agent"),
+        ("fifth", Some("acme"), "agent"),
+    ] {
+        let mut body = submission();
+        body["title"] = json!(title);
+        body["requested_by"] = json!(requested_by);
+        match repo {
+            Some(r) => body["origin"]["repo"] = json!(r),
+            None => {
+                body["origin"].as_object_mut().unwrap().remove("repo");
+            }
+        }
+        made.push(submit(&app, body).await["id"].as_str().unwrap().to_string());
+    }
+    let decision = json!({"data": {"decisions": [], "undecided": [1, 2]}});
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{}/decision", made[1]),
+        Some(decision),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let titles = |body: &Value| -> Vec<String> {
+        body["reviews"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["title"].as_str().unwrap().to_string())
+            .collect()
+    };
+
+    // newest first, two at a time, with the total for the pager
+    let (status, one) = call(&app, "GET", "/api/v1/reviews/page?limit=2", None).await;
+    assert_eq!(status, StatusCode::OK, "{one}");
+    assert_eq!(titles(&one), vec!["fifth", "fourth"]);
+    assert_eq!(
+        (
+            one["total"].as_u64(),
+            one["offset"].as_u64(),
+            one["limit"].as_u64()
+        ),
+        (Some(5), Some(0), Some(2))
+    );
+    let (_, three) = call(&app, "GET", "/api/v1/reviews/page?limit=2&offset=4", None).await;
+    assert_eq!(titles(&three), vec!["first"]);
+    assert_eq!(three["total"], 5);
+
+    // the menus offer everything the status filter admits, whatever else is filtered
+    let (_, acme) = call(
+        &app,
+        "GET",
+        "/api/v1/reviews/page?repo=acme&plugin=list",
+        None,
+    )
+    .await;
+    assert_eq!(titles(&acme), vec!["fifth", "second", "first"]);
+    assert_eq!(acme["facets"]["plugins"], json!(["list"]));
+    assert_eq!(acme["facets"]["repos"], json!(["acme", "other"]));
+    assert_eq!(acme["facets"]["unassigned"], json!(true));
+
+    // "-" is the reviews that name no project
+    let (_, loose) = call(&app, "GET", "/api/v1/reviews/page?repo=-", None).await;
+    assert_eq!(titles(&loose), vec!["fourth"]);
+
+    // every word, in any of the fields the list shows: requester, project, decider
+    let (_, nightly) = call(&app, "GET", "/api/v1/reviews/page?q=NIGHTLY%20other", None).await;
+    assert_eq!(titles(&nightly), vec!["third"]);
+    let (_, decided_by) = call(&app, "GET", "/api/v1/reviews/page?q=tester", None).await;
+    assert_eq!(titles(&decided_by), vec!["second"]);
+    let (_, nothing) = call(&app, "GET", "/api/v1/reviews/page?q=nightly%20fifth", None).await;
+    assert_eq!(nothing["total"], 0);
+
+    // decided only: the menus narrow to what that status holds
+    let (_, decided) = call(&app, "GET", "/api/v1/reviews/page?status=decided", None).await;
+    assert_eq!(titles(&decided), vec!["second"]);
+    assert_eq!(decided["facets"]["repos"], json!(["acme"]));
+    assert_eq!(decided["facets"]["unassigned"], json!(false));
+
+    // a literal % or _ in a search is not a wildcard
+    let (_, percent) = call(&app, "GET", "/api/v1/reviews/page?q=%25", None).await;
+    assert_eq!(percent["total"], 0);
+}
+
+#[tokio::test]
 async fn expired_reviews_read_as_expired_and_are_swept_once() {
     let app = app();
     let mut body = submission();

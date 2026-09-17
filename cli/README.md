@@ -174,9 +174,11 @@ the latest round of each review unless `--include-revised` is given, and
   the origin's URL. `--summary` sets the counts the inbox shows beside the
   title, `--expires-at` closes a review nobody decided in time, and
   `--requested-by` (or `WICKET_REQUESTED_BY`) names the caller.
-- **`list`** filters with `--status` (comma-separated), `--repo`,
-  `--workflow`, `--ref`, `--run-id`, `--plugin` and `--q` for text in titles
-  and payloads, and pages with `--limit` and `--cursor`.
+- **`list`** filters with `--status` (comma-separated), `--repo` (`-` for
+  reviews that name no project), `--workflow`, `--ref`, `--run-id`,
+  `--plugin` and `--q`, whose words must all appear somewhere among the
+  title, payload, plugin, requester, origin and who decided; it pages with
+  `--limit` and `--cursor`.
 - **`decide`** takes `--data` with the decision and `--note` for the agent.
   `withdraw` and `discard` take `--reason`.
 - **Every command** accepts `--url`, `--pretty` and `--format`.

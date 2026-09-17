@@ -19,6 +19,16 @@ use crate::plugins::Registry;
 use crate::review::{Decision, Review, Status, parse_datetime};
 
 const DEFAULT_LIMIT: usize = 100;
+
+/// A numbered page of reviews; see `Reviews::page`.
+#[derive(Debug)]
+pub struct Page {
+    pub reviews: Vec<Review>,
+    pub total: usize,
+    pub offset: usize,
+    pub limit: usize,
+    pub facets: crate::db::Facets,
+}
 const MAX_LIMIT: usize = 500;
 
 #[derive(Debug, Clone)]
@@ -115,6 +125,25 @@ impl Reviews {
             n => n.min(MAX_LIMIT),
         };
         Ok(self.db.list(&filters, Utc::now())?)
+    }
+
+    /// One numbered page of a listing: the reviews, how many match in all,
+    /// and what the filter menus can offer.
+    pub fn page(&self, filters: &Filters) -> Result<Page, Error> {
+        let now = Utc::now();
+        let mut filters = filters.clone();
+        filters.cursor = None;
+        filters.limit = match filters.limit {
+            0 => DEFAULT_LIMIT,
+            n => n.min(MAX_LIMIT),
+        };
+        Ok(Page {
+            reviews: self.db.list(&filters, now)?,
+            total: self.db.count(&filters, now)?,
+            offset: filters.offset,
+            limit: filters.limit,
+            facets: self.db.facets(&filters, now)?,
+        })
     }
 
     pub fn pending_count(&self) -> Result<usize, Error> {

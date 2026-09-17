@@ -1,5 +1,5 @@
-//! `/api/v1/reviews`: submit, read, list, rounds, long-poll wait, decide,
-//! withdraw, discard, events.
+//! `/api/v1/reviews`: submit, read, list, a numbered page, rounds, long-poll
+//! wait, decide, withdraw, discard, events.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -24,6 +24,7 @@ const MAX_WAIT: u64 = 600;
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/v1/reviews", post(submit).get(list))
+        .route("/api/v1/reviews/page", get(page))
         .route("/api/v1/reviews/{id}", get(show))
         .route("/api/v1/reviews/{id}/rounds", get(rounds))
         .route("/api/v1/reviews/{id}/wait", get(wait))
@@ -49,6 +50,27 @@ async fn list(
     Ok(Json(Value::Array(
         reviews.iter().map(|r| r.to_json(false)).collect(),
     )))
+}
+
+/// A numbered page for the app's lists: `offset` and `limit` over the same
+/// filters as the listing, with the total and the filter menus' values.
+async fn page(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, Error> {
+    let filters = filters(&params)?;
+    let page = state.reviews.page(&filters)?;
+    Ok(Json(json!({
+        "reviews": page.reviews.iter().map(|r| r.to_json(false)).collect::<Vec<_>>(),
+        "total": page.total,
+        "offset": page.offset,
+        "limit": page.limit,
+        "facets": {
+            "plugins": page.facets.plugins,
+            "repos": page.facets.repos,
+            "unassigned": page.facets.unassigned,
+        },
+    })))
 }
 
 /// Whether the caller wants the review as markdown: `?format=markdown`,
@@ -231,6 +253,10 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, Error> {
         limit: params
             .get("limit")
             .and_then(|l| l.parse().ok())
+            .unwrap_or(0),
+        offset: params
+            .get("offset")
+            .and_then(|o| o.parse().ok())
             .unwrap_or(0),
     })
 }
