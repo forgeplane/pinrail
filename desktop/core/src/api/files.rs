@@ -2,8 +2,9 @@
 //!
 //! A bundle is served from the plugin's own folder, the store entry or the
 //! linked directory, with the CSP that makes the sandbox real: no network at all.
-//! Scripts and styles only inline, from the bundle's own path, or the SDK
-//! under `/sdk/`; images and fonts only inline or from the bundle. The iframe
+//! Scripts, styles and fonts only inline, from the bundle's own path, or the
+//! SDK under `/sdk/`, which carries the stylesheet's typeface; images only
+//! inline or from the bundle. The iframe
 //! loads these without `allow-same-origin`, so the document has an opaque
 //! origin and `'self'` would match nothing; the bundle path is spelled out
 //! with the host the browser used.
@@ -54,7 +55,7 @@ async fn bundle(
         format!("script-src 'unsafe-inline' {bundle} {origin}/sdk/"),
         format!("style-src 'unsafe-inline' {bundle} {origin}/sdk/"),
         format!("img-src data: blob: {bundle} {origin}/sdk/"),
-        format!("font-src data: {bundle}"),
+        format!("font-src data: {bundle} {origin}/sdk/"),
         format!("media-src data: blob: {bundle}"),
         "connect-src 'none'".to_string(),
         "form-action 'none'".to_string(),

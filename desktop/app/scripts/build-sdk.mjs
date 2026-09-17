@@ -1,6 +1,11 @@
 // Assembles the directory the server serves at /sdk/v1/: the plugin SDK from
-// wicket-plugin/src and the icon set plugin views draw from. The icons come from
-// the pinned lucide-static package, the same release wicket-plugin depends on.
+// wicket-plugin/src, the icon set plugin views draw from, and the font the
+// window itself is drawn in. The icons come from the pinned lucide-static
+// package, the same release wicket-plugin depends on; the font from the same
+// package the shell bundles, so a plugin panel and the window around it are
+// set in one typeface. The app carries the files so it draws the same with no
+// network at all; the SDK dev server points the same import at a CDN instead
+// of shipping fonts in the npm package.
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +13,7 @@ import { fileURLToPath } from "node:url";
 const app = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sdkSrc = path.resolve(app, "..", "..", "wicket-plugin", "src");
 const icons = path.resolve(app, "node_modules", "lucide-static", "icons");
+const font = path.resolve(app, "node_modules", "@fontsource-variable", "inter");
 const out = path.join(app, "sdk", "v1");
 
 fs.rmSync(out, { recursive: true, force: true });
@@ -21,4 +27,14 @@ for (const file of fs.readdirSync(icons)) {
   fs.copyFileSync(path.join(icons, file), path.join(out, "icons", file));
   count += 1;
 }
-console.log(`sdk: ${fs.readdirSync(sdkSrc).length} SDK files and ${count} icons in ${path.relative(app, out)}`);
+// the weight axis, every script, normal only: what the shell imports
+fs.mkdirSync(path.join(out, "files"), { recursive: true });
+const faces = fs.readdirSync(path.join(font, "files")).filter((f) => f.endsWith("-wght-normal.woff2"));
+for (const file of faces) {
+  fs.copyFileSync(path.join(font, "files", file), path.join(out, "files", file));
+}
+// the SDK stylesheet imports ./fonts.css; wght.css is that file, and it
+// points at ./files/, which is where the faces now sit
+fs.copyFileSync(path.join(font, "wght.css"), path.join(out, "fonts.css"));
+
+console.log(`sdk: ${fs.readdirSync(sdkSrc).length} SDK files, ${count} icons and ${faces.length} font files in ${path.relative(app, out)}`);

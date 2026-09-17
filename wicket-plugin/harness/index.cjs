@@ -77,6 +77,8 @@ async function mountPlugin(page, pluginDir, opts) {
     if (p === "/_harness.html") return route.fulfill({ contentType: "text/html", body: harness });
     if (p === "/sdk/v1/wicket-plugin.js") return route.fulfill({ contentType: mime[".js"], body: sdk });
     if (p === "/sdk/v1/wicket-plugin.css") return route.fulfill({ contentType: mime[".css"], body: sdkCss });
+    // the stylesheet imports a typeface; tests run offline and in the system font
+    if (p === "/sdk/v1/fonts.css") return route.fulfill({ contentType: mime[".css"], body: "" });
     if (p.startsWith("/sdk/v1/icons/")) {
       const icon = iconsDir && path.join(iconsDir, path.basename(p));
       if (!icon || !fs.existsSync(icon)) return route.fulfill({ status: 404, body: "no such icon" });
