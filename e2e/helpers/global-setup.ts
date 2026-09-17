@@ -25,8 +25,8 @@ function buildCli(): string {
   return cli;
 }
 
-function buildDesktop(): string | undefined {
-  if (process.env.WICKET_E2E_SERVER !== "desktop") return undefined;
+/** The desktop app, which the CLI starts headless as the server. */
+function buildDesktop(): string {
   const bin = process.env.WICKET_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "Wicket");
   if (!process.env.WICKET_DESKTOP_BIN) {
     console.log("e2e: building the desktop app");
@@ -47,7 +47,6 @@ export default async function globalSetup() {
     cli,
     dataDir: path.join(run, "data"),
     configDir: path.join(run, "config"),
-    serverDir: path.join(root, "server"),
     desktopBin,
   };
   fs.mkdirSync(state.dataDir, { recursive: true });

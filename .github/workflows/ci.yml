@@ -115,7 +115,7 @@ jobs:
           npx playwright install --with-deps chromium
       - name: CLI end to end
         working-directory: e2e
-        run: WICKET_E2E_SERVER=desktop npx playwright test tests/cli.spec.ts tests/zz-restart.spec.ts
+        run: npx playwright test
       - name: Shell end to end
         working-directory: e2e
         run: npx playwright test -c shell.config.ts

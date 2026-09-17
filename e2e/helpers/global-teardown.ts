@@ -11,7 +11,7 @@ export default async function globalTeardown() {
   } catch {
     return;
   }
-  // a dev server with asset watchers takes a few seconds to go down
+  // give the server a few seconds to finish its requests and go down
   for (let i = 0; i < 40; i++) {
     await sleep(250);
     try {

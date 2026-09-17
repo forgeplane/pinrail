@@ -1,9 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
-// One real server, one real CLI, one real browser, shared by every test.
-// Tests create their own gates, so they never interfere, but they run on one
-// worker because a few of them (restart, inbox counts) reason about global
-// state.
+// The CLI against the desktop app's server, run headless, shared by every
+// test. Tests create their own reviews, so they never interfere, but they run
+// on one worker because the restart spec takes the server down.
 export default defineConfig({
   testDir: "./tests",
   globalSetup: "./helpers/global-setup.ts",

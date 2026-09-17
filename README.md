@@ -93,7 +93,7 @@ Tool versions are pinned in `mise.toml`; `mise install` sets them up.
 ```sh
 mise run dev:desktop        # the app with live reload
 mise run test:desktop       # the core's tests and the UI's type check
-mise run e2e:desktop        # the CLI against the headless core
+mise run e2e                # the CLI against the headless core
 mise run e2e:shell          # the app's UI in a browser against the headless core
 mise run test:plugins       # every plugin under the harness
 mise run lint               # rustfmt, clippy and the type check, as CI runs them
