@@ -107,7 +107,8 @@ jobs:
           cache-dependency-path: desktop/app/package-lock.json
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
-          toolchain: stable
+          # the version mise.toml pins
+          toolchain: "1.98.1"
           targets: ${{ matrix.targets }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
