@@ -9,6 +9,7 @@
     "build": "npm run sdk:build && tsc --noEmit && vite build",
     "sdk:build": "node scripts/build-sdk.mjs",
     "cli:build": "node scripts/build-cli.mjs",
+    "notices": "node scripts/build-notices.mjs",
     "tauri": "tauri",
     "test": "tsc --noEmit"
   },
@@ -28,6 +29,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5",
     "lucide-static": "1.45.0",
+    "rollup-plugin-license": "^3.7.1",
     "typescript": "^5",
     "vite": "^7"
   }

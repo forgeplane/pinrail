@@ -1,8 +1,9 @@
 # A tag v<version> (v0.1.0) releases the desktop app: the full CI runs first,
 # then a draft GitHub Release gets a universal macOS build (.dmg, and the
 # .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), each
-# with the wicket CLI inside as the wicket-cli sidecar, a build provenance
-# attestation for each installer, and a SHA256SUMS file.
+# with the wicket CLI inside as the wicket-cli sidecar and the third-party
+# notices as THIRD_PARTY_NOTICES.txt, a build provenance attestation for each
+# installer, and a SHA256SUMS file.
 # The draft is published by hand after a smoke test. The tag has to name
 # the version in desktop/Cargo.toml and tauri.conf.json.
 #
@@ -128,6 +129,10 @@ jobs:
       - name: Install the shell's dependencies
         working-directory: desktop/app
         run: npm ci
+      # the release build writes the third-party notices it bundles
+      - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
+        with:
+          tool: cargo-about
       # the CLI ships inside the bundle as the wicket-cli sidecar
       - name: Build the CLI
         working-directory: desktop/app

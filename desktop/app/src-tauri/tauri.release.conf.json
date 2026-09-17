@@ -1,5 +1,12 @@
 {
+  "build": {
+    "beforeBuildCommand": "npm run build && npm run notices"
+  },
   "bundle": {
-    "externalBin": ["binaries/wicket-cli"]
+    "externalBin": ["binaries/wicket-cli"],
+    "resources": {
+      "../sdk/v1": "sdk/v1",
+      "../notices/THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt"
+    }
   }
 }

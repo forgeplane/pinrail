@@ -1,8 +1,8 @@
 # Every push to main and every pull request: formatting, the dependencies'
-# licences and the shell's type check once, then on Linux and macOS clippy, the Rust tests, and
-# the CLI and the shell driven end to end against the headless desktop
-# core; the plugins and the SDK package tested on their own. No release
-# artifacts: that is a workflow of its own, once signing is in.
+# licences and the shell's type check once, then on Linux and macOS clippy,
+# the Rust tests, and the CLI and the shell driven end to end against the
+# headless desktop core; the plugins and the SDK package tested on their
+# own. No release artifacts: that is a workflow of its own.
 name: ci
 
 on:
