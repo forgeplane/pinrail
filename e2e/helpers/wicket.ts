@@ -44,7 +44,9 @@ export function startWaiter(args: string[]): Waiter {
     });
   });
   if (args[0] !== "submit") proc.stderr!.on("data", (d) => (stderr += d));
-  const done = new Promise<Run>((resolve) => proc.on("exit", (code) => resolve({ code, stdout, stderr })));
+  // "close", not "exit": a child's output can still be arriving when it exits,
+  // and a waiter's whole answer is on stdout
+  const done = new Promise<Run>((resolve) => proc.on("close", (code) => resolve({ code, stdout, stderr })));
   return { proc, reviewId, done };
 }
 
