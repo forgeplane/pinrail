@@ -1,7 +1,0 @@
-{
-  "name": "misbehaving",
-  "version": 1,
-  "title": "Misbehaving",
-  "payload_schema": { "type": "object" },
-  "decision_schema": { "type": "object", "required": ["ok"], "additionalProperties": false, "properties": { "ok": { "type": "boolean" } } }
-}

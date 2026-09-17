@@ -84,7 +84,6 @@ while you work on it.
 | [`plugins/`](plugins/README.md) | the official plugins and the plugin protocol |
 | [`wicket-plugin/`](wicket-plugin/README.md) | the plugin SDK, dev shell and test harness |
 | [`e2e/`](e2e/README.md) | end-to-end tests: the CLI and the app's UI against the headless core |
-| `server/` | the original Elixir server, no longer developed |
 
 ## Development
 

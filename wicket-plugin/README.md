@@ -115,8 +115,8 @@ italic, inline and fenced code, lists, http links; escapes first), and
 `{ decisions: [{ id, action, note }], undecided: [id] }`.
 
 `v1` is the protocol major: it only ever gets fixes. The source of truth is
-`src/wicket-plugin.js` here; `server/assets` copies it into the app's static
-files at build time, so there is exactly one copy in the repository.
+`src/wicket-plugin.js` here; the desktop app's `sdk:build` copies it into what
+the app serves at build time, so there is exactly one copy in the repository.
 
 ## The stylesheet
 

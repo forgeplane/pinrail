@@ -1,1 +1,0 @@
-{ "name": "badschema", "version": 1, "payload_schema": { "$ref": "missing.json" }, "decision_schema": {} }
