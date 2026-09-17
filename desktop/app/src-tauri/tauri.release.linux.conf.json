@@ -1,0 +1,6 @@
+{
+  "mainBinaryName": "wicket-desktop",
+  "bundle": {
+    "externalBin": ["binaries/wicket"]
+  }
+}

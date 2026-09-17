@@ -1,7 +1,8 @@
 # A tag v<version> (v0.1.0) releases the desktop app: the full CI runs first,
 # then a draft GitHub Release gets a universal macOS build (.dmg, and the
 # .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), each
-# with the wicket CLI inside as the wicket-cli sidecar and the third-party
+# with the wicket CLI inside (/usr/bin/wicket in the Linux packages, beside the
+# app as wicket-desktop; wicket-cli in the macOS bundle) and the third-party
 # notices as THIRD_PARTY_NOTICES.txt, a build provenance attestation for each
 # installer, and a SHA256SUMS file.
 # The draft is published by hand after a smoke test. The tag has to name
@@ -78,7 +79,7 @@ jobs:
           - name: macos
             runner: macos-latest
             triple: universal-apple-darwin
-            args: --target universal-apple-darwin
+            args: --target universal-apple-darwin --config src-tauri/tauri.release.conf.json
             targets: aarch64-apple-darwin,x86_64-apple-darwin
             bundles: |
               desktop/target/universal-apple-darwin/release/bundle/dmg/*.dmg
@@ -86,7 +87,8 @@ jobs:
             # the oldest supported Ubuntu, so the AppImage runs on older glibc
             runner: ubuntu-22.04
             triple: x86_64-unknown-linux-gnu
-            args: ""
+            # wicket-desktop and /usr/bin/wicket: the command is the CLI's
+            args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.linux.conf.json
             targets: ""
             bundles: |
               desktop/target/release/bundle/appimage/*.AppImage
@@ -145,7 +147,7 @@ jobs:
         with:
           projectPath: desktop/app
           tauriScript: npx tauri
-          args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
+          args: ${{ matrix.args }}
           releaseId: ${{ needs.draft.outputs.id }}
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: true
