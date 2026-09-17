@@ -1,6 +1,7 @@
 //! The desktop app starts the review server on loopback and shows the shell.
 //! Closing the window hides it; the app lives in the menu bar until "Quit".
 
+mod cli_install;
 mod headless;
 mod native;
 #[cfg(target_os = "macos")]
@@ -84,6 +85,44 @@ fn open_notification_settings(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn open_notification_settings() -> Result<(), String> {
     Err("this system has no notification settings page for the app".into())
+}
+
+/// Where the bundled CLI is, whether `~/.local/bin/wicket` links to it, and
+/// what a new terminal would run. Asks the login shell, so it runs off the
+/// main thread.
+#[tauri::command]
+async fn cli_status() -> Result<cli_install::Status, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .ok_or("HOME is not set")?;
+        let shell = cli_install::ask_login_shell();
+        Ok(cli_install::status(
+            cli_install::bundled().as_deref(),
+            &cli_install::link_path(&home),
+            shell.as_ref(),
+        ))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Links `~/.local/bin/wicket` to the bundled CLI, then reports as `cli_status`.
+#[tauri::command]
+async fn install_cli() -> Result<cli_install::Status, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .ok_or("HOME is not set")?;
+        let bundled = cli_install::bundled()
+            .ok_or("this build of Wicket carries no CLI; the packaged app does")?;
+        let link = cli_install::link_path(&home);
+        cli_install::install(&bundled, &link)?;
+        let shell = cli_install::ask_login_shell();
+        Ok(cli_install::status(Some(&bundled), &link, shell.as_ref()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -223,7 +262,9 @@ pub fn run() {
             notification_status,
             open_notification_settings,
             autostart_enabled,
-            set_autostart
+            set_autostart,
+            cli_status,
+            install_cli
         ])
         .build(tauri::generate_context!())
         .expect("wicket could not start its window");
