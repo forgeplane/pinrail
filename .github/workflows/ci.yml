@@ -82,6 +82,9 @@ jobs:
         with:
           # a red run still built its dependencies; keep them
           cache-on-failure: true
+          # only main saves: every branch and pull request restores main's
+          # cache, and none of them crowd the repository's cache quota
+          save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: |
             desktop
             cli

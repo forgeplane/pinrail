@@ -115,6 +115,9 @@ jobs:
           workspaces: desktop
           key: release-${{ matrix.name }}
           cache-on-failure: true
+          # a cache saved under a tag is visible to that tag only; a manual
+          # run on main saves one every tag can restore
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install the shell's dependencies
         working-directory: desktop/app
         run: npm ci
