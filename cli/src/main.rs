@@ -179,7 +179,7 @@ struct WaitOpts {
 
 #[derive(Args)]
 struct ListArgs {
-    /// pending, decided, withdrawn, expired; comma-separated for several
+    /// pending, decided, withdrawn, discarded, expired; comma-separated for several
     #[arg(long)]
     status: Option<String>,
     /// The project (origin repo); "-" for reviews that name none
