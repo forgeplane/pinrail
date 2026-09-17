@@ -96,7 +96,7 @@ async fn bundle(
 }
 
 async fn sdk(State(state): State<Arc<Wicket>>, Path(path): Path<String>) -> Response {
-    let Some(dir) = &state.config.sdk_dir else {
+    let Some(dir) = &state.config().sdk_dir else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let Some(file) = safe_join(dir, &path).filter(|f| f.is_file()) else {

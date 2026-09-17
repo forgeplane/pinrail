@@ -64,8 +64,7 @@ pub struct ShortcutState {
 
 fn shortcut_keys(state: &Wicket) -> String {
     state
-        .settings
-        .value("/shortcut/global")
+        .setting("/shortcut/global")
         .as_str()
         .filter(|s| !s.trim().is_empty())
         .unwrap_or(DEFAULT_SHORTCUT)
@@ -104,7 +103,7 @@ pub fn apply_shortcut(app: &AppHandle, state: &Wicket) {
 pub fn open_from_shortcut(app: &AppHandle) {
     let inbox = app
         .try_state::<Native>()
-        .is_some_and(|native| native.state.settings.value("/shortcut/global_opens") == "inbox");
+        .is_some_and(|native| native.state.setting("/shortcut/global_opens") == "inbox");
     if inbox {
         open(app, "/");
     } else {
@@ -122,7 +121,7 @@ struct NotificationSettings {
 }
 
 fn notification_settings(state: &Wicket) -> NotificationSettings {
-    let s = state.settings.get();
+    let s = state.settings();
     let n = &s["notifications"];
     let paused_until = n["paused_until"]
         .as_str()
@@ -232,11 +231,7 @@ pub fn route_for_url(url: &str) -> Option<String> {
 /// The tray icon shown or hidden, as settings say; the Dock icon stays
 /// either way. Applied at start and whenever the setting changes.
 pub fn apply_menu_bar_icon(app: &AppHandle, state: &Wicket) {
-    let shown = state
-        .settings
-        .value("/menu_bar_icon")
-        .as_bool()
-        .unwrap_or(true);
+    let shown = state.setting("/menu_bar_icon").as_bool().unwrap_or(true);
     if let Some(tray) = app.tray_by_id(TRAY_ID) {
         let _ = tray.set_visible(shown);
     }
@@ -249,7 +244,7 @@ fn pending(state: &Wicket) -> Vec<Review> {
         limit: 500,
         ..Filters::default()
     };
-    state.reviews.list(&filters).unwrap_or_default()
+    state.reviews().list(&filters).unwrap_or_default()
 }
 
 pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
@@ -362,7 +357,7 @@ fn menu(
     let native = app.try_state::<Native>();
     let opens_inbox = native
         .as_ref()
-        .is_some_and(|n| n.state.settings.value("/shortcut/global_opens") == "inbox");
+        .is_some_and(|n| n.state.setting("/shortcut/global_opens") == "inbox");
     let keys = native.as_ref().map(|n| n.shortcut_state().shortcut);
     let with_keys = |id: &str, label: &str| {
         MenuItem::with_id(app, id, label, true, keys.as_deref())
@@ -475,7 +470,7 @@ pub fn watch(app: AppHandle) {
     let Some(native) = app.try_state::<Native>() else {
         return;
     };
-    let mut rx = native.state.reviews.bus().subscribe();
+    let mut rx = native.state.reviews().bus().subscribe();
     tauri::async_runtime::spawn(async move {
         loop {
             match rx.recv().await {

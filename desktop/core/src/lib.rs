@@ -1,5 +1,7 @@
 //! wicket-core is the review server as a library. The desktop app embeds it,
 //! headless mode runs it without a window, and the CLI talks to it over HTTP.
+//! [`Wicket::open`] initializes the application without starting HTTP; the
+//! desktop and [`api`] share its review service and settings operations.
 //!
 //! A requester submits a review using a plugin; the editor returns a
 //! decision; a revised submission is a new round of the same review. Nothing

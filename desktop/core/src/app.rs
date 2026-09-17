@@ -15,17 +15,42 @@ use crate::reviews::Reviews;
 /// Opening it initializes local storage and services without starting a server.
 #[derive(Debug)]
 pub struct Wicket {
-    pub config: Config,
-    pub started_at: DateTime<Utc>,
-    pub settings: Arc<crate::settings::Store>,
-    pub db: Arc<Db>,
-    pub registry: Arc<Registry>,
-    pub reviews: Reviews,
+    config: Config,
+    started_at: DateTime<Utc>,
+    settings: crate::settings::Store,
+    pub(crate) db: Arc<Db>,
+    pub(crate) registry: Arc<Registry>,
+    reviews: Reviews,
     /// plugin installs under way or done, by job id
-    pub jobs: Arc<crate::install::Jobs>,
+    pub(crate) jobs: Arc<crate::install::Jobs>,
 }
 
 impl Wicket {
+    /// The configuration this application was opened with.
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    pub fn started_at(&self) -> DateTime<Utc> {
+        self.started_at
+    }
+
+    /// Review operations share the application's storage, registry and event bus.
+    pub fn reviews(&self) -> &Reviews {
+        &self.reviews
+    }
+
+    /// A settings snapshot. Changes go through `change_settings` so validation
+    /// and notifications are the same for every caller.
+    pub fn settings(&self) -> serde_json::Value {
+        self.settings.get()
+    }
+
+    /// One setting addressed by a JSON pointer, or null when it is absent.
+    pub fn setting(&self, pointer: &str) -> serde_json::Value {
+        self.settings.value(pointer)
+    }
+
     /// Applies a partial change to the settings and announces what changed,
     /// for the API and for the app itself (the tray's pause, for one).
     pub fn change_settings(&self, patch: &serde_json::Value) -> Result<serde_json::Value, Error> {
@@ -54,7 +79,7 @@ impl Wicket {
     /// directories and wires the service together.
     pub fn open(config: Config) -> Result<Arc<Self>, Error> {
         std::fs::create_dir_all(&config.data_dir)?;
-        let settings = Arc::new(crate::settings::Store::open(&config.data_dir));
+        let settings = crate::settings::Store::open(&config.data_dir);
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
         let user = config.user_plugins_dir();

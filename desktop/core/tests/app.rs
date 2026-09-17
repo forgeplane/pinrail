@@ -9,7 +9,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path(), 0);
     let app = Wicket::open(config.clone()).unwrap();
-    let mut notices = app.reviews.bus().subscribe();
+    let mut notices = app.reviews().bus().subscribe();
 
     let after = app
         .change_settings(&json!({"notifications": {"enabled": false}}))
@@ -32,7 +32,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 
     let reopened = Wicket::open(config).unwrap();
-    assert_eq!(reopened.settings.get()["notifications"]["enabled"], false);
+    assert_eq!(reopened.settings()["notifications"]["enabled"], false);
     assert!(!dir.path().join("server.json").exists());
 }
 
@@ -40,7 +40,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
 fn external_settings_edits_are_recorded_and_announced_once() {
     let dir = tempfile::tempdir().unwrap();
     let app = Wicket::open(Config::new(dir.path(), 0)).unwrap();
-    let mut notices = app.reviews.bus().subscribe();
+    let mut notices = app.reviews().bus().subscribe();
     assert!(app.reload_settings().unwrap().is_none());
 
     std::fs::write(dir.path().join("settings.json"), r#"{"autostart":true}"#).unwrap();
@@ -48,14 +48,14 @@ fn external_settings_edits_are_recorded_and_announced_once() {
         app.reload_settings().unwrap(),
         Some(vec!["/autostart".into()])
     );
-    assert_eq!(app.settings.get()["autostart"], true);
+    assert_eq!(app.settings()["autostart"], true);
     let notice = notices.try_recv().unwrap();
     assert_eq!(notice.kind, "settings_changed");
     assert_eq!(notice.keys, Some(vec!["/autostart".into()]));
 
     assert!(app.reload_settings().unwrap().is_none());
     assert!(notices.try_recv().is_err());
-    let db = Db::open(&app.config.db_path()).unwrap();
+    let db = Db::open(&app.config().db_path()).unwrap();
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 }
 
@@ -80,7 +80,7 @@ fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     )
     .unwrap();
     let app = Wicket::open(config).unwrap();
-    let mut notices = app.reviews.bus().subscribe();
+    let mut notices = app.reviews().bus().subscribe();
 
     let error = app
         .change_settings(&json!({
@@ -95,8 +95,8 @@ fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
         violations.iter().any(|v| v.path == "/plugins/knobs/wrap"),
         "{violations:?}"
     );
-    assert_eq!(app.settings.get()["autostart"], false);
-    assert_eq!(app.settings.get()["plugins"]["knobs"], Value::Null);
+    assert_eq!(app.settings()["autostart"], false);
+    assert_eq!(app.settings()["plugins"]["knobs"], Value::Null);
     assert!(!dir.path().join("settings.json").exists());
     assert!(notices.try_recv().is_err());
 }

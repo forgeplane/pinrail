@@ -43,11 +43,11 @@ pub fn router(state: Arc<Wicket>) -> Router {
 async fn info(State(state): State<Arc<Wicket>>) -> Json<Info> {
     Json(Info {
         version: crate::VERSION,
-        data_dir: state.config.data_dir.display().to_string(),
-        port: state.config.port,
+        data_dir: state.config().data_dir.display().to_string(),
+        port: state.config().port,
         pid: std::process::id(),
-        started_at: state.started_at,
-        user: state.config.user.clone(),
+        started_at: state.started_at(),
+        user: state.config().user.clone(),
     })
 }
 
@@ -59,8 +59,8 @@ pub async fn serve(
     state: Arc<Wicket>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
-    let listener = tokio::net::TcpListener::bind(state.config.bind_addr()).await?;
-    server_info::write(&state.config, state.started_at)?;
+    let listener = tokio::net::TcpListener::bind(state.config().bind_addr()).await?;
+    server_info::write(state.config(), state.started_at())?;
 
     let sweeper = {
         let state = state.clone();
@@ -68,15 +68,14 @@ pub async fn serve(
             let mut tick = tokio::time::interval(Duration::from_secs(30));
             loop {
                 tick.tick().await;
-                if let Err(error) = state.reviews.sweep_expired() {
+                if let Err(error) = state.reviews().sweep_expired() {
                     eprintln!("wicket: expiry sweep failed: {error}");
                 }
                 let keep_days = state
-                    .settings
-                    .value("/history/keep_days")
+                    .setting("/history/keep_days")
                     .as_u64()
                     .map(|d| d as u32);
-                if let Err(error) = state.reviews.sweep_history(keep_days) {
+                if let Err(error) = state.reviews().sweep_history(keep_days) {
                     eprintln!("wicket: history sweep failed: {error}");
                 }
             }
@@ -101,7 +100,7 @@ pub async fn serve(
         .await;
     sweeper.abort();
     watcher.abort();
-    server_info::remove(&state.config);
+    server_info::remove(state.config());
     result
 }
 

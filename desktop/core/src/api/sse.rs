@@ -31,7 +31,7 @@ async fn events(
     Query(params): Query<HashMap<String, String>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     // Subscribe before reading the backlog, so nothing between the two is lost.
-    let rx = state.reviews.bus().subscribe();
+    let rx = state.reviews().bus().subscribe();
     let after = params.get("after").and_then(|a| a.parse::<i64>().ok());
     let backlog: Vec<Notice> = match after {
         Some(after) => state

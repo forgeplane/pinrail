@@ -75,7 +75,7 @@ async fn every_setting_is_listed_at_its_default() {
 #[tokio::test]
 async fn a_change_is_applied_written_and_announced() {
     let app = app();
-    let mut rx = app.state.reviews.bus().subscribe();
+    let mut rx = app.state.reviews().bus().subscribe();
     let (status, body) = call(
         &app,
         "PATCH",
@@ -112,7 +112,10 @@ async fn a_change_is_applied_written_and_announced() {
     assert!(notice.review_id.is_none());
 
     // and the event is on record, keys included, for the stream's backlog
-    let events = app.state.db.events_after(0, 10).unwrap();
+    let events = wicket_core::db::Db::open(&app.state.config().db_path())
+        .unwrap()
+        .events_after(0, 10)
+        .unwrap();
     let recorded = events
         .iter()
         .find(|e| e.kind == "settings_changed")
@@ -126,7 +129,7 @@ async fn a_change_is_applied_written_and_announced() {
 #[tokio::test]
 async fn a_change_that_changes_nothing_announces_nothing() {
     let app = app();
-    let mut rx = app.state.reviews.bus().subscribe();
+    let mut rx = app.state.reviews().bus().subscribe();
     let (status, _) = call(
         &app,
         "PATCH",
@@ -178,13 +181,13 @@ async fn an_edit_to_the_file_is_picked_up_with_its_keys() {
         Some(json!({"autostart": true})),
     )
     .await;
-    assert!(app.state.settings.reload_if_changed().is_none());
+    assert!(app.state.reload_settings().unwrap().is_none());
     std::fs::write(
         app.dir.path().join("settings.json"),
         r#"{"autostart": true, "shortcut": {"global": "ctrl+alt+r"}, "someday": 1}"#,
     )
     .unwrap();
-    let keys = app.state.settings.reload_if_changed().unwrap();
+    let keys = app.state.reload_settings().unwrap().unwrap();
     assert_eq!(keys, vec!["/shortcut/global"]);
     let (_, body) = call(&app, "GET", "/api/v1/settings", None).await;
     assert_eq!(body["shortcut"]["global"], "ctrl+alt+r");
@@ -246,7 +249,7 @@ async fn with_knobs(app: &App) -> tempfile::TempDir {
 async fn a_plugin_declares_settings_and_the_core_keeps_them() {
     let app = app();
     let _dir = with_knobs(&app).await;
-    let mut rx = app.state.reviews.bus().subscribe();
+    let mut rx = app.state.reviews().bus().subscribe();
 
     // the row carries the schema and the values as they stand
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;

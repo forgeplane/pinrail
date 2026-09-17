@@ -32,7 +32,7 @@ pub fn routes() -> Router<Arc<Wicket>> {
 }
 
 async fn index(State(state): State<Arc<Wicket>>) -> Json<Value> {
-    let stored = state.settings.value(crate::settings::PLUGINS);
+    let stored = state.setting(crate::settings::PLUGINS);
     let plugins = state
         .registry
         .all()
@@ -61,7 +61,7 @@ async fn versions(
     // kept for reviews that still point at them
     let current = state.registry.get(&name);
     let mut versions: Vec<u32> = Vec::new();
-    let dir = state.config.plugin_store_dir().join(&name);
+    let dir = state.config().plugin_store_dir().join(&name);
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
             if let Ok(v) = entry.file_name().to_string_lossy().parse::<u32>()
@@ -312,7 +312,7 @@ fn announce(state: &Wicket) -> Result<(), Error> {
         .db
         .append_event(None, events::PLUGINS_RELOADED, None, &Value::Null)?;
     state
-        .reviews
+        .reviews()
         .publish_plain(event_id, events::PLUGINS_RELOADED);
     Ok(())
 }

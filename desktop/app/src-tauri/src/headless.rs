@@ -73,8 +73,8 @@ pub fn run(options: Options) -> i32 {
         };
         eprintln!(
             "wicket: serving on {} (data in {})",
-            state.config.url(),
-            state.config.data_dir.display()
+            state.config().url(),
+            state.config().data_dir.display()
         );
         match api::serve(state, shutdown_signal()).await {
             Ok(()) => 0,

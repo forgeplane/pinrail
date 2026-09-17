@@ -18,7 +18,7 @@ pub fn routes() -> Router<Arc<Wicket>> {
 }
 
 async fn show(State(state): State<Arc<Wicket>>) -> Json<Value> {
-    Json(state.settings.get())
+    Json(state.settings())
 }
 
 async fn change(State(state): State<Arc<Wicket>>, body: Bytes) -> Response {

@@ -276,7 +276,7 @@ pub fn run() {
                 let quit = window
                     .app_handle()
                     .try_state::<Native>()
-                    .is_some_and(|n| n.state.settings.value("/close_window") == "quit");
+                    .is_some_and(|n| n.state.setting("/close_window") == "quit");
                 if quit {
                     window.app_handle().exit(0);
                 } else {

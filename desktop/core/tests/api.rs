@@ -34,6 +34,12 @@ fn app() -> App {
     }
 }
 
+// Inspect or seed persistence explicitly; the application does not expose
+// its database connection to callers.
+fn db(app: &App) -> wicket_core::db::Db {
+    wicket_core::db::Db::open(&app.state.config().db_path()).unwrap()
+}
+
 async fn call(app: &App, method: &str, path: &str, body: Option<Value>) -> (StatusCode, Value) {
     let request = Request::builder()
         .method(method)
@@ -284,7 +290,7 @@ async fn wait_times_out_with_204_and_wakes_on_a_decision() {
     assert_eq!(status, StatusCode::NO_CONTENT);
     assert_eq!(body, Value::Null);
 
-    let reviews = app.state.reviews.clone();
+    let reviews = app.state.reviews().clone();
     let decide_id = id.clone();
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(200)).await;
@@ -582,9 +588,9 @@ async fn expired_reviews_read_as_expired_and_are_swept_once() {
     let review = submit(&app, body).await;
     assert_eq!(review["status"], "expired");
     let id = review["id"].as_str().unwrap();
-    let swept = app.state.reviews.sweep_expired().unwrap();
+    let swept = app.state.reviews().sweep_expired().unwrap();
     assert_eq!(swept.len(), 1);
-    assert!(app.state.reviews.sweep_expired().unwrap().is_empty());
+    assert!(app.state.reviews().sweep_expired().unwrap().is_empty());
     let (_, events) = call(&app, "GET", &format!("/api/v1/reviews/{id}/events"), None).await;
     let kinds: Vec<&str> = events
         .as_array()
@@ -651,7 +657,7 @@ async fn plugins_are_listed_added_and_reloaded() {
         );
     }
     // each plugin in the directory is a link of its own now
-    let links = app.state.db.installed_plugins().unwrap();
+    let links = db(&app).installed_plugins().unwrap();
     assert_eq!(links.len(), 4);
     assert!(links.iter().all(|r| r.linked && r.kind == "path"));
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
@@ -967,7 +973,7 @@ async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
         .as_str()
         .unwrap()
         .to_string();
-    let mut rx = app.state.reviews.bus().subscribe();
+    let mut rx = app.state.reviews().bus().subscribe();
 
     // an agent blocked on the review hears the discard at once
     let waiter = {
@@ -1100,10 +1106,13 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     let round = submit(&app, round).await;
 
     // nothing to keep for: everything stays
-    assert_eq!(app.state.reviews.sweep_history(None).unwrap(), 0);
+    assert_eq!(app.state.reviews().sweep_history(None).unwrap(), 0);
     let tomorrow = chrono::Utc::now() + chrono::Duration::days(1);
     // the withdrawn one goes; the decided one stays while the round revising it is pending
-    assert_eq!(app.state.reviews.sweep_history_before(tomorrow).unwrap(), 1);
+    assert_eq!(
+        app.state.reviews().sweep_history_before(tomorrow).unwrap(),
+        1
+    );
     let (status, _) = call(
         &app,
         "GET",
@@ -1130,7 +1139,10 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(app.state.reviews.sweep_history_before(tomorrow).unwrap(), 2);
+    assert_eq!(
+        app.state.reviews().sweep_history_before(tomorrow).unwrap(),
+        2
+    );
     let (status, _) = call(
         &app,
         "GET",
@@ -1160,7 +1172,10 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(app.state.reviews.sweep_history_before(tomorrow).unwrap(), 1);
+    assert_eq!(
+        app.state.reviews().sweep_history_before(tomorrow).unwrap(),
+        1
+    );
     let (_, listed) = call(
         &app,
         "GET",
@@ -1176,9 +1191,9 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
 }
 
 fn store_entry(app: &App, name: &str) -> (std::path::PathBuf, String) {
-    let entry = app.state.config.plugin_store_dir().join(name).join("1");
+    let entry = app.state.config().plugin_store_dir().join(name).join("1");
     std::fs::create_dir_all(&entry).unwrap();
-    let source = app.state.config.builtin_plugins_dir().join("list");
+    let source = app.state.config().builtin_plugins_dir().join("list");
     for file in std::fs::read_dir(&source).unwrap().flatten() {
         std::fs::copy(file.path(), entry.join(file.file_name())).unwrap();
     }
@@ -1194,8 +1209,7 @@ fn store_entry(app: &App, name: &str) -> (std::path::PathBuf, String) {
 async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
     let app = app();
     let (entry, hash) = store_entry(&app, "shelf");
-    app.state
-        .db
+    db(&app)
         .upsert_installed(&wicket_core::db::InstalledRecord {
             name: "shelf".into(),
             version: "1.0.0".into(),
@@ -1324,7 +1338,12 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     assert_eq!(row["install"]["kind"], "path");
     assert_eq!(row["install"]["linked"], false);
     assert!(row["install"]["hash"].is_string());
-    let entry = app.state.config.plugin_store_dir().join("hello").join("1");
+    let entry = app
+        .state
+        .config()
+        .plugin_store_dir()
+        .join("hello")
+        .join("1");
     assert!(entry.join("manifest.json").is_file());
     assert!(
         !entry.join("README.md").exists() || true,
@@ -1346,7 +1365,7 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["release"], "1.0.4");
     assert_eq!(row["version"], 1);
-    assert_eq!(app.state.db.installed_plugins().unwrap().len(), 1);
+    assert_eq!(db(&app).installed_plugins().unwrap().len(), 1);
     let (_, shown) = call(
         &app,
         "GET",
@@ -1381,7 +1400,7 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     assert_eq!(row["version"], 2);
     assert!(
         app.state
-            .config
+            .config()
             .plugin_store_dir()
             .join("hello")
             .join("2")
@@ -1442,7 +1461,7 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     assert_eq!(seen["origin"]["kind"], "path");
     assert_eq!(seen["installed"], Value::Null);
     assert_eq!(seen["link"], false);
-    let store = app.state.config.plugin_store_dir().join("hello");
+    let store = app.state.config().plugin_store_dir().join("hello");
     assert!(!store.exists(), "inspecting placed something");
 
     // a source that builds says what it will run; once something is
@@ -1512,7 +1531,7 @@ async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
     let source = plugin_copy(scratch.path(), "hello", "1.0.0");
     let (status, row) = install(&app, &source, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    let entry = app.state.config.plugin_store_dir().join("hello/1");
+    let entry = app.state.config().plugin_store_dir().join("hello/1");
     assert!(entry.join("manifest.json").is_file());
 
     // a built-in has no record to remove
@@ -1765,7 +1784,12 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
         job["log"].as_str().unwrap().contains("\nbuilding\n"),
         "{job}"
     );
-    let entry = app.state.config.plugin_store_dir().join("built").join("1");
+    let entry = app
+        .state
+        .config()
+        .plugin_store_dir()
+        .join("built")
+        .join("1");
     assert_eq!(
         std::fs::read_to_string(entry.join("index.html")).unwrap(),
         "<html>ok</html>"
@@ -1778,7 +1802,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
         "the source folder was not written to"
     );
     assert!(job["plugin"]["install"]["hash"].is_string());
-    let log_path = app.state.db.installed_plugins().unwrap()[0]
+    let log_path = db(&app).installed_plugins().unwrap()[0]
         .build_log
         .clone()
         .unwrap();
@@ -1798,7 +1822,14 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
         message.contains("the build failed") && message.contains("nope"),
         "{message}"
     );
-    assert!(app.state.registry.get("broken").is_none());
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    assert!(
+        listed["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["name"] != "broken")
+    );
     let bare = scratch.path().join("bare");
     std::fs::create_dir_all(&bare).unwrap();
     std::fs::write(
@@ -1827,7 +1858,7 @@ async fn the_artifact_plugin_installs_from_its_sources() {
     assert_eq!(row["usable"], true, "{row}");
     let entry = app
         .state
-        .config
+        .config()
         .plugin_store_dir()
         .join("artifact")
         .join("1");
@@ -1923,9 +1954,7 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
     let tagged = git_in(&work, &["rev-parse", "v1"]);
     assert_eq!(row["install"]["commit"], tagged);
     assert!(row["install"]["hash"].is_string());
-    let record = app
-        .state
-        .db
+    let record = db(&app)
         .installed_plugins()
         .unwrap()
         .into_iter()
@@ -1938,7 +1967,7 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
     );
     let fetched: Vec<_> = std::fs::read_dir(
         app.state
-            .config
+            .config()
             .plugin_store_dir()
             .parent()
             .unwrap()
@@ -2212,7 +2241,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     };
     assert_eq!(plugin["install"]["asset_hash"], expected_hash);
     assert_eq!(plugin["install"]["tag"], "v1.2.0");
-    let dir = app.state.config.plugin_store_dir().join("thing/1");
+    let dir = app.state.config().plugin_store_dir().join("thing/1");
     assert_eq!(
         std::fs::read_to_string(dir.join("index.html")).unwrap(),
         "<html>1.2.0</html>"
@@ -2236,7 +2265,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     .await;
     assert_eq!(status, StatusCode::OK, "{plugin}");
     assert_eq!(plugin["install"]["version"], "1.3.0");
-    let dir = app.state.config.plugin_store_dir().join("thing/1");
+    let dir = app.state.config().plugin_store_dir().join("thing/1");
     assert_eq!(
         std::fs::read_to_string(dir.join("index.html")).unwrap(),
         "<html>1.3.0</html>"
@@ -2253,7 +2282,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     assert_eq!(status, StatusCode::OK, "{plugin}");
     assert_eq!(plugin["install"]["version"], "1.0.1");
     assert_eq!(plugin["install"]["tag"], "v1.0.1");
-    let dir = app.state.config.plugin_store_dir().join("pinned/1");
+    let dir = app.state.config().plugin_store_dir().join("pinned/1");
     assert_eq!(
         std::fs::read_to_string(dir.join("index.html")).unwrap(),
         "<html>pinned</html>"
@@ -2328,7 +2357,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     // the fetch folder is left clean
     let fetch = app
         .state
-        .config
+        .config()
         .plugin_store_dir()
         .parent()
         .unwrap()

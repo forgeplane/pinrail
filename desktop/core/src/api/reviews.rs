@@ -37,7 +37,7 @@ pub fn routes() -> Router<Arc<Wicket>> {
 
 async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Response, Error> {
     let body = parse_body(&body)?;
-    let review = state.reviews.submit(&body, None)?;
+    let review = state.reviews().submit(&body, None)?;
     Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
 }
 
@@ -64,7 +64,7 @@ async fn list(
             }
         }
     }
-    let listing = state.reviews.listing(&filters, facets)?;
+    let listing = state.reviews().listing(&filters, facets)?;
     let mut body = json!({
         "reviews": listing.reviews.iter().map(|r| r.to_json(false)).collect::<Vec<_>>(),
         "total": listing.total,
@@ -105,7 +105,7 @@ fn review_response(
     if !markdown {
         return Ok(Json(review.to_json(true)).into_response());
     }
-    let rounds = state.reviews.rounds(&review.id)?;
+    let rounds = state.reviews().rounds(&review.id)?;
     let round = (rounds.len() > 1)
         .then(|| {
             rounds
@@ -133,7 +133,7 @@ async fn show(
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
 ) -> Result<Response, Error> {
-    let review = state.reviews.get(&id)?;
+    let review = state.reviews().get(&id)?;
     review_response(&state, &review, wants_markdown(&headers, &params))
 }
 
@@ -141,7 +141,7 @@ async fn rounds(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
-    let rounds = state.reviews.rounds(&id)?;
+    let rounds = state.reviews().rounds(&id)?;
     Ok(Json(Value::Array(
         rounds.iter().map(|r| r.to_json(false)).collect(),
     )))
@@ -159,7 +159,7 @@ async fn wait(
         .unwrap_or(DEFAULT_WAIT)
         .min(MAX_WAIT);
     match state
-        .reviews
+        .reviews()
         .wait(&id, Duration::from_secs(timeout))
         .await?
     {
@@ -180,7 +180,7 @@ async fn decide(
         return Err(Error::invalid("/data", "is required"));
     };
     let note = body.get("agent_note").and_then(Value::as_str);
-    let review = state.reviews.decide(&id, data, note)?;
+    let review = state.reviews().decide(&id, data, note)?;
     review_response(&state, &review, wants_markdown(&headers, &params))
 }
 
@@ -191,7 +191,7 @@ async fn withdraw(
 ) -> Result<Json<Value>, Error> {
     let body = parse_body(&body)?;
     let reason = body.get("reason").and_then(Value::as_str);
-    Ok(Json(state.reviews.withdraw(&id, reason)?.to_json(true)))
+    Ok(Json(state.reviews().withdraw(&id, reason)?.to_json(true)))
 }
 
 async fn discard(
@@ -206,14 +206,16 @@ async fn discard(
     };
     let reason = body.get("reason").and_then(Value::as_str);
     let by = body.get("by").and_then(Value::as_str);
-    Ok(Json(state.reviews.discard(&id, by, reason)?.to_json(true)))
+    Ok(Json(
+        state.reviews().discard(&id, by, reason)?.to_json(true),
+    ))
 }
 
 async fn viewed(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
-    state.reviews.mark_viewed(&id)?;
+    state.reviews().mark_viewed(&id)?;
     Ok(Json(json!({ "ok": true })))
 }
 
@@ -221,7 +223,7 @@ async fn events(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, Error> {
-    let events = state.reviews.events(&id)?;
+    let events = state.reviews().events(&id)?;
     Ok(Json(Value::Array(
         events.iter().map(|e| e.to_json()).collect(),
     )))
