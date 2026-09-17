@@ -47,6 +47,9 @@
     ],
     "resources": {
       "../sdk/v1": "sdk/v1"
+    },
+    "macOS": {
+      "minimumSystemVersion": "13.0"
     }
   }
 }
