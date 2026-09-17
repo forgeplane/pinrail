@@ -218,7 +218,10 @@ desktop app's binary runs its server without a window with `--headless`,
 which suits CI and remote machines:
 
 ```sh
+# macOS
 export WICKET_SERVER_CMD='/Applications/Wicket.app/Contents/MacOS/Wicket --headless'
+# Linux, from the .deb or .rpm
+export WICKET_SERVER_CMD='wicket-desktop --headless'
 ```
 
 The server starts detached, in its own process group, and logs to
