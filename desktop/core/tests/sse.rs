@@ -40,11 +40,11 @@ async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
     let dir = tempfile::tempdir().unwrap();
     let app = Arc::new(Wicket::open(Config::new(dir.path(), 0)).unwrap());
     app.settings().change(&json!({"autostart": true})).unwrap();
-    let cursor = app.events_after(0, 1).unwrap()[0].event_id;
+    let cursor = app.events().after(0, 1).unwrap()[0].event_id;
     app.settings()
         .change(&json!({"appearance": {"theme": "dark"}}))
         .unwrap();
-    let replayed = app.events_after(cursor, 1).unwrap().remove(0);
+    let replayed = app.events().after(cursor, 1).unwrap().remove(0);
 
     let response = api::router(app.clone())
         .oneshot(
@@ -62,7 +62,7 @@ async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
     app.settings()
         .change(&json!({"notifications": {"sound": false}}))
         .unwrap();
-    let live = app.events_after(replayed.event_id, 1).unwrap().remove(0);
+    let live = app.events().after(replayed.event_id, 1).unwrap().remove(0);
 
     let mut body = response.into_body();
     let mut buffered = String::new();

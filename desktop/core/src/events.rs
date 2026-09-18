@@ -2,6 +2,10 @@
 //! and review waiters subscribe to the same bus. Every notice is also a row
 //! in the events table.
 
+mod service;
+
+pub use service::Events;
+
 use serde::Serialize;
 use serde_json::Value;
 use tokio::sync::broadcast;

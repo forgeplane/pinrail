@@ -33,7 +33,8 @@ async fn events(
     let after = params.get("after").and_then(|a| a.parse::<i64>().ok());
     let backlog: Vec<Notice> = match after {
         Some(after) => state
-            .events_after(after, CATCH_UP_LIMIT)
+            .events()
+            .after(after, CATCH_UP_LIMIT)
             .unwrap_or_default(),
         None => Vec::new(),
     };

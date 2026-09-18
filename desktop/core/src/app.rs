@@ -3,26 +3,25 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use serde_json::Value;
 
 use crate::Config;
 use crate::db::Db;
 use crate::error::Error;
-use crate::events::{Bus, Notice};
+use crate::events::Events;
 use crate::plugins::{self as plugin_store, PluginService, Registry};
 use crate::reviews::Reviews;
 use crate::settings::SettingsService;
 
 /// The running application, shared by the desktop and HTTP interfaces.
-/// Opening it initializes local storage and services without starting a server.
+/// Opening it initializes local storage and services without starting a
+/// server. It holds the services and nothing else: storage is theirs.
 #[derive(Debug)]
 pub struct Wicket {
     config: Config,
     started_at: DateTime<Utc>,
-    events: Bus,
+    events: Events,
     settings: SettingsService,
     plugins: PluginService,
-    db: Arc<Db>,
     reviews: Reviews,
 }
 
@@ -37,39 +36,9 @@ impl Wicket {
     }
 
     /// The shared channel for review, settings and plugin events.
-    pub fn events(&self) -> &Bus {
+    /// Who hears what happened, and what a client that was away missed.
+    pub fn events(&self) -> &Events {
         &self.events
-    }
-
-    /// Recorded events after `after`, in id order, with at most `limit` notices.
-    /// Review data reflects its current state and omits the payload. Missing or
-    /// unreadable reviews leave the notice's review data empty, as during catch-up.
-    pub fn events_after(&self, after: i64, limit: usize) -> Result<Vec<Notice>, Error> {
-        Ok(self
-            .db
-            .events_after(after, limit)?
-            .into_iter()
-            .map(|event| Notice {
-                event_id: event.id,
-                kind: event.kind,
-                review: event
-                    .review_id
-                    .as_deref()
-                    .and_then(|id| self.db.get_review(id).ok().flatten())
-                    .map(|review| review.to_json(false)),
-                review_id: event.review_id,
-                keys: event
-                    .attrs
-                    .get("keys")
-                    .and_then(Value::as_array)
-                    .map(|keys| {
-                        keys.iter()
-                            .filter_map(Value::as_str)
-                            .map(str::to_string)
-                            .collect()
-                    }),
-            })
-            .collect())
     }
 
     /// Review operations share the application's storage, registry and event bus.
@@ -102,18 +71,14 @@ impl Wicket {
         let registry = Arc::new(
             Registry::open(builtin, records, config.plugin_store_dir()).map_err(Error::Internal)?,
         );
-        let events = Bus::new();
-        let settings = SettingsService::open(
-            &config.data_dir,
-            db.clone(),
-            registry.clone(),
-            events.clone(),
-        );
-        let plugins = PluginService::new(db.clone(), registry.clone(), events.clone());
+        let events = Events::new(db.clone());
+        let settings =
+            SettingsService::open(&config.data_dir, db.clone(), registry.clone(), events.bus());
+        let plugins = PluginService::new(db.clone(), registry.clone(), events.bus());
         let reviews = Reviews::new(
             db.clone(),
             registry.clone(),
-            events.clone(),
+            events.bus(),
             config.user.clone(),
         );
         Ok(Self {
@@ -122,7 +87,6 @@ impl Wicket {
             events,
             settings,
             plugins,
-            db,
             reviews,
         })
     }

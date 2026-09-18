@@ -26,7 +26,7 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
         .withdraw(&review.id, Some("No longer needed"))
         .unwrap();
 
-    let notices = app.events_after(0, 10).unwrap();
+    let notices = app.events().after(0, 10).unwrap();
     assert_eq!(
         notices.iter().map(|n| n.kind.as_str()).collect::<Vec<_>>(),
         vec![
@@ -59,17 +59,18 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
     }
     assert!(notices[2].keys.is_none());
 
-    let page = app.events_after(notices[0].event_id, 2).unwrap();
+    let page = app.events().after(notices[0].event_id, 2).unwrap();
     assert_eq!(
         page.iter().map(|n| n.event_id).collect::<Vec<_>>(),
         vec![notices[1].event_id, notices[2].event_id]
     );
     assert!(
-        app.events_after(notices[3].event_id, 10)
+        app.events()
+            .after(notices[3].event_id, 10)
             .unwrap()
             .is_empty()
     );
-    assert!(app.events_after(0, 0).unwrap().is_empty());
+    assert!(app.events().after(0, 0).unwrap().is_empty());
 }
 
 #[test]
@@ -79,7 +80,7 @@ fn event_history_returns_storage_failures_to_the_caller() {
     let app = Wicket::open(config.clone()).unwrap();
     let connection = rusqlite::Connection::open(config.db_path()).unwrap();
     connection.execute_batch("DROP TABLE events").unwrap();
-    assert!(matches!(app.events_after(0, 10), Err(Error::Internal(_))));
+    assert!(matches!(app.events().after(0, 10), Err(Error::Internal(_))));
 }
 
 #[test]
