@@ -17,7 +17,7 @@ use super::parse_body;
 use crate::Wicket;
 use crate::db::Filters;
 use crate::error::Error;
-use crate::review::Status;
+use crate::reviews::Status;
 
 const DEFAULT_WAIT: u64 = 300;
 const MAX_WAIT: u64 = 600;
@@ -99,7 +99,7 @@ fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> bool
 /// in the chain, or the JSON everything else reads.
 fn review_response(
     state: &Wicket,
-    review: &crate::review::Review,
+    review: &crate::reviews::Review,
     markdown: bool,
 ) -> Result<Response, Error> {
     if !markdown {

@@ -16,7 +16,6 @@ pub mod events;
 pub mod id;
 pub mod markdown;
 pub mod plugins;
-pub mod review;
 pub mod reviews;
 pub mod schema;
 pub mod server_info;

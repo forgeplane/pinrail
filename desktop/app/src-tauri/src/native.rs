@@ -13,7 +13,7 @@ use tokio::sync::broadcast::error::RecvError;
 use wicket_core::Wicket;
 use wicket_core::db::Filters;
 use wicket_core::events::{self, Notice};
-use wicket_core::review::{Review, Status};
+use wicket_core::reviews::{Review, Status};
 
 /// The shell listens for this and navigates to the payload.
 pub const OPEN_EVENT: &str = "wicket:open";

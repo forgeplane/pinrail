@@ -8,7 +8,7 @@ use chrono::{Duration, Utc};
 use rusqlite::OptionalExtension;
 use serde_json::{Map, json};
 use wicket_core::db::{Db, Filters, SCHEMA_VERSION};
-use wicket_core::review::{Decision, Review, Status, parse_datetime};
+use wicket_core::reviews::{Decision, Review, Status, parse_datetime};
 
 fn review(id: &str, expires_in: Option<Duration>) -> Review {
     Review {

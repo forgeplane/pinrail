@@ -20,7 +20,7 @@ pub fn write(config: &Config, started_at: DateTime<Utc>) -> std::io::Result<()> 
         "url": config.url(),
         "port": config.port,
         "pid": std::process::id(),
-        "started_at": crate::review::iso(started_at),
+        "started_at": crate::reviews::iso(started_at),
     });
     let mut body = info.to_string();
     body.push('\n');

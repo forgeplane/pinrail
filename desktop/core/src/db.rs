@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Map, Value};
 
-use crate::review::{Decision, Review, Status, parse_datetime};
+use crate::reviews::{Decision, Review, Status, parse_datetime};
 
 /// The tables as they were before versioning: step 0, run once for a new
 /// file and never edited again. A later step creates the tables it adds,
@@ -308,7 +308,7 @@ impl InstalledRecord {
             asset_hash: None,
             hash: None,
             build_log: None,
-            installed_at: crate::review::iso(Utc::now()),
+            installed_at: crate::reviews::iso(Utc::now()),
             linked: true,
             path,
         })
@@ -362,7 +362,7 @@ impl Event {
             "review_id": self.review_id,
             "kind": self.kind,
             "actor": self.actor,
-            "at": crate::review::iso(self.at),
+            "at": crate::reviews::iso(self.at),
             "attrs": self.attrs,
         })
     }
@@ -414,8 +414,8 @@ impl Db {
                 review.payload.clone().unwrap_or(Value::Object(Map::new())).to_string(),
                 review.summary.as_ref().map(|s| s.to_string()),
                 review.revises,
-                review.expires_at.map(crate::review::iso),
-                crate::review::iso(review.created_at),
+                review.expires_at.map(crate::reviews::iso),
+                crate::reviews::iso(review.created_at),
                 review.plugin_release,
             ],
         )?;
@@ -592,7 +592,7 @@ impl Db {
                 .iter()
                 .any(|s| matches!(s, Status::Pending | Status::Expired));
             let n = if clocked {
-                push(&crate::review::iso(now))
+                push(&crate::reviews::iso(now))
             } else {
                 0
             };
@@ -738,7 +738,7 @@ impl Db {
             params![
                 id,
                 outcome.kind,
-                crate::review::iso(outcome.at),
+                crate::reviews::iso(outcome.at),
                 outcome.by,
                 outcome.reason,
                 outcome.data.map(Value::to_string),
@@ -803,7 +803,7 @@ impl Db {
                AND NOT EXISTS (SELECT 1 FROM events e WHERE e.review_id = r.id AND e.kind = 'expired')
              ORDER BY r.id"
         ))?;
-        let rows = stmt.query_map(params![crate::review::iso(now)], |row| {
+        let rows = stmt.query_map(params![crate::reviews::iso(now)], |row| {
             row_to_review(row, false)
         })?;
         rows.collect()
@@ -826,7 +826,7 @@ impl Db {
               ORDER BY r.id",
         )?;
         let ended: Vec<(String, String, u32)> = stmt
-            .query_map(params![crate::review::iso(before)], |row| {
+            .query_map(params![crate::reviews::iso(before)], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
             })?
             .collect::<rusqlite::Result<_>>()?;
@@ -996,7 +996,7 @@ fn insert_event(
             review_id,
             kind,
             actor,
-            crate::review::iso(Utc::now()),
+            crate::reviews::iso(Utc::now()),
             if attrs.is_null() {
                 None
             } else {
