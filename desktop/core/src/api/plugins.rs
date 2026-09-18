@@ -10,13 +10,14 @@ use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
+use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Wicket;
 use crate::error::Error;
 use crate::plugins::{InstallOptions, UpdateOutcome};
 
-pub fn routes() -> Router<Arc<Wicket>> {
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/plugins", get(index))
         .route("/api/v1/plugins/reload", post(reload))

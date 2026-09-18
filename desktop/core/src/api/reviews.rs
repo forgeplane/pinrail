@@ -13,6 +13,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
+use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Wicket;
@@ -22,7 +23,7 @@ use crate::reviews::{Filters, Status};
 const DEFAULT_WAIT: u64 = 300;
 const MAX_WAIT: u64 = 600;
 
-pub fn routes() -> Router<Arc<Wicket>> {
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/reviews", post(submit).get(list))
         .route("/api/v1/reviews/{id}", get(show))

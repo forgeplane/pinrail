@@ -9,12 +9,13 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde_json::Value;
 
+use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Wicket;
 use crate::error::Error;
 
-pub fn routes() -> Router<Arc<Wicket>> {
+pub fn routes() -> Router<ApiState> {
     Router::new().route("/api/v1/settings", get(show).patch(change))
 }
 

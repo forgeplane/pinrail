@@ -11,7 +11,7 @@ mod sse;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::{Json, Router, extract::State, routing::get};
+use axum::{Json, Router, extract::FromRef, extract::State, routing::get};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use tower_http::cors::{AllowOrigin, CorsLayer};
@@ -29,7 +29,36 @@ pub struct Info {
     pub user: String,
 }
 
-pub fn router(state: Arc<Wicket>) -> Router {
+/// What a handler can reach: the application, and what belongs to this run
+/// of the server rather than to the application itself.
+#[derive(Clone)]
+pub struct ApiState {
+    app: Arc<Wicket>,
+    /// When this server started, for `/info` and for `server.json`.
+    started_at: DateTime<Utc>,
+}
+
+impl ApiState {
+    fn new(app: Arc<Wicket>) -> Self {
+        ApiState {
+            app,
+            started_at: Utc::now(),
+        }
+    }
+}
+
+// Handlers ask for the application and get it out of the server's state.
+impl FromRef<ApiState> for Arc<Wicket> {
+    fn from_ref(state: &ApiState) -> Arc<Wicket> {
+        state.app.clone()
+    }
+}
+
+pub fn router(app: Arc<Wicket>) -> Router {
+    router_with(ApiState::new(app))
+}
+
+fn router_with(state: ApiState) -> Router {
     Router::new()
         .route("/api/v1/info", get(info))
         .merge(reviews::routes())
@@ -41,14 +70,15 @@ pub fn router(state: Arc<Wicket>) -> Router {
         .with_state(state)
 }
 
-async fn info(State(state): State<Arc<Wicket>>) -> Json<Info> {
+async fn info(State(state): State<ApiState>) -> Json<Info> {
+    let config = state.app.config();
     Json(Info {
         version: crate::VERSION,
-        data_dir: state.config().data_dir.display().to_string(),
-        port: state.config().port,
+        data_dir: config.data_dir.display().to_string(),
+        port: config.port,
         pid: std::process::id(),
-        started_at: state.started_at(),
-        user: state.config().user.clone(),
+        started_at: state.started_at,
+        user: config.user.clone(),
     })
 }
 
@@ -57,27 +87,28 @@ async fn info(State(state): State<Arc<Wicket>>) -> Json<Info> {
 /// and, when the history keeps a limited number of days, the reviews past
 /// them.
 pub async fn serve(
-    state: Arc<Wicket>,
+    app: Arc<Wicket>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
-    let listener = tokio::net::TcpListener::bind(state.config().bind_addr()).await?;
-    server_info::write(state.config(), state.started_at())?;
+    let state = ApiState::new(app);
+    let listener = tokio::net::TcpListener::bind(state.app.config().bind_addr()).await?;
+    server_info::write(state.app.config(), state.started_at)?;
 
     let sweeper = {
-        let state = state.clone();
+        let app = state.app.clone();
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(Duration::from_secs(30));
             loop {
                 tick.tick().await;
-                if let Err(error) = state.reviews().sweep_expired() {
+                if let Err(error) = app.reviews().sweep_expired() {
                     eprintln!("wicket: expiry sweep failed: {error}");
                 }
-                let keep_days = state
+                let keep_days = app
                     .settings()
                     .value("/history/keep_days")
                     .as_u64()
                     .map(|d| d as u32);
-                if let Err(error) = state.reviews().sweep_history(keep_days) {
+                if let Err(error) = app.reviews().sweep_history(keep_days) {
                     eprintln!("wicket: history sweep failed: {error}");
                 }
             }
@@ -85,24 +116,24 @@ pub async fn serve(
     };
     // an edit to settings.json outside the app is noticed within a second
     let watcher = {
-        let state = state.clone();
+        let app = state.app.clone();
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(Duration::from_secs(1));
             loop {
                 tick.tick().await;
-                if let Err(error) = state.settings().reload() {
+                if let Err(error) = app.settings().reload() {
                     eprintln!("wicket: settings change not announced: {error}");
                 }
             }
         })
     };
 
-    let result = axum::serve(listener, router(state.clone()))
+    let result = axum::serve(listener, router_with(state.clone()))
         .with_graceful_shutdown(shutdown)
         .await;
     sweeper.abort();
     watcher.abort();
-    server_info::remove(state.config());
+    server_info::remove(state.app.config());
     result
 }
 

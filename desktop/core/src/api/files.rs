@@ -17,10 +17,11 @@ use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 
+use super::ApiState;
 use crate::Wicket;
 use crate::schema::safe_join;
 
-pub fn routes() -> Router<Arc<Wicket>> {
+pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/plugins/{name}/{version}/{*path}", get(bundle))
         .route("/sdk/v1/{*path}", get(sdk))

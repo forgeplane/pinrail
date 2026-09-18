@@ -15,12 +15,13 @@ use futures_util::stream::{self, Stream};
 use serde_json::json;
 use tokio_stream::wrappers::BroadcastStream;
 
+use super::ApiState;
 use crate::Wicket;
 use crate::events::Notice;
 
 const CATCH_UP_LIMIT: usize = 1000;
 
-pub fn routes() -> Router<Arc<Wicket>> {
+pub fn routes() -> Router<ApiState> {
     Router::new().route("/api/v1/events", get(events))
 }
 

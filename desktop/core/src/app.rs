@@ -2,8 +2,6 @@
 
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
-
 use crate::Config;
 use crate::db::Db;
 use crate::error::Error;
@@ -18,7 +16,6 @@ use crate::settings::SettingsService;
 #[derive(Debug)]
 pub struct Wicket {
     config: Config,
-    started_at: DateTime<Utc>,
     events: Events,
     settings: SettingsService,
     plugins: PluginService,
@@ -29,10 +26,6 @@ impl Wicket {
     /// The configuration this application was opened with.
     pub fn config(&self) -> &Config {
         &self.config
-    }
-
-    pub fn started_at(&self) -> DateTime<Utc> {
-        self.started_at
     }
 
     /// The shared channel for review, settings and plugin events.
@@ -83,7 +76,6 @@ impl Wicket {
         );
         Ok(Self {
             config,
-            started_at: Utc::now(),
             events,
             settings,
             plugins,
