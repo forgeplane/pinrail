@@ -8,7 +8,7 @@ use crate::Config;
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::Bus;
-use crate::plugins::{self as plugin_store, Registry};
+use crate::plugins::{self as plugin_store, PluginService, Registry};
 use crate::reviews::Reviews;
 use crate::settings::SettingsService;
 
@@ -19,6 +19,7 @@ pub struct Wicket {
     config: Config,
     started_at: DateTime<Utc>,
     settings: SettingsService,
+    plugins: PluginService,
     pub(crate) db: Arc<Db>,
     pub(crate) registry: Arc<Registry>,
     reviews: Reviews,
@@ -46,6 +47,11 @@ impl Wicket {
         &self.settings
     }
 
+    /// Plugin operations share the registry, persistence and change notifications.
+    pub fn plugins(&self) -> &PluginService {
+        &self.plugins
+    }
+
     /// Opens the database, writes out the built-in plugin, scans the plugin
     /// directories and wires the service together.
     pub fn open(config: Config) -> Result<Arc<Self>, Error> {
@@ -67,11 +73,13 @@ impl Wicket {
         let bus = Bus::new();
         let settings =
             SettingsService::open(&config.data_dir, db.clone(), registry.clone(), bus.clone());
+        let plugins = PluginService::new(db.clone(), registry.clone(), bus.clone());
         let reviews = Reviews::new(db.clone(), registry.clone(), bus, config.user.clone());
         Ok(Arc::new(Self {
             config,
             started_at: Utc::now(),
             settings,
+            plugins,
             db,
             registry,
             reviews,

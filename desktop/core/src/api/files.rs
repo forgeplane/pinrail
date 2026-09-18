@@ -34,7 +34,7 @@ async fn bundle(
     let Ok(version) = version.parse::<u32>() else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let Ok(plugin) = state.registry.fetch_version(&name, version) else {
+    let Ok(plugin) = state.plugins().fetch_version(&name, version) else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let dir = plugin.path.clone();

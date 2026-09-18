@@ -115,7 +115,7 @@ fn review_response(
         })
         .flatten();
     let template = state
-        .registry
+        .plugins()
         .fetch_version(&review.plugin, review.plugin_version)
         .ok()
         .and_then(|p| p.decision_template.clone());
