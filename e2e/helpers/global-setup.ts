@@ -59,8 +59,10 @@ export default async function globalSetup() {
     throw new Error(`wicket serve failed (${serve.status}):\n${serve.stderr}\n${serve.stdout}`);
   }
 
-  // one install per plugin, each linked to the folder it is developed in
-  for (const name of ["artifact", "email", "hello", "review"]) {
+  // One install per plugin, each linked to the folder it is developed in.
+  // The artifact plugin is left out: linking serves a folder as it stands, and
+  // its view is built output this job does not build. The plugins job covers it.
+  for (const name of ["email", "hello", "review"]) {
     const dir = path.join(root, "plugins", name);
     const install = spawnSync(cli, ["plugins", "install", dir, "--link"], { env: cliEnv(state), encoding: "utf8", timeout: 120_000 });
     if (install.status !== 0) throw new Error(`wicket plugins install ${name} failed:\n${install.stderr}`);

@@ -170,9 +170,18 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
             path: None,
         },
     );
-    while app.plugins().job(&job).unwrap().status != "done" {
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-    }
+    let installed = tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let job = app.plugins().job(&job).unwrap();
+            if matches!(job.status.as_str(), "done" | "failed") {
+                return job;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("installing knobs did not finish");
+    assert_eq!(installed.status, "done", "{:?}", installed.error);
     let mut notices = app.events().subscribe();
 
     let error = app

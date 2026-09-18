@@ -171,13 +171,10 @@ test("a plugin wicket-plugin create wrote installs as a link and decides a revie
   wicketJson(["plugins", "remove", "triage"]);
 });
 
-test("plugins lists the built-in and the registered sample plugins", async () => {
+test("plugins lists the built-in and the installed sample plugins", async () => {
   const plugins = wicketJson(["plugins"]);
-  expect(plugins.plugins.map((p: any) => p.name)).toEqual(["artifact", "email", "hello", "list", "review"]);
-  // artifact is usable once built; unbuilt it is listed with the reason
-  for (const p of plugins.plugins) {
-    if (p.usable) continue;
-    expect(p.name).toBe("artifact");
-    expect(p.error).toContain("entry view/index.html not found");
-  }
+  // the samples this suite installs, and the built-in that is always there
+  expect(plugins.plugins.map((p: any) => p.name)).toEqual(["email", "hello", "list", "review"]);
+  // a plugin only installs if it loads, so every one of them is usable
+  for (const p of plugins.plugins) expect(p.usable, `${p.name}: ${p.error}`).toBe(true);
 });
