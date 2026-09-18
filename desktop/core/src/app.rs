@@ -10,7 +10,7 @@ use crate::error::Error;
 use crate::events::Bus;
 use crate::plugins::{self as plugin_store, Registry};
 use crate::reviews::Reviews;
-use crate::settings::{SettingsService, Store};
+use crate::settings::SettingsService;
 
 /// The running application, shared by the desktop and HTTP interfaces.
 /// Opening it initializes local storage and services without starting a server.
@@ -50,7 +50,6 @@ impl Wicket {
     /// directories and wires the service together.
     pub fn open(config: Config) -> Result<Arc<Self>, Error> {
         std::fs::create_dir_all(&config.data_dir)?;
-        let store = Store::open(&config.data_dir);
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
         let user = config.user_plugins_dir();
@@ -66,7 +65,8 @@ impl Wicket {
                 .map_err(Error::Internal)?,
         );
         let bus = Bus::new();
-        let settings = SettingsService::new(store, db.clone(), registry.clone(), bus.clone());
+        let settings =
+            SettingsService::open(&config.data_dir, db.clone(), registry.clone(), bus.clone());
         let reviews = Reviews::new(db.clone(), registry.clone(), bus, config.user.clone());
         Ok(Arc::new(Self {
             config,

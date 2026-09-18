@@ -1,10 +1,11 @@
 //! Settings operations shared by the HTTP API, desktop and file watcher.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::Store;
+use super::store::Store;
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
@@ -20,9 +21,10 @@ pub struct SettingsService {
 }
 
 impl SettingsService {
-    pub(crate) fn new(store: Store, db: Arc<Db>, registry: Arc<Registry>, bus: Bus) -> Self {
+    /// Opens the settings store and connects validation and change notifications.
+    pub(crate) fn open(data_dir: &Path, db: Arc<Db>, registry: Arc<Registry>, bus: Bus) -> Self {
         Self {
-            store,
+            store: Store::open(data_dir),
             db,
             registry,
             bus,

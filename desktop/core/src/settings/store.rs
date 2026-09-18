@@ -1,0 +1,547 @@
+//! `settings.json` in the data directory: what a person can change about the
+//! app. The core owns it — defaults, validation, an atomic write — and
+//! notices an edit made outside the app. Unknown keys in the file are kept
+//! as they are, so a newer file survives an older app.
+
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::SystemTime;
+
+use serde_json::{Map, Value, json};
+
+use super::PLUGINS;
+use crate::error::{Error, Violation};
+
+const FILE: &str = "settings.json";
+
+/// What a leaf may hold.
+#[derive(Debug, Clone, Copy)]
+enum Kind {
+    Bool,
+    Enum(&'static [&'static str]),
+    /// a non-empty string
+    Text,
+    /// an RFC 3339 timestamp, or null
+    NullableTime,
+    /// a list of non-empty strings
+    TextList,
+    /// {from: "HH:MM", to: "HH:MM"}, or null
+    NullableHours,
+    Port,
+    /// a positive integer, or null
+    NullableDays,
+}
+
+/// A setting: its JSON pointer, its kind and its default.
+type Leaf = (&'static str, Kind, fn() -> Value);
+
+/// Every setting, its kind and its default. Paths are JSON pointers.
+const LEAVES: &[Leaf] = &[
+    (
+        "/appearance/theme",
+        Kind::Enum(&["system", "dark", "light"]),
+        || json!("system"),
+    ),
+    (
+        "/appearance/text_size",
+        Kind::Enum(&["small", "default", "large"]),
+        || json!("default"),
+    ),
+    ("/autostart", Kind::Bool, || json!(false)),
+    ("/close_window", Kind::Enum(&["hide", "quit"]), || {
+        json!("hide")
+    }),
+    ("/menu_bar_icon", Kind::Bool, || json!(true)),
+    ("/sidebar/open", Kind::Bool, || json!(true)),
+    ("/notifications/enabled", Kind::Bool, || json!(true)),
+    ("/notifications/paused_until", Kind::NullableTime, || {
+        Value::Null
+    }),
+    ("/notifications/sound", Kind::Bool, || json!(true)),
+    ("/notifications/muted_plugins", Kind::TextList, || json!([])),
+    ("/notifications/quiet_hours", Kind::NullableHours, || {
+        Value::Null
+    }),
+    ("/shortcut/global", Kind::Text, || json!("alt+shift+w")),
+    (
+        "/shortcut/global_opens",
+        Kind::Enum(&["oldest", "inbox"]),
+        || json!("oldest"),
+    ),
+    ("/port", Kind::Port, || json!(4747)),
+    ("/history/keep_days", Kind::NullableDays, || Value::Null),
+];
+
+/// Every setting at its default.
+fn defaults() -> Value {
+    let mut out = Value::Object(Map::new());
+    for (path, _, default) in LEAVES {
+        set_at(&mut out, path, default());
+    }
+    set_at(&mut out, PLUGINS, Value::Object(Map::new()));
+    out
+}
+
+/// The port the file asks for, read before anything else is open; `None`
+/// when there is no file or it says nothing usable.
+pub fn port_in(data_dir: &Path) -> Option<u16> {
+    let text = std::fs::read_to_string(data_dir.join(FILE)).ok()?;
+    let value: Value = serde_json::from_str(&text).ok()?;
+    value
+        .get("port")?
+        .as_u64()
+        .filter(|p| (1..=65535).contains(p))
+        .map(|p| p as u16)
+}
+
+#[derive(Debug)]
+pub(super) struct Store {
+    path: PathBuf,
+    inner: Mutex<Inner>,
+}
+
+#[derive(Debug)]
+struct Inner {
+    /// the file's contents, unknown keys included; never the defaults
+    file: Value,
+    /// what the file looked like when we last read or wrote it
+    seen: Option<(SystemTime, u64)>,
+}
+
+impl Store {
+    /// Opens `settings.json` under `data_dir`, reading it if it exists. A
+    /// file that is not valid JSON is left alone and treated as empty, so
+    /// a bad edit never loses the file.
+    pub(super) fn open(data_dir: &Path) -> Self {
+        let path = data_dir.join(FILE);
+        let (file, seen) = read(&path);
+        Store {
+            path,
+            inner: Mutex::new(Inner { file, seen }),
+        }
+    }
+
+    /// Every setting: the defaults with the file's values over them.
+    pub(super) fn get(&self) -> Value {
+        let inner = self.inner.lock().unwrap();
+        let mut out = defaults();
+        merge(&mut out, &inner.file);
+        out
+    }
+
+    /// One setting by JSON pointer, as it currently is.
+    pub(super) fn value(&self, pointer: &str) -> Value {
+        self.get().pointer(pointer).cloned().unwrap_or(Value::Null)
+    }
+
+    /// Applies a partial object: every leaf checked, unknown keys refused,
+    /// the file written atomically. Returns the settings after the change
+    /// and the pointers that changed.
+    pub(super) fn patch(&self, patch: &Value) -> Result<(Value, Vec<String>), Error> {
+        let Value::Object(_) = patch else {
+            return Err(Error::invalid("", "must be a JSON object"));
+        };
+        let mut violations = Vec::new();
+        validate(patch, "", &mut violations);
+        if !violations.is_empty() {
+            violations.sort_by(|a, b| a.path.cmp(&b.path));
+            return Err(Error::Invalid(violations));
+        }
+        let mut inner = self.inner.lock().unwrap();
+        let before = {
+            let mut v = defaults();
+            merge(&mut v, &inner.file);
+            v
+        };
+        let mut file = inner.file.clone();
+        merge(&mut file, patch);
+        write(&self.path, &file)?;
+        inner.file = file;
+        inner.seen = stat(&self.path);
+        let mut after = defaults();
+        merge(&mut after, &inner.file);
+        Ok((after.clone(), changed(&before, &after)))
+    }
+
+    /// Reads the file again when something else wrote it; the pointers
+    /// that changed, or `None` when nothing did.
+    pub(super) fn reload_if_changed(&self) -> Option<Vec<String>> {
+        let mut inner = self.inner.lock().unwrap();
+        let now = stat(&self.path);
+        if now == inner.seen {
+            return None;
+        }
+        let (file, seen) = read(&self.path);
+        let mut before = defaults();
+        merge(&mut before, &inner.file);
+        let mut after = defaults();
+        merge(&mut after, &file);
+        inner.file = file;
+        inner.seen = seen;
+        let keys = changed(&before, &after);
+        (!keys.is_empty()).then_some(keys)
+    }
+}
+
+fn read(path: &Path) -> (Value, Option<(SystemTime, u64)>) {
+    let seen = stat(path);
+    let file = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .filter(Value::is_object)
+        .unwrap_or_else(|| Value::Object(Map::new()));
+    (file, seen)
+}
+
+fn stat(path: &Path) -> Option<(SystemTime, u64)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
+}
+
+/// Temp file, then rename: the file is whole or untouched.
+fn write(path: &Path, value: &Value) -> Result<(), Error> {
+    let tmp = path.with_extension("json.tmp");
+    let text = serde_json::to_string_pretty(value).map_err(|e| Error::Internal(e.to_string()))?;
+    std::fs::write(&tmp, text + "\n")?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
+/// Objects merge key by key; anything else replaces.
+fn merge(into: &mut Value, from: &Value) {
+    match (into, from) {
+        (Value::Object(a), Value::Object(b)) => {
+            for (k, v) in b {
+                match a.get_mut(k) {
+                    Some(slot) if slot.is_object() && v.is_object() => merge(slot, v),
+                    _ => {
+                        a.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+        (into, from) => *into = from.clone(),
+    }
+}
+
+fn set_at(root: &mut Value, pointer: &str, value: Value) {
+    let mut cur = root;
+    let parts: Vec<&str> = pointer.trim_start_matches('/').split('/').collect();
+    for (i, part) in parts.iter().enumerate() {
+        let map = match cur {
+            Value::Object(m) => m,
+            _ => unreachable!("defaults are objects"),
+        };
+        if i == parts.len() - 1 {
+            map.insert((*part).to_string(), value);
+            return;
+        }
+        cur = map
+            .entry((*part).to_string())
+            .or_insert_with(|| Value::Object(Map::new()));
+    }
+}
+
+/// The leaves whose value differs, as pointers; a plugin's settings leaf
+/// by leaf.
+fn changed(before: &Value, after: &Value) -> Vec<String> {
+    let mut out = Vec::new();
+    for (path, _, _) in LEAVES {
+        if before.pointer(path) != after.pointer(path) {
+            out.push((*path).to_string());
+        }
+    }
+    let empty = Map::new();
+    let plugins = |v: &Value| {
+        v.pointer(PLUGINS)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let (a, b) = (plugins(before), plugins(after));
+    for name in a.keys().chain(b.keys()) {
+        let (x, y) = (
+            a.get(name).and_then(Value::as_object).unwrap_or(&empty),
+            b.get(name).and_then(Value::as_object).unwrap_or(&empty),
+        );
+        for key in x.keys().chain(y.keys()) {
+            let pointer = format!("{PLUGINS}/{name}/{key}");
+            if x.get(key) != y.get(key) && !out.contains(&pointer) {
+                out.push(pointer);
+            }
+        }
+    }
+    out
+}
+
+/// Walks a patch: known leaves are checked, groups are entered, anything
+/// else is refused.
+fn validate(value: &Value, pointer: &str, out: &mut Vec<Violation>) {
+    if pointer == PLUGINS {
+        validate_plugins(value, out);
+        return;
+    }
+    if let Some((_, kind, _)) = LEAVES.iter().find(|(p, _, _)| *p == pointer) {
+        if let Some(message) = check(*kind, value) {
+            out.push(Violation::new(pointer, message));
+        }
+        return;
+    }
+    let is_group = LEAVES
+        .iter()
+        .any(|(p, _, _)| p.starts_with(&format!("{pointer}/")));
+    if !is_group {
+        out.push(Violation::new(pointer, "unknown setting"));
+        return;
+    }
+    match value {
+        Value::Object(map) => {
+            for (k, v) in map {
+                validate(v, &format!("{pointer}/{k}"), out);
+            }
+        }
+        _ => out.push(Violation::new(pointer, "must be a JSON object")),
+    }
+}
+
+/// Plugin settings are one object per plugin, each value a scalar; what
+/// the values may be is the plugin's schema, checked by the caller that
+/// has the registry.
+fn validate_plugins(value: &Value, out: &mut Vec<Violation>) {
+    let Value::Object(plugins) = value else {
+        out.push(Violation::new(PLUGINS, "must be a JSON object"));
+        return;
+    };
+    for (name, settings) in plugins {
+        let pointer = format!("{PLUGINS}/{name}");
+        let Value::Object(map) = settings else {
+            out.push(Violation::new(pointer, "must be a JSON object"));
+            continue;
+        };
+        for (key, v) in map {
+            if !(v.is_boolean() || v.is_number() || v.is_string()) {
+                out.push(Violation::new(
+                    format!("{pointer}/{key}"),
+                    "must be true or false, a number or a string",
+                ));
+            }
+        }
+    }
+}
+
+fn check(kind: Kind, value: &Value) -> Option<String> {
+    let wrong = |what: &str| Some(format!("must be {what}"));
+    match kind {
+        Kind::Bool => value
+            .is_boolean()
+            .then_some(())
+            .map_or(wrong("true or false"), |_| None),
+        Kind::Enum(options) => match value.as_str() {
+            Some(s) if options.contains(&s) => None,
+            _ => wrong(&format!("one of {}", options.join(", "))),
+        },
+        Kind::Text => match value.as_str() {
+            Some(s) if !s.trim().is_empty() => None,
+            _ => wrong("a non-empty string"),
+        },
+        Kind::NullableTime => match value {
+            Value::Null => None,
+            Value::String(s) if chrono::DateTime::parse_from_rfc3339(s).is_ok() => None,
+            _ => wrong("an RFC 3339 timestamp, or null"),
+        },
+        Kind::TextList => match value.as_array() {
+            Some(items)
+                if items
+                    .iter()
+                    .all(|i| i.as_str().is_some_and(|s| !s.trim().is_empty())) =>
+            {
+                None
+            }
+            _ => wrong("a list of names"),
+        },
+        Kind::NullableHours => match value {
+            Value::Null => None,
+            Value::Object(map)
+                if map.len() == 2
+                    && ["from", "to"]
+                        .iter()
+                        .all(|k| map.get(*k).and_then(Value::as_str).is_some_and(is_clock)) =>
+            {
+                None
+            }
+            _ => wrong("{\"from\": \"HH:MM\", \"to\": \"HH:MM\"}, or null"),
+        },
+        Kind::Port => match value.as_u64() {
+            Some(p) if (1..=65535).contains(&p) => None,
+            _ => wrong("a port between 1 and 65535"),
+        },
+        Kind::NullableDays => match value {
+            Value::Null => None,
+            Value::Number(n) if n.as_u64().is_some_and(|d| d >= 1) => None,
+            _ => wrong("a number of days, or null"),
+        },
+    }
+}
+
+fn is_clock(s: &str) -> bool {
+    let Some((h, m)) = s.split_once(':') else {
+        return false;
+    };
+    matches!((h.parse::<u8>(), m.parse::<u8>()), (Ok(h), Ok(m)) if h < 24 && m < 60 && h.to_string().len() <= 2 && m.to_string().len() <= 2)
+        && h.len() == 2
+        && m.len() == 2
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store() -> (tempfile::TempDir, Store) {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Store::open(dir.path());
+        (dir, store)
+    }
+
+    #[test]
+    fn defaults_cover_every_leaf() {
+        let d = defaults();
+        for (path, _, _) in LEAVES {
+            assert!(d.pointer(path).is_some(), "{path}");
+        }
+        assert_eq!(d["port"], 4747);
+        assert_eq!(d["appearance"]["theme"], "system");
+    }
+
+    #[test]
+    fn a_patch_is_merged_written_and_reported() {
+        let (dir, store) = store();
+        let (after, keys) = store
+            .patch(&json!({"appearance": {"theme": "light"}, "notifications": {"sound": false}}))
+            .unwrap();
+        assert_eq!(after["appearance"]["theme"], "light");
+        assert_eq!(
+            after["appearance"]["text_size"], "default",
+            "the sibling keeps its default"
+        );
+        assert_eq!(after["notifications"]["sound"], false);
+        assert_eq!(keys, vec!["/appearance/theme", "/notifications/sound"]);
+        let on_disk: Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.path().join(FILE)).unwrap()).unwrap();
+        assert_eq!(
+            on_disk,
+            json!({"appearance": {"theme": "light"}, "notifications": {"sound": false}}),
+            "only what was set is written"
+        );
+        assert!(!dir.path().join("settings.json.tmp").exists());
+    }
+
+    #[test]
+    fn bad_values_and_unknown_keys_are_refused_with_paths() {
+        let (_dir, store) = store();
+        let err = store
+            .patch(&json!({"appearance": {"theme": "sepia"}, "port": 70000, "nope": 1, "notifications": {"quiet_hours": {"from": "9:00", "to": "17:00"}}}))
+            .unwrap_err();
+        let Error::Invalid(v) = err else {
+            panic!("{err:?}")
+        };
+        let paths: Vec<&str> = v.iter().map(|x| x.path.as_str()).collect();
+        assert_eq!(
+            paths,
+            vec![
+                "/appearance/theme",
+                "/nope",
+                "/notifications/quiet_hours",
+                "/port"
+            ]
+        );
+        assert_eq!(v[0].message, "must be one of system, dark, light");
+        assert_eq!(v[1].message, "unknown setting");
+        assert!(store.get()["port"] == 4747, "nothing was applied");
+    }
+
+    #[test]
+    fn nullable_and_shaped_values() {
+        let (_dir, store) = store();
+        let ok = json!({"notifications": {"paused_until": "2026-09-14T10:00:00Z", "quiet_hours": {"from": "22:00", "to": "07:30"}, "muted_plugins": ["hello"]}, "history": {"keep_days": 30}});
+        store.patch(&ok).unwrap();
+        store.patch(&json!({"notifications": {"paused_until": null, "quiet_hours": null}, "history": {"keep_days": null}})).unwrap();
+        assert!(store.get()["notifications"]["paused_until"].is_null());
+        assert!(
+            store
+                .patch(&json!({"notifications": {"paused_until": "yesterday"}}))
+                .is_err()
+        );
+        assert!(store.patch(&json!({"history": {"keep_days": 0}})).is_err());
+        assert!(
+            store
+                .patch(&json!({"notifications": {"muted_plugins": [""]}}))
+                .is_err()
+        );
+        assert!(
+            store.patch(&json!({"notifications": "off"})).is_err(),
+            "a group must be an object"
+        );
+    }
+
+    #[test]
+    fn unknown_keys_in_the_file_survive_a_patch() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(FILE),
+            r#"{"future": {"thing": 1}, "port": 5000}"#,
+        )
+        .unwrap();
+        let store = Store::open(dir.path());
+        assert_eq!(store.get()["port"], 5000);
+        assert_eq!(store.get()["future"]["thing"], 1);
+        store.patch(&json!({"autostart": true})).unwrap();
+        let on_disk: Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.path().join(FILE)).unwrap()).unwrap();
+        assert_eq!(on_disk["future"]["thing"], 1);
+        assert_eq!(on_disk["port"], 5000);
+        assert_eq!(on_disk["autostart"], true);
+    }
+
+    #[test]
+    fn an_outside_edit_is_noticed_with_its_keys() {
+        let (dir, store) = store();
+        store.patch(&json!({"autostart": true})).unwrap();
+        assert!(
+            store.reload_if_changed().is_none(),
+            "our own write is not a change"
+        );
+        // a different mtime is not guaranteed within the same second; the
+        // length changes here, which is enough
+        std::fs::write(
+            dir.path().join(FILE),
+            r#"{"autostart": false, "appearance": {"theme": "dark"}}"#,
+        )
+        .unwrap();
+        let keys = store.reload_if_changed().unwrap();
+        assert_eq!(keys, vec!["/appearance/theme", "/autostart"]);
+        assert_eq!(store.get()["appearance"]["theme"], "dark");
+        assert!(store.reload_if_changed().is_none());
+    }
+
+    #[test]
+    fn a_broken_file_is_treated_as_empty_and_left_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(FILE), "{ not json").unwrap();
+        let store = Store::open(dir.path());
+        assert_eq!(store.get()["port"], 4747);
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(FILE)).unwrap(),
+            "{ not json"
+        );
+    }
+
+    #[test]
+    fn the_port_is_readable_before_anything_opens() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(port_in(dir.path()), None);
+        std::fs::write(dir.path().join(FILE), r#"{"port": 4800}"#).unwrap();
+        assert_eq!(port_in(dir.path()), Some(4800));
+        std::fs::write(dir.path().join(FILE), r#"{"port": 0}"#).unwrap();
+        assert_eq!(port_in(dir.path()), None);
+    }
+}
