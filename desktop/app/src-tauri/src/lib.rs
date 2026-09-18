@@ -216,10 +216,10 @@ pub fn run() {
             if config.sdk_dir.is_none() {
                 config.sdk_dir = sdk_dir(app);
             }
-            let state: Arc<Wicket> = Wicket::open(config).map_err(|error| {
+            let state: Arc<Wicket> = Arc::new(Wicket::open(config).map_err(|error| {
                 eprintln!("wicket: cannot open the data directory: {error}");
                 std::io::Error::other(error.to_string())
-            })?;
+            })?);
             let handle = app.handle().clone();
             let server = state.clone();
             tauri::async_runtime::spawn(async move {

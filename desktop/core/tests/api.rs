@@ -26,7 +26,7 @@ fn app() -> App {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
-    let state = Wicket::open(config).unwrap();
+    let state = Arc::new(Wicket::open(config).unwrap());
     App {
         router: router(state.clone()),
         state,
@@ -783,7 +783,7 @@ async fn the_sdk_is_served_only_when_configured() {
     std::fs::write(dir.path().join("wicket-plugin.js"), "export const ok = 1;").unwrap();
     let mut config = Config::new(app._dir.path(), 0);
     config.sdk_dir = Some(dir.path().to_path_buf());
-    let state = Wicket::open(config).unwrap();
+    let state = Arc::new(Wicket::open(config).unwrap());
     let router = router(state);
     let response = router
         .oneshot(
@@ -1693,7 +1693,7 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
     std::fs::write(plugins.join("logs/old.log"), "x").unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
-    let state = Wicket::open(config).unwrap();
+    let state = Arc::new(Wicket::open(config).unwrap());
     assert!(!plugins.join("review").exists(), "the old snapshot is gone");
     assert!(
         plugins.join("fetch").is_dir()

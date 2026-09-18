@@ -88,8 +88,10 @@ impl Wicket {
     }
 
     /// Opens the database, writes out the built-in plugin, scans the plugin
-    /// directories and wires the service together.
-    pub fn open(config: Config) -> Result<Arc<Self>, Error> {
+    /// directories and wires the services together. The caller decides how the
+    /// application is held: serving it over HTTP wants an `Arc`, a one-off
+    /// operation does not.
+    pub fn open(config: Config) -> Result<Self, Error> {
         std::fs::create_dir_all(&config.data_dir)?;
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
@@ -119,7 +121,7 @@ impl Wicket {
             events.clone(),
             config.user.clone(),
         );
-        Ok(Arc::new(Self {
+        Ok(Self {
             config,
             started_at: Utc::now(),
             events,
@@ -127,6 +129,6 @@ impl Wicket {
             plugins,
             db,
             reviews,
-        }))
+        })
     }
 }

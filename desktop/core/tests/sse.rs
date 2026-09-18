@@ -1,5 +1,7 @@
 //! Catch-up and live notices through the SSE transport.
 
+use std::sync::Arc;
+
 use std::time::Duration;
 
 use axum::body::Body;
@@ -36,7 +38,7 @@ async fn next_event(body: &mut Body, buffered: &mut String) -> (i64, Value) {
 #[tokio::test]
 async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Wicket::open(Config::new(dir.path(), 0)).unwrap();
+    let app = Arc::new(Wicket::open(Config::new(dir.path(), 0)).unwrap());
     app.settings().change(&json!({"autostart": true})).unwrap();
     let cursor = app.events_after(0, 1).unwrap()[0].event_id;
     app.settings()

@@ -2,6 +2,7 @@
 //! tests and machines without a display. Exits on SIGTERM or Ctrl-C.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use wicket_core::Config;
 use wicket_core::{Wicket, api};
@@ -65,7 +66,7 @@ pub fn run(options: Options) -> i32 {
     };
     runtime.block_on(async {
         let state = match Wicket::open(config) {
-            Ok(state) => state,
+            Ok(state) => Arc::new(state),
             Err(error) => {
                 eprintln!("wicket: cannot open the data directory: {error}");
                 return 1;

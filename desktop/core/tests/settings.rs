@@ -20,7 +20,7 @@ struct App {
 
 fn app() -> App {
     let dir = tempfile::tempdir().unwrap();
-    let state = Wicket::open(Config::new(dir.path(), 0)).unwrap();
+    let state = Arc::new(Wicket::open(Config::new(dir.path(), 0)).unwrap());
     let router = api::router(state.clone());
     App { dir, state, router }
 }
