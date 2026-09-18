@@ -973,7 +973,7 @@ async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
         .as_str()
         .unwrap()
         .to_string();
-    let mut rx = app.state.reviews().bus().subscribe();
+    let mut rx = app.state.events().subscribe();
 
     // an agent blocked on the review hears the discard at once
     let waiter = {

@@ -9,7 +9,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path(), 0);
     let app = Wicket::open(config.clone()).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
 
     let after = app
         .settings()
@@ -42,7 +42,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
 fn external_settings_edits_are_recorded_and_announced_once() {
     let dir = tempfile::tempdir().unwrap();
     let app = Wicket::open(Config::new(dir.path(), 0)).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
     assert!(app.settings().reload().unwrap().is_none());
 
     std::fs::write(dir.path().join("settings.json"), r#"{"autostart":true}"#).unwrap();
@@ -82,7 +82,7 @@ fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     )
     .unwrap();
     let app = Wicket::open(config).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
 
     let error = app
         .settings()

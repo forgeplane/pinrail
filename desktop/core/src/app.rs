@@ -18,6 +18,7 @@ use crate::settings::SettingsService;
 pub struct Wicket {
     config: Config,
     started_at: DateTime<Utc>,
+    events: Bus,
     settings: SettingsService,
     plugins: PluginService,
     pub(crate) db: Arc<Db>,
@@ -32,6 +33,11 @@ impl Wicket {
 
     pub fn started_at(&self) -> DateTime<Utc> {
         self.started_at
+    }
+
+    /// The shared channel for review, settings and plugin events.
+    pub fn events(&self) -> &Bus {
+        &self.events
     }
 
     /// Review operations share the application's storage, registry and event bus.
@@ -67,14 +73,24 @@ impl Wicket {
             Registry::open(defaults, records, config.plugin_store_dir())
                 .map_err(Error::Internal)?,
         );
-        let bus = Bus::new();
-        let settings =
-            SettingsService::open(&config.data_dir, db.clone(), registry.clone(), bus.clone());
-        let plugins = PluginService::new(db.clone(), registry.clone(), bus.clone());
-        let reviews = Reviews::new(db.clone(), registry.clone(), bus, config.user.clone());
+        let events = Bus::new();
+        let settings = SettingsService::open(
+            &config.data_dir,
+            db.clone(),
+            registry.clone(),
+            events.clone(),
+        );
+        let plugins = PluginService::new(db.clone(), registry.clone(), events.clone());
+        let reviews = Reviews::new(
+            db.clone(),
+            registry.clone(),
+            events.clone(),
+            config.user.clone(),
+        );
         Ok(Arc::new(Self {
             config,
             started_at: Utc::now(),
+            events,
             settings,
             plugins,
             db,

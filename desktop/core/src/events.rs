@@ -1,5 +1,6 @@
-//! What the server tells listeners as reviews change: the UI, the tray, and
-//! waiters inside the API. Every notice is also a row in the events table.
+//! Application events shared by reviews, settings and plugins. The UI, tray
+//! and review waiters subscribe to the same bus. Every notice is also a row
+//! in the events table.
 
 use serde::Serialize;
 use serde_json::Value;

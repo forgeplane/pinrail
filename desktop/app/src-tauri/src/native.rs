@@ -476,7 +476,7 @@ pub fn watch(app: AppHandle) {
     let Some(native) = app.try_state::<Native>() else {
         return;
     };
-    let mut rx = native.state.reviews().bus().subscribe();
+    let mut rx = native.state.events().subscribe();
     tauri::async_runtime::spawn(async move {
         loop {
             match rx.recv().await {

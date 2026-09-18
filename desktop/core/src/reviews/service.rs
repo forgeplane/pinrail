@@ -52,10 +52,6 @@ impl Reviews {
         }
     }
 
-    pub fn bus(&self) -> &Bus {
-        &self.bus
-    }
-
     /// Submits a review from a request body. `plugin` and `title` are
     /// required; `origin`, `payload`, `summary`, `revises`, `expires_at` and
     /// `requested_by` are optional. Every failure is `invalid` with

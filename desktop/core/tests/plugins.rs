@@ -51,7 +51,7 @@ async fn inspection_and_update_jobs_work_without_http() {
     let source = plugin(&sources, "hello", "1.0.0");
     let source = source.to_str().unwrap();
     let db = Db::open(&app.config().db_path()).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
 
     let inspected = app
         .plugins()
@@ -113,7 +113,7 @@ async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plug
         serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
     manifest["build"] = json!({"command": "echo build-failed; exit 1"});
     std::fs::write(manifest_path, manifest.to_string()).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
 
     let id = app
         .plugins()
@@ -196,7 +196,7 @@ async fn a_link_refuses_update_without_starting_work_or_announcing_a_change() {
     let sources = dir.path().join("sources");
     plugin(&sources, "hello", "1.0.0");
     app.plugins().add_dir(&sources).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
 
     assert_eq!(
         app.plugins().check_updates("hello").await.unwrap()["state"],
@@ -220,7 +220,7 @@ fn directory_registration_reload_and_removal_record_and_announce_changes() {
     let sources = dir.path().join("sources");
     let linked = plugin(&sources, "hello", "1.0.0");
     let app = Wicket::open(config.clone()).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
     let db = Db::open(&config.db_path()).unwrap();
 
     assert_eq!(app.plugins().add_dir(&sources).unwrap(), 2);
@@ -274,7 +274,7 @@ fn a_directory_that_shadows_a_builtin_keeps_the_registry_and_database_unchanged(
     plugin(&sources, "hello", "1.0.0");
     let app = Wicket::open(config.clone()).unwrap();
     app.plugins().add_dir(&sources).unwrap();
-    let mut notices = app.reviews().bus().subscribe();
+    let mut notices = app.events().subscribe();
     let before = app.plugins().listing(&Value::Null);
 
     let duplicates = dir.path().join("duplicates");
