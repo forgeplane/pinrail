@@ -211,13 +211,6 @@ impl Client {
         self.get(&format!("/api/v1/plugins/{name}/versions"), &[])
     }
 
-    pub fn plugins_add(&self, dir: &str) -> Result<Value> {
-        self.post(
-            "/api/v1/plugins/dirs",
-            Some(&serde_json::json!({ "dir": dir })),
-        )
-    }
-
     pub fn plugins_reload(&self) -> Result<Value> {
         self.post("/api/v1/plugins/reload", None)
     }

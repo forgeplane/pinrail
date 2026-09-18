@@ -1,6 +1,5 @@
 //! `/api/v1/plugins`: translate HTTP requests into plugin service operations.
 
-use std::path::Path as FsPath;
 use std::sync::Arc;
 
 use axum::body::Bytes;
@@ -21,7 +20,6 @@ pub fn routes() -> Router<Arc<Wicket>> {
     Router::new()
         .route("/api/v1/plugins", get(index))
         .route("/api/v1/plugins/reload", post(reload))
-        .route("/api/v1/plugins/dirs", post(add_dir))
         .route("/api/v1/plugins/inspect", post(inspect))
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/jobs/{id}", get(job))
@@ -114,17 +112,4 @@ async fn job(
 async fn reload(State(state): State<Arc<Wicket>>) -> Result<Json<Value>, ApiError> {
     let count = state.plugins().reload()?;
     Ok(Json(json!({ "ok": true, "count": count })))
-}
-
-async fn add_dir(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Json<Value>, ApiError> {
-    let body = parse_body(&body)?;
-    let Some(dir) = body.get("dir").and_then(Value::as_str) else {
-        return Err(Error::invalid("/dir", "is required").into());
-    };
-    let count = state.plugins().add_dir(FsPath::new(dir))?;
-    Ok(Json(json!({
-        "ok": true,
-        "count": count,
-        "dirs": state.plugins().dirs().iter().map(|d| d.display().to_string()).collect::<Vec<_>>(),
-    })))
 }

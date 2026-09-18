@@ -43,6 +43,21 @@ async fn finished(plugins: &PluginService, id: &str) -> InstallJob {
     .expect("installation did not finish")
 }
 
+/// Installs one plugin folder as a link, the only way a plugin arrives, and
+/// waits for the job.
+async fn link(app: &Wicket, dir: &Path) -> InstallJob {
+    let id = app.plugins().start_install(
+        &dir.display().to_string(),
+        InstallOptions {
+            link: true,
+            force: false,
+            reference: None,
+            path: None,
+        },
+    );
+    finished(app.plugins(), &id).await
+}
+
 #[tokio::test]
 async fn inspection_and_update_jobs_work_without_http() {
     let dir = tempfile::tempdir().unwrap();
@@ -194,8 +209,7 @@ async fn a_link_refuses_update_without_starting_work_or_announcing_a_change() {
     let dir = tempfile::tempdir().unwrap();
     let app = Wicket::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let sources = dir.path().join("sources");
-    plugin(&sources, "hello", "1.0.0");
-    app.plugins().add_dir(&sources).unwrap();
+    link(&app, &plugin(&sources, "hello", "1.0.0")).await;
     let mut notices = app.events().subscribe();
 
     assert_eq!(
@@ -213,8 +227,8 @@ async fn a_link_refuses_update_without_starting_work_or_announcing_a_change() {
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 }
 
-#[test]
-fn directory_registration_reload_and_removal_record_and_announce_changes() {
+#[tokio::test]
+async fn linking_reload_and_removal_record_and_announce_changes() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path().join("data"), 0);
     let sources = dir.path().join("sources");
@@ -223,7 +237,7 @@ fn directory_registration_reload_and_removal_record_and_announce_changes() {
     let mut notices = app.events().subscribe();
     let db = Db::open(&config.db_path()).unwrap();
 
-    assert_eq!(app.plugins().add_dir(&sources).unwrap(), 2);
+    assert_eq!(link(&app, &linked).await.status, "done");
     let added = notices.try_recv().unwrap();
     assert_eq!(added.kind, events::PLUGINS_RELOADED);
     assert!(added.review_id.is_none());
@@ -266,26 +280,36 @@ fn directory_registration_reload_and_removal_record_and_announce_changes() {
     assert!(app.plugins().fetch_version("list", 1).is_ok());
 }
 
-#[test]
-fn a_directory_that_shadows_a_builtin_keeps_the_registry_and_database_unchanged() {
+#[tokio::test]
+async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unchanged() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path().join("data"), 0);
     let sources = dir.path().join("sources");
-    plugin(&sources, "hello", "1.0.0");
     let app = Wicket::open(config.clone()).unwrap();
-    app.plugins().add_dir(&sources).unwrap();
+    link(&app, &plugin(&sources, "hello", "1.0.0")).await;
     let mut notices = app.events().subscribe();
     let before = app.plugins().listing(&Value::Null);
 
     let duplicates = dir.path().join("duplicates");
-    plugin(&duplicates, "list", "2.0.0");
-    plugin(&duplicates, "another", "1.0.0");
-    let error = app.plugins().add_dir(&duplicates).unwrap_err();
-    assert!(matches!(error, Error::Invalid(_)));
+    let clash = plugin(&duplicates, "list", "2.0.0");
+    let job = link(&app, &clash).await;
+    assert_eq!(job.status, "failed");
     assert_eq!(app.plugins().listing(&Value::Null), before);
     assert!(notices.try_recv().is_err());
     let db = Db::open(&config.db_path()).unwrap();
-    assert_eq!(db.installed_plugins().unwrap().len(), 1);
+    assert!(
+        job.error
+            .as_deref()
+            .unwrap_or_default()
+            .contains("plugin list is defined at"),
+        "{:?}",
+        job.error
+    );
+    assert_eq!(
+        db.installed_plugins().unwrap().len(),
+        1,
+        "no record is left"
+    );
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 
     let reopened = Wicket::open(config).unwrap();

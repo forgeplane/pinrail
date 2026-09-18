@@ -2,6 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
+
 use std::sync::{Arc, RwLock};
 
 use include_dir::{Dir, include_dir};
@@ -58,11 +59,6 @@ pub(super) fn hash_dir_where(dir: &Path, keep: &dyn Fn(&str) -> bool) -> std::io
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-/// The plugin directories inside a directory: those with a manifest.
-pub fn plugin_subdirs(dir: &Path) -> Vec<PathBuf> {
-    subdirs(dir)
-}
-
 /// Writes the embedded plugin into `dir/list` and returns `dir`.
 pub fn install_builtin(dir: &Path) -> std::io::Result<PathBuf> {
     let target = dir.join("list");
@@ -86,21 +82,22 @@ struct RegistryState {
 /// linked folders, the store — and the store entries kept for reviews.
 #[derive(Debug)]
 pub struct Registry {
-    default_dirs: Vec<PathBuf>,
+    /// The plugin every install starts from, shipped inside the app.
+    builtin_dir: PathBuf,
     store_dir: PathBuf,
     state: RwLock<RegistryState>,
 }
 
 impl Registry {
-    /// Loads the plugins in `default_dirs` and the installed `records`.
+    /// Loads the built-in plugin and the installed `records`.
     /// Fails when two plugins share a name.
     pub fn open(
-        default_dirs: Vec<PathBuf>,
+        builtin_dir: PathBuf,
         records: Vec<InstalledRecord>,
         store_dir: PathBuf,
     ) -> Result<Registry, String> {
         let registry = Registry {
-            default_dirs,
+            builtin_dir,
             store_dir,
             state: RwLock::new(RegistryState {
                 plugins: BTreeMap::new(),
@@ -110,21 +107,6 @@ impl Registry {
         };
         registry.reload()?;
         Ok(registry)
-    }
-
-    /// The directories plugins are read from: the defaults, then the
-    /// parents of the linked folders.
-    pub fn dirs(&self) -> Vec<PathBuf> {
-        let state = self.state.read().unwrap();
-        let mut dirs = self.default_dirs.clone();
-        for record in state.records.iter().filter(|r| r.linked) {
-            if let Some(parent) = Path::new(&record.path).parent().map(Path::to_path_buf)
-                && !dirs.contains(&parent)
-            {
-                dirs.push(parent);
-            }
-        }
-        dirs
     }
 
     pub fn store_dir(&self) -> &Path {
@@ -222,7 +204,7 @@ impl Registry {
     pub fn reload(&self) -> Result<usize, String> {
         let records = self.state.read().unwrap().records.clone();
         let mut loaded: Vec<Plugin> = Vec::new();
-        for dir in &self.default_dirs {
+        for dir in [&self.builtin_dir] {
             for sub in subdirs(dir) {
                 loaded.push(Plugin::load(&sub));
             }
@@ -289,26 +271,6 @@ impl Registry {
         state.kept.clear();
         Ok(state.plugins.len())
     }
-
-    /// Links every plugin inside a directory: the records for its
-    /// subdirectories with a manifest, the ones not yet installed. The
-    /// caller persists them and reloads; on a duplicate name the reload
-    /// says which, and nothing was kept.
-    pub fn link_all(&self, dir: &Path) -> Result<Vec<InstalledRecord>, String> {
-        if !dir.is_dir() {
-            return Err(format!("{} is not a directory", dir.display()));
-        }
-        let known: Vec<String> = self.records().iter().map(|r| r.name.clone()).collect();
-        let mut out = Vec::new();
-        for sub in subdirs(dir) {
-            if let Some(record) = InstalledRecord::linked(&sub)
-                && !known.contains(&record.name)
-            {
-                out.push(record);
-            }
-        }
-        Ok(out)
-    }
 }
 
 fn subdirs(dir: &Path) -> Vec<PathBuf> {
@@ -330,7 +292,7 @@ mod tests {
 
     fn registry(tmp: &Path) -> Registry {
         let builtin = install_builtin(&tmp.join("builtin")).unwrap();
-        Registry::open(vec![builtin], vec![], tmp.join("store")).unwrap()
+        Registry::open(builtin, vec![], tmp.join("store")).unwrap()
     }
 
     #[test]
@@ -350,12 +312,7 @@ mod tests {
         let bad = tmp.path().join("user").join("broken");
         std::fs::create_dir_all(&bad).unwrap();
         std::fs::write(bad.join("manifest.json"), "{\"name\":\"broken\"}").unwrap();
-        let r = Registry::open(
-            vec![tmp.path().join("user")],
-            vec![],
-            tmp.path().join("store"),
-        )
-        .unwrap();
+        let r = Registry::open(tmp.path().join("user"), vec![], tmp.path().join("store")).unwrap();
         let broken = r.get("broken").unwrap();
         assert_eq!(
             broken.error.as_deref(),
@@ -365,14 +322,29 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_names_are_refused_and_the_dir_is_not_kept() {
+    fn duplicate_names_are_refused_and_the_old_state_stands() {
         let tmp = tempfile::tempdir().unwrap();
         let r = registry(tmp.path());
+        // a second plugin calling itself list, offered as a linked record
         let other = tmp.path().join("other");
         install_builtin(&other).unwrap();
-        let links = r.link_all(&other).unwrap();
-        assert_eq!(links.len(), 1, "the other list is offered as a link");
-        let error = r.reload_with(links).unwrap_err();
+        let path = other.join("list").display().to_string();
+        let clash = InstalledRecord {
+            name: "list".into(),
+            version: "1.0.0".into(),
+            major: 1,
+            kind: "path".into(),
+            source: path.clone(),
+            resolved: path.clone(),
+            commit: None,
+            asset_hash: None,
+            hash: None,
+            build_log: None,
+            installed_at: "2026-09-01T10:00:00Z".into(),
+            linked: true,
+            path,
+        };
+        let error = r.reload_with(vec![clash]).unwrap_err();
         assert!(error.contains("plugin list is defined at"), "{error}");
         assert!(r.fetch("list").is_ok(), "the old state stands");
     }

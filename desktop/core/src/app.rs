@@ -95,17 +95,12 @@ impl Wicket {
         std::fs::create_dir_all(&config.data_dir)?;
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
-        let user = config.user_plugins_dir();
-        let _ = std::fs::create_dir_all(&user);
-        let mut defaults = vec![builtin, user];
-        defaults.extend(config.plugin_dirs.iter().cloned());
         let records = db.installed_plugins()?;
         if let Some(plugins_dir) = config.plugin_store_dir().parent() {
             plugin_store::tidy(plugins_dir)?;
         }
         let registry = Arc::new(
-            Registry::open(defaults, records, config.plugin_store_dir())
-                .map_err(Error::Internal)?,
+            Registry::open(builtin, records, config.plugin_store_dir()).map_err(Error::Internal)?,
         );
         let events = Bus::new();
         let settings = SettingsService::open(

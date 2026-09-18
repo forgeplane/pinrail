@@ -1,9 +1,7 @@
 //! Installed plugins: what the app has, where it came from, and whether a
 //! review still renders from a version that would otherwise be removed.
 
-use chrono::Utc;
 use rusqlite::{OptionalExtension, params};
-use serde_json::Value;
 
 use super::Db;
 
@@ -27,32 +25,6 @@ pub struct InstalledRecord {
     pub linked: bool,
     /// the folder for a link, the store entry otherwise
     pub path: String,
-}
-
-impl InstalledRecord {
-    /// A link to a plugin folder as it is: the manifest names it.
-    pub fn linked(dir: &std::path::Path) -> Option<InstalledRecord> {
-        let text = std::fs::read_to_string(dir.join("manifest.json")).ok()?;
-        let manifest: Value = serde_json::from_str(&text).ok()?;
-        let name = manifest.get("name")?.as_str()?.to_string();
-        let (version, major) = crate::plugins::version_of(manifest.get("version")?)?;
-        let path = std::path::absolute(dir).ok()?.display().to_string();
-        Some(InstalledRecord {
-            name,
-            version,
-            major,
-            kind: "path".into(),
-            source: path.clone(),
-            resolved: path.clone(),
-            commit: None,
-            asset_hash: None,
-            hash: None,
-            build_log: None,
-            installed_at: crate::reviews::iso(Utc::now()),
-            linked: true,
-            path,
-        })
-    }
 }
 
 impl Db {

@@ -67,7 +67,7 @@ export const api = {
   discard: (id: string, reason?: string) =>
     request<Review>("POST", `/api/v1/reviews/${id}/discard`, reason ? { reason } : {}),
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${id}/viewed`),
-  plugins: () => request<{ dirs: string[]; plugins: Plugin[] }>("GET", "/api/v1/plugins"),
+  plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   reloadPlugins: () => request<{ ok: boolean; count: number }>("POST", "/api/v1/plugins/reload"),
   /** what installing a source would do; the source is fetched and dropped */
   inspectPlugin: (body: InstallRequest) => request<Inspection>("POST", "/api/v1/plugins/inspect", body),

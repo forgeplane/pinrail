@@ -3,8 +3,6 @@
 
 use rusqlite::{Connection, OptionalExtension, params};
 
-use super::InstalledRecord;
-
 /// The tables as they were before versioning: step 0, run once for a new
 /// file and never edited again. A later step creates the tables it adds,
 /// because a file past step 0 never runs it again.
@@ -59,7 +57,7 @@ const MIGRATIONS: &[Migration] = &[
         run: migrate_outcomes,
     },
     Migration {
-        name: "installed plugins in place of plugin directories",
+        name: "installed plugins, one record per plugin",
         run: migrate_installed_plugins,
     },
     Migration {
@@ -228,35 +226,7 @@ fn migrate_installed_plugins(conn: &Connection) -> rusqlite::Result<()> {
   linked       INTEGER NOT NULL DEFAULT 0,
   path         TEXT NOT NULL
 );
+DROP TABLE IF EXISTS plugin_dirs;
 ",
-    )?;
-    let has_dirs: bool = conn
-        .query_row(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'plugin_dirs'",
-            [],
-            |_| Ok(()),
-        )
-        .optional()?
-        .is_some();
-    if !has_dirs {
-        return Ok(());
-    }
-    let dirs: Vec<String> = conn
-        .prepare("SELECT path FROM plugin_dirs ORDER BY added_at, path")?
-        .query_map([], |r| r.get(0))?
-        .collect::<Result<_, _>>()?;
-    for dir in dirs {
-        for sub in crate::plugins::plugin_subdirs(std::path::Path::new(&dir)) {
-            let Some(record) = InstalledRecord::linked(&sub) else {
-                continue;
-            };
-            conn.execute(
-                "INSERT OR IGNORE INTO installed_plugins (name, version, major, kind, source, resolved, installed_at, linked, path)
-                 VALUES (?1, ?2, ?3, 'path', ?4, ?4, ?5, 1, ?4)",
-                params![record.name, record.version, record.major, record.path, record.installed_at],
-            )?;
-        }
-    }
-    conn.execute_batch("DROP TABLE plugin_dirs")?;
-    Ok(())
+    )
 }

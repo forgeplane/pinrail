@@ -260,9 +260,7 @@ enum PluginsCommand {
         /// the plugin's name
         name: String,
     },
-    /// Link every plugin found in a directory
-    Add { dir: PathBuf },
-    /// Rescan the plugin directories
+    /// Reload the installed plugins from disk
     Reload,
     /// The versions of a plugin that reviews can still render with
     Versions { name: String },
@@ -423,10 +421,6 @@ fn run(cli: Cli) -> Result<u8> {
                     }
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
-                Some(PluginsCommand::Add { dir }) => {
-                    let dir = std::path::absolute(&dir)?;
-                    client.plugins_add(&dir.to_string_lossy())?
-                }
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
                 Some(PluginsCommand::Versions { name }) => client.plugin_versions(&name)?,
             };

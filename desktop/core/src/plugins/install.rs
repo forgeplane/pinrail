@@ -1291,7 +1291,7 @@ fn commit(db: &Db, registry: &Registry, record: InstalledRecord) -> Result<Insta
         .installed_plugins()?
         .into_iter()
         .find(|r| r.name == record.name);
-    if let Some(previous) = previous
+    if let Some(previous) = &previous
         && !previous.linked
         && (previous.major != record.major || record.linked)
         && !db.reviews_use(&previous.name, previous.major as u32)?
@@ -1299,10 +1299,19 @@ fn commit(db: &Db, registry: &Registry, record: InstalledRecord) -> Result<Insta
         let _ = std::fs::remove_dir_all(registry.store_entry(&previous.name, previous.major));
     }
     db.upsert_installed(&record)?;
-    let records = db.installed_plugins()?;
-    registry
-        .reload_with(records)
-        .map_err(|message| Error::invalid("/source", message))?;
+    if let Err(message) = registry.reload_with(db.installed_plugins()?) {
+        // The record is written before the registry takes it, so a plugin
+        // the registry refuses must be taken out again: left there, it
+        // would come back at the next start and be refused for ever.
+        match &previous {
+            Some(previous) => db.upsert_installed(previous)?,
+            None => {
+                db.remove_installed(&record.name)?;
+            }
+        }
+        let _ = registry.reload_with(db.installed_plugins()?);
+        return Err(Error::invalid("/source", message));
+    }
     Ok(record)
 }
 

@@ -2,6 +2,7 @@
 
 use serde_json::{Value, json};
 use wicket_core::db::Db;
+use wicket_core::plugins::InstallOptions;
 use wicket_core::{Config, Error, Wicket};
 
 #[test]
@@ -138,11 +139,11 @@ fn external_settings_edits_are_recorded_and_announced_once() {
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 }
 
-#[test]
-fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
+#[tokio::test]
+async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     let dir = tempfile::tempdir().unwrap();
-    let config = Config::new(dir.path(), 0);
-    let plugin = config.user_plugins_dir().join("knobs");
+    let config = Config::new(dir.path().join("data"), 0);
+    let plugin = dir.path().join("sources").join("knobs");
     std::fs::create_dir_all(&plugin).unwrap();
     std::fs::write(plugin.join("index.html"), "<html></html>").unwrap();
     std::fs::write(
@@ -159,6 +160,18 @@ fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     )
     .unwrap();
     let app = Wicket::open(config).unwrap();
+    let job = app.plugins().start_install(
+        &plugin.display().to_string(),
+        InstallOptions {
+            link: true,
+            force: false,
+            reference: None,
+            path: None,
+        },
+    );
+    while app.plugins().job(&job).unwrap().status != "done" {
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
     let mut notices = app.events().subscribe();
 
     let error = app

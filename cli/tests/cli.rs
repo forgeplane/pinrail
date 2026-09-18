@@ -354,16 +354,11 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
             );
             (200, review("decided"))
         }
-        ("GET", "/api/v1/plugins") => (200, r#"{"dirs":[],"plugins":[]}"#.into()),
+        ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[]}"#.into()),
         ("GET", "/api/v1/plugins/list/versions") => {
             (200, r#"{"name":"list","versions":[1]}"#.into())
         }
         ("POST", "/api/v1/plugins/reload") => (200, r#"{"ok":true,"count":1}"#.into()),
-        ("POST", "/api/v1/plugins/dirs") => {
-            let sent: serde_json::Value = serde_json::from_str(body).unwrap();
-            assert!(sent["dir"].as_str().unwrap().starts_with('/'), "{body}");
-            (200, r#"{"ok":true,"count":2,"dirs":[]}"#.into())
-        }
         other => panic!("unexpected {other:?}"),
     }));
     let dir = tempdir();
@@ -401,7 +396,6 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
     assert_eq!(run(&server, &["types"]).0, 0);
     assert_eq!(run(&server, &["plugins", "reload"]).0, 0);
     assert_eq!(run(&server, &["plugins", "versions", "list"]).0, 0);
-    assert_eq!(run(&server, &["plugins", "add", "."]).0, 0);
 }
 
 #[test]

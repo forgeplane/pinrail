@@ -59,6 +59,10 @@ export default async function globalSetup() {
     throw new Error(`wicket serve failed (${serve.status}):\n${serve.stderr}\n${serve.stdout}`);
   }
 
-  const add = spawnSync(cli, ["plugins", "add", path.join(root, "plugins")], { env: cliEnv(state), encoding: "utf8" });
-  if (add.status !== 0) throw new Error(`wicket plugins add failed:\n${add.stderr}`);
+  // one install per plugin, each linked to the folder it is developed in
+  for (const name of ["artifact", "email", "hello", "review"]) {
+    const dir = path.join(root, "plugins", name);
+    const install = spawnSync(cli, ["plugins", "install", dir, "--link"], { env: cliEnv(state), encoding: "utf8", timeout: 120_000 });
+    if (install.status !== 0) throw new Error(`wicket plugins install ${name} failed:\n${install.stderr}`);
+  }
 }

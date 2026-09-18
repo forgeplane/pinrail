@@ -1,6 +1,5 @@
 //! Plugin operations shared by the HTTP API and other application interfaces.
 
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use serde_json::{Value, json};
@@ -36,10 +35,6 @@ impl PluginService {
         }
     }
 
-    pub fn dirs(&self) -> Vec<PathBuf> {
-        self.registry.dirs()
-    }
-
     /// Registered plugins with their effective settings over the supplied stored values.
     pub fn listing(&self, stored: &Value) -> Value {
         let plugins = self
@@ -56,10 +51,7 @@ impl PluginService {
                 row
             })
             .collect::<Vec<_>>();
-        json!({
-            "dirs": self.registry.dirs().iter().map(|d| d.display().to_string()).collect::<Vec<_>>(),
-            "plugins": plugins,
-        })
+        json!({ "plugins": plugins })
     }
 
     /// Available major versions, including entries retained for existing reviews.
@@ -113,29 +105,6 @@ impl PluginService {
             .registry
             .reload_with(records)
             .map_err(Error::Internal)?;
-        self.announce()?;
-        Ok(count)
-    }
-
-    /// Links plugins not yet installed. Conflicting definitions refuse the directory.
-    pub fn add_dir(&self, dir: &Path) -> Result<usize, Error> {
-        // New plugins become links served live from their source directories.
-        let links = self
-            .registry
-            .link_all(dir)
-            .map_err(|message| Error::invalid("/dir", message))?;
-        let mut records = self.db.installed_plugins()?;
-        records.extend(links.iter().cloned());
-        let count = match self.registry.reload_with(records) {
-            Ok(count) => count,
-            Err(message) => {
-                let _ = self.registry.reload_with(self.db.installed_plugins()?);
-                return Err(Error::invalid("/dir", message));
-            }
-        };
-        for record in &links {
-            self.db.upsert_installed(record)?;
-        }
         self.announce()?;
         Ok(count)
     }

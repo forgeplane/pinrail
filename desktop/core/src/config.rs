@@ -16,8 +16,6 @@ pub struct Config {
     pub user: String,
     /// The directory served at `/sdk/v1/`; none means the SDK is not served.
     pub sdk_dir: Option<PathBuf>,
-    /// Extra plugin directories, on top of the built-in and user ones.
-    pub plugin_dirs: Vec<PathBuf>,
 }
 
 impl Config {
@@ -53,7 +51,6 @@ impl Config {
             port,
             user: "wicket".to_string(),
             sdk_dir: None,
-            plugin_dirs: Vec::new(),
         }
     }
 
@@ -87,11 +84,6 @@ impl Config {
     /// Where the plugin embedded in the binary is written out.
     pub fn builtin_plugins_dir(&self) -> PathBuf {
         self.data_dir.join("builtin")
-    }
-
-    /// Where a person drops their own plugins.
-    pub fn user_plugins_dir(&self) -> PathBuf {
-        self.data_dir.join("user-plugins")
     }
 
     /// Installed plugins: one entry per plugin and major version.

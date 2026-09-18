@@ -610,10 +610,8 @@ async fn expired_reviews_read_as_expired_and_are_swept_once() {
 }
 
 #[tokio::test]
-async fn plugins_are_listed_added_and_reloaded() {
+async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     let app = app();
-    let (status, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    assert_eq!(status, StatusCode::OK);
     let names = |body: &Value| -> Vec<String> {
         body["plugins"]
             .as_array()
@@ -622,45 +620,21 @@ async fn plugins_are_listed_added_and_reloaded() {
             .map(|p| p["name"].as_str().unwrap().to_string())
             .collect()
     };
-    assert_eq!(names(&body), vec!["list"]);
+    let (status, body) = call(&app, "GET", "/api/v1/plugins", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(names(&body), vec!["list"], "a fresh app has the built-in");
     assert_eq!(body["plugins"][0]["usable"], true);
-    assert_eq!(body["dirs"].as_array().unwrap().len(), 2);
 
+    // one plugin, named by its own folder, served live from where it sits
     let samples: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/api/v1/plugins/dirs",
-        Some(json!({"dir": samples.display().to_string()})),
-    )
-    .await;
+    let (status, body) = install(&app, &samples.join("hello"), json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["count"], 5);
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    assert_eq!(
-        names(&body),
-        vec!["artifact", "email", "hello", "list", "review"]
-    );
-    // the artifact plugin is built from sources; unbuilt, it is listed as
-    // broken with the reason, and everything else is usable
-    for p in body["plugins"].as_array().unwrap() {
-        if p["usable"] == true {
-            continue;
-        }
-        assert_eq!(p["name"], "artifact", "{p}");
-        assert!(
-            p["error"]
-                .as_str()
-                .unwrap()
-                .contains("entry view/index.html not found"),
-            "{p}"
-        );
-    }
-    // each plugin in the directory is a link of its own now
+    assert_eq!(names(&body), vec!["hello", "list"]);
+
     let links = db(&app).installed_plugins().unwrap();
-    assert_eq!(links.len(), 4);
+    assert_eq!(links.len(), 1, "one install, one record");
     assert!(links.iter().all(|r| r.linked && r.kind == "path"));
-    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     let hello = body["plugins"]
         .as_array()
         .unwrap()
@@ -677,22 +651,18 @@ async fn plugins_are_listed_added_and_reloaded() {
             .iter()
             .find(|p| p["name"] == "list")
             .unwrap()["install"]
-            .is_null()
+            .is_null(),
+        "the built-in was not installed from anywhere"
     );
 
-    let (status, body) = call(
-        &app,
-        "POST",
-        "/api/v1/plugins/dirs",
-        Some(json!({"dir": "/nope/nowhere"})),
-    )
-    .await;
+    // a source that is not there is refused, naming the field
+    let (status, body) = install(&app, Path::new("/nope/nowhere"), Value::Null).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(violations(&body)[0].0, "/dir");
+    assert_eq!(violations(&body)[0].0, "/source");
 
     let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["count"], 5);
+    assert_eq!(body["count"], 2);
 
     let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/versions", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);

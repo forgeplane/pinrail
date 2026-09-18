@@ -5,7 +5,6 @@
 use std::path::Path;
 
 use chrono::{Duration, Utc};
-use rusqlite::OptionalExtension;
 use serde_json::{Map, json};
 use wicket_core::db::{Db, Filters, SCHEMA_VERSION};
 use wicket_core::reviews::{Decision, Review, Status, parse_datetime};
@@ -242,58 +241,6 @@ fn a_database_from_a_newer_build_is_refused() {
     drop(conn);
     let error = Db::open(&path).unwrap_err().to_string();
     assert!(error.contains("newer than this build"), "{error}");
-}
-
-#[test]
-fn plugin_directories_become_links() {
-    let dir = tempfile::tempdir().unwrap();
-    // two plugins in a registered directory, and a folder without a manifest
-    let plugins = dir.path().join("plugins");
-    for name in ["alpha", "beta"] {
-        let sub = plugins.join(name);
-        std::fs::create_dir_all(&sub).unwrap();
-        std::fs::write(sub.join("index.html"), "<html></html>").unwrap();
-        std::fs::write(
-            sub.join("manifest.json"),
-            format!("{{\"name\":\"{name}\",\"version\":2,\"payload_schema\":{{}},\"decision_schema\":{{}}}}"),
-        )
-        .unwrap();
-    }
-    std::fs::create_dir_all(plugins.join("notes")).unwrap();
-    let path = dir.path().join("wicket.db");
-    let conn = rusqlite::Connection::open(&path).unwrap();
-    conn.execute_batch(&format!(
-        "CREATE TABLE plugin_dirs (path TEXT PRIMARY KEY, added_at TEXT NOT NULL);
-         INSERT INTO plugin_dirs VALUES ('{}', '2026-09-01T10:00:00Z');",
-        plugins.display()
-    ))
-    .unwrap();
-    drop(conn);
-
-    let db = Db::open(&path).unwrap();
-    let mut records = db.installed_plugins().unwrap();
-    records.sort_by(|a, b| a.name.cmp(&b.name));
-    assert_eq!(records.len(), 2);
-    for (record, name) in records.iter().zip(["alpha", "beta"]) {
-        assert_eq!(record.name, name);
-        assert!(record.linked);
-        assert_eq!(record.kind, "path");
-        assert_eq!(record.version, "2.0.0");
-        assert_eq!(record.major, 2);
-        assert_eq!(record.path, plugins.join(name).display().to_string());
-    }
-    drop(db);
-    let conn = rusqlite::Connection::open(&path).unwrap();
-    let gone: bool = conn
-        .query_row(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'plugin_dirs'",
-            [],
-            |_| Ok(()),
-        )
-        .optional()
-        .unwrap()
-        .is_none();
-    assert!(gone);
 }
 
 /// A file that had been through the outcomes step, as every database was
