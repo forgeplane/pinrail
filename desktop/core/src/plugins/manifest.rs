@@ -582,7 +582,7 @@ mod settings {
     }
 }
 
-pub(crate) fn valid_name(name: &str) -> bool {
+pub(super) fn valid_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')

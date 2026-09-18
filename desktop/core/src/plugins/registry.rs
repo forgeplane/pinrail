@@ -23,7 +23,7 @@ pub fn hash_dir(dir: &Path) -> std::io::Result<String> {
 }
 
 /// `hash_dir` over the entries `keep` admits, by name, at every level.
-pub fn hash_dir_where(dir: &Path, keep: &dyn Fn(&str) -> bool) -> std::io::Result<String> {
+pub(super) fn hash_dir_where(dir: &Path, keep: &dyn Fn(&str) -> bool) -> std::io::Result<String> {
     use sha2::{Digest, Sha256};
     fn walk(
         root: &Path,

@@ -43,7 +43,7 @@ pub struct Reviews {
 }
 
 impl Reviews {
-    pub fn new(db: Arc<Db>, registry: Arc<Registry>, bus: Bus, user: String) -> Self {
+    pub(crate) fn new(db: Arc<Db>, registry: Arc<Registry>, bus: Bus, user: String) -> Self {
         Reviews {
             db,
             registry,

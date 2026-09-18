@@ -418,7 +418,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
     let name = manifest
         .get("name")
         .and_then(Value::as_str)
-        .filter(|n| crate::plugins::valid_name(n))
+        .filter(|n| super::manifest::valid_name(n))
         .ok_or_else(|| Error::invalid("/source", "not a plugin: name is required"))?
         .to_string();
     // what is installed under the name, and whether this source is the
@@ -435,7 +435,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
                     "path" => {
                         build.is_none()
                             && r.hash.is_some()
-                            && crate::plugins::hash_dir_where(dir, &in_the_bundle).ok() == r.hash
+                            && super::registry::hash_dir_where(dir, &in_the_bundle).ok() == r.hash
                     }
                     "git" => r.commit.is_some() && r.commit == prepared.origin.commit,
                     _ => r.asset_hash.is_some() && r.asset_hash == prepared.origin.asset_hash,
@@ -1012,7 +1012,7 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             // bundle that was
             let source = Path::new(&record.resolved);
             match (
-                crate::plugins::hash_dir_where(source, &in_the_bundle),
+                super::registry::hash_dir_where(source, &in_the_bundle),
                 &record.hash,
             ) {
                 (Ok(now), Some(then)) if &now == then => serde_json::json!({ "state": "up_to_date" }),
