@@ -1,6 +1,7 @@
 //! The HTTP API: JSON under `/api/v1`, plugin bundles under `/plugins`, the
 //! SDK under `/sdk/v1`, all bound to loopback.
 
+mod error;
 mod files;
 mod plugins;
 mod reviews;

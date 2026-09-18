@@ -1,13 +1,11 @@
 //! The one error value the reviews API returns.
 //!
-//! `error` is what callers match on: `not_found` (404), `not_pending` (409)
-//! when the review is decided, withdrawn or expired, and `invalid` (422) with
-//! violations saying where. A violation's path is a JSON pointer into the
-//! offending document, the shape plugins render.
+//! `error` is what callers match on: `not_found`, `not_pending` when the
+//! review is decided, withdrawn or expired, and `invalid` with violations
+//! saying where. A violation's path is a JSON pointer into the offending
+//! document, the shape plugins render. The statuses these answer with over
+//! HTTP are the API's to decide; see `api::error`.
 
-use axum::Json;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -37,15 +35,6 @@ pub enum Error {
 impl Error {
     pub fn invalid(path: impl Into<String>, message: impl Into<String>) -> Self {
         Error::Invalid(vec![Violation::new(path, message)])
-    }
-
-    pub fn status(&self) -> StatusCode {
-        match self {
-            Error::NotFound(_) => StatusCode::NOT_FOUND,
-            Error::NotPending(_) => StatusCode::CONFLICT,
-            Error::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
-            Error::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
     }
 
     pub fn message(&self) -> String {
@@ -95,15 +84,6 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        if let Error::Internal(message) = &self {
-            eprintln!("wicket: {message}");
-        }
-        (self.status(), Json(self.to_json())).into_response()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,15 +98,14 @@ mod tests {
             e.message(),
             "validation failed:\n  /: property 'undecided' is required\n  /title: is required"
         );
-        assert_eq!(e.status(), StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(e.to_json()["error"], "invalid");
         assert_eq!(
             Error::NotFound("r_1".into()).to_json()["message"],
             "review r_1 not found"
         );
         assert_eq!(
-            Error::NotPending("r_1".into()).status(),
-            StatusCode::CONFLICT
+            Error::NotPending("r_1".into()).to_json()["error"],
+            "not_pending"
         );
     }
 }

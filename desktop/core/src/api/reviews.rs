@@ -13,6 +13,7 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
+use super::error::ApiError;
 use super::parse_body;
 use crate::Wicket;
 use crate::error::Error;
@@ -34,7 +35,7 @@ pub fn routes() -> Router<Arc<Wicket>> {
         .route("/api/v1/reviews/{id}/events", get(events))
 }
 
-async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Response, Error> {
+async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Response, ApiError> {
     let body = parse_body(&body)?;
     let review = state.reviews().submit(&body, None)?;
     Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
@@ -47,7 +48,7 @@ async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Respons
 async fn list(
     State(state): State<Arc<Wicket>>,
     Query(params): Query<HashMap<String, String>>,
-) -> Result<Json<Value>, Error> {
+) -> Result<Json<Value>, ApiError> {
     let filters = filters(&params)?;
     let mut facets = false;
     if let Some(include) = params.get("include") {
@@ -55,10 +56,9 @@ async fn list(
             match name {
                 "facets" => facets = true,
                 other => {
-                    return Err(Error::invalid(
-                        "/include",
-                        format!("unknown include {other}"),
-                    ));
+                    return Err(
+                        Error::invalid("/include", format!("unknown include {other}")).into(),
+                    );
                 }
             }
         }
@@ -100,7 +100,7 @@ fn review_response(
     state: &Wicket,
     review: &crate::reviews::Review,
     markdown: bool,
-) -> Result<Response, Error> {
+) -> Result<Response, ApiError> {
     if !markdown {
         return Ok(Json(review.to_json(true)).into_response());
     }
@@ -131,7 +131,7 @@ async fn show(
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
-) -> Result<Response, Error> {
+) -> Result<Response, ApiError> {
     let review = state.reviews().get(&id)?;
     review_response(&state, &review, wants_markdown(&headers, &params))
 }
@@ -139,7 +139,7 @@ async fn show(
 async fn rounds(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
-) -> Result<Json<Value>, Error> {
+) -> Result<Json<Value>, ApiError> {
     let rounds = state.reviews().rounds(&id)?;
     Ok(Json(Value::Array(
         rounds.iter().map(|r| r.to_json(false)).collect(),
@@ -151,7 +151,7 @@ async fn wait(
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
-) -> Result<Response, Error> {
+) -> Result<Response, ApiError> {
     let timeout = params
         .get("timeout")
         .and_then(|t| t.parse::<u64>().ok())
@@ -173,10 +173,10 @@ async fn decide(
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
     body: Bytes,
-) -> Result<Response, Error> {
+) -> Result<Response, ApiError> {
     let body = parse_body(&body)?;
     let Some(data) = body.get("data") else {
-        return Err(Error::invalid("/data", "is required"));
+        return Err(Error::invalid("/data", "is required").into());
     };
     let note = body.get("agent_note").and_then(Value::as_str);
     let review = state.reviews().decide(&id, data, note)?;
@@ -187,7 +187,7 @@ async fn withdraw(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<Value>, Error> {
+) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
     let reason = body.get("reason").and_then(Value::as_str);
     Ok(Json(state.reviews().withdraw(&id, reason)?.to_json(true)))
@@ -197,7 +197,7 @@ async fn discard(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
     body: Bytes,
-) -> Result<Json<Value>, Error> {
+) -> Result<Json<Value>, ApiError> {
     let body = if body.is_empty() {
         json!({})
     } else {
@@ -213,7 +213,7 @@ async fn discard(
 async fn viewed(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
-) -> Result<Json<Value>, Error> {
+) -> Result<Json<Value>, ApiError> {
     state.reviews().mark_viewed(&id)?;
     Ok(Json(json!({ "ok": true })))
 }
@@ -221,14 +221,14 @@ async fn viewed(
 async fn events(
     State(state): State<Arc<Wicket>>,
     Path(id): Path<String>,
-) -> Result<Json<Value>, Error> {
+) -> Result<Json<Value>, ApiError> {
     let events = state.reviews().events(&id)?;
     Ok(Json(Value::Array(
         events.iter().map(|e| e.to_json()).collect(),
     )))
 }
 
-fn filters(params: &HashMap<String, String>) -> Result<Filters, Error> {
+fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
     let mut statuses = Vec::new();
     if let Some(s) = params.get("status") {
         let mut unknown = Vec::new();
@@ -242,7 +242,8 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, Error> {
             return Err(Error::invalid(
                 "/status",
                 format!("unknown status {}", unknown.join(", ")),
-            ));
+            )
+            .into());
         }
     }
     let text = |key: &str| params.get(key).filter(|v| !v.is_empty()).cloned();

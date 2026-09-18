@@ -9,6 +9,7 @@ use axum::routing::get;
 use axum::{Json, Router};
 use serde_json::Value;
 
+use super::error::ApiError;
 use super::parse_body;
 use crate::Wicket;
 use crate::error::Error;
@@ -24,7 +25,7 @@ async fn show(State(state): State<Arc<Wicket>>) -> Json<Value> {
 async fn change(State(state): State<Arc<Wicket>>, body: Bytes) -> Response {
     match apply(&state, &body) {
         Ok(value) => Json(value).into_response(),
-        Err(error) => error.into_response(),
+        Err(error) => ApiError(error).into_response(),
     }
 }
 
