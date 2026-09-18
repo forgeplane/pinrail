@@ -1190,42 +1190,32 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     );
 }
 
-fn store_entry(app: &App, name: &str) -> (std::path::PathBuf, String) {
-    let entry = app.state.config().plugin_store_dir().join(name).join("1");
-    std::fs::create_dir_all(&entry).unwrap();
-    let source = app.state.config().builtin_plugins_dir().join("list");
-    for file in std::fs::read_dir(&source).unwrap().flatten() {
-        std::fs::copy(file.path(), entry.join(file.file_name())).unwrap();
-    }
-    let manifest = std::fs::read_to_string(entry.join("manifest.json"))
-        .unwrap()
-        .replace("\"list\"", &format!("\"{name}\""));
-    std::fs::write(entry.join("manifest.json"), manifest).unwrap();
-    let hash = wicket_core::plugins::hash_dir(&entry).unwrap();
-    (entry, hash)
-}
-
 #[tokio::test]
 async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
     let app = app();
-    let (entry, hash) = store_entry(&app, "shelf");
-    db(&app)
-        .upsert_installed(&wicket_core::db::InstalledRecord {
-            name: "shelf".into(),
-            version: "1.0.0".into(),
-            major: 1,
-            kind: "path".into(),
-            source: "/somewhere/shelf".into(),
-            resolved: "/somewhere/shelf".into(),
-            commit: None,
-            asset_hash: None,
-            hash: Some(hash.clone()),
-            build_log: None,
-            installed_at: "2026-09-15T10:00:00Z".into(),
-            linked: false,
-            path: entry.display().to_string(),
-        })
-        .unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let builtin = app.state.config().builtin_plugins_dir().join("list");
+    for file in std::fs::read_dir(&builtin).unwrap() {
+        let file = file.unwrap();
+        std::fs::copy(file.path(), source.path().join(file.file_name())).unwrap();
+    }
+    let manifest_path = source.path().join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+    manifest["name"] = json!("shelf");
+    std::fs::write(manifest_path, manifest.to_string()).unwrap();
+
+    let (status, installed) = install(&app, source.path(), json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{installed}");
+    assert_eq!(installed["install"]["linked"], false);
+    let hash = installed["install"]["hash"].as_str().unwrap();
+    assert!(!hash.is_empty());
+    let entry = app
+        .state
+        .config()
+        .plugin_store_dir()
+        .join("shelf")
+        .join("1");
     let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;

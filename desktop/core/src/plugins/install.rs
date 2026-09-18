@@ -24,9 +24,10 @@ use chrono::Utc;
 use serde_json::{Map, Value};
 
 use super::jobs::Progress;
+use super::registry::hash_dir;
 use crate::db::{Db, InstalledRecord};
 use crate::error::Error;
-use crate::plugins::{Plugin, Registry, hash_dir};
+use crate::plugins::{Plugin, Registry};
 
 #[derive(Debug, Default, Clone)]
 pub struct Options {

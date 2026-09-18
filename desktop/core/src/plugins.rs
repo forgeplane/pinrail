@@ -3,7 +3,7 @@
 //! [`PluginService`] is the way in: listing, installing, updating and removing
 //! are application operations, and the registry behind them is the crate's own
 //! business. What stays public is the vocabulary a caller reads from a review
-//! or a manifest, and the store's content hash, which identifies an entry.
+//! or a manifest.
 
 mod install;
 mod jobs;
@@ -14,7 +14,6 @@ mod service;
 pub use install::Options as InstallOptions;
 pub use jobs::Job as InstallJob;
 pub use manifest::{Install, Plugin};
-pub use registry::hash_dir;
 pub use service::{PluginService, UpdateOutcome};
 
 pub(crate) use install::tidy;

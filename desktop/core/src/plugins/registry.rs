@@ -16,7 +16,7 @@ static BUILTIN_LIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/builtin/list");
 
 /// SHA-256 over a directory's files: each relative path and its bytes, in
 /// sorted order, with the same exclusions the copier applies.
-pub fn hash_dir(dir: &Path) -> std::io::Result<String> {
+pub(super) fn hash_dir(dir: &Path) -> std::io::Result<String> {
     hash_dir_where(dir, &|name| {
         name != "node_modules" && !name.starts_with('.')
     })
