@@ -363,6 +363,12 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 /* one strip of what the plugin does not show; the rounds at its end */
 .review-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 12px; color: var(--dim); }
 .strip-spacer { flex: 1; }
+/* the id and the button that copies it read as one item in the strip */
+.strip-id { display: inline-flex; align-items: center; gap: 4px; }
+.id-copy { display: inline-flex; padding: 0; border: 0; background: none; color: var(--faint); }
+.id-copy:hover { color: var(--text); }
+.id-copy.ok, .id-copy.ok:hover { color: var(--ok); }
+.id-copy.danger, .id-copy.danger:hover { color: var(--danger); }
 .rounds { display: inline-flex; align-items: center; gap: 4px; }
 .rounds-cap { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin-right: 2px; }
 .round-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; font: 11px var(--mono); color: var(--dim); }

@@ -24,6 +24,7 @@ export function ReviewScreen() {
   const { settings: prefs } = useSettings();
   const navigate = useNavigate();
   const [copied, setCopied] = useState<"done" | "failed" | null>(null);
+  const [copiedId, setCopiedId] = useState<"done" | "failed" | null>(null);
   // the review as the core renders it in markdown, for a merge request or a thread
   const copyMarkdown = async () => {
     if (!id) return;
@@ -34,6 +35,17 @@ export function ReviewScreen() {
       setCopied("failed");
     }
     window.setTimeout(() => setCopied(null), 3500);
+  };
+  // the id alone, for a message to the agent or a command line
+  const copyId = async () => {
+    if (!id) return;
+    try {
+      await copyText(id);
+      setCopiedId("done");
+    } catch {
+      setCopiedId("failed");
+    }
+    window.setTimeout(() => setCopiedId(null), 3500);
   };
   const location = useLocation();
   // the way back is where the review was opened from
@@ -340,7 +352,20 @@ export function ReviewScreen() {
             <Clock size={13} /> expires {stamp(review.expires_at)}
           </span>
         ) : null}
-        <span className="mono faint">{review.id}</span>
+        <span className="strip-id">
+          <span className="mono faint">{review.id}</span>
+          <Tooltip label={copiedId === "done" ? "Copied" : copiedId === "failed" ? "Could not copy" : "Copy the id"} side="bottom">
+            <button
+              type="button"
+              className={`id-copy ${copiedId === "done" ? "ok" : copiedId === "failed" ? "danger" : ""}`}
+              onClick={copyId}
+              aria-label="Copy the review id"
+              data-copy-id
+            >
+              {copiedId === "done" ? <ClipboardCheck size={14} /> : copiedId === "failed" ? <ClipboardX size={14} /> : <Copy size={14} />}
+            </button>
+          </Tooltip>
+        </span>
         <span className="strip-spacer" />
         {rounds.length > 1 ? (
           <span className="rounds" role="navigation" aria-label="Rounds">
