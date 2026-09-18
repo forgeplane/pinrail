@@ -7,9 +7,10 @@ use chrono::{DateTime, Utc};
 use crate::Config;
 use crate::db::Db;
 use crate::error::Error;
-use crate::events::{self, Bus};
+use crate::events::Bus;
 use crate::plugins::{self as plugin_store, Registry};
 use crate::reviews::Reviews;
+use crate::settings::{SettingsService, Store};
 
 /// The running application, shared by the desktop and HTTP interfaces.
 /// Opening it initializes local storage and services without starting a server.
@@ -17,7 +18,7 @@ use crate::reviews::Reviews;
 pub struct Wicket {
     config: Config,
     started_at: DateTime<Utc>,
-    settings: crate::settings::Store,
+    settings: SettingsService,
     pub(crate) db: Arc<Db>,
     pub(crate) registry: Arc<Registry>,
     reviews: Reviews,
@@ -40,46 +41,16 @@ impl Wicket {
         &self.reviews
     }
 
-    /// A settings snapshot. Changes go through `change_settings` so validation
-    /// and notifications are the same for every caller.
-    pub fn settings(&self) -> serde_json::Value {
-        self.settings.get()
-    }
-
-    /// One setting addressed by a JSON pointer, or null when it is absent.
-    pub fn setting(&self, pointer: &str) -> serde_json::Value {
-        self.settings.value(pointer)
-    }
-
-    /// Applies a partial change to the settings and announces what changed,
-    /// for the API and for the app itself (the tray's pause, for one).
-    pub fn change_settings(&self, patch: &serde_json::Value) -> Result<serde_json::Value, Error> {
-        // a plugin's own settings are the plugin's schema to judge; a name
-        // that is not registered now is kept as it is
-        let mut violations = Vec::new();
-        if let Some(plugins) = patch.get("plugins").and_then(serde_json::Value::as_object) {
-            for (name, change) in plugins {
-                if let Some(plugin) = self.registry.get(name) {
-                    violations.extend(plugin.validate_settings(change));
-                }
-            }
-        }
-        if !violations.is_empty() {
-            violations.sort_by(|a, b| a.path.cmp(&b.path));
-            return Err(Error::Invalid(violations));
-        }
-        let (after, keys) = self.settings.patch(patch)?;
-        if !keys.is_empty() {
-            self.announce_settings(&keys)?;
-        }
-        Ok(after)
+    /// Settings reads and changes share validation, persistence and notifications.
+    pub fn settings(&self) -> &SettingsService {
+        &self.settings
     }
 
     /// Opens the database, writes out the built-in plugin, scans the plugin
     /// directories and wires the service together.
     pub fn open(config: Config) -> Result<Arc<Self>, Error> {
         std::fs::create_dir_all(&config.data_dir)?;
-        let settings = crate::settings::Store::open(&config.data_dir);
+        let store = Store::open(&config.data_dir);
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
         let user = config.user_plugins_dir();
@@ -94,12 +65,9 @@ impl Wicket {
             Registry::open(defaults, records, config.plugin_store_dir())
                 .map_err(Error::Internal)?,
         );
-        let reviews = Reviews::new(
-            db.clone(),
-            registry.clone(),
-            Bus::new(),
-            config.user.clone(),
-        );
+        let bus = Bus::new();
+        let settings = SettingsService::new(store, db.clone(), registry.clone(), bus.clone());
+        let reviews = Reviews::new(db.clone(), registry.clone(), bus, config.user.clone());
         Ok(Arc::new(Self {
             config,
             started_at: Utc::now(),
@@ -109,29 +77,5 @@ impl Wicket {
             reviews,
             jobs: Arc::new(crate::install::Jobs::default()),
         }))
-    }
-
-    /// Picks up an external settings edit and records and broadcasts its keys.
-    /// The host decides when to poll; this operation does not require HTTP.
-    pub fn reload_settings(&self) -> Result<Option<Vec<String>>, Error> {
-        let keys = self.settings.reload_if_changed();
-        if let Some(keys) = &keys {
-            self.announce_settings(keys)?;
-        }
-        Ok(keys)
-    }
-
-    /// Records and broadcasts which settings changed, from a patch or from an
-    /// edit to the file.
-    fn announce_settings(&self, keys: &[String]) -> Result<(), Error> {
-        let event_id = self.db.append_event(
-            None,
-            events::SETTINGS_CHANGED,
-            None,
-            &serde_json::json!({ "keys": keys }),
-        )?;
-        self.reviews
-            .publish_keys(event_id, events::SETTINGS_CHANGED, keys.to_vec());
-        Ok(())
     }
 }

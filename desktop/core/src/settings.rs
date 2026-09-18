@@ -2,6 +2,11 @@
 //! app. The core owns it — defaults, validation, an atomic write — and
 //! notices an edit made outside the app. Unknown keys in the file are kept
 //! as they are, so a newer file survives an older app.
+//! [`SettingsService`] coordinates plugin validation and change notifications.
+
+mod service;
+
+pub use service::SettingsService;
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;

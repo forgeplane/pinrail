@@ -72,7 +72,8 @@ pub async fn serve(
                     eprintln!("wicket: expiry sweep failed: {error}");
                 }
                 let keep_days = state
-                    .setting("/history/keep_days")
+                    .settings()
+                    .value("/history/keep_days")
                     .as_u64()
                     .map(|d| d as u32);
                 if let Err(error) = state.reviews().sweep_history(keep_days) {
@@ -88,7 +89,7 @@ pub async fn serve(
             let mut tick = tokio::time::interval(Duration::from_secs(1));
             loop {
                 tick.tick().await;
-                if let Err(error) = state.reload_settings() {
+                if let Err(error) = state.settings().reload() {
                     eprintln!("wicket: settings change not announced: {error}");
                 }
             }

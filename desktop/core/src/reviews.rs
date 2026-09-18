@@ -378,17 +378,6 @@ impl Reviews {
         });
     }
 
-    /// A notice about settings: which of them changed.
-    pub fn publish_keys(&self, event_id: i64, kind: &str, keys: Vec<String>) {
-        self.bus.publish(Notice {
-            event_id,
-            kind: kind.to_string(),
-            review_id: None,
-            review: None,
-            keys: Some(keys),
-        });
-    }
-
     fn publish(&self, event_id: i64, kind: &str, review: &Review) {
         self.bus.publish(Notice {
             event_id,

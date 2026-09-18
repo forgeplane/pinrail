@@ -181,13 +181,13 @@ async fn an_edit_to_the_file_is_picked_up_with_its_keys() {
         Some(json!({"autostart": true})),
     )
     .await;
-    assert!(app.state.reload_settings().unwrap().is_none());
+    assert!(app.state.settings().reload().unwrap().is_none());
     std::fs::write(
         app.dir.path().join("settings.json"),
         r#"{"autostart": true, "shortcut": {"global": "ctrl+alt+r"}, "someday": 1}"#,
     )
     .unwrap();
-    let keys = app.state.reload_settings().unwrap().unwrap();
+    let keys = app.state.settings().reload().unwrap().unwrap();
     assert_eq!(keys, vec!["/shortcut/global"]);
     let (_, body) = call(&app, "GET", "/api/v1/settings", None).await;
     assert_eq!(body["shortcut"]["global"], "ctrl+alt+r");

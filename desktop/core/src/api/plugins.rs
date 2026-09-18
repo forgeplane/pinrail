@@ -32,7 +32,7 @@ pub fn routes() -> Router<Arc<Wicket>> {
 }
 
 async fn index(State(state): State<Arc<Wicket>>) -> Json<Value> {
-    let stored = state.setting(crate::settings::PLUGINS);
+    let stored = state.settings().value(crate::settings::PLUGINS);
     let plugins = state
         .registry
         .all()
