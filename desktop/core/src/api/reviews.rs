@@ -15,9 +15,8 @@ use serde_json::{Value, json};
 
 use super::parse_body;
 use crate::Wicket;
-use crate::db::Filters;
 use crate::error::Error;
-use crate::reviews::Status;
+use crate::reviews::{Filters, Status};
 
 const DEFAULT_WAIT: u64 = 300;
 const MAX_WAIT: u64 = 600;
