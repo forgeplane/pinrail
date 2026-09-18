@@ -21,10 +21,7 @@ pub struct Wicket {
     settings: SettingsService,
     plugins: PluginService,
     pub(crate) db: Arc<Db>,
-    pub(crate) registry: Arc<Registry>,
     reviews: Reviews,
-    /// plugin installs under way or done, by job id
-    pub(crate) jobs: Arc<crate::install::Jobs>,
 }
 
 impl Wicket {
@@ -64,7 +61,7 @@ impl Wicket {
         defaults.extend(config.plugin_dirs.iter().cloned());
         let records = db.installed_plugins()?;
         if let Some(plugins_dir) = config.plugin_store_dir().parent() {
-            crate::install::tidy(plugins_dir)?;
+            plugin_store::tidy(plugins_dir)?;
         }
         let registry = Arc::new(
             Registry::open(defaults, records, config.plugin_store_dir())
@@ -81,9 +78,7 @@ impl Wicket {
             settings,
             plugins,
             db,
-            registry,
             reviews,
-            jobs: Arc::new(crate::install::Jobs::default()),
         }))
     }
 }

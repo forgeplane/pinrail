@@ -16,15 +16,14 @@
 //! step). It is parsed before anything is touched, so a bad one fails at
 //! once and offline.
 
-use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
 
 use chrono::Utc;
 use serde_json::{Map, Value};
 
+use super::jobs::Progress;
 use crate::db::{Db, InstalledRecord};
 use crate::error::Error;
 use crate::plugins::{Plugin, Registry, hash_dir};
@@ -240,172 +239,6 @@ impl Source {
             }),
             _ => None,
         }
-    }
-}
-
-#[cfg(test)]
-mod source_tests {
-    use super::Source;
-
-    fn git(url: &str, path: Option<&str>, reference: Option<&str>) -> Source {
-        Source::Git {
-            url: url.into(),
-            path: path.map(str::to_string),
-            reference: reference.map(str::to_string),
-        }
-    }
-
-    #[test]
-    fn the_browser_url_and_the_short_form_say_the_same_thing() {
-        let cases = [
-            (
-                "https://github.com/acme/plugins",
-                git("https://github.com/acme/plugins", None, None),
-            ),
-            (
-                "https://github.com/acme/plugins.git",
-                git("https://github.com/acme/plugins", None, None),
-            ),
-            (
-                "https://github.com/acme/plugins/tree/main/review",
-                git(
-                    "https://github.com/acme/plugins",
-                    Some("review"),
-                    Some("main"),
-                ),
-            ),
-            (
-                "https://github.com/acme/plugins/tree/v3/tools/review/",
-                git(
-                    "https://github.com/acme/plugins",
-                    Some("tools/review"),
-                    Some("v3"),
-                ),
-            ),
-            (
-                "https://gitlab.com/acme/plugins/-/tree/v3/review",
-                git(
-                    "https://gitlab.com/acme/plugins",
-                    Some("review"),
-                    Some("v3"),
-                ),
-            ),
-            (
-                "github.com/acme/plugins",
-                git("https://github.com/acme/plugins", None, None),
-            ),
-            (
-                "github.com/acme/plugins@v3",
-                git("https://github.com/acme/plugins", None, Some("v3")),
-            ),
-            (
-                "github.com/acme/plugins/review",
-                git("https://github.com/acme/plugins", Some("review"), None),
-            ),
-            (
-                "github.com/acme/plugins/review@v3",
-                git(
-                    "https://github.com/acme/plugins",
-                    Some("review"),
-                    Some("v3"),
-                ),
-            ),
-            (
-                "acme.internal/team/plugins/tools/review@abc1234",
-                git(
-                    "https://acme.internal/team/plugins",
-                    Some("tools/review"),
-                    Some("abc1234"),
-                ),
-            ),
-            (
-                "git@github.com:acme/plugins.git",
-                git("git@github.com:acme/plugins.git", None, None),
-            ),
-        ];
-        for (text, expected) in cases {
-            assert_eq!(Source::parse(text, None, None).unwrap(), expected, "{text}");
-        }
-        assert_eq!(
-            Source::parse(
-                "git@github.com:acme/plugins.git",
-                Some("v3"),
-                Some("review")
-            )
-            .unwrap(),
-            git(
-                "git@github.com:acme/plugins.git",
-                Some("review"),
-                Some("v3")
-            )
-        );
-        assert_eq!(
-            Source::parse(
-                "https://github.com/acme/plugins/releases/tag/v1.2.0",
-                None,
-                None
-            )
-            .unwrap(),
-            Source::Release {
-                owner: "acme".into(),
-                repo: "plugins".into(),
-                tag: Some("v1.2.0".into())
-            }
-        );
-        assert_eq!(
-            Source::parse("https://github.com/acme/plugins/releases", None, None).unwrap(),
-            Source::Release {
-                owner: "acme".into(),
-                repo: "plugins".into(),
-                tag: None
-            }
-        );
-    }
-
-    #[test]
-    fn folders_are_paths_and_bad_sources_fail_offline() {
-        for text in [
-            "./review",
-            "../review",
-            "/abs/review",
-            "~/code/review",
-            "plugins/review",
-            "review",
-        ] {
-            assert!(
-                matches!(Source::parse(text, None, None).unwrap(), Source::Folder(_)),
-                "{text}"
-            );
-        }
-        for (text, why) in [
-            ("https://github.com/acme", "owner and a name"),
-            (
-                "https://github.com/acme/plugins/blob/main/x.js",
-                "not a repository or a folder",
-            ),
-            ("https://github.com/acme/plugins/tree", "needs a branch"),
-            ("github.com/acme/plugins/../x", "inside the repository"),
-            ("github.com/acme/plugins@", "@ needs"),
-            (
-                "https://github.com/acme/plugins/releases#x",
-                "not a repository",
-            ),
-        ] {
-            let error = Source::parse(text, None, None).unwrap_err().to_string();
-            assert!(error.contains(why), "{text}: {error}");
-        }
-        assert!(
-            Source::parse("./review", Some("v3"), None)
-                .unwrap_err()
-                .to_string()
-                .contains("takes no ref")
-        );
-        assert!(
-            Source::parse("github.com/a/b@v3", Some("v4"), None)
-                .unwrap_err()
-                .to_string()
-                .contains("given twice")
-        );
     }
 }
 
@@ -1200,92 +1033,6 @@ trait Tap: Sized {
 }
 impl Tap for Value {}
 
-/// What an install says as it goes: the step it is at, and lines of the
-/// build's output.
-pub enum Progress {
-    Step(&'static str),
-    Log(String),
-}
-
-/// One install, followed by id: its step, its log, and how it ended.
-#[derive(Debug, Clone)]
-pub struct Job {
-    pub id: String,
-    pub source: String,
-    /// `fetching`, `inspecting`, `building`, `placing`, `done`, `failed`
-    pub status: String,
-    pub log: String,
-    pub error: Option<String>,
-    /// the plugin's row, once done
-    pub plugin: Option<Value>,
-}
-
-impl Job {
-    pub fn to_json(&self) -> Value {
-        serde_json::json!({
-            "id": self.id,
-            "source": self.source,
-            "status": self.status,
-            "log": self.log,
-            "error": self.error,
-            "plugin": self.plugin,
-        })
-    }
-}
-
-/// The jobs the app has run, by id, for the dialog and the CLI to follow.
-#[derive(Debug, Default)]
-pub struct Jobs(Mutex<HashMap<String, Job>>);
-
-impl Jobs {
-    pub fn start(&self, source: &str) -> String {
-        let id = crate::id::next().replace("r_", "j_");
-        self.0.lock().unwrap().insert(
-            id.clone(),
-            Job {
-                id: id.clone(),
-                source: source.to_string(),
-                status: "fetching".into(),
-                log: String::new(),
-                error: None,
-                plugin: None,
-            },
-        );
-        id
-    }
-
-    pub fn get(&self, id: &str) -> Option<Job> {
-        self.0.lock().unwrap().get(id).cloned()
-    }
-
-    pub fn note(&self, id: &str, progress: Progress) {
-        let mut jobs = self.0.lock().unwrap();
-        let Some(job) = jobs.get_mut(id) else { return };
-        match progress {
-            Progress::Step(step) => job.status = step.to_string(),
-            Progress::Log(line) => {
-                job.log.push_str(&line);
-                job.log.push('\n');
-            }
-        }
-    }
-
-    pub fn finish(&self, id: &str, outcome: Result<Value, Error>) {
-        let mut jobs = self.0.lock().unwrap();
-        let Some(job) = jobs.get_mut(id) else { return };
-        match outcome {
-            Ok(plugin) => {
-                job.status = "done".into();
-                job.plugin = Some(plugin);
-            }
-            Err(error) => {
-                job.status = "failed".into();
-                job.error = Some(error.to_string());
-            }
-        }
-    }
-}
-
 /// Installs the plugin in `dir`, wherever it was fetched from.
 fn install_dir(
     db: &Db,
@@ -1651,4 +1398,170 @@ pub fn semver(text: &str) -> (u64, u64, u64) {
         parts.next().unwrap_or(0),
         parts.next().unwrap_or(0),
     )
+}
+
+#[cfg(test)]
+mod source_tests {
+    use super::Source;
+
+    fn git(url: &str, path: Option<&str>, reference: Option<&str>) -> Source {
+        Source::Git {
+            url: url.into(),
+            path: path.map(str::to_string),
+            reference: reference.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn the_browser_url_and_the_short_form_say_the_same_thing() {
+        let cases = [
+            (
+                "https://github.com/acme/plugins",
+                git("https://github.com/acme/plugins", None, None),
+            ),
+            (
+                "https://github.com/acme/plugins.git",
+                git("https://github.com/acme/plugins", None, None),
+            ),
+            (
+                "https://github.com/acme/plugins/tree/main/review",
+                git(
+                    "https://github.com/acme/plugins",
+                    Some("review"),
+                    Some("main"),
+                ),
+            ),
+            (
+                "https://github.com/acme/plugins/tree/v3/tools/review/",
+                git(
+                    "https://github.com/acme/plugins",
+                    Some("tools/review"),
+                    Some("v3"),
+                ),
+            ),
+            (
+                "https://gitlab.com/acme/plugins/-/tree/v3/review",
+                git(
+                    "https://gitlab.com/acme/plugins",
+                    Some("review"),
+                    Some("v3"),
+                ),
+            ),
+            (
+                "github.com/acme/plugins",
+                git("https://github.com/acme/plugins", None, None),
+            ),
+            (
+                "github.com/acme/plugins@v3",
+                git("https://github.com/acme/plugins", None, Some("v3")),
+            ),
+            (
+                "github.com/acme/plugins/review",
+                git("https://github.com/acme/plugins", Some("review"), None),
+            ),
+            (
+                "github.com/acme/plugins/review@v3",
+                git(
+                    "https://github.com/acme/plugins",
+                    Some("review"),
+                    Some("v3"),
+                ),
+            ),
+            (
+                "acme.internal/team/plugins/tools/review@abc1234",
+                git(
+                    "https://acme.internal/team/plugins",
+                    Some("tools/review"),
+                    Some("abc1234"),
+                ),
+            ),
+            (
+                "git@github.com:acme/plugins.git",
+                git("git@github.com:acme/plugins.git", None, None),
+            ),
+        ];
+        for (text, expected) in cases {
+            assert_eq!(Source::parse(text, None, None).unwrap(), expected, "{text}");
+        }
+        assert_eq!(
+            Source::parse(
+                "git@github.com:acme/plugins.git",
+                Some("v3"),
+                Some("review")
+            )
+            .unwrap(),
+            git(
+                "git@github.com:acme/plugins.git",
+                Some("review"),
+                Some("v3")
+            )
+        );
+        assert_eq!(
+            Source::parse(
+                "https://github.com/acme/plugins/releases/tag/v1.2.0",
+                None,
+                None
+            )
+            .unwrap(),
+            Source::Release {
+                owner: "acme".into(),
+                repo: "plugins".into(),
+                tag: Some("v1.2.0".into())
+            }
+        );
+        assert_eq!(
+            Source::parse("https://github.com/acme/plugins/releases", None, None).unwrap(),
+            Source::Release {
+                owner: "acme".into(),
+                repo: "plugins".into(),
+                tag: None
+            }
+        );
+    }
+
+    #[test]
+    fn folders_are_paths_and_bad_sources_fail_offline() {
+        for text in [
+            "./review",
+            "../review",
+            "/abs/review",
+            "~/code/review",
+            "plugins/review",
+            "review",
+        ] {
+            assert!(
+                matches!(Source::parse(text, None, None).unwrap(), Source::Folder(_)),
+                "{text}"
+            );
+        }
+        for (text, why) in [
+            ("https://github.com/acme", "owner and a name"),
+            (
+                "https://github.com/acme/plugins/blob/main/x.js",
+                "not a repository or a folder",
+            ),
+            ("https://github.com/acme/plugins/tree", "needs a branch"),
+            ("github.com/acme/plugins/../x", "inside the repository"),
+            ("github.com/acme/plugins@", "@ needs"),
+            (
+                "https://github.com/acme/plugins/releases#x",
+                "not a repository",
+            ),
+        ] {
+            let error = Source::parse(text, None, None).unwrap_err().to_string();
+            assert!(error.contains(why), "{text}: {error}");
+        }
+        assert!(
+            Source::parse("./review", Some("v3"), None)
+                .unwrap_err()
+                .to_string()
+                .contains("takes no ref")
+        );
+        assert!(
+            Source::parse("github.com/a/b@v3", Some("v4"), None)
+                .unwrap_err()
+                .to_string()
+                .contains("given twice")
+        );
+    }
 }

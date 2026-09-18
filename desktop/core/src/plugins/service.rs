@@ -5,8 +5,9 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::{Plugin, Registry};
-use crate::db::Db;
+use super::jobs::Jobs;
+use super::{InstallJob, InstallOptions, Plugin, Registry, install};
+use crate::db::{Db, InstalledRecord};
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
 
@@ -15,11 +16,24 @@ pub struct PluginService {
     db: Arc<Db>,
     registry: Arc<Registry>,
     bus: Bus,
+    jobs: Arc<Jobs>,
+}
+
+/// Updating either starts a job or reports that the installed version is current.
+#[derive(Debug, PartialEq, Eq)]
+pub enum UpdateOutcome {
+    UpToDate { version: String },
+    Started { job_id: String },
 }
 
 impl PluginService {
     pub(crate) fn new(db: Arc<Db>, registry: Arc<Registry>, bus: Bus) -> Self {
-        Self { db, registry, bus }
+        Self {
+            db,
+            registry,
+            bus,
+            jobs: Arc::new(Jobs::default()),
+        }
     }
 
     pub fn dirs(&self) -> Vec<PathBuf> {
@@ -88,7 +102,7 @@ impl PluginService {
 
     /// Removes the installation while retaining versions still used by reviews.
     pub fn remove(&self, name: &str) -> Result<Value, Error> {
-        let answer = crate::install::remove(&self.db, &self.registry, name)?;
+        let answer = install::remove(&self.db, &self.registry, name)?;
         self.announce()?;
         Ok(answer)
     }
@@ -126,7 +140,109 @@ impl PluginService {
         Ok(count)
     }
 
-    pub(crate) fn announce(&self) -> Result<(), Error> {
+    /// Fetches and inspects a source without installing it or announcing a change.
+    pub async fn inspect(&self, source: &str, options: InstallOptions) -> Result<Value, Error> {
+        let worker = self.clone();
+        let source = source.to_string();
+        tokio::task::spawn_blocking(move || {
+            install::inspect(&worker.db, &worker.registry, &source, options, &|_| {})
+        })
+        .await
+        .map_err(|error| Error::Internal(error.to_string()))?
+    }
+
+    /// Starts an installation and returns the id used to follow its progress.
+    /// Requires a Tokio runtime. Failures are recorded on the job.
+    pub fn start_install(&self, source: &str, options: InstallOptions) -> String {
+        let id = self.jobs.start(source);
+        let job_id = id.clone();
+        let worker = self.clone();
+        let source = source.to_string();
+        tokio::task::spawn_blocking(move || {
+            let progress = |p| worker.jobs.note(&job_id, p);
+            let outcome =
+                install::install(&worker.db, &worker.registry, &source, options, &progress)
+                    .and_then(|record| {
+                        worker.announce()?;
+                        worker
+                            .registry
+                            .get(&record.name)
+                            .map(|p| p.to_json())
+                            .ok_or_else(|| {
+                                Error::Internal(format!(
+                                    "{} was installed and is not registered",
+                                    record.name
+                                ))
+                            })
+                    });
+            worker.jobs.finish(&job_id, outcome);
+        });
+        id
+    }
+
+    /// A snapshot of an installation's progress or final result.
+    pub fn job(&self, id: &str) -> Result<InstallJob, Error> {
+        self.jobs
+            .get(id)
+            .ok_or_else(|| Error::NotFound(id.to_string()))
+    }
+
+    /// Asks the original source whether a newer version is available.
+    pub async fn check_updates(&self, name: &str) -> Result<Value, Error> {
+        self.check_record(self.installed(name)?).await
+    }
+
+    /// Updates from the installation's original source. Links and pinned versions
+    /// are refused; unchanged sources do not start a job or announce a change.
+    pub async fn start_update(&self, name: &str) -> Result<UpdateOutcome, Error> {
+        let record = self.installed(name)?;
+        let answer = self.check_record(record.clone()).await?;
+        match answer["state"].as_str().unwrap_or("unknown") {
+            "linked" => {
+                return Err(Error::invalid(
+                    "/name",
+                    format!("{name} is a link: it is always what its folder holds"),
+                ));
+            }
+            "pinned" => {
+                let at = answer["tag"]
+                    .as_str()
+                    .or(answer["ref"].as_str())
+                    .unwrap_or("this version");
+                return Err(Error::invalid(
+                    "/name",
+                    format!("{name} is pinned to {at}; install another ref to move it"),
+                ));
+            }
+            "up_to_date" => {
+                return Ok(UpdateOutcome::UpToDate {
+                    version: record.version,
+                });
+            }
+            _ => {}
+        }
+        let (source, options) = install::source_of(&record);
+        Ok(UpdateOutcome::Started {
+            job_id: self.start_install(&source, options),
+        })
+    }
+
+    fn installed(&self, name: &str) -> Result<InstalledRecord, Error> {
+        self.db
+            .installed_plugins()?
+            .into_iter()
+            .find(|r| r.name == name)
+            .ok_or_else(|| Error::NotFound(name.to_string()))
+    }
+
+    async fn check_record(&self, record: InstalledRecord) -> Result<Value, Error> {
+        let registry = self.registry.clone();
+        tokio::task::spawn_blocking(move || install::check_updates(&registry, &record))
+            .await
+            .map_err(|error| Error::Internal(error.to_string()))
+    }
+
+    fn announce(&self) -> Result<(), Error> {
         let event_id = self
             .db
             .append_event(None, events::PLUGINS_RELOADED, None, &Value::Null)?;
