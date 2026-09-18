@@ -16,8 +16,6 @@ use serde_json::json;
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::Wicket;
-use serde_json::Value;
-
 use crate::events::Notice;
 
 const CATCH_UP_LIMIT: usize = 1000;
@@ -35,27 +33,8 @@ async fn events(
     let after = params.get("after").and_then(|a| a.parse::<i64>().ok());
     let backlog: Vec<Notice> = match after {
         Some(after) => state
-            .db
             .events_after(after, CATCH_UP_LIMIT)
-            .unwrap_or_default()
-            .into_iter()
-            .map(|e| Notice {
-                event_id: e.id,
-                kind: e.kind,
-                review: e
-                    .review_id
-                    .as_deref()
-                    .and_then(|id| state.db.get_review(id).ok().flatten())
-                    .map(|r| r.to_json(false)),
-                review_id: e.review_id,
-                keys: e.attrs.get("keys").and_then(Value::as_array).map(|k| {
-                    k.iter()
-                        .filter_map(Value::as_str)
-                        .map(str::to_string)
-                        .collect()
-                }),
-            })
-            .collect(),
+            .unwrap_or_default(),
         None => Vec::new(),
     };
     let last_backlog_id = backlog.last().map(|n| n.event_id).or(after).unwrap_or(0);

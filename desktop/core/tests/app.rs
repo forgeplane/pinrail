@@ -5,6 +5,83 @@ use wicket_core::db::Db;
 use wicket_core::{Config, Error, Wicket};
 
 #[test]
+fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Wicket::open(Config::new(dir.path(), 0)).unwrap();
+    let review = app
+        .reviews()
+        .submit(
+            &json!({
+                "plugin": "list", "title": "Review these options",
+                "payload": {"groups": []}
+            }),
+            None,
+        )
+        .unwrap();
+    app.settings().change(&json!({"autostart": true})).unwrap();
+    app.plugins().reload().unwrap();
+    let withdrawn = app
+        .reviews()
+        .withdraw(&review.id, Some("No longer needed"))
+        .unwrap();
+
+    let notices = app.events_after(0, 10).unwrap();
+    assert_eq!(
+        notices.iter().map(|n| n.kind.as_str()).collect::<Vec<_>>(),
+        vec![
+            "created",
+            "settings_changed",
+            "plugins_reloaded",
+            "withdrawn"
+        ]
+    );
+    assert!(
+        notices
+            .windows(2)
+            .all(|pair| pair[0].event_id < pair[1].event_id)
+    );
+    for index in [0, 3] {
+        let notice = &notices[index];
+        assert_eq!(notice.review_id.as_deref(), Some(review.id.as_str()));
+        assert_eq!(
+            notice.review,
+            Some(withdrawn.to_json(false)),
+            "catch-up uses the current review"
+        );
+        assert!(notice.review.as_ref().unwrap().get("payload").is_none());
+        assert!(notice.keys.is_none());
+    }
+    assert_eq!(notices[1].keys, Some(vec!["/autostart".into()]));
+    for index in [1, 2] {
+        assert!(notices[index].review.is_none());
+        assert!(notices[index].review_id.is_none());
+    }
+    assert!(notices[2].keys.is_none());
+
+    let page = app.events_after(notices[0].event_id, 2).unwrap();
+    assert_eq!(
+        page.iter().map(|n| n.event_id).collect::<Vec<_>>(),
+        vec![notices[1].event_id, notices[2].event_id]
+    );
+    assert!(
+        app.events_after(notices[3].event_id, 10)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(app.events_after(0, 0).unwrap().is_empty());
+}
+
+#[test]
+fn event_history_returns_storage_failures_to_the_caller() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::new(dir.path(), 0);
+    let app = Wicket::open(config.clone()).unwrap();
+    let connection = rusqlite::Connection::open(config.db_path()).unwrap();
+    connection.execute_batch("DROP TABLE events").unwrap();
+    assert!(matches!(app.events_after(0, 10), Err(Error::Internal(_))));
+}
+
+#[test]
 fn settings_changes_are_persisted_and_announced_without_http() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path(), 0);
