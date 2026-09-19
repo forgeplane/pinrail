@@ -250,8 +250,8 @@ export function ReviewScreen() {
   // the view leaves with the review
   useEffect(() => setMaximized(false), [id]);
 
-  // the bar: where this came from, the title, its origin link; status and
-  // maximize at the right
+  // the bar: where this came from, the title, its origin link; what can be
+  // done with the review at the right. Its outcome leads the page's own strip.
   const originUrl = review?.origin.url ?? null;
   const crumb = useMemo(
     () =>
@@ -279,7 +279,6 @@ export function ReviewScreen() {
     () =>
       review ? (
         <>
-          <OutcomeBadge review={review} />
           {review.status === "pending" ? (
             <Tooltip label="Discard: the agent is told to stop" side="bottom">
               <button type="button" className="bar-button" onClick={() => setDiscarding(true)} aria-label="Discard this review" data-discard>
@@ -334,6 +333,7 @@ export function ReviewScreen() {
   return (
     <div className="review-page">
       <div className="review-strip">
+        <OutcomeBadge review={review} />
         <PluginBadge name={review.plugin} version={review.plugin_version} />
         {originText ? (
           <span>
