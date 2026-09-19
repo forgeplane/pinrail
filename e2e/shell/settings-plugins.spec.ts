@@ -90,6 +90,12 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await expect(row.locator("[data-plugin-remove-ask]")).toContainText("Remove Hello?");
   await row.locator("[data-plugin-remove-confirm]").click();
   await expect(page.locator('[data-plugin-row="greeter"]')).toHaveCount(0);
+  // the app says so in the corner, and the line can be dismissed
+  const removed = page.locator("[data-toast]").filter({ hasText: "Hello plugin was removed" });
+  await expect(removed).toHaveCount(1);
+  await removed.screenshot({ path: "/private/tmp/claude-501/-Users-pnezis-code-wicket/863cbceb-81d3-4c71-b715-b97f45ec3453/scratchpad/toast.png" });
+  await removed.locator(".toast-close").click();
+  await expect(removed).toHaveCount(0);
   const after = await (await page.request.get(`${core}/api/v1/plugins`)).json();
   expect(after.plugins.some((p: { name: string }) => p.name === "greeter")).toBe(false);
 });

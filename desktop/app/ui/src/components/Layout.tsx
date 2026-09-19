@@ -5,6 +5,7 @@ import { api, inTauri } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
+import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { MOD, hasMod } from "../lib/keys";
 import { NO_PROJECT } from "../lib/shortcuts";
@@ -329,6 +330,7 @@ export function Layout({ children }: { children: ReactNode }) {
         }}
       />
       {help ? <ShortcutsDialog plugin={topbar?.plugin} onClose={() => setHelp(false)} /> : null}
+      <Toasts />
     </div>
   );
 }

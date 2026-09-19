@@ -358,6 +358,30 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .button-danger:hover { background: color-mix(in srgb, var(--danger) 85%, black); }
 .inbox-footer { margin-top: 18px; font-size: 11.5px; color: var(--faint); }
 
+/* what the app says back: a short line in the corner, then gone */
+.toasts {
+  position: fixed; right: 16px; bottom: 16px; z-index: 40;
+  display: flex; flex-direction: column; gap: 8px; max-width: min(380px, calc(100vw - 32px));
+}
+.toast {
+  display: flex; align-items: flex-start; gap: 8px; padding: 9px 10px 9px 11px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg-raised); color: var(--text);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.22); font-size: 12.5px; line-height: 1.45;
+  animation: toast-in 140ms ease-out;
+}
+.toast-ok > svg:first-child { color: var(--ok); flex: none; margin-top: 1px; }
+.toast-danger > svg:first-child { color: var(--danger); flex: none; margin-top: 1px; }
+.toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast-close { flex: none; display: inline-flex; padding: 0; border: 0; background: none; color: var(--faint); }
+.toast-close:hover { color: var(--text); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}
+
 /* review page */
 .review-page { display: flex; flex-direction: column; gap: 14px; }
 /* one strip of what the plugin does not show; the rounds at its end */

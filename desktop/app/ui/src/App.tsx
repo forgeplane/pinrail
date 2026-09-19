@@ -6,6 +6,7 @@ import { Inbox } from "./screens/Inbox";
 import { ReviewScreen } from "./screens/ReviewScreen";
 import { LiveProvider } from "./state/live";
 import { SettingsProvider } from "./state/settings";
+import { ToastProvider } from "./state/toasts";
 import { TopBarProvider } from "./state/topbar";
 
 function Shell() {
@@ -29,7 +30,9 @@ export function App() {
       <LiveProvider>
         <TopBarProvider>
           <SettingsProvider>
-            <Shell />
+            <ToastProvider>
+              <Shell />
+            </ToastProvider>
           </SettingsProvider>
         </TopBarProvider>
       </LiveProvider>
