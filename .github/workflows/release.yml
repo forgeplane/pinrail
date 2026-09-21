@@ -9,9 +9,9 @@
 # the version in desktop/Cargo.toml and tauri.conf.json.
 #
 # The macOS build is signed with the Developer ID certificate and notarized
-# with an App Store Connect key, both from the `release` environment, which
-# only tags can read. A build without those secrets is unsigned and still
-# succeeds, so a manual run on a fork needs nothing
+# with an App Store Connect key, both from the repository's secrets. A build
+# without them is unsigned and still succeeds, so a fork needs nothing, and a
+# tag that cannot sign stops rather than shipping
 # (agent-docs/release-checklist.md §1 and §2).
 #
 # Run it by hand (Actions › release › Run workflow) to build without
@@ -111,10 +111,6 @@ jobs:
     # notarization waits on Apple, so a stuck one fails within the hour
     # rather than holding a runner for the default six
     timeout-minutes: 60
-    # A tag builds in the `release` environment, which holds the Apple
-    # secrets and admits tags only. A manual run takes no environment, so it
-    # reads no secrets and builds unsigned, which is what it is for.
-    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
     env:
       # a step cannot read a secret in its condition, only an environment
       # value: this says whether this run has what it takes to sign
@@ -182,7 +178,7 @@ jobs:
       - name: Refuse to build a tag that cannot be signed
         if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v') && env.SIGNED != 'true'
         run: |
-          echo "the release environment has no Apple secrets, so this tag would ship unsigned" >&2
+          echo "the repository has no Apple secrets, so this tag would ship unsigned" >&2
           exit 1
       # notarization takes the key as a file; the secret carries it base64
       - name: Write the notarization key (macOS)
