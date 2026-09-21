@@ -51,8 +51,10 @@ jobs:
           tagged="${GITHUB_REF_NAME#v}"
           workspace=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop/Cargo.toml | head -1)
           app=$(jq -r .version desktop/app/src-tauri/tauri.conf.json)
-          for found in "$workspace" "$app"; do
-            test "$found" = "$tagged" || { echo "the tag says $tagged, desktop/Cargo.toml says $workspace, tauri.conf.json says $app"; exit 1; }
+          # the CLI ships inside the bundle and answers --version itself
+          cli=$(sed -n 's/^version = "\(.*\)"/\1/p' cli/Cargo.toml | head -1)
+          for found in "$workspace" "$app" "$cli"; do
+            test "$found" = "$tagged" || { echo "the tag says $tagged, desktop/Cargo.toml says $workspace, tauri.conf.json says $app, cli/Cargo.toml says $cli"; exit 1; }
           done
           echo "version=$tagged" >> "$GITHUB_OUTPUT"
       - name: Create the draft release
