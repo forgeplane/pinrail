@@ -8,9 +8,10 @@
 # The draft is published by hand after a smoke test. The tag has to name
 # the version in desktop/Cargo.toml and tauri.conf.json.
 #
-# Unsigned for now: no Apple secrets and no updater key are read, so macOS
-# warns on first launch. Signing is switched on by adding the APPLE_* and
-# TAURI_SIGNING_* secrets to the build step's environment
+# The macOS build is signed with the Developer ID certificate and notarized
+# with an App Store Connect key, both from the `release` environment, which
+# only tags can read. A build without those secrets is unsigned and still
+# succeeds, so a manual run on a fork needs nothing
 # (agent-docs/release-checklist.md §1 and §2).
 #
 # Run it by hand (Actions › release › Run workflow) to build without
@@ -60,7 +61,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<'EOF'
-          **Unsigned build.** macOS will say the app cannot be checked for malicious software. Open it once with right-click › Open, or run `xattr -dr com.apple.quarantine /Applications/Wicket.app`.
+          The macOS build is signed and notarized by Apple, so it opens without a warning.
 
           Verify a download with `gh attestation verify <file> --repo ${{ github.repository }}`, or against `SHA256SUMS`.
           EOF
@@ -95,6 +96,14 @@ jobs:
               desktop/target/release/bundle/deb/*.deb
               desktop/target/release/bundle/rpm/*.rpm
     runs-on: ${{ matrix.runner }}
+    # A tag builds in the `release` environment, which holds the Apple
+    # secrets and admits tags only. A manual run takes no environment, so it
+    # reads no secrets and builds unsigned, which is what it is for.
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
+    env:
+      # a step cannot read a secret in its condition, only an environment
+      # value: this says whether this run has what it takes to sign
+      SIGNED: ${{ secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_API_KEY_P8 != '' }}
     permissions:
       contents: write
       id-token: write
@@ -139,11 +148,36 @@ jobs:
       - name: Build the CLI
         working-directory: desktop/app
         run: npm run cli:build -- ${{ matrix.triple }}
+      # a tag that cannot sign is a mistake, not an unsigned release
+      - name: Signing is required for a tag
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v') && env.SIGNED != 'true'
+        run: |
+          echo "the release environment has no Apple secrets, so this tag would ship unsigned" >&2
+          exit 1
+      # notarization takes the key as a file; the secret carries it base64
+      - name: The notarization key
+        id: notarize
+        if: runner.os == 'macOS' && env.SIGNED == 'true'
+        env:
+          P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          install -m 700 -d "$RUNNER_TEMP/notarize"
+          printf %s "$P8" | base64 --decode > "$RUNNER_TEMP/notarize/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/notarize/AuthKey.p8"
+          echo "path=$RUNNER_TEMP/notarize/AuthKey.p8" >> "$GITHUB_OUTPUT"
       - name: Build
         id: build
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          # signing: the certificate and its key, into a keychain the action makes
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # notarization: the App Store Connect key, by id, issuer and file
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ steps.notarize.outputs.path }}
         with:
           projectPath: desktop/app
           tauriScript: npx tauri
@@ -152,6 +186,17 @@ jobs:
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: true
           workflowArtifactNamePattern: wicket-[platform]-[arch]-[bundle]
+      # what the person downloading gets: a signature that checks out, and
+      # a notarization ticket stapled to the bundle
+      - name: Check the signature and the notarization
+        if: runner.os == 'macOS' && env.SIGNED == 'true'
+        run: |
+          app=$(find desktop/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
+          test -n "$app" || { echo "no .app was built"; exit 1; }
+          codesign --verify --deep --strict --verbose=2 "$app"
+          codesign -dvv "$app" 2>&1 | grep -E 'Authority|TeamIdentifier'
+          spctl --assess --type execute --verbose=4 "$app"
+          xcrun stapler validate "$app"
       - name: Build provenance
         if: startsWith(github.ref, 'refs/tags/v')
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
