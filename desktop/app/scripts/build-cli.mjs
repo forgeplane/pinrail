@@ -8,7 +8,7 @@
 // the two apart; Settings links it into ~/.local/bin as `wicket`.
 //
 //   node scripts/build-cli.mjs                          # the host's triple
-//   node scripts/build-cli.mjs universal-apple-darwin   # arm64 and x86_64, joined with lipo
+//   node scripts/build-cli.mjs universal-apple-darwin   # arm64, x86_64, and the two joined with lipo
 //   node scripts/build-cli.mjs x86_64-unknown-linux-gnu
 //
 // The release build merges src-tauri/tauri.release.conf.json (and, on Linux,
@@ -35,13 +35,26 @@ function build(target) {
 const target = process.argv[2] ?? host();
 const name = target.includes("-linux-") ? "wicket" : "wicket-cli";
 fs.mkdirSync(out, { recursive: true });
-const dest = path.join(out, `${name}-${target}`);
 
-if (target === "universal-apple-darwin") {
-  const parts = ["aarch64-apple-darwin", "x86_64-apple-darwin"].map(build);
-  run("lipo", ["-create", "-output", dest, ...parts]);
-} else {
-  fs.copyFileSync(build(target), dest);
+/** Puts a built binary where Tauri looks for the sidecar of `triple`. */
+function place(from, triple) {
+  const to = path.join(out, `${name}-${triple}`);
+  fs.copyFileSync(from, to);
+  fs.chmodSync(to, 0o755);
+  return to;
 }
-fs.chmodSync(dest, 0o755);
-console.log(`cli: ${path.relative(app, dest)}`);
+
+const written = [];
+if (target === "universal-apple-darwin") {
+  // A universal build builds each architecture in turn and asks for that
+  // architecture's sidecar, so both are placed as well as the merged one.
+  const arches = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
+  const parts = arches.map((triple) => place(build(triple), triple));
+  const merged = path.join(out, `${name}-${target}`);
+  run("lipo", ["-create", "-output", merged, ...parts]);
+  fs.chmodSync(merged, 0o755);
+  written.push(...parts, merged);
+} else {
+  written.push(place(build(target), target));
+}
+console.log(`cli: ${written.map((f) => path.relative(app, f)).join(", ")}`);
