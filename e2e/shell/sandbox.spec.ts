@@ -34,8 +34,18 @@ async function pluginFrame(page: import("@playwright/test").Page): Promise<Frame
   const { id } = (await made.json()) as { id: string };
   await page.goto(`/#/reviews/${id}`);
   await expect(page.frameLocator("#plugin-frame").locator("body")).toBeVisible();
-  const frame = page.frames().find((f) => f.url().includes("/plugins/list/"));
-  expect(frame, "the plugin view is in a frame of its own").toBeTruthy();
+  // The frame is there before it is the plugin's: it starts blank and is
+  // pointed at the view, so wait for the address rather than the element.
+  let frame: Frame | undefined;
+  await expect
+    .poll(
+      () => {
+        frame = page.frames().find((f) => f.url().includes("/plugins/list/"));
+        return Boolean(frame);
+      },
+      { message: "the plugin view never got a frame of its own" },
+    )
+    .toBe(true);
   return frame!;
 }
 
