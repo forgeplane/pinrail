@@ -45,17 +45,17 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # scripts/set-version.mjs writes these before a release is tagged
       - name: Check the version
         id: version
         run: |
           tagged="${GITHUB_REF_NAME#v}"
-          workspace=$(sed -n 's/^version = "\(.*\)"/\1/p' desktop/Cargo.toml | head -1)
-          app=$(jq -r .version desktop/app/src-tauri/tauri.conf.json)
-          # the CLI ships inside the bundle and answers --version itself
-          cli=$(sed -n 's/^version = "\(.*\)"/\1/p' cli/Cargo.toml | head -1)
-          for found in "$workspace" "$app" "$cli"; do
-            test "$found" = "$tagged" || { echo "the tag says $tagged, desktop/Cargo.toml says $workspace, tauri.conf.json says $app, cli/Cargo.toml says $cli"; exit 1; }
+          for file in desktop/Cargo.toml cli/Cargo.toml; do
+            found=$(sed -n 's/^version = "\(.*\)"/\1/p' "$file" | head -1)
+            test "$found" = "$tagged" || { echo "the tag says $tagged, $file says $found"; exit 1; }
           done
+          app=$(jq -r .version desktop/app/src-tauri/tauri.conf.json)
+          test "$app" = "$tagged" || { echo "the tag says $tagged, tauri.conf.json says $app"; exit 1; }
           echo "version=$tagged" >> "$GITHUB_OUTPUT"
       - name: Create the draft release
         id: release
