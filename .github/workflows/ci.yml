@@ -90,6 +90,11 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
+          # One name for every job that builds this workspace, here and in
+          # the release, so a tag restores what a push to main saved. A
+          # cache written under a tag is visible to that tag alone, which
+          # is why the release cannot warm itself.
+          shared-key: wicket-${{ matrix.os }}
           # a red run still built its dependencies; keep them
           cache-on-failure: true
           # only main saves: every branch and pull request restores main's

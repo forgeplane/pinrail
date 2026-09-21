@@ -139,13 +139,18 @@ jobs:
           targets: ${{ matrix.targets }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
+          # The name the CI workflow saves under, keyed by the runner image
+          # so a tag starts from what a push to main already compiled. macOS
+          # matches and shares; Linux does not, because CI runs on the
+          # current Ubuntu and a release on 22.04, and artifacts built
+          # against a newer glibc would undo the floor that image is for.
+          shared-key: wicket-${{ matrix.runner }}
           workspaces: |
             desktop
             cli
-          key: release-${{ matrix.name }}
           cache-on-failure: true
-          # a cache saved under a tag is visible to that tag only; a manual
-          # run on main saves one every tag can restore
+          # a cache written under a tag is visible to that tag alone, so a
+          # release restores and does not save
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Install the shell's dependencies
         working-directory: desktop/app
