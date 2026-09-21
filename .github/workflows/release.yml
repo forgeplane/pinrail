@@ -98,6 +98,9 @@ jobs:
               desktop/target/release/bundle/deb/*.deb
               desktop/target/release/bundle/rpm/*.rpm
     runs-on: ${{ matrix.runner }}
+    # notarization waits on Apple, so a stuck one fails within the hour
+    # rather than holding a runner for the default six
+    timeout-minutes: 60
     # A tag builds in the `release` environment, which holds the Apple
     # secrets and admits tags only. A manual run takes no environment, so it
     # reads no secrets and builds unsigned, which is what it is for.
@@ -112,15 +115,18 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # cached across runs instead of downloaded each time; bump version to refresh
-      - name: Linux dependencies
+      # Plain apt, refreshed first: a release is worth the half minute. The
+      # caching action installs against whatever index the image shipped
+      # with, and a superseded version there fails the whole build on a 404.
+      # libgtk-3-dev is named because 22.04's webkit package does not bring
+      # it, and the build needs gdk-3.0 through pkg-config.
+      - name: Install the Linux dependencies
         if: runner.os == 'Linux'
-        uses: awalsh128/cache-apt-pkgs-action@553a35bb8ebd9fcabcb1c9451aa4c98e1b4ca8a9 # v1.6.3
-        with:
-          # libgtk-3-dev is named because 22.04's webkit package does not
-          # bring it, and the build needs gdk-3.0 through pkg-config
-          packages: libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
-          version: "2"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev libssl-dev patchelf
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -153,13 +159,13 @@ jobs:
         working-directory: desktop/app
         run: npm run cli:build -- ${{ matrix.triple }}
       # a tag that cannot sign is a mistake, not an unsigned release
-      - name: Signing is required for a tag
+      - name: Refuse to build a tag that cannot be signed
         if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v') && env.SIGNED != 'true'
         run: |
           echo "the release environment has no Apple secrets, so this tag would ship unsigned" >&2
           exit 1
       # notarization takes the key as a file; the secret carries it base64
-      - name: The notarization key
+      - name: Write the notarization key (macOS)
         id: notarize
         if: runner.os == 'macOS' && env.SIGNED == 'true'
         env:
@@ -169,7 +175,7 @@ jobs:
           printf %s "$P8" | base64 --decode > "$RUNNER_TEMP/notarize/AuthKey.p8"
           chmod 600 "$RUNNER_TEMP/notarize/AuthKey.p8"
           echo "path=$RUNNER_TEMP/notarize/AuthKey.p8" >> "$GITHUB_OUTPUT"
-      - name: Build
+      - name: Build and upload the bundles
         id: build
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
         env:
@@ -185,6 +191,8 @@ jobs:
         with:
           projectPath: desktop/app
           tauriScript: npx tauri
+          # a flaky upload or a notarization hiccup costs a retry, not a release
+          retryAttempts: 3
           args: ${{ matrix.args }}
           releaseId: ${{ needs.draft.outputs.id }}
           uploadUpdaterJson: false
@@ -192,7 +200,7 @@ jobs:
           workflowArtifactNamePattern: wicket-[platform]-[arch]-[bundle]
       # what the person downloading gets: a signature that checks out, and
       # a notarization ticket stapled to the bundle
-      - name: Check the signature and the notarization
+      - name: Check the signature and the notarization (macOS)
         if: runner.os == 'macOS' && env.SIGNED == 'true'
         run: |
           app=$(find desktop/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
@@ -201,8 +209,11 @@ jobs:
           codesign -dvv "$app" 2>&1 | grep -E 'Authority|TeamIdentifier'
           spctl --assess --type execute --verbose=4 "$app"
           xcrun stapler validate "$app"
-      - name: Build provenance
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Attestations are refused to a private repository on the free plan,
+      # so they wait for the repository to be public rather than failing a
+      # signed, notarized build over a signature nobody can check yet.
+      - name: Attest the build provenance
+        if: startsWith(github.ref, 'refs/tags/v') && !github.event.repository.private
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: ${{ matrix.bundles }}
