@@ -43,6 +43,8 @@ run("cargo", ["update", "--workspace", "--offline", "--quiet"], path.join(root, 
 console.log(`version ${version}`);
 
 if (alsoTag) {
+  // a release with nothing to say about itself is a mistake, not a release
+  run("node", [path.join(root, "scripts", "release-notes.mjs"), version]);
   run("git", ["commit", "-am", `Release v${version}`]);
   run("git", ["tag", "-a", `v${version}`, "-m", `Wicket ${version}`]);
   console.log(`tagged v${version}; push with: git push --follow-tags origin main`);

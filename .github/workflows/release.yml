@@ -62,10 +62,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cat > notes.md <<'EOF'
+          # what the changelog says about this version, and how to check a download
+          node scripts/release-notes.mjs "${{ steps.version.outputs.version }}" > notes.md
+          cat >> notes.md <<'EOF'
+
+          ---
+
           The macOS build is signed and notarized by Apple, so it opens without a warning.
 
-          Verify a download with `gh attestation verify <file> --repo ${{ github.repository }}`, or against `SHA256SUMS`.
+          Check a download against `SHA256SUMS`, or with `gh attestation verify <file> --repo ${{ github.repository }}`.
           EOF
           # the tag has to exist, or the release is created with no tag at all
           gh api "repos/${{ github.repository }}/git/ref/tags/$GITHUB_REF_NAME" --silent
