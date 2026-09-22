@@ -81,7 +81,7 @@ The command prints the review's URL to stderr and blocks. The app shows the
 review in its inbox and raises a notification. When the person hands over
 their decision, the command prints the review with the decision attached and
 exits 0. The payload and decision shapes of the built-in plugin are in
-[its README](../desktop/core/builtin/list/README.md); the other official
+[its README](../plugins/list/README.md); the other official
 plugins, and how to write your own, are in [`plugins/`](../plugins/README.md).
 
 ## In an agent's session, and in a script

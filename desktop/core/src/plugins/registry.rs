@@ -12,8 +12,9 @@ use super::manifest::{Install, MANIFEST, Plugin};
 use crate::db::InstalledRecord;
 use crate::error::Error;
 
-/// The plugin every server has, embedded from `builtin/list`.
-static BUILTIN_LIST: Dir = include_dir!("$CARGO_MANIFEST_DIR/builtin/list");
+/// The plugin every server has. It lives in `plugins/list` with the others;
+/// build.rs copies the bundle here for the binary to carry.
+static BUILTIN_LIST: Dir = include_dir!("$OUT_DIR/builtin/list");
 
 /// SHA-256 over a directory's files: each relative path and its bytes, in
 /// sorted order, with the same exclusions the copier applies.

@@ -7,7 +7,7 @@ import path from "node:path";
 // puts node_modules on NODE_PATH: its spec resolves the package the same way.
 export default defineConfig({
   testDir: path.resolve(__dirname, ".."),
-  testMatch: /(plugins\/[^/]+|desktop\/core\/builtin\/list)\/tests\/.*\.spec\.ts$/,
+  testMatch: /plugins\/[^/]+\/tests\/.*\.spec\.ts$/,
   testIgnore: ["**/node_modules/**", "**/target/**"],
   timeout: 30_000,
   expect: { timeout: 5_000 },
