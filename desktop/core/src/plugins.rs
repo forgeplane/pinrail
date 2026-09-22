@@ -13,8 +13,9 @@ mod service;
 
 pub use install::Options as InstallOptions;
 pub use jobs::Job as InstallJob;
+/// The manifest's JSON Schema, for the docs' manifest reference.
 #[cfg(feature = "docs")]
-pub use manifest::KEYS as MANIFEST_KEYS;
+pub use manifest::SCHEMA as MANIFEST_SCHEMA;
 pub use manifest::{Install, Plugin};
 pub use service::{PluginService, UpdateOutcome};
 
