@@ -13,6 +13,8 @@ mod service;
 
 pub use install::Options as InstallOptions;
 pub use jobs::Job as InstallJob;
+#[cfg(feature = "docs")]
+pub use manifest::KEYS as MANIFEST_KEYS;
 pub use manifest::{Install, Plugin};
 pub use service::{PluginService, UpdateOutcome};
 

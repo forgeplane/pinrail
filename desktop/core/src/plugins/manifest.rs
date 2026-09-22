@@ -8,6 +8,91 @@ use serde_json::{Map, Value};
 use crate::error::Violation;
 use crate::schema::Schema;
 
+/// Every key a plugin's manifest may set, as the docs' manifest reference
+/// lists it: the key, whether it is required, what it holds and what it
+/// does. `load` reads these, and `build` is read by an install.
+#[cfg(any(test, feature = "docs"))]
+pub const KEYS: &[(&str, bool, &str, &str)] = &[
+    (
+        "name",
+        true,
+        "a string, `[a-z][a-z0-9_-]*`",
+        "The plugin's identifier: agents submit to it, and it is unique among installed plugins.",
+    ),
+    (
+        "version",
+        true,
+        "a semantic version such as `\"1.2.0\"`, or an integer",
+        "The major version is a promise to every review created under it; a bare integer reads as `N.0.0`.",
+    ),
+    (
+        "title",
+        false,
+        "a string; defaults to `name`",
+        "What the app calls the plugin in its lists and settings.",
+    ),
+    (
+        "icon",
+        false,
+        "a Lucide icon name",
+        "Shown beside the plugin's reviews, such as `mail` or `git-pull-request`.",
+    ),
+    (
+        "payload_schema",
+        true,
+        "a JSON Schema, or `{\"$ref\": \"file\"}`",
+        "What an agent must send. Checked before a review reaches the inbox.",
+    ),
+    (
+        "decision_schema",
+        true,
+        "a JSON Schema, or `{\"$ref\": \"file\"}`",
+        "What the view hands back. Checked before the agent sees it.",
+    ),
+    (
+        "entry",
+        false,
+        "a path in the folder; defaults to `index.html`",
+        "The view's HTML file.",
+    ),
+    (
+        "min_height",
+        false,
+        "a number of pixels; defaults to `400`",
+        "The smallest height the app gives the view.",
+    ),
+    (
+        "settings_schema",
+        false,
+        "a JSON Schema of scalars with defaults",
+        "The plugin's own settings, each a row in Settings › Plugins. A bad one costs the plugin its settings, not its place.",
+    ),
+    (
+        "shortcuts",
+        false,
+        "a list of `{keys, does, group?}`",
+        "The keys the view answers: listed in the app's keyboard help and forwarded when the frame has no focus.",
+    ),
+    (
+        "decision_template",
+        false,
+        "a path in the folder",
+        "A MiniJinja template that renders a decision as markdown, for `--format markdown` and Copy as markdown.",
+    ),
+    (
+        "build",
+        false,
+        "`{\"command\": \"…\"}`",
+        "The command that produces the bundle, run by an install from a folder or a repository, never by a release.",
+    ),
+    (
+        "dev",
+        false,
+        "`true` or `false`",
+        "Marks a plugin under development in the app's listings.",
+    ),
+];
+
 pub(super) const MANIFEST: &str = "manifest.json";
 
 #[derive(Debug)]
@@ -608,6 +693,26 @@ fn string_field(manifest: &Map<String, Value>, key: &str) -> Result<String, Stri
 
 #[cfg(test)]
 mod tests {
+    /// A key a plugin in this repository uses is a key the docs describe.
+    #[test]
+    fn every_key_the_sample_plugins_use_is_documented() {
+        let plugins = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+        for entry in std::fs::read_dir(&plugins).unwrap().flatten() {
+            let Ok(text) = std::fs::read_to_string(entry.path().join("manifest.json")) else {
+                continue;
+            };
+            let manifest: serde_json::Map<String, serde_json::Value> =
+                serde_json::from_str(&text).unwrap();
+            for key in manifest.keys() {
+                assert!(
+                    super::KEYS.iter().any(|(k, ..)| k == key),
+                    "{key}, in {}, is not in KEYS",
+                    entry.path().display()
+                );
+            }
+        }
+    }
+
     use super::*;
 
     #[test]

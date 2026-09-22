@@ -9,3 +9,4 @@ docs/
 # generated from the code by `mise run docs:generate`, before every site build
 docs/reference/cli.md
 docs/reference/settings.md
+docs/reference/manifest.md
