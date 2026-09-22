@@ -145,7 +145,9 @@ export type PluginMessage =
   | { wicket: Protocol; type: "draft"; data: any }
   | { wicket: Protocol; type: "status"; label?: string }
   | { wicket: Protocol; type: "submit"; data: any }
-  | { wicket: Protocol; type: "settings_set"; patch: Settings };
+  | { wicket: Protocol; type: "settings_set"; patch: Settings }
+  /** open this link outside the app: http, https or mailto */
+  | { wicket: Protocol; type: "open"; url: string };
 
 // ---------------------------------------------------------------- the SDK
 
@@ -183,6 +185,8 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   resize(height: number | "fill"): void;
   /** what the shell's hand-over button should read */
   status(status: { label?: string }): void;
+  /** opens a link in the system browser, as a click on one in the view does */
+  open(url: string): void;
   /** asks the shell to keep one setting; it comes back as `settings`, or as `violations` */
   setSetting(key: string, value: string | number | boolean): void;
   collect(): void;

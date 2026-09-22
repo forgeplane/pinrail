@@ -127,6 +127,10 @@ first line: the script the app serves carries its parser,
 [markdown-it](https://github.com/markdown-it/markdown-it), so a view loads one
 file and waits for nothing.
 
+A link in what it renders opens in the system browser: a view's frame is
+sandboxed and can open nothing itself, so a click on one becomes a message and
+the shell follows it. `plugin.open(url)` asks for the same from your own code.
+
 What comes back is CommonMark as HTML: headings, tables, blockquotes, nested
 lists, code. The HTML is the parser's own — raw HTML in the source is escaped
 rather than passed through, which matters because a view's frame runs inline

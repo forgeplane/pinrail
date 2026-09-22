@@ -12,6 +12,19 @@ const OPEN_EVENT = "wicket:open";
 export const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
 const COMMAND_EVENT = "wicket:command";
 
+/** The scheme of a link this app will follow. */
+export const EXTERNAL = /^(https?|mailto):/i;
+
+/** Opens a link outside the app: the system browser, or the mail client. */
+export function openExternal(url: string) {
+  if (!EXTERNAL.test(url)) return;
+  if (!inTauri()) {
+    window.open(url, "_blank", "noreferrer");
+    return;
+  }
+  import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(url)).catch(() => window.open(url, "_blank"));
+}
+
 /** Inside the app a link to the outside world opens in the system browser. */
 export function useExternalLinks() {
   useEffect(() => {
@@ -20,9 +33,9 @@ export function useExternalLinks() {
       const anchor = (event.target as HTMLElement | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
       if (!anchor || event.defaultPrevented) return;
       const url = anchor.href;
-      if (!/^(https?|mailto):/i.test(url) || anchor.target !== "_blank") return;
+      if (!EXTERNAL.test(url) || anchor.target !== "_blank") return;
       event.preventDefault();
-      import("@tauri-apps/plugin-opener").then(({ openUrl }) => openUrl(url)).catch(() => window.open(url, "_blank"));
+      openExternal(url);
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);

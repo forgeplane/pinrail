@@ -18,6 +18,7 @@ function fakeEnv() {
     timers: [],
     nextTimer: 1,
     shortcuts: [],
+    links: [],
     observers: [],
     themes: [],
     keys: [],
@@ -29,12 +30,14 @@ function fakeEnv() {
     applyTheme(theme) { env.themes.push(theme); },
     dispatchKey(key) { env.keys.push(key); },
     onShortcut(fn) { env.shortcuts.push(fn); },
+    onLink(fn) { env.links.push(fn); },
     // helpers
     deliver(data, origin = "http://shell.test") { env.listeners.forEach((fn) => fn(data, origin)); },
     tick() { const due = env.timers; env.timers = []; due.forEach((t) => t.fn()); },
     types() { return env.posted.map((p) => p.msg.type); },
     last(type) { return [...env.posted].reverse().find((p) => p.msg.type === type); },
     pressShortcut() { env.shortcuts.forEach((fn) => fn()); },
+    clickLink(url) { env.links.forEach((fn) => fn(url)); },
   };
   return env;
 }

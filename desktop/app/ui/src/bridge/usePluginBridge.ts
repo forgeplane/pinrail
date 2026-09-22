@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { Decision, Review, Violation } from "../api/types";
+import { EXTERNAL, openExternal } from "../lib/native";
 import { currentTheme } from "../lib/theme";
 
 const PROTOCOL = 1;
@@ -155,6 +156,11 @@ export function usePluginBridge(options: Options): Bridge {
           break;
         case "draft":
           saveDraft(msg.data);
+          break;
+        // A view's frame is sandboxed and cannot open anything itself; the
+        // shell opens the link it asks for, once it is one we would follow.
+        case "open":
+          if (typeof msg.url === "string" && EXTERNAL.test(msg.url)) openExternal(msg.url);
           break;
         case "status":
           if (typeof msg.label === "string" && msg.label.trim()) setHandoverLabel(msg.label);

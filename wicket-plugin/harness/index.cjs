@@ -121,6 +121,7 @@ async function mountPlugin(page, pluginDir, opts) {
     },
     lastDraft: () => page.evaluate(() => window.__shell.lastDraft()),
     lastStatus: () => page.evaluate(() => window.__shell.lastStatus()),
+    lastOpen: () => page.evaluate(() => window.__shell.lastOpen()),
     lastSettingsSet: () => page.evaluate(() => window.__shell.lastSettingsSet()),
     settings: (values) => page.evaluate((v) => window.__shell.settings(v), values),
     sendKey: (combo) => page.evaluate((c) => window.__shell.sendKey(c), combo),

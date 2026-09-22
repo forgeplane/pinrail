@@ -106,3 +106,18 @@ test("comes with the SDK, in one script and no second request", async ({ page })
   await expect(frame.locator("#out h1")).toHaveText("Title");
   expect(scripts).toEqual(["/sdk/v1/wicket-plugin.js"]);
 });
+
+test("a link in rendered markdown asks the shell to open it", async ({ page }) => {
+  const plugin = await mountPlugin(page, renderer(), {
+    gate: gateFrom({ title: "Markdown", payload: { source: "[docs](https://example.com/docs) [d](ftp://example.com/f)" } }),
+  });
+
+  // the frame is sandboxed without allow-popups, so target="_blank" opens
+  // nothing: the click becomes a message and the shell opens the link
+  await plugin.frame.locator("#out").getByRole("link", { name: "docs" }).click();
+  await expect.poll(() => plugin.lastOpen()).toBe("https://example.com/docs");
+
+  // the one whose address was dropped stays where it is
+  await plugin.frame.locator("#out").getByRole("link", { name: "d", exact: true }).click();
+  await expect.poll(() => plugin.lastOpen()).toBe("https://example.com/docs");
+});

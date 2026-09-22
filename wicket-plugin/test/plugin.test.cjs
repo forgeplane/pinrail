@@ -354,3 +354,23 @@ test("the SDK announces the package's version", () => {
   assert.equal(Wicket.protocol, 1);
   assert.equal(pkg.version.split(".")[0], String(Wicket.protocol));
 });
+
+test("a link is the shell's to open, and only where a view may send someone", () => {
+  const env = fakeEnv();
+  const plugin = Wicket.createPlugin(env, { resize: "manual" });
+  env.deliver(init());
+
+  // a click in the frame: sandboxed without popups, it opens nothing itself
+  env.clickLink("https://example.com/docs");
+  assert.deepEqual(env.last("open").msg, { wicket: 1, type: "open", url: "https://example.com/docs" });
+  assert.equal(env.last("open").target, "http://shell.test", "and only to the shell");
+
+  // the same from the view's own code
+  plugin.open("mailto:x@example.com");
+  assert.equal(env.last("open").msg.url, "mailto:x@example.com");
+
+  // an address that would run something, or reach the machine, is not sent
+  plugin.open("javascript:alert(1)");
+  plugin.open("file:///etc/passwd");
+  assert.equal(env.types().filter((t) => t === "open").length, 2);
+});

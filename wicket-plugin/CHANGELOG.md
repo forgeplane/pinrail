@@ -14,6 +14,10 @@ change to the protocol is a new major and a new path.
   but `http`, `https` or `mailto` keeps its text and loses its address.
 - `Wicket.markdownInline(s)`: the same for one line, without a paragraph
   around it.
+- A link in a view opens in the system browser. The frame is sandboxed
+  and can open nothing itself, so a click on `a[href]` becomes an `open`
+  message and the shell follows it; `plugin.open(url)` asks for the same
+  from a view's own code. Only `http`, `https` and `mailto` are sent.
 - The stylesheet styles what markdown renders — headings, tables,
   blockquotes, rules and code — so a view styles the box, not the prose.
 

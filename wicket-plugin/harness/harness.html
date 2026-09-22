@@ -14,6 +14,7 @@ let pending = null; // init to send once the plugin is ready
 let ready = false;
 let lastDraft = null;
 let lastStatus = null;
+let lastOpen = null;
 let lastSettingsSet = null;
 let pinnedHeight = null;
 
@@ -37,6 +38,7 @@ window.__shell = {
   messages: () => log.slice(),
   lastDraft: () => lastDraft,
   lastStatus: () => lastStatus,
+  lastOpen: () => lastOpen,
   lastSettingsSet: () => lastSettingsSet,
   /* the plugin's settings changed in the app: the values as they stand */
   settings(values) { send({ type: "settings", settings: values }); },
@@ -66,6 +68,8 @@ window.addEventListener("message", (event) => {
       break;
     case "draft": lastDraft = msg.data; break;
     case "status": lastStatus = msg.label; break;
+    // the shell opens it; here it is only recorded
+    case "open": lastOpen = msg.url; break;
   }
 });
 // the view is whatever the manifest names as its entry; index.html by default

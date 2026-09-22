@@ -23,6 +23,7 @@
  *   plugin.submit(data);
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
+ *   plugin.open("https://example.com"); // the shell opens it in the system browser
  *   plugin.settings;                  // the plugin's own settings, as the manifest declares them
  *   plugin.setSetting("diff", "split"); // asks the shell to keep one; it comes back as `settings`
  *
@@ -136,6 +137,13 @@
       }
     }
 
+    /* Where a link goes is the shell's to open — in the system browser, not
+       in the panel. Anything but http, https or mailto is not a link a view
+       may send anyone to, and is dropped here rather than posted. */
+    function open(url) {
+      if (SAFE_HREF.test(url)) post({ type: "open", url: String(url) });
+    }
+
     function collect() {
       if (state.readonly) return;
       if (handlers.onCollect) handlers.onCollect();
@@ -202,6 +210,7 @@
     }
 
     env.listen(handle);
+    if (env.onLink) env.onLink(open);
     if (handlers.shortcut !== false && env.onShortcut) env.onShortcut(collect);
     post({ type: "ready" });
 
@@ -225,6 +234,8 @@
         if (opts && opts.flush) send();
         else draftTimer = env.setTimeout(send, DRAFT_DEBOUNCE_MS);
       },
+      /** opens a link in the system browser, as a click on one in the view does */
+      open,
       resize(height) { post({ type: "resize", height }); },
       status(status) { post({ type: "status", label: (status || {}).label }); },
       collect,
@@ -373,6 +384,23 @@
         Object.defineProperty(event, "wicketForwarded", { value: true });
         doc.dispatchEvent(event);
       },
+      // A view's frame is sandboxed without allow-popups, so a link in it
+      // opens nothing on its own and navigating the frame away from the view
+      // is not what a click means either. The shell opens it instead.
+      onLink: (fn) => doc.addEventListener("click", (e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const anchor = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+        if (!anchor) return;
+        if (SAFE_HREF.test(anchor.href)) {
+          e.preventDefault();
+          fn(anchor.href);
+        } else if (anchor.getAttribute("href") === "#") {
+          // a link the renderer emptied, or a control written as one: it
+          // goes nowhere, so it should not jump the view to the top either
+          e.preventDefault();
+        }
+        // anything else, a fragment into the view among it, behaves as written
+      }),
       onShortcut: (fn) => win.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); fn(); }
       }),

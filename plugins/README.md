@@ -494,6 +494,8 @@ Plugin → shell:
 | `draft` | `data`; the shell keeps it in sessionStorage and hands it back in `init` |
 | `submit` | `data`; validated against `decision_schema` server-side |
 | `status` | `label`; what the shell's hand-over button should read right now, e.g. "Hand over anyway" once you have warned about something |
+| `settings_set` | `patch`; the values of your own settings to keep. The core checks them against `settings_schema` and everyone hears the result as `settings` |
+| `open` | `url`; a link to open outside the app. Your frame is sandboxed and can open nothing itself, so a click on an `a[href]` becomes this message and the shell opens it in the system browser. Only `http`, `https` and `mailto` travel; the SDK does this for every link in your view, and `plugin.open(url)` asks for it from code |
 
 The decision schema is the whole contract. What the fields mean is between
 the plugin and the workflow that reads the decision. `hello/index.html` is

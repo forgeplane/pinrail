@@ -220,6 +220,8 @@ window.addEventListener("message", (event) => {
       break;
     case "draft": draft = msg.data; show("s-draft", draft); break;
     case "status": show("s-status", msg.label); break;
+    // in the app the system browser opens it; here, a tab
+    case "open": window.open(msg.url, "_blank", "noreferrer"); break;
     case "settings_set":
       // as the app: the core keeps what the schema allows, then everyone hears the values
       if (msg.patch && typeof msg.patch === "object") {

@@ -25,6 +25,8 @@ export type MountedPlugin = {
   lastDraft(): Promise<any>;
   /** the label the view last asked the shell's hand-over button to show */
   lastStatus(): Promise<string | null>;
+  /** the last link the view asked the shell to open */
+  lastOpen(): Promise<string | null>;
   /** the last setting the view asked the shell to keep, as a patch */
   lastSettingsSet(): Promise<Settings | null>;
   /** the plugin's settings changed in the app: sends them as they stand */
