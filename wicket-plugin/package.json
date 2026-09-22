@@ -22,7 +22,8 @@
     },
     "./sdk/v1/wicket-plugin.js": "./src/wicket-plugin.js",
     "./sdk/v1/wicket-plugin.css": "./src/wicket-plugin.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./schemas/manifest.schema.json": "./schemas/manifest.schema.json"
   },
   "files": [
     "LICENSE",
@@ -35,7 +36,8 @@
     "shell",
     "src",
     "templates",
-    "types.d.ts"
+    "types.d.ts",
+    "schemas"
   ],
   "engines": {
     "node": ">=22"
@@ -44,6 +46,7 @@
     "test": "node --test test/*.test.cjs && playwright test"
   },
   "dependencies": {
+    "ajv": "^8.20.0",
     "lucide-static": "1.45.0",
     "markdown-it": "^15.0.2"
   },

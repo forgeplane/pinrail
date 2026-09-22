@@ -385,9 +385,14 @@ mod tests {
         std::fs::write(bad.join("manifest.json"), "{\"name\":\"broken\"}").unwrap();
         let r = Registry::open(tmp.path().join("user"), vec![], tmp.path().join("store")).unwrap();
         let broken = r.get("broken").unwrap();
-        assert_eq!(
-            broken.error.as_deref(),
-            Some("version is required: a positive integer, or a semantic version like \"1.2.0\"")
+        // the manifest schema's first word on it: a required key is missing
+        assert!(
+            broken
+                .error
+                .as_deref()
+                .is_some_and(|e| e.ends_with("is required")),
+            "{:?}",
+            broken.error
         );
         assert!(r.fetch("broken").is_err());
     }

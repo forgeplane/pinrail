@@ -1,16 +1,23 @@
 // `wicket-plugin check [dir]`: what the app's inspect says of a folder,
-// without the app. The rules are the core's (desktop/core/src/plugins.rs),
-// carried here in JavaScript; a test in the core runs both over the same
-// folders and compares, so they cannot drift quietly.
+// without the app. The manifest's shape is schemas/manifest.schema.json, the
+// same file the core holds every manifest to; what a schema cannot say (files
+// that must exist, $refs, settings and key combinations) is carried here in
+// JavaScript. A test in the core runs both over the same folders and
+// compares, so they cannot drift quietly.
 //
 // A problem costs the plugin its place: the app will not install it. A
 // warning costs it a feature: the app installs it and says on its row what
 // was dropped (settings, shortcuts, the markdown template).
 import fs from "node:fs";
 import path from "node:path";
+import Ajv2020 from "ajv/dist/2020.js";
 
-const NAME = /^[a-z][a-z0-9_-]*$/;
-const ICON = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+/** The manifest's JSON Schema, as the core reads it too. */
+export const MANIFEST_SCHEMA = JSON.parse(fs.readFileSync(new URL("../schemas/manifest.schema.json", import.meta.url), "utf8"));
+const validateManifest = new Ajv2020({ allErrors: true, strict: false }).compile(MANIFEST_SCHEMA);
+
+/** Keys whose violation costs the plugin that feature, not its place. */
+const FEATURES = ["settings_schema", "shortcuts", "decision_template"];
 const SCALARS = ["boolean", "string", "integer", "number"];
 const MODIFIERS = ["cmd", "command", "super", "meta", "ctrl", "control", "alt", "option", "shift", "cmdorctrl", "commandorcontrol"];
 const JSON_TYPES = ["null", "boolean", "object", "array", "number", "string", "integer"];
@@ -77,27 +84,33 @@ export function checkPlugin(dir) {
     return result();
   }
 
-  if (typeof manifest.name !== "string") problem("name", "name is required, a string");
-  else if (!NAME.test(manifest.name)) problem("name", `name ${JSON.stringify(manifest.name)} is not valid: [a-z][a-z0-9_-]*`);
-  else name = manifest.name;
-
-  const v = versionOf(manifest.version);
-  if (!v || v.release === "0.0.0") problem("version", 'version is required: a positive integer, or a semantic version like "1.2.0"');
-  else ({ release, major } = v);
-
-  if (manifest.title === undefined) warn("title", "no title: the app shows the name");
-  else if (typeof manifest.title !== "string") warn("title", "title must be a string; the app shows the name");
-
-  const build = manifest.build;
-  let buildCommand = null;
-  if (build !== undefined && build !== null) {
-    if (isObject(build) && typeof build.command === "string" && build.command.trim() !== "") buildCommand = build.command.trim();
-    else problem("build", 'build must be { "command": "…" }, the command that writes the bundle');
+  // the schema first: a violation outside the features refuses the plugin,
+  // one inside them costs that feature, as the core decides
+  const dropped = new Set();
+  if (!validateManifest(manifest)) {
+    const seen = new Set();
+    for (const e of validateManifest.errors) {
+      const pointer = e.instancePath.slice(1);
+      const key = pointer.split("/")[0] || e.params?.missingProperty || "manifest";
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const message = pointer ? `${pointer}: ${e.message}` : `${e.message}`;
+      if (FEATURES.includes(key)) {
+        dropped.add(key);
+        warn(key, message);
+      } else problem(key, message);
+    }
   }
+  const refused = (key) => problems.some((p) => p.key === key);
 
-  if (manifest.entry === undefined) entry = "index.html";
-  else if (typeof manifest.entry === "string" && manifest.entry !== "" && !manifest.entry.startsWith("/") && !manifest.entry.includes("\0")) entry = manifest.entry;
-  else problem("entry", `entry ${JSON.stringify(manifest.entry)} is not valid: a path inside the folder, like "view/index.html"`);
+  if (!refused("name")) name = manifest.name;
+  const v = versionOf(manifest.version);
+  if (v && !refused("version")) ({ release, major } = v);
+  if (manifest.title === undefined) warn("title", "no title: the app shows the name");
+
+  const buildCommand = isObject(manifest.build) && !refused("build") ? manifest.build.command.trim() : null;
+
+  if (!refused("entry")) entry = manifest.entry ?? "index.html";
   if (entry !== null) {
     const file = safeJoin(dir, entry);
     if (!file || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
@@ -107,39 +120,24 @@ export function checkPlugin(dir) {
   }
 
   for (const key of ["payload_schema", "decision_schema"]) {
-    if (!(key in manifest)) {
-      problem(key, `${key} is required`);
-      continue;
-    }
+    if (!(key in manifest) || refused(key)) continue;
     const why = schemaProblem(dir, key, manifest[key]);
     if (why) problem(key, why);
   }
 
-  if (manifest.icon !== undefined && manifest.icon !== null) {
-    if (typeof manifest.icon !== "string" || !ICON.test(manifest.icon)) {
-      problem("icon", `icon ${JSON.stringify(manifest.icon)} is not valid: a lucide icon name, like "mail" or "git-pull-request"`);
-    }
-  }
-
-  if (manifest.min_height !== undefined && manifest.min_height !== null) {
-    if (!Number.isInteger(manifest.min_height) || manifest.min_height <= 0) warn("min_height", "min_height must be a positive integer; the app uses 400");
-  }
-
-  if (manifest.settings_schema !== undefined && manifest.settings_schema !== null) {
+  if (manifest.settings_schema !== undefined && manifest.settings_schema !== null && !dropped.has("settings_schema")) {
     const why = settingsProblem(dir, manifest.settings_schema);
     if (why) warn("settings_schema", why);
   }
 
-  if (manifest.shortcuts !== undefined && manifest.shortcuts !== null) {
+  if (manifest.shortcuts !== undefined && manifest.shortcuts !== null && !dropped.has("shortcuts")) {
     const why = shortcutsProblem(manifest.shortcuts);
     if (why) warn("shortcuts", why);
   }
 
-  if (manifest.decision_template !== undefined && manifest.decision_template !== null) {
+  if (manifest.decision_template !== undefined && manifest.decision_template !== null && !dropped.has("decision_template")) {
     const t = manifest.decision_template;
-    if (typeof t !== "string" || t === "" || t.includes("..") || t.startsWith("/")) {
-      warn("decision_template", "decision_template must name a file beside the manifest");
-    } else if (!fs.existsSync(path.join(dir, t)) || !fs.statSync(path.join(dir, t)).isFile()) {
+    if (!fs.existsSync(path.join(dir, t)) || !fs.statSync(path.join(dir, t)).isFile()) {
       warn("decision_template", `${t}: cannot read`);
     } else {
       notes.push({ key: "decision_template", message: `${t}: the app compiles it on install; render a decided fixture to see it` });

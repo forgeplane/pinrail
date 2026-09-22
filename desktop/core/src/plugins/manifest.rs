@@ -234,48 +234,34 @@ impl Plugin {
             .map_err(|e| format!("cannot read {MANIFEST} ({e})"))?;
         let manifest: Value = serde_json::from_str(&body)
             .map_err(|e| format!("{MANIFEST} is not valid JSON ({e})"))?;
+        // the manifest schema first: a violation outside the optional
+        // features refuses the plugin, one inside them costs that feature
+        let shape = shape::check(&manifest);
+        if let Some(problem) = shape.problems.into_iter().next() {
+            return Err(problem);
+        }
         let Value::Object(manifest) = manifest else {
             return Err(format!("{MANIFEST} must be a JSON object"));
         };
 
-        let name = string_field(&manifest, "name")?;
-        if !valid_name(&name) {
-            return Err(format!("name {name:?} is not valid"));
-        }
-        // A major of 0 is a plugin still finding its shape, and fine; the one
-        // release refused is the placeholder a broken plugin is listed under.
-        let (release, major) = manifest
-            .get("version")
-            .and_then(version_of)
-            .filter(|(release, _)| release != "0.0.0")
-            .ok_or(
-                "version is required: a positive integer, or a semantic version like \"1.2.0\"",
-            )?;
+        // the schema has checked the shapes; what is left is what it cannot
+        // say, such as whether the files named are there
+        let name = manifest["name"].as_str().unwrap_or_default().to_string();
+        let (release, major) = version_of(&manifest["version"])
+            .ok_or("version is not a positive integer or a semantic version")?;
         let version = major as u32;
-        let entry = match manifest.get("entry") {
-            None => "index.html".to_string(),
-            Some(Value::String(s)) if !s.is_empty() && !s.starts_with('/') && !s.contains('\0') => {
-                s.clone()
-            }
-            Some(other) => return Err(format!("entry {other} is not valid")),
-        };
-        for key in ["payload_schema", "decision_schema"] {
-            if !manifest.contains_key(key) {
-                return Err(format!("{key} is required"));
-            }
-        }
+        let entry = manifest
+            .get("entry")
+            .and_then(Value::as_str)
+            .unwrap_or("index.html")
+            .to_string();
         if !dir.join(&entry).is_file() {
             return Err(format!("entry {entry} not found"));
         }
-        let icon = match manifest.get("icon") {
-            None | Some(Value::Null) => None,
-            Some(Value::String(s)) if valid_icon(s) => Some(s.clone()),
-            Some(other) => {
-                return Err(format!(
-                    "icon {other} is not valid: a lucide icon name, like \"mail\" or \"git-pull-request\""
-                ));
-            }
-        };
+        let icon = manifest
+            .get("icon")
+            .and_then(Value::as_str)
+            .map(str::to_string);
 
         let payload_schema = Schema::compile(
             dir,
@@ -294,6 +280,9 @@ impl Plugin {
         // a bad settings schema costs the plugin its settings, not its place
         let (settings_schema, settings_validator, settings_error) =
             match manifest.get("settings_schema") {
+                _ if shape.dropped.contains_key("settings_schema") => {
+                    (None, None, shape.dropped.get("settings_schema").cloned())
+                }
                 None | Some(Value::Null) => (None, None, None),
                 Some(raw) => match settings::load(dir, &name, version, raw) {
                     Ok((document, validator)) => (Some(document), Some(validator), None),
@@ -303,6 +292,9 @@ impl Plugin {
 
         // likewise a bad shortcuts list
         let (shortcuts, shortcuts_error) = match manifest.get("shortcuts") {
+            _ if shape.dropped.contains_key("shortcuts") => {
+                (Vec::new(), shape.dropped.get("shortcuts").cloned())
+            }
             None | Some(Value::Null) => (Vec::new(), None),
             Some(raw) => match shortcuts::load(raw) {
                 Ok(list) => (list, None),
@@ -310,22 +302,18 @@ impl Plugin {
             },
         };
         let (decision_template, template_error) = match manifest.get("decision_template") {
-            None | Some(Value::Null) => (None, None),
-            Some(Value::String(file))
-                if !file.is_empty() && !file.contains("..") && !file.starts_with('/') =>
-            {
-                match std::fs::read_to_string(dir.join(file)) {
-                    Ok(source) => match crate::markdown::compile(&source) {
-                        Ok(()) => (Some(source), None),
-                        Err(message) => (None, Some(format!("{file}: {message}"))),
-                    },
-                    Err(e) => (None, Some(format!("{file}: cannot read ({e})"))),
-                }
+            _ if shape.dropped.contains_key("decision_template") => {
+                (None, shape.dropped.get("decision_template").cloned())
             }
-            Some(_) => (
-                None,
-                Some("decision_template must name a file beside the manifest".into()),
-            ),
+            None | Some(Value::Null) => (None, None),
+            Some(Value::String(file)) => match std::fs::read_to_string(dir.join(file)) {
+                Ok(source) => match crate::markdown::compile(&source) {
+                    Ok(()) => (Some(source), None),
+                    Err(message) => (None, Some(format!("{file}: {message}"))),
+                },
+                Err(e) => (None, Some(format!("{file}: cannot read ({e})"))),
+            },
+            Some(_) => (None, None),
         };
 
         Ok(Plugin {
@@ -481,6 +469,66 @@ impl Plugin {
 
 /// The keys a plugin's view answers: a list of `{keys, does, group?}`,
 /// `keys` in the app's shortcut form (`cmd+shift+m`, `j`, `shift+/`).
+/// The manifest held to its JSON Schema, `manifest.schema.json` in the
+/// wicket-plugin package, which build.rs copies in: the one description of a
+/// manifest, shared with authors' editors and the docs.
+mod shape {
+    use std::collections::BTreeMap;
+    use std::sync::OnceLock;
+
+    use serde_json::Value;
+
+    use crate::schema::Schema;
+
+    /// The schema's text, as the wicket-plugin package ships it.
+    pub const SCHEMA: &str = include_str!(concat!(env!("OUT_DIR"), "/manifest.schema.json"));
+
+    /// Keys whose violation costs the plugin that feature, not its place.
+    const FEATURES: &[&str] = &["settings_schema", "shortcuts", "decision_template"];
+
+    pub struct Shape {
+        /// violations that refuse the plugin, as `path: message`
+        pub problems: Vec<String>,
+        /// the first violation under each feature key, by key
+        pub dropped: BTreeMap<&'static str, String>,
+    }
+
+    fn schema() -> &'static Schema {
+        static COMPILED: OnceLock<Schema> = OnceLock::new();
+        COMPILED.get_or_init(|| {
+            let document: Value =
+                serde_json::from_str(SCHEMA).expect("manifest.schema.json is JSON");
+            Schema::standalone(&document).expect("manifest.schema.json compiles")
+        })
+    }
+
+    pub fn check(manifest: &Value) -> Shape {
+        let mut shape = Shape {
+            problems: Vec::new(),
+            dropped: BTreeMap::new(),
+        };
+        for violation in schema().validate(manifest) {
+            let text = match violation.path.trim_start_matches('/') {
+                "" => violation.message,
+                path => format!("{path}: {}", violation.message),
+            };
+            let key = violation
+                .path
+                .trim_start_matches('/')
+                .split('/')
+                .next()
+                .unwrap_or("");
+            match FEATURES.iter().find(|f| **f == key) {
+                Some(feature) => {
+                    shape.dropped.entry(feature).or_insert(text);
+                }
+                None => shape.problems.push(text),
+            }
+        }
+        shape
+    }
+}
+
 mod shortcuts {
     use serde_json::{Map, Value};
 
@@ -673,24 +721,6 @@ pub(super) fn valid_name(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
 }
 
-/// Lucide names an icon in lowercase words joined by dashes.
-fn valid_icon(name: &str) -> bool {
-    !name.is_empty()
-        && !name.starts_with('-')
-        && !name.ends_with('-')
-        && !name.contains("--")
-        && name
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-}
-
-fn string_field(manifest: &Map<String, Value>, key: &str) -> Result<String, String> {
-    match manifest.get(key) {
-        Some(Value::String(s)) => Ok(s.clone()),
-        _ => Err(format!("{key} is required and must be a string")),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     /// A key a plugin in this repository uses is a key the docs describe.
@@ -735,24 +765,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn icon_names_are_lucide_names() {
-        for ok in ["mail", "git-pull-request", "list-checks", "a1"] {
-            assert!(super::valid_icon(ok), "{ok}");
-        }
-        for bad in [
-            "",
-            "Mail",
-            "git_pull",
-            "-mail",
-            "mail-",
-            "git--pull",
-            "mail icon",
-        ] {
-            assert!(!super::valid_icon(bad), "{bad}");
-        }
-    }
-
     /// A plugin directory with the given manifest fields on top of the
     /// minimum, and an empty view.
     fn plugin_dir(root: &Path, name: &str, extra: &str) -> PathBuf {
@@ -767,6 +779,218 @@ mod tests {
         )
         .unwrap();
         dir
+    }
+
+    /// A plugin folder with exactly this manifest and an index.html.
+    fn with_manifest(root: &Path, folder: &str, manifest: serde_json::Value) -> PathBuf {
+        let dir = root.join(folder);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+        std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
+        dir
+    }
+
+    /// The smallest manifest the schema accepts, with `changes` laid over
+    /// it; a null in `changes` removes the key.
+    fn manifest(changes: serde_json::Value) -> serde_json::Value {
+        let mut m = serde_json::json!({"name": "sample", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}});
+        for (k, v) in changes.as_object().unwrap() {
+            if v.is_null() {
+                m.as_object_mut().unwrap().remove(k);
+            } else {
+                m[k] = v.clone();
+            }
+        }
+        m
+    }
+
+    #[test]
+    fn a_manifest_that_breaks_its_schema_is_refused_and_says_where() {
+        use serde_json::json;
+        let tmp = tempfile::tempdir().unwrap();
+        let cases = [
+            (json!({"name": null}), "property 'name' is required"),
+            (json!({"version": null}), "property 'version' is required"),
+            (
+                json!({"payload_schema": null}),
+                "property 'payload_schema' is required",
+            ),
+            (
+                json!({"decision_schema": null}),
+                "property 'decision_schema' is required",
+            ),
+            (json!({"name": "Sample"}), "name: "),
+            (json!({"name": "1sample"}), "name: "),
+            (json!({"name": "sam ple"}), "name: "),
+            (json!({"name": 7}), "name: "),
+            (json!({"version": "0.0.0"}), "version: "),
+            (json!({"version": 0}), "version: "),
+            (json!({"version": -1}), "version: "),
+            (json!({"version": "1.2"}), "version: "),
+            (json!({"version": "v1.2.0"}), "version: "),
+            (json!({"version": true}), "version: "),
+            (json!({"title": 3}), "title: "),
+            (json!({"description": ["a"]}), "description: "),
+            (json!({"icon": "Mail"}), "icon: "),
+            (json!({"icon": "-mail"}), "icon: "),
+            (json!({"icon": "git--branch"}), "icon: "),
+            (
+                json!({"payload_schema": "schemas/payload.json"}),
+                "payload_schema: ",
+            ),
+            (json!({"decision_schema": []}), "decision_schema: "),
+            (json!({"entry": ""}), "entry: "),
+            (json!({"entry": "/etc/index.html"}), "entry: "),
+            (json!({"entry": 3}), "entry: "),
+            (json!({"min_height": 0}), "min_height: "),
+            (json!({"min_height": "400"}), "min_height: "),
+            (json!({"min_height": 12.5}), "min_height: "),
+            (json!({"dev": "yes"}), "dev: "),
+            (json!({"build": "npm run build"}), "build: "),
+            (
+                json!({"build": {}}),
+                "build: property 'command' is required",
+            ),
+            (json!({"build": {"command": "   "}}), "build/command: "),
+        ];
+        for (i, (changes, expected)) in cases.iter().enumerate() {
+            let dir = with_manifest(tmp.path(), &format!("bad{i}"), manifest(changes.clone()));
+            let p = Plugin::load(&dir);
+            assert!(!p.usable(), "{changes} loaded");
+            let error = p.error.clone().unwrap_or_default();
+            assert!(error.contains(expected), "{changes}: {error}");
+        }
+        // not JSON, or not an object, before the schema is asked
+        for (i, text) in ["{name", "[]", "\"sample\""].iter().enumerate() {
+            let dir = tmp.path().join(format!("text{i}"));
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("manifest.json"), text).unwrap();
+            assert!(!Plugin::load(&dir).usable(), "{text} loaded");
+        }
+        // and a file the schema cannot see: the entry must be there
+        let dir = with_manifest(
+            tmp.path(),
+            "no-entry",
+            manifest(serde_json::json!({"entry": "view/index.html"})),
+        );
+        assert_eq!(
+            Plugin::load(&dir).error.as_deref(),
+            Some("entry view/index.html not found")
+        );
+    }
+
+    #[test]
+    fn a_broken_optional_feature_costs_only_that_feature() {
+        use serde_json::json;
+        let tmp = tempfile::tempdir().unwrap();
+        let cases = [
+            (
+                json!({"settings_schema": "settings.json"}),
+                "settings_schema",
+                "settings_schema: ",
+            ),
+            (
+                json!({"settings_schema": 3}),
+                "settings_schema",
+                "settings_schema: ",
+            ),
+            (json!({"shortcuts": "j"}), "shortcuts", "shortcuts: "),
+            (
+                json!({"shortcuts": [{"keys": "", "does": "Next"}]}),
+                "shortcuts",
+                "shortcuts/0/keys: ",
+            ),
+            (
+                json!({"shortcuts": [{"keys": "j", "does": ""}]}),
+                "shortcuts",
+                "shortcuts/0/does: ",
+            ),
+            (
+                json!({"decision_template": "../outside.j2"}),
+                "decision_template",
+                "decision_template: ",
+            ),
+            (
+                json!({"decision_template": "/etc/decision.j2"}),
+                "decision_template",
+                "decision_template: ",
+            ),
+            (
+                json!({"decision_template": ""}),
+                "decision_template",
+                "decision_template: ",
+            ),
+            (
+                json!({"decision_template": 1}),
+                "decision_template",
+                "decision_template: ",
+            ),
+        ];
+        for (i, (changes, feature, expected)) in cases.iter().enumerate() {
+            let dir = with_manifest(
+                tmp.path(),
+                &format!("feature{i}"),
+                manifest(changes.clone()),
+            );
+            let p = Plugin::load(&dir);
+            assert!(p.usable(), "{changes}: {:?}", p.error);
+            let why = match *feature {
+                "settings_schema" => p.settings_error.clone(),
+                "shortcuts" => p.shortcuts_error.clone(),
+                _ => p.template_error.clone(),
+            }
+            .unwrap_or_default();
+            assert!(why.starts_with(expected), "{changes}: {why}");
+        }
+    }
+
+    #[test]
+    fn what_the_schema_allows_loads() {
+        use serde_json::json;
+        let tmp = tempfile::tempdir().unwrap();
+        let cases = [
+            json!({}),
+            json!({"version": 3}),
+            json!({"version": "0.1.0"}),
+            json!({"$schema": "https://wicket.dev/schemas/manifest.schema.json"}),
+            json!({"a_key_from_a_newer_app": {"anything": true}}),
+            json!({"icon": serde_json::Value::Null, "settings_schema": serde_json::Value::Null}),
+            json!({"title": "Sample", "description": "A sample.", "icon": "git-pull-request", "min_height": 200, "dev": true}),
+            json!({"build": {"command": "npm ci && npm run build"}}),
+            json!({"shortcuts": [{"keys": "cmd+shift+f", "does": "Fold", "group": "View"}]}),
+        ];
+        for (i, changes) in cases.iter().enumerate() {
+            let dir = with_manifest(tmp.path(), &format!("good{i}"), manifest(changes.clone()));
+            let p = Plugin::load(&dir);
+            assert!(p.usable(), "{changes}: {:?}", p.error);
+            assert_eq!(
+                (
+                    p.settings_error.clone(),
+                    p.shortcuts_error.clone(),
+                    p.template_error.clone()
+                ),
+                (None, None, None),
+                "{changes}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_sample_plugin_meets_the_manifest_schema() {
+        let plugins = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+        for entry in std::fs::read_dir(&plugins).unwrap().flatten() {
+            let Ok(text) = std::fs::read_to_string(entry.path().join("manifest.json")) else {
+                continue;
+            };
+            let shape = super::shape::check(&serde_json::from_str(&text).unwrap());
+            assert!(
+                shape.problems.is_empty() && shape.dropped.is_empty(),
+                "{}: {:?} {:?}",
+                entry.path().display(),
+                shape.problems,
+                shape.dropped
+            );
+        }
     }
 
     #[test]
@@ -792,7 +1016,7 @@ mod tests {
             assert!(
                 p.error
                     .as_deref()
-                    .is_some_and(|e| e.starts_with("version is required")),
+                    .is_some_and(|e| e.starts_with("version: ")),
                 "{bad}: {:?}",
                 p.error
             );
@@ -866,16 +1090,22 @@ mod tests {
         assert_eq!(p.to_json()["shortcuts"][1]["keys"], "cmd+shift+m");
 
         let cases = [
-            (r#","shortcuts":{"keys":"j"}"#, "must be a list"),
-            (r#","shortcuts":[{"does":"Next"}]"#, "needs keys"),
-            (r#","shortcuts":[{"keys":"j"}]"#, "needs does"),
+            (r#","shortcuts":{"keys":"j"}"#, "not of type null or array"),
+            (
+                r#","shortcuts":[{"does":"Next"}]"#,
+                "property 'keys' is required",
+            ),
+            (
+                r#","shortcuts":[{"keys":"j"}]"#,
+                "property 'does' is required",
+            ),
             (
                 r#","shortcuts":[{"keys":"hyper+j","does":"x"}]"#,
                 "not a key combination",
             ),
             (
                 r#","shortcuts":[{"keys":"j","does":"x","group":3}]"#,
-                "group must be a string",
+                "shortcuts/0/group:",
             ),
         ];
         for (i, (extra, expected)) in cases.iter().enumerate() {

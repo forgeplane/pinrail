@@ -2,7 +2,8 @@
 // with the rest. The crate cannot reach outside itself for files it embeds,
 // so their bundles are copied here at build time and embedded from there.
 // What a plugin ships is what the installer would copy: the manifest, the
-// schemas and the view, without its tests, fixtures or readme.
+// schemas and the view, without its tests, fixtures or readme. The manifest
+// schema comes in the same way, from the wicket-plugin package.
 
 use std::path::{Path, PathBuf};
 use std::{env, fs};
@@ -15,7 +16,14 @@ const BUILTIN: &[&str] = &["list", "feedback"];
 
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let builtin = PathBuf::from(env::var("OUT_DIR").unwrap()).join("builtin");
+    let out = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let builtin = out.join("builtin");
+
+    // The manifest's JSON Schema belongs to the wicket-plugin package, where
+    // authors get it; the core holds every manifest to the same file.
+    let schema = manifest.join("../../wicket-plugin/schemas/manifest.schema.json");
+    println!("cargo:rerun-if-changed={}", schema.display());
+    fs::copy(&schema, out.join("manifest.schema.json")).unwrap();
 
     let _ = fs::remove_dir_all(&builtin);
     for name in BUILTIN {

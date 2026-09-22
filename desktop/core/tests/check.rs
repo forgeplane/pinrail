@@ -164,6 +164,57 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
             ],
         ),
         ("bad_icon", base(json!({"icon": "Mail"})), entry),
+        // the manifest schema's rules, which both sides read from one file
+        ("title_number", base(json!({"title": 3})), entry),
+        (
+            "description_list",
+            base(json!({"description": ["a"]})),
+            entry,
+        ),
+        ("icon_dash", base(json!({"icon": "-mail"})), entry),
+        ("min_height_zero", base(json!({"min_height": 0})), entry),
+        ("min_height_text", base(json!({"min_height": "400"})), entry),
+        ("dev_text", base(json!({"dev": "yes"})), entry),
+        ("empty_entry", base(json!({"entry": ""})), entry),
+        ("build_text", base(json!({"build": "npm run build"})), entry),
+        ("build_empty", base(json!({"build": {}})), entry),
+        (
+            "build_blank",
+            base(json!({"build": {"command": "  "}})),
+            entry,
+        ),
+        (
+            "schema_text",
+            base(json!({"payload_schema": "p.json"})),
+            entry,
+        ),
+        ("version_short", base(json!({"version": "1.2"})), entry),
+        (
+            "extra_key",
+            base(json!({"$schema": "https://wicket.dev/schemas/manifest.schema.json", "later": 1})),
+            entry,
+        ),
+        (
+            "settings_text",
+            base(json!({"settings_schema": "s.json"})),
+            entry,
+        ),
+        ("shortcuts_text", base(json!({"shortcuts": "j"})), entry),
+        (
+            "shortcut_empty_keys",
+            base(json!({"shortcuts": [{"keys": "", "does": "x"}]})),
+            entry,
+        ),
+        (
+            "template_outside",
+            base(json!({"decision_template": "../t.j2"})),
+            entry,
+        ),
+        (
+            "template_number",
+            base(json!({"decision_template": 1})),
+            entry,
+        ),
         (
             "settings_ok",
             base(

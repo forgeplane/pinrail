@@ -64,6 +64,16 @@ impl Schema {
             .map_err(|error| format!("{key}: {error}"))
     }
 
+    /// Compiles a schema that stands alone: no `$ref` to anything outside
+    /// it, such as the manifest schema the core carries.
+    pub fn standalone(schema: &Value) -> Result<Self, String> {
+        jsonschema::options()
+            .with_draft(Draft::Draft202012)
+            .build(schema)
+            .map(|validator| Schema { validator })
+            .map_err(|error| error.to_string())
+    }
+
     /// Every violation, sorted by path, with leaf messages only.
     pub fn validate(&self, instance: &Value) -> Vec<Violation> {
         let mut violations: Vec<Violation> = Vec::new();

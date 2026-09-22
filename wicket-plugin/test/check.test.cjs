@@ -67,6 +67,14 @@ test("what refuses a plugin: manifest, name, version, entry, schemas, icon, buil
   assert.deepEqual(refused({ icon: "Mail" }), ["icon"]);
   assert.deepEqual(refused({ build: { command: "" } }), ["build"]);
   assert.deepEqual(refused({ build: "npm run build" }), ["build"]);
+  // the manifest schema's rules for the rest of the keys
+  assert.deepEqual(refused({ title: 3 }), ["title"]);
+  assert.deepEqual(refused({ description: ["a"] }), ["description"]);
+  assert.deepEqual(refused({ min_height: 0 }), ["min_height"]);
+  assert.deepEqual(refused({ min_height: "400" }), ["min_height"]);
+  assert.deepEqual(refused({ dev: "yes" }), ["dev"]);
+  assert.deepEqual(refused({ entry: "" }), ["entry"]);
+  assert.deepEqual(refused({ version: "1.2" }), ["version"]);
   // everything wrong at once is listed at once
   assert.deepEqual(refused({ name: "-", version: 0, icon: "--" }), ["name", "version", "icon"]);
 });
@@ -85,7 +93,7 @@ test("a source that builds is ok before its build and usable after", async () =>
   assert.deepEqual(after.notes, []);
 });
 
-test("what costs a feature: title, min_height, settings, shortcuts, the template", async () => {
+test("what costs a feature: settings, shortcuts, the template; a missing title is only a note", async () => {
   const { checkPlugin } = await load();
   const warned = (extra, files) => {
     const r = checkPlugin(plugin({ title: "T", ...extra }, files));
@@ -93,7 +101,6 @@ test("what costs a feature: title, min_height, settings, shortcuts, the template
     return keys(r.warnings);
   };
   assert.deepEqual(keys(checkPlugin(plugin()).warnings), ["title"]);
-  assert.deepEqual(warned({ min_height: 0 }), ["min_height"]);
   assert.deepEqual(warned({ settings_schema: [] }), ["settings_schema"]);
   assert.deepEqual(warned({ settings_schema: { type: "array" } }), ["settings_schema"]);
   assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "object", default: {} } } } }), ["settings_schema"]);
