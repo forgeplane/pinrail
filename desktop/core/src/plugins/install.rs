@@ -397,13 +397,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
     {
         return Err(Error::invalid(
             "/source",
-            if options.link || prepared.origin.kind == "release" {
-                format!("not a plugin: {why}")
-            } else {
-                format!(
-                    "not a plugin: {why}; a source that needs building declares its build in the manifest"
-                )
-            },
+            not_a_plugin(why, !options.link && prepared.origin.kind != "release"),
         ));
     }
     let (version, major) = manifest
@@ -1098,9 +1092,7 @@ fn install_dir(
             "/source",
             match build {
                 Some(_) => format!("after the build, not a plugin: {why}"),
-                None => format!(
-                    "not a plugin: {why}; a source that needs building declares its build in the manifest"
-                ),
+                None => not_a_plugin(why, true),
             },
         ));
     }
@@ -1151,6 +1143,19 @@ fn read_manifest(dir: &Path) -> Result<Map<String, Value>, Error> {
             "/source",
             "not a plugin: manifest.json is not a JSON object",
         )),
+    }
+}
+
+/// Why a folder is not a plugin. When its entry is missing and a build could
+/// have written it, say how to declare one; any other reason stands alone.
+fn not_a_plugin(why: &str, could_build: bool) -> String {
+    let entry_missing = why.starts_with("entry ") && why.ends_with(" not found");
+    if could_build && entry_missing {
+        format!(
+            "not a plugin: {why}; a source that needs building declares its build in the manifest"
+        )
+    } else {
+        format!("not a plugin: {why}")
     }
 }
 

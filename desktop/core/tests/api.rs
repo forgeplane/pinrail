@@ -1810,6 +1810,24 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
             .contains("declares its build"),
         "{body}"
     );
+
+    // a manifest that breaks its schema says so, and nothing about builds
+    let typo = scratch.path().join("typo");
+    std::fs::create_dir_all(&typo).unwrap();
+    std::fs::write(typo.join("index.html"), "<html></html>").unwrap();
+    std::fs::write(
+        typo.join("manifest.json"),
+        json!({"name": "typo", "version": 1, "title": 3, "payload_schema": {}, "decision_schema": {}})
+            .to_string(),
+    )
+    .unwrap();
+    let (status, body) = install(&app, &typo, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let message = body["message"].as_str().unwrap();
+    assert!(
+        message.contains("title: value is not of type string") && !message.contains("build"),
+        "{body}"
+    );
 }
 
 #[tokio::test]
