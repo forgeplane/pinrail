@@ -3,9 +3,13 @@
   const C = FeedbackCore, esc = Wicket.escape, md = Wicket.markdown, ico = name => Wicket.icon(name, {size: 14});
   const app = document.getElementById('app');
   let payload, state, previous, showErrors = false, shellErrors = [], opened = new Set(), composing = false;
+  // the rail of groups: shown by default, and the choice is the shell's to
+  // keep, so it holds for the next set of questions too
+  let railOpen = true;
   const plugin = Wicket.connect({
     resize: 'fill',
-    onInit({gate, draft, previous: old}) {
+    onInit({gate, draft, previous: old, settings}) {
+      applySettings(settings);
       showErrors = false; shellErrors = []; previous = old; opened = new Set();
       try { payload = C.validate(gate.payload); state = C.restore(payload, gate.decision?.data || draft); }
       catch (e) { payload = null; app.innerHTML = `<div class="fatal" role="alert"><h1>Unable to show these questions</h1><p>${esc(e.message)}</p></div>`; plugin.status({label:'Questions need correction'}); return; }
@@ -18,7 +22,11 @@
     },
     onViolations(errors) { shellErrors = errors; render(); app.querySelector('[role="alert"]')?.focus(); },
     onSubmitted() { if (!payload) return; state = C.restore(payload, plugin.gate.decision?.data); shellErrors = []; showErrors = false; render(); },
+    onSettings(settings) { applySettings(settings); render(); },
   });
+  function applySettings(settings) {
+    if (typeof settings?.rail_open === 'boolean') railOpen = settings.rail_open;
+  }
   const instructions = { single_choice:'Choose one', multiple_choice:'Select all that apply', text:'Free text', boolean:'Choose yes or no', checkbox:'Acknowledgment' };
   function controls(q, error) {
     const value = state.values[q.id], disabled = plugin.readonly ? 'disabled' : '';
@@ -46,10 +54,20 @@
       ${q.recommendation?.reason ? `<p class="recommendation">${ico('sparkles')}<span><strong>Agent’s reasoning:</strong> ${esc(q.recommendation.reason)}</span></p>` : ''}
       ${old ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ''}</details>` : ''}
       ${error ? `<p class="question-error" id="error-${q.id}">${ico('circle-alert')} ${esc(error)}</p>` : ''}
-      <div class="question-actions">${q.type !== 'text' && (!plugin.readonly || note) ? `<button type="button" class="comment-toggle" id="comment-toggle-${q.id}" data-comment-toggle="${q.id}" aria-expanded="${expanded}" aria-controls="comment-wrap-${q.id}">${ico('message-square')} ${expanded ? 'Comment' : 'Add a comment'}</button>` : ''}${!plugin.readonly && value !== undefined ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">Clear answer</button>` : ''}</div>
+      <div class="question-actions">${q.type !== 'text' && (!plugin.readonly || note) ? `<button type="button" class="comment-toggle" id="comment-toggle-${q.id}" data-comment-toggle="${q.id}" aria-expanded="${expanded}" aria-controls="comment-wrap-${q.id}">${ico('message-square')} ${expanded ? 'Comment' : 'Add a comment'}</button>` : ''}${clearButton(q, value, note)}</div>
       <div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? '' : 'hidden'}><label for="comment-${q.id}">Comment on this question</label><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="2" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? 'disabled' : ''}>${esc(note)}</textarea></div>
     </fieldset>`;
   }
+  /* Whatever was put on this question, taken off again: the answer while
+     there is one, then the comment, which outlives the answer it qualified
+     and would otherwise have no way back out. */
+  function clearButton(q, value, note) {
+    if (plugin.readonly) return '';
+    if (value !== undefined) return `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">Clear answer</button>`;
+    if (note) return `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}" data-clear-comment="1">Clear comment</button>`;
+    return '';
+  }
+
   function render() {
     if (!payload) return;
     const scrolls = ['.workspace', '#questions', '.sidebar', '.sidebar nav'].map(selector => {
@@ -63,8 +81,8 @@
     const shownGroups = payload.groups.filter(g => g.questions.some(q => visible.has(q.id)));
     const count = visible.size;
     let index = 0;
-    const html = `<header class="plugin-header feedback-header"><h1 class="plugin-title">${esc(plugin.gate.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || 'closed')}` : `<b>${answered}</b> of ${count} answered`}</span></header>
-      <div class="workspace"><aside class="sidebar"><div class="sidebar-label">Questions <span>${count}</span></div><nav aria-label="Question groups">${shownGroups.map((g,i) => {
+    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Wicket.icon(railOpen ? 'panel-left-close' : 'panel-left-open', {size:15, label: railOpen ? 'Hide the group list' : 'Show the group list'})}</button><h1 class="plugin-title">${esc(plugin.gate.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || 'closed')}` : `<b>${answered}</b> of ${count} answered`}</span></header>
+      <div class="workspace"><aside class="sidebar" ${railOpen ? '' : 'hidden'}><div class="sidebar-label">Questions <span>${count}</span></div><nav aria-label="Question groups">${shownGroups.map((g,i) => {
         const qs = g.questions.filter(q => visible.has(q.id)), done = qs.filter(q => C.answered(q,state.values[q.id])).length;
         return `<button type="button" class="group-link ${done === qs.length ? 'complete' : ''}" data-jump="${g.id}"><span class="group-icon">${done === qs.length ? ico('check') : String(i+1).padStart(2,'0')}</span><span>${esc(g.title)}</span><small>${done}/${qs.length}</small></button>`;
       }).join('')}</nav><div class="sidebar-progress"><div class="progress-track"><span style="width:${count ? answered/count*100 : 100}%"></span></div><p>${plugin.readonly ? 'This response has been recorded.' : required ? `${required} required ${required === 1 ? 'answer' : 'answers'} remaining` : Object.keys(invalid).length ? 'Check the response limits' : 'Ready to hand over'}</p><span>${all.length - count ? `${all.length-count} conditional ${all.length-count === 1 ? 'question is' : 'questions are'} hidden.` : 'Add comments to qualify your choices.'}</span></div></aside>
@@ -85,6 +103,7 @@
       for (const selector of ['.feedback-header', '.sidebar', '#questions']) {
         app.querySelector(selector).replaceChildren(...next.content.querySelector(selector).childNodes);
       }
+      app.querySelector('.sidebar').hidden = !railOpen;
     } else app.innerHTML = html;
     for (const {selector, top, left} of scrolls) {
       app.querySelector(selector)?.scrollTo({top, left, behavior:'instant'});
@@ -121,9 +140,15 @@
   app.addEventListener('compositionend', e => { composing = false; change(e); });
   app.addEventListener('click', e => {
     const button = e.target.closest('button'); if (!button || !payload) return;
+    if (button.dataset.rail) { railOpen = !railOpen; plugin.setSetting('rail_open', railOpen); render(); return; }
     if (button.dataset.jump) { document.getElementById('group-'+button.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
     const id = button.dataset.commentToggle;
     if (id) { opened.has(id) ? opened.delete(id) : opened.add(id); render(); if (opened.has(id)) document.getElementById('comment-'+id)?.focus({preventScroll:true}); return; }
-    if (button.dataset.clear && !plugin.readonly) { delete state.values[button.dataset.clear]; save(); document.getElementById('question-'+button.dataset.clear)?.querySelector('input,textarea')?.focus({preventScroll:true}); }
+    if (button.dataset.clear && !plugin.readonly) {
+      const id = button.dataset.clear;
+      if (button.dataset.clearComment) { delete state.comments[id]; opened.delete(id); } else delete state.values[id];
+      save();
+      document.getElementById('question-'+id)?.querySelector('input,textarea')?.focus({preventScroll:true});
+    }
   });
 })();

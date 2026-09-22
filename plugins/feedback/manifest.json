@@ -11,5 +11,16 @@
   "decision_schema": {
     "$ref": "schemas/decision.schema.json"
   },
-  "min_height": 560
+  "min_height": 560,
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "rail_open": {
+        "type": "boolean",
+        "title": "Group list open",
+        "description": "Start with the list of groups beside the questions",
+        "default": true
+      }
+    }
+  }
 }

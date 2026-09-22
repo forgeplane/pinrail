@@ -247,3 +247,44 @@ for (const narrow of [false, true]) {
     await expect(f.locator("#answer-checks-0")).toBeChecked();
   });
 }
+
+test("the rail can be folded away, and the shell is asked to remember it", async ({ page }) => {
+  const plugin = await mount(page);
+  const f = plugin.frame;
+  const rail = f.locator(".sidebar");
+  await expect(rail).toBeVisible();
+
+  await f.getByRole("button", { name: "Hide the group list" }).click();
+  await expect(rail).toBeHidden();
+  // the choice is the shell's to keep, so the next set of questions opens the same way
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ rail_open: false });
+
+  // and it survives the re-render every answer causes
+  await q(f, "approach").getByRole("radio", { name: /Roll back to release/ }).check();
+  await expect(rail).toBeHidden();
+
+  await f.getByRole("button", { name: "Show the group list" }).click();
+  await expect(rail).toBeVisible();
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ rail_open: true });
+});
+
+test("a comment can be taken off a question the answer has already left", async ({ page }) => {
+  const plugin = await mount(page);
+  const f = plugin.frame;
+  const approach = q(f, "approach");
+
+  await approach.getByRole("radio", { name: /Roll back to release/ }).check();
+  await approach.getByRole("button", { name: "Add a comment" }).click();
+  await approach.getByLabel("Comment on this question").fill("because of the logs");
+  await expect(approach.getByRole("button", { name: "Clear answer" })).toBeVisible();
+
+  // clearing the answer leaves the comment, which still has something to say
+  await approach.getByRole("button", { name: "Clear answer" }).click();
+  await expect(approach.getByRole("radio", { name: /Roll back to release/ })).not.toBeChecked();
+  await expect(approach.getByLabel("Comment on this question")).toHaveValue("because of the logs");
+
+  // and the control becomes the way to take that off too, rather than vanishing
+  await approach.getByRole("button", { name: "Clear comment" }).click();
+  await expect(approach.getByRole("button", { name: "Add a comment" })).toBeVisible();
+  await expect.poll(async () => JSON.stringify(await plugin.lastDraft())).toBe(JSON.stringify({ values: {}, comments: {} }));
+});
