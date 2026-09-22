@@ -9,36 +9,75 @@
   /* Tokens, base and the shared pieces (.item, .sev, .btn, .note, .meta,
      .empty, .notice, code.inl) come from the SDK stylesheet. What is left is
      this view's own: the groups, the verdict column and the running tally. */
-  .intro { color: var(--dim); max-width: 72ch; margin: 0 0 14px; }
+  .intro { color: var(--dim); margin: 0 0 20px; }
   .intro p:first-child { margin-top: 0; }
-  h2.group { font: inherit; font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 18px 0 8px; padding: 6px 0; display: flex; align-items: baseline; gap: 10px; }
-  h2.group:first-of-type { margin-top: 0; }
-  h2.group .count { font-family: var(--sans); font-size: 11px; color: var(--faint); }
 
-  .item.accepted { box-shadow: inset 2px 0 color-mix(in oklab, var(--ok) 70%, transparent); }
-  .item.rejected { box-shadow: inset 2px 0 color-mix(in oklab, var(--danger) 70%, transparent); }
-  .verdict { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-  .verdict.accept { color: var(--ok); } .verdict.reject { color: var(--danger); } .verdict.undecided { color: var(--sev-major); }
+  /* A group is a rule with its name sitting on it, so the eye finds the
+     boundaries without reading. */
+  h2.group {
+    font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--faint); margin: 26px 0 0; display: flex; align-items: center; gap: 10px;
+  }
+  h2.group:first-of-type { margin-top: 0; }
+  h2.group .count {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0; color: var(--faint);
+    background: var(--bg-raised); border-radius: 999px; padding: 1px 7px;
+  }
+  h2.group::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  /* The group's rule is the divider for the item under it: two hairlines a
+     few pixels apart read as a mistake. */
+  h2.group + .item { border-top: 0; }
+
+  /* Every item keeps a gutter on the left. It is empty until the item is
+     decided, and then it carries the verdict's colour, so a decided list
+     can be read down the edge without reading a word of it. */
+  .item { padding: 14px 0 14px 16px; position: relative; }
+  .item::before {
+    content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px;
+    border-radius: 999px; background: transparent;
+  }
+  .item.accepted::before { background: var(--ok); }
+  .item.rejected::before { background: var(--danger); }
+
+  /* The verdict is shown when there is one. Undecided is the state every
+     item starts in, and saying so on every row says nothing. */
+  .verdict { margin-left: auto; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+  .verdict.accept { color: var(--ok); background: color-mix(in oklab, var(--ok) 12%, transparent); }
+  .verdict.reject { color: var(--danger); background: color-mix(in oklab, var(--danger) 12%, transparent); }
+  .verdict.undecided { display: none; }
   .previous { margin-top: 6px; font-size: 11.5px; color: var(--faint); }
   .previous b { color: var(--dim); font-weight: 600; }
 
-  /* Accept and reject say which they are, so they do not take the shared
-     pressed styling. */
+  /* Accept and reject are one choice, so they are one control: joined, and
+     coloured only once chosen. */
+  .choice { display: inline-flex; flex: none; }
+  .choice .btn { border-radius: 0; margin: 0; }
+  .choice .btn:first-child { border-radius: 6px 0 0 6px; }
+  .choice .btn:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
   .btn.accept.on { background: color-mix(in oklab, var(--ok) 80%, oklch(0.3 0.06 150)); border-color: transparent; color: white; }
   .btn.reject.on { background: color-mix(in oklab, var(--danger) 18%, transparent); border-color: color-mix(in oklab, var(--danger) 55%, transparent); color: var(--danger); }
-  textarea.note { flex: 1 1 260px; min-height: 30px; padding: 5px 9px; }
+  .choice .btn.on { position: relative; z-index: 1; }
+
+  /* The note grows with the row but stops before the far edge: a field the
+     width of a screen is harder to write in, not easier. */
+  textarea.note { flex: 1 1 260px; max-width: 70ch; min-height: 30px; padding: 5px 9px; }
   .note-ro { flex: 1 1 260px; font-size: 12.5px; padding: 4px 0; white-space: pre-wrap; }
   .note-ro .label { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
 
-  .additions { margin-top: 20px; }
-  .addition { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
-  .addition select { background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 8px; font-size: 12px; max-width: 260px; }
-  .footer { position: sticky; bottom: 0; margin-top: 18px; padding: 10px 0 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
-  .footer .tally { color: var(--dim); }
-  .footer .tally b { color: var(--text); }
+  /* The running total lives in the header, in the colours the gutters use. */
+  .plugin-meta .count { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 9px; border-radius: 999px; background: var(--bg-raised); color: var(--dim); font-size: 11.5px; }
+  .plugin-meta .count b { font-size: 12.5px; color: var(--text); }
+  .plugin-meta .count.accept b { color: var(--ok); }
+  .plugin-meta .count.reject b { color: var(--danger); }
+  .plugin-meta .count.left b { color: var(--sev-major); }
+  .plugin-header .btn .wi { margin-right: 5px; }
+
+  /* The footer is only there when something has to be confirmed. */
+  .footer { position: sticky; bottom: 0; margin-top: 22px; padding: 10px 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; }
   .footer .tally.warn { color: var(--sev-major); }
   .errors { margin-top: 10px; }
-  .done { margin-bottom: 14px; }
+  .done { margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -46,8 +85,9 @@
 <script>
 "use strict";
 /* The built-in list gate: items grouped under headings, accept / reject /
-   note per item, free-text additions, and an honest `undecided` list. The
-   SDK handles the protocol; this file renders and keeps the decision state. */
+   note per item, and an honest `undecided` list. Anything else the person
+   wants to say goes in the review's own note to the agent. The SDK handles
+   the protocol; this file renders and keeps the decision state. */
 
 const esc = Wicket.escape, markdown = Wicket.markdown;
 
@@ -57,30 +97,30 @@ const view = Wicket.layout({ header: true });
 view.content.className = "plugin-content empty";
 view.content.textContent = "waiting for the shell…";
 
-const control = (label, onclick) => {
+const control = (icon, label, onclick) => {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "btn ghost";
-  button.textContent = label;
+  button.innerHTML = `${Wicket.icon(icon)}${esc(label)}`;
   button.onclick = onclick;
   return button;
 };
 
-const acceptRest = control("accept all undecided", () => {
+const acceptRest = control("check-check", "accept all undecided", () => {
   for (const id of itemIds()) if (!(S.decisions[id] && S.decisions[id].action)) S.decisions[id] = { ...(S.decisions[id] || {}), action: "accept" };
   S.armed = false;
   postDraft();
   render();
 });
 
-const clearAll = control("clear", () => {
+const clearAll = control("eraser", "clear", () => {
   S.decisions = {};
   S.armed = false;
   postDraft();
   render();
 });
 let gate = null, previous = null, readonly = false;
-const S = { decisions: {}, additions: [], armed: false, errors: null };
+const S = { decisions: {}, armed: false, errors: null };
 
 const plugin = Wicket.connect({
   resize: "auto",
@@ -88,8 +128,8 @@ const plugin = Wicket.connect({
     gate = init.gate; previous = init.previous; readonly = init.readonly;
     S.errors = null; S.armed = false;
     if (readonly) loadDecision(gate.decision && gate.decision.data);
-    else if (init.draft && init.draft.decisions) { S.decisions = init.draft.decisions; S.additions = init.draft.additions || []; }
-    else { S.decisions = {}; S.additions = []; }
+    else if (init.draft && init.draft.decisions) S.decisions = init.draft.decisions;
+    else S.decisions = {};
     syncHeader();
     render();
   },
@@ -102,11 +142,26 @@ const plugin = Wicket.connect({
    gate is decided and there is nothing left to act on. */
 function syncHeader() {
   view.title(`${itemIds().length} items`).controls(readonly ? [] : [acceptRest, clearAll]);
+  counts();
+}
+
+/* The running total, in the header beside the count of items: the verdicts
+   as they stand, in the colours the gutters use. */
+function counts() {
+  const t = tally();
+  const pill = (kind, n, label) => {
+    const span = document.createElement("span");
+    span.className = `count ${kind}`;
+    span.innerHTML = `<b>${n}</b>${esc(label)}`;
+    return span;
+  };
+  view.meta([pill("accept", t.accept, "accepted"), pill("reject", t.reject, "rejected"), pill("left", t.undecided, "undecided")]);
+  return view;
 }
 
 /* Drafts: a click posts at once, so a reload right after it loses nothing;
    typing is debounced so every keystroke does not cross the bridge. */
-const draftData = () => ({ decisions: S.decisions, additions: S.additions });
+const draftData = () => ({ decisions: S.decisions });
 const postDraft = () => plugin.draft(draftData(), { flush: true });
 const draft = () => plugin.draft(draftData());
 
@@ -115,10 +170,9 @@ const items = () => (gate.payload.groups || []).flatMap((g) => g.items.map((i) =
 const itemIds = () => items().map((i) => i.id);
 
 function loadDecision(data) {
-  S.decisions = {}; S.additions = [];
+  S.decisions = {};
   if (!data) return;
   for (const d of data.decisions || []) S.decisions[d.id] = { action: d.action, note: d.note || "" };
-  S.additions = (data.additions || []).map((a) => ({ group: a.group || "", body: a.body }));
 }
 
 function decisionData() {
@@ -134,8 +188,6 @@ function decisionData() {
     }
   }
   const data = { decisions, undecided };
-  const additions = S.additions.filter((a) => a.body && a.body.trim()).map((a) => (a.group ? { group: a.group, body: a.body.trim() } : { body: a.body.trim() }));
-  if (additions.length) data.additions = additions;
   return data;
 }
 
@@ -204,31 +256,15 @@ function renderItem(item) {
   const placeholder = d.action === "reject" ? "why (becomes a lesson for the agent)" : d.action === "accept" ? "revise before acting (optional)" : "note (optional)";
   return `<div class="item ${cls}" data-id="${item.id}">${head}
     <div class="controls">
-      <button type="button" class="btn accept ${d.action === "accept" ? "on" : ""}" data-act="accept" data-id="${item.id}" aria-pressed="${d.action === "accept"}">Accept</button>
-      <button type="button" class="btn reject ${d.action === "reject" ? "on" : ""}" data-act="reject" data-id="${item.id}" aria-pressed="${d.action === "reject"}">Reject</button>
+      <span class="choice" role="group" aria-label="decide item ${esc(item.id)}">
+        <button type="button" class="btn accept ${d.action === "accept" ? "on" : ""}" data-act="accept" data-id="${item.id}" aria-pressed="${d.action === "accept"}">Accept</button>
+        <button type="button" class="btn reject ${d.action === "reject" ? "on" : ""}" data-act="reject" data-id="${item.id}" aria-pressed="${d.action === "reject"}">Reject</button>
+      </span>
       <textarea class="note" rows="1" data-note="${item.id}" placeholder="${placeholder}" aria-label="note for item ${esc(item.id)}">${esc(d.note || "")}</textarea>
     </div>
   </div>`;
 }
 
-function renderAdditions() {
-  const groups = (gate.payload.groups || []).map((g) => g.title);
-  if (readonly) {
-    if (!S.additions.length) return "";
-    return `<section class="additions"><div class="eyebrow">your additions</div>
-      ${S.additions.map((a) => `<div class="item"><div class="head">${a.group ? `<span class="meta">${esc(a.group)}</span>` : ""}</div><div class="body">${markdown(a.body)}</div></div>`).join("")}
-    </section>`;
-  }
-  if (!gate.payload.allow_additions) return "";
-  return `<section class="additions"><div class="eyebrow">your additions</div>
-    ${S.additions.map((a, i) => `<div class="addition">
-      <select data-add-group="${i}" aria-label="group for addition ${i + 1}"><option value="">(no group)</option>${groups.map((g) => `<option value="${esc(g)}" ${a.group === g ? "selected" : ""}>${esc(g)}</option>`).join("")}</select>
-      <textarea class="note" rows="2" data-add-body="${i}" placeholder="markdown" aria-label="addition ${i + 1}">${esc(a.body || "")}</textarea>
-      <button type="button" class="btn ghost" data-add-remove="${i}" aria-label="remove addition ${i + 1}">×</button>
-    </div>`).join("")}
-    <div style="margin-top:8px"><button type="button" class="btn ghost" id="add-addition">+ add a note of your own</button></div>
-  </section>`;
-}
 
 function render() {
   const groups = gate.payload.groups || [];
@@ -246,20 +282,22 @@ function render() {
     html += `<h2 class="group plugin-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
     for (const item of g.items) html += renderItem({ ...item, group: g.title });
   }
-  html += renderAdditions();
   if (S.errors && S.errors.length) {
     html += `<div class="errors notice danger" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
   }
   if (!readonly) {
-    html += `<div class="footer">
-      <span class="tally"><b>${t.accept}</b> accepted · <b>${t.reject}</b> rejected · <b>${t.undecided}</b> undecided</span>
-      <span class="spacer" style="flex:1"></span>
-      ${S.armed ? `<span class="tally warn">${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.</span><button type="button" class="btn ghost" id="disarm">keep deciding</button>` : ""}
-    </div>`;
+    if (S.armed) {
+      html += `<div class="footer">
+        <span class="tally warn">${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.</span>
+        <span class="spacer" style="flex:1"></span>
+        <button type="button" class="btn ghost" id="disarm">keep deciding</button>
+      </div>`;
+    }
   }
   view.content.className = "plugin-content";
   view.content.innerHTML = html;
   bind();
+  counts();
   if (!readonly) syncStatus();
 }
 
@@ -273,10 +311,6 @@ function bind() {
   });
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
   on("disarm", () => { S.armed = false; render(); });
-  on("add-addition", () => { S.additions.push({ group: "", body: "" }); postDraft(); render(); const last = app.querySelector(`textarea[data-add-body="${S.additions.length - 1}"]`); if (last) last.focus(); });
-  app.querySelectorAll("[data-add-remove]").forEach((b) => b.onclick = () => { S.additions.splice(+b.dataset.addRemove, 1); postDraft(); render(); });
-  app.querySelectorAll("[data-add-body]").forEach((t) => t.oninput = () => { S.additions[+t.dataset.addBody].body = t.value; draft(); });
-  app.querySelectorAll("[data-add-group]").forEach((s) => s.onchange = () => { S.additions[+s.dataset.addGroup].group = s.value; postDraft(); });
 }
 </script>
 </body>

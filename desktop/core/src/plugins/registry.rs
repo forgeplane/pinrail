@@ -300,7 +300,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let r = registry(tmp.path());
         let list = r.fetch("list").unwrap();
-        assert_eq!((list.version, list.title.as_str()), (1, "List"));
+        assert_eq!((list.version, list.title.as_str()), (1, "Action list"));
         assert!(r.fetch("nope").is_err());
         assert!(r.fetch_version("list", 1).is_ok());
         assert!(r.fetch_version("list", 9).is_err());
