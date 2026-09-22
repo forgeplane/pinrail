@@ -7,7 +7,7 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
-const { iconsDir: findIcons, packageRoot } = require("../lib/paths.cjs");
+const { iconsDir: findIcons, packageRoot, sdkScript } = require("../lib/paths.cjs");
 
 const ORIGIN = "http://plugin.test";
 const root = packageRoot(__filename);
@@ -67,7 +67,7 @@ function fixture(file) {
 }
 
 async function mountPlugin(page, pluginDir, opts) {
-  const sdk = fs.readFileSync(path.join(root, "src", "wicket-plugin.js"), "utf8");
+  const sdk = sdkScript(root);
   const sdkCss = fs.readFileSync(path.join(root, "src", "wicket-plugin.css"), "utf8");
   const harness = fs.readFileSync(path.join(__dirname, "harness.html"), "utf8");
 

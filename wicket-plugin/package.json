@@ -44,7 +44,8 @@
     "test": "node --test test/*.test.cjs && playwright test"
   },
   "dependencies": {
-    "lucide-static": "1.45.0"
+    "lucide-static": "1.45.0",
+    "markdown-it": "^15.0.2"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.40"

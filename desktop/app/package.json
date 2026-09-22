@@ -20,6 +20,7 @@
     "@tauri-apps/plugin-dialog": "^2.7.3",
     "@tauri-apps/plugin-opener": "^2.5.5",
     "lucide-react": "1.45.0",
+    "markdown-it": "^15.0.2",
     "react": "^19",
     "react-dom": "^19",
     "react-router": "^7"

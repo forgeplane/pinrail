@@ -1,6 +1,6 @@
 // Assembles the directory the server serves at /sdk/v1/: the plugin SDK from
-// wicket-plugin/src, the icon set plugin views draw from, and the font the
-// window itself is drawn in. The icons come from the pinned lucide-static
+// wicket-plugin/src, the optional markdown module, the icon set plugin views
+// draw from, and the font the window itself is drawn in. The icons come from the pinned lucide-static
 // package, the same release wicket-plugin depends on; the font from the same
 // package the shell bundles, so a plugin panel and the window around it are
 // set in one typeface. The app carries the files so it draws the same with no
@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { sdkScript } from "../../../wicket-plugin/lib/paths.cjs";
 
 const app = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sdkSrc = path.resolve(app, "..", "..", "wicket-plugin", "src");
@@ -18,7 +19,9 @@ const out = path.join(app, "sdk", "v1");
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, "icons"), { recursive: true });
+// wicket-plugin.js is assembled below rather than copied: it carries a parser
 for (const file of fs.readdirSync(sdkSrc)) {
+  if (file === "wicket-plugin.js") continue;
   fs.copyFileSync(path.join(sdkSrc, file), path.join(out, file));
 }
 let count = 0;
@@ -36,5 +39,10 @@ for (const file of faces) {
 // the SDK stylesheet imports ./fonts.css; wght.css is that file, and it
 // points at ./files/, which is where the faces now sit
 fs.copyFileSync(path.join(font, "wght.css"), path.join(out, "fonts.css"));
+
+// The SDK and the markdown parser it renders with, as the one script a view
+// loads. The parser comes from the app's own dependencies: a release installs
+// no others.
+fs.writeFileSync(path.join(out, "wicket-plugin.js"), sdkScript(app, sdkSrc));
 
 console.log(`sdk: ${fs.readdirSync(sdkSrc).length} SDK files, ${count} icons and ${faces.length} font files in ${path.relative(app, out)}`);

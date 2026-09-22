@@ -29,4 +29,19 @@ function iconsDir(root) {
   return fs.existsSync(app) ? app : null;
 }
 
-module.exports = { packageRoot, iconsDir };
+/**
+ * What the app serves at `/sdk/v1/wicket-plugin.js`: the browser build of
+ * markdown-it, then the SDK, which finds it as a global and configures it.
+ * One script, so a view has markdown from its first line and asks the server
+ * for nothing else. Assembled the same way here, in the app's build and in
+ * the harness, so a view runs against one file wherever it runs.
+ *
+ * `from` is the package whose `node_modules` holds the parser; `src` the SDK
+ * sources, which in a checkout of the app are not beneath it.
+ */
+function sdkScript(from, src = path.join(from, "src")) {
+  const parser = createRequire(path.join(from, "package.json")).resolve("markdown-it/browser");
+  return `${fs.readFileSync(parser, "utf8")}\n${fs.readFileSync(path.join(src, "wicket-plugin.js"), "utf8")}`;
+}
+
+module.exports = { packageRoot, iconsDir, sdkScript };

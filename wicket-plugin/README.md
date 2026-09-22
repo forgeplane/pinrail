@@ -109,10 +109,29 @@ behind it renders as empty space, with the name left on the element.
 The set is ISC licensed and the licence is served beside it at
 `/sdk/v1/icons/LICENSE`; the copy in this repository is `licenses/lucide-icons.txt`.
 
-Helpers: `Wicket.escape(s)`, `Wicket.markdown(s)` (paragraphs, bold,
-italic, inline and fenced code, lists, http links; escapes first), and
-`Wicket.previousVerdict(previous, id)` for decisions shaped as
-`{ decisions: [{ id, action, note }], undecided: [id] }`.
+Helpers: `Wicket.escape(s)` and `Wicket.previousVerdict(previous, id)`, for
+decisions shaped as `{ decisions: [{ id, action, note }], undecided: [id] }`.
+
+## Markdown
+
+A view renders markdown with no ceremony:
+
+```js
+const plugin = Wicket.connect({
+  onInit({ gate }) { view.content.innerHTML = Wicket.markdown(gate.payload.notes); },
+});
+```
+
+`Wicket.markdown(s)` and `Wicket.markdownInline(s)` are there from the view's
+first line: the script the app serves carries its parser,
+[markdown-it](https://github.com/markdown-it/markdown-it), so a view loads one
+file and waits for nothing.
+
+What comes back is CommonMark as HTML: headings, tables, blockquotes, nested
+lists, code. The HTML is the parser's own — raw HTML in the source is escaped
+rather than passed through, which matters because a view's frame runs inline
+scripts — and a link to anything but `http`, `https` or `mailto` keeps its text
+and loses its address. Styling stays yours: plain elements, no classes.
 
 `v1` is the protocol major: it only ever gets fixes. The source of truth is
 `src/wicket-plugin.js` here; the desktop app's `sdk:build` copies it into what

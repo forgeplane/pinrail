@@ -5,12 +5,13 @@ import { fixture, mountPlugin } from "wicket-plugin/testing";
 const dir = path.resolve(__dirname, "..");
 const triage = () => fixture(path.join(dir, "fixtures", "triage.json"));
 const round1 = () => fixture(path.join(dir, "fixtures", "triage-round-1.decided.json"));
+const issues = () => fixture(path.join(dir, "fixtures", "issues.json"));
 
 test("renders groups, items, markdown and meta chips", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: triage() });
   const f = plugin.frame;
   await expect(f.locator(".intro")).toContainText("Sentry triage for acme-api");
-  await expect(f.locator(".intro b")).toHaveText(["acme-api", "acme-worker"]);
+  await expect(f.locator(".intro strong")).toHaveText(["acme-api", "acme-worker"]);
   await expect(f.locator("h2.group")).toHaveText(["acme-api2", "acme-worker2"]);
   await expect(f.locator('[data-id="101"] .sev')).toHaveText("blocker");
   await expect(f.locator('[data-id="101"] .meta')).toHaveText(["issue: ACME-API-9F2", "count: 312"]);
@@ -124,4 +125,18 @@ test("a superseding gate shows the previous round's verdicts; a withdrawn one re
 
   const withdrawn = await mountPlugin(page, dir, { gate: { ...triage(), status: "withdrawn" }, readonly: true });
   await expect(withdrawn.frame.locator(".done")).toHaveText("Closed without a decision (withdrawn). Read-only.");
+});
+
+test("an item's body is markdown, whatever the agent wrote in it", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: issues() });
+  const f = plugin.frame;
+
+  // the SDK renders all of it, and this view styles the box rather than the
+  // prose: a heading, a table, a fenced block and a quote all land as elements
+  await expect(f.locator('[data-id="1"] .body h3').first()).toHaveText("Where");
+  await expect(f.locator('[data-id="1"] .body table td').first()).toContainText("lib/checkout/refund.ex");
+  await expect(f.locator('[data-id="1"] .body pre')).toContainText("Checkout.Refund.split");
+  await expect(f.locator(".intro blockquote")).toContainText("Nothing is filed until you hand over.");
+  // a link keeps its text and goes nowhere the frame can follow
+  await expect(f.locator('[data-id="2"] .body a')).toHaveAttribute("rel", "noreferrer");
 });

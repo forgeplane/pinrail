@@ -220,8 +220,10 @@ export type WicketSdk = {
   /** an icon from the set the app serves, as markup that takes the text's colour */
   icon(name: string, opts?: { label?: string; size?: number | string; class?: string }): string;
   escape(text: string): string;
-  /** a small, safe markdown subset as HTML */
+  /** markdown as HTML: raw HTML escaped, unsafe addresses dropped */
   markdown(source: string): string;
+  /** the same, for one line: no paragraph around it */
+  markdownInline(source: string): string;
   /** what the previous round decided for an item id, for `decisions: [{id, action, note}]` shapes */
   previousVerdict(previous: Gate | null, id: string | number): { action: string; note: string } | null;
 };

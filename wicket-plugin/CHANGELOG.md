@@ -4,6 +4,19 @@ The package's version is the SDK's, and its major is the protocol's:
 `1.x` speaks protocol 1, served by the app at `/sdk/v1`. A breaking
 change to the protocol is a new major and a new path.
 
+## Unreleased
+
+- `Wicket.markdown(s)` renders CommonMark: headings, tables, blockquotes,
+  nested lists and the rest. The script the app serves carries its parser
+  ([markdown-it](https://github.com/markdown-it/markdown-it), MIT), so a
+  view loads one file and waits for nothing; the small hand-rolled subset
+  it replaces is gone. Raw HTML is still escaped, and a link to anything
+  but `http`, `https` or `mailto` keeps its text and loses its address.
+- `Wicket.markdownInline(s)`: the same for one line, without a paragraph
+  around it.
+- The stylesheet styles what markdown renders — headings, tables,
+  blockquotes, rules and code — so a view styles the box, not the prose.
+
 ## 1.8.0
 
 The first release as a package, `wicket-plugin`. The SDK the app serves

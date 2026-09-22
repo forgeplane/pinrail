@@ -5,8 +5,10 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const { sdkScript } = require("../lib/paths.cjs");
+// the script the app serves, parser and all, not the source half of it
 const sdkFile = path.join(__dirname, "..", "src", "wicket-plugin.js");
-vm.runInThisContext(fs.readFileSync(sdkFile, "utf8"), { filename: sdkFile });
+vm.runInThisContext(sdkScript(path.join(__dirname, "..")), { filename: sdkFile });
 const Wicket = globalThis.Wicket;
 
 function fakeEnv() {

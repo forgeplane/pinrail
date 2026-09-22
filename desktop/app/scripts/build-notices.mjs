@@ -37,13 +37,16 @@ function rust(manifest) {
     .filter((l) => l.packages.length > 0);
 }
 
-/** A font package whose files ship in the bundle, from its own LICENSE. */
-function font(name) {
+/**
+ * A package the app ships whole rather than through the UI bundle — a font,
+ * or a file it serves to plugin views — from its own LICENSE. The bundle's
+ * licence plugin never sees these, so they are named here.
+ */
+function shipped(name, licence) {
   const dir = path.join(app, "node_modules", name);
   const version = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")).version;
   return {
-    name: "SIL Open Font License 1.1",
-    id: "OFL-1.1",
+    ...licence,
     text: fs.readFileSync(path.join(dir, "LICENSE"), "utf8"),
     packages: [`${name} ${version} (npm)`],
   };
@@ -69,10 +72,11 @@ const entries = [
     text: fs.readFileSync(path.join(root, "wicket-plugin", "licenses", "lucide-icons.txt"), "utf8"),
     packages: ["Lucide icons (lucide-static 1.45.0)"],
   },
-  // The font files the window draws in. They are imported as CSS, so the
-  // bundle's licence plugin never sees the package; its licence is read from
-  // the copy npm installed.
-  font("@fontsource-variable/inter"),
+  // the font files the window draws in, imported as CSS
+  shipped("@fontsource-variable/inter", { name: "SIL Open Font License 1.1", id: "OFL-1.1" }),
+  // the markdown parser the app serves inside /sdk/v1/wicket-plugin.js, which
+  // every plugin view renders markdown with
+  shipped("markdown-it", { name: "MIT License", id: "MIT" }),
 ];
 
 // one section per distinct text, the packages sorted and without repeats

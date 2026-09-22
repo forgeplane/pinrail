@@ -212,10 +212,14 @@ test("a theme change neither re-initialises the view nor disturbs a draft", () =
 test("escape, markdown and previousVerdict", () => {
   assert.equal(Wicket.escape(`<a href="x">&'`), "&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
 
-  const html = Wicket.markdown("Hi **there** `x < y`\n\n- one\n- two\n\n1. a\n\n```\ncode <b>\n```\n[l](https://e.x)");
-  assert.equal(html, '<p>Hi <b>there</b> <code class="inl">x &lt; y</code></p><ul><li>one</li><li>two</li></ul><ol><li>a</li></ol><pre>code &lt;b&gt;</pre><p><a href="https://e.x" target="_blank" rel="noreferrer">l</a></p>');
-  assert.equal(Wicket.markdown("<script>alert(1)</script>"), "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>");
-  assert.equal(Wicket.markdown("[x](javascript:alert(1))"), "<p>[x](javascript:alert(1))</p>");
+  // The parser is the package's own dependency here and the app's in a
+  // browser; what it renders in a view's frame is settled in markdown.spec.ts.
+  assert.equal(Wicket.markdown("# Title"), "<h1>Title</h1>\n");
+  assert.equal(Wicket.markdownInline("a *b*"), "a <em>b</em>");
+  // raw HTML is escaped: a view's frame runs inline scripts
+  assert.equal(Wicket.markdown("<script>alert(1)</script>"), "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>\n");
+  // and an address a click would run is not made a link at all
+  assert.equal(Wicket.markdown("[x](javascript:alert(1))"), "<p>[x](javascript:alert(1))</p>\n");
 
   const previous = { decision: { data: { decisions: [{ id: 1, action: "reject", note: "no" }], undecided: [2] } } };
   assert.deepEqual(Wicket.previousVerdict(previous, 1), { action: "reject", note: "no" });

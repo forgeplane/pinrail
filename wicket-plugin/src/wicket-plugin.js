@@ -53,43 +53,48 @@
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function inline(s) {
-    return s
-      .replace(/`([^`]+)`/g, (_, c) => `<code class="inl">${c}</code>`)
-      .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-      .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<i>$2</i>")
-      .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  /* Markdown is rendered by markdown-it, which the app prepends to this file:
+     the script a view loads carries its parser, so Wicket.markdown and
+     Wicket.markdownInline render CommonMark — headings, tables, blockquotes,
+     nested lists and the rest — from the view's first line onwards.
+
+     What the renderer promises is that the HTML is its own: raw HTML in the
+     source is escaped rather than passed through, which matters because a
+     view's frame runs inline scripts, so markup that reached the DOM would
+     run. Addresses are checked too: a link to anything but http, https or
+     mailto keeps its text and loses its address. Styling stays the view's:
+     the renderer writes plain elements and no classes. */
+  const SAFE_HREF = /^(https?:|mailto:)/i;
+
+  function configure(markdownit) {
+    const parser = markdownit({
+      // the default, and the reason no sanitiser is needed: raw HTML is escaped
+      html: false,
+      linkify: true,
+      breaks: false,
+      typographer: false,
+    });
+    const link = parser.renderer.rules.link_open || ((t, i, o, e, self) => self.renderToken(t, i, o));
+    parser.renderer.rules.link_open = (tokens, i, options, env, self) => {
+      if (!SAFE_HREF.test(tokens[i].attrGet("href") || "")) tokens[i].attrSet("href", "#");
+      tokens[i].attrSet("rel", "noreferrer");
+      tokens[i].attrSet("target", "_blank");
+      return link(tokens, i, options, env, self);
+    };
+    return parser;
   }
 
-  /* A small, safe markdown subset: paragraphs, bold, italic, inline code,
-     fenced code, bullet and numbered lists, http links. Escapes first. */
-  function markdown(src) {
-    const lines = escape(src || "").split("\n");
-    let html = "", para = [], list = null, code = null;
-    const flushPara = () => { if (para.length) { html += `<p>${inline(para.join(" "))}</p>`; para = []; } };
-    const flushList = () => { if (list) { html += `<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`; list = null; } };
-    for (const line of lines) {
-      if (code !== null) {
-        if (/^```/.test(line)) { html += `<pre>${code.join("\n")}</pre>`; code = null; } else code.push(line);
-        continue;
-      }
-      if (/^```/.test(line)) { flushPara(); flushList(); code = []; continue; }
-      const li = line.match(/^\s*(?:[-*]|(\d+)\.)\s+(.*)$/);
-      if (li) {
-        flushPara();
-        const tag = li[1] ? "ol" : "ul";
-        if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
-        list.items.push(li[2]);
-        continue;
-      }
-      if (!line.trim()) { flushPara(); flushList(); continue; }
-      flushList();
-      para.push(line.trim());
-    }
-    if (code !== null) html += `<pre>${code.join("\n")}</pre>`;
-    flushPara(); flushList();
-    return html;
+  // The parser is a global by the time this runs, because it is prepended to
+  // this file; the source half of it on its own renders nothing.
+  const md = root.markdownit ? configure(root.markdownit) : null;
+
+  function render(method, src) {
+    if (!md) throw new Error("Wicket.markdown needs the parser the app serves with the SDK");
+    return src == null ? "" : md[method](String(src));
   }
+
+  const markdown = (src) => render("render", src);
+  const markdownInline = (src) => render("renderInline", src);
 
   /* What the superseded round decided for an item id, for views whose
      decision has `decisions: [{id, action, note}]` and `undecided: [id]`. */
@@ -383,6 +388,7 @@
     icon,
     escape,
     markdown,
+    markdownInline,
     previousVerdict,
   };
 

@@ -1,0 +1,44 @@
+{
+  "title": "Open these in the tracker? — 4 suggestions",
+  "payload": {
+    "intro": "From the **audit of `acme/checkout`** (commit `4f1a9c2`). Each item below would be filed in the tracker as written. Reject with a reason and the agent files none of it.\n\n> Nothing is filed until you hand over.",
+    "groups": [
+      {
+        "title": "Correctness",
+        "items": [
+          {
+            "id": 1,
+            "severity": "blocker",
+            "title": "Refund rounds the wrong way on split payments",
+            "body": "`Checkout.Refund.split/2` divides with `Float.round/2` before it allocates the remainder, so a refund of a 3-way split is a cent short.\n\n### Where\n\n| file | line | note |\n| --- | ---: | --- |\n| `lib/checkout/refund.ex` | 88 | rounds each share |\n| `lib/checkout/refund.ex` | 96 | sums the rounded shares |\n\n### Reproducing it\n\n```elixir\niex> Checkout.Refund.split(Money.new(1000), 3)\n[%Money{amount: 333}, %Money{amount: 333}, %Money{amount: 333}]\n# 999, not 1000\n```\n\nThe fix is to allocate the remainder to the first shares, as `Money.allocate/2` already does.",
+            "meta": { "area": "payments", "found_by": "tests" }
+          },
+          {
+            "id": 2,
+            "severity": "major",
+            "title": "Webhook replay window is 10 minutes, the provider's is 5",
+            "body": "A replayed webhook is accepted for five minutes longer than the provider signs for.\n\n1. The provider signs a timestamp\n2. We compare it against `@replay_window`\n3. `@replay_window` is `600`, the documented window is `300`\n\nSee the [provider's signature docs](https://example.com/docs/webhooks#verify). Not exploitable on its own — it widens the window for one that is."
+          }
+        ]
+      },
+      {
+        "title": "Housekeeping",
+        "items": [
+          {
+            "id": 3,
+            "severity": "minor",
+            "title": "Two modules parse the same CSV shape",
+            "body": "`Checkout.Import.Legacy` and `Checkout.Import.V2` both carry a parser for the same export, and they disagree about empty cells:\n\n- **Legacy** reads `\"\"` as `nil`\n- **V2** reads `\"\"` as `\"\"`\n  - which makes `Enum.reject(&is_nil/1)` a no-op downstream\n\nOne parser, one answer. Nothing calls Legacy since the March migration.",
+            "meta": { "area": "import" }
+          },
+          {
+            "id": 4,
+            "severity": "minor",
+            "title": "mix docs has failed since the umbrella split",
+            "body": "The docs task points at `apps/checkout/README.md`, which moved to the root.\n\n```\n** (File.Error) could not read file \"apps/checkout/README.md\"\n```\n\n---\n\nOne line in `mix.exs`. Worth filing only to stop the next person rediscovering it."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -14,7 +14,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { iconsDir, packageRoot } from "../lib/paths.cjs";
+import { iconsDir, packageRoot, sdkScript } from "../lib/paths.cjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = packageRoot(fileURLToPath(import.meta.url));
@@ -181,9 +181,11 @@ export function serve(argv) {
     if (p === "/sdk/v1/fonts.css") {
       return send(res, 200, fontsCss(), { "content-type": "text/css", "access-control-allow-origin": "*" });
     }
-    if (p === "/sdk/v1/wicket-plugin.js" || p === "/sdk/v1/wicket-plugin.css") {
-      return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
+    // the SDK carries its markdown parser, as it does in the app
+    if (p === "/sdk/v1/wicket-plugin.js") {
+      return send(res, 200, sdkScript(root), { "content-type": mime[".js"], "access-control-allow-origin": "*" });
     }
+    if (p === "/sdk/v1/wicket-plugin.css") return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
     if (p.startsWith("/sdk/v1/icons/")) {
       const file = iconDir && under(iconDir, path.basename(p));
       return file ? sendFile(res, file, { "access-control-allow-origin": "*" }) : send(res, 404, "no such icon");
