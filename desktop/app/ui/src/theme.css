@@ -102,14 +102,6 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 }
 .bar-button:hover { background: var(--bg-hover); color: var(--text); }
 .topbar-history { display: inline-flex; gap: 2px; }
-/* the app has its name in the title bar and the Dock; the brand is for a browser */
-.app-brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text); padding: 4px 8px; }
-.app-brand:hover { text-decoration: none; }
-.wicket-mark {
-  display: block; width: 22px; height: 22px; flex: none; background: currentColor;
-  --src: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 21V3h7v18 M14 21V3h7v18' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  -webkit-mask: var(--src) center / 20px 20px no-repeat; mask: var(--src) center / 20px 20px no-repeat;
-}
 .app-nav { display: flex; flex-direction: column; gap: 2px; }
 .app-nav a { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 6px; color: var(--dim); }
 .nav-label { display: inline-flex; align-items: center; gap: 8px; }

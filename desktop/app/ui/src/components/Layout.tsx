@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { api, inTauri } from "../api/client";
+import { api } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
@@ -202,12 +202,6 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="sidebar-bar" data-tauri-drag-region>
             {sidebarButton}
           </div>
-          {inTauri() ? null : (
-            <NavLink to="/" className="app-brand" aria-label="Wicket home">
-              <span className="wicket-mark" aria-hidden="true" />
-              <span>Wicket</span>
-            </NavLink>
-          )}
           <nav className="app-nav" aria-label="Main">
             {NAV.map(({ key, label, to, Icon, keys }) => (
               <Fragment key={key}>
