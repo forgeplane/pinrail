@@ -8,12 +8,9 @@ agent and the workflow that reads them.
 
 ## Asking
 
-```sh
-wicket plugins install plugins/feedback --link
-```
-
-The payload inside any fixture here is a working request (a fixture file is a
-gate envelope around one):
+It ships with the app: the binary carries it and writes it out at every
+start, so there is nothing to install. The payload inside any fixture here is
+a working request (a fixture file is a gate envelope around one):
 
 ```sh
 node -e 'process.stdout.write(JSON.stringify(require("./fixtures/01-incident.json").payload))' > /tmp/feedback-payload.json

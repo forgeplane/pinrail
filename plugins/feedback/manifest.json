@@ -4,6 +4,7 @@
   "title": "Feedback",
   "icon": "messages-square",
   "entry": "view/index.html",
+  "decision_template": "templates/decision.md.j2",
   "payload_schema": {
     "$ref": "schemas/payload.schema.json"
   },

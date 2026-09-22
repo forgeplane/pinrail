@@ -2,14 +2,14 @@
 
 A gate type is a directory: a manifest, two JSON Schema documents, and a
 self-contained HTML bundle that wicket renders in a sandboxed iframe. Every
-plugin lives here, the built-in one included. `list` ships inside the app,
-carried in the binary and written out at first start; the others are
-installed one at a time:
+plugin lives here, the built-in ones included. `list` and `feedback` ship
+inside the app, carried in the binary and written out at every start; the
+others are installed one at a time:
 
 | Plugin | What it gates |
 |---|---|
 | [`list/`](list/README.md) | a list of proposed actions, accepted or rejected one by one; built in |
-| [`feedback/`](feedback/README.md) | questions an agent wants answered before it goes on: grouped, conditional, answered in one pass |
+| [`feedback/`](feedback/README.md) | questions an agent wants answered before it goes on: grouped, conditional, answered in one pass; built in |
 | [`review/`](review/README.md) | a code review: the diff, the agent's proposed comments, the human's verdicts and own comments |
 | [`email/`](email/README.md) | emails an agent wants to send: edit them with the changes showing, comment on a passage, send, revise or discard |
 | [`artifact/`](artifact/README.md) | an HTML page an agent designed: pick elements the way DevTools does, comment on them, and the agent gets selectors back |
@@ -55,7 +55,7 @@ scaffolds. The bundle the app installs is the folder without `src/`,
 }
 ```
 
-- `name` is `[a-z][a-z0-9_]*`, unique across the installed plugins.
+- `name` is `[a-z][a-z0-9_-]*`, unique across the installed plugins.
 - Schemas are JSON Schema 2020-12, inline or by relative `$ref` to files in
   the plugin's folder. A `$ref` cannot leave the folder.
 - `version` is semantic (`"1.2.0"`; a bare integer reads as `N.0.0`; a

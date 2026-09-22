@@ -585,7 +585,7 @@ mod settings {
 pub(super) fn valid_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_lowercase())
-        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
 }
 
 /// Lucide names an icon in lowercase words joined by dashes.
@@ -609,6 +609,26 @@ fn string_field(manifest: &Map<String, Value>, key: &str) -> Result<String, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_plugin_name_is_lowercase_words_joined_by_underscores_or_dashes() {
+        for ok in ["list", "code_review", "code-review", "a1", "x"] {
+            assert!(super::valid_name(ok), "{ok}");
+        }
+        // it names a folder, a URL path and a CLI argument: keep it plain
+        for bad in [
+            "",
+            "List",
+            "1list",
+            "_list",
+            "-list",
+            "code review",
+            "code.review",
+            "café",
+        ] {
+            assert!(!super::valid_name(bad), "{bad}");
+        }
+    }
 
     #[test]
     fn icon_names_are_lucide_names() {

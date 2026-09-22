@@ -1,0 +1,42 @@
+{#- The answers as the agent that asked reads them back: the question in
+    words, then what was answered and anything said about it, under the
+    group it belongs to. What the person never saw is named at the end, so
+    an agent does not read silence as a no. The head (title, origin, who
+    decided, their note) is printed by the app before this. -#}
+{%- macro label(question, value) -%}
+{%- if value is none -%}
+—
+{%- elif value is boolean -%}
+{{ "yes" if value else "no" }}
+{%- elif value is sequence and value is not string -%}
+{%- for id in value -%}
+{{ (question.options | selectattr("id", "eq", id) | first).label | default(id) }}{{ ", " if not loop.last }}
+{%- endfor -%}
+{%- elif question.options -%}
+{{ (question.options | selectattr("id", "eq", value) | first).label | default(value) }}
+{%- else -%}
+{{ value }}
+{%- endif -%}
+{%- endmacro -%}
+{%- set answers = data.answers | default([]) -%}
+## Answers
+{% for group in review.payload.groups %}
+{%- set answered = group.questions | selectattr("id", "in", answers | map(attribute="question_id") | list) | list -%}
+{%- if answered %}
+### {{ group.title }}
+{% for question in answered %}
+{%- set answer = answers | selectattr("question_id", "eq", question.id) | first %}
+- **{{ question.prompt }}** — {{ label(question, answer.answer) }}
+{%- if answer.comment %}
+  > {{ answer.comment }}
+{%- endif %}
+{%- endfor %}
+{% endif -%}
+{%- endfor -%}
+{%- set questions = review.payload.groups | map(attribute="questions") | list -%}
+{%- if data.unanswered %}
+Not answered: {% for id in data.unanswered %}{% for qs in questions %}{% for q in qs %}{% if q.id == id %}{{ q.prompt }}{% endif %}{% endfor %}{% endfor %}{{ ", " if not loop.last }}{% endfor %}
+{% endif -%}
+{%- if data.excluded %}
+Never asked, because of the answers above: {% for id in data.excluded %}{% for qs in questions %}{% for q in qs %}{% if q.id == id %}{{ q.prompt }}{% endif %}{% endfor %}{% endfor %}{{ ", " if not loop.last }}{% endfor %}
+{% endif -%}

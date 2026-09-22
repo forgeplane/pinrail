@@ -11,7 +11,7 @@ const templates = path.join(root, "templates");
 const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
 export const TEMPLATES = ["plain", "vite"];
-const NAME = /^[a-z][a-z0-9_]*$/;
+const NAME = /^[a-z][a-z0-9_-]*$/;
 
 /**
  * Where a scaffolded plugin gets the package from. Until it is on npm, the
@@ -52,7 +52,7 @@ export function targetOf(rel, name) {
  * and the files written, relative to it.
  */
 export function scaffold(name, opts = {}) {
-  if (!NAME.test(name)) throw new Error(`a plugin's name is [a-z][a-z0-9_]*: ${JSON.stringify(name)}`);
+  if (!NAME.test(name)) throw new Error(`a plugin's name is [a-z][a-z0-9_-]*: ${JSON.stringify(name)}`);
   const template = opts.template ?? "plain";
   if (!TEMPLATES.includes(template)) throw new Error(`no template ${JSON.stringify(template)}; one of ${TEMPLATES.join(", ")}`);
   const dir = path.resolve(opts.dir ?? name);

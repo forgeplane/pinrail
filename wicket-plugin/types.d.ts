@@ -30,7 +30,7 @@ export type Shortcut = {
 };
 
 export type Manifest = {
-  /** `[a-z][a-z0-9_]*`, unique across the installed plugins */
+  /** `[a-z][a-z0-9_-]*`, unique across the installed plugins */
   name: string;
   /** semantic (`"1.2.0"`); a bare integer reads as `N.0.0` */
   version: string | number;

@@ -1,8 +1,8 @@
-// The built-in plugin is a plugin like any other: it lives in `plugins/list`
+// The built-in plugins are plugins like any other: they live in `plugins/`
 // with the rest. The crate cannot reach outside itself for files it embeds,
-// so the bundle is copied here at build time and embedded from there. What a
-// plugin ships is what the installer would copy: the manifest, the schemas
-// and the view, without its tests, fixtures or readme.
+// so their bundles are copied here at build time and embedded from there.
+// What a plugin ships is what the installer would copy: the manifest, the
+// schemas and the view, without its tests, fixtures or readme.
 
 use std::path::{Path, PathBuf};
 use std::{env, fs};
@@ -10,14 +10,19 @@ use std::{env, fs};
 /// What a bundle leaves behind, as `plugins/install.rs` does for an install.
 const NOT_IN_THE_BUNDLE: &[&str] = &["node_modules", "src", "tests", "fixtures", "README.md"];
 
+/// The plugins every server has, by their folder in `plugins/`.
+const BUILTIN: &[&str] = &["list", "feedback"];
+
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let source = manifest.join("../../plugins/list");
-    let target = PathBuf::from(env::var("OUT_DIR").unwrap()).join("builtin/list");
+    let builtin = PathBuf::from(env::var("OUT_DIR").unwrap()).join("builtin");
 
-    println!("cargo:rerun-if-changed={}", source.display());
-    let _ = fs::remove_dir_all(&target);
-    copy(&source, &target);
+    let _ = fs::remove_dir_all(&builtin);
+    for name in BUILTIN {
+        let source = manifest.join("../../plugins").join(name);
+        println!("cargo:rerun-if-changed={}", source.display());
+        copy(&source, &builtin.join(name));
+    }
 }
 
 fn copy(from: &Path, to: &Path) {

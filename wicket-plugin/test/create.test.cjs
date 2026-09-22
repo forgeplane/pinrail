@@ -84,7 +84,7 @@ test("without --sdk the dependency is the release tarball of this version", asyn
 
 test("a bad name, an unknown template and a folder in use are refused", async () => {
   const { scaffold } = await load();
-  assert.throws(() => scaffold("Bad", { dir: path.join(tmp(), "x") }), /\[a-z\]\[a-z0-9_\]\*/);
+  assert.throws(() => scaffold("Bad", { dir: path.join(tmp(), "x") }), /\[a-z\]\[a-z0-9_-\]\*/);
   assert.throws(() => scaffold("ok", { dir: path.join(tmp(), "x"), template: "svelte" }), /no template "svelte"/);
   const used = tmp();
   fs.writeFileSync(path.join(used, "keep.txt"), "");

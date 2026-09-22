@@ -621,7 +621,11 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     };
     let (status, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(names(&body), vec!["list"], "a fresh app has the built-in");
+    assert_eq!(
+        names(&body),
+        vec!["feedback", "list"],
+        "a fresh app has the built-in ones"
+    );
     assert_eq!(body["plugins"][0]["usable"], true);
 
     // one plugin, named by its own folder, served live from where it sits
@@ -629,7 +633,7 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     let (status, body) = install(&app, &samples.join("hello"), json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    assert_eq!(names(&body), vec!["hello", "list"]);
+    assert_eq!(names(&body), vec!["feedback", "hello", "list"]);
 
     let links = db(&app).installed_plugins().unwrap();
     assert_eq!(links.len(), 1, "one install, one record");
@@ -661,7 +665,7 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
 
     let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["count"], 2);
+    assert_eq!(body["count"], 3, "the two built-in ones and hello");
 
     let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/versions", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);

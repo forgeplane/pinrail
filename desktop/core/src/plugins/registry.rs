@@ -12,9 +12,15 @@ use super::manifest::{Install, MANIFEST, Plugin};
 use crate::db::InstalledRecord;
 use crate::error::Error;
 
-/// The plugin every server has. It lives in `plugins/list` with the others;
-/// build.rs copies the bundle here for the binary to carry.
-static BUILTIN_LIST: Dir = include_dir!("$OUT_DIR/builtin/list");
+/// The plugins every server has. They live in `plugins/` with the others;
+/// build.rs copies their bundles here for the binary to carry.
+static BUILTIN: Dir = include_dir!("$OUT_DIR/builtin");
+
+/// Whether a plugin of this name ships with the app, in which case it cannot
+/// be installed over: the built-in copy is the one that is served.
+pub fn is_builtin(name: &str) -> bool {
+    BUILTIN.dirs().any(|d| d.path().to_string_lossy() == name)
+}
 
 /// SHA-256 over a directory's files: each relative path and its bytes, in
 /// sorted order, with the same exclusions the copier applies.
@@ -60,14 +66,25 @@ pub(super) fn hash_dir_where(dir: &Path, keep: &dyn Fn(&str) -> bool) -> std::io
     Ok(format!("{:x}", hasher.finalize()))
 }
 
-/// Writes the embedded plugin into `dir/list` and returns `dir`.
+/// Writes the embedded plugins into `dir`, one folder each, and returns `dir`.
+/// Every start rewrites them, so an upgraded binary brings its own copies.
 pub fn install_builtin(dir: &Path) -> std::io::Result<PathBuf> {
-    let target = dir.join("list");
-    std::fs::create_dir_all(&target)?;
-    for file in BUILTIN_LIST.files() {
-        std::fs::write(target.join(file.path()), file.contents())?;
+    for plugin in BUILTIN.dirs() {
+        write_dir(plugin, dir)?;
     }
     Ok(dir.to_path_buf())
+}
+
+/// One embedded directory under `into`, with the files below it.
+fn write_dir(source: &Dir, into: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(into.join(source.path()))?;
+    for file in source.files() {
+        std::fs::write(into.join(file.path()), file.contents())?;
+    }
+    for child in source.dirs() {
+        write_dir(child, into)?;
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -198,10 +215,11 @@ impl Registry {
         self.reload()
     }
 
-    /// Reads every plugin again: the default directories, the linked
-    /// folders, the store entries — each of the last with its record and,
-    /// for a store entry, its files hashed against what was installed. On
-    /// a duplicate name the old state is kept.
+    /// Reads every plugin again: the built-in ones, the linked folders, the
+    /// store entries — each of the last with its record and, for a store
+    /// entry, its files hashed against what was installed. A record whose
+    /// name is built in is skipped; on any other duplicate name the old
+    /// state is kept.
     pub fn reload(&self) -> Result<usize, String> {
         let records = self.state.read().unwrap().records.clone();
         let mut loaded: Vec<Plugin> = Vec::new();
@@ -211,6 +229,12 @@ impl Registry {
             }
         }
         for record in &records {
+            // A plugin that has since become built-in: the copy in the binary
+            // is the one served, and the record is left where it is rather
+            // than failing the whole registry over a name it no longer owns.
+            if is_builtin(&record.name) {
+                continue;
+            }
             let dir = if record.linked {
                 PathBuf::from(&record.path)
             } else {
@@ -291,13 +315,33 @@ fn subdirs(dir: &Path) -> Vec<PathBuf> {
 mod tests {
     use super::*;
 
+    /// A linked record for a plugin folder, as an install would have written.
+    fn linked(name: &str, dir: &Path) -> InstalledRecord {
+        let path = dir.display().to_string();
+        InstalledRecord {
+            name: name.into(),
+            version: "1.0.0".into(),
+            major: 1,
+            kind: "path".into(),
+            source: path.clone(),
+            resolved: path.clone(),
+            commit: None,
+            asset_hash: None,
+            hash: None,
+            build_log: None,
+            installed_at: "2026-09-01T10:00:00Z".into(),
+            linked: true,
+            path,
+        }
+    }
+
     fn registry(tmp: &Path) -> Registry {
         let builtin = install_builtin(&tmp.join("builtin")).unwrap();
         Registry::open(builtin, vec![], tmp.join("store")).unwrap()
     }
 
     #[test]
-    fn the_builtin_list_plugin_loads_and_is_fetched_by_version() {
+    fn the_builtin_plugins_load_and_are_fetched_by_version() {
         let tmp = tempfile::tempdir().unwrap();
         let r = registry(tmp.path());
         let list = r.fetch("list").unwrap();
@@ -305,6 +349,32 @@ mod tests {
         assert!(r.fetch("nope").is_err());
         assert!(r.fetch_version("list", 1).is_ok());
         assert!(r.fetch_version("list", 9).is_err());
+
+        // the second built-in keeps its files in subdirectories: a view and
+        // the schemas it refers to, which are written out with it
+        let feedback = r.fetch("feedback").unwrap();
+        assert_eq!(feedback.entry, "view/index.html");
+        assert!(feedback.error.is_none(), "{:?}", feedback.error);
+        assert!(feedback.path.join("view/feedback-core.js").is_file());
+        assert!(feedback.path.join("schemas/payload.schema.json").is_file());
+    }
+
+    #[test]
+    fn an_installed_plugin_that_became_builtin_is_shadowed_by_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let builtin = install_builtin(&tmp.path().join("builtin")).unwrap();
+        // someone installed feedback from a folder before it shipped with
+        // the app; two plugins of one name would otherwise refuse to load
+        let elsewhere = tmp.path().join("elsewhere");
+        install_builtin(&elsewhere).unwrap();
+        let record = linked("feedback", &elsewhere.join("feedback"));
+        let r = Registry::open(builtin.clone(), vec![record], tmp.path().join("store")).unwrap();
+
+        // the copy in the binary is the one served, and the rest still loads
+        assert!(is_builtin("feedback"));
+        assert_eq!(r.fetch("feedback").unwrap().path, builtin.join("feedback"));
+        assert!(r.fetch("feedback").unwrap().install.is_none());
+        assert!(r.fetch("list").is_ok());
     }
 
     #[test]
@@ -326,27 +396,21 @@ mod tests {
     fn duplicate_names_are_refused_and_the_old_state_stands() {
         let tmp = tempfile::tempdir().unwrap();
         let r = registry(tmp.path());
-        // a second plugin calling itself list, offered as a linked record
-        let other = tmp.path().join("other");
-        install_builtin(&other).unwrap();
-        let path = other.join("list").display().to_string();
-        let clash = InstalledRecord {
-            name: "list".into(),
-            version: "1.0.0".into(),
-            major: 1,
-            kind: "path".into(),
-            source: path.clone(),
-            resolved: path.clone(),
-            commit: None,
-            asset_hash: None,
-            hash: None,
-            build_log: None,
-            installed_at: "2026-09-01T10:00:00Z".into(),
-            linked: true,
-            path,
-        };
-        let error = r.reload_with(vec![clash]).unwrap_err();
-        assert!(error.contains("plugin list is defined at"), "{error}");
+        // two folders, each calling its plugin the same name, both linked
+        let (one, two) = (tmp.path().join("one"), tmp.path().join("two"));
+        for dir in [&one, &two] {
+            install_builtin(dir).unwrap();
+            let manifest = dir.join("list").join(MANIFEST);
+            let text = std::fs::read_to_string(&manifest).unwrap();
+            std::fs::write(&manifest, text.replace("\"list\"", "\"twin\"")).unwrap();
+        }
+        let records = vec![
+            linked("twin", &one.join("list")),
+            linked("twin", &two.join("list")),
+        ];
+
+        let error = r.reload_with(records).unwrap_err();
+        assert!(error.contains("plugin twin is defined at"), "{error}");
         assert!(r.fetch("list").is_ok(), "the old state stands");
     }
 }

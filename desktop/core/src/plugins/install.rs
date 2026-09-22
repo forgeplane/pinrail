@@ -422,6 +422,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
         .filter(|n| super::manifest::valid_name(n))
         .ok_or_else(|| Error::invalid("/source", "not a plugin: name is required"))?
         .to_string();
+    builtin_name(&name)?;
     // what is installed under the name, and whether this source is the
     // very thing that was installed: the same files from a folder, the
     // same commit, the same asset
@@ -1052,6 +1053,9 @@ fn install_dir(
         ));
     }
     let manifest = read_manifest(&dir)?;
+    if let Some(name) = manifest.get("name").and_then(Value::as_str) {
+        builtin_name(name)?;
+    }
     let build = if origin.build {
         build_command(&manifest)?
     } else {
@@ -1120,6 +1124,18 @@ fn install_dir(
         entry.display().to_string(),
     );
     commit(db, registry, record)
+}
+
+/// A built-in ships in the binary and is written out at every start, so an
+/// installed plugin of the same name would never be the one served.
+fn builtin_name(name: &str) -> Result<(), Error> {
+    if super::registry::is_builtin(name) {
+        return Err(Error::invalid(
+            "/source",
+            format!("{name} ships with Wicket and cannot be installed over"),
+        ));
+    }
+    Ok(())
 }
 
 fn read_manifest(dir: &Path) -> Result<Map<String, Value>, Error> {

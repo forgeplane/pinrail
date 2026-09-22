@@ -9,7 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const NAME = /^[a-z][a-z0-9_]*$/;
+const NAME = /^[a-z][a-z0-9_-]*$/;
 const ICON = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const SCALARS = ["boolean", "string", "integer", "number"];
 const MODIFIERS = ["cmd", "command", "super", "meta", "ctrl", "control", "alt", "option", "shift", "cmdorctrl", "commandorcontrol"];
@@ -78,7 +78,7 @@ export function checkPlugin(dir) {
   }
 
   if (typeof manifest.name !== "string") problem("name", "name is required, a string");
-  else if (!NAME.test(manifest.name)) problem("name", `name ${JSON.stringify(manifest.name)} is not valid: [a-z][a-z0-9_]*`);
+  else if (!NAME.test(manifest.name)) problem("name", `name ${JSON.stringify(manifest.name)} is not valid: [a-z][a-z0-9_-]*`);
   else name = manifest.name;
 
   const v = versionOf(manifest.version);

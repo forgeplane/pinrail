@@ -254,7 +254,11 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     assert_eq!(hello["settings"], json!({"wrap": false}));
     assert_eq!(hello["install"]["linked"], true);
 
-    assert_eq!(app.plugins().reload().unwrap(), 2);
+    assert_eq!(
+        app.plugins().reload().unwrap(),
+        3,
+        "hello and the built-in ones"
+    );
     let reloaded = notices.try_recv().unwrap();
     assert_eq!(reloaded.kind, events::PLUGINS_RELOADED);
     let removed = app.plugins().remove("hello").unwrap();
@@ -301,7 +305,7 @@ async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unc
         job.error
             .as_deref()
             .unwrap_or_default()
-            .contains("plugin list is defined at"),
+            .contains("list ships with Wicket and cannot be installed over"),
         "{:?}",
         job.error
     );
