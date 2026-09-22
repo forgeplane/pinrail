@@ -27,7 +27,7 @@ async function pluginFrame(page: import("@playwright/test").Page): Promise<Frame
       title: "sandbox",
       origin: { repo: "acme/api", workflow: "sandbox" },
       requested_by: "spec",
-      payload: { intro: "One proposal.", allow_additions: false, groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }] },
+      payload: { intro: "One proposal.", groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }] },
     },
   });
   expect(made.status(), await made.text()).toBe(201);

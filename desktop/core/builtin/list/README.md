@@ -1,7 +1,8 @@
 # list
 
 The built-in gate type: items grouped under headings, accept or reject each
-with an optional note, free-text additions, and an honest `undecided` list.
+with an optional note, and an honest `undecided` list. Anything else the
+person wants to say goes in the review's own note to the agent.
 Ships inside the app; every workflow can use it before it has a view of its
 own. It is also the fullest reference client of the plugin protocol: drafts,
 read-only rendering, the previous round's verdicts.
@@ -11,7 +12,6 @@ read-only rendering, the previous round's verdicts.
 ```json
 {
   "intro": "markdown shown above the list",
-  "allow_additions": true,
   "groups": [
     {
       "title": "lib/acme/tickets.ex",
@@ -37,7 +37,6 @@ as key: value chips.
     { "id": 19, "action": "accept", "note": "revise: mention the COALESCE" },
     { "id": 20, "action": "reject", "note": "fine for a doc, don't nitpick" }
   ],
-  "additions": [ { "group": "lib/acme/tickets.ex", "body": "markdown" } ],
   "undecided": [ 17 ]
 }
 ```

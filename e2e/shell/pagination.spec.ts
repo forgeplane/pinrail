@@ -4,7 +4,6 @@ const core = "http://127.0.0.1:4799";
 
 const payload = {
   intro: "One proposal.",
-  allow_additions: false,
   groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
 };
 

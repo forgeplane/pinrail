@@ -93,7 +93,6 @@ fn violations(body: &Value) -> Vec<(String, String)> {
 fn list_payload() -> Value {
     json!({
         "intro": "Two proposals from **round 1**.",
-        "allow_additions": true,
         "groups": [{
             "title": "lib/acme/tickets.ex",
             "items": [

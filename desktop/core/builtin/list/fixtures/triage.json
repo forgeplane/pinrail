@@ -1,17 +1,57 @@
 {
-  "title": "Sentry triage — 5 proposed actions",
+  "title": "Sentry triage \u2014 5 proposed actions",
   "payload": {
     "intro": "Sentry triage for **acme-api** and **acme-worker**, last 7 days. Accept an action to have the agent apply it; reject with a reason to teach it.",
-    "allow_additions": true,
     "groups": [
-      { "title": "acme-api", "items": [
-        { "id": 101, "severity": "blocker", "title": "track: Ecto.StaleEntryError in Tickets.close/1 (312×)", "body": "Two workers close the same ticket; the second update hits a stale row.", "meta": { "issue": "ACME-API-9F2", "count": 312 } },
-        { "id": 102, "severity": "major", "title": "silence: DBConnection.ConnectionError during deploys", "body": "Fires only during the 20s rollout window.", "meta": { "issue": "ACME-API-7A1", "count": 48 } }
-      ] },
-      { "title": "acme-worker", "items": [
-        { "id": 104, "severity": "major", "title": "track: Oban job timeouts in ExportWorker", "body": "p95 went from 4s to 41s after the report grew.\n\n```\nExportWorker.perform/1 timeout after 60000ms\n```", "meta": { "issue": "ACME-WRK-2E7", "count": 17 } },
-        { "id": 105, "severity": "nit", "title": "refute: HTTPoison timeouts to the weather API", "meta": { "issue": "ACME-WRK-11B", "count": 6 } }
-      ] }
+      {
+        "title": "acme-api",
+        "items": [
+          {
+            "id": 101,
+            "severity": "blocker",
+            "title": "track: Ecto.StaleEntryError in Tickets.close/1 (312\u00d7)",
+            "body": "Two workers close the same ticket; the second update hits a stale row.",
+            "meta": {
+              "issue": "ACME-API-9F2",
+              "count": 312
+            }
+          },
+          {
+            "id": 102,
+            "severity": "major",
+            "title": "silence: DBConnection.ConnectionError during deploys",
+            "body": "Fires only during the 20s rollout window.",
+            "meta": {
+              "issue": "ACME-API-7A1",
+              "count": 48
+            }
+          }
+        ]
+      },
+      {
+        "title": "acme-worker",
+        "items": [
+          {
+            "id": 104,
+            "severity": "major",
+            "title": "track: Oban job timeouts in ExportWorker",
+            "body": "p95 went from 4s to 41s after the report grew.\n\n```\nExportWorker.perform/1 timeout after 60000ms\n```",
+            "meta": {
+              "issue": "ACME-WRK-2E7",
+              "count": 17
+            }
+          },
+          {
+            "id": 105,
+            "severity": "nit",
+            "title": "refute: HTTPoison timeouts to the weather API",
+            "meta": {
+              "issue": "ACME-WRK-11B",
+              "count": 6
+            }
+          }
+        ]
+      }
     ]
   }
 }

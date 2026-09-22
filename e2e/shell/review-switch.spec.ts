@@ -42,7 +42,6 @@ test("switching to a review of another plugin loads that plugin's view, and only
 
   const list = await createReview(page.request, "list", "Switch: a list", {
     intro: "Two proposals from the list plugin.",
-    allow_additions: false,
     groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "major", title: "do_save dedups without reversing" }] }],
   });
   const question = await createReview(page.request, "hello", "Switch: a question", { message: "Push the branch to origin?" });
@@ -75,7 +74,6 @@ test("a review clicked past does not come back when its fetch lands late", async
   const first = await createReview(page.request, "hello", "Quick: first", { message: "The first question." });
   const second = await createReview(page.request, "list", "Quick: second", {
     intro: "The second review, a list.",
-    allow_additions: false,
     groups: [{ title: "a.ex", items: [{ id: 1, severity: "minor", title: "one" }] }],
   });
   const third = await createReview(page.request, "hello", "Quick: third", { message: "The third question." });

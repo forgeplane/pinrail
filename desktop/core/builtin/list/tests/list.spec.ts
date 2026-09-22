@@ -15,20 +15,17 @@ test("renders groups, items, markdown and meta chips", async ({ page }) => {
   await expect(f.locator('[data-id="101"] .sev')).toHaveText("blocker");
   await expect(f.locator('[data-id="101"] .meta')).toHaveText(["issue: ACME-API-9F2", "count: 312"]);
   await expect(f.locator('[data-id="104"] pre')).toContainText("timeout after 60000ms");
-  await expect(f.locator(".footer")).toContainText("0 accepted · 0 rejected · 4 undecided");
+  await expect(f.locator(".plugin-meta .count")).toHaveText(["0accepted", "0rejected", "4undecided"]);
 });
 
-test("accept, reject with a note, an addition; the decision is exactly that", async ({ page }) => {
+test("accept, reject with a note, accept the rest; the decision is exactly that", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: triage() });
   const f = plugin.frame;
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
   await f.locator('[data-id="102"] button', { hasText: "Reject" }).click();
   await f.getByLabel("note for item 102").fill("deploys are fine, fix the rollout instead");
   await f.getByRole("button", { name: "accept all undecided" }).click();
-  await f.getByRole("button", { name: "+ add a note of your own" }).click();
-  await f.getByLabel("addition 1", { exact: true }).fill("also check the importer");
-  await f.getByLabel("group for addition 1").selectOption("acme-api");
-  await expect(f.locator(".footer")).toContainText("3 accepted · 1 rejected · 0 undecided");
+  await expect(f.locator(".plugin-meta .count")).toHaveText(["3accepted", "1rejected", "0undecided"]);
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({
     decisions: [
@@ -38,7 +35,6 @@ test("accept, reject with a note, an addition; the decision is exactly that", as
       { id: 105, action: "accept" },
     ],
     undecided: [],
-    additions: [{ group: "acme-api", body: "also check the importer" }],
   });
 });
 

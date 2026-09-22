@@ -4,7 +4,6 @@ const core = "http://127.0.0.1:4799";
 
 const payload = {
   intro: "Two proposals.",
-  allow_additions: false,
   groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "major", title: "do_save dedups without reversing" }, { id: 2, severity: "minor", title: "moduledoc typo" }] }],
 };
 

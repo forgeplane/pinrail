@@ -59,7 +59,6 @@ export function tmpFile(name: string, content: string): string {
 
 export const listPayload = {
   intro: "Two proposals from **round 1**.",
-  allow_additions: true,
   groups: [
     {
       title: "lib/acme/tickets.ex",

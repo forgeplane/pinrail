@@ -2,37 +2,43 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "list gate decision",
   "type": "object",
-  "required": ["decisions", "undecided"],
+  "required": [
+    "decisions",
+    "undecided"
+  ],
   "additionalProperties": false,
   "properties": {
     "decisions": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "action"],
+        "required": [
+          "id",
+          "action"
+        ],
         "additionalProperties": false,
         "properties": {
-          "id": { "type": "integer" },
-          "action": { "enum": ["accept", "reject"] },
-          "note": { "type": "string", "description": "accept+note = revise before acting; reject+note = the reason" }
-        }
-      }
-    },
-    "additions": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["body"],
-        "additionalProperties": false,
-        "properties": {
-          "group": { "type": "string" },
-          "body": { "type": "string", "minLength": 1 }
+          "id": {
+            "type": "integer"
+          },
+          "action": {
+            "enum": [
+              "accept",
+              "reject"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "description": "accept+note = revise before acting; reject+note = the reason"
+          }
         }
       }
     },
     "undecided": {
       "type": "array",
-      "items": { "type": "integer" },
+      "items": {
+        "type": "integer"
+      },
       "description": "item ids the human left without a decision; the view computes this, the requester must treat it as not approved"
     }
   }
