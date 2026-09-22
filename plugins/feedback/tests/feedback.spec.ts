@@ -268,23 +268,35 @@ test("the rail can be folded away, and the shell is asked to remember it", async
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ rail_open: true });
 });
 
-test("a comment can be taken off a question the answer has already left", async ({ page }) => {
+test("a comment folds away, and each thing on a question clears on its own", async ({ page }) => {
   const plugin = await mount(page);
   const f = plugin.frame;
   const approach = q(f, "approach");
+  const comment = approach.getByLabel("Comment on this question");
 
   await approach.getByRole("radio", { name: /Roll back to release/ }).check();
   await approach.getByRole("button", { name: "Add a comment" }).click();
-  await approach.getByLabel("Comment on this question").fill("because of the logs");
+  await comment.fill("because of the logs");
+
+  // with both an answer and a comment, both can be taken off
   await expect(approach.getByRole("button", { name: "Clear answer" })).toBeVisible();
+  await expect(approach.getByRole("button", { name: "Remove comment" })).toBeVisible();
+
+  // folded, the comment stays in sight on the toggle
+  await approach.getByRole("button", { name: "Hide comment" }).click();
+  await expect(comment).toBeHidden();
+  await expect(approach.locator(".comment-preview")).toHaveText("because of the logs");
+  await approach.getByRole("button", { name: /because of the logs/ }).click();
+  await expect(comment).toBeVisible();
 
   // clearing the answer leaves the comment, which still has something to say
   await approach.getByRole("button", { name: "Clear answer" }).click();
   await expect(approach.getByRole("radio", { name: /Roll back to release/ })).not.toBeChecked();
-  await expect(approach.getByLabel("Comment on this question")).toHaveValue("because of the logs");
+  await expect(approach.getByRole("button", { name: "Clear answer" })).toHaveCount(0);
+  await expect(comment).toHaveValue("because of the logs");
 
-  // and the control becomes the way to take that off too, rather than vanishing
-  await approach.getByRole("button", { name: "Clear comment" }).click();
-  await expect(approach.getByRole("button", { name: "Add a comment" })).toBeVisible();
+  await approach.getByRole("button", { name: "Remove comment" }).click();
+  await expect(comment).toBeHidden();
+  await expect(approach.getByRole("button", { name: "Add a comment" })).toBeFocused();
   await expect.poll(async () => JSON.stringify(await plugin.lastDraft())).toBe(JSON.stringify({ values: {}, comments: {} }));
 });

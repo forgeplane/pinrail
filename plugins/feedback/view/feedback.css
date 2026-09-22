@@ -103,7 +103,13 @@ body { font-size: 13px; }
   color: var(--text); font-size: 13px; font-weight: 600; line-height: 1.55;
 }
 .question-number { flex: none; min-width: 15px; font: 10px var(--mono); color: var(--faint); }
-.requirement { margin-left: auto; flex: none; font-size: 10px; font-weight: 500; color: var(--faint); white-space: nowrap; }
+.question-meta { margin-left: auto; flex: none; display: inline-flex; align-items: baseline; gap: 12px; }
+.requirement { font-size: 10px; font-weight: 500; color: var(--faint); white-space: nowrap; }
+.clear-answer {
+  display: inline-flex; align-items: center; gap: 4px; align-self: center;
+  padding: 0; border: 0; background: none; color: var(--faint); font-size: 10px; font-weight: 500;
+}
+.clear-answer:hover { color: var(--text); }
 .question > :not(legend) { margin-left: 25px; }
 
 .question-description { margin: 6px 0 8px 25px; max-width: 66ch; color: var(--dim); font-size: 12.5px; line-height: 1.65; }
@@ -168,16 +174,26 @@ textarea:disabled { opacity: 1; color: var(--text); -webkit-text-fill-color: var
 
 /* ------------------------------------------------- comments and the rest */
 
-.question-actions { display: flex; align-items: center; justify-content: space-between; margin: 10px 0 0 25px; }
+.question-actions { display: flex; align-items: center; margin: 10px 0 0 25px; }
 .question-actions button {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 0; border: 0; background: none; color: var(--dim); font-size: 11px;
 }
 .question-actions button:hover { color: var(--text); }
-.question-actions .clear-answer { color: var(--faint); }
+.question-actions .comment-toggle { min-width: 0; max-width: 100%; }
+.comment-toggle .wi { flex: none; }
+.comment-toggle.has-comment[aria-expanded="false"] { color: var(--text); }
+.comment-preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--faint); font-style: italic; }
+.comment-preview::before { content: "— "; font-style: normal; }
 
 .comment-wrap { margin: 10px 0 0 25px; padding-left: 12px; border-left: 2px solid var(--border-strong); }
-.comment-wrap label { display: block; margin-bottom: 6px; font-size: 10.5px; color: var(--faint); }
+.comment-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.comment-wrap label { font-size: 10.5px; color: var(--faint); }
+.remove-comment {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 0; border: 0; background: none; color: var(--faint); font-size: 10.5px;
+}
+.remove-comment:hover { color: var(--danger); }
 .question-comment {
   display: block; width: 100%; min-height: 62px;
   padding: 9px 11px; border-radius: 7px; font-size: 12px; line-height: 1.6; resize: vertical;

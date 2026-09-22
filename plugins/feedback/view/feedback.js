@@ -10,8 +10,8 @@
     resize: 'fill',
     onInit({gate, draft, previous: old, settings}) {
       applySettings(settings);
-      showErrors = false; shellErrors = []; previous = old; opened = new Set();
-      try { payload = C.validate(gate.payload); state = C.restore(payload, gate.decision?.data || draft); }
+      showErrors = false; shellErrors = []; previous = old;
+      try { payload = C.validate(gate.payload); state = C.restore(payload, gate.decision?.data || draft); opened = withComments(); }
       catch (e) { payload = null; app.innerHTML = `<div class="fatal" role="alert"><h1>Unable to show these questions</h1><p>${esc(e.message)}</p></div>`; plugin.status({label:'Questions need correction'}); return; }
       render();
     },
@@ -21,9 +21,11 @@
       catch { showErrors = true; render(); const first = app.querySelector('[aria-invalid="true"]'); first?.focus(); first?.scrollIntoView({block:'center'}); }
     },
     onViolations(errors) { shellErrors = errors; render(); app.querySelector('[role="alert"]')?.focus(); },
-    onSubmitted() { if (!payload) return; state = C.restore(payload, plugin.gate.decision?.data); shellErrors = []; showErrors = false; render(); },
+    onSubmitted() { if (!payload) return; state = C.restore(payload, plugin.gate.decision?.data); opened = withComments(); shellErrors = []; showErrors = false; render(); },
     onSettings(settings) { applySettings(settings); render(); },
   });
+  // a comment already written starts open; after that, open is the person's call
+  function withComments() { return new Set(Object.keys(state.comments).filter(id => state.comments[id])); }
   function applySettings(settings) {
     if (typeof settings?.rail_open === 'boolean') railOpen = settings.rail_open;
   }
@@ -45,27 +47,24 @@
   }
   function question(q, number, conditional) {
     const value = state.values[q.id], errors = showErrors ? C.errors(payload, state) : {}, error = errors[q.id];
-    const has = C.answered(q, value), note = q.type === 'text' ? '' : state.comments[q.id] || '', expanded = opened.has(q.id) || !!note;
+    const has = C.answered(q, value), note = q.type === 'text' ? '' : state.comments[q.id] || '', expanded = opened.has(q.id);
     const old = previous?.decision?.data?.answers?.find(a => a.question_id === q.id);
-    return `<fieldset id="question-${q.id}" class="question ${error ? 'has-error' : ''}" data-question="${q.id}"><legend><span class="question-number">${String(number).padStart(2,'0')}</span><span id="prompt-${q.id}">${esc(q.prompt)}</span><span class="requirement">${q.required ? 'Required' : 'Optional'}</span></legend>
+    return `<fieldset id="question-${q.id}" class="question ${error ? 'has-error' : ''}" data-question="${q.id}"><legend><span class="question-number">${String(number).padStart(2,'0')}</span><span id="prompt-${q.id}">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Wicket.icon('rotate-ccw', {size: 11})} Clear answer</button>` : ''}<span class="requirement">${q.required ? 'Required' : 'Optional'}</span></span></legend>
       ${q.description ? `<div class="question-description" id="desc-${q.id}">${md(q.description)}</div>` : ''}
       <div id="hint-${q.id}" class="question-hint"><span>${instructions[q.type]}${q.type === 'multiple_choice' && (q.min_selections || q.max_selections) ? ` · ${q.min_selections ? 'min ' + q.min_selections : ''}${q.min_selections && q.max_selections ? ', ' : ''}${q.max_selections ? 'max ' + q.max_selections : ''}` : ''}</span>${conditional ? `<span class="followup">${ico('corner-down-right')} Follow-up</span>` : ''}${plugin.readonly ? `<span class="answer-state">${has ? 'Answered' : 'Not answered'}</span>` : ''}</div>
       ${controls(q, error)}
       ${q.recommendation?.reason ? `<p class="recommendation">${ico('sparkles')}<span><strong>Agent’s reasoning:</strong> ${esc(q.recommendation.reason)}</span></p>` : ''}
       ${old ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ''}</details>` : ''}
       ${error ? `<p class="question-error" id="error-${q.id}">${ico('circle-alert')} ${esc(error)}</p>` : ''}
-      <div class="question-actions">${q.type !== 'text' && (!plugin.readonly || note) ? `<button type="button" class="comment-toggle" id="comment-toggle-${q.id}" data-comment-toggle="${q.id}" aria-expanded="${expanded}" aria-controls="comment-wrap-${q.id}">${ico('message-square')} ${expanded ? 'Comment' : 'Add a comment'}</button>` : ''}${clearButton(q, value, note)}</div>
-      <div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? '' : 'hidden'}><label for="comment-${q.id}">Comment on this question</label><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="2" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? 'disabled' : ''}>${esc(note)}</textarea></div>
+      <div class="question-actions">${q.type !== 'text' && (!plugin.readonly || note) ? commentToggle(q, note, expanded) : ''}</div>
+      <div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? '' : 'hidden'}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico('trash-2')} Remove comment</button>` : ''}</div><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="2" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? 'disabled' : ''}>${esc(note)}</textarea></div>
     </fieldset>`;
   }
-  /* Whatever was put on this question, taken off again: the answer while
-     there is one, then the comment, which outlives the answer it qualified
-     and would otherwise have no way back out. */
-  function clearButton(q, value, note) {
-    if (plugin.readonly) return '';
-    if (value !== undefined) return `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">Clear answer</button>`;
-    if (note) return `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}" data-clear-comment="1">Clear comment</button>`;
-    return '';
+  /* Open, it folds the comment away; folded, it shows the start of what was
+     written so the comment is not lost from sight. */
+  function commentToggle(q, note, expanded) {
+    const label = expanded ? `${ico('chevron-up')} Hide comment` : note ? `${ico('message-square')} Comment <span class="comment-preview">${esc(note)}</span>` : `${ico('message-square-plus')} Add a comment`;
+    return `<button type="button" class="comment-toggle ${note ? 'has-comment' : ''}" id="comment-toggle-${q.id}" data-comment-toggle="${q.id}" aria-expanded="${expanded}" aria-controls="comment-wrap-${q.id}">${label}</button>`;
   }
 
   function render() {
@@ -144,9 +143,16 @@
     if (button.dataset.jump) { document.getElementById('group-'+button.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
     const id = button.dataset.commentToggle;
     if (id) { opened.has(id) ? opened.delete(id) : opened.add(id); render(); if (opened.has(id)) document.getElementById('comment-'+id)?.focus({preventScroll:true}); return; }
-    if (button.dataset.clear && !plugin.readonly) {
+    if (plugin.readonly) return;
+    if (button.dataset.removeComment) {
+      const id = button.dataset.removeComment;
+      delete state.comments[id]; opened.delete(id);
+      save();
+      document.getElementById('comment-toggle-'+id)?.focus({preventScroll:true});
+    }
+    if (button.dataset.clear) {
       const id = button.dataset.clear;
-      if (button.dataset.clearComment) { delete state.comments[id]; opened.delete(id); } else delete state.values[id];
+      delete state.values[id];
       save();
       document.getElementById('question-'+id)?.querySelector('input,textarea')?.focus({preventScroll:true});
     }
