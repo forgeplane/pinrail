@@ -5,6 +5,17 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[features]
+# The docs' reference pages, rendered from the tables the core reads:
+# `cargo run -p wicket-core --features docs --bin wicket-docs -- settings`.
+# Only the docs build turns it on.
+docs = []
+
+[[bin]]
+name = "wicket-docs"
+path = "src/bin/wicket-docs.rs"
+required-features = ["docs"]
+
 [dependencies]
 axum = "0.8"
 chrono = { version = "0.4", features = ["serde"] }

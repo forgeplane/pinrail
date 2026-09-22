@@ -7,6 +7,8 @@ mod store;
 
 pub use service::SettingsService;
 pub use store::port_in;
+#[cfg(feature = "docs")]
+pub use store::reference;
 
 /// The group that holds each plugin's own settings, plugin name to an
 /// object of the values someone changed; the shape of the values is the

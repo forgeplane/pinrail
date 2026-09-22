@@ -32,50 +32,143 @@ enum Kind {
     NullableDays,
 }
 
-/// A setting: its JSON pointer, its kind and its default.
-type Leaf = (&'static str, Kind, fn() -> Value);
+/// A setting: its JSON pointer, its kind, its default, and one line saying
+/// what it does, for the settings reference in the docs.
+type Leaf = (&'static str, Kind, fn() -> Value, &'static str);
 
-/// Every setting, its kind and its default. Paths are JSON pointers.
+/// Every setting, its kind, its default and what it does. Paths are JSON
+/// pointers.
 const LEAVES: &[Leaf] = &[
     (
         "/appearance/theme",
         Kind::Enum(&["system", "dark", "light"]),
         || json!("system"),
+        "The theme of the app and of every plugin view. `system` follows the operating system.",
     ),
     (
         "/appearance/text_size",
         Kind::Enum(&["small", "default", "large"]),
         || json!("default"),
+        "The size of the interface's text.",
     ),
-    ("/autostart", Kind::Bool, || json!(false)),
-    ("/close_window", Kind::Enum(&["hide", "quit"]), || {
-        json!("hide")
-    }),
-    ("/menu_bar_icon", Kind::Bool, || json!(true)),
-    ("/sidebar/open", Kind::Bool, || json!(true)),
-    ("/notifications/enabled", Kind::Bool, || json!(true)),
-    ("/notifications/paused_until", Kind::NullableTime, || {
-        Value::Null
-    }),
-    ("/notifications/sound", Kind::Bool, || json!(true)),
-    ("/notifications/muted_plugins", Kind::TextList, || json!([])),
-    ("/notifications/quiet_hours", Kind::NullableHours, || {
-        Value::Null
-    }),
-    ("/shortcut/global", Kind::Text, || json!("alt+shift+w")),
+    (
+        "/autostart",
+        Kind::Bool,
+        || json!(false),
+        "Start Wicket when you log in.",
+    ),
+    (
+        "/close_window",
+        Kind::Enum(&["hide", "quit"]),
+        || json!("hide"),
+        "What closing the window does: hide it and keep running in the menu bar, or quit.",
+    ),
+    (
+        "/menu_bar_icon",
+        Kind::Bool,
+        || json!(true),
+        "Show the menu bar icon, with the number of waiting reviews.",
+    ),
+    (
+        "/sidebar/open",
+        Kind::Bool,
+        || json!(true),
+        "Whether the sidebar is open. The app keeps it, so a new window matches the last.",
+    ),
+    (
+        "/notifications/enabled",
+        Kind::Bool,
+        || json!(true),
+        "Announce new reviews with a system notification.",
+    ),
+    (
+        "/notifications/paused_until",
+        Kind::NullableTime,
+        || Value::Null,
+        "No notifications until this time. The menu bar and Settings pause them for a while.",
+    ),
+    (
+        "/notifications/sound",
+        Kind::Bool,
+        || json!(true),
+        "Play the system sound with each notification.",
+    ),
+    (
+        "/notifications/muted_plugins",
+        Kind::TextList,
+        || json!([]),
+        "Plugins whose reviews are not announced. They are still counted in the menu bar.",
+    ),
+    (
+        "/notifications/quiet_hours",
+        Kind::NullableHours,
+        || Value::Null,
+        "No notifications between `from` and `to`, local time. A review that arrives then is not announced later.",
+    ),
+    (
+        "/shortcut/global",
+        Kind::Text,
+        || json!("alt+shift+w"),
+        "The shortcut that brings Wicket forward from any app.",
+    ),
     (
         "/shortcut/global_opens",
         Kind::Enum(&["oldest", "inbox"]),
         || json!("oldest"),
+        "What the global shortcut opens: the oldest pending review, or the inbox.",
     ),
-    ("/port", Kind::Port, || json!(4747)),
-    ("/history/keep_days", Kind::NullableDays, || Value::Null),
+    (
+        "/port",
+        Kind::Port,
+        || json!(4747),
+        "The port of the server on 127.0.0.1. Takes effect after a restart; the CLI follows it.",
+    ),
+    (
+        "/history/keep_days",
+        Kind::NullableDays,
+        || Value::Null,
+        "Delete ended reviews older than this many days. `null` keeps them forever.",
+    ),
 ];
+
+/// Every setting as the reference shows it: dotted key, what it holds, its
+/// default as JSON, and what it does.
+#[cfg(feature = "docs")]
+pub fn reference() -> Vec<(String, String, String, &'static str)> {
+    LEAVES
+        .iter()
+        .map(|(path, kind, default, does)| {
+            let key = path.trim_start_matches('/').replace('/', ".");
+            (key, kind.describe(), default().to_string(), *does)
+        })
+        .collect()
+}
+
+#[cfg(feature = "docs")]
+impl Kind {
+    /// What a value of this kind looks like, in words.
+    fn describe(&self) -> String {
+        match self {
+            Kind::Bool => "`true` or `false`".into(),
+            Kind::Enum(values) => values
+                .iter()
+                .map(|v| format!("`\"{v}\"`"))
+                .collect::<Vec<_>>()
+                .join(", "),
+            Kind::Text => "a non-empty string".into(),
+            Kind::NullableTime => "an RFC 3339 time, or `null`".into(),
+            Kind::TextList => "a list of non-empty strings".into(),
+            Kind::NullableHours => "`{\"from\": \"HH:MM\", \"to\": \"HH:MM\"}`, or `null`".into(),
+            Kind::Port => "a port, 1 to 65535".into(),
+            Kind::NullableDays => "a positive number of days, or `null`".into(),
+        }
+    }
+}
 
 /// Every setting at its default.
 fn defaults() -> Value {
     let mut out = Value::Object(Map::new());
-    for (path, _, default) in LEAVES {
+    for (path, _, default, _) in LEAVES {
         set_at(&mut out, path, default());
     }
     set_at(&mut out, PLUGINS, Value::Object(Map::new()));
@@ -246,7 +339,7 @@ fn set_at(root: &mut Value, pointer: &str, value: Value) {
 /// by leaf.
 fn changed(before: &Value, after: &Value) -> Vec<String> {
     let mut out = Vec::new();
-    for (path, _, _) in LEAVES {
+    for (path, _, _, _) in LEAVES {
         if before.pointer(path) != after.pointer(path) {
             out.push((*path).to_string());
         }
@@ -281,7 +374,7 @@ fn validate(value: &Value, pointer: &str, out: &mut Vec<Violation>) {
         validate_plugins(value, out);
         return;
     }
-    if let Some((_, kind, _)) = LEAVES.iter().find(|(p, _, _)| *p == pointer) {
+    if let Some((_, kind, _, _)) = LEAVES.iter().find(|(p, _, _, _)| *p == pointer) {
         if let Some(message) = check(*kind, value) {
             out.push(Violation::new(pointer, message));
         }
@@ -289,7 +382,7 @@ fn validate(value: &Value, pointer: &str, out: &mut Vec<Violation>) {
     }
     let is_group = LEAVES
         .iter()
-        .any(|(p, _, _)| p.starts_with(&format!("{pointer}/")));
+        .any(|(p, _, _, _)| p.starts_with(&format!("{pointer}/")));
     if !is_group {
         out.push(Violation::new(pointer, "unknown setting"));
         return;
@@ -405,7 +498,7 @@ mod tests {
     #[test]
     fn defaults_cover_every_leaf() {
         let d = defaults();
-        for (path, _, _) in LEAVES {
+        for (path, _, _, _) in LEAVES {
             assert!(d.pointer(path).is_some(), "{path}");
         }
         assert_eq!(d["port"], 4747);

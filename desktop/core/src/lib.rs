@@ -11,6 +11,8 @@ pub mod api;
 pub mod app;
 pub mod config;
 pub mod db;
+#[cfg(feature = "docs")]
+pub mod docs;
 pub mod error;
 pub mod events;
 pub mod id;
