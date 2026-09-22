@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const C = FeedbackCore, esc = Wicket.escape, ico = name => Wicket.icon(name, {size: 14});
+  const C = FeedbackCore, esc = Wicket.escape, md = Wicket.markdown, ico = name => Wicket.icon(name, {size: 14});
   const app = document.getElementById('app');
   let payload, state, previous, showErrors = false, shellErrors = [], opened = new Set(), composing = false;
   const plugin = Wicket.connect({
@@ -40,7 +40,7 @@
     const has = C.answered(q, value), note = q.type === 'text' ? '' : state.comments[q.id] || '', expanded = opened.has(q.id) || !!note;
     const old = previous?.decision?.data?.answers?.find(a => a.question_id === q.id);
     return `<fieldset id="question-${q.id}" class="question ${error ? 'has-error' : ''}" data-question="${q.id}"><legend><span class="question-number">${String(number).padStart(2,'0')}</span><span id="prompt-${q.id}">${esc(q.prompt)}</span><span class="requirement">${q.required ? 'Required' : 'Optional'}</span></legend>
-      ${q.description ? `<p class="question-description" id="desc-${q.id}">${esc(q.description)}</p>` : ''}
+      ${q.description ? `<div class="question-description" id="desc-${q.id}">${md(q.description)}</div>` : ''}
       <div id="hint-${q.id}" class="question-hint"><span>${instructions[q.type]}${q.type === 'multiple_choice' && (q.min_selections || q.max_selections) ? ` · ${q.min_selections ? 'min ' + q.min_selections : ''}${q.min_selections && q.max_selections ? ', ' : ''}${q.max_selections ? 'max ' + q.max_selections : ''}` : ''}</span>${conditional ? `<span class="followup">${ico('corner-down-right')} Follow-up</span>` : ''}${plugin.readonly ? `<span class="answer-state">${has ? 'Answered' : 'Not answered'}</span>` : ''}</div>
       ${controls(q, error)}
       ${q.recommendation?.reason ? `<p class="recommendation">${ico('sparkles')}<span><strong>Agent’s reasoning:</strong> ${esc(q.recommendation.reason)}</span></p>` : ''}
@@ -69,11 +69,11 @@
         return `<button type="button" class="group-link ${done === qs.length ? 'complete' : ''}" data-jump="${g.id}"><span class="group-icon">${done === qs.length ? ico('check') : String(i+1).padStart(2,'0')}</span><span>${esc(g.title)}</span><small>${done}/${qs.length}</small></button>`;
       }).join('')}</nav><div class="sidebar-progress"><div class="progress-track"><span style="width:${count ? answered/count*100 : 100}%"></span></div><p>${plugin.readonly ? 'This response has been recorded.' : required ? `${required} required ${required === 1 ? 'answer' : 'answers'} remaining` : Object.keys(invalid).length ? 'Check the response limits' : 'Ready to hand over'}</p><span>${all.length - count ? `${all.length-count} conditional ${all.length-count === 1 ? 'question is' : 'questions are'} hidden.` : 'Add comments to qualify your choices.'}</span></div></aside>
       <div class="questions-scroll" id="questions"><div class="questions-content">
-        ${payload.description ? `<p class="request-description">${esc(payload.description)}</p>` : ''}
+        ${payload.description ? `<div class="request-description">${md(payload.description)}</div>` : ''}
         ${previous ? '<div class="revision-note">Revised request. Previous responses are shown for context; choose your answers for this round.</div>' : ''}
         ${shellErrors.length ? `<div class="validation-banner" role="alert" tabindex="-1">${shellErrors.map(e => `${esc(e.path || 'Response')}: ${esc(e.message)}`).join('<br>')}</div>` : ''}
         ${showErrors && Object.keys(invalid).length ? `<div class="validation-banner" role="alert">${ico('circle-alert')} Complete ${Object.keys(invalid).length} highlighted ${Object.keys(invalid).length === 1 ? 'question' : 'questions'} before handing over.</div>` : ''}
-        ${shownGroups.map((g,i) => `<section class="question-group" id="group-${g.id}" aria-labelledby="group-title-${g.id}"><div class="group-heading"><span class="section-index">${String(i+1).padStart(2,'0')}</span><div><h2 id="group-title-${g.id}">${esc(g.title)}</h2>${g.description ? `<p>${esc(g.description)}</p>` : ''}</div></div>${g.questions.filter(q => visible.has(q.id)).map(q => question(q, ++index, !!q.when || !!g.when)).join('')}</section>`).join('')}
+        ${shownGroups.map((g,i) => `<section class="question-group" id="group-${g.id}" aria-labelledby="group-title-${g.id}"><div class="group-heading"><span class="section-index">${String(i+1).padStart(2,'0')}</span><div><h2 id="group-title-${g.id}">${esc(g.title)}</h2>${g.description ? `<div class="group-description">${md(g.description)}</div>` : ''}</div></div>${g.questions.filter(q => visible.has(q.id)).map(q => question(q, ++index, !!q.when || !!g.when)).join('')}</section>`).join('')}
         ${!count ? '<p class="empty">No questions apply to these answers.</p>' : ''}
         <div class="end-note">${ico('check-check')}<span>${plugin.readonly ? 'Only the questions applicable to this response are shown.' : 'Your answers stay in draft until you use Wicket’s hand-over.'}</span></div>
       </div></div></div>`;

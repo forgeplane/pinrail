@@ -7,7 +7,8 @@ const p = require('../fixtures/01-incident.json').payload;
 const fresh = () => C.restore(p,null);
 
 test('all fixtures pass semantic validation and the decided fixture round-trips', () => {
-  for (const name of fs.readdirSync(path.join(__dirname,'../fixtures'))) {
+  // the .md beside a decided fixture is what the app renders it to, not a gate
+  for (const name of fs.readdirSync(path.join(__dirname,'../fixtures')).filter(n => n.endsWith('.json'))) {
     const gate = require('../fixtures/'+name); C.validate(gate.payload);
     if (gate.decision) assert.deepEqual(C.decision(gate.payload,C.restore(gate.payload,gate.decision.data)),gate.decision.data);
   }
