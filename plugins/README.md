@@ -8,7 +8,8 @@ installed one at a time:
 
 | Plugin | What it gates |
 |---|---|
-| [`list/`](list/README.md) | a list of proposed actions, accepted or rejected one by one; the built-in |
+| [`list/`](list/README.md) | a list of proposed actions, accepted or rejected one by one; built in |
+| [`feedback/`](feedback/README.md) | questions an agent wants answered before it goes on: grouped, conditional, answered in one pass |
 | [`review/`](review/README.md) | a code review: the diff, the agent's proposed comments, the human's verdicts and own comments |
 | [`email/`](email/README.md) | emails an agent wants to send: edit them with the changes showing, comment on a passage, send, revise or discard |
 | [`artifact/`](artifact/README.md) | an HTML page an agent designed: pick elements the way DevTools does, comment on them, and the agent gets selectors back |

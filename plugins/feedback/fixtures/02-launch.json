@@ -1,0 +1,116 @@
+{
+  "title": "Shape the launch for the new team workspace",
+  "payload": {
+    "description": "I drafted a launch plan. Choose the audience and channels so I can prepare the right materials for review.",
+    "groups": [
+      {
+        "id": "direction",
+        "title": "Launch direction",
+        "questions": [
+          {
+            "id": "audience",
+            "type": "single_choice",
+            "prompt": "Who should get access first?",
+            "required": true,
+            "options": [
+              {
+                "id": "design_partners",
+                "label": "Design partners",
+                "description": "Start with five teams we already work closely with."
+              },
+              {
+                "id": "waitlist",
+                "label": "Everyone on the waitlist",
+                "description": "Invite all 420 teams."
+              },
+              {
+                "id": "public",
+                "label": "Public launch",
+                "description": "Open access to anyone."
+              }
+            ],
+            "recommendation": {
+              "answer": "design_partners",
+              "reason": "A small initial group gives us time to act on feedback before expanding."
+            }
+          },
+          {
+            "id": "launch_channels",
+            "type": "multiple_choice",
+            "prompt": "Which launch materials should I prepare?",
+            "required": true,
+            "max_selections": 3,
+            "options": [
+              {
+                "id": "email",
+                "label": "Personal invitation emails"
+              },
+              {
+                "id": "blog",
+                "label": "Product announcement"
+              },
+              {
+                "id": "demo",
+                "label": "Guided demo"
+              },
+              {
+                "id": "social",
+                "label": "Social posts"
+              }
+            ]
+          },
+          {
+            "id": "pricing",
+            "type": "boolean",
+            "prompt": "Include pricing in the launch materials?",
+            "required": true
+          },
+          {
+            "id": "tone",
+            "type": "text",
+            "prompt": "What tone should the materials have?",
+            "placeholder": "Practical, specific, and written for small engineering teams.",
+            "max_length": 1000
+          }
+        ]
+      },
+      {
+        "id": "public_details",
+        "title": "Public launch details",
+        "when": {
+          "question_id": "audience",
+          "operator": "equals",
+          "value": "public"
+        },
+        "questions": [
+          {
+            "id": "timing",
+            "type": "text",
+            "prompt": "When should the public launch happen?",
+            "required": true,
+            "max_length": 500
+          },
+          {
+            "id": "support",
+            "type": "checkbox",
+            "prompt": "Confirm support coverage for launch day",
+            "checkbox_label": "The team will be available to respond to new users.",
+            "required": true
+          }
+        ]
+      },
+      {
+        "id": "followup",
+        "title": "Follow-up",
+        "questions": [
+          {
+            "id": "followup_ok",
+            "type": "boolean",
+            "prompt": "Prepare a follow-up message for teams that do not respond?",
+            "required": false
+          }
+        ]
+      }
+    ]
+  }
+}

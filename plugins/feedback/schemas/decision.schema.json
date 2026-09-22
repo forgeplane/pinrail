@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Feedback response",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "answers",
+    "unanswered",
+    "excluded"
+  ],
+  "properties": {
+    "answers": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "question_id",
+          "answer",
+          "comment"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "type": "string",
+                "maxLength": 10000
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 5000
+          }
+        }
+      }
+    },
+    "unanswered": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+      }
+    }
+  }
+}

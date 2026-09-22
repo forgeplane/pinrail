@@ -1,0 +1,14 @@
+{
+  "name": "feedback",
+  "version": "1.0.0",
+  "title": "Feedback",
+  "icon": "messages-square",
+  "entry": "view/index.html",
+  "payload_schema": {
+    "$ref": "schemas/payload.schema.json"
+  },
+  "decision_schema": {
+    "$ref": "schemas/decision.schema.json"
+  },
+  "min_height": 560
+}

@@ -1,0 +1,38 @@
+{
+  "title": "Confirm the document handoff",
+  "payload": {
+    "groups": [
+      {
+        "id": "checks",
+        "title": "Handoff details",
+        "questions": [
+          {
+            "id": "include_appendix",
+            "type": "boolean",
+            "prompt": "Include the appendix?",
+            "required": true
+          },
+          {
+            "id": "reviewed",
+            "type": "checkbox",
+            "prompt": "Confirm the recipient list",
+            "checkbox_label": "I have checked the recipients.",
+            "required": true
+          },
+          {
+            "id": "extra",
+            "type": "checkbox",
+            "prompt": "Also include the supporting worksheet",
+            "required": false
+          },
+          {
+            "id": "note",
+            "type": "text",
+            "prompt": "Additional instructions",
+            "required": false
+          }
+        ]
+      }
+    ]
+  }
+}

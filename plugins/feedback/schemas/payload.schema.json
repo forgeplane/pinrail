@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Feedback request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "groups"
+  ],
+  "properties": {
+    "description": {
+      "type": "string",
+      "maxLength": 10000
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "questions"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "when": {
+            "$ref": "#/$defs/condition"
+          },
+          "questions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/$defs/question"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "question_id",
+            "operator"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "question_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+            },
+            "operator": {
+              "const": "answered"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "question_id",
+            "operator",
+            "value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "question_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+            },
+            "operator": {
+              "enum": [
+                "equals",
+                "not_equals",
+                "contains"
+              ]
+            },
+            "value": {
+              "type": [
+                "string",
+                "boolean"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "all"
+          ],
+          "properties": {
+            "all": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "items": {
+                "$ref": "#/$defs/condition"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "any"
+          ],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "items": {
+                "$ref": "#/$defs/condition"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "prompt"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+        },
+        "type": {
+          "enum": [
+            "single_choice",
+            "multiple_choice",
+            "text",
+            "boolean",
+            "checkbox"
+          ]
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "when": {
+          "$ref": "#/$defs/condition"
+        },
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1000
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 10000
+              }
+            }
+          }
+        },
+        "recommendation": {
+          "type": "object",
+          "required": [
+            "answer"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "answer": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 10000
+            }
+          }
+        },
+        "placeholder": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "checkbox_label": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "min_selections": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "max_selections": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "min_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "max_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "single_choice",
+                  "multiple_choice"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "options"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "options"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
