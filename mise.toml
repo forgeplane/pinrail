@@ -61,3 +61,8 @@ run = [
 [tasks.test]
 description = "Every suite: the desktop core and UI, the CLI, the SDK, the plugins, end to end"
 depends = ["test:desktop", "test:cli", "test:sdk", "test:plugins", "e2e", "e2e:shell"]
+
+[tasks."docs:generate"]
+description = "The docs' generated reference pages: the CLI's, from its own definition"
+dir = "{{config_root}}"
+run = "cargo run -q --manifest-path cli/Cargo.toml --features docs -- --markdown-help > docs/reference/cli.md"

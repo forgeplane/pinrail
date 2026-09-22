@@ -9,6 +9,11 @@ license = "Apache-2.0"
 name = "wicket"
 path = "src/main.rs"
 
+[features]
+# `wicket --markdown-help`: the docs' CLI reference, rendered from the clap
+# definition. Only the docs build turns it on.
+docs = []
+
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }

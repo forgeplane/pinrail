@@ -5,3 +5,6 @@ agent-docs/
 # the website and its docs, kept out of the repository until they are ready
 website/
 docs/
+
+# generated from the code by `mise run docs:generate`, before every site build
+docs/reference/cli.md

@@ -12,6 +12,8 @@
 //! | 5 | the person discarded the review: stop the work it was gating |
 
 mod api;
+#[cfg(feature = "docs")]
+mod docs;
 mod out;
 mod server;
 
@@ -89,17 +91,27 @@ enum Command {
     /// Block until a review leaves pending; print it
     Wait(WaitArgs),
     /// Print a review: envelope, payload and decision
-    Show { id: String },
+    Show {
+        /// The review's id
+        id: String,
+    },
     /// Every round of a review, oldest first, without payloads
-    Rounds { id: String },
+    Rounds {
+        /// The review's id
+        id: String,
+    },
     /// A review's event log
-    Events { id: String },
+    Events {
+        /// The review's id
+        id: String,
+    },
     /// List reviews, newest first, without payloads
     List(ListArgs),
     /// Record a decision from a script (the app is the usual way)
     Decide(DecideArgs),
     /// Withdraw a pending review; its waiter exits 3
     Withdraw {
+        /// The review's id
         id: String,
         /// Why the requester gave up
         #[arg(long)]
@@ -108,6 +120,7 @@ enum Command {
     /// Discard a pending review as the person would in the app; its waiter
     /// exits 5 and is told to stop
     Discard {
+        /// The review's id
         id: String,
         /// Why, for the agent
         #[arg(long)]
@@ -120,17 +133,24 @@ enum Command {
     #[command(alias = "types")]
     Plugins(PluginsArgs),
     /// Write every review as JSON files under a directory
-    Export { dir: PathBuf },
+    Export {
+        /// Where to write them; created when missing
+        dir: PathBuf,
+    },
     /// Start the server if it is not running; print its URL
     Serve,
     /// Open a review in the app
-    Open { id: String },
+    Open {
+        /// The review's id
+        id: String,
+    },
 }
 
 #[derive(Args)]
 struct SubmitArgs {
     /// The plugin that defines this sort of review, e.g. code_review
     plugin: String,
+    /// What the review is about, as the inbox shows it
     #[arg(long)]
     title: String,
     /// Where the review comes from: repo=acme,workflow=review,run_id=…,ref=42,url=…
@@ -148,6 +168,7 @@ struct SubmitArgs {
     /// ISO 8601 timestamp after which the review expires
     #[arg(long)]
     expires_at: Option<String>,
+    /// Who is asking, shown on the review
     #[arg(long, env = "WICKET_REQUESTED_BY", default_value = "wicket-cli")]
     requested_by: String,
     /// Block until decided (see wait)
@@ -162,6 +183,7 @@ struct SubmitArgs {
 
 #[derive(Args)]
 struct WaitArgs {
+    /// The review's id
     id: String,
     #[command(flatten)]
     opts: WaitOpts,
@@ -185,12 +207,16 @@ struct ListArgs {
     /// The project (origin repo); "-" for reviews that name none
     #[arg(long)]
     repo: Option<String>,
+    /// The workflow that asked (origin workflow)
     #[arg(long)]
     workflow: Option<String>,
+    /// The branch, pull request or other ref (origin ref)
     #[arg(long = "ref")]
     reference: Option<String>,
+    /// The run that asked (origin run_id)
     #[arg(long)]
     run_id: Option<String>,
+    /// Only reviews of this plugin
     #[arg(long, alias = "type")]
     plugin: Option<String>,
     /// Words to look for, all of them, in titles, payloads, plugins, requesters, origins and who decided
@@ -212,6 +238,7 @@ struct ListArgs {
 
 #[derive(Args)]
 struct DecideArgs {
+    /// The review's id
     id: String,
     /// Decision JSON: a file path, or - for stdin
     #[arg(long, value_name = "FILE|-")]
@@ -263,10 +290,22 @@ enum PluginsCommand {
     /// Reload the installed plugins from disk
     Reload,
     /// The versions of a plugin that reviews can still render with
-    Versions { name: String },
+    Versions {
+        /// the plugin's name
+        name: String,
+    },
 }
 
 fn main() -> ExitCode {
+    // the docs' CLI reference, from this definition; only in a docs build
+    #[cfg(feature = "docs")]
+    if std::env::args().nth(1).as_deref() == Some("--markdown-help") {
+        print!(
+            "{}",
+            docs::render(&<Cli as clap::CommandFactory>::command())
+        );
+        return ExitCode::SUCCESS;
+    }
     let cli = Cli::parse();
     match run(cli) {
         Ok(code) => ExitCode::from(code),
