@@ -126,6 +126,18 @@ The reviews are all pending together, so you can decide them in any order. Waiti
 An agent that can run commands in the background, such as Claude Code, can start one `pinrail wait` per review and act on each decision as soon as it arrives, without waiting for the rest.
 :::
 
+## Files
+
+When what you review is a file, such as a model, a PDF or a recording, tell the agent to send the file itself with the plugin that takes it, not a path you would have to open or the file inlined in the payload:
+
+```md title="AGENTS.md"
+Send the files with `--artifact <path>`, one per file, and name each in the
+payload as {"$artifact": "<file name>"}. `pinrail plugins describe <plugin>`
+says which kinds the plugin takes and how big.
+```
+
+The review shows every file it carries by name and size, and you can save any of them.
+
 ## Check that it works
 
 Ask your agent to do the step, and watch for the review in your inbox. If it doesn't arrive:

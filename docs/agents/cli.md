@@ -58,6 +58,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 |---|---|
 | `--title` | Required. What the review is about, as it will appear in your inbox. |
 | `--data <file>` | The payload, as JSON. `--data -` reads it from stdin. |
+| `--artifact <path>[=<name>]` | A file to send beside the payload, for a plugin that takes files. Repeat for more. See [Sending files](#sending-files). |
 | `--wait` | Block until the review is decided or ends, then print it. Without it, `submit` prints the new review and returns at once. |
 | `--dry-run` | Run every check a submission gets and create no review. Exits 0 when it would be accepted, 2 with the violations. |
 | `--request <file>` | The whole request as one JSON file. See [The whole request in one file](#the-whole-request-in-one-file). |
@@ -89,7 +90,7 @@ Instead of flags, the agent can write the whole request as one JSON file and pas
 pinrail submit --request request.json --wait --format markdown
 ```
 
-The file takes the same keys as the flags: `plugin`, `title`, `payload`, `origin`, `summary`, `revises`, `expires_at` and `requested_by`. Any flag given as well overrides the file's key, and `--data` replaces its payload. So a new round is the same file with one more flag:
+The file takes the same keys as the flags: `plugin`, `title`, `payload`, `origin`, `summary`, `revises`, `expires_at`, `requested_by`, and `artifacts`, a map of name to path relative to the file. Any flag given as well overrides the file's key, and `--data` replaces its payload. So a new round is the same file with one more flag:
 
 ```sh
 pinrail submit --request request.json --revises <id> --wait --format markdown
@@ -102,6 +103,28 @@ pinrail submit review --title "Dedup tickets on save" --data review.json --dry-r
 ```
 
 A dry run checks the title, the origin and the payload against the plugin's schema, exactly as a submission would, and nothing reaches the inbox. When something is wrong it exits 2 and prints each violation with a JSON pointer to it, such as `/payload/proposals/0/line`, so the agent can fix the payload before a person sees it.
+
+### Sending files
+
+A plugin that takes files, such as a 3D model, a PDF or photos, says so in `pinrail plugins describe`. Send each file with `--artifact`, and name it in the payload by an object with one key, `$artifact`:
+
+```sh
+pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
+  --artifact out/pivot.glb --artifact out/v2.glb=column.glb --wait --format markdown
+```
+
+```json title="models.json"
+{ "models": [{ "id": "L1", "name": "Pivot", "file": { "$artifact": "pivot.glb" } }] }
+```
+
+A file keeps its own name unless another follows `=`. The CLI checks the whole submission before it uploads anything, so a refused one moves nothing. It then uploads only the files the app does not have yet, which makes a new round cheap: only the files that changed are sent again. A file may be up to 100 MB, and a review may carry 32, unless the plugin sets lower limits.
+
+The files come back with `pinrail artifacts`:
+
+```sh
+pinrail artifacts list <id>                        # name, size, media type and hash of each
+pinrail artifacts get <id> pivot.glb -o pivot.glb  # save one; -o - writes it to stdout
+```
 
 ## Waiting
 
@@ -154,6 +177,8 @@ JSON is the default. It is the whole review, with the decision attached, for a s
 | `pinrail rounds <id>` | Every round of a review, oldest first. |
 | `pinrail events <id>` | A review's event log. |
 | `pinrail open <id>` | Open a review in the app. |
+| `pinrail artifacts list <id>` | The files a review carries. |
+| `pinrail artifacts get <id> <name>` | Save a file a review carries. `-o` says where; it never overwrites without `--force`. |
 | `pinrail decide <id>` | Record a decision from a script. The app is the usual way. |
 | `pinrail withdraw <id>` | Take a pending review back. Its waiter exits 3. |
 | `pinrail discard <id>` | Discard a pending review. Its waiter exits 5. |
