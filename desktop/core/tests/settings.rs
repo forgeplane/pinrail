@@ -7,10 +7,10 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
-use serde_json::{Value, json};
-use tower::ServiceExt;
 use pinrail_core::Config;
 use pinrail_core::{Pinrail, api};
+use serde_json::{Value, json};
+use tower::ServiceExt;
 
 struct App {
     dir: tempfile::TempDir,

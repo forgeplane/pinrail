@@ -5,14 +5,14 @@
 use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, Utc};
+use pinrail_core::Pinrail;
+use pinrail_core::events::{self, Notice};
+use pinrail_core::reviews::{Filters, Review, Status};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{AppHandle, Emitter, Manager, Wry};
 use tauri_plugin_notification::NotificationExt;
 use tokio::sync::broadcast::error::RecvError;
-use pinrail_core::Pinrail;
-use pinrail_core::events::{self, Notice};
-use pinrail_core::reviews::{Filters, Review, Status};
 
 /// The shell listens for this and navigates to the payload.
 pub const OPEN_EVENT: &str = "pinrail:open";

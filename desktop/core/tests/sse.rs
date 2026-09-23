@@ -7,9 +7,9 @@ use std::time::Duration;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
+use pinrail_core::{Config, Pinrail, api};
 use serde_json::{Value, json};
 use tower::ServiceExt;
-use pinrail_core::{Config, Pinrail, api};
 
 async fn next_event(body: &mut Body, buffered: &mut String) -> (i64, Value) {
     tokio::time::timeout(Duration::from_secs(2), async {

@@ -3,11 +3,11 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use serde_json::{Value, json};
 use pinrail_core::db::Db;
 use pinrail_core::events;
 use pinrail_core::plugins::{InstallJob, InstallOptions, PluginService, UpdateOutcome};
 use pinrail_core::{Config, Error, Pinrail};
+use serde_json::{Value, json};
 
 fn plugin(root: &Path, name: &str, version: &str) -> PathBuf {
     let dir = root.join(name);

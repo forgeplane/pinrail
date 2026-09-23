@@ -7,8 +7,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use serde_json::{Value, json};
 use pinrail_core::plugins::Plugin;
+use serde_json::{Value, json};
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -192,7 +192,9 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
         ("version_short", base(json!({"version": "1.2"})), entry),
         (
             "extra_key",
-            base(json!({"$schema": "https://pinrail.dev/schemas/manifest.schema.json", "later": 1})),
+            base(
+                json!({"$schema": "https://pinrail.dev/schemas/manifest.schema.json", "later": 1}),
+            ),
             entry,
         ),
         (

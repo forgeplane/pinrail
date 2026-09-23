@@ -10,12 +10,12 @@ mod notify_mac;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use pinrail_core::Config;
+use pinrail_core::{Pinrail, api};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
-use pinrail_core::Config;
-use pinrail_core::{Pinrail, api};
 
 use native::Native;
 
@@ -135,7 +135,12 @@ async fn save_artifact(
         .ok_or_else(|| format!("review {review} carries no artifact \"{name}\""))?;
     let from = state.artifacts().path(&carried.sha256);
     tauri::async_runtime::spawn_blocking(move || {
-        let Some(to) = app.dialog().file().set_file_name(&name).blocking_save_file() else {
+        let Some(to) = app
+            .dialog()
+            .file()
+            .set_file_name(&name)
+            .blocking_save_file()
+        else {
             return Ok(None);
         };
         let to = to.into_path().map_err(|e| e.to_string())?;
