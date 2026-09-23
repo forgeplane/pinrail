@@ -957,3 +957,38 @@ fn artifacts_lists_a_review_s_files_and_saves_one() {
     assert!(!missing.exists());
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no .part left");
 }
+
+#[test]
+fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
+    let server = MockServer::start(Box::new(|_, path, _| {
+        let body = r#"{"plugins":[
+            {"name":"model","title":"3D model review","release":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
+             "artifacts":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
+            {"name":"list","title":"List","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"artifacts":null}]}"#;
+        match path {
+            "/api/v1/plugins/describe" => (200, body.into()),
+            other => panic!("unexpected {other}"),
+        }
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "describe"]);
+    assert_eq!(code, 0, "{stderr}");
+    let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(doc["plugins"][0]["artifacts"]["accept"][0], ".glb");
+    assert!(
+        doc["submit"]["artifacts"]
+            .as_str()
+            .unwrap()
+            .contains("--artifact PATH[=NAME]")
+    );
+
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("### Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
+        "{stdout}"
+    );
+    assert!(stdout.contains("pinrail submit model --title \"<what it is about>\" --data payload.json --artifact <file> --wait"));
+    // a plugin that takes none says nothing about files
+    assert_eq!(stdout.matches("### Files").count(), 1);
+    assert!(stdout.contains("Files go beside the payload for a plugin that takes them"));
+}

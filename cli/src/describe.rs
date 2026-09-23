@@ -10,6 +10,7 @@ const SUBMIT: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
 const CHECK: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
+const FILES: &str = "for a plugin with `artifacts`, add --artifact PATH[=NAME] for each file; the payload names it {\"$artifact\": \"<name>\"}, and --dry-run checks it all before anything is uploaded";
 
 /// What each exit code tells the agent to do next.
 const EXIT_CODES: &[(u8, &str)] = &[
@@ -59,6 +60,7 @@ pub fn document(described: Value) -> Value {
             "check": CHECK,
             "result": result,
             "markdown": "--format markdown prints a decided review as markdown, for a plugin whose `markdown` is true",
+            "artifacts": FILES,
             "exit_codes": exit_codes,
         },
     })
@@ -81,6 +83,10 @@ pub fn markdown(described: &Value) -> String {
     out.push_str(&format!("```sh\n{SUBMIT}\n```\n\n"));
     out.push_str(&format!(
         "Check a payload first, without creating a review:\n\n```sh\n{CHECK}\n```\n\n"
+    ));
+    out.push_str(&format!(
+        "Files go beside the payload for a plugin that takes them ({}).\n\n",
+        FILES.trim_start_matches("for a plugin with `artifacts`, ")
     ));
     out.push_str("The review printed once it is decided carries:\n\n");
     for (key, meaning) in RESULT {
@@ -113,6 +119,25 @@ fn plugin_section(out: &mut String, plugin: &Value) {
     ));
     if !plugin["example"].is_null() {
         out.push_str(&format!("\nExample:\n\n{}", json_block(&plugin["example"])));
+    }
+    if let Some(files) = plugin["artifacts"].as_object() {
+        let kinds: Vec<&str> = files
+            .get("accept")
+            .and_then(Value::as_array)
+            .map(|a| a.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
+        let mut limits = Vec::new();
+        if let Some(size) = files.get("max_size").and_then(Value::as_u64) {
+            limits.push(format!("up to {} MB each", size / (1024 * 1024)));
+        }
+        if let Some(count) = files.get("max_count").and_then(Value::as_u64) {
+            limits.push(format!("{count} at most"));
+        }
+        out.push_str(&format!(
+            "\n### Files\n\nTakes files beside the payload: {}{}. Send each with `--artifact PATH[=NAME]`; the payload names it `{{\"$artifact\": \"<name>\"}}`, and the view reads it by that name.\n\n```sh\npinrail submit {name} --title \"<what it is about>\" --data payload.json --artifact <file> --wait\n```\n",
+            kinds.join(", "),
+            if limits.is_empty() { String::new() } else { format!(" ({})", limits.join(", ")) },
+        ));
     }
     out.push_str(&format!(
         "\n### Decision\n\n`decision.data` is shaped by:\n\n{}",
