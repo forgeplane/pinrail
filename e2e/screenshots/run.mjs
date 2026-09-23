@@ -9,7 +9,8 @@
 // fixtures/ through the API, and pinned: every time and id is rewritten to
 // a fixed value, and the browser's clock is frozen at the same moment. Each
 // scene then runs once per theme and saves <name>-light.png and
-// <name>-dark.png into website/public/screenshots (or --out).
+// <name>-dark.png into website/public/screenshots (or --out), for the docs;
+// the ones the landing pages use are copied into website/src/assets too.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -45,6 +46,8 @@ const flag = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const out = path.resolve(flag("--out") ?? path.join(root, "website", "public", "screenshots"));
+// shots the landing pages use go here as well, where Astro optimizes them
+const siteAssets = path.join(root, "website", "src", "assets", "screenshots");
 const only = flag("--only");
 const chosen = scenes.filter((s) => !only || s.name.startsWith(only));
 if (!chosen.length) throw new Error(`no scene starts with ${only}`);
@@ -56,7 +59,8 @@ try {
   const reviews = await seed(app);
   fs.mkdirSync(out, { recursive: true });
   // a full run leaves exactly what the scenes make: earlier shots go first
-  if (!only) for (const file of fs.readdirSync(out)) if (/-(light|dark)\.png$/.test(file) || /\.png$/.test(file)) fs.rmSync(path.join(out, file));
+  fs.mkdirSync(siteAssets, { recursive: true });
+  if (!only) for (const dir of [out, siteAssets]) for (const file of fs.readdirSync(dir)) if (file.endsWith(".png")) fs.rmSync(path.join(dir, file));
 
   for (const theme of ["light", "dark"]) {
     const context = await browser.newContext({
@@ -70,11 +74,13 @@ try {
     for (const scene of chosen) {
       const page = await context.newPage();
       await page.clock.setFixedTime(NOW);
-      const shot = async (name, target = page, options = {}) => {
+      // `site: true` copies the shot into the website's assets as well
+      const shot = async (name, target = page, { site = false, ...options } = {}) => {
         await page.evaluate(() => document.fonts.ready);
         await scrub(page, [[app.data, "~/.local/share/wicket"], [app.code, "~/code"]]);
         const file = path.join(out, `${name}-${theme}.png`);
         await target.screenshot({ path: file, animations: "disabled", caret: "hide", ...options });
+        if (site) fs.copyFileSync(file, path.join(siteAssets, path.basename(file)));
         console.log(`screenshots: ${path.relative(root, file)}`);
       };
       try {

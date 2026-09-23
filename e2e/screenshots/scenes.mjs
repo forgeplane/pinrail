@@ -1,7 +1,9 @@
 // What to photograph. A scene gets the page (in one theme, clock frozen),
 // the app, the seeded review ids by fixture key, and `shot(name, target?,
 // options?)`, which saves <name>-<theme>.png. The plugin scenes show a
-// decision under way: verdicts given, a note or a comment half written.
+// decision under way: verdicts given, a note or a comment half written, and
+// save the plugin's view alone as <name>-view as well, for the website.
+// `site: true` marks the shots the landing pages use.
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -31,7 +33,7 @@ export const scenes = [
       await page.goto(`${app.ui}/#/`);
       await page.locator(".inbox-repo").first().waitFor();
       await settle(page);
-      await shot("inbox");
+      await shot("inbox", page, { site: true });
     },
   },
   {
@@ -58,7 +60,8 @@ export const scenes = [
       await f.locator("#card-1").scrollIntoViewIfNeeded();
       await f.locator("#card-1").evaluate((el) => el.scrollIntoView({ block: "center" }));
       await settle(page);
-      await shot("review");
+      await shot("review", page, { site: true });
+      await shot("review-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
@@ -96,6 +99,7 @@ export const scenes = [
       });
       await settle(page);
       await shot("artifact");
+      await shot("artifact-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
@@ -140,6 +144,7 @@ export const scenes = [
       });
       await settle(page);
       await shot("email");
+      await shot("email-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
@@ -155,6 +160,7 @@ export const scenes = [
       await f.locator('.item[data-id="2"]').evaluate((el) => el.scrollIntoView({ block: "start" }));
       await settle(page);
       await shot("list");
+      await shot("list-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
@@ -172,6 +178,7 @@ export const scenes = [
       await style.evaluate((el) => el.scrollIntoView({ block: "start" }));
       await settle(page);
       await shot("feedback");
+      await shot("feedback-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
