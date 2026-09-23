@@ -81,6 +81,10 @@ pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
 }
 ```
 
+:::caution[Send every file with --artifact]
+The payload only names each model's file. The file itself goes with the submission: one `--artifact <path>` per file, under the name the payload uses (`--artifact out/v2.glb=pivot.glb` renames it). A submission whose payload names a file it does not send is refused, before anything is uploaded.
+:::
+
 - **A model** is a file sent with `--artifact` and named in `file`: a `.glb`, or a `.gltf` with everything embedded. Textures and buffers must be inside it, since the view fetches nothing else. A small model can go inline instead, as three.js JSON in `object` (what `Object3D.toJSON()` returns).
 - **Units** say what one unit is, for the sizes shown; the metre, glTF's own, is the default. Set `up` to `z` for most CAD exports.
 - **Views** are cameras in the model's own coordinates; `target` defaults to the model's centre.
