@@ -154,6 +154,7 @@ jobs:
             pinrail-plugin/package-lock.json
             plugins/artifact/package-lock.json
             plugins/model/package-lock.json
+            docs/examples/ship-it/*/package-lock.json
       - name: pinrail-plugin tests
         working-directory: pinrail-plugin
         run: |
@@ -182,6 +183,15 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm test
+      # the docs' example plugin, one per framework: built, checked, tested
+      - name: Example plugins
+        working-directory: docs/examples/ship-it
+        run: |
+          for dir in vanilla react vue svelte; do
+            node ../../../pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
+            (cd "$dir" && npm ci && npm test)
+          done
+          node --test same.test.mjs
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
@@ -189,4 +199,5 @@ jobs:
           path: |
             plugins/test-results
             pinrail-plugin/test-results
+            docs/examples/ship-it/*/test-results
           if-no-files-found: ignore

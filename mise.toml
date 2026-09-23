@@ -21,6 +21,14 @@ description = "Each shipped plugin alone, under the pinrail-plugin harness"
 dir = "{{config_root}}/plugins"
 run = "npm test"
 
+[tasks."test:examples"]
+description = "The docs' example plugins, each built and tested under the harness, and the same but for their views"
+dir = "{{config_root}}/docs/examples/ship-it"
+run = [
+  "for dir in vanilla react vue svelte; do (cd $dir && npm ci && npm test) || exit 1; done",
+  "node --test same.test.mjs",
+]
+
 [tasks.e2e]
 description = "End to end: the CLI against the desktop app's server, run headless"
 dir = "{{config_root}}/e2e"
@@ -60,7 +68,7 @@ run = [
 
 [tasks.test]
 description = "Every suite: the desktop core and UI, the CLI, the SDK, the plugins, end to end"
-depends = ["test:desktop", "test:cli", "test:sdk", "test:plugins", "e2e", "e2e:shell"]
+depends = ["test:desktop", "test:cli", "test:sdk", "test:plugins", "test:examples", "e2e", "e2e:shell"]
 
 [tasks."docs:generate"]
 description = "The docs' generated reference pages: the CLI's from its own definition, the settings and the manifest from the core's tables"
