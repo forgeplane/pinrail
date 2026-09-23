@@ -3,8 +3,8 @@
 
 .topnav {
   position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; gap: 28px;
-  padding: 12px 28px; border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 28px; min-height: 60px; box-sizing: border-box;
+  padding: 12px var(--switch-room) 12px 28px; border-bottom: 1px solid var(--rule);
   background: color-mix(in oklab, var(--paper) 88%, transparent); backdrop-filter: blur(10px);
 }
 .topnav .links { display: flex; gap: 22px; margin-left: auto; font: 500 13px var(--mono); }
@@ -111,9 +111,8 @@
 }
 
 @media (max-width: 640px) {
-  .topnav { gap: 12px; padding: 10px 16px; }
+  .topnav { gap: 12px; min-height: 54px; padding: 10px var(--switch-room) 10px 16px; }
   .topnav .links { display: none; }
-  .topnav .mode-switch { margin-left: auto; }
   .c-hero { padding: 56px 16px 20px; }
   .c-lede { font-size: 18px; }
   .shot-note { display: none; }
