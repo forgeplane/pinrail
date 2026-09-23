@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "3D model review decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decisions", "undecided"],
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+  },
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "description": "A verdict per model the reviewer decided. At most one favourite.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "action"],
+        "properties": {
+          "id": { "type": "string" },
+          "action": { "enum": ["favorite", "keep", "drop"], "description": "favorite: the one to take forward. keep: still on the shortlist. drop: set it aside." },
+          "note": { "type": "string", "maxLength": 4000, "description": "What to change, or why." },
+          "comments": {
+            "type": "array",
+            "description": "Changes asked for on parts of the model, each pinned to a point on one mesh.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target", "name", "note"],
+              "properties": {
+                "target": { "type": "string", "description": "The part's path in the model's hierarchy, by node names: Lamp > Head > Shade." },
+                "name": { "type": "string", "description": "The mesh's name." },
+                "material": { "type": "string", "description": "The name of the material on the point." },
+                "point": { "$ref": "#/$defs/vec3", "description": "Where on the part the comment is pinned, in the model's own coordinates." },
+                "view": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "The camera the reviewer was looking through, in the model's own coordinates.",
+                  "properties": { "position": { "$ref": "#/$defs/vec3" }, "target": { "$ref": "#/$defs/vec3" } }
+                },
+                "note": { "type": "string", "minLength": 1, "maxLength": 2000 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "undecided": { "type": "array", "items": { "type": "string" }, "description": "Models left without a verdict." }
+  }
+}

@@ -69,6 +69,7 @@ or answering an agent's questions, and share it for others to install.
 | [`artifact`](plugins/artifact/README.md) | an HTML page to comment on, element by element |
 | [`calendar`](plugins/calendar/README.md) | times to arrange around a calendar, one suggested slot picked per item |
 | [`logo`](plugins/logo/README.md) | candidate logo marks and icons, seen at every size, with a favourite picked |
+| [`model`](plugins/model/README.md) | candidate 3D models to orbit under studio light, with changes asked for on their parts |
 
 A plugin is a manifest, two JSON schemas and an HTML view. The
 [`pinrail-plugin`](pinrail-plugin/README.md) package scaffolds one

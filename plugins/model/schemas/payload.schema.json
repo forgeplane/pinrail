@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "3D model review request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["subject", "models"],
+  "$defs": {
+    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+  },
+  "properties": {
+    "notes": { "type": "string", "maxLength": 10000, "description": "Markdown: what this round is, and what to look at." },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 120, "description": "What the models are of, e.g. Halden desk lamp." },
+        "units": { "enum": ["m", "cm", "mm", "in", "ft"], "description": "What one unit of the model is, for the sizes shown. Default m, as glTF." },
+        "up": { "enum": ["y", "z"], "description": "The model's up axis. Default y, as glTF; z for most CAD exports." }
+      }
+    },
+    "models": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name"],
+        "oneOf": [{ "required": ["glb"] }, { "required": ["object"] }],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "reasoning": { "type": "string", "maxLength": 4000, "description": "Markdown: why this direction." },
+          "glb": { "type": "string", "contentEncoding": "base64", "description": "The model as binary glTF, base64. Textures embedded; nothing is fetched." },
+          "object": { "type": "object", "description": "The model as three.js JSON, what Object3D.toJSON() returns. Images as data URIs." },
+          "views": {
+            "type": "array",
+            "maxItems": 8,
+            "description": "Camera views worth a look beside the set ones, in the model's own coordinates.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "position"],
+              "properties": {
+                "name": { "type": "string", "minLength": 1, "maxLength": 40 },
+                "position": { "$ref": "#/$defs/vec3" },
+                "target": { "$ref": "#/$defs/vec3", "description": "Where the camera looks. Default the model's centre." }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

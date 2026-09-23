@@ -1,0 +1,3 @@
+node_modules/
+# the build: npm run build bundles three.js into the view
+/view/vendor/

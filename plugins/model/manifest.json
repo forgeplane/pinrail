@@ -1,0 +1,66 @@
+{
+  "name": "model",
+  "version": 1,
+  "title": "3D model review",
+  "description": "Candidate 3D models, each one to orbit under studio light, from set views and the agent's own, with its size and triangle count. Pick a favourite, keep or drop the rest, and click a part to ask for a change to it.",
+  "use_when": "You made candidate 3D models or scenes (glTF/GLB, or three.js JSON) and need a person to pick one, shortlist or drop the rest, and ask for changes to parts of a model.",
+  "icon": "box",
+  "payload_schema": {
+    "$ref": "schemas/payload.schema.json"
+  },
+  "decision_schema": {
+    "$ref": "schemas/decision.schema.json"
+  },
+  "example": "example.json",
+  "entry": "view/index.html",
+  "decision_template": "templates/decision.md.j2",
+  "min_height": 680,
+  "build": {
+    "command": "npm ci && npm run build"
+  },
+  "shortcuts": [
+    {
+      "keys": "j",
+      "does": "Next model"
+    },
+    {
+      "keys": "k",
+      "does": "Previous model"
+    },
+    {
+      "keys": "1",
+      "does": "Three-quarter view; 2 to 9 the other views",
+      "group": "Viewer"
+    },
+    {
+      "keys": "t",
+      "does": "Turn the model on its turntable",
+      "group": "Viewer"
+    },
+    {
+      "keys": "w",
+      "does": "Show the wireframe",
+      "group": "Viewer"
+    },
+    {
+      "keys": "l",
+      "does": "Next light: studio, daylight, night",
+      "group": "Viewer"
+    },
+    {
+      "keys": "f",
+      "does": "Make this model the favourite",
+      "group": "Verdicts"
+    },
+    {
+      "keys": "s",
+      "does": "Keep this model on the shortlist",
+      "group": "Verdicts"
+    },
+    {
+      "keys": "x",
+      "does": "Drop this model",
+      "group": "Verdicts"
+    }
+  ]
+}

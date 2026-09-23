@@ -1,0 +1,36 @@
+{#- The decision as an agent reads it back: the favourite first, then what is
+    kept and what is dropped, each model by name with the reviewer's note and
+    the changes asked for on its parts. -#}
+{%- macro model(item) -%}
+- **{{ item.payload.name if item.payload else item.id }}** (`{{ item.id }}`)
+{%- if item.note %}
+  > {{ item.note }}
+{%- endif %}
+{%- for c in item.comments or [] %}
+  - change `{{ c.target }}`{% if c.material %} ({{ c.material }}){% endif %}{% if c.point %} at ({{ c.point | join(", ") }}){% endif %}: {{ c.note }}
+{%- endfor %}
+{%- endmacro -%}
+{%- set favourite = items | selectattr("action", "equalto", "favorite") | list -%}
+{%- set kept = items | selectattr("action", "equalto", "keep") | list -%}
+{%- set dropped = items | selectattr("action", "equalto", "drop") | list -%}
+{%- if favourite %}
+## Favourite
+{% for item in favourite %}
+{{ model(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if kept %}
+## Kept on the shortlist
+{% for item in kept %}
+{{ model(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if dropped %}
+## Dropped
+{% for item in dropped %}
+{{ model(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if data.undecided %}
+Undecided: {% for id in data.undecided %}`{{ id }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif -%}

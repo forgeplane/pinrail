@@ -15,6 +15,7 @@ others are installed one at a time:
 | [`artifact/`](artifact/README.md) | an HTML page an agent designed: pick elements the way DevTools does, comment on them, and the agent gets selectors back |
 | [`calendar/`](calendar/README.md) | times to arrange around what is already booked: pick one suggested slot per item, conflicting ones step aside, or leave an item for the agent |
 | [`logo/`](logo/README.md) | candidate logo marks, shown at every size, as app icons, in a tab and a menu bar: pick a favourite, keep or drop the rest, ask for changes to parts of a mark |
+| [`model/`](model/README.md) | candidate 3D models (glTF or three.js JSON) on a stage to orbit, from set views and the agent's own, under three lights: pick a favourite, keep or drop the rest, ask for changes to parts of a model |
 | [`hello/`](hello/README.md) | the smallest complete plugin, to copy from |
 
 Register a directory of plugins (each immediate subdirectory is one plugin):
