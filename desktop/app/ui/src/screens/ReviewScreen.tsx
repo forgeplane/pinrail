@@ -406,7 +406,7 @@ export function ReviewScreen() {
                     aria-current={current ? "page" : undefined}
                     data-outcome={outcome.tone}
                   >
-                    {i + 1}
+                    <span>{i + 1}</span>
                   </Link>
                 </Tooltip>
               );
