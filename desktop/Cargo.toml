@@ -6,3 +6,7 @@ members = ["core", "app/src-tauri"]
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
+
+# dependencies build without debug info; our own crates keep it
+[profile.dev.package."*"]
+debug = false
