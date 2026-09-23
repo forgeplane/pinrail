@@ -153,6 +153,7 @@ jobs:
             plugins/package-lock.json
             pinrail-plugin/package-lock.json
             plugins/artifact/package-lock.json
+            plugins/model/package-lock.json
       - name: pinrail-plugin tests
         working-directory: pinrail-plugin
         run: |
@@ -166,6 +167,12 @@ jobs:
           done
       - name: Build the artifact plugin
         working-directory: plugins/artifact
+        run: |
+          npm ci
+          npm run build
+      # the 3D model plugin's view imports three.js from a bundle its build writes
+      - name: Build the model plugin
+        working-directory: plugins/model
         run: |
           npm ci
           npm run build
