@@ -45,12 +45,13 @@ Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous model, <kbd>1</kbd>–<kbd>9
 When you make candidate 3D models, don't pick one yourself. Submit them to
 Pinrail as a `model` review and wait:
 
-1. Export each model as binary glTF (GLB) with its textures embedded, and
-   name its nodes and materials: comments come back by those names.
+1. Export each model as a GLB file with its textures embedded, and name its
+   nodes and materials: comments come back by those names.
 2. Write the payload: the subject and its units, and the models, each with
-   an `id`, a `name`, the `glb` in base64, a line of `reasoning`, and any
-   camera `views` worth a look.
-3. Run: `pinrail submit model --title "<subject> — round 1" --data models.json --wait --format markdown`
+   an `id`, a `name`, its file as `{"$artifact": "<file name>"}`, a line of
+   `reasoning`, and any camera `views` worth a look.
+3. Run: `pinrail submit model --title "<subject> — round 1" --data models.json --artifact <file>.glb … --wait --format markdown`,
+   one `--artifact` per model file.
 4. Take the favourite forward. Apply each note, and each change asked for on
    a part to the node its `target` names. Drop what was dropped. Submit the
    next round with `--revises <id>`.
@@ -58,6 +59,11 @@ Pinrail as a `model` review and wait:
 ```
 
 ## What the agent sends
+
+```sh
+pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
+  --artifact out/pivot.glb --wait --format markdown
+```
 
 ```json title="models.json"
 {
@@ -67,7 +73,7 @@ Pinrail as a `model` review and wait:
     {
       "id": "L1",
       "name": "Pivot",
-      "glb": "Z2xURgIAAAB…",
+      "file": { "$artifact": "pivot.glb" },
       "reasoning": "The classic two-arm task lamp. Brass only where it moves.",
       "views": [{ "name": "Seated", "position": [0.55, 0.32, 0.55], "target": [0, 0.2, 0] }]
     }
@@ -75,12 +81,12 @@ Pinrail as a `model` review and wait:
 }
 ```
 
-- **A model** is GLB in `glb`, base64, or three.js JSON in `object`, what `Object3D.toJSON()` returns. Nothing is fetched, so textures and buffers must be inside it.
+- **A model** is a file sent with `--artifact` and named in `file`: a `.glb`, or a `.gltf` with everything embedded. Textures and buffers must be inside it, since the view fetches nothing else. A small model can go inline instead, as three.js JSON in `object` (what `Object3D.toJSON()` returns).
 - **Units** say what one unit is, for the sizes shown; the metre, glTF's own, is the default. Set `up` to `z` for most CAD exports.
 - **Views** are cameras in the model's own coordinates; `target` defaults to the model's centre.
 
 :::note[Size]
-A model travels inside the request, and a request is at most 4 MB, base64 included. Send what a review needs: simplified meshes, small textures, and a few candidates per round.
+A file may be up to 50 MB, and a round may carry 12. The app stores each file once, so a new round only uploads the models that changed.
 :::
 
 ## What comes back
