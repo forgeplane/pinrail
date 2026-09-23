@@ -131,3 +131,9 @@ A file may be up to 50 MB, and a round may carry 12. The app stores each file on
 | `undecided` | The models given no verdict. Treat them as not chosen. |
 
 With `--format markdown`, the agent reads the favourite first, then what was kept and dropped, each model by name with its notes and the changes asked for on its parts.
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The 3D model plugin's contract](contract:model)

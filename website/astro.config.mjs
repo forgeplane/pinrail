@@ -7,14 +7,16 @@ import { unified } from "@astrojs/markdown-remark";
 import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
 import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
+import remarkContract from "./src/plugins/remark-contract.mjs";
 
 export default defineConfig({
   site: "https://pinrail.dev",
   vite: { plugins: [tailwindcss()] },
-  // unified, so the docs' ```mermaid blocks become diagrams and screenshot:
-  // images the app in the reader's theme; Starlight adds its
+  // unified, so the docs' ```mermaid blocks become diagrams, screenshot:
+  // images the app in the reader's theme, and contract: images a plugin's
+  // manifest and schemas; Starlight adds its
   // own plugins (asides, heading links) to the same processor
-  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots, remarkKbd] }) },
+  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots, remarkKbd, remarkContract] }) },
   integrations: [
     starlight({
       title: "Pinrail",

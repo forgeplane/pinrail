@@ -120,3 +120,61 @@ document.addEventListener("keydown", (event) => {
   show(dot.closest(".pr-shots"), n);
   dots[n].focus();
 });
+
+// A plugin's contract: tabs for the manifest, the payload and the decision,
+// each as fields or as JSON. The tab and the view are remembered, so every
+// plugin page opens on the one the reader last looked at.
+const CONTRACT_KEY = "pr-contract";
+const remembered = () => {
+  try { return JSON.parse(localStorage.getItem(CONTRACT_KEY) || "{}"); } catch { return {}; }
+};
+function remember(patch) {
+  try { localStorage.setItem(CONTRACT_KEY, JSON.stringify({ ...remembered(), ...patch })); } catch { /* storage off: nothing to keep */ }
+}
+
+function showTab(figure, key, focus) {
+  figure.querySelectorAll("[data-contract-tab]").forEach((tab) => {
+    const on = tab.dataset.contractTab === key;
+    tab.setAttribute("aria-selected", String(on));
+    tab.tabIndex = on ? 0 : -1;
+    if (on && focus) tab.focus();
+  });
+  figure.querySelectorAll("[data-contract-panel]").forEach((panel) => { panel.hidden = panel.dataset.contractPanel !== key; });
+}
+
+function showView(figure, view) {
+  figure.querySelectorAll("[data-contract-show]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.contractShow === view)));
+  figure.querySelectorAll("[data-contract-view]").forEach((v) => { v.hidden = v.dataset.contractView !== view; });
+}
+
+for (const figure of document.querySelectorAll("[data-contract]")) {
+  const { tab, view } = remembered();
+  if (tab && figure.querySelector(`[data-contract-tab="${tab}"]`)) showTab(figure, tab, false);
+  if (view) showView(figure, view);
+}
+
+document.addEventListener("click", (event) => {
+  const tab = event.target.closest && event.target.closest("[data-contract-tab]");
+  if (tab) {
+    showTab(tab.closest("[data-contract]"), tab.dataset.contractTab, false);
+    remember({ tab: tab.dataset.contractTab });
+    return;
+  }
+  const view = event.target.closest && event.target.closest("[data-contract-show]");
+  if (view) {
+    showView(view.closest("[data-contract]"), view.dataset.contractShow);
+    remember({ view: view.dataset.contractShow });
+  }
+});
+
+// the arrow keys move between the tabs, as a tab list does
+document.addEventListener("keydown", (event) => {
+  const tab = event.target.closest && event.target.closest("[data-contract-tab]");
+  if (!tab || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = [...tab.parentElement.querySelectorAll("[data-contract-tab]")];
+  const at = tabs.indexOf(tab);
+  const n = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (at + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  event.preventDefault();
+  showTab(tab.closest("[data-contract]"), tabs[n].dataset.contractTab, true);
+  remember({ tab: tabs[n].dataset.contractTab });
+});
