@@ -1,0 +1,21 @@
+{
+  "intro": "Two findings from the audit of `lib/billing`.",
+  "groups": [
+    {
+      "title": "lib/billing/invoice.ex",
+      "items": [
+        {
+          "id": 1,
+          "severity": "major",
+          "title": "Rounding happens before tax is applied",
+          "body": "Round the total once, after tax."
+        },
+        {
+          "id": 2,
+          "severity": "minor",
+          "title": "Unused alias `Decimal`"
+        }
+      ]
+    }
+  ]
+}

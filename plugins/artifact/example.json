@@ -1,0 +1,6 @@
+{
+  "title": "Pricing page",
+  "viewport": "desktop",
+  "notes": "Look at the headline and the plan cards.",
+  "html": "<!doctype html><html><head><style>body{font-family:system-ui;margin:40px}h1{font-size:32px}.plan{border:1px solid #ccc;padding:16px;margin-top:16px}</style></head><body><h1>Simple pricing</h1><div class=\"plan\"><h2>Team</h2><p>$12 per seat</p></div></body></html>"
+}

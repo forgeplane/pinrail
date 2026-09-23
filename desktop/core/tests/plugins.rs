@@ -323,3 +323,55 @@ async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unc
         Err(Error::NotFound(_))
     ));
 }
+
+#[test]
+fn every_shipped_plugin_says_when_to_use_it_and_gives_an_example_that_passes() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+    for entry in std::fs::read_dir(&root).unwrap().flatten() {
+        if !entry.path().join("manifest.json").is_file() {
+            continue;
+        }
+        // a view built from sources is not in a fresh checkout: stand in for it
+        let copy = tempfile::tempdir().unwrap();
+        copy_without_node_modules(&entry.path(), copy.path());
+        let manifest: Value = serde_json::from_str(
+            &std::fs::read_to_string(copy.path().join("manifest.json")).unwrap(),
+        )
+        .unwrap();
+        let view = copy
+            .path()
+            .join(manifest["entry"].as_str().unwrap_or("index.html"));
+        if !view.is_file() {
+            std::fs::create_dir_all(view.parent().unwrap()).unwrap();
+            std::fs::write(&view, "").unwrap();
+        }
+        let plugin = wicket_core::plugins::Plugin::load(copy.path());
+        assert!(plugin.usable(), "{}: {:?}", plugin.name, plugin.error);
+        assert!(
+            plugin.use_when.is_some(),
+            "{} says when to use it",
+            plugin.name
+        );
+        assert!(
+            plugin.example.is_some(),
+            "{}: {:?}",
+            plugin.name,
+            plugin.example_error
+        );
+    }
+}
+
+fn copy_without_node_modules(from: &Path, to: &Path) {
+    for entry in std::fs::read_dir(from).unwrap().flatten() {
+        let target = to.join(entry.file_name());
+        if entry.file_name() == "node_modules" {
+            continue;
+        }
+        if entry.path().is_dir() {
+            std::fs::create_dir_all(&target).unwrap();
+            copy_without_node_modules(&entry.path(), &target);
+        } else {
+            std::fs::copy(entry.path(), target).unwrap();
+        }
+    }
+}

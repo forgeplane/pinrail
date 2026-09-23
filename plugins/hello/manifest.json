@@ -2,6 +2,8 @@
   "name": "hello",
   "version": 1,
   "title": "Hello",
+  "description": "One yes-or-no question with an optional comment: the smallest complete plugin.",
+  "use_when": "You need a single yes or no from the person, such as whether to push, deploy or go on.",
   "icon": "hand",
   "payload_schema": {
     "type": "object",
@@ -14,6 +16,7 @@
     "additionalProperties": false,
     "properties": { "ok": { "type": "boolean" }, "comment": { "type": "string" } }
   },
+  "example": "example.json",
   "entry": "view/index.html",
   "min_height": 200
 }

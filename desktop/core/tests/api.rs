@@ -2367,6 +2367,7 @@ async fn plugins_describe_themselves_and_a_submission_validates_without_being_st
         "the $ref is read in: {list}"
     );
     assert!(list["decision_schema"]["properties"].is_object());
+    assert!(list["use_when"].is_string() && list["example"]["groups"].is_array());
     let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/describe", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 

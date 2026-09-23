@@ -2,9 +2,12 @@
   "name": "list",
   "version": 1,
   "title": "Action list",
+  "description": "Items grouped under headings, each accepted or rejected with an optional note.",
+  "use_when": "You have a list of findings, proposed changes or tasks and need a person to accept or reject each one before you act on them.",
   "icon": "list-checks",
   "payload_schema": { "$ref": "payload.schema.json" },
   "decision_schema": { "$ref": "decision.schema.json" },
+  "example": "example.json",
   "entry": "index.html",
   "min_height": 400
 }
