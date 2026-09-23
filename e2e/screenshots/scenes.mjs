@@ -75,6 +75,31 @@ export const scenes = [
     },
   },
   {
+    // one time chosen, one item sent back for another time with a note; then
+    // the same plan in the day and the list views
+    name: "calendar",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["18-calendar-week"]);
+      await f.getByRole("button", { name: "Week", exact: true }).click();
+      await f.locator('.event[data-option="doctor-mon"]').click();
+      const dinner = f.locator('[data-activity="dinner"]');
+      await dinner.getByRole("button", { name: "Another time" }).click();
+      await dinner.locator("textarea").fill("Friday evening works better");
+      await f.locator("#calendar-scroll").evaluate((el) => el.scrollTo({ top: 60, behavior: "instant" }));
+      await settle(page);
+      await shot("calendar-week");
+      await f.getByRole("button", { name: "Day", exact: true }).click();
+      await f.locator(".day-strip button").filter({ hasText: "22" }).click();
+      await f.locator("#calendar-scroll").evaluate((el) => el.scrollTo({ top: 420, behavior: "instant" }));
+      await settle(page);
+      await shot("calendar-day");
+      await f.getByRole("button", { name: "List", exact: true }).click();
+      await settle(page);
+      await shot("calendar-list");
+      await shot("calendar-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
     // a verdict on three marks, the favourite with a change to one of its parts half written
     name: "logo",
     async run({ page, app, reviews, shot }) {

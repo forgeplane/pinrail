@@ -28,7 +28,7 @@ export function fixtures() {
 }
 
 /** The plugins the fixtures use beyond the built-in ones. */
-const OPTIONAL = ["review", "email", "artifact", "logo"];
+const OPTIONAL = ["review", "email", "artifact", "logo", "calendar"];
 
 async function install(app, name) {
   const { job } = await app.api("POST", "/api/v1/plugins/install", { source: path.join(app.root, "plugins", name) });
