@@ -77,6 +77,7 @@ export default defineConfig({
             "docs/plugins/artifact",
             "docs/plugins/calendar",
             "docs/plugins/logo",
+            "docs/plugins/model",
           ],
         },
         { label: "Building plugins", items: ["docs/building/writing", "docs/building/settings-and-keys", "docs/building/protocol", "docs/building/publishing"] },

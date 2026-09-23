@@ -121,6 +121,33 @@ export const scenes = [
     },
   },
   {
+    // the favourite on the stage, a change pinned to its base and another being written on its shade
+    name: "model",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["19-model-halden"]);
+      await f.locator(".pick .still img").first().waitFor();
+      const verdict = async (index, action, note) => {
+        await f.locator(".pick").nth(index).click();
+        await f.locator(`.choice[data-action="${action}"]`).click();
+        if (note) await f.locator("#note").fill(note);
+        await settle(page, 150);
+      };
+      await verdict(1, "drop", "A lamp that cannot be aimed is not a desk lamp");
+      await verdict(2, "keep");
+      await verdict(0, "favorite", "Warmer overall; it reads a little cold next to Column");
+      await f.locator("[data-part]").filter({ hasText: "Base" }).click();
+      await f.locator("#part-note").fill("A darker oak, closer to the walnut of Column");
+      await f.locator("#part-note").press("Enter");
+      await f.locator("[data-part]").filter({ hasText: "Shade" }).click();
+      await f.locator("#part-note").fill("Wider and shallower, so the bulb is hidden from the chair");
+      // back to the top: the model's name and reasoning above the stage
+      await f.locator("#sheet").evaluate((el) => { el.scrollTop = 0; });
+      await settle(page, 600);
+      await shot("model");
+      await shot("model-view", page.locator("#plugin-frame"));
+    },
+  },
+  {
     // two comments pinned, a third element picked and its comment being typed
     name: "artifact",
     async run({ page, app, reviews, shot }) {

@@ -16,6 +16,7 @@ Every review uses a plugin, and the plugin decides what the person sees and what
 | Comment on a page, mockup or template it designed | [Artifact](/docs/plugins/artifact/) | <span class="pr-badge optional">Optional</span> |
 | Choose times for appointments, meetings or interviews it found | [Calendar](/docs/plugins/calendar/) | <span class="pr-badge optional">Optional</span> |
 | Choose between logo marks, app icons or favicons it drew | [Logo](/docs/plugins/logo/) | <span class="pr-badge optional">Optional</span> |
+| Choose between 3D models it made, and ask for changes to their parts | [3D model](/docs/plugins/model/) | <span class="pr-badge optional">Optional</span> |
 
 When nothing fits exactly, start with **List**. Almost any batch of proposed actions reads well as grouped items with a verdict each, and your agent can use it today, with nothing to install. When the decision needs a view of its own, [build a plugin](/docs/building/writing/).
 

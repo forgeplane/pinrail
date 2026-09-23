@@ -65,7 +65,7 @@ Two plugins are built into the app and always available:
 | `list` | Items grouped under headings, each accepted or rejected with an optional note. The general-purpose choice for findings, tasks and proposed actions. |
 | `feedback` | Questions an agent wants answered before it goes on: choices, free text and acknowledgments, grouped and conditional, answered in one pass. |
 
-Six more ship as samples, to install or to learn from:
+Seven more ship as samples, to install or to learn from:
 
 | Plugin | For |
 |---|---|
@@ -74,6 +74,7 @@ Six more ship as samples, to install or to learn from:
 | `artifact` | An HTML page an agent designed: pick elements the way browser developer tools do, comment on them, and the agent gets the selectors back. |
 | `calendar` | Times to arrange around what is already booked: one suggested slot per item, with conflicting suggestions stepping aside, or the item left for the agent. |
 | `logo` | Candidate logo marks, seen at every size, as app icons and in a menu bar: pick a favourite, keep or drop the rest, and ask for changes to parts of a mark. |
+| `model` | Candidate 3D models on a stage to orbit, under studio light, daylight or at night: pick a favourite, keep or drop the rest, and ask for changes to parts of a model. |
 | `hello` | The smallest complete plugin: one yes-or-no question with a comment. A starting point to copy from. |
 
 ## Your own

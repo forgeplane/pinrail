@@ -53,7 +53,8 @@ const chosen = scenes.filter((s) => !only || s.name.startsWith(only));
 if (!chosen.length) throw new Error(`no scene starts with ${only}`);
 
 const app = await startApp({ build: !args.includes("--no-build") });
-const browser = await chromium.launch();
+// WebGL in software, for the views that draw with it (the model plugin)
+const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 let failed = false;
 try {
   const reviews = await seed(app);
