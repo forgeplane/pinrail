@@ -1,0 +1,34 @@
+{
+  "plugin": "review",
+  "title": "Upgrade TypeScript to 5.9",
+  "origin": {
+    "repo": "northwind/web-app",
+    "workflow": "pr-review",
+    "ref": "471"
+  },
+  "requested_by": "claude",
+  "age": "1d",
+  "withdraw": "Superseded by the monorepo-wide upgrade in #479",
+  "decided": "22h",
+  "payload": {
+    "change": {
+      "ref": "#471",
+      "title": "Upgrade TypeScript to 5.9"
+    },
+    "files": [
+      {
+        "path": "package.json",
+        "diff": "@@ -40,1 +40,1 @@\n-    \"typescript\": \"5.8.3\",\n+    \"typescript\": \"5.9.2\",\n"
+      }
+    ],
+    "proposals": [
+      {
+        "id": 1,
+        "title": "Pin the patch version",
+        "body": "Use `~5.9.2` like the other tools.",
+        "file": "package.json",
+        "line": 40
+      }
+    ]
+  }
+}

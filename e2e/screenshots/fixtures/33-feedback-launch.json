@@ -1,0 +1,48 @@
+{
+  "plugin": "feedback",
+  "title": "Launch checklist for release 4.13",
+  "origin": {
+    "repo": "northwind/web-app",
+    "workflow": "release"
+  },
+  "requested_by": "claude",
+  "age": "4d",
+  "decided": "4d",
+  "payload": {
+    "groups": [
+      {
+        "id": "launch",
+        "title": "Launch",
+        "questions": [
+          {
+            "id": "day",
+            "type": "single_choice",
+            "prompt": "Ship on Tuesday or Wednesday?",
+            "required": true,
+            "options": [
+              {
+                "id": "tue",
+                "label": "Tuesday"
+              },
+              {
+                "id": "wed",
+                "label": "Wednesday"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "decision": {
+    "answers": [
+      {
+        "question_id": "day",
+        "answer": "tue",
+        "comment": "before the webinar"
+      }
+    ],
+    "unanswered": [],
+    "excluded": []
+  }
+}

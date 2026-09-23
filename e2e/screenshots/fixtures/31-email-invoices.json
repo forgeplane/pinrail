@@ -1,0 +1,41 @@
+{
+  "plugin": "email",
+  "title": "Overdue invoice reminders",
+  "origin": {
+    "repo": "northwind/billing",
+    "workflow": "dunning"
+  },
+  "requested_by": "codex",
+  "age": "3d",
+  "decided": "3d",
+  "payload": {
+    "from": "billing@northwind.dev",
+    "drafts": [
+      {
+        "id": "inv-2291",
+        "to": [
+          "ap@kestrel.example"
+        ],
+        "subject": "Invoice NW-2291 is 14 days overdue",
+        "body": "Hello,\n\nInvoice NW-2291 for $4,200, due on 5 September, is still open. You can pay it at the link below, or reply if something's holding it up.\n\nThanks,\nNorthwind Billing"
+      }
+    ]
+  },
+  "decision": {
+    "drafts": [
+      {
+        "id": "inv-2291",
+        "action": "send",
+        "subject": "Invoice NW-2291 is 14 days overdue",
+        "body": "Hello,\n\nInvoice NW-2291 for $4,200, due on 5 September, is still open. You can pay it at the link below, or reply if anything is holding it up.\n\nThanks,\nNorthwind Billing",
+        "edits": [
+          {
+            "from": "something's holding it up",
+            "to": "anything is holding it up"
+          }
+        ]
+      }
+    ],
+    "undecided": []
+  }
+}

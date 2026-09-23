@@ -1,0 +1,63 @@
+{
+  "plugin": "list",
+  "title": "Sentry triage, Monday",
+  "origin": {
+    "repo": "northwind/api",
+    "workflow": "triage"
+  },
+  "requested_by": "oncall-agent",
+  "age": "2d",
+  "decided": "2d",
+  "payload": {
+    "intro": "Five issues from the last 24 hours.",
+    "groups": [
+      {
+        "title": "Mute",
+        "items": [
+          {
+            "id": 1,
+            "severity": "minor",
+            "title": "Mute ECONNRESET from the image proxy for 7 days",
+            "body": "Upstream CDN incident, resolved."
+          }
+        ]
+      },
+      {
+        "title": "Open an issue",
+        "items": [
+          {
+            "id": 2,
+            "severity": "major",
+            "title": "TypeError: cannot read 'currency' of undefined in /checkout",
+            "body": "212 events, 38 users, since the 4.12 deploy."
+          },
+          {
+            "id": 3,
+            "severity": "major",
+            "title": "Timeout on /v1/orders past 20k rows",
+            "body": "Nine accounts affected."
+          }
+        ]
+      }
+    ]
+  },
+  "decision": {
+    "decisions": [
+      {
+        "id": 1,
+        "action": "accept"
+      },
+      {
+        "id": 2,
+        "action": "accept",
+        "note": "assign to the checkout team"
+      },
+      {
+        "id": 3,
+        "action": "accept",
+        "note": "link it to ENG-1142"
+      }
+    ],
+    "undecided": []
+  }
+}

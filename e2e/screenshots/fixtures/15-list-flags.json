@@ -1,0 +1,44 @@
+{
+  "plugin": "list",
+  "title": "Stale feature flags to remove",
+  "origin": {
+    "repo": "northwind/web-app",
+    "workflow": "cleanup"
+  },
+  "requested_by": "claude",
+  "age": "3h",
+  "payload": {
+    "intro": "Flags that have been at 100% for more than 60 days.",
+    "groups": [
+      {
+        "title": "At 100% everywhere",
+        "items": [
+          {
+            "id": 1,
+            "title": "new-checkout-flow",
+            "body": "On for everyone since 2 July. 23 references.",
+            "meta": {
+              "age": "82 days"
+            }
+          },
+          {
+            "id": 2,
+            "title": "dark-mode-beta",
+            "body": "On since 14 June. 4 references.",
+            "meta": {
+              "age": "100 days"
+            }
+          },
+          {
+            "id": 3,
+            "title": "bulk-export-v2",
+            "body": "On since 30 July. 9 references.",
+            "meta": {
+              "age": "54 days"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

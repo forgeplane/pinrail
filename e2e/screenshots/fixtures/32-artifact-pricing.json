@@ -1,0 +1,28 @@
+{
+  "plugin": "artifact",
+  "title": "Pricing page redesign",
+  "origin": {
+    "repo": "tidewater/website",
+    "workflow": "design"
+  },
+  "requested_by": "claude",
+  "age": "2d",
+  "decided": "1d",
+  "payload": {
+    "title": "Pricing page",
+    "html": "<!doctype html><html><body style=\"font-family:system-ui;padding:48px\"><h1 id=\"title\">Pricing</h1><p>Usage-based, no minimums.</p></body></html>"
+  },
+  "decision": {
+    "verdict": "revise",
+    "comments": [
+      {
+        "id": "c1",
+        "selector": "#title",
+        "tag": "h1",
+        "kind": "change",
+        "text": "Lead with the free tier",
+        "snippet": "Pricing"
+      }
+    ]
+  }
+}

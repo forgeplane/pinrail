@@ -70,3 +70,8 @@ run = [
   "cargo run -q --manifest-path desktop/Cargo.toml -p wicket-core --features docs --bin wicket-docs -- settings > docs/reference/settings.md",
   "cargo run -q --manifest-path desktop/Cargo.toml -p wicket-core --features docs --bin wicket-docs -- manifest > docs/reference/manifest.md",
 ]
+
+[tasks.screenshots]
+description = "Screenshots of the app for the docs and the website, light and dark, from fixed fixtures: mise run screenshots -- --only inbox"
+dir = "{{config_root}}/e2e"
+run = "node screenshots/run.mjs"

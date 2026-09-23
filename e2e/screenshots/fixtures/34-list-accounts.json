@@ -1,0 +1,27 @@
+{
+  "plugin": "list",
+  "title": "Delete inactive user accounts",
+  "origin": {
+    "repo": "northwind/api",
+    "workflow": "data-retention"
+  },
+  "requested_by": "claude",
+  "age": "6h",
+  "discard": "Not before legal signs off on the retention policy",
+  "decided": "5h",
+  "payload": {
+    "groups": [
+      {
+        "title": "Inactive for 3 years",
+        "items": [
+          {
+            "id": 1,
+            "severity": "major",
+            "title": "Delete 1,284 accounts",
+            "body": "No login since 2023."
+          }
+        ]
+      }
+    ]
+  }
+}

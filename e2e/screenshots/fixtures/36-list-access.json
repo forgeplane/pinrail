@@ -1,0 +1,43 @@
+{
+  "plugin": "list",
+  "title": "Quarterly access review",
+  "origin": {
+    "repo": "northwind/infra",
+    "workflow": "access-review"
+  },
+  "requested_by": "cost-agent",
+  "age": "5d",
+  "decided": "5d",
+  "payload": {
+    "groups": [
+      {
+        "title": "Production database",
+        "items": [
+          {
+            "id": 1,
+            "title": "Revoke access for j.ramos",
+            "body": "Left the company on 1 September."
+          },
+          {
+            "id": 2,
+            "title": "Keep access for the on-call rotation",
+            "body": "Eight engineers."
+          }
+        ]
+      }
+    ]
+  },
+  "decision": {
+    "decisions": [
+      {
+        "id": 1,
+        "action": "accept"
+      },
+      {
+        "id": 2,
+        "action": "accept"
+      }
+    ],
+    "undecided": []
+  }
+}

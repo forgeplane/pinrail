@@ -1,0 +1,52 @@
+{
+  "plugin": "list",
+  "title": "Unused cloud resources, September",
+  "origin": {
+    "repo": "northwind/infra",
+    "workflow": "cost-review"
+  },
+  "requested_by": "cost-agent",
+  "age": "5h",
+  "payload": {
+    "intro": "Resources with no traffic for 30 days. Deleting all of them saves about **$1,840 a month**.",
+    "groups": [
+      {
+        "title": "Storage",
+        "items": [
+          {
+            "id": 1,
+            "severity": "minor",
+            "title": "Delete bucket northwind-exports-2024",
+            "body": "1.2 TB, last read 21 March.",
+            "meta": {
+              "saves": "$28/mo"
+            }
+          },
+          {
+            "id": 2,
+            "severity": "major",
+            "title": "Delete 14 unattached volumes in eu-west-1",
+            "body": "Snapshots exist for all 14.",
+            "meta": {
+              "saves": "$410/mo"
+            }
+          }
+        ]
+      },
+      {
+        "title": "Compute",
+        "items": [
+          {
+            "id": 3,
+            "severity": "major",
+            "title": "Stop the staging-2 cluster",
+            "body": "No deploys since the staging consolidation in August.",
+            "meta": {
+              "saves": "$1,402/mo"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

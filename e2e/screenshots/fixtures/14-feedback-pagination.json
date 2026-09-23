@@ -1,0 +1,111 @@
+{
+  "plugin": "feedback",
+  "title": "Pagination for the orders API: a few decisions first",
+  "origin": {
+    "repo": "northwind/api",
+    "workflow": "planning",
+    "ref": "ENG-1142"
+  },
+  "requested_by": "claude",
+  "age": "35m",
+  "payload": {
+    "description": "`GET /v1/orders` returns every order in one response, and the biggest accounts now wait 9 seconds for it. Before I change the endpoint I need three decisions from you.",
+    "groups": [
+      {
+        "id": "shape",
+        "title": "How it pages",
+        "questions": [
+          {
+            "id": "style",
+            "type": "single_choice",
+            "prompt": "Which pagination style should the endpoint use?",
+            "required": true,
+            "options": [
+              {
+                "id": "cursor",
+                "label": "Cursor-based",
+                "description": "Stable under inserts; clients pass `after`."
+              },
+              {
+                "id": "offset",
+                "label": "Offset and limit",
+                "description": "Simple, but pages shift as orders arrive."
+              }
+            ],
+            "recommendation": {
+              "answer": "cursor",
+              "reason": "Orders are inserted constantly; offsets would skip or repeat rows between pages."
+            }
+          },
+          {
+            "id": "page_size",
+            "type": "single_choice",
+            "prompt": "Default page size",
+            "required": true,
+            "options": [
+              {
+                "id": "size_50",
+                "label": "50"
+              },
+              {
+                "id": "size_100",
+                "label": "100"
+              },
+              {
+                "id": "size_250",
+                "label": "250"
+              }
+            ],
+            "recommendation": {
+              "answer": "size_100",
+              "reason": "Matches what the dashboard shows and keeps responses under 200 KB."
+            }
+          }
+        ]
+      },
+      {
+        "id": "compat",
+        "title": "Existing clients",
+        "questions": [
+          {
+            "id": "break",
+            "type": "boolean",
+            "prompt": "Can the default response change for existing clients?",
+            "required": true,
+            "description": "142 API keys called this endpoint in the last 30 days."
+          },
+          {
+            "id": "deprecation",
+            "type": "single_choice",
+            "prompt": "How long should the unpaginated response keep working?",
+            "when": {
+              "question_id": "break",
+              "operator": "equals",
+              "value": false
+            },
+            "options": [
+              {
+                "id": "days_30",
+                "label": "30 days"
+              },
+              {
+                "id": "days_90",
+                "label": "90 days"
+              },
+              {
+                "id": "forever",
+                "label": "Behind a flag, indefinitely"
+              }
+            ]
+          },
+          {
+            "id": "notify",
+            "type": "checkbox",
+            "prompt": "Customer notice",
+            "checkbox_label": "Email the 142 API key owners before the change ships"
+          }
+        ]
+      }
+    ]
+  }
+}

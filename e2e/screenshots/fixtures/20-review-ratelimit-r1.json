@@ -1,0 +1,83 @@
+{
+  "plugin": "review",
+  "title": "Rate limit the public API per key",
+  "origin": {
+    "repo": "northwind/api",
+    "workflow": "pr-review",
+    "ref": "476"
+  },
+  "requested_by": "claude",
+  "age": "1d",
+  "decided": "20h",
+  "payload": {
+    "change": {
+      "ref": "#476",
+      "title": "Rate limit the public API per key",
+      "url": "https://github.com/northwind/api/pull/476",
+      "source": "feat/rate-limits",
+      "target": "main"
+    },
+    "files": [
+      {
+        "path": "src/middleware/rateLimit.ts",
+        "status": "added",
+        "rank": 1,
+        "diff": "@@ -0,0 +1,12 @@\n+import type { Request, Response, NextFunction } from \"express\";\n+import { redis } from \"../redis\";\n+\n+const LIMIT = 100;\n+\n+export async function rateLimit(req: Request, res: Response, next: NextFunction) {\n+  const key = `rl:${req.apiKey.id}:${Math.floor(Date.now() / 60_000)}`;\n+  const count = await redis.incr(key);\n+  if (count === 1) await redis.expire(key, 60);\n+  if (count > LIMIT) return res.status(429).json({ error: \"rate_limited\" });\n+  next();\n+}\n"
+      }
+    ],
+    "proposals": [
+      {
+        "id": 1,
+        "kind": "comment",
+        "severity": "major",
+        "title": "Send Retry-After with the 429",
+        "body": "Clients can't back off correctly without it.",
+        "file": "src/middleware/rateLimit.ts",
+        "line": 10,
+        "side": "new"
+      },
+      {
+        "id": 2,
+        "kind": "comment",
+        "severity": "minor",
+        "title": "The limit should be per plan, not a constant",
+        "body": "Enterprise keys get 1,000/min in the pricing page.",
+        "file": "src/middleware/rateLimit.ts",
+        "line": 4,
+        "side": "new"
+      },
+      {
+        "id": 3,
+        "kind": "comment",
+        "severity": "nit",
+        "title": "Use a fixed error shape",
+        "body": "Other errors return `{ error: { code, message } }`.",
+        "file": "src/middleware/rateLimit.ts",
+        "line": 10,
+        "side": "new"
+      }
+    ]
+  },
+  "decision": {
+    "decisions": [
+      {
+        "id": 1,
+        "action": "accept"
+      },
+      {
+        "id": 2,
+        "action": "accept",
+        "note": "mention the plan table in billing/plans.ts"
+      },
+      {
+        "id": 3,
+        "action": "reject",
+        "note": "we're changing the error shape next quarter anyway"
+      }
+    ],
+    "comments": [],
+    "general_comments": [],
+    "undecided": []
+  },
+  "note": "Good catches. Post 1 and 2."
+}

@@ -1,0 +1,61 @@
+{
+  "plugin": "review",
+  "title": "Rate limit the public API per key — round 2",
+  "origin": {
+    "repo": "northwind/api",
+    "workflow": "pr-review",
+    "ref": "476"
+  },
+  "requested_by": "claude",
+  "age": "40m",
+  "revises": "20-review-ratelimit-r1",
+  "payload": {
+    "change": {
+      "ref": "#476",
+      "title": "Rate limit the public API per key",
+      "url": "https://github.com/northwind/api/pull/476",
+      "source": "feat/rate-limits",
+      "target": "main"
+    },
+    "files": [
+      {
+        "path": "src/middleware/rateLimit.ts",
+        "status": "added",
+        "rank": 1,
+        "diff": "@@ -0,0 +1,15 @@\n+import type { Request, Response, NextFunction } from \"express\";\n+import { redis } from \"../redis\";\n+\n+import { limitFor } from \"../billing/plans\";\n+\n+export async function rateLimit(req: Request, res: Response, next: NextFunction) {\n+  const key = `rl:${req.apiKey.id}:${Math.floor(Date.now() / 60_000)}`;\n+  const count = await redis.incr(key);\n+  if (count === 1) await redis.expire(key, 60);\n+  if (count > limitFor(req.apiKey.plan)) {\n+    res.set(\"Retry-After\", String(60 - (Math.floor(Date.now() / 1000) % 60)));\n+    return res.status(429).json({ error: \"rate_limited\" });\n+  }\n+  next();\n+}\n"
+      }
+    ],
+    "proposals": [
+      {
+        "id": 2,
+        "kind": "comment",
+        "severity": "minor",
+        "title": "The limit should be per plan, not a constant",
+        "body": "Now read from `limitFor(req.apiKey.plan)`, as you asked; the plan table is in `billing/plans.ts`.",
+        "file": "src/middleware/rateLimit.ts",
+        "line": 4,
+        "side": "new"
+      },
+      {
+        "id": 4,
+        "kind": "comment",
+        "severity": "minor",
+        "title": "Retry-After should come from the key's TTL",
+        "body": "`redis.ttl(key)` gives the exact wait; the clock arithmetic drifts from Redis's expiry.",
+        "file": "src/middleware/rateLimit.ts",
+        "line": 11,
+        "side": "new"
+      },
+      {
+        "id": 5,
+        "kind": "comment",
+        "severity": "nit",
+        "title": "Cache the plan limit on the key",
+        "body": "`limitFor` reads the plan table on every request.",
+        "file": "src/middleware/rateLimit.ts",
+        "line": 10,
+        "side": "new"
+      }
+    ]
+  }
+}

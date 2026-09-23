@@ -1,0 +1,79 @@
+{
+  "plugin": "list",
+  "title": "Dependency upgrades for web-app",
+  "origin": {
+    "repo": "northwind/web-app",
+    "workflow": "deps"
+  },
+  "requested_by": "renovate-agent",
+  "age": "12m",
+  "payload": {
+    "intro": "Nine outdated packages in **web-app**. I ran the test suite against each upgrade on its own branch.",
+    "groups": [
+      {
+        "title": "Safe: tests pass, no API changes",
+        "items": [
+          {
+            "id": 1,
+            "severity": "minor",
+            "title": "react 19.1.0 → 19.2.0",
+            "body": "Bug fixes only. All 412 tests pass.",
+            "meta": {
+              "type": "runtime"
+            }
+          },
+          {
+            "id": 2,
+            "severity": "nit",
+            "title": "vite 7.0.4 → 7.1.2",
+            "body": "Faster cold starts. Build output is byte-identical.",
+            "meta": {
+              "type": "dev"
+            }
+          },
+          {
+            "id": 3,
+            "severity": "nit",
+            "title": "eslint 9.30 → 9.33",
+            "body": "Two new rules, both off by default.",
+            "meta": {
+              "type": "dev"
+            }
+          }
+        ]
+      },
+      {
+        "title": "Needs a look",
+        "items": [
+          {
+            "id": 4,
+            "severity": "major",
+            "title": "zod 3.25 → 4.1",
+            "body": "Major version. 14 call sites use `.nonempty()`, which is removed; I have a codemod ready.",
+            "meta": {
+              "type": "runtime",
+              "call sites": "14"
+            }
+          },
+          {
+            "id": 5,
+            "severity": "minor",
+            "title": "date-fns 3.6 → 4.1",
+            "body": "Time zone support moved into the core package. Two imports change."
+          }
+        ]
+      },
+      {
+        "title": "Hold",
+        "items": [
+          {
+            "id": 6,
+            "severity": "blocker",
+            "title": "@tanstack/react-query 5 → 6 (beta)",
+            "body": "Only a beta is published. Two tests fail on the new suspense behaviour."
+          }
+        ]
+      }
+    ]
+  }
+}
