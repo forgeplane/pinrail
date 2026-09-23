@@ -300,3 +300,22 @@ test("a comment folds away, and each thing on a question clears on its own", asy
   await expect(approach.getByRole("button", { name: "Add a comment" })).toBeFocused();
   await expect.poll(async () => JSON.stringify(await plugin.lastDraft())).toBe(JSON.stringify({ values: {}, comments: {} }));
 });
+
+test("the agent's recommendation is one click away, and says so once it is the answer", async ({ page }) => {
+  const plugin = await mount(page);
+  const f = plugin.frame;
+  const approach = q(f, "approach");
+  await expect(approach.locator(".agent-card")).toContainText("Roll back to release 2.7");
+  await approach.getByRole("button", { name: "Use this answer" }).click();
+  await expect(approach.getByRole("radio", { name: /Roll back to release/ })).toBeChecked();
+  await expect(approach.getByRole("button", { name: "Use this answer" })).toHaveCount(0);
+  await expect(approach.locator(".agent-card")).toContainText("Your answer");
+
+  // a multiple choice takes every recommended option
+  await approach.getByRole("radio", { name: /Apply the proposed patch/ }).check();
+  const checks = q(f, "checks");
+  await checks.getByRole("button", { name: "Use this answer" }).click();
+  await expect(checks.getByRole("checkbox", { name: /Integration tests/ })).toBeChecked();
+  await expect(checks.getByRole("checkbox", { name: /Replay failed requests/ })).toBeChecked();
+  await expect(checks.getByRole("checkbox", { name: /Staging smoke test/ })).not.toBeChecked();
+});

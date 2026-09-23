@@ -2,9 +2,13 @@
    themes, the base typography, the scrollbars, the form controls — comes
    from the SDK stylesheet linked before this one.
 
-   The shape: a header that stays put, a rail of groups on the left, and one
-   column of questions that scrolls. That column is the only thing in the
-   view that scrolls, so the panel never shows a second bar beside it. */
+   The shape: a header that stays put, a rail of groups and their questions
+   on the left, and the questions filling the rest of the panel. Each
+   question is a card, everything in it full width: what the agent
+   recommends, the options, then the last round's answer and the comment.
+   The questions are
+   the only thing in the view that scrolls, so the panel never shows a
+   second bar beside them. */
 
 html, body, #app { height: 100%; overflow: hidden; }
 body { font-size: 13px; }
@@ -15,7 +19,7 @@ body { font-size: 13px; }
 
 /* ---------------------------------------------------------------- header */
 
-.feedback-header { gap: 8px 16px; padding: 10px 18px; }
+.feedback-header { position: relative; gap: 8px 16px; padding: 12px 20px; }
 /* the same control the review view carries: the rail goes, the questions stay */
 .rail-toggle {
   flex: none; display: inline-flex; margin: 0 -4px 0 -6px; padding: 3px 4px;
@@ -25,123 +29,156 @@ body { font-size: 13px; }
 .feedback-header .plugin-title {
   flex: 1; min-width: 0; margin: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 14.5px; font-weight: 600; line-height: 1.5; letter-spacing: -0.01em;
+  font-size: 15px; font-weight: 600; line-height: 1.5; letter-spacing: -0.01em;
 }
-.header-count { flex: none; color: var(--dim); font-size: 12px; white-space: nowrap; }
-.header-count b { color: var(--text); font-weight: 600; }
+.header-count { flex: none; display: flex; gap: 14px; color: var(--dim); font-size: 12px; white-space: nowrap; }
+.header-count b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tally-required b { color: var(--accent); }
+/* how far along the whole form is, as a hairline along the header's foot */
+.header-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.header-progress span { display: block; height: 100%; background: var(--accent); transition: width 160ms ease-out; }
 
 .workspace { display: flex; flex: 1; min-height: 0; }
 
 /* ------------------------------------------------------------------ rail
-   Where you are in the form: the groups, how many of each are answered, and
-   what is left to do. It never scrolls on its own — the list inside it does,
-   and only when there are more groups than fit. */
+   Where you are in the form: each group with its questions under it, a dot
+   for where each one stands, and what is left to do. Only the list inside
+   it scrolls, and only when there is more than fits. */
 
 .sidebar {
-  display: flex; flex-direction: column; gap: 18px;
-  width: 232px; flex: none; min-height: 0;
-  padding: 20px 12px 18px;
-  background: var(--bg-raised); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 14px;
+  width: 280px; flex: none; min-height: 0;
+  padding: 16px 12px 16px;
+  background: var(--bg-panel); border-right: 1px solid var(--border);
 }
 /* the display above outranks what [hidden] alone would do */
 .sidebar[hidden] { display: none; }
 .sidebar-label {
-  display: flex; justify-content: space-between; margin: 0 8px;
-  font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  display: flex; justify-content: space-between; margin: 4px 8px 0;
+  font: 600 10.5px var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--faint);
 }
 .sidebar-label span { font-weight: 500; letter-spacing: 0; }
-.sidebar nav { display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto; flex: 0 1 auto; }
+.sidebar nav { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; flex: 0 1 auto; }
 
 .group-link {
   display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 9px 8px; border: 0; border-radius: 7px;
-  background: none; color: var(--text); font-size: 12px; text-align: left;
+  padding: 7px 8px; border: 0; border-radius: 8px;
+  background: none; color: var(--text); font-size: 12.5px; font-weight: 600; text-align: left;
 }
 .group-link:hover { background: var(--bg-hover); }
-.group-link span:nth-child(2) { min-width: 0; }
-.group-link small { margin-left: auto; color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.group-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-link small { margin-left: auto; color: var(--faint); font: 500 10.5px var(--mono); font-variant-numeric: tabular-nums; }
 .group-icon {
   display: grid; place-items: center; flex: none;
-  width: 22px; height: 22px; border-radius: 6px;
+  width: 22px; height: 22px; border-radius: 7px;
   border: 1px solid var(--border-strong); color: var(--faint);
-  font: 10px var(--mono);
+  font: 500 10px var(--mono);
 }
 /* a group with every question answered, at a glance down the rail */
 .group-link.complete .group-icon { color: var(--ok); border-color: color-mix(in oklab, var(--ok) 55%, transparent); background: var(--add-bg); }
 
-.sidebar-progress { padding: 16px 8px 0; border-top: 1px solid var(--border); }
+.rail-questions { margin: 2px 0 0; padding: 0 0 0 19px; list-style: none; }
+.rail-question {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 4px 8px 4px 12px; border: 0; border-left: 1px solid var(--border); border-radius: 0 6px 6px 0;
+  background: none; color: var(--dim); font-size: 11.5px; text-align: left;
+}
+.rail-question:hover { color: var(--text); background: var(--bg-hover); }
+.rail-prompt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--faint); }
+.rail-question.is-answered .rail-dot { border-color: var(--ok); background: var(--ok); }
+.rail-question.is-required .rail-dot { border-color: var(--accent); }
+.rail-question.is-error .rail-dot { border-color: var(--danger); background: var(--danger); }
+.rail-question.is-error { color: var(--danger); }
+
+.sidebar-progress { margin-top: auto; padding: 14px 8px 0; border-top: 1px solid var(--border); }
 .progress-track { height: 3px; border-radius: 2px; background: var(--border); overflow: hidden; }
 .progress-track span { display: block; height: 100%; background: var(--accent); transition: width 140ms ease-out; }
-.sidebar-progress p { margin: 12px 0 4px; font-size: 11.5px; color: var(--text); }
+.sidebar-progress p { margin: 12px 0 4px; font-size: 12px; font-weight: 500; color: var(--text); }
 .sidebar-progress > span { display: block; font-size: 11px; line-height: 1.6; color: var(--faint); }
 
 /* ------------------------------------------------------------- questions */
 
-.questions-scroll { flex: 1; min-width: 0; overflow-y: auto; }
-.questions-content { max-width: 800px; margin: 0 auto; padding: 26px 40px 40px; }
+.questions-scroll { flex: 1; min-width: 0; overflow-y: auto; container-type: inline-size; }
+.questions-content { padding: 22px 28px 40px; }
 
-.request-description { margin: 0 0 26px; max-width: 68ch; color: var(--dim); font-size: 13px; line-height: 1.7; }
-
-.question-group { margin-bottom: 36px; scroll-margin-top: 16px; }
-.group-heading {
-  display: flex; gap: 12px; align-items: baseline;
-  margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+.request-description {
+  margin: 0 0 24px; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 10px;
+  color: var(--dim); font-size: 13px; line-height: 1.65;
 }
-.section-index { flex: none; font: 10.5px var(--mono); color: var(--faint); }
-.group-heading h2 { margin: 0; font-size: 15.5px; font-weight: 600; line-height: 1.4; letter-spacing: -0.015em; }
-.group-description { margin: 6px 0 0; max-width: 68ch; color: var(--dim); font-size: 12.5px; line-height: 1.65; }
+
+.question-group { margin-bottom: 30px; scroll-margin-top: 16px; }
+.group-heading { display: flex; gap: 12px; align-items: baseline; margin: 0 2px 12px; }
+.section-index { flex: none; font: 600 10.5px var(--mono); color: var(--faint); letter-spacing: 0.06em; }
+.group-heading h2 { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.35; letter-spacing: -0.02em; }
+.group-description { margin: 5px 0 0; max-width: 80ch; color: var(--dim); font-size: 12.5px; line-height: 1.65; }
 .group-description > :first-child, .question-description > :first-child, .request-description > :first-child { margin-top: 0; }
 .group-description > :last-child, .question-description > :last-child, .request-description > :last-child { margin-bottom: 0; }
 
-/* One question: a prompt in the margin's gutter, then everything it needs
-   indented under it, so the eye runs down one edge however the answer is
-   given — a choice, a box to type in, a tick. */
-.question { min-width: 0; margin: 0 0 26px; padding: 0; border: 0; }
-.question legend {
-  display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 0;
-  color: var(--text); font-size: 13px; font-weight: 600; line-height: 1.55;
+/* One question, as a card: the prompt across the top, and under it, in one
+   column, the agent's recommendation, the answer and the comment. */
+.question {
+  min-width: 0; margin: 0 0 10px; padding: 16px 18px 18px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel);
+  scroll-margin-top: 16px;
 }
-.question-number { flex: none; min-width: 15px; font: 10px var(--mono); color: var(--faint); }
-.question-meta { margin-left: auto; flex: none; display: inline-flex; align-items: baseline; gap: 12px; }
-.requirement { font-size: 10px; font-weight: 500; color: var(--faint); white-space: nowrap; }
+.question.is-answered { border-color: color-mix(in oklab, var(--ok) 28%, var(--border)); }
+.question.is-error { border-color: color-mix(in oklab, var(--danger) 55%, transparent); }
+.question legend {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 0; float: left; margin-bottom: 12px;
+  color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.45; letter-spacing: -0.01em;
+}
+.question legend + * { clear: both; }
+.question-number {
+  flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 7px;
+  border: 1px solid var(--border-strong); color: var(--faint); font: 500 10px var(--mono);
+}
+.question.is-answered .question-number { color: var(--ok); border-color: color-mix(in oklab, var(--ok) 55%, transparent); background: var(--add-bg); }
+.question.is-error .question-number { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 55%, transparent); }
+.question-prompt { min-width: 0; }
+.question-meta { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 12px; }
+.requirement {
+  padding: 1px 7px; border-radius: 99px; border: 1px solid var(--border);
+  font: 500 10px var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); white-space: nowrap;
+}
+.requirement.is-required { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 35%, transparent); }
 .clear-answer {
-  display: inline-flex; align-items: center; gap: 4px; align-self: center;
-  padding: 0; border: 0; background: none; color: var(--faint); font-size: 10px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0; border: 0; background: none; color: var(--faint); font-size: 11px; font-weight: 500;
 }
 .clear-answer:hover { color: var(--text); }
-.question > :not(legend) { margin-left: 25px; }
 
-.question-description { margin: 6px 0 8px 25px; max-width: 66ch; color: var(--dim); font-size: 12.5px; line-height: 1.65; }
-.question-hint {
-  display: flex; align-items: center; gap: 12px;
-  margin: 6px 0 10px 25px; font-size: 10.5px; color: var(--faint);
-}
+.question-body { display: grid; gap: 12px; min-width: 0; padding-left: 34px; }
+
+.question-description { margin: 0; max-width: 80ch; color: var(--dim); font-size: 12.5px; line-height: 1.65; }
+.question-hint { display: flex; align-items: center; gap: 12px; margin: 0 0 -4px; font-size: 11px; color: var(--faint); }
 .followup { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
 .answer-state { margin-left: auto; }
 
 /* --------------------------------------------------------------- answers */
 
-.choices { display: grid; gap: 6px; }
+/* the options fill the row, as many to a line as fit */
+.choices { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.choices.described { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .choice {
   display: flex; align-items: flex-start; gap: 11px;
-  padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px;
-  background: var(--bg-panel); cursor: pointer;
+  padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); cursor: pointer;
 }
 .choice:hover { border-color: var(--border-strong); background: var(--bg-hover); }
 .choice:has(:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.choice.is-selected { border-color: var(--accent); background: var(--accent-bg); }
+.choice.is-selected { border-color: var(--accent); background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent); }
 .choice-copy { display: block; flex: 1; min-width: 0; }
-.choice-label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12.5px; font-weight: 500; }
-.choice-description { display: block; margin-top: 3px; color: var(--dim); font-size: 11.5px; line-height: 1.55; }
+.choice-label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 13px; font-weight: 500; }
+.choice-description { display: block; margin-top: 3px; color: var(--dim); font-size: 12px; line-height: 1.55; }
 /* what the agent would pick, said once and quietly: the answer is not given */
 .rec-label {
   display: inline-flex; padding: 1px 6px; border-radius: 4px;
   border: 1px solid color-mix(in oklab, var(--accent) 35%, transparent);
   color: var(--accent); font-size: 9.5px; font-weight: 500; letter-spacing: 0.02em;
 }
-.boolean-choices { display: flex; }
-.boolean-choices .choice { min-width: 104px; }
+.boolean-choices { grid-template-columns: repeat(2, minmax(120px, 180px)); }
 
 input[type="radio"], input[type="checkbox"] {
   flex: none; width: 15px; height: 15px; margin: 2px 0 0;
@@ -153,75 +190,90 @@ input:disabled { cursor: default; }
 .acknowledgment {
   /* one short sentence to tick: a box the width of its words, not of the
      column, so it does not read as an empty field */
-  display: inline-flex; align-items: flex-start; gap: 11px; max-width: 100%;
-  padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px;
-  font-size: 12.5px; cursor: pointer;
+  display: inline-flex; justify-self: start; align-items: flex-start; gap: 11px; max-width: 100%;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); font-size: 13px; cursor: pointer;
 }
 .acknowledgment:hover { border-color: var(--border-strong); }
-.acknowledgment.is-selected { border-color: var(--accent); background: var(--accent-bg); }
+.acknowledgment.is-selected { border-color: var(--accent); background: var(--accent-bg); box-shadow: inset 0 0 0 1px var(--accent); }
 
 .text-answer {
-  display: block; width: calc(100% - 25px); min-height: 96px;
-  padding: 11px 13px; border-radius: 8px; background: var(--bg-panel);
-  font-size: 12.5px; line-height: 1.65; resize: vertical;
+  display: block; width: 100%; min-height: 110px;
+  padding: 11px 13px; border-radius: 10px; background: var(--bg);
+  font-size: 13px; line-height: 1.65; resize: vertical;
 }
 .text-limit { margin-top: 4px; min-height: 1px; text-align: right; color: var(--faint); font-size: 10px; }
 textarea:disabled { opacity: 1; color: var(--text); -webkit-text-fill-color: var(--text); }
 
-.recommendation { display: flex; gap: 8px; margin: 10px 0 0 25px; color: var(--dim); font-size: 11.5px; line-height: 1.6; }
-.recommendation .wi { flex: none; margin-top: 2px; color: var(--accent); }
-.recommendation strong { color: var(--text); font-weight: 500; }
+/* ------------------------------------------- the agent, the last round, the comment */
 
-/* ------------------------------------------------- comments and the rest */
+/* what the agent would answer, and one click to take it */
+.agent-card {
+  display: flex; align-items: center; gap: 10px 16px; padding: 11px 14px; border-radius: 10px;
+  background: var(--accent-bg); border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent);
+}
+.agent-copy { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.agent-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font: 600 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.agent-head .wi { align-self: center; }
+.agent-answer { font: 600 13px var(--sans); letter-spacing: 0; text-transform: none; color: var(--text); }
+.agent-reason { margin: 0; font-size: 12px; line-height: 1.6; color: var(--dim); }
+.use-rec {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 7px; border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent);
+  background: var(--bg); color: var(--accent); font-size: 11.5px; font-weight: 600;
+}
+.use-rec:hover { background: var(--accent); color: var(--bg); }
+.agent-taken { flex: none; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500; color: var(--ok); }
+.agent-card.is-taken { background: none; border-style: dashed; }
 
-.question-actions { display: flex; align-items: center; margin: 10px 0 0 25px; }
+.question-actions { display: flex; align-items: center; }
 .question-actions button {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 0; border: 0; background: none; color: var(--dim); font-size: 11px;
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%;
+  padding: 4px 0; border: 0; background: none; color: var(--dim); font-size: 12px;
 }
 .question-actions button:hover { color: var(--text); }
-.question-actions .comment-toggle { min-width: 0; max-width: 100%; }
 .comment-toggle .wi { flex: none; }
 .comment-toggle.has-comment[aria-expanded="false"] { color: var(--text); }
 .comment-preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--faint); font-style: italic; }
 .comment-preview::before { content: "— "; font-style: normal; }
 
-.comment-wrap { margin: 10px 0 0 25px; padding-left: 12px; border-left: 2px solid var(--border-strong); }
-.comment-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.comment-wrap label { font-size: 10.5px; color: var(--faint); }
+.comment-wrap { display: grid; gap: 6px; }
+.comment-wrap[hidden] { display: none; }
+.comment-head { display: flex; align-items: center; justify-content: space-between; }
+.comment-wrap label { font-size: 11px; color: var(--faint); }
 .remove-comment {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 0; border: 0; background: none; color: var(--faint); font-size: 10.5px;
+  padding: 0; border: 0; background: none; color: var(--faint); font-size: 11px;
 }
 .remove-comment:hover { color: var(--danger); }
 .question-comment {
-  display: block; width: 100%; min-height: 62px;
-  padding: 9px 11px; border-radius: 7px; font-size: 12px; line-height: 1.6; resize: vertical;
+  display: block; width: 100%; min-height: 72px;
+  padding: 9px 11px; border-radius: 9px; background: var(--bg); font-size: 12.5px; line-height: 1.6; resize: vertical;
 }
 
-.question-error { display: flex; gap: 6px; margin: 10px 0 0 25px; color: var(--danger); font-size: 12px; }
-.has-error .choices, .has-error .text-answer, .has-error .acknowledgment {
-  outline: 1px solid var(--danger); outline-offset: 3px; border-radius: 8px;
-}
+/* what the round before decided, for a question being asked again */
+.previous { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); color: var(--dim); font-size: 12px; }
+.previous summary { cursor: pointer; color: var(--faint); font-size: 11.5px; }
+.previous summary:hover { color: var(--text); }
+.previous p { margin: 8px 0 0; color: var(--text); }
+.previous blockquote { margin: 6px 0 0; padding-left: 10px; border-left: 2px solid var(--border-strong); }
+
+/* ------------------------------------------------------ errors and notes */
+
+.question-error { display: flex; gap: 6px; margin: 0; color: var(--danger); font-size: 12px; }
+.is-error .choice, .is-error .text-answer, .is-error .acknowledgment { border-color: color-mix(in oklab, var(--danger) 45%, var(--border)); }
 
 .validation-banner {
-  margin-bottom: 22px; padding: 11px 13px; border-radius: 8px; font-size: 12px;
+  margin-bottom: 18px; padding: 11px 13px; border-radius: 10px; font-size: 12.5px;
   border: 1px solid color-mix(in oklab, var(--danger) 35%, transparent);
   background: var(--del-bg); color: var(--danger);
 }
 .revision-note {
-  margin-bottom: 22px; padding: 8px 12px; border-left: 2px solid var(--accent);
-  color: var(--dim); font-size: 12px; line-height: 1.6;
+  margin-bottom: 18px; padding: 10px 14px; border-radius: 10px; border-left: 3px solid var(--accent);
+  background: var(--accent-bg); color: var(--dim); font-size: 12.5px; line-height: 1.6;
 }
 
-/* what the round before decided, for a question being asked again */
-.previous { margin: 12px 0 0 25px; color: var(--dim); font-size: 11.5px; }
-.previous summary { cursor: pointer; color: var(--faint); }
-.previous summary:hover { color: var(--text); }
-.previous p { margin: 8px 0 0; }
-.previous blockquote { margin: 6px 0 0; padding-left: 10px; border-left: 2px solid var(--border); }
-
-.end-note { display: flex; gap: 8px; margin-top: 30px; color: var(--faint); font-size: 11px; line-height: 1.6; }
+.end-note { display: flex; gap: 8px; margin-top: 24px; color: var(--faint); font-size: 11.5px; line-height: 1.6; }
 .end-note .wi { flex: none; margin-top: 2px; }
 .empty { padding: 60px 0; text-align: center; color: var(--dim); }
 
@@ -235,33 +287,35 @@ textarea:disabled { opacity: 1; color: var(--text); -webkit-text-fill-color: var
    workspace scrolls as one. */
 
 @media (max-width: 860px) {
-  .sidebar { width: 196px; padding-inline: 10px; }
-  .questions-content { padding: 24px 26px 34px; }
+  .sidebar { width: 220px; padding-inline: 10px; }
+  .questions-content { padding: 20px 18px 34px; }
 }
 
 @media (max-width: 600px) {
-  .feedback-header { padding: 9px 13px; gap: 4px 12px; }
+  .feedback-header { padding: 9px 13px; gap: 4px 12px; flex-wrap: wrap; }
   .feedback-header .plugin-title { flex-basis: 100%; font-size: 14px; }
-  .header-count { font-size: 11px; }
+  .header-count { font-size: 11px; gap: 10px; }
   .workspace { display: block; overflow-y: auto; }
   .sidebar {
     display: block; width: auto; padding: 10px 12px;
     border-right: 0; border-bottom: 1px solid var(--border);
   }
-  .sidebar-label, .sidebar-progress { display: none; }
+  .sidebar-label, .sidebar-progress, .rail-questions { display: none; }
   .sidebar nav { flex-direction: row; gap: 6px; overflow-x: auto; }
   .group-link { width: auto; flex: none; padding: 7px 8px; }
   .group-icon { width: 20px; height: 20px; }
   .questions-scroll { overflow: visible; }
-  .questions-content { padding: 22px 16px 30px; }
-  .question legend { gap: 8px; }
-  .question > :not(legend),
-  .question-description, .question-hint, .recommendation,
-  .question-actions, .comment-wrap, .question-error, .previous { margin-left: 0; }
-  .text-answer { width: 100%; }
-  .requirement { font-size: 9.5px; }
+  .questions-content { padding: 16px 12px 30px; }
+  .question { padding: 14px 14px 16px; }
+  .question legend { gap: 8px; font-size: 13.5px; }
+  .question-body { padding-left: 0; }
+  .choices, .choices.described { grid-template-columns: 1fr; }
+  .agent-card { flex-direction: column; align-items: flex-start; }
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  .choice, .rail-question, .use-rec { transition: background 0.14s, border-color 0.14s, color 0.14s; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }

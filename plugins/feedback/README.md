@@ -56,7 +56,7 @@ Every group and question needs a stable, unique ID. Questions are optional unles
 
 Choice, boolean, and acknowledgment questions have optional comments. Free-text questions use the answer itself for context, without a redundant comment field. Comments never satisfy a required answer.
 
-`recommendation: {answer, reason?}` marks the agent's suggestion without preselecting anything. Previous-round responses appear in a disclosure and do not prefill the new response.
+`recommendation: {answer, reason?}` marks the agent's suggestion without preselecting anything; the person can take it with one click. Previous-round responses appear in a disclosure and do not prefill the new response.
 
 ### Conditions
 

@@ -38,7 +38,7 @@
     if (q.type === 'checkbox') return `<label class="acknowledgment ${value === true ? 'is-selected' : ''}"><input id="answer-${q.id}" type="checkbox" data-answer="${q.id}" ${value === true ? 'checked' : ''} ${disabled} ${invalid} aria-labelledby="prompt-${q.id}" aria-describedby="${describedBy}"><span>${esc(q.checkbox_label || 'I confirm')}</span></label>`;
     const options = q.type === 'boolean' ? [{id:'true',label:'Yes'}, {id:'false',label:'No'}] : q.options;
     const multiple = q.type === 'multiple_choice';
-    return `<div class="choices ${q.type === 'boolean' ? 'boolean-choices' : ''}">${options.map((o, index) => {
+    return `<div class="choices ${q.type === 'boolean' ? 'boolean-choices' : options.some(o => o.description) ? 'described' : ''}">${options.map((o, index) => {
       const optionValue = q.type === 'boolean' ? o.id === 'true' : o.id;
       const selected = multiple ? (value || []).includes(o.id) : value === optionValue;
       const rec = q.recommendation && (multiple ? q.recommendation.answer.includes(o.id) : q.recommendation.answer === optionValue);
@@ -49,15 +49,23 @@
     const value = state.values[q.id], errors = showErrors ? C.errors(payload, state) : {}, error = errors[q.id];
     const has = C.answered(q, value), note = q.type === 'text' ? '' : state.comments[q.id] || '', expanded = opened.has(q.id);
     const old = previous?.decision?.data?.answers?.find(a => a.question_id === q.id);
-    return `<fieldset id="question-${q.id}" class="question ${error ? 'has-error' : ''}" data-question="${q.id}"><legend><span class="question-number">${String(number).padStart(2,'0')}</span><span id="prompt-${q.id}">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Wicket.icon('rotate-ccw', {size: 11})} Clear answer</button>` : ''}<span class="requirement">${q.required ? 'Required' : 'Optional'}</span></span></legend>
-      ${q.description ? `<div class="question-description" id="desc-${q.id}">${md(q.description)}</div>` : ''}
-      <div id="hint-${q.id}" class="question-hint"><span>${instructions[q.type]}${q.type === 'multiple_choice' && (q.min_selections || q.max_selections) ? ` · ${q.min_selections ? 'min ' + q.min_selections : ''}${q.min_selections && q.max_selections ? ', ' : ''}${q.max_selections ? 'max ' + q.max_selections : ''}` : ''}</span>${conditional ? `<span class="followup">${ico('corner-down-right')} Follow-up</span>` : ''}${plugin.readonly ? `<span class="answer-state">${has ? 'Answered' : 'Not answered'}</span>` : ''}</div>
-      ${controls(q, error)}
-      ${q.recommendation?.reason ? `<p class="recommendation">${ico('sparkles')}<span><strong>Agent’s reasoning:</strong> ${esc(q.recommendation.reason)}</span></p>` : ''}
-      ${old ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ''}</details>` : ''}
-      ${error ? `<p class="question-error" id="error-${q.id}">${ico('circle-alert')} ${esc(error)}</p>` : ''}
-      <div class="question-actions">${q.type !== 'text' && (!plugin.readonly || note) ? commentToggle(q, note, expanded) : ''}</div>
-      <div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? '' : 'hidden'}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico('trash-2')} Remove comment</button>` : ''}</div><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="2" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? 'disabled' : ''}>${esc(note)}</textarea></div>
+    const rec = q.recommendation, taken = rec && JSON.stringify(rec.answer) === JSON.stringify(value);
+    const status = error ? 'error' : has ? 'answered' : q.required ? 'required' : 'open';
+    // what the agent would pick, above the options; the last round and the comment below them
+    const agent = rec ? `<div class="agent-card ${taken ? 'is-taken' : ''}"><div class="agent-copy"><div class="agent-head">${ico('sparkles')}<span>Agent recommends</span><strong class="agent-answer">${esc(C.describe(q, rec.answer))}</strong></div>${rec.reason ? `<p class="agent-reason">${esc(rec.reason)}</p>` : ''}</div>${plugin.readonly ? '' : taken ? `<span class="agent-taken">${ico('check')} Your answer</span>` : `<button type="button" class="use-rec" data-use-rec="${q.id}">${ico('corner-down-left')} Use this answer</button>`}</div>` : '';
+    const after = [
+      old ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ''}</details>` : '',
+      q.type !== 'text' && (!plugin.readonly || note) ? `<div class="question-actions">${commentToggle(q, note, expanded)}</div><div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? '' : 'hidden'}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico('trash-2')} Remove comment</button>` : ''}</div><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="3" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? 'disabled' : ''}>${esc(note)}</textarea></div>` : '',
+    ].join('');
+    return `<fieldset id="question-${q.id}" class="question is-${status}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Wicket.icon('check', {size: 12}) : String(number).padStart(2,'0')}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Wicket.icon('rotate-ccw', {size: 11})} Clear answer</button>` : ''}<span class="requirement ${q.required ? 'is-required' : ''}">${q.required ? 'Required' : 'Optional'}</span></span></legend>
+      <div class="question-body">
+        ${q.description ? `<div class="question-description" id="desc-${q.id}">${md(q.description)}</div>` : ''}
+        ${agent}
+        <div id="hint-${q.id}" class="question-hint"><span>${instructions[q.type]}${q.type === 'multiple_choice' && (q.min_selections || q.max_selections) ? ` · ${q.min_selections ? 'min ' + q.min_selections : ''}${q.min_selections && q.max_selections ? ', ' : ''}${q.max_selections ? 'max ' + q.max_selections : ''}` : ''}</span>${conditional ? `<span class="followup">${ico('corner-down-right')} Follow-up</span>` : ''}${plugin.readonly ? `<span class="answer-state">${has ? 'Answered' : 'Not answered'}</span>` : ''}</div>
+        ${controls(q, error)}
+        ${error ? `<p class="question-error" id="error-${q.id}">${ico('circle-alert')} ${esc(error)}</p>` : ''}
+        ${after}
+      </div>
     </fieldset>`;
   }
   /* Open, it folds the comment away; folded, it shows the start of what was
@@ -79,11 +87,16 @@
     const invalid = C.errors(payload,state), required = all.filter(q => visible.has(q.id) && q.required && invalid[q.id]).length;
     const shownGroups = payload.groups.filter(g => g.questions.some(q => visible.has(q.id)));
     const count = visible.size;
+    const comments = all.filter(q => visible.has(q.id) && q.type !== 'text' && (state.comments[q.id] || '').trim()).length;
     let index = 0;
-    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Wicket.icon(railOpen ? 'panel-left-close' : 'panel-left-open', {size:15, label: railOpen ? 'Hide the group list' : 'Show the group list'})}</button><h1 class="plugin-title">${esc(plugin.gate.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || 'closed')}` : `<b>${answered}</b> of ${count} answered`}</span></header>
+    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Wicket.icon(railOpen ? 'panel-left-close' : 'panel-left-open', {size:15, label: railOpen ? 'Hide the group list' : 'Show the group list'})}</button><h1 class="plugin-title">${esc(plugin.gate.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || 'closed')}` : `<span><b>${answered}</b> of ${count} answered</span>${required ? `<span class="tally-required"><b>${required}</b> required left</span>` : ''}${comments ? `<span><b>${comments}</b> ${comments === 1 ? 'comment' : 'comments'}</span>` : ''}`}</span><div class="header-progress" aria-hidden="true"><span style="width:${count ? answered/count*100 : 100}%"></span></div></header>
       <div class="workspace"><aside class="sidebar" ${railOpen ? '' : 'hidden'}><div class="sidebar-label">Questions <span>${count}</span></div><nav aria-label="Question groups">${shownGroups.map((g,i) => {
         const qs = g.questions.filter(q => visible.has(q.id)), done = qs.filter(q => C.answered(q,state.values[q.id])).length;
-        return `<button type="button" class="group-link ${done === qs.length ? 'complete' : ''}" data-jump="${g.id}"><span class="group-icon">${done === qs.length ? ico('check') : String(i+1).padStart(2,'0')}</span><span>${esc(g.title)}</span><small>${done}/${qs.length}</small></button>`;
+        // the group, then each of its questions with where it stands
+        return `<div class="rail-group"><button type="button" class="group-link ${done === qs.length ? 'complete' : ''}" data-jump="${g.id}"><span class="group-icon">${done === qs.length ? ico('check') : String(i+1).padStart(2,'0')}</span><span class="group-name">${esc(g.title)}</span><small>${done}/${qs.length}</small></button><ul class="rail-questions">${qs.map(q => {
+          const st = showErrors && invalid[q.id] ? 'error' : C.answered(q, state.values[q.id]) ? 'answered' : q.required ? 'required' : 'open';
+          return `<li><button type="button" class="rail-question is-${st}" data-jump-question="${q.id}" tabindex="-1"><span class="rail-dot"></span><span class="rail-prompt">${esc(q.prompt)}</span></button></li>`;
+        }).join('')}</ul></div>`;
       }).join('')}</nav><div class="sidebar-progress"><div class="progress-track"><span style="width:${count ? answered/count*100 : 100}%"></span></div><p>${plugin.readonly ? 'This response has been recorded.' : required ? `${required} required ${required === 1 ? 'answer' : 'answers'} remaining` : Object.keys(invalid).length ? 'Check the response limits' : 'Ready to hand over'}</p><span>${all.length - count ? `${all.length-count} conditional ${all.length-count === 1 ? 'question is' : 'questions are'} hidden.` : 'Add comments to qualify your choices.'}</span></div></aside>
       <div class="questions-scroll" id="questions"><div class="questions-content">
         ${payload.description ? `<div class="request-description">${md(payload.description)}</div>` : ''}
@@ -141,6 +154,7 @@
     const button = e.target.closest('button'); if (!button || !payload) return;
     if (button.dataset.rail) { railOpen = !railOpen; plugin.setSetting('rail_open', railOpen); render(); return; }
     if (button.dataset.jump) { document.getElementById('group-'+button.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
+    if (button.dataset.jumpQuestion) { document.getElementById('question-'+button.dataset.jumpQuestion)?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
     const id = button.dataset.commentToggle;
     if (id) { opened.has(id) ? opened.delete(id) : opened.add(id); render(); if (opened.has(id)) document.getElementById('comment-'+id)?.focus({preventScroll:true}); return; }
     if (plugin.readonly) return;
@@ -149,6 +163,13 @@
       delete state.comments[id]; opened.delete(id);
       save();
       document.getElementById('comment-toggle-'+id)?.focus({preventScroll:true});
+    }
+    if (button.dataset.useRec) {
+      const q = C.questions(payload).find(q => q.id === button.dataset.useRec);
+      state.values[q.id] = structuredClone(q.recommendation.answer);
+      save();
+      document.getElementById('question-'+q.id)?.querySelector('input:checked,textarea')?.focus({preventScroll:true});
+      return;
     }
     if (button.dataset.clear) {
       const id = button.dataset.clear;
