@@ -173,8 +173,8 @@ test("a plugin wicket-plugin create wrote installs as a link and decides a revie
 
 test("plugins lists the built-in and the installed sample plugins", async () => {
   const plugins = wicketJson(["plugins"]);
-  // the samples this suite installs, and the built-in that is always there
-  expect(plugins.plugins.map((p: any) => p.name)).toEqual(["artifact", "email", "hello", "list", "review"]);
+  // the samples this suite installs, and the built-in ones that are always there
+  expect(plugins.plugins.map((p: any) => p.name)).toEqual(["artifact", "email", "feedback", "hello", "list", "review"]);
   // a plugin only installs if it loads, so every one of them is usable
   for (const p of plugins.plugins) expect(p.usable, `${p.name}: ${p.error}`).toBe(true);
   // the three that are developed in place are links; artifact was built and copied
