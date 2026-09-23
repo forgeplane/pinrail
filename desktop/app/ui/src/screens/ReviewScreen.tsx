@@ -53,6 +53,8 @@ export function ReviewScreen() {
   const back = fromHistory ? { to: "/history", label: "History" } : { to: "/", label: "Inbox" };
   const [review, setReview] = useState<Review | null>(null);
   const [rounds, setRounds] = useState<Review[]>([]);
+  // the other rounds still waiting that have never been opened: what is new
+  const [unopened, setUnopened] = useState<Set<string>>(new Set());
   // The plugin and its bundle URL, resolved together for one plugin at one
   // version. The screen outlives a change of review, so what was resolved
   // for the last review stays in state until the lookup for this one lands:
@@ -79,9 +81,19 @@ export function ReviewScreen() {
   const load = useCallback(async () => {
     try {
       const [r, rs] = await Promise.all([api.getReview(id), api.rounds(id).catch(() => [] as Review[])]);
+      const waiting = rs.filter((round) => round.id !== id && round.status === "pending");
+      const opened = await Promise.all(
+        waiting.map((round) =>
+          api
+            .events(round.id)
+            .then((events) => events.some((e) => e.kind === "viewed"))
+            .catch(() => true),
+        ),
+      );
       if (wanted.current !== id) return;
       setReview(r);
       setRounds(rs);
+      setUnopened(new Set(waiting.filter((_, i) => !opened[i]).map((round) => round.id)));
       setError(null);
     } catch (e) {
       if (wanted.current !== id) return;
@@ -148,11 +160,11 @@ export function ReviewScreen() {
     return rounds.find((r) => r.id === review.revises) ?? null;
   }, [review, rounds]);
   const revisedBy = useMemo(() => rounds.find((r) => r.revises === review?.id) ?? null, [rounds, review]);
-  // the newest round, when it is not this one and is waiting for a decision
+  // the newest round, when it is waiting and has never been opened
   const waiting = useMemo(() => {
     const last = rounds[rounds.length - 1];
-    return last && last.id !== review?.id && last.status === "pending" ? { round: last, number: rounds.length } : null;
-  }, [rounds, review]);
+    return last && unopened.has(last.id) ? { round: last, number: rounds.length } : null;
+  }, [rounds, unopened]);
 
   const readonly = !review || review.status !== "pending";
 
@@ -386,7 +398,7 @@ export function ReviewScreen() {
                 <Link
                   to={`/reviews/${r.id}`}
                   state={location.state}
-                  className={`round-pill ${r.id === review.id ? "is-current" : r.status === "pending" ? "is-waiting" : ""}`}
+                  className={`round-pill ${r.id === review.id ? "is-current" : unopened.has(r.id) ? "is-waiting" : ""}`}
                   aria-current={r.id === review.id ? "page" : undefined}
                 >
                   {i + 1}

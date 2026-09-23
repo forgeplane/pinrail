@@ -40,4 +40,11 @@ test("a new round of the open review shows in the switcher and says it is waitin
   await expect(page).toHaveURL(new RegExp(`/reviews/${third}$`));
   await expect(page.locator("[data-new-round]")).toHaveCount(0);
   await expect(pills.nth(2)).toHaveClass(/is-current/);
+
+  // once opened it is no longer news: going back to round 1 says nothing
+  await pills.nth(0).click();
+  await expect(page).toHaveURL(new RegExp(`/reviews/${first}$`));
+  await expect(pills.nth(0)).toHaveClass(/is-current/);
+  await expect(page.locator("[data-new-round]")).toHaveCount(0);
+  await expect(pills.nth(2)).not.toHaveClass(/is-waiting/);
 });

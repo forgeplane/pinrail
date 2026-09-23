@@ -2,7 +2,7 @@
 // server's URL; in a browser (development, tests) it uses VITE_WICKET_URL or
 // the default port.
 
-import type { Info, InstallJob, Inspection, Notice, Plugin, PluginUpdates, Review, ReviewListing, ServerSettings, Violation } from "./types";
+import type { Info, InstallJob, Inspection, Notice, Plugin, PluginUpdates, Review, ReviewEvent, ReviewListing, ServerSettings, Violation } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -67,6 +67,7 @@ export const api = {
   discard: (id: string, reason?: string) =>
     request<Review>("POST", `/api/v1/reviews/${id}/discard`, reason ? { reason } : {}),
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${id}/viewed`),
+  events: (id: string) => request<ReviewEvent[]>("GET", `/api/v1/reviews/${id}/events`),
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   reloadPlugins: () => request<{ ok: boolean; count: number }>("POST", "/api/v1/plugins/reload"),
   /** what installing a source would do; the source is fetched and dropped */
