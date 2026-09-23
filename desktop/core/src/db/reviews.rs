@@ -397,7 +397,9 @@ impl Db {
 const SELECT: &str = "SELECT r.id, r.plugin, r.plugin_version, r.title, r.origin, r.requested_by, r.payload, r.summary,
     r.revises, r.expires_at, r.created_at,
     o.kind, o.at, o.by, o.reason, o.data, o.agent_note,
-    r.plugin_release
+    r.plugin_release,
+    (SELECT count(*) FROM review_artifacts a WHERE a.review_id = r.id),
+    (SELECT coalesce(sum(a.size), 0) FROM review_artifacts a WHERE a.review_id = r.id)
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id";
 
@@ -433,6 +435,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     let data: Option<String> = row.get(15)?;
     let agent_note: Option<String> = row.get(16)?;
     let plugin_release: Option<String> = row.get(17)?;
+    let artifacts_total = (row.get::<_, i64>(18)? as u64, row.get::<_, i64>(19)? as u64);
     let plugin_version = row.get::<_, i64>(2)? as u32;
     let at = at.and_then(|s| parse_datetime(&s));
     let (
@@ -467,6 +470,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     }
     Ok(Review {
         artifacts: Vec::new(),
+        artifacts_total,
         id: row.get(0)?,
         plugin: row.get(1)?,
         plugin_version,

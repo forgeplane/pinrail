@@ -75,6 +75,9 @@ pub struct Review {
     /// The files the review carries, by the names its payload uses. Read
     /// with a single review; listings leave them out, as they do the payload.
     pub artifacts: Vec<crate::artifacts::ReviewArtifact>,
+    /// How many files the review carries and their bytes: in listings too,
+    /// so a row can say so without the list.
+    pub artifacts_total: (u64, u64),
 }
 
 impl Review {
@@ -122,6 +125,7 @@ impl Review {
             "discarded_at": self.discarded_at.map(iso),
             "discarded_by": self.discarded_by,
             "discarded_reason": self.discarded_reason,
+            "artifacts_total": { "count": self.artifacts_total.0, "bytes": self.artifacts_total.1 },
         });
         if with_payload {
             map["payload"] = self.payload.clone().unwrap_or(Value::Null);
@@ -185,6 +189,7 @@ mod tests {
     fn review() -> Review {
         Review {
             artifacts: Vec::new(),
+            artifacts_total: (0, 0),
             id: "r_1".into(),
             plugin: "list".into(),
             plugin_version: 1,

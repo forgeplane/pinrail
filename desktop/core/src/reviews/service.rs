@@ -109,6 +109,10 @@ impl Reviews {
             discarded_at: None,
             discarded_by: None,
             discarded_reason: None,
+            artifacts_total: (
+                artifacts.len() as u64,
+                artifacts.iter().map(|a| a.size).sum(),
+            ),
             artifacts,
         };
         let event_id = self.db.insert_review(&review, actor)?;

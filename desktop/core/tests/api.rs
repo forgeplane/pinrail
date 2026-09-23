@@ -1577,8 +1577,13 @@ async fn a_review_lists_its_files_and_serves_each_only_as_a_download() {
     assert_eq!(shown["artifacts"], created["artifacts"]);
     let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
     assert!(listing["reviews"][0].get("artifacts").is_none());
+    // but it does say how many, and how big, for the inbox row
+    let total = json!({ "count": 2, "bytes": model.len() + page.len() });
+    assert_eq!(listing["reviews"][0]["artifacts_total"], total);
+    assert_eq!(created["artifacts_total"], total);
     let (_, plain) = call(&app, "POST", "/api/v1/reviews", Some(submission())).await;
     assert_eq!(plain["artifacts"], json!([]));
+    assert_eq!(plain["artifacts_total"], json!({ "count": 0, "bytes": 0 }));
 
     let get = |name: &str| {
         let uri = format!(
