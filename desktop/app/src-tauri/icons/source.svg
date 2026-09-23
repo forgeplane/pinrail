@@ -1,0 +1,16 @@
+<!-- The app icon's master, rendered to source.png at 1024px; `npx tauri icon`
+     makes every size from that. macOS's rounded square on the dark palette,
+     and the mark, R4 "pin, slash, pin": ink #f1ebdf, the slash #e5694f. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#2a2723"/>
+      <stop offset="1" stop-color="#1c1a17"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#ground)"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="184.5" fill="none" stroke="#f1ebdf" stroke-opacity="0.08"/>
+  <g transform="translate(512 512) scale(24) translate(-12 -12.2)">
+    <rect x="1.5" y="13" width="21" height="3.4" rx="1.4" fill="#f1ebdf"/><rect x="4.8" y="5" width="2.4" height="16" rx="1.2" fill="#f1ebdf"/><rect x="16.8" y="5" width="2.4" height="16" rx="1.2" fill="#f1ebdf"/><g transform="rotate(20 12 14.7)"><rect x="10.8" y="4.2" width="2.4" height="16.8" rx="1.2" fill="#e5694f"/></g>
+  </g>
+</svg>

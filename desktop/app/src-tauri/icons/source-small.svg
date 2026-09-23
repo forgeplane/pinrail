@@ -1,0 +1,24 @@
+<!-- The app icon at 16 and 32px, which the full master blurs: the mark larger in
+     the square, its strokes heavier, and the slash cut clear of the rail. The
+     16 and 32px entries of icon.icns and icon.ico, and 32x32.png, come from this. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="ground" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#2a2723"/>
+      <stop offset="1" stop-color="#1c1a17"/>
+    </linearGradient>
+    <mask id="clear" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="#fff"/>
+      <g transform="rotate(20 12 14.2)"><rect x="9.4" y="2.4" width="5.2" height="20.2" rx="2.6" fill="#000"/></g>
+    </mask>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="13" fill="url(#ground)"/>
+  <g transform="translate(32 32) scale(2.05) translate(-12 -12.3)">
+    <g mask="url(#clear)" fill="#f1ebdf">
+      <rect x="1" y="12.4" width="22" height="4.2" rx="2.1"/>
+      <rect x="3.9" y="4" width="3.4" height="17" rx="1.7"/>
+      <rect x="16.7" y="4" width="3.4" height="17" rx="1.7"/>
+    </g>
+    <g transform="rotate(20 12 14.2)"><rect x="10.3" y="3.4" width="3.4" height="18.2" rx="1.7" fill="#e5694f"/></g>
+  </g>
+</svg>
