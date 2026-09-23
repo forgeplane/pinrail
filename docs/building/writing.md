@@ -87,7 +87,7 @@ Only the manifest, the schemas and the view reach the app. `fixtures/`, `tests/`
 
 Write `use_when` for an agent deciding between plugins: name the moment, not the feature. *You triaged a queue of support tickets and need a person to confirm each call* tells an agent when to reach for the plugin; *Ticket triage view* does not.
 
-The manifest can also declare [settings and keyboard shortcuts](/docs/building/settings-and-keys/), a template that [renders decisions as markdown](#decisions-as-markdown), a `build` command for a view that compiles, and the [files](#files-beside-the-payload) the plugin takes.
+The manifest can also declare [settings and keyboard shortcuts](/docs/building/settings-and-keys/), a template that [renders decisions as markdown](#decisions-as-markdown), a `build` command for a view that compiles (see [Building with a framework](/docs/building/frameworks/)), and the [files](#files-beside-the-payload) the plugin takes.
 
 :::tip[Check before you install]
 `npx pinrail-plugin check` reads the folder the way the app will and reports what it would refuse, without the app running.

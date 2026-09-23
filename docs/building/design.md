@@ -152,7 +152,7 @@ A view loads nothing from the network, but everything in the plugin folder is se
 }
 ```
 
-A library goes in the same way: bundle it with your view, or copy its built file into the folder. A plugin with a build step, such as Vite, writes its output into the folder and declares the command as `build` in the manifest; the [Artifact](/docs/plugins/artifact/) plugin is built this way, and the [3D model](/docs/plugins/model/) plugin bundles three.js into its view.
+A library goes in the same way: bundle it with your view, or copy its built file into the folder. A plugin with a build step, such as Vite, writes its output into the folder and declares the command as `build` in the manifest (see [Building with a framework](/docs/building/frameworks/)); the [Artifact](/docs/plugins/artifact/) plugin is built this way, and the [3D model](/docs/plugins/model/) plugin bundles three.js into its view.
 
 :::caution[Nothing from elsewhere]
 A web font from Google Fonts, a script from a CDN, or an image from a URL does not load: a view's frame can reach only its own plugin folder and the SDK. Copy what you need into the folder.

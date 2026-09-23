@@ -188,7 +188,8 @@ function manifestPanel(m) {
  *  view a ```json block, so the site's code viewer draws it as every other
  *  JSON on the page, with its colours and its copy button. */
 function contract(name, alt) {
-  const dir = path.join(plugins, name);
+  // a sample plugin by its name, or an example by its path under docs/examples
+  const dir = name.includes("/") ? path.join(plugins, "../docs/examples", name) : path.join(plugins, name);
   const manifest = read(dir, "manifest.json");
   const payload = document(dir, manifest.payload_schema);
   const decision = document(dir, manifest.decision_schema);
@@ -202,7 +203,7 @@ function contract(name, alt) {
     const settings = document(dir, manifest.settings_schema);
     tabs.push(["settings", "Settings", "Settings › Plugins", schemaPanel(settings), settings]);
   }
-  const id = `pr-contract-${name}`;
+  const id = `pr-contract-${name.replace(/[^a-z0-9]+/gi, "-")}`;
   const buttons = tabs
     .map(([key, label, hint], i) => `<button type="button" role="tab" id="${id}-${key}-tab" aria-controls="${id}-${key}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-contract-tab="${key}">${label}<span class="pr-contract-hint">${escape(hint)}</span></button>`)
     .join("");

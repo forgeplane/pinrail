@@ -9,6 +9,7 @@ import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
 import remarkContract from "./src/plugins/remark-contract.mjs";
 import remarkTokens from "./src/plugins/remark-tokens.mjs";
+import remarkExamples from "./src/plugins/remark-examples.mjs";
 
 export default defineConfig({
   site: "https://pinrail.dev",
@@ -17,7 +18,7 @@ export default defineConfig({
   // images the app in the reader's theme, and contract: images a plugin's
   // manifest and schemas; Starlight adds its
   // own plugins (asides, heading links) to the same processor
-  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots, remarkKbd, remarkContract, remarkTokens] }) },
+  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots, remarkKbd, remarkContract, remarkTokens, remarkExamples] }) },
   integrations: [
     starlight({
       title: "Pinrail",
@@ -83,7 +84,7 @@ export default defineConfig({
             "docs/plugins/model",
           ],
         },
-        { label: "Building plugins", items: ["docs/building/writing", "docs/building/design", "docs/building/settings-and-keys", "docs/building/protocol", "docs/building/publishing"] },
+        { label: "Building plugins", items: ["docs/building/writing", "docs/building/design", "docs/building/frameworks", "docs/building/settings-and-keys", "docs/building/protocol", "docs/building/publishing"] },
         { label: "Reference", items: ["docs/reference/cli", "docs/reference/settings", "docs/reference/manifest"] },
       ],
     }),

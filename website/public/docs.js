@@ -178,3 +178,31 @@ document.addEventListener("keydown", (event) => {
   showTab(tab.closest("[data-contract]"), tabs[n].dataset.contractTab, true);
   remember({ tab: tabs[n].dataset.contractTab });
 });
+
+// Code in several frameworks: one choice for the whole page. Picking a tab
+// in any group picks it in all of them, and the next page opens on it.
+const FRAMEWORK_KEY = "pr-framework";
+function pickFramework(key) {
+  for (const group of document.querySelectorAll("[data-frameworks]")) {
+    if (!group.querySelector(`[data-framework-panel="${key}"]`)) continue;
+    group.querySelectorAll("[data-framework-tab]").forEach((tab) => {
+      const on = tab.dataset.frameworkTab === key;
+      tab.setAttribute("aria-selected", String(on));
+      tab.tabIndex = on ? 0 : -1;
+    });
+    group.querySelectorAll("[data-framework-panel]").forEach((panel) => { panel.hidden = panel.dataset.frameworkPanel !== key; });
+  }
+}
+try {
+  const kept = localStorage.getItem(FRAMEWORK_KEY);
+  if (kept) pickFramework(kept);
+} catch { /* storage off: the first tab */ }
+document.addEventListener("click", (event) => {
+  const tab = event.target.closest && event.target.closest("[data-framework-tab]");
+  if (!tab) return;
+  // keep the group that was clicked where it is on screen while the others change height
+  const before = tab.getBoundingClientRect().top;
+  pickFramework(tab.dataset.frameworkTab);
+  window.scrollBy(0, tab.getBoundingClientRect().top - before);
+  try { localStorage.setItem(FRAMEWORK_KEY, tab.dataset.frameworkTab); } catch { /* nothing to keep */ }
+});
