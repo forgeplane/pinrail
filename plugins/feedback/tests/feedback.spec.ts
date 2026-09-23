@@ -319,3 +319,28 @@ test("the agent's recommendation is one click away, and says so once it is the a
   await expect(checks.getByRole("checkbox", { name: /Replay failed requests/ })).toBeChecked();
   await expect(checks.getByRole("checkbox", { name: /Staging smoke test/ })).not.toBeChecked();
 });
+
+test("j and k move between questions, focus the answer, and leave typing alone", async ({ page }) => {
+  const plugin = await mount(page);
+  const f = plugin.frame;
+  await f.locator("h1").click();
+  await f.locator("body").press("j");
+  await expect(q(f, "approach")).toHaveClass(/is-current/);
+  await expect(q(f, "approach").getByRole("radio").first()).toBeFocused();
+
+  // from a focused radio, j goes on: letters do not answer a radio
+  await f.locator("body").press("j");
+  await expect(q(f, "notify")).toHaveClass(/is-current/);
+  await expect(q(f, "approach")).not.toHaveClass(/is-current/);
+  await expect(f.locator("input:checked")).toHaveCount(0);
+  await f.locator("body").press("k");
+  await expect(q(f, "approach")).toHaveClass(/is-current/);
+
+  // typing a j into a text answer types it
+  const text = q(f, "other_context").getByRole("textbox");
+  await text.click();
+  await expect(q(f, "other_context")).toHaveClass(/is-current/);
+  await text.press("j");
+  await expect(text).toHaveValue("j");
+  await expect(q(f, "other_context")).toHaveClass(/is-current/);
+});

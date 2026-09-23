@@ -125,6 +125,8 @@ body { font-size: 13px; }
 }
 .question.is-answered { border-color: color-mix(in oklab, var(--ok) 28%, var(--border)); }
 .question.is-error { border-color: color-mix(in oklab, var(--danger) 55%, transparent); }
+/* the question j and k are on */
+.question.is-current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .question legend {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 0; float: left; margin-bottom: 12px;
   color: var(--text); font-size: 14px; font-weight: 600; line-height: 1.45; letter-spacing: -0.01em;

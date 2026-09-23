@@ -19,6 +19,12 @@ wicket submit feedback --title "Choose a recovery plan for checkout failures" --
 
 The header uses the supplied review title. The plugin has no submit button; Wicket owns the final hand-over. It does not execute the agent's proposed actions.
 
+## Keys
+
+`j` / `k` move to the next and previous question and focus its answer, so
+the arrow keys or space answer it. They do nothing while you type in a text
+box.
+
 ## Payload
 
 See `schemas/payload.schema.json` for the complete contract and `fixtures/` for examples.

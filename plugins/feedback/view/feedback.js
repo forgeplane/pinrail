@@ -6,6 +6,8 @@
   // the rail of groups: shown by default, and the choice is the shell's to
   // keep, so it holds for the next set of questions too
   let railOpen = true;
+  // the question j and k move from: the last one moved to, clicked or typed in
+  let current = null;
   const plugin = Wicket.connect({
     resize: 'fill',
     onInit({gate, draft, previous: old, settings}) {
@@ -57,7 +59,7 @@
       old ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ''}</details>` : '',
       q.type !== 'text' && (!plugin.readonly || note) ? `<div class="question-actions">${commentToggle(q, note, expanded)}</div><div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? '' : 'hidden'}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico('trash-2')} Remove comment</button>` : ''}</div><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="3" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? 'disabled' : ''}>${esc(note)}</textarea></div>` : '',
     ].join('');
-    return `<fieldset id="question-${q.id}" class="question is-${status}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Wicket.icon('check', {size: 12}) : String(number).padStart(2,'0')}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Wicket.icon('rotate-ccw', {size: 11})} Clear answer</button>` : ''}<span class="requirement ${q.required ? 'is-required' : ''}">${q.required ? 'Required' : 'Optional'}</span></span></legend>
+    return `<fieldset id="question-${q.id}" class="question is-${status} ${current === q.id ? 'is-current' : ''}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Wicket.icon('check', {size: 12}) : String(number).padStart(2,'0')}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Wicket.icon('rotate-ccw', {size: 11})} Clear answer</button>` : ''}<span class="requirement ${q.required ? 'is-required' : ''}">${q.required ? 'Required' : 'Optional'}</span></span></legend>
       <div class="question-body">
         ${q.description ? `<div class="question-description" id="desc-${q.id}">${md(q.description)}</div>` : ''}
         ${agent}
@@ -146,6 +148,31 @@
     const after = C.visible(payload,state), added = [...after].filter(id => !before.has(id)).length, removed = [...before].filter(id => !after.has(id)).length;
     if (added || removed) document.getElementById('announce').textContent = `${added ? `${added} follow-up ${added === 1 ? 'question' : 'questions'} shown. ` : ''}${removed ? `${removed} ${removed === 1 ? 'question' : 'questions'} hidden. Their drafts are saved but will not be submitted.` : ''}`;
   }
+  /* j and k: the next and previous question, scrolled to, with its answer
+     focused so the arrow keys or space answer it. Not while typing. */
+  function mark(id) {
+    current = id;
+    for (const el of app.querySelectorAll('.question.is-current')) el.classList.remove('is-current');
+    document.getElementById('question-'+id)?.classList.add('is-current');
+  }
+  function step(by) {
+    const ids = [...app.querySelectorAll('.question[data-question]')].map(el => el.dataset.question);
+    if (!ids.length) return;
+    const at = ids.indexOf(current);
+    const next = ids[at < 0 ? (by > 0 ? 0 : ids.length - 1) : Math.min(ids.length - 1, Math.max(0, at + by))];
+    mark(next);
+    const el = document.getElementById('question-'+next);
+    el.scrollIntoView({behavior:'smooth', block:'start'});
+    (el.querySelector('input:checked') || el.querySelector('input, textarea'))?.focus({preventScroll:true});
+  }
+  document.addEventListener('keydown', e => {
+    if (!payload || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target.closest?.('textarea, input[type="text"]')) return;
+    const key = e.key.toLowerCase();
+    if (key === 'j') step(1); else if (key === 'k') step(-1); else return;
+    e.preventDefault();
+  });
+  app.addEventListener('focusin', e => { const q = e.target.closest?.('.question'); if (q && q.dataset.question !== current) mark(q.dataset.question); });
   app.addEventListener('input', e => { if (e.target.tagName === 'TEXTAREA') change(e); });
   app.addEventListener('change', e => { if (e.target.tagName === 'INPUT') change(e); });
   app.addEventListener('compositionstart', () => { composing = true; });

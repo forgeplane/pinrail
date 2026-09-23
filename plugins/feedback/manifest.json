@@ -15,6 +15,10 @@
   },
   "example": "example.json",
   "min_height": 560,
+  "shortcuts": [
+    { "keys": "j", "does": "Next question" },
+    { "keys": "k", "does": "Previous question" }
+  ],
   "settings_schema": {
     "type": "object",
     "properties": {
