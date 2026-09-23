@@ -20,6 +20,7 @@ use crate::plugins::{InstallOptions, UpdateOutcome};
 pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/plugins", get(index))
+        .route("/api/v1/plugins/describe", get(describe_all))
         .route("/api/v1/plugins/reload", post(reload))
         .route("/api/v1/plugins/inspect", post(inspect))
         .route("/api/v1/plugins/install", post(install))
@@ -28,11 +29,23 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/plugins/{name}/update", post(update))
         .route("/api/v1/plugins/{name}", delete(remove))
         .route("/api/v1/plugins/{name}/versions", get(versions))
+        .route("/api/v1/plugins/{name}/describe", get(describe))
 }
 
 async fn index(State(state): State<Arc<Wicket>>) -> Json<Value> {
     let stored = state.settings().value(crate::settings::PLUGINS);
     Json(state.plugins().listing(&stored))
+}
+
+async fn describe_all(State(state): State<Arc<Wicket>>) -> Result<Json<Value>, ApiError> {
+    Ok(Json(state.plugins().describe(None)?))
+}
+
+async fn describe(
+    State(state): State<Arc<Wicket>>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(state.plugins().describe(Some(&name))?))
 }
 
 async fn versions(

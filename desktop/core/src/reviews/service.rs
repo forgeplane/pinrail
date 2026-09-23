@@ -16,7 +16,7 @@ use super::model::{Decision, Review, Status, parse_datetime};
 use crate::db::{Db, Event, Filters};
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
-use crate::plugins::Registry;
+use crate::plugins::{Plugin, Registry};
 
 const DEFAULT_LIMIT: usize = 100;
 
@@ -42,6 +42,13 @@ pub struct Reviews {
     user: String,
 }
 
+/// A submission that passed every check, ready to store.
+struct Checked<'a> {
+    attrs: &'a Map<String, Value>,
+    plugin: Arc<Plugin>,
+    payload: Value,
+}
+
 impl Reviews {
     pub(crate) fn new(db: Arc<Db>, registry: Arc<Registry>, bus: Bus, user: String) -> Self {
         Reviews {
@@ -57,25 +64,11 @@ impl Reviews {
     /// `requested_by` are optional. Every failure is `invalid` with
     /// violations pointing into the body.
     pub fn submit(&self, body: &Value, actor: Option<&str>) -> Result<Review, Error> {
-        let Value::Object(attrs) = body else {
-            return Err(Error::invalid("", "must be a JSON object"));
-        };
-        self.envelope_violations(attrs)?;
-
-        let plugin_name = attrs["plugin"].as_str().unwrap_or_default();
-        let plugin = self.registry.fetch(plugin_name)?;
-        let payload = attrs
-            .get("payload")
-            .cloned()
-            .unwrap_or(Value::Object(Map::new()));
-        let violations: Vec<Violation> = plugin
-            .validate_payload(&payload)
-            .into_iter()
-            .map(|v| Violation::new(format!("/payload{}", v.path), v.message))
-            .collect();
-        if !violations.is_empty() {
-            return Err(Error::Invalid(violations));
-        }
+        let Checked {
+            attrs,
+            plugin,
+            payload,
+        } = self.check(body)?;
         let review = Review {
             id: crate::id::next(),
             plugin: plugin.name.clone(),
@@ -109,6 +102,39 @@ impl Reviews {
         let event_id = self.db.insert_review(&review, actor)?;
         self.publish(event_id, events::CREATED, &review);
         Ok(review)
+    }
+
+    /// Runs every check a submission gets and stores nothing: the plugin
+    /// that would render the review, or the violations `submit` would give.
+    pub fn validate(&self, body: &Value) -> Result<Arc<Plugin>, Error> {
+        self.check(body).map(|checked| checked.plugin)
+    }
+
+    fn check<'a>(&self, body: &'a Value) -> Result<Checked<'a>, Error> {
+        let Value::Object(attrs) = body else {
+            return Err(Error::invalid("", "must be a JSON object"));
+        };
+        self.envelope_violations(attrs)?;
+
+        let plugin_name = attrs["plugin"].as_str().unwrap_or_default();
+        let plugin = self.registry.fetch(plugin_name)?;
+        let payload = attrs
+            .get("payload")
+            .cloned()
+            .unwrap_or(Value::Object(Map::new()));
+        let violations: Vec<Violation> = plugin
+            .validate_payload(&payload)
+            .into_iter()
+            .map(|v| Violation::new(format!("/payload{}", v.path), v.message))
+            .collect();
+        if !violations.is_empty() {
+            return Err(Error::Invalid(violations));
+        }
+        Ok(Checked {
+            attrs,
+            plugin,
+            payload,
+        })
     }
 
     pub fn get(&self, id: &str) -> Result<Review, Error> {

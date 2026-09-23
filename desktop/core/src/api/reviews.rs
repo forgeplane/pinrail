@@ -26,6 +26,7 @@ const MAX_WAIT: u64 = 600;
 pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/reviews", post(submit).get(list))
+        .route("/api/v1/reviews/validate", post(validate))
         .route("/api/v1/reviews/{id}", get(show))
         .route("/api/v1/reviews/{id}/rounds", get(rounds))
         .route("/api/v1/reviews/{id}/wait", get(wait))
@@ -40,6 +41,19 @@ async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Respons
     let body = parse_body(&body)?;
     let review = state.reviews().submit(&body, None)?;
     Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
+}
+
+/// The checks a submission gets, with nothing stored: 200 naming the plugin
+/// version that would render it, or the 422 `submit` would answer.
+async fn validate(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Json<Value>, ApiError> {
+    let body = parse_body(&body)?;
+    let plugin = state.reviews().validate(&body)?;
+    Ok(Json(json!({
+        "valid": true,
+        "plugin": plugin.name,
+        "plugin_version": plugin.version,
+        "plugin_release": plugin.release,
+    })))
 }
 
 /// A page of reviews, newest first, without payloads, in an envelope:

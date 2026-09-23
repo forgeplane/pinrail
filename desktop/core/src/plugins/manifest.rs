@@ -400,6 +400,41 @@ impl Plugin {
         schema.map(|s| s.validate(data)).unwrap_or_default()
     }
 
+    /// What an agent needs to ask with the plugin: what it is for, when to
+    /// use it, the schemas with a top-level `$ref` read in, and an example.
+    pub fn describe(&self) -> Value {
+        serde_json::json!({
+            "name": self.name,
+            "title": self.title,
+            "version": self.version,
+            "release": self.release,
+            "description": self.manifest.get("description"),
+            "use_when": self.use_when,
+            "payload_schema": self.schema_document("payload_schema"),
+            "decision_schema": self.schema_document("decision_schema"),
+            "example": self.example,
+            "markdown": self.decision_template.is_some(),
+        })
+    }
+
+    /// The manifest's schema under `key`, or the file its `$ref` names when
+    /// that is all it holds.
+    fn schema_document(&self, key: &str) -> Value {
+        let raw = self.manifest.get(key).cloned().unwrap_or(Value::Null);
+        let Some(reference) = raw
+            .as_object()
+            .filter(|map| map.len() == 1)
+            .and_then(|map| map.get("$ref"))
+            .and_then(Value::as_str)
+        else {
+            return raw;
+        };
+        crate::schema::safe_join(&self.path, reference)
+            .and_then(|path| std::fs::read_to_string(path).ok())
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or(raw)
+    }
+
     /// What the API lists for a plugin.
     pub fn to_json(&self) -> Value {
         serde_json::json!({

@@ -35,6 +35,21 @@ impl PluginService {
         }
     }
 
+    /// Each usable plugin described for an agent, or the one named.
+    pub fn describe(&self, name: Option<&str>) -> Result<Value, Error> {
+        let plugins: Vec<Value> = self
+            .registry
+            .all()
+            .iter()
+            .filter(|p| p.usable() && name.is_none_or(|n| p.name == n))
+            .map(|p| p.describe())
+            .collect();
+        match name {
+            Some(n) if plugins.is_empty() => Err(Error::NotFound(n.to_string())),
+            _ => Ok(json!({ "plugins": plugins })),
+        }
+    }
+
     /// Registered plugins with their effective settings over the supplied stored values.
     pub fn listing(&self, stored: &Value) -> Value {
         let plugins = self

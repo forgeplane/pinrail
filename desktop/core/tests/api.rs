@@ -2348,3 +2348,45 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
         .unwrap_or_default();
     assert!(left.is_empty(), "{left:?}");
 }
+
+#[tokio::test]
+async fn plugins_describe_themselves_and_a_submission_validates_without_being_stored() {
+    let app = app();
+    let (status, body) = call(&app, "GET", "/api/v1/plugins/describe", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let plugins = body["plugins"].as_array().unwrap();
+    assert_eq!(plugins.len(), 2, "the built-in ones: {body}");
+
+    let (status, body) = call(&app, "GET", "/api/v1/plugins/list/describe", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let list = &body["plugins"][0];
+    assert_eq!(list["name"], "list");
+    assert!(
+        list["payload_schema"]["$ref"].is_null()
+            && list["payload_schema"]["properties"].is_object(),
+        "the $ref is read in: {list}"
+    );
+    assert!(list["decision_schema"]["properties"].is_object());
+    let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/describe", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    let (status, body) = call(&app, "POST", "/api/v1/reviews/validate", Some(submission())).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["valid"], true);
+    assert_eq!(body["plugin"], "list");
+    assert_eq!(body["plugin_version"], 1);
+    let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
+    assert_eq!(listing["total"], 0, "nothing was stored");
+
+    let mut bad = submission();
+    bad["payload"]["groups"] = json!("nope");
+    let (status, validated) =
+        call(&app, "POST", "/api/v1/reviews/validate", Some(bad.clone())).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    let (_, submitted) = call(&app, "POST", "/api/v1/reviews", Some(bad)).await;
+    assert_eq!(
+        violations(&validated),
+        violations(&submitted),
+        "the same checks as a submission"
+    );
+}
