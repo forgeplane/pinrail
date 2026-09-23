@@ -84,6 +84,30 @@ exits 0. The payload and decision shapes of the built-in plugin are in
 [its README](../plugins/list/README.md); the other official
 plugins, and how to write your own, are in [`plugins/`](../plugins/README.md).
 
+## What an agent can ask
+
+An agent new to Wicket learns it from one command:
+
+```sh
+wicket plugins describe                     # every usable plugin, as JSON
+wicket plugins describe list --format markdown
+```
+
+For each plugin it gives what the plugin is for and when to use it, the
+payload schema, an example payload that passes it, and the decision schema,
+the shape of `decision.data` in the review that comes back. After the
+plugins it gives the command to submit with and what every exit code
+means. It starts the app when it is not running, as `submit` does.
+
+Before asking, an agent can check a payload with `--dry-run`: the review
+gets every check a submission does and is not created. It exits 0 when the
+submission would be accepted and 2 with the violations, each a JSON pointer
+into the request, so a malformed payload is fixed before anyone sees it:
+
+```sh
+wicket submit list --title "Sentry triage" --data triage.json --dry-run
+```
+
 ## In an agent's session, and in a script
 
 The two callers want different things from the same command, and the CLI
@@ -174,6 +198,7 @@ the latest round of each review unless `--include-revised` is given, and
   the origin's URL. `--summary` sets the counts the inbox shows beside the
   title, `--expires-at` closes a review nobody decided in time, and
   `--requested-by` (or `WICKET_REQUESTED_BY`) names the caller.
+  `--dry-run` checks the submission and creates nothing.
 - **`list`** filters with `--status` (comma-separated), `--repo` (`-` for
   reviews that name no project), `--workflow`, `--ref`, `--run-id`,
   `--plugin` and `--q`, whose words must all appear somewhere among the
@@ -187,6 +212,7 @@ the latest round of each review unless `--include-revised` is given, and
 
 ```sh
 wicket plugins                                          # what is installed, and anything wrong with it
+wicket plugins describe [name]                          # what an agent needs to ask with each one
 wicket plugins install ./my-plugin                      # copy a folder into the app's store
 wicket plugins install ./my-plugin --link               # serve the folder live while you work on it
 wicket plugins install github.com/acme/plugins/review@v3

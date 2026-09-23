@@ -30,6 +30,7 @@ review/
   view/index.html         # what the app serves: the entry, and anything it loads beside it
   schemas/                # payload.schema.json, decision.schema.json, by $ref
   templates/              # decision.md.j2, when the plugin renders its own markdown
+  example.json            # a payload that passes payload_schema, shown to agents
   fixtures/               # payloads to develop and test with; *.decided.json with their .md
   tests/                  # the plugin's Playwright spec under the SDK's harness
   src/                    # only for a plugin that builds: the sources; the build writes view/
@@ -47,8 +48,11 @@ scaffolds. The bundle the app installs is the folder without `src/`,
   "name": "hello",
   "version": 1,
   "title": "Hello",
+  "description": "One yes-or-no question with an optional comment.",
+  "use_when": "You need a single yes or no from the person, such as whether to push.",
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "type": "object", "required": ["ok"], "properties": { "ok": { "type": "boolean" } } },
+  "example": "example.json",
   "entry": "view/index.html",
   "min_height": 200,
   "dev": false
@@ -67,6 +71,14 @@ scaffolds. The bundle the app installs is the folder without `src/`,
   the app) is served live, so a change shows on the next open, and its
   reviews render from the folder as it is now. Remove the link and they
   say the plugin is not installed until it is again.
+- `description` says what the plugin is for, and `use_when` the situation
+  an agent should ask with it in. `wicket plugins describe` shows both to
+  an agent choosing among the installed plugins, so write `use_when` for
+  that reader: *You drafted emails on the person's behalf and need them
+  approved before anything is sent.*
+- `example` names a JSON file beside the manifest holding a payload that
+  passes `payload_schema`. Agents get it as a starting point. One that does
+  not pass costs the plugin its example, with the reason on its row.
 - `settings_schema` declares settings of the plugin's own, shown as rows under
   the plugin in *Settings › Plugins*. See below.
 - `shortcuts` declares the keys your view answers, so the app lists them and
