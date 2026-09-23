@@ -5,7 +5,7 @@ import { ApiError, api } from "../api/client";
 import { copyText } from "../lib/clipboard";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
-import { OutcomeBadge, PluginBadge } from "../components/Badges";
+import { OutcomeBadge, PluginBadge, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { Tooltip } from "../components/Tooltip";
 import { MOD, hasMod } from "../lib/keys";
@@ -393,18 +393,24 @@ export function ReviewScreen() {
         {rounds.length > 1 ? (
           <span className="rounds" role="navigation" aria-label="Rounds">
             <span className="rounds-cap">rounds</span>
-            {rounds.map((r, i) => (
-              <Tooltip key={r.id} label={r.title} side="bottom">
-                <Link
-                  to={`/reviews/${r.id}`}
-                  state={location.state}
-                  className={`round-pill ${r.id === review.id ? "is-current" : unopened.has(r.id) ? "is-waiting" : ""}`}
-                  aria-current={r.id === review.id ? "page" : undefined}
-                >
-                  {i + 1}
-                </Link>
-              </Tooltip>
-            ))}
+            {rounds.map((r, i) => {
+              // each round in the colour of its outcome, as the status badge shows it
+              const outcome = outcomeOf(r.id === review.id ? review : r);
+              const current = r.id === review.id;
+              return (
+                <Tooltip key={r.id} label={`${r.title} · ${outcome.label}`} side="bottom">
+                  <Link
+                    to={`/reviews/${r.id}`}
+                    state={location.state}
+                    className={`round-pill round-${outcome.tone}${current ? " is-current" : unopened.has(r.id) ? " is-waiting" : ""}`}
+                    aria-current={current ? "page" : undefined}
+                    data-outcome={outcome.tone}
+                  >
+                    {i + 1}
+                  </Link>
+                </Tooltip>
+              );
+            })}
           </span>
         ) : null}
       </div>

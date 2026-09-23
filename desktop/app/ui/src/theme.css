@@ -389,11 +389,17 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .id-copy.danger, .id-copy.danger:hover { color: var(--danger); }
 .rounds { display: inline-flex; align-items: center; gap: 4px; }
 .rounds-cap { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); margin-right: 2px; }
-.round-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; font: 11px var(--mono); color: var(--dim); }
-.round-pill:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
-.round-pill.is-current { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+/* each round in the colour of its outcome, the status badge's; the open one ringed */
+.round-pill { --tone: var(--dim); display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent); border-radius: 999px; font: 11px var(--mono); color: var(--tone); background: color-mix(in srgb, var(--tone) 8%, transparent); }
+.round-pill:hover { background: color-mix(in srgb, var(--tone) 16%, transparent); text-decoration: none; }
+.round-pill.is-current { border-color: var(--tone); background: color-mix(in srgb, var(--tone) 18%, transparent); font-weight: 700; box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--tone); }
+.round-pending { --tone: var(--accent); }
+.round-decided, .round-approved { --tone: var(--ok); }
+.round-revise, .round-discarded { --tone: var(--sev-major); }
+.round-expired { --tone: var(--danger); }
+.round-withdrawn { --tone: var(--faint); }
 /* a later round that is waiting: the one to open next */
-.round-pill.is-waiting { position: relative; color: var(--text); }
+.round-pill.is-waiting { position: relative; }
 .round-pill.is-waiting::after { content: ""; position: absolute; top: -3px; right: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
 .decision-box { border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 5%, transparent); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; }
 .decision-box .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }

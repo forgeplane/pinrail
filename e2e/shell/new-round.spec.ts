@@ -33,6 +33,9 @@ test("a new round of the open review shows in the switcher and says it is waitin
   const third = await submit("Rounds: three", second);
   await expect(pills).toHaveCount(3);
   await expect(pills.nth(2)).toHaveClass(/is-waiting/);
+  // each round in the colour of its outcome
+  await expect(pills.nth(0)).toHaveAttribute("data-outcome", "decided");
+  await expect(pills.nth(2)).toHaveAttribute("data-outcome", "pending");
   const banner = page.locator("[data-new-round]");
   await expect(banner).toContainText("Round 3 is waiting for you.");
 
