@@ -114,7 +114,15 @@ pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
 ```
 
 ```json title="models.json"
-{ "models": [{ "id": "L1", "name": "Pivot", "file": { "$artifact": "pivot.glb" } }] }
+{
+  "models": [
+    {
+      "id": "L1",
+      "name": "Pivot",
+      "file": { "$artifact": "pivot.glb" }
+    }
+  ]
+}
 ```
 
 A file keeps its own name unless another follows `=`. The CLI checks the whole submission before it uploads anything, so a refused one moves nothing. It then uploads only the files the app does not have yet, which makes a new round cheap: only the files that changed are sent again. A file may be up to 100 MB, and a review may carry 32, unless the plugin sets lower limits.

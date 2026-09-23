@@ -245,7 +245,11 @@ Some things a person reviews are files: a 3D model, a PDF, a recording, a set of
 Declare the kinds the plugin takes in the manifest:
 
 ```json title="manifest.json"
-"artifacts": { "accept": [".glb", "model/gltf-binary", "image/*"], "max_size": 52428800, "max_count": 12 }
+"artifacts": {
+  "accept": [".glb", "model/gltf-binary", "image/*"],
+  "max_size": 52428800,
+  "max_count": 12
+}
 ```
 
 `accept` lists extensions and media types; a file matches by either. `max_size` (bytes) and `max_count` are optional and can only be lower than the app's own limits of 100 MB a file and 32 files a review. A plugin without `artifacts` takes no files.
@@ -253,7 +257,15 @@ Declare the kinds the plugin takes in the manifest:
 The payload names each file by an object with one key, `$artifact`:
 
 ```json
-{ "models": [{ "id": "L1", "name": "Pivot", "file": { "$artifact": "pivot.glb" } }] }
+{
+  "models": [
+    {
+      "id": "L1",
+      "name": "Pivot",
+      "file": { "$artifact": "pivot.glb" }
+    }
+  ]
+}
 ```
 
 Describe that field in your payload schema with `Pinrail.ARTIFACT_SCHEMA`, pasted into `$defs`:
@@ -261,8 +273,12 @@ Describe that field in your payload schema with `Pinrail.ARTIFACT_SCHEMA`, paste
 ```json title="schemas/payload.schema.json"
 "$defs": {
   "artifact": {
-    "type": "object", "additionalProperties": false, "required": ["$artifact"],
-    "properties": { "$artifact": { "type": "string", "minLength": 1, "maxLength": 120 } }
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["$artifact"],
+    "properties": {
+      "$artifact": { "type": "string", "minLength": 1, "maxLength": 120 }
+    }
   }
 }
 ```

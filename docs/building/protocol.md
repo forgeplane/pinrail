@@ -109,11 +109,30 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 
 ### `artifact`
 
-A view's frame can fetch nothing, so a file the review carries arrives this way. Number each request; the answer carries the same number:
+A view's frame can fetch nothing, so a file the review carries arrives this way. Number each request:
 
-```json
-{ "pinrail": 1, "type": "artifact", "req": 7, "name": "pivot.glb" }
-{ "pinrail": 1, "type": "artifact", "req": 7, "ok": true, "name": "pivot.glb", "media_type": "model/gltf-binary", "size": 1843302, "bytes": "<ArrayBuffer>" }
+```json title="the view asks"
+{
+  "pinrail": 1,
+  "type": "artifact",
+  "req": 7,
+  "name": "pivot.glb"
+}
+```
+
+The answer carries the same number, and the bytes as an `ArrayBuffer`:
+
+```json title="the app answers"
+{
+  "pinrail": 1,
+  "type": "artifact",
+  "req": 7,
+  "ok": true,
+  "name": "pivot.glb",
+  "media_type": "model/gltf-binary",
+  "size": 1843302,
+  "bytes": "<ArrayBuffer>"
+}
 ```
 
 The app answers only for names in `gate.artifacts` (or in `previous.artifacts`, with `round: "previous"`), and says why otherwise, with `ok: false` and `error`. Ask again for another copy: each answer transfers its buffer. An app without `"artifacts"` in `capabilities` does not answer; the SDK's `plugin.artifact` rejects at once there, saying the app needs updating.
