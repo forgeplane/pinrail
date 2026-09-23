@@ -97,9 +97,14 @@ function range(unit, min, max) {
   return `at most ${max}${u}`;
 }
 
-/** A definition the branch is already inside is not drawn again: the
- *  schema refers to itself (a condition made of conditions). */
-const asAbove = (name, each) => `<ul class="pr-fields"><li class="pr-field-note">${each ? "Each one" : "One"} a <code>${escape(name)}</code>, as above.</li></ul>`;
+/** The definition a field (or its array's items) refers to, when the
+ *  branch is already inside it: the schema refers to itself (a condition
+ *  made of conditions), so it is named rather than drawn again. */
+function recursion(raw, s, trail) {
+  if (raw?.$ref && trail.includes(raw.$ref)) return `a <code>${escape(defName(raw))}</code>, as above`;
+  if (s.type === "array" && s.items?.$ref && trail.includes(s.items.$ref)) return `each a <code>${escape(defName(s.items))}</code>, as above`;
+  return null;
+}
 
 /** The fields an object holds, or an array's items hold, one row each,
  *  nested ones inside. `trail` holds the definitions the branch is inside. */
@@ -107,7 +112,6 @@ function children(root, s, depth, trail) {
   let obj = s;
   if (s.type === "array") {
     const ref = s.items?.$ref;
-    if (ref && trail.includes(ref)) return asAbove(defName(s.items), true);
     if (ref) trail = [...trail, ref];
     obj = resolve(root, s.items ?? {});
   }
@@ -118,8 +122,14 @@ function children(root, s, depth, trail) {
   if (!obj.properties && alts?.some((alt) => alt.properties)) {
     const shapes = alts.map((alt, i) => {
       const ref = rawAlts[i]?.$ref;
+      const within = ref ? [...trail, ref] : trail;
+      // a shape of one field is that field, without a fold of its own around it
+      const keys = Object.keys(alt.properties ?? {});
+      if (keys.length === 1 && !alt.description && !alt.title) {
+        return field(root, keys[0], alt.properties[keys[0]], (alt.required ?? []).includes(keys[0]), depth + 1, within);
+      }
       const label = alt.title ?? ((alt.required ?? []).join(" + ") || `shape ${i + 1}`);
-      const inner = ref && trail.includes(ref) ? asAbove(defName(rawAlts[i]), false) : children(root, alt, depth + 1, ref ? [...trail, ref] : trail);
+      const inner = children(root, alt, depth + 1, within);
       const desc = alt.description ? `<p class="pr-field-desc">${prose(alt.description)}</p>` : "";
       return `<li class="pr-field"><details${depth < 2 ? " open" : ""}><summary class="pr-field-head"><span class="pr-field-shape">${escape(label)}</span></summary>${desc}${inner}</details></li>`;
     });
@@ -138,8 +148,9 @@ function field(root, name, raw, required, depth, trail) {
   const s = resolve(root, raw);
   const ref = raw?.$ref;
   const type = typeOf(root, s, raw);
-  const rules = constraints(s);
-  const inner = ref && trail.includes(ref) ? asAbove(defName(raw), false) : children(root, s, depth, ref ? [...trail, ref] : trail);
+  const again = recursion(raw, s, trail);
+  const rules = [...constraints(s), ...(again ? [again] : [])];
+  const inner = again ? "" : children(root, s, depth, ref ? [...trail, ref] : trail);
   const head = `<span class="pr-field-name">${escape(name)}</span><span class="pr-field-type${type === "file" || type === "file[]" ? " is-file" : ""}">${escape(type)}</span>${required ? `<span class="pr-field-required">required</span>` : ""}${s.title && s.title !== name ? `<span class="pr-field-title">${escape(s.title)}</span>` : ""}`;
   const body = `${s.description ? `<p class="pr-field-desc">${prose(s.description)}</p>` : ""}${rules.length ? `<p class="pr-field-rules">${rules.join(" · ")}</p>` : ""}`;
   if (!inner) return `<li class="pr-field"><div class="pr-field-head">${head}</div>${body}</li>`;
