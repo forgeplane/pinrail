@@ -577,3 +577,85 @@ fn a_dry_run_checks_the_submission_and_creates_nothing() {
     );
     assert_eq!(code, 2, "clap refuses --dry-run with --wait");
 }
+
+#[test]
+fn a_request_file_is_the_body_and_flags_override_its_keys() {
+    let sent = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        seen.lock()
+            .unwrap()
+            .push(serde_json::from_str(body).unwrap());
+        (201, review("pending"))
+    }));
+    let dir = tempdir();
+    let request = dir.join("request.json");
+    std::fs::write(
+        &request,
+        r#"{"plugin":"list","title":"Sentry triage","origin":{"repo":"acme"},"requested_by":"agent","payload":{"groups":[]}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("p.json"),
+        r#"{"groups":[{"title":"x","items":[]}]}"#,
+    )
+    .unwrap();
+
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "--request",
+            request.to_str().unwrap(),
+            "--no-start",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "--request",
+            request.to_str().unwrap(),
+            "--title",
+            "Sentry triage, round 2",
+            "--revises",
+            "r_1",
+            "--data",
+            dir.join("p.json").to_str().unwrap(),
+            "--no-start",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    let sent = sent.lock().unwrap();
+    assert_eq!(sent[0]["plugin"], "list");
+    assert_eq!(sent[0]["title"], "Sentry triage");
+    assert_eq!(sent[0]["origin"]["repo"], "acme");
+    assert_eq!(
+        sent[0]["requested_by"], "agent",
+        "the file's, not the default"
+    );
+    assert_eq!(sent[1]["title"], "Sentry triage, round 2");
+    assert_eq!(sent[1]["revises"], "r_1");
+    assert_eq!(sent[1]["payload"]["groups"][0]["title"], "x");
+    assert_eq!(
+        sent[1]["origin"]["repo"], "acme",
+        "the rest of the file stays"
+    );
+
+    std::fs::write(&request, "[]").unwrap();
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "--request",
+            request.to_str().unwrap(),
+            "--no-start",
+        ],
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("must hold a JSON object"), "{stderr}");
+    let (code, _, _) = run(&server, &["submit", "list", "--no-start"]);
+    assert_eq!(code, 2, "clap still wants --title without --request");
+}

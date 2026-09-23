@@ -198,7 +198,11 @@ the latest round of each review unless `--include-revised` is given, and
   the origin's URL. `--summary` sets the counts the inbox shows beside the
   title, `--expires-at` closes a review nobody decided in time, and
   `--requested-by` (or `WICKET_REQUESTED_BY`) names the caller.
-  `--dry-run` checks the submission and creates nothing.
+  `--dry-run` checks the submission and creates nothing. `--request <file>`
+  (or `-` for stdin) takes the whole request as one JSON object, the body
+  the API takes: `{"plugin", "title", "origin", "payload", …}`. Flags given
+  as well override its keys and `--data` replaces its payload, so a new
+  round is the same file with `--revises`.
 - **`list`** filters with `--status` (comma-separated), `--repo` (`-` for
   reviews that name no project), `--workflow`, `--ref`, `--run-id`,
   `--plugin` and `--q`, whose words must all appear somewhere among the

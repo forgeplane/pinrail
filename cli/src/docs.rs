@@ -100,7 +100,7 @@ fn command(page: &mut String, cmd: &Command, parents: &[&str]) {
     let path: Vec<&str> = parents.iter().copied().chain([cmd.get_name()]).collect();
     let _ = writeln!(page, "### `{}`\n", path.join(" "));
     if let Some(about) = cmd.get_long_about().or(cmd.get_about()) {
-        let _ = writeln!(page, "{}\n", sentence(&about.to_string()));
+        let _ = writeln!(page, "{}\n", description(&about.to_string()));
     }
     let aliases: Vec<&str> = cmd.get_visible_aliases().chain(cmd.get_aliases()).collect();
     if !aliases.is_empty() {
@@ -280,6 +280,23 @@ fn value_name(arg: &Arg) -> String {
 
 /// Help text as one sentence: joined lines, a capital, a full stop, and
 /// the flags it mentions set as code, as the rest of the page sets them.
+/// A command's help as markdown: each paragraph a sentence, and a
+/// paragraph indented four spaces, as `--help` shows an example, a code block.
+fn description(text: &str) -> String {
+    text.split("\n\n")
+        .filter(|p| !p.trim().is_empty())
+        .map(|paragraph| {
+            if paragraph.lines().all(|line| line.starts_with("    ")) {
+                let code: Vec<&str> = paragraph.lines().map(|line| &line[4..]).collect();
+                format!("```\n{}\n```", code.join("\n"))
+            } else {
+                sentence(paragraph)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
 fn sentence(text: &str) -> String {
     let joined = text
         .split_whitespace()
@@ -291,7 +308,7 @@ fn sentence(text: &str) -> String {
         Some(first) => first.to_uppercase().chain(chars).collect::<String>(),
         None => return String::new(),
     };
-    if !out.ends_with(['.', '?', '!']) {
+    if !out.ends_with(['.', '?', '!', ':']) {
         out.push('.');
     }
     out
@@ -341,5 +358,9 @@ mod tests {
         assert!(page.contains("| `5` | The person discarded the review"));
         assert!(page.contains("`WICKET_REQUESTED_BY`"));
         assert!(page.starts_with("---\ntitle: CLI reference\n"));
+        assert!(
+            page.contains("the body the API takes:\n\n```\n{\"plugin\": \"list\""),
+            "the example under submit is a code block"
+        );
     }
 }

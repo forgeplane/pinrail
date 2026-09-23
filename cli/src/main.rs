@@ -87,7 +87,20 @@ impl Output {
 #[derive(Subcommand)]
 enum Command {
     /// Submit a review; with --wait, block until it is decided and print the decision
-    #[command(alias = "create")]
+    ///
+    /// The review is built from the flags: the plugin, --title, and the
+    /// payload from --data. Or give the whole request as one JSON file with
+    /// --request, the body the API takes:
+    ///
+    ///     {"plugin": "list", "title": "Sentry triage",
+    ///      "origin": {"repo": "acme"}, "payload": {"groups": []}}
+    ///
+    /// Its keys are plugin, title, payload, origin, summary, revises,
+    /// expires_at and requested_by. Flags given as well override the file's
+    /// keys, and --data replaces its payload, so a new round is the same
+    /// file with --revises and the earlier round's id. The plugin argument
+    /// can be left out when the file names one.
+    #[command(alias = "create", verbatim_doc_comment)]
     Submit(SubmitArgs),
     /// Block until a review leaves pending; print it
     Wait(WaitArgs),
@@ -150,10 +163,15 @@ enum Command {
 #[derive(Args)]
 struct SubmitArgs {
     /// The plugin that defines this sort of review, e.g. code_review
-    plugin: String,
+    #[arg(required_unless_present = "request")]
+    plugin: Option<String>,
     /// What the review is about, as the inbox shows it
-    #[arg(long)]
-    title: String,
+    #[arg(long, required_unless_present = "request")]
+    title: Option<String>,
+    /// The whole request as JSON: a file path, or - for stdin; flags
+    /// override its keys
+    #[arg(long, value_name = "FILE|-")]
+    request: Option<String>,
     /// Where the review comes from: repo=acme,workflow=review,run_id=…,ref=42,url=…
     #[arg(long, alias = "source", value_parser = parse_origin)]
     origin: Option<BTreeMap<String, String>>,
@@ -169,9 +187,9 @@ struct SubmitArgs {
     /// ISO 8601 timestamp after which the review expires
     #[arg(long)]
     expires_at: Option<String>,
-    /// Who is asking, shown on the review
-    #[arg(long, env = "WICKET_REQUESTED_BY", default_value = "wicket-cli")]
-    requested_by: String,
+    /// Who is asking, shown on the review [default: wicket-cli]
+    #[arg(long, env = "WICKET_REQUESTED_BY")]
+    requested_by: Option<String>,
     /// Block until decided (see wait)
     #[arg(long)]
     wait: bool,
@@ -511,16 +529,32 @@ fn run(cli: Cli) -> Result<u8> {
 }
 
 fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
-    let payload = match &args.data {
-        Some(spec) => read_json_arg(spec)?,
+    if args.request.as_deref() == Some("-") && args.data.as_deref() == Some("-") {
+        anyhow::bail!("--request and --data cannot both read stdin");
+    }
+    let mut body = match &args.request {
+        Some(spec) => match read_json_arg(spec)? {
+            Value::Object(map) => Value::Object(map),
+            _ => anyhow::bail!("{spec} must hold a JSON object, the request"),
+        },
         None => json!({}),
     };
-    let mut body = json!({
-        "plugin": args.plugin,
-        "title": args.title,
-        "payload": payload,
-        "requested_by": args.requested_by,
-    });
+    if let Some(plugin) = &args.plugin {
+        body["plugin"] = json!(plugin);
+    }
+    if let Some(title) = &args.title {
+        body["title"] = json!(title);
+    }
+    if let Some(spec) = &args.data {
+        body["payload"] = read_json_arg(spec)?;
+    } else if body.get("payload").is_none() {
+        body["payload"] = json!({});
+    }
+    match &args.requested_by {
+        Some(by) => body["requested_by"] = json!(by),
+        None if body.get("requested_by").is_none() => body["requested_by"] = json!("wicket-cli"),
+        None => {}
+    }
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }
