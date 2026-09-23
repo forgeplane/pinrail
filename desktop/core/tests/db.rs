@@ -1,13 +1,14 @@
 //! The database's own promises: a review ends once whichever way, status
-//! is answered by SQL, and a file written before `outcomes` existed reads
-//! the same afterwards.
+//! is answered by SQL, and migrations: a new file records what it ran, a
+//! file from the numbered steps is adopted as it is, and a file from too
+//! old or too new a build is refused.
 
 use std::path::Path;
 
 use chrono::{Duration, Utc};
+use pinrail_core::db::{Db, Filters, LATEST_MIGRATION};
+use pinrail_core::reviews::{Decision, Review, Status};
 use serde_json::{Map, json};
-use pinrail_core::db::{Db, Filters, SCHEMA_VERSION};
-use pinrail_core::reviews::{Decision, Review, Status, parse_datetime};
 
 fn review(id: &str, expires_in: Option<Duration>) -> Review {
     Review {
@@ -148,125 +149,155 @@ fn status_is_answered_by_the_query_and_the_count_is_not_a_listing() {
     assert_eq!(db.list(&pending, Utc::now()).unwrap().len(), 2);
 }
 
-/// A data directory written before `outcomes`: the three tables, one row
-/// each, and one review that had ended twice.
-fn old_database(path: &Path) {
+/// The tables as the numbered steps left them, the day migrations moved
+/// to `schema_migrations`: `plugin_release` added last by `ALTER TABLE`,
+/// and `PRAGMA user_version = 4`.
+const NUMBERED_STEP_4: &str = "
+CREATE TABLE reviews (id TEXT PRIMARY KEY, plugin TEXT NOT NULL, plugin_version INTEGER NOT NULL, title TEXT NOT NULL,
+  origin TEXT NOT NULL, requested_by TEXT, payload TEXT NOT NULL, summary TEXT, revises TEXT REFERENCES reviews(id),
+  expires_at TEXT, created_at TEXT NOT NULL);
+ALTER TABLE reviews ADD COLUMN plugin_release TEXT;
+CREATE INDEX reviews_created ON reviews(created_at DESC);
+CREATE INDEX reviews_revises ON reviews(revises);
+CREATE TABLE events (id INTEGER PRIMARY KEY, review_id TEXT REFERENCES reviews(id), kind TEXT NOT NULL, actor TEXT, at TEXT NOT NULL, attrs TEXT);
+CREATE INDEX events_review ON events(review_id, id);
+CREATE TABLE outcomes (review_id TEXT PRIMARY KEY REFERENCES reviews(id), kind TEXT NOT NULL CHECK (kind IN ('decided', 'withdrawn', 'discarded')),
+  at TEXT NOT NULL, by TEXT, reason TEXT, data TEXT, agent_note TEXT);
+CREATE INDEX outcomes_kind ON outcomes(kind);
+CREATE TABLE installed_plugins (name TEXT PRIMARY KEY, version TEXT NOT NULL, major INTEGER NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('path', 'git', 'release')), source TEXT NOT NULL, resolved TEXT NOT NULL,
+  commit_id TEXT, asset_hash TEXT, hash TEXT, build_log TEXT, installed_at TEXT NOT NULL,
+  linked INTEGER NOT NULL DEFAULT 0, path TEXT NOT NULL);
+INSERT INTO reviews VALUES ('r_d', 'list', 1, 'decided', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:00:00Z', '1.0.0');
+INSERT INTO reviews VALUES ('r_p', 'list', 1, 'pending', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:03:00Z', NULL);
+INSERT INTO outcomes VALUES ('r_d', 'decided', '2026-09-01T11:00:00Z', 'pat', NULL, '{\"ok\":true}', 'a note');
+PRAGMA user_version = 4;
+";
+
+/// Every table's columns, as `name type notnull default pk`, and every
+/// index: what two files must share to be the same schema, whatever order
+/// or text made them.
+fn shape(path: &Path) -> Vec<String> {
     let conn = rusqlite::Connection::open(path).unwrap();
-    conn.execute_batch(
-        "CREATE TABLE reviews (id TEXT PRIMARY KEY, plugin TEXT NOT NULL, plugin_version INTEGER NOT NULL, title TEXT NOT NULL,
-           origin TEXT NOT NULL, requested_by TEXT, payload TEXT NOT NULL, summary TEXT, revises TEXT, expires_at TEXT, created_at TEXT NOT NULL);
-         CREATE TABLE decisions (review_id TEXT PRIMARY KEY, decided_by TEXT NOT NULL, decided_at TEXT NOT NULL, data TEXT NOT NULL, agent_note TEXT);
-         CREATE TABLE withdrawals (review_id TEXT PRIMARY KEY, withdrawn_at TEXT NOT NULL, reason TEXT);
-         CREATE TABLE discards (review_id TEXT PRIMARY KEY, discarded_at TEXT NOT NULL, discarded_by TEXT NOT NULL, reason TEXT);
-         CREATE TABLE events (id INTEGER PRIMARY KEY, review_id TEXT, kind TEXT NOT NULL, actor TEXT, at TEXT NOT NULL, attrs TEXT);
-         INSERT INTO reviews VALUES ('r_d', 'list', 1, 'decided', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:00:00Z');
-         INSERT INTO reviews VALUES ('r_w', 'list', 1, 'withdrawn', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:01:00Z');
-         INSERT INTO reviews VALUES ('r_x', 'list', 1, 'discarded', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:02:00Z');
-         INSERT INTO reviews VALUES ('r_p', 'list', 1, 'pending', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:03:00Z');
-         INSERT INTO reviews VALUES ('r_2', 'list', 1, 'ended twice', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:04:00Z');
-         INSERT INTO decisions VALUES ('r_d', 'pat', '2026-09-01T11:00:00Z', '{\"ok\":true}', 'a note');
-         INSERT INTO withdrawals VALUES ('r_w', '2026-09-01T11:01:00Z', 'gone');
-         INSERT INTO discards VALUES ('r_x', '2026-09-01T11:02:00Z', 'sam', 'not now');
-         INSERT INTO discards VALUES ('r_2', '2026-09-01T11:03:00Z', 'sam', 'first');
-         INSERT INTO decisions VALUES ('r_2', 'pat', '2026-09-01T11:03:30Z', '{\"ok\":false}', NULL);",
-    )
-    .unwrap();
+    let names: Vec<(String, String)> = conn
+        .prepare("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name")
+        .unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    let mut shape = Vec::new();
+    for (kind, name) in names {
+        shape.push(format!("{kind} {name}"));
+        if kind == "table" {
+            let mut stmt = conn.prepare(&format!("PRAGMA table_info({name})")).unwrap();
+            let columns = stmt
+                .query_map([], |r| {
+                    Ok(format!(
+                        "  {} {} {} {:?} {}",
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, i64>(3)?,
+                        r.get::<_, Option<String>>(4)?,
+                        r.get::<_, i64>(5)?
+                    ))
+                })
+                .unwrap();
+            for column in columns {
+                shape.push(column.unwrap());
+            }
+        }
+    }
+    shape
 }
 
-#[test]
-fn a_database_from_before_outcomes_reads_the_same_afterwards() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("pinrail.db");
-    old_database(&path);
-
-    let db = Db::open(&path).unwrap();
-    let now = Utc::now();
-    let get = |id: &str| db.get_review(id).unwrap().unwrap();
-    let d = get("r_d");
-    assert_eq!(d.status(now), Status::Decided);
-    assert_eq!(d.decision.as_ref().unwrap().decided_by, "pat");
-    assert_eq!(
-        d.decision.as_ref().unwrap().decided_at,
-        parse_datetime("2026-09-01T11:00:00Z").unwrap()
-    );
-    assert_eq!(d.decision.as_ref().unwrap().data, json!({"ok": true}));
-    assert_eq!(d.agent_note.as_deref(), Some("a note"));
-    let w = get("r_w");
-    assert_eq!(w.status(now), Status::Withdrawn);
-    assert_eq!(w.withdrawn_reason.as_deref(), Some("gone"));
-    assert_eq!(w.withdrawn_at, parse_datetime("2026-09-01T11:01:00Z"));
-    let x = get("r_x");
-    assert_eq!(x.status(now), Status::Discarded);
-    assert_eq!(x.discarded_by.as_deref(), Some("sam"));
-    assert_eq!(x.discarded_reason.as_deref(), Some("not now"));
-    assert_eq!(get("r_p").status(now), Status::Pending);
-    // the review that had ended twice keeps its first ending
-    let twice = get("r_2");
-    assert_eq!(twice.status(now), Status::Discarded);
-    assert!(twice.decision.is_none());
-
-    // the old tables are gone, the version is stamped, and opening again is a no-op
-    drop(db);
-    let conn = rusqlite::Connection::open(&path).unwrap();
-    let tables: Vec<String> = conn
-        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+fn applied(path: &Path) -> (Vec<i64>, i64) {
+    let conn = rusqlite::Connection::open(path).unwrap();
+    let versions = conn
+        .prepare("SELECT version FROM schema_migrations ORDER BY version")
         .unwrap()
         .query_map([], |r| r.get(0))
         .unwrap()
         .collect::<Result<_, _>>()
         .unwrap();
-    assert!(tables.contains(&"outcomes".to_string()));
-    for gone in ["decisions", "withdrawals", "discards"] {
-        assert!(!tables.contains(&gone.to_string()), "{gone} is still there");
-    }
-    let version: i64 = conn
+    let numbered = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .unwrap();
-    assert_eq!(version, SCHEMA_VERSION);
+    (versions, numbered)
+}
+
+#[test]
+fn a_new_file_records_each_migration_it_ran() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pinrail.db");
+    drop(Db::open(&path).unwrap());
+    let (versions, numbered) = applied(&path);
+    assert_eq!(versions.last(), Some(&LATEST_MIGRATION));
+    assert_eq!(numbered, 0);
+    // opening again runs nothing
+    drop(Db::open(&path).unwrap());
+    assert_eq!(applied(&path).0, versions);
+}
+
+#[test]
+fn a_file_from_the_numbered_steps_is_adopted_as_it_is() {
+    let dir = tempfile::tempdir().unwrap();
+    let old = dir.path().join("old.db");
+    let conn = rusqlite::Connection::open(&old).unwrap();
+    conn.execute_batch(NUMBERED_STEP_4).unwrap();
     drop(conn);
-    let again = Db::open(&path).unwrap();
+
+    let db = Db::open(&old).unwrap();
+    let now = Utc::now();
+    let decided = db.get_review("r_d").unwrap().unwrap();
+    assert_eq!(decided.status(now), Status::Decided);
+    assert_eq!(decided.plugin_release, "1.0.0");
     assert_eq!(
-        again.get_review("r_2").unwrap().unwrap().status(now),
-        Status::Discarded
+        db.get_review("r_p").unwrap().unwrap().status(now),
+        Status::Pending
+    );
+    drop(db);
+    let (versions, numbered) = applied(&old);
+    assert_eq!(
+        versions.first(),
+        Some(&20260923193000),
+        "the baseline is recorded, not run"
+    );
+    assert_eq!(numbered, 0);
+
+    // and it is the same schema a new file gets
+    let new = dir.path().join("new.db");
+    drop(Db::open(&new).unwrap());
+    assert_eq!(shape(&old), shape(&new));
+}
+
+#[test]
+fn a_file_from_before_the_last_numbered_step_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("pinrail.db");
+    let conn = rusqlite::Connection::open(&path).unwrap();
+    conn.execute_batch("CREATE TABLE reviews (id TEXT PRIMARY KEY); PRAGMA user_version = 2;")
+        .unwrap();
+    drop(conn);
+    let error = Db::open(&path).unwrap_err().to_string();
+    assert!(
+        error.contains("from before 2026-09-23 (schema step 2)"),
+        "{error}"
     );
 }
 
 #[test]
-fn a_database_from_a_newer_build_is_refused() {
+fn a_file_a_newer_build_migrated_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("pinrail.db");
+    drop(Db::open(&path).unwrap());
     let conn = rusqlite::Connection::open(&path).unwrap();
-    conn.execute_batch(&format!("PRAGMA user_version = {}", SCHEMA_VERSION + 1))
-        .unwrap();
-    drop(conn);
-    let error = Db::open(&path).unwrap_err().to_string();
-    assert!(error.contains("newer than this build"), "{error}");
-}
-
-/// A file that had been through the outcomes step, as every database was
-/// on the day installed_plugins arrived: the step must create its own
-/// table, because the baseline never runs again for a file past it.
-#[test]
-fn a_step_creates_the_tables_it_adds_for_a_file_past_the_baseline() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("pinrail.db");
-    let conn = rusqlite::Connection::open(&path).unwrap();
-    conn.execute_batch(
-        "CREATE TABLE reviews (id TEXT PRIMARY KEY, plugin TEXT NOT NULL, plugin_version INTEGER NOT NULL, title TEXT NOT NULL,
-           origin TEXT NOT NULL, requested_by TEXT, payload TEXT NOT NULL, summary TEXT, revises TEXT, expires_at TEXT, created_at TEXT NOT NULL);
-         CREATE TABLE events (id INTEGER PRIMARY KEY, review_id TEXT, kind TEXT NOT NULL, actor TEXT, at TEXT NOT NULL, attrs TEXT);
-         CREATE TABLE outcomes (review_id TEXT PRIMARY KEY, kind TEXT NOT NULL, at TEXT NOT NULL, by TEXT, reason TEXT, data TEXT, agent_note TEXT);
-         CREATE TABLE plugin_dirs (path TEXT PRIMARY KEY, added_at TEXT NOT NULL);
-         PRAGMA user_version = 2;",
+    conn.execute(
+        "INSERT INTO schema_migrations VALUES (20990101000000, NULL)",
+        [],
     )
     .unwrap();
     drop(conn);
-    let db = Db::open(&path).unwrap();
-    assert!(db.installed_plugins().unwrap().is_empty());
-    drop(db);
-    let conn = rusqlite::Connection::open(&path).unwrap();
-    let version: i64 = conn
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .unwrap();
-    assert_eq!(version, SCHEMA_VERSION);
+    let error = Db::open(&path).unwrap_err().to_string();
+    assert!(error.contains("newer Pinrail"), "{error}");
 }

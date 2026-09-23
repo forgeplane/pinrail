@@ -1,232 +1,302 @@
-//! The tables, and the numbered steps that bring an older file up to date.
-//! A step runs once; the file records how far it has come.
+//! Migrations, the way Ecto keeps them: one file per change under
+//! `desktop/core/migrations/`, named `<version>_<name>.sql` where the
+//! version is the UTC moment it was written (`20260923193000`), and a
+//! `schema_migrations` table with a row per migration applied.
+//!
+//! Opening runs every migration the table has no row for, in version order,
+//! each in its own transaction with its row inserted inside it, so a crash
+//! leaves the file with a migration wholly applied or not at all. A
+//! migration merged late with an older version than one already applied
+//! still runs, as in Ecto. A file with a row this build has no migration
+//! for was written by a newer build, and is refused rather than misread.
+//!
+//! A migration that has to move data rather than change the schema is a
+//! Rust function instead of a file; it is listed here all the same.
+//!
+//! Never edit a migration once it is merged: add another.
 
+use chrono::{SecondsFormat, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 
-/// The tables as they were before versioning: step 0, run once for a new
-/// file and never edited again. A later step creates the tables it adds,
-/// because a file past step 0 never runs it again.
-const SCHEMA: &str = r#"
-CREATE TABLE IF NOT EXISTS reviews (
-  id             TEXT PRIMARY KEY,
-  plugin         TEXT NOT NULL,
-  plugin_version INTEGER NOT NULL,
-  title          TEXT NOT NULL,
-  origin         TEXT NOT NULL,
-  requested_by   TEXT,
-  payload        TEXT NOT NULL,
-  summary        TEXT,
-  revises        TEXT REFERENCES reviews(id),
-  expires_at     TEXT,
-  created_at     TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS reviews_created ON reviews(created_at DESC);
-CREATE INDEX IF NOT EXISTS reviews_revises ON reviews(revises);
-
-CREATE TABLE IF NOT EXISTS events (
-  id        INTEGER PRIMARY KEY,
-  review_id TEXT REFERENCES reviews(id),
-  kind      TEXT NOT NULL,
-  actor     TEXT,
-  at        TEXT NOT NULL,
-  attrs     TEXT
-);
-CREATE INDEX IF NOT EXISTS events_review ON events(review_id, id);
-
-DROP TABLE IF EXISTS settings;
-"#;
-
-/// One step of the schema's history. The file's `PRAGMA user_version` is
-/// how many of these it has been through; opening runs the rest, each in
-/// its own transaction with the version bump inside it, so a crash leaves
-/// the file at a version it wholly is. A step creates every table it
-/// introduces: the baseline is step 0 and a file past it never sees it
-/// again.
-struct Migration {
-    name: &'static str,
-    run: fn(&Connection) -> rusqlite::Result<()>,
+pub(super) struct Migration {
+    /// `YYYYMMDDHHMMSS`, UTC, as in the file's name.
+    pub version: i64,
+    pub name: &'static str,
+    pub step: Step,
 }
 
-const MIGRATIONS: &[Migration] = &[
-    Migration {
-        name: "the tables",
-        run: |conn| conn.execute_batch(SCHEMA),
-    },
-    Migration {
-        name: "one outcomes table for decisions, withdrawals and discards",
-        run: migrate_outcomes,
-    },
-    Migration {
-        name: "installed plugins, one record per plugin",
-        run: migrate_installed_plugins,
-    },
-    Migration {
-        name: "the exact plugin version on a review",
-        run: |conn| conn.execute_batch("ALTER TABLE reviews ADD COLUMN plugin_release TEXT"),
-    },
-];
+pub(super) enum Step {
+    Sql(&'static str),
+    #[allow(dead_code)] // none yet; the first data migration will use it
+    Rust(fn(&Connection) -> rusqlite::Result<()>),
+}
 
-/// The schema as this build writes it; `PRAGMA user_version` on the file.
-pub const SCHEMA_VERSION: i64 = MIGRATIONS.len() as i64;
+/// Every migration, oldest first. A test checks this against the files.
+pub(super) const MIGRATIONS: &[Migration] = &[Migration {
+    version: 20260923193000,
+    name: "baseline",
+    step: Step::Sql(include_str!("../../migrations/20260923193000_baseline.sql")),
+}];
 
-/// Brings the file up to this build's schema. A file from a newer build is
-/// refused rather than misread.
+/// The newest migration this build knows.
+pub const LATEST_MIGRATION: i64 = MIGRATIONS[MIGRATIONS.len() - 1].version;
+
+/// The last `PRAGMA user_version` of the numbered steps that came before
+/// the table, which the baseline squashes: a file there has the baseline's
+/// schema already.
+const LAST_NUMBERED_STEP: i64 = 4;
+
+/// Brings the file up to this build's schema.
 pub(super) fn migrate(conn: &Connection) -> rusqlite::Result<()> {
-    let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
-    if version > SCHEMA_VERSION {
-        return Err(rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_SCHEMA),
-            Some(format!(
-                "the database is at schema version {version}, newer than this build's {SCHEMA_VERSION}"
-            )),
-        ));
+    adopt(conn)?;
+    run(conn, MIGRATIONS)
+}
+
+pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+  version     INTEGER PRIMARY KEY,
+  inserted_at TEXT
+);",
+    )?;
+    let applied: Vec<i64> = conn
+        .prepare("SELECT version FROM schema_migrations ORDER BY version")?
+        .query_map([], |r| r.get(0))?
+        .collect::<Result<_, _>>()?;
+    if let Some(unknown) = applied
+        .iter()
+        .find(|v| !migrations.iter().any(|m| m.version == **v))
+    {
+        return Err(refused(format!(
+            "the database has migration {unknown}, which this build does not know: it was opened by a newer Pinrail"
+        )));
     }
-    for (i, step) in MIGRATIONS.iter().enumerate().skip(version as usize) {
+    let fresh = applied.is_empty();
+    let mut pending: Vec<&Migration> = migrations
+        .iter()
+        .filter(|m| !applied.contains(&m.version))
+        .collect();
+    pending.sort_by_key(|m| m.version);
+    for migration in pending {
         let tx = conn.unchecked_transaction()?;
-        (step.run)(&tx)?;
-        tx.execute_batch(&format!("PRAGMA user_version = {}", i + 1))?;
+        match migration.step {
+            Step::Sql(sql) => tx.execute_batch(sql)?,
+            Step::Rust(step) => step(&tx)?,
+        }
+        tx.execute(
+            "INSERT INTO schema_migrations (version, inserted_at) VALUES (?1, ?2)",
+            params![
+                migration.version,
+                Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+            ],
+        )?;
         tx.commit()?;
-        if version > 0 {
+        if !fresh {
             eprintln!(
-                "pinrail: database migrated to version {}: {}",
-                i + 1,
-                step.name
+                "pinrail: database migrated: {}_{}",
+                migration.version, migration.name
             );
         }
     }
     Ok(())
 }
 
-/// One `outcomes` table in place of `decisions`, `withdrawals` and
-/// `discards`, so a review ends once whichever way. Rows are copied
-/// earliest first; a review that had ended twice (a race the old tables
-/// allowed) keeps its first ending and the rest are logged. A file that
-/// never had the old tables passes through untouched.
-fn migrate_outcomes(conn: &Connection) -> rusqlite::Result<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS outcomes (
-  review_id  TEXT PRIMARY KEY REFERENCES reviews(id),
-  kind       TEXT NOT NULL CHECK (kind IN ('decided', 'withdrawn', 'discarded')),
-  at         TEXT NOT NULL,
-  by         TEXT,
-  reason     TEXT,
-  data       TEXT,
-  agent_note TEXT
-);
-CREATE INDEX IF NOT EXISTS outcomes_kind ON outcomes(kind);
-",
-    )?;
-    let has = |table: &str| -> rusqlite::Result<bool> {
+/// A file from before the table: at the last numbered step it already has
+/// the baseline's schema, so the baseline is recorded rather than run, and
+/// `user_version` goes back to 0. A file at an earlier step, or with tables
+/// and no version at all, predates the baseline and is refused.
+fn adopt(conn: &Connection) -> rusqlite::Result<()> {
+    let has_table = |name: &str| -> rusqlite::Result<bool> {
         conn.query_row(
             "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
-            params![table],
+            params![name],
             |_| Ok(()),
         )
         .optional()
         .map(|r| r.is_some())
     };
-    // review_id, at, by, data, note, reason, discarded_by: one row per
-    // outcome from any of the three old tables
-    type OldOutcome = (
-        String,
-        String,
-        String,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-    );
-    let mut rows: Vec<OldOutcome> = Vec::new();
-    if has("decisions")? {
-        let mut stmt = conn
-            .prepare("SELECT review_id, decided_at, decided_by, data, agent_note FROM decisions")?;
-        for row in stmt.query_map([], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                "decided".to_string(),
-                r.get(1)?,
-                r.get::<_, Option<String>>(2)?,
-                None,
-                r.get::<_, Option<String>>(3)?,
-                r.get::<_, Option<String>>(4)?,
-            ))
-        })? {
-            rows.push(row?);
-        }
+    if has_table("schema_migrations")? {
+        return Ok(());
     }
-    if has("withdrawals")? {
-        let mut stmt = conn.prepare("SELECT review_id, withdrawn_at, reason FROM withdrawals")?;
-        for row in stmt.query_map([], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                "withdrawn".to_string(),
-                r.get(1)?,
-                None,
-                r.get::<_, Option<String>>(2)?,
-                None,
-                None,
-            ))
-        })? {
-            rows.push(row?);
-        }
-    }
-    if has("discards")? {
-        let mut stmt =
-            conn.prepare("SELECT review_id, discarded_at, discarded_by, reason FROM discards")?;
-        for row in stmt.query_map([], |r| {
-            Ok((
-                r.get::<_, String>(0)?,
-                "discarded".to_string(),
-                r.get(1)?,
-                r.get::<_, Option<String>>(2)?,
-                r.get::<_, Option<String>>(3)?,
-                None,
-                None,
-            ))
-        })? {
-            rows.push(row?);
-        }
-    }
-    rows.sort_by(|a, b| a.2.cmp(&b.2));
-    for (review_id, kind, at, by, reason, data, agent_note) in rows {
-        let inserted = conn.execute(
-            "INSERT OR IGNORE INTO outcomes (review_id, kind, at, by, reason, data, agent_note) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![review_id, kind, at, by, reason, data, agent_note],
-        )?;
-        if inserted == 0 {
+    let numbered: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    match numbered {
+        0 if !has_table("reviews")? => Ok(()),
+        LAST_NUMBERED_STEP => {
+            let tx = conn.unchecked_transaction()?;
+            tx.execute_batch(
+                "CREATE TABLE schema_migrations (
+  version     INTEGER PRIMARY KEY,
+  inserted_at TEXT
+);",
+            )?;
+            tx.execute(
+                "INSERT INTO schema_migrations (version, inserted_at) VALUES (?1, ?2)",
+                params![
+                    MIGRATIONS[0].version,
+                    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+                ],
+            )?;
+            tx.execute_batch("PRAGMA user_version = 0")?;
+            tx.commit()?;
             eprintln!(
-                "pinrail: review {review_id} had ended twice; its {kind} at {at} is dropped, the earlier ending stands"
+                "pinrail: database adopted into schema_migrations at {}_{}",
+                MIGRATIONS[0].version, MIGRATIONS[0].name
+            );
+            Ok(())
+        }
+        other => Err(refused(format!(
+            "the database is from before 2026-09-23 (schema step {other}), older than any Pinrail release can read"
+        ))),
+    }
+}
+
+fn refused(message: String) -> rusqlite::Error {
+    rusqlite::Error::SqliteFailure(
+        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_SCHEMA),
+        Some(message),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn versions(conn: &Connection) -> Vec<i64> {
+        conn.prepare("SELECT version FROM schema_migrations ORDER BY version")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    fn table(version: i64, name: &'static str, sql: &'static str) -> Migration {
+        Migration {
+            version,
+            name,
+            step: Step::Sql(sql),
+        }
+    }
+
+    #[test]
+    fn every_file_is_listed_once_in_version_order() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+        let mut files: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        files.sort();
+        let sql: Vec<String> = MIGRATIONS
+            .iter()
+            .filter(|m| matches!(m.step, Step::Sql(_)))
+            .map(|m| format!("{}_{}.sql", m.version, m.name))
+            .collect();
+        assert_eq!(
+            files, sql,
+            "every file in migrations/ is in MIGRATIONS, by its name"
+        );
+        for pair in MIGRATIONS.windows(2) {
+            assert!(
+                pair[0].version < pair[1].version,
+                "{} before {}",
+                pair[0].version,
+                pair[1].version
+            );
+        }
+        for m in MIGRATIONS {
+            let v = m.version.to_string();
+            assert_eq!(v.len(), 14, "{v} is YYYYMMDDHHMMSS");
+            assert!(
+                chrono::NaiveDateTime::parse_from_str(&v, "%Y%m%d%H%M%S").is_ok(),
+                "{v}"
             );
         }
     }
-    conn.execute_batch(
-        "DROP TABLE IF EXISTS decisions; DROP TABLE IF EXISTS withdrawals; DROP TABLE IF EXISTS discards;",
-    )?;
-    Ok(())
-}
 
-/// Plugin directories become links: every plugin that was found inside a
-/// registered directory keeps working, served live from where it is, as
-/// a linked entry in `installed_plugins`. The first of two plugins with
-/// one name wins, as the registry decided before.
-fn migrate_installed_plugins(conn: &Connection) -> rusqlite::Result<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS installed_plugins (
-  name         TEXT PRIMARY KEY,
-  version      TEXT NOT NULL,
-  major        INTEGER NOT NULL,
-  kind         TEXT NOT NULL CHECK (kind IN ('path', 'git', 'release')),
-  source       TEXT NOT NULL,
-  resolved     TEXT NOT NULL,
-  commit_id    TEXT,
-  asset_hash   TEXT,
-  hash         TEXT,
-  build_log    TEXT,
-  installed_at TEXT NOT NULL,
-  linked       INTEGER NOT NULL DEFAULT 0,
-  path         TEXT NOT NULL
-);
-DROP TABLE IF EXISTS plugin_dirs;
-",
-    )
+    #[test]
+    fn pending_migrations_run_in_version_order_once_each() {
+        let conn = Connection::open_in_memory().unwrap();
+        let first = [table(20260101000000, "a", "CREATE TABLE a (x);")];
+        run(&conn, &first).unwrap();
+        // a branch's migration merged late, older than one already applied, still runs
+        let later = [
+            table(20260101000000, "a", "CREATE TABLE a (x);"),
+            table(20251231000000, "late", "CREATE TABLE late (x);"),
+            table(20260201000000, "b", "CREATE TABLE b (x);"),
+        ];
+        run(&conn, &later).unwrap();
+        run(&conn, &later).unwrap();
+        assert_eq!(
+            versions(&conn),
+            [20251231000000, 20260101000000, 20260201000000]
+        );
+        let at: String = conn
+            .query_row(
+                "SELECT inserted_at FROM schema_migrations WHERE version = 20260201000000",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(at.ends_with('Z'), "{at}");
+    }
+
+    #[test]
+    fn a_failing_migration_leaves_neither_its_changes_nor_its_row() {
+        let conn = Connection::open_in_memory().unwrap();
+        let broken = [
+            table(20260101000000, "a", "CREATE TABLE a (x);"),
+            table(
+                20260102000000,
+                "half",
+                "CREATE TABLE half (x); THIS IS NOT SQL;",
+            ),
+        ];
+        assert!(run(&conn, &broken).is_err());
+        assert_eq!(versions(&conn), [20260101000000]);
+        let half: Option<i64> = conn
+            .query_row("SELECT 1 FROM sqlite_master WHERE name = 'half'", [], |r| {
+                r.get(0)
+            })
+            .optional()
+            .unwrap();
+        assert!(half.is_none());
+    }
+
+    #[test]
+    fn a_migration_this_build_does_not_know_is_refused() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &[table(20260101000000, "a", "CREATE TABLE a (x);")]).unwrap();
+        conn.execute(
+            "INSERT INTO schema_migrations VALUES (20990101000000, NULL)",
+            [],
+        )
+        .unwrap();
+        let error = run(&conn, &[table(20260101000000, "a", "CREATE TABLE a (x);")])
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("20990101000000") && error.contains("newer Pinrail"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn a_rust_step_runs_like_a_file() {
+        let conn = Connection::open_in_memory().unwrap();
+        let steps = [
+            table(
+                20260101000000,
+                "a",
+                "CREATE TABLE a (x); INSERT INTO a VALUES (1);",
+            ),
+            Migration {
+                version: 20260102000000,
+                name: "double",
+                step: Step::Rust(|c| c.execute_batch("UPDATE a SET x = x * 2")),
+            },
+        ];
+        run(&conn, &steps).unwrap();
+        let x: i64 = conn.query_row("SELECT x FROM a", [], |r| r.get(0)).unwrap();
+        assert_eq!(x, 2);
+    }
 }

@@ -1,9 +1,9 @@
 //! SQLite: the record of truth. Reviews and their outcomes are
-//! written once; events are appended; the one-decision rule is the primary
-//! key on `decisions`.
+//! written once; events are appended; the one-ending rule is the primary
+//! key on `outcomes`.
 //!
-//! One connection and one file, in five areas: the tables and the numbered
-//! steps that migrate them, reviews and the queries over them, how a review
+//! One connection and one file, in five areas: the migrations that
+//! make the tables, reviews and the queries over them, how a review
 //! ends, the event log, and the record of installed plugins.
 
 mod events;
@@ -15,7 +15,7 @@ mod schema;
 pub use events::Event;
 pub use plugins::InstalledRecord;
 pub use reviews::{Facets, Filters, NO_PROJECT};
-pub use schema::SCHEMA_VERSION;
+pub use schema::LATEST_MIGRATION;
 
 use std::path::Path;
 use std::sync::Mutex;
