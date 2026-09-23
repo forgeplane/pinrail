@@ -14,13 +14,13 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
-use wicket_core::Config;
-use wicket_core::{Wicket, api};
+use pinrail_core::Config;
+use pinrail_core::{Pinrail, api};
 
 use native::Native;
 
 /// The shell listens for this; the payload names the command.
-const COMMAND_EVENT: &str = "wicket:command";
+const COMMAND_EVENT: &str = "pinrail:command";
 
 /// Where the shell finds the server the app started.
 struct ServerUrl(String);
@@ -87,7 +87,7 @@ fn open_notification_settings() -> Result<(), String> {
     Err("this system has no notification settings page for the app".into())
 }
 
-/// Where the bundled CLI is, whether `~/.local/bin/wicket` links to it, and
+/// Where the bundled CLI is, whether `~/.local/bin/pinrail` links to it, and
 /// what a new terminal would run. Asks the login shell, so it runs off the
 /// main thread.
 #[tauri::command]
@@ -112,7 +112,7 @@ async fn cli_status() -> Result<cli_install::Status, String> {
     .map_err(|e| e.to_string())?
 }
 
-/// Links or copies the bundled CLI to `~/.local/bin/wicket`, as the way the
+/// Links or copies the bundled CLI to `~/.local/bin/pinrail`, as the way the
 /// app was installed calls for, then reports as `cli_status`.
 #[tauri::command]
 async fn install_cli() -> Result<cli_install::Status, String> {
@@ -121,7 +121,7 @@ async fn install_cli() -> Result<cli_install::Status, String> {
             .map(PathBuf::from)
             .ok_or("HOME is not set")?;
         let bundled = cli_install::bundled()
-            .ok_or("this build of Wicket carries no CLI; the packaged app does")?;
+            .ok_or("this build of Pinrail carries no CLI; the packaged app does")?;
         let mode = cli_install::mode(&bundled, cli_install::in_appimage());
         let link = cli_install::link_path(&home);
         cli_install::install(mode, &bundled, &link)?;
@@ -177,7 +177,7 @@ pub fn run() {
         Ok(Some(options)) => std::process::exit(headless::run(options)),
         Ok(None) => {}
         Err(message) => {
-            eprintln!("wicket: {message}");
+            eprintln!("pinrail: {message}");
             std::process::exit(2);
         }
     }
@@ -216,15 +216,15 @@ pub fn run() {
             if config.sdk_dir.is_none() {
                 config.sdk_dir = sdk_dir(app);
             }
-            let state: Arc<Wicket> = Arc::new(Wicket::open(config).map_err(|error| {
-                eprintln!("wicket: cannot open the data directory: {error}");
+            let state: Arc<Pinrail> = Arc::new(Pinrail::open(config).map_err(|error| {
+                eprintln!("pinrail: cannot open the data directory: {error}");
                 std::io::Error::other(error.to_string())
             })?);
             let handle = app.handle().clone();
             let server = state.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = api::serve(server, std::future::pending()).await {
-                    eprintln!("wicket: the server could not start: {error}");
+                    eprintln!("pinrail: the server could not start: {error}");
                     handle.exit(1);
                 }
             });
@@ -240,7 +240,7 @@ pub fn run() {
             native::refresh_tray_at_pause_end(app.handle(), &state);
             native::watch(app.handle().clone());
 
-            // wicket:// links; a packaged app registers the scheme through
+            // pinrail:// links; a packaged app registers the scheme through
             // its bundle, a development build registers it here.
             #[cfg(any(windows, target_os = "linux"))]
             app.deep_link().register_all()?;
@@ -298,7 +298,7 @@ pub fn run() {
             open_notices
         ])
         .build(tauri::generate_context!())
-        .expect("wicket could not start its window");
+        .expect("pinrail could not start its window");
 
     app.run(|app, event| {
         // The Dock icon brings the hidden window back.
@@ -382,9 +382,9 @@ fn sdk_dir(app: &tauri::App) -> Option<PathBuf> {
         .resource_dir()
         .ok()
         .map(|dir| dir.join("sdk").join("v1"))
-        .filter(|dir| dir.join("wicket-plugin.js").is_file());
+        .filter(|dir| dir.join("pinrail-plugin.js").is_file());
     bundled.or_else(|| {
         let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/v1");
-        dev.join("wicket-plugin.js").is_file().then_some(dev)
+        dev.join("pinrail-plugin.js").is_file().then_some(dev)
     })
 }

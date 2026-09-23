@@ -23,9 +23,9 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `cargo build -q -p wicket-desktop && rm -rf "${data}" && ./target/debug/Wicket --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}"`,
+      command: `cargo build -q -p pinrail-desktop && rm -rf "${data}" && ./target/debug/Pinrail --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}"`,
       cwd: path.join(root, "desktop"),
-      env: { WICKET_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
+      env: { PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
       url: `http://127.0.0.1:${corePort}/api/v1/info`,
       reuseExistingServer: false,
       timeout: 600_000,
@@ -35,7 +35,7 @@ export default defineConfig({
     {
       command: `npm run sdk:build && npx vite --host 127.0.0.1 --port ${uiPort} --strictPort`,
       cwd: path.join(root, "desktop", "app"),
-      env: { VITE_WICKET_URL: `http://127.0.0.1:${corePort}` },
+      env: { VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}` },
       url: `http://127.0.0.1:${uiPort}`,
       reuseExistingServer: false,
       timeout: 120_000,

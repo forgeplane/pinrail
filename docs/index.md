@@ -1,17 +1,17 @@
 ---
-title: Wicket
+title: Pinrail
 description: "The inbox where your agents ask before they act."
 ---
 
-Wicket is the inbox where your agents ask before they act. An agent about to do something that matters, such as posting review comments, sending email or shipping a page, submits a review and waits. You decide in a view made for that kind of question, and the agent carries on with your decision.
+Pinrail is the inbox where your agents ask before they act. An agent about to do something that matters, such as posting review comments, sending email or shipping a page, submits a review and waits. You decide in a view made for that kind of question, and the agent carries on with your decision.
 
-![The Wicket inbox, with eight reviews waiting from different agents and projects.](screenshot:inbox)
+![The Pinrail inbox, with eight reviews waiting from different agents and projects.](screenshot:inbox)
 
 ## Where to start
 
 | If you want to… | Read |
 |---|---|
-| Install Wicket and see your first review | [Getting started](/docs/getting-started/install/) |
+| Install Pinrail and see your first review | [Getting started](/docs/getting-started/install/) |
 | Choose a plugin for what your agent does | [Plugins](/docs/plugins/) |
 | Tell your agent when to ask | [Instructing an agent](/docs/agents/instructing/) |
 | Gate a step in a script or a CI job | [Scripts and CI](/docs/agents/workflows/) |
@@ -21,7 +21,7 @@ Wicket is the inbox where your agents ask before they act. An agent about to do 
 
 ```mermaid title="An agent asks, you decide, it carries on"
 flowchart LR
-  A["agent"] -->|"wicket submit … --wait"| W["Wicket"]
+  A["agent"] -->|"pinrail submit … --wait"| W["Pinrail"]
   W -->|"shows the review"| Y(["you"]):::you
   Y -->|"decide"| W
   W -->|"the decision, as markdown or JSON"| A

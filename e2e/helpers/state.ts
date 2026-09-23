@@ -28,11 +28,11 @@ export function loadState(): State {
 export function cliEnv(state: State = loadState()): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    WICKET_DATA_DIR: state.dataDir,
-    WICKET_CONFIG_DIR: state.configDir,
-    WICKET_PORT: String(state.port),
-    WICKET_URL: undefined,
-    WICKET_SERVER_CMD: `exec "${state.desktopBin}" --headless --port ${state.port} --data-dir "${state.dataDir}"`,
+    PINRAIL_DATA_DIR: state.dataDir,
+    PINRAIL_CONFIG_DIR: state.configDir,
+    PINRAIL_PORT: String(state.port),
+    PINRAIL_URL: undefined,
+    PINRAIL_SERVER_CMD: `exec "${state.desktopBin}" --headless --port ${state.port} --data-dir "${state.dataDir}"`,
   };
   return env;
 }

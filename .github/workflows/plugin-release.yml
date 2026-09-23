@@ -2,7 +2,7 @@
 # plugin and attaches its bundle, <name>-<version>.zip, to a GitHub release
 # of the same tag. Installing it then needs no toolchain:
 #
-#   wicket plugins install https://github.com/<owner>/wicket/releases/tag/plugin-review-v1.2.0
+#   pinrail plugins install https://github.com/<owner>/pinrail/releases/tag/plugin-review-v1.2.0
 #
 # The manifest's version must be the tag's, or the install refuses it.
 name: plugin release

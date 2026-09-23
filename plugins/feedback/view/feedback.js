@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const C = FeedbackCore, esc = Wicket.escape, md = Wicket.markdown, ico = name => Wicket.icon(name, {size: 14});
+  const C = FeedbackCore, esc = Pinrail.escape, md = Pinrail.markdown, ico = name => Pinrail.icon(name, {size: 14});
   const app = document.getElementById('app');
   let payload, state, previous, showErrors = false, shellErrors = [], opened = new Set(), composing = false;
   // the rail of groups: shown by default, and the choice is the shell's to
@@ -8,7 +8,7 @@
   let railOpen = true;
   // the question j and k move from: the last one moved to, clicked or typed in
   let current = null;
-  const plugin = Wicket.connect({
+  const plugin = Pinrail.connect({
     resize: 'fill',
     onInit({gate, draft, previous: old, settings}) {
       applySettings(settings);
@@ -59,7 +59,7 @@
       old ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ''}</details>` : '',
       q.type !== 'text' && (!plugin.readonly || note) ? `<div class="question-actions">${commentToggle(q, note, expanded)}</div><div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? '' : 'hidden'}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico('trash-2')} Remove comment</button>` : ''}</div><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="3" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? 'disabled' : ''}>${esc(note)}</textarea></div>` : '',
     ].join('');
-    return `<fieldset id="question-${q.id}" class="question is-${status} ${current === q.id ? 'is-current' : ''}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Wicket.icon('check', {size: 12}) : String(number).padStart(2,'0')}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Wicket.icon('rotate-ccw', {size: 11})} Clear answer</button>` : ''}<span class="requirement ${q.required ? 'is-required' : ''}">${q.required ? 'Required' : 'Optional'}</span></span></legend>
+    return `<fieldset id="question-${q.id}" class="question is-${status} ${current === q.id ? 'is-current' : ''}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Pinrail.icon('check', {size: 12}) : String(number).padStart(2,'0')}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Pinrail.icon('rotate-ccw', {size: 11})} Clear answer</button>` : ''}<span class="requirement ${q.required ? 'is-required' : ''}">${q.required ? 'Required' : 'Optional'}</span></span></legend>
       <div class="question-body">
         ${q.description ? `<div class="question-description" id="desc-${q.id}">${md(q.description)}</div>` : ''}
         ${agent}
@@ -91,7 +91,7 @@
     const count = visible.size;
     const comments = all.filter(q => visible.has(q.id) && q.type !== 'text' && (state.comments[q.id] || '').trim()).length;
     let index = 0;
-    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Wicket.icon(railOpen ? 'panel-left-close' : 'panel-left-open', {size:15, label: railOpen ? 'Hide the group list' : 'Show the group list'})}</button><h1 class="plugin-title">${esc(plugin.gate.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || 'closed')}` : `<span><b>${answered}</b> of ${count} answered</span>${required ? `<span class="tally-required"><b>${required}</b> required left</span>` : ''}${comments ? `<span><b>${comments}</b> ${comments === 1 ? 'comment' : 'comments'}</span>` : ''}`}</span><div class="header-progress" aria-hidden="true"><span style="width:${count ? answered/count*100 : 100}%"></span></div></header>
+    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Pinrail.icon(railOpen ? 'panel-left-close' : 'panel-left-open', {size:15, label: railOpen ? 'Hide the group list' : 'Show the group list'})}</button><h1 class="plugin-title">${esc(plugin.gate.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || 'closed')}` : `<span><b>${answered}</b> of ${count} answered</span>${required ? `<span class="tally-required"><b>${required}</b> required left</span>` : ''}${comments ? `<span><b>${comments}</b> ${comments === 1 ? 'comment' : 'comments'}</span>` : ''}`}</span><div class="header-progress" aria-hidden="true"><span style="width:${count ? answered/count*100 : 100}%"></span></div></header>
       <div class="workspace"><aside class="sidebar" ${railOpen ? '' : 'hidden'}><div class="sidebar-label">Questions <span>${count}</span></div><nav aria-label="Question groups">${shownGroups.map((g,i) => {
         const qs = g.questions.filter(q => visible.has(q.id)), done = qs.filter(q => C.answered(q,state.values[q.id])).length;
         // the group, then each of its questions with where it stands
@@ -107,7 +107,7 @@
         ${showErrors && Object.keys(invalid).length ? `<div class="validation-banner" role="alert">${ico('circle-alert')} Complete ${Object.keys(invalid).length} highlighted ${Object.keys(invalid).length === 1 ? 'question' : 'questions'} before handing over.</div>` : ''}
         ${shownGroups.map((g,i) => `<section class="question-group" id="group-${g.id}" aria-labelledby="group-title-${g.id}"><div class="group-heading"><span class="section-index">${String(i+1).padStart(2,'0')}</span><div><h2 id="group-title-${g.id}">${esc(g.title)}</h2>${g.description ? `<div class="group-description">${md(g.description)}</div>` : ''}</div></div>${g.questions.filter(q => visible.has(q.id)).map(q => question(q, ++index, !!q.when || !!g.when)).join('')}</section>`).join('')}
         ${!count ? '<p class="empty">No questions apply to these answers.</p>' : ''}
-        <div class="end-note">${ico('check-check')}<span>${plugin.readonly ? 'Only the questions applicable to this response are shown.' : 'Your answers stay in draft until you use Wicket’s hand-over.'}</span></div>
+        <div class="end-note">${ico('check-check')}<span>${plugin.readonly ? 'Only the questions applicable to this response are shown.' : 'Your answers stay in draft until you use Pinrail’s hand-over.'}</span></div>
       </div></div></div>`;
     // Keep the desktop and mobile scroll containers mounted. Replacing them
     // resets their position; CSS smooth scrolling then visibly replays the scroll.

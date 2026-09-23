@@ -19,29 +19,29 @@ pub struct Config {
 }
 
 impl Config {
-    /// Reads `WICKET_DATA_DIR`, `WICKET_PORT`, `WICKET_USER` and
-    /// `WICKET_SDK_DIR` from the environment. The data dir falls back to
-    /// `$XDG_DATA_HOME/wicket`, then `~/.local/share/wicket`, on every
+    /// Reads `PINRAIL_DATA_DIR`, `PINRAIL_PORT`, `PINRAIL_USER` and
+    /// `PINRAIL_SDK_DIR` from the environment. The data dir falls back to
+    /// `$XDG_DATA_HOME/pinrail`, then `~/.local/share/pinrail`, on every
     /// platform, where the CLI looks for it too.
     pub fn from_env() -> Self {
         let mut config = Self::from_vars(
-            env::var_os("WICKET_DATA_DIR").map(PathBuf::from),
+            env::var_os("PINRAIL_DATA_DIR").map(PathBuf::from),
             env::var_os("XDG_DATA_HOME").map(PathBuf::from),
             env::var_os("HOME").map(PathBuf::from),
-            env::var("WICKET_PORT").ok(),
+            env::var("PINRAIL_PORT").ok(),
         );
         // the file's port, unless the environment says otherwise
-        if env::var_os("WICKET_PORT").is_none()
+        if env::var_os("PINRAIL_PORT").is_none()
             && let Some(port) = crate::settings::port_in(&config.data_dir)
         {
             config.port = port;
         }
-        config.user = env::var("WICKET_USER")
+        config.user = env::var("PINRAIL_USER")
             .or_else(|_| env::var("USER"))
             .ok()
             .filter(|u| !u.trim().is_empty())
-            .unwrap_or_else(|| "wicket".to_string());
-        config.sdk_dir = env::var_os("WICKET_SDK_DIR").map(PathBuf::from);
+            .unwrap_or_else(|| "pinrail".to_string());
+        config.sdk_dir = env::var_os("PINRAIL_SDK_DIR").map(PathBuf::from);
         config
     }
 
@@ -49,7 +49,7 @@ impl Config {
         Self {
             data_dir: data_dir.into(),
             port,
-            user: "wicket".to_string(),
+            user: "pinrail".to_string(),
             sdk_dir: None,
         }
     }
@@ -61,9 +61,9 @@ impl Config {
         port: Option<String>,
     ) -> Self {
         let data_dir = data_dir
-            .or_else(|| xdg_data_home.map(|d| d.join("wicket")))
-            .or_else(|| home.map(|h| h.join(".local/share/wicket")))
-            .unwrap_or_else(|| PathBuf::from("wicket-data"));
+            .or_else(|| xdg_data_home.map(|d| d.join("pinrail")))
+            .or_else(|| home.map(|h| h.join(".local/share/pinrail")))
+            .unwrap_or_else(|| PathBuf::from("pinrail-data"));
         let port = port.and_then(|p| p.parse().ok()).unwrap_or(DEFAULT_PORT);
         Self::new(data_dir, port)
     }
@@ -78,7 +78,7 @@ impl Config {
     }
 
     pub fn db_path(&self) -> PathBuf {
-        self.data_dir.join("wicket.db")
+        self.data_dir.join("pinrail.db")
     }
 
     /// Where the plugin embedded in the binary is written out.
@@ -111,9 +111,9 @@ mod tests {
     #[test]
     fn xdg_then_home() {
         let c = Config::from_vars(None, Some("/xdg".into()), Some("/home/u".into()), None);
-        assert_eq!(c.data_dir, PathBuf::from("/xdg/wicket"));
+        assert_eq!(c.data_dir, PathBuf::from("/xdg/pinrail"));
         let c = Config::from_vars(None, None, Some("/home/u".into()), None);
-        assert_eq!(c.data_dir, PathBuf::from("/home/u/.local/share/wicket"));
+        assert_eq!(c.data_dir, PathBuf::from("/home/u/.local/share/pinrail"));
     }
 
     #[test]

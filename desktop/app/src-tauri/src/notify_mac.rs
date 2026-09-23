@@ -75,7 +75,7 @@ const REVIEW_PREFIX: &str = "review:";
 
 define_class!(
     #[unsafe(super(NSObject))]
-    #[name = "WicketNotificationDelegate"]
+    #[name = "PinrailNotificationDelegate"]
     struct Delegate;
 
     unsafe impl NSObjectProtocol for Delegate {}
@@ -137,7 +137,7 @@ pub fn setup(app: &AppHandle) {
             let why = unsafe { error.as_ref() }
                 .map(|e| e.localizedDescription().to_string())
                 .unwrap_or_else(|| "declined".to_string());
-            eprintln!("wicket: notifications are off: {why}");
+            eprintln!("pinrail: notifications are off: {why}");
         }
     });
     center.requestAuthorizationWithOptions_completionHandler(
@@ -151,7 +151,7 @@ pub fn setup(app: &AppHandle) {
     // it will
     status(|s| {
         if !s.sound {
-            eprintln!("wicket: notifications will not sound: the sound is off in System Settings");
+            eprintln!("pinrail: notifications will not sound: the sound is off in System Settings");
         }
         let why = match (s.authorization, s.alert_style, s.alerts) {
             ("denied", _, _) => "not allowed in System Settings",
@@ -160,7 +160,7 @@ pub fn setup(app: &AppHandle) {
             (_, _, false) => "alerts are off in System Settings",
             _ => return,
         };
-        eprintln!("wicket: notifications will not show: {why}");
+        eprintln!("pinrail: notifications will not show: {why}");
     });
 }
 
@@ -184,7 +184,7 @@ pub fn notify(title: &str, body: &str, review_id: Option<&str>, sound: bool) {
     let identifier = match review_id {
         Some(id) => format!("{REVIEW_PREFIX}{id}"),
         None => format!(
-            "wicket:{}",
+            "pinrail:{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis())
@@ -199,7 +199,7 @@ pub fn notify(title: &str, body: &str, review_id: Option<&str>, sound: bool) {
     let done = RcBlock::new(|error: *mut NSError| {
         if let Some(error) = unsafe { error.as_ref() } {
             eprintln!(
-                "wicket: notification not shown: {}",
+                "pinrail: notification not shown: {}",
                 error.localizedDescription()
             );
         }

@@ -12,13 +12,13 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
-use wicket_core::Config;
-use wicket_core::Wicket;
-use wicket_core::api::router;
+use pinrail_core::Config;
+use pinrail_core::Pinrail;
+use pinrail_core::api::router;
 
 struct App {
     _dir: tempfile::TempDir,
-    state: Arc<Wicket>,
+    state: Arc<Pinrail>,
     router: Router,
 }
 
@@ -26,7 +26,7 @@ fn app() -> App {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
-    let state = Arc::new(Wicket::open(config).unwrap());
+    let state = Arc::new(Pinrail::open(config).unwrap());
     App {
         router: router(state.clone()),
         state,
@@ -36,8 +36,8 @@ fn app() -> App {
 
 // Inspect or seed persistence explicitly; the application does not expose
 // its database connection to callers.
-fn db(app: &App) -> wicket_core::db::Db {
-    wicket_core::db::Db::open(&app.state.config().db_path()).unwrap()
+fn db(app: &App) -> pinrail_core::db::Db {
+    pinrail_core::db::Db::open(&app.state.config().db_path()).unwrap()
 }
 
 async fn call(app: &App, method: &str, path: &str, body: Option<Value>) -> (StatusCode, Value) {
@@ -749,18 +749,18 @@ async fn bundles_are_served_with_the_sandbox_csp() {
 #[tokio::test]
 async fn the_sdk_is_served_only_when_configured() {
     let app = app();
-    let (status, _) = call(&app, "GET", "/sdk/v1/wicket-plugin.js", None).await;
+    let (status, _) = call(&app, "GET", "/sdk/v1/pinrail-plugin.js", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("wicket-plugin.js"), "export const ok = 1;").unwrap();
+    std::fs::write(dir.path().join("pinrail-plugin.js"), "export const ok = 1;").unwrap();
     let mut config = Config::new(app._dir.path(), 0);
     config.sdk_dir = Some(dir.path().to_path_buf());
-    let state = Arc::new(Wicket::open(config).unwrap());
+    let state = Arc::new(Pinrail::open(config).unwrap());
     let router = router(state);
     let response = router
         .oneshot(
-            Request::get("/sdk/v1/wicket-plugin.js")
+            Request::get("/sdk/v1/pinrail-plugin.js")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -926,7 +926,7 @@ async fn info_and_viewed() {
     let app = app();
     let (status, info) = call(&app, "GET", "/api/v1/info", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(info["version"], wicket_core::VERSION);
+    assert_eq!(info["version"], pinrail_core::VERSION);
     assert_eq!(info["user"], "tester");
     let id = submit(&app, submission()).await["id"]
         .as_str()
@@ -1656,7 +1656,7 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
     std::fs::write(plugins.join("logs/old.log"), "x").unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
-    let state = Arc::new(Wicket::open(config).unwrap());
+    let state = Arc::new(Pinrail::open(config).unwrap());
     assert!(!plugins.join("review").exists(), "the old snapshot is gone");
     assert!(
         plugins.join("fetch").is_dir()
@@ -2180,7 +2180,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     let mut assets = std::collections::HashMap::new();
     assets.insert("thing-1.2.0.zip".to_string(), thing_120.clone());
     assets.insert("thing-1.3.0.zip".to_string(), thing_130);
-    assets.insert("wicket-plugin.zip".to_string(), pinned);
+    assets.insert("pinrail-plugin.zip".to_string(), pinned);
     assets.insert(
         "notes.zip".to_string(),
         zipped(&[("notes.txt", "not a bundle")]),
@@ -2195,11 +2195,11 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     });
     let base = releases_server(fake.clone()).await;
     // the core asks the API where this points; the only test that sets it
-    unsafe { std::env::set_var("WICKET_GITHUB_API", &base) };
+    unsafe { std::env::set_var("PINRAIL_GITHUB_API", &base) };
     fake.release("acme/thing", "v1.2.0", &["thing-1.2.0.zip", "thing.tar.gz"]);
     fake.release("acme/thing", "v1.3.0", &["thing-1.3.0.zip"]);
     fake.latest("acme/thing", "v1.2.0");
-    fake.release("acme/pinned", "v1.0.1", &["wicket-plugin.zip", "notes.zip"]);
+    fake.release("acme/pinned", "v1.0.1", &["pinrail-plugin.zip", "notes.zip"]);
     fake.latest("acme/pinned", "v1.0.1");
     fake.release("acme/lying", "v2.0.0", &["lying-2.0.0.zip"]);
     fake.release("acme/bare", "v1.0.0", &["thing.tar.gz"]);
@@ -2252,7 +2252,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
         "<html>1.3.0</html>"
     );
 
-    // a tag pins: wicket-plugin.zip wins among several zips, the folder at
+    // a tag pins: pinrail-plugin.zip wins among several zips, the folder at
     // the archive's root is the bundle, and no update is ever offered
     let (status, plugin) = install(
         &app,

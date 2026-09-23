@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>review gate</title>
-<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <style>
 /* Tokens, base, code.inl, .eyebrow, .meta and the scrollbars come from the
    SDK stylesheet. What is left is this view's own: a workbench needs more
@@ -74,19 +74,19 @@ textarea.ta:focus { border-color: var(--accent); }
 </head>
 <body>
 <div id="app"></div>
-<script src="/sdk/v1/wicket-plugin.js"></script>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>
 "use strict";
 /* The review gate: a change's diff with the agent's proposed comments
    anchored on lines, the reviewer's verdicts and their own comments. A port
-   of a hand-written review page onto the wicket plugin protocol; nothing
+   of a hand-written review page onto the pinrail plugin protocol; nothing
    forge-specific remains. */
 
 /* ---------- bridge ---------- */
 let GATE = null, PREVIOUS = null, RO_FLAG = false;
 const RO = () => RO_FLAG;
 
-const plugin = Wicket.connect({
+const plugin = Pinrail.connect({
   resize: "fill",
   onInit(init) {
     GATE = init.gate; PREVIOUS = init.previous; RO_FLAG = init.readonly;
@@ -129,7 +129,7 @@ const S = {
   confirmSubmitArm: false, orderMode: "semantic",
 };
 let mseq = 0, gseq = 0, bulkT = null;
-const esc = Wicket.escape;
+const esc = Pinrail.escape;
 
 function adapt(payload) {
   const files = (payload.files || []).map((f) => ({
@@ -152,7 +152,7 @@ function loadDecision(data) {
   S.generalComments = (data.general_comments || []).map((g, i) => ({ id: "g" + (i + 1), body: g.body }));
 }
 
-const previousVerdict = (id) => Wicket.previousVerdict(PREVIOUS, id);
+const previousVerdict = (id) => Pinrail.previousVerdict(PREVIOUS, id);
 
 /* ---------- markdown-lite ---------- */
 function inlineHtml(text) {
@@ -841,7 +841,7 @@ function shellShows(field) {
 
 /* Toolbar icons sit beside their label, so they are decoration and the label
    is the name. The one button with no label of its own carries one instead. */
-const ico = (name) => Wicket.icon(name, { size: 14 });
+const ico = (name) => Pinrail.icon(name, { size: 14 });
 
 function headerHtml() {
   const props = D.proposals;
@@ -853,7 +853,7 @@ function headerHtml() {
   const status = GATE.status;
   const roLabel = status === "decided" ? "READ-ONLY · DECIDED" : `READ-ONLY · ${String(status).toUpperCase()}`;
   return `<header style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);flex:none">
-    <button class="bare" data-act="toggle-tree" style="color:var(--faint);padding:2px 4px;margin-right:-6px">${Wicket.icon(S.treeOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: S.treeOpen ? "Collapse the file tree" : "Show the file tree" })}</button>
+    <button class="bare" data-act="toggle-tree" style="color:var(--faint);padding:2px 4px;margin-right:-6px">${Pinrail.icon(S.treeOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: S.treeOpen ? "Collapse the file tree" : "Show the file tree" })}</button>
     <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;min-width:260px;overflow:hidden;flex:0 1 auto">
       <span style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
       ${shellShows("ref") ? "" : `<span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">${esc(c.ref)}</span>`}
@@ -870,8 +870,8 @@ function headerHtml() {
     </div>`}
     <div style="display:flex;align-items:center;gap:6px;flex:none">
       <div style="display:flex;flex:none;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-        <button class="seg ${S.diffMode === "inline" ? "on" : ""}" data-act="set-inline" title="Inline diff">${Wicket.icon("rows-3", { size: 14, label: "Inline diff" })}</button>
-        <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" style="border-left:1px solid var(--border)" title="Split diff">${Wicket.icon("columns-2", { size: 14, label: "Split diff" })}</button>
+        <button class="seg ${S.diffMode === "inline" ? "on" : ""}" data-act="set-inline" title="Inline diff">${Pinrail.icon("rows-3", { size: 14, label: "Inline diff" })}</button>
+        <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" style="border-left:1px solid var(--border)" title="Split diff">${Pinrail.icon("columns-2", { size: 14, label: "Split diff" })}</button>
       </div>
       ${!RO() || S.generalComments.length ? `<button class="ghost" data-act="jump-general" title="Comments on the change as a whole">${ico("message-square")}${S.generalComments.length || ""}</button>` : ""}
       <button class="ghost" data-act="fold-all">${ico(allFolded ? "unfold-vertical" : "fold-vertical")}${allFolded ? "Unfold all" : "Fold all"}</button>

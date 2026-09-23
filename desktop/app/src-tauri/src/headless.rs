@@ -1,11 +1,11 @@
-//! `Wicket --headless`: the server without a window or tray, for
+//! `Pinrail --headless`: the server without a window or tray, for
 //! tests and machines without a display. Exits on SIGTERM or Ctrl-C.
 
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use wicket_core::Config;
-use wicket_core::{Wicket, api};
+use pinrail_core::Config;
+use pinrail_core::{Pinrail, api};
 
 #[derive(Debug, Default)]
 pub struct Options {
@@ -60,27 +60,27 @@ pub fn run(options: Options) -> i32 {
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
         Err(error) => {
-            eprintln!("wicket: cannot start: {error}");
+            eprintln!("pinrail: cannot start: {error}");
             return 1;
         }
     };
     runtime.block_on(async {
-        let state = match Wicket::open(config) {
+        let state = match Pinrail::open(config) {
             Ok(state) => Arc::new(state),
             Err(error) => {
-                eprintln!("wicket: cannot open the data directory: {error}");
+                eprintln!("pinrail: cannot open the data directory: {error}");
                 return 1;
             }
         };
         eprintln!(
-            "wicket: serving on {} (data in {})",
+            "pinrail: serving on {} (data in {})",
             state.config().url(),
             state.config().data_dir.display()
         );
         match api::serve(state, shutdown_signal()).await {
             Ok(()) => 0,
             Err(error) => {
-                eprintln!("wicket: the server stopped: {error}");
+                eprintln!("pinrail: the server stopped: {error}");
                 1
             }
         }

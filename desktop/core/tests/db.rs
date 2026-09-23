@@ -6,8 +6,8 @@ use std::path::Path;
 
 use chrono::{Duration, Utc};
 use serde_json::{Map, json};
-use wicket_core::db::{Db, Filters, SCHEMA_VERSION};
-use wicket_core::reviews::{Decision, Review, Status, parse_datetime};
+use pinrail_core::db::{Db, Filters, SCHEMA_VERSION};
+use pinrail_core::reviews::{Decision, Review, Status, parse_datetime};
 
 fn review(id: &str, expires_in: Option<Duration>) -> Review {
     Review {
@@ -176,7 +176,7 @@ fn old_database(path: &Path) {
 #[test]
 fn a_database_from_before_outcomes_reads_the_same_afterwards() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("wicket.db");
+    let path = dir.path().join("pinrail.db");
     old_database(&path);
 
     let db = Db::open(&path).unwrap();
@@ -234,7 +234,7 @@ fn a_database_from_before_outcomes_reads_the_same_afterwards() {
 #[test]
 fn a_database_from_a_newer_build_is_refused() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("wicket.db");
+    let path = dir.path().join("pinrail.db");
     let conn = rusqlite::Connection::open(&path).unwrap();
     conn.execute_batch(&format!("PRAGMA user_version = {}", SCHEMA_VERSION + 1))
         .unwrap();
@@ -249,7 +249,7 @@ fn a_database_from_a_newer_build_is_refused() {
 #[test]
 fn a_step_creates_the_tables_it_adds_for_a_file_past_the_baseline() {
     let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("wicket.db");
+    let path = dir.path().join("pinrail.db");
     let conn = rusqlite::Connection::open(&path).unwrap();
     conn.execute_batch(
         "CREATE TABLE reviews (id TEXT PRIMARY KEY, plugin TEXT NOT NULL, plugin_version INTEGER NOT NULL, title TEXT NOT NULL,

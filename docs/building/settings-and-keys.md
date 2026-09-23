@@ -45,7 +45,7 @@ Each property becomes one row, in the order you declare them:
 The schema is one level deep: every property is a `boolean`, `string`, `integer` or `number`, and every property has a `default`. Like the payload and decision schemas, it can be inline or a `$ref` to a file in the plugin folder.
 
 :::note[A broken schema never breaks the plugin]
-When `settings_schema` breaks these rules, the plugin still loads, without settings, and its row in *Settings › Plugins* says why. `npx wicket-plugin check` reports the same before you install.
+When `settings_schema` breaks these rules, the plugin still loads, without settings, and its row in *Settings › Plugins* says why. `npx pinrail-plugin check` reports the same before you install.
 :::
 
 ### Reading settings in the view
@@ -53,7 +53,7 @@ When `settings_schema` breaks these rules, the plugin still loads, without setti
 The values arrive in `init` and again whenever they change, whether the person changed them in *Settings* or another view did. Every key the schema declares is present, with its default under whatever the person set.
 
 ```js
-const plugin = Wicket.connect({
+const plugin = Pinrail.connect({
   onInit() { render(); },
   onSettings(settings) { render(); },   // never re-initialises the view or touches its draft
 });
@@ -125,7 +125,7 @@ A forwarded key arrives as a `keydown` on your document, exactly like a press in
 document.addEventListener("keydown", (e) => {
   if (e.key === "j") focusNext();
   if (e.key === "a") accept(focused);
-  // e.wicketForwarded is true when the app handed the key over
+  // e.pinrailForwarded is true when the app handed the key over
 });
 ```
 

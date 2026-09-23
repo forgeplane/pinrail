@@ -1,9 +1,9 @@
 //! Finding and starting the server.
 //!
 //! The running server writes `<data dir>/server.json`; that file, after
-//! `WICKET_URL` and `--url`, is how the CLI finds it, and `WICKET_PORT`
+//! `PINRAIL_URL` and `--url`, is how the CLI finds it, and `PINRAIL_PORT`
 //! decides the default when nothing is advertised. Starting one needs a
-//! command, `WICKET_SERVER_CMD`, run through `sh -c`: usually the desktop
+//! command, `PINRAIL_SERVER_CMD`, run through `sh -c`: usually the desktop
 //! app's binary with `--headless`.
 
 use std::path::PathBuf;
@@ -18,21 +18,21 @@ use crate::api::Client;
 pub const DEFAULT_PORT: &str = "4747";
 
 /// The URL to try when nothing is advertised: the loopback address on
-/// `WICKET_PORT`, the same variable the server reads, else 4747.
+/// `PINRAIL_PORT`, the same variable the server reads, else 4747.
 pub fn default_url() -> String {
-    let port = std::env::var("WICKET_PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
+    let port = std::env::var("PINRAIL_PORT").unwrap_or_else(|_| DEFAULT_PORT.to_string());
     format!("http://127.0.0.1:{port}")
 }
 
 pub fn data_dir() -> PathBuf {
-    if let Some(dir) = std::env::var_os("WICKET_DATA_DIR") {
+    if let Some(dir) = std::env::var_os("PINRAIL_DATA_DIR") {
         return PathBuf::from(dir);
     }
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
         .unwrap_or_else(|| PathBuf::from("."));
-    base.join("wicket")
+    base.join("pinrail")
 }
 
 pub fn info_path() -> PathBuf {
@@ -56,14 +56,14 @@ pub fn resolve_url(explicit: Option<&str>, auto_start: bool) -> Result<String> {
         .unwrap_or_else(default_url);
 
     if auto_start && !Client::new(&url).reachable() {
-        eprintln!("wicket: server not running at {url}, starting it");
+        eprintln!("pinrail: server not running at {url}, starting it");
         let info = start()?;
         return Ok(info["url"].as_str().unwrap_or(&url).to_string());
     }
     Ok(url)
 }
 
-/// `wicket serve`: the running server's info, starting one if needed.
+/// `pinrail serve`: the running server's info, starting one if needed.
 pub fn ensure_running(explicit: Option<&str>) -> Result<Value> {
     let url = resolve_url(explicit, false)?;
     if Client::new(&url).reachable() {
@@ -73,9 +73,9 @@ pub fn ensure_running(explicit: Option<&str>) -> Result<Value> {
 }
 
 fn start() -> Result<Value> {
-    let Ok(command) = std::env::var("WICKET_SERVER_CMD") else {
+    let Ok(command) = std::env::var("PINRAIL_SERVER_CMD") else {
         bail!(
-            "the server is not running; open the Wicket app, or set WICKET_SERVER_CMD \
+            "the server is not running; open the Pinrail app, or set PINRAIL_SERVER_CMD \
              to a command that starts it (the app's binary with --headless) and retry"
         );
     };
@@ -90,7 +90,7 @@ fn start() -> Result<Value> {
         .stdin(Stdio::null())
         .stdout(Stdio::from(log.try_clone()?))
         .stderr(Stdio::from(log))
-        .env("WICKET_DATA_DIR", &dir);
+        .env("PINRAIL_DATA_DIR", &dir);
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;
@@ -101,7 +101,7 @@ fn start() -> Result<Value> {
         .spawn()
         .with_context(|| format!("starting the server with {command}"))?;
     eprintln!(
-        "wicket: started server (pid {}), log at {}",
+        "pinrail: started server (pid {}), log at {}",
         child.id(),
         dir.join("server.log").display()
     );

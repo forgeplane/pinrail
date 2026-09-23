@@ -78,7 +78,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const badge = pending.length > 0 ? `(${pending.length}) ` : "";
-    document.title = `${badge}Wicket`;
+    document.title = `${badge}Pinrail`;
   }, [pending.length]);
 
   const pluginIcon = useCallback((name: string) => plugins.get(name)?.icon ?? null, [plugins]);

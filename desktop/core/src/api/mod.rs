@@ -17,7 +17,7 @@ use serde::Serialize;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::error::Error;
-use crate::{Wicket, server_info};
+use crate::{Pinrail, server_info};
 
 #[derive(Debug, Serialize)]
 pub struct Info {
@@ -33,13 +33,13 @@ pub struct Info {
 /// of the server rather than to the application itself.
 #[derive(Clone)]
 pub struct ApiState {
-    app: Arc<Wicket>,
+    app: Arc<Pinrail>,
     /// When this server started, for `/info` and for `server.json`.
     started_at: DateTime<Utc>,
 }
 
 impl ApiState {
-    fn new(app: Arc<Wicket>) -> Self {
+    fn new(app: Arc<Pinrail>) -> Self {
         ApiState {
             app,
             started_at: Utc::now(),
@@ -48,13 +48,13 @@ impl ApiState {
 }
 
 // Handlers ask for the application and get it out of the server's state.
-impl FromRef<ApiState> for Arc<Wicket> {
-    fn from_ref(state: &ApiState) -> Arc<Wicket> {
+impl FromRef<ApiState> for Arc<Pinrail> {
+    fn from_ref(state: &ApiState) -> Arc<Pinrail> {
         state.app.clone()
     }
 }
 
-pub fn router(app: Arc<Wicket>) -> Router {
+pub fn router(app: Arc<Pinrail>) -> Router {
     router_with(ApiState::new(app))
 }
 
@@ -87,7 +87,7 @@ async fn info(State(state): State<ApiState>) -> Json<Info> {
 /// and, when the history keeps a limited number of days, the reviews past
 /// them.
 pub async fn serve(
-    app: Arc<Wicket>,
+    app: Arc<Pinrail>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
     let state = ApiState::new(app);
@@ -101,7 +101,7 @@ pub async fn serve(
             loop {
                 tick.tick().await;
                 if let Err(error) = app.reviews().sweep_expired() {
-                    eprintln!("wicket: expiry sweep failed: {error}");
+                    eprintln!("pinrail: expiry sweep failed: {error}");
                 }
                 let keep_days = app
                     .settings()
@@ -109,7 +109,7 @@ pub async fn serve(
                     .as_u64()
                     .map(|d| d as u32);
                 if let Err(error) = app.reviews().sweep_history(keep_days) {
-                    eprintln!("wicket: history sweep failed: {error}");
+                    eprintln!("pinrail: history sweep failed: {error}");
                 }
             }
         })
@@ -122,7 +122,7 @@ pub async fn serve(
             loop {
                 tick.tick().await;
                 if let Err(error) = app.settings().reload() {
-                    eprintln!("wicket: settings change not announced: {error}");
+                    eprintln!("pinrail: settings change not announced: {error}");
                 }
             }
         })
@@ -138,7 +138,7 @@ pub async fn serve(
 }
 
 /// The origins the shell runs on: the desktop app's own origin, plus, in
-/// debug builds, the Vite dev server and whatever `WICKET_SHELL_ORIGIN`
+/// debug builds, the Vite dev server and whatever `PINRAIL_SHELL_ORIGIN`
 /// names (the shell's tests run it elsewhere). The API answers
 /// cross-origin requests from these only, and plugin bundles let only
 /// these frame them. Nothing else can read the API or embed a view.
@@ -149,7 +149,7 @@ pub(crate) fn shell_origins() -> Vec<String> {
     ];
     if cfg!(debug_assertions) {
         origins.push("http://localhost:5173".to_string());
-        if let Ok(extra) = std::env::var("WICKET_SHELL_ORIGIN")
+        if let Ok(extra) = std::env::var("PINRAIL_SHELL_ORIGIN")
             && !extra.is_empty()
         {
             origins.push(extra);

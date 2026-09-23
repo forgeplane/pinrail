@@ -11,12 +11,12 @@ const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/
 
 const shotImages = (name, alt) =>
   ["light", "dark"].map((theme) =>
-    `<img class="wk-shot-${theme}" src="/screenshots/${name}-${theme}.png" alt="${theme === "light" ? alt : ""}" width="1440" height="900" loading="lazy" decoding="async" />`,
+    `<img class="pr-shot-${theme}" src="/screenshots/${name}-${theme}.png" alt="${theme === "light" ? alt : ""}" width="1440" height="900" loading="lazy" decoding="async" />`,
   ).join("");
 
 // the picture is a button: the app is shown whole, so it opens full size to be read
 const shotButton = (name, alt) =>
-  `<button type="button" class="wk-shot-open" aria-label="Enlarge: ${alt}">${shotImages(name, alt)}<span class="wk-shot-hint" aria-hidden="true">Click to enlarge</span></button>`;
+  `<button type="button" class="pr-shot-open" aria-label="Enlarge: ${alt}">${shotImages(name, alt)}<span class="pr-shot-hint" aria-hidden="true">Click to enlarge</span></button>`;
 
 const isShot = (child) => child.type === "image" && child.url.startsWith("screenshot:");
 
@@ -32,17 +32,17 @@ export default function remarkScreenshots() {
         const alt = escape(image.alt ?? "");
         parent.children[index] = {
           type: "html",
-          value: `<figure class="wk-shot">${shotButton(image.url.slice("screenshot:".length), alt)}${image.title ? `<figcaption>${escape(image.title)}</figcaption>` : ""}</figure>`,
+          value: `<figure class="pr-shot">${shotButton(image.url.slice("screenshot:".length), alt)}${image.title ? `<figcaption>${escape(image.title)}</figcaption>` : ""}</figure>`,
         };
         return;
       }
       // several in one paragraph: one figure showing one at a time, each with
       // its own caption, and a dot for each to move between them
-      const slides = shots.map((image, i) => `<div class="wk-slide" data-slide="${i}" ${i === 0 ? "" : "hidden"}>${shotButton(image.url.slice("screenshot:".length), escape(image.alt ?? ""))}${image.title ? `<figcaption>${escape(image.title)}</figcaption>` : ""}</div>`).join("");
-      const dots = shots.map((image, i) => `<button type="button" class="wk-dot" data-dot="${i}" aria-label="${escape(`Picture ${i + 1} of ${shots.length}${image.title ? `: ${image.title}` : ""}`)}" aria-current="${i === 0}"></button>`).join("");
+      const slides = shots.map((image, i) => `<div class="pr-slide" data-slide="${i}" ${i === 0 ? "" : "hidden"}>${shotButton(image.url.slice("screenshot:".length), escape(image.alt ?? ""))}${image.title ? `<figcaption>${escape(image.title)}</figcaption>` : ""}</div>`).join("");
+      const dots = shots.map((image, i) => `<button type="button" class="pr-dot" data-dot="${i}" aria-label="${escape(`Picture ${i + 1} of ${shots.length}${image.title ? `: ${image.title}` : ""}`)}" aria-current="${i === 0}"></button>`).join("");
       parent.children[index] = {
         type: "html",
-        value: `<figure class="wk-shot wk-shots">${slides}<div class="wk-dots not-content" role="group" aria-label="Pictures">${dots}</div></figure>`,
+        value: `<figure class="pr-shot pr-shots">${slides}<div class="pr-dots not-content" role="group" aria-label="Pictures">${dots}</div></figure>`,
       };
     });
   };

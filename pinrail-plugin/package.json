@@ -1,0 +1,64 @@
+{
+  "name": "@forgeplane/pinrail-plugin",
+  "version": "1.8.0",
+  "description": "Write and test a pinrail plugin: the SDK the app serves, a shell to develop a view in the browser, and a Playwright harness to test it alone",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forgeplane/pinrail.git",
+    "directory": "pinrail-plugin"
+  },
+  "type": "module",
+  "bin": {
+    "pinrail-plugin": "bin/pinrail-plugin.mjs"
+  },
+  "exports": {
+    "./testing": {
+      "types": "./harness/index.d.cts",
+      "default": "./harness/index.cjs"
+    },
+    "./types": {
+      "types": "./types.d.ts"
+    },
+    "./sdk/v1/pinrail-plugin.js": "./src/pinrail-plugin.js",
+    "./sdk/v1/pinrail-plugin.css": "./src/pinrail-plugin.css",
+    "./package.json": "./package.json",
+    "./schemas/manifest.schema.json": "./schemas/manifest.schema.json"
+  },
+  "files": [
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md",
+    "bin",
+    "harness",
+    "lib",
+    "licenses",
+    "shell",
+    "src",
+    "templates",
+    "types.d.ts",
+    "schemas"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.cjs && playwright test"
+  },
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "lucide-static": "1.45.0",
+    "markdown-it": "^15.0.2"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

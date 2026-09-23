@@ -20,9 +20,9 @@ pub fn print_json(value: &Value, pretty: bool) {
 /// A refused request: the server's error body, pretty, on stderr.
 pub fn error_json(body: &Value) {
     match body {
-        Value::Null => eprintln!("wicket: the server refused the request"),
+        Value::Null => eprintln!("pinrail: the server refused the request"),
         other => eprintln!(
-            "wicket: {}",
+            "pinrail: {}",
             serde_json::to_string_pretty(other).unwrap_or_default()
         ),
     }

@@ -112,7 +112,7 @@ function useShortcutState(open: boolean): ShortcutState | null {
       invoke<ShortcutState>("shortcut_state")
         .then((s) => !cancelled && setState(s))
         .catch(() => {});
-      const unlisten = await listen<ShortcutState>("wicket:shortcut", (e) => setState(e.payload));
+      const unlisten = await listen<ShortcutState>("pinrail:shortcut", (e) => setState(e.payload));
       if (cancelled) unlisten();
       else stop = unlisten;
     })();
@@ -218,10 +218,10 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "general" ? (
             <SettingsPage title="General">
               <SettingsGroup caption="Startup">
-                <SettingsRow label="Launch at login" description="Open Wicket when you sign in, in the menu bar" note={native ? undefined : "Only in the app"}>
+                <SettingsRow label="Launch at login" description="Open Pinrail when you sign in, in the menu bar" note={native ? undefined : "Only in the app"}>
                   <Toggle label="Launch at login" checked={settings.autostart === true} disabled={!native || settings.autostart === null} onChange={(v) => update({ autostart: v })} />
                 </SettingsRow>
-                <SettingsRow label="Closing the window" description={settings.close_window === "quit" ? "Quits Wicket; the tray goes with it" : "Hides it; Wicket stays in the menu bar until you quit"}>
+                <SettingsRow label="Closing the window" description={settings.close_window === "quit" ? "Quits Pinrail; the tray goes with it" : "Hides it; Pinrail stays in the menu bar until you quit"}>
                   <Segmented
                     label="Closing the window"
                     value={settings.close_window}
@@ -309,7 +309,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "shortcuts" ? (
             <SettingsPage title="Shortcuts">
               <SettingsGroup caption="Anywhere on the Mac">
-                <SettingsRow label="Open Wicket" description="Click the keys and press a new combination; it needs ⌘, ⌃ or ⌥" note={describeShortcut(shortcut, settings.shortcut.global)}>
+                <SettingsRow label="Open Pinrail" description="Click the keys and press a new combination; it needs ⌘, ⌃ or ⌥" note={describeShortcut(shortcut, settings.shortcut.global)}>
                   <ShortcutRecorder label="Global shortcut" value={settings.shortcut.global} onChange={(v) => update({ shortcut: { global: v } })} />
                   {settings.shortcut.global !== DEFAULT_GLOBAL_SHORTCUT ? (
                     <button type="button" className="chrome-button settings-reset" onClick={() => update({ shortcut: { global: DEFAULT_GLOBAL_SHORTCUT } })}>
@@ -358,7 +358,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                     {copied ? "Copied" : "Copy URL"}
                   </button>
                 </SettingsRow>
-                <SettingsRow label="Port" description="Where the server listens for the CLI and the agents" note={info && settings.port !== info.port ? <span>Takes effect when Wicket starts next; until then the server stays on {info.port}. The CLI follows either.</span> : undefined}>
+                <SettingsRow label="Port" description="Where the server listens for the CLI and the agents" note={info && settings.port !== info.port ? <span>Takes effect when Pinrail starts next; until then the server stays on {info.port}. The CLI follows either.</span> : undefined}>
                   <PortField value={settings.port} onChange={(port) => update({ port })} />
                 </SettingsRow>
               </SettingsGroup>
@@ -386,7 +386,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "about" ? (
             <SettingsPage title="About">
               <SettingsGroup>
-                <SettingsRow label="Wicket" description={info ? `Version ${info.version} · server started ${new Date(info.started_at).toLocaleString()}` : "…"} />
+                <SettingsRow label="Pinrail" description={info ? `Version ${info.version} · server started ${new Date(info.started_at).toLocaleString()}` : "…"} />
                 <SettingsRow label="Updates" description="Checking for updates comes with the packaged app" />
                 <SettingsRow label="Plugins" description="How to write one: plugins/README.md in the repository" />
                 <SettingsRow label="License" description="Apache License 2.0" note={noticesError ?? undefined}>

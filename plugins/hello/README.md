@@ -10,6 +10,6 @@ with `"comment"`.
 Register the parent directory and create a gate:
 
 ```sh
-wicket types add ./plugins
-wicket create hello --title "Push the branch?" --data <(echo '{"message":"3 commits, CI green. Push?"}') --wait
+pinrail types add ./plugins
+pinrail create hello --title "Push the branch?" --data <(echo '{"message":"3 commits, CI green. Push?"}') --wait
 ```

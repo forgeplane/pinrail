@@ -1,19 +1,19 @@
 [package]
-name = "wicket-core"
-description = "The wicket review server as a library: storage, plugins, validation and the HTTP API"
+name = "pinrail-core"
+description = "The pinrail review server as a library: storage, plugins, validation and the HTTP API"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [features]
 # The docs' reference pages, rendered from the tables the core reads:
-# `cargo run -p wicket-core --features docs --bin wicket-docs -- settings`.
+# `cargo run -p pinrail-core --features docs --bin pinrail-docs -- settings`.
 # Only the docs build turns it on.
 docs = []
 
 [[bin]]
-name = "wicket-docs"
-path = "src/bin/wicket-docs.rs"
+name = "pinrail-docs"
+path = "src/bin/pinrail-docs.rs"
 required-features = ["docs"]
 
 [dependencies]

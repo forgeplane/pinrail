@@ -1,7 +1,7 @@
 # Plugins
 
 A gate type is a directory: a manifest, two JSON Schema documents, and a
-self-contained HTML bundle that wicket renders in a sandboxed iframe. Every
+self-contained HTML bundle that pinrail renders in a sandboxed iframe. Every
 plugin lives here, the built-in ones included. `list` and `feedback` ship
 inside the app, carried in the binary and written out at every start; the
 others are installed one at a time:
@@ -20,7 +20,7 @@ others are installed one at a time:
 Register a directory of plugins (each immediate subdirectory is one plugin):
 
 ```sh
-wicket types add ./plugins        # or via the API: POST /api/types/dirs {"dir": "..."}
+pinrail types add ./plugins        # or via the API: POST /api/types/dirs {"dir": "..."}
 ```
 
 ## Layout
@@ -74,7 +74,7 @@ scaffolds. The bundle the app installs is the folder without `src/`,
   reviews render from the folder as it is now. Remove the link and they
   say the plugin is not installed until it is again.
 - `description` says what the plugin is for, and `use_when` the situation
-  an agent should ask with it in. `wicket plugins describe` shows both to
+  an agent should ask with it in. `pinrail plugins describe` shows both to
   an agent choosing among the installed plugins, so write `use_when` for
   that reader: *You drafted emails on the person's behalf and need them
   approved before anything is sent.*
@@ -86,7 +86,7 @@ scaffolds. The bundle the app installs is the folder without `src/`,
 - `shortcuts` declares the keys your view answers, so the app lists them and
   hands them over whether or not the frame has focus. See below.
 - `decision_template` names a file beside the manifest that renders a
-  decision as markdown, for `wicket --format markdown` and *Copy as
+  decision as markdown, for `pinrail --format markdown` and *Copy as
   markdown* in the app. Without one the app renders the decision by its
   shape. See *Decisions as markdown* below.
 - `build` names the command that produces the bundle, for a plugin written
@@ -100,14 +100,14 @@ The app installs one plugin at a time. The source is one string, and its
 shape says where the plugin is:
 
 ```sh
-wicket plugins install ./plugins/review                                # a folder: a copy, in the app's store
-wicket plugins install ./plugins/review --link                         # a folder served live, while you work on it
-wicket plugins install github.com/acme/plugins/review@v3               # a folder in a repository, at a tag: "this folder, at this version"
-wicket plugins install https://github.com/acme/plugins/tree/v3/review  # the same, as the browser shows it
-wicket plugins install github.com/acme/wicket-review                   # a repository's root, default branch
-wicket plugins install git@acme.internal:plugins.git --ref v3 --path review   # SSH, the two beside it
-wicket plugins install https://github.com/acme/wicket-review/releases            # the latest GitHub release: its bundle, no build
-wicket plugins install https://github.com/acme/wicket-review/releases/tag/v1.2.0 # that release, pinned
+pinrail plugins install ./plugins/review                                # a folder: a copy, in the app's store
+pinrail plugins install ./plugins/review --link                         # a folder served live, while you work on it
+pinrail plugins install github.com/acme/plugins/review@v3               # a folder in a repository, at a tag: "this folder, at this version"
+pinrail plugins install https://github.com/acme/plugins/tree/v3/review  # the same, as the browser shows it
+pinrail plugins install github.com/acme/pinrail-review                   # a repository's root, default branch
+pinrail plugins install git@acme.internal:plugins.git --ref v3 --path review   # SSH, the two beside it
+pinrail plugins install https://github.com/acme/pinrail-review/releases            # the latest GitHub release: its bundle, no build
+pinrail plugins install https://github.com/acme/pinrail-review/releases/tag/v1.2.0 # that release, pinned
 ```
 
 A ref is a branch, a tag or a commit; without one, the default branch. A
@@ -122,7 +122,7 @@ is the yes. Each plugin's row says where it came from, checks for updates
 on request and updates when there is something new, removes the plugin
 (a store entry a review still renders from stays), and offers *Install a
 copy* on a linked folder once you are done iterating. The CLI does the
-same with `wicket plugins update [name]` and `wicket plugins remove
+same with `pinrail plugins update [name]` and `pinrail plugins remove
 <name>`.
 
 A copy lands in the app's store under the plugin's name and major
@@ -172,7 +172,7 @@ install from people and repositories you would run code from.
 A GitHub release spares the people installing your plugin the toolchain:
 the app downloads its asset, checks it and serves it as it is, and never
 runs a build. The release carries one `.zip` that is the bundle (or, with
-several zips attached, one named `wicket-plugin.zip`), with
+several zips attached, one named `pinrail-plugin.zip`), with
 `manifest.json` at the archive's root or inside the one folder there, as
 most zip tools lay it out. The tag is the manifest's version, with or
 without a leading `v`; a release tagged `v1.2.0` whose manifest says
@@ -189,7 +189,7 @@ folder without its sources, attach.
 
 ## Decisions as markdown
 
-An agent that ran `wicket create … --wait --format markdown` reads the
+An agent that ran `pinrail create … --wait --format markdown` reads the
 decision as prose: the title, where the review sits, who decided and
 when with a tally, the reviewer's note, then the decision. The app renders
 the decision by its shape: every array of objects becomes a headed list,
@@ -220,7 +220,7 @@ rendering by shape.
 ### Adding a template
 
 1. Write `templates/decision.md.j2`. Start from what the
-   rendering by shape gives you (`wicket show <id> --format markdown` on
+   rendering by shape gives you (`pinrail show <id> --format markdown` on
    a decided review) and improve the bullets that need the payload. The
    syntax is Jinja's: `{% for item in items %}`, `{% if item.note %}`,
    `{{ item.payload.title }}`, filters such as `selectattr`, `length`,
@@ -230,10 +230,10 @@ rendering by shape.
    undefined and renders empty.
 2. Name it in the manifest: `"decision_template": "templates/decision.md.j2"`.
 3. Reload. The manifest and the template are read when the plugin loads,
-   so after an edit run `wicket plugins reload` (or *Reload* in Settings
+   so after an edit run `pinrail plugins reload` (or *Reload* in Settings
    › Plugins). A copied plugin needs installing again; a linked one only
    the reload.
-4. Look at the row. `wicket plugins` lists `template_error` on the
+4. Look at the row. `pinrail plugins` lists `template_error` on the
    plugin when the template does not compile, with the line, and the
    row in Settings says the same.
 
@@ -243,9 +243,9 @@ The quickest loop is a decided review in the running app: create one
 from a fixture, decide it, and read it back.
 
 ```sh
-wicket create review --data <(jq .payload fixtures/dedup-round-2.json) --title "Template check" > /tmp/r.json
-wicket decide "$(jq -r .id /tmp/r.json)" --data <(jq .decision.data fixtures/dedup-round-1.decided.json) --note "looks right"
-wicket show "$(jq -r .id /tmp/r.json)" --format markdown
+pinrail create review --data <(jq .payload fixtures/dedup-round-2.json) --title "Template check" > /tmp/r.json
+pinrail decide "$(jq -r .id /tmp/r.json)" --data <(jq .decision.data fixtures/dedup-round-1.decided.json) --note "looks right"
+pinrail show "$(jq -r .id /tmp/r.json)" --format markdown
 ```
 
 A decided fixture (`fixtures/<name>.decided.json`: `title`, `payload`,
@@ -255,11 +255,11 @@ render every one, through the plugin's template when it has one, and
 compare the result with the `<name>.decided.md` beside it, byte for
 byte, with times in UTC so the file holds anywhere. Change the template
 or the renderer and the test shows the diff; when the new output is the
-intended one, `UPDATE_FIXTURES=1 cargo test -p wicket-core --lib
+intended one, `UPDATE_FIXTURES=1 cargo test -p pinrail-core --lib
 decided_fixtures` rewrites the expected files, and the diff of those
 files in the commit is the review of the change. For a plugin outside
 this repository, the three commands above in a script against a scratch
-data directory (`wicket serve` with `WICKET_DATA_DIR` set), diffed
+data directory (`pinrail serve` with `PINRAIL_DATA_DIR` set), diffed
 against a checked-in `.md`, are the same test.
 
 ## Settings of your own
@@ -333,28 +333,28 @@ A forwarded key arrives as a `keydown` on your document, exactly as a press
 inside the frame would, so the listener you already have handles both.
 Only declared keys are forwarded; a view that declares none gets none.
 
-## Looking like the rest of wicket
+## Looking like the rest of pinrail
 
 The app serves a stylesheet next to the SDK. Link it and your view gets the
 app's tokens in both themes, the base typography and scrollbars, and a small
 vocabulary of classes:
 
 ```html
-<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 ```
 
 It also gives you icons. The app serves the [Lucide](https://lucide.dev) set a
-file at a time at `/sdk/v1/icons/<name>.svg`, and `Wicket.icon("check")` writes
+file at a time at `/sdk/v1/icons/<name>.svg`, and `Pinrail.icon("check")` writes
 the markup for one. Any name in the set works and you download only the ones
 you name, so the set costs your view nothing. Icons take `currentColor`, so
 they follow the theme along with the text around them.
 
-`Wicket.layout()` builds that skeleton for you, and hands back the elements
+`Pinrail.layout()` builds that skeleton for you, and hands back the elements
 rather than markup, so the header and its controls keep their listeners while
 you rewrite the body on every change:
 
 ```js
-const view = Wicket.layout({ title: "5 items", controls: [acceptAll, clear] });
+const view = Pinrail.layout({ title: "5 items", controls: [acceptAll, clear] });
 view.content.innerHTML = rows;          // render into this
 view.title("4 items").meta(["acme-api", "7 days"]);
 ```
@@ -424,13 +424,13 @@ in the payload.
 
 ## The SDK
 
-The app serves the plugin side of the protocol at `/sdk/v1/wicket-plugin.js`.
+The app serves the plugin side of the protocol at `/sdk/v1/pinrail-plugin.js`.
 Load it and let it do the handshake; the view only renders:
 
 ```html
-<script src="/sdk/v1/wicket-plugin.js"></script>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>
-  const plugin = Wicket.connect({
+  const plugin = Pinrail.connect({
     resize: "auto",                                  // or "fill" for a viewport-height frame
     onInit({ gate, previous, readonly, draft }) { render(); },
     onViolations(errors) { showErrors(errors); },
@@ -442,37 +442,37 @@ Load it and let it do the handshake; the view only renders:
 </script>
 ```
 
-`v1` only ever receives fixes. See [`wicket-plugin/`](../wicket-plugin/README.md),
-the `wicket-plugin` package, for the API, the helpers (`escape`, `markdown`,
+`v1` only ever receives fixes. See [`pinrail-plugin/`](../pinrail-plugin/README.md),
+the `pinrail-plugin` package, for the API, the helpers (`escape`, `markdown`,
 `previousVerdict`), the dev shell and the test harness. The protocol below is what the SDK implements; a plugin can
 speak it directly instead.
 
 ## Starting a plugin
 
-`npx wicket-plugin create <name>` (`--template vite` for a build) writes a
+`npx @forgeplane/pinrail-plugin create <name>` (`--template vite` for a build) writes a
 folder in the layout above with a working view, a fixture, a test and a
-release workflow; `wicket-plugin dev`, `test` and `check` take it from
-there. See [`wicket-plugin/`](../wicket-plugin/README.md). The samples here are
+release workflow; `pinrail-plugin dev`, `test` and `check` take it from
+there. See [`pinrail-plugin/`](../pinrail-plugin/README.md). The samples here are
 what to read once it runs.
 
 ## Testing a plugin
 
 Ship `fixtures/*.json` (a partial gate: `title`, `payload`, optionally a
 `decision`) and `tests/*.spec.ts` that mount the view alone under the
-harness in `wicket-plugin/testing`; `npm test` here (`mise run test:plugins`
+harness in `pinrail-plugin/testing`; `npm test` here (`mise run test:plugins`
 from anywhere) runs them for every plugin in this folder and for the
 built-in `list`, with Playwright from this folder's `package.json`. See any
 shipped plugin for the pattern.
 
-While building one, `mise run dev:plugin <directory>` (`npx wicket-plugin
+While building one, `mise run dev:plugin <directory>` (`npx pinrail-plugin
 dev <directory>` outside this repository) opens the view in a browser under
 a shell of its own: pick a fixture, collect a decision, read what the view
 posts, and see every file change reloaded. No app needed; the app can link
-the same folder meanwhile with `wicket plugins install <directory> --link`.
+the same folder meanwhile with `pinrail plugins install <directory> --link`.
 
 ## Protocol
 
-All messages are `{ "wicket": 1, "type": "...", ...fields }` over
+All messages are `{ "pinrail": 1, "type": "...", ...fields }` over
 `postMessage`. The plugin posts `ready` once its listener is installed; the
 shell answers with `init`. The shell only trusts messages whose source is the
 iframe; the plugin should remember `shell_origin` from `init` and ignore
@@ -487,7 +487,7 @@ Shell → plugin:
 | `submitted` | `decision` – the decision was accepted; render read-only |
 | `collect` | the human asked to hand the gate over, with the shell's button or ⌘/Ctrl+Enter. Assemble the decision and submit it, or show a confirmation first and submit on the next `collect` |
 | `appearance` | `theme: "dark" \| "light"` – the shell's theme, sent before `init` and again on every change. The SDK applies it as `data-theme` on your root element; write the CSS and you are done |
-| `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` – one of the manifest's `shortcuts`, pressed while the app rather than your frame had focus. The SDK dispatches it as a `keydown` on your document (with `wicketForwarded: true` on the event), so a view that listens for its keys needs no change; `onKey` is there as well |
+| `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` – one of the manifest's `shortcuts`, pressed while the app rather than your frame had focus. The SDK dispatches it as a `keydown` on your document (with `pinrailForwarded: true` on the event), so a view that listens for its keys needs no change; `onKey` is there as well |
 
 `readonly` is true whenever the gate is not pending, and `gate.status` says
 why: `decided`, `withdrawn` (the requester took it back), `discarded` (the
@@ -495,7 +495,7 @@ person said no and told the agent to stop; `discarded_by` and
 `discarded_reason` on the envelope say who and why) or `expired`. A view
 renders the same way for all four: what was there, nothing to submit.
 
-Your frame's URL also ends in `#wicket-theme=dark` or `#wicket-theme=light`.
+Your frame's URL also ends in `#pinrail-theme=dark` or `#pinrail-theme=light`.
 A message cannot reach your view before it paints, so this is how the first
 theme gets there in time; the SDK reads it as it loads. Read it yourself if
 you do not use the SDK.

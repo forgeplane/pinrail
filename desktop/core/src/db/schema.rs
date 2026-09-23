@@ -88,7 +88,7 @@ pub(super) fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         tx.commit()?;
         if version > 0 {
             eprintln!(
-                "wicket: database migrated to version {}: {}",
+                "pinrail: database migrated to version {}: {}",
                 i + 1,
                 step.name
             );
@@ -195,7 +195,7 @@ CREATE INDEX IF NOT EXISTS outcomes_kind ON outcomes(kind);
         )?;
         if inserted == 0 {
             eprintln!(
-                "wicket: review {review_id} had ended twice; its {kind} at {at} is dropped, the earlier ending stands"
+                "pinrail: review {review_id} had ended twice; its {kind} at {at} is dropped, the earlier ending stands"
             );
         }
     }

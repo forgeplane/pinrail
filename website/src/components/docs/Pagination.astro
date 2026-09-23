@@ -4,7 +4,7 @@
 const { prev, next } = Astro.locals.starlightRoute.pagination;
 ---
 {(prev || next) && (
-  <nav class="wk-pages print:hidden" aria-label="More docs">
+  <nav class="pr-pages print:hidden" aria-label="More docs">
     {prev ? (
       <a class="card prev" href={prev.href} rel="prev">
         <span class="kicker"><span class="arrow" aria-hidden="true">←</span> Previous</span>
@@ -21,7 +21,7 @@ const { prev, next } = Astro.locals.starlightRoute.pagination;
 )}
 
 <style>
-  .wk-pages { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2.5rem; padding-top: 1.75rem; border-top: 1px solid var(--sl-color-hairline); }
+  .pr-pages { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2.5rem; padding-top: 1.75rem; border-top: 1px solid var(--sl-color-hairline); }
   .card {
     position: relative; display: flex; flex-direction: column; gap: 0.3rem;
     padding: 0.85rem 1.1rem 0.95rem; overflow: hidden;
@@ -41,10 +41,10 @@ const { prev, next } = Astro.locals.starlightRoute.pagination;
   .arrow { display: inline-block; color: var(--sl-color-accent); font-size: 0.95rem; letter-spacing: 0; transition: transform 0.25s ease; }
   .prev:hover .arrow { transform: translateX(-4px); }
   .next:hover .arrow { transform: translateX(4px); }
-  .title { font: 600 1.1rem/1.25 var(--wk-serif, Georgia, serif); letter-spacing: -0.02em; }
+  .title { font: 600 1.1rem/1.25 var(--pr-serif, Georgia, serif); letter-spacing: -0.02em; }
   @media (max-width: 40rem) {
-    .wk-pages { grid-template-columns: 1fr; }
-    .wk-pages > span { display: none; }
+    .pr-pages { grid-template-columns: 1fr; }
+    .pr-pages > span { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { .card, .card::before, .arrow { transition: none; } }
 </style>

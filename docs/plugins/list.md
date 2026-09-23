@@ -7,7 +7,7 @@ sidebar:
     variant: success
 ---
 
-<div class="wk-badges"><span class="wk-badge built-in">Built in</span><span class="wk-badge plain">plugin: list</span></div>
+<div class="pr-badges"><span class="pr-badge built-in">Built in</span><span class="pr-badge plain">plugin: list</span></div>
 
 The list plugin shows a set of items, grouped under headings, and asks for a verdict on each: accept or reject, with an optional note. It is the general-purpose plugin, and the one to reach for first. It ships with the app, so every agent can use it with nothing to install.
 
@@ -38,13 +38,13 @@ Paste this into your agent's instructions and adjust the first line to the momen
 ```md title="AGENTS.md"
 ## Before acting on a batch of changes
 
-Before you close, mute or change more than one item, ask me with Wicket's
+Before you close, mute or change more than one item, ask me with Pinrail's
 `list` plugin and wait for my decision:
 
 1. Write the items to a JSON file: `{ "intro": "…", "groups": [{ "title": "…",
    "items": [{ "id": 1, "severity": "major", "title": "…", "body": "…" }] }] }`.
    Give each item a stable integer `id` and say in `body` what you will do.
-2. Run: `wicket submit list --title "<what this is>" --data items.json --wait --format markdown`
+2. Run: `pinrail submit list --title "<what this is>" --data items.json --wait --format markdown`
 3. Act only on items marked accepted, applying any note as an instruction.
    Rejected and undecided items are not approved: leave them.
 4. If the command exits 5, the review was discarded: stop and tell me why.

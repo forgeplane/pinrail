@@ -1,0 +1,15 @@
+pinrail-plugin, part of Pinrail
+Copyright 2026 Panagiotis Nezis
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this software except in compliance with the License. A copy is in the
+LICENSE file, and at http://www.apache.org/licenses/LICENSE-2.0.
+
+This product includes the Lucide icon set (https://lucide.dev), served to
+plugin views, under the ISC License:
+Copyright (c) 2026 Lucide Icons and Contributors. The full text is in
+licenses/lucide-icons.txt.
+
+This product includes markdown-it (https://github.com/markdown-it/markdown-it),
+served to plugin views that render markdown, under the MIT License:
+Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin.

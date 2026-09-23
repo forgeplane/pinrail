@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, gateFrom, mountPlugin } from "wicket-plugin/testing";
+import { fixture, gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
 const dir = path.resolve(__dirname, "..");
 const landing = () => fixture(path.join(dir, "fixtures", "landing.json"));

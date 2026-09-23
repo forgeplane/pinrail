@@ -1,4 +1,4 @@
-// The Install the CLI row: puts the wicket CLI the app bundles into
+// The Install the CLI row: puts the pinrail CLI the app bundles into
 // ~/.local/bin, as a link on macOS and a copy from an AppImage, or says a Linux
 // package installed it already. It also says what a new terminal will actually
 // run, since that is what an agent's shell gets.
@@ -24,11 +24,11 @@ const invoke = <T,>(command: string) => import("@tauri-apps/api/core").then(({ i
 
 /** ~ in place of the home folder, which the link's path starts with. */
 const tilde = (link: string) => {
-  const home = /^(.*)\/\.local\/bin\/wicket$/.exec(link)?.[1];
+  const home = /^(.*)\/\.local\/bin\/pinrail$/.exec(link)?.[1];
   return (p: string) => (home && p.startsWith(home + "/") ? "~" + p.slice(home.length) : p);
 };
 
-const folder = (p: string) => p.replace(/\/wicket$/, "");
+const folder = (p: string) => p.replace(/\/pinrail$/, "");
 
 export function CliRow({ open }: { open: boolean }) {
   const [status, setStatus] = useState<CliStatus | null>(null);
@@ -61,7 +61,7 @@ export function CliRow({ open }: { open: boolean }) {
     }
   };
 
-  if (!inTauri()) return <SettingsRow label="Install the CLI" description="Puts wicket into ~/.local/bin; the app does this" />;
+  if (!inTauri()) return <SettingsRow label="Install the CLI" description="Puts pinrail into ~/.local/bin; the app does this" />;
   if (!status) return <SettingsRow label="Install the CLI" description={error ?? "Checking…"} />;
 
   const short = tilde(status.link);
@@ -79,13 +79,13 @@ export function CliRow({ open }: { open: boolean }) {
     </span>
   ) : (
     <span>
-      {verb} <span className="mono">wicket</span> into <span className="mono">{folder(link)}</span>, so agents and scripts can run it
+      {verb} <span className="mono">pinrail</span> into <span className="mono">{folder(link)}</span>, so agents and scripts can run it
     </span>
   );
 
   let note: ReactNode = undefined;
   if (error) note = error;
-  else if (status.outdated) note = `${link} is a copy from another version of Wicket; installing replaces it`;
+  else if (status.outdated) note = `${link} is a copy from another version of Pinrail; installing replaces it`;
   else if (!status.installed && status.occupied_by)
     note = `${link} is already ${status.occupied_by}; installing replaces ${status.mode === "copy" ? "a link or an older copy" : "a link"}, never another file`;
   else if (status.installed && status.dir_on_path === false)
@@ -100,7 +100,7 @@ export function CliRow({ open }: { open: boolean }) {
         A new terminal runs <span className="mono">{short(status.runs)}</span> first, which is not this one
       </span>
     );
-  else if (status.installed && status.mode === "copy") note = "A copy does not follow the AppImage: after updating Wicket, install again";
+  else if (status.installed && status.mode === "copy") note = "A copy does not follow the AppImage: after updating Pinrail, install again";
 
   if (status.mode === "package") return <SettingsRow label="Install the CLI" description={description} note={note} />;
 

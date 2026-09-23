@@ -8,7 +8,7 @@ const core = "http://127.0.0.1:4799";
 
 /** A copy of a sample plugin under a name and version of its own. */
 function pluginCopy(sample: string, name: string, version: string, extra: Record<string, unknown> = {}): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `wicket-${name}-`));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `pinrail-${name}-`));
   const from = path.join(root, "plugins", sample);
   // the plugin as a bundle: the folder without its tests and fixtures
   fs.cpSync(from, dir, { recursive: true, filter: (src) => !/\/(tests|fixtures|node_modules)(\/|$)/.test(src) });
@@ -148,7 +148,7 @@ test("a link serves the folder live and offers to install a copy", async ({ page
 });
 
 test("what is not a plugin is refused before anything runs", async ({ page }) => {
-  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "wicket-empty-"));
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-empty-"));
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(empty);
   await dialog.locator("[data-install-look]").click();

@@ -17,13 +17,13 @@ Keys: `d`, `w`, `l` for the views; `j` / `k` next and previous day or week;
 `t` back to the first day.
 
 Plain JavaScript and CSS, with no runtime dependencies and no build step. It
-runs on the Wicket SDK and its stylesheet, inside the app's sandboxed frame.
+runs on the Pinrail SDK and its stylesheet, inside the app's sandboxed frame.
 
 ## Asking
 
 ```sh
-wicket plugins install ./plugins/calendar
-wicket submit calendar --title "Schedule four candidate interviews" --data slots.json --wait --format markdown
+pinrail plugins install ./plugins/calendar
+pinrail submit calendar --title "Schedule four candidate interviews" --data slots.json --wait --format markdown
 ```
 
 The fixtures show the range of it:
@@ -37,7 +37,7 @@ The fixtures show the range of it:
 ## Header
 
 The compact toolbar displays the review title supplied by the agent with
-`wicket submit calendar --title "Schedule four candidate interviews"`. It shows
+`pinrail submit calendar --title "Schedule four candidate interviews"`. It shows
 selection progress alongside the title, or the read-only review status. There
 is no fixed headline, slogan, or introductory copy. Legacy payload `heading`
 and `description` fields are accepted but no longer displayed.
@@ -126,5 +126,5 @@ not modeled by this version.
 fixtures, without the app. The scheduling rules in `view/calendar-core.js` are
 tested on their own in `tests/core.test.cjs`, and the view in
 `tests/calendar.spec.ts`; both run with the other samples' tests,
-`mise run test:plugins`. `npx wicket-plugin check plugins/calendar` says what the
+`mise run test:plugins`. `npx pinrail-plugin check plugins/calendar` says what the
 app would make of the folder.

@@ -1,14 +1,14 @@
 //! Application operations without an HTTP router or a desktop runtime.
 
 use serde_json::{Value, json};
-use wicket_core::db::Db;
-use wicket_core::plugins::InstallOptions;
-use wicket_core::{Config, Error, Wicket};
+use pinrail_core::db::Db;
+use pinrail_core::plugins::InstallOptions;
+use pinrail_core::{Config, Error, Pinrail};
 
 #[test]
 fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Wicket::open(Config::new(dir.path(), 0)).unwrap();
+    let app = Pinrail::open(Config::new(dir.path(), 0)).unwrap();
     let review = app
         .reviews()
         .submit(
@@ -77,7 +77,7 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
 fn event_history_returns_storage_failures_to_the_caller() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path(), 0);
-    let app = Wicket::open(config.clone()).unwrap();
+    let app = Pinrail::open(config.clone()).unwrap();
     let connection = rusqlite::Connection::open(config.db_path()).unwrap();
     connection.execute_batch("DROP TABLE events").unwrap();
     assert!(matches!(app.events().after(0, 10), Err(Error::Internal(_))));
@@ -87,7 +87,7 @@ fn event_history_returns_storage_failures_to_the_caller() {
 fn settings_changes_are_persisted_and_announced_without_http() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path(), 0);
-    let app = Wicket::open(config.clone()).unwrap();
+    let app = Pinrail::open(config.clone()).unwrap();
     let mut notices = app.events().subscribe();
 
     let after = app
@@ -112,7 +112,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
     assert!(notices.try_recv().is_err());
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 
-    let reopened = Wicket::open(config).unwrap();
+    let reopened = Pinrail::open(config).unwrap();
     assert_eq!(reopened.settings().get()["notifications"]["enabled"], false);
     assert!(!dir.path().join("server.json").exists());
 }
@@ -120,7 +120,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
 #[test]
 fn external_settings_edits_are_recorded_and_announced_once() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Wicket::open(Config::new(dir.path(), 0)).unwrap();
+    let app = Pinrail::open(Config::new(dir.path(), 0)).unwrap();
     let mut notices = app.events().subscribe();
     assert!(app.settings().reload().unwrap().is_none());
 
@@ -160,7 +160,7 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
         .to_string(),
     )
     .unwrap();
-    let app = Wicket::open(config).unwrap();
+    let app = Pinrail::open(config).unwrap();
     let job = app.plugins().start_install(
         &plugin.display().to_string(),
         InstallOptions {

@@ -32,7 +32,7 @@ export function keys(text) {
 export function kbdHtml(text) {
   const caps = keys(text);
   const spoken = caps.map((k) => LABELS[k] ?? k).join(" ");
-  return `<kbd class="wk-keys not-content" title="${escape(spoken)}">${caps.map((k) => escape(k)).join('<span class="wk-plus" aria-hidden="true">+</span>')}</kbd>`;
+  return `<kbd class="pr-keys not-content" title="${escape(spoken)}">${caps.map((k) => escape(k)).join('<span class="pr-plus" aria-hidden="true">+</span>')}</kbd>`;
 }
 
 export default function remarkKbd() {

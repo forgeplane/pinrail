@@ -18,7 +18,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 
 use super::ApiState;
-use crate::Wicket;
+use crate::Pinrail;
 use crate::schema::safe_join;
 
 pub fn routes() -> Router<ApiState> {
@@ -28,7 +28,7 @@ pub fn routes() -> Router<ApiState> {
 }
 
 async fn bundle(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path((name, version, path)): Path<(String, String, String)>,
     headers: HeaderMap,
 ) -> Response {
@@ -96,7 +96,7 @@ async fn bundle(
         .into_response()
 }
 
-async fn sdk(State(state): State<Arc<Wicket>>, Path(path): Path<String>) -> Response {
+async fn sdk(State(state): State<Arc<Pinrail>>, Path(path): Path<String>) -> Response {
     let Some(dir) = &state.config().sdk_dir else {
         return StatusCode::NOT_FOUND.into_response();
     };

@@ -37,7 +37,7 @@ fn status(error: &Error) -> StatusCode {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         if let Error::Internal(message) = &self.0 {
-            eprintln!("wicket: {message}");
+            eprintln!("pinrail: {message}");
         }
         (status(&self.0), Json(self.0.to_json())).into_response()
     }

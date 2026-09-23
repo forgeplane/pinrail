@@ -14,10 +14,10 @@ a working request (a fixture file is a gate envelope around one):
 
 ```sh
 node -e 'process.stdout.write(JSON.stringify(require("./fixtures/01-incident.json").payload))' > /tmp/feedback-payload.json
-wicket submit feedback --title "Choose a recovery plan for checkout failures" --data /tmp/feedback-payload.json --wait
+pinrail submit feedback --title "Choose a recovery plan for checkout failures" --data /tmp/feedback-payload.json --wait
 ```
 
-The header uses the supplied review title. The plugin has no submit button; Wicket owns the final hand-over. It does not execute the agent's proposed actions.
+The header uses the supplied review title. The plugin has no submit button; Pinrail owns the final hand-over. It does not execute the agent's proposed actions.
 
 ## Keys
 

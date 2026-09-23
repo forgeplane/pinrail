@@ -12,7 +12,7 @@ import { agents, releases, repo, views } from "../components/index/content";
 import hero from "../assets/screenshots/review-light.png";
 
 const steps = [
-  { title: "The agent submits", text: "At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.", art: "$ wicket submit review --data proposals.json --wait" },
+  { title: "The agent submits", text: "At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.", art: "$ pinrail submit review --data proposals.json --wait" },
   { title: "You decide", text: "The app notifies you and shows the work in a view built for it. Accept, reject, edit and comment, then hand over.", art: "✓ accept   ✕ reject   ⌘↵ hand back" },
   { title: "It carries on", text: "The command returns your decision: markdown for an agent, JSON for a script, and an exit code that says how it ended.", art: "exit 0 · decided" },
 ];
@@ -57,11 +57,11 @@ const codes = [
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Before your agent acts, it asks. Wicket is a desktop inbox where agents wait for your decision on a diff, a batch of emails or a page, and carry on with it." />
+    <meta name="description" content="Before your agent acts, it asks. Pinrail is a desktop inbox where agents wait for your decision on a diff, a batch of emails or a page, and carry on with it." />
     <meta name="theme-color" content="#f5f0e6" />
-    <meta property="og:title" content="Wicket — before your agent acts, it asks" />
+    <meta property="og:title" content="Pinrail — before your agent acts, it asks" />
     <meta property="og:description" content="A desktop inbox for agent work. Review it in a view made for it; your decision goes straight back." />
-    <title>Wicket — before your agent acts, it asks</title>
+    <title>Pinrail — before your agent acts, it asks</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -71,7 +71,7 @@ const codes = [
     <a href="#main" class="skip">Skip to content</a>
 
     <header class="topnav">
-      <a class="brand" href="/" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
+      <a class="brand" href="/" aria-label="Pinrail home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>pinrail</a>
       <nav class="links" aria-label="Main">
         <a href="#how">How it works</a><a href="#views">Views</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
       </nav>
@@ -82,7 +82,7 @@ const codes = [
       <section class="c-hero">
         <p class="eyebrow"><span class="dot" aria-hidden="true"></span>The review inbox for agent work</p>
         <h1>Before your agent acts,<br /><em><Typed words={["it asks.", "you look.", "you decide.", "you edit.", "you say stop."]} /></em></h1>
-        <p class="c-lede">Wicket is a desktop inbox for the moments that matter: review comments about to be posted, emails about to be sent, a page about to ship. The agent submits its work, waits, and carries on with your decision.</p>
+        <p class="c-lede">Pinrail is a desktop inbox for the moments that matter: review comments about to be posted, emails about to be sent, a page about to ship. The agent submits its work, waits, and carries on with your decision.</p>
         <div class="c-ctas">
           <a class="primary big" href={releases}>Download for macOS</a>
           <a class="ghost big" href="/docs/getting-started/install/">Read the docs</a>
@@ -91,8 +91,8 @@ const codes = [
         <div class="c-shot">
           <span class="hand shot-note" aria-hidden="true">the actual app ↘</span>
           <div class="window">
-            <div class="window-bar"><span></span><span></span><span></span><b>Wicket</b></div>
-            <Zoom src={hero} alt="The Wicket app: a code review of a TypeScript change, with one finding accepted and a note to the agent being written." caption="The Wicket app: a code review, one finding accepted with a note to the agent." sizes="(max-width: 1100px) 94vw, 1080px" />
+            <div class="window-bar"><span></span><span></span><span></span><b>Pinrail</b></div>
+            <Zoom src={hero} alt="The Pinrail app: a code review of a TypeScript change, with one finding accepted and a note to the agent being written." caption="The Pinrail app: a code review, one finding accepted with a note to the agent." sizes="(max-width: 1100px) 94vw, 1080px" />
           </div>
         </div>
       </section>
@@ -106,7 +106,7 @@ const codes = [
         <div class="c-head">
           <p class="kicker">01 · How it works</p>
           <h2>One command in, <em>one decision out.</em></h2>
-          <p>You tell the agent when to stop for you, in whatever instructions it follows. When it gets there, it asks through Wicket and waits.</p>
+          <p>You tell the agent when to stop for you, in whatever instructions it follows. When it gets there, it asks through Pinrail and waits.</p>
         </div>
         <ol class="c-steps">
           {steps.map((s, i) => (
@@ -135,7 +135,7 @@ const codes = [
           ))}
         </div>
         <div class="c-own">
-          <code>wicket-plugin create</code>
+          <code>pinrail-plugin create</code>
           <p><b>Or write your own.</b> A plugin is a manifest, two JSON schemas and an HTML view. Run it in a browser without the app, then install it from a folder or a GitHub release. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p>
           <a href="/docs/building/writing/">Write a plugin →</a>
         </div>
@@ -170,7 +170,7 @@ const codes = [
         <div class="terminal">
           <div class="term-bar"><span></span><span></span><span></span><b>agent — zsh</b></div>
           <pre><span class="t-dim"># submit the proposed comments and wait for a person</span>
-<span class="t-cmd">$ wicket submit review --title "Dedup tickets on save" \
+<span class="t-cmd">$ pinrail submit review --title "Dedup tickets on save" \
     --origin repo=acme/api,workflow=pr-review,ref=42 \
     --data proposals.json --wait --format markdown</span>
 <span class="t-dim">waiting for a decision…</span>
@@ -193,7 +193,7 @@ Decided · 3 accepted · 1 rejected
           <article><h3>Local</h3><p>The app runs its server on loopback. Reviews and decisions stay on your Mac. No account.</p></article>
           <article><h3>Contained</h3><p>A plugin's view is sandboxed: it draws, talks to the app, and nothing else.</p></article>
           <article><h3>Interruptible</h3><p>A notification when a review lands, a count in the menu bar, and the window can close while the app keeps listening.</p></article>
-          <article><h3>Any agent</h3><p>If it can run a command, it can ask through Wicket. Its own instructions say when.</p></article>
+          <article><h3>Any agent</h3><p>If it can run a command, it can ask through Pinrail. Its own instructions say when.</p></article>
         </div>
       </section>
 
@@ -201,7 +201,7 @@ Decided · 3 accepted · 1 rejected
         <div class="c-head">
           <p class="kicker">07 · From the other side</p>
           <h2 id="voices-title">What the agents <em>would say.</em></h2>
-          <p>If agents wrote testimonials. Imagined, but every one is a thing Wicket is there to catch.</p>
+          <p>If agents wrote testimonials. Imagined, but every one is a thing Pinrail is there to catch.</p>
         </div>
         <div class="voice-grid">
           {voices.map((v) => (
@@ -226,7 +226,7 @@ Decided · 3 accepted · 1 rejected
 
       <section class="c-final">
         <p class="hand">your move</p>
-        <h2 class="closing-title"><span class="line">Put <em><Typed words={["a wicket", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
+        <h2 class="closing-title"><span class="line">Put <em><Typed words={["a pinrail", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
         <p>macOS today. Free and open source, in early development.</p>
         <div class="c-ctas">
           <a class="primary big" href={releases}>Download for macOS</a>
@@ -239,7 +239,7 @@ Decided · 3 accepted · 1 rejected
     <Lightbox />
 
     <footer class="colophon">
-      <span>Wicket · a small gate in a larger door.</span>
+      <span>Pinrail · a small gate in a larger door.</span>
       <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/review">Review version</a></nav>
     </footer>
   </body>

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { mountPlugin, fixture } from 'wicket-plugin/testing';
+import { mountPlugin, fixture } from '@forgeplane/pinrail-plugin/testing';
 const root = path.resolve(__dirname, '..');
 const personal = () => fixture(path.join(root, 'fixtures/01-personal-assistant.json'));
 // the calendar, or why it cannot be shown, is drawn before anything is done to it
@@ -115,10 +115,10 @@ test('capture desktop layouts under the SDK shell', async ({ page }) => {
 });
 
 test('development shell serves the plugin with real CSP and completes hand-over', async ({ page }) => {
-  test.skip(!process.env.WICKET_SHELL_URL, 'Set WICKET_SHELL_URL to an SDK development shell.');
+  test.skip(!process.env.PINRAIL_SHELL_URL, 'Set PINRAIL_SHELL_URL to an SDK development shell.');
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
-  await page.goto(process.env.WICKET_SHELL_URL);
+  await page.goto(process.env.PINRAIL_SHELL_URL);
   await page.locator('#fixture').selectOption('01-personal-assistant.json');
   const frame = page.frameLocator('#frame');
   await expect(frame.getByRole('heading',{name:'Dinner, doctor & tennis'})).toBeVisible();

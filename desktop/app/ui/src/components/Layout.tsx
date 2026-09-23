@@ -71,7 +71,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
     { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
-    ...(location.pathname.startsWith("/reviews/") ? [{ id: "discard", label: "Discard this review", icon: Ban, run: () => window.dispatchEvent(new Event("wicket:discard")) }] : []),
+    ...(location.pathname.startsWith("/reviews/") ? [{ id: "discard", label: "Discard this review", icon: Ban, run: () => window.dispatchEvent(new Event("pinrail:discard")) }] : []),
   ];
 
   // a link to /plugins lands in the settings section
@@ -186,12 +186,12 @@ export function Layout({ children }: { children: ReactNode }) {
     };
     const onThemeToggle = (event: Event) => update({ appearance: { theme: (event as CustomEvent<"dark" | "light">).detail } });
     window.addEventListener("keydown", onKey);
-    window.addEventListener("wicket:command", onCommand);
-    window.addEventListener("wicket:theme-toggle", onThemeToggle);
+    window.addEventListener("pinrail:command", onCommand);
+    window.addEventListener("pinrail:theme-toggle", onThemeToggle);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("wicket:command", onCommand);
-      window.removeEventListener("wicket:theme-toggle", onThemeToggle);
+      window.removeEventListener("pinrail:command", onCommand);
+      window.removeEventListener("pinrail:theme-toggle", onThemeToggle);
     };
   }, [navigate, update]);
 

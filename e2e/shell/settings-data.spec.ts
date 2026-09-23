@@ -35,7 +35,7 @@ test("the port is stored for the next start and the row says the server has not 
   await field.fill("4811");
   await field.press("Enter");
   await expect.poll(async () => (await served(page.request)).port).toBe(4811);
-  await expect(page.locator(".settings-row", { has: field })).toContainText("Takes effect when Wicket starts next; until then the server stays on 4799");
+  await expect(page.locator(".settings-row", { has: field })).toContainText("Takes effect when Pinrail starts next; until then the server stays on 4799");
 
   // out of range is not sent, and the field goes back to what is stored
   await field.fill("80");

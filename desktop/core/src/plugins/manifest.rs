@@ -468,7 +468,7 @@ impl Plugin {
 /// The keys a plugin's view answers: a list of `{keys, does, group?}`,
 /// `keys` in the app's shortcut form (`cmd+shift+m`, `j`, `shift+/`).
 /// The manifest held to its JSON Schema, `manifest.schema.json` in the
-/// wicket-plugin package, which build.rs copies in: the one description of a
+/// pinrail-plugin package, which build.rs copies in: the one description of a
 /// manifest, shared with authors' editors and the docs.
 #[cfg(feature = "docs")]
 pub use shape::SCHEMA;
@@ -481,7 +481,7 @@ mod shape {
 
     use crate::schema::Schema;
 
-    /// The schema's text, as the wicket-plugin package ships it.
+    /// The schema's text, as the pinrail-plugin package ships it.
     pub const SCHEMA: &str = include_str!(concat!(env!("OUT_DIR"), "/manifest.schema.json"));
 
     /// Keys whose violation costs the plugin that feature, not its place.
@@ -990,7 +990,7 @@ mod tests {
             json!({}),
             json!({"version": 3}),
             json!({"version": "0.1.0"}),
-            json!({"$schema": "https://wicket.dev/schemas/manifest.schema.json"}),
+            json!({"$schema": "https://pinrail.dev/schemas/manifest.schema.json"}),
             json!({"a_key_from_a_newer_app": {"anything": true}}),
             json!({"icon": serde_json::Value::Null, "settings_schema": serde_json::Value::Null}),
             json!({"title": "Sample", "description": "A sample.", "icon": "git-pull-request", "min_height": 200, "dev": true}),

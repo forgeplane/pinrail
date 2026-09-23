@@ -16,7 +16,7 @@ import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 
-const NOTE_PREFIX = "wicket:draft:";
+const NOTE_PREFIX = "pinrail:draft:";
 
 export function ReviewScreen() {
   const { id = "" } = useParams();
@@ -250,7 +250,7 @@ export function ReviewScreen() {
       if (combo && !isShadowed(combo) && plugin?.shortcuts?.some((s) => s.keys === combo)) {
         event.preventDefault();
         frame.current?.contentWindow?.postMessage(
-          { wicket: 1, type: "key", key: event.key, code: event.code, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey },
+          { pinrail: 1, type: "key", key: event.key, code: event.code, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey },
           "*",
         );
       }
@@ -261,12 +261,12 @@ export function ReviewScreen() {
     // the palette's "Discard this review"
     const onDiscard = () => setDiscarding(true);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("wicket:command", onCommand);
-    window.addEventListener("wicket:discard", onDiscard);
+    window.addEventListener("pinrail:command", onCommand);
+    window.addEventListener("pinrail:discard", onDiscard);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("wicket:command", onCommand);
-      window.removeEventListener("wicket:discard", onDiscard);
+      window.removeEventListener("pinrail:command", onCommand);
+      window.removeEventListener("pinrail:discard", onDiscard);
     };
   }, [previous, revisedBy, navigate, maximized, plugin]);
 

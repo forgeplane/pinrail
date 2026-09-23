@@ -1,4 +1,4 @@
-// Writes notices/THIRD_PARTY_NOTICES.txt: the licence of everything Wicket's
+// Writes notices/THIRD_PARTY_NOTICES.txt: the licence of everything Pinrail's
 // app ships that someone else wrote. The Rust crates of the desktop app and of
 // the bundled CLI come from cargo-about; the npm packages in the UI bundle from
 // the production build (vite.config.ts writes notices/npm.json); the Lucide
@@ -31,7 +31,7 @@ function rust(manifest) {
       name: l.name,
       id: l.id,
       text: l.text,
-      // Wicket's own crates live in this repository and are not third-party
+      // Pinrail's own crates live in this repository and are not third-party
       packages: l.used_by.filter((u) => !u.crate.manifest_path.startsWith(root + path.sep)).map((u) => `${u.crate.name} ${u.crate.version}`),
     }))
     .filter((l) => l.packages.length > 0);
@@ -69,12 +69,12 @@ const entries = [
   {
     name: "ISC License",
     id: "ISC",
-    text: fs.readFileSync(path.join(root, "wicket-plugin", "licenses", "lucide-icons.txt"), "utf8"),
+    text: fs.readFileSync(path.join(root, "pinrail-plugin", "licenses", "lucide-icons.txt"), "utf8"),
     packages: ["Lucide icons (lucide-static 1.45.0)"],
   },
   // the font files the window draws in, imported as CSS
   shipped("@fontsource-variable/inter", { name: "SIL Open Font License 1.1", id: "OFL-1.1" }),
-  // the markdown parser the app serves inside /sdk/v1/wicket-plugin.js, which
+  // the markdown parser the app serves inside /sdk/v1/pinrail-plugin.js, which
   // every plugin view renders markdown with
   shipped("markdown-it", { name: "MIT License", id: "MIT" }),
 ];
@@ -91,9 +91,9 @@ const sections = [...byText.values()].sort((a, b) => a.id.localeCompare(b.id) ||
 
 const rule = "=".repeat(78);
 const lines = [
-  "Third-party notices for Wicket",
+  "Third-party notices for Pinrail",
   "",
-  "Wicket is licensed under the Apache License 2.0; see LICENSE and NOTICE.",
+  "Pinrail is licensed under the Apache License 2.0; see LICENSE and NOTICE.",
   "It includes the following software, each under the licence shown after the",
   "packages that use it.",
   "",

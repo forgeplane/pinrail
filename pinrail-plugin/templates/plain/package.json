@@ -1,0 +1,14 @@
+{
+  "name": "pinrail-plugin-__NAME__",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "pinrail-plugin dev",
+    "check": "pinrail-plugin check",
+    "test": "pinrail-plugin test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56",
+    "@forgeplane/pinrail-plugin": "__SDK_DEP__"
+  }
+}

@@ -1,4 +1,4 @@
-# The licences Wicket's Rust dependencies may carry: the desktop workspace
+# The licences Pinrail's Rust dependencies may carry: the desktop workspace
 # and the CLI, which ships inside the app. CI runs
 #
 #   cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check licenses
@@ -31,6 +31,6 @@ confidence-threshold = 0.93
 # one list serves both workspaces, so a licence only one of them uses is fine
 unused-allowed-license = "allow"
 
-# Wicket's own crates are not published; their licence is ours to set
+# Pinrail's own crates are not published; their licence is ours to set
 [licenses.private]
 ignore = true

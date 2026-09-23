@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, mountPlugin } from "wicket-plugin/testing";
+import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
 // The view alone, under the harness: no app, no CLI.
 const dir = path.resolve(__dirname, "..");

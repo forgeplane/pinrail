@@ -9,18 +9,18 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
-use wicket_core::Config;
-use wicket_core::{Wicket, api};
+use pinrail_core::Config;
+use pinrail_core::{Pinrail, api};
 
 struct App {
     dir: tempfile::TempDir,
-    state: Arc<Wicket>,
+    state: Arc<Pinrail>,
     router: Router,
 }
 
 fn app() -> App {
     let dir = tempfile::tempdir().unwrap();
-    let state = Arc::new(Wicket::open(Config::new(dir.path(), 0)).unwrap());
+    let state = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
     let router = api::router(state.clone());
     App { dir, state, router }
 }
@@ -112,7 +112,7 @@ async fn a_change_is_applied_written_and_announced() {
     assert!(notice.review_id.is_none());
 
     // and the event is on record, keys included, for the stream's backlog
-    let events = wicket_core::db::Db::open(&app.state.config().db_path())
+    let events = pinrail_core::db::Db::open(&app.state.config().db_path())
         .unwrap()
         .events_after(0, 10)
         .unwrap();
@@ -198,18 +198,18 @@ async fn an_edit_to_the_file_is_picked_up_with_its_keys() {
 fn the_port_in_the_file_is_used_unless_the_environment_says_otherwise() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("settings.json"), r#"{"port": 4900}"#).unwrap();
-    assert_eq!(wicket_core::settings::port_in(dir.path()), Some(4900));
+    assert_eq!(pinrail_core::settings::port_in(dir.path()), Some(4900));
     // Config::from_env reads the environment; the file wins only when
-    // WICKET_PORT is unset, which the unit test in config covers through
+    // PINRAIL_PORT is unset, which the unit test in config covers through
     // port_in. Here: an absent or invalid file yields nothing.
     std::fs::write(dir.path().join("settings.json"), r#"{"port": "a"}"#).unwrap();
-    assert_eq!(wicket_core::settings::port_in(dir.path()), None);
+    assert_eq!(pinrail_core::settings::port_in(dir.path()), None);
 }
 
 #[tokio::test]
 async fn the_settings_table_is_gone() {
     let app = app();
-    let conn = rusqlite::Connection::open(app.dir.path().join("wicket.db")).unwrap();
+    let conn = rusqlite::Connection::open(app.dir.path().join("pinrail.db")).unwrap();
     let n: i64 = conn
         .query_row(
             "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'settings'",

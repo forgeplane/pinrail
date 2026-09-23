@@ -60,7 +60,7 @@ find the element again if it has since moved the markup around.
 
 The view is a React app built with Vite. The build is not checked in: run
 it once and the directory is a complete plugin, with `view/index.html` and
-`view/assets/` beside the manifest. Until then wicket lists the plugin as
+`view/assets/` beside the manifest. Until then pinrail lists the plugin as
 broken with "entry view/index.html not found".
 
 ```sh
@@ -77,8 +77,8 @@ enters the app's store.
 ## Trying it
 
 ```sh
-wicket plugins install ./plugins/artifact           # builds, then copies the bundle into the store
-wicket plugins install ./plugins/artifact --link    # or serve the folder live while working on it
-wicket submit artifact --title "Landing page — first draft" \
+pinrail plugins install ./plugins/artifact           # builds, then copies the bundle into the store
+pinrail plugins install ./plugins/artifact --link    # or serve the folder live while working on it
+pinrail submit artifact --title "Landing page — first draft" \
   --data <(jq .payload plugins/artifact/fixtures/landing.json) --wait
 ```

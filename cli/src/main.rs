@@ -1,4 +1,4 @@
-//! `wicket`: the CLI agents call. It talks HTTP to the running server and
+//! `pinrail`: the CLI agents call. It talks HTTP to the running server and
 //! does nothing itself. JSON on stdout, diagnostics on stderr, meaningful
 //! exit codes:
 //!
@@ -37,10 +37,10 @@ pub const EXIT_TIMEOUT: u8 = 4;
 pub const EXIT_DISCARDED: u8 = 5;
 
 #[derive(Parser)]
-#[command(name = "wicket", version, about, long_about = None)]
+#[command(name = "pinrail", version, about, long_about = None)]
 struct Cli {
-    /// Server URL; default: WICKET_URL, then the running server's server.json, then http://127.0.0.1:4747
-    #[arg(long, global = true, env = "WICKET_URL")]
+    /// Server URL; default: PINRAIL_URL, then the running server's server.json, then http://127.0.0.1:4747
+    #[arg(long, global = true, env = "PINRAIL_URL")]
     url: Option<String>,
 
     /// Pretty-print JSON output
@@ -48,8 +48,8 @@ struct Cli {
     pretty: bool,
 
     /// How a review is printed: json (the default, for scripts) or
-    /// markdown (for a session reading the decision); WICKET_FORMAT sets it
-    #[arg(long, global = true, env = "WICKET_FORMAT", value_enum, default_value_t = Format::Json)]
+    /// markdown (for a session reading the decision); PINRAIL_FORMAT sets it
+    #[arg(long, global = true, env = "PINRAIL_FORMAT", value_enum, default_value_t = Format::Json)]
     format: Format,
 
     #[command(subcommand)]
@@ -191,8 +191,8 @@ struct SubmitArgs {
     /// ISO 8601 timestamp after which the review expires
     #[arg(long)]
     expires_at: Option<String>,
-    /// Who is asking, shown on the review [default: wicket-cli]
-    #[arg(long, env = "WICKET_REQUESTED_BY")]
+    /// Who is asking, shown on the review [default: pinrail-cli]
+    #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
     /// Block until decided (see wait)
     #[arg(long)]
@@ -305,7 +305,7 @@ enum PluginsCommand {
     /// Install a plugin again from where it came, whatever is new there;
     /// every installed plugin when no name is given
     Update {
-        /// the plugin's name, as `wicket plugins` lists it
+        /// the plugin's name, as `pinrail plugins` lists it
         name: Option<String>,
     },
     /// Remove an installed plugin; store entries a review still renders
@@ -349,7 +349,7 @@ fn main() -> ExitCode {
                 out::error_json(&api.body);
                 ExitCode::from(EXIT_REFUSED)
             } else {
-                eprintln!("wicket: {err:#}");
+                eprintln!("pinrail: {err:#}");
                 ExitCode::from(EXIT_ERROR)
             }
         }
@@ -501,7 +501,7 @@ fn run(cli: Cli) -> Result<u8> {
                     };
                     let mut answers = Vec::new();
                     for name in names {
-                        eprintln!("wicket: {name}");
+                        eprintln!("pinrail: {name}");
                         answers.push(client.plugins_update(&name)?);
                     }
                     match answers.len() {
@@ -519,7 +519,7 @@ fn run(cli: Cli) -> Result<u8> {
         }
         Command::Export { dir } => {
             let count = out::export(&client, &dir)?;
-            eprintln!("wicket: {count} reviews written to {}", dir.display());
+            eprintln!("pinrail: {count} reviews written to {}", dir.display());
             Ok(0)
         }
         Command::Open { id } => {
@@ -556,7 +556,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     }
     match &args.requested_by {
         Some(by) => body["requested_by"] = json!(by),
-        None if body.get("requested_by").is_none() => body["requested_by"] = json!("wicket-cli"),
+        None if body.get("requested_by").is_none() => body["requested_by"] = json!("pinrail-cli"),
         None => {}
     }
     if let Some(origin) = &args.origin {
@@ -575,7 +575,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if args.dry_run {
         let answer = client.validate(&body)?;
         eprintln!(
-            "wicket: valid; {} {} would render it",
+            "pinrail: valid; {} {} would render it",
             answer["plugin"].as_str().unwrap_or_default(),
             answer["plugin_release"].as_str().unwrap_or_default()
         );
@@ -610,7 +610,7 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8
                 let left = d.saturating_duration_since(Instant::now());
                 if left.is_zero() {
                     eprintln!(
-                        "wicket: timed out after {}s, review {id} is still pending",
+                        "pinrail: timed out after {}s, review {id} is still pending",
                         opts.timeout
                     );
                     return Ok(EXIT_TIMEOUT);
@@ -629,10 +629,10 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8
                 if status == "decided" {
                     if let Some(path) = &opts.decision_out {
                         out::write_decision(path, &review["decision"]["data"])?;
-                        eprintln!("wicket: decision written to {}", path.display());
+                        eprintln!("pinrail: decision written to {}", path.display());
                     }
                     if let Some(counts) = out::editorial_counts(&review["decision"]["data"]) {
-                        eprintln!("wicket: {counts}");
+                        eprintln!("pinrail: {counts}");
                     }
                 }
                 output.review(client, &review)?;
@@ -643,16 +643,16 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8
                         let by = review["discarded_by"].as_str().unwrap_or("the reviewer");
                         match review["discarded_reason"].as_str() {
                             Some(reason) => eprintln!(
-                                "wicket: review {id} was discarded by {by}: {reason}. Stop the work it was gating."
+                                "pinrail: review {id} was discarded by {by}: {reason}. Stop the work it was gating."
                             ),
                             None => eprintln!(
-                                "wicket: review {id} was discarded by {by}. Stop the work it was gating."
+                                "pinrail: review {id} was discarded by {by}. Stop the work it was gating."
                             ),
                         }
                         EXIT_DISCARDED
                     }
                     _ => {
-                        eprintln!("wicket: review {id} was {status}, not decided");
+                        eprintln!("pinrail: review {id} was {status}, not decided");
                         EXIT_CLOSED
                     }
                 });
@@ -662,7 +662,7 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8
             Err(err) => {
                 let message = format!("{err:#}");
                 if message != last_error {
-                    eprintln!("wicket: {message}; retrying until the server is back");
+                    eprintln!("pinrail: {message}; retrying until the server is back");
                     last_error = message;
                 }
                 std::thread::sleep(Duration::from_secs(2));

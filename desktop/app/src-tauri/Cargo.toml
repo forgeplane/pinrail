@@ -1,18 +1,18 @@
 [package]
-name = "wicket-desktop"
-description = "The wicket desktop app: the review server with a menu-bar shell"
+name = "pinrail-desktop"
+description = "The pinrail desktop app: the review server with a menu-bar shell"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "wicket_desktop"
+name = "pinrail_desktop"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 # macOS names the running process after its executable, so the binary
 # carries the product name.
 [[bin]]
-name = "Wicket"
+name = "Pinrail"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -33,7 +33,7 @@ tauri-plugin-opener = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-window-state = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "signal", "sync", "time"] }
-wicket-core = { path = "../../core" }
+pinrail-core = { path = "../../core" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"

@@ -1,9 +1,9 @@
 ---
 title: Plugins
-description: "What a plugin is, how it shapes a review, and the ones that come with Wicket."
+description: "What a plugin is, how it shapes a review, and the ones that come with Pinrail."
 ---
 
-Every review in Wicket belongs to a plugin. The plugin decides three things: what an agent may send, what the person sees, and what goes back. Wicket supplies everything around them, the inbox, notifications, history, and the command the agent waits on.
+Every review in Pinrail belongs to a plugin. The plugin decides three things: what an agent may send, what the person sees, and what goes back. Pinrail supplies everything around them, the inbox, notifications, history, and the command the agent waits on.
 
 ## What a plugin is
 
@@ -20,7 +20,7 @@ flowchart TB
   D -->|"returns"| A2["agent"]
 ```
 
-- **The payload schema** is what the agent must send. Wicket rejects anything else before it reaches your inbox.
+- **The payload schema** is what the agent must send. Pinrail rejects anything else before it reaches your inbox.
 - **The view** is what you decide in: a diff with proposed comments, a draft email to edit, a page to comment on.
 - **The decision schema** is what goes back. The agent reads it as markdown, a script reads it as JSON, and both can rely on its shape.
 
@@ -37,26 +37,26 @@ The agent decides *when* to ask: its own instructions say which steps need a per
 A plugin describes itself, so an agent doesn't need you to explain it. Its manifest says what it is for and when to use it, and ships an example payload next to its schemas. An agent learns everything installed with one command:
 
 ```sh
-wicket plugins describe --format markdown
+pinrail plugins describe --format markdown
 ```
 
 ```mermaid title="From an unknown set of plugins to a review in the inbox"
 flowchart LR
-  A["agent"] -->|"wicket plugins describe"| D["each plugin: when to use it,<br/>payload schema, example,<br/>decision schema"]
+  A["agent"] -->|"pinrail plugins describe"| D["each plugin: when to use it,<br/>payload schema, example,<br/>decision schema"]
   D -->|"picks one, writes the payload"| C["--dry-run"]
   C -->|"violations"| D
-  C -->|"valid"| S["wicket submit … --wait"]
+  C -->|"valid"| S["pinrail submit … --wait"]
   S --> Y(["you decide"]):::you
 ```
 
 - **Choosing.** The agent reads each plugin's *use when*, such as *You drafted emails on the person's behalf and need them approved before anything is sent*, and picks the one that fits the moment.
 - **Writing the payload.** It starts from the example and follows the payload schema.
-- **Checking before asking.** `wicket submit … --dry-run` runs every check a real submission gets and creates nothing, so a malformed payload is fixed before it reaches you.
+- **Checking before asking.** `pinrail submit … --dry-run` runs every check a real submission gets and creates nothing, so a malformed payload is fixed before it reaches you.
 - **Reading the answer.** The decision schema says in advance what comes back, so the agent knows what to act on.
 
 A plugin you install is ready for agents as soon as it is installed. Your instructions still say *when* to ask; the plugins explain *how*. See [Learning what to ask](/docs/agents/cli/#learning-what-to-ask) for the full output.
 
-## The plugins that come with Wicket
+## The plugins that come with Pinrail
 
 Two plugins are built into the app and always available:
 
@@ -81,5 +81,5 @@ Six more ship as samples, to install or to learn from:
 Anything your agents do that needs a person can have a plugin of its own: approving a deploy, triaging alerts, choosing between three designs. A plugin is a few files, and an agent can write one as well as you can.
 
 - [Writing a plugin](/docs/building/writing/) takes you from the first scaffold to a tested view.
-- [Installing plugins](/docs/using/installing-plugins/) covers every source Wicket installs from.
+- [Installing plugins](/docs/using/installing-plugins/) covers every source Pinrail installs from.
 - [Publishing a plugin](/docs/building/publishing/) shares one as a release others install in one command.

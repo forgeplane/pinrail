@@ -1,16 +1,16 @@
 [package]
-name = "wicket"
+name = "pinrail"
 version = "0.1.0"
 edition = "2024"
-description = "CLI for wicket, the approval-gate service for agent workflows"
+description = "CLI for pinrail, the approval-gate service for agent workflows"
 license = "Apache-2.0"
 
 [[bin]]
-name = "wicket"
+name = "pinrail"
 path = "src/main.rs"
 
 [features]
-# `wicket --markdown-help`: the docs' CLI reference, rendered from the clap
+# `pinrail --markdown-help`: the docs' CLI reference, rendered from the clap
 # definition. Only the docs build turns it on.
 docs = []
 

@@ -3,13 +3,13 @@ title: Your first review
 description: "Send a review from the command line, decide it in the app, and read the decision the way an agent would."
 ---
 
-The quickest way to understand Wicket is to be the agent for a minute. You will send a review from your terminal, decide it in the app, and read back what an agent would receive.
+The quickest way to understand Pinrail is to be the agent for a minute. You will send a review from your terminal, decide it in the app, and read back what an agent would receive.
 
 ```mermaid title="What you're about to do"
 sequenceDiagram
   participant T as your terminal
-  participant W as Wicket
-  T->>W: wicket submit list … --wait
+  participant W as Pinrail
+  T->>W: pinrail submit list … --wait
   Note over T: waits
   Note over W: you decide in the app
   W->>T: the decision, as markdown
@@ -47,14 +47,14 @@ Every review belongs to a plugin. The built-in [List](/docs/plugins/list/) plugi
 ## 2. Ask
 
 ```sh
-wicket submit list --title "Sentry triage" --data triage.json --wait --format markdown
+pinrail submit list --title "Sentry triage" --data triage.json --wait --format markdown
 ```
 
 The command prints the review's address and waits. This is exactly what an agent's command does when it asks you something.
 
 ## 3. Decide
 
-Wicket notifies you, and the review is waiting at the top of your inbox. Open it:
+Pinrail notifies you, and the review is waiting at the top of your inbox. Open it:
 
 - **Accept** the first item and add a note, such as "and add a test for the race".
 - **Reject** the second, with a reason.

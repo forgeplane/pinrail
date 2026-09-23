@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>Logo review</title>
-<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <style>
   /* The chrome follows the app (the SDK's tokens); every specimen is painted
      in the brand's own palette, light and dark, whatever the app's theme. */
@@ -137,11 +137,11 @@
 </style>
 </head>
 <body>
-<script src="/sdk/v1/wicket-plugin.js"></script>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
 <div class="shell" id="app"><div class="top"><h1>Loading…</h1></div></div>
 <script>
 "use strict";
-const esc = Wicket.escape;
+const esc = Pinrail.escape;
 const ACTIONS = { favorite: "Favourite", keep: "Keep", drop: "Drop" };
 const KEYS = { favorite: "f", keep: "s", drop: "x" };
 const S = { sel: 0, verdicts: {}, armed: false, keepScroll: false, picking: null };
@@ -262,7 +262,7 @@ function renderSheet() {
   const m = P.marks[S.sel];
   const pal = palette();
   const v = verdictOf(m.id) || {};
-  const prev = Wicket.previousVerdict(plugin.previous, m.id);
+  const prev = Pinrail.previousVerdict(plugin.previous, m.id);
   const ro = plugin.readonly ? "disabled" : "";
   const both = (fn) => `${fn(pal.light, "light")}${fn(pal.dark, "dark")}`;
   const sizes = [16, 20, 24, 32, 48, 64, 128];
@@ -272,13 +272,13 @@ function renderSheet() {
       <div class="url"><span class="bar">${mark(m, 14)}<span>${esc(host)}</span></span></div>
     </div>`;
   return `<main class="sheet" id="sheet" aria-labelledby="mark-name"><div class="sheet-inner">
-      ${P.notes ? `<div class="notes">${Wicket.markdown(P.notes)}</div>` : ""}
+      ${P.notes ? `<div class="notes">${Pinrail.markdown(P.notes)}</div>` : ""}
       <header class="mark-head">
         <h2 id="mark-name">${esc(m.name)}</h2>
         <span class="mark-id">${esc(m.id)} · ${S.sel + 1} of ${P.marks.length}</span>
         ${prev ? `<div class="previous">Last round: ${chip(prev)} ${prev.note ? "— " + esc(prev.note) : ""}</div>` : ""}
       </header>
-      ${m.reasoning ? `<div class="reasoning">${Wicket.markdown(m.reasoning)}</div>` : ""}
+      ${m.reasoning ? `<div class="reasoning">${Pinrail.markdown(m.reasoning)}</div>` : ""}
 
       <section class="hero" aria-label="The mark, large">
         ${both((p, t) => `<div class="stage ${plugin.readonly ? "" : "pickable"}" style="${vars(p)}" data-stage="${t}">${mark(m, 168)}</div>`)}
@@ -437,7 +437,7 @@ function handOver() {
   plugin.submit(data);
 }
 
-const plugin = Wicket.connect({
+const plugin = Pinrail.connect({
   resize: "fill",
   onInit({ gate, draft }) {
     P = gate.payload;

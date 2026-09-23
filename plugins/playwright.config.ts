@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import path from "node:path";
 
-// Each plugin's tests/*.spec.ts, mounted under the wicket-plugin harness:
+// Each plugin's tests/*.spec.ts, mounted under the pinrail-plugin harness:
 // the samples here and the built-in list plugin inside the core. No server,
 // no CLI. The built-in one sits outside this folder, which is why npm test
 // puts node_modules on NODE_PATH: its spec resolves the package the same way.

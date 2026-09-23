@@ -83,7 +83,7 @@ jobs:
           cache-dependency-path: |
             desktop/app/package-lock.json
             e2e/package-lock.json
-            wicket-plugin/package-lock.json
+            pinrail-plugin/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.98.1"
@@ -94,7 +94,7 @@ jobs:
           # the release, so a tag restores what a push to main saved. A
           # cache written under a tag is visible to that tag alone, which
           # is why the release cannot warm itself.
-          shared-key: wicket-${{ matrix.os }}
+          shared-key: pinrail-${{ matrix.os }}
           # a red run still built its dependencies; keep them
           cache-on-failure: true
           # only main saves: every branch and pull request restores main's
@@ -113,9 +113,9 @@ jobs:
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets
           cargo clippy --manifest-path desktop/Cargo.toml --workspace --all-targets
-      # the core's check test runs wicket-plugin check and compares
-      - name: Install wicket-plugin
-        working-directory: wicket-plugin
+      # the core's check test runs pinrail-plugin check and compares
+      - name: Install pinrail-plugin
+        working-directory: pinrail-plugin
         run: npm ci --omit=dev
       - name: Rust tests
         run: |
@@ -139,7 +139,7 @@ jobs:
           path: e2e/test-results
           if-no-files-found: ignore
 
-  # The plugins alone under the harness, and the wicket-plugin package:
+  # The plugins alone under the harness, and the pinrail-plugin package:
   # its unit tests, what create writes, and check over the samples.
   plugins:
     runs-on: ubuntu-latest
@@ -151,10 +151,10 @@ jobs:
           cache: npm
           cache-dependency-path: |
             plugins/package-lock.json
-            wicket-plugin/package-lock.json
+            pinrail-plugin/package-lock.json
             plugins/artifact/package-lock.json
-      - name: wicket-plugin tests
-        working-directory: wicket-plugin
+      - name: pinrail-plugin tests
+        working-directory: pinrail-plugin
         run: |
           npm ci
           npx playwright install --with-deps chromium
@@ -162,7 +162,7 @@ jobs:
       - name: Check the sample plugins
         run: |
           for dir in plugins/*/; do
-            node wicket-plugin/bin/wicket-plugin.mjs check "$dir"
+            node pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
           done
       - name: Build the artifact plugin
         working-directory: plugins/artifact
@@ -181,5 +181,5 @@ jobs:
           name: plugin-traces
           path: |
             plugins/test-results
-            wicket-plugin/test-results
+            pinrail-plugin/test-results
           if-no-files-found: ignore

@@ -1,7 +1,7 @@
 //! JSON Schema 2020-12 validation for a plugin's payload and decision.
 //!
 //! A plugin's schemas are built with `$id` set to
-//! `wicket-plugin://<name>/<version>/<key>`, so a relative `$ref` such as
+//! `pinrail-plugin://<name>/<version>/<key>`, so a relative `$ref` such as
 //! `payload.schema.json` resolves to a URI under that prefix, and the
 //! retriever maps such URIs back to files in the plugin directory and nowhere
 //! else. Violations keep a fixed wording and order, recorded in the API tests'
@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use crate::error::Violation;
 
-const SCHEME: &str = "wicket-plugin://";
+const SCHEME: &str = "pinrail-plugin://";
 
 pub struct Schema {
     validator: Validator,

@@ -9,7 +9,7 @@ use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use serde_json::{Value, json};
 use tower::ServiceExt;
-use wicket_core::{Config, Wicket, api};
+use pinrail_core::{Config, Pinrail, api};
 
 async fn next_event(body: &mut Body, buffered: &mut String) -> (i64, Value) {
     tokio::time::timeout(Duration::from_secs(2), async {
@@ -38,7 +38,7 @@ async fn next_event(body: &mut Body, buffered: &mut String) -> (i64, Value) {
 #[tokio::test]
 async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Arc::new(Wicket::open(Config::new(dir.path(), 0)).unwrap());
+    let app = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
     app.settings().change(&json!({"autostart": true})).unwrap();
     let cursor = app.events().after(0, 1).unwrap()[0].event_id;
     app.settings()

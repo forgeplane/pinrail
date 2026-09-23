@@ -77,7 +77,7 @@ try {
       // `site: true` copies the shot into the website's assets as well
       const shot = async (name, target = page, { site = false, ...options } = {}) => {
         await page.evaluate(() => document.fonts.ready);
-        await scrub(page, [[app.data, "~/.local/share/wicket"], [app.code, "~/code"]]);
+        await scrub(page, [[app.data, "~/.local/share/pinrail"], [app.code, "~/code"]]);
         const file = path.join(out, `${name}-${theme}.png`);
         await target.screenshot({ path: file, animations: "disabled", caret: "hide", ...options });
         if (site) fs.copyFileSync(file, path.join(siteAssets, path.basename(file)));

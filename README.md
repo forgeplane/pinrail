@@ -1,16 +1,16 @@
-# Wicket
+# Pinrail
 
-A wicket is the small gate in a larger door: a person waits at it, looks at
+A pinrail is the small gate in a larger door: a person waits at it, looks at
 what is being carried through, and lets it pass or not.
 
-Wicket is a desktop app that puts a person in the loop of an agent's work.
+Pinrail is a desktop app that puts a person in the loop of an agent's work.
 Before an agent does something that matters, like posting review comments,
-sending emails or shipping a page, it asks through Wicket and waits. You see
+sending emails or shipping a page, it asks through Pinrail and waits. You see
 the request in the app, rendered for what it is, decide, and the agent carries
 on with your decision.
 
 Two ideas shape it. **The agent decides when to ask**: its own instructions
-say which steps need a person and what to send, so Wicket fits any agent that
+say which steps need a person and what to send, so Pinrail fits any agent that
 can run a command. **You decide what asking looks like**: every kind of
 request is a plugin, and anyone can write one specialised for their own work.
 
@@ -20,15 +20,15 @@ Status: early development.
 
 You tell the agent when to stop for you, in whatever instructions it follows:
 a skill, a project's agent file, a prompt. "Before posting review comments,
-submit them to Wicket as a `review` and wait." When it reaches that step, the
-agent calls the `wicket` CLI with a review: a plugin name, a title and a JSON
+submit them to Pinrail as a `review` and wait." When it reaches that step, the
+agent calls the `pinrail` CLI with a review: a plugin name, a title and a JSON
 payload. The app shows it in its inbox, notifies you, and renders it with
 that plugin's view: a diff with proposed comments, a set of draft emails, an
 HTML page to comment on element by element. You accept, reject, edit or
 comment, then hand the decision over. The CLI returns it to the agent.
 
 ```sh
-wicket submit review --title "Dedup tickets on save" \
+pinrail submit review --title "Dedup tickets on save" \
   --origin repo=acme/api,workflow=pr-review,ref=42 \
   --data proposals.json --wait --format markdown
 ```
@@ -57,7 +57,7 @@ and decision is kept, so history can be reopened and rendered again.
 
 A plugin defines one kind of request: the payload an agent sends, the
 decision you give back, and the view you decide in. The plugins below are
-samples bundled with Wicket. Anyone can create their own for whatever their
+samples bundled with Pinrail. Anyone can create their own for whatever their
 agents do, like triaging alerts, approving a deploy, picking between designs
 or answering an agent's questions, and share it for others to install.
 
@@ -71,8 +71,8 @@ or answering an agent's questions, and share it for others to install.
 | [`logo`](plugins/logo/README.md) | candidate logo marks and icons, seen at every size, with a favourite picked |
 
 A plugin is a manifest, two JSON schemas and an HTML view. The
-[`wicket-plugin`](wicket-plugin/README.md) package scaffolds one
-(`wicket-plugin create`), runs it in a browser without the app, and tests it.
+[`pinrail-plugin`](pinrail-plugin/README.md) package scaffolds one
+(`pinrail-plugin create`), runs it in a browser without the app, and tests it.
 To share a plugin, publish its repository or a GitHub release; the app
 installs it from either, or from a folder, and serves a linked folder live
 while you work on it.
@@ -82,9 +82,9 @@ while you work on it.
 | Directory | Contents |
 |---|---|
 | [`desktop/`](desktop/) | the app: a Rust core (API, storage, plugins), a Tauri shell and a React UI |
-| [`cli/`](cli/README.md) | the `wicket` CLI agents call |
+| [`cli/`](cli/README.md) | the `pinrail` CLI agents call |
 | [`plugins/`](plugins/README.md) | the official plugins and the plugin protocol |
-| [`wicket-plugin/`](wicket-plugin/README.md) | the plugin SDK, dev shell and test harness |
+| [`pinrail-plugin/`](pinrail-plugin/README.md) | the plugin SDK, dev shell and test harness |
 | [`e2e/`](e2e/README.md) | end-to-end tests: the CLI and the app's UI against the headless core |
 
 ## Development
@@ -102,5 +102,5 @@ mise run lint               # rustfmt, clippy and the type check, as CI runs the
 
 ## License
 
-Wicket is licensed under the [Apache License 2.0](LICENSE). See
+Pinrail is licensed under the [Apache License 2.0](LICENSE). See
 [`NOTICE`](NOTICE) for the copyright and the third-party notices.

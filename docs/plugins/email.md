@@ -7,7 +7,7 @@ sidebar:
     variant: default
 ---
 
-<div class="wk-badges"><span class="wk-badge optional">Optional</span><span class="wk-badge plain">plugin: email</span></div>
+<div class="pr-badges"><span class="pr-badge optional">Optional</span><span class="pr-badge plain">plugin: email</span></div>
 
 The email plugin stops an agent from sending anything you haven't read. Each draft opens like a message you are about to send: you edit it in place, with your changes showing against what the agent wrote, comment on the passages that need work, and decide whether it goes out.
 
@@ -24,7 +24,7 @@ It works with any mail provider. The agent maps its mailbox into the payload and
 ## Install
 
 ```sh
-wicket plugins install github.com/pnezis/wicket/plugins/email
+pinrail plugins install github.com/forgeplane/pinrail/plugins/email
 ```
 
 ## What you see
@@ -42,12 +42,12 @@ Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous draft, <kbd>s</kbd> send, <k
 ```md title="AGENTS.md"
 ## Before sending email
 
-Never send email directly. Submit drafts to Wicket as `email` and wait:
+Never send email directly. Submit drafts to Pinrail as `email` and wait:
 
 1. Write the payload: `from`, and one draft per message with `id`, `to`,
    `subject`, `body` (plain text, as it would be sent) and `why`, your reason
    for writing it this way.
-2. Run: `wicket submit email --title "<what these emails are>" --data drafts.json --wait --format markdown`
+2. Run: `pinrail submit email --title "<what these emails are>" --data drafts.json --wait --format markdown`
 3. For `send`, send the returned `subject` and `body` exactly as they are.
    For `revise`, rewrite from my comments and note, and submit a new round
    with `--revises <id>`. For `discard`, drop it. Never send an undecided draft.

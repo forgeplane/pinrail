@@ -57,7 +57,7 @@ export default function remarkMermaid() {
 
     const sources = blocks.map((b) => b.node.value);
     // ids stay unique on the page: one prefix per theme
-    const [light, dark] = await Promise.all([render(sources, "light", "wk-mermaid-l"), render(sources, "dark", "wk-mermaid-d")]);
+    const [light, dark] = await Promise.all([render(sources, "light", "pr-mermaid-l"), render(sources, "dark", "pr-mermaid-d")]);
 
     blocks.forEach(({ node, index, parent }, i) => {
       if (light[i].status !== "fulfilled" || dark[i].status !== "fulfilled") {
@@ -69,11 +69,11 @@ export default function remarkMermaid() {
       parent.children[index] = {
         type: "html",
         value:
-          `<figure class="wk-mermaid"${title ? ` aria-label="${escape(title)}"` : ""}>` +
-          `<div class="wk-mermaid-canvas" role="button" tabindex="0" aria-label="Enlarge the diagram${title ? `: ${escape(title)}` : ""}">` +
-          `<div class="wk-mermaid-light">${light[i].value.svg}</div>` +
-          `<div class="wk-mermaid-dark">${dark[i].value.svg}</div>` +
-          `<span class="wk-shot-hint" aria-hidden="true">Click to enlarge</span></div>${title ? `<figcaption>${escape(title)}</figcaption>` : ""}</figure>`,
+          `<figure class="pr-mermaid"${title ? ` aria-label="${escape(title)}"` : ""}>` +
+          `<div class="pr-mermaid-canvas" role="button" tabindex="0" aria-label="Enlarge the diagram${title ? `: ${escape(title)}` : ""}">` +
+          `<div class="pr-mermaid-light">${light[i].value.svg}</div>` +
+          `<div class="pr-mermaid-dark">${dark[i].value.svg}</div>` +
+          `<span class="pr-shot-hint" aria-hidden="true">Click to enlarge</span></div>${title ? `<figcaption>${escape(title)}</figcaption>` : ""}</figure>`,
       };
     });
   };

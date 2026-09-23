@@ -9,7 +9,7 @@ import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
 
 export default defineConfig({
-  site: "https://wicket.dev",
+  site: "https://pinrail.dev",
   vite: { plugins: [tailwindcss()] },
   // unified, so the docs' ```mermaid blocks become diagrams and screenshot:
   // images the app in the reader's theme; Starlight adds its
@@ -17,7 +17,7 @@ export default defineConfig({
   markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots, remarkKbd] }) },
   integrations: [
     starlight({
-      title: "Wicket",
+      title: "Pinrail",
       description: "The inbox where your agents ask before they act.",
       customCss: ["./src/styles/docs.css"],
       // the docs live beside the code, so Starlight's asides and heading links must reach them there
@@ -27,7 +27,7 @@ export default defineConfig({
         Pagination: "./src/components/docs/Pagination.astro",
       },
       head: [{ tag: "script", attrs: { src: "/docs.js", defer: true } }, { tag: "link", attrs: { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400..600&family=Caveat:wght@500;700&display=swap" } }],
-      logo: { src: "./src/assets/wicket-mark.svg", alt: "" },
+      logo: { src: "./src/assets/pinrail-mark.svg", alt: "" },
       // code in the site's colours: the terminal's warm dark, and the paper
       expressiveCode: {
         themes: ["vitesse-dark", "vitesse-light"],
@@ -60,11 +60,11 @@ export default defineConfig({
           },
         },
       },
-      social: [{ icon: "github", label: "GitHub", href: "https://github.com/pnezis/wicket" }],
+      social: [{ icon: "github", label: "GitHub", href: "https://github.com/forgeplane/pinrail" }],
       sidebar: [
         { label: "Getting started", items: ["docs/getting-started/install", "docs/getting-started/first-review"] },
         { label: "Concepts", items: ["docs/concepts/reviews", "docs/concepts/plugins", "docs/concepts/trust"] },
-        { label: "Using Wicket", items: ["docs/using/inbox", "docs/using/installing-plugins", "docs/using/settings", "docs/using/notifications"] },
+        { label: "Using Pinrail", items: ["docs/using/inbox", "docs/using/installing-plugins", "docs/using/settings", "docs/using/notifications"] },
         { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },
         {
           label: "Plugins",

@@ -6,11 +6,11 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { inTauri } from "../api/client";
 
-const OPEN_EVENT = "wicket:open";
+const OPEN_EVENT = "pinrail:open";
 
 /** On macOS the app draws its own title bar; the traffic lights overlay the top-left. */
 export const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
-const COMMAND_EVENT = "wicket:command";
+const COMMAND_EVENT = "pinrail:command";
 
 /** The scheme of a link this app will follow. */
 export const EXTERNAL = /^(https?|mailto):/i;

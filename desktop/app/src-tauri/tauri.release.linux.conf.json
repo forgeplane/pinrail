@@ -1,6 +1,6 @@
 {
-  "mainBinaryName": "wicket-desktop",
+  "mainBinaryName": "pinrail-desktop",
   "bundle": {
-    "externalBin": ["binaries/wicket"]
+    "externalBin": ["binaries/pinrail"]
   }
 }

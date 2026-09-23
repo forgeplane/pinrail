@@ -1,12 +1,12 @@
 {
-  "name": "wicket-plugin-artifact",
+  "name": "pinrail-plugin-artifact",
   "private": true,
   "version": "1.0.0",
   "license": "Apache-2.0",
   "scripts": {
     "build": "rm -rf assets && tsc --noEmit && vite build",
     "watch": "vite build --watch",
-    "test": "npx --prefix .. wicket-plugin test"
+    "test": "npx --prefix .. pinrail-plugin test"
   },
   "dependencies": {
     "lucide-react": "1.45.0",

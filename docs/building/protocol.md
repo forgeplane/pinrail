@@ -1,16 +1,16 @@
 ---
 title: The protocol
-description: "Every message between the Wicket app and a plugin's view, in both directions, and what the view can rely on."
+description: "Every message between the Pinrail app and a plugin's view, in both directions, and what the view can rely on."
 ---
 
-A view and the app talk over `postMessage`. The SDK, `/sdk/v1/wicket-plugin.js`, speaks this protocol for you, and most plugins never see a raw message. Read this page when you want to know exactly what happens, or to write a view without the SDK.
+A view and the app talk over `postMessage`. The SDK, `/sdk/v1/pinrail-plugin.js`, speaks this protocol for you, and most plugins never see a raw message. Read this page when you want to know exactly what happens, or to write a view without the SDK.
 
 ## Messages
 
 Every message is a JSON object with the protocol version and a type:
 
 ```json
-{ "wicket": 1, "type": "draft", "data": { "decisions": [] } }
+{ "pinrail": 1, "type": "draft", "data": { "decisions": [] } }
 ```
 
 The view announces itself with `ready`; the app answers with `init`, and from then on either side can send. The app only accepts messages from the view's own frame, and the view should only accept messages from the origin `init` came from, which `init` gives as `shell_origin`.
@@ -81,14 +81,14 @@ A view never draws its own submit button. The app puts one below every review, i
 The app validates every decision against the plugin's decision schema before the agent sees it. When one fails, the errors come back with a [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) into the rejected decision:
 
 ```json
-{ "wicket": 1, "type": "violations", "errors": [{ "path": "/decisions/0/action", "message": "\"later\" is not one of [\"close\",\"keep\"]" }] }
+{ "pinrail": 1, "type": "violations", "errors": [{ "path": "/decisions/0/action", "message": "\"later\" is not one of [\"close\",\"keep\"]" }] }
 ```
 
 Show them next to the fields they name, and let the person hand over again.
 
 ### `key`
 
-A shortcut you declare in the manifest reaches your view even when the person pressed it with the app in focus. The SDK dispatches it as a `keydown` on your document, marked `wicketForwarded: true`, so the listener you already have handles both. See [Settings and keys](/docs/building/settings-and-keys/#keyboard-shortcuts).
+A shortcut you declare in the manifest reaches your view even when the person pressed it with the app in focus. The SDK dispatches it as a `keydown` on your document, marked `pinrailForwarded: true`, so the listener you already have handles both. See [Settings and keys](/docs/building/settings-and-keys/#keyboard-shortcuts).
 
 ## From your view to the app
 
@@ -106,7 +106,7 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 
 ## The first frame
 
-A message cannot reach your view before it paints, so the theme travels on the frame's URL too: it ends in `#wicket-theme=dark` or `#wicket-theme=light`. The SDK reads it as it loads and sets `data-theme` on your root element, so the first frame is already in the app's theme.
+A message cannot reach your view before it paints, so the theme travels on the frame's URL too: it ends in `#pinrail-theme=dark` or `#pinrail-theme=light`. The SDK reads it as it loads and sets `data-theme` on your root element, so the first frame is already in the app's theme.
 
 ```css
 :root { --bg: #18191b; --text: #ededef; color-scheme: dark; }
@@ -114,7 +114,7 @@ A message cannot reach your view before it paints, so the theme travels on the f
 ```
 
 :::caution[Load the SDK with a plain script tag]
-`<script src="/sdk/v1/wicket-plugin.js">` runs before the first paint. A `defer` or `type="module"` script runs after it, which is too late to choose a colour.
+`<script src="/sdk/v1/pinrail-plugin.js">` runs before the first paint. A `defer` or `type="module"` script runs after it, which is too late to choose a colour.
 :::
 
 ## Without the SDK
@@ -126,7 +126,7 @@ let shell = null;
 
 addEventListener("message", (event) => {
   const msg = event.data;
-  if (!msg || msg.wicket !== 1) return;
+  if (!msg || msg.pinrail !== 1) return;
   if (msg.type === "init") shell = msg.shell_origin;
   if (event.origin !== shell) return;              // trust the app's origin alone
 
@@ -138,7 +138,7 @@ addEventListener("message", (event) => {
   }
 });
 
-const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shell ?? "*");
+const post = (msg) => parent.postMessage({ pinrail: 1, ...msg }, shell ?? "*");
 post({ type: "ready" });
 ```
 

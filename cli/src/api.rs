@@ -167,7 +167,7 @@ impl Client {
             }
             None => {
                 eprintln!(
-                    "wicket: {name} {} is up to date",
+                    "pinrail: {name} {} is up to date",
                     started["version"].as_str().unwrap_or("")
                 );
                 Ok(started)
@@ -190,7 +190,7 @@ impl Client {
             if status != step {
                 step = status.to_string();
                 if !matches!(status, "done" | "failed") {
-                    eprintln!("wicket: {status}…");
+                    eprintln!("pinrail: {status}…");
                 }
             }
             let log = job["log"].as_str().unwrap_or("");

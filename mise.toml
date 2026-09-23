@@ -8,16 +8,16 @@ dir = "{{config_root}}/cli"
 run = "cargo test"
 
 [tasks."test:sdk"]
-description = "The wicket-plugin package: unit tests, and what create writes under the harness"
-dir = "{{config_root}}/wicket-plugin"
+description = "The pinrail-plugin package: unit tests, and what create writes under the harness"
+dir = "{{config_root}}/pinrail-plugin"
 run = "npm test"
 
 [tasks."dev:plugin"]
 description = "One plugin in a browser shell, without the app: mise run dev:plugin plugins/artifact"
-run = "node {{config_root}}/wicket-plugin/bin/wicket-plugin.mjs dev {{arg(name='plugin')}}"
+run = "node {{config_root}}/pinrail-plugin/bin/pinrail-plugin.mjs dev {{arg(name='plugin')}}"
 
 [tasks."test:plugins"]
-description = "Each shipped plugin alone, under the wicket-plugin harness"
+description = "Each shipped plugin alone, under the pinrail-plugin harness"
 dir = "{{config_root}}/plugins"
 run = "npm test"
 
@@ -39,7 +39,7 @@ run = "npx playwright test -c shell.config.ts"
 [tasks."build:desktop"]
 description = "Desktop app: build the UI and the app binary"
 dir = "{{config_root}}/desktop"
-run = ["npm --prefix app run build", "cargo build -p wicket-desktop"]
+run = ["npm --prefix app run build", "cargo build -p pinrail-desktop"]
 
 [tasks."dev:desktop"]
 description = "Desktop app with the UI dev server and live reload"
@@ -67,8 +67,8 @@ description = "The docs' generated reference pages: the CLI's from its own defin
 dir = "{{config_root}}"
 run = [
   "cargo run -q --manifest-path cli/Cargo.toml --features docs -- --markdown-help > docs/reference/cli.md",
-  "cargo run -q --manifest-path desktop/Cargo.toml -p wicket-core --features docs --bin wicket-docs -- settings > docs/reference/settings.md",
-  "cargo run -q --manifest-path desktop/Cargo.toml -p wicket-core --features docs --bin wicket-docs -- manifest > docs/reference/manifest.md",
+  "cargo run -q --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- settings > docs/reference/settings.md",
+  "cargo run -q --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- manifest > docs/reference/manifest.md",
 ]
 
 [tasks.screenshots]

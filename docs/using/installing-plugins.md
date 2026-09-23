@@ -3,11 +3,11 @@ title: Installing plugins
 description: "Install a plugin from a folder, a repository or a GitHub release, keep it up to date, and know what runs on your machine."
 ---
 
-Wicket installs one plugin at a time, from the app or from the command line. You give it a source, a folder, a repository or a release, and it shows you what it found before anything is installed.
+Pinrail installs one plugin at a time, from the app or from the command line. You give it a source, a folder, a repository or a release, and it shows you what it found before anything is installed.
 
 ## From the app
 
-Open *Settings › Plugins* and choose *Install…*. Paste a source and Wicket fetches it, then shows you:
+Open *Settings › Plugins* and choose *Install…*. Paste a source and Pinrail fetches it, then shows you:
 
 - the plugin the manifest describes, and its version;
 - where it comes from;
@@ -21,7 +21,7 @@ Open *Settings › Plugins* and choose *Install…*. Paste a source and Wicket f
 ## From the command line
 
 ```sh
-wicket plugins install <source>
+pinrail plugins install <source>
 ```
 
 The shape of the source says where the plugin is:
@@ -32,12 +32,12 @@ The shape of the source says where the plugin is:
 | `./plugins/review --link` | The same folder, served live while you work on it. |
 | `github.com/acme/plugins/review@v3` | A folder inside a repository, at a tag. |
 | `https://github.com/acme/plugins/tree/v3/review` | The same, as your browser shows it. |
-| `github.com/acme/wicket-review` | A repository's root, on its default branch. |
+| `github.com/acme/pinrail-review` | A repository's root, on its default branch. |
 | `git@acme.internal:plugins.git --ref v3 --path review` | Any git remote over SSH, with the ref and folder given separately. |
-| `https://github.com/acme/wicket-review/releases` | The latest GitHub release: its prebuilt bundle, with no build. |
-| `https://github.com/acme/wicket-review/releases/tag/v1.2.0` | That release, pinned. |
+| `https://github.com/acme/pinrail-review/releases` | The latest GitHub release: its prebuilt bundle, with no build. |
+| `https://github.com/acme/pinrail-review/releases/tag/v1.2.0` | That release, pinned. |
 
-A ref is a branch, a tag or a commit. Without one, Wicket uses the default branch. GitLab's `/-/tree/<ref>/<folder>` URLs work the same way as GitHub's.
+A ref is a branch, a tag or a commit. Without one, Pinrail uses the default branch. GitLab's `/-/tree/<ref>/<folder>` URLs work the same way as GitHub's.
 
 :::tip[Prefer releases]
 A release carries a prebuilt bundle, so installing it needs no toolchain and runs nothing on your machine. See [Publishing a plugin](/docs/building/publishing/).
@@ -57,14 +57,14 @@ flowchart TB
   K --> V["new reviews render from it"]
 ```
 
-1. **Fetch.** Wicket copies the folder, clones the repository at the ref, or downloads the release's bundle.
-2. **Build, when declared.** A plugin written with a framework declares its build in the manifest, for example `"build": { "command": "npm ci && npm run build" }`. Wicket runs it through the shell in a copy of the source, without `node_modules` or `.git`, shows the output as it runs, and keeps the log. A non-zero exit stops the install and shows the end of the log. The tools the command needs, such as `node` or `pnpm`, must be on your `PATH`.
+1. **Fetch.** Pinrail copies the folder, clones the repository at the ref, or downloads the release's bundle.
+2. **Build, when declared.** A plugin written with a framework declares its build in the manifest, for example `"build": { "command": "npm ci && npm run build" }`. Pinrail runs it through the shell in a copy of the source, without `node_modules` or `.git`, shows the output as it runs, and keeps the log. A non-zero exit stops the install and shows the end of the log. The tools the command needs, such as `node` or `pnpm`, must be on your `PATH`.
 3. **Check.** The manifest, the schemas and the entry must be valid. A manifest without `build` whose entry file is missing is refused, with the reason.
 4. **Store.** Only the bundle is kept: `src/`, `tests/`, `fixtures/`, `node_modules/`, dot-files and package and tool configuration stay behind. The copy is stored under the plugin's name and major version, hashed and recorded with where it came from.
 
 ## Versions and updates
 
-Plugin versions are semantic: `"1.2.0"`, or a bare integer that reads as `1.0.0`. The major version is a compatibility promise, and Wicket keeps one line per major.
+Plugin versions are semantic: `"1.2.0"`, or a bare integer that reads as `1.0.0`. The major version is a compatibility promise, and Pinrail keeps one line per major.
 
 ```mermaid title="One line per major version"
 flowchart LR
@@ -85,18 +85,18 @@ flowchart LR
 Check for updates from the plugin's row in *Settings › Plugins*, or from the command line:
 
 ```sh
-wicket plugins update            # every installed plugin
-wicket plugins update review     # one plugin
+pinrail plugins update            # every installed plugin
+pinrail plugins update review     # one plugin
 ```
 
-A source pinned to a tag or a commit stays where it is: the update check says it is pinned rather than moving it. `wicket plugins versions review` lists the versions reviews can still render with.
+A source pinned to a tag or a commit stays where it is: the update check says it is pinned rather than moving it. `pinrail plugins versions review` lists the versions reviews can still render with.
 
 ## Developing with a linked folder
 
 A linked plugin is served straight from your folder, so a change shows the next time you open one of its reviews, with no reinstall:
 
 ```sh
-wicket plugins install ./ticket_triage --link
+pinrail plugins install ./ticket_triage --link
 ```
 
 Reviews of a linked plugin render from the folder as it is now. Remove the link and they show that the plugin is not installed, until it is again. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
@@ -104,13 +104,13 @@ Reviews of a linked plugin render from the folder as it is now. Remove the link 
 After editing the manifest or a decision template, reload so the app reads them again:
 
 ```sh
-wicket plugins reload
+pinrail plugins reload
 ```
 
 ## Removing a plugin
 
 ```sh
-wicket plugins remove ticket_triage
+pinrail plugins remove ticket_triage
 ```
 
 Removing a plugin stops new reviews from using it. Stored copies that existing reviews still render from are kept, so your history stays readable.
@@ -120,7 +120,7 @@ Removing a plugin stops new reviews from using it. Stored copies that existing r
 :::caution[A build runs code with your rights]
 A plugin's view runs in a sandbox: an opaque origin, no network and no storage. It can draw and talk to the app, and nothing else, however it was installed.
 
-A build is different. `npm ci` runs the scripts of every package in the dependency tree, and `npm run build` runs whatever the package says, on your machine, as you. That is what you trust when you install a source that builds, which is why Wicket shows the exact command before anything runs. A release needs no build and runs nothing.
+A build is different. `npm ci` runs the scripts of every package in the dependency tree, and `npm run build` runs whatever the package says, on your machine, as you. That is what you trust when you install a source that builds, which is why Pinrail shows the exact command before anything runs. A release needs no build and runs nothing.
 
 Releases are not signed and publishers are not vetted. Install plugins from people and repositories you would run code from.
 :::

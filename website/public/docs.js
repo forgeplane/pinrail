@@ -2,40 +2,40 @@
 // small to read, so a click opens a picture full size. A figure of several
 // shows one at a time with a dot for each; zoomed, arrows move between them.
 
-const slidesOf = (figure) => (figure ? [...figure.querySelectorAll(".wk-slide")] : []);
+const slidesOf = (figure) => (figure ? [...figure.querySelectorAll(".pr-slide")] : []);
 
 /* the figure's picture `n`: its slide shown, its dot current */
 function show(figure, n) {
   slidesOf(figure).forEach((slide, i) => { slide.hidden = i !== n; });
-  figure.querySelectorAll(".wk-dot").forEach((dot, i) => dot.setAttribute("aria-current", String(i === n)));
+  figure.querySelectorAll(".pr-dot").forEach((dot, i) => dot.setAttribute("aria-current", String(i === n)));
 }
 
 // the picture in the reader's theme, of the ones a button holds
 const shown = (button) => [...button.querySelectorAll("img")].find((img) => getComputedStyle(img).display !== "none") || button.querySelector("img");
 
 function openZoom(button) {
-  const figure = button.closest(".wk-shots");
+  const figure = button.closest(".pr-shots");
   const slides = slidesOf(figure);
-  let at = figure ? slides.indexOf(button.closest(".wk-slide")) : 0;
+  let at = figure ? slides.indexOf(button.closest(".pr-slide")) : 0;
 
   const dialog = document.createElement("dialog");
-  dialog.className = "wk-zoom";
+  dialog.className = "pr-zoom";
   const img = document.createElement("img");
   const caption = document.createElement("p");
-  caption.className = "wk-zoom-caption";
+  caption.className = "pr-zoom-caption";
   const counter = document.createElement("span");
-  counter.className = "wk-zoom-count";
+  counter.className = "pr-zoom-count";
   const control = (cls, label, text) => {
     const b = document.createElement("button");
     b.type = "button"; b.className = cls; b.setAttribute("aria-label", label); b.textContent = text;
     return b;
   };
-  const close = control("wk-zoom-close", "Close", "×");
-  const prev = control("wk-zoom-nav wk-zoom-prev", "Previous picture", "‹");
-  const next = control("wk-zoom-nav wk-zoom-next", "Next picture", "›");
+  const close = control("pr-zoom-close", "Close", "×");
+  const prev = control("pr-zoom-nav pr-zoom-prev", "Previous picture", "‹");
+  const next = control("pr-zoom-nav pr-zoom-next", "Next picture", "›");
 
   const paint = () => {
-    const source = figure ? slides[at].querySelector(".wk-shot-open") : button;
+    const source = figure ? slides[at].querySelector(".pr-shot-open") : button;
     const pic = shown(source);
     img.src = pic.currentSrc || pic.src;
     img.alt = pic.alt || source.querySelector("img").alt || "";
@@ -61,7 +61,7 @@ function openZoom(button) {
   });
   dialog.addEventListener("close", () => {
     dialog.remove();
-    (figure ? slides[at].querySelector(".wk-shot-open") : button).focus();
+    (figure ? slides[at].querySelector(".pr-shot-open") : button).focus();
   });
   paint();
   document.body.append(dialog);
@@ -72,20 +72,20 @@ function openZoom(button) {
 /* A diagram, full size: the one drawn for the reader's theme, on its panel.
    It keeps the figure's class, so its styles (the accent for "you") hold. */
 function openDiagram(canvas) {
-  const figure = canvas.closest(".wk-mermaid");
+  const figure = canvas.closest(".pr-mermaid");
   const svg = [...canvas.querySelectorAll("svg")].find((s) => s.getBoundingClientRect().width > 0);
   if (!svg) return;
   const dialog = document.createElement("dialog");
-  dialog.className = "wk-zoom";
+  dialog.className = "pr-zoom";
   dialog.setAttribute("aria-label", figure.getAttribute("aria-label") || "Diagram");
   const panel = document.createElement("div");
-  panel.className = "wk-mermaid wk-zoom-diagram";
+  panel.className = "pr-mermaid pr-zoom-diagram";
   panel.append(svg.cloneNode(true));
   const close = document.createElement("button");
-  close.type = "button"; close.className = "wk-zoom-close"; close.setAttribute("aria-label", "Close"); close.textContent = "×";
+  close.type = "button"; close.className = "pr-zoom-close"; close.setAttribute("aria-label", "Close"); close.textContent = "×";
   const title = figure.querySelector("figcaption");
   const caption = document.createElement("p");
-  caption.className = "wk-zoom-caption";
+  caption.className = "pr-zoom-caption";
   caption.textContent = title ? title.textContent : "";
   caption.hidden = !title;
   dialog.append(close, panel, caption);
@@ -97,26 +97,26 @@ function openDiagram(canvas) {
 }
 
 document.addEventListener("keydown", (event) => {
-  const canvas = event.target.closest && event.target.closest(".wk-mermaid-canvas");
+  const canvas = event.target.closest && event.target.closest(".pr-mermaid-canvas");
   if (canvas && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openDiagram(canvas); }
 });
 
 document.addEventListener("click", (event) => {
-  const canvas = event.target.closest(".wk-mermaid-canvas");
-  if (canvas && !canvas.closest(".wk-zoom")) { openDiagram(canvas); return; }
-  const dot = event.target.closest(".wk-dot");
-  if (dot) { show(dot.closest(".wk-shots"), Number(dot.dataset.dot)); return; }
-  const button = event.target.closest(".wk-shot-open");
+  const canvas = event.target.closest(".pr-mermaid-canvas");
+  if (canvas && !canvas.closest(".pr-zoom")) { openDiagram(canvas); return; }
+  const dot = event.target.closest(".pr-dot");
+  if (dot) { show(dot.closest(".pr-shots"), Number(dot.dataset.dot)); return; }
+  const button = event.target.closest(".pr-shot-open");
   if (button) openZoom(button);
 });
 
 // the arrow keys move between the dots of a figure
 document.addEventListener("keydown", (event) => {
-  const dot = event.target.closest && event.target.closest(".wk-dot");
+  const dot = event.target.closest && event.target.closest(".pr-dot");
   if (!dot || !["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-  const dots = [...dot.parentElement.querySelectorAll(".wk-dot")];
+  const dots = [...dot.parentElement.querySelectorAll(".pr-dot")];
   const n = (dots.indexOf(dot) + (event.key === "ArrowRight" ? 1 : -1) + dots.length) % dots.length;
   event.preventDefault();
-  show(dot.closest(".wk-shots"), n);
+  show(dot.closest(".pr-shots"), n);
   dots[n].focus();
 });

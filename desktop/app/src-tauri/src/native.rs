@@ -10,14 +10,14 @@ use tauri::tray::{TrayIcon, TrayIconBuilder};
 use tauri::{AppHandle, Emitter, Manager, Wry};
 use tauri_plugin_notification::NotificationExt;
 use tokio::sync::broadcast::error::RecvError;
-use wicket_core::Wicket;
-use wicket_core::events::{self, Notice};
-use wicket_core::reviews::{Filters, Review, Status};
+use pinrail_core::Pinrail;
+use pinrail_core::events::{self, Notice};
+use pinrail_core::reviews::{Filters, Review, Status};
 
 /// The shell listens for this and navigates to the payload.
-pub const OPEN_EVENT: &str = "wicket:open";
+pub const OPEN_EVENT: &str = "pinrail:open";
 /// The global shortcut as registered, or why it is not; the shell shows it.
-pub const SHORTCUT_EVENT: &str = "wicket:shortcut";
+pub const SHORTCUT_EVENT: &str = "pinrail:shortcut";
 /// What the shortcut is when the setting is unreadable.
 const DEFAULT_SHORTCUT: &str = "alt+shift+w";
 const TRAY_ID: &str = "main";
@@ -25,7 +25,7 @@ const TRAY_ROWS: usize = 8;
 const TRAY_TITLE_CHARS: usize = 48;
 
 pub struct Native {
-    pub state: Arc<Wicket>,
+    pub state: Arc<Pinrail>,
     /// A route the shell has not picked up yet: it may still be loading.
     pending_route: Mutex<Option<String>>,
     /// The global shortcut as last registered.
@@ -33,7 +33,7 @@ pub struct Native {
 }
 
 impl Native {
-    pub fn new(state: Arc<Wicket>) -> Self {
+    pub fn new(state: Arc<Pinrail>) -> Self {
         Native {
             state,
             pending_route: Mutex::new(None),
@@ -61,7 +61,7 @@ pub struct ShortcutState {
     pub error: Option<String>,
 }
 
-fn shortcut_keys(state: &Wicket) -> String {
+fn shortcut_keys(state: &Pinrail) -> String {
     state
         .settings()
         .value("/shortcut/global")
@@ -73,7 +73,7 @@ fn shortcut_keys(state: &Wicket) -> String {
 
 /// Registers the global shortcut from the settings in place of the last
 /// one, records how that went and tells the shell. Main thread.
-pub fn apply_shortcut(app: &AppHandle, state: &Wicket) {
+pub fn apply_shortcut(app: &AppHandle, state: &Pinrail) {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState as Pressed};
     let keys = shortcut_keys(state);
     let shortcuts = app.global_shortcut();
@@ -85,7 +85,7 @@ pub fn apply_shortcut(app: &AppHandle, state: &Wicket) {
     });
     let error = result.err().map(|error| error.to_string());
     if let Some(error) = &error {
-        eprintln!("wicket: the shortcut {keys} is not registered: {error}");
+        eprintln!("pinrail: the shortcut {keys} is not registered: {error}");
     }
     let registered = ShortcutState {
         shortcut: keys,
@@ -120,7 +120,7 @@ struct NotificationSettings {
     muted_plugins: Vec<String>,
 }
 
-fn notification_settings(state: &Wicket) -> NotificationSettings {
+fn notification_settings(state: &Pinrail) -> NotificationSettings {
     let s = state.settings().get();
     let n = &s["notifications"];
     let paused_until = n["paused_until"]
@@ -146,19 +146,19 @@ fn notification_settings(state: &Wicket) -> NotificationSettings {
 /// Pauses notifications until a moment, or resumes them with `None`. The
 /// setting is what the dialog shows too; the tray follows through the
 /// change event, like any other way of setting it.
-fn pause_notifications(state: &Wicket, until: Option<DateTime<Utc>>) {
+fn pause_notifications(state: &Pinrail, until: Option<DateTime<Utc>>) {
     let value = until.map(|t| t.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
     if let Err(error) = state
         .settings()
         .change(&serde_json::json!({ "notifications": { "paused_until": value } }))
     {
-        eprintln!("wicket: pause not recorded: {error}");
+        eprintln!("pinrail: pause not recorded: {error}");
     }
 }
 
 /// Refreshes the tray once the current pause runs out, so "Resume" gives
 /// way to "Pause" without anyone touching a setting.
-pub fn refresh_tray_at_pause_end(app: &AppHandle, state: &Wicket) {
+pub fn refresh_tray_at_pause_end(app: &AppHandle, state: &Pinrail) {
     let Some(until) = notification_settings(state).paused_until else {
         return;
     };
@@ -210,10 +210,10 @@ pub fn open_next(app: &AppHandle) {
     }
 }
 
-/// Where `wicket://reviews/<id>` and the HTTP URL the CLI prints lead.
+/// Where `pinrail://reviews/<id>` and the HTTP URL the CLI prints lead.
 pub fn route_for_url(url: &str) -> Option<String> {
     let (scheme, rest) = url.split_once("://")?;
-    let path = if scheme == "wicket" {
+    let path = if scheme == "pinrail" {
         rest
     } else {
         rest.split_once('/').map(|(_, path)| path).unwrap_or("")
@@ -231,7 +231,7 @@ pub fn route_for_url(url: &str) -> Option<String> {
 
 /// The tray icon shown or hidden, as settings say; the Dock icon stays
 /// either way. Applied at start and whenever the setting changes.
-pub fn apply_menu_bar_icon(app: &AppHandle, state: &Wicket) {
+pub fn apply_menu_bar_icon(app: &AppHandle, state: &Pinrail) {
     let shown = state
         .settings()
         .value("/menu_bar_icon")
@@ -243,7 +243,7 @@ pub fn apply_menu_bar_icon(app: &AppHandle, state: &Wicket) {
 }
 
 /// Pending reviews, newest first, as the API lists them.
-fn pending(state: &Wicket) -> Vec<Review> {
+fn pending(state: &Pinrail) -> Vec<Review> {
     let filters = Filters {
         statuses: vec![Status::Pending],
         limit: 500,
@@ -257,7 +257,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .icon_as_template(true)
-        .tooltip("Wicket")
+        .tooltip("Pinrail")
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .build(app)?;
@@ -308,9 +308,9 @@ pub fn refresh_tray(app: &AppHandle) {
         count.to_string()
     }));
     let _ = tray.set_tooltip(Some(match count {
-        0 => "Wicket: nothing pending".to_string(),
-        1 => "Wicket: 1 review pending".to_string(),
-        n => format!("Wicket: {n} reviews pending"),
+        0 => "Pinrail: nothing pending".to_string(),
+        1 => "Pinrail: 1 review pending".to_string(),
+        n => format!("Pinrail: {n} reviews pending"),
     }));
     if let Ok(menu) = menu(app, &pending, &notification_settings(&native.state)) {
         let _ = tray.set_menu(Some(menu));
@@ -417,7 +417,7 @@ fn menu(
     menu.append(&MenuItem::with_id(
         app,
         "quit",
-        "Quit Wicket",
+        "Quit Pinrail",
         true,
         Some("CmdOrCtrl+Q"),
     )?)?;
@@ -571,7 +571,7 @@ fn notify(app: &AppHandle, notice: &Notice) {
         builder = builder.sound("default");
     }
     if let Err(error) = builder.show() {
-        eprintln!("wicket: notification not shown: {error}");
+        eprintln!("pinrail: notification not shown: {error}");
     }
 }
 
@@ -582,21 +582,21 @@ mod tests {
     #[test]
     fn routes_for_urls() {
         assert_eq!(
-            route_for_url("wicket://reviews/r_01"),
+            route_for_url("pinrail://reviews/r_01"),
             Some("/reviews/r_01".to_string())
         );
         assert_eq!(
             route_for_url("http://127.0.0.1:4747/reviews/r_01?x=1"),
             Some("/reviews/r_01".to_string())
         );
-        assert_eq!(route_for_url("wicket://"), Some("/".to_string()));
-        assert_eq!(route_for_url("wicket://inbox"), Some("/".to_string()));
+        assert_eq!(route_for_url("pinrail://"), Some("/".to_string()));
+        assert_eq!(route_for_url("pinrail://inbox"), Some("/".to_string()));
         assert_eq!(
-            route_for_url("wicket://history"),
+            route_for_url("pinrail://history"),
             Some("/history".to_string())
         );
-        assert_eq!(route_for_url("wicket://reviews/"), None);
-        assert_eq!(route_for_url("wicket://settings"), None);
+        assert_eq!(route_for_url("pinrail://reviews/"), None);
+        assert_eq!(route_for_url("pinrail://settings"), None);
         assert_eq!(route_for_url("not a url"), None);
     }
 

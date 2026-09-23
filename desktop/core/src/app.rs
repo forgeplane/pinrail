@@ -14,7 +14,7 @@ use crate::settings::SettingsService;
 /// Opening it initializes local storage and services without starting a
 /// server. It holds the services and nothing else: storage is theirs.
 #[derive(Debug)]
-pub struct Wicket {
+pub struct Pinrail {
     config: Config,
     events: Events,
     settings: SettingsService,
@@ -22,7 +22,7 @@ pub struct Wicket {
     reviews: Reviews,
 }
 
-impl Wicket {
+impl Pinrail {
     /// The configuration this application was opened with.
     pub fn config(&self) -> &Config {
         &self.config

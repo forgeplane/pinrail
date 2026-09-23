@@ -27,13 +27,13 @@
       "type": "string",
       "maxLength": 2000,
       "deprecated": true,
-      "description": "Accepted for compatibility; the compact header displays the review title supplied via wicket submit --title."
+      "description": "Accepted for compatibility; the compact header displays the review title supplied via pinrail submit --title."
     },
     "description": {
       "type": "string",
       "maxLength": 2000,
       "deprecated": true,
-      "description": "Accepted for compatibility; the compact header displays the review title supplied via wicket submit --title."
+      "description": "Accepted for compatibility; the compact header displays the review title supplied via pinrail submit --title."
     },
     "blocked": {
       "type": "array",

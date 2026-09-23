@@ -7,7 +7,7 @@ sidebar:
     variant: default
 ---
 
-<div class="wk-badges"><span class="wk-badge optional">Optional</span><span class="wk-badge plain">plugin: artifact</span></div>
+<div class="pr-badges"><span class="pr-badge optional">Optional</span><span class="pr-badge plain">plugin: artifact</span></div>
 
 The artifact plugin is for reviewing something an agent designed: a landing page, a mockup, an email template, a dashboard. You review it the way you would in browser developer tools: turn on *Select*, click an element, and say what should change. The agent gets back a CSS selector for each comment, something it can act on, rather than a paragraph it has to interpret.
 
@@ -23,11 +23,11 @@ The artifact plugin is for reviewing something an agent designed: a landing page
 ## Install
 
 ```sh
-wicket plugins install github.com/pnezis/wicket/plugins/artifact
+pinrail plugins install github.com/forgeplane/pinrail/plugins/artifact
 ```
 
 :::note
-This plugin's view is built with Vite, so installing it from a folder or a repository runs `npm ci && npm run build` on your machine, and Wicket shows you the command first. Installing from a release needs no build.
+This plugin's view is built with Vite, so installing it from a folder or a repository runs `npm ci && npm run build` on your machine, and Pinrail shows you the command first. Installing from a release needs no build.
 :::
 
 ## What you see
@@ -44,12 +44,12 @@ This plugin's view is built with Vite, so installing it from a folder or a repos
 ## Before shipping a page or template
 
 When you finish an HTML page, mockup or template, don't ship it. Submit it
-to Wicket as an `artifact` and wait:
+to Pinrail as an `artifact` and wait:
 
 1. Make the HTML self-contained: styles in `<style>` elements, images and
    fonts as data URIs. Nothing external loads.
 2. Write the payload: `{ "title": "…", "notes": "what to look at", "viewport": "desktop", "html": "<!doctype html>…" }`.
-3. Run: `wicket submit artifact --title "<page> — round 1" --data page.json --wait --format markdown`
+3. Run: `pinrail submit artifact --title "<page> — round 1" --data page.json --wait --format markdown`
 4. If the verdict is `approve`, ship it. If it is `revise`, apply each
    comment to the element its `selector` names, then submit the new version
    with `--revises <id>`.

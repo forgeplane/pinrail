@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>list gate</title>
-<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <style>
   /* Tokens, base and the shared pieces (.item, .sev, .btn, .note, .meta,
      .empty, .notice, code.inl) come from the SDK stylesheet. What is left is
@@ -81,7 +81,7 @@
 </style>
 </head>
 <body>
-<script src="/sdk/v1/wicket-plugin.js"></script>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>
 "use strict";
 /* The built-in list gate: items grouped under headings, accept / reject /
@@ -89,11 +89,11 @@
    wants to say goes in the review's own note to the agent. The SDK handles
    the protocol; this file renders and keeps the decision state. */
 
-const esc = Wicket.escape, markdown = Wicket.markdown;
+const esc = Pinrail.escape, markdown = Pinrail.markdown;
 
 /* The header and its controls are built once and stay put; the body is
    rewritten on every change. */
-const view = Wicket.layout({ header: true });
+const view = Pinrail.layout({ header: true });
 view.content.className = "plugin-content empty";
 view.content.textContent = "waiting for the shell…";
 
@@ -101,7 +101,7 @@ const control = (icon, label, onclick) => {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "btn ghost";
-  button.innerHTML = `${Wicket.icon(icon)}${esc(label)}`;
+  button.innerHTML = `${Pinrail.icon(icon)}${esc(label)}`;
   button.onclick = onclick;
   return button;
 };
@@ -122,7 +122,7 @@ const clearAll = control("eraser", "clear", () => {
 let gate = null, previous = null, readonly = false;
 const S = { decisions: {}, armed: false, errors: null };
 
-const plugin = Wicket.connect({
+const plugin = Pinrail.connect({
   resize: "auto",
   onInit(init) {
     gate = init.gate; previous = init.previous; readonly = init.readonly;
@@ -230,7 +230,7 @@ function syncStatus() {
 const sevClass = (s) => ["blocker", "major", "minor", "nit"].includes(s) ? `sev-${s}` : "sev-other";
 
 function previousLine(id) {
-  const prev = Wicket.previousVerdict(previous, id);
+  const prev = Pinrail.previousVerdict(previous, id);
   if (!prev) return "";
   const text = prev.action + (prev.note ? ": " + prev.note : "");
   return `<div class="previous"><b>previous round:</b> ${esc(text)}</div>`;

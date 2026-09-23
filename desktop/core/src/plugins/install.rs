@@ -601,7 +601,7 @@ struct FetchedRelease {
 
 /// The GitHub API's root; a test points it at a server of its own.
 fn github_api() -> String {
-    std::env::var("WICKET_GITHUB_API").unwrap_or_else(|_| "https://api.github.com".into())
+    std::env::var("PINRAIL_GITHUB_API").unwrap_or_else(|_| "https://api.github.com".into())
 }
 
 /// The most an asset may weigh.
@@ -654,7 +654,7 @@ fn fetch_release(
         .collect();
     let (asset_name, asset_url, size) = zips
         .iter()
-        .find(|(n, _, _)| n == "wicket-plugin.zip")
+        .find(|(n, _, _)| n == "pinrail-plugin.zip")
         .copied()
         .or_else(|| (zips.len() == 1).then(|| zips[0]))
         .cloned()
@@ -667,7 +667,7 @@ fn fetch_release(
             Error::invalid(
                 "/source",
                 format!(
-                    "the release {tag_name} needs one .zip asset that is the bundle, or one named wicket-plugin.zip; it has: {names}"
+                    "the release {tag_name} needs one .zip asset that is the bundle, or one named pinrail-plugin.zip; it has: {names}"
                 ),
             )
         })?;
@@ -769,7 +769,7 @@ fn unzip(bytes: &[u8], into: &Path) -> Result<(), Error> {
 fn github_get(url: &str) -> Result<ureq::http::Response<ureq::Body>, Error> {
     ureq::get(url)
         .header("accept", "application/vnd.github+json")
-        .header("user-agent", "wicket")
+        .header("user-agent", "pinrail")
         .call()
         .map_err(|e| match e {
             ureq::Error::StatusCode(code) => {
@@ -1124,7 +1124,7 @@ fn builtin_name(name: &str) -> Result<(), Error> {
     if super::registry::is_builtin(name) {
         return Err(Error::invalid(
             "/source",
-            format!("{name} ships with Wicket and cannot be installed over"),
+            format!("{name} ships with Pinrail and cannot be installed over"),
         ));
     }
     Ok(())

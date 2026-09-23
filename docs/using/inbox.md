@@ -80,4 +80,4 @@ A plugin can add keys of its own. They are listed under the plugin in the <kbd>?
 
 ### From anywhere
 
-<kbd>⌥⇧W</kbd> brings Wicket forward from any app and opens the oldest waiting review. You can change the shortcut, and have it open the inbox instead, in *Settings › Shortcuts*.
+<kbd>⌥⇧W</kbd> brings Pinrail forward from any app and opens the oldest waiting review. You can change the shortcut, and have it open the inbox instead, in *Settings › Shortcuts*.

@@ -3,21 +3,21 @@ title: Publishing a plugin
 description: "Publish a plugin as a GitHub release that anyone can install without a toolchain."
 ---
 
-The best way to share a plugin is a GitHub release with the built bundle attached. People install it with one command, Wicket downloads the bundle and serves it as it is, and nothing is built or run on their machine.
+The best way to share a plugin is a GitHub release with the built bundle attached. People install it with one command, Pinrail downloads the bundle and serves it as it is, and nothing is built or run on their machine.
 
 ```sh
-wicket plugins install https://github.com/acme/ticket-triage/releases
+pinrail plugins install https://github.com/acme/ticket-triage/releases
 ```
 
 ## What a release needs
 
-- **One `.zip` that is the bundle.** It holds `manifest.json`, the schemas and the view, either at the root of the archive or inside a single folder, the way most zip tools lay it out. If you attach several zips, name the bundle `wicket-plugin.zip`.
+- **One `.zip` that is the bundle.** It holds `manifest.json`, the schemas and the view, either at the root of the archive or inside a single folder, the way most zip tools lay it out. If you attach several zips, name the bundle `pinrail-plugin.zip`.
 - **A tag that matches the manifest's version**, with or without a leading `v`. A release tagged `v1.2.0` whose manifest says `1.1.0` is refused.
 - **Only what the app serves.** Leave out sources, tests, fixtures, `node_modules` and tool configuration. Anything else in the zip is served with the view.
 
 ## Publish with GitHub Actions
 
-`wicket-plugin create` writes `.github/workflows/release.yml` into every new plugin. Push a tag and it publishes the release:
+`pinrail-plugin create` writes `.github/workflows/release.yml` into every new plugin. Push a tag and it publishes the release:
 
 ```sh
 git tag v0.2.0
@@ -30,7 +30,7 @@ flowchart LR
   C -->|"no"| X["fail"]
   C -->|"yes"| B["build and zip"]
   B --> R["release v0.2.0"]
-  R --> I(["wicket plugins install"]):::you
+  R --> I(["pinrail plugins install"]):::you
 ```
 
 The workflow checks the version, runs the manifest's `build` command when there is one, zips the bundle as `<name>-<version>.zip`, and attaches it to a release of the same tag:
@@ -88,7 +88,7 @@ The recipe is three steps, in any CI or by hand:
 
 ## Choosing the version
 
-The major version is a promise to every review already created with your plugin: Wicket keeps one copy per major, and a review keeps rendering with the latest copy of the major it was created under.
+The major version is a promise to every review already created with your plugin: Pinrail keeps one copy per major, and a review keeps rendering with the latest copy of the major it was created under.
 
 | You changed | Release as |
 |---|---|

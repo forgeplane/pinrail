@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
-use crate::Wicket;
+use crate::Pinrail;
 use crate::error::Error;
 use crate::plugins::{InstallOptions, UpdateOutcome};
 
@@ -32,24 +32,24 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/plugins/{name}/describe", get(describe))
 }
 
-async fn index(State(state): State<Arc<Wicket>>) -> Json<Value> {
+async fn index(State(state): State<Arc<Pinrail>>) -> Json<Value> {
     let stored = state.settings().value(crate::settings::PLUGINS);
     Json(state.plugins().listing(&stored))
 }
 
-async fn describe_all(State(state): State<Arc<Wicket>>) -> Result<Json<Value>, ApiError> {
+async fn describe_all(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {
     Ok(Json(state.plugins().describe(None)?))
 }
 
 async fn describe(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     Ok(Json(state.plugins().describe(Some(&name))?))
 }
 
 async fn versions(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     Ok(Json(state.plugins().versions(&name)?))
@@ -71,26 +71,26 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     Ok((source.to_string(), options))
 }
 
-async fn inspect(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Json<Value>, ApiError> {
+async fn inspect(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
     let (source, options) = install_request(&body)?;
     Ok(Json(state.plugins().inspect(&source, options).await?))
 }
 
-async fn install(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Response, ApiError> {
+async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
     let (source, options) = install_request(&body)?;
     let id = state.plugins().start_install(&source, options);
     Ok((StatusCode::ACCEPTED, Json(json!({ "job": id }))).into_response())
 }
 
 async fn updates(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     Ok(Json(state.plugins().check_updates(&name).await?))
 }
 
 async fn update(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Response, ApiError> {
     match state.plugins().start_update(&name).await? {
@@ -109,7 +109,7 @@ async fn update(
 /// review renders from; the ones a review still uses stay, and the answer
 /// names them. A built-in has no record and cannot be removed.
 async fn remove(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     Ok(Json(state.plugins().remove(&name)?))
@@ -117,13 +117,13 @@ async fn remove(
 
 /// An install job as it stands: its step, its log so far, and how it ended.
 async fn job(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     Ok(Json(state.plugins().job(&id)?.to_json()))
 }
 
-async fn reload(State(state): State<Arc<Wicket>>) -> Result<Json<Value>, ApiError> {
+async fn reload(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {
     let count = state.plugins().reload()?;
     Ok(Json(json!({ "ok": true, "count": count })))
 }

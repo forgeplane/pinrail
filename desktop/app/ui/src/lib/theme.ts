@@ -9,7 +9,7 @@ export type ThemePreference = Theme | "system";
 
 // the last appearance the core reported, for the first paint before the
 // server answers; the server's value wins as soon as it arrives
-const CACHE = "wicket:appearance";
+const CACHE = "pinrail:appearance";
 const media = typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
 let following = false;
 
@@ -43,7 +43,7 @@ const resolve = (pref: ThemePreference): Theme => (pref === "system" ? (media?.m
 
 function apply(theme: Theme) {
   document.documentElement.dataset.theme = theme;
-  window.dispatchEvent(new Event("wicket:appearance"));
+  window.dispatchEvent(new Event("pinrail:appearance"));
 }
 
 const onMediaChange = () => {
@@ -64,7 +64,7 @@ export function setThemePreference(pref: ThemePreference) {
 
 /** The T key asks for an explicit flip; the settings store records it. */
 export function toggleTheme() {
-  window.dispatchEvent(new CustomEvent("wicket:theme-toggle", { detail: currentTheme() === "dark" ? "light" : "dark" }));
+  window.dispatchEvent(new CustomEvent("pinrail:theme-toggle", { detail: currentTheme() === "dark" ? "light" : "dark" }));
 }
 
 /** The resolved theme as it changes, for controls that show it. */
@@ -72,8 +72,8 @@ export function useTheme(): Theme {
   const [theme, setThemeState] = useState<Theme>(currentTheme);
   useEffect(() => {
     const update = () => setThemeState(currentTheme());
-    window.addEventListener("wicket:appearance", update);
-    return () => window.removeEventListener("wicket:appearance", update);
+    window.addEventListener("pinrail:appearance", update);
+    return () => window.removeEventListener("pinrail:appearance", update);
   }, []);
   return theme;
 }

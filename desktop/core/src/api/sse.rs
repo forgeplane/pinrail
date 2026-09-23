@@ -16,7 +16,7 @@ use serde_json::json;
 use tokio_stream::wrappers::BroadcastStream;
 
 use super::ApiState;
-use crate::Wicket;
+use crate::Pinrail;
 use crate::events::Notice;
 
 const CATCH_UP_LIMIT: usize = 1000;
@@ -26,7 +26,7 @@ pub fn routes() -> Router<ApiState> {
 }
 
 async fn events(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     // Subscribe before reading the backlog, so nothing between the two is lost.

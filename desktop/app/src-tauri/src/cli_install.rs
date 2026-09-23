@@ -1,13 +1,13 @@
 //! Putting the bundled CLI on the PATH, which depends on how the app came.
 //!
-//! - macOS: the bundle carries the CLI as `wicket-cli` beside `Wicket`.
-//!   Installing links `~/.local/bin/wicket` to it, so updating the app
+//! - macOS: the bundle carries the CLI as `pinrail-cli` beside `Pinrail`.
+//!   Installing links `~/.local/bin/pinrail` to it, so updating the app
 //!   updates the CLI and nothing is copied.
-//! - A Linux package (.deb, .rpm) installs the CLI as `/usr/bin/wicket` beside
-//!   `wicket-desktop`; it is on the PATH already and there is nothing to do.
-//! - An AppImage carries the same `wicket`, but mounts itself at a new
+//! - A Linux package (.deb, .rpm) installs the CLI as `/usr/bin/pinrail` beside
+//!   `pinrail-desktop`; it is on the PATH already and there is nothing to do.
+//! - An AppImage carries the same `pinrail`, but mounts itself at a new
 //!   temporary path each run, so a link would break: installing copies it to
-//!   `~/.local/bin/wicket` instead, and a copy from an older AppImage can be
+//!   `~/.local/bin/pinrail` instead, and a copy from an older AppImage can be
 //!   replaced by installing again.
 //!
 //! A development build has no bundled CLI.
@@ -20,24 +20,24 @@ use std::time::Duration;
 
 use serde::Serialize;
 
-/// The CLI's name in a macOS bundle, beside `Wicket`.
-const SIDECAR: &str = "wicket-cli";
+/// The CLI's name in a macOS bundle, beside `Pinrail`.
+const SIDECAR: &str = "pinrail-cli";
 /// The name a shell runs it by, and its name in the Linux builds.
-const COMMAND: &str = "wicket";
+const COMMAND: &str = "pinrail";
 /// How long a login shell may take to say what its PATH is.
 const SHELL_TIMEOUT: Duration = Duration::from_secs(4);
-/// How long `wicket --version` may take when telling an old copy apart.
+/// How long `pinrail --version` may take when telling an old copy apart.
 const VERSION_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// How the bundled CLI reaches the PATH.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
-    /// `~/.local/bin/wicket` links to it
+    /// `~/.local/bin/pinrail` links to it
     Link,
     /// a Linux package put it on the PATH; nothing to install
     Package,
-    /// `~/.local/bin/wicket` is a copy of it, since its own path is temporary
+    /// `~/.local/bin/pinrail` is a copy of it, since its own path is temporary
     Copy,
 }
 
@@ -56,7 +56,7 @@ pub struct Status {
     pub outdated: bool,
     /// something else already has the place: a file, or a link elsewhere
     pub occupied_by: Option<String>,
-    /// what `wicket` runs in a new terminal, when the login shell said
+    /// what `pinrail` runs in a new terminal, when the login shell said
     pub runs: Option<PathBuf>,
     /// whether the install's folder is on a new terminal's PATH; none when
     /// the login shell could not be asked
@@ -75,7 +75,7 @@ pub fn bundled() -> Option<PathBuf> {
 }
 
 /// How this run of the app installs `bundled`: a copy under an AppImage, the
-/// package's own file for a CLI named `wicket`, and a link otherwise.
+/// package's own file for a CLI named `pinrail`, and a link otherwise.
 pub fn mode(bundled: &Path, appimage: bool) -> Mode {
     if appimage {
         Mode::Copy
@@ -91,7 +91,7 @@ pub fn in_appimage() -> bool {
     std::env::var_os("APPIMAGE").is_some()
 }
 
-/// `~/.local/bin/wicket`.
+/// `~/.local/bin/pinrail`.
 pub fn link_path(home: &Path) -> PathBuf {
     home.join(".local").join("bin").join(COMMAND)
 }
@@ -129,7 +129,7 @@ pub fn status(
         Ok(_) if mode == Mode::Copy => {
             if bundled.is_some_and(|b| same_contents(b, link)) {
                 (true, None)
-            } else if is_wicket_cli(link) {
+            } else if is_pinrail_cli(link) {
                 outdated = true;
                 (false, None)
             } else {
@@ -175,10 +175,10 @@ pub fn install(mode: Mode, bundled: &Path, link: &Path) -> Result<(), String> {
                 link.display()
             ));
         }
-        Ok(_) if mode == Mode::Copy && is_wicket_cli(link) => true,
+        Ok(_) if mode == Mode::Copy && is_pinrail_cli(link) => true,
         Ok(_) if mode == Mode::Copy => {
             return Err(format!(
-                "{} is a file that is not the wicket CLI; move it aside and install again",
+                "{} is a file that is not the pinrail CLI; move it aside and install again",
                 link.display()
             ));
         }
@@ -235,9 +235,9 @@ fn same_contents(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// Whether `path` is some version of the wicket CLI: it says `wicket <version>`
+/// Whether `path` is some version of the pinrail CLI: it says `pinrail <version>`
 /// when asked. Anything that does not answer in time is not.
-fn is_wicket_cli(path: &Path) -> bool {
+fn is_pinrail_cli(path: &Path) -> bool {
     let Ok(mut child) = Command::new(path)
         .arg("--version")
         .stdin(Stdio::null())
@@ -287,15 +287,15 @@ fn same_file(a: &Path, b: &Path) -> bool {
     }
 }
 
-/// What a new terminal sees: its PATH and what `wicket` resolves to.
+/// What a new terminal sees: its PATH and what `pinrail` resolves to.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ShellView {
     pub path: Vec<PathBuf>,
     pub command: Option<PathBuf>,
 }
 
-const PATH_MARK: &str = "__wicket_path__=";
-const COMMAND_MARK: &str = "__wicket_command__=";
+const PATH_MARK: &str = "__pinrail_path__=";
+const COMMAND_MARK: &str = "__pinrail_command__=";
 
 /// Asks the user's login shell, the way a new terminal starts it. The app
 /// inherits a much shorter PATH from the system than a terminal has, so its
@@ -347,7 +347,7 @@ mod tests {
     use super::*;
 
     fn bundle(dir: &Path) -> PathBuf {
-        let cli = dir.join("Wicket.app/Contents/MacOS").join(SIDECAR);
+        let cli = dir.join("Pinrail.app/Contents/MacOS").join(SIDECAR);
         std::fs::create_dir_all(cli.parent().unwrap()).unwrap();
         std::fs::write(&cli, "#!/bin/sh\n").unwrap();
         cli
@@ -366,7 +366,7 @@ mod tests {
         assert_eq!(now.occupied_by, None);
 
         // a link left by an older copy of the app is replaced
-        let old = tmp.path().join("old-wicket");
+        let old = tmp.path().join("old-pinrail");
         std::fs::write(&old, "").unwrap();
         std::fs::remove_file(&link).unwrap();
         symlink(&old, &link).unwrap();
@@ -383,13 +383,13 @@ mod tests {
         let cli = bundle(tmp.path());
         let link = link_path(&tmp.path().join("home"));
         std::fs::create_dir_all(link.parent().unwrap()).unwrap();
-        std::fs::write(&link, "someone else's wicket").unwrap();
+        std::fs::write(&link, "someone else's pinrail").unwrap();
 
         let err = install(Mode::Link, &cli, &link).unwrap_err();
         assert!(err.contains("is a file, not a link"), "{err}");
         assert_eq!(
             std::fs::read_to_string(&link).unwrap(),
-            "someone else's wicket"
+            "someone else's pinrail"
         );
         assert_eq!(
             status(Mode::Link, Some(&cli), &link, None)
@@ -402,7 +402,7 @@ mod tests {
     #[test]
     fn the_login_shells_answer_is_read_from_its_marked_lines() {
         let text = format!(
-            "Welcome back!\n\n{PATH_MARK}/usr/bin:/home/me/.local/bin\n{COMMAND_MARK}/home/me/.local/bin/wicket\n"
+            "Welcome back!\n\n{PATH_MARK}/usr/bin:/home/me/.local/bin\n{COMMAND_MARK}/home/me/.local/bin/pinrail\n"
         );
         let view = parse_shell(&text).unwrap();
         assert_eq!(
@@ -414,7 +414,7 @@ mod tests {
         );
         assert_eq!(
             view.command,
-            Some(PathBuf::from("/home/me/.local/bin/wicket"))
+            Some(PathBuf::from("/home/me/.local/bin/pinrail"))
         );
 
         let none = parse_shell(&format!("{PATH_MARK}/usr/bin\n{COMMAND_MARK}\n")).unwrap();
@@ -451,11 +451,11 @@ mod tests {
         );
     }
 
-    /// A stand-in CLI: a script that answers `--version` the way `wicket` does.
+    /// A stand-in CLI: a script that answers `--version` the way `pinrail` does.
     #[cfg(unix)]
     fn script(path: &Path, version: &str) {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, format!("#!/bin/sh\necho 'wicket {version}'\n")).unwrap();
+        std::fs::write(path, format!("#!/bin/sh\necho 'pinrail {version}'\n")).unwrap();
         executable(path).unwrap();
     }
 
@@ -463,14 +463,14 @@ mod tests {
     fn the_mode_follows_the_clis_name_and_the_appimage() {
         assert_eq!(
             mode(
-                Path::new("/Applications/Wicket.app/Contents/MacOS/wicket-cli"),
+                Path::new("/Applications/Pinrail.app/Contents/MacOS/pinrail-cli"),
                 false
             ),
             Mode::Link
         );
-        assert_eq!(mode(Path::new("/usr/bin/wicket"), false), Mode::Package);
+        assert_eq!(mode(Path::new("/usr/bin/pinrail"), false), Mode::Package);
         assert_eq!(
-            mode(Path::new("/tmp/.mount_WicketX/usr/bin/wicket"), true),
+            mode(Path::new("/tmp/.mount_PinrailX/usr/bin/pinrail"), true),
             Mode::Copy
         );
     }
@@ -478,7 +478,7 @@ mod tests {
     #[test]
     fn a_package_has_nothing_to_install() {
         let tmp = tempfile::tempdir().unwrap();
-        let cli = tmp.path().join("usr/bin/wicket");
+        let cli = tmp.path().join("usr/bin/pinrail");
         std::fs::create_dir_all(cli.parent().unwrap()).unwrap();
         std::fs::write(&cli, "").unwrap();
         let link = link_path(&tmp.path().join("home"));
@@ -494,7 +494,7 @@ mod tests {
     #[test]
     fn an_appimage_copies_the_cli_and_replaces_an_older_copy() {
         let tmp = tempfile::tempdir().unwrap();
-        let cli = tmp.path().join("mount/usr/bin/wicket");
+        let cli = tmp.path().join("mount/usr/bin/pinrail");
         script(&cli, "0.2.0");
         let link = link_path(&tmp.path().join("home"));
 
@@ -533,20 +533,20 @@ mod tests {
     #[test]
     fn an_appimage_leaves_a_file_that_is_not_the_cli_alone() {
         let tmp = tempfile::tempdir().unwrap();
-        let cli = tmp.path().join("mount/usr/bin/wicket");
+        let cli = tmp.path().join("mount/usr/bin/pinrail");
         script(&cli, "0.2.0");
         let link = link_path(&tmp.path().join("home"));
         std::fs::create_dir_all(link.parent().unwrap()).unwrap();
-        std::fs::write(&link, "someone else's wicket").unwrap();
+        std::fs::write(&link, "someone else's pinrail").unwrap();
 
         let s = status(Mode::Copy, Some(&cli), &link, None);
         assert_eq!(s.occupied_by.as_deref(), Some("a file"));
         assert!(!s.outdated);
         let err = install(Mode::Copy, &cli, &link).unwrap_err();
-        assert!(err.contains("not the wicket CLI"), "{err}");
+        assert!(err.contains("not the pinrail CLI"), "{err}");
         assert_eq!(
             std::fs::read_to_string(&link).unwrap(),
-            "someone else's wicket"
+            "someone else's pinrail"
         );
     }
 }

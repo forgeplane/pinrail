@@ -1,4 +1,4 @@
-//! `wicket-plugin check` says of a folder what the core's loader says: the
+//! `pinrail-plugin check` says of a folder what the core's loader says: the
 //! rules live in Rust and are carried in JavaScript for authors without the
 //! app, so both run here over the sample plugins and a set of broken
 //! folders, and their verdicts are compared. A rule changed on one side
@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use serde_json::{Value, json};
-use wicket_core::plugins::Plugin;
+use pinrail_core::plugins::Plugin;
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -21,9 +21,9 @@ fn repo() -> PathBuf {
 /// The JavaScript verdict, or None when node is not on the path.
 fn js_check(dir: &Path) -> Option<Value> {
     let bin = repo()
-        .join("wicket-plugin")
+        .join("pinrail-plugin")
         .join("bin")
-        .join("wicket-plugin.mjs");
+        .join("pinrail-plugin.mjs");
     let out = Command::new("node")
         .arg(&bin)
         .arg("check")
@@ -192,7 +192,7 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
         ("version_short", base(json!({"version": "1.2"})), entry),
         (
             "extra_key",
-            base(json!({"$schema": "https://wicket.dev/schemas/manifest.schema.json", "later": 1})),
+            base(json!({"$schema": "https://pinrail.dev/schemas/manifest.schema.json", "later": 1})),
             entry,
         ),
         (

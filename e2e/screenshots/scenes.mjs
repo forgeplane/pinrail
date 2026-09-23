@@ -272,7 +272,7 @@ export const scenes = [
       const dir = path.join(app.code, "ticket_triage");
       fs.rmSync(dir, { recursive: true, force: true });
       fs.mkdirSync(app.code, { recursive: true });
-      execFileSync("node", [path.join(app.root, "wicket-plugin", "bin", "wicket-plugin.mjs"), "create", "ticket_triage", "--dir", dir], { stdio: "ignore" });
+      execFileSync("node", [path.join(app.root, "pinrail-plugin", "bin", "pinrail-plugin.mjs"), "create", "ticket_triage", "--dir", dir], { stdio: "ignore" });
       const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
       fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ ...manifest, icon: "ticket" }, null, 2));
       await page.goto(`${app.ui}/#/`);

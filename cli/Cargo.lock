@@ -464,6 +464,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
+name = "pinrail"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "serde",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
 name = "potential_utf"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -791,17 +802,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7dcd9d09a39985f5344844e66b0c530a33843579125f23e21e9f0f220850f22a"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "wicket"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "serde",
- "serde_json",
- "ureq",
 ]
 
 [[package]]

@@ -7,7 +7,7 @@ sidebar:
     variant: default
 ---
 
-<div class="wk-badges"><span class="wk-badge optional">Optional</span><span class="wk-badge plain">plugin: calendar</span></div>
+<div class="pr-badges"><span class="pr-badge optional">Optional</span><span class="pr-badge plain">plugin: calendar</span></div>
 
 The calendar plugin is for deciding when things happen. The agent has found candidate times for a few appointments, meetings or interviews; you see them laid over what is already in your calendar, and pick one time for each. Picking a time hides every other suggestion it would clash with, and clearing it brings them back. Anything that does not fit can go back to the agent for another time, or be declined.
 
@@ -24,7 +24,7 @@ The calendar plugin is for deciding when things happen. The agent has found cand
 ## Install
 
 ```sh
-wicket plugins install github.com/pnezis/wicket/plugins/calendar
+pinrail plugins install github.com/forgeplane/pinrail/plugins/calendar
 ```
 
 ## What you see
@@ -43,11 +43,11 @@ Keys: <kbd>d</kbd>, <kbd>w</kbd> and <kbd>l</kbd> switch between the day, week a
 ## Before booking anything
 
 When you have found times for appointments or meetings, do not book them.
-Submit them to Wicket as a `calendar` review and wait:
+Submit them to Pinrail as a `calendar` review and wait:
 
 1. Write the payload: the timezone, the first day and how many days to show,
    what is already booked, and each item with its candidate times.
-2. Run: `wicket submit calendar --title "<what these are>" --data slots.json --wait --format markdown`
+2. Run: `pinrail submit calendar --title "<what these are>" --data slots.json --wait --format markdown`
 3. Book the `selections`, checking each is still free first.
 4. For `deferred` items, find other times, using the note, and submit a new
    round with `--revises <id>`. Do not book anything for `declined` items.

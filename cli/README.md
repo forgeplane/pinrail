@@ -1,6 +1,6 @@
-# wicket CLI
+# pinrail CLI
 
-`wicket` is the command-line tool agents use to talk to the Wicket app: it is
+`pinrail` is the command-line tool agents use to talk to the Pinrail app: it is
 how an agent asks a person before it acts. The agent describes what it is
 about to do as a review, sends it to the app, and waits. The person opens the
 review in the app, decides, and the command returns with the decision: as
@@ -8,7 +8,7 @@ JSON for a script to branch on, or as markdown for an agent to read in its
 session.
 
 ```sh
-wicket submit review --title "Dedup tickets on save — round 1" \
+pinrail submit review --title "Dedup tickets on save — round 1" \
   --origin repo=acme/api,workflow=review,ref=42 \
   --data proposals.json --wait --format markdown
 ```
@@ -39,10 +39,10 @@ build it from a checkout with a Rust toolchain (the version is pinned in the
 repository's `mise.toml`):
 
 ```sh
-cargo install --path cli        # installs `wicket` into ~/.cargo/bin
+cargo install --path cli        # installs `pinrail` into ~/.cargo/bin
 ```
 
-The CLI needs the Wicket app, or its server, running to talk to. It finds it
+The CLI needs the Pinrail app, or its server, running to talk to. It finds it
 on its own: see [Finding the server](#finding-the-server).
 
 ## A first review
@@ -74,7 +74,7 @@ reject each one with a note. Save this as `triage.json`:
 Then submit it and wait:
 
 ```sh
-wicket submit list --title "Sentry triage" --data triage.json --wait
+pinrail submit list --title "Sentry triage" --data triage.json --wait
 ```
 
 The command prints the review's URL to stderr and blocks. The app shows the
@@ -86,11 +86,11 @@ plugins, and how to write your own, are in [`plugins/`](../plugins/README.md).
 
 ## What an agent can ask
 
-An agent new to Wicket learns it from one command:
+An agent new to Pinrail learns it from one command:
 
 ```sh
-wicket plugins describe                     # every usable plugin, as JSON
-wicket plugins describe list --format markdown
+pinrail plugins describe                     # every usable plugin, as JSON
+pinrail plugins describe list --format markdown
 ```
 
 For each plugin it gives what the plugin is for and when to use it, the
@@ -105,7 +105,7 @@ submission would be accepted and 2 with the violations, each a JSON pointer
 into the request, so a malformed payload is fixed before anyone sees it:
 
 ```sh
-wicket submit list --title "Sentry triage" --data triage.json --dry-run
+pinrail submit list --title "Sentry triage" --data triage.json --dry-run
 ```
 
 ## In an agent's session, and in a script
@@ -114,7 +114,7 @@ The two callers want different things from the same command, and the CLI
 serves both.
 
 An **agent** in a coding session reads the decision as text and acts on it.
-Give it markdown: `--format markdown`, or `WICKET_FORMAT=markdown` set once
+Give it markdown: `--format markdown`, or `PINRAIL_FORMAT=markdown` set once
 in the environment the agent runs in. The rendering leads with the title and
 the outcome, then lists every item with its verdict and the person's note.
 A plugin can ship its own template for this; the rest are rendered from the
@@ -126,7 +126,7 @@ and the exit code, and can write the decision's data to a file with
 working unchanged:
 
 ```sh
-if wicket submit list --title "MR !42" --origin repo=acme,workflow=review,ref=42 \
+if pinrail submit list --title "MR !42" --origin repo=acme,workflow=review,ref=42 \
      --data payload.json --wait --decision-out mr-42.decisions.json > review.json; then
   ./apply-decisions mr-42.decisions.json
 fi
@@ -138,7 +138,7 @@ fi
 
 `submit --wait` is the usual way in: one command that submits, waits and
 prints. When the waiting has to happen elsewhere, `submit` without `--wait`
-prints the new review and returns at once, and `wicket wait <id>` picks it
+prints the new review and returns at once, and `pinrail wait <id>` picks it
 up later, from another process if need be.
 
 Waiting survives the server going away. `wait` asks the server in short
@@ -159,7 +159,7 @@ A review can end without a decision, and the exit code says how:
 | 5 | The person discarded the review: stop the work it was gating. |
 
 Exit 5 deserves care. Discarding is the person's "no, and stop", made in the
-app or with `wicket discard`. The printed review carries who discarded it and
+app or with `pinrail discard`. The printed review carries who discarded it and
 why. An agent that gets exit 5 stops the work the review was about, reports
 the reason, and neither retries nor submits a new round. There is no decision,
 so `--decision-out` writes nothing.
@@ -168,36 +168,36 @@ so `--decision-out` writes nothing.
 
 When the person asks for changes, the agent makes them and submits again,
 naming the review it answers with `--revises <id>`. The app shows the new
-round with the previous round's verdicts beside it. `wicket list` shows only
+round with the previous round's verdicts beside it. `pinrail list` shows only
 the latest round of each review unless `--include-revised` is given, and
-`wicket rounds <id>` prints every round of a review, oldest first.
+`pinrail rounds <id>` prints every round of a review, oldest first.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `wicket submit <plugin>` | Submit a review. `create` is an alias. |
-| `wicket wait <id>` | Block until a review leaves pending, then print it. |
-| `wicket show <id>` | Print a review with its payload and decision. |
-| `wicket list` | List reviews, newest first, without payloads. |
-| `wicket rounds <id>` | Every round of a review, oldest first. |
-| `wicket events <id>` | A review's event log. |
-| `wicket open <id>` | Open a review in the app. |
-| `wicket decide <id>` | Record a decision from a script; the app is the usual way. |
-| `wicket withdraw <id>` | Withdraw a pending review; its waiter exits 3. |
-| `wicket discard <id>` | Discard a pending review as the person would; its waiter exits 5. |
-| `wicket export <dir>` | Write every review as JSON files under a directory. |
-| `wicket serve` | Start the server if it is not running, and print its URL. |
-| `wicket plugins` | List the installed plugins, and manage them (below). |
+| `pinrail submit <plugin>` | Submit a review. `create` is an alias. |
+| `pinrail wait <id>` | Block until a review leaves pending, then print it. |
+| `pinrail show <id>` | Print a review with its payload and decision. |
+| `pinrail list` | List reviews, newest first, without payloads. |
+| `pinrail rounds <id>` | Every round of a review, oldest first. |
+| `pinrail events <id>` | A review's event log. |
+| `pinrail open <id>` | Open a review in the app. |
+| `pinrail decide <id>` | Record a decision from a script; the app is the usual way. |
+| `pinrail withdraw <id>` | Withdraw a pending review; its waiter exits 3. |
+| `pinrail discard <id>` | Discard a pending review as the person would; its waiter exits 5. |
+| `pinrail export <dir>` | Write every review as JSON files under a directory. |
+| `pinrail serve` | Start the server if it is not running, and print its URL. |
+| `pinrail plugins` | List the installed plugins, and manage them (below). |
 
-`wicket <command> --help` lists every flag. The ones that matter most:
+`pinrail <command> --help` lists every flag. The ones that matter most:
 
 - **`submit`** takes `--title` (required), `--data <file>` or `--data -` for
   stdin, and `--origin repo=…,workflow=…,run_id=…,ref=…,url=…` to say where
   the review comes from; the app groups reviews by project and links back to
   the origin's URL. `--summary` sets the counts the inbox shows beside the
   title, `--expires-at` closes a review nobody decided in time, and
-  `--requested-by` (or `WICKET_REQUESTED_BY`) names the caller.
+  `--requested-by` (or `PINRAIL_REQUESTED_BY`) names the caller.
   `--dry-run` checks the submission and creates nothing. `--request <file>`
   (or `-` for stdin) takes the whole request as one JSON object, the body
   the API takes: `{"plugin", "title", "origin", "payload", …}`. Flags given
@@ -215,43 +215,43 @@ the latest round of each review unless `--include-revised` is given, and
 ### Plugins
 
 ```sh
-wicket plugins                                          # what is installed, and anything wrong with it
-wicket plugins describe [name]                          # what an agent needs to ask with each one
-wicket plugins install ./my-plugin                      # copy a folder into the app's store
-wicket plugins install ./my-plugin --link               # serve the folder live while you work on it
-wicket plugins install github.com/acme/plugins/review@v3
-wicket plugins install https://github.com/acme/wicket-review/releases
-wicket plugins update [name]                            # reinstall from the source, when it has something new
-wicket plugins remove <name>
+pinrail plugins                                          # what is installed, and anything wrong with it
+pinrail plugins describe [name]                          # what an agent needs to ask with each one
+pinrail plugins install ./my-plugin                      # copy a folder into the app's store
+pinrail plugins install ./my-plugin --link               # serve the folder live while you work on it
+pinrail plugins install github.com/acme/plugins/review@v3
+pinrail plugins install https://github.com/acme/pinrail-review/releases
+pinrail plugins update [name]                            # reinstall from the source, when it has something new
+pinrail plugins remove <name>
 ```
 
 An install shows its progress on stderr, including a build's output when the
 plugin's manifest declares one. A plugin removed or moved to a new major
 version keeps the copy that older reviews render from. The sources `install`
 accepts are described in [`plugins/README.md`](../plugins/README.md#installing),
-and [`wicket-plugin`](../wicket-plugin/README.md) scaffolds, runs and tests a
+and [`pinrail-plugin`](../pinrail-plugin/README.md) scaffolds, runs and tests a
 plugin of your own.
 
 ## Finding the server
 
 The CLI looks for the server in this order, and uses the first it finds:
 
-1. `--url`, or `WICKET_URL` in the environment.
+1. `--url`, or `PINRAIL_URL` in the environment.
 2. The `server.json` the running server writes into its data directory:
-   `WICKET_DATA_DIR`, else `$XDG_DATA_HOME/wicket`, else
-   `~/.local/share/wicket`.
-3. `http://127.0.0.1:4747`, or the port in `WICKET_PORT`.
+   `PINRAIL_DATA_DIR`, else `$XDG_DATA_HOME/pinrail`, else
+   `~/.local/share/pinrail`.
+3. `http://127.0.0.1:4747`, or the port in `PINRAIL_PORT`.
 
 When nothing answers, `submit` and `serve` start a server if you have told
-the CLI how, through `WICKET_SERVER_CMD`: a shell command that runs one. The
+the CLI how, through `PINRAIL_SERVER_CMD`: a shell command that runs one. The
 desktop app's binary runs its server without a window with `--headless`,
 which suits CI and remote machines:
 
 ```sh
 # macOS
-export WICKET_SERVER_CMD='/Applications/Wicket.app/Contents/MacOS/Wicket --headless'
+export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --headless'
 # Linux, from the .deb or .rpm
-export WICKET_SERVER_CMD='wicket-desktop --headless'
+export PINRAIL_SERVER_CMD='pinrail-desktop --headless'
 ```
 
 The server starts detached, in its own process group, and logs to
@@ -262,17 +262,17 @@ starting one.
 
 | Variable | Used for |
 |---|---|
-| `WICKET_URL` | The server to talk to, ahead of anything the CLI finds. |
-| `WICKET_DATA_DIR` | Where the running server's `server.json` and `server.log` are. |
-| `WICKET_PORT` | The port to try when nothing is advertised. |
-| `WICKET_SERVER_CMD` | How to start a server when none is running. |
-| `WICKET_FORMAT` | `json` or `markdown`, the default for `--format`. |
-| `WICKET_REQUESTED_BY` | Who is asking, shown on every review. Defaults to `wicket-cli`. |
+| `PINRAIL_URL` | The server to talk to, ahead of anything the CLI finds. |
+| `PINRAIL_DATA_DIR` | Where the running server's `server.json` and `server.log` are. |
+| `PINRAIL_PORT` | The port to try when nothing is advertised. |
+| `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
+| `PINRAIL_FORMAT` | `json` or `markdown`, the default for `--format`. |
+| `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review. Defaults to `pinrail-cli`. |
 
 ## Development
 
 ```sh
-cargo build                 # target/debug/wicket
+cargo build                 # target/debug/pinrail
 cargo test                  # against a scripted HTTP server; no app needed
 ```
 

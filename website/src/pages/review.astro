@@ -1,6 +1,6 @@
 ---
 // Version 7: the page is itself a review. An agent drafted the landing page
-// and submitted it; the visitor is the person at the wicket. Each section is
+// and submitted it; the visitor is the person at the pinrail. Each section is
 // an item to accept or send back with a reason, a rejection comes back as a
 // second round, the decision builds up as JSON beside the page, and handing it
 // back plays out in the agent's terminal.
@@ -19,11 +19,11 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Before your agent acts, it asks. Wicket is a desktop inbox where agents wait for your decision: a diff, a batch of emails, a page. Review this page to see how it works." />
+    <meta name="description" content="Before your agent acts, it asks. Pinrail is a desktop inbox where agents wait for your decision: a diff, a batch of emails, a page. Review this page to see how it works." />
     <meta name="theme-color" content="#f5f0e6" />
-    <meta property="og:title" content="Wicket — before your agent acts, it asks" />
+    <meta property="og:title" content="Pinrail — before your agent acts, it asks" />
     <meta property="og:description" content="An agent drafted this page and is waiting for your review." />
-    <title>Wicket — review this page</title>
+    <title>Pinrail — review this page</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -33,7 +33,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
     <a href="#main" class="skip">Skip to the draft</a>
 
     <header class="gatebar" aria-label="Review">
-      <a class="brand" href="/" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
+      <a class="brand" href="/" aria-label="Pinrail home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>pinrail</a>
       <div class="gate-title">
         <span class="gate-plugin">list</span>
         <span class="gate-name">Landing page, draft 1</span>
@@ -48,7 +48,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
     </header>
 
     <div class="discarded" role="alert" hidden>
-      <p><strong>Discarded.</strong> The agent's <code>wicket submit --wait</code> exited <b>5</b>: it stops the work this review was gating, reports your reason, and doesn't try again.</p>
+      <p><strong>Discarded.</strong> The agent's <code>pinrail submit --wait</code> exited <b>5</b>: it stops the work this review was gating, reports your reason, and doesn't try again.</p>
       <button type="button" data-undiscard>Undo, I was only testing it</button>
     </div>
 
@@ -62,7 +62,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           <div class="body">
             <div class="content" data-round="1">
               <h1 class="hero-title"><span class="line">Before your agent</span><br />acts, <em><Typed words={["it asks.", "you look.", "you decide.", "you edit.", "you say stop."]} /></em></h1>
-              <p class="lede">Wicket is a desktop inbox for the moments that matter: review comments about to be posted, emails about to be sent, a page about to ship. The agent submits its work, waits, and carries on with your decision.</p>
+              <p class="lede">Pinrail is a desktop inbox for the moments that matter: review comments about to be posted, emails about to be sent, a page about to ship. The agent submits its work, waits, and carries on with your decision.</p>
             </div>
             <template data-round="2">
               <div class="content" data-round="2">
@@ -85,7 +85,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
                 <li>
                   <span class="step">1</span>
                   <div class="step-text"><h3>The agent submits</h3><p>At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.</p></div>
-                  <div class="step-art term-line"><span class="who">agent</span><code>$ wicket submit review --data proposals.json --wait</code><span class="blink" aria-hidden="true">▍</span></div>
+                  <div class="step-art term-line"><span class="who">agent</span><code>$ pinrail submit review --data proposals.json --wait</code><span class="blink" aria-hidden="true">▍</span></div>
                 </li>
                 <li>
                   <span class="step">2</span>
@@ -102,7 +102,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             <template data-round="2">
               <div class="content" data-round="2">
                 <h2>One command in, one decision out.</h2>
-                <p class="plain">The agent runs <code>wicket submit … --wait</code> and waits. You decide in the app. The command returns your decision, and the agent carries on with it.</p>
+                <p class="plain">The agent runs <code>pinrail submit … --wait</code> and waits. You decide in the app. The command returns your decision, and the agent carries on with it.</p>
               </div>
             </template>
           </div>
@@ -125,7 +125,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
                   </figure>
                 ))}
                 <figure class="view own">
-                  <div class="own-body"><code>wicket-plugin create</code><p>A manifest, two JSON schemas and an HTML page. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p></div>
+                  <div class="own-body"><code>pinrail-plugin create</code><p>A manifest, two JSON schemas and an HTML page. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p></div>
                   <figcaption><b>Your own</b>Run it in a browser without the app, then install it from a folder or a GitHub release.</figcaption>
                 </figure>
               </div>
@@ -203,9 +203,9 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               <ul class="facts">
                 <li><b>Local.</b> The app runs its server on loopback. Reviews and decisions stay on your Mac.</li>
                 <li><b>Contained.</b> A plugin's view is sandboxed: it draws, talks to the app, and nothing else.</li>
-                <li><b>Any agent.</b> If it can run a command, it can ask through Wicket. The agent's own instructions say when.</li>
+                <li><b>Any agent.</b> If it can run a command, it can ask through Pinrail. The agent's own instructions say when.</li>
               </ul>
-              <ul class="agents" aria-label="Agents that work with Wicket">
+              <ul class="agents" aria-label="Agents that work with Pinrail">
                 {agents.map((a) => <li><img src={`/agents/${a.icon}.svg`} width="18" height="18" alt="" />{a.name}</li>)}
               </ul>
             </div>
@@ -238,7 +238,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           </div>
           <div class="finale" hidden>
             <p class="hand big-hand">That's the whole loop.</p>
-            <h2 class="closing-title"><span class="line">Put <em><Typed words={["a wicket", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
+            <h2 class="closing-title"><span class="line">Put <em><Typed words={["a pinrail", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
             <p>macOS today. Free and open source, in early development.</p>
             <div class="ctas">
               <a class="primary big" href={releases}>Download for macOS</a>
@@ -276,7 +276,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
     <Lightbox />
 
     <footer class="colophon">
-      <span>Wicket · a small gate in a larger door.</span>
+      <span>Pinrail · a small gate in a larger door.</span>
       <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/">Classic version</a></nav>
     </footer>
 
@@ -460,7 +460,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         const accepted = d.decisions.filter((r) => r.action === "accept");
         const rejected = d.decisions.filter((r) => r.action === "reject");
         const lines: [string, string, number][] = [
-          ["cmd", `wicket submit list --title "Landing page, draft 1" \\\n    --data page.json --wait --format markdown`, 420],
+          ["cmd", `pinrail submit list --title "Landing page, draft 1" \\\n    --data page.json --wait --format markdown`, 420],
           ["dim", "waiting for a decision…", 700],
           ["out", "# Landing page, draft 1", 60],
           ["out", `Decided · ${accepted.length} accepted · ${rejected.length} rejected · ${d.undecided.length} undecided`, 60],

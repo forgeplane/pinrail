@@ -1,11 +1,11 @@
-// Builds the wicket CLI for a release bundle and puts it where Tauri looks
+// Builds the pinrail CLI for a release bundle and puts it where Tauri looks
 // for a sidecar: src-tauri/binaries/<name>-<target triple>.
 //
-// On Linux the name is `wicket`: the .deb and .rpm install it as
-// /usr/bin/wicket, beside the app renamed wicket-desktop
-// (tauri.release.linux.conf.json). On macOS it is `wicket-cli`, since the
-// app's own binary is `Wicket` and a case-insensitive volume would not tell
-// the two apart; Settings links it into ~/.local/bin as `wicket`.
+// On Linux the name is `pinrail`: the .deb and .rpm install it as
+// /usr/bin/pinrail, beside the app renamed pinrail-desktop
+// (tauri.release.linux.conf.json). On macOS it is `pinrail-cli`, since the
+// app's own binary is `Pinrail` and a case-insensitive volume would not tell
+// the two apart; Settings links it into ~/.local/bin as `pinrail`.
 //
 //   node scripts/build-cli.mjs                          # the host's triple
 //   node scripts/build-cli.mjs universal-apple-darwin   # arm64, x86_64, and the two joined with lipo
@@ -29,11 +29,11 @@ const host = () => /host: (\S+)/.exec(execFileSync("rustc", ["-vV"], { encoding:
 /** Builds for one target and returns the binary's path. */
 function build(target) {
   run("cargo", ["build", "--release", "--locked", "--manifest-path", path.join(cli, "Cargo.toml"), "--target", target]);
-  return path.join(cli, "target", target, "release", "wicket");
+  return path.join(cli, "target", target, "release", "pinrail");
 }
 
 const target = process.argv[2] ?? host();
-const name = target.includes("-linux-") ? "wicket" : "wicket-cli";
+const name = target.includes("-linux-") ? "pinrail" : "pinrail-cli";
 fs.mkdirSync(out, { recursive: true });
 
 /** Puts a built binary where Tauri looks for the sidecar of `triple`. */

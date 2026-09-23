@@ -1,5 +1,5 @@
 //! End-to-end tests of the binary against a small scripted HTTP server, so
-//! the exit codes and the wait loop are exercised without a real wicket.
+//! the exit codes and the wait loop are exercised without a real pinrail.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -82,17 +82,17 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
     let _ = stream.flush();
 }
 
-fn wicket() -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_wicket"));
-    cmd.env_remove("WICKET_URL").env_remove("WICKET_SERVER_CMD");
+fn pinrail() -> Command {
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_pinrail"));
+    cmd.env_remove("PINRAIL_URL").env_remove("PINRAIL_SERVER_CMD");
     cmd.stdin(Stdio::null());
     cmd
 }
 
 fn run(server: &MockServer, args: &[&str]) -> (i32, String, String) {
-    let out = wicket()
+    let out = pinrail()
         .args(args)
-        .env("WICKET_URL", &server.url)
+        .env("PINRAIL_URL", &server.url)
         .output()
         .unwrap();
     (
@@ -247,9 +247,9 @@ fn wait_survives_the_server_going_away_and_coming_back() {
         serve_one(stream, handler, Arc::new(Mutex::new(Vec::new())));
     });
 
-    let out = wicket()
+    let out = pinrail()
         .args(["wait", "r_1", "--timeout", "20"])
-        .env("WICKET_URL", &url)
+        .env("PINRAIL_URL", &url)
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -400,23 +400,23 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
 
 #[test]
 fn unreachable_server_exits_1_without_auto_start_config() {
-    let out = wicket()
+    let out = pinrail()
         .args(["show", "r_1"])
-        .env("WICKET_URL", "http://127.0.0.1:9")
+        .env("PINRAIL_URL", "http://127.0.0.1:9")
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&out.stderr).contains("connecting to the server"));
 
     let dir = tempdir();
-    let out = wicket()
+    let out = pinrail()
         .args(["submit", "list", "--title", "t"])
-        .env("WICKET_URL", "http://127.0.0.1:9")
-        .env("WICKET_DATA_DIR", &dir)
+        .env("PINRAIL_URL", "http://127.0.0.1:9")
+        .env("PINRAIL_DATA_DIR", &dir)
         .output()
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
-    // an explicit --url/WICKET_URL is never auto-started; discovery would be
+    // an explicit --url/PINRAIL_URL is never auto-started; discovery would be
     assert!(String::from_utf8_lossy(&out.stderr).contains("connecting to the server"));
 }
 
@@ -429,9 +429,9 @@ fn discovers_the_server_from_server_json_in_the_data_dir() {
         format!(r#"{{"url":"{}","port":1}}"#, server.url),
     )
     .unwrap();
-    let out = wicket()
+    let out = pinrail()
         .args(["show", "r_1"])
-        .env("WICKET_DATA_DIR", &dir)
+        .env("PINRAIL_DATA_DIR", &dir)
         .output()
         .unwrap();
     assert_eq!(
@@ -455,14 +455,14 @@ fn create_auto_starts_the_server_with_the_configured_command() {
     // discovery never depends on whatever happens to listen on 4747
     std::fs::write(dir.join("server.json"), r#"{"url":"http://127.0.0.1:9"}"#).unwrap();
     let cmd = format!(
-        "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$WICKET_DATA_DIR/server.json\"; sleep 5",
+        "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$PINRAIL_DATA_DIR/server.json\"; sleep 5",
         server.url
     );
-    let out = wicket()
+    let out = pinrail()
         .args(["submit", "list", "--title", "t"])
-        .env("WICKET_DATA_DIR", &dir)
-        .env("WICKET_SERVER_CMD", &cmd)
-        .env("WICKET_PORT", "9")
+        .env("PINRAIL_DATA_DIR", &dir)
+        .env("PINRAIL_SERVER_CMD", &cmd)
+        .env("PINRAIL_PORT", "9")
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -473,7 +473,7 @@ fn create_auto_starts_the_server_with_the_configured_command() {
 
 fn tempdir() -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!(
-        "wicket-cli-test-{}-{}",
+        "pinrail-cli-test-{}-{}",
         std::process::id(),
         rand_suffix()
     ));

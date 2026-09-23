@@ -16,8 +16,8 @@ function freePort(): Promise<number> {
 }
 
 function buildCli(): string {
-  const cli = process.env.WICKET_CLI ?? path.join(root, "cli", "target", "debug", "wicket");
-  if (!process.env.WICKET_CLI) {
+  const cli = process.env.PINRAIL_CLI ?? path.join(root, "cli", "target", "debug", "pinrail");
+  if (!process.env.PINRAIL_CLI) {
     console.log("e2e: building the CLI");
     execFileSync("cargo", ["build", "--quiet"], { cwd: path.join(root, "cli"), stdio: "inherit" });
   }
@@ -27,10 +27,10 @@ function buildCli(): string {
 
 /** The desktop app, which the CLI starts headless as the server. */
 function buildDesktop(): string {
-  const bin = process.env.WICKET_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "Wicket");
-  if (!process.env.WICKET_DESKTOP_BIN) {
+  const bin = process.env.PINRAIL_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "Pinrail");
+  if (!process.env.PINRAIL_DESKTOP_BIN) {
     console.log("e2e: building the desktop app");
-    execFileSync("cargo", ["build", "--quiet", "-p", "wicket-desktop"], { cwd: path.join(root, "desktop"), stdio: "inherit" });
+    execFileSync("cargo", ["build", "--quiet", "-p", "pinrail-desktop"], { cwd: path.join(root, "desktop"), stdio: "inherit" });
   }
   if (!fs.existsSync(bin)) throw new Error(`desktop binary not found at ${bin}`);
   return bin;
@@ -56,7 +56,7 @@ export default async function globalSetup() {
   console.log(`e2e: starting the server on ${state.url} (data in ${run})`);
   const serve = spawnSync(cli, ["serve"], { env: cliEnv(state), encoding: "utf8", timeout: 120_000 });
   if (serve.status !== 0) {
-    throw new Error(`wicket serve failed (${serve.status}):\n${serve.stderr}\n${serve.stdout}`);
+    throw new Error(`pinrail serve failed (${serve.status}):\n${serve.stderr}\n${serve.stdout}`);
   }
 
   // One install per plugin, the way a person installs one. The three that
@@ -67,7 +67,7 @@ export default async function globalSetup() {
   const install = (name: string, args: string[], timeout: number) => {
     const dir = path.join(root, "plugins", name);
     const done = spawnSync(cli, ["plugins", "install", dir, ...args], { env: cliEnv(state), encoding: "utf8", timeout });
-    if (done.status !== 0) throw new Error(`wicket plugins install ${name} failed:\n${done.stdout}\n${done.stderr}`);
+    if (done.status !== 0) throw new Error(`pinrail plugins install ${name} failed:\n${done.stdout}\n${done.stderr}`);
   };
   for (const name of ["email", "hello", "review"]) install(name, ["--link"], 120_000);
   console.log("e2e: building and installing the artifact plugin");

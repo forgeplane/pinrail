@@ -1,6 +1,6 @@
 //! The CLI reference page of the docs, rendered from the clap definition, so
 //! the page says what the binary does. Built only with `--features docs`
-//! and reached through `wicket --markdown-help`; the installed CLI carries
+//! and reached through `pinrail --markdown-help`; the installed CLI carries
 //! none of it.
 
 use std::collections::BTreeMap;
@@ -41,15 +41,15 @@ const EXITS: &[(u8, &str)] = &[
 /// The variables the CLI reads outside clap, beside the ones flags declare.
 const ENVIRONMENT: &[(&str, &str)] = &[
     (
-        "WICKET_DATA_DIR",
+        "PINRAIL_DATA_DIR",
         "Where the running server's `server.json` is, to find it; also where a server the CLI starts keeps its data.",
     ),
     (
-        "WICKET_PORT",
+        "PINRAIL_PORT",
         "The port to try when no server advertises itself. Defaults to 4747.",
     ),
     (
-        "WICKET_SERVER_CMD",
+        "PINRAIL_SERVER_CMD",
         "How to start a server when none is running, run through `sh -c`. `submit` and `serve` use it.",
     ),
 ];
@@ -118,7 +118,7 @@ fn command(page: &mut String, cmd: &Command, parents: &[&str]) {
     }
 }
 
-/// `wicket submit <PLUGIN> --title <TITLE> [OPTIONS]`: what must be given,
+/// `pinrail submit <PLUGIN> --title <TITLE> [OPTIONS]`: what must be given,
 /// then that more is possible.
 fn usage(cmd: &Command, path: &[&str]) -> String {
     let mut parts: Vec<String> = path.iter().map(|p| p.to_string()).collect();
@@ -350,10 +350,10 @@ mod tests {
     fn the_page_has_every_command_and_flag() {
         let page = render(&Cli::command());
         for heading in [
-            "### `wicket submit`",
-            "### `wicket wait`",
-            "### `wicket plugins`",
-            "### `wicket plugins install`",
+            "### `pinrail submit`",
+            "### `pinrail wait`",
+            "### `pinrail plugins`",
+            "### `pinrail plugins install`",
         ] {
             assert!(page.contains(heading), "{heading} is missing");
         }
@@ -366,7 +366,7 @@ mod tests {
             assert!(page.contains(flag), "{flag} is missing");
         }
         assert!(page.contains("| `5` | The person discarded the review"));
-        assert!(page.contains("`WICKET_REQUESTED_BY`"));
+        assert!(page.contains("`PINRAIL_REQUESTED_BY`"));
         assert!(page.starts_with("---\ntitle: CLI reference\n"));
         assert!(
             page.contains("the body the API takes:\n\n```json\n{\n  \"plugin\": \"list\","),

@@ -1,9 +1,9 @@
 ---
 title: Notifications
-description: "When Wicket tells you a review is waiting, and how to pause, quiet or narrow it."
+description: "When Pinrail tells you a review is waiting, and how to pause, quiet or narrow it."
 ---
 
-An agent that asks is waiting on you, so Wicket tells you when a review arrives: a system notification, and a count in the menu bar. Click the notification to open the review.
+An agent that asks is waiting on you, so Pinrail tells you when a review arrives: a system notification, and a count in the menu bar. Click the notification to open the review.
 
 ## The menu bar
 
@@ -12,7 +12,7 @@ The menu bar icon shows how many reviews are waiting, and its menu lists them, o
 - open a waiting review, the oldest one, or the inbox;
 - pause notifications for 15 minutes, an hour, or until tomorrow.
 
-Closing Wicket's window keeps it in the menu bar, so reviews keep arriving. You can hide the icon in *Settings › General*; Wicket still runs.
+Closing Pinrail's window keeps it in the menu bar, so reviews keep arriving. You can hide the icon in *Settings › General*; Pinrail still runs.
 
 ## Quieting notifications
 
@@ -27,8 +27,8 @@ The menu bar count always shows what is waiting, whatever you have paused or mut
 
 ## When notifications don't appear
 
-Wicket asks your system for permission to notify the first time a review arrives.
+Pinrail asks your system for permission to notify the first time a review arrives.
 
-**On macOS**, open *System Settings › Notifications › Wicket* and check that notifications are allowed, with the alert style you want. A Focus mode also holds notifications back until it ends. *Settings › General* in Wicket shows what macOS reports, with a link to its settings when notifications are blocked.
+**On macOS**, open *System Settings › Notifications › Pinrail* and check that notifications are allowed, with the alert style you want. A Focus mode also holds notifications back until it ends. *Settings › General* in Pinrail shows what macOS reports, with a link to its settings when notifications are blocked.
 
 **On Linux**, notifications go through your desktop's notification service. Check its do-not-disturb setting.

@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Wicket",
-  "mainBinaryName": "Wicket",
+  "productName": "Pinrail",
+  "mainBinaryName": "Pinrail",
   "version": "0.1.0",
-  "identifier": "dev.wicket.desktop",
+  "identifier": "dev.pinrail.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "Wicket",
+        "title": "Pinrail",
         "width": 1040,
         "height": 720,
         "minWidth": 720,
@@ -31,7 +31,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["wicket"]
+        "schemes": ["pinrail"]
       }
     }
   },

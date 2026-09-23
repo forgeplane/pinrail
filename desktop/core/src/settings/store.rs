@@ -55,7 +55,7 @@ const LEAVES: &[Leaf] = &[
         "/autostart",
         Kind::Bool,
         || json!(false),
-        "Start Wicket when you log in.",
+        "Start Pinrail when you log in.",
     ),
     (
         "/close_window",
@@ -109,7 +109,7 @@ const LEAVES: &[Leaf] = &[
         "/shortcut/global",
         Kind::Text,
         || json!("alt+shift+w"),
-        "The shortcut that brings Wicket forward from any app.",
+        "The shortcut that brings Pinrail forward from any app.",
     ),
     (
         "/shortcut/global_opens",

@@ -7,7 +7,7 @@ sidebar:
     variant: default
 ---
 
-<div class="wk-badges"><span class="wk-badge optional">Optional</span><span class="wk-badge plain">plugin: review</span></div>
+<div class="pr-badges"><span class="pr-badge optional">Optional</span><span class="pr-badge plain">plugin: review</span></div>
 
 The code review plugin puts a reviewing agent's comments in front of you before they reach a pull or merge request. You see the diff, with each proposed comment on the line it is about, and decide which ones are worth posting. Your notes improve the ones you keep and explain the ones you reject, so the agent's next review is better than its last.
 
@@ -24,7 +24,7 @@ It works with any forge. The agent maps its pull or merge request into the paylo
 ## Install
 
 ```sh
-wicket plugins install github.com/pnezis/wicket/plugins/review
+pinrail plugins install github.com/forgeplane/pinrail/plugins/review
 ```
 
 ## What you see
@@ -43,13 +43,13 @@ The layout choices are saved as [plugin settings](/docs/building/settings-and-ke
 ```md title="AGENTS.md"
 ## Before posting review comments
 
-Never post review comments directly. Submit them to Wicket as a `review` and
+Never post review comments directly. Submit them to Pinrail as a `review` and
 wait for my decision:
 
 1. Write the payload: the change, each file's unified diff (as `git diff`
    prints it), and one proposal per comment, anchored on `file` and `line`.
    Give each proposal a stable integer `id`.
-2. Run: `wicket submit review --title "<PR title>" --origin repo=<owner/repo>,ref=<PR number>,url=<PR URL> --data review.json --wait --format markdown`
+2. Run: `pinrail submit review --title "<PR title>" --origin repo=<owner/repo>,ref=<PR number>,url=<PR URL> --data review.json --wait --format markdown`
 3. Post only accepted proposals. Apply an accept note as a revision before
    posting. Never post undecided proposals.
 4. Post my `general_comments` as they are. Consider my line `comments` and

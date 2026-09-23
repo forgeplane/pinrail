@@ -20,7 +20,7 @@ accepted = [
   "Zlib",
 ]
 
-# only what ships: the platforms Wicket is built for, and no crates that run
+# only what ships: the platforms Pinrail is built for, and no crates that run
 # only at build time or in tests
 targets = [
   "aarch64-apple-darwin",

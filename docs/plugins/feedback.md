@@ -7,7 +7,7 @@ sidebar:
     variant: success
 ---
 
-<div class="wk-badges"><span class="wk-badge built-in">Built in</span><span class="wk-badge plain">plugin: feedback</span></div>
+<div class="pr-badges"><span class="pr-badge built-in">Built in</span><span class="pr-badge plain">plugin: feedback</span></div>
 
 The feedback plugin is how an agent asks you questions. It sends a short form: choices, yes-or-no questions, free text and acknowledgments, in groups, with follow-up questions that appear only when an earlier answer calls for them. You answer everything in one pass and hand it back. It ships with the app, so there is nothing to install.
 
@@ -40,12 +40,12 @@ The app asks you to complete required questions before you hand over.
 ## When you need a decision from me
 
 When you need my input to go on, don't guess and don't ask in chat. Ask with
-Wicket's `feedback` plugin and wait:
+Pinrail's `feedback` plugin and wait:
 
 1. Write the questions to a JSON file (the shape is below). Give every group
    and question a stable `id`. Offer choices when you can, and add a
    `recommendation` with your reasoning when you have one.
-2. Run: `wicket submit feedback --title "<what you need to decide>" --data questions.json --wait --format markdown`
+2. Run: `pinrail submit feedback --title "<what you need to decide>" --data questions.json --wait --format markdown`
 3. Use the answers as given. An answer's comment qualifies it; read it.
    Questions under `unanswered` got no answer: don't assume one.
 4. If the command exits 5, stop and tell me why.

@@ -1,13 +1,13 @@
 {
-  "name": "wicket-plugins",
+  "name": "pinrail-plugins",
   "private": true,
-  "description": "The sample plugins' tests, and the built-in plugin's, under the wicket-plugin harness",
+  "description": "The sample plugins' tests, and the built-in plugin's, under the pinrail-plugin harness",
   "license": "Apache-2.0",
   "scripts": {
     "test": "node --test */tests/*.test.cjs && NODE_PATH=node_modules playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "wicket-plugin": "file:../wicket-plugin"
+    "@forgeplane/pinrail-plugin": "file:../pinrail-plugin"
   }
 }

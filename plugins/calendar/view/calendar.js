@@ -1,6 +1,6 @@
 (function () {
   "use strict";
-  const C = CalendarCore, esc = Wicket.escape, icon = name => Wicket.icon(name, { size: 17 });
+  const C = CalendarCore, esc = Pinrail.escape, icon = name => Pinrail.icon(name, { size: 17 });
   const app = document.getElementById("app");
   const colors = ["violet", "blue", "amber", "rose", "teal", "indigo"];
   /* The view: `day` one day at full width, `week` up to seven days, `list`
@@ -8,7 +8,7 @@
      the payload's days; a week pages seven days at a time from the start. */
   const VIEWS = ["day", "week", "list"];
   let payload, state, error = "", mode = "week", cursor = 0, preferred = "auto", expanded = null, previous = null;
-  const plugin = Wicket.connect({
+  const plugin = Pinrail.connect({
     resize: "fill",
     onInit({ gate, draft, previous: old, settings }) {
       error = ""; previous = old; expanded = null;
@@ -174,9 +174,9 @@
     const page = mode === "day" ? cursor : Math.floor(cursor / 7);
     const paging = mode !== "list" && pages > 1;
     const nav = paging ? `<div class="pager" role="group" aria-label="${mode === "day" ? "Days" : "Weeks"}">
-        <button data-action="prev" aria-label="Previous ${mode}" title="Previous ${mode} (k)" ${page === 0 ? "disabled" : ""}>${Wicket.icon("chevron-left", { size: 15 })}</button>
+        <button data-action="prev" aria-label="Previous ${mode}" title="Previous ${mode} (k)" ${page === 0 ? "disabled" : ""}>${Pinrail.icon("chevron-left", { size: 15 })}</button>
         <button data-action="first" class="pager-first" title="Back to the first day (t)" ${page === 0 ? "disabled" : ""}>First day</button>
-        <button data-action="next" aria-label="Next ${mode}" title="Next ${mode} (j)" ${page === pages - 1 ? "disabled" : ""}>${Wicket.icon("chevron-right", { size: 15 })}</button>
+        <button data-action="next" aria-label="Next ${mode}" title="Next ${mode} (j)" ${page === pages - 1 ? "disabled" : ""}>${Pinrail.icon("chevron-right", { size: 15 })}</button>
       </div>` : "";
     const weekFrom = Math.floor(cursor / 7) * 7, weekDays = Math.min(7, dayCount() - weekFrom);
     const strip = mode === "day" && dayCount() > 1 ? `<div class="day-strip" role="group" aria-label="Days this week">${Array.from({ length: weekDays }, (_, k) => {
@@ -187,7 +187,7 @@
       <div class="workbench"><aside class="sidebar" aria-label="Activities to arrange"><div class="sidebar-heading"><h2>The plan</h2><span>${total} ${total === 1 ? "item" : "items"}</span></div>
         ${payload.items.map(card).join("")}
         ${!total ? '<div class="empty">Nothing to schedule in this review.</div>' : ""}
-        <div class="selection-summary"><div><span>${selected.length}<small> / ${total}</small></span>${icon(unresolved === 0 ? "circle-check" : "mouse-pointer-2")}</div><strong>${unresolved ? "A little room for your judgment." : selected.length ? "Your plan is ready." : "Back to the agent."}</strong><p>${selected.length ? `${duration >= 60 ? Math.floor(duration / 60) + "h " : ""}${duration % 60 ? duration % 60 + "m " : ""}planned. ` : ""}${handedBack ? `${handedBack}. ` : ""}${unresolved ? "Pick a time for each item, ask for another, or decline it." : "Use Wicket’s hand-over to send your choices."}</p><div class="progress" aria-hidden="true"><span style="width:${total ? (total - unresolved) / total * 100 : 100}%"></span></div></div>
+        <div class="selection-summary"><div><span>${selected.length}<small> / ${total}</small></span>${icon(unresolved === 0 ? "circle-check" : "mouse-pointer-2")}</div><strong>${unresolved ? "A little room for your judgment." : selected.length ? "Your plan is ready." : "Back to the agent."}</strong><p>${selected.length ? `${duration >= 60 ? Math.floor(duration / 60) + "h " : ""}${duration % 60 ? duration % 60 + "m " : ""}planned. ` : ""}${handedBack ? `${handedBack}. ` : ""}${unresolved ? "Pick a time for each item, ask for another, or decline it." : "Use Pinrail’s hand-over to send your choices."}</p><div class="progress" aria-hidden="true"><span style="width:${total ? (total - unresolved) / total * 100 : 100}%"></span></div></div>
         ${selected.length && !plugin.readonly ? `<button class="reset" data-action="reset">${icon("rotate-ccw")} Clear all choices</button>` : ""}
         ${previous ? '<p class="revision-note">Revised proposal · choices apply to this round only.</p>' : ""}
       </aside><section class="schedule" aria-label="Suggested schedule"><div class="calendar-toolbar"><div><h2>${esc(displayMonth)}</h2><span>${esc(spanLabel)} <span class="timezone">· ${esc(payload.timezone)}</span></span></div><div class="toolbar-controls">${nav}<div class="view-switch" role="group" aria-label="Schedule view"><button data-action="view" data-view="day" aria-label="Day" title="Day (d)" aria-pressed="${mode === "day"}">${icon("calendar")}<span>Day</span></button><button data-action="view" data-view="week" aria-label="Week" title="Week (w)" aria-pressed="${mode === "week"}">${icon("calendar-days")}<span>Week</span></button><button data-action="view" data-view="list" aria-label="List" title="List (l)" aria-pressed="${mode === "list"}">${icon("list")}<span>List</span></button></div></div></div>

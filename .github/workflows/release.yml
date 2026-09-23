@@ -1,8 +1,8 @@
 # A tag v<version> (v0.1.0) releases the desktop app: the full CI runs first,
 # then a draft GitHub Release gets a universal macOS build (.dmg, and the
 # .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), each
-# with the wicket CLI inside (/usr/bin/wicket in the Linux packages, beside the
-# app as wicket-desktop; wicket-cli in the macOS bundle) and the third-party
+# with the pinrail CLI inside (/usr/bin/pinrail in the Linux packages, beside the
+# app as pinrail-desktop; pinrail-cli in the macOS bundle) and the third-party
 # notices as THIRD_PARTY_NOTICES.txt, a build provenance attestation for each
 # installer, and a SHA256SUMS file.
 # The draft is published by hand after a smoke test. The tag has to name
@@ -79,7 +79,7 @@ jobs:
           # an empty id makes every build skip its upload without a word.
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name="$GITHUB_REF_NAME" \
-            -f name="Wicket ${{ steps.version.outputs.version }}" \
+            -f name="Pinrail ${{ steps.version.outputs.version }}" \
             -f body="$(cat notes.md)" \
             -F draft=true \
             --jq .id)
@@ -105,7 +105,7 @@ jobs:
             # the oldest supported Ubuntu, so the AppImage runs on older glibc
             runner: ubuntu-22.04
             triple: x86_64-unknown-linux-gnu
-            # wicket-desktop and /usr/bin/wicket: the command is the CLI's
+            # pinrail-desktop and /usr/bin/pinrail: the command is the CLI's
             args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.linux.conf.json
             targets: ""
             bundles: |
@@ -155,7 +155,7 @@ jobs:
           # matches and shares; Linux does not, because CI runs on the
           # current Ubuntu and a release on 22.04, and artifacts built
           # against a newer glibc would undo the floor that image is for.
-          shared-key: wicket-${{ matrix.runner }}
+          shared-key: pinrail-${{ matrix.runner }}
           workspaces: |
             desktop
             cli
@@ -170,7 +170,7 @@ jobs:
       - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
         with:
           tool: cargo-about
-      # the CLI ships inside the bundle as the wicket-cli sidecar
+      # the CLI ships inside the bundle as the pinrail-cli sidecar
       - name: Build the CLI
         working-directory: desktop/app
         run: npm run cli:build -- ${{ matrix.triple }}
@@ -218,7 +218,7 @@ jobs:
           releaseId: ${{ needs.draft.outputs.id }}
           uploadUpdaterJson: false
           uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: wicket-[platform]-[arch]-[bundle]
+          workflowArtifactNamePattern: pinrail-[platform]-[arch]-[bundle]
       # what the person downloading gets: a signature that checks out, and
       # a notarization ticket stapled to the bundle
       - name: Check the signature and the notarization (macOS)

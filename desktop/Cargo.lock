@@ -3224,6 +3224,58 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
+name = "pinrail-core"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "futures-util",
+ "http-body-util",
+ "include_dir",
+ "jsonschema",
+ "mime_guess",
+ "minijinja",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "tower",
+ "tower-http",
+ "ureq",
+ "zip",
+]
+
+[[package]]
+name = "pinrail-desktop"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "chrono",
+ "objc2",
+ "objc2-foundation",
+ "objc2-user-notifications",
+ "pinrail-core",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-window-state",
+ "tempfile",
+ "tokio",
+]
+
+[[package]]
 name = "piper"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5727,58 +5779,6 @@ name = "weezl"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
-
-[[package]]
-name = "wicket-core"
-version = "0.1.0"
-dependencies = [
- "axum",
- "chrono",
- "futures-util",
- "http-body-util",
- "include_dir",
- "jsonschema",
- "mime_guess",
- "minijinja",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "tokio",
- "tokio-stream",
- "tower",
- "tower-http",
- "ureq",
- "zip",
-]
-
-[[package]]
-name = "wicket-desktop"
-version = "0.1.0"
-dependencies = [
- "block2",
- "chrono",
- "objc2",
- "objc2-foundation",
- "objc2-user-notifications",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-deep-link",
- "tauri-plugin-dialog",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-window-state",
- "tempfile",
- "tokio",
- "wicket-core",
-]
 
 [[package]]
 name = "winapi"

@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
-use crate::Wicket;
+use crate::Pinrail;
 use crate::error::Error;
 use crate::reviews::{Filters, Status};
 
@@ -37,7 +37,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/events", get(events))
 }
 
-async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Response, ApiError> {
+async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
     let body = parse_body(&body)?;
     let review = state.reviews().submit(&body, None)?;
     Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
@@ -45,7 +45,7 @@ async fn submit(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Respons
 
 /// The checks a submission gets, with nothing stored: 200 naming the plugin
 /// version that would render it, or the 422 `submit` would answer.
-async fn validate(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Json<Value>, ApiError> {
+async fn validate(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
     let plugin = state.reviews().validate(&body)?;
     Ok(Json(json!({
@@ -61,7 +61,7 @@ async fn validate(State(state): State<Arc<Wicket>>, body: Bytes) -> Result<Json<
 /// `include=facets`. Walk everything with `cursor=<next_cursor>`; number
 /// pages with `offset`.
 async fn list(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
     let filters = filters(&params)?;
@@ -112,7 +112,7 @@ fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> bool
 /// A review as the caller asked for it: markdown with its round placed
 /// in the chain, or the JSON everything else reads.
 fn review_response(
-    state: &Wicket,
+    state: &Pinrail,
     review: &crate::reviews::Review,
     markdown: bool,
 ) -> Result<Response, ApiError> {
@@ -142,7 +142,7 @@ fn review_response(
 }
 
 async fn show(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -152,7 +152,7 @@ async fn show(
 }
 
 async fn rounds(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let rounds = state.reviews().rounds(&id)?;
@@ -162,7 +162,7 @@ async fn rounds(
 }
 
 async fn wait(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -183,7 +183,7 @@ async fn wait(
 }
 
 async fn decide(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     Query(params): Query<HashMap<String, String>>,
     headers: HeaderMap,
@@ -199,7 +199,7 @@ async fn decide(
 }
 
 async fn withdraw(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
@@ -209,7 +209,7 @@ async fn withdraw(
 }
 
 async fn discard(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
     body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
@@ -226,7 +226,7 @@ async fn discard(
 }
 
 async fn viewed(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     state.reviews().mark_viewed(&id)?;
@@ -234,7 +234,7 @@ async fn viewed(
 }
 
 async fn events(
-    State(state): State<Arc<Wicket>>,
+    State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let events = state.reviews().events(&id)?;

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { loadState, serverPid } from "../helpers/state";
-import { submitListReview, tmpFile, wicket, wicketJson } from "../helpers/wicket";
+import { submitListReview, tmpFile, pinrail, pinrailJson } from "../helpers/pinrail";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -22,12 +22,12 @@ test("a waiter survives the server being killed and restarted", async () => {
     }
   }
 
-  const serve = wicket(["serve"]);
+  const serve = pinrail(["serve"]);
   expect(serve.code, serve.stderr).toBe(0);
   expect(JSON.parse(serve.stdout).url).toBe(loadState().url);
   expect(serverPid()).not.toBe(pid);
 
-  wicketJson(["decide", id, "--data", tmpFile("d.json", JSON.stringify({ decisions: [], undecided: [1, 2] }))]);
+  pinrailJson(["decide", id, "--data", tmpFile("d.json", JSON.stringify({ decisions: [], undecided: [1, 2] }))]);
   const result = await waiter.done;
   expect(result.code, result.stderr).toBe(0);
   expect(JSON.parse(result.stdout).status).toBe("decided");

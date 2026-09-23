@@ -1,4 +1,4 @@
-Wicket
+Pinrail
 Copyright 2026 Panagiotis Nezis
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -8,4 +8,4 @@ LICENSE file, and at http://www.apache.org/licenses/LICENSE-2.0.
 This product includes the Lucide icon set (https://lucide.dev), served to
 plugin views, under the ISC License:
 Copyright (c) 2026 Lucide Icons and Contributors. The full text is in
-wicket-plugin/licenses/lucide-icons.txt.
+pinrail-plugin/licenses/lucide-icons.txt.

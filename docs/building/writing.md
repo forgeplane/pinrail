@@ -3,7 +3,7 @@ title: Writing a plugin
 description: "Build a plugin for the decision your agent needs a person for, from the first scaffold to a tested view."
 ---
 
-A plugin teaches Wicket one kind of review. It says what an agent sends, what comes back, and what the person sees in between. Everything else, the inbox, notifications, history and the command the agent waits on, is the app's.
+A plugin teaches Pinrail one kind of review. It says what an agent sends, what comes back, and what the person sees in between. Everything else, the inbox, notifications, history and the command the agent waits on, is the app's.
 
 A plugin is a folder with three things in it:
 
@@ -15,7 +15,7 @@ JSON is the transport and HTML is the view. The agent never sees your HTML, and 
 
 ```mermaid title="One review, end to end"
 flowchart TB
-  A["agent"] -->|"1 · payload, as JSON"| S["Wicket"]
+  A["agent"] -->|"1 · payload, as JSON"| S["Pinrail"]
   S -->|"2 · shows it in"| V["your view, in HTML"]
   V <-->|"3 · decides"| P(["the person"]):::you
   V -->|"4 · decision, as JSON"| S
@@ -24,14 +24,14 @@ flowchart TB
 
 ## Before you start
 
-You need [Node.js](https://nodejs.org) 22 or later for the tooling, and the Wicket app running if you want to try the plugin in it. The view itself needs nothing: it is plain HTML that the app serves.
+You need [Node.js](https://nodejs.org) 22 or later for the tooling, and the Pinrail app running if you want to try the plugin in it. The view itself needs nothing: it is plain HTML that the app serves.
 
 ## Create the folder
 
-`wicket-plugin create` writes a plugin that runs, passes its own tests and installs before you change a line of it.
+`pinrail-plugin create` writes a plugin that runs, passes its own tests and installs before you change a line of it.
 
 ```sh
-npx wicket-plugin create ticket_triage
+npx @forgeplane/pinrail-plugin create ticket_triage
 ```
 
 The name is lowercase letters, digits, `_` and `-`, starting with a letter, and it must be unique among your installed plugins. Add `--template vite` for a view written in TypeScript and built with Vite; the default is one HTML file with its script inline.
@@ -74,11 +74,11 @@ Only the manifest, the schemas and the view reach the app. `fixtures/`, `tests/`
 
 | Key | What it does |
 |---|---|
-| `name` | The plugin's identifier. Agents submit to it: `wicket submit ticket_triage`. |
+| `name` | The plugin's identifier. Agents submit to it: `pinrail submit ticket_triage`. |
 | `version` | Semantic, such as `"1.2.0"`. The major version is a compatibility promise; see [Versions](#versions). |
 | `title` | What the app calls the plugin in its lists and settings. |
 | `description` | A sentence on what the plugin is for. |
-| `use_when` | The situation an agent should ask with this plugin in. Agents read it in `wicket plugins describe` when they choose a plugin. |
+| `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins describe` when they choose a plugin. |
 | `icon` | Any [Lucide](https://lucide.dev/icons) icon name, shown beside the plugin's reviews. |
 | `payload_schema`, `decision_schema` | JSON Schema 2020-12, inline or as a `$ref` to a file inside the folder. |
 | `example` | A JSON file inside the folder with a payload that passes `payload_schema`. Agents get it as a starting point. |
@@ -90,7 +90,7 @@ Write `use_when` for an agent deciding between plugins: name the moment, not the
 The manifest can also declare [settings and keyboard shortcuts](/docs/building/settings-and-keys/), a template that [renders decisions as markdown](#decisions-as-markdown), and a `build` command for a view that compiles.
 
 :::tip[Check before you install]
-`npx wicket-plugin check` reads the folder the way the app will and reports what it would refuse, without the app running.
+`npx pinrail-plugin check` reads the folder the way the app will and reports what it would refuse, without the app running.
 :::
 
 ## The two schemas
@@ -145,7 +145,7 @@ The schemas are the contract. The app validates every payload before it reaches 
 Design the decision for whoever reads it next. An agent reads it as markdown and a script reads it as JSON, so name fields for what they mean (`action`, `note`) rather than for how the view collects them.
 
 :::note
-A payload that fails its schema never reaches the inbox: the agent's `wicket submit` exits with code 2 and prints the errors. A decision that fails is sent back to your view as `violations`, and the person can fix it before anything leaves.
+A payload that fails its schema never reaches the inbox: the agent's `pinrail submit` exits with code 2 and prints the errors. A decision that fails is sent back to your view as `violations`, and the person can fix it before anything leaves.
 :::
 
 ## The view
@@ -155,13 +155,13 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
 ```html title="view/index.html" {3,5,9-17}
 <!doctype html>
 <html lang="en">
-<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <body>
-<script src="/sdk/v1/wicket-plugin.js"></script>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>
-  const view = Wicket.layout({ title: "Tickets" });
+  const view = Pinrail.layout({ title: "Tickets" });
   const choices = new Map();
-  const plugin = Wicket.connect({
+  const plugin = Pinrail.connect({
     onInit({ gate, draft }) {
       for (const d of draft?.decisions ?? []) choices.set(d.id, d.action);
       render();
@@ -174,7 +174,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
   function render() {
     view.content.innerHTML = plugin.gate.payload.tickets.map((t) => `
       <div class="item">
-        <div class="head"><span class="id">#${t.id}</span><span class="title">${Wicket.escape(t.title)}</span></div>
+        <div class="head"><span class="id">#${t.id}</span><span class="title">${Pinrail.escape(t.title)}</span></div>
         <div class="controls">
           <button class="btn" data-id="${t.id}" data-action="close" aria-pressed="${choices.get(t.id) === "close"}">Close</button>
           <button class="btn" data-id="${t.id}" data-action="keep" aria-pressed="${choices.get(t.id) === "keep"}">Keep</button>
@@ -192,7 +192,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
 </script>
 ```
 
-`Wicket.connect` does the protocol for you: it announces the view, receives the review, sizes the frame to your content and keeps drafts. You write two callbacks and a renderer.
+`Pinrail.connect` does the protocol for you: it announces the view, receives the review, sizes the frame to your content and keeps drafts. You write two callbacks and a renderer.
 
 - **`onInit`** runs once with the review (`gate`, payload included), whether it is `readonly`, the `previous` round when this one revises another, and the `draft` the person left.
 - **`onCollect`** runs when the person hands over. Assemble the decision and call `plugin.submit`.
@@ -240,24 +240,24 @@ Links still work for the person: a click on an `http`, `https` or `mailto` link 
 
 ## Look like the app
 
-Link `/sdk/v1/wicket-plugin.css` and your view gets the app's colours in both themes, its type, and a small set of classes: `.plugin-header`, `.item`, `.btn`, `.field`, `.notice`, severity chips and more. The palette follows the app, so your view changes with it and your bundle carries no copy of it.
+Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both themes, its type, and a small set of classes: `.plugin-header`, `.item`, `.btn`, `.field`, `.notice`, severity chips and more. The palette follows the app, so your view changes with it and your bundle carries no copy of it.
 
 ```js
-const view = Wicket.layout({ title: "5 tickets", controls: [closeAll] });
+const view = Pinrail.layout({ title: "5 tickets", controls: [closeAll] });
 view.content.innerHTML = rows;               // re-render the body freely
 view.title("4 tickets").meta(["acme-api"]);  // the header keeps its listeners
 ```
 
-Icons come from the app too. `Wicket.icon("check")` returns the markup for any Lucide icon; it takes the colour of the text around it and downloads only when used.
+Icons come from the app too. `Pinrail.icon("check")` returns the markup for any Lucide icon; it takes the colour of the text around it and downloads only when used.
 
 Every class is a default, not a rule: your own `<style>` comes after the stylesheet and wins.
 
 ## Run it
 
-`wicket-plugin dev` opens your view in a browser under a stand-in for the app, without the app.
+`pinrail-plugin dev` opens your view in a browser under a stand-in for the app, without the app.
 
 ```sh
-npx wicket-plugin dev .
+npx pinrail-plugin dev .
 ```
 
 Pick a fixture to initialise the view with, toggle read-only and the theme, send `collect` as the app's hand-over button does, and answer a submit with `submitted` or with violations you type. Everything the view posts appears in a log beside it, and a change to any file reloads the view with its draft intact.
@@ -265,8 +265,8 @@ Pick a fixture to initialise the view with, toggle read-only and the theme, send
 To see it in the app at the same time, link the folder. A linked plugin is served live, so a change shows the next time you open a review:
 
 ```sh
-wicket plugins install ./ticket_triage --link
-wicket submit ticket_triage --title "Stale tickets" \
+pinrail plugins install ./ticket_triage --link
+pinrail submit ticket_triage --title "Stale tickets" \
   --data <(jq .payload fixtures/basic.json) --wait
 ```
 
@@ -287,12 +287,12 @@ A fixture is a partial review: a `title`, a `payload`, and optionally a `decisio
 }
 ```
 
-`wicket-plugin/testing` mounts the view alone in a sandboxed frame under the app's CSP, so a test drives it the way a person would and reads back exactly what it submits:
+`pinrail-plugin/testing` mounts the view alone in a sandboxed frame under the app's CSP, so a test drives it the way a person would and reads back exactly what it submits:
 
 ```ts title="tests/ticket_triage.spec.ts"
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, mountPlugin } from "wicket-plugin/testing";
+import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
 const dir = path.resolve(__dirname, "..");
 
@@ -305,7 +305,7 @@ test("hands back a verdict per ticket", async ({ page }) => {
 ```
 
 ```sh
-npx wicket-plugin test
+npx pinrail-plugin test
 ```
 
 ## Versions

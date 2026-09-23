@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Draft emails</title>
-<link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <style>
   /* The shape of a mail client: the drafts down a rail, the open one as the
      message it would be, and the verdict kept in reach at the foot. Tokens,
@@ -211,7 +211,7 @@
 </style>
 </head>
 <body>
-<script src="/sdk/v1/wicket-plugin.js"></script>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
 <div class="shell" id="app"><div class="top"><h1>Loading…</h1></div></div>
 <script>
 "use strict";
@@ -221,7 +221,7 @@
    travel back, so the agent can send what you approved and learn from what
    you changed. */
 
-const esc = Wicket.escape, markdown = Wicket.markdown, icon = Wicket.icon;
+const esc = Pinrail.escape, markdown = Pinrail.markdown, icon = Pinrail.icon;
 const app = document.getElementById("app");
 const LABELS = { send: "Send", revise: "Revise", discard: "Discard" };
 const KEYS = { send: "s", revise: "r", discard: "x" };
@@ -232,7 +232,7 @@ let gate = null, readonly = false;
    screen's and are not kept. */
 const S = { sel: 0, verdict: {}, subject: {}, body: {}, marks: {}, note: {}, history: {}, future: {}, armed: false, errors: null, active: null };
 
-const plugin = Wicket.connect({
+const plugin = Pinrail.connect({
   resize: "fill",
   onInit(init) {
     gate = init.gate; readonly = init.readonly;

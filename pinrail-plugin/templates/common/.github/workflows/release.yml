@@ -1,0 +1,43 @@
+# A tag v<version> (v0.2.0) builds the plugin when its manifest says so and
+# attaches the bundle, <name>-<version>.zip, to a GitHub release of the same
+# tag. Installing it then needs no toolchain:
+#
+#   pinrail plugins install https://github.com/<owner>/<repo>/releases/latest
+#
+# The manifest's version must be the tag's, or the install refuses it.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Name and version
+        id: plugin
+        run: |
+          echo "name=$(node -e 'process.stdout.write(require("./manifest.json").name)')" >> "$GITHUB_OUTPUT"
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          declared=$(node -e 'const v=require("./manifest.json").version; process.stdout.write(typeof v==="number" ? v+".0.0" : v)')
+          test "$declared" = "${GITHUB_REF_NAME#v}" || { echo "manifest says $declared, tag says ${GITHUB_REF_NAME#v}"; exit 1; }
+      - name: Build when the manifest declares a build
+        run: |
+          command=$(node -e 'const m=require("./manifest.json"); process.stdout.write(m.build?.command ?? "")')
+          if [ -n "$command" ]; then sh -c "$command"; fi
+      - name: The bundle, and nothing else
+        run: |
+          zip -r "${{ steps.plugin.outputs.name }}-${{ steps.plugin.outputs.version }}.zip" . \
+            -x "node_modules/*" "src/*" "tests/*" "test/*" "fixtures/*" ".*" "*/.*" "*.zip" \
+               "package.json" "package-lock.json" "pnpm-lock.yaml" "yarn.lock" "bun.lockb" \
+               "tsconfig*.json" "vite.config.*" "vitest.config.*" "playwright.config.*"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.plugin.outputs.name }}-${{ steps.plugin.outputs.version }}.zip

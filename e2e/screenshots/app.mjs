@@ -43,10 +43,10 @@ async function waitFor(url, what, timeout = 120_000) {
 
 export async function startApp({ build = true } = {}) {
   const desktop = path.join(root, "desktop");
-  const bin = path.join(desktop, "target", "debug", "Wicket");
+  const bin = path.join(desktop, "target", "debug", "Pinrail");
   if (build) {
     console.log("screenshots: building the desktop app");
-    execFileSync("cargo", ["build", "--quiet", "-p", "wicket-desktop"], { cwd: desktop, stdio: "inherit" });
+    execFileSync("cargo", ["build", "--quiet", "-p", "pinrail-desktop"], { cwd: desktop, stdio: "inherit" });
   }
   const data = path.join(root, "e2e", ".state", "screenshots-data");
   fs.rmSync(data, { recursive: true, force: true });
@@ -60,7 +60,7 @@ export async function startApp({ build = true } = {}) {
   let server = null;
   const startCore = async () => {
     server = spawn(bin, ["--headless", "--port", String(corePort), "--data-dir", data, "--sdk-dir", path.join(desktop, "app", "sdk", "v1")], {
-      env: { ...process.env, WICKET_SHELL_ORIGIN: ui },
+      env: { ...process.env, PINRAIL_SHELL_ORIGIN: ui },
       stdio: ["ignore", "ignore", "inherit"],
     });
     await waitFor(`${core}/api/v1/info`, "the core");
@@ -77,7 +77,7 @@ export async function startApp({ build = true } = {}) {
   execFileSync("npm", ["run", "--silent", "sdk:build"], { cwd: path.join(desktop, "app"), stdio: "inherit" });
   const vite = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"], {
     cwd: path.join(desktop, "app"),
-    env: { ...process.env, VITE_WICKET_URL: core },
+    env: { ...process.env, VITE_PINRAIL_URL: core },
     stdio: ["ignore", "ignore", "inherit"],
   });
   await waitFor(ui, "the shell");
@@ -104,7 +104,7 @@ export async function startApp({ build = true } = {}) {
     /** Stops the core, rewrites times and ids to `plan`, starts it again. */
     async pin(plan) {
       await stopCore();
-      const ids = pinDatabase(path.join(data, "wicket.db"), plan);
+      const ids = pinDatabase(path.join(data, "pinrail.db"), plan);
       await startCore();
       return ids;
     },
@@ -120,7 +120,7 @@ const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 /** A review id as the core mints them: the time, then 80 bits that look
  * random and are the same for the same sequence number every run. */
 export function reviewId(ms, n) {
-  const entropy = BigInt("0x" + createHash("sha256").update(`wicket-screenshots-${n}`).digest("hex").slice(0, 20));
+  const entropy = BigInt("0x" + createHash("sha256").update(`pinrail-screenshots-${n}`).digest("hex").slice(0, 20));
   let bits = (BigInt(ms) << 80n) | entropy;
   let out = "";
   for (let i = 0; i < 26; i++) {
@@ -165,8 +165,8 @@ function pinDatabase(file, plan) {
   // installed from the project's repository at a fixed commit, as a
   // reader's would be, not copied from this checkout
   for (const { name } of db.prepare("SELECT name FROM installed_plugins").all()) {
-    const commit = createHash("sha256").update(`wicket-screenshots-${name}`).digest("hex").slice(0, 40);
-    db.prepare("UPDATE installed_plugins SET kind = 'git', source = ?, resolved = ?, commit_id = ? WHERE name = ?").run(`github.com/pnezis/wicket/plugins/${name}`, `https://github.com/pnezis/wicket`, commit, name);
+    const commit = createHash("sha256").update(`pinrail-screenshots-${name}`).digest("hex").slice(0, 40);
+    db.prepare("UPDATE installed_plugins SET kind = 'git', source = ?, resolved = ?, commit_id = ? WHERE name = ?").run(`github.com/forgeplane/pinrail/plugins/${name}`, `https://github.com/forgeplane/pinrail`, commit, name);
   }
   // the person deciding is the fixtures' person, not whoever runs this
   db.prepare("UPDATE outcomes SET by = ? WHERE kind IN ('decided', 'discarded')").run(PERSON);

@@ -1,5 +1,5 @@
 // The typed client for /api/v1. Inside the app the shell asks Tauri for the
-// server's URL; in a browser (development, tests) it uses VITE_WICKET_URL or
+// server's URL; in a browser (development, tests) it uses VITE_PINRAIL_URL or
 // the default port.
 
 import type { Info, InstallJob, Inspection, Notice, Plugin, PluginUpdates, Review, ReviewEvent, ReviewListing, ServerSettings, Violation } from "./types";
@@ -26,7 +26,7 @@ export function serverUrl(): Promise<string> {
       const { invoke } = await import("@tauri-apps/api/core");
       return invoke<string>("server_url");
     }
-    return import.meta.env.VITE_WICKET_URL ?? "http://127.0.0.1:4747";
+    return import.meta.env.VITE_PINRAIL_URL ?? "http://127.0.0.1:4747";
   })();
   return baseUrl;
 }

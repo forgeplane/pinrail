@@ -7,7 +7,7 @@ sidebar:
     variant: default
 ---
 
-<div class="wk-badges"><span class="wk-badge optional">Optional</span><span class="wk-badge plain">plugin: logo</span></div>
+<div class="pr-badges"><span class="pr-badge optional">Optional</span><span class="pr-badge plain">plugin: logo</span></div>
 
 The logo plugin is for choosing between marks an agent drew: a logo, an app icon, a favicon. A mark that looks right at 128 px can fall apart at 16, or vanish in a one-colour menu bar, so each candidate is shown where it will actually live, in the brand's own colours, light and dark. You pick a favourite, keep or drop the rest, and can click any part of a mark to ask for a change to that part alone.
 
@@ -22,7 +22,7 @@ The logo plugin is for choosing between marks an agent drew: a logo, an app icon
 ## Install
 
 ```sh
-wicket plugins install github.com/pnezis/wicket/plugins/logo
+pinrail plugins install github.com/forgeplane/pinrail/plugins/logo
 ```
 
 ## What you see
@@ -42,14 +42,14 @@ Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous mark, <kbd>f</kbd> favourite
 ## Before settling on a mark
 
 When you draw logo or icon candidates, don't pick one yourself. Submit them
-to Wicket as a `logo` review and wait:
+to Pinrail as a `logo` review and wait:
 
 1. Draw each mark as an SVG with a square viewBox. Use `currentColor` for
    the ink and `var(--accent)` for the accent, so it can be shown on every
    background.
 2. Write the payload: the brand, its palette, and the marks, each with an
    `id`, a `name`, the `svg` and a line of `reasoning`.
-3. Run: `wicket submit logo --title "<brand> marks — round 1" --data marks.json --wait --format markdown`
+3. Run: `pinrail submit logo --title "<brand> marks — round 1" --data marks.json --wait --format markdown`
 4. Take the favourite forward. Apply each note, and each change asked for on
    a part of a mark to the element its `target` names. Drop what was
    dropped. Submit the next round with `--revises <id>`.

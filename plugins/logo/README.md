@@ -15,8 +15,8 @@ is one favourite at most: choosing another moves the old one to *keep*.
 ## Asking
 
 ```sh
-wicket plugins install ./plugins/logo
-wicket submit logo --title "Tidemark marks — round 1" --data marks.json --wait --format markdown
+pinrail plugins install ./plugins/logo
+pinrail submit logo --title "Tidemark marks — round 1" --data marks.json --wait --format markdown
 ```
 
 ## Payload
@@ -77,5 +77,5 @@ with `--revises <id>`: each mark shows the verdict it had last time.
 
 `mise run dev:plugin plugins/logo` opens the view in a browser on the
 fixtures, without the app. Its tests run with the other samples':
-`mise run test:plugins`. `npx wicket-plugin check plugins/logo` says what the
+`mise run test:plugins`. `npx pinrail-plugin check plugins/logo` says what the
 app would make of the folder.

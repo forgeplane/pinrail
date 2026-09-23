@@ -1,4 +1,4 @@
-/* wicket theme: the token set from the reference server, dark by default,
+/* pinrail theme: the token set from the reference server, dark by default,
    light under [data-theme="light"]. Plugin views are sandboxed iframes and
    inherit none of this; they are told the theme over the plugin protocol. */
 

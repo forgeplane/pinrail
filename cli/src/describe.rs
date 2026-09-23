@@ -1,4 +1,4 @@
-//! `wicket plugins describe`: what an agent needs to ask with Wicket, from
+//! `pinrail plugins describe`: what an agent needs to ask with Pinrail, from
 //! one command. The server describes the plugins; the CLI adds how to
 //! submit, where the decision lands and what each exit code means.
 
@@ -7,9 +7,9 @@ use serde_json::{Value, json};
 use crate::{EXIT_CLOSED, EXIT_DISCARDED, EXIT_ERROR, EXIT_REFUSED, EXIT_TIMEOUT};
 
 const SUBMIT: &str =
-    "wicket submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
+    "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
 const CHECK: &str =
-    "wicket submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
+    "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
 
 /// What each exit code tells the agent to do next.
 const EXIT_CODES: &[(u8, &str)] = &[
@@ -22,7 +22,7 @@ const EXIT_CODES: &[(u8, &str)] = &[
     (EXIT_CLOSED, "withdrawn or expired instead of decided"),
     (
         EXIT_TIMEOUT,
-        "timed out: the review is still pending; wait again with `wicket wait <id>`",
+        "timed out: the review is still pending; wait again with `pinrail wait <id>`",
     ),
     (
         EXIT_DISCARDED,
@@ -65,9 +65,9 @@ pub fn document(described: Value) -> Value {
 }
 
 pub fn markdown(described: &Value) -> String {
-    let mut out = String::from("# Wicket plugins\n\n");
+    let mut out = String::from("# Pinrail plugins\n\n");
     out.push_str(
-        "Wicket puts a question to a person and hands their decision back. Each plugin is one kind of question: pick the one whose *Use when* fits, send a payload its schema accepts, and read the decision.\n",
+        "Pinrail puts a question to a person and hands their decision back. Each plugin is one kind of question: pick the one whose *Use when* fits, send a payload its schema accepts, and read the decision.\n",
     );
     let plugins = described["plugins"].as_array().cloned().unwrap_or_default();
     if plugins.is_empty() {

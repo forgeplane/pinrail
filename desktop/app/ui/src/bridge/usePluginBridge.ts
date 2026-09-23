@@ -2,14 +2,14 @@
 // <iframe>; it has an opaque origin, so messages to it use "*" and messages
 // from it are trusted only when event.source is its window.
 //
-// Every message is {wicket: 1, type, ...}.
+// Every message is {pinrail: 1, type, ...}.
 //   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
 //                    status {label} | settings_set {patch}
 //   shell -> plugin: init {gate, previous, readonly, draft, settings, shell_origin} |
 //                    violations {errors} | submitted {decision} | collect |
 //                    appearance {theme} | settings {settings}
 //
-// The theme is also on the frame's URL as #wicket-theme=…, which is the only
+// The theme is also on the frame's URL as #pinrail-theme=…, which is the only
 // way it can reach the view before the view paints.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
@@ -18,7 +18,7 @@ import { EXTERNAL, openExternal } from "../lib/native";
 import { currentTheme } from "../lib/theme";
 
 const PROTOCOL = 1;
-const DRAFT_PREFIX = "wicket:draft:";
+const DRAFT_PREFIX = "pinrail:draft:";
 const LOADING_FALLBACK_MS = 2500;
 const MAX_HEIGHT = 50000;
 
@@ -64,7 +64,7 @@ export function usePluginBridge(options: Options): Bridge {
   latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting, minHeight };
 
   const post = useCallback(
-    (msg: Record<string, unknown>) => frame.current?.contentWindow?.postMessage({ wicket: PROTOCOL, ...msg }, "*"),
+    (msg: Record<string, unknown>) => frame.current?.contentWindow?.postMessage({ pinrail: PROTOCOL, ...msg }, "*"),
     [frame],
   );
 
@@ -135,7 +135,7 @@ export function usePluginBridge(options: Options): Bridge {
     const onMessage = async (event: MessageEvent) => {
       if (event.source !== el.contentWindow) return;
       const msg = event.data;
-      if (!msg || msg.wicket !== PROTOCOL) return;
+      if (!msg || msg.pinrail !== PROTOCOL) return;
       switch (msg.type) {
         case "ready":
           ready.current = true;
@@ -211,14 +211,14 @@ export function usePluginBridge(options: Options): Bridge {
     window.addEventListener("keydown", onKey);
 
     const onAppearance = () => post({ type: "appearance", theme: currentTheme() });
-    window.addEventListener("wicket:appearance", onAppearance);
+    window.addEventListener("pinrail:appearance", onAppearance);
 
-    el.src = `${src}#wicket-theme=${currentTheme()}`;
+    el.src = `${src}#pinrail-theme=${currentTheme()}`;
 
     return () => {
       window.removeEventListener("message", onMessage);
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("wicket:appearance", onAppearance);
+      window.removeEventListener("pinrail:appearance", onAppearance);
       window.clearTimeout(fallback.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use serde_json::{Value, json};
-use wicket_core::db::Db;
-use wicket_core::events;
-use wicket_core::plugins::{InstallJob, InstallOptions, PluginService, UpdateOutcome};
-use wicket_core::{Config, Error, Wicket};
+use pinrail_core::db::Db;
+use pinrail_core::events;
+use pinrail_core::plugins::{InstallJob, InstallOptions, PluginService, UpdateOutcome};
+use pinrail_core::{Config, Error, Pinrail};
 
 fn plugin(root: &Path, name: &str, version: &str) -> PathBuf {
     let dir = root.join(name);
@@ -45,7 +45,7 @@ async fn finished(plugins: &PluginService, id: &str) -> InstallJob {
 
 /// Installs one plugin folder as a link, the only way a plugin arrives, and
 /// waits for the job.
-async fn link(app: &Wicket, dir: &Path) -> InstallJob {
+async fn link(app: &Pinrail, dir: &Path) -> InstallJob {
     let id = app.plugins().start_install(
         &dir.display().to_string(),
         InstallOptions {
@@ -61,7 +61,7 @@ async fn link(app: &Wicket, dir: &Path) -> InstallJob {
 #[tokio::test]
 async fn inspection_and_update_jobs_work_without_http() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Wicket::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let sources = dir.path().join("sources");
     let source = plugin(&sources, "hello", "1.0.0");
     let source = source.to_str().unwrap();
@@ -121,7 +121,7 @@ async fn inspection_and_update_jobs_work_without_http() {
 #[tokio::test]
 async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plugin() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Wicket::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let source = plugin(&dir.path().join("sources"), "broken", "1.0.0");
     let manifest_path = source.join("manifest.json");
     let mut manifest: Value =
@@ -161,7 +161,7 @@ async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plug
 #[tokio::test]
 async fn removal_keeps_the_version_an_existing_review_needs() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Wicket::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let sources = dir.path().join("sources");
     let source = plugin(&sources, "hello", "1.0.0");
     let id = app
@@ -207,7 +207,7 @@ async fn removal_keeps_the_version_an_existing_review_needs() {
 #[tokio::test]
 async fn a_link_refuses_update_without_starting_work_or_announcing_a_change() {
     let dir = tempfile::tempdir().unwrap();
-    let app = Wicket::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let sources = dir.path().join("sources");
     link(&app, &plugin(&sources, "hello", "1.0.0")).await;
     let mut notices = app.events().subscribe();
@@ -233,7 +233,7 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     let config = Config::new(dir.path().join("data"), 0);
     let sources = dir.path().join("sources");
     let linked = plugin(&sources, "hello", "1.0.0");
-    let app = Wicket::open(config.clone()).unwrap();
+    let app = Pinrail::open(config.clone()).unwrap();
     let mut notices = app.events().subscribe();
     let db = Db::open(&config.db_path()).unwrap();
 
@@ -289,7 +289,7 @@ async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unc
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path().join("data"), 0);
     let sources = dir.path().join("sources");
-    let app = Wicket::open(config.clone()).unwrap();
+    let app = Pinrail::open(config.clone()).unwrap();
     link(&app, &plugin(&sources, "hello", "1.0.0")).await;
     let mut notices = app.events().subscribe();
     let before = app.plugins().listing(&Value::Null);
@@ -305,7 +305,7 @@ async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unc
         job.error
             .as_deref()
             .unwrap_or_default()
-            .contains("list ships with Wicket and cannot be installed over"),
+            .contains("list ships with Pinrail and cannot be installed over"),
         "{:?}",
         job.error
     );
@@ -316,7 +316,7 @@ async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unc
     );
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 
-    let reopened = Wicket::open(config).unwrap();
+    let reopened = Pinrail::open(config).unwrap();
     assert_eq!(reopened.plugins().versions("hello").unwrap()["current"], 1);
     assert!(matches!(
         reopened.plugins().versions("another"),
@@ -345,7 +345,7 @@ fn every_shipped_plugin_says_when_to_use_it_and_gives_an_example_that_passes() {
             std::fs::create_dir_all(view.parent().unwrap()).unwrap();
             std::fs::write(&view, "").unwrap();
         }
-        let plugin = wicket_core::plugins::Plugin::load(copy.path());
+        let plugin = pinrail_core::plugins::Plugin::load(copy.path());
         assert!(plugin.usable(), "{}: {:?}", plugin.name, plugin.error);
         assert!(
             plugin.use_when.is_some(),

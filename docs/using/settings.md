@@ -1,9 +1,9 @@
 ---
 title: Settings
-description: "Every section of Wicket's settings, what each option does, and where the settings are stored."
+description: "Every section of Pinrail's settings, what each option does, and where the settings are stored."
 ---
 
-Open settings with <kbd>⌘,</kbd>, the gear at the bottom of the sidebar, or *Wicket › Settings…*. Every change applies at once; there is nothing to save.
+Open settings with <kbd>⌘,</kbd>, the gear at the bottom of the sidebar, or *Pinrail › Settings…*. Every change applies at once; there is nothing to save.
 
 ## General
 
@@ -13,8 +13,8 @@ Open settings with <kbd>⌘,</kbd>, the gear at the bottom of the sidebar, or *W
 
 | Setting | What it does |
 |---|---|
-| **Launch at login** | Start Wicket when you log in, so agents can always ask. |
-| **Closing the window** | *Hide to the menu bar* keeps Wicket running, so reviews still arrive. *Quit* stops it. |
+| **Launch at login** | Start Pinrail when you log in, so agents can always ask. |
+| **Closing the window** | *Hide to the menu bar* keeps Pinrail running, so reviews still arrive. *Quit* stops it. |
 | **Show in the menu bar** | The menu bar icon, with the number of waiting reviews and a menu to open them. |
 
 ### Notifications
@@ -38,7 +38,7 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 | Setting | What it does |
 |---|---|
-| **Global shortcut** | Brings Wicket forward from any app. <kbd>⌥⇧W</kbd> by default. Click it and press new keys to change it. |
+| **Global shortcut** | Brings Pinrail forward from any app. <kbd>⌥⇧W</kbd> by default. Click it and press new keys to change it. |
 | **It opens** | The oldest pending review, or the inbox. |
 
 Below, the section lists the app's own keys. See [The inbox](/docs/using/inbox/#keys).
@@ -60,9 +60,9 @@ Every installed plugin has a row: its icon and title, its version, where it came
 | Setting | What it does |
 |---|---|
 | **Data directory** | Where reviews, decisions and settings are stored. *Show in Finder* opens it. |
-| **Port** | The port Wicket's server listens on, `4747` by default. Takes effect after a restart; the `wicket` command follows it on its own. |
+| **Port** | The port Pinrail's server listens on, `4747` by default. Takes effect after a restart; the `pinrail` command follows it on its own. |
 | **Keep reviews for** | *Forever*, or a number of days. Ended reviews older than this are deleted from your history. |
-| **Install the CLI** | Puts the `wicket` command into `~/.local/bin`. |
+| **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`. |
 
 ## About
 
@@ -70,7 +70,7 @@ The version, a check for updates, and links to the documentation and the licence
 
 ## Where settings are stored
 
-Settings live in `settings.json` in your data directory. You can read it, back it up, and edit it by hand while Wicket is closed. A script can read and change settings through the local API, which checks every change the same way the app does:
+Settings live in `settings.json` in your data directory. You can read it, back it up, and edit it by hand while Pinrail is closed. A script can read and change settings through the local API, which checks every change the same way the app does:
 
 ```sh
 curl http://127.0.0.1:4747/api/v1/settings

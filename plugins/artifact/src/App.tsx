@@ -9,7 +9,7 @@ import { CommentPopover } from "./components/CommentPopover";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { Toolbar } from "./components/Toolbar";
 import { VIEWPORTS, newId, type Comment, type Decision, type Kind, type Payload, type Verdict, type Viewport } from "./types";
-import type { Init, Plugin, Violation } from "./wicket";
+import type { Init, Plugin, Violation } from "./pinrail";
 
 type Editing = { id: string | null; selector: string; tag: string; snippet: string; html: string; text: string; kind: Kind; box: Box };
 
@@ -46,7 +46,7 @@ export function App() {
       plugin.current = connected;
       return;
     }
-    connected = window.Wicket.connect({
+    connected = window.Pinrail.connect({
       resize: "fill",
       onInit(init) {
         setInit(init);
@@ -226,7 +226,7 @@ export function App() {
         readonly={readonly}
         decided={decision}
       />
-      {payload.notes ? <div className="notes" dangerouslySetInnerHTML={{ __html: window.Wicket.markdown(payload.notes) }} /> : null}
+      {payload.notes ? <div className="notes" dangerouslySetInnerHTML={{ __html: window.Pinrail.markdown(payload.notes) }} /> : null}
       {errors.length > 0 ? (
         <div className="errors">
           {errors.map((e, i) => (
