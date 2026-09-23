@@ -4,15 +4,23 @@
 //
 // Every message is {pinrail: 1, type, ...}.
 //   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
-//                    status {label} | settings_set {patch}
-//   shell -> plugin: init {gate, previous, readonly, draft, settings, shell_origin} |
+//                    status {label} | settings_set {patch} |
+//                    artifact {req, name, round?: "previous"}
+//   shell -> plugin: init {gate, previous, readonly, draft, settings, shell_origin,
+//                          capabilities} |
 //                    violations {errors} | submitted {decision} | collect |
-//                    appearance {theme} | settings {settings}
+//                    appearance {theme} | settings {settings} |
+//                    artifact {req, ok, name, media_type, size, bytes} | {req, ok: false, error}
+//
+// A view cannot fetch anything, so a file its review carries comes this way:
+// the view asks by name, the shell fetches it from the core (only names the
+// review lists) and transfers the bytes into the frame.
 //
 // The theme is also on the frame's URL as #pinrail-theme=…, which is the only
 // way it can reach the view before the view paints.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { api } from "../api/client";
 import type { Decision, Review, Violation } from "../api/types";
 import { EXTERNAL, openExternal } from "../lib/native";
 import { currentTheme } from "../lib/theme";
@@ -21,6 +29,8 @@ const PROTOCOL = 1;
 const DRAFT_PREFIX = "pinrail:draft:";
 const LOADING_FALLBACK_MS = 2500;
 const MAX_HEIGHT = 50000;
+/** what this shell can do for a view beyond protocol 1's first messages */
+const CAPABILITIES = ["artifacts"];
 
 export type SubmitResult = { ok: true; decision: Decision } | { ok: false; violations: Violation[] };
 
@@ -68,6 +78,35 @@ export function usePluginBridge(options: Options): Bridge {
     [frame],
   );
 
+  // A file fetched once per frame and review, however often the view asks;
+  // each answer transfers a copy, since a transferred buffer is gone.
+  const files = useRef(new Map<string, Promise<ArrayBuffer>>());
+  const answerArtifact = async (req: unknown, name: unknown, round: unknown) => {
+    if (typeof req !== "number" || typeof name !== "string") return;
+    const { review, previous } = latest.current;
+    const from = round === "previous" ? previous : review;
+    const listed = from?.artifacts?.find((a) => a.name === name);
+    const fail = (error: string) => post({ type: "artifact", req, ok: false, name, error });
+    if (!from || !listed) return fail(`no artifact "${name}" on this ${round === "previous" ? "previous round" : "review"}`);
+    const key = `${from.id}\u0000${name}`;
+    let bytes = files.current.get(key);
+    if (!bytes) {
+      bytes = api.artifactBytes(from.id, name);
+      files.current.set(key, bytes);
+      bytes.catch(() => files.current.delete(key));
+    }
+    try {
+      const copy = (await bytes).slice(0);
+      frame.current?.contentWindow?.postMessage(
+        { pinrail: PROTOCOL, type: "artifact", req, ok: true, name, media_type: listed.media_type, size: listed.size, bytes: copy },
+        "*",
+        [copy],
+      );
+    } catch (error) {
+      fail(error instanceof Error ? error.message : `could not fetch ${name}`);
+    }
+  };
+
   const draftKey = () => DRAFT_PREFIX + (latest.current.review?.id ?? "");
   const loadDraft = () => {
     try {
@@ -106,6 +145,7 @@ export function usePluginBridge(options: Options): Bridge {
       draft: readonly ? null : loadDraft(),
       settings: settings ?? {},
       shell_origin: window.location.origin,
+      capabilities: CAPABILITIES,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post]);
@@ -128,6 +168,7 @@ export function usePluginBridge(options: Options): Bridge {
     const el = frame.current;
     if (!el || !src) return;
     ready.current = false;
+    files.current = new Map();
     setLoaded(false);
     setFill(false);
     setHandoverLabel("Hand over");
@@ -164,6 +205,9 @@ export function usePluginBridge(options: Options): Bridge {
           break;
         case "status":
           if (typeof msg.label === "string" && msg.label.trim()) setHandoverLabel(msg.label);
+          break;
+        case "artifact":
+          void answerArtifact(msg.req, msg.name, msg.round);
           break;
         case "settings_set": {
           // the view may only ever write its own settings: the handler

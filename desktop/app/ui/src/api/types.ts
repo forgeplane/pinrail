@@ -41,6 +41,16 @@ export type Review = {
   discarded_reason: string | null;
   /** present on single-review responses, absent in listings */
   payload?: unknown;
+  /** the files the review carries; on single-review responses only, as the payload */
+  artifacts?: Artifact[];
+};
+
+/** A file sent beside a review's payload, which names it {"$artifact": name}. */
+export type Artifact = {
+  name: string;
+  size: number;
+  media_type: string;
+  sha256: string;
 };
 
 /** A page of reviews: the total that match, the cursor to the next page, and

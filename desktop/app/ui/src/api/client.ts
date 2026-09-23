@@ -92,6 +92,21 @@ export const api = {
     if (!response.ok) throw new ApiError(response.status, null);
     return response.text();
   },
+  /** a file a review carries, its bytes whole: for the view, which asks by name */
+  artifactBytes: async (id: string, name: string) => {
+    const response = await fetch(`${await serverUrl()}/api/v1/reviews/${id}/artifacts/${encodeURIComponent(name)}`);
+    if (!response.ok) {
+      const text = await response.text();
+      let body = null;
+      try {
+        body = JSON.parse(text);
+      } catch {
+        // not JSON: the status says enough
+      }
+      throw new ApiError(response.status, body);
+    }
+    return response.arrayBuffer();
+  },
   bundleUrl: async (review: Review, entry: string) =>
     `${await serverUrl()}/plugins/${review.plugin}/${review.plugin_version}/${entry}`,
 };

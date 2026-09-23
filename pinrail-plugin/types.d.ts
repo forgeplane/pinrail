@@ -53,7 +53,33 @@ export type Manifest = {
   shortcuts?: Shortcut[];
   /** marks a plugin under development in the app's listings */
   dev?: boolean;
+  /** when an agent should ask with this plugin, for `pinrail plugins describe` */
+  use_when?: string;
+  /** a payload that passes payload_schema, a JSON file beside the manifest */
+  example?: string;
+  /** the files the plugin takes beside a payload; without it, none */
+  artifacts?: ArtifactRules;
 };
+
+/** What a plugin takes: kinds as `.ext` or media types (`image/*` too), and
+ *  limits no looser than the app's 100 MiB a file and 32 a review. */
+export type ArtifactRules = {
+  accept: string[];
+  max_size?: number;
+  max_count?: number;
+};
+
+/** A file a review carries, as the gate lists it; the payload names it
+ *  `{ "$artifact": name }`. */
+export type Artifact = {
+  name: string;
+  size: number;
+  media_type: string;
+  sha256: string;
+};
+
+/** How a payload names a file: `{ "$artifact": "pivot.glb" }`. */
+export type ArtifactRef = { $artifact: string };
 
 // ---------------------------------------------------------------- envelope
 
@@ -101,6 +127,8 @@ export type Gate<Payload = unknown, Data = unknown> = {
   discarded_by?: string | null;
   discarded_reason?: string | null;
   payload: Payload;
+  /** the files the review carries, by the names its payload uses */
+  artifacts?: Artifact[];
 };
 
 // ---------------------------------------------------------------- messages
@@ -117,6 +145,9 @@ export type Init<Payload = unknown, Data = unknown> = {
   settings: Settings;
 };
 
+/** What the shell can do beyond protocol 1's first messages, from `init`. */
+export type Capability = "artifacts";
+
 export type Violation = { path: string; message: string };
 
 export type Key = {
@@ -130,7 +161,9 @@ export type Key = {
 
 /** Shell → plugin, over `postMessage`. */
 export type ShellMessage =
-  | ({ pinrail: Protocol; type: "init"; shell_origin: string } & Init)
+  | ({ pinrail: Protocol; type: "init"; shell_origin: string; capabilities?: Capability[] } & Init)
+  | { pinrail: Protocol; type: "artifact"; req: number; ok: true; name: string; media_type: string; size: number; bytes: ArrayBuffer }
+  | { pinrail: Protocol; type: "artifact"; req: number; ok: false; name?: string; error: string }
   | { pinrail: Protocol; type: "violations"; errors: Violation[] }
   | { pinrail: Protocol; type: "submitted"; decision: Decision }
   | { pinrail: Protocol; type: "collect" }
@@ -147,7 +180,9 @@ export type PluginMessage =
   | { pinrail: Protocol; type: "submit"; data: any }
   | { pinrail: Protocol; type: "settings_set"; patch: Settings }
   /** open this link outside the app: http, https or mailto */
-  | { pinrail: Protocol; type: "open"; url: string };
+  | { pinrail: Protocol; type: "open"; url: string }
+  /** the bytes of a file the review (or the round it revises) carries */
+  | { pinrail: Protocol; type: "artifact"; req: number; name: string; round?: "previous" };
 
 // ---------------------------------------------------------------- the SDK
 
@@ -190,6 +225,12 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   /** asks the shell to keep one setting; it comes back as `settings`, or as `violations` */
   setSetting(key: string, value: string | number | boolean): void;
   collect(): void;
+  /** the files the review carries */
+  readonly artifacts: Artifact[];
+  /** a file's bytes, from the shell; `round: "previous"` for the round this one revises */
+  artifact(name: string, opts?: { round?: "previous" }): Promise<ArrayBuffer>;
+  /** the same as a blob: URL for an <img>, <video> or <audio>; revoke it when done */
+  artifactUrl(name: string, opts?: { round?: "previous"; type?: string }): Promise<string>;
 };
 
 export type LayoutOptions = {
@@ -230,6 +271,10 @@ export type PinrailSdk = {
   markdownInline(source: string): string;
   /** what the previous round decided for an item id, for `decisions: [{id, action, note}]` shapes */
   previousVerdict(previous: Gate | null, id: string | number): { action: string; note: string } | null;
+  /** the name in `{ "$artifact": name }`, or null for anything else */
+  artifactName(ref: unknown): string | null;
+  /** `{ "$artifact": name }` as JSON Schema, for a payload schema's $defs */
+  readonly ARTIFACT_SCHEMA: Record<string, unknown>;
 };
 
 declare global {

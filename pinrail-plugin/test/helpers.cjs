@@ -31,6 +31,7 @@ function fakeEnv() {
     dispatchKey(key) { env.keys.push(key); },
     onShortcut(fn) { env.shortcuts.push(fn); },
     onLink(fn) { env.links.push(fn); },
+    objectUrl(bytes, type) { return `blob:test/${type}/${bytes.byteLength}`; },
     // helpers
     deliver(data, origin = "http://shell.test") { env.listeners.forEach((fn) => fn(data, origin)); },
     tick() { const due = env.timers; env.timers = []; due.forEach((t) => t.fn()); },

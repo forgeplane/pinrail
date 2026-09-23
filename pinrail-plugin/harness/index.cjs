@@ -8,6 +8,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { iconsDir: findIcons, packageRoot, sdkScript } = require("../lib/paths.cjs");
+const { resolveArtifacts } = require("./artifacts.cjs");
 
 const ORIGIN = "http://plugin.test";
 const root = packageRoot(__filename);
@@ -61,9 +62,18 @@ function gateFrom(partial) {
   };
 }
 
-/** A fixture file (`{ title, payload }`, or with a `decision`) as a gate. */
+/* The files behind a gate that fixture() read, for mountPlugin to serve:
+   kept beside the gate rather than on it, since the gate goes to the view. */
+const artifactFiles = new WeakMap();
+
+/** A fixture file (`{ title, payload }`, or with a `decision`, and with
+ *  `artifacts` by path) as a gate. */
 function fixture(file) {
-  return gateFrom(JSON.parse(fs.readFileSync(file, "utf8")));
+  const partial = JSON.parse(fs.readFileSync(file, "utf8"));
+  const { list, files } = resolveArtifacts(partial.artifacts, path.dirname(file));
+  const gate = gateFrom({ ...partial, artifacts: list });
+  artifactFiles.set(gate, files);
+  return gate;
 }
 
 async function mountPlugin(page, pluginDir, opts) {
@@ -71,10 +81,26 @@ async function mountPlugin(page, pluginDir, opts) {
   const sdkCss = fs.readFileSync(path.join(root, "src", "pinrail-plugin.css"), "utf8");
   const harness = fs.readFileSync(path.join(__dirname, "harness.html"), "utf8");
 
+  // the files the view may ask for: from fixture(), or given as { name: path }
+  const given = opts.artifacts ? resolveArtifacts(opts.artifacts, pluginDir) : null;
+  const gate = gateFrom({ ...opts.gate, ...(given ? { artifacts: given.list } : {}) });
+  const previous = opts.previous ? gateFrom(opts.previous) : null;
+  const served = {
+    current: (given && given.files) || artifactFiles.get(opts.gate) || {},
+    previous: (opts.previous && artifactFiles.get(opts.previous)) || {},
+  };
+
   await page.route(`${ORIGIN}/**`, async (route) => {
     const url = new URL(route.request().url());
     const p = url.pathname;
     if (p === "/_harness.html") return route.fulfill({ contentType: "text/html", body: harness });
+    // the shell's own fetch of a file, as the app fetches it from the core
+    if (p.startsWith("/_artifacts/")) {
+      const [round, ...rest] = p.slice("/_artifacts/".length).split("/");
+      const entry = (served[round] || {})[decodeURIComponent(rest.join("/"))];
+      if (!entry) return route.fulfill({ status: 404, body: "no such artifact" });
+      return route.fulfill({ contentType: "application/octet-stream", body: fs.readFileSync(entry.path) });
+    }
     if (p === "/sdk/v1/pinrail-plugin.js") return route.fulfill({ contentType: mime[".js"], body: sdk });
     if (p === "/sdk/v1/pinrail-plugin.css") return route.fulfill({ contentType: mime[".css"], body: sdkCss });
     // the stylesheet imports a typeface; tests run offline and in the system font
@@ -105,7 +131,14 @@ async function mountPlugin(page, pluginDir, opts) {
 
   const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
   await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(manifest.entry ?? "index.html")}`);
-  const init = { gate: gateFrom(opts.gate), previous: opts.previous ?? null, readonly: !!opts.readonly, draft: opts.draft ?? null, settings: opts.settings ?? {} };
+  const init = {
+    gate,
+    previous,
+    readonly: !!opts.readonly,
+    draft: opts.draft ?? null,
+    settings: opts.settings ?? {},
+    capabilities: opts.capabilities ?? ["artifacts"],
+  };
   await page.evaluate((i) => window.__shell.init(i), init);
 
   const messages = () => page.evaluate(() => window.__shell.messages());

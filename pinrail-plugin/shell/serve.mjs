@@ -14,6 +14,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveArtifacts } from "../harness/artifacts.cjs";
 import { iconsDir, packageRoot, sdkScript } from "../lib/paths.cjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -175,7 +176,27 @@ export function serve(argv) {
     if (p === "/dev/fixtures") return send(res, 200, JSON.stringify(fixtures(pluginDir)), { "content-type": "application/json" });
     if (p.startsWith("/dev/fixtures/")) {
       const file = under(path.join(pluginDir, "fixtures"), p.slice("/dev/fixtures/".length));
-      return file ? sendFile(res, file) : send(res, 404, "no such fixture");
+      if (!file) return send(res, 404, "no such fixture");
+      // the files a fixture lists by path, as the app lists them: name, size, type, hash
+      try {
+        const fixture = JSON.parse(fs.readFileSync(file, "utf8"));
+        if (fixture.artifacts && !Array.isArray(fixture.artifacts)) fixture.artifacts = resolveArtifacts(fixture.artifacts, path.dirname(file)).list;
+        return send(res, 200, JSON.stringify(fixture), { "content-type": "application/json" });
+      } catch (e) {
+        return send(res, 422, JSON.stringify({ error: String(e.message || e) }), { "content-type": "application/json" });
+      }
+    }
+    // a file a fixture carries, fetched by the shell for the view that asked
+    if (p.startsWith("/dev/artifacts/")) {
+      const [fixtureName, ...rest] = p.slice("/dev/artifacts/".length).split("/").map(decodeURIComponent);
+      const file = under(path.join(pluginDir, "fixtures"), fixtureName);
+      try {
+        const fixture = file && JSON.parse(fs.readFileSync(file, "utf8"));
+        const entry = fixture && resolveArtifacts(fixture.artifacts, path.dirname(file)).files[rest.join("/")];
+        return entry ? sendFile(res, entry.path, { "content-type": "application/octet-stream" }) : send(res, 404, "no such artifact");
+      } catch {
+        return send(res, 404, "no such artifact");
+      }
     }
     if (p === "/dev/stamp") return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir, icons: !!iconDir }), { "content-type": "application/json" });
     if (p === "/sdk/v1/fonts.css") {

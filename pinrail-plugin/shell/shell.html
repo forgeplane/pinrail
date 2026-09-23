@@ -128,7 +128,7 @@ const show = (id, v) => { $(id).textContent = v == null ? "—" : typeof v === "
 function sendInit() {
   if (!ready || !gate) return;
   post({ type: "appearance", theme });
-  post({ type: "init", gate, previous, readonly: $("readonly").checked || gate.status !== "pending", draft, settings: settingsNow(), shell_origin: location.origin });
+  post({ type: "init", gate, previous, readonly: $("readonly").checked || gate.status !== "pending", draft, settings: settingsNow(), shell_origin: location.origin, capabilities: ["artifacts"] });
 }
 
 // The plugin's own settings, from the manifest's settings_schema: the
@@ -189,7 +189,25 @@ function drawSettings() {
   }
 }
 
+// which fixture each round came from, for the files it carries
+let gateFixture = "", previousFixture = "";
+
+async function answerArtifact(msg) {
+  const previousRound = msg.round === "previous";
+  const from = previousRound ? previous : gate;
+  const listed = from && (from.artifacts || []).find((a) => a.name === msg.name);
+  const fail = (error) => post({ type: "artifact", req: msg.req, ok: false, name: msg.name, error });
+  if (!listed) return fail(`no artifact "${msg.name}" on this ${previousRound ? "previous round" : "review"}`);
+  const fixture = previousRound ? previousFixture : gateFixture;
+  const response = await fetch("/dev/artifacts/" + encodeURIComponent(fixture) + "/" + encodeURIComponent(msg.name));
+  if (!response.ok) return fail(`could not fetch ${msg.name}`);
+  const bytes = await response.arrayBuffer();
+  frame.contentWindow.postMessage({ pinrail: 1, type: "artifact", req: msg.req, ok: true, name: msg.name, media_type: listed.media_type, size: listed.size, bytes }, "*", [bytes]);
+  note({ type: "artifact", req: msg.req, ok: true, name: msg.name, size: listed.size }, "out");
+}
+
 async function loadFixture(name) {
+  gateFixture = name || "";
   draft = null; lastSubmit = null; show("s-draft", null); show("s-submit", null); show("s-status", null);
   const partial = name ? await (await fetch("/dev/fixtures/" + encodeURIComponent(name))).json() : { title: "empty", payload: {} };
   gate = gateFrom(partial, manifest.name);
@@ -198,6 +216,7 @@ async function loadFixture(name) {
 }
 
 async function loadPrevious(name) {
+  previousFixture = name || "";
   previous = name ? gateFrom(await (await fetch("/dev/fixtures/" + encodeURIComponent(name))).json(), manifest.name) : null;
   sendInit();
 }
@@ -230,6 +249,7 @@ window.addEventListener("message", (event) => {
       }
       break;
     case "submit": lastSubmit = msg.data; show("s-submit", lastSubmit); break;
+    case "artifact": answerArtifact(msg); break;
   }
 });
 

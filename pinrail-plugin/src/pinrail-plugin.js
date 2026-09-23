@@ -97,6 +97,21 @@
   const markdown = (src) => render("render", src);
   const markdownInline = (src) => render("renderInline", src);
 
+  /* A file a review carries is named in its payload as
+     { "$artifact": "pivot.glb" }. ARTIFACT_SCHEMA is that object as JSON
+     Schema, to paste into a payload schema's $defs; artifactName reads the
+     name back out, or gives null for anything else. */
+  const ARTIFACT_SCHEMA = Object.freeze({
+    type: "object",
+    additionalProperties: false,
+    required: ["$artifact"],
+    properties: { $artifact: { type: "string", minLength: 1, maxLength: 120 } },
+    description: "A file sent beside the payload, by its name on the review.",
+  });
+  function artifactName(ref) {
+    return ref && typeof ref === "object" && typeof ref.$artifact === "string" ? ref.$artifact : null;
+  }
+
   /* What the superseded round decided for an item id, for views whose
      decision has `decisions: [{id, action, note}]` and `undecided: [id]`. */
   function previousVerdict(previous, id) {
@@ -122,8 +137,12 @@
       readonly: false,
       initialised: false,
       theme: (env.initialTheme && env.initialTheme()) || "dark",
-      settings: {}
+      settings: {},
+      capabilities: [],
     };
+    // file requests waiting on the shell, by request number
+    const asked = new Map();
+    let nextAsk = 1;
     let draftTimer = null;
     let stopObserving = null;
 
@@ -163,6 +182,7 @@
           state.previous = data.previous || null;
           state.readonly = !!data.readonly;
           state.settings = settingsOf(data.settings);
+          state.capabilities = Array.isArray(data.capabilities) ? data.capabilities : [];
           state.initialised = true;
           if (handlers.onInit) handlers.onInit({ gate: state.gate, previous: state.previous, readonly: state.readonly, draft: data.draft || null, settings: state.settings });
           startResize();
@@ -193,6 +213,15 @@
         case "collect":
           collect();
           break;
+        case "artifact": {
+          // the shell's answer to artifact(): the bytes, transferred, or why not
+          const waiting = asked.get(data.req);
+          if (!waiting) break;
+          asked.delete(data.req);
+          if (data.ok && data.bytes instanceof ArrayBuffer) waiting.resolve(data.bytes);
+          else waiting.reject(new Error(typeof data.error === "string" ? data.error : `the shell could not hand over ${waiting.name}`));
+          break;
+        }
         case "key":
           // One of the manifest's shortcuts, pressed while the shell rather
           // than the frame had focus. It lands as a keydown on the document,
@@ -214,8 +243,45 @@
     if (handlers.shortcut !== false && env.onShortcut) env.onShortcut(collect);
     post({ type: "ready" });
 
+    /* The bytes of a file the review carries, from the shell: a view's
+       frame can fetch nothing, so it asks, and the shell answers with the
+       bytes and nothing else. `round: "previous"` asks for a file of the
+       round this one revises. */
+    function artifact(name, opts) {
+      const round = opts && opts.round === "previous" ? "previous" : "current";
+      const gate = round === "previous" ? state.previous : state.gate;
+      if (!state.capabilities.includes("artifacts")) {
+        return Promise.reject(new Error("this version of Pinrail cannot hand files to a view; update the app"));
+      }
+      const listed = gate && Array.isArray(gate.artifacts) ? gate.artifacts : [];
+      if (!listed.some((a) => a && a.name === name)) {
+        return Promise.reject(new Error(`no artifact "${name}" on this ${round === "previous" ? "previous round" : "review"}`));
+      }
+      return new Promise((resolve, reject) => {
+        const req = nextAsk++;
+        asked.set(req, { resolve, reject, name });
+        post(Object.assign({ type: "artifact", req, name }, round === "previous" ? { round } : {}));
+      });
+    }
+
+    /* The same file as a blob: URL, for an <img>, <video> or <audio>, which
+       the frame's policy lets load blob: and nothing remote. The type is the
+       one the review lists unless given; revoke the URL when done. */
+    async function artifactUrl(name, opts) {
+      const bytes = await artifact(name, opts);
+      const gate = opts && opts.round === "previous" ? state.previous : state.gate;
+      const listed = (gate.artifacts || []).find((a) => a.name === name);
+      const type = (opts && opts.type) || (listed && listed.media_type) || "application/octet-stream";
+      if (!env.objectUrl) throw new Error("Pinrail: artifactUrl needs a browser");
+      return env.objectUrl(bytes, type);
+    }
+
     return {
       get gate() { return state.gate; },
+      /** the files the review carries: { name, size, media_type, sha256 } each */
+      get artifacts() { return (state.gate && state.gate.artifacts) || []; },
+      artifact,
+      artifactUrl,
       get previous() { return state.previous; },
       get readonly() { return state.readonly; },
       get shellOrigin() { return state.shellOrigin; },
@@ -404,6 +470,7 @@
       onShortcut: (fn) => win.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); fn(); }
       }),
+      objectUrl: (bytes, type) => win.URL.createObjectURL(new win.Blob([bytes], { type })),
     };
   }
 
@@ -418,6 +485,8 @@
     markdown,
     markdownInline,
     previousVerdict,
+    artifactName,
+    ARTIFACT_SCHEMA,
   };
 
   // Before anything else this file does, and before the view's own script
