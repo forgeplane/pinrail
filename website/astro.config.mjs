@@ -84,7 +84,7 @@ export default defineConfig({
             "docs/plugins/model",
           ],
         },
-        { label: "Building plugins", items: ["docs/building/writing", "docs/building/design", "docs/building/frameworks", "docs/building/settings-and-keys", "docs/building/protocol", "docs/building/publishing"] },
+        { label: "Building plugins", items: ["docs/building/writing", "docs/building/design", "docs/building/settings-and-keys", "docs/building/frameworks", "docs/building/protocol", "docs/building/publishing"] },
         { label: "Reference", items: ["docs/reference/cli", "docs/reference/settings", "docs/reference/manifest"] },
       ],
     }),
