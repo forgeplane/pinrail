@@ -27,7 +27,13 @@ The plugin's manifest, and the schemas every framework's version shares:
 
 ## 1. Create the folder
 
-Every version is a Vite project whose build writes `view/`. Choose a framework, and every example on this page follows it:
+Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on:
+
+```sh
+npx @forgeplane/pinrail-plugin create push_check --template react    # or vite (TypeScript), vue, svelte
+```
+
+This page builds Ship it? instead. Choose a framework, and every example on this page follows it:
 
 ![TypeScript](example:ship-it/vanilla/package.json) ![TypeScript](example:ship-it/vanilla/vite.config.ts)
 ![React](example:ship-it/react/package.json) ![React](example:ship-it/react/vite.config.ts)
@@ -62,9 +68,21 @@ The view connects to the app once, with `Pinrail.connect`, and draws the review 
 
 ```sh
 npm install
-npx pinrail-plugin dev     # the view in a browser, on the fixtures, rebuilt as you save
+npm run watch              # rebuilds view/ as you save…
+npx pinrail-plugin dev     # …and shows it in a browser, on the fixtures
+npx pinrail-plugin check   # what the app would say of the folder
 npm test                   # build, then the tests under the harness
 ```
+
+:::tip[pinrail-plugin dev: the app, without the app]
+`pinrail-plugin dev` opens the view in a browser inside a stand-in for the app, and reloads it when the build changes. The bar at the top picks a fixture, a decided one as the previous round, or read-only, and plays the app's side: *Collect* is the hand-over button, *Theme* switches light and dark. On the right: the settings and keys the manifest declares, what the view last sent as its status, draft and decision, every message in both directions, and violations or a decision to send back.
+
+![pinrail-plugin dev with Ship it?: the view on the left with Ship chosen, and on the right the shortcuts s and h, the status Ship v2.4.1, the draft, and the draft and status messages the view sent.](screenshot:dev-shell "pinrail-plugin dev: the view, what it sent, and the app's side of the conversation to play.")
+:::
+
+:::note[pinrail-plugin check: what the app would say]
+`pinrail-plugin check` reads the folder the way the app does when you install it, without the app running. It reports **problems**, which keep the plugin from installing: a malformed manifest, schemas that are not JSON Schema, an entry that is missing (a folder with a build is given until the build has run). And **warnings**, which cost a feature: settings or shortcuts that break their rules, an example that does not pass its own schema, a template that cannot be read. `--json` prints the same for a script or CI.
+:::
 
 A test mounts the built view alone and drives it the way a person would. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:
 
