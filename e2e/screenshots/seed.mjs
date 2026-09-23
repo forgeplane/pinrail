@@ -4,8 +4,11 @@
 // has ended, `decision` (with an optional `note` to the agent), `discard` or
 // `withdraw` (the reason), with `decided` saying when. `revises` names the
 // fixture a round answers. `age` and `decided` are how long before NOW, as
-// "4m", "2h" or "3d". The optional plugins are installed from plugins/ first.
+// "4m", "2h" or "3d". `artifacts` names files the review carries by path,
+// relative to the fixture, `{ "pivot.glb": { "path": "…" } }`: each is
+// uploaded first. The optional plugins are installed from plugins/ first.
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,6 +43,23 @@ async function install(app, name) {
   }
 }
 
+/** Uploads the files a fixture names, and says what the review carries. */
+async function upload(app, spec) {
+  const carried = {};
+  for (const [name, entry] of Object.entries(spec || {})) {
+    const bytes = fs.readFileSync(path.resolve(dir, entry.path));
+    const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+    const res = await fetch(`${app.core}/api/v1/artifacts/${sha256}`, {
+      method: "PUT",
+      headers: { "content-type": "application/octet-stream" },
+      body: bytes,
+    });
+    if (!res.ok) throw new Error(`uploading ${name}: ${res.status} ${await res.text()}`);
+    carried[name] = { sha256, size: bytes.length, media_type: entry.media_type ?? (name.endsWith(".glb") ? "model/gltf-binary" : "application/octet-stream") };
+  }
+  return carried;
+}
+
 /** Seeds every fixture and pins the run. Returns fixture key → review id. */
 export async function seed(app) {
   for (const name of OPTIONAL) {
@@ -55,6 +75,7 @@ export async function seed(app) {
       origin: f.origin,
       requested_by: f.requested_by,
       payload: f.payload,
+      ...(f.artifacts ? { artifacts: await upload(app, f.artifacts) } : {}),
       ...(f.revises ? { revises: created[f.revises] } : {}),
     });
     created[f.key] = review.id;
