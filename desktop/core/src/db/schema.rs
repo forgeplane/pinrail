@@ -10,36 +10,22 @@
 //! still runs, as in Ecto. A file with a row this build has no migration
 //! for was written by a newer build, and is refused rather than misread.
 //!
-//! A migration that has to move data rather than change the schema is a
-//! Rust function instead of a file; it is listed here all the same.
+//! The files are the list: `build.rs` embeds every one, and nothing here
+//! names them.
 //!
 //! Never edit a migration once it is merged: add another.
 
 use chrono::{SecondsFormat, Utc};
 use rusqlite::{Connection, OptionalExtension, params};
 
-pub(super) struct Migration {
-    /// `YYYYMMDDHHMMSS`, UTC, as in the file's name.
-    pub version: i64,
-    pub name: &'static str,
-    pub step: Step,
-}
+/// A migration: its version, its name and its SQL.
+pub(super) type Migration = (i64, &'static str, &'static str);
 
-pub(super) enum Step {
-    Sql(&'static str),
-    #[allow(dead_code)] // none yet; the first data migration will use it
-    Rust(fn(&Connection) -> rusqlite::Result<()>),
-}
-
-/// Every migration, oldest first. A test checks this against the files.
-pub(super) const MIGRATIONS: &[Migration] = &[Migration {
-    version: 20260923193000,
-    name: "baseline",
-    step: Step::Sql(include_str!("../../migrations/20260923193000_baseline.sql")),
-}];
+/// Every file in `migrations/`, oldest first, embedded by `build.rs`.
+pub(super) const MIGRATIONS: &[Migration] = include!(concat!(env!("OUT_DIR"), "/migrations.rs"));
 
 /// The newest migration this build knows.
-pub const LATEST_MIGRATION: i64 = MIGRATIONS[MIGRATIONS.len() - 1].version;
+pub const LATEST_MIGRATION: i64 = MIGRATIONS[MIGRATIONS.len() - 1].0;
 
 /// The last `PRAGMA user_version` of the numbered steps that came before
 /// the table, which the baseline squashes: a file there has the baseline's
@@ -65,7 +51,7 @@ pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Resu
         .collect::<Result<_, _>>()?;
     if let Some(unknown) = applied
         .iter()
-        .find(|v| !migrations.iter().any(|m| m.version == **v))
+        .find(|v| !migrations.iter().any(|m| m.0 == **v))
     {
         return Err(refused(format!(
             "the database has migration {unknown}, which this build does not know: it was opened by a newer Pinrail"
@@ -74,28 +60,22 @@ pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Resu
     let fresh = applied.is_empty();
     let mut pending: Vec<&Migration> = migrations
         .iter()
-        .filter(|m| !applied.contains(&m.version))
+        .filter(|m| !applied.contains(&m.0))
         .collect();
-    pending.sort_by_key(|m| m.version);
-    for migration in pending {
+    pending.sort_by_key(|m| m.0);
+    for &&(version, name, sql) in &pending {
         let tx = conn.unchecked_transaction()?;
-        match migration.step {
-            Step::Sql(sql) => tx.execute_batch(sql)?,
-            Step::Rust(step) => step(&tx)?,
-        }
+        tx.execute_batch(sql)?;
         tx.execute(
             "INSERT INTO schema_migrations (version, inserted_at) VALUES (?1, ?2)",
             params![
-                migration.version,
+                version,
                 Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
             ],
         )?;
         tx.commit()?;
         if !fresh {
-            eprintln!(
-                "pinrail: database migrated: {}_{}",
-                migration.version, migration.name
-            );
+            eprintln!("pinrail: database migrated: {version}_{name}");
         }
     }
     Ok(())
@@ -132,7 +112,7 @@ fn adopt(conn: &Connection) -> rusqlite::Result<()> {
             tx.execute(
                 "INSERT INTO schema_migrations (version, inserted_at) VALUES (?1, ?2)",
                 params![
-                    MIGRATIONS[0].version,
+                    MIGRATIONS[0].0,
                     Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
                 ],
             )?;
@@ -140,7 +120,7 @@ fn adopt(conn: &Connection) -> rusqlite::Result<()> {
             tx.commit()?;
             eprintln!(
                 "pinrail: database adopted into schema_migrations at {}_{}",
-                MIGRATIONS[0].version, MIGRATIONS[0].name
+                MIGRATIONS[0].0, MIGRATIONS[0].1
             );
             Ok(())
         }
@@ -170,59 +150,32 @@ mod tests {
             .unwrap()
     }
 
-    fn table(version: i64, name: &'static str, sql: &'static str) -> Migration {
-        Migration {
-            version,
-            name,
-            step: Step::Sql(sql),
-        }
-    }
-
     #[test]
-    fn every_file_is_listed_once_in_version_order() {
+    fn every_file_is_embedded_in_version_order() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
         let mut files: Vec<String> = std::fs::read_dir(dir)
             .unwrap()
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
         files.sort();
-        let sql: Vec<String> = MIGRATIONS
+        let embedded: Vec<String> = MIGRATIONS
             .iter()
-            .filter(|m| matches!(m.step, Step::Sql(_)))
-            .map(|m| format!("{}_{}.sql", m.version, m.name))
+            .map(|(v, n, _)| format!("{v}_{n}.sql"))
             .collect();
-        assert_eq!(
-            files, sql,
-            "every file in migrations/ is in MIGRATIONS, by its name"
-        );
-        for pair in MIGRATIONS.windows(2) {
-            assert!(
-                pair[0].version < pair[1].version,
-                "{} before {}",
-                pair[0].version,
-                pair[1].version
-            );
-        }
-        for m in MIGRATIONS {
-            let v = m.version.to_string();
-            assert_eq!(v.len(), 14, "{v} is YYYYMMDDHHMMSS");
-            assert!(
-                chrono::NaiveDateTime::parse_from_str(&v, "%Y%m%d%H%M%S").is_ok(),
-                "{v}"
-            );
-        }
+        assert_eq!(files, embedded);
+        assert!(MIGRATIONS.windows(2).all(|p| p[0].0 < p[1].0));
+        assert!(MIGRATIONS[0].2.contains("CREATE TABLE reviews"));
     }
 
     #[test]
     fn pending_migrations_run_in_version_order_once_each() {
         let conn = Connection::open_in_memory().unwrap();
-        let first = [table(20260101000000, "a", "CREATE TABLE a (x);")];
-        run(&conn, &first).unwrap();
+        run(&conn, &[(20260101000000, "a", "CREATE TABLE a (x);")]).unwrap();
         // a branch's migration merged late, older than one already applied, still runs
         let later = [
-            table(20260101000000, "a", "CREATE TABLE a (x);"),
-            table(20251231000000, "late", "CREATE TABLE late (x);"),
-            table(20260201000000, "b", "CREATE TABLE b (x);"),
+            (20251231000000, "late", "CREATE TABLE late (x);"),
+            (20260101000000, "a", "CREATE TABLE a (x);"),
+            (20260201000000, "b", "CREATE TABLE b (x);"),
         ];
         run(&conn, &later).unwrap();
         run(&conn, &later).unwrap();
@@ -244,8 +197,8 @@ mod tests {
     fn a_failing_migration_leaves_neither_its_changes_nor_its_row() {
         let conn = Connection::open_in_memory().unwrap();
         let broken = [
-            table(20260101000000, "a", "CREATE TABLE a (x);"),
-            table(
+            (20260101000000, "a", "CREATE TABLE a (x);"),
+            (
                 20260102000000,
                 "half",
                 "CREATE TABLE half (x); THIS IS NOT SQL;",
@@ -265,38 +218,17 @@ mod tests {
     #[test]
     fn a_migration_this_build_does_not_know_is_refused() {
         let conn = Connection::open_in_memory().unwrap();
-        run(&conn, &[table(20260101000000, "a", "CREATE TABLE a (x);")]).unwrap();
+        let known = [(20260101000000, "a", "CREATE TABLE a (x);")];
+        run(&conn, &known).unwrap();
         conn.execute(
             "INSERT INTO schema_migrations VALUES (20990101000000, NULL)",
             [],
         )
         .unwrap();
-        let error = run(&conn, &[table(20260101000000, "a", "CREATE TABLE a (x);")])
-            .unwrap_err()
-            .to_string();
+        let error = run(&conn, &known).unwrap_err().to_string();
         assert!(
             error.contains("20990101000000") && error.contains("newer Pinrail"),
             "{error}"
         );
-    }
-
-    #[test]
-    fn a_rust_step_runs_like_a_file() {
-        let conn = Connection::open_in_memory().unwrap();
-        let steps = [
-            table(
-                20260101000000,
-                "a",
-                "CREATE TABLE a (x); INSERT INTO a VALUES (1);",
-            ),
-            Migration {
-                version: 20260102000000,
-                name: "double",
-                step: Step::Rust(|c| c.execute_batch("UPDATE a SET x = x * 2")),
-            },
-        ];
-        run(&conn, &steps).unwrap();
-        let x: i64 = conn.query_row("SELECT x FROM a", [], |r| r.get(0)).unwrap();
-        assert_eq!(x, 2);
     }
 }
