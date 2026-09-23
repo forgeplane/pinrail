@@ -4,13 +4,13 @@
 // an item to accept or send back with a reason, a rejection comes back as a
 // second round, the decision builds up as JSON beside the page, and handing it
 // back plays out in the agent's terminal.
-import "../styles/index7.css";
-import Zoom from "../components/index7/Zoom.astro";
-import Lightbox from "../components/index7/Lightbox.astro";
-import ModeSwitch from "../components/index7/ModeSwitch.astro";
-import Typed from "../components/index7/Typed.astro";
-import Faq from "../components/index7/Faq.astro";
-import { agents, releases, repo, views } from "../components/index7/content";
+import "../styles/index.css";
+import Zoom from "../components/index/Zoom.astro";
+import Lightbox from "../components/index/Lightbox.astro";
+import ModeSwitch from "../components/index/ModeSwitch.astro";
+import Typed from "../components/index/Typed.astro";
+import Faq from "../components/index/Faq.astro";
+import { agents, releases, repo, views } from "../components/index/content";
 
 const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"];
 ---
@@ -33,7 +33,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
     <a href="#main" class="skip">Skip to the draft</a>
 
     <header class="gatebar" aria-label="Review">
-      <a class="brand" href="/index7" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
+      <a class="brand" href="/" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
       <div class="gate-title">
         <span class="gate-plugin">list</span>
         <span class="gate-name">Landing page, draft 1</span>
@@ -277,7 +277,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
 
     <footer class="colophon">
       <span>Wicket · a small gate in a larger door.</span>
-      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/index7-classic">Classic version</a></nav>
+      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/">Classic version</a></nav>
     </footer>
 
     <script>

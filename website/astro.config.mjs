@@ -8,8 +8,6 @@ import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
 import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
 
 export default defineConfig({
-  // the landing page is the review version; the classic one sits beside it
-  redirects: { "/": "/index7" },
   site: "https://wicket.dev",
   vite: { plugins: [tailwindcss()] },
   // unified, so the docs' ```mermaid blocks become diagrams and screenshot:

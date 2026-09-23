@@ -1,0 +1,9 @@
+---
+// Two versions of the same page: the one you review, and the usual one.
+interface Props { current: "review" | "classic" }
+const { current } = Astro.props;
+---
+<nav class="mode-switch" aria-label="Page version">
+  <a href="/review" aria-current={current === "review" ? "page" : undefined}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg><span>Review it</span></a>
+  <a href="/" aria-current={current === "classic" ? "page" : undefined}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg><span>Classic</span></a>
+</nav>

@@ -1,14 +1,14 @@
 ---
 // Version 7, the usual way round: the same product and the same look as the
 // page you review, laid out as a landing page for people who'd rather read.
-import "../styles/index7.css";
-import "../styles/index7-classic.css";
-import Zoom from "../components/index7/Zoom.astro";
-import Lightbox from "../components/index7/Lightbox.astro";
-import ModeSwitch from "../components/index7/ModeSwitch.astro";
-import Typed from "../components/index7/Typed.astro";
-import Faq from "../components/index7/Faq.astro";
-import { agents, releases, repo, views } from "../components/index7/content";
+import "../styles/index.css";
+import "../styles/index-classic.css";
+import Zoom from "../components/index/Zoom.astro";
+import Lightbox from "../components/index/Lightbox.astro";
+import ModeSwitch from "../components/index/ModeSwitch.astro";
+import Typed from "../components/index/Typed.astro";
+import Faq from "../components/index/Faq.astro";
+import { agents, releases, repo, views } from "../components/index/content";
 import hero from "../assets/screenshots/review-light.png";
 
 const steps = [
@@ -71,7 +71,7 @@ const codes = [
     <a href="#main" class="skip">Skip to content</a>
 
     <header class="topnav">
-      <a class="brand" href="/index7-classic" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
+      <a class="brand" href="/" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
       <nav class="links" aria-label="Main">
         <a href="#how">How it works</a><a href="#views">Views</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
       </nav>
@@ -232,7 +232,7 @@ Decided · 3 accepted · 1 rejected
           <a class="primary big" href={releases}>Download for macOS</a>
           <a class="ghost big on-dark" href={repo}>Star on GitHub</a>
         </div>
-        <a class="try-review" href="/index7">Or skip the reading: review this page instead →</a>
+        <a class="try-review" href="/review">Or skip the reading: review this page instead →</a>
       </section>
     </main>
 
@@ -240,7 +240,7 @@ Decided · 3 accepted · 1 rejected
 
     <footer class="colophon">
       <span>Wicket · a small gate in a larger door.</span>
-      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/index7">Review version</a></nav>
+      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/review">Review version</a></nav>
     </footer>
   </body>
 </html>
