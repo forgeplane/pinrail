@@ -60,6 +60,15 @@ test("a view gets the bytes of a file its review carries from the app, and only 
   expect(created.status(), await created.text()).toBe(201);
   const { id } = await created.json();
 
+  // the inbox row says the review came with files, before it is opened
+  await page.goto("/#/");
+  const row = page.locator("[data-review-row]", { hasText: "A file for the view" });
+  await expect(row.locator("[data-files-count]")).toHaveText("1");
+  await expect(row.locator("[data-files-count]")).toHaveAttribute("aria-label", "1 file · 488 KB");
+  await row.locator("[data-files-count]").hover();
+  await expect(page.locator(".tooltip")).toHaveText("1 file · 488 KB");
+  if (process.env.PINRAIL_SHOTS) await page.screenshot({ path: path.join(process.env.PINRAIL_SHOTS, "inbox.png"), clip: { x: 0, y: 0, width: 1280, height: 260 } });
+
   await page.goto(`/#/reviews/${id}`);
   const out = page.frameLocator("#plugin-frame").locator("#out");
   await expect(out).toHaveText(`${bytes.length} bytes cafebabe, again ${bytes.length}`);
@@ -82,6 +91,9 @@ test("a view gets the bytes of a file its review carries from the app, and only 
   await expect(panel).toHaveCount(0);
 
   await page.request.post(`${core}/api/v1/reviews/${id}/discard`, { data: { reason: "spec cleanup" } });
+  // and so does its row in History once it has ended
+  await page.goto("/#/history");
+  await expect(page.locator("[data-history-row]", { hasText: "A file for the view" }).locator("[data-files-count]")).toHaveText("1");
   await page.request.delete(`${core}/api/v1/plugins/reader`);
 });
 

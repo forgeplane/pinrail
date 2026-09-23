@@ -478,6 +478,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .history-title { color: var(--text); font-weight: 500; }
 .history-plugin { display: inline-flex; align-items: center; gap: 4px; vertical-align: -2px; }
 .history-plugin svg { color: var(--faint); }
+/* a review that came with files: a paperclip and the count, the size on hover */
+.files-count { display: inline-flex; align-items: center; gap: 2px; margin-left: 2px; color: var(--dim); font-variant-numeric: tabular-nums; vertical-align: -1px; }
+.files-count svg { color: var(--faint); }
 
 /* plugins */
 

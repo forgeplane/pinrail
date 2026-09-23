@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { Review, ReviewListing } from "../api/types";
-import { OutcomeBadge } from "../components/Badges";
+import { FilesCount, OutcomeBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { PluginIcon } from "../components/PluginIcon";
@@ -251,7 +251,8 @@ export function History() {
                       <span className="history-plugin">
                         <PluginIcon icon={live.pluginIcon(r.plugin)} size={12} />
                         {r.plugin}
-                      </span>
+                      </span>{" "}
+                      <FilesCount total={r.artifacts_total} />
                     </small>
                   </td>
                   <td>

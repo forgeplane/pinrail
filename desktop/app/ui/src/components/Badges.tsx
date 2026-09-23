@@ -1,7 +1,9 @@
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Paperclip } from "lucide-react";
 import type { Origin, Review, Status, Summary } from "../api/types";
+import { size } from "../lib/format";
 import { useLive } from "../state/live";
 import { PluginIcon } from "./PluginIcon";
+import { Tooltip } from "./Tooltip";
 
 export function StatusBadge({ status }: { status: Status }) {
   return <span className={`status-badge status-${status}`}>{status}</span>;
@@ -67,5 +69,20 @@ export function SummaryCounts({ summary }: { summary: Summary | null }) {
       ))}
       {subtitle ? <span className="faint">{subtitle}</span> : null}
     </span>
+  );
+}
+
+/** A paperclip and how many files a review came with, the size on hover;
+ *  nothing for a review without any. */
+export function FilesCount({ total }: { total?: { count: number; bytes: number } }) {
+  if (!total || total.count === 0) return null;
+  const label = `${total.count} file${total.count === 1 ? "" : "s"} · ${size(total.bytes)}`;
+  return (
+    <Tooltip label={label} side="top">
+      <span className="files-count" aria-label={label} data-files-count={total.count}>
+        <Paperclip size={11} />
+        {total.count}
+      </span>
+    </Tooltip>
   );
 }

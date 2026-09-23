@@ -43,6 +43,8 @@ export type Review = {
   payload?: unknown;
   /** the files the review carries; on single-review responses only, as the payload */
   artifacts?: Artifact[];
+  /** how many files it carries and their bytes: on every review, listings too */
+  artifacts_total?: { count: number; bytes: number };
 };
 
 /** What a plugin takes: kinds as `.ext` or media types, and its limits. */

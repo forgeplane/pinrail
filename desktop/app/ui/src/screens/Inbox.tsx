@@ -8,7 +8,7 @@ import { DiscardDialog } from "../components/DiscardDialog";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
-import { SummaryCounts } from "../components/Badges";
+import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
@@ -270,6 +270,7 @@ export function Inbox() {
                         {review.requested_by && review.origin.workflow ? <span>·</span> : null}
                         {review.origin.workflow ? <span>{review.origin.workflow}</span> : null}
                         {review.revises ? <span>· New round</span> : null}
+                        <FilesCount total={review.artifacts_total} />
                       </span>
                     </span>
                     <span className="review-row-plugin">
