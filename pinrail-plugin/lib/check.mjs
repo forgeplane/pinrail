@@ -141,6 +141,24 @@ export function checkPlugin(dir) {
     if (why) warn("example", why);
   }
 
+  // files beside the payload: each kind as the core reads it, and a payload
+  // schema that says where they go, or an agent cannot tell
+  const takesFiles = isObject(manifest.artifacts) && !refused("artifacts");
+  if (takesFiles) {
+    const bad = manifest.artifacts.accept.find((k) => !isKind(k));
+    if (bad !== undefined) problem("artifacts", `artifacts.accept: ${JSON.stringify(bad)} is neither an extension like .glb nor a media type like image/png`);
+  }
+  if (!refused("payload_schema") && "payload_schema" in manifest) {
+    let names = false;
+    try {
+      names = JSON.stringify(schemaDocument(dir, manifest.payload_schema) ?? {}).includes('"$artifact"');
+    } catch {
+      // an unreadable schema is reported above
+    }
+    if (takesFiles && !names) warn("artifacts", 'payload_schema never names {"$artifact": …}: say where a file goes, or an agent cannot tell (Pinrail.ARTIFACT_SCHEMA is the $defs entry)');
+    if (!takesFiles && names) warn("artifacts", 'payload_schema names {"$artifact": …} but the manifest declares no artifacts: the app refuses every file for this plugin');
+  }
+
   if (manifest.decision_template !== undefined && manifest.decision_template !== null && !dropped.has("decision_template")) {
     const t = manifest.decision_template;
     if (!fs.existsSync(path.join(dir, t)) || !fs.statSync(path.join(dir, t)).isFile()) {
@@ -151,6 +169,14 @@ export function checkPlugin(dir) {
   }
 
   return result();
+}
+
+/** `.ext`, `type/subtype` or `type/*`: a kind the core reads in artifacts.accept. */
+function isKind(kind) {
+  const token = (t) => /^[A-Za-z0-9+.-]+$/.test(t);
+  if (kind.startsWith(".")) return token(kind.slice(1));
+  const [type, sub, ...rest] = kind.split("/");
+  return rest.length === 0 && sub !== undefined && token(type) && (sub === "*" || token(sub));
 }
 
 /** The payload schema as a document: inline, or the file its $ref names. */

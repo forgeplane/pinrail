@@ -126,3 +126,28 @@ test("what costs a feature: settings, shortcuts, the template; a missing title i
   assert.deepEqual(warned({ decision_template: "templates/decision.md.j2" }), ["decision_template"]);
   assert.deepEqual(warned({ decision_template: "t.j2" }, { "index.html": "", "t.j2": "{{ note }}" }), []);
 });
+
+test("files: a kind the core cannot read refuses the plugin; a schema that never says where they go is a warning", async () => {
+  const { checkPlugin } = await load();
+  const artifact = { type: "object", required: ["$artifact"], properties: { $artifact: { type: "string" } } };
+  const takes = { accept: [".glb", "image/*"] };
+
+  const good = checkPlugin(plugin({ artifacts: takes, payload_schema: { type: "object", properties: { file: artifact } } }));
+  assert.equal(good.ok, true, JSON.stringify(good.problems));
+  assert.deepEqual(keys(good.warnings).filter((k) => k !== "title"), []);
+
+  const kind = checkPlugin(plugin({ artifacts: { accept: ["glb"] } }));
+  assert.equal(kind.ok, false);
+  assert.match(kind.problems.find((p) => p.key === "artifacts").message, /"glb" is neither an extension like \.glb nor a media type/);
+
+  for (const block of [{ accepts: [".glb"] }, { accept: [] }, { accept: [".glb"], max_size: 200 * 1024 * 1024 }]) {
+    assert.equal(checkPlugin(plugin({ artifacts: block })).ok, false, JSON.stringify(block));
+  }
+
+  const nowhere = checkPlugin(plugin({ artifacts: takes }));
+  assert.equal(nowhere.ok, true);
+  assert.match(nowhere.warnings.find((w) => w.key === "artifacts").message, /never names \{"\$artifact": …\}/);
+
+  const undeclared = checkPlugin(plugin({ payload_schema: { type: "object", properties: { file: artifact } } }));
+  assert.match(undeclared.warnings.find((w) => w.key === "artifacts").message, /declares no artifacts/);
+});
