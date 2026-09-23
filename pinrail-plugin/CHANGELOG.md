@@ -6,6 +6,11 @@ change to the protocol is a new major and a new path.
 
 ## Unreleased
 
+- `pinrail-plugin dev` loads the fixture you choose. Choosing another
+  pointed the frame at the address it already showed, which a browser does
+  not load again, so the view kept the first fixture. A decided fixture is
+  marked as such in the menu.
+
 - `pinrail-plugin create <name> --template react`, `vue` or `svelte`: the
   same yes-or-no plugin as the `vite` template, with its view in React, Vue
   or Svelte.

@@ -223,7 +223,9 @@ async function loadPrevious(name) {
 
 function reload() {
   ready = false;
-  frame.src = "/plugin/" + (manifest.entry || "index.html") + "#pinrail-theme=" + theme;
+  // a frame pointed at the address it already shows does not load again, so
+  // every reload is an address of its own
+  frame.src = "/plugin/" + (manifest.entry || "index.html") + "?load=" + Date.now() + "#pinrail-theme=" + theme;
 }
 
 window.addEventListener("message", (event) => {
@@ -326,9 +328,11 @@ setInterval(async () => {
   fixtures = await (await fetch("/dev/fixtures")).json();
   const sel = $("fixture"), prev = $("previous");
   if (fixtures.length === 0) sel.append(new Option("no fixtures/ directory: empty payload", ""));
+  // a decided fixture says so, since its title is often the pending one's
   for (const f of fixtures) {
-    sel.append(new Option(f.title, f.name));
-    if (f.decided) prev.append(new Option(f.title, f.name));
+    const label = f.decided ? `${f.title} (decided)` : f.title;
+    sel.append(new Option(label, f.name));
+    if (f.decided) prev.append(new Option(label, f.name));
   }
   const remembered = localStorage.getItem("pinrail-shell:fixture:" + manifest.name);
   const first = fixtures.find((f) => f.name === remembered) ? remembered : fixtures[0]?.name ?? "";
