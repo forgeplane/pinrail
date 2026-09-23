@@ -34,7 +34,7 @@ wicket plugins install github.com/pnezis/wicket/plugins/logo
 - **Changes to parts.** Click a rect, a circle or a path in the large mark and say what to change. The agent gets back the element's path in the SVG.
 - **The previous round's verdicts**, beside each mark in the next round.
 
-Keys: `j` / `k` next and previous mark, `f` favourite, `s` keep, `x` drop.
+Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous mark, <kbd>f</kbd> favourite, <kbd>s</kbd> keep, <kbd>x</kbd> drop.
 
 ## Asking from your agent
 

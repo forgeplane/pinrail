@@ -35,7 +35,7 @@ wicket plugins install github.com/pnezis/wicket/plugins/calendar
 - **Conflicts that step aside.** Choosing a time hides the suggestions that would clash with it, and clearing it brings them back.
 - **Another time, or decline.** An item none of whose times work goes back to the agent for another, with a note on when would suit. An item you do not want at all is declined, with a reason if you like.
 
-Keys: `d`, `w` and `l` switch between the day, week and list views; `j` and `k` move to the next and previous day or week; `t` goes back to the first day. *Settings › Plugins › Calendar* chooses the view a calendar opens in.
+Keys: <kbd>d</kbd>, <kbd>w</kbd> and <kbd>l</kbd> switch between the day, week and list views; <kbd>j</kbd> and <kbd>k</kbd> move to the next and previous day or week; <kbd>t</kbd> goes back to the first day. *Settings › Plugins › Calendar* chooses the view a calendar opens in.
 
 ## Asking from your agent
 

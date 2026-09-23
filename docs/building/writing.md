@@ -216,7 +216,7 @@ The full list of messages is in [The protocol](/docs/building/protocol/).
 
 ### The hand-over belongs to the app
 
-Your view does not draw a submit button. The app puts one below every review, in the same place for every plugin, and sends `collect` when the person presses it or hits ⌘↵. That keeps "nothing leaves on a single click" true across plugins: the person makes their choices, then hands over.
+Your view does not draw a submit button. The app puts one below every review, in the same place for every plugin, and sends `collect` when the person presses it or hits <kbd>⌘↵</kbd>. That keeps "nothing leaves on a single click" true across plugins: the person makes their choices, then hands over.
 
 Tell the button what it will do with `plugin.status`:
 

@@ -30,7 +30,7 @@ Use feedback when the agent needs *information* from you. When it needs a *verdi
 - **A comment** on any choice question, to qualify your answer.
 - **Your previous answers**, for reference, when the agent asks again in a new round.
 
-Keys: `j` / `k` move to the next and previous question and put the focus on its answer, so the arrow keys or space answer it.
+Keys: <kbd>j</kbd> / <kbd>k</kbd> move to the next and previous question and put the focus on its answer, so the arrow keys or space answer it.
 
 The app asks you to complete required questions before you hand over.
 

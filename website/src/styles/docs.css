@@ -168,6 +168,11 @@ starlight-file-tree { border-radius: 12px; }
 /* a screenshot comes in both themes; the reader sees theirs */
 :root[data-theme="light"] .wk-shot-dark, :root:not([data-theme="light"]) .wk-shot-light { display: none !important; }
 .wk-shot img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--sl-color-hairline-light); box-shadow: 0 24px 50px -32px rgba(0, 0, 0, 0.55); }
+/* Keyboard shortcuts: one keycap each, its keys joined by a light +, the same on every page. */
+.wk-keys { display: inline-flex; align-items: center; gap: 0.18em; min-width: 1.6em; height: 1.6em; margin: 0; padding: 0 0.42em; box-sizing: border-box; justify-content: center; vertical-align: 0.05em; border: 1px solid var(--sl-color-gray-5); border-bottom-width: 2px; border-radius: 5px; background: var(--sl-color-gray-7, var(--sl-color-bg)); box-shadow: none; color: var(--sl-color-white); font: 600 0.78em/1 var(--sl-font-system, var(--sl-font)); white-space: nowrap; }
+.wk-plus { color: var(--sl-color-gray-3); font-weight: 400; }
+table .wk-keys { font-size: 0.8em; }
+
 /* the picture opens full size: the whole app does not fit the column legibly */
 .wk-shot-open { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 12px; }
 .wk-shot-open:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 4px; }

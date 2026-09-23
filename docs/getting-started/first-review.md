@@ -58,7 +58,7 @@ Wicket notifies you, and the review is waiting at the top of your inbox. Open it
 
 - **Accept** the first item and add a note, such as "and add a test for the race".
 - **Reject** the second, with a reason.
-- Press **Hand over**, or ⌘↵.
+- Press **Hand over**, or <kbd>⌘↵</kbd>.
 
 :::tip
 Leave an item without a verdict to see what happens: the app asks you to confirm, and the item comes back as undecided.

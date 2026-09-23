@@ -3,7 +3,7 @@ title: Settings
 description: "Every section of Wicket's settings, what each option does, and where the settings are stored."
 ---
 
-Open settings with `⌘,`, the gear at the bottom of the sidebar, or *Wicket › Settings…*. Every change applies at once; there is nothing to save.
+Open settings with <kbd>⌘,</kbd>, the gear at the bottom of the sidebar, or *Wicket › Settings…*. Every change applies at once; there is nothing to save.
 
 ## General
 
@@ -38,7 +38,7 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 | Setting | What it does |
 |---|---|
-| **Global shortcut** | Brings Wicket forward from any app. `⌥⇧W` by default. Click it and press new keys to change it. |
+| **Global shortcut** | Brings Wicket forward from any app. <kbd>⌥⇧W</kbd> by default. Click it and press new keys to change it. |
 | **It opens** | The oldest pending review, or the inbox. |
 
 Below, the section lists the app's own keys. See [The inbox](/docs/using/inbox/#keys).

@@ -35,7 +35,7 @@ wicket plugins install github.com/pnezis/wicket/plugins/email
 - **Instructions on passages.** Select any text and a comment button appears beside it; write the instruction in the popover over the passage. The passage is numbered in the body, and the instruction with the same number is listed in the panel on the right, under the changes.
 - **A verdict per draft**, kept at the foot of the page: *Send* this text as it stands, *Revise* it from your instructions, or *Discard* it, with an optional note on the draft as a whole.
 
-Keys: `j` / `k` next and previous draft, `s` send, `r` revise, `x` discard, `shift+s` send every draft still undecided, `e` put the cursor in the message.
+Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous draft, <kbd>s</kbd> send, <kbd>r</kbd> revise, <kbd>x</kbd> discard, <kbd>shift+s</kbd> send every draft still undecided, <kbd>e</kbd> put the cursor in the message.
 
 ## Asking from your agent
 

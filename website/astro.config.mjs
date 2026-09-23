@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { unified } from "@astrojs/markdown-remark";
 import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
 import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
+import remarkKbd from "./src/plugins/remark-kbd.mjs";
 
 export default defineConfig({
   site: "https://wicket.dev",
@@ -13,7 +14,7 @@ export default defineConfig({
   // unified, so the docs' ```mermaid blocks become diagrams and screenshot:
   // images the app in the reader's theme; Starlight adds its
   // own plugins (asides, heading links) to the same processor
-  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots] }) },
+  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots, remarkKbd] }) },
   integrations: [
     starlight({
       title: "Wicket",

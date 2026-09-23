@@ -63,7 +63,7 @@ flowchart LR
 ![Round two of a code review: a finding from round one, with its previous verdict and note, above the agent's answer to it.](screenshot:rounds "Round 2: the earlier verdict and note beside the agent's answer.")
 
 - In the app, a new round shows your previous verdicts beside each item, so you can see what changed and only look again where you need to.
-- `[` and `]` step between rounds of the same review.
+- <kbd>[</kbd> and <kbd>]</kbd> step between rounds of the same review.
 - Every round is kept. Each is its own review with its own outcome, linked to the one it revises.
 
 An agent submits a new round with `--revises <id>`. See [Instructing an agent](/docs/agents/instructing/#rounds).

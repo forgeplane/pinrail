@@ -36,7 +36,7 @@ wicket plugins install github.com/pnezis/wicket/plugins/review
 - **Your own comments**, from any line of the diff, and general comments on the change.
 - **A summary before hand-over** showing exactly what goes back.
 
-The layout choices are saved as [plugin settings](/docs/building/settings-and-keys/), so they hold for your next review. Press `?` for the keys.
+The layout choices are saved as [plugin settings](/docs/building/settings-and-keys/), so they hold for your next review. Press <kbd>?</kbd> for the keys.
 
 ## Asking from your agent
 

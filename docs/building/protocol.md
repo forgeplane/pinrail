@@ -37,7 +37,7 @@ sequenceDiagram
 | Type | Fields | When |
 |---|---|---|
 | `init` | `gate`, `previous`, `readonly`, `draft`, `settings`, `shell_origin` | Once, in answer to `ready`. |
-| `collect` | | The person pressed the hand-over button, or ⌘↵. |
+| `collect` | | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. |
 | `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema. |
 | `submitted` | `decision` | The decision was accepted. The review is read-only from here. |
 | `appearance` | `theme: "dark" \| "light"` | Before `init`, and whenever the app's theme changes. |
@@ -142,7 +142,7 @@ const post = (msg) => parent.postMessage({ wicket: 1, ...msg }, shell ?? "*");
 post({ type: "ready" });
 ```
 
-You then own what the SDK does quietly: sizing the frame on every change, debouncing drafts, applying the theme before first paint, forwarding links with `open`, and handling ⌘↵.
+You then own what the SDK does quietly: sizing the frame on every change, debouncing drafts, applying the theme before first paint, forwarding links with `open`, and handling <kbd>⌘↵</kbd>.
 
 ## Versions
 

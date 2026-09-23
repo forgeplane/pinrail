@@ -108,7 +108,7 @@ A view that answers keys declares them in `shortcuts`:
 
 Declaring a key does two things for you:
 
-1. **It is listed.** The app's keyboard help, opened with `?`, shows your keys under your plugin whenever one of its reviews is open. Your view needs no help overlay of its own.
+1. **It is listed.** The app's keyboard help, opened with <kbd>?</kbd>, shows your keys under your plugin whenever one of its reviews is open. Your view needs no help overlay of its own.
 2. **It is forwarded.** When the person presses the key with the app in focus rather than your frame, after clicking the top bar or arriving from the inbox, the app hands it to your view.
 
 | Field | Meaning |
@@ -132,5 +132,5 @@ document.addEventListener("keydown", (e) => {
 Only declared keys are forwarded. A view that declares none receives none.
 
 :::caution[Keys the app keeps]
-Some keys belong to the review screen and are never forwarded: `?`, `t`, `[`, `]`, `esc`, ⌘⇧M, ⌘↵ and the ⌘ shortcuts of the app's menus. If you declare one, the keyboard help marks it as taken by the app.
+Some keys belong to the review screen and are never forwarded: <kbd>?</kbd>, <kbd>t</kbd>, <kbd>[</kbd>, <kbd>]</kbd>, <kbd>esc</kbd>, <kbd>⌘⇧M</kbd>, <kbd>⌘↵</kbd> and the <kbd>⌘</kbd> shortcuts of the app's menus. If you declare one, the keyboard help marks it as taken by the app.
 :::
