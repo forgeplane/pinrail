@@ -173,7 +173,7 @@ function exampleProblem(dir, file, payloadSchema) {
     const doc = { ...schemaDocument(dir, payloadSchema) };
     delete doc.$schema;
     delete doc.$id;
-    validate = new Ajv2020({ allErrors: false, strict: false }).compile(doc);
+    validate = new Ajv2020({ allErrors: false, strict: false, validateFormats: false }).compile(doc);
   } catch {
     return null; // a schema this cannot compile is the payload_schema's problem, not the example's
   }
