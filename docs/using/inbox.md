@@ -9,7 +9,7 @@ The inbox is where your agents' reviews wait. Open one, decide it in the view it
 
 ## The inbox
 
-The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what is inside.
+The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what is inside. A paperclip marks a review that came with files, with how many; hover it for their size.
 
 - **Filter by project.** The sidebar lists the projects your reviews come from. Pick one to see only its reviews.
 - **Search.** Press <kbd>/</kbd> and type. Every word must appear somewhere in the title, the payload, the plugin, the requester, the project or who decided.
@@ -22,6 +22,8 @@ Open a review with <kbd>Enter</kbd> or a click. The plugin's view fills the scre
 1. **Decide in the view.** Accept, reject, edit, comment: whatever the plugin offers. Your work is saved as a draft as you go, so you can leave and come back.
 2. **Add a note to the agent**, if you want to, in the box below the view.
 3. **Hand over** with the button, or <kbd>⌘↵</kbd>. The button says what will happen, such as *Hand over 3 of 5*.
+
+A review that came with files lists them above the view: click *N files* to see each by name, size and type, and *Save…* any of them.
 
 If the whole review is wrong, **discard** it with <kbd>D</kbd> or the *Discard* button instead: the agent is told to stop, with your reason. See [Deciding and discarding](/docs/concepts/reviews/#deciding-and-discarding).
 

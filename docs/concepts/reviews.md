@@ -12,6 +12,7 @@ A review is one question from an agent to you: *here is what I'm about to do, wh
 | **Title** | What the review is about, as it appears in your inbox. |
 | **Plugin** | The kind of review: [List](/docs/plugins/list/), [Code review](/docs/plugins/review/), and so on. It decides the view and the shape of the decision. |
 | **Payload** | The work to decide on: the items, the diff, the drafts. Checked against the plugin's schema when the review is created. |
+| **Files** | For a plugin that takes them, files sent beside the payload: a model, a PDF, photos. Stored with the review, and deleted with it. |
 | **Origin** | Where it comes from: a repository, a workflow, a run, a branch or pull request, a link. The inbox groups and filters by it. |
 | **Requester** | Who is asking, such as an agent's name or a CI job. |
 | **Decision** | Your answer, once you give it, and your note to the agent beside it. |

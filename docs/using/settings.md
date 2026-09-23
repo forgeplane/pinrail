@@ -61,7 +61,8 @@ Every installed plugin has a row: its icon and title, its version, where it came
 |---|---|
 | **Data directory** | Where reviews, decisions and settings are stored. *Show in Finder* opens it. |
 | **Port** | The port Pinrail's server listens on, `4747` by default. Takes effect after a restart; the `pinrail` command follows it on its own. |
-| **Keep reviews for** | *Forever*, or a number of days. Ended reviews older than this are deleted from your history. |
+| **Keep reviews for** | *Forever*, or a number of days. Ended reviews older than this are deleted from your history, with the files they carried. |
+| **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take. |
 | **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`. |
 
 ## About

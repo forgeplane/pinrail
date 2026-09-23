@@ -20,8 +20,8 @@ flowchart LR
   end
 ```
 
-- **The server** listens on your machine's loopback address, `127.0.0.1`, port `4747` by default. Programs on your machine can reach it; nothing on the network can.
-- **Reviews and decisions** are stored in your data directory, `~/.local/share/pinrail` by default. There is no account and no cloud service.
+- **The server** listens on your machine's loopback address, `127.0.0.1`, port `4747` by default. Programs on your machine can reach it; nothing on the network can. Nor can the web pages you visit: it answers only requests addressed to `127.0.0.1` or `localhost`, and changes nothing unless the request says it is JSON, which a page on another site cannot send without the app's leave.
+- **Reviews and decisions** are stored in your data directory, `~/.local/share/pinrail` by default, with the files sent beside reviews. There is no account and no cloud service.
 - **The app** shows reviews and sends your decisions. Nothing leaves your machine unless an agent, acting on your decision, sends it.
 
 ## What a plugin's view can do
@@ -31,10 +31,12 @@ A plugin's view is a page the app shows inside a sandboxed frame. However the pl
 - **can** draw, and exchange [messages](/docs/building/protocol/) with the app;
 - **can** ask the app to open a link in your browser, when you click one;
 - **cannot** use the network: no requests, no web fonts, no scripts or styles from elsewhere;
-- **cannot** store anything, or read anything the app does not hand it;
+- **cannot** store anything, or read anything the app does not hand it: the files its review carries come from the app when the view asks for one by name, and those of no other review;
 - **cannot** see other reviews, other plugins, or your files.
 
-Everything a view shows arrives in the review's payload. That is why a code review sends the diff rather than a link to it.
+Everything a view shows arrives in the review's payload, or in the files beside it. That is why a code review sends the diff rather than a link to it.
+
+A file an agent sends is never opened as a page by the app, whatever it holds: the review lists it by name and size for you to see, and saving it writes the bytes as they are.
 
 ## What installing a plugin runs
 
