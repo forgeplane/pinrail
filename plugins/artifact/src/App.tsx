@@ -268,6 +268,10 @@ export function App() {
                   </div>
                 );
               })}
+              {editing && editing.id === null ? (
+                // the element a new comment is about, held while it is written
+                <div className="target-box" style={{ left: editing.box.x, top: editing.box.y, width: editing.box.w, height: editing.box.h }} />
+              ) : null}
               {editing ? (
                 <CommentPopover
                   key={editing.id ?? "new"}

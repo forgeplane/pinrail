@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Box } from "../artifact";
 import { KINDS, type Kind } from "../types";
@@ -15,14 +15,23 @@ type Props = {
   onRemove?: () => void;
 };
 
-const WIDTH = 320;
+const WIDTH = 360;
+const GAP = 12;
+
+const PLACEHOLDER: Record<Kind, string> = {
+  change: "What should change here?",
+  question: "What do you want to ask about it?",
+  praise: "What should stay as it is?",
+};
 
 export function CommentPopover({ box, selector, tag, text, kind, isNew, onSave, onCancel, onRemove }: Props) {
   const [value, setValue] = useState(text);
   const [chosen, setChosen] = useState<Kind>(kind);
   const area = useRef<HTMLTextAreaElement>(null);
   const self = useRef<HTMLDivElement>(null);
-  const [place, setPlace] = useState<{ left: number; top: number }>({ left: box.x, top: box.y + box.h + 8 });
+  // where it sits, whether it opens above the element, and where along its
+  // edge the arrow points at the element
+  const [place, setPlace] = useState({ left: box.x, top: box.y + box.h + GAP, above: false, arrow: 24 });
 
   useEffect(() => {
     area.current?.focus();
@@ -36,27 +45,44 @@ export function CommentPopover({ box, selector, tag, text, kind, isNew, onSave, 
     const layer = el.parentElement!.getBoundingClientRect();
     const view = stage.getBoundingClientRect();
     const h = el.offsetHeight;
-    let left = Math.min(box.x, layer.width - WIDTH - 8);
-    left = Math.max(8, left);
-    let top = box.y + box.h + 8;
-    if (layer.top + top + h > view.bottom - 8 && box.y - h - 8 > view.top - layer.top) top = box.y - h - 8;
-    setPlace({ left, top });
+    const left = Math.max(8, Math.min(box.x, layer.width - WIDTH - 8));
+    let top = box.y + box.h + GAP;
+    let above = false;
+    if (layer.top + top + h > view.bottom - 8 && box.y - h - GAP > view.top - layer.top) {
+      top = box.y - h - GAP;
+      above = true;
+    }
+    const arrow = Math.max(18, Math.min(WIDTH - 18, box.x + Math.min(box.w, 48) / 2 - left));
+    setPlace({ left, top, above, arrow });
   }, [box]);
 
   const save = () => onSave(value, chosen);
 
   return (
-    <div ref={self} className="popover" style={{ left: place.left, top: place.top, width: WIDTH }} data-popover onClick={(e) => e.stopPropagation()}>
-      <div className="popover-target">
-        <span className="mono">{selector}</span>
-        <span className="faint">{tag}</span>
+    <div
+      ref={self}
+      className={`popover kind-${chosen} ${place.above ? "is-above" : ""}`}
+      style={{ left: place.left, top: place.top, width: WIDTH, ["--arrow" as string]: `${place.arrow}px` }}
+      data-popover
+      role="dialog"
+      aria-label={isNew ? "New comment" : "Edit comment"}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="popover-head">
+        <span className="tag-chip">{`<${tag}>`}</span>
+        <span className="popover-path mono" title={selector}>
+          {selector}
+        </span>
+        <button type="button" className="icon-btn popover-close" onClick={onCancel} aria-label="Close">
+          <X size={14} />
+        </button>
       </div>
       <textarea
         ref={area}
-        className="ta"
+        className="popover-text"
         rows={3}
         value={value}
-        placeholder={isNew ? "What should change here?" : ""}
+        placeholder={PLACEHOLDER[chosen]}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -71,25 +97,30 @@ export function CommentPopover({ box, selector, tag, text, kind, isNew, onSave, 
         }}
         data-comment-text
       />
-      <div className="popover-bar">
-        <span className="segment kinds" role="group" aria-label="Kind">
-          {KINDS.map((k) => (
-            <button key={k.key} type="button" className={`${chosen === k.key ? "is-on" : ""} kind-${k.key}`} onClick={() => setChosen(k.key)} aria-pressed={chosen === k.key}>
-              {k.label}
-            </button>
-          ))}
+      <div className="kind-pills" role="group" aria-label="Kind">
+        {KINDS.map((k) => (
+          <button key={k.key} type="button" className={`kind-pill kind-${k.key} ${chosen === k.key ? "is-on" : ""}`} onClick={() => setChosen(k.key)} aria-pressed={chosen === k.key}>
+            <span className="kind-dot" />
+            {k.label}
+          </button>
+        ))}
+      </div>
+      <div className="popover-foot">
+        <span className="popover-hint">
+          <kbd>⌘</kbd>
+          <kbd>↵</kbd> to {isNew ? "add" : "save"}
         </span>
         <span className="spacer" />
         {onRemove ? (
-          <button type="button" className="btn icon-btn danger" onClick={onRemove} title="Remove comment" data-remove>
+          <button type="button" className="btn ghost danger" onClick={onRemove} title="Remove comment" aria-label="Remove comment" data-remove>
             <Trash2 size={14} />
           </button>
         ) : null}
-        <button type="button" className="btn" onClick={onCancel}>
+        <button type="button" className="btn ghost" onClick={onCancel}>
           Cancel
         </button>
         <button type="button" className="btn primary" onClick={save} disabled={!value.trim()} data-save>
-          {isNew ? "Add" : "Save"}
+          {isNew ? "Add comment" : "Save"}
         </button>
       </div>
     </div>
