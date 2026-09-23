@@ -703,3 +703,257 @@ fn a_refusal_in_plain_text_is_reported_as_a_refusal() {
     assert!(stderr.contains("length limit exceeded"), "{stderr}");
     assert!(!stderr.contains("invalid JSON"), "{stderr}");
 }
+
+fn sha256(text: &str) -> String {
+    use sha2::Digest;
+    format!("{:x}", sha2::Sha256::digest(text.as_bytes()))
+}
+
+#[test]
+fn submit_checks_then_uploads_only_what_the_app_lacks() {
+    let pivot = sha256("pivot glb");
+    let column = sha256("column glb");
+    let sent = Arc::new(Mutex::new(Vec::<(String, String, String)>::new()));
+    let seen = sent.clone();
+    let (have, missing) = (column.clone(), pivot.clone());
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        seen.lock()
+            .unwrap()
+            .push((method.into(), path.into(), body.into()));
+        match (method, path) {
+            ("POST", "/api/v1/reviews/validate") => (
+                200,
+                r#"{"valid":true,"plugin":"model","plugin_release":"2.0.0"}"#.into(),
+            ),
+            ("HEAD", p) if p.ends_with(&have) => (200, String::new()),
+            ("HEAD", p) if p.ends_with(&missing) => (404, String::new()),
+            ("PUT", p) if p.ends_with(&missing) => {
+                (201, format!(r#"{{"sha256":"{missing}","size":9}}"#))
+            }
+            ("POST", "/api/v1/reviews") => (201, review("pending")),
+            other => panic!("unexpected {other:?}"),
+        }
+    }));
+    let dir = tempdir();
+    std::fs::write(
+        dir.join("p.json"),
+        r#"{"models":[{"id":"L1","name":"Pivot","file":{"$artifact":"pivot.glb"}}]}"#,
+    )
+    .unwrap();
+    std::fs::write(dir.join("pivot.glb"), "pivot glb").unwrap();
+    std::fs::write(dir.join("v2.glb"), "column glb").unwrap();
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "model",
+            "--title",
+            "t",
+            "--no-start",
+            "--data",
+            dir.join("p.json").to_str().unwrap(),
+            "--artifact",
+            dir.join("pivot.glb").to_str().unwrap(),
+            "--artifact",
+            &format!("{}=column.glb", dir.join("v2.glb").display()),
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stderr.contains("uploading pivot.glb (9 bytes)"), "{stderr}");
+    assert!(!stderr.contains("uploading column.glb"), "{stderr}");
+
+    let sent = sent.lock().unwrap();
+    let order: Vec<String> = sent
+        .iter()
+        .map(|(m, p, _)| {
+            format!(
+                "{m} {}",
+                p.replace(&pivot, "{pivot}").replace(&column, "{column}")
+            )
+        })
+        .collect();
+    assert_eq!(
+        order,
+        [
+            "POST /api/v1/reviews/validate",
+            "HEAD /api/v1/artifacts/{column}",
+            "HEAD /api/v1/artifacts/{pivot}",
+            "PUT /api/v1/artifacts/{pivot}",
+            "POST /api/v1/reviews",
+        ]
+    );
+    assert_eq!(sent[3].2, "pivot glb", "the file's bytes, as they are");
+    let submitted: serde_json::Value = serde_json::from_str(&sent[4].2).unwrap();
+    assert_eq!(
+        submitted["artifacts"],
+        serde_json::json!({
+            "column.glb": { "sha256": column, "size": 10, "media_type": "model/gltf-binary" },
+            "pivot.glb": { "sha256": pivot, "size": 9, "media_type": "model/gltf-binary" },
+        })
+    );
+}
+
+#[test]
+fn a_dry_run_or_a_refused_submission_uploads_nothing() {
+    let refuse = Arc::new(Mutex::new(false));
+    let refusing = refuse.clone();
+    let server = MockServer::start(Box::new(move |method, path, _| {
+        match (method, path) {
+        ("POST", "/api/v1/reviews/validate") if *refusing.lock().unwrap() => (
+            422,
+            r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/artifacts/a.glb","message":"this plugin takes .png, not model/gltf-binary"}]}"#.into(),
+        ),
+        ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"plugin":"model","plugin_release":"2.0.0"}"#.into()),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("a.glb"), "a").unwrap();
+    // the request file names its files relative to itself
+    std::fs::write(
+        dir.join("request.json"),
+        r#"{"plugin":"model","title":"t","payload":{},"artifacts":{"a.glb":"a.glb"}}"#,
+    )
+    .unwrap();
+    let request = dir.join("request.json");
+    let args = [
+        "submit",
+        "--request",
+        request.to_str().unwrap(),
+        "--no-start",
+    ];
+
+    let (code, _, stderr) = run(&server, &[&args[..], &["--dry-run"]].concat());
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(server.requests(), ["POST /api/v1/reviews/validate"]);
+
+    *refuse.lock().unwrap() = true;
+    let (code, _, stderr) = run(&server, &args);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("this plugin takes .png"), "{stderr}");
+    assert_eq!(
+        server.requests().len(),
+        2,
+        "no HEAD, no PUT: {:?}",
+        server.requests()
+    );
+}
+
+#[test]
+fn a_missing_file_or_two_flags_with_one_name_stop_before_anything_is_sent() {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        panic!("unexpected {method} {path}")
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("a.glb"), "a").unwrap();
+    let a = dir.join("a.glb");
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "model",
+            "--title",
+            "t",
+            "--no-start",
+            "--artifact",
+            "nowhere/x.glb",
+        ],
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("reading nowhere/x.glb"), "{stderr}");
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "model",
+            "--title",
+            "t",
+            "--no-start",
+            "--artifact",
+            a.to_str().unwrap(),
+            "--artifact",
+            a.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(code, 1);
+    assert!(
+        stderr.contains("two --artifact flags name a.glb"),
+        "{stderr}"
+    );
+    assert!(server.requests().is_empty());
+}
+
+#[test]
+fn artifacts_lists_a_review_s_files_and_saves_one() {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        match (method, path) {
+        ("GET", "/api/v1/reviews/r_1") => (200, r#"{"id":"r_1","artifacts":[{"name":"Pivot lamp.glb","size":9,"media_type":"model/gltf-binary","sha256":"ab"}]}"#.into()),
+        ("GET", "/api/v1/reviews/r_1/artifacts/Pivot%20lamp.glb") => (200, "pivot glb".into()),
+        ("GET", "/api/v1/reviews/r_1/artifacts/nope.glb") => (404, r#"{"error":"not_found","message":"review r_1 carries no artifact \"nope.glb\"","violations":[]}"#.into()),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let (code, stdout, _) = run(&server, &["artifacts", "list", "r_1"]);
+    assert_eq!(code, 0);
+    assert!(stdout.contains(r#""name":"Pivot lamp.glb""#), "{stdout}");
+
+    let dir = tempdir();
+    let to = dir.join("lamp.glb");
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "artifacts",
+            "get",
+            "r_1",
+            "Pivot lamp.glb",
+            "-o",
+            to.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(std::fs::read_to_string(&to).unwrap(), "pivot glb");
+    // not over a file that is there, unless asked
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "artifacts",
+            "get",
+            "r_1",
+            "Pivot lamp.glb",
+            "-o",
+            to.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("--force"), "{stderr}");
+    let (code, _, _) = run(
+        &server,
+        &[
+            "artifacts",
+            "get",
+            "r_1",
+            "Pivot lamp.glb",
+            "-o",
+            to.to_str().unwrap(),
+            "--force",
+        ],
+    );
+    assert_eq!(code, 0);
+    // a name the review does not carry leaves nothing behind
+    let missing = dir.join("nope.glb");
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "artifacts",
+            "get",
+            "r_1",
+            "nope.glb",
+            "-o",
+            missing.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(code, 2);
+    assert!(stderr.contains("carries no artifact"), "{stderr}");
+    assert!(!missing.exists());
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no .part left");
+}

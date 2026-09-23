@@ -244,6 +244,69 @@ impl Client {
             .context("reading the response")
     }
 
+    /// Whether the app already has the file with this hash.
+    pub fn artifact_stored(&self, sha256: &str) -> Result<bool> {
+        let resp = self
+            .agent
+            .head(format!("{}/api/v1/artifacts/{sha256}", self.base))
+            .call()
+            .context("connecting to the server")?;
+        match resp.status().as_u16() {
+            200 => Ok(true),
+            404 => Ok(false),
+            status => {
+                anyhow::bail!("the server answered {status} to HEAD /api/v1/artifacts/{sha256}")
+            }
+        }
+    }
+
+    /// Uploads a file's bytes under their hash. An upload may take a
+    /// while, so it gets a clock of its own rather than the usual 15 s.
+    pub fn upload_artifact(
+        &self,
+        sha256: &str,
+        size: u64,
+        mut body: impl std::io::Read,
+    ) -> Result<Value> {
+        let mut resp = Self::agent(Duration::from_secs(60 * 60))
+            .put(format!("{}/api/v1/artifacts/{sha256}", self.base))
+            .header("content-type", "application/octet-stream")
+            .header("content-length", size.to_string())
+            .send(ureq::SendBody::from_reader(&mut body))
+            .context("connecting to the server")?;
+        Self::body(resp.status().as_u16(), &mut resp)
+    }
+
+    /// Streams a file a review carries into `out`.
+    pub fn download_artifact(
+        &self,
+        id: &str,
+        name: &str,
+        out: &mut impl std::io::Write,
+    ) -> Result<u64> {
+        let encoded: String = name
+            .bytes()
+            .map(|b| match b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'-' | b'_' | b'~' => {
+                    (b as char).to_string()
+                }
+                _ => format!("%{b:02X}"),
+            })
+            .collect();
+        let mut resp = Self::agent(Duration::from_secs(60 * 60))
+            .get(format!(
+                "{}/api/v1/reviews/{id}/artifacts/{encoded}",
+                self.base
+            ))
+            .call()
+            .context("connecting to the server")?;
+        let status = resp.status().as_u16();
+        if !(200..300).contains(&status) {
+            return Self::body(status, &mut resp).map(|_| 0);
+        }
+        std::io::copy(&mut resp.body_mut().as_reader(), out).context("reading the file")
+    }
+
     fn get(&self, path: &str, query: &[(&str, String)]) -> Result<Value> {
         let mut req = self.agent.get(format!("{}{path}", self.base));
         for (k, v) in query {

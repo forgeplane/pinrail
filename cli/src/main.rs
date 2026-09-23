@@ -12,6 +12,7 @@
 //! | 5 | the person discarded the review: stop the work it was gating |
 
 mod api;
+mod artifacts;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
@@ -104,6 +105,19 @@ enum Command {
     /// keys, and --data replaces its payload, so a new round is the same
     /// file with --revises and the earlier round's id. The plugin argument
     /// can be left out when the file names one.
+    ///
+    /// Files go beside the payload with --artifact, for a plugin that
+    /// takes them (pinrail plugins describe says which). The payload names
+    /// each one as {"$artifact": "<name>"}; the name is the file's own, or
+    /// the one after =:
+    ///
+    ///     pinrail submit model --data models.json \
+    ///       --artifact out/pivot.glb --artifact out/v2.glb=column.glb
+    ///
+    /// In a --request file they are "artifacts": {"pivot.glb":
+    /// "out/pivot.glb"}, paths relative to the file. The submission is
+    /// checked before anything is uploaded, and a file the app already has
+    /// is not sent again.
     #[command(alias = "create", verbatim_doc_comment)]
     Submit(SubmitArgs),
     /// Block until a review leaves pending; print it
@@ -150,6 +164,9 @@ enum Command {
     /// Registered plugins
     #[command(alias = "types")]
     Plugins(PluginsArgs),
+    /// The files a review carries: list them, or save one
+    #[command(subcommand)]
+    Artifacts(ArtifactsCommand),
     /// Write every review as JSON files under a directory
     Export {
         /// Where to write them; created when missing
@@ -182,6 +199,11 @@ struct SubmitArgs {
     /// Payload JSON: a file path, or - for stdin
     #[arg(long, value_name = "FILE|-")]
     data: Option<String>,
+    /// A file to send beside the payload, which names it {"$artifact":
+    /// "<name>"}; the name is the file's own unless given after =.
+    /// Repeat for more
+    #[arg(long = "artifact", value_name = "PATH[=NAME]", value_parser = artifacts::parse_flag)]
+    artifacts: Vec<(String, PathBuf)>,
     /// Inbox summary JSON, e.g. '{"counts":[["major",2]],"subtitle":"3 new"}'
     #[arg(long, value_parser = parse_json)]
     summary: Option<Value>,
@@ -273,6 +295,29 @@ struct DecideArgs {
     /// Free-text note to the requesting agent
     #[arg(long)]
     note: Option<String>,
+}
+
+#[derive(Subcommand)]
+enum ArtifactsCommand {
+    /// The files a review carries: name, size, media type and hash
+    List {
+        /// The review's id
+        id: String,
+    },
+    /// Save a file a review carries
+    Get {
+        /// The review's id
+        id: String,
+        /// The file's name on the review
+        name: String,
+        /// Where to write it: a path, or - for stdout [default: the name,
+        /// in the current directory]
+        #[arg(short, long, value_name = "PATH|-")]
+        output: Option<String>,
+        /// Replace a file that is already there
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Args)]
@@ -382,6 +427,54 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Wait(args) => wait(&client, &args.id, &args.opts, output),
         Command::Show { id } => {
             output.review(&client, &client.get_review(&id)?)?;
+            Ok(0)
+        }
+        Command::Artifacts(ArtifactsCommand::List { id }) => {
+            let review = client.get_review(&id)?;
+            out::print_json(&review["artifacts"], pretty);
+            Ok(0)
+        }
+        Command::Artifacts(ArtifactsCommand::Get {
+            id,
+            name,
+            output: to,
+            force,
+        }) => {
+            let to = to.unwrap_or_else(|| name.clone());
+            let size = if to == "-" {
+                client.download_artifact(&id, &name, &mut std::io::stdout().lock())?
+            } else {
+                let path = PathBuf::from(&to);
+                anyhow::ensure!(
+                    force || !path.exists(),
+                    "{to} is already there; --force replaces it"
+                );
+                // written beside, then moved: a failed download leaves nothing half there
+                let partial = path.with_file_name(format!(
+                    ".{}.part",
+                    path.file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                ));
+                let mut file = std::fs::File::create(&partial)
+                    .with_context(|| format!("writing {}", partial.display()))?;
+                let result = client.download_artifact(&id, &name, &mut file);
+                drop(file);
+                match result {
+                    Ok(size) => {
+                        std::fs::rename(&partial, &path)
+                            .with_context(|| format!("writing {to}"))?;
+                        size
+                    }
+                    Err(e) => {
+                        let _ = std::fs::remove_file(&partial);
+                        return Err(e);
+                    }
+                }
+            };
+            if to != "-" {
+                eprintln!("pinrail: saved {name} to {to} ({})", artifacts::human(size));
+            }
             Ok(0)
         }
         Command::Rounds { id } => {
@@ -570,6 +663,30 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     }
     if let Some(at) = &args.expires_at {
         body["expires_at"] = json!(at);
+    }
+
+    // the files: the request's map of name to path, then the flags
+    let request_dir = match args.request.as_deref() {
+        Some(spec) if spec != "-" => std::path::Path::new(spec)
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default(),
+        _ => PathBuf::new(),
+    };
+    let listed = body.as_object_mut().and_then(|m| m.remove("artifacts"));
+    let files = artifacts::read(&artifacts::collect(
+        listed.as_ref(),
+        &request_dir,
+        &args.artifacts,
+    )?)?;
+    if !files.is_empty() {
+        body["artifacts"] = artifacts::declare(&files);
+        // checked before anything is uploaded, so a submission that would be
+        // refused does not move a byte
+        if !args.dry_run {
+            client.validate(&body)?;
+            artifacts::upload(client, &files)?;
+        }
     }
 
     if args.dry_run {

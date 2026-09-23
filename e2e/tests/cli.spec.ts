@@ -171,6 +171,40 @@ test("a plugin pinrail-plugin create wrote installs as a link and decides a revi
   pinrailJson(["plugins", "remove", "triage"]);
 });
 
+test("files sent with --artifact travel with the review and come back byte for byte", async () => {
+  const root = path.join(path.dirname(tmpFile("x", "")), "files-plugin");
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, "index.html"), "<html></html>");
+  fs.writeFileSync(
+    path.join(root, "manifest.json"),
+    JSON.stringify({ name: "files", version: "1.0.0", payload_schema: {}, decision_schema: {}, artifacts: { accept: [".glb"] } }),
+  );
+  pinrailJson(["plugins", "install", root, "--link"]);
+
+  // not text: every byte value, so nothing is decoded on the way
+  const bytes = Buffer.from(Array.from({ length: 300_000 }, (_, i) => (i * 7) % 256));
+  const model = tmpFile("pivot.glb", "");
+  fs.writeFileSync(model, bytes);
+  const payload = tmpFile("files.json", JSON.stringify({ file: { $artifact: "Pivot lamp.glb" } }));
+  const created = pinrailJson(["submit", "files", "--title", "One lamp", "--data", payload, "--artifact", `${model}=Pivot lamp.glb`]);
+  expect(created.artifacts).toEqual([
+    { name: "Pivot lamp.glb", size: bytes.length, media_type: "model/gltf-binary", sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+  ]);
+  expect(pinrailJson(["artifacts", "list", created.id])).toEqual(created.artifacts);
+
+  const saved = path.join(path.dirname(model), "saved.glb");
+  const got = pinrail(["artifacts", "get", created.id, "Pivot lamp.glb", "-o", saved]);
+  expect(got.code, got.stderr).toBe(0);
+  expect(fs.readFileSync(saved).equals(bytes)).toBe(true);
+
+  // a reference to a file that was not sent is refused before any upload
+  const refused = pinrail(["submit", "files", "--title", "Two lamps", "--data", tmpFile("f2.json", JSON.stringify({ file: { $artifact: "column.glb" } })), "--artifact", model]);
+  expect(refused.code).toBe(2);
+  expect(refused.stderr).toContain('no artifact \\"column.glb\\" on this review');
+
+  pinrailJson(["plugins", "remove", "files"]);
+});
+
 test("plugins lists the built-in and the installed sample plugins", async () => {
   const plugins = pinrailJson(["plugins"]);
   // the samples this suite installs, and the built-in ones that are always there
