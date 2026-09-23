@@ -3,6 +3,7 @@
 
 mod error;
 mod files;
+mod guard;
 mod plugins;
 mod reviews;
 mod settings;
@@ -67,6 +68,9 @@ fn router_with(state: ApiState) -> Router {
         .merge(files::routes())
         .merge(settings::routes())
         .layer(cors())
+        // outermost: a request from a page that rebound its name to loopback
+        // is refused before anything else looks at it
+        .layer(axum::middleware::from_fn(guard::loopback_host))
         .with_state(state)
 }
 

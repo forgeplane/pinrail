@@ -10,11 +10,11 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
-use serde_json::{Value, json};
-use tower::ServiceExt;
 use pinrail_core::Config;
 use pinrail_core::Pinrail;
 use pinrail_core::api::router;
+use serde_json::{Value, json};
+use tower::ServiceExt;
 
 struct App {
     _dir: tempfile::TempDir,
@@ -937,6 +937,88 @@ async fn info_and_viewed() {
     let (_, events) = call(&app, "GET", &format!("/api/v1/reviews/{id}/events"), None).await;
     assert_eq!(events[1]["kind"], "viewed");
     assert_eq!(events[1]["actor"], "tester");
+}
+
+/// A request as a browser or another program would send it, header by header.
+async fn raw(
+    app: &App,
+    method: &str,
+    path: &str,
+    headers: &[(&str, &str)],
+    body: &str,
+) -> (StatusCode, Value) {
+    let mut request = Request::builder().method(method).uri(path);
+    for (name, value) in headers {
+        request = request.header(*name, *value);
+    }
+    let response = app
+        .router
+        .clone()
+        .oneshot(request.body(Body::from(body.to_string())).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let value = serde_json::from_slice(&bytes)
+        .unwrap_or(Value::String(String::from_utf8_lossy(&bytes).into()));
+    (status, value)
+}
+
+#[tokio::test]
+async fn a_page_that_rebound_its_name_to_loopback_is_refused() {
+    let app = app();
+    submit(&app, submission()).await;
+    // what a page on evil.example sends once its name resolves to 127.0.0.1
+    for path in [
+        "/api/v1/info",
+        "/api/v1/reviews",
+        "/plugins/list/1/index.html",
+        "/api/v1/events",
+    ] {
+        let (status, body) = raw(&app, "GET", path, &[("host", "evil.example:4747")], "").await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{path}");
+        assert_eq!(body["error"], "forbidden_host", "{path}");
+        assert!(
+            body["message"]
+                .as_str()
+                .unwrap()
+                .contains("evil.example:4747"),
+            "{body}"
+        );
+    }
+    let (status, _) = raw(
+        &app,
+        "POST",
+        "/api/v1/reviews",
+        &[
+            ("host", "evil.example:4747"),
+            ("content-type", "application/json"),
+        ],
+        &submission().to_string(),
+    )
+    .await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(
+        call(&app, "GET", "/api/v1/reviews", None).await.1["reviews"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "nothing was created"
+    );
+
+    // the names the server does answer to, and a program that sends none
+    for host in [
+        "127.0.0.1:4747",
+        "localhost:4747",
+        "[::1]:4747",
+        "127.0.0.1",
+    ] {
+        let (status, _) = raw(&app, "GET", "/api/v1/info", &[("host", host)], "").await;
+        assert_eq!(status, StatusCode::OK, "{host}");
+    }
+    let (status, _) = raw(&app, "GET", "/api/v1/info", &[], "").await;
+    assert_eq!(status, StatusCode::OK);
 }
 
 #[tokio::test]
@@ -2199,7 +2281,11 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     fake.release("acme/thing", "v1.2.0", &["thing-1.2.0.zip", "thing.tar.gz"]);
     fake.release("acme/thing", "v1.3.0", &["thing-1.3.0.zip"]);
     fake.latest("acme/thing", "v1.2.0");
-    fake.release("acme/pinned", "v1.0.1", &["pinrail-plugin.zip", "notes.zip"]);
+    fake.release(
+        "acme/pinned",
+        "v1.0.1",
+        &["pinrail-plugin.zip", "notes.zip"],
+    );
     fake.latest("acme/pinned", "v1.0.1");
     fake.release("acme/lying", "v2.0.0", &["lying-2.0.0.zip"]);
     fake.release("acme/bare", "v1.0.0", &["thing.tar.gz"]);
