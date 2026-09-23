@@ -1,0 +1,17 @@
+{
+  "name": "pinrail-example-ship-it-vanilla",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "dev": "pinrail-plugin dev",
+    "check": "pinrail-plugin check",
+    "test": "npm run build && pinrail-plugin test"
+  },
+  "devDependencies": {
+    "@forgeplane/pinrail-plugin": "file:../../../../pinrail-plugin",
+    "@playwright/test": "^1.56",
+    "typescript": "^5",
+    "vite": "^7"
+  }
+}

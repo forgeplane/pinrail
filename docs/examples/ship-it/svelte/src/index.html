@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ship it?</title>
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
+<style>
+  /* The tokens, the base and the .btn, .note, .sev and .meta classes come
+     from the SDK stylesheet; these rules are all this view adds. */
+  .ship { max-width: 720px; }
+  .ship h1 { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 16px; font-size: 18px; }
+  .ship h1 .meta { font-size: 12px; }
+  .ship section { margin: 14px 0; }
+  .ship ul { list-style: none; display: grid; gap: 6px; margin: 6px 0 0; padding: 0; }
+  .ship li { display: flex; align-items: center; gap: 8px; }
+  .ship li[data-passed="true"] .wi { color: var(--ok); }
+  .ship li[data-passed="false"] .wi { color: var(--danger); }
+  .ship .detail { color: var(--dim); }
+  .ship .choice { display: flex; gap: 8px; margin: 20px 0 10px; }
+  .ship .choice .btn { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; }
+  .ship textarea { display: block; width: 100%; max-width: 520px; min-height: 64px; }
+  .ship .errors { min-height: 16px; margin-top: 8px; }
+  .ship .decided { margin-top: 20px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

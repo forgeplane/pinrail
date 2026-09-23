@@ -1,0 +1,24 @@
+{
+  "name": "pinrail-example-ship-it-react",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "dev": "pinrail-plugin dev",
+    "check": "pinrail-plugin check",
+    "test": "npm run build && pinrail-plugin test"
+  },
+  "dependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@forgeplane/pinrail-plugin": "file:../../../../pinrail-plugin",
+    "@playwright/test": "^1.56",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5",
+    "typescript": "^5",
+    "vite": "^7"
+  }
+}

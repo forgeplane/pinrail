@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ship it? decision",
+  "type": "object",
+  "required": [
+    "verdict"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "enum": [
+        "ship",
+        "hold"
+      ],
+      "description": "ship: go ahead with the deploy. hold: do not deploy."
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "A word for the agent: why hold, or what to watch"
+    }
+  }
+}

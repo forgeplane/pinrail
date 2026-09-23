@@ -1,0 +1,4 @@
+node_modules/
+test-results/
+# the build: npm run build writes view/, the manifest's entry and its assets
+/view/

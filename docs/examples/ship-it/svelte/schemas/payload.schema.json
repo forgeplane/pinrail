@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Ship it? payload",
+  "description": "A deploy the agent is about to run.",
+  "type": "object",
+  "required": [
+    "service",
+    "version",
+    "environment",
+    "changes",
+    "checks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "service": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "What is being deployed"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "The version going out, such as v2.4.1"
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40,
+      "description": "Where it goes, such as production"
+    },
+    "changes": {
+      "type": "array",
+      "maxItems": 50,
+      "description": "What goes out with it",
+      "items": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "risky": {
+            "type": "boolean",
+            "default": false,
+            "description": "Worth a second look: a migration, a flag flip"
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 50,
+      "description": "How the checks before it went",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "passed"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "A word on the result, such as the numbers"
+          }
+        }
+      }
+    }
+  }
+}
