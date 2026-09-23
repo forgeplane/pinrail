@@ -58,7 +58,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 |---|---|
 | `--title` | Required. What the review is about, as it will appear in your inbox. |
 | `--data <file>` | The payload, as JSON. `--data -` reads it from stdin. |
-| `--artifact <path>[=<name>]` | A file to send beside the payload, for a plugin that takes files. Repeat for more. See [Sending files](#sending-files). |
+| `--artifact <path>[=<name>]` | A file to send beside the payload. Only a plugin that declares files accepts them. Repeat for more. See [Sending files](#sending-files). |
 | `--wait` | Block until the review is decided or ends, then print it. Without it, `submit` prints the new review and returns at once. |
 | `--dry-run` | Run every check a submission gets and create no review. Exits 0 when it would be accepted, 2 with the violations. |
 | `--request <file>` | The whole request as one JSON file. See [The whole request in one file](#the-whole-request-in-one-file). |
@@ -106,7 +106,7 @@ A dry run checks the title, the origin and the payload against the plugin's sche
 
 ### Sending files
 
-A plugin that takes files, such as a 3D model, a PDF or photos, says so in `pinrail plugins describe`. Send each file with `--artifact`, and name it in the payload by an object with one key, `$artifact`:
+Only a plugin that declares files takes them: `pinrail plugins describe` shows its `artifacts`, the kinds it takes and its limits, and every other plugin refuses a submission with files. For one that does, send each file with `--artifact`, and name it in the payload by an object with one key, `$artifact`:
 
 ```sh
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \

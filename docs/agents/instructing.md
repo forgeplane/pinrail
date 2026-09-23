@@ -128,12 +128,15 @@ An agent that can run commands in the background, such as Claude Code, can start
 
 ## Files
 
-When what you review is a file, such as a model, a PDF or a recording, tell the agent to send the file itself with the plugin that takes it, not a path you would have to open or the file inlined in the payload:
+Only some plugins take files beside the payload, such as the [3D model](/docs/plugins/model/) plugin. `pinrail plugins describe` shows which: a plugin that takes them has a *Files* section listing the kinds and limits. Every other plugin refuses a submission that sends files.
+
+When what you review is a file and the plugin takes it, tell the agent to send the file itself, not a path you would have to open:
 
 ```md title="AGENTS.md"
-Send the files with `--artifact <path>`, one per file, and name each in the
-payload as {"$artifact": "<file name>"}. `pinrail plugins describe <plugin>`
-says which kinds the plugin takes and how big.
+If the plugin takes files (`pinrail plugins describe <plugin>` has a Files
+section), send each file with `--artifact <path>` and name it in the payload
+as {"$artifact": "<file name>"}. If it does not, send no files: put what I
+need to see in the payload.
 ```
 
 The review shows every file it carries by name and size, and you can save any of them.
