@@ -36,7 +36,8 @@ sequenceDiagram
 
 | Type | Fields | When |
 |---|---|---|
-| `init` | `gate`, `previous`, `readonly`, `draft`, `settings`, `shell_origin` | Once, in answer to `ready`. |
+| `init` | `gate`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | Once, in answer to `ready`. |
+| `artifact` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `artifact`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
 | `collect` | | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. |
 | `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema. |
 | `submitted` | `decision` | The decision was accepted. The review is read-only from here. |
@@ -56,6 +57,9 @@ sequenceDiagram
 | `draft` | any or `null` | What the view last posted as a draft for this review. |
 | `settings` | object | The plugin's own settings: every key the manifest declares, with its current value. |
 | `shell_origin` | string | The app's origin. Accept messages from it alone. |
+| `capabilities` | string array | What the app can do beyond the messages above: `"artifacts"` when it hands a view the files a review carries. |
+
+`gate.artifacts` lists those files, each with its `name`, `size`, `media_type` and `sha256`.
 
 A review is read-only for one of four reasons, and `gate.status` says which:
 
@@ -101,6 +105,18 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | `submit` | `data` | The decision. Validated against the decision schema. |
 | `settings_set` | `patch` | Writes the plugin's own settings. Everyone hears the result as `settings`. |
 | `open` | `url` | Opens a link in the person's browser. Only `http`, `https` and `mailto` are followed. |
+| `artifact` | `req`, `name`, and `round: "previous"` for a file of the round this one revises | Asks for the bytes of a file the review carries. The app answers with `artifact` and the same `req`. |
+
+### `artifact`
+
+A view's frame can fetch nothing, so a file the review carries arrives this way. Number each request; the answer carries the same number:
+
+```json
+{ "pinrail": 1, "type": "artifact", "req": 7, "name": "pivot.glb" }
+{ "pinrail": 1, "type": "artifact", "req": 7, "ok": true, "name": "pivot.glb", "media_type": "model/gltf-binary", "size": 1843302, "bytes": "<ArrayBuffer>" }
+```
+
+The app answers only for names in `gate.artifacts` (or in `previous.artifacts`, with `round: "previous"`), and says why otherwise, with `ok: false` and `error`. Ask again for another copy: each answer transfers its buffer. An app without `"artifacts"` in `capabilities` does not answer; the SDK's `plugin.artifact` rejects at once there, saying the app needs updating.
 
 `resize` with `"fill"` suits a workbench, such as a diff with its own scrolling panes. The code review plugin works this way.
 
