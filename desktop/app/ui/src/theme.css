@@ -265,6 +265,8 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .shortcut-list dt { color: var(--dim); }
 .shortcut-list dd { margin: 0; text-align: right; }
 .notice { border: 1px solid var(--border); background: var(--bg-panel); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; color: var(--dim); margin: 0 0 14px; }
+.notice-round { border-color: var(--accent); background: var(--accent-bg); color: var(--text); }
+.notice-round a { color: var(--accent); font-weight: 600; }
 .notice-danger { border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 6%, transparent); color: var(--danger); }
 .bar-button.copy-button.ok, .bar-button.copy-button.ok:hover { color: var(--ok); }
 .bar-button.copy-button.danger, .bar-button.copy-button.danger:hover { color: var(--danger); }
@@ -390,6 +392,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .round-pill { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 20px; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; font: 11px var(--mono); color: var(--dim); }
 .round-pill:hover { background: var(--bg-hover); color: var(--text); text-decoration: none; }
 .round-pill.is-current { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+/* a later round that is waiting: the one to open next */
+.round-pill.is-waiting { position: relative; color: var(--text); }
+.round-pill.is-waiting::after { content: ""; position: absolute; top: -3px; right: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
 .decision-box { border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 5%, transparent); border-radius: 6px; padding: 10px 14px; font-size: 12.5px; }
 .decision-box .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
 .decision-box p { white-space: pre-wrap; margin: 2px 0 0; }

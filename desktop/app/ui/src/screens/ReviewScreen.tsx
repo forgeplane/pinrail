@@ -99,9 +99,15 @@ export function ReviewScreen() {
     }
   }, [id, load]);
 
-  // Every event about this review refreshes it.
+  // Every event about this review refreshes it, and so does a new round of
+  // it: that event names the new review, revising this one or a later round.
+  const roundIds = useRef(new Set<string>());
+  roundIds.current = new Set([id, ...rounds.map((r) => r.id)]);
   useEffect(() => {
-    if (live.lastNotice?.review_id === id) load();
+    const notice = live.lastNotice;
+    if (!notice) return;
+    const revises = notice.review?.revises;
+    if (notice.review_id === id || (revises && roundIds.current.has(revises))) load();
   }, [live.lastNotice, id, load]);
 
   // The plugin at the review's version: the current one when it matches,
@@ -142,6 +148,11 @@ export function ReviewScreen() {
     return rounds.find((r) => r.id === review.revises) ?? null;
   }, [review, rounds]);
   const revisedBy = useMemo(() => rounds.find((r) => r.revises === review?.id) ?? null, [rounds, review]);
+  // the newest round, when it is not this one and is waiting for a decision
+  const waiting = useMemo(() => {
+    const last = rounds[rounds.length - 1];
+    return last && last.id !== review?.id && last.status === "pending" ? { round: last, number: rounds.length } : null;
+  }, [rounds, review]);
 
   const readonly = !review || review.status !== "pending";
 
@@ -372,7 +383,12 @@ export function ReviewScreen() {
             <span className="rounds-cap">rounds</span>
             {rounds.map((r, i) => (
               <Tooltip key={r.id} label={r.title} side="bottom">
-                <Link to={`/reviews/${r.id}`} state={location.state} className={`round-pill ${r.id === review.id ? "is-current" : ""}`} aria-current={r.id === review.id ? "page" : undefined}>
+                <Link
+                  to={`/reviews/${r.id}`}
+                  state={location.state}
+                  className={`round-pill ${r.id === review.id ? "is-current" : r.status === "pending" ? "is-waiting" : ""}`}
+                  aria-current={r.id === review.id ? "page" : undefined}
+                >
                   {i + 1}
                 </Link>
               </Tooltip>
@@ -390,6 +406,14 @@ export function ReviewScreen() {
         <p className="notice">
           The requester withdrew this review {age(review.withdrawn_at)} ago
           {review.withdrawn_reason ? `: ${review.withdrawn_reason}` : "."} Nothing was decided.
+        </p>
+      ) : null}
+      {waiting ? (
+        <p className="notice notice-round" data-new-round>
+          Round {waiting.number} is waiting for you.{" "}
+          <Link to={`/reviews/${waiting.round.id}`} state={location.state}>
+            Open it
+          </Link>
         </p>
       ) : null}
       {review.status === "expired" ? <p className="notice notice-danger">This review expired at {stamp(review.expires_at)} without a decision.</p> : null}
