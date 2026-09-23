@@ -23,3 +23,17 @@ export function stamp(iso: string | null | undefined): string {
     minute: "2-digit",
   });
 }
+
+/** "2.6 MB", "340 KB", "12 bytes": a file's size, as people read one. */
+export function size(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} ${bytes === 1 ? "byte" : "bytes"}`;
+}
+
+/** "Takes .glb, .gltf, up to 50 MB each": what a plugin takes beside a payload. */
+export function takes(rules: { accept: string[]; max_size?: number; max_count?: number }): string {
+  const limits = [rules.max_size ? `up to ${size(rules.max_size)} each` : null, rules.max_count ? `${rules.max_count} at most` : null].filter(Boolean);
+  return `Takes files: ${rules.accept.join(", ")}${limits.length ? `, ${limits.join(", ")}` : ""}`;
+}

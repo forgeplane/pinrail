@@ -29,6 +29,14 @@ pub struct Info {
     pub pid: u32,
     pub started_at: DateTime<Utc>,
     pub user: String,
+    /// The files stored beside reviews: how many, and their bytes.
+    pub artifacts: ArtifactTotals,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ArtifactTotals {
+    pub count: u64,
+    pub bytes: u64,
 }
 
 /// What a handler can reach: the application, and what belongs to this run
@@ -82,6 +90,7 @@ fn router_with(state: ApiState) -> Router {
 
 async fn info(State(state): State<ApiState>) -> Json<Info> {
     let config = state.app.config();
+    let (count, bytes) = state.app.artifacts().totals().unwrap_or((0, 0));
     Json(Info {
         version: crate::VERSION,
         data_dir: config.data_dir.display().to_string(),
@@ -89,6 +98,7 @@ async fn info(State(state): State<ApiState>) -> Json<Info> {
         pid: std::process::id(),
         started_at: state.started_at,
         user: config.user.clone(),
+        artifacts: ArtifactTotals { count, bytes },
     })
 }
 

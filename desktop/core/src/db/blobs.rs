@@ -54,4 +54,14 @@ impl Db {
         conn.execute("DELETE FROM blobs WHERE sha256 = ?1", params![sha256])?;
         Ok(())
     }
+
+    /// How many blobs are stored, and how many bytes they add up to.
+    pub fn blob_totals(&self) -> rusqlite::Result<(u64, u64)> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT count(*), coalesce(sum(size), 0) FROM blobs",
+            [],
+            |r| Ok((r.get::<_, i64>(0)? as u64, r.get::<_, i64>(1)? as u64)),
+        )
+    }
 }

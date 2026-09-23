@@ -7,6 +7,7 @@ import { FolderOpen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri, type InstallRequest } from "../../api/client";
 import type { InstallJob, Inspection } from "../../api/types";
+import { takes } from "../../lib/format";
 import { PluginIcon } from "../PluginIcon";
 import { Tooltip } from "../Tooltip";
 import { Toggle } from "./controls";
@@ -107,6 +108,11 @@ function Consequences({ seen }: { seen: Inspection }) {
           <b>No build.</b> The folder is copied as it is, without sources, tests and dot-entries.
         </p>
       )}
+      {seen.artifacts ? (
+        <p className="install-runs" data-takes>
+          <b>{takes(seen.artifacts)}.</b> An agent can send them beside a review; they are kept with it, shown on it, and handed to this view only.
+        </p>
+      ) : null}
       {installed ? (
         <p className="install-replaces" data-replaces={installed.linked ? "link" : installed.unchanged ? "unchanged" : installed.major === seen.major ? (seen.older ? "older" : "same") : "beside"}>
           <b>

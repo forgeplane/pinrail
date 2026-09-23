@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Select } from "../Select";
 import { api, inTauri } from "../../api/client";
 import { copyText } from "../../lib/clipboard";
+import { size } from "../../lib/format";
 import type { Info as ServerInfo } from "../../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useLive } from "../../state/live";
@@ -376,6 +377,20 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                     onChange={(v) => update({ history: { keep_days: v === "forever" ? null : Number(v) } })}
                   />
                 </SettingsRow>
+                <SettingsRow
+                  label="Files sent with reviews"
+                  description={
+                    info?.artifacts ? (
+                      <span data-artifact-totals>
+                        {info.artifacts.count === 0
+                          ? "None stored"
+                          : `${info.artifacts.count} file${info.artifacts.count === 1 ? "" : "s"}, ${size(info.artifacts.bytes)}. They go with their reviews`}
+                      </span>
+                    ) : (
+                      "…"
+                    )
+                  }
+                />
               </SettingsGroup>
               <SettingsGroup caption="Command line">
                 <CliRow open={open && section === "data"} />

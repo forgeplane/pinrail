@@ -6,6 +6,7 @@ import { Bell, BellOff, ChevronRight, CircleCheck, CloudDownload, FolderOpen, Li
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
 import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
+import { takes } from "../../lib/format";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
 import { Select } from "../Select";
@@ -280,6 +281,11 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
               {p.error ? "broken" : linked ? "linked" : p.dev ? "development" : "ready"}
             </span>
             {p.install && !linked ? <span className="faint">{p.install.version}</span> : null}
+            {p.artifacts ? (
+              <span className="faint" data-plugin-takes>
+                {takes(p.artifacts).replace("Takes files", "takes files")}
+              </span>
+            ) : null}
             {entries.length ? (
               <span className="faint">
                 {entries.length} setting{entries.length === 1 ? "" : "s"}

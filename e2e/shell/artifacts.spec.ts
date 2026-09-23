@@ -65,6 +65,41 @@ test("a view gets the bytes of a file its review carries from the app, and only 
   await expect(out).toHaveText(`${bytes.length} bytes cafebabe, again ${bytes.length}`);
   await expect(out).toHaveAttribute("data-refusal", 'no artifact "not-listed.bin" on this review');
 
+  // the strip says what came with the review, for every plugin alike
+  const chip = page.locator("[data-artifacts-chip]");
+  await expect(chip).toHaveText("1 file · 488 KB");
+  if (process.env.PINRAIL_SHOTS) await page.screenshot({ path: path.join(process.env.PINRAIL_SHOTS, "strip.png"), clip: { x: 0, y: 0, width: 1280, height: 160 } });
+  await chip.click();
+  const panel = page.locator("[data-artifacts-panel]");
+  await expect(panel.locator("[data-artifact]")).toHaveText([new RegExp(`data\\.bin.*488 KB · application/octet-stream · ${sha256.slice(0, 12)}`)]);
+  if (process.env.PINRAIL_SHOTS) await page.screenshot({ path: path.join(process.env.PINRAIL_SHOTS, "panel.png"), clip: { x: 0, y: 0, width: 1280, height: 320 } });
+  // outside the app, Save… is the core's attachment, downloaded
+  const download = page.waitForEvent("download");
+  await panel.locator('[data-artifact-save="data.bin"]').click();
+  const saved = await (await download).path();
+  expect(fs.readFileSync(saved!).equals(bytes)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+
   await page.request.post(`${core}/api/v1/reviews/${id}/discard`, { data: { reason: "spec cleanup" } });
+  await page.request.delete(`${core}/api/v1/plugins/reader`);
+});
+
+test("a plugin that takes files says so on its row, and History counts the files kept", async ({ page }) => {
+  const installed = await page.request.post(`${core}/api/v1/plugins/install`, { data: { source: reader(), link: true } });
+  expect(installed.status()).toBe(202);
+  await expect
+    .poll(async () => ((await (await page.request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string }[]).some((p) => p.name === "reader"))
+    .toBe(true);
+  const info = await (await page.request.get(`${core}/api/v1/info`)).json();
+  expect(info.artifacts.count).toBeGreaterThanOrEqual(0);
+
+  await page.goto("/#/");
+  await page.keyboard.press("ControlOrMeta+,");
+  await page.locator('[data-section="plugins"]').click();
+  await expect(page.locator('[data-plugin-row="reader"] [data-plugin-takes]')).toHaveText("takes files: .bin");
+  await page.locator('[data-section="data"]').click();
+  await expect(page.locator("[data-artifact-totals]")).toHaveText(info.artifacts.count === 0 ? "None stored" : /\d+ files?, .+\. They go with their reviews/);
+
   await page.request.delete(`${core}/api/v1/plugins/reader`);
 });

@@ -45,6 +45,13 @@ export type Review = {
   artifacts?: Artifact[];
 };
 
+/** What a plugin takes: kinds as `.ext` or media types, and its limits. */
+export type ArtifactRules = {
+  accept: string[];
+  max_size?: number;
+  max_count?: number;
+};
+
 /** A file sent beside a review's payload, which names it {"$artifact": name}. */
 export type Artifact = {
   name: string;
@@ -85,6 +92,8 @@ export type Plugin = {
   /** the keys the view answers, as the manifest declares them */
   shortcuts: PluginShortcut[];
   shortcuts_error: string | null;
+  /** the files it takes beside a payload, as the manifest declares them; null for none */
+  artifacts?: ArtifactRules | null;
   /** how it got here; null for a built-in */
   install: PluginInstall | null;
 };
@@ -117,6 +126,8 @@ export type Inspection = {
   entry: string;
   /** the exact command a build runs; null when nothing runs */
   build: string | null;
+  /** the files it would take beside a payload; null for none */
+  artifacts?: ArtifactRules | null;
   origin: {
     kind: "path" | "git" | "release";
     resolved: string | { url?: string; path?: string | null; ref?: string | null; owner?: string; repo?: string; tag?: string; asset?: string; asset_size?: number; pinned?: boolean };
@@ -203,4 +214,6 @@ export type Info = {
   pid: number;
   started_at: string;
   user: string;
+  /** the files stored beside reviews */
+  artifacts?: { count: number; bytes: number };
 };

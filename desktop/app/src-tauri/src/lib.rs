@@ -112,6 +112,47 @@ async fn cli_status() -> Result<cli_install::Status, String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Saves a file a review carries where the person chooses: the save dialog
+/// from here, and the stored bytes copied straight to the path, so the
+/// shell needs no file access of its own. None when the dialog is
+/// cancelled; the path written otherwise.
+#[tauri::command]
+async fn save_artifact(
+    app: AppHandle,
+    native: State<'_, Native>,
+    review: String,
+    name: String,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let state = native.state.clone();
+    let carried = state
+        .reviews()
+        .get(&review)
+        .map_err(|e| e.to_string())?
+        .artifacts
+        .into_iter()
+        .find(|a| a.name == name)
+        .ok_or_else(|| format!("review {review} carries no artifact \"{name}\""))?;
+    let from = state.artifacts().path(&carried.sha256);
+    tauri::async_runtime::spawn_blocking(move || {
+        let Some(to) = app.dialog().file().set_file_name(&name).blocking_save_file() else {
+            return Ok(None);
+        };
+        let to = to.into_path().map_err(|e| e.to_string())?;
+        std::fs::copy(&from, &to).map_err(|e| format!("saving {}: {e}", to.display()))?;
+        // the store keeps its files read-only; the copy is the person's own
+        if let Ok(meta) = std::fs::metadata(&to) {
+            let mut permissions = meta.permissions();
+            #[allow(clippy::permissions_set_readonly_false)]
+            permissions.set_readonly(false);
+            let _ = std::fs::set_permissions(&to, permissions);
+        }
+        Ok(Some(to.display().to_string()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Links or copies the bundled CLI to `~/.local/bin/pinrail`, as the way the
 /// app was installed calls for, then reports as `cli_status`.
 #[tauri::command]
@@ -295,7 +336,8 @@ pub fn run() {
             set_autostart,
             cli_status,
             install_cli,
-            open_notices
+            open_notices,
+            save_artifact
         ])
         .build(tauri::generate_context!())
         .expect("pinrail could not start its window");

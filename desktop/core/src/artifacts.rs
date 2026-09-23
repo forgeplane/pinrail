@@ -245,6 +245,12 @@ impl Artifacts {
         })
     }
 
+    /// How many files are stored, and their bytes: what Settings › History
+    /// says the reviews' files take.
+    pub fn totals(&self) -> Result<(u64, u64), Error> {
+        Ok(self.db.blob_totals()?)
+    }
+
     /// The most one artifact may be, in bytes.
     pub fn max_bytes(&self) -> u64 {
         self.max_bytes
