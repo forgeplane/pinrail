@@ -1,0 +1,246 @@
+---
+// Version 7, the usual way round: the same product and the same look as the
+// page you review, laid out as a landing page for people who'd rather read.
+import "../styles/index7.css";
+import "../styles/index7-classic.css";
+import Zoom from "../components/index7/Zoom.astro";
+import Lightbox from "../components/index7/Lightbox.astro";
+import ModeSwitch from "../components/index7/ModeSwitch.astro";
+import Typed from "../components/index7/Typed.astro";
+import Faq from "../components/index7/Faq.astro";
+import { agents, releases, repo, views } from "../components/index7/content";
+import hero from "../assets/screenshots/review-light.png";
+
+const steps = [
+  { title: "The agent submits", text: "At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.", art: "$ wicket submit review --data proposals.json --wait" },
+  { title: "You decide", text: "The app notifies you and shows the work in a view built for it. Accept, reject, edit and comment, then hand over.", art: "✓ accept   ✕ reject   ⌘↵ hand back" },
+  { title: "It carries on", text: "The command returns your decision: markdown for an agent, JSON for a script, and an exit code that says how it ended.", art: "exit 0 · decided" },
+];
+// What agents would say, if they wrote testimonials. Imagined, and said so
+// on the page; each is signed by the agent's workflow, not the product it runs on.
+const voices = [
+  {
+    quote: "Three times this month I was about to post a review comment asking for a null check that was already there, two lines up. Maya rejected each one with a line of why. I read those lines before every review now, and my comments get posted as I wrote them.",
+    agent: "pr-reviewer", role: "Code review, northwind/api", runs: "Claude Code", icon: "claude",
+  },
+  {
+    quote: "Checkout was returning 502s and I had a redeploy of production ready to go. Before running it, I asked. The answer came back in a minute: it's the scheduled database maintenance, it ends at 03:00, leave it. I would have restarted every pod in the middle of a failover.",
+    agent: "oncall", role: "Operations, northwind/infra", runs: "Codex", icon: "codex",
+  },
+  {
+    quote: "I write the renewal emails. Every one I send has been read first, and the edits come back to me word for word. I no longer say “reach out”, and I no longer offer discounts nobody approved.",
+    agent: "renewals", role: "Customer email, northwind/growth", runs: "Gemini CLI", icon: "gemini",
+  },
+  {
+    quote: "My cleanup found 1,284 inactive accounts and a query to delete them. The review came back discarded: legal hasn't signed off on the retention policy. Exit 5, reason attached. I stopped, and nothing was deleted that couldn't be undone.",
+    agent: "data-retention", role: "Maintenance, northwind/api", runs: "Cursor", icon: "cursor",
+  },
+  {
+    quote: "Design feedback used to reach me as a paragraph. Now it's “this element, change this”, with the selector. Round two took me four minutes.",
+    agent: "site-builder", role: "Design, tidewater/website", runs: "OpenCode", icon: "opencode",
+  },
+  {
+    quote: "I was sure cursor pagination was right, and I was going to ship it as the default for everyone. I asked three questions instead. The second answer: 142 API keys depend on the old response. It stays behind a flag for 90 days.",
+    agent: "api-planner", role: "Planning, northwind/api", runs: "Kimi", icon: "kimi",
+  },
+];
+
+const codes = [
+  ["0", "Decided. The decision is on stdout, and in --decision-out if given."],
+  ["3", "Withdrawn by the agent, or expired, before anyone decided."],
+  ["4", "--timeout ran out. The review is still pending."],
+  ["5", "Discarded: stop the work this review was gating."],
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Before your agent acts, it asks. Wicket is a desktop inbox where agents wait for your decision on a diff, a batch of emails or a page, and carry on with it." />
+    <meta name="theme-color" content="#f5f0e6" />
+    <meta property="og:title" content="Wicket — before your agent acts, it asks" />
+    <meta property="og:description" content="A desktop inbox for agent work. Review it in a view made for it; your decision goes straight back." />
+    <title>Wicket — before your agent acts, it asks</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..600&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" />
+  </head>
+  <body class="classic">
+    <a href="#main" class="skip">Skip to content</a>
+
+    <header class="topnav">
+      <a class="brand" href="/index7-classic" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
+      <nav class="links" aria-label="Main">
+        <a href="#how">How it works</a><a href="#views">Views</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
+      </nav>
+      <ModeSwitch current="classic" />
+    </header>
+
+    <main id="main">
+      <section class="c-hero">
+        <p class="eyebrow"><span class="dot" aria-hidden="true"></span>The review inbox for agent work</p>
+        <h1>Before your agent acts,<br /><em><Typed words={["it asks.", "you look.", "you decide.", "you edit.", "you say stop."]} /></em></h1>
+        <p class="c-lede">Wicket is a desktop inbox for the moments that matter: review comments about to be posted, emails about to be sent, a page about to ship. The agent submits its work, waits, and carries on with your decision.</p>
+        <div class="c-ctas">
+          <a class="primary big" href={releases}>Download for macOS</a>
+          <a class="ghost big" href="/docs/getting-started/install/">Read the docs</a>
+        </div>
+        <p class="c-fine">Free and open source · runs on your Mac · in early development</p>
+        <div class="c-shot">
+          <span class="hand shot-note" aria-hidden="true">the actual app ↘</span>
+          <div class="window">
+            <div class="window-bar"><span></span><span></span><span></span><b>Wicket</b></div>
+            <Zoom src={hero} alt="The Wicket app: a code review of a TypeScript change, with one finding accepted and a note to the agent being written." caption="The Wicket app: a code review, one finding accepted with a note to the agent." sizes="(max-width: 1100px) 94vw, 1080px" />
+          </div>
+        </div>
+      </section>
+
+      <section class="c-agents" aria-label="Works with any agent">
+        <p>Works with any agent that can run a command</p>
+        <ul>{agents.map((a) => <li><img src={`/agents/${a.icon}.svg`} width="20" height="20" alt="" />{a.name}</li>)}</ul>
+      </section>
+
+      <section class="c-section" id="how">
+        <div class="c-head">
+          <p class="kicker">01 · How it works</p>
+          <h2>One command in, <em>one decision out.</em></h2>
+          <p>You tell the agent when to stop for you, in whatever instructions it follows. When it gets there, it asks through Wicket and waits.</p>
+        </div>
+        <ol class="c-steps">
+          {steps.map((s, i) => (
+            <li>
+              <span class="step">{i + 1}</span>
+              <h3>{s.title}</h3>
+              <p>{s.text}</p>
+              <code class:list={["c-art", { light: i === 1 }]}>{s.art}</code>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section class="c-section" id="views">
+        <div class="c-head">
+          <p class="kicker">02 · Views</p>
+          <h2>A diff deserves <em>a diff.</em></h2>
+          <p>Each kind of request is a plugin, with a view made for deciding it. Two are built in and three more are ready to install. Click a screenshot to see it full size.</p>
+        </div>
+        <div class="c-views">
+          {views.map((v) => (
+            <figure class="c-view">
+              <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 94vw, 560px" />
+              <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
+            </figure>
+          ))}
+        </div>
+        <div class="c-own">
+          <code>wicket-plugin create</code>
+          <p><b>Or write your own.</b> A plugin is a manifest, two JSON schemas and an HTML view. Run it in a browser without the app, then install it from a folder or a GitHub release. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p>
+          <a href="/docs/building/writing/">Write a plugin →</a>
+        </div>
+      </section>
+
+      <section class="c-section c-split">
+        <div>
+          <p class="kicker">03 · Rounds</p>
+          <h2>A no comes with a reason, <em>and the reason comes back.</em></h2>
+          <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts, so you see what changed and why. Every round and every decision is kept, and can be opened again later.</p>
+          <div class="round-demo" aria-hidden="true">
+            <div class="rd-row old"><span class="rd-tag">R1</span><s>Retry failed payments automatically.</s><span class="rd-verdict">✕ “could charge twice”</span></div>
+            <div class="rd-row"><span class="rd-tag new">R2</span>Retry failed payments with the idempotency key.<span class="rd-pending">awaiting you</span></div>
+          </div>
+        </div>
+        <div>
+          <p class="kicker">04 · Stop</p>
+          <h2>“Stop” is <em>a real answer.</em></h2>
+          <p>Discard a review with a reason and the waiting command exits 5. The agent stops the work the review was gating, reports why, and doesn't try again. Every ending has its code:</p>
+          <table class="codes">
+            <tbody>{codes.map(([c, t]) => <tr class={c === "5" ? "stop" : undefined}><td>{c}</td><td>{t}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="c-section c-cli" id="cli">
+        <div class="c-head">
+          <p class="kicker">05 · The CLI</p>
+          <h2>For an agent, <em>and for a script.</em></h2>
+          <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
+        </div>
+        <div class="terminal">
+          <div class="term-bar"><span></span><span></span><span></span><b>agent — zsh</b></div>
+          <pre><span class="t-dim"># submit the proposed comments and wait for a person</span>
+<span class="t-cmd">$ wicket submit review --title "Dedup tickets on save" \
+    --origin repo=acme/api,workflow=pr-review,ref=42 \
+    --data proposals.json --wait --format markdown</span>
+<span class="t-dim">waiting for a decision…</span>
+
+# Dedup tickets on save
+Decided · 3 accepted · 1 rejected
+<span class="t-ok">- #18 reversing twice is a no-op: accepted</span>
+<span class="t-ok">- #19 missing index on tickets.hash: accepted, “mention the COALESCE”</span>
+<span class="t-no">- #20 prefer Enum.uniq_by/2: rejected, “fine as it is”</span>
+<span class="t-ok">- #21 test for the empty list: accepted</span>
+<span class="t-cmd">$ echo $?</span>
+0</pre>
+        </div>
+      </section>
+
+      <section class="c-section c-facts">
+        <p class="kicker">06 · Yours</p>
+        <h2>On your machine, <em>with your agents.</em></h2>
+        <div class="c-fact-grid">
+          <article><h3>Local</h3><p>The app runs its server on loopback. Reviews and decisions stay on your Mac. No account.</p></article>
+          <article><h3>Contained</h3><p>A plugin's view is sandboxed: it draws, talks to the app, and nothing else.</p></article>
+          <article><h3>Interruptible</h3><p>A notification when a review lands, a count in the menu bar, and the window can close while the app keeps listening.</p></article>
+          <article><h3>Any agent</h3><p>If it can run a command, it can ask through Wicket. Its own instructions say when.</p></article>
+        </div>
+      </section>
+
+      <section class="c-section c-voices" id="voices" aria-labelledby="voices-title">
+        <div class="c-head">
+          <p class="kicker">07 · From the other side</p>
+          <h2 id="voices-title">What the agents <em>would say.</em></h2>
+          <p>If agents wrote testimonials. Imagined, but every one is a thing Wicket is there to catch.</p>
+        </div>
+        <div class="voice-grid">
+          {voices.map((v) => (
+            <figure class="voice">
+              <blockquote>{v.quote}</blockquote>
+              <figcaption>
+                <img src={`/agents/${v.icon}.svg`} width="28" height="28" alt="" />
+                <span><b>{v.agent}</b><small>{v.role} · runs on {v.runs}</small></span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+
+      <section class="c-section c-faq" id="faq">
+        <div class="c-head">
+          <p class="kicker">08 · Questions</p>
+          <h2>Before you <em>ask.</em></h2>
+        </div>
+        <div class="faq-list"><Faq /></div>
+      </section>
+
+      <section class="c-final">
+        <p class="hand">your move</p>
+        <h2 class="closing-title"><span class="line">Put <em><Typed words={["a wicket", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
+        <p>macOS today. Free and open source, in early development.</p>
+        <div class="c-ctas">
+          <a class="primary big" href={releases}>Download for macOS</a>
+          <a class="ghost big on-dark" href={repo}>Star on GitHub</a>
+        </div>
+        <a class="try-review" href="/index7">Or skip the reading: review this page instead →</a>
+      </section>
+    </main>
+
+    <Lightbox />
+
+    <footer class="colophon">
+      <span>Wicket · a small gate in a larger door.</span>
+      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/index7">Review version</a></nav>
+    </footer>
+  </body>
+</html>

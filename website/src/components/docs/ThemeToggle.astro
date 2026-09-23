@@ -1,0 +1,57 @@
+---
+// Starlight's theme menu, as one button: it flips between light and dark.
+// Until it is pressed the page follows the system, as Starlight's "auto" does,
+// and the choice is kept under the same key, so Starlight's early script still
+// applies it before first paint.
+---
+<wicket-theme-toggle>
+  <button type="button" class="theme-toggle" aria-label="Switch to dark theme">
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.1A8.5 8.5 0 1 1 9.9 3.5a6.6 6.6 0 0 0 10.6 10.6Z" /></svg>
+  </button>
+</wicket-theme-toggle>
+
+<script>
+  const storageKey = "starlight-theme";
+  const system = () => (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+  const stored = () => {
+    try { const t = localStorage.getItem(storageKey); return t === "light" || t === "dark" ? t : null; } catch { return null; }
+  };
+  const apply = (theme: "light" | "dark") => {
+    document.documentElement.dataset.theme = theme;
+    for (const b of document.querySelectorAll<HTMLButtonElement>(".theme-toggle")) {
+      b.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+    }
+  };
+
+  matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { if (!stored()) apply(system()); });
+
+  class WicketThemeToggle extends HTMLElement {
+    constructor() {
+      super();
+      apply(stored() ?? system());
+      this.querySelector("button")!.addEventListener("click", () => {
+        const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+        try { localStorage.setItem(storageKey, next); } catch {}
+        apply(next);
+      });
+    }
+  }
+  customElements.define("wicket-theme-toggle", WicketThemeToggle);
+</script>
+
+<style>
+  .theme-toggle {
+    position: relative; display: grid; place-items: center;
+    width: 2.1rem; height: 2.1rem; padding: 0;
+    border: 1px solid var(--sl-color-gray-5); border-radius: 50%;
+    background: transparent; color: var(--sl-color-gray-2); cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .theme-toggle:hover { border-color: var(--sl-color-accent); color: var(--sl-color-accent); }
+  .theme-toggle:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 2px; }
+  .theme-toggle svg { grid-area: 1 / 1; width: 1rem; height: 1rem; transition: transform 0.35s cubic-bezier(.2,.8,.2,1), opacity 0.2s ease; }
+  /* the icon shows the theme you are in; the other one waits, turned away */
+  :global([data-theme="light"]) .moon, :global(:root:not([data-theme="light"])) .sun { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+  @media (prefers-reduced-motion: reduce) { .theme-toggle svg { transition: none; } }
+</style>

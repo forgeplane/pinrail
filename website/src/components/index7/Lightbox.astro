@@ -1,0 +1,27 @@
+---
+// The one dialog every zoomable screenshot opens into.
+---
+<dialog class="lightbox" aria-label="Screenshot">
+  <figure>
+    <img alt="" />
+    <figcaption></figcaption>
+  </figure>
+  <button type="button" class="lightbox-close" aria-label="Close">✕</button>
+</dialog>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>(".lightbox")!;
+  const img = dialog.querySelector("img")!;
+  const caption = dialog.querySelector("figcaption")!;
+  document.addEventListener("click", (e) => {
+    const trigger = (e.target as HTMLElement).closest<HTMLElement>("[data-zoom]");
+    if (!trigger) return;
+    img.src = trigger.dataset.zoom!;
+    img.alt = trigger.dataset.zoomAlt || "";
+    caption.textContent = trigger.dataset.zoomCaption || "";
+    dialog.showModal();
+  });
+  // a click anywhere but the image closes it, as does Escape
+  dialog.addEventListener("click", (e) => { if (e.target !== img) dialog.close(); });
+  dialog.addEventListener("close", () => { img.removeAttribute("src"); });
+</script>

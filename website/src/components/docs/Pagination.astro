@@ -1,0 +1,50 @@
+---
+// The previous and next pages, as two index cards at the foot of a page.
+// A lone "next" keeps to the right, where the eye expects to go on.
+const { prev, next } = Astro.locals.starlightRoute.pagination;
+---
+{(prev || next) && (
+  <nav class="wk-pages print:hidden" aria-label="More docs">
+    {prev ? (
+      <a class="card prev" href={prev.href} rel="prev">
+        <span class="kicker"><span class="arrow" aria-hidden="true">←</span> Previous</span>
+        <span class="title">{prev.label}</span>
+      </a>
+    ) : <span aria-hidden="true"></span>}
+    {next && (
+      <a class="card next" href={next.href} rel="next">
+        <span class="kicker">Next <span class="arrow" aria-hidden="true">→</span></span>
+        <span class="title">{next.label}</span>
+      </a>
+    )}
+  </nav>
+)}
+
+<style>
+  .wk-pages { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2.5rem; padding-top: 1.75rem; border-top: 1px solid var(--sl-color-hairline); }
+  .card {
+    position: relative; display: flex; flex-direction: column; gap: 0.3rem;
+    padding: 0.85rem 1.1rem 0.95rem; overflow: hidden;
+    border: 1px solid var(--sl-color-gray-5); border-radius: 12px;
+    background: color-mix(in oklab, var(--sl-color-black) 70%, var(--sl-color-gray-6));
+    text-decoration: none; color: var(--sl-color-white);
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  /* a pen stroke along the top that draws in on hover */
+  .card::before { content: ""; position: absolute; top: 0; left: 0; height: 2px; width: 100%; background: var(--sl-color-accent); transform: scaleX(0); transform-origin: left; transition: transform 0.35s cubic-bezier(.2,.8,.2,1); }
+  .next::before { transform-origin: right; }
+  .card:hover { border-color: color-mix(in oklab, var(--sl-color-accent) 55%, var(--sl-color-gray-5)); transform: translateY(-2px); box-shadow: 0 14px 30px -20px rgba(0,0,0,0.45); }
+  .card:hover::before { transform: scaleX(1); }
+  .card:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 3px; }
+  .next { text-align: right; align-items: flex-end; }
+  .kicker { display: inline-flex; align-items: center; gap: 0.4rem; font: 600 0.62rem/1 var(--sl-font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--sl-color-gray-3); }
+  .arrow { display: inline-block; color: var(--sl-color-accent); font-size: 0.95rem; letter-spacing: 0; transition: transform 0.25s ease; }
+  .prev:hover .arrow { transform: translateX(-4px); }
+  .next:hover .arrow { transform: translateX(4px); }
+  .title { font: 600 1.1rem/1.25 var(--wk-serif, Georgia, serif); letter-spacing: -0.02em; }
+  @media (max-width: 40rem) {
+    .wk-pages { grid-template-columns: 1fr; }
+    .wk-pages > span { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .card, .card::before, .arrow { transition: none; } }
+</style>

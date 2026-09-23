@@ -1,0 +1,30 @@
+{
+  "name": "wicket-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "docs:generate": "cargo run -q --manifest-path ../cli/Cargo.toml --features docs -- --markdown-help > ../docs/reference/cli.md && cargo run -q --manifest-path ../desktop/Cargo.toml -p wicket-core --features docs --bin wicket-docs -- settings > ../docs/reference/settings.md && cargo run -q --manifest-path ../desktop/Cargo.toml -p wicket-core --features docs --bin wicket-docs -- manifest > ../docs/reference/manifest.md",
+    "predev": "npm run docs:generate",
+    "prebuild": "npm run docs:generate"
+  },
+  "dependencies": {
+    "@astrojs/markdown-remark": "^7.3.1",
+    "@astrojs/starlight": "^0.42.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.2",
+    "mermaid-isomorphic": "^3.1.0",
+    "playwright": "^1.63.0",
+    "sharp": "^0.34.0",
+    "tailwindcss": "^4.3.3",
+    "unist-util-visit": "^5.1.0"
+  },
+  "overrides": {
+    "mermaid-isomorphic": {
+      "mermaid": "^12.0.0"
+    }
+  }
+}

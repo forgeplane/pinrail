@@ -1,0 +1,543 @@
+---
+// Version 7: the page is itself a review. An agent drafted the landing page
+// and submitted it; the visitor is the person at the wicket. Each section is
+// an item to accept or send back with a reason, a rejection comes back as a
+// second round, the decision builds up as JSON beside the page, and handing it
+// back plays out in the agent's terminal.
+import "../styles/index7.css";
+import Zoom from "../components/index7/Zoom.astro";
+import Lightbox from "../components/index7/Lightbox.astro";
+import ModeSwitch from "../components/index7/ModeSwitch.astro";
+import Typed from "../components/index7/Typed.astro";
+import Faq from "../components/index7/Faq.astro";
+import { agents, releases, repo, views } from "../components/index7/content";
+
+const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Before your agent acts, it asks. Wicket is a desktop inbox where agents wait for your decision: a diff, a batch of emails, a page. Review this page to see how it works." />
+    <meta name="theme-color" content="#f5f0e6" />
+    <meta property="og:title" content="Wicket — before your agent acts, it asks" />
+    <meta property="og:description" content="An agent drafted this page and is waiting for your review." />
+    <title>Wicket — review this page</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" />
+  </head>
+  <body data-phase="reviewing">
+    <a href="#main" class="skip">Skip to the draft</a>
+
+    <header class="gatebar" aria-label="Review">
+      <a class="brand" href="/index7" aria-label="Wicket home"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 21V3h7v18M14 21V3h7v18" stroke="currentColor" stroke-width="2.4" /></svg>wicket</a>
+      <div class="gate-title">
+        <span class="gate-plugin">list</span>
+        <span class="gate-name">Landing page, draft 1</span>
+        <span class="gate-wait"><span class="pulse" aria-hidden="true"></span><span data-waiting>An agent is waiting on you</span></span>
+      </div>
+      <ModeSwitch current="review" />
+      <div class="gate-progress" aria-live="polite"><span data-count>0 of 6</span> decided<span class="track" aria-hidden="true"><span data-bar></span></span></div>
+      <div class="gate-actions">
+        <button type="button" class="ghost" data-discard>Discard</button>
+        <button type="button" class="primary" data-handback>Hand back <kbd>⌘↵</kbd></button>
+      </div>
+    </header>
+
+    <div class="discarded" role="alert" hidden>
+      <p><strong>Discarded.</strong> The agent's <code>wicket submit --wait</code> exited <b>5</b>: it stops the work this review was gating, reports your reason, and doesn't try again.</p>
+      <button type="button" data-undiscard>Undo, I was only testing it</button>
+    </div>
+
+    <div class="layout">
+      <main id="main" class="manuscript">
+        <p class="preamble"><span class="hand">↓ you're the reviewer</span>An agent wrote this page and submitted it for review. Accept each section or send it back with a reason, then hand your decision back. <span class="keys">Keys: <kbd>J</kbd><kbd>K</kbd> move, <kbd>A</kbd> accept, <kbd>R</kbd> reject.</span></p>
+
+        <!-- 101: the hero -->
+        <article class="item hero" data-id="101" data-title="Headline" tabindex="-1">
+          <div class="gutter"><span class="iid">#101</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
+          <div class="body">
+            <div class="content" data-round="1">
+              <h1 class="hero-title"><span class="line">Before your agent</span><br />acts, <em><Typed words={["it asks.", "you look.", "you decide.", "you edit.", "you say stop."]} /></em></h1>
+              <p class="lede">Wicket is a desktop inbox for the moments that matter: review comments about to be posted, emails about to be sent, a page about to ship. The agent submits its work, waits, and carries on with your decision.</p>
+            </div>
+            <template data-round="2">
+              <div class="content" data-round="2">
+                <h1>Your agents do the work. <em>You keep the final say.</em></h1>
+                <p class="lede">Agents stop at the steps you pick and wait in one inbox on your Mac. You look at the actual work, decide, and your decision goes back to them as something they can act on.</p>
+              </div>
+            </template>
+          </div>
+          <aside class="note" data-round="1"><b>agent</b>I kept the headline short. There was a longer one about “revolutionizing human–AI collaboration”. You're welcome.</aside>
+          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Another angle, then: the division of labour instead of the mechanism.</aside></template>
+        </article>
+
+        <!-- 102: the loop -->
+        <article class="item" data-id="102" data-title="How it works" tabindex="-1">
+          <div class="gutter"><span class="iid">#102</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
+          <div class="body">
+            <div class="content" data-round="1">
+              <h2>One command in, one decision out.</h2>
+              <ol class="loop">
+                <li>
+                  <span class="step">1</span>
+                  <div class="step-text"><h3>The agent submits</h3><p>At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.</p></div>
+                  <div class="step-art term-line"><span class="who">agent</span><code>$ wicket submit review --data proposals.json --wait</code><span class="blink" aria-hidden="true">▍</span></div>
+                </li>
+                <li>
+                  <span class="step">2</span>
+                  <div class="step-text"><h3>You decide</h3><p>The app notifies you and shows the work in a view built for it. Accept, reject, edit, comment, then hand over.</p></div>
+                  <div class="step-art decide-line"><span class="who">you</span><span class="mini ok">✓ Accept</span><span class="mini no">✕ Reject</span><span class="mini">Note…</span><span class="mini dark">Hand back <kbd>⌘↵</kbd></span></div>
+                </li>
+                <li>
+                  <span class="step">3</span>
+                  <div class="step-text"><h3>It carries on</h3><p>The command returns your decision: markdown for an agent to read, JSON for a script, and an exit code that says how it ended.</p></div>
+                  <div class="step-art term-line"><span class="who">agent</span><code>{'{"decisions": [ … ], "undecided": []}'}</code><span class="exit">exit 0</span></div>
+                </li>
+              </ol>
+            </div>
+            <template data-round="2">
+              <div class="content" data-round="2">
+                <h2>One command in, one decision out.</h2>
+                <p class="plain">The agent runs <code>wicket submit … --wait</code> and waits. You decide in the app. The command returns your decision, and the agent carries on with it.</p>
+              </div>
+            </template>
+          </div>
+          <aside class="note" data-round="1"><b>agent</b>Three steps. Reject this and I'll make it four.</aside>
+          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Fine. One sentence, no steps.</aside></template>
+        </article>
+
+        <!-- 103: the views -->
+        <article class="item" data-id="103" data-title="Views" tabindex="-1">
+          <div class="gutter"><span class="iid">#103</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
+          <div class="body">
+            <div class="content" data-round="1">
+              <h2>A diff deserves a diff.</h2>
+              <p>Each kind of request is a plugin, with a view made for deciding it. Two are built in and three more are ready to install; this page is using <code>list</code>.</p>
+              <div class="views">
+                {views.map((v, i) => (
+                  <figure class="view" style={`--tilt:${[-1.2, 0.8, -0.6, 1.1, -0.9][i]}deg`}>
+                    <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 700px) 90vw, 320px" />
+                    <figcaption><b>{v.name}</b>{v.detail}</figcaption>
+                  </figure>
+                ))}
+                <figure class="view own">
+                  <div class="own-body"><code>wicket-plugin create</code><p>A manifest, two JSON schemas and an HTML page. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p></div>
+                  <figcaption><b>Your own</b>Run it in a browser without the app, then install it from a folder or a GitHub release.</figcaption>
+                </figure>
+              </div>
+            </div>
+            <template data-round="2">
+              <div class="content" data-round="2">
+                <h2>A diff deserves a diff.</h2>
+                <dl class="plain-views">
+                  <div><dt>review</dt><dd>a diff and the agent's proposed comments</dd></div>
+                  <div><dt>email</dt><dd>drafts to edit, send, revise or discard</dd></div>
+                  <div><dt>artifact</dt><dd>a page to comment on, element by element</dd></div>
+                  <div><dt>list</dt><dd>items with a verdict and a note each</dd></div>
+                  <div><dt>yours</dt><dd>a manifest, two schemas and an HTML view</dd></div>
+                </dl>
+              </div>
+            </template>
+          </div>
+          <aside class="note" data-round="1"><b>agent</b>These are screenshots of the real app. I didn't draw them.</aside>
+          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>A plainer version: the whole list, no pictures.</aside></template>
+        </article>
+
+        <!-- 104: rounds -->
+        <article class="item" data-id="104" data-title="Rounds" tabindex="-1">
+          <div class="gutter"><span class="iid">#104</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
+          <div class="body">
+            <div class="content" data-round="1">
+              <h2>A no comes with a reason, and the reason comes back.</h2>
+              <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts, so you see what changed and why. Every round and every decision is kept, and can be opened again later.</p>
+              <p class="aside-hint">Try it: reject a section above and see what comes back.</p>
+            </div>
+            <template data-round="2">
+              <div class="content" data-round="2">
+                <h2>Say no. Say why. Get round two.</h2>
+                <p>A rejection carries its reason back to the agent. The next round shows up next to your earlier verdicts, and none of it is thrown away.</p>
+              </div>
+            </template>
+          </div>
+          <aside class="note" data-round="1"><b>agent</b>You may have noticed you're doing this right now.</aside>
+          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Round two of the section about round two.</aside></template>
+        </article>
+
+        <!-- 105: stop -->
+        <article class="item" data-id="105" data-title="Stop" tabindex="-1">
+          <div class="gutter"><span class="iid">#105</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
+          <div class="body">
+            <div class="content" data-round="1">
+              <h2>“Stop” is a real answer.</h2>
+              <p>Discard a review with a reason and the waiting command exits 5. The agent stops the work the review was gating, reports why, and doesn't try again. The other endings have codes too:</p>
+              <table class="codes">
+                <tbody>
+                  <tr><td>0</td><td>decided: your decision is on stdout</td></tr>
+                  <tr><td>3</td><td>withdrawn by the agent, or expired</td></tr>
+                  <tr><td>4</td><td><code>--timeout</code> ran out; still pending</td></tr>
+                  <tr class="stop"><td>5</td><td>discarded: stop the work</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <template data-round="2">
+              <div class="content" data-round="2">
+                <h2>“Stop” is a real answer.</h2>
+                <p>Discard a review and the agent's command exits 5. It stops, tells you why, and leaves it there.</p>
+              </div>
+            </template>
+          </div>
+          <aside class="note" data-round="1"><b>agent</b>Please don't test this on the page. (The Discard button is at the top.)</aside>
+          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Shorter this time.</aside></template>
+        </article>
+
+        <!-- 106: yours -->
+        <article class="item" data-id="106" data-title="Local" tabindex="-1">
+          <div class="gutter"><span class="iid">#106</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
+          <div class="body">
+            <div class="content" data-round="1">
+              <h2>On your machine, with your agents.</h2>
+              <ul class="facts">
+                <li><b>Local.</b> The app runs its server on loopback. Reviews and decisions stay on your Mac.</li>
+                <li><b>Contained.</b> A plugin's view is sandboxed: it draws, talks to the app, and nothing else.</li>
+                <li><b>Any agent.</b> If it can run a command, it can ask through Wicket. The agent's own instructions say when.</li>
+              </ul>
+              <ul class="agents" aria-label="Agents that work with Wicket">
+                {agents.map((a) => <li><img src={`/agents/${a.icon}.svg`} width="18" height="18" alt="" />{a.name}</li>)}
+              </ul>
+            </div>
+            <template data-round="2">
+              <div class="content" data-round="2">
+                <h2>On your machine, with your agents.</h2>
+                <p>No account, no cloud. Any agent that can run a command can ask through it.</p>
+              </div>
+            </template>
+          </div>
+          <aside class="note" data-round="1"><b>agent</b>I only claimed what I could point to in the repo.</aside>
+          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Cut to one line.</aside></template>
+        </article>
+
+        <section class="handover" aria-labelledby="handover-title">
+          <h2 id="handover-title">Done reviewing?</h2>
+          <p data-summary>Nothing decided yet. Items you leave undecided go back as not approved.</p>
+          <div class="confirm" hidden>
+            <p><b data-undecided-count></b> left undecided. The agent treats those as not approved.</p>
+            <button type="button" class="primary" data-confirm>Hand back anyway</button>
+            <button type="button" class="ghost" data-cancel>Keep reviewing</button>
+          </div>
+          <button type="button" class="primary big" data-handback>Hand back to the agent <kbd>⌘↵</kbd></button>
+        </section>
+
+        <section class="terminal-wrap" aria-label="The agent's terminal" hidden>
+          <div class="terminal">
+            <div class="term-bar"><span></span><span></span><span></span><b>agent — zsh</b></div>
+            <pre data-term aria-live="polite"></pre>
+          </div>
+          <div class="finale" hidden>
+            <p class="hand big-hand">That's the whole loop.</p>
+            <h2 class="closing-title"><span class="line">Put <em><Typed words={["a wicket", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
+            <p>macOS today. Free and open source, in early development.</p>
+            <div class="ctas">
+              <a class="primary big" href={releases}>Download for macOS</a>
+              <a class="ghost big" href="/docs/getting-started/install/">Read the docs</a>
+              <a class="ghost big" href={repo}>GitHub ↗</a>
+            </div>
+            <button type="button" class="restart" data-restart>Review the draft again</button>
+          </div>
+        </section>
+      </main>
+
+      <aside class="decision" aria-label="Your decision so far">
+        <details open>
+          <summary><span class="file">decision.json</span><span class="state" data-saved>draft</span></summary>
+          <pre data-json></pre>
+          <p class="decision-foot">This is what the agent gets back. Every click is structured data, not a chat message it has to interpret.</p>
+          <div class="faq" aria-label="Questions">
+            <p class="faq-label">Questions</p>
+            <Faq beside />
+          </div>
+        </details>
+      </aside>
+    </div>
+
+    <form class="reasons" hidden aria-label="Why send this back?">
+      <p class="reasons-q">What should the agent know?</p>
+      <div class="chips">{reasons.map((r) => <button type="button" class="chip" data-reason={r}>{r}</button>)}</div>
+      <div class="reason-row">
+        <input type="text" name="note" placeholder="Or say it in your own words…" autocomplete="off" />
+        <button type="submit" class="primary">Send back</button>
+      </div>
+      <p class="reasons-fine">In the app, the agent answers after you hand over. Here it's fast-forwarded.</p>
+    </form>
+
+    <Lightbox />
+
+    <footer class="colophon">
+      <span>Wicket · a small gate in a larger door.</span>
+      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/index7-classic">Classic version</a></nav>
+    </footer>
+
+    <script>
+      type Verdict = { action: "accept" | "reject"; note?: string };
+      type Item = { el: HTMLElement; id: number; title: string; round: number; verdict?: Verdict; history: string[] };
+
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const items: Item[] = [...document.querySelectorAll<HTMLElement>(".item")].map((el) => ({
+        el, id: Number(el.dataset.id), title: el.dataset.title!, round: 1, history: [],
+      }));
+      const reasons = document.querySelector<HTMLFormElement>(".reasons")!;
+      const json = document.querySelector<HTMLElement>("[data-json]")!;
+      let current = 0;
+      let reasonFor: Item | null = null;
+      let lastJson = "";
+
+      // Each item gets its verdict controls; the markup stays readable without them.
+      for (const item of items) {
+        const bar = document.createElement("div");
+        bar.className = "verdict";
+        bar.innerHTML = `<button type="button" class="accept" data-act="accept"><span aria-hidden="true">✓</span> Accept</button><button type="button" class="reject" data-act="reject"><span aria-hidden="true">✕</span> Send back</button><span class="verdict-label" aria-live="polite"></span><button type="button" class="undo" data-act="undo" hidden>Change</button>`;
+        item.el.querySelector(".body")!.append(bar);
+        bar.addEventListener("click", (e) => {
+          const act = (e.target as HTMLElement).closest("button")?.dataset.act;
+          if (act === "accept") decide(item, { action: "accept" });
+          if (act === "reject") askWhy(item);
+          if (act === "undo") { item.verdict = undefined; closeReasons(); render(); }
+        });
+        item.el.addEventListener("focusin", () => { current = items.indexOf(item); mark(); });
+        item.el.addEventListener("pointerdown", () => { current = items.indexOf(item); mark(); });
+      }
+
+      function decide(item: Item, verdict: Verdict) {
+        item.verdict = verdict;
+        closeReasons();
+        render();
+        if (verdict.action === "reject" && item.round === 1) revise(item, verdict.note || "no reason given");
+        else next();
+      }
+
+      function askWhy(item: Item) {
+        reasonFor = item;
+        item.el.querySelector(".verdict")!.after(reasons);
+        reasons.hidden = false;
+        reasons.reset();
+        reasons.querySelector<HTMLInputElement>("input")!.focus({ preventScroll: true });
+      }
+      function closeReasons() { reasons.hidden = true; reasonFor = null; }
+      reasons.addEventListener("click", (e) => {
+        const chip = (e.target as HTMLElement).closest<HTMLElement>("[data-reason]");
+        if (chip && reasonFor) decide(reasonFor, { action: "reject", note: chip.dataset.reason });
+      });
+      reasons.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!reasonFor) return;
+        const note = reasons.querySelector<HTMLInputElement>("input")!.value.trim();
+        decide(reasonFor, { action: "reject", note: note || undefined });
+      });
+      reasons.addEventListener("keydown", (e) => { if (e.key === "Escape") { const it = reasonFor; closeReasons(); it?.el.focus(); } });
+
+      // Round two: the agent takes the reason and sends the section again,
+      // with the first round's verdict kept beside it.
+      function revise(item: Item, note: string) {
+        const el = item.el;
+        el.classList.add("revising");
+        setTimeout(() => {
+          const body = el.querySelector(".body")!;
+          const tpl = el.querySelector<HTMLTemplateElement>('template[data-round="2"]')!;
+          const noteTpl = el.querySelector<HTMLTemplateElement>('template[data-note="2"]')!;
+          body.querySelector('.content[data-round="1"]')!.replaceWith(tpl.content.cloneNode(true));
+          el.querySelector('.note[data-round="1"]')!.replaceWith(noteTpl.content.cloneNode(true));
+          item.history.push(`Round 1: sent back — “${note}”`);
+          item.round = 2;
+          item.verdict = undefined;
+          const prev = document.createElement("p");
+          prev.className = "previous";
+          prev.textContent = item.history.at(-1)!;
+          body.querySelector(".content")!.before(prev);
+          el.classList.remove("revising");
+          el.classList.add("arrived");
+          setTimeout(() => el.classList.remove("arrived"), 1200);
+          render();
+        }, reduce ? 0 : 1100);
+      }
+
+      function next() {
+        const pending = items.findIndex((it, i) => i > current && !it.verdict);
+        if (pending >= 0) focusItem(pending);
+      }
+      function focusItem(i: number) {
+        current = Math.max(0, Math.min(items.length - 1, i));
+        items[current].el.focus({ preventScroll: true });
+        items[current].el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+        mark();
+      }
+      function mark() { items.forEach((it, i) => it.el.classList.toggle("current", i === current)); }
+
+      function decision() {
+        const decided = items.filter((it) => it.verdict);
+        return {
+          decisions: decided.map((it) => ({ id: it.id, action: it.verdict!.action, ...(it.verdict!.note ? { note: it.verdict!.note } : {}) })),
+          undecided: items.filter((it) => !it.verdict).map((it) => it.id),
+        };
+      }
+
+      function highlight(src: string) {
+        const esc = src.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        return esc
+          .replace(/("[a-z]+")(?=:)/g, '<span class="k">$1</span>')
+          .replace(/: ("accept")/g, ': <span class="ok">$1</span>')
+          .replace(/: ("reject")/g, ': <span class="no">$1</span>')
+          .replace(/: ("[^"]*")(?!<)/g, ': <span class="s">$1</span>')
+          .replace(/\b(\d{3})\b/g, '<span class="n">$1</span>');
+      }
+      function pretty(d: ReturnType<typeof decision>) {
+        const rows = d.decisions.map((r) => "    " + JSON.stringify(r).replace(/,"/g, ', "').replace(/":/g, '": ').replace(/^\{/, "{ ").replace(/\}$/, " }"));
+        const undecided = d.undecided.length ? `[ ${d.undecided.join(", ")} ]` : "[]";
+        return `{\n  "decisions": [${rows.length ? "\n" + rows.join(",\n") + "\n  " : ""}],\n  "undecided": ${undecided}\n}`;
+      }
+
+      function render() {
+        for (const it of items) {
+          const state = it.verdict ? (it.verdict.action === "accept" ? "accepted" : "rejected") : "pending";
+          it.el.dataset.state = state;
+          it.el.querySelector(".round")!.textContent = `R${it.round}`;
+          const label = it.el.querySelector<HTMLElement>(".verdict-label")!;
+          label.textContent = it.verdict ? (it.verdict.action === "accept" ? "Accepted" : `Sent back${it.verdict.note ? ` — “${it.verdict.note}”` : ""}`) : "";
+          it.el.querySelector<HTMLElement>(".undo")!.hidden = !it.verdict;
+          it.el.querySelectorAll<HTMLButtonElement>(".accept, .reject").forEach((b) => (b.hidden = !!it.verdict));
+        }
+        const d = decision();
+        const done = d.decisions.length;
+        document.querySelector("[data-count]")!.textContent = `${done} of ${items.length}`;
+        document.querySelector<HTMLElement>("[data-bar]")!.style.width = `${(done / items.length) * 100}%`;
+        const text = pretty(d);
+        if (text !== lastJson) {
+          json.innerHTML = highlight(text);
+          json.classList.remove("flash"); void json.offsetWidth; json.classList.add("flash");
+          lastJson = text;
+        }
+        const accepted = d.decisions.filter((r) => r.action === "accept").length;
+        const summary = document.querySelector("[data-summary]")!;
+        summary.textContent = done
+          ? `${accepted} accepted, ${done - accepted} sent back, ${d.undecided.length} undecided.`
+          : "Nothing decided yet. Items you leave undecided go back as not approved.";
+      }
+
+      // Hand back: the decision goes to the agent's waiting command.
+      const confirm = document.querySelector<HTMLElement>(".confirm")!;
+      document.querySelectorAll("[data-handback]").forEach((b) => b.addEventListener("click", handback));
+      document.querySelector("[data-confirm]")!.addEventListener("click", () => { confirm.hidden = true; finish(); });
+      document.querySelector("[data-cancel]")!.addEventListener("click", () => { confirm.hidden = true; focusItem(items.findIndex((it) => !it.verdict)); });
+
+      function handback() {
+        if (document.body.dataset.phase !== "reviewing") return;
+        const undecided = items.filter((it) => !it.verdict).length;
+        if (undecided) {
+          document.querySelector("[data-undecided-count]")!.textContent = `${undecided} ${undecided === 1 ? "item is" : "items are"}`;
+          confirm.hidden = false;
+          confirm.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+          confirm.querySelector<HTMLElement>("[data-confirm]")!.focus({ preventScroll: true });
+          return;
+        }
+        finish();
+      }
+
+      async function finish() {
+        closeReasons();
+        document.body.dataset.phase = "handed";
+        document.querySelector("[data-saved]")!.textContent = "handed over";
+        document.querySelector("[data-waiting]")!.textContent = "Decision handed back";
+        const wrap = document.querySelector<HTMLElement>(".terminal-wrap")!;
+        const term = document.querySelector<HTMLElement>("[data-term]")!;
+        wrap.hidden = false;
+        term.textContent = "";
+        wrap.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+
+        const d = decision();
+        const byId = new Map(items.map((it) => [it.id, it]));
+        const accepted = d.decisions.filter((r) => r.action === "accept");
+        const rejected = d.decisions.filter((r) => r.action === "reject");
+        const lines: [string, string, number][] = [
+          ["cmd", `wicket submit list --title "Landing page, draft 1" \\\n    --data page.json --wait --format markdown`, 420],
+          ["dim", "waiting for a decision…", 700],
+          ["out", "# Landing page, draft 1", 60],
+          ["out", `Decided · ${accepted.length} accepted · ${rejected.length} rejected · ${d.undecided.length} undecided`, 60],
+          ["out", "", 20],
+          ...d.decisions.map((r): [string, string, number] => [r.action === "accept" ? "ok" : "no", `- #${r.id} ${byId.get(r.id)!.title}: ${r.action === "accept" ? "accepted" : "rejected"}${r.note ? ` — “${r.note}”` : ""}${byId.get(r.id)!.round > 1 ? " (round 2)" : ""}`, 70]),
+          ...d.undecided.map((id): [string, string, number] => ["dim", `- #${id} ${byId.get(id)!.title}: undecided, not approved`, 70]),
+          ["cmd", "echo $?", 380],
+          ["out", "0", 300],
+          ["agent", agentReply(accepted.length, rejected.map((r) => byId.get(r.id)!.title), d.undecided.length), 500],
+        ];
+        for (const [kind, text, pause] of lines) {
+          const line = document.createElement("span");
+          line.className = `t-${kind}`;
+          term.append(line, "\n");
+          const prefix = kind === "cmd" ? "$ " : kind === "agent" ? "agent ▸ " : "";
+          if (kind === "cmd" && !reduce) {
+            line.textContent = prefix;
+            for (const ch of text) { line.textContent += ch; await wait(14); }
+          } else line.textContent = prefix + text;
+          await wait(reduce ? 0 : pause);
+        }
+        document.querySelector<HTMLElement>(".finale")!.hidden = false;
+      }
+      function agentReply(accepted: number, rejected: string[], undecided: number) {
+        if (!accepted) return "Nothing approved, so nothing ships. I'll wait for the next instruction.";
+        const parts = [`Publishing the ${accepted} ${accepted === 1 ? "section" : "sections"} you accepted.`];
+        if (rejected.length) parts.push(`Leaving out ${rejected.join(", ")}, as you asked.`);
+        if (undecided) parts.push(`${undecided} undecided, so those stay out too.`);
+        return parts.join(" ");
+      }
+      const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+      document.querySelector("[data-restart]")!.addEventListener("click", () => location.reload());
+
+      // Discard: "no, and stop". The whole review ends without a decision.
+      const discarded = document.querySelector<HTMLElement>(".discarded")!;
+      document.querySelector("[data-discard]")!.addEventListener("click", () => {
+        if (document.body.dataset.phase !== "reviewing") return;
+        document.body.dataset.phase = "discarded";
+        discarded.hidden = false;
+        document.querySelector("[data-waiting]")!.textContent = "Discarded · exit 5";
+        discarded.querySelector("button")!.focus();
+      });
+      document.querySelector("[data-undiscard]")!.addEventListener("click", () => {
+        document.body.dataset.phase = "reviewing";
+        discarded.hidden = true;
+        document.querySelector("[data-waiting]")!.textContent = "An agent is waiting on you";
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); handback(); return; }
+        const target = e.target as HTMLElement;
+        if (document.querySelector("dialog[open]")) return;
+        if (target.closest("input, textarea, .decision") || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (document.body.dataset.phase !== "reviewing") return;
+        const k = e.key.toLowerCase();
+        if (k === "j") focusItem(current + 1);
+        else if (k === "k") focusItem(current - 1);
+        else if (k === "a" && !items[current].verdict) decide(items[current], { action: "accept" });
+        else if (k === "r" && !items[current].verdict) { e.preventDefault(); askWhy(items[current]); }
+        else return;
+      });
+
+      // The waiting clock: how long the agent has been blocked on you.
+      const started = Date.now();
+      const clock = document.querySelector<HTMLElement>("[data-waiting]")!;
+      setInterval(() => {
+        if (document.body.dataset.phase !== "reviewing") return;
+        const s = Math.floor((Date.now() - started) / 1000);
+        if (s >= 5) clock.textContent = `An agent has been waiting ${s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`}`;
+      }, 1000);
+
+      // on a narrow screen the decision is a sheet: start it folded
+      if (matchMedia("(max-width: 1180px)").matches) document.querySelector<HTMLDetailsElement>(".decision > details")!.open = false;
+
+      render();
+      mark();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+// The site: the landing page at /, the docs under /docs from the markdown
+// in ../docs. Starlight renders the docs; the landing page is its own.
+import { defineConfig } from "astro/config";
+import starlight from "@astrojs/starlight";
+import tailwindcss from "@tailwindcss/vite";
+import { unified } from "@astrojs/markdown-remark";
+import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
+import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
+
+export default defineConfig({
+  // the landing page is the review version; the classic one sits beside it
+  redirects: { "/": "/index7" },
+  site: "https://wicket.dev",
+  vite: { plugins: [tailwindcss()] },
+  // unified, so the docs' ```mermaid blocks become diagrams and screenshot:
+  // images the app in the reader's theme; Starlight adds its
+  // own plugins (asides, heading links) to the same processor
+  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots] }) },
+  integrations: [
+    starlight({
+      title: "Wicket",
+      description: "The inbox where your agents ask before they act.",
+      customCss: ["./src/styles/docs.css"],
+      // the docs live beside the code, so Starlight's asides and heading links must reach them there
+      markdown: { processedDirs: ["../docs"] },
+      components: {
+        ThemeSelect: "./src/components/docs/ThemeToggle.astro",
+        Pagination: "./src/components/docs/Pagination.astro",
+      },
+      head: [{ tag: "script", attrs: { src: "/docs.js", defer: true } }, { tag: "link", attrs: { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400..600&family=Caveat:wght@500;700&display=swap" } }],
+      logo: { src: "./src/assets/wicket-mark.svg", alt: "" },
+      // code in the site's colours: the terminal's warm dark, and the paper
+      expressiveCode: {
+        themes: ["vitesse-dark", "vitesse-light"],
+        // commands and code stay readable on both backgrounds
+        minSyntaxHighlightingColorContrast: 7,
+        styleOverrides: {
+          borderRadius: "10px",
+          borderColor: ({ theme }) => (theme.type === "dark" ? "#34302b" : "#ddd4c3"),
+          codeBackground: ({ theme }) => (theme.type === "dark" ? "#161412" : "#fffdf8"),
+          codeFontFamily: "'JetBrains Mono', ui-monospace, monospace",
+          codeFontSize: "0.84rem",
+          codeLineHeight: "1.7",
+          uiFontFamily: "Geist, system-ui, sans-serif",
+          textMarkers: {
+            markBackground: ({ theme }) => (theme.type === "dark" ? "#e5694f22" : "#cf3a1f14"),
+            markBorderColor: ({ theme }) => (theme.type === "dark" ? "#e5694f" : "#cf3a1f"),
+          },
+          frames: {
+            editorTabBarBackground: ({ theme }) => (theme.type === "dark" ? "#201d1a" : "#f2ece1"),
+            editorActiveTabBackground: ({ theme }) => (theme.type === "dark" ? "#161412" : "#fffdf8"),
+            editorActiveTabIndicatorTopColor: "#cf3a1f",
+            editorActiveTabIndicatorBottomColor: "transparent",
+            // a terminal is dark in both themes, as the site draws its terminals
+            terminalTitlebarBackground: "#2a2723",
+            terminalBackground: "#1c1a17",
+            terminalTitlebarDotsForeground: "#4a453e",
+            terminalTitlebarForeground: "#928a7c",
+            terminalTitlebarBorderBottomColor: "#34302b",
+            frameBoxShadowCssValue: "none",
+          },
+        },
+      },
+      social: [{ icon: "github", label: "GitHub", href: "https://github.com/pnezis/wicket" }],
+      sidebar: [
+        { label: "Getting started", items: ["docs/getting-started/install", "docs/getting-started/first-review"] },
+        { label: "Concepts", items: ["docs/concepts/reviews", "docs/concepts/plugins", "docs/concepts/trust"] },
+        { label: "Using Wicket", items: ["docs/using/inbox", "docs/using/installing-plugins", "docs/using/settings", "docs/using/notifications"] },
+        {
+          label: "Plugins",
+          items: [
+            { label: "Overview", slug: "docs/plugins" },
+            "docs/plugins/list",
+            "docs/plugins/feedback",
+            "docs/plugins/review",
+            "docs/plugins/email",
+            "docs/plugins/artifact",
+            "docs/plugins/calendar",
+            "docs/plugins/logo",
+          ],
+        },
+        { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },
+        { label: "Building plugins", items: ["docs/building/writing", "docs/building/settings-and-keys", "docs/building/protocol", "docs/building/publishing"] },
+        { label: "Reference", items: ["docs/reference/cli", "docs/reference/settings", "docs/reference/manifest"] },
+      ],
+    }),
+  ],
+});

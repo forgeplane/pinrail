@@ -1,0 +1,54 @@
+---
+// The questions both versions of the page answer. Each page styles them for
+// where they sit: the dark decision panel, or the classic page's own section.
+// Beside the decision JSON the first question can point at it; elsewhere it
+// can't.
+interface Props { beside?: boolean }
+const { beside = false } = Astro.props;
+---
+<details>
+  <summary>{beside ? "Who decides this shape?" : "Who decides what a decision looks like?"}</summary>
+  <div class="answer">
+    <p>The plugin. Each one declares what the agent sends and what comes back, as JSON Schema. <b>JSON is the transport, HTML is the view.</b></p>
+    <ol class="flow" aria-label="JSON in, an HTML view for you, JSON out">
+      <li><span class="node">agent</span></li>
+      <li class="edge"><span>JSON</span></li>
+      <li><span class="node you">HTML · you</span></li>
+      <li class="edge"><span>JSON</span></li>
+      <li><span class="node">agent</span></li>
+    </ol>
+    <pre class="tree" aria-label="The list plugin's files"><span class="dir">list/</span>
+├ manifest.json
+├ payload.schema.json   <i>in</i>
+├ decision.schema.json  <i>{beside ? "out ↑" : "out"}</i>
+└ index.html            <i>the view</i></pre>
+  </div>
+</details>
+<details>
+  <summary>Can I make one for my own work?</summary>
+  <div class="answer">
+    <p>Yes, or have your agent make it. A deploy to approve, alerts to triage, three designs to pick from: whatever needs a person.</p>
+    <p class="scaffold"><code>$ wicket-plugin create</code><a href="/docs/building/writing/">Write a plugin →</a></p>
+  </div>
+</details>
+<details>
+  <summary>Which agents work with it?</summary>
+  <div class="answer"><p>Any that can run a command: Claude Code, Codex, Cursor, a CI job, a shell script. Its own instructions say when to stop and ask.</p></div>
+</details>
+<details>
+  <summary>Does anything leave my machine?</summary>
+  <div class="answer"><p>No. The app runs its server on loopback, and reviews and decisions stay on your Mac. There's no account. Plugin views are sandboxed.</p></div>
+</details>
+<details>
+  <summary>What if I'm away when it asks?</summary>
+  <div class="answer">
+    <p>The agent waits, even through an app restart. With <code>--timeout</code> it stops waiting (exit 4) and the review stays in your inbox.</p>
+    <p>Decide when you're back. The agent picks up your decision with the CLI whenever it next looks:</p>
+    <pre class="cli-later"><span class="c">$</span> wicket wait &lt;id&gt;   <i># your decision</i>
+<span class="c">$</span> wicket show &lt;id&gt;   <i># where it stands</i></pre>
+  </div>
+</details>
+<details>
+  <summary>What does it cost?</summary>
+  <div class="answer"><p>Nothing. It's open source under Apache 2.0, on macOS, and in early development.</p></div>
+</details>

@@ -1,0 +1,14 @@
+---
+// A screenshot that opens full size. The thumbnail is a button; the full
+// image loads only when asked for.
+import { Image, getImage } from "astro:assets";
+import type { ImageMetadata } from "astro";
+
+interface Props { src: ImageMetadata; alt: string; caption: string; sizes: string; class?: string }
+const { src, alt, caption, sizes, class: cls } = Astro.props;
+const full = await getImage({ src, width: Math.min(src.width, 2400), format: "webp" });
+---
+<button type="button" class:list={["zoom", cls]} data-zoom={full.src} data-zoom-alt={alt} data-zoom-caption={caption} aria-label={`Enlarge: ${caption}`}>
+  <Image src={src} alt={alt} widths={[480, 960, 1400]} sizes={sizes} />
+  <span class="zoom-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg></span>
+</button>

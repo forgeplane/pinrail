@@ -1,0 +1,207 @@
+/* The docs wear the site's paper and pens: warm paper, the reviewer's red
+   for accents, Newsreader for headings, and the terminal's warm dark for the
+   dark theme. */
+
+:root {
+  --sl-font: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --wk-serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --wk-hand: "Caveat", "Bradley Hand", cursive;
+
+  /* dark: the site's terminal and decision panel */
+  --sl-color-white: #fbf8f2;
+  --sl-color-gray-1: #e9e3d6;
+  --sl-color-gray-2: #cdc5b6;
+  --sl-color-gray-3: #a1998b;
+  --sl-color-gray-4: #6f685d;
+  --sl-color-gray-5: #3b3731;
+  --sl-color-gray-6: #26231f;
+  --sl-color-black: #1c1a17;
+  --sl-color-accent-low: #43211a;
+  --sl-color-accent: #e5694f;
+  --sl-color-accent-high: #f6c1b3;
+  --sl-color-bg-nav: color-mix(in oklab, #1c1a17 88%, transparent);
+  --sl-color-bg-sidebar: #1c1a17;
+  --sl-color-hairline: #2f2b26;
+  --sl-color-hairline-light: #34302b;
+  --wk-dots: color-mix(in oklab, #fbf8f2 5%, transparent);
+  --sl-content-width: 46rem;
+  --sl-text-h1: 2.75rem;
+  --sl-text-h2: 1.95rem;
+  --sl-text-h3: 1.45rem;
+}
+
+:root[data-theme="light"] {
+  /* light: the landing page's paper and inks */
+  --sl-color-white: #1e1b17;
+  --sl-color-gray-1: #2c2823;
+  --sl-color-gray-2: #4b453c;
+  --sl-color-gray-3: #6f685c;
+  --sl-color-gray-4: #8b8274;
+  --sl-color-gray-5: #c9bea9;
+  --sl-color-gray-6: #e8e0d0;
+  --sl-color-gray-7: #efe8da;
+  --sl-color-black: #f8f4ec;
+  --sl-color-accent-low: #f7dcd3;
+  --sl-color-accent: #cf3a1f;
+  --sl-color-accent-high: #8c2412;
+  --sl-color-bg-nav: color-mix(in oklab, #f5f0e6 88%, transparent);
+  --sl-color-bg-sidebar: #f2ece1;
+  --sl-color-bg-inline-code: #ece5d6;
+  --sl-color-hairline: #e1d8c6;
+  --sl-color-hairline-light: #e1d8c6;
+  --sl-color-hairline-shade: #ddd4c3;
+  --wk-dots: color-mix(in oklab, #1e1b17 5%, transparent);
+}
+
+/* the dot grid the landing page is drawn on */
+body {
+  background-image: radial-gradient(var(--wk-dots) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+header.header { backdrop-filter: blur(10px); border-bottom-color: var(--sl-color-hairline); }
+.site-title { font-family: var(--wk-serif); font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; color: var(--sl-color-white); gap: 0.55rem; }
+.site-title img { height: 1.15rem; width: auto; }
+
+/* headings in the site's serif */
+h1#_top, .sl-markdown-content :is(h1, h2, h3, h4) {
+  font-family: var(--wk-serif);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--sl-color-white);
+}
+h1#_top { font-size: var(--sl-text-h1); letter-spacing: -0.03em; line-height: 1.05; }
+/* a rule above each section; Starlight's heading links wrap the h2, so it goes on the wrapper */
+.sl-markdown-content .sl-heading-wrapper.level-h2 { padding-top: 0.4rem; border-top: 1px solid var(--sl-color-hairline); }
+.sl-markdown-content > h2 { padding-top: 0.4rem; border-top: 1px solid var(--sl-color-hairline); }
+
+.sl-markdown-content { font-size: 1.03rem; }
+.sl-markdown-content a { text-decoration-color: color-mix(in oklab, var(--sl-color-accent) 45%, transparent); text-underline-offset: 3px; }
+.sl-markdown-content a:hover { text-decoration-color: currentColor; }
+.sl-markdown-content :not(pre) > code { padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.86em; }
+.sl-markdown-content blockquote { border-inline-start: 2px solid var(--sl-color-accent); font-style: italic; }
+
+/* the sidebar: mono group labels, the current page marked in pen */
+.sidebar-content .group-label .large, nav.sidebar summary .group-label span {
+  font-family: var(--sl-font-mono);
+  font-size: 0.7rem !important;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-3);
+}
+.sidebar-content a[aria-current="page"] {
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent-high);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--sl-color-accent);
+  border-radius: 0 6px 6px 0;
+}
+:root[data-theme="light"] .sidebar-content a[aria-current="page"] { color: var(--sl-color-accent-high); }
+
+/* "on this page" */
+starlight-toc h2, mobile-starlight-toc summary { font-family: var(--sl-font-mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+starlight-toc a[aria-current="true"] { color: var(--sl-color-accent); }
+
+
+/* Asides, as the site's margin notes: a rule on the left, a mono label.
+   note is the agent's blue ink, tip the reviewer's green, caution amber,
+   danger the red pen. */
+.starlight-aside { border: 0; border-inline-start: 3px solid var(--wk-aside); border-radius: 0 10px 10px 0; background: color-mix(in oklab, var(--wk-aside) 8%, transparent); padding: 0.85rem 1.1rem; }
+.starlight-aside__title { font: 600 0.72rem/1 var(--sl-font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--wk-aside); gap: 0.45rem; }
+.starlight-aside__icon { width: 1rem; height: 1rem; }
+.starlight-aside__content { color: var(--sl-color-gray-1); }
+.starlight-aside--note { --wk-aside: #7aa6d6; }
+.starlight-aside--tip { --wk-aside: #7fc095; }
+.starlight-aside--caution { --wk-aside: #d9a441; }
+.starlight-aside--danger { --wk-aside: var(--sl-color-accent); }
+:root[data-theme="light"] .starlight-aside--note { --wk-aside: #2d5a86; }
+:root[data-theme="light"] .starlight-aside--tip { --wk-aside: #2f7a4b; }
+:root[data-theme="light"] .starlight-aside--caution { --wk-aside: #a8700f; }
+
+/* Diagrams: drawn on a sheet, captioned in mono */
+.wk-mermaid { margin: 1.75rem 0; }
+.wk-mermaid-canvas { display: flex; justify-content: center; padding: 1.25rem; border: 1px solid var(--sl-color-hairline-light); border-radius: 12px; background: color-mix(in oklab, var(--sl-color-black) 55%, var(--sl-color-gray-6)); overflow-x: auto; }
+.wk-mermaid-canvas svg { max-width: 100%; height: auto; }
+/* drawn at build time in both themes; show the one that matches */
+.wk-mermaid-light, .wk-mermaid-dark { display: flex; justify-content: center; width: 100%; }
+:root[data-theme="light"] .wk-mermaid-dark, :root:not([data-theme="light"]) .wk-mermaid-light { display: none; }
+.wk-mermaid figcaption { margin-top: 0.6rem; text-align: center; font: 0.72rem var(--sl-font-mono); letter-spacing: 0.04em; color: var(--sl-color-gray-3); }
+/* a node given `:::you` is the person: drawn in the red pen, as the site draws them */
+.wk-mermaid .you rect, .wk-mermaid .you polygon, .wk-mermaid .you circle { stroke: var(--sl-color-accent) !important; fill: var(--sl-color-accent-low) !important; }
+.wk-mermaid .you .nodeLabel, .wk-mermaid .you span { color: var(--sl-color-accent-high) !important; }
+
+/* file trees and steps, in the site's inks */
+starlight-file-tree { border-radius: 12px; }
+.sl-steps > li::before { font-family: var(--sl-font-mono); background: var(--sl-color-accent-low); color: var(--sl-color-accent-high); box-shadow: inset 0 0 0 1.5px var(--sl-color-accent); }
+.sl-markdown-content table { font-size: 0.92rem; }
+.sl-markdown-content th { font: 600 0.72rem var(--sl-font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--sl-color-gray-3); }
+
+/* Terminals are dark in both themes, so they keep the dark theme's token
+   colours (--0) on the paper too, over bright plain text */
+.expressive-code .frame.is-terminal pre > code { color: #efe9dd; filter: brightness(1.35) saturate(1.2); }
+.expressive-code .frame.is-terminal .ec-line span[style^="--"] { color: var(--0, inherit) !important; }
+.expressive-code .frame.is-terminal { border-color: #34302b; }
+/* and traffic lights on the title bar */
+.expressive-code .frame.is-terminal .header::before {
+  -webkit-mask-image: none; mask-image: none; opacity: 1;
+  width: 2.7rem; height: 0.75rem; top: 50%; transform: translateY(-50%);
+  background-color: transparent;
+  background-image:
+    radial-gradient(circle at 0.375rem 50%, #ff5f57 0.3rem, #e0443e 0.33rem, transparent 0.36rem),
+    radial-gradient(circle at 1.35rem 50%, #febc2e 0.3rem, #dea123 0.33rem, transparent 0.36rem),
+    radial-gradient(circle at 2.325rem 50%, #28c840 0.3rem, #1aab29 0.33rem, transparent 0.36rem);
+}
+
+/* Plugin pages: a badge under the title, and screenshots on a sheet */
+.wk-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: -0.25rem 0 1.25rem; }
+.wk-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.6rem; border-radius: 99px; border: 1px solid var(--wk-badge); color: var(--wk-badge); background: color-mix(in oklab, var(--wk-badge) 10%, transparent); font: 600 0.68rem/1.4 var(--sl-font-mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.wk-badge::before { content: ""; width: 0.4rem; height: 0.4rem; border-radius: 50%; background: currentColor; }
+.wk-badge.built-in { --wk-badge: #7fc095; }
+.wk-badge.optional { --wk-badge: var(--sl-color-gray-3); }
+.wk-badge.plain { --wk-badge: var(--sl-color-gray-3); }
+.wk-badge.plain::before { display: none; }
+:root[data-theme="light"] .wk-badge.built-in { --wk-badge: #2f7a4b; }
+
+.wk-shot { margin: 1.5rem 0 2rem; }
+/* a screenshot comes in both themes; the reader sees theirs */
+:root[data-theme="light"] .wk-shot-dark, :root:not([data-theme="light"]) .wk-shot-light { display: none !important; }
+.wk-shot img { display: block; width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--sl-color-hairline-light); box-shadow: 0 24px 50px -32px rgba(0, 0, 0, 0.55); }
+/* the picture opens full size: the whole app does not fit the column legibly */
+.wk-shot-open { position: relative; display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 12px; }
+.wk-shot-open:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 4px; }
+.wk-shot-hint { position: absolute; right: 12px; bottom: 12px; padding: 4px 10px; border-radius: 999px; background: rgb(0 0 0 / 0.7); color: #fff; font: 600 0.72rem var(--sl-font); opacity: 0; transform: translateY(4px); transition: opacity 0.15s, transform 0.15s; pointer-events: none; }
+.wk-shot-open:hover .wk-shot-hint, .wk-shot-open:focus-visible .wk-shot-hint { opacity: 1; transform: none; }
+.wk-zoom { width: 100vw; height: 100vh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: rgb(8 9 12 / 0.9); overflow: auto; cursor: zoom-out; }
+.wk-zoom::backdrop { background: transparent; }
+.wk-zoom img { display: block; width: min(1440px, calc(100vw - 150px)); height: auto; margin: 24px auto; border-radius: 10px; box-shadow: 0 30px 80px rgb(0 0 0 / 0.6); }
+.wk-zoom-close { position: fixed; top: 14px; right: 14px; display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgb(255 255 255 / 0.14); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+.wk-zoom-close:hover { background: rgb(255 255 255 / 0.26); }
+/* several pictures in one figure: one at a time, a dot for each */
+.wk-slide[hidden] { display: none; }
+.wk-dots { display: flex; justify-content: center; gap: 8px; margin-top: 0.4rem; }
+.wk-dot { width: 9px; height: 9px; margin: 0; padding: 0; border: 0; border-radius: 50%; background: var(--sl-color-gray-5); cursor: pointer; transition: background 0.15s, transform 0.15s; }
+.wk-dot:hover { background: var(--sl-color-gray-3); }
+.wk-dot[aria-current="true"] { background: var(--sl-color-accent); transform: scale(1.25); }
+.wk-dot:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 3px; }
+/* zoomed: the caption under the picture, arrows at the sides, where it is in the set */
+.wk-zoom-caption { margin: 0 auto 24px; text-align: center; color: rgb(255 255 255 / 0.8); font: 0.8rem var(--sl-font-mono); letter-spacing: 0.04em; }
+.wk-zoom-nav { position: fixed; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgb(255 255 255 / 0.14); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; }
+.wk-zoom-nav:hover { background: rgb(255 255 255 / 0.26); }
+.wk-zoom-prev { left: 16px; }
+.wk-zoom-next { right: 16px; }
+.wk-zoom-count { position: fixed; top: 16px; left: 16px; padding: 5px 11px; border-radius: 999px; background: rgb(0 0 0 / 0.6); color: #fff; font: 600 0.78rem var(--sl-font-mono); }
+.wk-shot figcaption { margin-top: 0.6rem; text-align: center; font: 0.72rem var(--sl-font-mono); letter-spacing: 0.04em; color: var(--sl-color-gray-3); }
+.wk-shot--placeholder > div { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; aspect-ratio: 16 / 9; padding: 2rem; text-align: center; border: 1.5px dashed var(--sl-color-gray-5); border-radius: 12px; background: repeating-linear-gradient(135deg, transparent 0 14px, color-mix(in oklab, var(--sl-color-gray-5) 22%, transparent) 14px 15px); color: var(--sl-color-gray-3); font: 0.8rem/1.5 var(--sl-font-mono); }
+.wk-shot--placeholder b { color: var(--sl-color-gray-2); font-weight: 600; }
+
+/* sidebar badges, drawn like the page's: an outline, mono, quiet */
+.sidebar-content .sl-badge { padding: 0 0.4rem; border: 1px solid var(--wk-badge); border-radius: 99px; background: color-mix(in oklab, var(--wk-badge) 10%, transparent); color: var(--wk-badge); font: 600 0.58rem/1.6 var(--sl-font-mono); letter-spacing: 0.06em; text-transform: uppercase; }
+.sidebar-content .sl-badge.success { --wk-badge: #7fc095; }
+.sidebar-content .sl-badge.default { --wk-badge: var(--sl-color-gray-3); }
+:root[data-theme="light"] .sidebar-content .sl-badge.success { --wk-badge: #2f7a4b; }
+.sidebar-content a[aria-current="page"] .sl-badge { --wk-badge: var(--sl-color-accent-high); }
+/* a sidebar badge sits at the right edge of its row */
+.sidebar-content a:has(> .sl-badge) { display: flex; align-items: center; gap: 0.5rem; }
+.sidebar-content a > .sl-badge { margin-inline-start: auto; }
