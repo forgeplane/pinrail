@@ -10,7 +10,7 @@ const root = packageRoot(fileURLToPath(import.meta.url));
 const templates = path.join(root, "templates");
 const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-export const TEMPLATES = ["plain", "vite", "react"];
+export const TEMPLATES = ["plain", "vite", "react", "vue"];
 const NAME = /^[a-z][a-z0-9_-]*$/;
 
 /**
@@ -74,7 +74,7 @@ export function scaffold(name, opts = {}) {
   return { dir, written };
 }
 
-/** The command line: `create <name> [--template plain|vite|react] [--dir path] [--sdk spec]`. */
+/** The command line: `create <name> [--template plain|vite|react|vue] [--dir path] [--sdk spec]`. */
 export function create(argv) {
   const args = [...argv];
   const flag = (key) => {
@@ -89,7 +89,7 @@ export function create(argv) {
   const sdk = flag("--sdk");
   const name = args.find((a) => !a.startsWith("--"));
   if (!name) {
-    console.error("usage: pinrail-plugin create <name> [--template plain|vite|react] [--dir path] [--sdk spec]");
+    console.error("usage: pinrail-plugin create <name> [--template plain|vite|react|vue] [--dir path] [--sdk spec]");
     process.exit(2);
   }
 

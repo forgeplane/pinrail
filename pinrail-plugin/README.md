@@ -186,6 +186,7 @@ own tests and installs with `--link` before a line of it is changed:
 npx @forgeplane/pinrail-plugin create ticket_triage                    # one HTML file, the script inline
 npx @forgeplane/pinrail-plugin create ticket_triage --template vite    # src/ in TypeScript, built by Vite into view/
 npx @forgeplane/pinrail-plugin create ticket_triage --template react   # the view in React, built by Vite
+npx @forgeplane/pinrail-plugin create ticket_triage --template vue     # the view in Vue, built by Vite
 ```
 
 What it writes: `manifest.json` at `0.1.0` with the schemas by `$ref` and

@@ -34,7 +34,7 @@ You need [Node.js](https://nodejs.org) 22 or later for the tooling, and the Pinr
 npx @forgeplane/pinrail-plugin create ticket_triage
 ```
 
-The name is lowercase letters, digits, `_` and `-`, starting with a letter, and it must be unique among your installed plugins. Add `--template vite` for a view written in TypeScript and built with Vite, or `--template react` for one in React (see [Building with a framework](/docs/building/frameworks/)); the default is one HTML file with its script inline.
+The name is lowercase letters, digits, `_` and `-`, starting with a letter, and it must be unique among your installed plugins. Add `--template vite` for a view written in TypeScript and built with Vite, or `--template react` or `vue` for one in that framework (see [Building with a framework](/docs/building/frameworks/)); the default is one HTML file with its script inline.
 
 ```text title="ticket_triage/"
 ticket_triage/

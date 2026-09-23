@@ -10,7 +10,7 @@ import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 const sdk = path.resolve(import.meta.dirname, "..");
 const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
 
-function scaffold(name: string, template: "plain" | "vite" | "react"): string {
+function scaffold(name: string, template: "plain" | "vite" | "react" | "vue"): string {
   const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-scaffold-")), name);
   execFileSync(process.execPath, [bin, "create", name, "--template", template, "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
   return dir;
@@ -51,6 +51,13 @@ function passesItsOwnTests(dir: string) {
 test("the react scaffold type-checks, builds and passes its own tests", async ({ page }) => {
   test.setTimeout(180_000);
   const dir = scaffold("fancy_react", "react");
+  passesItsOwnTests(dir);
+  await decides(page, dir);
+});
+
+test("the vue scaffold type-checks, builds and passes its own tests", async ({ page }) => {
+  test.setTimeout(180_000);
+  const dir = scaffold("fancy_vue", "vue");
   passesItsOwnTests(dir);
   await decides(page, dir);
 });

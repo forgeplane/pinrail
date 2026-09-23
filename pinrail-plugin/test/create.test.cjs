@@ -95,6 +95,22 @@ test("the react template writes the view in React, with its build", async () => 
   }
 });
 
+test("the vue template writes the view as a Vue component, with its build", async () => {
+  const { scaffold } = await load();
+  const dir = path.join(tmp(), "fancy");
+  scaffold("fancy", { dir, template: "vue", sdk: "file:../sdk" });
+
+  const files = filesUnder(dir);
+  for (const f of ["src/index.html", "src/main.ts", "src/App.vue", "vite.config.ts", "tsconfig.json", "tests/fancy.spec.ts"]) {
+    assert.ok(files.includes(f), `${f} written`);
+  }
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+  assert.ok(pkg.dependencies.vue && pkg.devDependencies["@vitejs/plugin-vue"] && pkg.devDependencies["vue-tsc"], "Vue, its Vite plugin and its type checker");
+  for (const file of files) {
+    assert.ok(!/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")), `${file} has no placeholder`);
+  }
+});
+
 test("without --sdk the dependency is the release tarball of this version", async () => {
   const { defaultSdkDep } = await load();
   const { version } = require("../package.json");
