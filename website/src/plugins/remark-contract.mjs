@@ -40,20 +40,33 @@ function resolve(root, schema) {
 
 const isFile = (s) => s?.type === "object" && s.properties && "$artifact" in s.properties;
 
-function typeOf(root, s) {
+/** The name of a local definition a schema refers to: `condition` for `#/$defs/condition`. */
+const defName = (raw) => (typeof raw?.$ref === "string" && raw.$ref.startsWith("#/") ? raw.$ref.split("/").pop() : null);
+const SCALARS = ["string", "number", "integer", "boolean", "null"];
+
+/** A field's type as a reader would say it. A definition that is an object
+ *  or a choice of shapes is called by its name; scalars by their type. */
+function typeOf(root, s, raw) {
   if (isFile(s)) return "file";
   if (s.enum) return "enum";
   if (s.const !== undefined) return typeof s.const;
   if (Array.isArray(s.type)) return s.type.join(" | ");
   if (s.type === "array") {
     const items = resolve(root, s.items ?? {});
-    const inner = isFile(items) ? "file" : items.type ?? "any";
-    return `${inner}[]`;
+    if (isFile(items)) return "file[]";
+    if (SCALARS.includes(items.type)) return `${items.type}[]`;
+    return `${defName(s.items) ?? items.type ?? "any"}[]`;
   }
-  if (s.type) return s.type;
   const alts = s.oneOf ?? s.anyOf;
   if (alts?.every((alt) => alt?.const !== undefined)) return typeof alts[0].const;
-  if (alts) return `${alts.every((alt) => resolve(root, alt).type === "object") ? "object, " : ""}one of ${alts.length}`;
+  // a choice of plain types reads as the types themselves: string | boolean
+  if (alts?.every((alt) => resolve(root, alt).type !== "object" && !resolve(root, alt).oneOf)) {
+    return alts.map((alt) => typeOf(root, resolve(root, alt), alt)).join(" | ");
+  }
+  const name = SCALARS.includes(s.type) ? null : defName(raw);
+  if (alts) return `${name ?? (alts.every((alt) => resolve(root, alt).type === "object") ? "object" : "")}${name || alts.every((alt) => resolve(root, alt).type === "object") ? ", " : ""}one of ${alts.length}`;
+  if (name) return name;
+  if (s.type) return s.type;
   return "any";
 }
 
@@ -84,16 +97,29 @@ function range(unit, min, max) {
   return `at most ${max}${u}`;
 }
 
-/** The fields an object holds, or an array's items hold, one row each, nested ones inside. */
-function children(root, s, depth) {
-  const obj = s.type === "array" ? resolve(root, s.items ?? {}) : s;
-  if (isFile(obj) || depth > 6) return "";
+/** A definition the branch is already inside is not drawn again: the
+ *  schema refers to itself (a condition made of conditions). */
+const asAbove = (name, each) => `<ul class="pr-fields"><li class="pr-field-note">${each ? "Each one" : "One"} a <code>${escape(name)}</code>, as above.</li></ul>`;
+
+/** The fields an object holds, or an array's items hold, one row each,
+ *  nested ones inside. `trail` holds the definitions the branch is inside. */
+function children(root, s, depth, trail) {
+  let obj = s;
+  if (s.type === "array") {
+    const ref = s.items?.$ref;
+    if (ref && trail.includes(ref)) return asAbove(defName(s.items), true);
+    if (ref) trail = [...trail, ref];
+    obj = resolve(root, s.items ?? {});
+  }
+  if (isFile(obj) || depth > 8) return "";
   // an object that is one of several shapes, with no fields of its own: each shape in turn
-  const alts = (obj.oneOf ?? obj.anyOf)?.map((alt) => resolve(root, alt));
+  const rawAlts = obj.oneOf ?? obj.anyOf;
+  const alts = rawAlts?.map((alt) => resolve(root, alt));
   if (!obj.properties && alts?.some((alt) => alt.properties)) {
     const shapes = alts.map((alt, i) => {
+      const ref = rawAlts[i]?.$ref;
       const label = alt.title ?? ((alt.required ?? []).join(" + ") || `shape ${i + 1}`);
-      const inner = children(root, alt, depth + 1);
+      const inner = ref && trail.includes(ref) ? asAbove(defName(rawAlts[i]), false) : children(root, alt, depth + 1, ref ? [...trail, ref] : trail);
       const desc = alt.description ? `<p class="pr-field-desc">${prose(alt.description)}</p>` : "";
       return `<li class="pr-field"><details${depth < 2 ? " open" : ""}><summary class="pr-field-head"><span class="pr-field-shape">${escape(label)}</span></summary>${desc}${inner}</details></li>`;
     });
@@ -101,18 +127,20 @@ function children(root, s, depth) {
   }
   if (!obj.properties) return "";
   const required = new Set(obj.required ?? []);
-  const rows = Object.entries(obj.properties).map(([name, raw]) => field(root, name, resolve(root, raw), required.has(name), depth + 1)).join("");
+  const rows = Object.entries(obj.properties).map(([name, raw]) => field(root, name, raw, required.has(name), depth + 1, trail)).join("");
   // an object that takes one of several shapes says which keys choose between them
   const choice = (obj.oneOf ?? obj.anyOf)?.map((alt) => (alt.required ?? []).map((k) => `<code>${escape(k)}</code>`).join(" + ")).filter(Boolean);
   const note = choice?.length ? `<li class="pr-field-note">One of: ${choice.join(" or ")}</li>` : "";
   return `<ul class="pr-fields">${note}${rows}</ul>`;
 }
 
-function field(root, name, s, required, depth) {
-  const type = typeOf(root, s);
+function field(root, name, raw, required, depth, trail) {
+  const s = resolve(root, raw);
+  const ref = raw?.$ref;
+  const type = typeOf(root, s, raw);
   const rules = constraints(s);
-  const inner = children(root, s, depth);
-  const head = `<span class="pr-field-name">${escape(name)}</span><span class="pr-field-type${type === "file" ? " is-file" : ""}">${escape(type)}</span>${required ? `<span class="pr-field-required">required</span>` : ""}${s.title && s.title !== name ? `<span class="pr-field-title">${escape(s.title)}</span>` : ""}`;
+  const inner = ref && trail.includes(ref) ? asAbove(defName(raw), false) : children(root, s, depth, ref ? [...trail, ref] : trail);
+  const head = `<span class="pr-field-name">${escape(name)}</span><span class="pr-field-type${type === "file" || type === "file[]" ? " is-file" : ""}">${escape(type)}</span>${required ? `<span class="pr-field-required">required</span>` : ""}${s.title && s.title !== name ? `<span class="pr-field-title">${escape(s.title)}</span>` : ""}`;
   const body = `${s.description ? `<p class="pr-field-desc">${prose(s.description)}</p>` : ""}${rules.length ? `<p class="pr-field-rules">${rules.join(" · ")}</p>` : ""}`;
   if (!inner) return `<li class="pr-field"><div class="pr-field-head">${head}</div>${body}</li>`;
   // nested fields fold, open near the top and closed deeper down
@@ -123,7 +151,7 @@ function schemaPanel(schema) {
   const root = schema;
   const top = resolve(root, schema);
   const intro = top.description ? `<p class="pr-field-desc">${prose(top.description)}</p>` : "";
-  return `${intro}${children(root, top, 0) || '<p class="pr-field-desc">Any JSON value.</p>'}`;
+  return `${intro}${children(root, top, 0, []) || '<p class="pr-field-desc">Any JSON value.</p>'}`;
 }
 
 function manifestPanel(m) {
