@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
@@ -88,7 +90,7 @@ test("a click on the model itself opens a comment on the part under it", async (
 
 test("three.js JSON is read as well as GLB", async ({ page }) => {
   const gate = round();
-  gate.payload = JSON.parse(require("node:fs").readFileSync(path.join(dir, "example.json"), "utf8"));
+  gate.payload = JSON.parse(fs.readFileSync(path.join(dir, "example.json"), "utf8"));
   const plugin = await mountPlugin(page, dir, { gate });
   const f = plugin.frame;
   await expect(f.locator("#model-name")).toHaveText("Column");
@@ -97,11 +99,21 @@ test("three.js JSON is read as well as GLB", async ({ page }) => {
 
 test("a model that cannot be read says so, and the others still show", async ({ page }) => {
   const gate = round();
-  gate.payload.models[0].glb = "bm90IGEgbW9kZWw=";
-  const plugin = await mountPlugin(page, dir, { gate });
+  gate.payload.models[0].file = { $artifact: "broken.glb" };
+  const broken = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "model-")), "broken.glb");
+  fs.writeFileSync(broken, "not a model");
+  const files = Object.fromEntries(["arc", "column", "tripod"].map((n) => [`${n}.glb`, `fixtures/halden/${n}.glb`]));
+  const plugin = await mountPlugin(page, dir, { gate, artifacts: { ...files, "broken.glb": broken } });
   const f = plugin.frame;
   await expect(f.locator(".broken")).toContainText("could not be read");
   await expect(f.locator(".pick .still img")).toHaveCount(3);
+});
+
+test("the models come from files the shell hands over, not from the payload", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round() });
+  await expect(plugin.frame.locator(".pick .still img")).toHaveCount(4);
+  const asked = (await plugin.messages()).filter((m: any) => m.type === "artifact").map((m: any) => m.name).sort();
+  expect(asked).toEqual(["arc.glb", "column.glb", "pivot.glb", "tripod.glb"]);
 });
 
 test("a decided round is read-only and shows what was decided", async ({ page }) => {

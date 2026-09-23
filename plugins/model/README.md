@@ -20,7 +20,8 @@ it: the comment is pinned to the point you clicked.
 
 ```sh
 pinrail plugins install ./plugins/model
-pinrail submit model --title "Halden desk lamp — round 1" --data models.json --wait --format markdown
+pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
+  --artifact out/pivot.glb --artifact out/column.glb --wait --format markdown
 ```
 
 ## Payload
@@ -31,17 +32,18 @@ pinrail submit model --title "Halden desk lamp — round 1" --data models.json -
   "subject": { "name": "Halden desk lamp", "units": "m", "up": "y" },
   "models": [
     { "id": "L1", "name": "Pivot",
-      "glb": "Z2xURgIAAAB…",
+      "file": { "$artifact": "pivot.glb" },
       "reasoning": "markdown: the idea, and what to look for",
       "views": [{ "name": "Seated", "position": [0.55, 0.32, 0.55], "target": [0, 0.2, 0] }] }
   ]
 }
 ```
 
-- **A model** is binary glTF in `glb`, base64, with its textures embedded; or
-  three.js JSON in `object`, what `Object3D.toJSON()` returns, with images as
-  data URIs. Nothing is fetched, so a model that points at other files is not
-  drawn whole. A request is at most 4 MB, base64 included.
+- **A model** is a file sent with `--artifact`, which the payload names in
+  `file`: a `.glb`, or a `.gltf` with everything embedded, up to 50 MB each and
+  12 a round. A small one can go inline instead, as three.js JSON in `object`
+  (what `Object3D.toJSON()` returns, images as data URIs). The view fetches
+  nothing else, so textures and buffers must be inside the file.
 - **Name the nodes.** A comment names its part by the path of node names,
   `Lamp > Head > Shade`, and materials by their names.
 - **Units** say what one unit is, for the sizes shown; glTF's metre is the
@@ -80,7 +82,8 @@ submit with `--revises <id>`: each model shows the verdict it had last time.
 ## Developing
 
 `npm ci && npm run build` bundles three.js into `view/vendor/`, which the app
-does on install. `npm run fixture` writes the Halden fixtures again.
+does on install. `npm run fixture` writes the Halden lamps again, as GLB files
+in `fixtures/halden/` with the fixtures that name them.
 `mise run dev:plugin plugins/model` opens the view in a browser on the
 fixtures, without the app; its tests run with the other samples':
 `mise run test:plugins`.

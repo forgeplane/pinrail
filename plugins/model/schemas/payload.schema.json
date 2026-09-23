@@ -3,20 +3,71 @@
   "title": "3D model review request",
   "type": "object",
   "additionalProperties": false,
-  "required": ["subject", "models"],
+  "required": [
+    "subject",
+    "models"
+  ],
   "$defs": {
-    "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 }
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$artifact"
+      ],
+      "properties": {
+        "$artifact": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "description": "A file sent beside the payload with --artifact, by its name."
+    }
   },
   "properties": {
-    "notes": { "type": "string", "maxLength": 10000, "description": "Markdown: what this round is, and what to look at." },
+    "notes": {
+      "type": "string",
+      "maxLength": 10000,
+      "description": "Markdown: what this round is, and what to look at."
+    },
     "subject": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name"],
+      "required": [
+        "name"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1, "maxLength": 120, "description": "What the models are of, e.g. Halden desk lamp." },
-        "units": { "enum": ["m", "cm", "mm", "in", "ft"], "description": "What one unit of the model is, for the sizes shown. Default m, as glTF." },
-        "up": { "enum": ["y", "z"], "description": "The model's up axis. Default y, as glTF; z for most CAD exports." }
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "What the models are of, e.g. Halden desk lamp."
+        },
+        "units": {
+          "enum": [
+            "m",
+            "cm",
+            "mm",
+            "in",
+            "ft"
+          ],
+          "description": "What one unit of the model is, for the sizes shown. Default m, as glTF."
+        },
+        "up": {
+          "enum": [
+            "y",
+            "z"
+          ],
+          "description": "The model's up axis. Default y, as glTF; z for most CAD exports."
+        }
       }
     },
     "models": {
@@ -26,14 +77,46 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "name"],
-        "oneOf": [{ "required": ["glb"] }, { "required": ["object"] }],
+        "required": [
+          "id",
+          "name"
+        ],
+        "oneOf": [
+          {
+            "required": [
+              "file"
+            ]
+          },
+          {
+            "required": [
+              "object"
+            ]
+          }
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 1, "maxLength": 40 },
-          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
-          "reasoning": { "type": "string", "maxLength": 4000, "description": "Markdown: why this direction." },
-          "glb": { "type": "string", "contentEncoding": "base64", "description": "The model as binary glTF, base64. Textures embedded; nothing is fetched." },
-          "object": { "type": "object", "description": "The model as three.js JSON, what Object3D.toJSON() returns. Images as data URIs." },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "reasoning": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "Markdown: why this direction."
+          },
+          "file": {
+            "$ref": "#/$defs/artifact",
+            "description": "The model as a file sent with --artifact: a .glb, or a .gltf with everything embedded. Nothing else is fetched."
+          },
+          "object": {
+            "type": "object",
+            "description": "Or the model inline, as three.js JSON (what Object3D.toJSON() returns), when it is small. Images as data URIs."
+          },
           "views": {
             "type": "array",
             "maxItems": 8,
@@ -41,11 +124,23 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "position"],
+              "required": [
+                "name",
+                "position"
+              ],
               "properties": {
-                "name": { "type": "string", "minLength": 1, "maxLength": 40 },
-                "position": { "$ref": "#/$defs/vec3" },
-                "target": { "$ref": "#/$defs/vec3", "description": "Where the camera looks. Default the model's centre." }
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                },
+                "position": {
+                  "$ref": "#/$defs/vec3"
+                },
+                "target": {
+                  "$ref": "#/$defs/vec3",
+                  "description": "Where the camera looks. Default the model's centre."
+                }
               }
             }
           }

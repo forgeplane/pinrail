@@ -1,7 +1,8 @@
 // The Halden fixture: four candidate desk lamps, each built from named
-// parts and exported as a binary glTF, the way an agent would hand them in.
-// Writes the harness fixture, the decided one, and the screenshots' review:
-// npm run fixture
+// parts and exported as a binary glTF file, the way an agent would send
+// them with --artifact. Writes the files to fixtures/halden/, and beside
+// them the harness fixture, the decided one, and the screenshots' review,
+// each naming the files by path: npm run fixture
 import fs from "node:fs";
 import path from "node:path";
 import * as THREE from "three";
@@ -105,8 +106,7 @@ async function glb(object) {
   object.traverse((o) => { if (o.isMesh) o.geometry.deleteAttribute("uv"); });
   const scene = new THREE.Scene();
   scene.add(object);
-  const buffer = await new GLTFExporter().parseAsync(scene, { binary: true });
-  return Buffer.from(buffer).toString("base64");
+  return Buffer.from(await new GLTFExporter().parseAsync(scene, { binary: true }));
 }
 
 const models = [
@@ -121,9 +121,6 @@ const payload = {
   subject: { name: "Halden desk lamp", units: "m" },
   models: [],
 };
-for (const m of models) {
-  payload.models.push({ id: m.id, name: m.name, reasoning: m.reasoning, glb: await glb(m.build()), views: [{ name: "Seated", position: [0.55, 0.32, 0.55], target: [0, 0.2, 0] }] });
-}
 
 const decision = {
   decisions: [
@@ -138,10 +135,26 @@ const decision = {
 };
 
 const here = import.meta.dirname;
+const files = path.resolve(here, "../fixtures/halden");
+fs.mkdirSync(files, { recursive: true });
+const artifacts = {};
+for (const m of models) {
+  const file = `${m.name.toLowerCase()}.glb`;
+  fs.writeFileSync(path.join(files, file), await glb(m.build()));
+  artifacts[file] = path.join(files, file);
+  payload.models.push({ id: m.id, name: m.name, reasoning: m.reasoning, file: { $artifact: file }, views: [{ name: "Seated", position: [0.55, 0.32, 0.55], target: [0, 0.2, 0] }] });
+}
+// each fixture names the files by path, relative to itself
+const relative = (fixture) =>
+  Object.fromEntries(Object.entries(artifacts).map(([name, file]) => [name, { path: path.relative(path.dirname(path.resolve(here, fixture)), file) }]));
 const write = (file, value) => fs.writeFileSync(path.resolve(here, file), JSON.stringify(value, null, 2) + "\n");
 const title = "Halden desk lamp — round 1";
 const origin = { repo: "halden/lamp", workflow: "design" };
-write("../fixtures/halden.json", { title, origin, payload });
-write("../fixtures/halden.decided.json", { title, origin, payload, decision: { decided_by: "maya", decided_at: "2026-09-23T17:40:00Z", data: decision }, agent_note: "Go with Pivot; the base and shade notes first." });
-write("../../../e2e/screenshots/fixtures/19-model-halden.json", { plugin: "model", title, origin, requested_by: "claude", age: "40m", payload });
-console.log(`${models.length} models, ${(JSON.stringify(payload).length / 1024).toFixed(0)} KB`);
+const fixtures = {
+  "../fixtures/halden.json": { title, origin, payload },
+  "../fixtures/halden.decided.json": { title, origin, payload, decision: { decided_by: "maya", decided_at: "2026-09-23T17:40:00Z", data: decision }, agent_note: "Go with Pivot; the base and shade notes first." },
+  "../../../e2e/screenshots/fixtures/19-model-halden.json": { plugin: "model", title, origin, requested_by: "claude", age: "40m", payload },
+};
+for (const [file, value] of Object.entries(fixtures)) write(file, { ...value, artifacts: relative(file) });
+const sizes = Object.values(artifacts).map((f) => fs.statSync(f).size);
+console.log(`${models.length} models, ${(sizes.reduce((a, b) => a + b, 0) / 1024).toFixed(0)} KB of GLB, payload ${(JSON.stringify(payload).length / 1024).toFixed(1)} KB`);

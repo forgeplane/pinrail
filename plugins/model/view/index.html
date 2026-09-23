@@ -142,15 +142,13 @@ const S = { sel: 0, verdicts: {}, armed: false, view: 0, turn: false, wire: fals
 let P = null;
 const models = [];        // per payload model: { root, error, stats, still, center, size }
 
-/* Reading a model: GLB from base64, or three.js JSON. Nothing is fetched. */
-function b64(s) {
-  const bin = atob(s.replace(/^data:[^,]*,/, ""));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out.buffer;
-}
-function load(m) {
-  if (m.glb) return new Promise((ok, fail) => new GLTFLoader().parse(b64(m.glb), "", (g) => {
+/* Reading a model: a file the review carries (GLB, or glTF with
+   everything embedded), which the shell hands over, or three.js JSON inline. */
+async function load(m) {
+  const file = Pinrail.artifactName(m.file);
+  if (!file) return new THREE.ObjectLoader().parse(m.object);
+  const bytes = await plugin.artifact(file);
+  return new Promise((ok, fail) => new GLTFLoader().parse(bytes, "", (g) => {
     // the loader makes names safe for animation paths ("Lower arm" → "Lower_arm"); keep the agent's own
     const nodes = g.parser.json.nodes || [];
     g.scene.traverse((o) => {
@@ -159,7 +157,6 @@ function load(m) {
     });
     ok(g.scene);
   }, (e) => fail(e)));
-  return new Promise((ok, fail) => { try { ok(new THREE.ObjectLoader().parse(m.object)); } catch (e) { fail(e); } });
 }
 
 /* The part's path by node names, the way the agent named them. Unnamed
