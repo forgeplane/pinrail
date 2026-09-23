@@ -196,7 +196,8 @@ export const scenes = [
       const style = f.locator('[data-question="style"]');
       await style.getByRole("button", { name: "Add a comment" }).click();
       await style.getByLabel("Comment on this question").fill("Keep `page` working as an alias for one release");
-      await style.evaluate((el) => el.scrollIntoView({ block: "start" }));
+      // the group's heading at the top, and its first question under it
+      await f.locator(".question-group").first().evaluate((el) => el.scrollIntoView({ block: "start" }));
       await settle(page);
       await shot("feedback");
       await shot("feedback-view", page.locator("#plugin-frame"), { site: true });
