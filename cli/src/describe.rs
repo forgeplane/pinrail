@@ -10,7 +10,7 @@ const SUBMIT: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
 const CHECK: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
-const FILES: &str = "for a plugin with `artifacts`, add --artifact PATH[=NAME] for each file; the payload names it {\"$artifact\": \"<name>\"}, and --dry-run checks it all before anything is uploaded";
+const FILES: &str = "for a plugin with `artifacts`, send each file its payload schema asks for with --artifact PATH[=NAME]; the schema says where a file goes, as {\"$artifact\": \"<name>\"}, and --dry-run checks it all before anything is uploaded";
 
 /// What each exit code tells the agent to do next.
 const EXIT_CODES: &[(u8, &str)] = &[
@@ -134,7 +134,7 @@ fn plugin_section(out: &mut String, plugin: &Value) {
             limits.push(format!("{count} at most"));
         }
         out.push_str(&format!(
-            "\n### Files\n\nTakes files beside the payload: {}{}. Send each with `--artifact PATH[=NAME]`; the payload names it `{{\"$artifact\": \"<name>\"}}`, and the view reads it by that name.\n\n```sh\npinrail submit {name} --title \"<what it is about>\" --data payload.json --artifact <file> --wait\n```\n",
+            "\n### Files\n\nTakes files beside the payload: {}{}. The payload schema above says where each goes, as `{{\"$artifact\": \"<name>\"}}`; send each file it names with `--artifact PATH[=NAME]`.\n\n```sh\npinrail submit {name} --title \"<what it is about>\" --data payload.json --artifact <file> --wait\n```\n",
             kinds.join(", "),
             if limits.is_empty() { String::new() } else { format!(" ({})", limits.join(", ")) },
         ));

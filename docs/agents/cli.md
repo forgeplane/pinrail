@@ -106,7 +106,7 @@ A dry run checks the title, the origin and the payload against the plugin's sche
 
 ### Sending files
 
-Only a plugin that declares files takes them: `pinrail plugins describe` shows its `artifacts`, the kinds it takes and its limits, and every other plugin refuses a submission with files. For one that does, send each file with `--artifact`, and name it in the payload by an object with one key, `$artifact`:
+Some plugins take files beside the payload. The plugin's payload schema says where each file goes, and `pinrail plugins describe` shows it with the kinds and sizes the plugin accepts; a plugin that declares none refuses a submission with files. Build the payload as the schema says, and send each file it names with `--artifact`. A schema marks a file's place with an object whose one key, `$artifact`, holds the file's name. For the [3D model](/docs/plugins/model/) plugin:
 
 ```sh
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
