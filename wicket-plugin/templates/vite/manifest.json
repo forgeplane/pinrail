@@ -2,9 +2,12 @@
   "name": "__NAME__",
   "version": "0.1.0",
   "title": "__TITLE__",
+  "description": "A yes-or-no question with an optional comment. Replace with what your plugin is for.",
+  "use_when": "Replace with the situation an agent should ask with this plugin in.",
   "icon": "circle-help",
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
+  "example": "example.json",
   "entry": "view/index.html",
   "min_height": 200,
   "build": { "command": "npm ci && npm run build" }

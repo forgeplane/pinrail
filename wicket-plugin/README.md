@@ -188,7 +188,8 @@ npx wicket-plugin create ticket_triage --template vite    # src/ in TypeScript, 
 ```
 
 What it writes: `manifest.json` at `0.1.0` with the schemas by `$ref` and
-the entry; `schemas/` with one property each and a description saying what
+the entry, a `description` and a `use_when` to replace; `example.json`, a
+payload that passes the payload schema; `schemas/` with one property each and a description saying what
 to replace; `view/index.html` (or `src/`, `vite.config.ts` and
 `tsconfig.json`), a yes-or-no question with a comment in the style of the
 sample plugins; `fixtures/basic.json`; `tests/<name>.spec.ts` under the
@@ -252,8 +253,9 @@ In this repository `mise run test:plugins` runs every sample's tests from
 `wicket-plugin check [dir]` says what the app's inspect would say, without
 the app: the manifest, the name, the version, the entry (or the build that
 writes it), the schemas and their `$ref`s, the icon are *problems* that
-refuse the folder; a `settings_schema`, `shortcuts` list or
-`decision_template` with the wrong shape is a *warning*, the feature the
+refuse the folder; a `settings_schema`, `shortcuts` list,
+`decision_template` or `example` with the wrong shape, or an example that
+does not pass the payload schema, is a *warning*, the feature the
 app drops with the reason on the plugin's row. `--json` gives the same as
 data. The rules are the core's, carried in JavaScript; a test in the core
 runs both over the same folders and compares. The one thing `check` cannot

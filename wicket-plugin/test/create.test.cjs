@@ -29,6 +29,7 @@ test("the plain template is a whole plugin, named throughout", async () => {
     ".github/workflows/release.yml",
     ".gitignore",
     "README.md",
+    "example.json",
     "fixtures/basic.json",
     "manifest.json",
     "package.json",
