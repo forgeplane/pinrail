@@ -83,6 +83,7 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
         204 => "No Content",
         404 => "Not Found",
         409 => "Conflict",
+        413 => "Payload Too Large",
         415 => "Unsupported Media Type",
         422 => "Unprocessable Entity",
         _ => "Status",
@@ -673,4 +674,32 @@ fn a_request_file_is_the_body_and_flags_override_its_keys() {
     assert!(stderr.contains("must hold a JSON object"), "{stderr}");
     let (code, _, _) = run(&server, &["submit", "list", "--no-start"]);
     assert_eq!(code, 2, "clap still wants --title without --request");
+}
+
+#[test]
+fn a_refusal_in_plain_text_is_reported_as_a_refusal() {
+    // what something in front of the server, or an older server, sends
+    let server = MockServer::start(Box::new(|_, _, _| {
+        (
+            413,
+            "Failed to buffer the request body: length limit exceeded".into(),
+        )
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("p.json"), r#"{"groups":[]}"#).unwrap();
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "list",
+            "--title",
+            "t",
+            "--data",
+            dir.join("p.json").to_str().unwrap(),
+            "--no-start",
+        ],
+    );
+    assert_eq!(code, 2, "{stderr}");
+    assert!(stderr.contains("length limit exceeded"), "{stderr}");
+    assert!(!stderr.contains("invalid JSON"), "{stderr}");
 }

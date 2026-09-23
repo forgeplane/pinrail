@@ -285,8 +285,15 @@ impl Client {
         let value: Value = if text.trim().is_empty() {
             Value::Null
         } else {
-            serde_json::from_str(&text)
-                .with_context(|| format!("the server sent invalid JSON: {text}"))?
+            match serde_json::from_str(&text) {
+                Ok(value) => value,
+                // a refusal in plain text (from something in front of the
+                // server, or an older one) is still a refusal, not bad JSON
+                Err(_) if !(200..300).contains(&status) => {
+                    serde_json::json!({ "error": "http", "message": text.trim(), "violations": [] })
+                }
+                Err(_) => anyhow::bail!("the server sent invalid JSON: {text}"),
+            }
         };
         if (200..300).contains(&status) {
             Ok(value)

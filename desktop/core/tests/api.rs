@@ -1120,6 +1120,47 @@ async fn a_write_that_does_not_say_it_is_json_is_refused() {
 }
 
 #[tokio::test]
+async fn a_body_over_the_limit_is_refused_in_json() {
+    let app = app();
+    let json = [
+        ("host", "127.0.0.1:4747"),
+        ("content-type", "application/json"),
+    ];
+    let sized = |bytes: usize| {
+        let mut body = submission();
+        let room = bytes - body.to_string().len() - r#","filler":"""#.len();
+        body["filler"] = Value::String("x".repeat(room));
+        let text = body.to_string();
+        assert_eq!(text.len(), bytes);
+        text
+    };
+    let over = sized(4 * 1024 * 1024 + 1);
+    let length = over.len().to_string();
+    let mut headers = json.to_vec();
+    headers.push(("content-length", &length));
+    let (status, refused) = raw(&app, "POST", "/api/v1/reviews", &headers, &over).await;
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(refused["error"], "too_large");
+    assert_eq!(refused["message"], "the body is 4.0 MB; the limit is 4 MB");
+    let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
+    assert!(
+        listing["reviews"].as_array().unwrap().is_empty(),
+        "nothing was created"
+    );
+
+    // just under the limit gets past it, to the envelope's own checks
+    let (status, _) = raw(
+        &app,
+        "POST",
+        "/api/v1/reviews/validate",
+        &json,
+        &sized(4 * 1024 * 1024),
+    )
+    .await;
+    assert_ne!(status, StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+#[tokio::test]
 async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
     let app = app();
     let id = submit(&app, submission()).await["id"]

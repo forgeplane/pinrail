@@ -22,6 +22,10 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use serde_json::json;
 
+/// The most a JSON body may be. Payloads carry text and small inlined
+/// images; files belong beside a review, not inside its JSON.
+pub(crate) const JSON_LIMIT: usize = 4 * 1024 * 1024;
+
 /// The names the server answers to, without the port.
 const LOOPBACK: [&str; 3] = ["127.0.0.1", "localhost", "[::1]"];
 
@@ -60,6 +64,38 @@ pub(crate) async fn json_writes(request: Request, next: Next) -> Response {
     )
 }
 
+/// Says in JSON, as every other refusal does, that a body was over
+/// [`JSON_LIMIT`]. The limit itself is axum's `DefaultBodyLimit`, which
+/// answers 413 in plain text from inside the extractor.
+pub(crate) async fn body_limit(request: Request, next: Next) -> Response {
+    let length = request
+        .headers()
+        .get(header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<usize>().ok());
+    let response = next.run(request).await;
+    if response.status() != StatusCode::PAYLOAD_TOO_LARGE {
+        return response;
+    }
+    let sent = length
+        .map(|n| format!("the body is {}; ", megabytes(n)))
+        .unwrap_or_default();
+    refuse(
+        StatusCode::PAYLOAD_TOO_LARGE,
+        "too_large",
+        format!("{sent}the limit is {}", megabytes(JSON_LIMIT)),
+    )
+}
+
+fn megabytes(bytes: usize) -> String {
+    let mb = bytes as f64 / (1024.0 * 1024.0);
+    if mb.fract() == 0.0 {
+        format!("{mb:.0} MB")
+    } else {
+        format!("{mb:.1} MB")
+    }
+}
+
 /// `application/json`, with or without parameters such as a charset.
 fn is_json(value: &str) -> bool {
     value
@@ -90,6 +126,12 @@ pub(crate) fn refuse(status: StatusCode, kind: &str, message: String) -> Respons
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sizes_read_in_megabytes() {
+        assert_eq!(megabytes(JSON_LIMIT), "4 MB");
+        assert_eq!(megabytes(3 * 1024 * 1024 + 300 * 1024), "3.3 MB");
+    }
 
     #[test]
     fn json_with_or_without_parameters() {
