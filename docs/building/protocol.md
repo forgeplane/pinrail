@@ -10,7 +10,11 @@ A view and the app talk over `postMessage`. The SDK, `/sdk/v1/pinrail-plugin.js`
 Every message is a JSON object with the protocol version and a type:
 
 ```json
-{ "pinrail": 1, "type": "draft", "data": { "decisions": [] } }
+{
+  "pinrail": 1,
+  "type": "draft",
+  "data": { "decisions": [] }
+}
 ```
 
 The view announces itself with `ready`; the app answers with `init`, and from then on either side can send. The app only accepts messages from the view's own frame, and the view should only accept messages from the origin `init` came from, which `init` gives as `shell_origin`.
@@ -85,7 +89,16 @@ A view never draws its own submit button. The app puts one below every review, i
 The app validates every decision against the plugin's decision schema before the agent sees it. When one fails, the errors come back with a [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) into the rejected decision:
 
 ```json
-{ "pinrail": 1, "type": "violations", "errors": [{ "path": "/decisions/0/action", "message": "\"later\" is not one of [\"close\",\"keep\"]" }] }
+{
+  "pinrail": 1,
+  "type": "violations",
+  "errors": [
+    {
+      "path": "/decisions/0/action",
+      "message": "\"later\" is not one of [\"close\",\"keep\"]"
+    }
+  ]
+}
 ```
 
 Show them next to the fields they name, and let the person hand over again.
