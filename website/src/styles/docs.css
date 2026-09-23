@@ -3,6 +3,9 @@
    dark theme. */
 
 :root {
+  /* the header as tall and as padded as the landing pages', so the brand sits in the same place */
+  --sl-nav-height: 60px;
+  --sl-nav-pad-x: 28px;
   --sl-font: "Geist", ui-sans-serif, system-ui, sans-serif;
   --sl-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --pr-serif: "Newsreader", "Iowan Old Style", Georgia, serif;
@@ -219,3 +222,8 @@ table .pr-keys { font-size: 0.8em; }
 /* a sidebar badge sits at the right edge of its row */
 .sidebar-content a:has(> .sl-badge) { display: flex; align-items: center; gap: 0.5rem; }
 .sidebar-content a > .sl-badge { margin-inline-start: auto; }
+
+/* narrow, the same step down as the landing pages take */
+@media (max-width: 760px) {
+  :root { --sl-nav-height: 54px; --sl-nav-pad-x: 16px; }
+}

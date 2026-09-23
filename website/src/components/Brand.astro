@@ -1,0 +1,36 @@
+---
+// The mark and the name, drawn the same wherever the site shows them: the
+// landing pages' header and the docs'. The mark is the menu bar's drawing, the
+// slash in the accent and cut clear of the pins; the name is Geist 800.
+const clear = `pr-mark-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<span class="pr-brand" translate="no">
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <defs>
+      <mask id={clear} maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+        <rect width="24" height="24" fill="#fff" />
+        <g transform="rotate(20 12 13.4)"><rect x="9.6" y="2.2" width="4.8" height="20.6" rx="2.4" fill="#000" /></g>
+      </mask>
+    </defs>
+    <rect x="1.2" y="12.6" width="21.6" height="3.4" rx="1.7" fill="currentColor" />
+    <g mask={`url(#${clear})`}>
+      <rect x="4" y="3.4" width="3" height="17.6" rx="1.5" fill="currentColor" />
+      <rect x="17" y="3.4" width="3" height="17.6" rx="1.5" fill="currentColor" />
+    </g>
+    <g transform="rotate(20 12 13.4)"><rect x="10.5" y="3.2" width="3" height="18.6" rx="1.5" fill="var(--pr-brand-accent)" /></g>
+  </svg>
+  <span class="pr-brand-name">pinrail</span>
+</span>
+
+<style is:global>
+  .pr-brand {
+    --pr-brand-accent: #cf3a1f;
+    display: inline-flex; align-items: center; gap: 0.34em;
+    font: 800 23px/1 "Geist", ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.05em;
+    color: inherit; white-space: nowrap;
+  }
+  .pr-brand svg { flex: none; width: 1.14em; height: 1.14em; }
+  /* the docs' dark theme takes the lighter accent, as the app does */
+  :root[data-theme="dark"] .pr-brand { --pr-brand-accent: #e5694f; }
+</style>

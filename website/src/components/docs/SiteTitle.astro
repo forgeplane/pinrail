@@ -1,0 +1,12 @@
+---
+// The docs' header title: the site's own mark and name, as on the landing
+// pages, linking where Starlight's title links.
+import Brand from "../Brand.astro";
+const { siteTitleHref } = Astro.locals.starlightRoute;
+---
+
+<a href={siteTitleHref} class="site-title" aria-label="Pinrail docs home"><Brand /></a>
+
+<style>
+  .site-title { display: flex; align-items: center; min-width: 0; color: var(--sl-color-white); text-decoration: none; }
+</style>

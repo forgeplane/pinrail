@@ -137,7 +137,6 @@
 .classic h3 { font-weight: 600; letter-spacing: -0.02em; }
 .classic h1 em, .classic h2 em { font-family: "Newsreader", Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.03em; }
 .classic .c-hero h1 { max-width: none; }
-.classic .brand { font-family: var(--serif); font-weight: 700; letter-spacing: -0.04em; }
 .classic .c-lede { font-size: 20px; line-height: 1.6; }
 .classic .c-view figcaption b { font-family: var(--serif); font-weight: 600; letter-spacing: -0.02em; }
 .classic .round-demo, .classic .c-view figcaption, .classic .c-steps p, .classic .c-fact-grid p, .classic .c-own p { font-size: 15.5px; }
@@ -189,3 +188,8 @@
 .voice figcaption img { flex: none; width: 28px; height: 28px; padding: 5px; border-radius: 8px; background: var(--paper); border: 1px solid var(--rule); box-sizing: content-box; }
 .voice figcaption b { display: block; font: 600 14px var(--mono); color: var(--ink); }
 .voice figcaption small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--faint); }
+
+/* narrow, the header steps down where the review page's and the docs' do */
+@media (max-width: 760px) {
+  .topnav { gap: 12px; min-height: 54px; padding: 10px var(--switch-room) 10px 16px; }
+}

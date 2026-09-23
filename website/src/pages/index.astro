@@ -6,6 +6,7 @@ import "../styles/index-classic.css";
 import Zoom from "../components/index/Zoom.astro";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
+import Brand from "../components/Brand.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
 import { agents, releases, repo, views } from "../components/index/content";
@@ -65,13 +66,13 @@ const codes = [
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..600&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" />
   </head>
   <body class="classic">
     <a href="#main" class="skip">Skip to content</a>
 
     <header class="topnav">
-      <a class="brand" href="/" aria-label="Pinrail home"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="13" width="21" height="3.4" rx="1.4" fill="currentColor"/><rect x="4.8" y="5" width="2.4" height="16" rx="1.2" fill="currentColor"/><rect x="16.8" y="5" width="2.4" height="16" rx="1.2" fill="currentColor"/><g transform="rotate(20 12 14.7)"><rect x="10.8" y="4.2" width="2.4" height="16.8" rx="1.2" fill="var(--pen)"/></g></svg>pinrail</a>
+      <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
       <nav class="links" aria-label="Main">
         <a href="#how">How it works</a><a href="#views">Views</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
       </nav>

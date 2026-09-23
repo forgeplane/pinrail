@@ -23,11 +23,11 @@ export default defineConfig({
       // the docs live beside the code, so Starlight's asides and heading links must reach them there
       markdown: { processedDirs: ["../docs"] },
       components: {
+        SiteTitle: "./src/components/docs/SiteTitle.astro",
         ThemeSelect: "./src/components/docs/ThemeToggle.astro",
         Pagination: "./src/components/docs/Pagination.astro",
       },
-      head: [{ tag: "script", attrs: { src: "/docs.js", defer: true } }, { tag: "link", attrs: { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400..600&family=Caveat:wght@500;700&display=swap" } }],
-      logo: { light: "./src/assets/pinrail-mark-light.svg", dark: "./src/assets/pinrail-mark-dark.svg", alt: "" },
+      head: [{ tag: "script", attrs: { src: "/docs.js", defer: true } }, { tag: "link", attrs: { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400..600&family=Caveat:wght@500;700&display=swap" } }],
       // code in the site's colours: the terminal's warm dark, and the paper
       expressiveCode: {
         themes: ["vitesse-dark", "vitesse-light"],
