@@ -104,3 +104,9 @@ wait for my decision:
 | `comments` | Your own line comments, for the agent to assess and address. |
 | `general_comments` | Posted on the change as they are. |
 | `undecided` | Never posted. |
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The Code review plugin's contract](contract:review)

@@ -110,3 +110,9 @@ Submit them to Pinrail as a `calendar` review and wait:
 | `notes` | What the person said about an item sent back or declined. |
 
 With `--format markdown`, the agent reads the chosen times by item with the day, hours and place, then what needs another time and what was declined, each with its note.
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The Calendar plugin's contract](contract:calendar)

@@ -100,3 +100,9 @@ Never send email directly. Submit drafts to Pinrail as `email` and wait:
 | `comments` | Instructions pinned to quoted passages. |
 | `note` | A note on the draft as a whole. |
 | `undecided` | Drafts without a verdict. Nothing is sent for them. |
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The Email plugin's contract](contract:email)

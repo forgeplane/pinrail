@@ -96,3 +96,9 @@ The page renders in isolation. External stylesheets, scripts and images do not l
 | `comments[].selector` | Unique in the page as reviewed: the element's id, or a path from the nearest ancestor with one, such as `#features > div:nth-of-type(2) > h3`. |
 | `comments[].kind` | `change`, `question` or `praise`. |
 | `comments[].snippet`, `comments[].html` | The element's text and markup, so the agent can find it even after moving things around. |
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The Artifact plugin's contract](contract:artifact)

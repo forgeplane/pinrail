@@ -123,3 +123,9 @@ Scripts, `<style>` elements, event handlers and links to anything outside the dr
 | `undecided` | The marks given no verdict. Treat them as not chosen. |
 
 With `--format markdown`, the agent reads the favourite first, then what was kept and dropped, each mark by name with its notes and the changes asked for on its parts.
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The Logo plugin's contract](contract:logo)

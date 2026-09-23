@@ -133,3 +133,9 @@ An unanswered or hidden question never satisfies a condition, not even `not_equa
 - `excluded` lists questions hidden by conditions. Their answers are never included.
 
 There is no overall approve or reject: the answers are the decision, and the agent acts on them.
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The Feedback plugin's contract](contract:feedback)

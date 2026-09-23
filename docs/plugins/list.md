@@ -103,3 +103,9 @@ See [Instructing an agent](/docs/agents/instructing/) for where these instructio
 - `undecided` lists every item left without a verdict. Treat those as not approved.
 
 With `--format markdown`, the agent reads the same decision as prose, with the verdicts and notes under each group's heading.
+
+## Reference
+
+The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
+
+![The List plugin's contract](contract:list)
