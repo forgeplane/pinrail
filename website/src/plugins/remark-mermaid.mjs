@@ -70,10 +70,10 @@ export default function remarkMermaid() {
         type: "html",
         value:
           `<figure class="wk-mermaid"${title ? ` aria-label="${escape(title)}"` : ""}>` +
-          `<div class="wk-mermaid-canvas">` +
+          `<div class="wk-mermaid-canvas" role="button" tabindex="0" aria-label="Enlarge the diagram${title ? `: ${escape(title)}` : ""}">` +
           `<div class="wk-mermaid-light">${light[i].value.svg}</div>` +
           `<div class="wk-mermaid-dark">${dark[i].value.svg}</div>` +
-          `</div>${title ? `<figcaption>${escape(title)}</figcaption>` : ""}</figure>`,
+          `<span class="wk-shot-hint" aria-hidden="true">Click to enlarge</span></div>${title ? `<figcaption>${escape(title)}</figcaption>` : ""}</figure>`,
       };
     });
   };

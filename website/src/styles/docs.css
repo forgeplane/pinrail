@@ -124,6 +124,15 @@ starlight-toc a[aria-current="true"] { color: var(--sl-color-accent); }
 .wk-mermaid { margin: 1.75rem 0; }
 .wk-mermaid-canvas { display: flex; justify-content: center; padding: 1.25rem; border: 1px solid var(--sl-color-hairline-light); border-radius: 12px; background: color-mix(in oklab, var(--sl-color-black) 55%, var(--sl-color-gray-6)); overflow-x: auto; }
 .wk-mermaid-canvas svg { max-width: 100%; height: auto; }
+/* a diagram opens full size too */
+.wk-mermaid-canvas { position: relative; cursor: zoom-in; }
+.wk-mermaid-canvas:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: 4px; }
+.wk-mermaid-canvas:hover .wk-shot-hint, .wk-mermaid-canvas:focus-visible .wk-shot-hint { opacity: 1; transform: none; }
+/* a diagram sits in the middle of the screen, however wide and short it is */
+.wk-zoom[open]:has(.wk-zoom-diagram) { display: flex; flex-direction: column; }
+.wk-zoom:has(.wk-zoom-diagram) .wk-zoom-caption { margin: 0 auto auto; padding-bottom: 24px; }
+.wk-zoom-diagram { margin: auto auto 16px; width: min(1400px, calc(100vw - 150px)); padding: 32px; box-sizing: border-box; border-radius: 12px; background: color-mix(in oklab, var(--sl-color-black) 55%, var(--sl-color-gray-6)); box-shadow: 0 30px 80px rgb(0 0 0 / 0.6); }
+.wk-zoom-diagram svg { display: block; width: 100% !important; max-width: none !important; height: auto; max-height: calc(100vh - 150px); margin: 0 auto; }
 /* drawn at build time in both themes; show the one that matches */
 .wk-mermaid-light, .wk-mermaid-dark { display: flex; justify-content: center; width: 100%; }
 :root[data-theme="light"] .wk-mermaid-dark, :root:not([data-theme="light"]) .wk-mermaid-light { display: none; }

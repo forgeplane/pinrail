@@ -69,7 +69,41 @@ function openZoom(button) {
   close.focus();
 }
 
+/* A diagram, full size: the one drawn for the reader's theme, on its panel.
+   It keeps the figure's class, so its styles (the accent for "you") hold. */
+function openDiagram(canvas) {
+  const figure = canvas.closest(".wk-mermaid");
+  const svg = [...canvas.querySelectorAll("svg")].find((s) => s.getBoundingClientRect().width > 0);
+  if (!svg) return;
+  const dialog = document.createElement("dialog");
+  dialog.className = "wk-zoom";
+  dialog.setAttribute("aria-label", figure.getAttribute("aria-label") || "Diagram");
+  const panel = document.createElement("div");
+  panel.className = "wk-mermaid wk-zoom-diagram";
+  panel.append(svg.cloneNode(true));
+  const close = document.createElement("button");
+  close.type = "button"; close.className = "wk-zoom-close"; close.setAttribute("aria-label", "Close"); close.textContent = "×";
+  const title = figure.querySelector("figcaption");
+  const caption = document.createElement("p");
+  caption.className = "wk-zoom-caption";
+  caption.textContent = title ? title.textContent : "";
+  caption.hidden = !title;
+  dialog.append(close, panel, caption);
+  dialog.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => { dialog.remove(); canvas.focus(); });
+  document.body.append(dialog);
+  dialog.showModal();
+  close.focus();
+}
+
+document.addEventListener("keydown", (event) => {
+  const canvas = event.target.closest && event.target.closest(".wk-mermaid-canvas");
+  if (canvas && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openDiagram(canvas); }
+});
+
 document.addEventListener("click", (event) => {
+  const canvas = event.target.closest(".wk-mermaid-canvas");
+  if (canvas && !canvas.closest(".wk-zoom")) { openDiagram(canvas); return; }
   const dot = event.target.closest(".wk-dot");
   if (dot) { show(dot.closest(".wk-shots"), Number(dot.dataset.dot)); return; }
   const button = event.target.closest(".wk-shot-open");
