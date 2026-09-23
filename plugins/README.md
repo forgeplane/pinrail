@@ -483,7 +483,8 @@ Shell → plugin:
 
 | type | fields |
 |---|---|
-| `init` | `gate` (the full envelope, payload included), `previous` (the superseded gate's envelope or null), `readonly`, `draft` (what the plugin last posted as a draft, or null), `shell_origin` |
+| `init` | `gate` (the full envelope, payload included), `previous` (the superseded gate's envelope or null), `readonly`, `draft` (what the plugin last posted as a draft, or null), `shell_origin`, `capabilities` (`["artifacts"]` when the shell hands over files) |
+| `artifact` | the answer to your `artifact`, with its `req`: `ok: true`, `name`, `media_type`, `size` and `bytes` (an `ArrayBuffer`, transferred), or `ok: false` and `error` |
 | `violations` | `errors: [{path, message}]`, JSON pointers into the rejected decision |
 | `submitted` | `decision` – the decision was accepted; render read-only |
 | `collect` | the human asked to hand the gate over, with the shell's button or ⌘/Ctrl+Enter. Assemble the decision and submit it, or show a confirmation first and submit on the next `collect` |
@@ -511,6 +512,7 @@ Plugin → shell:
 | `submit` | `data`; validated against `decision_schema` server-side |
 | `status` | `label`; what the shell's hand-over button should read right now, e.g. "Hand over anyway" once you have warned about something |
 | `settings_set` | `patch`; the values of your own settings to keep. The core checks them against `settings_schema` and everyone hears the result as `settings` |
+| `artifact` | `req`, `name`, and `round: "previous"` for the superseded gate's file; asks for the bytes of a file the gate lists in `artifacts`. Only a plugin whose manifest declares `artifacts` gets files; `plugin.artifact(name)` does this for you |
 | `open` | `url`; a link to open outside the app. Your frame is sandboxed and can open nothing itself, so a click on an `a[href]` becomes this message and the shell opens it in the system browser. Only `http`, `https` and `mailto` travel; the SDK does this for every link in your view, and `plugin.open(url)` asks for it from code |
 
 The decision schema is the whole contract. What the fields mean is between
