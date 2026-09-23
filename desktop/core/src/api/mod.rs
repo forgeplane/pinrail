@@ -67,6 +67,8 @@ fn router_with(state: ApiState) -> Router {
         .merge(sse::routes())
         .merge(files::routes())
         .merge(settings::routes())
+        // inside CORS, so a preflight is answered before a write is judged
+        .layer(axum::middleware::from_fn(guard::json_writes))
         .layer(cors())
         // outermost: a request from a page that rebound its name to loopback
         // is refused before anything else looks at it

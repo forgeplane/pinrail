@@ -85,7 +85,7 @@ export async function startApp({ build = true } = {}) {
   const api = async (method, route, body) => {
     const res = await fetch(`${core}${route}`, {
       method,
-      headers: body ? { "content-type": "application/json" } : {},
+      headers: method === "GET" ? {} : { "content-type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
     const text = await res.text();

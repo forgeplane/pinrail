@@ -1022,6 +1022,104 @@ async fn a_page_that_rebound_its_name_to_loopback_is_refused() {
 }
 
 #[tokio::test]
+async fn a_write_that_does_not_say_it_is_json_is_refused() {
+    let app = app();
+    let id = submit(&app, submission()).await["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let host = ("host", "127.0.0.1:4747");
+    let page = ("origin", "https://evil.example");
+    let body = submission().to_string();
+    // what a page on any site may send cross-origin without asking first
+    for content_type in [
+        "text/plain",
+        "application/x-www-form-urlencoded",
+        "multipart/form-data; boundary=x",
+    ] {
+        let (status, refused) = raw(
+            &app,
+            "POST",
+            "/api/v1/reviews",
+            &[host, page, ("content-type", content_type)],
+            &body,
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE, "{content_type}");
+        assert_eq!(refused["error"], "unsupported_media_type");
+    }
+    // no body and no type at all: withdraw and discard act on nothing more
+    for action in ["withdraw", "discard", "viewed"] {
+        let (status, _) = raw(
+            &app,
+            "POST",
+            &format!("/api/v1/reviews/{id}/{action}"),
+            &[host, page],
+            "",
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE, "{action}");
+    }
+    let (status, _) = raw(
+        &app,
+        "PATCH",
+        "/api/v1/settings",
+        &[host, ("content-type", "text/plain")],
+        "{}",
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
+    assert_eq!(
+        listing["reviews"].as_array().unwrap().len(),
+        1,
+        "nothing was created"
+    );
+    assert_eq!(
+        listing["reviews"][0]["status"], "pending",
+        "nothing was withdrawn or discarded"
+    );
+
+    // JSON needs a preflight, and a page's origin is not granted one
+    let preflight = Request::builder()
+        .method("OPTIONS")
+        .uri("/api/v1/reviews")
+        .header("host", "127.0.0.1:4747")
+        .header("origin", "https://evil.example")
+        .header("access-control-request-method", "POST")
+        .header("access-control-request-headers", "content-type")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(preflight).await.unwrap();
+    assert!(
+        response
+            .headers()
+            .get("access-control-allow-origin")
+            .is_none()
+    );
+
+    // the same writes, saying they are JSON, go through; a charset is fine
+    let (status, _) = raw(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{id}/viewed"),
+        &[host, ("content-type", "application/json")],
+        "",
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, _) = raw(
+        &app,
+        "POST",
+        "/api/v1/reviews/validate",
+        &[host, ("content-type", "application/json; charset=utf-8")],
+        &body,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
 async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
     let app = app();
     let id = submit(&app, submission()).await["id"]

@@ -257,7 +257,12 @@ impl Client {
         let url = format!("{}{path}", self.base);
         let mut resp = match body {
             Some(json) => self.agent.post(&url).send_json(json),
-            None => self.agent.post(&url).send_empty(),
+            // the server refuses a write that does not say it is JSON, even an empty one
+            None => self
+                .agent
+                .post(&url)
+                .header("content-type", "application/json")
+                .send_empty(),
         }
         .context("connecting to the server")?;
         Self::body(resp.status().as_u16(), &mut resp)

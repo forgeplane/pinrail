@@ -47,6 +47,7 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
     let method = parts.next().unwrap_or("").to_string();
     let path = parts.next().unwrap_or("").to_string();
     let mut content_length = 0usize;
+    let mut json = false;
     loop {
         let mut header = String::new();
         reader.read_line(&mut header).unwrap();
@@ -56,6 +57,9 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
         if let Some(v) = header.to_ascii_lowercase().strip_prefix("content-length:") {
             content_length = v.trim().parse().unwrap_or(0);
         }
+        if let Some(v) = header.to_ascii_lowercase().strip_prefix("content-type:") {
+            json = v.trim().starts_with("application/json");
+        }
     }
     let mut body = vec![0u8; content_length];
     if content_length > 0 {
@@ -63,13 +67,23 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
     }
     let body = String::from_utf8_lossy(&body).to_string();
     seen.lock().unwrap().push(format!("{method} {path}"));
-    let (status, response) = handler.lock().unwrap()(&method, &path, &body);
+    // as the server does: a write that does not say it is JSON is refused, empty or not
+    let (status, response) = if (method == "POST" || method == "PATCH") && !json {
+        (
+            415,
+            r#"{"error":"unsupported_media_type","message":"not JSON","violations":[]}"#
+                .to_string(),
+        )
+    } else {
+        handler.lock().unwrap()(&method, &path, &body)
+    };
     let reason = match status {
         200 => "OK",
         201 => "Created",
         204 => "No Content",
         404 => "Not Found",
         409 => "Conflict",
+        415 => "Unsupported Media Type",
         422 => "Unprocessable Entity",
         _ => "Status",
     };
@@ -84,7 +98,8 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
 
 fn pinrail() -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_pinrail"));
-    cmd.env_remove("PINRAIL_URL").env_remove("PINRAIL_SERVER_CMD");
+    cmd.env_remove("PINRAIL_URL")
+        .env_remove("PINRAIL_SERVER_CMD");
     cmd.stdin(Stdio::null());
     cmd
 }

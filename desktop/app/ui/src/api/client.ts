@@ -34,7 +34,8 @@ export function serverUrl(): Promise<string> {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${await serverUrl()}${path}`, {
     method,
-    headers: body === undefined ? {} : { "content-type": "application/json" },
+    // the core refuses a write that does not say it is JSON, even an empty one
+    headers: method === "GET" ? {} : { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 204) return undefined as T;
