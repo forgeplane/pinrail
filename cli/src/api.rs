@@ -70,6 +70,11 @@ impl Client {
         self.post("/api/v1/reviews", Some(body))
     }
 
+    /// The checks a submission gets, with nothing stored.
+    pub fn validate(&self, body: &Value) -> Result<Value> {
+        self.post("/api/v1/reviews/validate", Some(body))
+    }
+
     pub fn get_review(&self, id: &str) -> Result<Value> {
         self.get(&format!("/api/v1/reviews/{id}"), &[])
     }
@@ -209,6 +214,13 @@ impl Client {
 
     pub fn plugin_versions(&self, name: &str) -> Result<Value> {
         self.get(&format!("/api/v1/plugins/{name}/versions"), &[])
+    }
+
+    pub fn plugins_describe(&self, name: Option<&str>) -> Result<Value> {
+        match name {
+            Some(name) => self.get(&format!("/api/v1/plugins/{name}/describe"), &[]),
+            None => self.get("/api/v1/plugins/describe", &[]),
+        }
     }
 
     pub fn plugins_reload(&self) -> Result<Value> {

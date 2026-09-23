@@ -12,6 +12,7 @@
 //! | 5 | the person discarded the review: stop the work it was gating |
 
 mod api;
+mod describe;
 #[cfg(feature = "docs")]
 mod docs;
 mod out;
@@ -174,6 +175,10 @@ struct SubmitArgs {
     /// Block until decided (see wait)
     #[arg(long)]
     wait: bool,
+    /// Run every check a submission gets and create no review: exit 0 when
+    /// it would be accepted, 2 with the violations
+    #[arg(long, conflicts_with = "wait")]
+    dry_run: bool,
     #[command(flatten)]
     wait_opts: WaitOpts,
     /// Do not start the server when it is not running
@@ -287,6 +292,14 @@ enum PluginsCommand {
         /// the plugin's name
         name: String,
     },
+    /// What an agent needs to ask with each usable plugin, or the one
+    /// named: what it is for and when to use it, its payload and decision
+    /// schemas, an example payload, and the exit codes; markdown with
+    /// --format markdown
+    Describe {
+        /// the plugin's name; every usable plugin when omitted
+        name: Option<String>,
+    },
     /// Reload the installed plugins from disk
     Reload,
     /// The versions of a plugin that reviews can still render with
@@ -334,7 +347,11 @@ fn run(cli: Cli) -> Result<u8> {
         return Ok(0);
     }
 
-    let auto_start = matches!(&cli.command, Command::Submit(args) if !args.no_start);
+    let auto_start = match &cli.command {
+        Command::Submit(args) => !args.no_start,
+        Command::Plugins(args) => matches!(args.command, Some(PluginsCommand::Describe { .. })),
+        _ => false,
+    };
     let base = server::resolve_url(cli.url.as_deref(), auto_start)?;
     let client = Client::new(&base);
 
@@ -411,6 +428,17 @@ fn run(cli: Cli) -> Result<u8> {
             out::print_json(&client.discard(&id, reason, by)?, pretty);
             Ok(0)
         }
+        Command::Plugins(PluginsArgs {
+            command: Some(PluginsCommand::Describe { name }),
+        }) => {
+            let described = client.plugins_describe(name.as_deref())?;
+            if output.markdown {
+                print!("{}", describe::markdown(&described));
+            } else {
+                out::print_json(&describe::document(described), pretty);
+            }
+            Ok(0)
+        }
         Command::Plugins(args) => {
             let value = match args.command {
                 None => client.plugins()?,
@@ -462,6 +490,7 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
                 Some(PluginsCommand::Versions { name }) => client.plugin_versions(&name)?,
+                Some(PluginsCommand::Describe { .. }) => unreachable!(),
             };
             out::print_json(&value, pretty);
             Ok(0)
@@ -505,6 +534,16 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         body["expires_at"] = json!(at);
     }
 
+    if args.dry_run {
+        let answer = client.validate(&body)?;
+        eprintln!(
+            "wicket: valid; {} {} would render it",
+            answer["plugin"].as_str().unwrap_or_default(),
+            answer["plugin_release"].as_str().unwrap_or_default()
+        );
+        out::print_json(&answer, output.pretty);
+        return Ok(0);
+    }
     let review = client.submit(&body)?;
     let id = review["id"]
         .as_str()

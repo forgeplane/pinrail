@@ -488,3 +488,92 @@ fn rand_suffix() -> u128 {
         .unwrap()
         .as_nanos()
 }
+
+#[test]
+fn describe_adds_how_to_submit_and_the_exit_codes_to_the_plugins() {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        assert_eq!(method, "GET");
+        let body = r#"{"plugins":[{"name":"list","title":"List","release":"1.2.0","description":"Items to accept or reject.","use_when":"Before posting review comments","payload_schema":{"type":"object"},"decision_schema":{"type":"object"},"example":{"groups":[]},"markdown":true}]}"#;
+        match path {
+            "/api/v1/plugins/describe" | "/api/v1/plugins/list/describe" => (200, body.into()),
+            _ => (
+                404,
+                r#"{"error":"not_found","message":"nope","violations":[]}"#.into(),
+            ),
+        }
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "describe"]);
+    assert_eq!(code, 0, "{stderr}");
+    let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        doc["plugins"][0]["use_when"],
+        "Before posting review comments"
+    );
+    assert!(
+        doc["submit"]["check"]
+            .as_str()
+            .unwrap()
+            .contains("--dry-run")
+    );
+    assert!(
+        doc["submit"]["exit_codes"]["5"]
+            .as_str()
+            .unwrap()
+            .contains("stop")
+    );
+
+    let (code, stdout, _) = run(
+        &server,
+        &["plugins", "describe", "list", "--format", "markdown"],
+    );
+    assert_eq!(code, 0);
+    assert!(stdout.contains("## List (`list`) · 1.2.0"), "{stdout}");
+    assert!(stdout.contains("**Use when:** Before posting review comments"));
+    assert!(stdout.contains("| 4 | timed out"));
+
+    let (code, _, _) = run(&server, &["plugins", "describe", "nope"]);
+    assert_eq!(code, 2);
+    assert_eq!(
+        server
+            .requests()
+            .iter()
+            .filter(|r| r.contains("/describe"))
+            .count(),
+        3
+    );
+}
+
+#[test]
+fn a_dry_run_checks_the_submission_and_creates_nothing() {
+    let server = MockServer::start(Box::new(|method, path, body| {
+        assert_eq!((method, path), ("POST", "/api/v1/reviews/validate"));
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        if sent["title"] == "" {
+            return (422, r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/title","message":"is required"}]}"#.into());
+        }
+        (
+            200,
+            r#"{"valid":true,"plugin":"list","plugin_version":1,"plugin_release":"1.2.0"}"#.into(),
+        )
+    }));
+    let (code, stdout, stderr) = run(
+        &server,
+        &["submit", "list", "--title", "t", "--dry-run", "--no-start"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stdout.contains(r#""valid":true"#), "{stdout}");
+    assert!(stderr.contains("valid; list 1.2.0"), "{stderr}");
+
+    let (code, _, stderr) = run(
+        &server,
+        &["submit", "list", "--title", "", "--dry-run", "--no-start"],
+    );
+    assert_eq!(code, 2);
+    assert!(stderr.contains(r#""path": "/title""#), "{stderr}");
+
+    let (code, _, _) = run(
+        &server,
+        &["submit", "list", "--title", "t", "--dry-run", "--wait"],
+    );
+    assert_eq!(code, 2, "clap refuses --dry-run with --wait");
+}
