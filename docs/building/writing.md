@@ -299,17 +299,7 @@ The person sees every file a review carries, whatever the plugin draws: the inbo
 
 ## Look like the app
 
-Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both themes, its type, and a small set of classes: `.plugin-header`, `.item`, `.btn`, `.field`, `.notice`, severity chips and more. The palette follows the app, so your view changes with it and your bundle carries no copy of it.
-
-```js
-const view = Pinrail.layout({ title: "5 tickets", controls: [closeAll] });
-view.content.innerHTML = rows;               // re-render the body freely
-view.title("4 tickets").meta(["acme-api"]);  // the header keeps its listeners
-```
-
-Icons come from the app too. `Pinrail.icon("check")` returns the markup for any Lucide icon; it takes the colour of the text around it and downloads only when used.
-
-Every class is a default, not a rule: your own `<style>` comes after the stylesheet and wins.
+Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both themes, its type, and classes for the usual shapes: a header, items, buttons, fields, notices. `Pinrail.icon(name)` gives any Lucide icon, and `Pinrail.layout()` the header-and-body skeleton. It is all optional, and your own fonts, styles and scripts can ship in the plugin folder: see [Design and styling](/docs/building/design/).
 
 ## Run it
 

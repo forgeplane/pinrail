@@ -306,3 +306,19 @@ table .pr-keys { font-size: 0.8em; }
   .pr-manifest th { width: auto; }
   .pr-manifest-build { grid-template-columns: 1fr; gap: 6px; }
 }
+
+/* The SDK's colour tokens (src/plugins/remark-tokens.mjs): each swatch on
+   the ground of its own theme, whatever the page's theme. */
+.pr-tokens { margin-top: 1rem; overflow-x: auto; }
+.pr-tokens table { width: 100%; border-collapse: collapse; font-size: 0.85rem; table-layout: fixed; }
+.pr-tokens col.pr-tokens-name { width: 9.5rem; }
+.pr-tokens col.pr-tokens-swatch { width: 24%; }
+.pr-tokens th, .pr-tokens td { padding: 6px 10px; border-bottom: 1px solid var(--sl-color-hairline-light); text-align: left; vertical-align: middle; }
+.pr-tokens thead th { font-weight: 600; color: var(--sl-color-gray-3); font-size: 0.78rem; }
+.pr-tokens-group th { padding-top: 14px; font: 600 0.72rem var(--sl-font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--sl-color-gray-3); }
+.pr-tokens td:first-child code { color: var(--sl-color-white); white-space: nowrap; }
+.pr-tokens-light { background: #ffffff; color: #24262c; }
+.pr-tokens-dark { background: #18191b; color: #ededef; }
+.pr-swatch { display: flex; align-items: center; gap: 8px; }
+.pr-swatch code { font-size: 0.72rem; background: none; border: 0; padding: 0; color: inherit; opacity: 0.8; overflow-wrap: anywhere; }
+.pr-swatch-chip { width: 22px; height: 22px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgb(128 128 128 / 0.35); flex: none; }
