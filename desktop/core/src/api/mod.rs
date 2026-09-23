@@ -1,6 +1,7 @@
 //! The HTTP API: JSON under `/api/v1`, plugin bundles under `/plugins`, the
 //! SDK under `/sdk/v1`, all bound to loopback.
 
+mod artifacts;
 mod error;
 mod files;
 mod guard;
@@ -63,6 +64,7 @@ fn router_with(state: ApiState) -> Router {
     Router::new()
         .route("/api/v1/info", get(info))
         .merge(reviews::routes())
+        .merge(artifacts::routes())
         .merge(plugins::routes())
         .merge(sse::routes())
         .merge(files::routes())

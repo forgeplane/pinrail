@@ -9,6 +9,7 @@
 
 pub mod api;
 pub mod app;
+pub mod artifacts;
 pub mod config;
 pub mod db;
 #[cfg(feature = "docs")]

@@ -74,7 +74,13 @@ pub(crate) async fn body_limit(request: Request, next: Next) -> Response {
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.parse::<usize>().ok());
     let response = next.run(request).await;
-    if response.status() != StatusCode::PAYLOAD_TOO_LARGE {
+    // a 413 a handler answered itself is already in JSON
+    let plain = !response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(is_json);
+    if response.status() != StatusCode::PAYLOAD_TOO_LARGE || !plain {
         return response;
     }
     let sent = length
@@ -87,7 +93,7 @@ pub(crate) async fn body_limit(request: Request, next: Next) -> Response {
     )
 }
 
-fn megabytes(bytes: usize) -> String {
+pub(crate) fn megabytes(bytes: usize) -> String {
     let mb = bytes as f64 / (1024.0 * 1024.0);
     if mb.fract() == 0.0 {
         format!("{mb:.0} MB")

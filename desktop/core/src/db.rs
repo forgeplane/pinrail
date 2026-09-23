@@ -2,10 +2,12 @@
 //! written once; events are appended; the one-ending rule is the primary
 //! key on `outcomes`.
 //!
-//! One connection and one file, in five areas: the migrations that
+//! One connection and one file, in six areas: the migrations that
 //! make the tables, reviews and the queries over them, how a review
-//! ends, the event log, and the record of installed plugins.
+//! ends, the event log, the record of installed plugins, and the blobs
+//! uploaded beside reviews.
 
+mod blobs;
 mod events;
 mod outcomes;
 mod plugins;

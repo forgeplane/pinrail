@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use crate::Config;
+use crate::artifacts::Artifacts;
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::Events;
@@ -20,6 +21,7 @@ pub struct Pinrail {
     settings: SettingsService,
     plugins: PluginService,
     reviews: Reviews,
+    artifacts: Artifacts,
 }
 
 impl Pinrail {
@@ -37,6 +39,11 @@ impl Pinrail {
     /// Review operations share the application's storage, registry and event bus.
     pub fn reviews(&self) -> &Reviews {
         &self.reviews
+    }
+
+    /// The files sent beside reviews, stored by their hash.
+    pub fn artifacts(&self) -> &Artifacts {
+        &self.artifacts
     }
 
     /// Settings reads and changes share validation, persistence and notifications.
@@ -68,6 +75,11 @@ impl Pinrail {
         let settings =
             SettingsService::open(&config.data_dir, db.clone(), registry.clone(), events.bus());
         let plugins = PluginService::new(db.clone(), registry.clone(), events.bus());
+        let artifacts = Artifacts::open(
+            &config.artifacts_dir(),
+            db.clone(),
+            config.max_artifact_bytes,
+        )?;
         let reviews = Reviews::new(
             db.clone(),
             registry.clone(),
@@ -80,6 +92,7 @@ impl Pinrail {
             settings,
             plugins,
             reviews,
+            artifacts,
         })
     }
 }

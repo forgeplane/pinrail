@@ -16,7 +16,12 @@ pub struct Config {
     pub user: String,
     /// The directory served at `/sdk/v1/`; none means the SDK is not served.
     pub sdk_dir: Option<PathBuf>,
+    /// The most one uploaded artifact may be, in bytes.
+    pub max_artifact_bytes: u64,
 }
+
+/// 100 MiB: a model, a recording, a document with its images.
+pub const MAX_ARTIFACT_BYTES: u64 = 100 * 1024 * 1024;
 
 impl Config {
     /// Reads `PINRAIL_DATA_DIR`, `PINRAIL_PORT`, `PINRAIL_USER` and
@@ -51,6 +56,7 @@ impl Config {
             port,
             user: "pinrail".to_string(),
             sdk_dir: None,
+            max_artifact_bytes: MAX_ARTIFACT_BYTES,
         }
     }
 
@@ -84,6 +90,11 @@ impl Config {
     /// Where the plugin embedded in the binary is written out.
     pub fn builtin_plugins_dir(&self) -> PathBuf {
         self.data_dir.join("builtin")
+    }
+
+    /// Artifacts: `sha256/<first two>/<hash>`, and `tmp/` for uploads in flight.
+    pub fn artifacts_dir(&self) -> PathBuf {
+        self.data_dir.join("artifacts")
     }
 
     /// Installed plugins: one entry per plugin and major version.

@@ -23,9 +23,14 @@ struct App {
 }
 
 fn app() -> App {
+    app_with(|_| {})
+}
+
+fn app_with(adjust: impl FnOnce(&mut Config)) -> App {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
+    adjust(&mut config);
     let state = Arc::new(Pinrail::open(config).unwrap());
     App {
         router: router(state.clone()),
@@ -1158,6 +1163,183 @@ async fn a_body_over_the_limit_is_refused_in_json() {
     )
     .await;
     assert_ne!(status, StatusCode::PAYLOAD_TOO_LARGE);
+}
+
+fn sha256(bytes: &[u8]) -> String {
+    use sha2::Digest;
+    format!("{:x}", sha2::Sha256::digest(bytes))
+}
+
+/// A PUT of raw bytes, as the CLI uploads an artifact.
+async fn put_bytes(
+    app: &App,
+    path: &str,
+    content_type: &str,
+    bytes: Vec<u8>,
+    length: bool,
+) -> (StatusCode, Value) {
+    let mut request = Request::builder()
+        .method("PUT")
+        .uri(path)
+        .header("host", "127.0.0.1:4747")
+        .header("content-type", content_type);
+    if length {
+        request = request.header("content-length", bytes.len().to_string());
+    }
+    let response = app
+        .router
+        .clone()
+        .oneshot(request.body(Body::from(bytes)).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    (status, serde_json::from_slice(&body).unwrap_or(Value::Null))
+}
+
+async fn head(app: &App, path: &str) -> (StatusCode, Option<String>) {
+    let request = Request::builder()
+        .method("HEAD")
+        .uri(path)
+        .header("host", "127.0.0.1:4747")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    let length = response
+        .headers()
+        .get("content-length")
+        .map(|v| v.to_str().unwrap().to_string());
+    (response.status(), length)
+}
+
+#[tokio::test]
+async fn an_artifact_is_uploaded_once_by_its_hash() {
+    let app = app();
+    let bytes = b"glTF, more or less".to_vec();
+    let hash = sha256(&bytes);
+    let path = format!("/api/v1/artifacts/{hash}");
+    assert_eq!(head(&app, &path).await.0, StatusCode::NOT_FOUND);
+
+    let (status, stored) =
+        put_bytes(&app, &path, "application/octet-stream", bytes.clone(), true).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(stored, json!({ "sha256": hash, "size": 18 }));
+    assert_eq!(head(&app, &path).await, (StatusCode::OK, Some("18".into())));
+    let file = app
+        .state
+        .config()
+        .artifacts_dir()
+        .join("sha256")
+        .join(&hash[..2])
+        .join(&hash);
+    assert_eq!(std::fs::read(file).unwrap(), bytes);
+
+    // again: already there, nothing to do
+    let (status, again) = put_bytes(&app, &path, "application/octet-stream", bytes, true).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(again, stored);
+}
+
+#[tokio::test]
+async fn an_upload_is_refused_when_it_is_not_what_it_says() {
+    let app = app();
+    let hash = sha256(b"what was promised");
+    let path = format!("/api/v1/artifacts/{hash}");
+    let (status, refused) = put_bytes(
+        &app,
+        &path,
+        "application/octet-stream",
+        b"something else".to_vec(),
+        true,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        refused["violations"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains(&sha256(b"something else")),
+        "{refused}"
+    );
+    assert_eq!(head(&app, &path).await.0, StatusCode::NOT_FOUND);
+
+    // only raw bytes, which a web page cannot send across origins unasked
+    for content_type in [
+        "text/plain",
+        "application/json",
+        "multipart/form-data; boundary=x",
+    ] {
+        let (status, refused) = put_bytes(
+            &app,
+            &path,
+            content_type,
+            b"what was promised".to_vec(),
+            true,
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE, "{content_type}");
+        assert_eq!(refused["error"], "unsupported_media_type");
+    }
+    // a name that is not a hash
+    for bad in ["abc", &"A".repeat(64)] {
+        let (status, _) = put_bytes(
+            &app,
+            &format!("/api/v1/artifacts/{bad}"),
+            "application/octet-stream",
+            b"x".to_vec(),
+            true,
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{bad}");
+        assert_eq!(
+            head(&app, &format!("/api/v1/artifacts/{bad}")).await.0,
+            StatusCode::NOT_FOUND
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_upload_past_the_cap_is_refused_in_json_and_leaves_nothing() {
+    let app = app_with(|c| c.max_artifact_bytes = 1024 * 1024);
+    let bytes = vec![7u8; 1024 * 1024 + 1];
+    let path = format!("/api/v1/artifacts/{}", sha256(&bytes));
+    // said up front, or found out on the way
+    for length in [true, false] {
+        let (status, refused) = put_bytes(
+            &app,
+            &path,
+            "application/octet-stream",
+            bytes.clone(),
+            length,
+        )
+        .await;
+        assert_eq!(
+            status,
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "content-length: {length}"
+        );
+        assert_eq!(refused["error"], "too_large");
+        assert_eq!(refused["message"], "an artifact may be 1 MB at most");
+    }
+    assert_eq!(head(&app, &path).await.0, StatusCode::NOT_FOUND);
+    let tmp = app.state.config().artifacts_dir().join("tmp");
+    assert_eq!(std::fs::read_dir(tmp).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn an_upload_is_not_held_to_the_json_limit() {
+    let app = app();
+    let bytes = vec![3u8; 6 * 1024 * 1024];
+    let (status, stored) = put_bytes(
+        &app,
+        &format!("/api/v1/artifacts/{}", sha256(&bytes)),
+        "application/octet-stream",
+        bytes,
+        true,
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{stored}");
+    assert_eq!(stored["size"], 6 * 1024 * 1024);
 }
 
 #[tokio::test]
