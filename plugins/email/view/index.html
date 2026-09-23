@@ -3,90 +3,216 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>email gate</title>
+<title>Draft emails</title>
 <link rel="stylesheet" href="/sdk/v1/wicket-plugin.css">
 <style>
-  /* Tokens, base, .btn, .field, .note, .notice and .empty come from the SDK
-     stylesheet. What is left is this view's own: the draft card, the tracked
-     changes, and the human's marks on the agent's words. */
-  .intro { color: var(--dim); max-width: 72ch; margin: 0 0 16px; }
-  .intro p:first-child { margin-top: 0; }
+  /* The shape of a mail client: the drafts down a rail, the open one as the
+     message it would be, and the verdict kept in reach at the foot. Tokens,
+     type and form controls come from the SDK stylesheet. */
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; font-size: 13px; }
+  .shell { display: grid; grid-template-rows: auto 1fr; height: 100%; }
 
-  .draft { border: 1px solid var(--border); border-radius: 10px; background: var(--bg-panel); margin-bottom: 16px; overflow: hidden; }
-  .draft.send { border-color: color-mix(in oklab, var(--ok) 55%, transparent); }
-  .draft.revise { border-color: color-mix(in oklab, var(--sev-major) 55%, transparent); }
-  .draft.discard { border-color: color-mix(in oklab, var(--danger) 45%, transparent); }
+  /* ------------------------------------------------------------- header */
+  .top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+  .top h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .top .from { color: var(--dim); font-size: 12.5px; }
+  .tally { margin-left: auto; display: flex; gap: 12px; font-size: 12px; color: var(--dim); }
+  .tally b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .tally .t-send b { color: var(--ok); } .tally .t-revise b { color: var(--sev-major); } .tally .t-discard b { color: var(--danger); }
+  .top-actions { display: flex; gap: 6px; }
+  .ghost-btn { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border); background: none; color: var(--dim); font: 500 12px var(--sans); cursor: pointer; }
+  .ghost-btn:hover { color: var(--text); border-color: var(--border-strong); }
+  .ghost-btn kbd { font: 10.5px var(--mono); color: var(--faint); background: none; padding: 0; }
 
-  .head { display: flex; align-items: flex-start; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
-  .addresses { min-width: 0; flex: 1; font-size: 12px; color: var(--dim); display: flex; flex-direction: column; gap: 2px; }
-  .addresses .line { display: flex; gap: 6px; }
-  .addresses .who { color: var(--faint); flex: none; width: 26px; }
-  .addresses b { color: var(--text); font-weight: 500; }
-  .verdicts { display: flex; gap: 6px; flex: none; }
+  .work { display: grid; grid-template-columns: 280px minmax(0, 1fr) 320px; min-height: 0; }
 
-  .subject { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-bottom: 1px solid var(--border); }
-  .subject .who { font-size: 12px; color: var(--faint); flex: none; }
-  .subject input { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; background: transparent; border: 1px solid transparent; border-radius: 5px; padding: 3px 6px; }
+  /* --------------------------------------------------------------- rail */
+  .rail { overflow-y: auto; border-right: 1px solid var(--border); padding: 12px; display: grid; gap: 4px; align-content: start; background: var(--bg-panel); }
+  .rail-label { margin: 4px 6px 6px; font: 600 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .pick { display: grid; gap: 3px; width: 100%; padding: 10px 11px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; border-left: 3px solid transparent; }
+  .pick:hover { background: var(--bg-hover); }
+  .pick[aria-current="true"] { background: var(--bg-raised); border-color: var(--border-strong); }
+  .pick.v-send { border-left-color: var(--ok); } .pick.v-revise { border-left-color: var(--sev-major); } .pick.v-discard { border-left-color: var(--danger); }
+  .pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .pick-to { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--dim); }
+  .pick-to span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick-subject { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick-preview { font-size: 12px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick-flags { display: flex; align-items: center; gap: 8px; margin-top: 3px; font-size: 11px; color: var(--faint); }
+  .pick-flags .flag { display: inline-flex; align-items: center; gap: 3px; }
+  .chip { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 99px; font: 600 10px var(--mono); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; margin-left: auto; }
+  .chip.send { background: color-mix(in oklab, var(--ok) 16%, transparent); color: var(--ok); }
+  .chip.revise { background: color-mix(in oklab, var(--sev-major) 16%, transparent); color: var(--sev-major); }
+  .chip.discard { background: color-mix(in oklab, var(--danger) 14%, transparent); color: var(--danger); }
+  .chip.none { color: var(--faint); padding-inline: 0; }
+
+  /* -------------------------------------------------------------- sheet */
+  .sheet { overflow-y: auto; min-height: 0; }
+  .sheet-inner { max-width: 1040px; margin: 0 auto; padding: 22px 28px 0; display: grid; gap: 16px; }
+  .intro { color: var(--dim); font-size: 13px; line-height: 1.6; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 10px; }
+  .intro p { margin: 0 0 6px; } .intro p:last-child { margin: 0; }
+  .done { margin: 0; }
+
+  .draft { display: grid; gap: 16px; }
+  .draft > section { min-width: 0; }
+
+  /* why the agent wrote it, said in the agent's voice */
+  .why { display: flex; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--accent-bg); border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent); font-size: 12.5px; line-height: 1.6; color: var(--dim); }
+  .why .wi { flex: none; margin-top: 2px; color: var(--accent); }
+  .why b { display: block; font: 600 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
+
+  /* the message, as it would be sent */
+  .message { border: 1px solid var(--border); border-radius: 14px; background: var(--bg-panel); overflow: hidden; }
+  .envelope { display: grid; grid-template-columns: 58px 1fr; gap: 7px 10px; align-items: center; padding: 14px 20px 12px; border-bottom: 1px solid var(--border); }
+  .envelope .who { font-size: 12px; color: var(--faint); }
+  .addresses { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+  .addr { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 2px 9px 2px 3px; border-radius: 99px; background: var(--bg-raised); border: 1px solid var(--border); font-size: 12px; color: var(--text); }
+  .addr span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .avatar { flex: none; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: color-mix(in oklab, var(--accent) 22%, var(--bg)); color: var(--accent); font: 700 9.5px var(--sans); text-transform: uppercase; }
+  .from-line { font-size: 12px; color: var(--dim); }
+  .subject { padding: 12px 20px 10px; border-bottom: 1px solid var(--border); }
+  .subject input { width: 100%; box-sizing: border-box; padding: 4px 8px; margin-left: -8px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text); font: 600 18px/1.35 var(--sans); letter-spacing: -0.015em; }
   .subject input:hover:not(:disabled) { border-color: var(--border); }
-  .subject input:focus { border-color: var(--accent); background: var(--bg); }
+  .subject input:focus { outline: none; border-color: var(--accent); background: var(--bg); }
   .subject.changed input { color: var(--ok); }
+  .subject .was { margin: 2px 0 0; font-size: 11.5px; color: var(--faint); }
+  .subject .was del { background: none; box-shadow: none; padding: 0; }
 
-  .body { padding: 12px 14px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
-  .body textarea { width: 100%; min-height: 200px; font: inherit; line-height: 1.65; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 6px; padding: 9px 11px; resize: vertical; }
+  .body { padding: 18px 20px 20px; font-size: 14px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; max-width: 76ch; }
+  .body[contenteditable] { outline: none; cursor: text; caret-color: var(--accent); }
+  .body[contenteditable]:focus { box-shadow: inset 3px 0 var(--accent); }
+  .body del { user-select: none; }
+  ::highlight(pending-mark) { background-color: color-mix(in oklab, var(--accent) 30%, transparent); }
+  .body textarea { width: 100%; min-height: 260px; box-sizing: border-box; font: inherit; line-height: 1.75; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 10px; padding: 12px 14px; resize: vertical; outline: none; box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent); white-space: pre-wrap; }
 
   /* The human's changes, against the agent's words. Nothing the agent wrote
      is thrown away on screen: it is struck through and still readable, so the
      two versions can be compared without switching views. */
-  ins { text-decoration: none; background: var(--add-bg); box-shadow: inset 2px 0 var(--add-gut); border-radius: 2px; padding: 1px 2px; }
-  del { background: var(--del-bg); box-shadow: inset 2px 0 var(--del-gut); border-radius: 2px; padding: 1px 2px; opacity: 0.75; }
-  /* A replacement is two marks in a row; keep them from touching. */
+  ins { text-decoration: none; background: var(--add-bg); box-shadow: inset 0 -1.5px var(--add-gut); border-radius: 3px; padding: 1px 2px; }
+  del { background: var(--del-bg); border-radius: 3px; padding: 1px 2px; color: var(--dim); text-decoration-color: color-mix(in oklab, var(--danger) 70%, transparent); }
   del + ins { margin-left: 4px; }
 
-  /* A passage the human picked out, and the instruction they hung on it. */
-  .quoted { background: var(--accent-bg); box-shadow: 0 1px 0 var(--accent); cursor: default; }
-  .quoted.on { background: color-mix(in oklab, var(--accent) 26%, transparent); }
+  /* a passage the human picked out, numbered like the instruction on it */
+  .quoted { background: color-mix(in oklab, var(--accent) 14%, transparent); box-shadow: inset 0 -2px color-mix(in oklab, var(--accent) 70%, transparent); border-radius: 2px; cursor: default; }
+  .quoted.on { background: color-mix(in oklab, var(--accent) 30%, transparent); }
+  .quoted[data-label]::before { content: attr(data-label); display: inline-grid; place-items: center; width: 16px; height: 16px; margin: 0 4px 0 1px; border-radius: 50%; background: var(--accent); color: var(--bg); font: 700 9.5px/1 var(--sans); vertical-align: 2px; }
 
-  .tools { display: flex; align-items: center; gap: 8px; padding: 0 14px 12px; font-size: 11.5px; color: var(--faint); }
+  .tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 20px; border-top: 1px solid var(--border); background: var(--bg); font-size: 11.5px; color: var(--faint); }
   .tools .spacer { flex: 1; }
+  .tool { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg-panel); color: var(--text); font: 500 12px var(--sans); cursor: pointer; }
+  .tool:hover { border-color: var(--border-strong); }
+  .legend { display: inline-flex; align-items: center; gap: 8px; }
+  .legend .lg-del { padding: 1px 4px; border-radius: 3px; background: var(--del-bg); color: var(--dim); text-decoration: line-through; }
+  .legend .lg-ins { padding: 1px 4px; border-radius: 3px; background: var(--add-bg); box-shadow: inset 0 -1.5px var(--add-gut); color: var(--text); }
 
-  .marks { border-top: 1px solid var(--border); background: var(--bg); padding: 10px 14px 12px; }
-  .marks .eyebrow { display: block; margin-bottom: 8px; }
-  .mark { display: flex; gap: 9px; align-items: flex-start; margin-top: 8px; }
-  .mark .bar { flex: none; width: 2px; align-self: stretch; background: var(--accent); border-radius: 2px; }
-  .mark .text { flex: 1; min-width: 0; }
-  .mark .quote { font-size: 11.5px; color: var(--dim); font-style: italic; margin-bottom: 4px; }
-  .mark input { width: 100%; }
-  .mark .note-ro { font-size: 12.5px; white-space: pre-wrap; }
-  .mark .drop { flex: none; }
+  /* the message this replies to */
+  .thread { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel); }
+  .thread > summary { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; font-size: 12px; color: var(--dim); list-style: none; }
+  .thread > summary::-webkit-details-marker { display: none; }
+  .thread > summary:hover { color: var(--text); }
+  .thread[open] > summary { border-bottom: 1px solid var(--border); }
+  .thread .msg { margin: 12px 14px; padding-left: 12px; border-left: 2px solid var(--border-strong); font-size: 12.5px; line-height: 1.6; color: var(--dim); white-space: pre-wrap; }
+  .thread .msg .who { display: block; margin-bottom: 3px; color: var(--text); font-size: 11.5px; font-weight: 600; }
+  .thread .msg .who em { font-style: normal; font-weight: 400; color: var(--faint); }
 
-  .whole { display: flex; gap: 9px; align-items: flex-start; margin-top: 12px; }
-  .whole .bar { flex: none; width: 2px; align-self: stretch; background: var(--border-strong); border-radius: 2px; }
-  .whole .text { flex: 1; min-width: 0; }
-  .whole input { width: 100%; }
+  /* ------------------------------------------------------------- aside
+     What the human did to the open draft: every change against the agent's
+     words, each one to put back, and the instructions on passages. */
+  .aside { overflow-y: auto; min-height: 0; border-left: 1px solid var(--border); background: var(--bg-panel); padding: 16px 14px; display: grid; gap: 22px; align-content: start; }
+  .panel { display: grid; gap: 8px; min-width: 0; }
+  .panel-head { display: flex; align-items: center; gap: 8px; }
+  .panel-head .label { margin: 0; flex: 1; }
+  .tool.small { padding: 3px 8px; font-size: 11.5px; }
+  .changes { display: grid; gap: 6px; }
+  .change { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: start; padding: 9px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+  .change-kind { grid-column: 1; font: 600 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .change-text { grid-column: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; overflow-wrap: anywhere; }
+  .change-text del, .change-text ins { padding: 0 2px; }
+  .change-text .arrow { color: var(--faint); margin: 0 4px; }
+  .change .put-back { grid-column: 2; grid-row: 1 / span 2; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: none; color: var(--faint); cursor: pointer; }
+  .change .put-back:hover { background: var(--bg-hover); color: var(--text); }
+  .aside .hint { margin: 0; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; font-size: 12px; line-height: 1.55; }
 
-  .thread { border-top: 1px solid var(--border); padding: 10px 14px; background: var(--bg); }
-  .thread details > summary { cursor: pointer; font-size: 11.5px; color: var(--faint); }
-  .thread .msg { margin-top: 10px; font-size: 12.5px; color: var(--dim); white-space: pre-wrap; }
-  .thread .msg .who { color: var(--faint); font-size: 11px; display: block; margin-bottom: 2px; }
+  /* the human's instructions to the agent, one per picked passage */
+  .label { margin: 0 0 8px; font: 600 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
+  .marks { display: grid; gap: 8px; }
+  .mark { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: start; padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--accent); }
+  .mark.on { border-color: var(--accent); }
+  .mark .n { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--bg); font: 700 10.5px var(--sans); margin-top: 1px; }
+  .mark .quote { grid-column: 2; font-size: 12px; color: var(--dim); font-style: italic; }
+  .mark input { grid-column: 2; width: 100%; box-sizing: border-box; }
+  .mark .note-ro { grid-column: 2; font-size: 13px; white-space: pre-wrap; }
+  .mark .drop { grid-column: 3; grid-row: 1 / span 2; display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; background: none; color: var(--faint); cursor: pointer; }
+  .mark .drop:hover { background: var(--bg-hover); color: var(--danger); }
+  .hint { font-size: 12px; color: var(--faint); }
 
-  .why { padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--dim); background: var(--bg); }
-  .why .eyebrow { margin-right: 7px; }
+  /* the verdict, kept in reach at the foot of the sheet */
+  .decide { position: sticky; bottom: 0; margin: 0 0 18px; display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--border-strong); border-radius: 14px; background: color-mix(in oklab, var(--bg-raised) 94%, transparent); backdrop-filter: blur(8px); box-shadow: 0 -12px 30px -24px rgba(0,0,0,.5); }
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .choice { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); font: 600 13px var(--sans); cursor: pointer; }
+  .choice kbd { font: 11px var(--mono); color: var(--faint); background: none; padding: 0; }
+  .choice:hover { border-color: var(--text); }
+  .choice:focus-visible, .nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .choice[aria-pressed="true"].send { background: color-mix(in oklab, var(--ok) 16%, var(--bg)); border-color: var(--ok); color: var(--ok); }
+  .choice[aria-pressed="true"].revise { background: color-mix(in oklab, var(--sev-major) 16%, var(--bg)); border-color: var(--sev-major); color: var(--sev-major); }
+  .choice[aria-pressed="true"].discard { background: color-mix(in oklab, var(--danger) 13%, var(--bg)); border-color: var(--danger); color: var(--danger); }
+  .verdict-ro { font: 600 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+  .verdict-ro.send { color: var(--ok); } .verdict-ro.revise { color: var(--sev-major); } .verdict-ro.discard { color: var(--danger); } .verdict-ro.undecided { color: var(--faint); }
+  .nav { margin-left: auto; display: flex; gap: 6px; }
+  .nav button { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--dim); font: 12px var(--sans); cursor: pointer; }
+  .nav button:disabled { opacity: .45; cursor: default; }
+  .decide textarea { width: 100%; min-height: 40px; box-sizing: border-box; resize: vertical; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: 13px/1.5 var(--sans); }
+  .decide textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .whole-ro { font-size: 13px; color: var(--dim); }
+  .whole-ro b { color: var(--text); font-weight: 500; }
+  #confirm, #errors { margin: 0; }
 
-  /* Floats over the selection, inside the frame, so a note starts where the
-     eye already is. */
+  /* beside a selection: the way to hang an instruction on it */
   #pick { position: fixed; z-index: 20; display: none; }
-  #pick button { box-shadow: 0 4px 14px rgb(0 0 0 / 0.3); }
+  #pick button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border-radius: 50%; border: 0; background: var(--button-bg); color: #fff; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / 0.3); }
+  #pick button:hover { transform: scale(1.06); }
 
-  .footer { position: sticky; bottom: 0; margin-top: 4px; padding: 10px 0 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 12.5px; }
-  .footer .tally { color: var(--dim); }
-  .footer .tally b { color: var(--text); }
-  .footer .tally.warn { color: var(--sev-major); }
-  .errors { margin-top: 10px; }
-  .done { margin-bottom: 14px; }
+  /* the instruction being written, anchored to its passage */
+  .popover { position: fixed; z-index: 30; width: 360px; display: grid; gap: 10px; padding: 12px 12px 10px; border: 1px solid var(--border-strong); border-top: 3px solid var(--accent); border-radius: 12px; background: var(--bg-panel); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / .08), 0 18px 48px -12px rgb(0 0 0 / .45); }
+  .popover::before { content: ""; position: absolute; left: calc(var(--arrow, 24px) - 7px); top: -10px; width: 12px; height: 12px; background: var(--accent); transform: rotate(45deg); border-radius: 2px; }
+  .popover.is-above::before { top: auto; bottom: -7px; background: var(--bg-panel); border-right: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong); }
+  .popover-head { display: flex; align-items: flex-start; gap: 8px; }
+  .popover-quote { flex: 1; min-width: 0; font-size: 12px; font-style: italic; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .popover-close { flex: none; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; margin: -2px -4px 0 0; border: 0; border-radius: 6px; background: none; color: var(--faint); cursor: pointer; }
+  .popover-close:hover { background: var(--bg-hover); color: var(--text); }
+  .popover textarea { width: 100%; min-height: 76px; box-sizing: border-box; resize: vertical; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--bg); color: var(--text); font: 13.5px/1.55 var(--sans); outline: none; }
+  .popover textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 18%, transparent); }
+  .popover-foot { display: flex; align-items: center; gap: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .popover-foot .spacer { flex: 1; }
+  .popover-hint { font-size: 11px; color: var(--faint); }
+  .popover-hint kbd { font: 10px var(--mono); padding: 0 4px; border-radius: 3px; background: var(--bg-hover); color: var(--faint); }
+  .pbtn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--dim); font: 500 12.5px var(--sans); cursor: pointer; }
+  .pbtn:hover { background: var(--bg-hover); color: var(--text); }
+  .pbtn.primary { background: var(--button-bg); color: #fff; font-weight: 600; }
+  .pbtn.primary:disabled { opacity: .5; cursor: default; }
+
+  @media (max-width: 1100px) {
+    .work { grid-template-columns: 240px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+    .rail { grid-row: 1 / span 2; }
+    .aside { grid-column: 2; max-height: 38vh; border-left: 0; border-top: 1px solid var(--border); grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  }
+  @media (max-width: 760px) {
+    .work { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr) auto; }
+    .rail { grid-row: auto; }
+    .aside { grid-column: 1; }
+    .rail { grid-auto-flow: column; grid-auto-columns: 240px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+    .rail-label { display: none; }
+    .sheet-inner { padding-inline: 14px; }
+    .envelope, .subject, .body, .tools { padding-inline: 14px; }
+    .tally { margin-left: 0; flex-basis: 100%; }
+  }
+  @media (prefers-reduced-motion: no-preference) { .pick, .choice { transition: background .15s, border-color .15s; } }
 </style>
 </head>
 <body>
 <script src="/sdk/v1/wicket-plugin.js"></script>
+<div class="shell" id="app"><div class="top"><h1>Loading…</h1></div></div>
 <script>
 "use strict";
 /* The email gate: drafts an agent wants to send, marked up the way you would
@@ -96,53 +222,28 @@
    you changed. */
 
 const esc = Wicket.escape, markdown = Wicket.markdown, icon = Wicket.icon;
-
-const view = Wicket.layout({ header: true });
-view.content.className = "plugin-content empty";
-view.content.textContent = "waiting for the shell…";
+const app = document.getElementById("app");
+const LABELS = { send: "Send", revise: "Revise", discard: "Discard" };
+const KEYS = { send: "s", revise: "r", discard: "x" };
 
 let gate = null, readonly = false;
 /* Per draft: the verdict, the working subject and body, the marks against
-   passages, and a note for the whole thing. `editing` is not part of the
-   decision and is not kept. */
-const S = { verdict: {}, subject: {}, body: {}, marks: {}, note: {}, editing: {}, armed: false, errors: null, active: null };
-
-const control = (label, onclick) => {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "btn ghost";
-  button.textContent = label;
-  button.onclick = onclick;
-  return button;
-};
-
-const sendRest = control("send the rest", () => {
-  for (const d of drafts()) if (!S.verdict[d.id]) S.verdict[d.id] = "send";
-  S.armed = false;
-  postDraft();
-  render();
-});
-
-const clearAll = control("clear", () => {
-  for (const d of drafts()) { delete S.verdict[d.id]; }
-  S.armed = false;
-  postDraft();
-  render();
-});
+   passages, and a note for the whole thing. `sel` and `history` are the
+   screen's and are not kept. */
+const S = { sel: 0, verdict: {}, subject: {}, body: {}, marks: {}, note: {}, history: {}, future: {}, armed: false, errors: null, active: null };
 
 const plugin = Wicket.connect({
-  resize: "auto",
+  resize: "fill",
   onInit(init) {
     gate = init.gate; readonly = init.readonly;
-    S.errors = null; S.armed = false; S.editing = {}; S.active = null;
+    S.errors = null; S.armed = false; S.history = {}; S.future = {}; S.active = null; S.sel = 0;
     reset();
     if (readonly) loadDecision(gate.decision && gate.decision.data);
     else if (init.draft) loadDraft(init.draft);
-    syncHeader();
     render();
   },
   onViolations(errors) { S.errors = errors; S.armed = false; render(); },
-  onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); syncHeader(); render(); },
+  onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); render(); },
   onCollect() { handOver(); },
 });
 
@@ -150,6 +251,7 @@ const plugin = Wicket.connect({
 
 const drafts = () => gate.payload.drafts || [];
 const byId = (id) => drafts().find((d) => d.id === id);
+const current = () => drafts()[S.sel];
 
 function reset() {
   S.verdict = {}; S.subject = {}; S.body = {}; S.marks = {}; S.note = {};
@@ -331,6 +433,7 @@ function segments(d) {
 }
 
 function bodyHtml(d) {
+  const labelled = new Set();
   return segments(d).map((s) => {
     const tag = s.op === "ins" ? "ins" : s.op === "del" ? "del" : null;
     let html = esc(s.text);
@@ -341,7 +444,10 @@ function bodyHtml(d) {
       html = core ? `${esc(before)}<${tag}>${esc(core)}</${tag}>${esc(after)}` : esc(s.text);
     }
     if (s.mark !== null) {
-      html = `<span class="quoted ${S.active === `${d.id}:${s.mark}` ? "on" : ""}" data-mark="${s.mark}">${html}</span>`;
+      // the instruction's number, once, where its passage starts
+      const first = !labelled.has(s.mark);
+      labelled.add(s.mark);
+      html = `<span class="quoted ${S.active === `${d.id}:${s.mark}` ? "on" : ""}" data-mark="${s.mark}"${first ? ` data-label="${s.mark + 1}"` : ""}>${html}</span>`;
     }
     return html;
   }).join("");
@@ -349,104 +455,176 @@ function bodyHtml(d) {
 
 /* ---------- rendering ---------- */
 
-function syncHeader() {
-  const n = drafts().length;
-  view.title(n === 1 ? "1 draft" : `${n} drafts`)
-    .meta(gate.payload.from ? [`from ${gate.payload.from}`] : [])
-    .controls(readonly ? [] : [sendRest, clearAll]);
-}
+const initial = (address) => (address.match(/[a-z0-9]/i) || ["?"])[0];
+const addr = (a) => `<span class="addr"><span class="avatar">${esc(initial(a))}</span><span>${esc(a)}</span></span>`;
+const preview = (d) => (S.body[d.id] || "").split("\n").map((l) => l.trim()).filter(Boolean).slice(1, 2).join(" ") || (S.body[d.id] || "").trim();
 
-function verdictButton(d, action, label) {
-  const on = S.verdict[d.id] === action;
-  return `<button type="button" class="btn ${action}" data-act="verdict" data-id="${esc(d.id)}" data-verdict="${action}" aria-pressed="${on}">${icon(action === "send" ? "send" : action === "revise" ? "pencil-line" : "trash")}${label}</button>`;
+function railHtml() {
+  return `<div class="rail-label">Drafts · ${drafts().length}</div>` + drafts().map((d, i) => {
+    const v = S.verdict[d.id];
+    const edited = S.body[d.id] !== d.body || S.subject[d.id] !== d.subject;
+    const notes = (S.marks[d.id] || []).length;
+    return `<button type="button" class="pick ${v ? "v-" + v : ""}" data-pick="${i}" data-pick-id="${esc(d.id)}" aria-current="${i === S.sel}">
+      <span class="pick-to">${icon("mail", { size: 12 })}<span>${esc((d.to || []).join(", "))}</span></span>
+      <span class="pick-subject">${esc(S.subject[d.id])}</span>
+      <span class="pick-preview">${esc(preview(d))}</span>
+      <span class="pick-flags">
+        ${edited ? `<span class="flag">${icon("pencil", { size: 11 })} edited</span>` : ""}
+        ${notes ? `<span class="flag">${icon("message-square", { size: 11 })} ${notes}</span>` : ""}
+        ${d.thread && d.thread.length ? `<span class="flag">${icon("reply", { size: 11 })} reply</span>` : ""}
+        <span class="chip ${v || "none"}">${v ? LABELS[v] : "undecided"}</span>
+      </span>
+    </button>`;
+  }).join("");
 }
 
 function draftHtml(d) {
   const verdict = S.verdict[d.id];
-  const marks = S.marks[d.id] || [];
-  const editing = !!S.editing[d.id];
-  const changed = d.subject !== S.subject[d.id];
-  const addresses = [["to", d.to], ["cc", d.cc], ["bcc", d.bcc]]
-    .filter(([, v]) => v && v.length)
-    .map(([who, v]) => `<span class="line"><span class="who">${who}</span><b>${esc(v.join(", "))}</b></span>`).join("");
+  const changedSubject = d.subject !== S.subject[d.id];
+  const changedBody = S.body[d.id] !== d.body;
+  const rows = [["to", d.to], ["cc", d.cc], ["bcc", d.bcc]].filter(([, v]) => v && v.length);
 
   return `<article class="draft ${verdict || ""}" data-draft="${esc(d.id)}">
-    <div class="head">
-      <div class="addresses">${addresses}</div>
-      ${readonly
-        ? `<span class="verdict-ro eyebrow" style="color:var(--${verdict === "send" ? "ok" : verdict === "discard" ? "danger" : "sev-major"})">${verdict || "undecided"}</span>`
-        : `<div class="verdicts">
-             ${verdictButton(d, "send", "Send")}
-             ${verdictButton(d, "revise", "Revise")}
-             ${verdictButton(d, "discard", "Discard")}
-           </div>`}
-    </div>
+    ${d.why ? `<div class="why">${icon("sparkles", { size: 14 })}<span><b>Why the agent wrote it this way</b>${esc(d.why)}</span></div>` : ""}
 
-    ${d.why ? `<div class="why"><span class="eyebrow">why</span>${esc(d.why)}</div>` : ""}
+    ${d.thread && d.thread.length ? `<details class="thread">
+      <summary>${icon("reply", { size: 13 })}${d.thread.length === 1 ? "Replying to 1 message" : `Replying to ${d.thread.length} messages`}</summary>
+      ${d.thread.map((m) => `<div class="msg"><span class="who">${esc(m.author)}${m.at ? ` <em>· ${esc(m.at)}</em>` : ""}</span>${esc(m.body)}</div>`).join("")}
+    </details>` : ""}
 
-    <div class="subject ${changed ? "changed" : ""}">
-      <span class="who">subject</span>
-      <input value="${esc(S.subject[d.id])}" data-act="subject" data-id="${esc(d.id)}" aria-label="subject" ${readonly ? "disabled" : ""}>
-    </div>
-
-    <div class="body" data-body="${esc(d.id)}">${
-      editing
-        ? `<textarea data-act="body" data-id="${esc(d.id)}" aria-label="message">${esc(S.body[d.id])}</textarea>`
-        : bodyHtml(d)
-    }</div>
-
-    ${readonly ? "" : `<div class="tools">
-      <button type="button" class="btn ghost" data-act="edit" data-id="${esc(d.id)}">${icon(editing ? "check" : "pencil")}${editing ? "Done" : "Edit"}</button>
-      ${S.body[d.id] !== d.body ? `<button type="button" class="btn ghost" data-act="revert" data-id="${esc(d.id)}">${icon("undo-2")}Revert</button>` : ""}
-      <span class="spacer"></span>
-      <span>${editing ? "edit the text; your changes show against the draft" : "select any passage to comment on it"}</span>
-    </div>`}
-
-    ${marks.length || (!readonly && S.note[d.id]) || (readonly && S.note[d.id]) ? `<div class="marks">
-      <span class="eyebrow">your instructions to the agent</span>
-      ${marks.map((m, n) => `<div class="mark" data-mark-row="${n}" data-id="${esc(d.id)}">
-        <span class="bar"></span>
-        <span class="text">
-          <div class="quote">“${esc(m.quote)}”</div>
-          ${readonly
-            ? `<div class="note-ro">${esc(m.note)}</div>`
-            : `<input class="field" value="${esc(m.note)}" data-act="mark-note" data-id="${esc(d.id)}" data-n="${n}" placeholder="what should the agent do with this passage?" aria-label="instruction for the highlighted passage">`}
-        </span>
-        ${readonly ? "" : `<button type="button" class="btn ghost drop" data-act="mark-drop" data-id="${esc(d.id)}" data-n="${n}" aria-label="remove this instruction">${icon("x")}</button>`}
-      </div>`).join("")}
-      ${readonly && S.note[d.id] ? `<div class="whole"><span class="bar"></span><span class="text"><div class="quote">the draft as a whole</div><div class="note-ro">${esc(S.note[d.id])}</div></span></div>` : ""}
-    </div>` : ""}
-
-    ${readonly ? "" : `<div class="marks" style="border-top:0;padding-top:0">
-      <div class="whole">
-        <span class="bar"></span>
-        <span class="text">
-          <input class="field" value="${esc(S.note[d.id])}" data-act="note" data-id="${esc(d.id)}" placeholder="a note about this draft as a whole (optional)" aria-label="note about this draft">
-        </span>
+    <section class="message">
+      <div class="envelope addresses-block">
+        ${gate.payload.from ? `<span class="who">from</span><span class="from-line">${esc(gate.payload.from)}</span>` : ""}
+        ${rows.map(([who, v]) => `<span class="who">${who}</span><span class="addresses">${v.map(addr).join("")}</span>`).join("")}
       </div>
-    </div>`}
+      <div class="subject ${changedSubject ? "changed" : ""}">
+        <input value="${esc(S.subject[d.id])}" data-act="subject" data-id="${esc(d.id)}" aria-label="subject" ${readonly ? "disabled" : ""}>
+        ${changedSubject ? `<p class="was">was <del>${esc(d.subject)}</del></p>` : ""}
+      </div>
+      <div class="body" data-body="${esc(d.id)}" ${readonly ? "" : `contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="message"`}>${bodyHtml(d)}</div>
+      <div class="tools" data-tools="${esc(d.id)}">${toolsHtml(d)}</div>
+    </section>
 
-    ${d.thread && d.thread.length ? `<div class="thread"><details>
-      <summary>${d.thread.length === 1 ? "the message this replies to" : `the ${d.thread.length} messages this replies to`}</summary>
-      ${d.thread.map((m) => `<div class="msg"><span class="who">${esc(m.author)}${m.at ? " · " + esc(m.at) : ""}</span>${esc(m.body)}</div>`).join("")}
-    </details></div>` : ""}
+    ${decideHtml(d)}
   </article>`;
 }
 
+function toolsHtml(d) {
+  const changed = S.body[d.id] !== d.body;
+  const legend = changed ? `<span class="legend"><span class="lg-del">cut</span><span class="lg-ins">added</span></span>` : "";
+  if (readonly) return legend;
+  return `${legend}
+    <span class="spacer"></span>
+    <span>Type anywhere to edit; select a passage to leave an instruction.</span>`;
+}
+
+/* Every change to the draft, the subject first and then the message in the
+   order it reads. Changes a word or two apart on the same line are one
+   change: a sentence rewritten is one edit, not five. `runs` says where in
+   the message it is, so it can be put back on its own. */
+function changeList(d) {
+  const out = [];
+  if (S.subject[d.id] !== d.subject) out.push({ kind: "subject", from: d.subject, to: S.subject[d.id] });
+  const runs = changes(d.body, S.body[d.id]);
+  const near = (run) => run.op === "same" && !run.text.includes("\n") && (run.text.match(/\S+/g) || []).length <= 2;
+  let group = null;
+  const close = () => {
+    if (!group) return;
+    // the unchanged words inside it belong to both sides; the ones at its edges to neither
+    while (group.length && runs[group[group.length - 1]].op === "same") group.pop();
+    const side = (op) => group.map((i) => (runs[i].op === "same" || runs[i].op === op ? runs[i].text : "")).join("").trim();
+    out.push({ kind: "message", from: side("del"), to: side("ins"), runs: group.filter((i) => runs[i].op !== "same") });
+    group = null;
+  };
+  runs.forEach((run, i) => {
+    if (run.op !== "same") (group ||= []).push(i);
+    else if (group && near(run) && runs[i + 1] && runs[i + 1].op !== "same") group.push(i);
+    else close();
+  });
+  close();
+  return out;
+}
+
+function asideHtml(d) {
+  const list = changeList(d);
+  const marks = S.marks[d.id] || [];
+  return `<section class="panel" data-panel="changes">
+      <div class="panel-head"><p class="label">Changes${list.length ? ` · ${list.length}` : ""}</p>
+        ${list.length && !readonly ? `<button type="button" class="tool small" data-act="revert" data-id="${esc(d.id)}">${icon("undo-2", { size: 12 })}Revert all</button>` : ""}</div>
+      ${list.length ? `<div class="changes">${list.map((c, n) => `<div class="change">
+          <span class="change-kind">${c.kind}</span>
+          <span class="change-text">${c.from ? `<del>${esc(c.from)}</del>` : ""}${c.from && c.to ? `<span class="arrow">→</span>` : ""}${c.to ? `<ins>${esc(c.to)}</ins>` : ""}</span>
+          ${readonly ? "" : `<button type="button" class="put-back" data-act="revert-edit" data-id="${esc(d.id)}" data-n="${n}" aria-label="Put this change back" title="Put this change back">${icon("undo-2", { size: 13 })}</button>`}
+        </div>`).join("")}</div>`
+        : `<p class="hint">${readonly ? "Sent as the agent wrote it." : "Type in the message or the subject; each change shows here, and any of them can be put back."}</p>`}
+    </section>
+    <section class="panel" data-panel="marks">
+      <p class="label">Instructions${marks.length ? ` · ${marks.length}` : ""}</p>
+      ${marks.length ? `<div class="marks">${marks.map((m, n) => `<div class="mark ${S.active === `${d.id}:${n}` ? "on" : ""}" data-mark-row="${n}" data-id="${esc(d.id)}">
+        <span class="n">${n + 1}</span>
+        <div class="quote">“${esc(m.quote)}”</div>
+        ${readonly
+          ? `<div class="note-ro">${esc(m.note)}</div>`
+          : `<input class="field" value="${esc(m.note)}" data-act="mark-note" data-id="${esc(d.id)}" data-n="${n}" placeholder="What should the agent do with this passage?" aria-label="instruction for the highlighted passage">`}
+        ${readonly ? "" : `<button type="button" class="icon-btn drop" data-act="mark-drop" data-id="${esc(d.id)}" data-n="${n}" aria-label="remove this instruction">${icon("x", { size: 14 })}</button>`}
+      </div>`).join("")}</div>`
+        : `<p class="hint">${readonly ? "No instructions." : "Select a passage in the message and use the comment button beside it to leave an instruction."}</p>`}
+    </section>`;
+}
+
+function decideHtml(d) {
+  const verdict = S.verdict[d.id];
+  const nav = `<span class="nav">
+    <button type="button" data-act="prev" ${S.sel === 0 ? "disabled" : ""}>← k</button>
+    <button type="button" data-act="next" ${S.sel === drafts().length - 1 ? "disabled" : ""}>j →</button>
+  </span>`;
+  if (readonly) {
+    return `<div class="decide">
+      <div class="choices"><span class="verdict-ro ${verdict || "undecided"}">${verdict || "undecided"}</span>${nav}</div>
+      ${S.note[d.id] ? `<div class="whole-ro note-ro">${esc(S.note[d.id])}</div>` : ""}
+    </div>`;
+  }
+  return `<div class="decide">
+    <div class="choices" role="group" aria-label="Verdict">
+      ${["send", "revise", "discard"].map((a) => `<button type="button" class="choice ${a}" data-act="verdict" data-id="${esc(d.id)}" data-verdict="${a}" aria-pressed="${verdict === a}">${icon(a === "send" ? "send" : a === "revise" ? "pencil-line" : "trash-2", { size: 14 })}${LABELS[a]} <kbd>${KEYS[a]}</kbd></button>`).join("")}
+      ${nav}
+    </div>
+    <textarea data-act="note" data-id="${esc(d.id)}" rows="1" placeholder="A note about this draft as a whole (optional)" aria-label="note about this draft">${esc(S.note[d.id])}</textarea>
+    ${S.armed ? `<div class="notice warn" id="confirm">${tally().undecided} draft${tally().undecided === 1 ? " is" : "s are"} still undecided and nothing will be sent for ${tally().undecided === 1 ? "it" : "them"}. Hand over again to confirm.</div>` : ""}
+    ${S.errors ? `<div class="notice danger" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("<br>")}</div>` : ""}
+  </div>`;
+}
+
 function render() {
+  if (!gate) return;
+  const sheet = app.querySelector(".sheet");
+  const same = sheet && Number(sheet.dataset.sel) === S.sel;
+  const keep = same ? sheet.scrollTop : 0;
+  const keepRail = app.querySelector(".rail")?.scrollTop || 0;
+  const keepAside = same ? app.querySelector(".aside")?.scrollTop || 0 : 0;
   const t = tally();
-  const decided = gate.decision && gate.decision.data;
-  view.content.className = "plugin-content";
-  view.content.innerHTML = `
-    ${readonly && decided ? `<div class="notice ok done">Handed over: ${t.send} to send, ${t.revise} to revise, ${t.discard} discarded${t.undecided ? `, ${t.undecided} left undecided` : ""}.</div>` : ""}
-    ${gate.payload.intro ? `<div class="intro">${markdown(gate.payload.intro)}</div>` : ""}
-    ${drafts().map(draftHtml).join("")}
-    ${readonly ? "" : `<div class="footer">
-      <span class="tally ${t.undecided ? "warn" : ""}"><b>${t.send}</b> to send · <b>${t.revise}</b> to revise · <b>${t.discard}</b> discarded${t.undecided ? ` · <b>${t.undecided}</b> undecided` : ""}</span>
-    </div>`}
-    ${S.armed ? `<div class="notice warn" id="confirm">${t.undecided} draft${t.undecided === 1 ? " is" : "s are"} still undecided and nothing will be sent for ${t.undecided === 1 ? "it" : "them"}. Hand over again to confirm.</div>` : ""}
-    ${S.errors ? `<div class="errors" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>` : ""}
-  `;
+  const n = drafts().length;
+  const d = current();
+  app.innerHTML = `
+    <div class="top">
+      <h1>${n === 1 ? "1 draft" : `${n} drafts`}</h1>
+      ${gate.payload.from ? `<span class="from">from ${esc(gate.payload.from)}</span>` : ""}
+      <span class="tally" id="tally"><span class="t-send"><b>${t.send}</b> to send</span><span class="t-revise"><b>${t.revise}</b> to revise</span><span class="t-discard"><b>${t.discard}</b> discarded</span>${t.undecided ? `<span><b>${t.undecided}</b> undecided</span>` : ""}</span>
+      ${readonly ? "" : `<span class="top-actions"><button type="button" class="ghost-btn" data-act="send-rest" title="Mark every undecided draft to send">${icon("check-check", { size: 13 })}Send the rest <kbd>⇧S</kbd></button><button type="button" class="ghost-btn" data-act="clear" title="Clear every verdict">${icon("eraser", { size: 13 })}Clear</button></span>`}
+    </div>
+    <div class="work">
+      <nav class="rail" aria-label="Drafts">${railHtml()}</nav>
+      <div class="sheet" data-sel="${S.sel}"><div class="sheet-inner">
+        ${readonly && gate.decision && gate.decision.data ? `<div class="notice ok done">Handed over: ${t.send} to send, ${t.revise} to revise, ${t.discard} discarded${t.undecided ? `, ${t.undecided} left undecided` : ""}.</div>` : ""}
+        ${gate.payload.intro ? `<div class="intro">${markdown(gate.payload.intro)}</div>` : ""}
+        ${d ? draftHtml(d) : `<p class="hint">No drafts.</p>`}
+      </div></div>
+      ${d ? `<aside class="aside" aria-label="Changes and instructions" data-aside="${esc(d.id)}">${asideHtml(d)}</aside>` : ""}
+    </div>`;
+  app.querySelector(".sheet").scrollTop = keep;
+  app.querySelector(".rail").scrollTop = keepRail;
+  if (app.querySelector(".aside")) app.querySelector(".aside").scrollTop = keepAside;
+  app.querySelectorAll("[data-body] del").forEach((el) => el.setAttribute("contenteditable", "false"));
   syncStatus();
 }
 
@@ -460,67 +638,289 @@ function syncStatus() {
   plugin.status({ label: parts.length ? `Hand over: ${parts.join(", ")}` : "Hand over" });
 }
 
+function select(i) {
+  if (i < 0 || i >= drafts().length || i === S.sel) return;
+  S.sel = i; S.active = null;
+  hidePick();
+  render();
+  app.querySelector(`[data-pick="${i}"]`)?.scrollIntoView({ block: "nearest" });
+}
+
+function setVerdict(id, want) {
+  S.verdict[id] = S.verdict[id] === want ? undefined : want;
+  if (!S.verdict[id]) delete S.verdict[id];
+  S.armed = false;
+  postDraft(); render();
+}
+
 /* ---------- picking a passage ---------- */
 
 const pick = document.createElement("div");
 pick.id = "pick";
-pick.innerHTML = `<button type="button" class="btn" data-act="add-mark">${icon("message-square-quote")}Comment</button>`;
+pick.innerHTML = `<button type="button" data-act="open-mark" aria-label="Add an instruction" title="Add an instruction">${icon("message-square-plus", { size: 15 })}</button>`;
 document.body.appendChild(pick);
-let pending = null;
+let pending = null;   // { id, quote, range } of the selection the button is for
+let composer = null;  // the open popover
 
-function hidePick() { pick.style.display = "none"; pending = null; }
+function hidePick() { pick.style.display = "none"; if (!composer) pending = null; }
 
 document.addEventListener("selectionchange", () => {
-  if (readonly) return;
+  if (readonly || composer) return;
   const selection = document.getSelection();
-  if (!selection || selection.isCollapsed) return hidePick();
+  if (!selection || selection.isCollapsed || !selection.rangeCount) return hidePick();
   const text = selection.toString().trim();
   const node = selection.anchorNode;
   const holder = node && (node.nodeType === 1 ? node : node.parentElement)?.closest("[data-body]");
-  if (!text || !holder || holder.querySelector("textarea")) return hidePick();
-  const box = selection.getRangeAt(0).getBoundingClientRect();
-  pending = { id: holder.getAttribute("data-body"), quote: text };
+  if (!text || !holder) return hidePick();
+  const range = selection.getRangeAt(0);
+  const box = range.getBoundingClientRect();
+  pending = { id: holder.getAttribute("data-body"), quote: text, range: range.cloneRange() };
   pick.style.display = "block";
-  pick.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - 130))}px`;
-  pick.style.top = `${Math.max(8, box.bottom + 6)}px`;
+  pick.style.left = `${Math.max(8, Math.min(box.right + 6, window.innerWidth - 40))}px`;
+  pick.style.top = `${Math.max(8, box.top - 4)}px`;
 });
+
+function openComposer() {
+  if (!pending) return;
+  const { quote, range } = pending;
+  pick.style.display = "none";
+  // hold the passage in view while the instruction is written
+  if (window.CSS && CSS.highlights && window.Highlight) CSS.highlights.set("pending-mark", new Highlight(range));
+  document.getSelection().removeAllRanges();
+  composer = document.createElement("div");
+  composer.className = "popover";
+  composer.setAttribute("role", "dialog");
+  composer.setAttribute("aria-label", "New instruction");
+  composer.setAttribute("data-popover", "");
+  composer.innerHTML = `<div class="popover-head"><span class="popover-quote">“${esc(quote)}”</span><button type="button" class="popover-close" data-act="close-mark" aria-label="Close">${icon("x", { size: 14 })}</button></div>
+    <textarea data-mark-text placeholder="What should the agent do with this passage?" aria-label="instruction"></textarea>
+    <div class="popover-foot"><span class="popover-hint"><kbd>⌘</kbd> <kbd>↵</kbd> to add</span><span class="spacer"></span><button type="button" class="pbtn" data-act="close-mark">Cancel</button><button type="button" class="pbtn primary" data-act="save-mark" data-mark-save disabled>Add instruction</button></div>`;
+  document.body.appendChild(composer);
+  placeComposer();
+  composer.querySelector("textarea").focus();
+}
+
+function placeComposer() {
+  if (!composer || !pending) return;
+  const box = pending.range.getBoundingClientRect();
+  const h = composer.offsetHeight, w = 360;
+  const left = Math.max(8, Math.min(box.left, window.innerWidth - w - 8));
+  let top = box.bottom + 12, above = false;
+  if (top + h > window.innerHeight - 8 && box.top - h - 12 > 8) { top = box.top - h - 12; above = true; }
+  composer.style.left = `${left}px`;
+  composer.style.top = `${top}px`;
+  composer.classList.toggle("is-above", above);
+  composer.style.setProperty("--arrow", `${Math.max(18, Math.min(w - 18, box.left + 16 - left))}px`);
+}
+
+function closeComposer(save) {
+  if (!composer) return;
+  const note = composer.querySelector("textarea").value.trim();
+  if (save && note && pending) {
+    S.marks[pending.id] = [...(S.marks[pending.id] || []), { quote: pending.quote, note }];
+    postDraft();
+  }
+  if (window.CSS && CSS.highlights) CSS.highlights.delete("pending-mark");
+  composer.remove(); composer = null; pending = null;
+  render();
+}
+
+/* ---------- editing the body, with the changes tracked ----------
+
+   The body is editable in place. Every edit is applied to the working text
+   here rather than by the browser, and the body is drawn again with what was
+   cut struck through and what was added marked, the cursor put back where it
+   was. Positions are counted in the working text: struck-through words are
+   on screen but not in it. */
+
+function offsetIn(body, node, offset) {
+  const range = document.createRange();
+  range.setStart(body, 0);
+  range.setEnd(node, offset);
+  const part = range.cloneContents();
+  part.querySelectorAll("del").forEach((el) => el.remove());
+  return part.textContent.length;
+}
+
+function placeCaret(body, at) {
+  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.parentElement.closest("del") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  let seen = 0, node = walker.nextNode(), last = null;
+  while (node) {
+    const len = node.textContent.length;
+    if (seen + len >= at) break;
+    seen += len; last = node; node = walker.nextNode();
+  }
+  const range = document.createRange();
+  if (node) range.setStart(node, at - seen);
+  else if (last) range.setStart(last, last.textContent.length);
+  else range.setStart(body, 0);
+  range.collapse(true);
+  const selection = document.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+/* Every step, in the subject or the message, is kept, so undo and redo walk
+   through them in the order they were made. */
+const snapshot = (id) => ({ body: S.body[id], subject: S.subject[id] });
+let lastStep = null;
+function remember(id, kind) {
+  // typing in the subject is one step until something else happens
+  if (kind === "subject" && lastStep === `subject:${id}`) return;
+  lastStep = kind ? `${kind}:${id}` : null;
+  (S.history[id] ||= []).push(snapshot(id));
+  if (S.history[id].length > 200) S.history[id].shift();
+  S.future[id] = [];
+}
+
+function applyEdit(id, start, end, text) {
+  if (composer) closeComposer(false, false);
+  const before = S.body[id];
+  if (start === end && !text) return;
+  remember(id);
+  S.body[id] = before.slice(0, start) + text + before.slice(end);
+  redraw(id, start + text.length);
+}
+
+/* the draft drawn again after an edit, the cursor put back in the message,
+   or in the subject when that is where it was */
+function redraw(id, caret, where) {
+  const inSubject = where === "subject" || (document.activeElement && document.activeElement.matches('input[data-act="subject"]'));
+  render();
+  saveDraft();
+  if (inSubject && caret === null) {
+    const input = app.querySelector(`input[data-act="subject"][data-id="${CSS.escape(id)}"]`);
+    if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+    return;
+  }
+  if (caret === null) return;
+  const body = app.querySelector(`[data-body="${CSS.escape(id)}"]`);
+  if (!body) return;
+  body.focus({ preventScroll: true });
+  placeCaret(body, caret);
+}
+
+/* back through the steps, or forward again; the cursor goes where the text
+   changed, the message or the subject */
+function undo(id, redo) {
+  const from = redo ? S.future : S.history, to = redo ? S.history : S.future;
+  const step = (from[id] || []).pop();
+  if (step === undefined) return;
+  (to[id] ||= []).push(snapshot(id));
+  lastStep = null;
+  const was = S.body[id], text = step.body;
+  const subjectChanged = step.subject !== S.subject[id];
+  S.body[id] = text; S.subject[id] = step.subject;
+  if (subjectChanged && was === text) { redraw(id, null, "subject"); return; }
+  let at = 0;
+  while (at < text.length && at < was.length && text[at] === was[at]) at++;
+  let tail = 0;
+  while (tail < text.length - at && tail < was.length - at && text[text.length - 1 - tail] === was[was.length - 1 - tail]) tail++;
+  redraw(id, text.length - tail);
+}
+
+/* one change put back on its own; itself a step undo takes back */
+function revertEdit(id, n) {
+  const d = byId(id);
+  const item = changeList(d)[n];
+  if (!item) return;
+  remember(id);
+  if (item.kind === "subject") S.subject[id] = d.subject;
+  else {
+    const runs = changes(d.body, S.body[id]);
+    S.body[id] = runs.map((r, i) => {
+      const mine = item.runs.includes(i);
+      if (r.op === "same") return r.text;
+      if (r.op === "del") return mine ? r.text : "";
+      return mine ? "" : r.text;
+    }).join("");
+  }
+  redraw(id, null);
+  postDraft();
+}
+
+function revertAll(id) {
+  const d = byId(id);
+  remember(id);
+  S.body[id] = d.body; S.subject[id] = d.subject;
+  redraw(id, null);
+  postDraft();
+}
+
+let composing = null;
+document.addEventListener("compositionstart", (event) => {
+  const body = event.target.closest && event.target.closest("[data-body]");
+  if (!body || readonly) return;
+  const range = document.getSelection().getRangeAt(0);
+  composing = { id: body.getAttribute("data-body"), start: offsetIn(body, range.startContainer, range.startOffset), end: offsetIn(body, range.endContainer, range.endOffset) };
+});
+document.addEventListener("compositionend", (event) => {
+  if (!composing) return;
+  const { id, start, end } = composing;
+  composing = null;
+  applyEdit(id, start, end, event.data || "");
+});
+
+document.addEventListener("beforeinput", (event) => {
+  const body = event.target.closest && event.target.closest("[data-body]");
+  if (!body || readonly) return;
+  const type = event.inputType;
+  if (type === "insertCompositionText") return; // the text lands on compositionend
+  event.preventDefault();
+  const id = body.getAttribute("data-body");
+  if (type === "historyUndo") { undo(id, false); return; }
+  if (type === "historyRedo") { undo(id, true); return; }
+  const target = event.getTargetRanges()[0] || document.getSelection().getRangeAt(0);
+  let start = offsetIn(body, target.startContainer, target.startOffset);
+  let end = offsetIn(body, target.endContainer, target.endOffset);
+  let text = "";
+  if (type === "insertParagraph" || type === "insertLineBreak") text = "\n";
+  else if (type.startsWith("insert")) text = event.data ?? (event.dataTransfer ? event.dataTransfer.getData("text/plain") : "") ?? "";
+  else if (type.startsWith("delete") && start === end) {
+    // the browser aimed at a struck-through passage, which is not text to delete
+    if (type.includes("Backward")) start = Math.max(0, start - 1); else end = Math.min(S.body[id].length, end + 1);
+  }
+  applyEdit(id, start, end, text.replace(/\r\n?/g, "\n"));
+});
+
+window.addEventListener("resize", placeComposer);
+document.addEventListener("scroll", placeComposer, true);
 
 /* ---------- events ---------- */
 
 document.addEventListener("mousedown", (event) => {
-  if (!event.target.closest("#pick")) return;
+  if (!event.target.closest("#pick")) {
+    if (composer && !event.target.closest(".popover")) closeComposer(false);
+    return;
+  }
   // Keep the selection alive long enough to read it on click.
   event.preventDefault();
 });
 
 document.addEventListener("click", (event) => {
+  const picked = event.target.closest("[data-pick]");
+  if (picked) { select(Number(picked.getAttribute("data-pick"))); return; }
   const el = event.target.closest("[data-act]");
-  if (!el || readonly) return;
-  const id = el.getAttribute("data-id");
+  if (!el) return;
   const act = el.getAttribute("data-act");
+  if (act === "prev") { select(S.sel - 1); return; }
+  if (act === "next") { select(S.sel + 1); return; }
+  if (readonly) return;
+  const id = el.getAttribute("data-id");
 
-  if (act === "add-mark") {
-    if (!pending) return;
-    const { id: draftId, quote } = pending;
-    S.marks[draftId] = [...(S.marks[draftId] || []), { quote, note: "" }];
-    hidePick();
-    document.getSelection().removeAllRanges();
-    postDraft();
-    render();
-    const rows = document.querySelectorAll(`[data-mark-row][data-id="${CSS.escape(draftId)}"] input`);
-    if (rows.length) rows[rows.length - 1].focus();
-    return;
+  if (act === "open-mark") { openComposer(); return; }
+  if (act === "close-mark") { closeComposer(false); return; }
+  if (act === "save-mark") { closeComposer(true); return; }
+  if (act === "verdict") { setVerdict(id, el.getAttribute("data-verdict")); return; }
+  if (act === "send-rest") { sendRest(); return; }
+  if (act === "clear") {
+    for (const d of drafts()) delete S.verdict[d.id];
+    S.armed = false; postDraft(); render(); return;
   }
-  if (act === "verdict") {
-    const want = el.getAttribute("data-verdict");
-    S.verdict[id] = S.verdict[id] === want ? undefined : want;
-    if (!S.verdict[id]) delete S.verdict[id];
-    S.armed = false;
-    postDraft(); render();
-    return;
-  }
-  if (act === "edit") { S.editing[id] = !S.editing[id]; render(); if (S.editing[id]) document.querySelector(`textarea[data-id="${CSS.escape(id)}"]`)?.focus(); return; }
-  if (act === "revert") { S.body[id] = byId(id).body; postDraft(); render(); return; }
+  if (act === "revert") { revertAll(id); return; }
+  if (act === "revert-edit") { revertEdit(id, Number(el.getAttribute("data-n"))); return; }
   if (act === "mark-drop") {
     const n = Number(el.getAttribute("data-n"));
     S.marks[id] = S.marks[id].filter((_, i) => i !== n);
@@ -528,6 +928,38 @@ document.addEventListener("click", (event) => {
     return;
   }
 });
+
+/* the subject as it is typed: the line under it, the rail and the aside
+   follow, the input itself is left alone */
+function refreshSubject(id) {
+  const d = byId(id);
+  const box = app.querySelector(`[data-draft="${CSS.escape(id)}"] .subject`);
+  if (box) {
+    const changed = d.subject !== S.subject[id];
+    box.classList.toggle("changed", changed);
+    let was = box.querySelector(".was");
+    if (changed && !was) { was = document.createElement("p"); was.className = "was"; box.appendChild(was); }
+    if (changed) was.innerHTML = `was <del>${esc(d.subject)}</del>`;
+    else if (was) was.remove();
+  }
+  const pickEl = app.querySelector(`[data-pick-id="${CSS.escape(id)}"] .pick-subject`);
+  if (pickEl) pickEl.textContent = S.subject[id];
+  const aside = app.querySelector(`[data-aside="${CSS.escape(id)}"]`);
+  if (aside) aside.innerHTML = asideHtml(d);
+}
+
+function sendRest() {
+  for (const d of drafts()) if (!S.verdict[d.id]) S.verdict[d.id] = "send";
+  S.armed = false; postDraft(); render();
+}
+
+/* e puts the cursor at the end of the message */
+function focusBody(id) {
+  const body = app.querySelector(`[data-body="${CSS.escape(id)}"]`);
+  if (!body) return;
+  body.focus();
+  placeCaret(body, S.body[id].length);
+}
 
 document.addEventListener("mouseover", (event) => {
   const quoted = event.target.closest(".quoted");
@@ -541,18 +973,64 @@ document.addEventListener("mouseover", (event) => {
     const own = `${q.closest("[data-body]").getAttribute("data-body")}:${q.getAttribute("data-mark")}`;
     q.classList.toggle("on", own === key);
   });
+  document.querySelectorAll("[data-mark-row]").forEach((r) => {
+    r.classList.toggle("on", `${r.getAttribute("data-id")}:${r.getAttribute("data-mark-row")}` === key);
+  });
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.matches && event.target.matches("[data-mark-text]")) {
+    composer.querySelector("[data-mark-save]").disabled = !event.target.value.trim();
+    return;
+  }
   const el = event.target.closest("[data-act]");
   if (!el || readonly) return;
   const id = el.getAttribute("data-id");
   switch (el.getAttribute("data-act")) {
-    case "subject": S.subject[id] = el.value; saveDraft(); el.closest(".subject").classList.toggle("changed", byId(id).subject !== el.value); break;
-    case "body": S.body[id] = el.value; saveDraft(); break;
+    case "subject": {
+      remember(id, "subject");
+      S.subject[id] = el.value;
+      saveDraft();
+      refreshSubject(id);
+      break;
+    }
     case "note": S.note[id] = el.value; saveDraft(); break;
     case "mark-note": S.marks[id][Number(el.getAttribute("data-n"))].note = el.value; saveDraft(); break;
   }
+});
+
+/* j and k between drafts, s, r and x for the verdict, shift+s for the rest,
+   e to edit; not while typing */
+document.addEventListener("keydown", (event) => {
+  if (composer && event.target.matches && event.target.matches("[data-mark-text]")) {
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") { event.preventDefault(); closeComposer(true); }
+    else if (event.key === "Escape") { event.preventDefault(); closeComposer(false); }
+    return;
+  }
+  const own = !event.target.closest || event.target === document.body
+    || event.target.closest("[data-body]") || event.target.matches('input[data-act="subject"]');
+  if (own && gate && !readonly && current() && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+    event.preventDefault();
+    undo(current().id, event.shiftKey);
+    return;
+  }
+  if (!gate || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.target.closest && event.target.closest("textarea, input, [contenteditable]")) {
+    if (event.key === "Escape") event.target.blur();
+    return;
+  }
+  const d = current();
+  const key = event.key.toLowerCase();
+  if (key === "j") select(S.sel + 1);
+  else if (key === "k") select(S.sel - 1);
+  else if (readonly || !d) return;
+  else if (key === "s" && event.shiftKey) sendRest();
+  else if (key === "s") setVerdict(d.id, "send");
+  else if (key === "r") setVerdict(d.id, "revise");
+  else if (key === "x") setVerdict(d.id, "discard");
+  else if (key === "e") focusBody(d.id);
+  else return;
+  event.preventDefault();
 });
 
 /* ---------- hand over ---------- */
@@ -560,7 +1038,15 @@ document.addEventListener("input", (event) => {
 function handOver() {
   if (readonly) return;
   const t = tally();
-  if (t.undecided && !S.armed) { S.armed = true; render(); document.getElementById("confirm")?.scrollIntoView({ block: "nearest" }); return; }
+  if (t.undecided && !S.armed) {
+    S.armed = true;
+    // show the first draft still waiting, with the warning under it
+    const first = drafts().findIndex((d) => !S.verdict[d.id]);
+    if (first >= 0) S.sel = first;
+    render();
+    document.getElementById("confirm")?.scrollIntoView({ block: "nearest" });
+    return;
+  }
   S.armed = false;
   plugin.submit(decisionData());
 }

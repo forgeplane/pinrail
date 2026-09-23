@@ -129,40 +129,35 @@ export const scenes = [
     async run({ page, app, reviews, shot }) {
       const f = await openReview(page, app, reviews["11-email-beta"]);
       await f.locator('[data-draft="lumen"]').getByRole("button", { name: "Send" }).click();
+      await f.locator('[data-pick-id="quarry"]').click();
       const quarry = f.locator('[data-draft="quarry"]');
-      await quarry.locator('[data-act="edit"]').click();
-      const text = await quarry.locator("textarea").inputValue();
-      await quarry.locator("textarea").fill(
-        text.replace(
-          "I wanted to reach out and let you know that we have been working hard on a brand new analytics experience, and we think it could be a great fit for Quarry.",
-          "You upvoted per-endpoint reporting on our roadmap board. It's built, and it opens as a beta on 6 October.",
-        ),
-      );
-      await quarry.locator('[data-act="edit"]').click();
-      await quarry.locator("[data-body]").evaluate((body) => {
+      // select a passage of the message the way a reader would
+      const select = (wanted) => quarry.locator("[data-body]").evaluate((body, wanted) => {
         const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          const at = node.textContent.indexOf("Would you be interested in joining the beta?");
+          if (node.parentElement.closest("del")) continue;
+          const at = node.textContent.indexOf(wanted);
           if (at < 0) continue;
+          body.focus();
           const range = document.createRange();
           range.setStart(node, at);
-          range.setEnd(node, at + "Would you be interested in joining the beta?".length);
+          range.setEnd(node, at + wanted.length);
           const selection = document.getSelection();
           selection.removeAllRanges();
           selection.addRange(range);
           document.dispatchEvent(new Event("selectionchange"));
           return;
         }
-      });
+      }, wanted);
+      // an edit in place, tracked against the agent's words
+      await select("I wanted to reach out and let you know that we have been working hard on a brand new analytics experience, and we think it could be a great fit for Quarry.");
+      await page.keyboard.insertText("You upvoted per-endpoint reporting on our roadmap board. It's built, and it opens as a beta on 6 October.");
+      // an instruction on a passage, being written in its popover, with the
+      // edit above it still in view
+      await f.locator(".sheet").evaluate((el) => el.scrollTo({ top: 300, behavior: "instant" }));
+      await select("Would you be interested in joining the beta?");
       await f.locator("#pick button").click();
-      await quarry.locator('input[data-act="mark-note"]').fill("Ask for a yes: “Shall I turn it on for Quarry?”");
-      await quarry.evaluate((el) => {
-        el.scrollIntoView({ block: "start" });
-        // a little of the page above the draft, so it does not start cut off
-        let scroller = el.parentElement;
-        while (scroller && scroller.scrollHeight <= scroller.clientHeight) scroller = scroller.parentElement;
-        (scroller ?? document.scrollingElement).scrollBy(0, -14);
-      });
+      await f.locator("[data-mark-text]").fill("Ask for a yes: “Shall I turn it on for Quarry?”");
       await settle(page);
       await shot("email");
       await shot("email-view", page.locator("#plugin-frame"), { site: true });

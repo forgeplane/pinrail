@@ -25,18 +25,30 @@ here knows what a mail server is.
 
 ## What the human does
 
-Edit the subject or the body and the change shows against what the agent
-wrote: what you cut stays on screen struck through, what you added is marked,
-so the two versions can be compared without switching views. Revert puts a
-draft back to the agent's words.
+The drafts sit down a rail, like an inbox, each with its verdict so far; the
+open one reads as the message it would be, with the verdict at the foot.
 
-Select any passage and comment on it. The passage is highlighted and your
-instruction sits under the message, in your voice rather than the agent's.
-There is also a note for the draft as a whole.
+The message is editable where it stands, with the changes tracked, the way
+suggestions work in a document editor: type anywhere and what you cut stays on
+screen struck through, what you added is marked, so the two versions can be
+compared without switching views. The subject is edited in place too, with
+what it was shown under it. Every change, subject or body, is listed in the
+panel on the right, where each can be put back on its own; undo and redo walk
+through them in the order they were made, and Revert all puts a draft back to
+the agent's words.
+
+Select any passage and a comment button appears beside it: the instruction is
+written in a popover over the passage, in your voice rather than the agent's.
+The passage is numbered in the body and the instruction with the same number
+is listed in the panel on the right, under the changes. There is also a note
+for the draft as a whole.
 
 Each draft gets a verdict. Send means this text, as it stands. Revise means do
 not send it, write it again from the instructions. Discard means drop it.
 Anything left undecided is reported as undecided and nothing is sent for it.
+
+Keys: `j` / `k` next and previous draft, `s` send, `r` revise, `x` discard,
+`shift+s` send every draft still undecided, `e` put the cursor in the message.
 
 ## Decision
 
