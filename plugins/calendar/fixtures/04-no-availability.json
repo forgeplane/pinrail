@@ -1,0 +1,55 @@
+{
+  "title": "Find a dentist appointment",
+  "payload": {
+    "timezone": "Europe/Athens",
+    "start_date": "2026-09-21",
+    "days": 5,
+    "blocked": [
+      {
+        "id": "team-sync",
+        "title": "Team sync",
+        "start": "2026-09-21T09:00:00+03:00",
+        "end": "2026-09-21T10:00:00+03:00"
+      },
+      {
+        "id": "deep-work",
+        "title": "Focus time",
+        "start": "2026-09-21T13:00:00+03:00",
+        "end": "2026-09-21T15:00:00+03:00"
+      },
+      {
+        "id": "design-review",
+        "title": "Design review",
+        "start": "2026-09-22T10:00:00+03:00",
+        "end": "2026-09-22T11:30:00+03:00"
+      },
+      {
+        "id": "lunch",
+        "title": "Lunch with Alex",
+        "start": "2026-09-23T12:00:00+03:00",
+        "end": "2026-09-23T13:00:00+03:00"
+      },
+      {
+        "id": "project-review",
+        "title": "Project review",
+        "start": "2026-09-24T14:00:00+03:00",
+        "end": "2026-09-24T15:30:00+03:00"
+      },
+      {
+        "id": "friday-focus",
+        "title": "Focus time",
+        "start": "2026-09-25T09:00:00+03:00",
+        "end": "2026-09-25T11:00:00+03:00"
+      }
+    ],
+    "items": [
+      {
+        "id": "dentist",
+        "title": "Dentist appointment",
+        "subtitle": "No availability returned for this week",
+        "icon": "stethoscope",
+        "options": []
+      }
+    ]
+  }
+}

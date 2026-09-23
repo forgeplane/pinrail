@@ -1,0 +1,38 @@
+{#- The decision as an agent reads it back: each chosen time by the item's
+    title, with the day, the hours and where, then what needs another time
+    and what was declined, with what the person said about each. Times are as the payload gave them, in its timezone. The head
+    (title, origin, who decided, the note) is printed by the app before this. -#}
+{%- set planned = review.payload["items"] or [] -%}
+{%- if data.selections %}
+## Chosen times ({{ data.timezone }})
+{% for s in data.selections %}
+{%- for item in planned if item.id == s.item_id %}
+{%- for o in item.options if o.id == s.option_id %}
+- **{{ item.title }}** — {{ s.start[:10] }}, {{ s.start[11:16] }}–{{ s.end[11:16] }}{% if o.location %} · {{ o.location }}{% endif %}{% if o.detail %} · {{ o.detail }}{% endif %} (`{{ s.option_id }}`)
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{% endif -%}
+{%- set notes = data.notes or [] -%}
+{%- if data.deferred %}
+## Find another time
+{% for id in data.deferred %}
+{%- for item in planned if item.id == id %}
+- **{{ item.title }}** (`{{ id }}`): none of these times; nothing to book yet
+{%- for n in notes if n.item_id == id %}
+  > {{ n.note }}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{% endif -%}
+{%- if data.declined %}
+## Declined
+{% for id in data.declined %}
+{%- for item in planned if item.id == id %}
+- **{{ item.title }}** (`{{ id }}`): not to be scheduled
+{%- for n in notes if n.item_id == id %}
+  > {{ n.note }}
+{%- endfor %}
+{%- endfor %}
+{%- endfor %}
+{% endif -%}

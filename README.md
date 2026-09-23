@@ -67,6 +67,7 @@ or answering an agent's questions, and share it for others to install.
 | [`review`](plugins/review/README.md) | a code review: the diff and the agent's proposed comments |
 | [`email`](plugins/email/README.md) | draft emails to edit, send, revise or discard |
 | [`artifact`](plugins/artifact/README.md) | an HTML page to comment on, element by element |
+| [`calendar`](plugins/calendar/README.md) | times to arrange around a calendar, one suggested slot picked per item |
 | [`logo`](plugins/logo/README.md) | candidate logo marks and icons, seen at every size, with a favourite picked |
 
 A plugin is a manifest, two JSON schemas and an HTML view. The

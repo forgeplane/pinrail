@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "timezone",
+    "start_date",
+    "days",
+    "blocked",
+    "items"
+  ],
+  "properties": {
+    "timezone": {
+      "type": "string",
+      "minLength": 1
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 14
+    },
+    "heading": {
+      "type": "string",
+      "maxLength": 2000,
+      "deprecated": true,
+      "description": "Accepted for compatibility; the compact header displays the review title supplied via wicket submit --title."
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "deprecated": true,
+      "description": "Accepted for compatibility; the compact header displays the review title supplied via wicket submit --title."
+    },
+    "blocked": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+            "maxLength": 100
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "options"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+            "maxLength": 100
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "icon": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "options": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "start",
+                "end"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+                  "maxLength": 100
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"
+                },
+                "location": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "detail": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "recommended": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

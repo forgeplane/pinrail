@@ -1,0 +1,160 @@
+{
+  "title": "Dinner, doctor & tennis",
+  "payload": {
+    "timezone": "Europe/Athens",
+    "start_date": "2026-09-21",
+    "days": 5,
+    "blocked": [
+      {
+        "id": "team-sync",
+        "title": "Team sync",
+        "start": "2026-09-21T09:00:00+03:00",
+        "end": "2026-09-21T10:00:00+03:00"
+      },
+      {
+        "id": "deep-work",
+        "title": "Focus time",
+        "start": "2026-09-21T13:00:00+03:00",
+        "end": "2026-09-21T15:00:00+03:00"
+      },
+      {
+        "id": "design-review",
+        "title": "Design review",
+        "start": "2026-09-22T10:00:00+03:00",
+        "end": "2026-09-22T11:30:00+03:00"
+      },
+      {
+        "id": "lunch",
+        "title": "Lunch with Alex",
+        "start": "2026-09-23T12:00:00+03:00",
+        "end": "2026-09-23T13:00:00+03:00"
+      },
+      {
+        "id": "project-review",
+        "title": "Project review",
+        "start": "2026-09-24T14:00:00+03:00",
+        "end": "2026-09-24T15:30:00+03:00"
+      },
+      {
+        "id": "friday-focus",
+        "title": "Focus time",
+        "start": "2026-09-25T09:00:00+03:00",
+        "end": "2026-09-25T11:00:00+03:00"
+      }
+    ],
+    "items": [
+      {
+        "id": "doctor",
+        "title": "Doctor appointment",
+        "subtitle": "Annual check-up \u00b7 1 hour",
+        "icon": "stethoscope",
+        "options": [
+          {
+            "id": "doctor-mon",
+            "start": "2026-09-21T10:00:00+03:00",
+            "end": "2026-09-21T11:00:00+03:00",
+            "location": "Dr. Elena Papas \u00b7 Kolonaki",
+            "detail": "\u20ac60 \u00b7 Annual check-up",
+            "recommended": true
+          },
+          {
+            "id": "doctor-tue",
+            "start": "2026-09-22T16:00:00+03:00",
+            "end": "2026-09-22T17:00:00+03:00",
+            "location": "Dr. Elena Papas \u00b7 Kolonaki",
+            "detail": "\u20ac60 \u00b7 Annual check-up",
+            "recommended": false
+          },
+          {
+            "id": "doctor-thu",
+            "start": "2026-09-24T11:00:00+03:00",
+            "end": "2026-09-24T12:00:00+03:00",
+            "location": "Dr. Elena Papas \u00b7 Kolonaki",
+            "detail": "\u20ac60 \u00b7 Annual check-up",
+            "recommended": false
+          },
+          {
+            "id": "doctor-busy",
+            "start": "2026-09-22T10:30:00+03:00",
+            "end": "2026-09-22T11:30:00+03:00",
+            "location": "Dr. Elena Papas \u00b7 Kolonaki",
+            "detail": "Conflicts with your design review",
+            "recommended": false
+          }
+        ]
+      },
+      {
+        "id": "tennis",
+        "title": "Tennis with Nikos",
+        "subtitle": "Outdoor doubles court \u00b7 90 minutes",
+        "icon": "circle-dot",
+        "options": [
+          {
+            "id": "tennis-mon",
+            "start": "2026-09-21T10:30:00+03:00",
+            "end": "2026-09-21T12:00:00+03:00",
+            "location": "Athens Tennis Club \u00b7 Court 3",
+            "detail": "\u20ac24 \u00b7 Nikos is available",
+            "recommended": false
+          },
+          {
+            "id": "tennis-tue",
+            "start": "2026-09-22T17:00:00+03:00",
+            "end": "2026-09-22T18:30:00+03:00",
+            "location": "Athens Tennis Club \u00b7 Court 3",
+            "detail": "\u20ac24 \u00b7 Nikos is available",
+            "recommended": true
+          },
+          {
+            "id": "tennis-wed",
+            "start": "2026-09-23T18:00:00+03:00",
+            "end": "2026-09-23T19:30:00+03:00",
+            "location": "Athens Tennis Club \u00b7 Court 2",
+            "detail": "\u20ac24 \u00b7 Nikos is available",
+            "recommended": false
+          },
+          {
+            "id": "tennis-fri",
+            "start": "2026-09-25T16:00:00+03:00",
+            "end": "2026-09-25T17:30:00+03:00",
+            "location": "Athens Tennis Club \u00b7 Court 3",
+            "detail": "\u20ac24 \u00b7 Nikos is available",
+            "recommended": false
+          }
+        ]
+      },
+      {
+        "id": "dinner",
+        "title": "Dinner with Maria",
+        "subtitle": "A table for two \u00b7 90 minutes",
+        "icon": "utensils",
+        "options": [
+          {
+            "id": "dinner-tue",
+            "start": "2026-09-22T18:00:00+03:00",
+            "end": "2026-09-22T19:30:00+03:00",
+            "location": "Seychelles \u00b7 Metaxourgeio",
+            "detail": "Outdoor table \u00b7 No deposit",
+            "recommended": false
+          },
+          {
+            "id": "dinner-wed",
+            "start": "2026-09-23T19:00:00+03:00",
+            "end": "2026-09-23T20:30:00+03:00",
+            "location": "Seychelles \u00b7 Metaxourgeio",
+            "detail": "Outdoor table \u00b7 No deposit",
+            "recommended": true
+          },
+          {
+            "id": "dinner-thu",
+            "start": "2026-09-24T19:00:00+03:00",
+            "end": "2026-09-24T20:30:00+03:00",
+            "location": "Nolan \u00b7 Syntagma",
+            "detail": "Counter seating \u00b7 No deposit",
+            "recommended": false
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "title": "Schedule four candidate interviews",
+  "payload": {
+    "timezone": "Europe/Athens",
+    "start_date": "2026-09-21",
+    "days": 5,
+    "blocked": [
+      {
+        "id": "hr-standup",
+        "title": "Panel stand-up",
+        "start": "2026-09-21T09:00:00+03:00",
+        "end": "2026-09-21T10:00:00+03:00"
+      },
+      {
+        "id": "hr-planning",
+        "title": "Hiring planning",
+        "start": "2026-09-22T13:00:00+03:00",
+        "end": "2026-09-22T14:00:00+03:00"
+      },
+      {
+        "id": "hr-offsite",
+        "title": "Panel offsite",
+        "start": "2026-09-23T08:00:00+03:00",
+        "end": "2026-09-23T18:00:00+03:00"
+      },
+      {
+        "id": "hr-demo",
+        "title": "Product demo",
+        "start": "2026-09-24T15:00:00+03:00",
+        "end": "2026-09-24T16:00:00+03:00"
+      }
+    ],
+    "items": [
+      {
+        "id": "maya",
+        "title": "Maya Chen",
+        "subtitle": "Product designer \u00b7 Sofia + Alex \u00b7 60 min",
+        "icon": "user-round",
+        "options": [
+          {
+            "id": "maya-mon",
+            "start": "2026-09-21T10:00:00+03:00",
+            "end": "2026-09-21T11:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "Portfolio conversation",
+            "recommended": true
+          },
+          {
+            "id": "maya-tue",
+            "start": "2026-09-22T11:00:00+03:00",
+            "end": "2026-09-22T12:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          },
+          {
+            "id": "maya-thu",
+            "start": "2026-09-24T14:00:00+03:00",
+            "end": "2026-09-24T15:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          }
+        ]
+      },
+      {
+        "id": "james",
+        "title": "James Okafor",
+        "subtitle": "Product designer \u00b7 Sofia + Alex \u00b7 60 min",
+        "icon": "user-round",
+        "options": [
+          {
+            "id": "james-mon",
+            "start": "2026-09-21T10:30:00+03:00",
+            "end": "2026-09-21T11:30:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          },
+          {
+            "id": "james-tue",
+            "start": "2026-09-22T11:00:00+03:00",
+            "end": "2026-09-22T12:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          },
+          {
+            "id": "james-fri",
+            "start": "2026-09-25T10:00:00+03:00",
+            "end": "2026-09-25T11:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "Portfolio conversation",
+            "recommended": true
+          }
+        ]
+      },
+      {
+        "id": "elena",
+        "title": "Elena Rossi",
+        "subtitle": "Frontend engineer \u00b7 Sofia + Alex \u00b7 60 min",
+        "icon": "user-round",
+        "options": [
+          {
+            "id": "elena-mon",
+            "start": "2026-09-21T14:00:00+03:00",
+            "end": "2026-09-21T15:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "Technical conversation",
+            "recommended": true
+          },
+          {
+            "id": "elena-thu",
+            "start": "2026-09-24T14:00:00+03:00",
+            "end": "2026-09-24T15:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          },
+          {
+            "id": "elena-fri",
+            "start": "2026-09-25T11:00:00+03:00",
+            "end": "2026-09-25T12:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          }
+        ]
+      },
+      {
+        "id": "omar",
+        "title": "Omar Haddad",
+        "subtitle": "Frontend engineer \u00b7 Sofia + Alex \u00b7 60 min",
+        "icon": "user-round",
+        "options": [
+          {
+            "id": "omar-mon",
+            "start": "2026-09-21T14:30:00+03:00",
+            "end": "2026-09-21T15:30:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          },
+          {
+            "id": "omar-tue",
+            "start": "2026-09-22T15:00:00+03:00",
+            "end": "2026-09-22T16:00:00+03:00",
+            "location": "Google Meet",
+            "detail": "Technical conversation",
+            "recommended": true
+          },
+          {
+            "id": "omar-fri",
+            "start": "2026-09-25T11:30:00+03:00",
+            "end": "2026-09-25T12:30:00+03:00",
+            "location": "Google Meet",
+            "detail": "",
+            "recommended": false
+          }
+        ]
+      }
+    ]
+  }
+}
