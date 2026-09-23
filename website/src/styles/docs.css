@@ -240,13 +240,17 @@ table .pr-keys { font-size: 0.8em; }
 }
 .pr-contract-tabs { display: flex; }
 .pr-contract-tabs button {
-  display: grid; gap: 1px; padding: 10px 16px 9px; border: 0; border-bottom: 2px solid transparent;
+  display: grid; gap: 1px; padding: 10px 14px 9px; border: 0; border-bottom: 2px solid transparent;
   background: none; color: var(--sl-color-gray-3); font: 600 0.875rem var(--sl-font); text-align: left; cursor: pointer;
 }
 .pr-contract-tabs button:hover { color: var(--sl-color-white); }
 .pr-contract-tabs button[aria-selected="true"] { color: var(--sl-color-white); border-bottom-color: var(--sl-color-accent); background: var(--sl-color-bg); }
 .pr-contract-tabs button:focus-visible { outline: 2px solid var(--sl-color-accent); outline-offset: -2px; }
 .pr-contract-hint { font: 400 0.72rem var(--sl-font-mono); color: var(--sl-color-gray-3); }
+/* four tabs (a plugin with settings) fit beside the toggle when they are a little tighter */
+.pr-contract:has([data-contract-tab="settings"]) .pr-contract-tabs button { padding-inline: 10px; }
+.pr-contract:has([data-contract-tab="settings"]) .pr-contract-hint { font-size: 0.66rem; }
+.pr-contract:has([data-contract-tab="settings"]) .pr-contract-views { padding-inline: 6px; }
 .pr-contract-views { display: flex; align-items: center; gap: 2px; padding: 6px 10px; }
 .pr-contract-views button {
   padding: 3px 10px; border: 1px solid transparent; border-radius: 6px; background: none;
@@ -288,6 +292,8 @@ table .pr-keys { font-size: 0.8em; }
 .pr-field-name { font: 600 0.85rem var(--sl-font-mono); color: var(--sl-color-white); }
 .pr-field-type { font: 0.75rem var(--sl-font-mono); color: var(--sl-color-accent-high); }
 .pr-field-type.is-file { padding: 0 6px; border-radius: 99px; background: var(--sl-color-accent-low); }
+.pr-field-shape { font: 500 0.8rem var(--sl-font-mono); color: var(--sl-color-gray-2); }
+.pr-field-title { font-size: 0.8rem; color: var(--sl-color-gray-3); }
 .pr-field-required { font: 0.7rem var(--sl-font-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--sl-color-gray-3); }
 .pr-field-desc, .pr-field-rules { margin: 3px 0 0; color: var(--sl-color-gray-2); line-height: 1.5; }
 .pr-field-rules { font-size: 0.8rem; color: var(--sl-color-gray-3); }

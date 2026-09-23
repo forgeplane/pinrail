@@ -1,7 +1,8 @@
 // A plugin's contract in its docs page, read from the plugin's own files so
 // the page cannot drift from them. Written as `![alt](contract:model)`, it
-// becomes a figure with three tabs, the manifest, the payload schema (what
-// the agent sends) and the decision schema (what comes back), each drawn as
+// becomes a figure with tabs for the manifest, the payload schema (what the
+// agent sends), the decision schema (what comes back) and, for a plugin that
+// declares them, its settings, each drawn as
 // fields and one click away from the JSON itself, in the site's code viewer
 // (public/docs.js switches between them).
 import fs from "node:fs";
@@ -42,6 +43,7 @@ const isFile = (s) => s?.type === "object" && s.properties && "$artifact" in s.p
 function typeOf(root, s) {
   if (isFile(s)) return "file";
   if (s.enum) return "enum";
+  if (s.const !== undefined) return typeof s.const;
   if (Array.isArray(s.type)) return s.type.join(" | ");
   if (s.type === "array") {
     const items = resolve(root, s.items ?? {});
@@ -49,7 +51,9 @@ function typeOf(root, s) {
     return `${inner}[]`;
   }
   if (s.type) return s.type;
-  if (s.oneOf || s.anyOf) return "one of";
+  const alts = s.oneOf ?? s.anyOf;
+  if (alts?.every((alt) => alt?.const !== undefined)) return typeof alts[0].const;
+  if (alts) return `${alts.every((alt) => resolve(root, alt).type === "object") ? "object, " : ""}one of ${alts.length}`;
   return "any";
 }
 
@@ -57,6 +61,11 @@ function typeOf(root, s) {
 function constraints(s) {
   const out = [];
   if (s.enum) out.push(s.enum.map((v) => `<code>${escape(JSON.stringify(v))}</code>`).join(" "));
+  // choices written as oneOf consts, each with the label the app shows
+  const consts = (s.oneOf ?? s.anyOf)?.filter((alt) => alt && alt.const !== undefined);
+  if (consts?.length && consts.length === (s.oneOf ?? s.anyOf).length) {
+    out.push(consts.map((alt) => `<code>${escape(JSON.stringify(alt.const))}</code>${alt.title ? ` ${escape(alt.title)}` : ""}`).join(" · "));
+  }
   if (s.const !== undefined) out.push(`<code>${escape(JSON.stringify(s.const))}</code>`);
   if (s.minLength !== undefined || s.maxLength !== undefined) out.push(range("chars", s.minLength, s.maxLength));
   if (s.minimum !== undefined || s.maximum !== undefined) out.push(range("", s.minimum, s.maximum));
@@ -64,6 +73,7 @@ function constraints(s) {
   if (s.pattern) out.push(`matches <code>${escape(s.pattern)}</code>`);
   if (s.format) out.push(escape(s.format));
   if (s.contentEncoding) out.push(escape(s.contentEncoding));
+  if (s.default !== undefined) out.push(`default <code>${escape(JSON.stringify(s.default))}</code>`);
   return out.filter(Boolean);
 }
 
@@ -77,7 +87,19 @@ function range(unit, min, max) {
 /** The fields an object holds, or an array's items hold, one row each, nested ones inside. */
 function children(root, s, depth) {
   const obj = s.type === "array" ? resolve(root, s.items ?? {}) : s;
-  if (isFile(obj) || !obj.properties || depth > 6) return "";
+  if (isFile(obj) || depth > 6) return "";
+  // an object that is one of several shapes, with no fields of its own: each shape in turn
+  const alts = (obj.oneOf ?? obj.anyOf)?.map((alt) => resolve(root, alt));
+  if (!obj.properties && alts?.some((alt) => alt.properties)) {
+    const shapes = alts.map((alt, i) => {
+      const label = alt.title ?? ((alt.required ?? []).join(" + ") || `shape ${i + 1}`);
+      const inner = children(root, alt, depth + 1);
+      const desc = alt.description ? `<p class="pr-field-desc">${prose(alt.description)}</p>` : "";
+      return `<li class="pr-field"><details${depth < 2 ? " open" : ""}><summary class="pr-field-head"><span class="pr-field-shape">${escape(label)}</span></summary>${desc}${inner}</details></li>`;
+    });
+    return `<ul class="pr-fields">${shapes.join("")}</ul>`;
+  }
+  if (!obj.properties) return "";
   const required = new Set(obj.required ?? []);
   const rows = Object.entries(obj.properties).map(([name, raw]) => field(root, name, resolve(root, raw), required.has(name), depth + 1)).join("");
   // an object that takes one of several shapes says which keys choose between them
@@ -90,7 +112,7 @@ function field(root, name, s, required, depth) {
   const type = typeOf(root, s);
   const rules = constraints(s);
   const inner = children(root, s, depth);
-  const head = `<span class="pr-field-name">${escape(name)}</span><span class="pr-field-type${type === "file" ? " is-file" : ""}">${escape(type)}</span>${required ? `<span class="pr-field-required">required</span>` : ""}`;
+  const head = `<span class="pr-field-name">${escape(name)}</span><span class="pr-field-type${type === "file" ? " is-file" : ""}">${escape(type)}</span>${required ? `<span class="pr-field-required">required</span>` : ""}${s.title && s.title !== name ? `<span class="pr-field-title">${escape(s.title)}</span>` : ""}`;
   const body = `${s.description ? `<p class="pr-field-desc">${prose(s.description)}</p>` : ""}${rules.length ? `<p class="pr-field-rules">${rules.join(" · ")}</p>` : ""}`;
   if (!inner) return `<li class="pr-field"><div class="pr-field-head">${head}</div>${body}</li>`;
   // nested fields fold, open near the top and closed deeper down
@@ -136,6 +158,11 @@ function contract(name, alt) {
     ["payload", "Payload", "what the agent sends", schemaPanel(payload), payload],
     ["decision", "Decision", "what comes back", schemaPanel(decision), decision],
   ];
+  // a plugin's own settings, the rows it gets in Settings › Plugins
+  if (manifest.settings_schema) {
+    const settings = document(dir, manifest.settings_schema);
+    tabs.push(["settings", "Settings", "Settings › Plugins", schemaPanel(settings), settings]);
+  }
   const id = `pr-contract-${name}`;
   const buttons = tabs
     .map(([key, label, hint], i) => `<button type="button" role="tab" id="${id}-${key}-tab" aria-controls="${id}-${key}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-contract-tab="${key}">${label}<span class="pr-contract-hint">${escape(hint)}</span></button>`)
