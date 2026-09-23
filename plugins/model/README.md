@@ -41,7 +41,7 @@ pinrail submit model --title "Halden desk lamp — round 1" --data models.json -
 - **A model** is binary glTF in `glb`, base64, with its textures embedded; or
   three.js JSON in `object`, what `Object3D.toJSON()` returns, with images as
   data URIs. Nothing is fetched, so a model that points at other files is not
-  drawn whole. A request is at most 2 MB, base64 included.
+  drawn whole. A request is at most 4 MB, base64 included.
 - **Name the nodes.** A comment names its part by the path of node names,
   `Lamp > Head > Shade`, and materials by their names.
 - **Units** say what one unit is, for the sizes shown; glTF's metre is the

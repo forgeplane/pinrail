@@ -80,7 +80,7 @@ Pinrail as a `model` review and wait:
 - **Views** are cameras in the model's own coordinates; `target` defaults to the model's centre.
 
 :::note[Size]
-A model travels inside the request, and a request is at most 2 MB, base64 included. Send what a review needs: simplified meshes, small textures, and a few candidates per round.
+A model travels inside the request, and a request is at most 4 MB, base64 included. Send what a review needs: simplified meshes, small textures, and a few candidates per round.
 :::
 
 ## What comes back
