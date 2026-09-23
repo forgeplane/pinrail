@@ -43,6 +43,13 @@ pub struct Plugin {
     /// `template_error` says why a declared one was dropped.
     pub decision_template: Option<String>,
     pub template_error: Option<String>,
+    /// When an agent should ask with this plugin (the manifest's `use_when`).
+    pub use_when: Option<String>,
+    /// A payload that passes the payload schema (the manifest's `example`,
+    /// a file beside it), for an agent to start from; `example_error` says
+    /// why a declared one was dropped.
+    pub example: Option<Value>,
+    pub example_error: Option<String>,
     /// How the plugin got here: a link served live, or a store entry with
     /// its record; none for the built-in and for a configured directory.
     pub install: Option<Install>,
@@ -138,6 +145,9 @@ impl Plugin {
                 shortcuts_error: None,
                 decision_template: None,
                 template_error: None,
+                use_when: None,
+                example: None,
+                example_error: None,
                 install: None,
                 error: Some(message),
             },
@@ -230,6 +240,38 @@ impl Plugin {
             },
             Some(_) => (None, None),
         };
+        // an example that does not pass the plugin's own schema is dropped,
+        // so what an agent is shown always submits
+        let (example, example_error) = match manifest.get("example") {
+            _ if shape.dropped.contains_key("example") => {
+                (None, shape.dropped.get("example").cloned())
+            }
+            None | Some(Value::Null) => (None, None),
+            Some(Value::String(file)) => match std::fs::read_to_string(dir.join(file))
+                .map_err(|e| format!("{file}: cannot read ({e})"))
+                .and_then(|text| {
+                    serde_json::from_str::<Value>(&text)
+                        .map_err(|e| format!("{file}: not JSON ({e})"))
+                }) {
+                Ok(payload) => match payload_schema.validate(&payload).first() {
+                    None => (Some(payload), None),
+                    Some(v) => (
+                        None,
+                        Some(format!(
+                            "{file}: does not pass payload_schema at {}: {}",
+                            if v.path.is_empty() { "/" } else { &v.path },
+                            v.message
+                        )),
+                    ),
+                },
+                Err(message) => (None, Some(message)),
+            },
+            Some(_) => (None, None),
+        };
+        let use_when = manifest
+            .get("use_when")
+            .and_then(Value::as_str)
+            .map(str::to_string);
 
         Ok(Plugin {
             title: manifest
@@ -261,6 +303,9 @@ impl Plugin {
             shortcuts_error,
             decision_template,
             template_error,
+            use_when,
+            example,
+            example_error,
             install: None,
             error: None,
         })
@@ -377,6 +422,9 @@ impl Plugin {
             "shortcuts": self.shortcuts,
             "shortcuts_error": self.shortcuts_error,
             "template_error": self.template_error,
+            "description": self.manifest.get("description"),
+            "use_when": self.use_when,
+            "example_error": self.example_error,
             "install": self.install.as_ref().map(Install::to_json),
         })
     }
@@ -402,7 +450,12 @@ mod shape {
     pub const SCHEMA: &str = include_str!(concat!(env!("OUT_DIR"), "/manifest.schema.json"));
 
     /// Keys whose violation costs the plugin that feature, not its place.
-    const FEATURES: &[&str] = &["settings_schema", "shortcuts", "decision_template"];
+    const FEATURES: &[&str] = &[
+        "settings_schema",
+        "shortcuts",
+        "decision_template",
+        "example",
+    ];
 
     pub struct Shape {
         /// violations that refuse the plugin, as `path: message`
@@ -841,6 +894,57 @@ mod tests {
             .unwrap_or_default();
             assert!(why.starts_with(expected), "{changes}: {why}");
         }
+    }
+
+    #[test]
+    fn an_example_is_kept_when_it_passes_the_payload_schema_and_dropped_when_not() {
+        use serde_json::json;
+        let tmp = tempfile::tempdir().unwrap();
+        let with = |folder: &str, example: &str| {
+            let dir = with_manifest(
+                tmp.path(),
+                folder,
+                manifest(
+                    json!({"payload_schema": {"type": "object", "required": ["n"]}, "example": "example.json", "use_when": "Before posting"}),
+                ),
+            );
+            std::fs::write(dir.join("example.json"), example).unwrap();
+            Plugin::load(&dir)
+        };
+        let good = with("good", r#"{"n": 1}"#);
+        assert_eq!(good.example, Some(json!({"n": 1})));
+        assert_eq!(good.use_when.as_deref(), Some("Before posting"));
+        let bad = with("bad", r#"{"m": 1}"#);
+        assert!(bad.usable() && bad.example.is_none());
+        assert!(
+            bad.example_error
+                .as_deref()
+                .unwrap()
+                .contains("does not pass payload_schema"),
+            "{:?}",
+            bad.example_error
+        );
+        let broken = with("broken", "{");
+        assert!(
+            broken
+                .example_error
+                .as_deref()
+                .unwrap()
+                .contains("not JSON")
+        );
+        let missing = Plugin::load(&with_manifest(
+            tmp.path(),
+            "missing",
+            manifest(json!({"example": "nope.json"})),
+        ));
+        assert!(
+            missing.usable()
+                && missing
+                    .example_error
+                    .as_deref()
+                    .unwrap()
+                    .contains("cannot read")
+        );
     }
 
     #[test]

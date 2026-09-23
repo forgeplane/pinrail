@@ -17,7 +17,7 @@ export const MANIFEST_SCHEMA = JSON.parse(fs.readFileSync(new URL("../schemas/ma
 const validateManifest = new Ajv2020({ allErrors: true, strict: false }).compile(MANIFEST_SCHEMA);
 
 /** Keys whose violation costs the plugin that feature, not its place. */
-const FEATURES = ["settings_schema", "shortcuts", "decision_template"];
+const FEATURES = ["settings_schema", "shortcuts", "decision_template", "example"];
 const SCALARS = ["boolean", "string", "integer", "number"];
 const MODIFIERS = ["cmd", "command", "super", "meta", "ctrl", "control", "alt", "option", "shift", "cmdorctrl", "commandorcontrol"];
 const JSON_TYPES = ["null", "boolean", "object", "array", "number", "string", "integer"];
@@ -135,6 +135,12 @@ export function checkPlugin(dir) {
     if (why) warn("shortcuts", why);
   }
 
+  // the example must pass the plugin's own payload schema, as the app checks
+  if (typeof manifest.example === "string" && !dropped.has("example") && !refused("payload_schema")) {
+    const why = exampleProblem(dir, manifest.example, manifest.payload_schema);
+    if (why) warn("example", why);
+  }
+
   if (manifest.decision_template !== undefined && manifest.decision_template !== null && !dropped.has("decision_template")) {
     const t = manifest.decision_template;
     if (!fs.existsSync(path.join(dir, t)) || !fs.statSync(path.join(dir, t)).isFile()) {
@@ -145,6 +151,35 @@ export function checkPlugin(dir) {
   }
 
   return result();
+}
+
+/** The payload schema as a document: inline, or the file its $ref names. */
+function schemaDocument(dir, schema) {
+  if (!isObject(schema) || typeof schema.$ref !== "string") return schema;
+  return JSON.parse(fs.readFileSync(safeJoin(dir, schema.$ref), "utf8"));
+}
+
+/** Why the manifest's example would be dropped, or null. Mirrors the core. */
+function exampleProblem(dir, file, payloadSchema) {
+  const at = safeJoin(dir, file);
+  let payload;
+  try {
+    payload = JSON.parse(fs.readFileSync(at, "utf8"));
+  } catch (e) {
+    return e.code ? `${file}: cannot read` : `${file}: not JSON (${e.message})`;
+  }
+  let validate;
+  try {
+    const doc = { ...schemaDocument(dir, payloadSchema) };
+    delete doc.$schema;
+    delete doc.$id;
+    validate = new Ajv2020({ allErrors: false, strict: false }).compile(doc);
+  } catch {
+    return null; // a schema this cannot compile is the payload_schema's problem, not the example's
+  }
+  if (validate(payload)) return null;
+  const e = validate.errors[0];
+  return `${file}: does not pass payload_schema at ${e.instancePath || "/"}: ${e.message}`;
 }
 
 /** Why a payload or decision schema would be refused, or null. */

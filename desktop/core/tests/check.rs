@@ -68,6 +68,7 @@ fn agree(dir: &Path, js: &Value) {
         ("settings_schema", plugin.settings_error.is_some()),
         ("shortcuts", plugin.shortcuts_error.is_some()),
         ("decision_template", plugin.template_error.is_some()),
+        ("example", plugin.example_error.is_some()),
     ] {
         assert_eq!(
             warned.contains(&key),
@@ -213,6 +214,36 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
         (
             "template_number",
             base(json!({"decision_template": 1})),
+            entry,
+        ),
+        // an example payload, which must pass the payload schema
+        (
+            "example_ok",
+            base(
+                json!({"payload_schema": {"type": "object", "required": ["n"]}, "example": "ex.json"}),
+            ),
+            &[("index.html", ""), ("ex.json", r#"{"n": 1}"#)],
+        ),
+        (
+            "example_fails",
+            base(
+                json!({"payload_schema": {"type": "object", "required": ["n"]}, "example": "ex.json"}),
+            ),
+            &[("index.html", ""), ("ex.json", r#"{"m": 1}"#)],
+        ),
+        (
+            "example_missing",
+            base(json!({"example": "ex.json"})),
+            entry,
+        ),
+        (
+            "example_outside",
+            base(json!({"example": "../ex.json"})),
+            entry,
+        ),
+        (
+            "use_when",
+            base(json!({"use_when": "Before posting review comments"})),
             entry,
         ),
         (

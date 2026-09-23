@@ -30,6 +30,18 @@
       "type": "string",
       "description": "A sentence on what the plugin is for."
     },
+    "use_when": {
+      "type": "string",
+      "maxLength": 400,
+      "description": "When an agent should ask with this plugin, in one line: what situation it is for. `wicket plugins describe` shows it to an agent choosing a plugin."
+    },
+    "example": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "^[^/]",
+      "not": { "type": "string", "pattern": "\\.\\." },
+      "description": "A JSON file beside the manifest holding a payload that passes payload_schema, shown to an agent as a starting point. One that does not pass costs the plugin the example, not its place."
+    },
     "icon": {
       "type": ["string", "null"],
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
