@@ -93,9 +93,9 @@ async fn info(State(state): State<ApiState>) -> Json<Info> {
 }
 
 /// Serves the API until `shutdown` resolves. Advertises itself in
-/// `server.json` while it runs; every 30 seconds it sweeps expired reviews
-/// and, when the history keeps a limited number of days, the reviews past
-/// them.
+/// `server.json` while it runs; every 30 seconds it sweeps expired reviews,
+/// the reviews past the days the history keeps (when it keeps a limited
+/// number), and blobs no review names that are more than an hour old.
 pub async fn serve(
     app: Arc<Pinrail>,
     shutdown: impl Future<Output = ()> + Send + 'static,
@@ -120,6 +120,11 @@ pub async fn serve(
                     .map(|d| d as u32);
                 if let Err(error) = app.reviews().sweep_history(keep_days) {
                     eprintln!("pinrail: history sweep failed: {error}");
+                }
+                // after the history: what a swept review carried is free to go
+                let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
+                if let Err(error) = app.artifacts().sweep(hour_ago) {
+                    eprintln!("pinrail: artifacts sweep failed: {error}");
                 }
             }
         })

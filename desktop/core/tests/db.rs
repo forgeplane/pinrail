@@ -12,6 +12,7 @@ use serde_json::{Map, json};
 
 fn review(id: &str, expires_in: Option<Duration>) -> Review {
     Review {
+        artifacts: Vec::new(),
         id: id.into(),
         plugin: "list".into(),
         plugin_version: 1,

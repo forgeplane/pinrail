@@ -85,6 +85,7 @@ impl Pinrail {
             registry.clone(),
             events.bus(),
             config.user.clone(),
+            artifacts.clone(),
         );
         Ok(Self {
             config,

@@ -68,16 +68,38 @@ impl Db {
             actor,
             &Value::Null,
         )?;
+        for artifact in &review.artifacts {
+            tx.execute(
+                "INSERT INTO review_artifacts (review_id, name, sha256, size, media_type) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![review.id, artifact.name, artifact.sha256, artifact.size as i64, artifact.media_type],
+            )?;
+        }
         tx.commit()?;
         Ok(event_id)
     }
 
     pub fn get_review(&self, id: &str) -> rusqlite::Result<Option<Review>> {
         let conn = self.conn.lock().unwrap();
-        conn.query_row(&format!("{SELECT} WHERE r.id = ?1"), params![id], |row| {
-            row_to_review(row, true)
-        })
-        .optional()
+        let review = conn
+            .query_row(&format!("{SELECT} WHERE r.id = ?1"), params![id], |row| {
+                row_to_review(row, true)
+            })
+            .optional()?;
+        let Some(mut review) = review else {
+            return Ok(None);
+        };
+        review.artifacts = conn
+            .prepare("SELECT name, sha256, size, media_type FROM review_artifacts WHERE review_id = ?1 ORDER BY name")?
+            .query_map(params![id], |r| {
+                Ok(crate::artifacts::ReviewArtifact {
+                    name: r.get(0)?,
+                    sha256: r.get(1)?,
+                    size: r.get::<_, i64>(2)? as u64,
+                    media_type: r.get(3)?,
+                })
+            })?
+            .collect::<Result<_, _>>()?;
+        Ok(Some(review))
     }
 
     pub fn exists(&self, id: &str) -> rusqlite::Result<bool> {
@@ -343,7 +365,9 @@ impl Db {
             .collect())
     }
 
-    /// Deletes reviews with their events and outcomes, all or nothing. A
+    /// Deletes reviews with their events, outcomes and the record of the
+    /// files they carried (the blobs themselves go in the artifacts sweep),
+    /// all or nothing. A
     /// round among them that revises another among them lets go of it
     /// first, so the order they go in does not matter.
     pub fn delete_reviews(&self, ids: &[&str]) -> rusqlite::Result<usize> {
@@ -359,6 +383,10 @@ impl Db {
         for id in ids {
             tx.execute("DELETE FROM events WHERE review_id = ?1", params![id])?;
             tx.execute("DELETE FROM outcomes WHERE review_id = ?1", params![id])?;
+            tx.execute(
+                "DELETE FROM review_artifacts WHERE review_id = ?1",
+                params![id],
+            )?;
             count += tx.execute("DELETE FROM reviews WHERE id = ?1", params![id])?;
         }
         tx.commit()?;
@@ -438,6 +466,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
         _ => {}
     }
     Ok(Review {
+        artifacts: Vec::new(),
         id: row.get(0)?,
         plugin: row.get(1)?,
         plugin_version,

@@ -72,6 +72,9 @@ pub struct Review {
     pub discarded_at: Option<DateTime<Utc>>,
     pub discarded_by: Option<String>,
     pub discarded_reason: Option<String>,
+    /// The files the review carries, by the names its payload uses. Read
+    /// with a single review; listings leave them out, as they do the payload.
+    pub artifacts: Vec<crate::artifacts::ReviewArtifact>,
 }
 
 impl Review {
@@ -167,6 +170,7 @@ mod tests {
 
     fn review() -> Review {
         Review {
+            artifacts: Vec::new(),
             id: "r_1".into(),
             plugin: "list".into(),
             plugin_version: 1,

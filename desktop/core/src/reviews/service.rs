@@ -13,6 +13,7 @@ use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
 use super::model::{Decision, Review, Status, parse_datetime};
+use crate::artifacts::{Artifacts, Presence, ReviewArtifact};
 use crate::db::{Db, Event, Filters};
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
@@ -40,6 +41,7 @@ pub struct Reviews {
     registry: Arc<Registry>,
     bus: Bus,
     user: String,
+    artifacts: Artifacts,
 }
 
 /// A submission that passed every check, ready to store.
@@ -47,15 +49,23 @@ struct Checked<'a> {
     attrs: &'a Map<String, Value>,
     plugin: Arc<Plugin>,
     payload: Value,
+    artifacts: Vec<ReviewArtifact>,
 }
 
 impl Reviews {
-    pub(crate) fn new(db: Arc<Db>, registry: Arc<Registry>, bus: Bus, user: String) -> Self {
+    pub(crate) fn new(
+        db: Arc<Db>,
+        registry: Arc<Registry>,
+        bus: Bus,
+        user: String,
+        artifacts: Artifacts,
+    ) -> Self {
         Reviews {
             db,
             registry,
             bus,
             user,
+            artifacts,
         }
     }
 
@@ -68,7 +78,8 @@ impl Reviews {
             attrs,
             plugin,
             payload,
-        } = self.check(body)?;
+            artifacts,
+        } = self.check(body, Presence::Stored)?;
         let review = Review {
             id: crate::id::next(),
             plugin: plugin.name.clone(),
@@ -98,6 +109,7 @@ impl Reviews {
             discarded_at: None,
             discarded_by: None,
             discarded_reason: None,
+            artifacts,
         };
         let event_id = self.db.insert_review(&review, actor)?;
         self.publish(event_id, events::CREATED, &review);
@@ -106,11 +118,14 @@ impl Reviews {
 
     /// Runs every check a submission gets and stores nothing: the plugin
     /// that would render the review, or the violations `submit` would give.
+    /// Artifacts are checked as described, not for being uploaded, so a
+    /// dry run can come before the uploads.
     pub fn validate(&self, body: &Value) -> Result<Arc<Plugin>, Error> {
-        self.check(body).map(|checked| checked.plugin)
+        self.check(body, Presence::Described)
+            .map(|checked| checked.plugin)
     }
 
-    fn check<'a>(&self, body: &'a Value) -> Result<Checked<'a>, Error> {
+    fn check<'a>(&self, body: &'a Value, presence: Presence) -> Result<Checked<'a>, Error> {
         let Value::Object(attrs) = body else {
             return Err(Error::invalid("", "must be a JSON object"));
         };
@@ -130,10 +145,20 @@ impl Reviews {
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
         }
+        let artifacts = self
+            .artifacts
+            .check(
+                attrs.get("artifacts"),
+                plugin.artifacts.as_ref(),
+                &payload,
+                presence,
+            )
+            .map_err(Error::Invalid)?;
         Ok(Checked {
             attrs,
             plugin,
             payload,
+            artifacts,
         })
     }
 

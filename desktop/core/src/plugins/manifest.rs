@@ -50,6 +50,10 @@ pub struct Plugin {
     /// why a declared one was dropped.
     pub example: Option<Value>,
     pub example_error: Option<String>,
+    /// The files the plugin takes beside a payload (the manifest's
+    /// `artifacts`); none takes none. A malformed block makes the plugin
+    /// unusable, as a broken schema does.
+    pub artifacts: Option<crate::artifacts::ArtifactRules>,
     /// How the plugin got here: a link served live, or a store entry with
     /// its record; none for the built-in and for a configured directory.
     pub install: Option<Install>,
@@ -148,6 +152,7 @@ impl Plugin {
                 use_when: None,
                 example: None,
                 example_error: None,
+                artifacts: None,
                 install: None,
                 error: Some(message),
             },
@@ -272,6 +277,10 @@ impl Plugin {
             .get("use_when")
             .and_then(Value::as_str)
             .map(str::to_string);
+        let artifacts = match manifest.get("artifacts") {
+            None | Some(Value::Null) => None,
+            Some(block) => Some(crate::artifacts::ArtifactRules::parse(block)?),
+        };
 
         Ok(Plugin {
             title: manifest
@@ -306,6 +315,7 @@ impl Plugin {
             use_when,
             example,
             example_error,
+            artifacts,
             install: None,
             error: None,
         })
@@ -413,6 +423,7 @@ impl Plugin {
             "payload_schema": self.schema_document("payload_schema"),
             "decision_schema": self.schema_document("decision_schema"),
             "example": self.example,
+            "artifacts": self.manifest.get("artifacts"),
             "markdown": self.decision_template.is_some(),
         })
     }
@@ -460,6 +471,7 @@ impl Plugin {
             "description": self.manifest.get("description"),
             "use_when": self.use_when,
             "example_error": self.example_error,
+            "artifacts": self.manifest.get("artifacts"),
             "install": self.install.as_ref().map(Install::to_json),
         })
     }

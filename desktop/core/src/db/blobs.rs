@@ -33,4 +33,25 @@ impl Db {
         )?;
         Ok(())
     }
+
+    /// Blobs no review names, stored before `before`.
+    pub fn orphan_blobs(&self, before: chrono::DateTime<Utc>) -> rusqlite::Result<Vec<String>> {
+        let conn = self.conn.lock().unwrap();
+        conn.prepare(
+            "SELECT b.sha256 FROM blobs b
+             WHERE b.created_at < ?1
+               AND NOT EXISTS (SELECT 1 FROM review_artifacts a WHERE a.sha256 = b.sha256)",
+        )?
+        .query_map(
+            params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
+            |r| r.get(0),
+        )?
+        .collect()
+    }
+
+    pub fn delete_blob(&self, sha256: &str) -> rusqlite::Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM blobs WHERE sha256 = ?1", params![sha256])?;
+        Ok(())
+    }
 }
