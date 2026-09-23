@@ -450,7 +450,7 @@ speak it directly instead.
 
 ## Starting a plugin
 
-`npx @forgeplane/pinrail-plugin create <name>` (`--template vite`, `react` or `vue` for a build) writes a
+`npx @forgeplane/pinrail-plugin create <name>` (`--template vite`, `react`, `vue` or `svelte` for a build) writes a
 folder in the layout above with a working view, a fixture, a test and a
 release workflow; `pinrail-plugin dev`, `test` and `check` take it from
 there. See [`pinrail-plugin/`](../pinrail-plugin/README.md). The samples here are

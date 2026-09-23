@@ -6,9 +6,9 @@ change to the protocol is a new major and a new path.
 
 ## Unreleased
 
-- `pinrail-plugin create <name> --template react` and `--template vue`:
-  the same yes-or-no plugin as the `vite` template, with its view in React
-  or Vue.
+- `pinrail-plugin create <name> --template react`, `vue` or `svelte`: the
+  same yes-or-no plugin as the `vite` template, with its view in React, Vue
+  or Svelte.
 
 - Files beside a payload. A plugin that declares `artifacts` in its
   manifest (`{"accept": [".glb", "image/*"]}`) receives files the agent

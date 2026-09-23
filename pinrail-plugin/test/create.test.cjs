@@ -111,6 +111,22 @@ test("the vue template writes the view as a Vue component, with its build", asyn
   }
 });
 
+test("the svelte template writes the view as a Svelte component, with its build", async () => {
+  const { scaffold } = await load();
+  const dir = path.join(tmp(), "fancy");
+  scaffold("fancy", { dir, template: "svelte", sdk: "file:../sdk" });
+
+  const files = filesUnder(dir);
+  for (const f of ["src/index.html", "src/main.ts", "src/App.svelte", "vite.config.ts", "tsconfig.json", "tests/fancy.spec.ts"]) {
+    assert.ok(files.includes(f), `${f} written`);
+  }
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+  assert.ok(pkg.devDependencies.svelte && pkg.devDependencies["@sveltejs/vite-plugin-svelte"] && pkg.devDependencies["svelte-check"], "Svelte, its Vite plugin and its checker");
+  for (const file of files) {
+    assert.ok(!/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")), `${file} has no placeholder`);
+  }
+});
+
 test("without --sdk the dependency is the release tarball of this version", async () => {
   const { defaultSdkDep } = await load();
   const { version } = require("../package.json");
@@ -120,7 +136,7 @@ test("without --sdk the dependency is the release tarball of this version", asyn
 test("a bad name, an unknown template and a folder in use are refused", async () => {
   const { scaffold } = await load();
   assert.throws(() => scaffold("Bad", { dir: path.join(tmp(), "x") }), /\[a-z\]\[a-z0-9_-\]\*/);
-  assert.throws(() => scaffold("ok", { dir: path.join(tmp(), "x"), template: "svelte" }), /no template "svelte"/);
+  assert.throws(() => scaffold("ok", { dir: path.join(tmp(), "x"), template: "angular" }), /no template "angular"/);
   const used = tmp();
   fs.writeFileSync(path.join(used, "keep.txt"), "");
   assert.throws(() => scaffold("ok", { dir: used }), /is not empty/);
