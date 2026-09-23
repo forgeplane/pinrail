@@ -65,6 +65,7 @@ export default defineConfig({
         { label: "Getting started", items: ["docs/getting-started/install", "docs/getting-started/first-review"] },
         { label: "Concepts", items: ["docs/concepts/reviews", "docs/concepts/plugins", "docs/concepts/trust"] },
         { label: "Using Wicket", items: ["docs/using/inbox", "docs/using/installing-plugins", "docs/using/settings", "docs/using/notifications"] },
+        { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },
         {
           label: "Plugins",
           items: [
@@ -78,7 +79,6 @@ export default defineConfig({
             "docs/plugins/logo",
           ],
         },
-        { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },
         { label: "Building plugins", items: ["docs/building/writing", "docs/building/settings-and-keys", "docs/building/protocol", "docs/building/publishing"] },
         { label: "Reference", items: ["docs/reference/cli", "docs/reference/settings", "docs/reference/manifest"] },
       ],
