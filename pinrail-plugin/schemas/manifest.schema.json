@@ -100,6 +100,22 @@
       },
       "description": "The command that produces the bundle, such as `{\"command\": \"npm ci && npm run build\"}`. An install from a folder or a repository runs it; a release never does."
     },
+    "artifacts": {
+      "type": ["object", "null"],
+      "required": ["accept"],
+      "additionalProperties": false,
+      "properties": {
+        "accept": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 },
+          "description": "The kinds it takes: extensions like `.glb` and media types like `model/gltf-binary` or `image/*`. A file matches by its name's extension or its media type."
+        },
+        "max_size": { "type": "integer", "minimum": 1, "maximum": 104857600, "description": "The most one file may be, in bytes; at most the app's 100 MiB, which is also the default." },
+        "max_count": { "type": "integer", "minimum": 1, "maximum": 32, "description": "The most files one review may carry; at most the app's 32, the default." }
+      },
+      "description": "The files the plugin takes beside a payload, sent with `pinrail submit --artifact`. The payload names each one `{\"$artifact\": \"<name>\"}`, and the view reads it with `plugin.artifact(name)`. Without this key a plugin takes none. A block that breaks these rules keeps the plugin from installing."
+    },
     "dev": {
       "type": "boolean",
       "default": false,

@@ -1663,20 +1663,34 @@ async fn text_is_never_taken_for_a_reference() {
 async fn a_plugin_whose_artifacts_block_is_broken_is_not_installed() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
-    let dir = scratch.path().join("files");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
-    std::fs::write(
-        dir.join("manifest.json"),
-        json!({ "name": "files", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "artifacts": { "accept": ["glb"] } }).to_string(),
-    )
-    .unwrap();
-    let (status, refused) = install(&app, &dir, json!({ "link": true })).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert!(
-        refused["message"].as_str().unwrap().contains("artifacts.accept: \"glb\" is neither an extension like .glb nor a media type like image/png"),
-        "{refused}"
-    );
+    let cases = [
+        (
+            json!({ "accept": ["glb"] }),
+            "artifacts.accept: \"glb\" is neither an extension like .glb nor a media type like image/png",
+        ),
+        (json!({ "accepts": [".glb"] }), "artifacts"),
+        (
+            json!({ "accept": [".glb"], "max_count": 99 }),
+            "artifacts/max_count",
+        ),
+        (json!({ "accept": [] }), "artifacts/accept"),
+    ];
+    for (i, (block, said)) in cases.into_iter().enumerate() {
+        let dir = scratch.path().join(format!("files{i}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+        std::fs::write(
+            dir.join("manifest.json"),
+            json!({ "name": "files", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "artifacts": block }).to_string(),
+        )
+        .unwrap();
+        let (status, refused) = install(&app, &dir, json!({ "link": true })).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{block}");
+        assert!(
+            refused["message"].as_str().unwrap().contains(said),
+            "{block}: {refused}"
+        );
+    }
 }
 
 #[tokio::test]
