@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "build": "svelte-check --fail-on-warnings && vite build",
+    "watch": "vite build --watch",
     "dev": "pinrail-plugin dev",
     "check": "pinrail-plugin check",
     "test": "npm run build && pinrail-plugin test"
