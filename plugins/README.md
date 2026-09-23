@@ -13,6 +13,7 @@ others are installed one at a time:
 | [`review/`](review/README.md) | a code review: the diff, the agent's proposed comments, the human's verdicts and own comments |
 | [`email/`](email/README.md) | emails an agent wants to send: edit them with the changes showing, comment on a passage, send, revise or discard |
 | [`artifact/`](artifact/README.md) | an HTML page an agent designed: pick elements the way DevTools does, comment on them, and the agent gets selectors back |
+| [`logo/`](logo/README.md) | candidate logo marks, shown at every size, as app icons, in a tab and a menu bar: pick a favourite, keep or drop the rest, ask for changes to parts of a mark |
 | [`hello/`](hello/README.md) | the smallest complete plugin, to copy from |
 
 Register a directory of plugins (each immediate subdirectory is one plugin):

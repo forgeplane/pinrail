@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Logo review request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["brand", "marks"],
+  "$defs": {
+    "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background", "ink", "accent"],
+      "properties": {
+        "background": { "$ref": "#/$defs/color", "description": "The page the mark sits on." },
+        "surface": { "$ref": "#/$defs/color", "description": "Cards, tabs and bars a step off the background." },
+        "ink": { "$ref": "#/$defs/color", "description": "The mark's main colour; the SVG draws it with currentColor." },
+        "muted": { "$ref": "#/$defs/color", "description": "Secondary text." },
+        "accent": { "$ref": "#/$defs/color", "description": "The mark's accent; the SVG draws it with var(--accent)." }
+      }
+    }
+  },
+  "properties": {
+    "notes": { "type": "string", "maxLength": 10000, "description": "Markdown: what this round is, and what to look at." },
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80, "description": "The product's name, as a browser tab and the menu bar would show it." },
+        "wordmark": { "type": "string", "maxLength": 80, "description": "The name as the lockup sets it; defaults to name. Wrap part of it in [brackets] to set that part in the accent: pin[/]rail." },
+        "wordmark_font": { "type": "string", "maxLength": 200, "description": "A CSS font-family for the wordmark. The view cannot load fonts, so name one the viewer has, with fallbacks." },
+        "wordmark_weight": { "type": "integer", "minimum": 100, "maximum": 900, "default": 800 },
+        "tagline": { "type": "string", "maxLength": 200 }
+      }
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["light", "dark"],
+      "properties": { "light": { "$ref": "#/$defs/palette" }, "dark": { "$ref": "#/$defs/palette" } }
+    },
+    "marks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "svg"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "svg": { "type": "string", "minLength": 20, "maxLength": 60000, "description": "A whole <svg> element with a square viewBox. Ink as currentColor, accent as var(--accent); scripts, event handlers and external links are removed." },
+          "reasoning": { "type": "string", "maxLength": 4000, "description": "Markdown: the idea behind the mark, and what to look for." }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{#- The decision as an agent reads it back: the favourite first, then what is
+    kept and what is dropped, each mark by name with the reviewer's note and
+    the changes asked for on parts of it. The head (title, origin, who
+    decided, the note to the agent) is printed by the app before this. -#}
+{%- macro mark(item) -%}
+- **{{ item.payload.name if item.payload else item.id }}** (`{{ item.id }}`)
+{%- if item.note %}
+  > {{ item.note }}
+{%- endif %}
+{%- for c in item.comments or [] %}
+  - change `{{ c.tag }}` at `{{ c.target }}`: {{ c.note }}
+{%- if c.markup %}
+    `{{ c.markup }}`
+{%- endif %}
+{%- endfor %}
+{%- endmacro -%}
+{%- set favourite = items | selectattr("action", "equalto", "favorite") | list -%}
+{%- set kept = items | selectattr("action", "equalto", "keep") | list -%}
+{%- set dropped = items | selectattr("action", "equalto", "drop") | list -%}
+{%- if favourite %}
+## Favourite
+{% for item in favourite %}
+{{ mark(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if kept %}
+## Kept on the shortlist
+{% for item in kept %}
+{{ mark(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if dropped %}
+## Dropped
+{% for item in dropped %}
+{{ mark(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if data.undecided %}
+Undecided: {% for id in data.undecided %}`{{ id }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif -%}

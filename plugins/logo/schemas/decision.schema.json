@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Logo review decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decisions", "undecided"],
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "description": "A verdict per mark the reviewer decided. At most one favourite.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "action"],
+        "properties": {
+          "id": { "type": "string" },
+          "action": { "enum": ["favorite", "keep", "drop"], "description": "favorite: the one to take forward. keep: still on the shortlist. drop: set it aside." },
+          "note": { "type": "string", "maxLength": 4000, "description": "What to change, or why." },
+          "comments": {
+            "type": "array",
+            "description": "Changes asked for on parts of the mark, each pinned to one element of its SVG.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target", "tag", "note"],
+              "properties": {
+                "target": { "type": "string", "description": "The element's path in the mark's SVG, e.g. svg > g:nth-of-type(1) > rect:nth-of-type(2)." },
+                "tag": { "type": "string" },
+                "markup": { "type": "string", "maxLength": 4000, "description": "The element as drawn, to find it again if the path moved." },
+                "note": { "type": "string", "minLength": 1, "maxLength": 2000 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "undecided": { "type": "array", "items": { "type": "string" }, "description": "Marks left without a verdict." }
+  }
+}

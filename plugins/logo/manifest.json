@@ -1,0 +1,43 @@
+{
+  "name": "logo",
+  "version": 1,
+  "title": "Logo review",
+  "description": "Candidate logo marks, shown the way they will live: at every size, as app icons, in a browser tab and a menu bar, and beside the wordmark, in the brand's own colours. Pick a favourite, keep or drop the rest.",
+  "use_when": "You designed candidate logo marks, app icons or favicons as SVG and need a person to pick one, shortlist or drop the rest, and ask for changes to parts of a mark.",
+  "icon": "shapes",
+  "payload_schema": {
+    "$ref": "schemas/payload.schema.json"
+  },
+  "decision_schema": {
+    "$ref": "schemas/decision.schema.json"
+  },
+  "example": "example.json",
+  "entry": "view/index.html",
+  "decision_template": "templates/decision.md.j2",
+  "min_height": 640,
+  "shortcuts": [
+    {
+      "keys": "j",
+      "does": "Next mark"
+    },
+    {
+      "keys": "k",
+      "does": "Previous mark"
+    },
+    {
+      "keys": "f",
+      "does": "Make this mark the favourite",
+      "group": "Verdicts"
+    },
+    {
+      "keys": "s",
+      "does": "Keep this mark on the shortlist",
+      "group": "Verdicts"
+    },
+    {
+      "keys": "x",
+      "does": "Drop this mark",
+      "group": "Verdicts"
+    }
+  ]
+}
