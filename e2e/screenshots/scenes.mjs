@@ -75,6 +75,27 @@ export const scenes = [
     },
   },
   {
+    // a verdict on three marks, the favourite with a change to one of its parts half written
+    name: "logo",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["17-logo-tidemark"]);
+      const verdict = async (index, action, note) => {
+        await f.locator(".pick").nth(index).click();
+        await f.locator(`.choice[data-action="${action}"]`).click();
+        if (note) await f.locator("#note").fill(note);
+        await settle(page, 150);
+      };
+      await verdict(0, "keep");
+      await verdict(1, "drop", "Too close to every other ring mark");
+      await verdict(3, "favorite", "Pixel-tune it at 16 px");
+      await f.locator('.stage[data-stage="light"] svg rect').nth(2).click({ force: true });
+      await f.locator("#part-note").fill("Lower the line a little, below the middle");
+      await settle(page);
+      await shot("logo");
+      await shot("logo-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
     // two comments pinned, a third element picked and its comment being typed
     name: "artifact",
     async run({ page, app, reviews, shot }) {
