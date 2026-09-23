@@ -125,6 +125,20 @@ impl Review {
         });
         if with_payload {
             map["payload"] = self.payload.clone().unwrap_or(Value::Null);
+            // what the review carries, never the bytes: those come from
+            // GET /api/v1/reviews/{id}/artifacts/{name}
+            map["artifacts"] = self
+                .artifacts
+                .iter()
+                .map(|a| {
+                    json!({
+                        "name": a.name,
+                        "size": a.size,
+                        "media_type": a.media_type,
+                        "sha256": a.sha256,
+                    })
+                })
+                .collect();
         }
         map
     }

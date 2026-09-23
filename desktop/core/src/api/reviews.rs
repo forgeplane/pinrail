@@ -1,5 +1,5 @@
 //! `/api/v1/reviews`: submit, read, list, rounds, long-poll wait, decide,
-//! withdraw, discard, events.
+//! withdraw, discard, events, and the files a review carries.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -35,6 +35,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/discard", post(discard))
         .route("/api/v1/reviews/{id}/viewed", post(viewed))
         .route("/api/v1/reviews/{id}/events", get(events))
+        .route("/api/v1/reviews/{id}/artifacts/{name}", get(artifact))
 }
 
 async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
@@ -281,4 +282,54 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
             .and_then(|o| o.parse().ok())
             .unwrap_or(0),
     })
+}
+
+/// The bytes of a file the review carries, as a download and nothing else:
+/// whatever an agent uploaded (an `.html`, an `.svg` with a script), a
+/// browser neither sniffs it nor renders it in this origin, where it could
+/// call the API.
+async fn artifact(
+    State(state): State<Arc<Pinrail>>,
+    Path((id, name)): Path<(String, String)>,
+) -> Result<Response, ApiError> {
+    let review = state.reviews().get(&id)?;
+    let Some(carried) = review.artifacts.iter().find(|a| a.name == name) else {
+        return Ok(super::guard::refuse(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            format!("review {id} carries no artifact \"{name}\""),
+        ));
+    };
+    let path = state.artifacts().path(&carried.sha256);
+    let file = tokio::fs::File::open(&path)
+        .await
+        .map_err(|e| Error::Internal(format!("artifact {}: {e}", carried.sha256)))?;
+    let encoded: String = name
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'-' | b'_' => (b as char).to_string(),
+            _ => format!("%{b:02X}"),
+        })
+        .collect();
+    Ok((
+        [
+            (header::CONTENT_TYPE, "application/octet-stream".to_string()),
+            (header::CONTENT_LENGTH, carried.size.to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("attachment; filename*=UTF-8''{encoded}"),
+            ),
+            (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_string()),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                "sandbox; default-src 'none'".to_string(),
+            ),
+            (
+                header::CACHE_CONTROL,
+                "private, max-age=31536000, immutable".to_string(),
+            ),
+        ],
+        axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(file)),
+    )
+        .into_response())
 }

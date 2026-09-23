@@ -1547,6 +1547,107 @@ async fn files_a_plugin_does_not_take_or_a_payload_does_not_have_are_refused() {
 }
 
 #[tokio::test]
+async fn a_review_lists_its_files_and_serves_each_only_as_a_download() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    files_plugin(&app, scratch.path(), json!({ "accept": [".glb", ".html"] })).await;
+    let model = b"glTF binary, more or less".to_vec();
+    let page = b"<script>fetch('/api/v1/reviews')</script>".to_vec();
+    let model_hash = upload(&app, &model).await;
+    let page_hash = upload(&app, &page).await;
+    let body = with_files(
+        json!({ "files": [{ "$artifact": "Pivot lamp.glb" }, { "$artifact": "evil.html" }] }),
+        json!({
+            "Pivot lamp.glb": { "sha256": model_hash, "size": model.len(), "media_type": "model/gltf-binary" },
+            "evil.html": { "sha256": page_hash, "size": page.len(), "media_type": "text/html" },
+        }),
+    );
+    let (_, created) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
+    let id = created["id"].as_str().unwrap().to_string();
+
+    // the review says what it carries, the listing does not, as with the payload
+    assert_eq!(
+        created["artifacts"],
+        json!([
+            { "name": "Pivot lamp.glb", "size": model.len(), "media_type": "model/gltf-binary", "sha256": model_hash },
+            { "name": "evil.html", "size": page.len(), "media_type": "text/html", "sha256": page_hash },
+        ])
+    );
+    let (_, shown) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
+    assert_eq!(shown["artifacts"], created["artifacts"]);
+    let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
+    assert!(listing["reviews"][0].get("artifacts").is_none());
+    let (_, plain) = call(&app, "POST", "/api/v1/reviews", Some(submission())).await;
+    assert_eq!(plain["artifacts"], json!([]));
+
+    let get = |name: &str| {
+        let uri = format!(
+            "/api/v1/reviews/{id}/artifacts/{}",
+            name.replace(' ', "%20")
+        );
+        let request = Request::get(uri)
+            .header("host", "127.0.0.1:4747")
+            .body(Body::empty())
+            .unwrap();
+        app.router.clone().oneshot(request)
+    };
+    let response = get("Pivot lamp.glb").await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let headers = response.headers().clone();
+    assert_eq!(headers["content-type"], "application/octet-stream");
+    assert_eq!(headers["content-length"], model.len().to_string());
+    assert_eq!(
+        headers["content-disposition"],
+        "attachment; filename*=UTF-8''Pivot%20lamp.glb"
+    );
+    assert_eq!(headers["x-content-type-options"], "nosniff");
+    assert_eq!(
+        headers["content-security-policy"],
+        "sandbox; default-src 'none'"
+    );
+    assert_eq!(
+        response.into_body().collect().await.unwrap().to_bytes(),
+        model
+    );
+
+    // an uploaded page is a download like any other, never a page in this origin
+    let response = get("evil.html").await.unwrap();
+    assert_eq!(
+        response.headers()["content-type"],
+        "application/octet-stream"
+    );
+    assert_eq!(
+        response.headers()["content-security-policy"],
+        "sandbox; default-src 'none'"
+    );
+    assert!(
+        response.headers()["content-disposition"]
+            .to_str()
+            .unwrap()
+            .starts_with("attachment;")
+    );
+
+    // only names this review carries: not another review's, not a path
+    for name in ["nope.glb", "..%2F..%2Fpinrail.db", &model_hash] {
+        let response = get(name).await.unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{name}");
+    }
+    let other = plain["id"].as_str().unwrap();
+    let request = Request::get(format!("/api/v1/reviews/{other}/artifacts/evil.html"))
+        .header("host", "127.0.0.1:4747")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    let body: Value =
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(
+        body["message"],
+        format!("review {other} carries no artifact \"evil.html\"")
+    );
+}
+
+#[tokio::test]
 async fn text_is_never_taken_for_a_reference() {
     let app = app();
     // a list of release checks: CI calls its build outputs artifacts
