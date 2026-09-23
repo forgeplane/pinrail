@@ -8,8 +8,8 @@ import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 const dir = path.resolve(__dirname, "..");
 const round = () => fixture(path.join(dir, "fixtures", "halden.json"));
 test.use({ launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] } });
-// The view shows once every model is read and its still drawn; in software on
-// a CI runner that takes longer than the default five seconds.
+// Every model is read and its still drawn in software; on a CI runner the
+// last of them can take longer than the default five seconds.
 const expect = base.configure({ timeout: 20_000 });
 
 test("shows every model in the rail, and the chosen one on the stage with its views and size", async ({ page }) => {

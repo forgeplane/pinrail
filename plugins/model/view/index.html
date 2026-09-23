@@ -64,7 +64,7 @@
   .hint { position: absolute; right: 14px; bottom: 12px; font-size: 11.5px; color: var(--stage-ink); opacity: .6; pointer-events: none; }
   .tip { position: absolute; transform: translate(12px, 12px); padding: 3px 8px; border-radius: 6px; background: var(--text); color: var(--bg); font: 500 11.5px var(--sans); pointer-events: none; white-space: nowrap; }
   .tip .m { opacity: .6; font-family: var(--mono); font-size: 10.5px; margin-left: 6px; }
-  .broken { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--dim); font-size: 13px; }
+  .broken, .reading { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--dim); font-size: 13px; }
 
   .pins { position: absolute; inset: 0; pointer-events: none; }
   .pin { position: absolute; display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--accent); color: var(--bg); font: 700 11px var(--mono); box-shadow: 0 0 0 2px var(--bg), 0 2px 8px rgba(0,0,0,.3); pointer-events: auto; cursor: pointer; transition: opacity .15s; }
@@ -395,10 +395,12 @@ function loop() {
   placePins();
 }
 
-/* A still for the rail, from the ¾ view in studio light. */
+/* A still for the rail, from the ¾ view in studio light. It borrows the
+   stage, so whatever was on it goes back as it was. */
 function still(i) {
   const e = models[i];
   const keep = { light: S.light, wire: S.wire };
+  const was = current, turned = holder.rotation.y;
   S.light = "studio"; S.wire = false;
   stageFor(e);
   const v = viewsFor(i)[0];
@@ -413,6 +415,9 @@ function still(i) {
   e.still = renderer.domElement.toDataURL("image/png");
   renderer.setSize(w / renderer.getPixelRatio(), h / renderer.getPixelRatio(), false);
   Object.assign(S, keep);
+  stageFor(was);
+  holder.rotation.y = turned;
+  dirty = true;
 }
 
 const verdictOf = (id) => S.verdicts[id] || null;
@@ -463,17 +468,19 @@ function renderTop() {
     </div>`;
 }
 
-function renderRail() {
-  return `<nav class="rail" aria-label="Models" style="--stage-bg:${LIGHTS.studio.bg}">
-      <p class="rail-label">${P.models.length} models</p>
-      ${P.models.map((m, i) => {
-        const e = models[i];
-        return `<button type="button" class="pick" data-pick="${i}" aria-current="${i === S.sel}">
+function renderPick(m, i) {
+  const e = models[i];
+  return `<button type="button" class="pick" data-pick="${i}" aria-current="${i === S.sel}">
           <span class="still">${e?.still ? `<img src="${e.still}" alt="">` : `<span class="wait">${e?.error ? "can't read it" : "…"}</span>`}</span>
           <span class="pick-name">${esc(m.name)}</span>${chip(shown(verdictOf(m.id)))}
           ${e?.stats ? `<span class="pick-meta">${fmtTris(e.stats.tris)} tris · ${e.stats.meshes} parts</span>` : ""}
         </button>`;
-      }).join("")}
+}
+
+function renderRail() {
+  return `<nav class="rail" aria-label="Models" style="--stage-bg:${LIGHTS.studio.bg}">
+      <p class="rail-label">${P.models.length} models</p>
+      ${P.models.map(renderPick).join("")}
     </nav>`;
 }
 
@@ -515,6 +522,7 @@ function renderSheet() {
       <section class="viewer ${plugin.readonly ? "" : "pickable"}" id="viewer" aria-label="${esc(m.name)}, in 3D" style="--stage-bg:${L.bg};--stage-ink:${L.ink}">
         <div id="canvas-slot" style="position:absolute;inset:0"></div>
         ${e?.error ? `<div class="broken">This model could not be read: ${esc(String(e.error.message || e.error))}</div>` : ""}
+        ${e ? "" : `<div class="reading">Reading the model…</div>`}
         <div class="pins"></div>
         ${e?.root ? `
         <div class="bar views" role="group" aria-label="Views">
@@ -555,7 +563,15 @@ function renderSheet() {
     </div></main>`;
 }
 
-let staged = -1;
+let staged = -1, rounds = 0;
+
+/* One model in the rail, redrawn on its own when it has been read. */
+function pickFor(m, i) {
+  const t = document.createElement("template");
+  t.innerHTML = renderPick(m, i).trim();
+  return t.content.firstChild;
+}
+
 function render() {
   const sheet = document.getElementById("sheet");
   const scroll = sheet ? sheet.scrollTop : 0;
@@ -693,21 +709,29 @@ const plugin = Pinrail.connect({
     if (decided) for (const d of decided.decisions || []) S.verdicts[d.id] = { action: d.action, note: d.note || "", comments: d.comments || [] };
     else if (draft && typeof draft === "object") S.verdicts = draft;
     models.length = 0;
-    document.getElementById("app").innerHTML = `${renderTop()}<div class="work"><nav class="rail"></nav><main class="sheet"><div class="sheet-inner"><p class="empty">Reading ${P.models.length} models…</p></div></main></div>`;
-    for (const m of P.models) {
+    if (!controls) {
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.12;
+      controls.addEventListener("change", () => { dirty = true; });
+    }
+    render();
+    // the view is up at once; each model fills in as it is read
+    const round = ++rounds;
+    for (const [i, m] of P.models.entries()) {
+      let entry;
       try {
         const root = await load(m);
-        models.push({ root, ...framed(root), stats: statsOf(root) });
+        entry = { root, ...framed(root), stats: statsOf(root) };
       } catch (error) {
-        models.push({ error });
+        entry = { error };
       }
+      if (round !== rounds) return;
+      models[i] = entry;
+      if (entry.root) still(i);
+      if (i === S.sel) { staged = -1; S.keepScroll = true; render(); }
+      else document.querySelector(`[data-pick="${i}"]`)?.replaceWith(pickFor(m, i));
     }
-    models.forEach((e, i) => { if (e.root) still(i); });
-    controls = controls || new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.12;
-    controls.addEventListener("change", () => { dirty = true; });
-    render();
   },
   onSubmitted() { render(); },
   onViolations(errors) { plugin.status({ label: `Check: ${errors[0]?.message ?? "the decision"}` }); },
