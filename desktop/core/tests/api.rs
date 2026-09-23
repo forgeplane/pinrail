@@ -1352,7 +1352,7 @@ async fn files_plugin(app: &App, root: &Path, artifacts: Value) -> Value {
         dir.join("manifest.json"),
         json!({
             "name": "files", "version": "1.0.0",
-            "payload_schema": { "type": "object", "properties": { "files": { "type": "array", "items": { "type": "string" } } } },
+            "payload_schema": { "type": "object", "properties": { "files": { "type": "array" } } },
             "decision_schema": {},
             "artifacts": artifacts,
         })
@@ -1393,7 +1393,7 @@ async fn a_review_carries_the_files_its_payload_names() {
     let pivot = upload(&app, b"pivot glb").await;
     let photo = upload(&app, b"a photo").await;
     let body = with_files(
-        json!({ "files": ["artifact:pivot.glb", "artifact:desk.jpg"] }),
+        json!({ "files": [{ "$artifact": "pivot.glb" }, { "$artifact": "desk.jpg" }] }),
         json!({
             "pivot.glb": { "sha256": pivot, "size": 9, "media_type": "model/gltf-binary" },
             "desk.jpg": { "sha256": photo, "size": 7, "media_type": "image/jpeg" },
@@ -1460,7 +1460,7 @@ async fn a_dry_run_checks_the_files_before_they_are_uploaded() {
     files_plugin(&app, scratch.path(), json!({ "accept": [".glb"] })).await;
     let hash = sha256(b"not sent yet");
     let body = with_files(
-        json!({ "files": ["artifact:a.glb"] }),
+        json!({ "files": [{ "$artifact": "a.glb" }] }),
         json!({ "a.glb": { "sha256": hash, "size": 12 } }),
     );
     let (status, valid) = call(&app, "POST", "/api/v1/reviews/validate", Some(body.clone())).await;
@@ -1505,7 +1505,7 @@ async fn files_a_plugin_does_not_take_or_a_payload_does_not_have_are_refused() {
     );
 
     let body = with_files(
-        json!({ "files": ["artifact:a.glb", "artifact:missing.glb"] }),
+        json!({ "files": [{ "$artifact": "a.glb" }, { "$artifact": "missing.glb" }, { "$artifact": 7 }, "artifact:a.glb is text"] }),
         json!({
             "a.glb": { "sha256": glb, "size": 4 },
             "notes.pdf": { "sha256": glb, "size": 3, "media_type": "application/pdf" },
@@ -1532,6 +1532,10 @@ async fn files_a_plugin_does_not_take_or_a_payload_does_not_have_are_refused() {
             "/payload/files/1",
             "no artifact \"missing.glb\" on this review",
         ),
+        (
+            "/payload/files/2/$artifact",
+            "must be the name of an artifact on this review",
+        ),
     ];
     for (path, message) in expect {
         assert!(
@@ -1540,6 +1544,18 @@ async fn files_a_plugin_does_not_take_or_a_payload_does_not_have_are_refused() {
         );
     }
     assert_eq!(found.len(), expect.len(), "{found:?}");
+}
+
+#[tokio::test]
+async fn text_is_never_taken_for_a_reference() {
+    let app = app();
+    // a list of release checks: CI calls its build outputs artifacts
+    let mut body = submission();
+    body["payload"] = json!({ "groups": [{ "title": "Release 2.4", "items": [
+        { "id": 1, "title": "artifact:linux-x64 was not uploaded by the release job" },
+    ] }] });
+    let (status, created) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
 }
 
 #[tokio::test]

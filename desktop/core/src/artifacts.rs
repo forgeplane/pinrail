@@ -22,8 +22,9 @@ use crate::error::{Error, Violation};
 pub const MAX_COUNT: usize = 32;
 /// The most one review's files may add up to: 512 MiB.
 pub const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
-/// How a payload names a file the review carries: `artifact:pivot.glb`.
-pub const REFERENCE: &str = "artifact:";
+/// How a payload names a file the review carries: an object with this one
+/// key, `{ "$artifact": "pivot.glb" }`, which no text can be mistaken for.
+pub const REFERENCE: &str = "$artifact";
 
 /// A file a review carries: the name its payload knows it by, and the blob.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,21 +137,21 @@ pub fn is_name(name: &str) -> bool {
             .any(|c| c == '/' || c == '\\' || c.is_control())
 }
 
-/// Every string in the payload that names an artifact, with where it is.
-pub fn references(payload: &Value) -> Vec<(String, String)> {
-    fn walk(value: &Value, at: &str, found: &mut Vec<(String, String)>) {
+/// Every `{ "$artifact": ... }` in the payload, with where it is and what
+/// it holds (a name, if it is a string).
+pub fn references(payload: &Value) -> Vec<(String, Value)> {
+    fn walk(value: &Value, at: &str, found: &mut Vec<(String, Value)>) {
         match value {
-            Value::String(s) => {
-                if let Some(name) = s.strip_prefix(REFERENCE) {
-                    found.push((at.to_string(), name.to_string()));
-                }
-            }
             Value::Array(items) => {
                 for (i, item) in items.iter().enumerate() {
                     walk(item, &format!("{at}/{i}"), found);
                 }
             }
             Value::Object(map) => {
+                if let Some(name) = map.get(REFERENCE) {
+                    found.push((at.to_string(), name.clone()));
+                    return;
+                }
                 for (key, item) in map {
                     walk(
                         item,
@@ -374,12 +375,21 @@ impl Artifacts {
                 format!("a review's artifacts may add up to {MAX_TOTAL_BYTES} bytes, not {total}"),
             ));
         }
-        for (at, name) in references(payload) {
-            if !map.contains_key(&name) {
-                violations.push(Violation::new(
-                    at,
-                    format!("no artifact \"{name}\" on this review"),
-                ));
+        // only a plugin that takes files has references to check: to any
+        // other, `$artifact` is just data
+        if rules.is_some() {
+            for (at, name) in references(payload) {
+                match name.as_str() {
+                    Some(name) if map.contains_key(name) => {}
+                    Some(name) => violations.push(Violation::new(
+                        at,
+                        format!("no artifact \"{name}\" on this review"),
+                    )),
+                    None => violations.push(Violation::new(
+                        format!("{at}/$artifact"),
+                        "must be the name of an artifact on this review",
+                    )),
+                }
             }
         }
         if violations.is_empty() {
@@ -666,20 +676,25 @@ mod tests {
     #[test]
     fn references_are_found_wherever_the_payload_has_them() {
         let payload = serde_json::json!({
-            "models": [{ "file": "artifact:pivot.glb" }, { "glb": "Z2xURg==" }],
-            "a/b": { "x~y": "artifact:desk.jpg" },
-            "note": "see artifact: not at the start",
+            "models": [{ "file": { "$artifact": "pivot.glb" } }, { "object": { "uuid": "x" } }],
+            "a/b": { "x~y": { "$artifact": "desk.jpg" } },
+            "note": "artifact:linux-x64 is text, not a reference",
+            "odd": { "$artifact": 7 },
         });
         let mut found = references(&payload);
-        found.sort();
+        found.sort_by(|a, b| a.0.cmp(&b.0));
         assert_eq!(
             found,
             [
-                ("/payload/a~1b/x~0y".to_string(), "desk.jpg".to_string()),
+                (
+                    "/payload/a~1b/x~0y".to_string(),
+                    serde_json::json!("desk.jpg")
+                ),
                 (
                     "/payload/models/0/file".to_string(),
-                    "pivot.glb".to_string()
+                    serde_json::json!("pivot.glb")
                 ),
+                ("/payload/odd".to_string(), serde_json::json!(7)),
             ]
         );
     }
