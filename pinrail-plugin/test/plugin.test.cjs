@@ -419,3 +419,11 @@ test("artifactName reads a reference, and ARTIFACT_SCHEMA describes one", () => 
   assert.deepEqual(Pinrail.ARTIFACT_SCHEMA.required, ["$artifact"]);
   assert.equal(Object.isFrozen(Pinrail.ARTIFACT_SCHEMA), true);
 });
+
+test("the script a view loads names no source map, which nothing serves", () => {
+  const path = require("node:path");
+  const { sdkScript } = require("../lib/paths.cjs");
+  const script = sdkScript(path.resolve(__dirname, ".."));
+  assert.ok(script.includes("markdownit"), "the parser is in it");
+  assert.ok(!/sourceMappingURL/.test(script), "no source map comment");
+});

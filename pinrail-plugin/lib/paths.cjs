@@ -41,7 +41,10 @@ function iconsDir(root) {
  */
 function sdkScript(from, src = path.join(from, "src")) {
   const parser = createRequire(path.join(from, "package.json")).resolve("markdown-it/browser");
-  return `${fs.readFileSync(parser, "utf8")}\n${fs.readFileSync(path.join(src, "pinrail-plugin.js"), "utf8")}`;
+  // the parser's build names a source map that nothing serves; a browser's
+  // devtools would ask for it, and log the 404, on every view
+  const markdown = fs.readFileSync(parser, "utf8").replace(/\n?\/\/# sourceMappingURL=\S+\s*$/, "\n");
+  return `${markdown}\n${fs.readFileSync(path.join(src, "pinrail-plugin.js"), "utf8")}`;
 }
 
 module.exports = { packageRoot, iconsDir, sdkScript };
