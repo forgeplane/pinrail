@@ -92,8 +92,12 @@ enum Command {
     /// payload from --data. Or give the whole request as one JSON file with
     /// --request, the body the API takes:
     ///
-    ///     {"plugin": "list", "title": "Sentry triage",
-    ///      "origin": {"repo": "acme"}, "payload": {"groups": []}}
+    ///     {
+    ///       "plugin": "list",
+    ///       "title": "Sentry triage",
+    ///       "origin": {"repo": "acme"},
+    ///       "payload": {"groups": []}
+    ///     }
     ///
     /// Its keys are plugin, title, payload, origin, summary, revises,
     /// expires_at and requested_by. Flags given as well override the file's

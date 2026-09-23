@@ -281,14 +281,24 @@ fn value_name(arg: &Arg) -> String {
 /// Help text as one sentence: joined lines, a capital, a full stop, and
 /// the flags it mentions set as code, as the rest of the page sets them.
 /// A command's help as markdown: each paragraph a sentence, and a
-/// paragraph indented four spaces, as `--help` shows an example, a code block.
+/// paragraph indented four spaces, as `--help` shows an example, a code block,
+/// highlighted as JSON when it is JSON.
 fn description(text: &str) -> String {
     text.split("\n\n")
         .filter(|p| !p.trim().is_empty())
         .map(|paragraph| {
             if paragraph.lines().all(|line| line.starts_with("    ")) {
-                let code: Vec<&str> = paragraph.lines().map(|line| &line[4..]).collect();
-                format!("```\n{}\n```", code.join("\n"))
+                let code = paragraph
+                    .lines()
+                    .map(|line| &line[4..])
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let language = if serde_json::from_str::<serde_json::Value>(&code).is_ok() {
+                    "json"
+                } else {
+                    ""
+                };
+                format!("```{language}\n{code}\n```")
             } else {
                 sentence(paragraph)
             }
@@ -359,7 +369,7 @@ mod tests {
         assert!(page.contains("`WICKET_REQUESTED_BY`"));
         assert!(page.starts_with("---\ntitle: CLI reference\n"));
         assert!(
-            page.contains("the body the API takes:\n\n```\n{\"plugin\": \"list\""),
+            page.contains("the body the API takes:\n\n```json\n{\n  \"plugin\": \"list\","),
             "the example under submit is a code block"
         );
     }
