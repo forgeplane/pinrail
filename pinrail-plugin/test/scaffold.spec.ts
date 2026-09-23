@@ -10,7 +10,7 @@ import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 const sdk = path.resolve(import.meta.dirname, "..");
 const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
 
-function scaffold(name: string, template: "plain" | "vite"): string {
+function scaffold(name: string, template: "plain" | "vite" | "react"): string {
   const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-scaffold-")), name);
   execFileSync(process.execPath, [bin, "create", name, "--template", template, "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
   return dir;
@@ -36,5 +36,21 @@ test("the vite scaffold type-checks against the package, builds, and does the sa
   execFileSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: dir, stdio: "pipe" });
   execFileSync("npm", ["run", "build"], { cwd: dir, stdio: "pipe" });
   expect(fs.existsSync(path.join(dir, "view", "index.html"))).toBe(true);
+  await decides(page, dir);
+});
+
+/** A framework's scaffold: installed, type-checked and built, and passing
+ *  the tests it comes with (read-only, violations, an answer missing),
+ *  which are the same tests for every template. */
+function passesItsOwnTests(dir: string) {
+  execFileSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: dir, stdio: "pipe" });
+  execFileSync("npm", ["test"], { cwd: dir, stdio: "pipe" });
+  expect(fs.existsSync(path.join(dir, "view", "index.html"))).toBe(true);
+}
+
+test("the react scaffold type-checks, builds and passes its own tests", async ({ page }) => {
+  test.setTimeout(180_000);
+  const dir = scaffold("fancy_react", "react");
+  passesItsOwnTests(dir);
   await decides(page, dir);
 });

@@ -1,0 +1,25 @@
+{
+  "name": "pinrail-plugin-__NAME__",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "watch": "vite build --watch",
+    "dev": "pinrail-plugin dev",
+    "check": "pinrail-plugin check",
+    "test": "npm run build && pinrail-plugin test"
+  },
+  "dependencies": {
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56",
+    "typescript": "^5",
+    "vite": "^7",
+    "@forgeplane/pinrail-plugin": "__SDK_DEP__",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^5"
+  }
+}

@@ -10,7 +10,7 @@ const root = packageRoot(fileURLToPath(import.meta.url));
 const templates = path.join(root, "templates");
 const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-export const TEMPLATES = ["plain", "vite"];
+export const TEMPLATES = ["plain", "vite", "react"];
 const NAME = /^[a-z][a-z0-9_-]*$/;
 
 /**
@@ -47,7 +47,7 @@ export function targetOf(rel, name) {
 }
 
 /**
- * Writes the plugin. `opts`: `template` ("plain" or "vite"), `dir` (default
+ * Writes the plugin. `opts`: `template` (one of TEMPLATES, "plain" by default), `dir` (default
  * `./<name>`), `sdk` (the package spec for package.json). Returns the folder
  * and the files written, relative to it.
  */
@@ -74,7 +74,7 @@ export function scaffold(name, opts = {}) {
   return { dir, written };
 }
 
-/** The command line: `create <name> [--template plain|vite] [--dir path] [--sdk spec]`. */
+/** The command line: `create <name> [--template plain|vite|react] [--dir path] [--sdk spec]`. */
 export function create(argv) {
   const args = [...argv];
   const flag = (key) => {
@@ -89,7 +89,7 @@ export function create(argv) {
   const sdk = flag("--sdk");
   const name = args.find((a) => !a.startsWith("--"));
   if (!name) {
-    console.error("usage: pinrail-plugin create <name> [--template plain|vite] [--dir path] [--sdk spec]");
+    console.error("usage: pinrail-plugin create <name> [--template plain|vite|react] [--dir path] [--sdk spec]");
     process.exit(2);
   }
 
@@ -107,7 +107,7 @@ export function create(argv) {
   console.log(`
 next:
   cd ${shown} && npm install && npx playwright install chromium
-  npx pinrail-plugin dev                 the view in a browser, on fixtures/basic.json${template === "vite" ? "\n  npm run watch                         rebuilds view/ as you edit src/" : ""}
+  npx pinrail-plugin dev                 the view in a browser, on fixtures/basic.json${template && template !== "plain" ? "\n  npm run watch                         rebuilds view/ as you edit src/" : ""}
   npm test                              tests/ under the harness
   npx pinrail-plugin check               what the app would say of the folder
   pinrail plugins install . --link       the app serves the folder live`);
