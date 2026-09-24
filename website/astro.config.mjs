@@ -66,7 +66,7 @@ export default defineConfig({
       },
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/forgeplane/pinrail" }],
       sidebar: [
-        { label: "Getting started", items: ["docs/getting-started/install", "docs/getting-started/first-review"] },
+        { label: "Getting started", items: [{ label: "Introduction", slug: "docs" }, "docs/getting-started/install", "docs/getting-started/first-review"] },
         { label: "Concepts", items: ["docs/concepts/reviews", "docs/concepts/plugins", "docs/concepts/trust"] },
         { label: "Using Pinrail", items: ["docs/using/inbox", "docs/using/installing-plugins", "docs/using/settings", "docs/using/notifications"] },
         { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },
