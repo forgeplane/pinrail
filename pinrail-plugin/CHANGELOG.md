@@ -6,6 +6,11 @@ change to the protocol is a new major and a new path.
 
 ## Unreleased
 
+- The test harness knows audio files by their extension: `.ogg`, `.oga`
+  and `.opus` as `audio/ogg`, `.m4a` as `audio/mp4`, `.aac` and `.flac`,
+  beside `.mp3` and `.wav`. A fixture no longer needs a `media_type` for
+  them.
+
 - `pinrail-plugin dev` loads the fixture you choose. Choosing another
   pointed the frame at the address it already showed, which a browser does
   not load again, so the view kept the first fixture. A decided fixture is

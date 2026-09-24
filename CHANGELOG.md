@@ -23,6 +23,7 @@ its own, and its major is the plugin protocol's.
 #### CLI
 
 - `pinrail submit --request` takes a plugin's fixture as it is: an entry under `artifacts` can be `{"path": …, "media_type": …}` as well as a plain path, and a `media_type` given there is sent instead of the one the extension suggests.
+- `pinrail submit --artifact` knows `.m4a`, `.aac`, `.flac`, `.opus` and `.oga` audio by their extension, beside `.mp3`, `.wav` and `.ogg`.
 
 ## [0.1.0] - 2026-09-21
 

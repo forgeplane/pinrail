@@ -16,7 +16,8 @@ const TYPES = {
   ".glb": "model/gltf-binary", ".gltf": "model/gltf+json", ".png": "image/png", ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml",
   ".pdf": "application/pdf", ".mp4": "video/mp4", ".webm": "video/webm", ".mp3": "audio/mpeg",
-  ".wav": "audio/wav", ".json": "application/json", ".csv": "text/csv", ".txt": "text/plain",
+  ".wav": "audio/wav", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".opus": "audio/ogg", ".m4a": "audio/mp4",
+  ".aac": "audio/aac", ".flac": "audio/flac", ".json": "application/json", ".csv": "text/csv", ".txt": "text/plain",
 };
 
 /** `{ name: {path, media_type?} | path }` → `{ list: [...], files: { name: { path, media_type } } }` */

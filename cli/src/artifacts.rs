@@ -235,7 +235,10 @@ pub fn media_type(name: &str) -> &'static str {
         "mov" => "video/quicktime",
         "mp3" => "audio/mpeg",
         "wav" => "audio/wav",
-        "ogg" => "audio/ogg",
+        "ogg" | "oga" | "opus" => "audio/ogg",
+        "m4a" => "audio/mp4",
+        "aac" => "audio/aac",
+        "flac" => "audio/flac",
         "json" => "application/json",
         "csv" => "text/csv",
         "txt" | "md" => "text/plain",
@@ -327,6 +330,8 @@ mod tests {
     fn kinds_by_extension() {
         assert_eq!(media_type("Pivot.GLB"), "model/gltf-binary");
         assert_eq!(media_type("desk.jpeg"), "image/jpeg");
+        assert_eq!(media_type("take.m4a"), "audio/mp4");
+        assert_eq!(media_type("take.opus"), "audio/ogg");
         assert_eq!(media_type("README"), "application/octet-stream");
     }
 }
