@@ -1,0 +1,147 @@
+---
+// How it works, played out: an agent's session asks through Pinrail, the
+// review comes up in the app and is decided, and the session carries on
+// with the decision. It plays once when scrolled to; a step jumps to it.
+import { Image } from "astro:assets";
+import app from "../../assets/screenshots/review-view-light.png";
+
+const steps = [
+  { title: "The agent submits", text: "At a step its instructions say needs you, it runs the CLI and waits." },
+  { title: "You decide", text: "The review opens in a view made for it. Accept, reject, edit, hand over." },
+  { title: "It carries on", text: "The command returns your decision, and the agent acts on it." },
+];
+// when each step starts, in ms, and the timeline of what appears
+const phases = [0, 5600, 9800];
+---
+<div class="hw" data-hw data-phases={phases.join(",")}>
+  <ol class="hw-steps">
+    {steps.map((s, i) => (
+      <li>
+        <button type="button" data-hw-step={i} aria-current={i === 0 ? "step" : undefined}>
+          <span class="step">{i + 1}</span>
+          <span><b>{s.title}</b><small>{s.text}</small></span>
+        </button>
+      </li>
+    ))}
+  </ol>
+
+  <div class="hw-stage">
+    <div class="terminal hw-term" aria-label="A Claude Code session: it submits a review through Pinrail, waits, and carries on with the decision">
+      <div class="term-bar"><span></span><span></span><span></span><b>~/northwind/api — claude</b></div>
+      <div class="hw-lines">
+        <pre class="hw-banner" aria-hidden="true"><span class="hw-coral"> ▐▛███▜▌</span>   <b>Claude Code</b> <span class="t-dim">v2.1</span>
+<span class="hw-coral">▝▜█████▛▘</span>  <span class="t-dim">Opus · Claude Max</span>
+<span class="hw-coral">  ▘▘ ▝▝</span>    <span class="t-dim">~/northwind/api</span></pre>
+        <div class="hw-line hw-user" data-at="1900">&gt; review PR #482 and post your comments, but ask me first</div>
+        <div class="hw-line" data-at="2600"><span class="hw-bullet">⏺</span> I read the diff: 3 files, 5 findings worth a comment. I'll ask you before any of them is posted.</div>
+        <div class="hw-line" data-at="3600"><span class="hw-bullet hw-tool" data-ok="9900">⏺</span> <b>Bash</b>(pinrail submit review --title "Retry failed webhook deliveries" --data findings.json --wait)</div>
+        <div class="hw-line hw-out t-dim" data-at="4200" data-until="9900">  ⎿  Waiting for a decision…</div>
+        <div class="hw-line hw-out" data-at="9900">  ⎿  <span class="hw-md"># Retry failed webhook deliveries</span></div>
+        <div class="hw-line hw-out" data-at="10150">     Decided · 2 accepted · 1 rejected · 2 undecided</div>
+        <div class="hw-line hw-out t-ok" data-at="10400">     - #1 retry with backoff: accepted, “re-enqueue with runAt”</div>
+        <div class="hw-line hw-out t-ok" data-at="10650">     - #3 add jitter: accepted</div>
+        <div class="hw-line hw-out t-no" data-at="10900">     - #4 give-up log: rejected, “the log already has the delivery id”</div>
+        <div class="hw-line" data-at="11700"><span class="hw-bullet">⏺</span> Posting #1 and #3 as you worded them. #4 stays out; #2 and #5 wait for you.</div>
+        <div class="hw-line" data-at="12400"><span class="hw-bullet hw-tool" data-ok="12900">⏺</span> <b>Bash</b>(gh pr review 482 --comment --body-file comments.md)</div>
+        <div class="hw-line hw-out t-dim" data-at="12900">  ⎿  2 review comments posted</div>
+        <div class="hw-line hw-status" data-at="4200" data-until="9900"><span class="hw-star">✻</span> Waiting for your decision… <span class="t-dim">(esc to interrupt)</span></div>
+      </div>
+      <div class="hw-input" aria-hidden="true"><span class="t-dim">&gt;</span> <span class="hw-line hw-inline" data-at="200" data-type="24" data-until="1900"><span data-text="review PR #482 and post your comments, but ask me first"></span></span><span class="hw-cursor"></span></div>
+      <p class="hw-hint" aria-hidden="true">? for shortcuts</p>
+    </div>
+
+    <div class="hw-toast" data-hw-toast aria-hidden="true">
+      <b>Pinrail</b>
+      <span>claude asks: Retry failed webhook deliveries</span>
+    </div>
+
+    <div class="window hw-app" data-hw-app aria-hidden="true">
+      <div class="window-bar"><span></span><span></span><span></span><b>Pinrail</b></div>
+      <Image src={app} alt="" widths={[720, 1440]} sizes="(max-width: 800px) 90vw, 640px" />
+      <div class="hw-bar">
+        <span><b data-hw-count>0</b> of 5 decided</span>
+        <span class="hw-go" data-hw-go>Review and hand over <kbd>⌘↵</kbd></span>
+      </div>
+    </div>
+
+    <button type="button" class="hw-replay" data-hw-replay hidden>↻ Play it again</button>
+  </div>
+</div>
+
+<script>
+  // One timeline of timed steps; seeking applies everything before the
+  // moment at once and plays the rest, so a step can be jumped to.
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for (const root of document.querySelectorAll<HTMLElement>("[data-hw]")) {
+    const phases = root.dataset.phases!.split(",").map(Number);
+    const lines = [...root.querySelectorAll<HTMLElement>(".hw-line")];
+    const stepButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-hw-step]")];
+    const appWindow = root.querySelector<HTMLElement>("[data-hw-app]")!;
+    const toast = root.querySelector<HTMLElement>("[data-hw-toast]")!;
+    const count = root.querySelector<HTMLElement>("[data-hw-count]")!;
+    const go = root.querySelector<HTMLElement>("[data-hw-go]")!;
+    const replay = root.querySelector<HTMLButtonElement>("[data-hw-replay]")!;
+    const dots = [...root.querySelectorAll<HTMLElement>("[data-ok]")];
+    let timers: number[] = [];
+
+    type Event = { at: number; run: (instant: boolean) => void };
+    const events: Event[] = [];
+    const phase = (i: number) => stepButtons.forEach((b, k) => (k === i ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current")));
+    phases.forEach((at, i) => events.push({ at, run: () => phase(i) }));
+    for (const line of lines) {
+      const at = Number(line.dataset.at);
+      const typed = line.querySelector<HTMLElement>("[data-text]");
+      events.push({
+        at,
+        run: (instant) => {
+          line.classList.add("on");
+          if (!typed) return;
+          const text = typed.dataset.text!;
+          if (instant) { typed.textContent = text; return; }
+          const every = Number(line.dataset.type);
+          for (let n = 1; n <= text.length; n++) timers.push(window.setTimeout(() => { typed.textContent = text.slice(0, n); }, n * every));
+        },
+      });
+      if (line.dataset.until) events.push({ at: Number(line.dataset.until), run: () => line.classList.add("gone") });
+    }
+    for (const dot of dots) events.push({ at: Number(dot.dataset.ok), run: () => dot.classList.add("ok") });
+    events.push({ at: 5600, run: () => { appWindow.classList.add("in"); toast.classList.add("in"); } });
+    events.push({ at: 7600, run: () => toast.classList.remove("in") });
+    [6600, 7300, 8000].forEach((at, i) => events.push({ at, run: () => { count.textContent = String(i + 1); } }));
+    events.push({ at: 8800, run: () => { go.classList.add("pressed"); go.innerHTML = "Handed over ✓"; } });
+    events.push({ at: 9800, run: () => appWindow.classList.remove("in") });
+    events.push({ at: 13400, run: () => { replay.hidden = false; } });
+    events.sort((a, b) => a.at - b.at);
+
+    const reset = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      lines.forEach((l) => { l.classList.remove("on", "gone"); const t = l.querySelector<HTMLElement>("[data-text]"); if (t) t.textContent = ""; });
+      dots.forEach((d) => d.classList.remove("ok"));
+      appWindow.classList.remove("in");
+      toast.classList.remove("in");
+      count.textContent = "0";
+      go.classList.remove("pressed");
+      go.innerHTML = "Review and hand over <kbd>⌘↵</kbd>";
+      replay.hidden = true;
+    };
+    const seek = (from: number) => {
+      reset();
+      for (const e of events) {
+        if (e.at < from) e.run(true);
+        else timers.push(window.setTimeout(() => e.run(false), e.at - from));
+      }
+    };
+
+    stepButtons.forEach((b, i) => b.addEventListener("click", () => seek(phases[i])));
+    replay.addEventListener("click", () => seek(0));
+
+    if (reduce) { seek(Infinity); continue; }
+    const seen = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      seen.disconnect();
+      seek(0);
+    }, { threshold: 0.4 });
+    seen.observe(root);
+  }
+</script>

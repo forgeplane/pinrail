@@ -5,6 +5,7 @@ import "../styles/index.css";
 import "../styles/index-classic.css";
 import Zoom from "../components/index/Zoom.astro";
 import HeroDemo from "../components/index/HeroDemo.astro";
+import HowItWorks from "../components/index/HowItWorks.astro";
 import { icons } from "../components/index/lucide";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
@@ -15,11 +16,6 @@ import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
 import { agents, releases, repo, samples, views } from "../components/index/content";
 
-const steps = [
-  { title: "The agent submits", text: "At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.", art: "$ pinrail submit review --data proposals.json --wait" },
-  { title: "You decide", text: "The app notifies you and shows the work in a view built for it. Accept, reject, edit and comment, then hand over.", art: "✓ accept   ✕ reject   ⌘↵ hand back" },
-  { title: "It carries on", text: "The command returns your decision: markdown for an agent, JSON for a script, and an exit code that says how it ended.", art: "exit 0 · decided" },
-];
 // What agents would say, if they wrote testimonials. Imagined, and said so
 // on the page; each is signed by the agent's workflow, not the product it runs on.
 const voices = [
@@ -109,16 +105,7 @@ const codes = [
           <h2>One command in, <em>one decision out.</em></h2>
           <p>You tell the agent when to stop for you, in whatever instructions it follows. When it gets there, it asks through Pinrail and waits.</p>
         </div>
-        <ol class="c-steps">
-          {steps.map((s, i) => (
-            <li>
-              <span class="step">{i + 1}</span>
-              <h3>{s.title}</h3>
-              <p>{s.text}</p>
-              <code class:list={["c-art", { light: i === 1 }]}>{s.art}</code>
-            </li>
-          ))}
-        </ol>
+        <HowItWorks />
       </section>
 
       <section class="c-section" id="views">

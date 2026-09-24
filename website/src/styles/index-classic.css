@@ -113,6 +113,71 @@
 .c-steps .step { margin-bottom: 16px; }
 .c-steps h3 { margin: 0 0 8px; font-size: 22px; }
 .c-steps p { flex: 1; margin: 0 0 18px; font-size: 16px; line-height: 1.55; color: var(--ink-2); }
+/* how it works, played out */
+.hw-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 0 0 28px; padding: 0; list-style: none; }
+.hw-steps button { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 16px 4px 0; border: 0; border-top: 2px solid var(--rule); background: none; text-align: left; font: inherit; color: var(--faint); cursor: pointer; transition: border-color 0.3s, color 0.3s; }
+.hw-steps button .step { flex: none; border-color: var(--rule-strong); color: var(--faint); transition: border-color 0.3s, color 0.3s, background 0.3s; }
+.hw-steps b { display: block; margin: 4px 0 4px; font: 600 19px var(--serif); letter-spacing: -0.01em; color: var(--ink-2); }
+.hw-steps small { display: block; font-size: 14.5px; line-height: 1.5; }
+.hw-steps button[aria-current] { border-top-color: var(--pen); color: var(--ink-2); }
+.hw-steps button[aria-current] b { color: var(--ink); }
+.hw-steps button[aria-current] .step { border-color: var(--pen); background: var(--pen); color: #fff; }
+.hw-steps button:focus-visible { outline: 2px solid var(--pen); outline-offset: 4px; }
+.hw-stage { position: relative; padding-top: 18px; }
+.hw-term { display: flex; flex-direction: column; width: 100%; }
+.hw-lines { flex: 1; min-height: 430px; padding: 18px 22px 10px; font: 13px/1.7 var(--mono); color: var(--night-fg); }
+.hw-line { display: none; white-space: pre-wrap; }
+.hw-line.on { display: block; animation: hw-in 0.25s ease; }
+.hw-line.gone { display: none; }
+.hw-inline.on:not(.gone) { display: inline; }
+.hw-banner { margin: 0 0 18px; font: inherit; line-height: 1.25; white-space: pre; color: var(--night-fg); }
+.hw-banner b { color: #fff; }
+.hw-coral, .hw-star { color: #d77757; }
+.hw-user { margin: 4px 0 10px; padding: 2px 8px; border-radius: 3px; background: rgba(255,255,255,0.06); color: #b5b0a6; }
+.hw-line + .hw-line:not(.hw-out) { margin-top: 8px; }
+.hw-bullet { color: #e8e3da; }
+.hw-tool { color: var(--night-dim); animation: hw-blink 1s steps(2) infinite; }
+.hw-tool.ok { color: #4eba65; animation: none; }
+.hw-line b { color: #fff; font-weight: 600; }
+.hw-md { color: #fff; font-weight: 600; }
+.hw-status { margin-top: 14px; color: #d77757; }
+.hw-star { display: inline-block; animation: hw-spin 2.4s linear infinite; }
+.hw-input { margin: 0 16px; padding: 8px 12px; border: 1px solid #5c5850; border-radius: 8px; font: 13px var(--mono); color: #fff; }
+.hw-cursor { display: inline-block; width: 7px; height: 15px; margin-left: 1px; vertical-align: -3px; background: #e8e3da; animation: hw-blink 1s steps(2) infinite; }
+.hw-hint { margin: 6px 18px 14px; font: 11.5px var(--mono); color: var(--night-dim); }
+@keyframes hw-blink { 50% { opacity: 0.25; } }
+@keyframes hw-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes hw-spin { to { transform: rotate(360deg); } }
+.hw-app { position: absolute; top: 64px; right: 3%; width: 56%; opacity: 0; pointer-events: none; transform: translate(28px, 14px) scale(0.97); transition: opacity 0.45s ease, transform 0.45s ease; }
+.hw-app.in { opacity: 1; transform: none; }
+.hw-app:hover { transform: none; }
+.hw-app img { display: block; width: 100%; height: auto; }
+.hw-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-top: 1px solid #e7e7ea; background: #fff; font: 12.5px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; color: #62626c; }
+.hw-bar b { color: #1d1d21; }
+.hw-go { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 7px; background: #5b5bd6; color: #fff; font-weight: 600; transition: background 0.2s, transform 0.12s; }
+.hw-go kbd { font: 10.5px var(--mono); opacity: 0.75; }
+.hw-go.pressed { background: #2f8a5a; transform: scale(0.96); }
+.hw-toast { position: absolute; top: 0; right: 4%; z-index: 2; display: grid; gap: 2px; min-width: 250px; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,0.92); box-shadow: 0 12px 30px -12px rgba(30,20,10,0.4); font: 12.5px -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif; color: #1d1d21; opacity: 0; transform: translateY(-8px); transition: opacity 0.35s, transform 0.35s; }
+.hw-toast b { font-size: 11px; color: #62626c; }
+.hw-toast.in { opacity: 1; transform: none; }
+.hw-replay { position: absolute; right: 0; bottom: -44px; padding: 6px 12px; border: 1px solid var(--rule-strong); border-radius: 999px; background: var(--sheet); font: 500 12px var(--mono); color: var(--ink-2); cursor: pointer; }
+.hw-replay:hover { border-color: var(--ink); color: var(--ink); }
+@media (max-width: 800px) {
+  .hw-steps { grid-template-columns: 1fr; gap: 8px; }
+  .hw-steps button { padding-top: 10px; }
+  .hw-steps small { display: none; }
+  .hw-term { width: 100%; }
+  .hw-lines { min-height: 440px; padding: 14px; font-size: 11px; }
+  .hw-banner { font-size: 10px; }
+  .hw-input { margin: 0 10px; font-size: 11px; }
+  .hw-app { top: 90px; left: 4%; right: auto; width: 92%; }
+  .hw-toast { right: 2%; min-width: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-line.on, .hw-app, .hw-toast { animation: none; transition: none; }
+  .hw-star, .hw-tool, .hw-cursor { animation: none; }
+}
+
 .c-art { display: block; padding: 10px 12px; border-radius: 8px; background: var(--night); color: var(--night-fg); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c-art.light { background: var(--paper); color: var(--ink-2); border: 1px solid var(--rule); }
 
