@@ -47,7 +47,6 @@ back out; nothing here knows what a merge request is.
   "decisions": [ { "id": 18, "action": "accept" },
                  { "id": 19, "action": "reject", "note": "out of scope" } ],
   "comments": [ { "file": "lib/acme/tickets.ex", "line": 152, "side": "new", "body": "markdown" } ],
-  "general_comments": [ { "body": "markdown" } ],
   "undecided": [ 20 ]
 }
 ```
@@ -55,7 +54,6 @@ back out; nothing here knows what a merge request is.
 - On accept, `note` is a revision instruction the agent applies before
   posting; on reject, the reason, which becomes a lesson.
 - `comments` are the reviewer's own line comments, for the agent to assess.
-  `general_comments` are posted on the change as-is.
 - `undecided` lists every proposal without a verdict; the requester must not
   post them. Submitting with undecided proposals asks for confirmation.
 
@@ -64,7 +62,7 @@ back out; nothing here knows what a merge request is.
 File tree with per-file counts, semantic or path order, inline or split
 diff, folding, per-file summaries, proposals anchored on their lines with
 accept / reject / note, reply threads, suggestion blocks, the reviewer's
-own comments from any diff line, general comments, keyboard navigation
+own comments from any diff line, keyboard navigation
 (`?` lists the keys), a submit summary that shows exactly what goes back,
 drafts across reloads, read-only rendering with verdicts overlaid, and the
 previous round's verdict on each proposal when the gate supersedes another.

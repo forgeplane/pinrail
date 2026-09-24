@@ -21,12 +21,6 @@
 - `{{ c.file }}:{{ c.line }}` — {{ c.body }}
 {%- endfor %}
 {% endif -%}
-{%- if data.general_comments %}
-## General comments
-{% for c in data.general_comments %}
-- {{ c.body }}
-{%- endfor %}
-{% endif -%}
 {%- if data.undecided %}
 Undecided: {% for id in data.undecided %}#{{ id }}{% if not loop.last %}, {% endif %}{% endfor %}
 {% endif -%}

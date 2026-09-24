@@ -33,16 +33,6 @@
         }
       }
     },
-    "general_comments": {
-      "type": "array",
-      "description": "the reviewer's own change-level comments, posted as-is",
-      "items": {
-        "type": "object",
-        "required": ["body"],
-        "additionalProperties": false,
-        "properties": { "body": { "type": "string", "minLength": 1 } }
-      }
-    },
     "undecided": {
       "type": "array",
       "items": { "type": "integer" },

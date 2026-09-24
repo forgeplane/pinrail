@@ -17,14 +17,14 @@ html, body { height: 100%; }
 button.ghost { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; color: var(--dim); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
 button.ghost:hover { color: var(--text); border-color: var(--border-strong); }
 button.bare { all: unset; cursor: pointer; }
-button.link { all: unset; cursor: pointer; color: var(--accent); font-size: 12px; padding: 2px 6px; border-radius: 5px; }
+button.link { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--accent); font-size: 12px; padding: 3px 7px; border-radius: 5px; }
 button.link:hover { background: var(--bg-hover); }
 button.primary { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: oklch(0.99 0 0); background: var(--accent); border-radius: 6px; padding: 5px 16px; white-space: nowrap; }
 button.primary:hover { filter: brightness(1.1); }
-button.accept-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: oklch(0.99 0 0); background: color-mix(in oklab, var(--ok) 82%, oklch(0.3 0.06 150)); padding: 5px 14px; border-radius: 6px; }
-button.accept-btn:hover { filter: brightness(1.12); }
-button.reject-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: var(--danger); border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); padding: 4px 13px; border-radius: 6px; }
-button.reject-btn:hover { background: color-mix(in oklab, var(--danger) 12%, transparent); }
+button.accept-btn { all: unset; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px 0 7px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; color: var(--ok); background: color-mix(in oklab, var(--ok) 13%, transparent); }
+button.accept-btn:hover { background: color-mix(in oklab, var(--ok) 22%, transparent); }
+button.reject-btn { all: unset; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px 0 7px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; color: var(--danger); background: color-mix(in oklab, var(--danger) 11%, transparent); }
+button.reject-btn:hover { background: color-mix(in oklab, var(--danger) 20%, transparent); }
 button.undo-btn { all: unset; cursor: pointer; color: var(--dim); font-size: 12px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 5px; }
 button.undo-btn:hover { border-color: var(--border-strong); color: var(--text); }
 button.save-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12px; color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); padding: 6px 12px; border-radius: 6px; }
@@ -36,30 +36,69 @@ button.tiny:hover { color: var(--text); }
 button.tiny.danger:hover { color: var(--danger); }
 button.seg { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; padding: 4px 10px; color: var(--faint); }
 button.seg.on { color: var(--text); background: var(--bg-hover); }
-button.pill { all: unset; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 11px; padding: 2px 8px; border-radius: 99px; color: var(--faint); border: 1px solid var(--border); white-space: nowrap; }
-button.pill.on { color: var(--accent); border-color: color-mix(in oklab, var(--accent) 45%, transparent); }
-.tree-row { all: unset; cursor: pointer; display: flex; align-items: center; gap: 7px; width: 100%; padding: 4px 8px; border-radius: 5px; }
+button.toggle { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--dim); white-space: nowrap; }
+button.toggle:hover { color: var(--text); border-color: var(--border-strong); }
+button.toggle.on { color: var(--accent); background: var(--accent-bg); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+/* the rail: files, and each file's findings under it with where they stand */
+.rail { width: 284px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--bg-panel); }
+.rail-head { flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-bottom: 1px solid var(--border); }
+.pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.diff-bar { flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 20px 0 24px; border-bottom: 1px solid var(--border); background: var(--bg); }
+.rail-head .eyebrow { white-space: nowrap; }
+.rail-body { flex: 1; overflow-y: auto; padding: 8px 8px 24px; }
+.grow { flex: 1; }
+.tree-row { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 8px; border-radius: 6px; }
 .tree-row:hover { background: var(--bg-hover); }
+.tree-dir { margin-top: 6px; font-size: 11.5px; color: var(--faint); }
+.tree-dir { gap: 5px; }
+.tree-dir .caret { flex: none; display: inline-flex; color: var(--faint); transition: transform 0.12s ease; }
+.tree-dir .caret.open { transform: rotate(90deg); }
+.tree-dir > .wi { flex: none; color: var(--faint); }
+.tree-dir:hover, .tree-dir:hover .caret, .tree-dir:hover > .wi { color: var(--dim); }
+.tree-dir .path { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-file { padding-left: 20px; }
+.tree-file .name { min-width: 0; font: 12px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-file.quiet .name { color: var(--faint); }
+.tree-file.on .name { color: var(--accent); font-weight: 600; }
+.tree-file .count { flex: none; padding: 0 6px; border-radius: 99px; font: 600 10.5px var(--mono); color: var(--dim); background: var(--bg-hover); }
+.tree-file .count.done { color: var(--ok); background: color-mix(in oklab, var(--ok) 14%, transparent); }
+.tree-file .churn { flex: none; font: 10.5px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tree-file .plus { color: var(--ok); } .tree-file .minus { color: var(--danger); }
+.tree-finding { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 8px 3px 30px; border-radius: 6px; font-size: 12px; color: var(--dim); }
+.tree-finding:hover { background: var(--bg-hover); color: var(--text); }
+.tree-finding.focus { background: var(--accent-bg); color: var(--text); }
+.tree-finding .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-finding .n { flex: none; font: 10.5px var(--mono); color: var(--faint); }
+.tree-finding.mine-row > .wi { flex: none; color: var(--accent); }
+.tree-finding.mine-row .t { color: var(--text); }
+.tree-finding .has-note { flex: none; display: inline-flex; color: var(--accent); }
+.tree-finding .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--sev-nit); }
+.tree-finding .dot.is-blocker { border-color: var(--sev-blocker); } .tree-finding .dot.is-major { border-color: var(--sev-major); } .tree-finding .dot.is-minor { border-color: var(--sev-minor); }
+.tree-finding.accepted .dot { border-color: var(--ok); background: var(--ok); }
+.tree-finding.rejected .dot { border-color: var(--danger); background: var(--danger); }
+.tree-finding.accepted .t, .tree-finding.rejected .t { color: var(--faint); }
+.tree-finding.rejected .t { text-decoration: line-through; }
 textarea.ta { flex: 1; resize: vertical; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; outline: none; min-height: 20px; color: var(--text); }
 textarea.ta:focus { border-color: var(--accent); }
 /* diff rows: one class each, so three thousand rows cost bytes, not kilobytes */
 .diff-row { display: grid; }
 .diff-row.inline { grid-template-columns: 44px 44px 18px 1fr; }
 .diff-row.split { grid-template-columns: 40px 1fr 40px 1fr; }
-.diff-row.inline.add { background: var(--add-bg); }
-.diff-row.inline.del { background: var(--del-bg); }
-.diff-row .ln { text-align: right; padding: 0 8px 0 4px; color: var(--faint); background: var(--bg-panel); user-select: none; position: relative; font-variant-numeric: tabular-nums; }
-.diff-row.inline.add .ln, .diff-row.split .ln.add { background: var(--add-gut); }
-.diff-row.inline.del .ln, .diff-row.split .ln.del { background: var(--del-gut); }
+.diff-row.inline.add { background: var(--rv-add); }
+.diff-row.inline.del { background: var(--rv-del); }
+.diff-row .ln { text-align: right; padding: 0 8px 0 4px; color: var(--faint); opacity: 0.8; user-select: none; position: relative; font-variant-numeric: tabular-nums; }
+.diff-row.inline.add .ln, .diff-row.split .ln.add { color: var(--ok); opacity: 0.7; }
+.diff-row.inline.del .ln, .diff-row.split .ln.del { color: var(--danger); opacity: 0.7; }
 .diff-row .sign { text-align: center; user-select: none; }
 .diff-row.add .sign { color: var(--ok); }
 .diff-row.del .sign { color: var(--danger); }
 .diff-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--text); }
 .diff-row.split .code { padding: 0 12px 0 10px; }
 .diff-row.split .code.l { border-right: 1px solid var(--border); }
-.diff-row.split .code.add { background: var(--add-bg); }
-.diff-row.split .code.del { background: var(--del-bg); }
-.hunk { padding: 3px 12px 3px 100px; color: var(--faint); background: var(--bg-panel); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.diff-row.split .code.add, .diff-row.split .ln.add { background: var(--rv-add); }
+.diff-row.split .code.del, .diff-row.split .ln.del { background: var(--rv-del); }
+.hunk { padding: 2px 12px 2px 106px; font-size: 11px; color: var(--faint); background: color-mix(in oklab, var(--accent) 5%, var(--bg-panel)); }
+.hunk:not(:first-child) { border-top: 1px solid var(--border); }
 .hunk.split { padding-left: 52px; }
 /* each file section is laid out and painted on its own, and skipped while
    off screen: a change in one file never costs the others, and scrolling
@@ -67,8 +106,151 @@ textarea.ta:focus { border-color: var(--accent); }
 [data-filesec] { content-visibility: auto; contain: content; }
 .diff-row .addbtn { opacity: 0; transition: opacity 0.08s; pointer-events: none; }
 .diff-row:hover .addbtn, .addbtn:focus-visible { opacity: 1; pointer-events: auto; }
-.addbtn { all: unset; cursor: pointer; position: absolute; right: -9px; top: 50%; transform: translateY(-50%); z-index: 2; width: 16px; height: 16px; border-radius: 4px; background: var(--accent); color: oklch(0.99 0 0); font-size: 13px; line-height: 16px; text-align: center; font-family: var(--sans); }
-.your-comment { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border-strong); border-left: 3px solid var(--accent); border-radius: 6px; background: var(--bg-raised); padding: 8px 12px; max-width: 860px; }
+.addbtn { all: unset; box-sizing: border-box; position: absolute; left: 100%; top: 50%; transform: translate(1px, -50%); z-index: 2; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; background: var(--accent); color: oklch(0.99 0 0); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.addbtn:hover { transform: translate(1px, -50%) scale(1.12); }
+/* your own comment on a line, and the box you write it in */
+.mine { font: var(--ui) var(--sans); padding: 9px 16px 11px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg-raised); box-shadow: inset 3px 0 0 var(--accent); }
+.mine-head { display: flex; align-items: center; gap: 7px; min-height: 26px; color: var(--accent); }
+.mine-label { font: 600 10px var(--mono); letter-spacing: 0.07em; }
+.mine-at { font: 11px var(--mono); color: var(--dim); }
+.mine-for, .mine-hint { font-size: 11px; color: var(--faint); }
+.mine-text, button.mine-text { display: block; width: 100%; box-sizing: border-box; text-align: left; cursor: text; margin-top: 2px; line-height: 1.55; white-space: pre-wrap; color: var(--text); }
+.mine.editing { background: color-mix(in oklab, var(--accent) 5%, var(--bg-raised)); }
+.mine.editing textarea.note-ta { margin-top: 4px; font-size: 13px; }
+button.icon-btn.ok { color: var(--accent); }
+/* a finding: what the agent would post, and your call on it */
+.card { font-size: var(--ui); background: var(--bg-raised); overflow: hidden; }
+.card.boxed { border: 1px solid var(--border); border-radius: 10px; }
+.card.flush { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+/* the bar down a finding's left edge says where it stands; focus is a tint */
+.card { box-shadow: inset 3px 0 0 var(--border-strong); }
+.card.accepted { box-shadow: inset 3px 0 0 var(--ok); }
+.card.rejected { box-shadow: inset 3px 0 0 var(--danger); }
+.card.focused { background: color-mix(in oklab, var(--accent) 6%, var(--bg-raised)); }
+.card.boxed.focused { border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); }
+.card .grow { flex: 1; }
+.card .id { flex: none; font: 11px var(--mono); color: var(--faint); }
+.sev { flex: none; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--sev-nit); background: color-mix(in oklab, var(--sev-nit) 16%, transparent); }
+.sev.is-blocker { color: var(--sev-blocker); background: color-mix(in oklab, var(--sev-blocker) 16%, transparent); }
+.sev.is-major { color: var(--sev-major); background: color-mix(in oklab, var(--sev-major) 16%, transparent); }
+.sev.is-minor { color: var(--sev-minor); background: color-mix(in oklab, var(--sev-minor) 16%, transparent); }
+button.icon-btn { all: unset; flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--dim); cursor: pointer; }
+button.icon-btn:hover { color: var(--text); background: var(--bg-hover); }
+button.icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+button.file-fold { display: inline-flex; color: var(--faint); transition: transform 0.12s ease; }
+button.file-fold.open { transform: rotate(90deg); }
+button.file-fold:hover { color: var(--text); }
+.card-head { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 10px 16px 0; }
+.card.folded .card-head { padding-bottom: 10px; }
+.card-name, button.card-toggle { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+button.card-toggle { cursor: pointer; border-radius: 6px; margin: -3px -6px; padding: 3px 6px; }
+button.card-toggle:hover { background: var(--bg-hover); }
+button.card-toggle .caret { display: inline-flex; color: var(--faint); transition: transform 0.12s ease; }
+button.card-toggle .caret.open { transform: rotate(90deg); }
+.card.rejected .card-title { color: var(--dim); }
+.card.rejected.folded .card-title { text-decoration: line-through; }
+.card-title { min-width: 0; font-weight: 600; font-size: 13.5px; color: var(--text); }
+.card .tag { flex: none; padding: 1px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent); }
+.card .resolves { flex: none; font-size: 11px; color: var(--ok); }
+.verdict { flex: none; padding: 2px 9px; border-radius: 99px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; white-space: nowrap; }
+.verdict.accept { color: var(--ok); background: color-mix(in oklab, var(--ok) 14%, transparent); }
+.verdict.reject { color: var(--danger); background: color-mix(in oklab, var(--danger) 13%, transparent); }
+.verdict.none { color: var(--sev-major); background: color-mix(in oklab, var(--sev-major) 14%, transparent); }
+.card-body { display: flex; flex-direction: column; gap: 9px; margin: 8px 16px 14px; line-height: 1.6; color: var(--text); }
+.card.rejected .card-body { color: var(--dim); }
+.card-body p { margin: 0; }
+.code-block { margin: 0; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font: var(--code-size)/1.55 var(--mono); white-space: pre-wrap; overflow-x: auto; color: var(--text); }
+.sugg { border: 1px solid var(--border-strong); border-radius: 7px; overflow: hidden; }
+.sugg-head { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--border); background: var(--bg); font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; color: var(--dim); }
+.sugg-row { display: grid; grid-template-columns: 40px 18px 1fr; font: var(--code-size)/1.6 var(--mono); }
+.sugg-row.add { background: var(--add-bg); } .sugg-row.del { background: var(--del-bg); }
+.sugg-row .ln { text-align: right; padding: 0 8px 0 4px; color: var(--faint); user-select: none; font-variant-numeric: tabular-nums; }
+.sugg-row.add .ln { background: var(--add-gut); } .sugg-row.del .ln { background: var(--del-gut); }
+.sugg-row .sign { text-align: center; user-select: none; }
+.sugg-row.add .sign { color: var(--ok); } .sugg-row.del .sign { color: var(--danger); }
+.sugg-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--text); }
+.note { display: flex; align-items: flex-start; gap: 6px; margin: 0 16px 12px; padding: 7px 10px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); }
+.note.accept { background: var(--accent-bg); border-color: color-mix(in oklab, var(--accent) 25%, transparent); }
+.note.reject { background: color-mix(in oklab, var(--danger) 7%, var(--bg)); border-color: color-mix(in oklab, var(--danger) 22%, transparent); }
+.note-text, button.note-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; line-height: 1.55; color: var(--text); text-align: left; cursor: text; }
+.note-text .line { display: block; }
+.note-label { font: 600 9.5px var(--mono); letter-spacing: 0.08em; color: var(--faint); }
+.note.accept .note-label { color: var(--accent); } .note.reject .note-label { color: var(--danger); }
+button.note.editing { border-color: color-mix(in oklab, var(--accent) 55%, transparent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent); }
+.note-label { display: flex; align-items: baseline; gap: 10px; }
+.note-hint { margin-left: auto; font: 11px var(--sans); letter-spacing: 0; color: var(--faint); text-transform: none; }
+textarea.note-ta { all: unset; display: block; width: 100%; box-sizing: border-box; min-height: 21px; resize: none; overflow: hidden; font-size: 12.5px; line-height: 1.55; color: var(--text); white-space: pre-wrap; }
+textarea.note-ta::placeholder { color: var(--faint); }
+.note-del { flex: none; color: var(--faint); padding: 2px; border-radius: 4px; }
+button.note-del:hover { color: var(--danger); }
+.thread { margin: 10px 16px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); overflow: hidden; }
+button.thread-head { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 7px 11px; font-size: 11.5px; color: var(--faint); }
+button.thread-head .caret { display: inline-flex; transition: transform 0.12s; }  button.thread-head .caret.open { transform: rotate(90deg); }
+.thread-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
+.thread-body { max-height: 340px; overflow-y: auto; }
+.thread-msg { padding: 8px 12px; border-top: 1px solid var(--border); }
+.thread-who { margin-bottom: 3px; font-size: 10.5px; font-weight: 600; color: var(--accent); }
+.thread-msg.ours .thread-who { color: var(--faint); }
+.thread-text { font-size: 12px; line-height: 1.55; color: var(--dim); }
+.previous { margin: 8px 16px 0; font-size: 11.5px; color: var(--faint); }
+.previous-label { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
+.previous-verdict { font-weight: 600; } .previous-verdict.accept { color: var(--ok); } .previous-verdict.reject { color: var(--danger); }
+/* a file: its header stays in view while its diff scrolls under it */
+section.file { margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-raised); }
+.file-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 0 14px 0 10px; border-bottom: 1px solid var(--border); border-radius: 10px 10px 0 0; background: var(--bg-panel); }
+.file-head.folded { border-bottom: 0; border-radius: 10px; }
+.file-path { min-width: 0; font: 12.5px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-path .dir { color: var(--faint); } .file-path .base { color: var(--text); font-weight: 600; }
+.file-badge { flex: none; padding: 1px 7px; border-radius: 99px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--dim); background: var(--bg-hover); }
+.file-badge.is-added { color: var(--ok); background: color-mix(in oklab, var(--ok) 13%, transparent); }
+.file-badge.is-deleted { color: var(--danger); background: color-mix(in oklab, var(--danger) 12%, transparent); }
+.file-churn { flex: none; font: 11px var(--mono); font-variant-numeric: tabular-nums; }
+.file-churn .plus { color: var(--ok); } .file-churn .minus { color: var(--danger); }
+.file-count { flex: none; padding: 1px 8px; border-radius: 99px; font: 600 10.5px var(--mono); color: var(--dim); background: var(--bg-hover); }
+.file-count.done { color: var(--ok); background: color-mix(in oklab, var(--ok) 14%, transparent); }
+.file-summary { padding: 7px 14px 7px 38px; border-bottom: 1px solid var(--border); font-size: 12px; line-height: 1.5; color: var(--dim); }
+.file-diff { overflow: hidden; border-radius: 0 0 10px 10px; font: var(--code-size)/1.6 var(--mono); }
+.file-unanchored { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 1px dashed var(--border-strong); }
+.file-unanchored-head { font-size: 11px; color: var(--faint); }
+/* calmer diff colours: the tint on the row, the colour in the sign and the number */
+.file-diff { --rv-add: color-mix(in oklab, var(--add-bg) 75%, transparent); --rv-del: color-mix(in oklab, var(--del-bg) 75%, transparent); }
+/* the header: the change and how far along its review is */
+.head { position: relative; display: flex; align-items: center; gap: 8px 18px; padding: 11px 18px; border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none; }
+button.head-tree { color: var(--faint); padding: 2px 4px; margin-right: -8px; }
+button.head-tree:hover { color: var(--text); }
+.head-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 0; overflow: hidden; }
+.head-title h1 { min-width: 0; }
+.head-title h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.head-ref { flex: none; font: 11px var(--mono); color: var(--faint); }
+.head-branch { flex: none; display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+.head-branch .arrow { color: var(--faint); }
+.head-ro { flex: none; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent); border-radius: 99px; padding: 3px 12px; }
+.tally { flex: none; display: flex; gap: 14px; font-size: 12px; color: var(--dim); white-space: nowrap; }
+.tally b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tally .t-ok b { color: var(--ok); } .tally .t-no b { color: var(--danger); }
+.seg-group { display: flex; margin-right: 4px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.seg-group .seg + .seg { border-left: 1px solid var(--border); }
+button.tool { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; padding: 5px 8px; border-radius: 6px; font-size: 11.5px; color: var(--dim); white-space: nowrap; }
+button.tool:hover { background: var(--bg-hover); color: var(--text); }
+button.tool.armed.accept { color: var(--ok); background: color-mix(in oklab, var(--ok) 12%, transparent); }
+button.tool.armed.reject { color: var(--danger); background: color-mix(in oklab, var(--danger) 12%, transparent); }
+.head-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.head-progress span { display: block; height: 100%; background: var(--accent); transition: width 160ms ease-out; }
+/* the brief: what the agent says the change is, and its concerns on a click */
+.brief { max-width: 980px; margin-bottom: 18px; border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent); border-radius: 10px; background: var(--accent-bg); overflow: hidden; }
+.brief-line { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; }
+.brief-line > svg { flex: none; margin-top: 3px; color: var(--accent); }
+.brief-text { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; color: var(--text); }
+.brief-text b { display: block; margin-bottom: 1px; font: 600 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.brief-pills { flex: none; display: flex; gap: 6px; margin-top: 1px; }
+button.toggle.warn { color: var(--sev-major); border-color: color-mix(in oklab, var(--sev-major) 40%, transparent); }
+button.toggle.warn.on { background: color-mix(in oklab, var(--sev-major) 14%, transparent); border-color: color-mix(in oklab, var(--sev-major) 70%, transparent); }
+.brief-concerns, .brief-details { padding: 10px 14px 12px 38px; border-top: 1px solid color-mix(in oklab, var(--accent) 16%, transparent); background: var(--bg-raised); line-height: 1.6; }
+.brief-concerns { box-shadow: inset 3px 0 0 var(--sev-major); }
+.brief-concerns .eyebrow { color: var(--sev-major); margin-bottom: 4px; }
+.brief-details { display: flex; flex-direction: column; gap: 12px; }
+.brief-details .eyebrow { margin-bottom: 4px; }
+.md.dim { font-size: 12px; color: var(--dim); }
 .errors { margin: 0 22px 12px 22px; padding: 9px 12px; border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); border-radius: 8px; background: color-mix(in oklab, var(--danger) 8%, transparent); font-family: var(--mono); font-size: 12px; color: var(--danger); white-space: pre-wrap; }
 </style>
 </head>
@@ -111,8 +293,7 @@ const plugin = Pinrail.connect({
 function draft() {
   if (RO() || !D) return;
   plugin.draft({
-    decisions: S.decisions, manualComments: S.manualComments, generalComments: S.generalComments,
-    generalDraft: S.generalDraft, mseq, gseq,
+    decisions: S.decisions, manualComments: S.manualComments, mseq,
   });
 }
 
@@ -123,12 +304,12 @@ let SEGMENTS = {};     // proposal id -> md segments
 const S = {
   decisions: {}, focusedId: null, diffMode: "inline",
   folded: {}, treeOpen: true, findingsOnly: false, briefOpen: false, concernsOpen: false,
-  composer: null, generalDraft: "", generalComments: [], manualComments: [],
+  composer: null, manualComments: [],
   confirmBulk: null, showSubmit: false, done: false, errors: null,
   collapsedDirs: {}, activeFile: null, noteOpen: {}, expanded: {},
   confirmSubmitArm: false, orderMode: "semantic",
 };
-let mseq = 0, gseq = 0, bulkT = null;
+let mseq = 0, bulkT = null;
 const esc = Pinrail.escape;
 
 function adapt(payload) {
@@ -145,11 +326,10 @@ function adapt(payload) {
 }
 
 function loadDecision(data) {
-  S.decisions = {}; S.manualComments = []; S.generalComments = [];
+  S.decisions = {}; S.manualComments = [];
   if (!data) return;
   for (const d of data.decisions || []) S.decisions[d.id] = { action: d.action, note: d.note || undefined };
   S.manualComments = (data.comments || []).map((c, i) => ({ id: "m" + (i + 1), file: c.file, line: c.line, side: c.side || "new", body: c.body }));
-  S.generalComments = (data.general_comments || []).map((g, i) => ({ id: "g" + (i + 1), body: g.body }));
 }
 
 const previousVerdict = (id) => Pinrail.previousVerdict(PREVIOUS, id);
@@ -276,8 +456,6 @@ function prep() {
 function captureDrafts() {
   const c = document.getElementById("composer-ta");
   if (c && S.composer) S.composer.text = c.value;
-  const g = document.getElementById("general-ta");
-  if (g) S.generalDraft = g.value;
   document.querySelectorAll("[data-note-ta]").forEach((el) => {
     S.noteOpen[el.getAttribute("data-note-ta")] = { open: true, draft: el.value };
   });
@@ -314,9 +492,10 @@ function setNote(id, note) {
     const cur = S.decisions[id] || {};
     S.decisions[id] = { ...cur, note: note || undefined };
     delete S.noteOpen[id];
+    // a note just written stays in view
+    if (note) S.expanded[id] = true;
   });
-  const d = S.decisions[id];
-  if (note && d && d.action) advanceFocus(id);
+  // stay on the finding: a note is not a verdict, and the next one can wait
 }
 function unfoldFor(id) {
   const p = D.proposals.find((x) => x.id === id);
@@ -371,46 +550,42 @@ function buildDecision() {
     comments: S.manualComments.map((m) => ({ file: m.file, line: m.line, side: m.side, body: m.body })),
     undecided: ids.filter((id) => !decided(id)),
   };
-  if (S.generalComments.length) data.general_comments = S.generalComments.map((g) => ({ body: g.body }));
   return data;
 }
 
 /* ---------- render: proposal card ---------- */
 function sevChip(sev) {
-  return `<span style="flex:none;font-size:10.5px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;padding:2px 8px;border-radius:99px;color:var(--sev-${esc(sev)});background:color-mix(in oklab, var(--sev-${esc(sev)}) 16%, transparent)">${esc(sev)}</span>`;
+  return `<span class="sev is-${esc(sev)}">${esc(sev)}</span>`;
 }
 function noteSegsHtml(note) {
-  return note.split(/\n+/).map((s) => s.trim()).filter(Boolean).map((l) => `<span style="display:block">${inlineHtml(l)}</span>`).join("");
+  return note.split(/\n+/).map((s) => s.trim()).filter(Boolean).map((l) => `<span class="line">${inlineHtml(l)}</span>`).join("");
 }
-function noteBlockHtml(p, dec, indentless) {
+function noteBlockHtml(p, dec) {
   const note = dec && dec.note;
   if (!note) return "";
+  const kind = dec.action === "accept" ? "accept" : dec.action === "reject" ? "reject" : "";
   const label = dec.action === "accept" ? "NOTE TO THE AGENT" : dec.action === "reject" ? "REJECTION REASON" : "NOTE — SAVED WITH YOUR DECISION";
-  const edit = RO() ? `<span style="cursor:default;flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.55;color:var(--dim)">
-      <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;color:var(--faint)">${label}</span>${noteSegsHtml(note)}</span>`
-    : `<button class="bare" data-act="open-note" data-id="${p.id}" title="Click to edit" style="cursor:text;flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.55;color:var(--dim);text-align:left">
-      <span style="font-size:10px;font-weight:700;letter-spacing:0.07em;color:var(--faint)">${label}</span>${noteSegsHtml(note)}
-    </button>
-    <button class="bare" data-act="del-note" data-id="${p.id}" title="Delete note" style="flex:none;color:var(--faint);font-size:13px;line-height:1;padding:2px 5px;border-radius:4px">✕</button>`;
-  return `<div style="display:flex;gap:6px;align-items:flex-start;${indentless ? "" : "margin:0 14px 11px 14px;"}padding-left:11px;border-left:2px solid var(--border-strong)">${edit}</div>`;
+  const text = `<span class="note-label">${label}</span>${noteSegsHtml(note)}`;
+  return `<div class="note ${kind}">${RO() ? `<span class="note-text">${text}</span>`
+    : `<button class="bare note-text" data-act="open-note" data-id="${p.id}" title="Click to edit">${text}</button>
+    <button class="bare note-del" data-act="del-note" data-id="${p.id}" title="Delete note">${Pinrail.icon("x", { size: 13 })}</button>`}</div>`;
 }
 function noteEditorHtml(p, dec) {
   const st = S.noteOpen[p.id];
   if (!st || !st.open || RO()) return "";
+  // the note itself, made editable where it sits
   const action = dec && dec.action;
-  const label = action === "accept" ? "Instruction to the agent — it revises the comment per this note before posting"
-    : action === "reject" ? "Why reject? This becomes a lesson future reviews follow"
-    : "Note to the agent — saved with whichever decision you make";
-  const ph = action === "accept" ? "e.g. shorten this, drop the second paragraph"
-    : action === "reject" ? "e.g. out of scope for this change"
-    : "e.g. soften the tone, mention the config option";
-  return `<div style="padding:10px 14px;border-top:1px solid var(--border);background:var(--bg)">
-    <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">${label}</div>
-    <div style="display:flex;gap:8px;align-items:flex-start">
-      <textarea class="ta" data-note-ta="${p.id}" rows="1" placeholder="${esc(ph)}" aria-label="note for proposal ${p.id}" style="background:var(--bg-raised)">${esc(st.draft || "")}</textarea>
-      <button class="save-btn" data-act="save-note" data-id="${p.id}">Save</button>
-    </div>
-    <div style="font-size:11px;color:var(--faint);margin-top:5px">Enter to save · Esc to dismiss</div>
+  const kind = action === "accept" ? "accept" : action === "reject" ? "reject" : "";
+  const label = action === "accept" ? "NOTE TO THE AGENT" : action === "reject" ? "REJECTION REASON" : "NOTE — SAVED WITH YOUR DECISION";
+  const ph = action === "accept" ? "What should the agent change before posting? e.g. shorten this, drop the second paragraph"
+    : action === "reject" ? "Why reject? It becomes a lesson future reviews follow, e.g. out of scope for this change"
+    : "A note to the agent, saved with whichever decision you make";
+  return `<div class="note editing ${kind}">
+    <span class="note-text">
+      <span class="note-label">${label}<span class="note-hint">Enter to save · Esc to cancel</span></span>
+      <textarea class="note-ta" data-note-ta="${p.id}" rows="1" placeholder="${esc(ph)}" aria-label="note for proposal ${p.id}">${esc(st.draft || "")}</textarea>
+    </span>
+    <button class="icon-btn" data-act="save-note" data-id="${p.id}" title="Save">${Pinrail.icon("check", { size: 15, label: "Save" })}</button>
   </div>`;
 }
 function threadBlockHtml(p) {
@@ -420,35 +595,26 @@ function threadBlockHtml(p) {
   const theirs = tc.comments.filter((n) => !n.ours);
   // threads with the developer's responses start open — that is what the decision hinges on
   const open = key in S.expanded ? !!S.expanded[key] : theirs.length > 0;
-  const header = `<button class="bare" data-act="toggle-thread" data-id="${p.id}" data-open="${open ? 1 : 0}" style="display:flex;align-items:center;gap:8px;width:100%;padding:6px 11px;color:var(--dim);font-size:11.5px">
-    <span style="font-size:9px;color:var(--faint)">${open ? "▾" : "▸"}</span>
-    <span style="font-weight:600;letter-spacing:0.05em;font-size:10.5px;color:var(--faint)">THREAD${tc.round != null ? ` · ROUND ${esc(tc.round)}` : ""}</span>
-    <span style="color:var(--faint)">${tc.comments.length} comment${tc.comments.length === 1 ? "" : "s"}${theirs.length ? ` (${theirs.length} from the developer)` : ""}</span>
+  const header = `<button class="bare thread-head" data-act="toggle-thread" data-id="${p.id}" data-open="${open ? 1 : 0}">
+    <span class="caret${open ? " open" : ""}">${Pinrail.icon("chevron-right", { size: 12 })}</span>
+    <span class="thread-label">THREAD${tc.round != null ? ` · ROUND ${esc(tc.round)}` : ""}</span>
+    <span>${tc.comments.length} comment${tc.comments.length === 1 ? "" : "s"}${theirs.length ? ` (${theirs.length} from the developer)` : ""}</span>
   </button>`;
-  let body = "";
-  if (open) {
-    body = tc.comments.map((n) => `<div style="padding:7px 11px;border-top:1px solid var(--border)">
-      <div style="font-size:10.5px;font-weight:600;color:${n.ours ? "var(--faint)" : "var(--accent)"};margin-bottom:3px">@${esc(n.author || "?")} · ${n.ours ? "us" : "developer"}</div>
-      <div style="font-size:12px;line-height:1.55;color:var(--dim)">${mdBlockHtml(n.body)}</div>
-    </div>`).join("");
-    body = `<div style="max-height:340px;overflow-y:auto">${body}</div>`;
-  }
-  return `<div style="margin:10px 14px 0 14px;border:1px solid var(--border);border-left:2px solid var(--border-strong);background:var(--bg);border-radius:0 6px 6px 0;overflow:hidden">${header}${body}</div>`;
+  const body = open ? `<div class="thread-body">${tc.comments.map((n) => `<div class="thread-msg${n.ours ? " ours" : ""}">
+      <div class="thread-who">@${esc(n.author || "?")} · ${n.ours ? "us" : "developer"}</div>
+      <div class="thread-text">${mdBlockHtml(n.body)}</div>
+    </div>`).join("")}</div>` : "";
+  return `<div class="thread">${header}${body}</div>`;
 }
 function segmentsHtml(p) {
   return (SEGMENTS[p.id] || []).map((seg) => {
-    if (seg.kind === "para") return `<p style="margin:0;color:var(--text)">${seg.html}</p>`;
-    if (seg.kind === "code") return `<pre style="margin:0;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-family:var(--mono);font-size:var(--code-size);line-height:1.55;overflow-x:auto;white-space:pre-wrap;color:var(--text)">${esc(seg.text)}</pre>`;
-    const delRows = (seg.oldLines || []).map((o) => `<div style="display:grid;grid-template-columns:40px 18px 1fr;background:var(--del-bg);font-family:var(--mono);font-size:var(--code-size);line-height:1.6">
-        <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:var(--del-gut);user-select:none;font-variant-numeric:tabular-nums">${o.line}</span>
-        <span style="text-align:center;color:var(--danger);user-select:none">−</span>
-        <span style="white-space:pre-wrap;word-break:break-word;padding-right:12px;color:var(--text)">${esc(o.text)}</span></div>`).join("");
-    const addRows = seg.text.split("\n").map((lineText, i) => `<div style="display:grid;grid-template-columns:40px 18px 1fr;background:var(--add-bg);font-family:var(--mono);font-size:var(--code-size);line-height:1.6">
-        <span style="text-align:right;padding:0 8px 0 4px;color:var(--faint);background:var(--add-gut);user-select:none;font-variant-numeric:tabular-nums">${seg.line != null ? seg.line + i : ""}</span>
-        <span style="text-align:center;color:var(--ok);user-select:none">+</span>
-        <span style="white-space:pre-wrap;word-break:break-word;padding-right:12px;color:var(--text)">${esc(lineText)}</span></div>`).join("");
-    return `<div style="border:1px solid var(--border-strong);border-radius:6px;overflow:hidden">
-      <div style="display:flex;align-items:center;gap:8px;padding:5px 12px;background:var(--bg);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;letter-spacing:0.04em;color:var(--dim)">SUGGESTED CHANGE<span style="font-weight:400;color:var(--faint)">— becomes a commit if applied</span></div>
+    if (seg.kind === "para") return `<p>${seg.html}</p>`;
+    if (seg.kind === "code") return `<pre class="code-block">${esc(seg.text)}</pre>`;
+    const row = (cls, sign, ln, text) => `<div class="sugg-row ${cls}"><span class="ln">${ln}</span><span class="sign">${sign}</span><span class="code">${esc(text)}</span></div>`;
+    const delRows = (seg.oldLines || []).map((o) => row("del", "−", o.line, o.text)).join("");
+    const addRows = seg.text.split("\n").map((t, i) => row("add", "+", seg.line != null ? seg.line + i : "", t)).join("");
+    return `<div class="sugg">
+      <div class="sugg-head">SUGGESTED CHANGE</div>
       ${delRows}${addRows}
     </div>`;
   }).join("");
@@ -456,107 +622,72 @@ function segmentsHtml(p) {
 function previousHtml(p) {
   const prev = previousVerdict(p.id);
   if (!prev) return "";
-  const color = prev.action === "accept" ? "var(--ok)" : prev.action === "reject" ? "var(--danger)" : "var(--faint)";
-  return `<div style="margin:8px 14px 0 14px;font-size:11.5px;color:var(--faint)"><span style="font-weight:700;letter-spacing:0.05em;font-size:10px">PREVIOUS ROUND</span> <span style="color:${color};font-weight:600">${esc(prev.action)}</span>${prev.note ? ` — ${esc(prev.note)}` : ""}</div>`;
+  const kind = prev.action === "accept" ? "accept" : prev.action === "reject" ? "reject" : "none";
+  return `<div class="previous"><span class="previous-label">PREVIOUS ROUND</span> <span class="previous-verdict ${kind}">${esc(prev.action)}</span>${prev.note ? ` — ${esc(prev.note)}` : ""}</div>`;
 }
 /* A proposal. Anchored on a diff row it is `flush`: full width, flush with
    the rows above and below like a forge's own thread, a rule top and
    bottom, the focus as a bar down its left edge. Elsewhere — a file's
    unanchored comments, the change-wide ones — it is a card. */
+// a control with no words: the icon carries its name and the tooltip says it
+const iconBtn = (act, id, icon, name) => `<button class="icon-btn" data-act="${act}" data-id="${id}" title="${esc(name)}">${Pinrail.icon(icon, { size: 15, label: name })}</button>`;
 function cardHtml(p, flush = false) {
   const dec = S.decisions[p.id] || null;
   const action = dec && dec.action;
   const isAccepted = action === "accept", isRejected = action === "reject", isPending = !action;
-  const isDecided = !isPending;
-  const collapsed = !RO() && isDecided && !S.expanded[p.id];
-  const focused = S.focusedId === p.id;
+  // a decided card folds to its head row; the row stays put either way
+  const foldable = !RO() && !isPending;
   const note = (dec && dec.note) || "";
-  const verdict = RO() ? (isAccepted ? ["ACCEPTED", "var(--ok)"] : isRejected ? ["REJECTED", "var(--danger)"] : ["UNDECIDED", "var(--sev-major)"]) : null;
-  const borderColor = isAccepted ? "color-mix(in oklab, var(--ok) 40%, var(--border))"
-    : isRejected ? "color-mix(in oklab, var(--danger) 35%, var(--border))"
-    : focused ? "color-mix(in oklab, var(--accent) 50%, var(--border))" : "var(--border)";
-  const ring = focused ? "color-mix(in oklab, var(--accent) 55%, transparent)" : "transparent";
   const noteEd = noteEditorHtml(p, dec);
-  let inner;
+  // the note folds with the rest; writing one opens the finding
+  const collapsed = foldable && !S.expanded[p.id] && !noteEd;
+  const focused = S.focusedId === p.id;
+  const state = isAccepted ? "accepted" : isRejected ? "rejected" : "pending";
+  const verdict = isAccepted ? ["✓ ACCEPTED", "accept"] : isRejected ? ["✕ REJECTED", "reject"] : RO() ? ["UNDECIDED", "none"] : null;
+  const name = `${sevChip(p.severity)}<span class="card-title">${inlineHtml(p.title)}</span><span class="id">#${p.id}</span>`
+    + (p.kind === "reply" ? `<span class="tag">REPLY</span>` : "")
+    + (p.resolves ? `<span class="resolves">will resolve thread ✓</span>` : "");
+  const lead = foldable
+    ? `<button class="bare card-toggle" data-act="${collapsed ? "expand" : "collapse"}" data-id="${p.id}" aria-expanded="${collapsed ? "false" : "true"}" title="${collapsed ? "Show the comment" : "Fold"}">
+        <span class="caret${collapsed ? "" : " open"}">${Pinrail.icon("chevron-right", { size: 13 })}</span>${name}</button>`
+    : `<span class="card-name">${name}</span>`;
+  const decide = !RO() && isPending ? `<button class="accept-btn" data-act="accept" data-id="${p.id}" title="Accept (a)">${Pinrail.icon("check", { size: 13 })}Accept</button>
+    <button class="reject-btn" data-act="reject" data-id="${p.id}" title="Reject (x)">${Pinrail.icon("x", { size: 13 })}Reject</button>
+    ${iconBtn("open-note", p.id, note ? "message-square-text" : "message-square-plus", note ? "Edit the note" : "Add instruction")}` : "";
+  const tail = [
+    decide,
+    verdict ? `<span class="verdict ${verdict[1]}"${RO() ? ` data-verdict="${p.id}"` : ""}>${RO() ? verdict[0].replace(/^[✓✕] /, "") : verdict[0]}</span>` : "",
+    // always there, so the verdict beside it never moves
+    foldable ? iconBtn("open-note", p.id, note ? "message-square-text" : "message-square-plus", note ? "Edit the note" : isAccepted ? "Ask for changes" : "Say why") : "",
+    foldable ? iconBtn("undo", p.id, "undo-2", "Undo") : "",
+  ].join("");
+  const head = `<div class="card-head">${lead}<span class="grow"></span>${tail}</div>`;
   if (collapsed) {
-    const stateChip = isAccepted
-      ? `<span style="color:var(--ok);font-weight:600;flex:none;font-size:12px;letter-spacing:0.02em">✓ ACCEPTED</span>`
-      : `<span style="color:var(--danger);font-weight:600;flex:none;font-size:12px;letter-spacing:0.02em">✕ REJECTED</span>`;
-    const titleSpan = isRejected
-      ? `<span style="text-decoration:line-through;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</span>`
-      : `<span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</span>`;
-    const affordance = (!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}">${isAccepted ? "✎ Ask for changes" : "why?"}</button>` : "";
-    inner = `<div style="display:flex;flex-direction:column;padding:7px 12px;gap:6px">
-      <div style="display:flex;align-items:center;gap:10px;min-height:24px">
-        ${stateChip}
-        <button class="bare" data-act="expand" data-id="${p.id}" title="Expand" style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">${titleSpan}<span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">#${p.id}</span></button>
-        ${affordance}
-        <button class="undo-btn" data-act="undo" data-id="${p.id}">Undo</button>
-      </div>
-      ${(note && !noteEd) ? noteBlockHtml(p, dec, true) : ""}
-    </div>`;
-  } else {
-    const chips = [sevChip(p.severity),
-      `<span style="font-weight:600;color:var(--text);min-width:0">${esc(p.title)}</span>`,
-      `<span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">#${p.id}</span>`];
-    if (p.kind === "reply") chips.push(`<span style="flex:none;font-size:10.5px;font-weight:600;letter-spacing:0.05em;padding:2px 8px;border-radius:99px;color:var(--accent);border:1px solid color-mix(in oklab, var(--accent) 40%, transparent)">REPLY</span>`);
-    if (p.resolves) chips.push(`<span style="flex:none;font-size:11px;color:var(--ok)">will resolve thread ✓</span>`);
-    chips.push(`<span style="flex:1"></span>`);
-    if (verdict) chips.push(`<span data-verdict="${p.id}" style="flex:none;font-size:11px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;padding:2px 10px;border-radius:99px;color:${verdict[1]};background:color-mix(in oklab, ${verdict[1]} 14%, transparent)">${verdict[0]}</span>`);
-    if (isDecided && !RO() && S.expanded[p.id]) chips.push(`<button class="bare" data-act="collapse" data-id="${p.id}" style="color:var(--faint);font-size:11px;padding:2px 6px">collapse ▴</button>`);
-    let actions = "";
-    if (!RO()) {
-      let inner2;
-      if (isPending) {
-        inner2 = `<button class="accept-btn" data-act="accept" data-id="${p.id}">Accept</button>
-          <button class="reject-btn" data-act="reject" data-id="${p.id}">Reject</button>
-          <span style="color:var(--faint);font-size:11.5px;margin-left:4px">a / x</span>
-          ${(!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}" style="margin-left:6px">✎ Add note</button>` : ""}`;
-      } else if (isAccepted) {
-        inner2 = `<span style="color:var(--ok);font-weight:600;font-size:12px;flex:none">✓ ACCEPTED</span>
-          ${(!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}">✎ Ask for changes</button>` : ""}`;
-      } else {
-        inner2 = `<span style="color:var(--danger);font-weight:600;font-size:12px;flex:none">✕ REJECTED</span>
-          ${(!note && !noteEd) ? `<button class="link" data-act="open-note" data-id="${p.id}">why?</button>` : ""}`;
-      }
-      actions = `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px;border-top:1px solid var(--border);background:var(--bg)">
-        ${inner2}<span style="flex:1"></span>
-        ${isDecided ? `<button class="undo-btn" data-act="undo" data-id="${p.id}">Undo</button>` : ""}
-      </div>`;
-    }
-    inner = `<div style="display:flex;align-items:center;gap:9px;padding:10px 14px 0 14px;flex-wrap:wrap">${chips.join("")}</div>
-      ${threadBlockHtml(p)}${previousHtml(p)}
-      <div style="padding:4px 14px 12px 14px;display:flex;flex-direction:column;gap:9px;color:var(--text);line-height:1.55">${segmentsHtml(p)}</div>
-      ${(note && !noteEd) ? noteBlockHtml(p, dec, false) : ""}
-      ${actions}`;
+    return `<div id="card-${p.id}" data-card="${p.id}" class="card ${flush ? "flush" : "boxed"} ${state}${focused ? " focused" : ""} folded">${head}</div>`;
   }
-  const frame = flush
-    ? `border-top:1px solid ${borderColor};border-bottom:1px solid ${borderColor};box-shadow:inset 3px 0 0 ${focused ? "var(--accent)" : "transparent"}`
-    : `border:1px solid ${borderColor};border-radius:8px;outline:2px solid ${ring};outline-offset:2px`;
-  return `<div id="card-${p.id}" data-card="${p.id}" style="font-size:var(--ui);background:var(--bg-raised);overflow:hidden;${frame}">${inner}${noteEd}</div>`;
+  return `<div id="card-${p.id}" data-card="${p.id}" class="card ${flush ? "flush" : "boxed"} ${state}${focused ? " focused" : ""}">${head}
+    ${threadBlockHtml(p)}${previousHtml(p)}
+    <div class="card-body">${segmentsHtml(p)}</div>
+    ${noteEd || (note ? noteBlockHtml(p, dec) : "")}</div>`;
 }
 
 /* ---------- render: reviewer's comments / composer ---------- */
+const anchorOf = (x) => `${x.file.split("/").pop()}:${x.line}${x.side === "old" ? " (old)" : ""}`;
 function manualHtml(m) {
-  const controls = RO() ? "" : `<button class="tiny" data-act="edit-manual" data-mid="${m.id}">Edit</button>
-    <button class="tiny danger" data-act="del-manual" data-mid="${m.id}">Delete</button>`;
-  return `<div class="your-comment" data-comment="${m.id}">
-    <div style="min-width:0;flex:1">
-      <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:var(--accent);margin-bottom:2px">YOUR COMMENT · FOR THE AGENT TO ASSESS</div>
-      <div style="line-height:1.5;white-space:pre-wrap">${esc(m.body)}</div>
-    </div>${controls}
+  const mineBtn = (act, icon, name) => `<button class="icon-btn" data-act="${act}" data-mid="${m.id}" title="${name}">${Pinrail.icon(icon, { size: 14, label: name })}</button>`;
+  const controls = RO() ? "" : mineBtn("edit-manual", "pencil", "Edit") + mineBtn("del-manual", "trash-2", "Delete");
+  return `<div class="mine" data-comment="${m.id}">
+    <div class="mine-head">${Pinrail.icon("message-square", { size: 13 })}<span class="mine-label">YOUR COMMENT</span><span class="mine-at">${esc(anchorOf(m))}</span><span class="mine-for">for the agent to assess</span><span class="grow"></span>${controls}</div>
+    ${RO() ? `<div class="mine-text">${esc(m.body)}</div>` : `<button class="bare mine-text" data-act="edit-manual" data-mid="${m.id}" title="Click to edit">${esc(m.body)}</button>`}
   </div>`;
 }
 function composerHtml() {
   const c = S.composer;
-  const anchor = `${c.file.split("/").pop()}:${c.line}${c.side === "old" ? " (old)" : ""}`;
-  return `<div style="border:1px solid var(--border-strong);border-left:3px solid var(--accent);border-radius:6px;background:var(--bg-raised);padding:9px 12px">
-    <div style="font-size:11.5px;color:var(--dim);margin-bottom:6px">Your comment on <span style="font-family:var(--mono);color:var(--text)">${esc(anchor)}</span> · the agent assesses it and folds it into the review</div>
-    <div style="display:flex;gap:8px;align-items:flex-start">
-      <textarea class="ta" id="composer-ta" rows="2" placeholder="e.g. is this bucket cleanup handled anywhere?" aria-label="your comment">${esc(c.text || "")}</textarea>
-      <button class="save-btn" data-act="save-composer">${c.editId != null ? "Save" : "Add comment"}</button>
-      <button class="dim-btn" data-act="cancel-composer">Cancel</button>
-    </div>
+  return `<div class="mine editing">
+    <div class="mine-head">${Pinrail.icon("message-square", { size: 13 })}<span class="mine-label">YOUR COMMENT</span><span class="mine-at">${esc(anchorOf(c))}</span><span class="grow"></span><span class="mine-hint">Enter to ${c.editId != null ? "save" : "add"} · Esc to cancel</span>
+      <button class="icon-btn" data-act="cancel-composer" title="Cancel">${Pinrail.icon("x", { size: 15, label: "Cancel" })}</button>
+      <button class="icon-btn ok" data-act="save-composer" title="${c.editId != null ? "Save" : "Add comment"}">${Pinrail.icon("check", { size: 15, label: c.editId != null ? "Save" : "Add comment" })}</button></div>
+    <textarea class="note-ta" id="composer-ta" rows="1" placeholder="What should the agent look at here? e.g. is this bucket cleanup handled anywhere?" aria-label="your comment">${esc(c.text || "")}</textarea>
   </div>`;
 }
 
@@ -568,8 +699,10 @@ function rowAttachments(f, newLn, oldLn, pad) {
   const comp = S.composer && !RO() && at(S.composer);
   let html = "";
   anchoredCards.forEach((p) => { html += `<div style="font-family:var(--sans)">${cardHtml(p, true)}</div>`; });
-  manual.forEach((m) => { html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans);font-size:var(--ui)">${manualHtml(m)}</div>`; });
-  if (comp) html += `<div style="padding:8px 12px 8px ${pad}px;background:var(--bg);font-family:var(--sans);font-size:var(--ui)">${composerHtml()}</div>`;
+  // a comment being edited is written where it stands, not in a box of its own
+  const editing = comp && S.composer.editId != null;
+  manual.forEach((m) => { html += editing && S.composer.editId === m.id ? composerHtml() : manualHtml(m); });
+  if (comp && !editing) html += composerHtml();
   return html;
 }
 /* One "+" for the whole diff: it moves to the line-number cell of the row
@@ -579,7 +712,7 @@ function ensureAddBtn() {
   let btn = document.getElementById("addbtn");
   if (!btn) {
     btn = document.createElement("button");
-    btn.id = "addbtn"; btn.className = "addbtn"; btn.textContent = "+";
+    btn.id = "addbtn"; btn.className = "addbtn"; btn.innerHTML = Pinrail.icon("plus", { size: 12 });
     btn.setAttribute("data-act", "open-composer");
   }
   return btn;
@@ -654,26 +787,25 @@ function fileSectionHtml(f, fi) {
   const badge = f.status === "added" ? "NEW" : f.status === "renamed" ? "RENAMED" : f.status === "deleted" ? "DELETED" : null;
   const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/") + 1) : "";
   const base = f.path.split("/").pop();
-  const body = folded ? "" : `<div style="border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;overflow:hidden;font-family:var(--mono);font-size:var(--code-size);line-height:1.6">
-      ${S.diffMode === "inline" ? inlineRowsHtml(f, fi) : splitRowsHtml(f, fi)}</div>`;
-  const summary = f.summary ? `<div style="padding:6px 12px 6px 34px;font-size:12px;line-height:1.5;color:var(--dim);background:var(--bg-panel);border:1px solid var(--border);border-top:none;${folded ? "border-radius:0 0 8px 8px" : ""}">${esc(f.summary)}</div>` : "";
-  const un = unanchored.length ? `<div style="margin-top:8px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:8px;background:var(--bg-panel)">
-      <div style="font-size:11px;color:var(--faint);margin-bottom:8px">Not anchored to a line in this file — posts as a file-level comment</div>
-      <div style="display:flex;flex-direction:column;gap:8px">${unanchored.map(cardHtml).join("")}</div></div>` : "";
+  const body = folded ? "" : `<div class="file-diff">${S.diffMode === "inline" ? inlineRowsHtml(f, fi) : splitRowsHtml(f, fi)}</div>`;
+  const summary = f.summary && !folded ? `<div class="file-summary">${esc(f.summary)}</div>` : "";
+  const un = unanchored.length ? `<div class="file-unanchored">
+      <div class="file-unanchored-head">On the file, not a line · posts as a file-level comment</div>
+      ${unanchored.map((p) => cardHtml(p)).join("")}</div>` : "";
   const rowsShown = folded ? 0 : (S.diffMode === "inline" ? P.rows.length : P.splitRows.length);
   const estimate = 44 + rowsShown * 20 + (f.summary ? 34 : 0) + fProps.length * 140;
   // the header is a region of its own, like a hunk: a verdict changes its
   // counts without re-rendering the diff under it
   const headKey = `hunk:${f.path}:head`;
-  HUNKS.set(headKey, `<div data-region="${esc(headKey)}" style="position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:9px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:${folded && !f.summary ? "8px" : "8px 8px 0 0"}">
-      <button class="bare" data-act="fold-file" data-file="${esc(f.path)}" style="color:var(--faint);font-size:10px;width:14px;text-align:center" aria-label="fold ${esc(f.path)}">${folded ? "▸" : "▾"}</button>
-      <span style="font-family:var(--mono);font-size:12.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="color:var(--faint)">${esc(dir)}</span><span style="color:var(--text);font-weight:600">${esc(base)}</span></span>
-      ${badge ? `<span style="flex:none;font-size:10px;font-weight:700;letter-spacing:0.06em;padding:1px 7px;border-radius:99px;color:var(--ok);border:1px solid color-mix(in oklab, var(--ok) 40%, transparent)">${badge}</span>` : ""}
-      <span style="flex:none;white-space:nowrap;font-size:11px;font-family:var(--mono);font-variant-numeric:tabular-nums"><span style="color:var(--ok)">+${P.add}</span><span style="color:var(--danger)"> −${P.del}</span></span>
-      <span style="flex:1"></span>
-      ${total ? `<span style="flex:none;font-size:11px;color:${fDecided === total ? "var(--ok)" : "var(--dim)"};font-family:var(--mono)">${fDecided}/${total} decided</span>` : ""}
+  HUNKS.set(headKey, `<div data-region="${esc(headKey)}" class="file-head${folded ? " folded" : ""}">
+      <button class="bare file-fold${folded ? "" : " open"}" data-act="fold-file" data-file="${esc(f.path)}" aria-label="fold ${esc(f.path)}" aria-expanded="${folded ? "false" : "true"}">${Pinrail.icon("chevron-right", { size: 13 })}</button>
+      <span class="file-path"><span class="dir">${esc(dir)}</span><span class="base">${esc(base)}</span></span>
+      ${badge ? `<span class="file-badge is-${f.status}">${badge}</span>` : ""}
+      <span class="file-churn"><span class="plus">+${P.add}</span> <span class="minus">−${P.del}</span></span>
+      <span class="grow"></span>
+      ${total ? `<span class="file-count${fDecided === total ? " done" : ""}">${fDecided}/${total} decided</span>` : ""}
     </div>`);
-  return `<section data-filesec="${esc(f.path)}" style="margin-bottom:20px;contain-intrinsic-size:auto ${estimate}px">
+  return `<section data-filesec="${esc(f.path)}" class="file${folded ? " folded" : ""}" style="contain-intrinsic-size:auto ${estimate}px">
     <!--region:${esc(headKey)}-->
     ${summary}${body}${un}
   </section>`;
@@ -681,9 +813,8 @@ function fileSectionHtml(f, fi) {
 
 /* ---------- render: tree ---------- */
 function treeHtml() {
-  const sevRank = { blocker: 0, major: 1, minor: 2, nit: 3 };
-  const sevNames = ["blocker", "major", "minor", "nit"];
   const order = orderedFiles();
+  const ids = orderedIds();
   const dirs = [];
   order.forEach((i) => {
     const f = D.files[i];
@@ -692,38 +823,48 @@ function treeHtml() {
     if (!g) { g = { dir, files: [] }; dirs.push(g); }
     g.files.push(i);
   });
+  // each finding under its file, in reading order, with where it stands
+  const findingRow = (p) => {
+    const action = S.decisions[p.id] && S.decisions[p.id].action;
+    const state = action === "accept" ? "accepted" : action === "reject" ? "rejected" : "open";
+    return `<button class="tree-finding ${state}${S.focusedId === p.id ? " focus" : ""}" data-act="jump-card" data-id="${esc(String(p.id))}" title="${esc(p.title)}">
+      <span class="dot is-${esc(p.severity || "nit")}"></span><span class="t">${esc(p.title.replace(/`/g, ""))}</span>${S.decisions[p.id] && S.decisions[p.id].note ? `<span class="has-note" title="Has a note">${Pinrail.icon("message-square-text", { size: 12 })}</span>` : ""}<span class="n">#${esc(String(p.id))}</span></button>`;
+  };
+  const mineRow = (m) => `<button class="tree-finding mine-row" data-act="jump-comment" data-mid="${m.id}" title="Your comment on line ${m.line}: ${esc(m.body)}">
+      ${Pinrail.icon("message-square", { size: 12 })}<span class="t">${esc(m.body)}</span><span class="n">L${m.line}</span></button>`;
   let rows = "";
   dirs.forEach((g) => {
     const collapsed = !!S.collapsedDirs[g.dir];
-    if (g.dir) rows += `<button class="tree-row" data-act="toggle-dir" data-dir="${esc(g.dir)}" style="color:var(--faint);font-size:11.5px;margin-top:5px">
-      <span style="font-size:9px;width:10px;flex:none">${collapsed ? "▸" : "▾"}</span>
-      <span style="font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(g.dir)}/</span></button>`;
+    if (g.dir) rows += `<button class="tree-row tree-dir" data-act="toggle-dir" data-dir="${esc(g.dir)}">
+      <span class="caret${collapsed ? "" : " open"}">${Pinrail.icon("chevron-right", { size: 12 })}</span>${Pinrail.icon(collapsed ? "folder" : "folder-open", { size: 13 })}<span class="path">${esc(g.dir)}/</span></button>`;
     if (collapsed) return;
     g.files.forEach((i) => {
       const f = D.files[i], P = PARSED[i];
-      const fProps = D.proposals.filter((p) => p.file === f.path);
-      if (S.findingsOnly && !fProps.length) return;
+      const fProps = D.proposals.filter((p) => p.file === f.path).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+      const mine = S.manualComments.filter((m) => m.file === f.path);
+      if (S.findingsOnly && !fProps.length && !mine.length) return;
+      // the file's findings and your own comments, by the line they are on
+      const at = (x) => (x.line == null ? Infinity : x.line);
+      const items = [...fProps.map((p, k) => ({ line: at(p), k, html: findingRow(p) })),
+        ...mine.map((m, k) => ({ line: at(m), k: 1e6 + k, html: mineRow(m) }))].sort((a, b) => a.line - b.line || a.k - b.k);
       const total = fProps.length, fDecided = fProps.filter((p) => decided(p.id)).length;
-      const worst = total ? sevNames[fProps.reduce((w, p) => Math.min(w, sevRank[p.severity] ?? 3), 4)] : null;
-      const active = S.activeFile === f.path;
-      rows += `<button class="tree-row" data-act="jump-file" data-file="${esc(f.path)}" style="padding-left:22px;background:${active ? "var(--accent-bg)" : "transparent"};box-shadow:${active ? "inset 2px 0 0 var(--accent)" : "none"}">
-        <span style="font-family:var(--mono);font-size:12px;color:${total ? "var(--text)" : "var(--faint)"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0">${esc(f.path.split("/").pop())}</span>
-        <span style="flex:1"></span>
-        ${total ? `<span style="flex:none;font-size:10.5px;font-weight:600;font-family:var(--mono);min-width:16px;text-align:center;border-radius:99px;padding:0 5px;color:var(--sev-${worst});background:color-mix(in oklab, var(--sev-${worst}) 16%, transparent)">${total}</span>` : ""}
-        ${total ? `<span style="flex:none;font-size:10.5px;font-family:var(--mono);color:${fDecided === total ? "var(--ok)" : "var(--faint)"}">${fDecided}/${total}</span>` : ""}
-        <span style="flex:none;white-space:nowrap;font-size:10.5px;font-family:var(--mono);font-variant-numeric:tabular-nums"><span style="color:var(--ok)">+${P.add}</span><span style="color:var(--danger)"> −${P.del}</span></span>
-      </button>`;
+      rows += `<button class="tree-row tree-file${S.activeFile === f.path ? " on" : ""}${total ? "" : " quiet"}" data-act="jump-file" data-file="${esc(f.path)}">
+        <span class="name">${esc(f.path.split("/").pop())}</span>
+        <span class="grow"></span>
+        ${total ? `<span class="count${fDecided === total ? " done" : ""}">${fDecided}/${total}</span>` : ""}
+        <span class="churn"><span class="plus">+${P.add}</span> <span class="minus">−${P.del}</span></span>
+      </button>${items.map((x) => x.html).join("")}`;
     });
   });
   const hasRanks = D.files.some((f) => f.rank != null);
-  return `<aside style="width:284px;flex:none;border-right:1px solid var(--border);background:var(--bg-panel);display:flex;flex-direction:column;min-height:0">
-    <div style="display:flex;align-items:center;gap:6px;padding:9px 12px;border-bottom:1px solid var(--border);flex:none">
-      <span class="eyebrow" style="white-space:nowrap">FILES · ${D.files.length}</span>
-      <span style="flex:1"></span>
-      ${hasRanks ? `<button class="pill ${S.orderMode === "semantic" ? "on" : ""}" data-act="toggle-order" title="Semantic reading order vs alphabetical">${ico(S.orderMode === "semantic" ? "list-ordered" : "arrow-down-a-z")}${S.orderMode === "semantic" ? "semantic" : "a→z"}</button>` : ""}
-      <button class="pill ${S.findingsOnly ? "on" : ""}" data-act="toggle-findings-only" title="Show only files with findings">${ico("funnel")}findings</button>
+  return `<aside class="rail">
+    <div class="rail-head">
+      <span class="eyebrow">FILES · ${D.files.length}</span>
+      <span class="grow"></span>
+      ${hasRanks ? `<button class="toggle ${S.orderMode === "semantic" ? "on" : ""}" data-act="toggle-order" title="Semantic reading order vs alphabetical">${ico(S.orderMode === "semantic" ? "list-ordered" : "arrow-down-a-z")}${S.orderMode === "semantic" ? "semantic" : "a→z"}</button>` : ""}
+      <button class="toggle ${S.findingsOnly ? "on" : ""}" data-act="toggle-findings-only" title="Show only files with findings">${ico("funnel")}findings</button>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:6px 6px 20px 6px">${rows}</div>
+    <div class="rail-body">${rows}</div>
   </aside>`;
 }
 
@@ -737,48 +878,27 @@ function briefHtml() {
   const line = full.split("\n").map((l) => l.trim()).find(Boolean) || D.change.title;
   const longer = full.length > line.length;
   const hasDetails = longer || !!D.change.description;
-  // the chip opens the concerns alone, right under the line; Details opens
-  // the rest of the summary and the description — the line is never repeated
-  // the boxes run edge to edge under the line, flush like a thread on the diff
-  const concerns = S.concernsOpen && ov.concerns ? `<div style="padding:10px 16px 12px;border-bottom:1px solid var(--border);border-left:3px solid var(--sev-major);background:color-mix(in oklab, var(--sev-major) 10%, var(--bg-panel))">
-      <div class="eyebrow" style="color:var(--sev-major);margin-bottom:6px">REVIEW CONCERNS</div><div style="line-height:1.6">${mdBlockHtml(ov.concerns)}</div>
+  // the chip opens the concerns alone, right under the line; the description
+  // chip opens the rest of the summary and the description — the line is
+  // never repeated
+  const concerns = S.concernsOpen && ov.concerns ? `<div class="brief-concerns">
+      <div class="eyebrow">REVIEW CONCERNS</div><div class="md">${mdBlockHtml(ov.concerns)}</div>
     </div>` : "";
-  const details = S.briefOpen && hasDetails ? `<div style="padding:10px 16px 12px;border-bottom:1px solid var(--border);background:var(--bg-raised);display:flex;flex-direction:column;gap:12px">
-      ${longer ? `<div style="line-height:1.6">${mdBlockHtml(full)}</div>` : ""}
-      ${D.change.description ? `<div><div class="eyebrow" style="margin-bottom:6px">DESCRIPTION</div><div style="font-size:12px;line-height:1.6;color:var(--dim)">${mdBlockHtml(D.change.description)}</div></div>` : ""}
+  const details = S.briefOpen && hasDetails ? `<div class="brief-details">
+      ${longer ? `<div class="md">${mdBlockHtml(full)}</div>` : ""}
+      ${D.change.description ? `<div><div class="eyebrow">DESCRIPTION</div><div class="md dim">${mdBlockHtml(D.change.description)}</div></div>` : ""}
     </div>` : "";
-  return `<div id="brief" style="flex:none">
-    <div style="display:flex;align-items:center;gap:10px;padding:7px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);font-size:12.5px">
-      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(line)}">${esc(line)}</span>
-      ${ov.concerns ? `<button class="pill" data-act="toggle-concerns" style="color:var(--sev-major);border-color:color-mix(in oklab, var(--sev-major) ${S.concernsOpen ? 70 : 40}%, transparent);background:color-mix(in oklab, var(--sev-major) ${S.concernsOpen ? 14 : 8}%, transparent)" title="What the review focused on" aria-expanded="${S.concernsOpen ? "true" : "false"}">${ico("triangle-alert")}concerns</button>` : ""}
-      ${hasDetails ? `<button class="pill${S.briefOpen ? " on" : ""}" data-act="toggle-brief" title="${longer ? "The full summary and the description" : "The change's description"}" aria-expanded="${S.briefOpen ? "true" : "false"}">${ico("file-text")}description</button>` : ""}
+  return `<div id="brief" class="brief">
+    <div class="brief-line">
+      ${Pinrail.icon("sparkles", { size: 14 })}
+      <span class="brief-text"><b>The agent's summary</b><span>${inlineHtml(line)}</span></span>
+      <span class="brief-pills">
+        ${ov.concerns ? `<button class="toggle warn${S.concernsOpen ? " on" : ""}" data-act="toggle-concerns" aria-expanded="${S.concernsOpen ? "true" : "false"}">${ico("triangle-alert")}concerns</button>` : ""}
+        ${hasDetails ? `<button class="toggle${S.briefOpen ? " on" : ""}" data-act="toggle-brief" title="${longer ? "The full summary and the description" : "The change's description"}" aria-expanded="${S.briefOpen ? "true" : "false"}">${ico("file-text")}description</button>` : ""}
+      </span>
     </div>${concerns}${details}</div>`;
 }
 
-/* Comments on the change as a whole, after the last file: where the
-   reviewer is once everything is read. Posted as written. */
-function generalHtml() {
-  const general = S.generalComments.map((g) => `<div class="your-comment" data-general="${g.id}" style="margin-bottom:6px">
-      <div style="min-width:0;flex:1">
-        <div style="font-size:10.5px;font-weight:600;letter-spacing:0.05em;color:var(--accent);margin-bottom:2px">YOUR COMMENT · POSTS AS-IS</div>
-        <div style="line-height:1.5;white-space:pre-wrap">${esc(g.body)}</div>
-      </div>
-      ${RO() ? "" : `<button class="tiny" data-act="edit-general" data-gid="${g.id}">Edit</button>
-      <button class="tiny danger" data-act="del-general" data-gid="${g.id}">Delete</button>`}
-    </div>`).join("");
-  if (RO() && !general) return "";
-  return `<section id="general-comments" style="border:1px solid var(--border);border-radius:10px;background:var(--bg-panel);padding:14px 16px;margin-bottom:22px">
-    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
-      <span class="eyebrow">COMMENTS ON THE CHANGE AS A WHOLE</span>
-      <span style="font-size:11px;color:var(--faint)">your words, posted as-is</span>
-    </div>
-    ${general}
-    ${RO() ? "" : `<div style="display:flex;gap:8px;align-items:flex-start">
-      <textarea class="ta" id="general-ta" rows="1" placeholder="Comment on the change as a whole…" aria-label="general comment" style="border-color:var(--border)">${esc(S.generalDraft || "")}</textarea>
-      <button class="save-btn" data-act="add-general">Add comment</button>
-    </div>`}
-  </section>`;
-}
 function submitModalHtml() {
   if (!S.showSubmit || RO()) return "";
   const props = D.proposals;
@@ -787,7 +907,7 @@ function submitModalHtml() {
   const revised = decEntries.filter((e) => e.d.action === "accept" && e.d.note);
   const rejected = decEntries.filter((e) => e.d.action === "reject");
   const undecidedList = props.filter((p) => !decided(p.id));
-  const yours = S.manualComments.length + S.generalComments.length;
+  const yours = S.manualComments.length;
   const groups = [];
   const item = (ref, title, note) => `<div style="display:flex;gap:8px;font-size:12px;align-items:baseline">
     <span style="font-family:var(--mono);color:var(--faint);flex:none">${esc(ref)}</span>
@@ -798,8 +918,7 @@ function submitModalHtml() {
   if (revised.length) groups.push(group("POSTED AFTER REVISION", "var(--accent)", revised.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
   if (rejected.length) groups.push(group("REJECTED — NOT POSTED", "var(--danger)", rejected.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
   if (yours) groups.push(group("YOUR COMMENTS — HANDED TO THE AGENT", "var(--accent)", [
-    ...S.manualComments.map((m) => item(m.file.split("/").pop() + ":" + m.line, m.body)),
-    ...S.generalComments.map((g) => item("change", g.body))]));
+    ...S.manualComments.map((m) => item(m.file.split("/").pop() + ":" + m.line, m.body))]));
   if (undecidedList.length) groups.push(group("UNDECIDED — REPORTED AS SUCH", "var(--sev-major)", undecidedList.map((p) => item("#" + p.id, p.title))));
   const stats = [
     [verbatim.length, "posted verbatim", "var(--ok)"],
@@ -845,40 +964,47 @@ const ico = (name) => Pinrail.icon(name, { size: 14 });
 
 function headerHtml() {
   const props = D.proposals;
+  const count = (a) => props.filter((p) => S.decisions[p.id] && S.decisions[p.id].action === a).length;
   const decidedCount = props.filter((p) => decided(p.id)).length;
   const undecidedList = props.filter((p) => !decided(p.id));
-  const allFolded = D.files.every((f) => S.folded[f.path]);
   const pct = props.length ? Math.round((decidedCount / props.length) * 100) : 0;
   const c = D.change;
   const status = GATE.status;
   const roLabel = status === "decided" ? "READ-ONLY · DECIDED" : `READ-ONLY · ${String(status).toUpperCase()}`;
-  return `<header style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:9px 16px;border-bottom:1px solid var(--border);background:var(--bg-panel);flex:none">
-    <button class="bare" data-act="toggle-tree" style="color:var(--faint);padding:2px 4px;margin-right:-6px">${Pinrail.icon(S.treeOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: S.treeOpen ? "Collapse the file tree" : "Show the file tree" })}</button>
-    <div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;min-width:260px;overflow:hidden;flex:0 1 auto">
-      <span style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.title)}</span>
-      ${shellShows("ref") ? "" : `<span style="color:var(--faint);font-family:var(--mono);font-size:11px;flex:none">${esc(c.ref)}</span>`}
-      <span style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--dim);white-space:nowrap">
-        ${c.source ? `<span class="meta">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span style="color:var(--faint)">→</span>` : ""}${c.target ? `<span class="meta">${esc(c.target)}</span>` : ""}
-        ${c.url && !shellShows("url") ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer" style="font-size:11.5px">open ↗</a>` : ""}
+  return `<header class="head">
+    <button class="bare head-tree" data-act="toggle-tree">${Pinrail.icon(S.treeOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: S.treeOpen ? "Collapse the file tree" : "Show the file tree" })}</button>
+    <div class="head-title">
+      <h1>${esc(c.title)}</h1>
+      ${shellShows("ref") ? "" : `<span class="head-ref">${esc(c.ref)}</span>`}
+      <span class="head-branch">
+        ${c.source ? `<span class="meta">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span class="arrow">→</span>` : ""}${c.target ? `<span class="meta">${esc(c.target)}</span>` : ""}
+        ${c.url && !shellShows("url") ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer">open ↗</a>` : ""}
       </span>
     </div>
-    <span style="flex:1;min-width:16px"></span>
-    ${RO() ? `<span style="font-size:11px;font-weight:600;letter-spacing:0.06em;color:var(--accent);border:1px solid color-mix(in oklab, var(--accent) 40%, transparent);border-radius:99px;padding:3px 12px">${roLabel}</span>`
-      : `<div style="display:flex;align-items:center;gap:10px;flex:none">
-      <span style="font-size:12px;color:var(--dim);white-space:nowrap"><b style="color:var(--text)">${decidedCount}</b> of ${props.length} decided</span>
-      <div style="width:90px;height:4px;background:var(--border);border-radius:2px;overflow:hidden"><div style="height:100%;background:var(--accent);border-radius:2px;transition:width 0.2s;width:${pct}%"></div></div>
-    </div>`}
-    <div style="display:flex;align-items:center;gap:6px;flex:none">
-      <div style="display:flex;flex:none;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-        <button class="seg ${S.diffMode === "inline" ? "on" : ""}" data-act="set-inline" title="Inline diff">${Pinrail.icon("rows-3", { size: 14, label: "Inline diff" })}</button>
-        <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" style="border-left:1px solid var(--border)" title="Split diff">${Pinrail.icon("columns-2", { size: 14, label: "Split diff" })}</button>
-      </div>
-      ${!RO() || S.generalComments.length ? `<button class="ghost" data-act="jump-general" title="Comments on the change as a whole">${ico("message-square")}${S.generalComments.length || ""}</button>` : ""}
-      <button class="ghost" data-act="fold-all">${ico(allFolded ? "unfold-vertical" : "fold-vertical")}${allFolded ? "Unfold all" : "Fold all"}</button>
-      ${!RO() ? `<button class="ghost" data-act="bulk-accept" style="color:${S.confirmBulk === "accept" ? "var(--ok)" : "var(--dim)"}">${ico("list-check")}${S.confirmBulk === "accept" ? `Really accept ${undecidedList.length}?` : `Accept remaining (${undecidedList.length})`}</button>
-      <button class="ghost" data-act="bulk-reject" style="color:${S.confirmBulk === "reject" ? "var(--danger)" : "var(--dim)"}">${ico("list-x")}${S.confirmBulk === "reject" ? `Really reject ${undecidedList.length}?` : `Reject remaining (${undecidedList.length})`}</button>` : ""}
-    </div>
+    ${RO() ? `<span class="head-ro">${roLabel}</span>`
+      : `<div class="tally" title="${decidedCount} of ${props.length} decided"><span class="t-ok"><b>${count("accept")}</b> accepted</span><span class="t-no"><b>${count("reject")}</b> rejected</span><span><b>${undecidedList.length}</b> undecided</span></div>`}
+    ${RO() ? "" : `<div class="head-progress" aria-hidden="true"><span style="width:${pct}%"></span></div>`}
   </header>`;
+}
+
+/* The diff's own bar: how it reads, level with the rail's head. */
+function toolbarHtml() {
+  const allFolded = D.files.every((f) => S.folded[f.path]);
+  const undecided = D.proposals.filter((p) => !decided(p.id)).length;
+  // decisions on every finding still open below
+  const bulk = (kind, verb, icon) => {
+    const armed = S.confirmBulk === kind;
+    return `<button class="tool${armed ? ` armed ${kind}` : ""}" data-act="bulk-${kind}">${ico(icon)}${armed ? `Really ${verb.toLowerCase()} ${undecided}?` : `${verb} remaining (${undecided})`}</button>`;
+  };
+  return `<div class="diff-bar" role="toolbar" aria-label="The diff">
+    <div class="seg-group">
+      <button class="seg ${S.diffMode === "inline" ? "on" : ""}" data-act="set-inline" title="Inline diff">${Pinrail.icon("rows-3", { size: 14, label: "Inline diff" })}</button>
+      <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" title="Split diff">${Pinrail.icon("columns-2", { size: 14, label: "Split diff" })}</button>
+    </div>
+    <button class="tool" data-act="fold-all">${ico(allFolded ? "unfold-vertical" : "fold-vertical")}${allFolded ? "Unfold all" : "Fold all"}</button>
+    <span class="grow"></span>
+    ${!RO() && undecided ? `${bulk("accept", "Accept", "list-check")}${bulk("reject", "Reject", "list-x")}` : ""}
+  </div>`;
 }
 
 /* ---------- render root ---------- */
@@ -905,7 +1031,6 @@ function render() {
   const scrollTop = main ? main.scrollTop : 0;
   const focusEl = document.activeElement;
   const focusDesc = focusEl && focusEl.id === "composer-ta" ? { id: "composer-ta" }
-    : focusEl && focusEl.id === "general-ta" ? { id: "general-ta" }
     : focusEl && focusEl.hasAttribute && focusEl.hasAttribute("data-note-ta") ? { note: focusEl.getAttribute("data-note-ta") } : null;
 
   const globalUn = D.proposals.filter(unplaceable);
@@ -914,8 +1039,8 @@ function render() {
   HUNKS = new Map();
   regions.set("header", region("header", headerHtml()));
   regions.set("tree", region("tree", S.treeOpen ? treeHtml() : ""));
+  regions.set("toolbar", region("toolbar", toolbarHtml()));
   regions.set("brief", region("brief", briefHtml()));
-  regions.set("general", region("general", generalHtml()));
   for (const i of order) regions.set(`file:${D.files[i].path}`, region(`file:${D.files[i].path}`, fileSectionHtml(D.files[i], i)));
   regions.set("unanchored", region("unanchored", globalUn.length ? `<section style="margin-bottom:20px">
           <div style="display:flex;align-items:baseline;gap:10px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px 8px 0 0">
@@ -955,15 +1080,18 @@ function render() {
   }
 
   const banner = S.done ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--ok) 12%, var(--bg-panel));border-bottom:1px solid color-mix(in oklab, var(--ok) 35%, var(--border));font-size:12.5px;color:var(--ok);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>` : "";
-  app.innerHTML = `${regions.get("header")}${banner}${regions.get("brief")}
+  app.innerHTML = `${regions.get("header")}${banner}
   <div style="display:flex;flex:1;min-height:0">
     ${regions.get("tree")}
-    <div id="main" style="flex:1;overflow-y:auto;min-width:0">
+    <div class="pane">
+    ${regions.get("toolbar")}
+    <div id="main" style="flex:1;overflow-y:auto;min-width:0;min-height:0">
       <div style="padding:16px 24px 120px 24px">
+        ${regions.get("brief")}
         ${order.map((i) => compose(regions.get(`file:${D.files[i].path}`))).join("")}
         ${regions.get("unanchored")}
-        ${regions.get("general")}
       </div>
+    </div>
     </div>
   </div>
   ${regions.get("submit")}`;
@@ -973,7 +1101,11 @@ function render() {
   restoreFocus(focusDesc);
   syncStatus();
 }
+// a note field grows with what is written in it
+function fitNote(el) { el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
+document.addEventListener("input", (e) => { if (e.target.matches && e.target.matches("[data-note-ta], #composer-ta")) fitNote(e.target); });
 function restoreFocus(focusDesc) {
+  document.querySelectorAll("[data-note-ta], #composer-ta").forEach(fitNote);
   let toFocus = null;
   if (focusDesc) toFocus = focusDesc.id ? document.getElementById(focusDesc.id) : document.querySelector(`[data-note-ta="${focusDesc.note}"]`);
   else if (S.composer) toFocus = document.getElementById("composer-ta");
@@ -1002,11 +1134,7 @@ function spy() {
   });
 }
 function highlightTree(path) {
-  document.querySelectorAll('[data-act="jump-file"]').forEach((el) => {
-    const on = el.getAttribute("data-file") === path;
-    el.style.background = on ? "var(--accent-bg)" : "transparent";
-    el.style.boxShadow = on ? "inset 2px 0 0 var(--accent)" : "none";
-  });
+  document.querySelectorAll('[data-act="jump-file"]').forEach((el) => el.classList.toggle("on", el.getAttribute("data-file") === path));
 }
 
 /* ---------- actions ---------- */
@@ -1020,12 +1148,6 @@ function saveComposer() {
     else S.manualComments.push({ id: "m" + (++mseq), file: c.file, line: c.line, side: c.side, body: text });
     S.composer = null;
   });
-}
-function addGeneral() {
-  const ta = document.getElementById("general-ta");
-  const t = ta ? ta.value.trim() : "";
-  if (!t) return;
-  set(() => { S.generalComments.push({ id: "g" + (++gseq), body: t }); S.generalDraft = ""; });
 }
 function bulk(action) {
   const undecidedList = D.proposals.filter((p) => !decided(p.id));
@@ -1102,13 +1224,6 @@ document.addEventListener("click", (e) => {
       break;
     }
     case "del-manual": set(() => { S.manualComments = S.manualComments.filter((x) => x.id !== t.getAttribute("data-mid")); }); break;
-    case "add-general": addGeneral(); break;
-    case "edit-general": {
-      const g = S.generalComments.find((x) => x.id === t.getAttribute("data-gid"));
-      if (g) set(() => { S.generalDraft = g.body; S.generalComments = S.generalComments.filter((x) => x.id !== g.id); });
-      break;
-    }
-    case "del-general": set(() => { S.generalComments = S.generalComments.filter((x) => x.id !== t.getAttribute("data-gid")); }); break;
     case "fold-file": { const f = t.getAttribute("data-file"); set(() => { S.folded[f] = !S.folded[f]; }); break; }
     case "fold-all": {
       const all = D.files.every((f) => S.folded[f.path]);
@@ -1116,6 +1231,16 @@ document.addEventListener("click", (e) => {
       break;
     }
     case "jump-file": jumpToFile(t.getAttribute("data-file")); break;
+    case "jump-comment": {
+      const el = document.querySelector(`[data-comment="${CSS.escape(t.getAttribute("data-mid"))}"]`);
+      if (el) scrollTo(el, (cr) => cr.height / 3.2);
+      break;
+    }
+    case "jump-card": {
+      const p = D.proposals.find((x) => String(x.id) === t.getAttribute("data-id"));
+      if (p) { set(() => { S.focusedId = p.id; unfoldFor(p.id); }); scrollToCard(p.id); }
+      break;
+    }
     case "toggle-dir": { const d = t.getAttribute("data-dir"); set(() => { S.collapsedDirs[d] = !S.collapsedDirs[d]; }); break; }
     case "toggle-tree": set(() => { S.treeOpen = !S.treeOpen; }); keep("tree_open", S.treeOpen); break;
     case "toggle-findings-only": set(() => { S.findingsOnly = !S.findingsOnly; }); keep("findings_only", S.findingsOnly); break;
@@ -1126,7 +1251,6 @@ document.addEventListener("click", (e) => {
     case "bulk-reject": bulk("reject"); break;
     case "toggle-brief": set(() => { S.briefOpen = !S.briefOpen; }); break;
     case "toggle-concerns": set(() => { S.concernsOpen = !S.concernsOpen; }); break;
-    case "jump-general": scrollTo(document.getElementById("general-comments"), () => 12); document.getElementById("general-ta")?.focus(); break;
     case "open-submit": set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); break;
     case "close-submit": set(() => { S.showSubmit = false; S.errors = null; }); break;
     case "confirm-submit": confirmSubmit(); break;
@@ -1148,7 +1272,6 @@ document.addEventListener("keydown", (e) => {
   if (typing) {
     if (e.key === "Enter" && !e.shiftKey) {
       if (e.target.id === "composer-ta") { e.preventDefault(); saveComposer(); }
-      else if (e.target.id === "general-ta") { e.preventDefault(); addGeneral(); }
       else if (e.target.hasAttribute("data-note-ta")) {
         e.preventDefault();
         const id = parseInt(e.target.getAttribute("data-note-ta"), 10);
@@ -1189,11 +1312,9 @@ function boot(draftData) {
   } else if (draftData && draftData.decisions) {
     S.decisions = draftData.decisions || {};
     S.manualComments = draftData.manualComments || [];
-    S.generalComments = draftData.generalComments || [];
-    S.generalDraft = draftData.generalDraft || "";
-    mseq = draftData.mseq || S.manualComments.length; gseq = draftData.gseq || S.generalComments.length;
+    mseq = draftData.mseq || S.manualComments.length;
   } else {
-    S.decisions = {}; S.manualComments = []; S.generalComments = []; S.generalDraft = "";
+    S.decisions = {}; S.manualComments = [];
   }
   const ids = orderedIds();
   S.focusedId = RO() ? null : (ids.find((id) => !decided(id)) ?? (ids.length ? ids[0] : null));

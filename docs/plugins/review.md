@@ -33,7 +33,7 @@ pinrail plugins install github.com/forgeplane/pinrail/plugins/review
 - **The diff**, inline or side by side, with folding and a one-line summary per file.
 - **Proposals on their lines**, each with severity, markdown body, and `suggestion` blocks shown as the change they would make. Accept, reject, or add a note.
 - **Reply threads**, with the whole conversation so far.
-- **Your own comments**, from any line of the diff, and general comments on the change.
+- **Your own comments**, from any line of the diff.
 - **A summary before hand-over** showing exactly what goes back.
 
 The layout choices are saved as [plugin settings](/docs/building/settings-and-keys/), so they hold for your next review. Press <kbd>?</kbd> for the keys.
@@ -52,8 +52,7 @@ wait for my decision:
 2. Run: `pinrail submit review --title "<PR title>" --origin repo=<owner/repo>,ref=<PR number>,url=<PR URL> --data review.json --wait --format markdown`
 3. Post only accepted proposals. Apply an accept note as a revision before
    posting. Never post undecided proposals.
-4. Post my `general_comments` as they are. Consider my line `comments` and
-   address them in your next round.
+4. Consider my line `comments` and address them in your next round.
 5. Learn from rejection notes: don't make the same kind of comment again.
 6. If the command exits 5, stop and post nothing.
 ```
@@ -93,7 +92,6 @@ wait for my decision:
     { "id": 19, "action": "reject", "note": "out of scope for this change" }
   ],
   "comments": [ { "file": "lib/acme/tickets.ex", "line": 152, "side": "new", "body": "Add a test for this." } ],
-  "general_comments": [ { "body": "Nice cleanup overall." } ],
   "undecided": [20]
 }
 ```
@@ -102,7 +100,6 @@ wait for my decision:
 |---|---|
 | `decisions` | Posts accepted proposals, revised by their `note`. Drops rejected ones, and learns from the reason. |
 | `comments` | Your own line comments, for the agent to assess and address. |
-| `general_comments` | Posted on the change as they are. |
 | `undecided` | Never posted. |
 
 ## Reference

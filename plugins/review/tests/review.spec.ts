@@ -11,7 +11,7 @@ test("renders the change, the tree, the diff, the anchored cards, a thread and a
   const f = plugin.frame;
   await expect(f.locator("header")).toContainText("Dedup tickets on save");
   await expect(f.locator("header")).toContainText("!42");
-  await expect(f.locator("header")).toContainText("0 of 3 decided");
+  await expect(f.locator("header")).toContainText("3 undecided");
   await expect(f.locator("aside")).toContainText("FILES · 2");
   await expect(f.locator('[data-filesec="lib/acme/tickets.ex"]')).toContainText("+3 −2");
   await expect(f.locator('[data-filesec="lib/acme/tickets.ex"] .diff-row').filter({ hasText: "Enum.reverse()" })).toHaveCount(3);
@@ -26,7 +26,7 @@ test("renders the change, the tree, the diff, the anchored cards, a thread and a
   expect(resize?.height).toBe("fill");
 });
 
-test("verdicts, notes, own comments and general comments become exactly the decision", async ({ page }) => {
+test("verdicts, notes and own comments become exactly the decision", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const f = plugin.frame;
   await f.locator("#card-18 button", { hasText: "Accept" }).click();
@@ -41,9 +41,6 @@ test("verdicts, notes, own comments and general comments become exactly the deci
   await f.locator('[data-act="save-composer"]').click();
   await expect(f.locator("[data-comment]")).toContainText("is insert_all chunked anywhere?");
 
-  await f.getByLabel("general comment").fill("Nice change overall.");
-  await f.getByLabel("general comment").press("Enter");
-
   await plugin.collect();
   await expect(f.locator("#submit-modal")).toContainText("1 proposal(s) still undecided");
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over");
@@ -57,7 +54,6 @@ test("verdicts, notes, own comments and general comments become exactly the deci
       { id: 19, action: "reject", note: "the backfill covers it" },
     ],
     comments: [{ file: "lib/acme/tickets.ex", line: 150, side: "new", body: "is insert_all chunked anywhere?" }],
-    general_comments: [{ body: "Nice change overall." }],
     undecided: [20],
   });
 });
@@ -73,8 +69,11 @@ test("keyboard: a / x / j decide and move, s opens the summary, collect confirms
   await page.keyboard.press("x");
   await f.getByLabel("note for proposal 19").fill("no");
   await page.keyboard.press("Enter");
+  // saving the reason stays on #19; j moves on
+  await expect(f.locator("#card-19")).toHaveClass(/\bfocused\b/);
+  await page.keyboard.press("j");
   await page.keyboard.press("a");
-  await expect(f.locator("header")).toContainText("3 of 3 decided");
+  await expect(f.locator("header")).toContainText("0 undecided");
   await page.keyboard.press("s");
   await expect(f.locator("#submit-modal")).toContainText("Hand over 3 decision(s)");
   await plugin.collect();
@@ -93,7 +92,7 @@ test("a draft survives a reload", async ({ page }) => {
   await expect.poll(() => plugin.lastDraft().then((d) => d && d.decisions && d.decisions["19"] && d.decisions["19"].note)).toBe("later");
   await plugin.reload();
   await plugin.reinit();
-  await expect(f.locator("header")).toContainText("2 of 3 decided");
+  await expect(f.locator("header")).toContainText("1 undecided");
   await expect(f.locator("#card-19")).toContainText("REJECTED");
   await expect(f.locator("#card-19")).toContainText("later");
 });
@@ -148,38 +147,43 @@ test("the header leaves out what the shell's own header already shows", async ({
   await expect(own.locator(`a[href="${change.url}"]`)).toHaveCount(1);
 });
 
-test("the toolbar carries icons, and the control with no words carries its name", async ({ page }) => {
+test("the diff's bar holds how it reads and the bulk decisions; icons carry names only where there are no words", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const header = plugin.frame.locator("header").first();
+  const bar = plugin.frame.locator('[role="toolbar"]');
 
-  const icons = await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon));
-  expect(icons).toEqual(["panel-left-close", "rows-3", "columns-2", "message-square", "fold-vertical", "list-check", "list-x"]);
+  // the header: only the rail's toggle
+  expect(await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual(["panel-left-close"]);
+  // the diff's bar: how it reads, and the decisions on the findings still open below
+  expect(await bar.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual(["rows-3", "columns-2", "fold-vertical", "list-check", "list-x"]);
 
   // Beside a word, an icon is decoration and the word is the name.
-  await expect(header.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
-  await expect(header.getByRole("button", { name: "Fold all" })).toBeVisible();
-  await expect(header.locator('[data-act="bulk-accept"] .wi')).toHaveAttribute("aria-hidden", "true");
+  await expect(bar.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Fold all" })).toBeVisible();
+  await expect(bar.locator('[data-act="bulk-accept"] .wi')).toHaveAttribute("aria-hidden", "true");
 
   // The diff toggle has no words, so its two buttons are named.
-  await expect(header.getByRole("button", { name: "Inline diff" })).toBeVisible();
-  await expect(header.getByRole("button", { name: "Split diff" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Inline diff" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "Split diff" })).toBeVisible();
 
   // Folding flips the label and the icon together.
-  await header.getByRole("button", { name: "Fold all" }).click();
-  await expect(header.getByRole("button", { name: "Unfold all" })).toBeVisible();
-  await expect(header.locator('[data-act="fold-all"] .wi')).toHaveAttribute("data-icon", "unfold-vertical");
+  await bar.getByRole("button", { name: "Fold all" }).click();
+  await expect(bar.getByRole("button", { name: "Unfold all" })).toBeVisible();
+  await expect(bar.locator('[data-act="fold-all"] .wi')).toHaveAttribute("data-icon", "unfold-vertical");
 
   // Confirming a bulk action changes the words, not the icon.
-  await header.getByRole("button", { name: "Reject remaining (3)" }).click();
-  await expect(header.getByRole("button", { name: "Really reject 3?" })).toBeVisible();
-  await expect(header.locator('[data-act="bulk-reject"] .wi')).toHaveAttribute("data-icon", "list-x");
+  await bar.getByRole("button", { name: "Reject remaining (3)" }).click();
+  await expect(bar.getByRole("button", { name: "Really reject 3?" })).toBeVisible();
+  await expect(bar.locator('[data-act="bulk-reject"] .wi')).toHaveAttribute("data-icon", "list-x");
 });
 
 test("the file tree's controls carry icons, and the collapse in the header says which way it goes", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const aside = plugin.frame.locator("aside");
 
-  await expect(aside.locator(".wi")).toHaveCount(2);
+  await expect(aside.locator(".rail-head .wi")).toHaveCount(2);
+  // each folder opens and closes on a chevron, beside a folder that says which
+  await expect(aside.locator('[data-act="toggle-dir"] .wi[data-icon="folder-open"]')).toHaveCount(2);
   await expect(aside.getByRole("button", { name: "semantic" })).toBeVisible();
   await expect(aside.getByRole("button", { name: "findings" })).toBeVisible();
 
@@ -233,16 +237,16 @@ test("a declared key forwarded by the shell works like one typed in the frame", 
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toBeVisible();
   await plugin.sendKey("j");
-  await expect(f.locator("#card-19")).toHaveAttribute("style", /inset 3px 0 0 var\(--accent\)/);
+  await expect(f.locator("#card-19")).toHaveClass(/\bfocused\b/);
   await plugin.sendKey("k");
-  await expect(f.locator("#card-18")).toHaveAttribute("style", /inset 3px 0 0 var\(--accent\)/);
+  await expect(f.locator("#card-18")).toHaveClass(/\bfocused\b/);
   await plugin.sendKey("a");
   await expect(f.locator("#card-18")).toContainText("ACCEPTED");
   await plugin.sendKey("v");
   await expect(f.locator(".diff-row.split").first()).toBeVisible();
 });
 
-test("the brief is a strip under the header; details drop down; the comments sit after the last file", async ({ page }) => {
+test("the brief opens the scroll; concerns and the description drop down in it", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const f = plugin.frame;
   const brief = f.locator("#brief");
@@ -260,14 +264,66 @@ test("the brief is a strip under the header; details drop down; the comments sit
   await expect(brief).not.toContainText("Closes #12");
   await brief.getByRole("button", { name: "concerns" }).click();
   await expect(brief).not.toContainText("Ordering of the dedup");
-  // the comments come after the files, and the header's button lands on them
-  const general = f.locator("#general-comments");
-  const last = f.locator("[data-filesec]").last();
-  expect((await general.boundingBox())!.y).toBeGreaterThan((await last.boundingBox())!.y);
-  await f.locator('[data-act="jump-general"]').click();
-  await expect(f.getByLabel("general comment")).toBeFocused();
-  await f.getByLabel("general comment").fill("Overall fine.");
-  await f.getByLabel("general comment").press("Enter");
-  await expect(f.locator('[data-act="jump-general"]')).toContainText("1");
+  // nothing but the files follows: a note for the agent goes with the hand-over
+  await expect(f.locator("#general-comments")).toHaveCount(0);
 });
 
+
+test("the rail lists each file's findings, where they stand, and jumps to one", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const f = plugin.frame;
+  const rail = f.locator("aside");
+  const findings = rail.locator('[data-act="jump-card"]');
+  // the findings on files; one anchored to no file stays in its own section
+  await expect(findings).toHaveCount(await f.locator("[data-filesec] [data-card]").count());
+  const first = findings.first();
+  const id = await first.getAttribute("data-id");
+  await first.click();
+  await expect(first).toHaveClass(/focus/);
+  await f.locator(`#card-${id} button`, { hasText: "Accept" }).click();
+  await expect(rail.locator(`[data-act="jump-card"][data-id="${id}"]`)).toHaveClass(/accepted/);
+});
+
+test("a note folds with its finding, writing one opens it, and the rail marks it", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const f = plugin.frame;
+  const card = f.locator("#card-18");
+  await card.locator("button", { hasText: "Reject" }).click();
+  await f.getByLabel("note for proposal 18").fill("out of scope");
+  await f.getByLabel("note for proposal 18").press("Enter");
+  // just written, so still in view
+  await expect(card).toContainText("out of scope");
+  await expect(f.locator('aside [data-act="jump-card"][data-id="18"] .has-note')).toBeVisible();
+  // folded, the note goes with the comment
+  await card.locator('[data-act="collapse"]').click();
+  await expect(card).toHaveClass(/\bfolded\b/);
+  await expect(card).not.toContainText("out of scope");
+  // asking to edit it opens the finding again
+  await card.locator('[data-act="open-note"]').click();
+  await expect(f.getByLabel("note for proposal 18")).toHaveValue("out of scope");
+  await expect(card).not.toHaveClass(/\bfolded\b/);
+});
+
+test("your comment is edited where it stands, by clicking its text", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const f = plugin.frame;
+  await f.locator('[data-filesec="lib/acme/tickets.ex"] .diff-row').filter({ hasText: "Repo.insert_all" }).hover();
+  await f.getByLabel("comment on lib/acme/tickets.ex:150", { exact: true }).click();
+  await f.getByLabel("your comment").fill("is insert_all chunked?");
+  await f.getByLabel("your comment").press("Enter");
+  await f.locator("[data-comment]").getByText("is insert_all chunked?").click();
+  // one box: the comment itself, now a field, and no second one below it
+  await expect(f.locator("[data-comment]")).toHaveCount(0);
+  await expect(f.getByLabel("your comment")).toHaveValue("is insert_all chunked?");
+  await f.getByLabel("your comment").fill("is insert_all chunked anywhere?");
+  await f.getByLabel("your comment").press("Enter");
+  await expect(f.locator("[data-comment]")).toHaveCount(1);
+  await expect(f.locator("[data-comment]")).toContainText("is insert_all chunked anywhere?");
+  // the rail lists it under its file, among the findings by line
+  const rail = f.locator("aside");
+  const mine = rail.locator('[data-act="jump-comment"]');
+  await expect(mine).toContainText("is insert_all chunked anywhere?");
+  await expect(mine).toContainText("L150");
+  const order = await rail.locator('[data-act="jump-card"], [data-act="jump-comment"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-act")));
+  expect(order.indexOf("jump-comment")).toBeGreaterThan(0);
+});
