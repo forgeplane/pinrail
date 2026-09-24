@@ -1,7 +1,7 @@
 //! The HTTP API: JSON under `/api/v1`, plugin bundles under `/plugins`, the
 //! SDK under `/sdk/v1`, all bound to loopback.
 
-mod artifacts;
+mod attachments;
 mod error;
 mod files;
 mod guard;
@@ -30,11 +30,11 @@ pub struct Info {
     pub started_at: DateTime<Utc>,
     pub user: String,
     /// The files stored beside reviews: how many, and their bytes.
-    pub artifacts: ArtifactTotals,
+    pub attachments: AttachmentTotals,
 }
 
 #[derive(Debug, Serialize)]
-pub struct ArtifactTotals {
+pub struct AttachmentTotals {
     pub count: u64,
     pub bytes: u64,
 }
@@ -72,7 +72,7 @@ fn router_with(state: ApiState) -> Router {
     Router::new()
         .route("/api/v1/info", get(info))
         .merge(reviews::routes())
-        .merge(artifacts::routes())
+        .merge(attachments::routes())
         .merge(plugins::routes())
         .merge(sse::routes())
         .merge(files::routes())
@@ -90,7 +90,7 @@ fn router_with(state: ApiState) -> Router {
 
 async fn info(State(state): State<ApiState>) -> Json<Info> {
     let config = state.app.config();
-    let (count, bytes) = state.app.artifacts().totals().unwrap_or((0, 0));
+    let (count, bytes) = state.app.attachments().totals().unwrap_or((0, 0));
     Json(Info {
         version: crate::VERSION,
         data_dir: config.data_dir.display().to_string(),
@@ -98,7 +98,7 @@ async fn info(State(state): State<ApiState>) -> Json<Info> {
         pid: std::process::id(),
         started_at: state.started_at,
         user: config.user.clone(),
-        artifacts: ArtifactTotals { count, bytes },
+        attachments: AttachmentTotals { count, bytes },
     })
 }
 
@@ -133,8 +133,8 @@ pub async fn serve(
                 }
                 // after the history: what a swept review carried is free to go
                 let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
-                if let Err(error) = app.artifacts().sweep(hour_ago) {
-                    eprintln!("pinrail: artifacts sweep failed: {error}");
+                if let Err(error) = app.attachments().sweep(hour_ago) {
+                    eprintln!("pinrail: attachments sweep failed: {error}");
                 }
             }
         })

@@ -459,7 +459,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
         "entry": manifest.get("entry").and_then(Value::as_str).unwrap_or("index.html"),
         "build": build,
         // the files it takes beside a payload, for the dialog to say before the yes
-        "artifacts": manifest.get("artifacts"),
+        "attachments": manifest.get("attachments"),
         "origin": { "kind": prepared.origin.kind, "resolved": resolved, "commit": prepared.origin.commit },
         "installed": installed,
         "older": older,

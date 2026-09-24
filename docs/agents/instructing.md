@@ -128,7 +128,7 @@ An agent that can run commands in the background, such as Claude Code, can start
 
 ## Files
 
-Some plugins take files beside the payload, such as the [3D model](/docs/plugins/model/) plugin. Where a file goes, and which kinds and sizes are accepted, is the plugin's to say: its payload schema marks the places a file belongs, and `pinrail plugins describe` shows that schema with the plugin's limits. There is nothing to add to your instructions beyond pointing the agent at the plugin's description, as the [template](#a-template) already does; when the payload asks for a file, the agent sends it with `--artifact <path>`.
+Some plugins take files beside the payload, such as the [3D model](/docs/plugins/model/) plugin. Where a file goes, and which kinds and sizes are accepted, is the plugin's to say: its payload schema marks the places a file belongs, and `pinrail plugins describe` shows that schema with the plugin's limits. There is nothing to add to your instructions beyond pointing the agent at the plugin's description, as the [template](#a-template) already does; when the payload asks for a file, the agent sends it with `--attach <path>`.
 
 The review shows every file it carries by name and size, and you can save any of them.
 

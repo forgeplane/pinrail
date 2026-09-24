@@ -1170,7 +1170,7 @@ fn sha256(bytes: &[u8]) -> String {
     format!("{:x}", sha2::Sha256::digest(bytes))
 }
 
-/// A PUT of raw bytes, as the CLI uploads an artifact.
+/// A PUT of raw bytes, as the CLI uploads an attachment.
 async fn put_bytes(
     app: &App,
     path: &str,
@@ -1213,11 +1213,11 @@ async fn head(app: &App, path: &str) -> (StatusCode, Option<String>) {
 }
 
 #[tokio::test]
-async fn an_artifact_is_uploaded_once_by_its_hash() {
+async fn an_attachment_is_uploaded_once_by_its_hash() {
     let app = app();
     let bytes = b"glTF, more or less".to_vec();
     let hash = sha256(&bytes);
-    let path = format!("/api/v1/artifacts/{hash}");
+    let path = format!("/api/v1/attachments/{hash}");
     assert_eq!(head(&app, &path).await.0, StatusCode::NOT_FOUND);
 
     let (status, stored) =
@@ -1228,7 +1228,7 @@ async fn an_artifact_is_uploaded_once_by_its_hash() {
     let file = app
         .state
         .config()
-        .artifacts_dir()
+        .attachments_dir()
         .join("sha256")
         .join(&hash[..2])
         .join(&hash);
@@ -1244,7 +1244,7 @@ async fn an_artifact_is_uploaded_once_by_its_hash() {
 async fn an_upload_is_refused_when_it_is_not_what_it_says() {
     let app = app();
     let hash = sha256(b"what was promised");
-    let path = format!("/api/v1/artifacts/{hash}");
+    let path = format!("/api/v1/attachments/{hash}");
     let (status, refused) = put_bytes(
         &app,
         &path,
@@ -1284,7 +1284,7 @@ async fn an_upload_is_refused_when_it_is_not_what_it_says() {
     for bad in ["abc", &"A".repeat(64)] {
         let (status, _) = put_bytes(
             &app,
-            &format!("/api/v1/artifacts/{bad}"),
+            &format!("/api/v1/attachments/{bad}"),
             "application/octet-stream",
             b"x".to_vec(),
             true,
@@ -1292,7 +1292,7 @@ async fn an_upload_is_refused_when_it_is_not_what_it_says() {
         .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{bad}");
         assert_eq!(
-            head(&app, &format!("/api/v1/artifacts/{bad}")).await.0,
+            head(&app, &format!("/api/v1/attachments/{bad}")).await.0,
             StatusCode::NOT_FOUND
         );
     }
@@ -1300,9 +1300,9 @@ async fn an_upload_is_refused_when_it_is_not_what_it_says() {
 
 #[tokio::test]
 async fn an_upload_past_the_cap_is_refused_in_json_and_leaves_nothing() {
-    let app = app_with(|c| c.max_artifact_bytes = 1024 * 1024);
+    let app = app_with(|c| c.max_attachment_bytes = 1024 * 1024);
     let bytes = vec![7u8; 1024 * 1024 + 1];
-    let path = format!("/api/v1/artifacts/{}", sha256(&bytes));
+    let path = format!("/api/v1/attachments/{}", sha256(&bytes));
     // said up front, or found out on the way
     for length in [true, false] {
         let (status, refused) = put_bytes(
@@ -1319,10 +1319,10 @@ async fn an_upload_past_the_cap_is_refused_in_json_and_leaves_nothing() {
             "content-length: {length}"
         );
         assert_eq!(refused["error"], "too_large");
-        assert_eq!(refused["message"], "an artifact may be 1 MB at most");
+        assert_eq!(refused["message"], "an attachment may be 1 MB at most");
     }
     assert_eq!(head(&app, &path).await.0, StatusCode::NOT_FOUND);
-    let tmp = app.state.config().artifacts_dir().join("tmp");
+    let tmp = app.state.config().attachments_dir().join("tmp");
     assert_eq!(std::fs::read_dir(tmp).unwrap().count(), 0);
 }
 
@@ -1332,7 +1332,7 @@ async fn an_upload_is_not_held_to_the_json_limit() {
     let bytes = vec![3u8; 6 * 1024 * 1024];
     let (status, stored) = put_bytes(
         &app,
-        &format!("/api/v1/artifacts/{}", sha256(&bytes)),
+        &format!("/api/v1/attachments/{}", sha256(&bytes)),
         "application/octet-stream",
         bytes,
         true,
@@ -1344,7 +1344,7 @@ async fn an_upload_is_not_held_to_the_json_limit() {
 
 /// A plugin that takes models and images beside its payload, three at most,
 /// installed as a link from `root`.
-async fn files_plugin(app: &App, root: &Path, artifacts: Value) -> Value {
+async fn files_plugin(app: &App, root: &Path, attachments: Value) -> Value {
     let dir = root.join("files");
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
@@ -1354,7 +1354,7 @@ async fn files_plugin(app: &App, root: &Path, artifacts: Value) -> Value {
             "name": "files", "version": "1.0.0",
             "payload_schema": { "type": "object", "properties": { "files": { "type": "array" } } },
             "decision_schema": {},
-            "artifacts": artifacts,
+            "attachments": attachments,
         })
         .to_string(),
     )
@@ -1366,7 +1366,7 @@ async fn upload(app: &App, bytes: &[u8]) -> String {
     let hash = sha256(bytes);
     let (status, _) = put_bytes(
         app,
-        &format!("/api/v1/artifacts/{hash}"),
+        &format!("/api/v1/attachments/{hash}"),
         "application/octet-stream",
         bytes.to_vec(),
         true,
@@ -1376,8 +1376,8 @@ async fn upload(app: &App, bytes: &[u8]) -> String {
     hash
 }
 
-fn with_files(payload: Value, artifacts: Value) -> Value {
-    json!({ "plugin": "files", "title": "Two lamps", "payload": payload, "artifacts": artifacts })
+fn with_files(payload: Value, attachments: Value) -> Value {
+    json!({ "plugin": "files", "title": "Two lamps", "payload": payload, "attachments": attachments })
 }
 
 #[tokio::test]
@@ -1393,7 +1393,7 @@ async fn a_review_carries_the_files_its_payload_names() {
     let pivot = upload(&app, b"pivot glb").await;
     let photo = upload(&app, b"a photo").await;
     let body = with_files(
-        json!({ "files": [{ "$artifact": "pivot.glb" }, { "$artifact": "desk.jpg" }] }),
+        json!({ "files": [{ "$attachment": "pivot.glb" }, { "$attachment": "desk.jpg" }] }),
         json!({
             "pivot.glb": { "sha256": pivot, "size": 9, "media_type": "model/gltf-binary" },
             "desk.jpg": { "sha256": photo, "size": 7, "media_type": "image/jpeg" },
@@ -1406,7 +1406,7 @@ async fn a_review_carries_the_files_its_payload_names() {
         .unwrap()
         .unwrap();
     let carried: Vec<(&str, &str, u64, &str)> = review
-        .artifacts
+        .attachments
         .iter()
         .map(|a| {
             (
@@ -1427,7 +1427,7 @@ async fn a_review_carries_the_files_its_payload_names() {
 
     // a named blob outlives the sweep; once its review is swept, it goes
     let later = chrono::Utc::now() + chrono::Duration::hours(2);
-    assert_eq!(app.state.artifacts().sweep(later).unwrap(), 0);
+    assert_eq!(app.state.attachments().sweep(later).unwrap(), 0);
     let (status, _) = call(
         &app,
         "POST",
@@ -1440,12 +1440,12 @@ async fn a_review_carries_the_files_its_payload_names() {
     .await;
     assert_eq!(status, StatusCode::OK);
     app.state.reviews().sweep_history_before(later).unwrap();
-    assert_eq!(app.state.artifacts().sweep(later).unwrap(), 2);
-    assert!(app.state.artifacts().stored(&pivot).unwrap().is_none());
+    assert_eq!(app.state.attachments().sweep(later).unwrap(), 2);
+    assert!(app.state.attachments().stored(&pivot).unwrap().is_none());
     assert!(
         !app.state
             .config()
-            .artifacts_dir()
+            .attachments_dir()
             .join("sha256")
             .join(&pivot[..2])
             .join(&pivot)
@@ -1460,7 +1460,7 @@ async fn a_dry_run_checks_the_files_before_they_are_uploaded() {
     files_plugin(&app, scratch.path(), json!({ "accept": [".glb"] })).await;
     let hash = sha256(b"not sent yet");
     let body = with_files(
-        json!({ "files": [{ "$artifact": "a.glb" }] }),
+        json!({ "files": [{ "$attachment": "a.glb" }] }),
         json!({ "a.glb": { "sha256": hash, "size": 12 } }),
     );
     let (status, valid) = call(&app, "POST", "/api/v1/reviews/validate", Some(body.clone())).await;
@@ -1470,8 +1470,8 @@ async fn a_dry_run_checks_the_files_before_they_are_uploaded() {
     assert_eq!(
         violations(&refused),
         [(
-            "/artifacts/a.glb/sha256".to_string(),
-            "not uploaded: PUT /api/v1/artifacts/{sha256} first".to_string()
+            "/attachments/a.glb/sha256".to_string(),
+            "not uploaded: PUT /api/v1/attachments/{sha256} first".to_string()
         )]
     );
     upload(&app, b"not sent yet").await;
@@ -1491,21 +1491,21 @@ async fn files_a_plugin_does_not_take_or_a_payload_does_not_have_are_refused() {
     .await;
     let glb = upload(&app, b"glb").await;
 
-    // a plugin with no artifacts block takes none
+    // a plugin with no attachments block takes none
     let mut to_list = submission();
-    to_list["artifacts"] = json!({ "a.glb": { "sha256": glb, "size": 3 } });
+    to_list["attachments"] = json!({ "a.glb": { "sha256": glb, "size": 3 } });
     let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(to_list)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(
         violations(&refused),
         [(
-            "/artifacts".to_string(),
-            "this plugin takes no artifacts".to_string()
+            "/attachments".to_string(),
+            "this plugin takes no attachments".to_string()
         )]
     );
 
     let body = with_files(
-        json!({ "files": [{ "$artifact": "a.glb" }, { "$artifact": "missing.glb" }, { "$artifact": 7 }, "artifact:a.glb is text"] }),
+        json!({ "files": [{ "$attachment": "a.glb" }, { "$attachment": "missing.glb" }, { "$attachment": 7 }, "attachment:a.glb is text"] }),
         json!({
             "a.glb": { "sha256": glb, "size": 4 },
             "notes.pdf": { "sha256": glb, "size": 3, "media_type": "application/pdf" },
@@ -1517,24 +1517,30 @@ async fn files_a_plugin_does_not_take_or_a_payload_does_not_have_are_refused() {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     let found = violations(&refused);
     let expect = [
-        ("/artifacts", "at most 2 artifacts, not 4"),
+        ("/attachments", "at most 2 attachments, not 4"),
         (
-            "/artifacts/.hidden.glb",
+            "/attachments/.hidden.glb",
             "a name is 1 to 120 characters, with no / or \\, not starting with a dot",
         ),
-        ("/artifacts/a.glb/size", "the stored blob is 3 bytes, not 4"),
-        ("/artifacts/b.glb/sha256", "must be 64 lowercase hex digits"),
         (
-            "/artifacts/notes.pdf",
+            "/attachments/a.glb/size",
+            "the stored blob is 3 bytes, not 4",
+        ),
+        (
+            "/attachments/b.glb/sha256",
+            "must be 64 lowercase hex digits",
+        ),
+        (
+            "/attachments/notes.pdf",
             "this plugin takes .glb, image/*, not application/pdf",
         ),
         (
             "/payload/files/1",
-            "no artifact \"missing.glb\" on this review",
+            "no attachment \"missing.glb\" on this review",
         ),
         (
-            "/payload/files/2/$artifact",
-            "must be the name of an artifact on this review",
+            "/payload/files/2/$attachment",
+            "must be the name of an attachment on this review",
         ),
     ];
     for (path, message) in expect {
@@ -1556,7 +1562,7 @@ async fn a_review_lists_its_files_and_serves_each_only_as_a_download() {
     let model_hash = upload(&app, &model).await;
     let page_hash = upload(&app, &page).await;
     let body = with_files(
-        json!({ "files": [{ "$artifact": "Pivot lamp.glb" }, { "$artifact": "evil.html" }] }),
+        json!({ "files": [{ "$attachment": "Pivot lamp.glb" }, { "$attachment": "evil.html" }] }),
         json!({
             "Pivot lamp.glb": { "sha256": model_hash, "size": model.len(), "media_type": "model/gltf-binary" },
             "evil.html": { "sha256": page_hash, "size": page.len(), "media_type": "text/html" },
@@ -1567,27 +1573,30 @@ async fn a_review_lists_its_files_and_serves_each_only_as_a_download() {
 
     // the review says what it carries, the listing does not, as with the payload
     assert_eq!(
-        created["artifacts"],
+        created["attachments"],
         json!([
             { "name": "Pivot lamp.glb", "size": model.len(), "media_type": "model/gltf-binary", "sha256": model_hash },
             { "name": "evil.html", "size": page.len(), "media_type": "text/html", "sha256": page_hash },
         ])
     );
     let (_, shown) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
-    assert_eq!(shown["artifacts"], created["artifacts"]);
+    assert_eq!(shown["attachments"], created["attachments"]);
     let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
-    assert!(listing["reviews"][0].get("artifacts").is_none());
+    assert!(listing["reviews"][0].get("attachments").is_none());
     // but it does say how many, and how big, for the inbox row
     let total = json!({ "count": 2, "bytes": model.len() + page.len() });
-    assert_eq!(listing["reviews"][0]["artifacts_total"], total);
-    assert_eq!(created["artifacts_total"], total);
+    assert_eq!(listing["reviews"][0]["attachments_total"], total);
+    assert_eq!(created["attachments_total"], total);
     let (_, plain) = call(&app, "POST", "/api/v1/reviews", Some(submission())).await;
-    assert_eq!(plain["artifacts"], json!([]));
-    assert_eq!(plain["artifacts_total"], json!({ "count": 0, "bytes": 0 }));
+    assert_eq!(plain["attachments"], json!([]));
+    assert_eq!(
+        plain["attachments_total"],
+        json!({ "count": 0, "bytes": 0 })
+    );
 
     let get = |name: &str| {
         let uri = format!(
-            "/api/v1/reviews/{id}/artifacts/{}",
+            "/api/v1/reviews/{id}/attachments/{}",
             name.replace(' ', "%20")
         );
         let request = Request::get(uri)
@@ -1638,7 +1647,7 @@ async fn a_review_lists_its_files_and_serves_each_only_as_a_download() {
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{name}");
     }
     let other = plain["id"].as_str().unwrap();
-    let request = Request::get(format!("/api/v1/reviews/{other}/artifacts/evil.html"))
+    let request = Request::get(format!("/api/v1/reviews/{other}/attachments/evil.html"))
         .header("host", "127.0.0.1:4747")
         .body(Body::empty())
         .unwrap();
@@ -1648,14 +1657,14 @@ async fn a_review_lists_its_files_and_serves_each_only_as_a_download() {
         serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert_eq!(
         body["message"],
-        format!("review {other} carries no artifact \"evil.html\"")
+        format!("review {other} carries no attachment \"evil.html\"")
     );
 }
 
 #[tokio::test]
 async fn text_is_never_taken_for_a_reference() {
     let app = app();
-    // a list of release checks: CI calls its build outputs artifacts
+    // a list of release checks: CI calls its build outputs attachments
     let mut body = submission();
     body["payload"] = json!({ "groups": [{ "title": "Release 2.4", "items": [
         { "id": 1, "title": "artifact:linux-x64 was not uploaded by the release job" },
@@ -1665,20 +1674,20 @@ async fn text_is_never_taken_for_a_reference() {
 }
 
 #[tokio::test]
-async fn a_plugin_whose_artifacts_block_is_broken_is_not_installed() {
+async fn a_plugin_whose_attachments_block_is_broken_is_not_installed() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let cases = [
         (
             json!({ "accept": ["glb"] }),
-            "artifacts.accept: \"glb\" is neither an extension like .glb nor a media type like image/png",
+            "attachments.accept: \"glb\" is neither an extension like .glb nor a media type like image/png",
         ),
-        (json!({ "accepts": [".glb"] }), "artifacts"),
+        (json!({ "accepts": [".glb"] }), "attachments"),
         (
             json!({ "accept": [".glb"], "max_count": 99 }),
-            "artifacts/max_count",
+            "attachments/max_count",
         ),
-        (json!({ "accept": [] }), "artifacts/accept"),
+        (json!({ "accept": [] }), "attachments/accept"),
     ];
     for (i, (block, said)) in cases.into_iter().enumerate() {
         let dir = scratch.path().join(format!("files{i}"));
@@ -1686,7 +1695,7 @@ async fn a_plugin_whose_artifacts_block_is_broken_is_not_installed() {
         std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
         std::fs::write(
             dir.join("manifest.json"),
-            json!({ "name": "files", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "artifacts": block }).to_string(),
+            json!({ "name": "files", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "attachments": block }).to_string(),
         )
         .unwrap();
         let (status, refused) = install(&app, &dir, json!({ "link": true })).await;

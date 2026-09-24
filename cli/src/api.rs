@@ -245,31 +245,31 @@ impl Client {
     }
 
     /// Whether the app already has the file with this hash.
-    pub fn artifact_stored(&self, sha256: &str) -> Result<bool> {
+    pub fn attachment_stored(&self, sha256: &str) -> Result<bool> {
         let resp = self
             .agent
-            .head(format!("{}/api/v1/artifacts/{sha256}", self.base))
+            .head(format!("{}/api/v1/attachments/{sha256}", self.base))
             .call()
             .context("connecting to the server")?;
         match resp.status().as_u16() {
             200 => Ok(true),
             404 => Ok(false),
             status => {
-                anyhow::bail!("the server answered {status} to HEAD /api/v1/artifacts/{sha256}")
+                anyhow::bail!("the server answered {status} to HEAD /api/v1/attachments/{sha256}")
             }
         }
     }
 
     /// Uploads a file's bytes under their hash. An upload may take a
     /// while, so it gets a clock of its own rather than the usual 15 s.
-    pub fn upload_artifact(
+    pub fn upload_attachment(
         &self,
         sha256: &str,
         size: u64,
         mut body: impl std::io::Read,
     ) -> Result<Value> {
         let mut resp = Self::agent(Duration::from_secs(60 * 60))
-            .put(format!("{}/api/v1/artifacts/{sha256}", self.base))
+            .put(format!("{}/api/v1/attachments/{sha256}", self.base))
             .header("content-type", "application/octet-stream")
             .header("content-length", size.to_string())
             .send(ureq::SendBody::from_reader(&mut body))
@@ -278,7 +278,7 @@ impl Client {
     }
 
     /// Streams a file a review carries into `out`.
-    pub fn download_artifact(
+    pub fn download_attachment(
         &self,
         id: &str,
         name: &str,
@@ -295,7 +295,7 @@ impl Client {
             .collect();
         let mut resp = Self::agent(Duration::from_secs(60 * 60))
             .get(format!(
-                "{}/api/v1/reviews/{id}/artifacts/{encoded}",
+                "{}/api/v1/reviews/{id}/attachments/{encoded}",
                 self.base
             ))
             .call()

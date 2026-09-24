@@ -20,20 +20,20 @@ change to the protocol is a new major and a new path.
   same yes-or-no plugin as the `vite` template, with its view in React, Vue
   or Svelte.
 
-- Files beside a payload. A plugin that declares `artifacts` in its
+- Files beside a payload. A plugin that declares `attachments` in its
   manifest (`{"accept": [".glb", "image/*"]}`) receives files the agent
-  sent with `pinrail submit --artifact`; the payload names each one
-  `{ "$artifact": "pivot.glb" }`. `plugin.artifacts` lists them,
-  `plugin.artifact(name)` resolves with the bytes and
-  `plugin.artifactUrl(name)` with a `blob:` URL for an image, a video or a
+  sent with `pinrail submit --attach`; the payload names each one
+  `{ "$attachment": "pivot.glb" }`. `plugin.attachments` lists them,
+  `plugin.attachment(name)` resolves with the bytes and
+  `plugin.attachmentUrl(name)` with a `blob:` URL for an image, a video or a
   sound. The frame still fetches nothing: the shell hands the bytes over.
   `{ round: "previous" }` reads a file of the round this one revises.
   An app too old for this rejects with a message that says so.
-- `Pinrail.artifactName(ref)` and `Pinrail.ARTIFACT_SCHEMA`, the
+- `Pinrail.attachmentName(ref)` and `Pinrail.ATTACHMENT_SCHEMA`, the
   reference as JSON Schema for a payload schema's `$defs`.
 - The harness and `pinrail-plugin dev` hand files over too: a fixture lists
-  them as `"artifacts": {"pivot.glb": {"path": "pivot.glb"}}`, beside it,
-  and `mountPlugin` takes `artifacts` and `capabilities`.
+  them as `"attachments": {"pivot.glb": {"path": "pivot.glb"}}`, beside it,
+  and `mountPlugin` takes `attachments` and `capabilities`.
 
 - `Pinrail.markdown(s)` renders CommonMark: headings, tables, blockquotes,
   nested lists and the rest. The script the app serves carries its parser

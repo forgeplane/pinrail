@@ -29,15 +29,15 @@ function keyMessage(combo) {
   const [key, code] = special[name] || (name.length === 1 && /[a-z]/.test(name) ? [shift ? name.toUpperCase() : name, "Key" + name.toUpperCase()] : name.length === 1 && /[0-9]/.test(name) ? [name, "Digit" + name] : [name, name]);
   return { key, code, metaKey: mods.has("cmd") || mods.has("meta") || mods.has("super") || mods.has("command"), ctrlKey: mods.has("ctrl") || mods.has("control"), altKey: mods.has("alt") || mods.has("option"), shiftKey: shift };
 }
-async function answerArtifact(msg) {
+async function answerAttachment(msg) {
   const round = msg.round === "previous" ? "previous" : "current";
   const gate = pending && (round === "previous" ? pending.previous : pending.gate);
-  const listed = gate && (gate.artifacts || []).find((a) => a.name === msg.name);
-  if (!listed) return send({ type: "artifact", req: msg.req, ok: false, name: msg.name, error: `no artifact "${msg.name}" on this ${round === "previous" ? "previous round" : "review"}` });
-  const response = await fetch(`/_artifacts/${round}/${encodeURIComponent(msg.name)}`);
-  if (!response.ok) return send({ type: "artifact", req: msg.req, ok: false, name: msg.name, error: `could not fetch ${msg.name}` });
+  const listed = gate && (gate.attachments || []).find((a) => a.name === msg.name);
+  if (!listed) return send({ type: "attachment", req: msg.req, ok: false, name: msg.name, error: `no attachment "${msg.name}" on this ${round === "previous" ? "previous round" : "review"}` });
+  const response = await fetch(`/_attachments/${round}/${encodeURIComponent(msg.name)}`);
+  if (!response.ok) return send({ type: "attachment", req: msg.req, ok: false, name: msg.name, error: `could not fetch ${msg.name}` });
   const bytes = await response.arrayBuffer();
-  frame.contentWindow.postMessage({ pinrail: 1, type: "artifact", req: msg.req, ok: true, name: msg.name, media_type: listed.media_type, size: listed.size, bytes }, "*", [bytes]);
+  frame.contentWindow.postMessage({ pinrail: 1, type: "attachment", req: msg.req, ok: true, name: msg.name, media_type: listed.media_type, size: listed.size, bytes }, "*", [bytes]);
 }
 function sendInit(init) { send(Object.assign({ type: "init", shell_origin: location.origin }, init)); }
 
@@ -81,7 +81,7 @@ window.addEventListener("message", (event) => {
     // the shell opens it; here it is only recorded
     case "open": lastOpen = msg.url; break;
     // as the app: only a name the gate lists, fetched and transferred
-    case "artifact": answerArtifact(msg); break;
+    case "attachment": answerAttachment(msg); break;
   }
 });
 // the view is whatever the manifest names as its entry; index.html by default

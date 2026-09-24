@@ -145,9 +145,9 @@ const models = [];        // per payload model: { root, error, stats, still, cen
 /* Reading a model: a file the review carries (GLB, or glTF with
    everything embedded), which the shell hands over, or three.js JSON inline. */
 async function load(m) {
-  const file = Pinrail.artifactName(m.file);
+  const file = Pinrail.attachmentName(m.file);
   if (!file) return new THREE.ObjectLoader().parse(m.object);
-  const bytes = await plugin.artifact(file);
+  const bytes = await plugin.attachment(file);
   return new Promise((ok, fail) => new GLTFLoader().parse(bytes, "", (g) => {
     // the loader makes names safe for animation paths ("Lower arm" → "Lower_arm"); keep the agent's own
     const nodes = g.parser.json.nodes || [];

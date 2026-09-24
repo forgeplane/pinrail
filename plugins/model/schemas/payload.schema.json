@@ -16,20 +16,20 @@
       "minItems": 3,
       "maxItems": 3
     },
-    "artifact": {
+    "attachment": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "$artifact"
+        "$attachment"
       ],
       "properties": {
-        "$artifact": {
+        "$attachment": {
           "type": "string",
           "minLength": 1,
           "maxLength": 120
         }
       },
-      "description": "A file sent beside the payload with --artifact, by its name."
+      "description": "A file sent beside the payload with --attach, by its name."
     }
   },
   "properties": {
@@ -110,8 +110,8 @@
             "description": "Markdown: why this direction."
           },
           "file": {
-            "$ref": "#/$defs/artifact",
-            "description": "The model as a file sent with --artifact: a .glb, or a .gltf with everything embedded. Nothing else is fetched."
+            "$ref": "#/$defs/attachment",
+            "description": "The model as a file sent with --attach: a .glb, or a .gltf with everything embedded. Nothing else is fetched."
           },
           "object": {
             "type": "object",

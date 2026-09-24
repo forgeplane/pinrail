@@ -12,7 +12,7 @@
     "$ref": "schemas/decision.schema.json"
   },
   "example": "example.json",
-  "artifacts": {
+  "attachments": {
     "accept": [
       ".glb",
       ".gltf",

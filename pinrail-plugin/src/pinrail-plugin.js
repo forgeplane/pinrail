@@ -98,18 +98,18 @@
   const markdownInline = (src) => render("renderInline", src);
 
   /* A file a review carries is named in its payload as
-     { "$artifact": "pivot.glb" }. ARTIFACT_SCHEMA is that object as JSON
-     Schema, to paste into a payload schema's $defs; artifactName reads the
+     { "$attachment": "pivot.glb" }. ATTACHMENT_SCHEMA is that object as JSON
+     Schema, to paste into a payload schema's $defs; attachmentName reads the
      name back out, or gives null for anything else. */
-  const ARTIFACT_SCHEMA = Object.freeze({
+  const ATTACHMENT_SCHEMA = Object.freeze({
     type: "object",
     additionalProperties: false,
-    required: ["$artifact"],
-    properties: { $artifact: { type: "string", minLength: 1, maxLength: 120 } },
+    required: ["$attachment"],
+    properties: { $attachment: { type: "string", minLength: 1, maxLength: 120 } },
     description: "A file sent beside the payload, by its name on the review.",
   });
-  function artifactName(ref) {
-    return ref && typeof ref === "object" && typeof ref.$artifact === "string" ? ref.$artifact : null;
+  function attachmentName(ref) {
+    return ref && typeof ref === "object" && typeof ref.$attachment === "string" ? ref.$attachment : null;
   }
 
   /* What the superseded round decided for an item id, for views whose
@@ -213,8 +213,8 @@
         case "collect":
           collect();
           break;
-        case "artifact": {
-          // the shell's answer to artifact(): the bytes, transferred, or why not
+        case "attachment": {
+          // the shell's answer to attachment(): the bytes, transferred, or why not
           const waiting = asked.get(data.req);
           if (!waiting) break;
           asked.delete(data.req);
@@ -247,41 +247,41 @@
        frame can fetch nothing, so it asks, and the shell answers with the
        bytes and nothing else. `round: "previous"` asks for a file of the
        round this one revises. */
-    function artifact(name, opts) {
+    function attachment(name, opts) {
       const round = opts && opts.round === "previous" ? "previous" : "current";
       const gate = round === "previous" ? state.previous : state.gate;
-      if (!state.capabilities.includes("artifacts")) {
+      if (!state.capabilities.includes("attachments")) {
         return Promise.reject(new Error("this version of Pinrail cannot hand files to a view; update the app"));
       }
-      const listed = gate && Array.isArray(gate.artifacts) ? gate.artifacts : [];
+      const listed = gate && Array.isArray(gate.attachments) ? gate.attachments : [];
       if (!listed.some((a) => a && a.name === name)) {
-        return Promise.reject(new Error(`no artifact "${name}" on this ${round === "previous" ? "previous round" : "review"}`));
+        return Promise.reject(new Error(`no attachment "${name}" on this ${round === "previous" ? "previous round" : "review"}`));
       }
       return new Promise((resolve, reject) => {
         const req = nextAsk++;
         asked.set(req, { resolve, reject, name });
-        post(Object.assign({ type: "artifact", req, name }, round === "previous" ? { round } : {}));
+        post(Object.assign({ type: "attachment", req, name }, round === "previous" ? { round } : {}));
       });
     }
 
     /* The same file as a blob: URL, for an <img>, <video> or <audio>, which
        the frame's policy lets load blob: and nothing remote. The type is the
        one the review lists unless given; revoke the URL when done. */
-    async function artifactUrl(name, opts) {
-      const bytes = await artifact(name, opts);
+    async function attachmentUrl(name, opts) {
+      const bytes = await attachment(name, opts);
       const gate = opts && opts.round === "previous" ? state.previous : state.gate;
-      const listed = (gate.artifacts || []).find((a) => a.name === name);
+      const listed = (gate.attachments || []).find((a) => a.name === name);
       const type = (opts && opts.type) || (listed && listed.media_type) || "application/octet-stream";
-      if (!env.objectUrl) throw new Error("Pinrail: artifactUrl needs a browser");
+      if (!env.objectUrl) throw new Error("Pinrail: attachmentUrl needs a browser");
       return env.objectUrl(bytes, type);
     }
 
     return {
       get gate() { return state.gate; },
       /** the files the review carries: { name, size, media_type, sha256 } each */
-      get artifacts() { return (state.gate && state.gate.artifacts) || []; },
-      artifact,
-      artifactUrl,
+      get attachments() { return (state.gate && state.gate.attachments) || []; },
+      attachment,
+      attachmentUrl,
       get previous() { return state.previous; },
       get readonly() { return state.readonly; },
       get shellOrigin() { return state.shellOrigin; },
@@ -485,8 +485,8 @@
     markdown,
     markdownInline,
     previousVerdict,
-    artifactName,
-    ARTIFACT_SCHEMA,
+    attachmentName,
+    ATTACHMENT_SCHEMA,
   };
 
   // Before anything else this file does, and before the view's own script

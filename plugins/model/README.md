@@ -21,7 +21,7 @@ it: the comment is pinned to the point you clicked.
 ```sh
 pinrail plugins install ./plugins/model
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
-  --artifact out/pivot.glb --artifact out/column.glb --wait --format markdown
+  --attach out/pivot.glb --attach out/column.glb --wait --format markdown
 ```
 
 ## Payload
@@ -32,14 +32,14 @@ pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
   "subject": { "name": "Halden desk lamp", "units": "m", "up": "y" },
   "models": [
     { "id": "L1", "name": "Pivot",
-      "file": { "$artifact": "pivot.glb" },
+      "file": { "$attachment": "pivot.glb" },
       "reasoning": "markdown: the idea, and what to look for",
       "views": [{ "name": "Seated", "position": [0.55, 0.32, 0.55], "target": [0, 0.2, 0] }] }
   ]
 }
 ```
 
-- **A model** is a file sent with `--artifact`, which the payload names in
+- **A model** is a file sent with `--attach`, which the payload names in
   `file`: a `.glb`, or a `.gltf` with everything embedded, up to 50 MB each and
   12 a round. A small one can go inline instead, as three.js JSON in `object`
   (what `Object3D.toJSON()` returns, images as data URIs). The view fetches

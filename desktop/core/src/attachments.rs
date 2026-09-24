@@ -1,4 +1,4 @@
-//! Artifacts: files an agent sends beside a review, such as a model, a PDF
+//! Attachments: files an agent sends beside a review, such as a model, a PDF
 //! or a recording, stored once by their SHA-256.
 //!
 //! An upload is written to `tmp/` while it is hashed and counted, and
@@ -23,52 +23,52 @@ pub const MAX_COUNT: usize = 32;
 /// The most one review's files may add up to: 512 MiB.
 pub const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
 /// How a payload names a file the review carries: an object with this one
-/// key, `{ "$artifact": "pivot.glb" }`, which no text can be mistaken for.
-pub const REFERENCE: &str = "$artifact";
+/// key, `{ "$attachment": "pivot.glb" }`, which no text can be mistaken for.
+pub const REFERENCE: &str = "$attachment";
 
 /// A file a review carries: the name its payload knows it by, and the blob.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ReviewArtifact {
+pub struct ReviewAttachment {
     pub name: String,
     pub sha256: String,
     pub size: u64,
     pub media_type: String,
 }
 
-/// What a plugin takes, from its manifest's `artifacts`: kinds as file
+/// What a plugin takes, from its manifest's `attachments`: kinds as file
 /// extensions (`.glb`) or media types (`model/gltf-binary`, `image/*`), and
 /// limits no looser than the core's.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ArtifactRules {
+pub struct AttachmentRules {
     pub accept: Vec<String>,
     pub max_size: Option<u64>,
     pub max_count: Option<usize>,
 }
 
-impl ArtifactRules {
+impl AttachmentRules {
     /// The manifest's block, or why it cannot be used.
     pub fn parse(value: &Value) -> Result<Self, String> {
         let Some(block) = value.as_object() else {
-            return Err("artifacts: must be an object".into());
+            return Err("attachments: must be an object".into());
         };
         let accept: Vec<String> = match block.get("accept") {
             Some(Value::Array(kinds)) if !kinds.is_empty() => kinds
                 .iter()
                 .map(|k| match k.as_str() {
                     Some(k) if is_kind(k) => Ok(k.to_ascii_lowercase()),
-                    _ => Err(format!("artifacts.accept: {k} is neither an extension like .glb nor a media type like image/png")),
+                    _ => Err(format!("attachments.accept: {k} is neither an extension like .glb nor a media type like image/png")),
                 })
                 .collect::<Result<_, _>>()?,
-            _ => return Err("artifacts.accept: must list at least one extension or media type".into()),
+            _ => return Err("attachments.accept: must list at least one extension or media type".into()),
         };
         let max_size = match block.get("max_size") {
             None => None,
             Some(v) => match v.as_u64() {
-                Some(n) if n > 0 && n <= crate::config::MAX_ARTIFACT_BYTES => Some(n),
+                Some(n) if n > 0 && n <= crate::config::MAX_ATTACHMENT_BYTES => Some(n),
                 _ => {
                     return Err(format!(
-                        "artifacts.max_size: must be a number of bytes from 1 to {}",
-                        crate::config::MAX_ARTIFACT_BYTES
+                        "attachments.max_size: must be a number of bytes from 1 to {}",
+                        crate::config::MAX_ATTACHMENT_BYTES
                     ));
                 }
             },
@@ -79,12 +79,12 @@ impl ArtifactRules {
                 Some(n) if n > 0 && n as usize <= MAX_COUNT => Some(n as usize),
                 _ => {
                     return Err(format!(
-                        "artifacts.max_count: must be from 1 to {MAX_COUNT}"
+                        "attachments.max_count: must be from 1 to {MAX_COUNT}"
                     ));
                 }
             },
         };
-        Ok(ArtifactRules {
+        Ok(AttachmentRules {
             accept,
             max_size,
             max_count,
@@ -137,7 +137,7 @@ pub fn is_name(name: &str) -> bool {
             .any(|c| c == '/' || c == '\\' || c.is_control())
 }
 
-/// Every `{ "$artifact": ... }` in the payload, with where it is and what
+/// Every `{ "$attachment": ... }` in the payload, with where it is and what
 /// it holds (a name, if it is a string).
 pub fn references(payload: &Value) -> Vec<(String, Value)> {
     fn walk(value: &Value, at: &str, found: &mut Vec<(String, Value)>) {
@@ -177,7 +177,7 @@ pub enum Presence {
 }
 
 #[derive(Debug, Clone)]
-pub struct Artifacts {
+pub struct Attachments {
     dir: PathBuf,
     db: Arc<Db>,
     max_bytes: u64,
@@ -231,14 +231,14 @@ pub fn is_sha256(s: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-impl Artifacts {
+impl Attachments {
     /// Opens the store under `dir`, emptying `tmp/` of uploads a stop cut
     /// short.
     pub fn open(dir: &Path, db: Arc<Db>, max_bytes: u64) -> Result<Self, Error> {
         let _ = fs::remove_dir_all(dir.join("tmp"));
         fs::create_dir_all(dir.join("tmp"))?;
         fs::create_dir_all(dir.join("sha256"))?;
-        Ok(Artifacts {
+        Ok(Attachments {
             dir: dir.to_path_buf(),
             db,
             max_bytes,
@@ -251,21 +251,21 @@ impl Artifacts {
         Ok(self.db.blob_totals()?)
     }
 
-    /// The most one artifact may be, in bytes.
+    /// The most one attachment may be, in bytes.
     pub fn max_bytes(&self) -> u64 {
         self.max_bytes
     }
 
-    /// Reads and checks a submission's `artifacts` against the plugin's
+    /// Reads and checks a submission's `attachments` against the plugin's
     /// rules, the core's caps and the payload's references. With
     /// [`Presence::Stored`], every blob must be here with its size.
     pub fn check(
         &self,
         declared: Option<&Value>,
-        rules: Option<&ArtifactRules>,
+        rules: Option<&AttachmentRules>,
         payload: &Value,
         presence: Presence,
-    ) -> Result<Vec<ReviewArtifact>, Vec<Violation>> {
+    ) -> Result<Vec<ReviewAttachment>, Vec<Violation>> {
         let mut violations = Vec::new();
         let empty = Map::new();
         let map = match declared {
@@ -273,15 +273,15 @@ impl Artifacts {
             Some(Value::Object(map)) => map,
             Some(_) => {
                 return Err(vec![Violation::new(
-                    "/artifacts",
+                    "/attachments",
                     "must be an object of name to {sha256, size, media_type}",
                 )]);
             }
         };
         if !map.is_empty() && rules.is_none() {
             return Err(vec![Violation::new(
-                "/artifacts",
-                "this plugin takes no artifacts",
+                "/attachments",
+                "this plugin takes no attachments",
             )]);
         }
         let max_size = rules
@@ -290,14 +290,17 @@ impl Artifacts {
         let max_count = rules.and_then(|r| r.max_count).unwrap_or(MAX_COUNT);
         if map.len() > max_count {
             violations.push(Violation::new(
-                "/artifacts",
-                format!("at most {max_count} artifacts, not {}", map.len()),
+                "/attachments",
+                format!("at most {max_count} attachments, not {}", map.len()),
             ));
         }
-        let mut artifacts = Vec::new();
+        let mut attachments = Vec::new();
         let mut total = 0u64;
         for (name, entry) in map {
-            let at = format!("/artifacts/{}", name.replace('~', "~0").replace('/', "~1"));
+            let at = format!(
+                "/attachments/{}",
+                name.replace('~', "~0").replace('/', "~1")
+            );
             if !is_name(name) {
                 violations.push(Violation::new(
                     &at,
@@ -348,7 +351,7 @@ impl Artifacts {
             if size > max_size {
                 violations.push(Violation::new(
                     format!("{at}/size"),
-                    format!("an artifact may be {} bytes at most", max_size),
+                    format!("an attachment may be {} bytes at most", max_size),
                 ));
             }
             total += size;
@@ -361,14 +364,14 @@ impl Artifacts {
                     )),
                     Ok(None) => violations.push(Violation::new(
                         format!("{at}/sha256"),
-                        "not uploaded: PUT /api/v1/artifacts/{sha256} first",
+                        "not uploaded: PUT /api/v1/attachments/{sha256} first",
                     )),
                     Err(e) => {
                         violations.push(Violation::new(format!("{at}/sha256"), e.to_string()))
                     }
                 }
             }
-            artifacts.push(ReviewArtifact {
+            attachments.push(ReviewAttachment {
                 name: name.clone(),
                 sha256: sha256.to_string(),
                 size,
@@ -377,29 +380,31 @@ impl Artifacts {
         }
         if total > MAX_TOTAL_BYTES {
             violations.push(Violation::new(
-                "/artifacts",
-                format!("a review's artifacts may add up to {MAX_TOTAL_BYTES} bytes, not {total}"),
+                "/attachments",
+                format!(
+                    "a review's attachments may add up to {MAX_TOTAL_BYTES} bytes, not {total}"
+                ),
             ));
         }
         // only a plugin that takes files has references to check: to any
-        // other, `$artifact` is just data
+        // other, `$attachment` is just data
         if rules.is_some() {
             for (at, name) in references(payload) {
                 match name.as_str() {
                     Some(name) if map.contains_key(name) => {}
                     Some(name) => violations.push(Violation::new(
                         at,
-                        format!("no artifact \"{name}\" on this review"),
+                        format!("no attachment \"{name}\" on this review"),
                     )),
                     None => violations.push(Violation::new(
-                        format!("{at}/$artifact"),
-                        "must be the name of an artifact on this review",
+                        format!("{at}/$attachment"),
+                        "must be the name of an attachment on this review",
                     )),
                 }
             }
         }
         if violations.is_empty() {
-            Ok(artifacts)
+            Ok(attachments)
         } else {
             Err(violations)
         }
@@ -521,19 +526,19 @@ impl Drop for Upload {
 mod tests {
     use super::*;
 
-    fn store(max: u64) -> (tempfile::TempDir, Artifacts) {
+    fn store(max: u64) -> (tempfile::TempDir, Attachments) {
         let dir = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::in_memory().unwrap());
-        let artifacts = Artifacts::open(&dir.path().join("artifacts"), db, max).unwrap();
-        (dir, artifacts)
+        let attachments = Attachments::open(&dir.path().join("attachments"), db, max).unwrap();
+        (dir, attachments)
     }
 
     fn sha(bytes: &[u8]) -> String {
         format!("{:x}", Sha256::digest(bytes))
     }
 
-    fn tmp_is_empty(artifacts: &Artifacts) -> bool {
-        fs::read_dir(artifacts.dir.join("tmp"))
+    fn tmp_is_empty(attachments: &Attachments) -> bool {
+        fs::read_dir(attachments.dir.join("tmp"))
             .unwrap()
             .next()
             .is_none()
@@ -541,9 +546,9 @@ mod tests {
 
     #[test]
     fn an_upload_is_stored_read_only_under_its_hash() {
-        let (_dir, artifacts) = store(1024);
+        let (_dir, attachments) = store(1024);
         let hash = sha(b"hello model");
-        let mut upload = artifacts.begin(&hash).unwrap();
+        let mut upload = attachments.begin(&hash).unwrap();
         upload.write(b"hello ").unwrap();
         upload.write(b"model").unwrap();
         let blob = upload.finish().unwrap();
@@ -554,14 +559,14 @@ mod tests {
                 size: 11
             }
         );
-        let path = artifacts.path(&hash);
+        let path = attachments.path(&hash);
         assert!(path.ends_with(format!("sha256/{}/{hash}", &hash[..2])));
         assert_eq!(fs::read(&path).unwrap(), b"hello model");
         assert!(fs::metadata(&path).unwrap().permissions().readonly());
-        assert_eq!(artifacts.stored(&hash).unwrap(), Some(blob));
-        assert!(tmp_is_empty(&artifacts));
+        assert_eq!(attachments.stored(&hash).unwrap(), Some(blob));
+        assert!(tmp_is_empty(&attachments));
         // the same content again is the same file
-        let mut again = artifacts.begin(&hash).unwrap();
+        let mut again = attachments.begin(&hash).unwrap();
         again.write(b"hello model").unwrap();
         again.finish().unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"hello model");
@@ -569,9 +574,9 @@ mod tests {
 
     #[test]
     fn bytes_that_hash_to_another_name_are_not_kept() {
-        let (_dir, artifacts) = store(1024);
+        let (_dir, attachments) = store(1024);
         let claimed = sha(b"what was promised");
-        let mut upload = artifacts.begin(&claimed).unwrap();
+        let mut upload = attachments.begin(&claimed).unwrap();
         upload.write(b"something else").unwrap();
         match upload.finish() {
             Err(UploadError::Mismatch { sent, actual }) => {
@@ -580,29 +585,29 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
-        assert_eq!(artifacts.stored(&claimed).unwrap(), None);
-        assert!(!artifacts.path(&claimed).exists());
-        assert!(tmp_is_empty(&artifacts));
+        assert_eq!(attachments.stored(&claimed).unwrap(), None);
+        assert!(!attachments.path(&claimed).exists());
+        assert!(tmp_is_empty(&attachments));
     }
 
     #[test]
     fn an_upload_past_the_cap_stops_and_leaves_nothing() {
-        let (_dir, artifacts) = store(8);
+        let (_dir, attachments) = store(8);
         let hash = sha(b"far too long");
-        let mut upload = artifacts.begin(&hash).unwrap();
+        let mut upload = attachments.begin(&hash).unwrap();
         upload.write(b"far too ").unwrap();
         assert!(matches!(
             upload.write(b"long"),
             Err(UploadError::TooLarge { limit: 8 })
         ));
         drop(upload);
-        assert!(tmp_is_empty(&artifacts));
-        assert_eq!(artifacts.stored(&hash).unwrap(), None);
+        assert!(tmp_is_empty(&attachments));
+        assert_eq!(attachments.stored(&hash).unwrap(), None);
     }
 
     #[test]
     fn a_name_that_is_not_a_hash_is_refused() {
-        let (_dir, artifacts) = store(8);
+        let (_dir, attachments) = store(8);
         for bad in [
             "",
             "abc",
@@ -610,24 +615,24 @@ mod tests {
             &format!("{}/x", "a".repeat(62)),
             "../../../etc/passwd",
         ] {
-            assert!(artifacts.begin(bad).is_err(), "{bad}");
-            assert_eq!(artifacts.stored(bad).unwrap(), None);
+            assert!(attachments.begin(bad).is_err(), "{bad}");
+            assert_eq!(attachments.stored(bad).unwrap(), None);
         }
     }
 
     #[test]
     fn opening_empties_uploads_a_stop_cut_short() {
         let dir = tempfile::tempdir().unwrap();
-        let root = dir.path().join("artifacts");
+        let root = dir.path().join("attachments");
         fs::create_dir_all(root.join("tmp")).unwrap();
         fs::write(root.join("tmp").join("r_half"), b"half an upload").unwrap();
-        let artifacts = Artifacts::open(&root, Arc::new(Db::in_memory().unwrap()), 8).unwrap();
-        assert!(tmp_is_empty(&artifacts));
+        let attachments = Attachments::open(&root, Arc::new(Db::in_memory().unwrap()), 8).unwrap();
+        assert!(tmp_is_empty(&attachments));
     }
 
     #[test]
     fn rules_read_kinds_and_limits_no_looser_than_the_core() {
-        let rules = ArtifactRules::parse(&serde_json::json!({ "accept": [".GLB", "image/*", "model/gltf-binary"], "max_size": 1024, "max_count": 3 })).unwrap();
+        let rules = AttachmentRules::parse(&serde_json::json!({ "accept": [".GLB", "image/*", "model/gltf-binary"], "max_size": 1024, "max_count": 3 })).unwrap();
         assert_eq!(rules.accept, [".glb", "image/*", "model/gltf-binary"]);
         assert_eq!((rules.max_size, rules.max_count), (Some(1024), Some(3)));
         for bad in [
@@ -636,16 +641,16 @@ mod tests {
             serde_json::json!({ "accept": ["glb"] }),
             serde_json::json!({ "accept": ["image/"] }),
             serde_json::json!({ "accept": [".glb"], "max_size": 0 }),
-            serde_json::json!({ "accept": [".glb"], "max_size": crate::config::MAX_ARTIFACT_BYTES + 1 }),
+            serde_json::json!({ "accept": [".glb"], "max_size": crate::config::MAX_ATTACHMENT_BYTES + 1 }),
             serde_json::json!({ "accept": [".glb"], "max_count": MAX_COUNT + 1 }),
         ] {
-            assert!(ArtifactRules::parse(&bad).is_err(), "{bad}");
+            assert!(AttachmentRules::parse(&bad).is_err(), "{bad}");
         }
     }
 
     #[test]
     fn a_file_is_taken_by_its_extension_or_its_media_type() {
-        let rules = ArtifactRules::parse(
+        let rules = AttachmentRules::parse(
             &serde_json::json!({ "accept": [".glb", "image/*", "application/pdf"] }),
         )
         .unwrap();
@@ -682,10 +687,10 @@ mod tests {
     #[test]
     fn references_are_found_wherever_the_payload_has_them() {
         let payload = serde_json::json!({
-            "models": [{ "file": { "$artifact": "pivot.glb" } }, { "object": { "uuid": "x" } }],
-            "a/b": { "x~y": { "$artifact": "desk.jpg" } },
-            "note": "artifact:linux-x64 is text, not a reference",
-            "odd": { "$artifact": 7 },
+            "models": [{ "file": { "$attachment": "pivot.glb" } }, { "object": { "uuid": "x" } }],
+            "a/b": { "x~y": { "$attachment": "desk.jpg" } },
+            "note": "attachment:linux-x64 is text, not a reference",
+            "odd": { "$attachment": 7 },
         });
         let mut found = references(&payload);
         found.sort_by(|a, b| a.0.cmp(&b.0));

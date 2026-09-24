@@ -5,7 +5,7 @@ import { ApiError, api } from "../api/client";
 import { copyText } from "../lib/clipboard";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
-import { ArtifactsChip } from "../components/ArtifactsChip";
+import { AttachmentsChip } from "../components/AttachmentsChip";
 import { OutcomeBadge, PluginBadge, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { Tooltip } from "../components/Tooltip";
@@ -359,7 +359,7 @@ export function ReviewScreen() {
       <div className="review-strip">
         <OutcomeBadge review={review} />
         <PluginBadge name={review.plugin} version={review.plugin_version} />
-        {review.artifacts?.length ? <ArtifactsChip reviewId={review.id} artifacts={review.artifacts} /> : null}
+        {review.attachments?.length ? <AttachmentsChip reviewId={review.id} attachments={review.attachments} /> : null}
         {originText ? (
           <span>
             {originText}

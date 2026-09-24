@@ -30,7 +30,7 @@ pub struct Source {
     pub media_type: Option<String>,
 }
 
-/// `PATH` or `PATH=NAME`, as `--artifact` takes it; the name defaults to
+/// `PATH` or `PATH=NAME`, as `--attach` takes it; the name defaults to
 /// the file's own.
 pub fn parse_flag(spec: &str) -> Result<(String, PathBuf), String> {
     let (path, name) = match spec.rsplit_once('=') {
@@ -49,7 +49,7 @@ pub fn parse_flag(spec: &str) -> Result<(String, PathBuf), String> {
     Ok((name, path))
 }
 
-/// The files to send, by name: the request file's `artifacts` (paths
+/// The files to send, by name: the request file's `attachments` (paths
 /// relative to the file) and then the flags, a flag replacing a file entry
 /// of the same name. Two flags with one name is a mistake.
 ///
@@ -69,27 +69,27 @@ pub fn collect(
                     Value::String(path) => (path.as_str(), None),
                     Value::Object(o) => (
                         o.get("path").and_then(Value::as_str).with_context(|| {
-                            format!("the request's artifacts: {name} needs a path")
+                            format!("the request's attachments: {name} needs a path")
                         })?,
                         o.get("media_type")
                             .and_then(Value::as_str)
                             .map(str::to_string),
                     ),
                     _ => anyhow::bail!(
-                        "the request's artifacts: {name} must be a file path or {{\"path\": …}}"
+                        "the request's attachments: {name} must be a file path or {{\"path\": …}}"
                     ),
                 };
                 let path = request_dir.join(path);
                 files.insert(name.clone(), Source { path, media_type });
             }
         }
-        Some(_) => anyhow::bail!("the request's artifacts must map a name to a file path"),
+        Some(_) => anyhow::bail!("the request's attachments must map a name to a file path"),
     }
     let mut flagged = std::collections::BTreeSet::new();
     for (name, path) in flags {
         anyhow::ensure!(
             flagged.insert(name.clone()),
-            "two --artifact flags name {name}; give one of them another name with PATH=NAME"
+            "two --attach flags name {name}; give one of them another name with PATH=NAME"
         );
         let source = Source {
             path: path.clone(),
@@ -131,7 +131,7 @@ pub fn read(files: &BTreeMap<String, Source>) -> Result<Vec<Local>> {
         .collect()
 }
 
-/// The request's `artifacts`, as the API takes it.
+/// The request's `attachments`, as the API takes it.
 pub fn declare(files: &[Local]) -> Value {
     let map: Map<String, Value> = files
         .iter()
@@ -149,7 +149,7 @@ pub fn declare(files: &[Local]) -> Value {
 pub fn upload(client: &Client, files: &[Local]) -> Result<()> {
     let terminal = std::io::stderr().is_terminal();
     for file in files {
-        if client.artifact_stored(&file.sha256)? {
+        if client.attachment_stored(&file.sha256)? {
             continue;
         }
         let reader =
@@ -164,7 +164,7 @@ pub fn upload(client: &Client, files: &[Local]) -> Result<()> {
         };
         eprintln!("pinrail: uploading {} ({})", file.name, human(file.size));
         client
-            .upload_artifact(&file.sha256, file.size, progress)
+            .upload_attachment(&file.sha256, file.size, progress)
             .with_context(|| format!("uploading {}", file.name))?;
         if terminal {
             eprint!("\r\x1b[2K");

@@ -380,11 +380,11 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                 <SettingsRow
                   label="Files sent with reviews"
                   description={
-                    info?.artifacts ? (
-                      <span data-artifact-totals>
-                        {info.artifacts.count === 0
+                    info?.attachments ? (
+                      <span data-attachment-totals>
+                        {info.attachments.count === 0
                           ? "None stored"
-                          : `${info.artifacts.count} file${info.artifacts.count === 1 ? "" : "s"}, ${size(info.artifacts.bytes)}. They go with their reviews`}
+                          : `${info.attachments.count} file${info.attachments.count === 1 ? "" : "s"}, ${size(info.attachments.bytes)}. They go with their reviews`}
                       </span>
                     ) : (
                       "…"

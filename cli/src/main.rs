@@ -12,7 +12,7 @@
 //! | 5 | the person discarded the review: stop the work it was gating |
 
 mod api;
-mod artifacts;
+mod attachments;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
@@ -106,15 +106,15 @@ enum Command {
     /// file with --revises and the earlier round's id. The plugin argument
     /// can be left out when the file names one.
     ///
-    /// Files go beside the payload with --artifact, for a plugin that
+    /// Files go beside the payload with --attach, for a plugin that
     /// takes them (pinrail plugins describe says which). The payload names
-    /// each one as {"$artifact": "<name>"}; the name is the file's own, or
+    /// each one as {"$attachment": "<name>"}; the name is the file's own, or
     /// the one after =:
     ///
     ///     pinrail submit model --data models.json \
-    ///       --artifact out/pivot.glb --artifact out/v2.glb=column.glb
+    ///       --attach out/pivot.glb --attach out/v2.glb=column.glb
     ///
-    /// In a --request file they are "artifacts": {"pivot.glb":
+    /// In a --request file they are "attachments": {"pivot.glb":
     /// "out/pivot.glb"}, paths relative to the file, or {"path": …,
     /// "media_type": …} as a plugin's fixture has them, so a fixture is
     /// sent as it is. The submission is checked before anything is
@@ -167,7 +167,7 @@ enum Command {
     Plugins(PluginsArgs),
     /// The files a review carries: list them, or save one
     #[command(subcommand)]
-    Artifacts(ArtifactsCommand),
+    Attachments(AttachmentsCommand),
     /// Write every review as JSON files under a directory
     Export {
         /// Where to write them; created when missing
@@ -200,11 +200,11 @@ struct SubmitArgs {
     /// Payload JSON: a file path, or - for stdin
     #[arg(long, value_name = "FILE|-")]
     data: Option<String>,
-    /// A file to send beside the payload, which names it {"$artifact":
+    /// A file to send beside the payload, which names it {"$attachment":
     /// "<name>"}; the name is the file's own unless given after =.
     /// Repeat for more
-    #[arg(long = "artifact", value_name = "PATH[=NAME]", value_parser = artifacts::parse_flag)]
-    artifacts: Vec<(String, PathBuf)>,
+    #[arg(long = "attach", value_name = "PATH[=NAME]", value_parser = attachments::parse_flag)]
+    attachments: Vec<(String, PathBuf)>,
     /// Inbox summary JSON, e.g. '{"counts":[["major",2]],"subtitle":"3 new"}'
     #[arg(long, value_parser = parse_json)]
     summary: Option<Value>,
@@ -299,7 +299,7 @@ struct DecideArgs {
 }
 
 #[derive(Subcommand)]
-enum ArtifactsCommand {
+enum AttachmentsCommand {
     /// The files a review carries: name, size, media type and hash
     List {
         /// The review's id
@@ -430,12 +430,12 @@ fn run(cli: Cli) -> Result<u8> {
             output.review(&client, &client.get_review(&id)?)?;
             Ok(0)
         }
-        Command::Artifacts(ArtifactsCommand::List { id }) => {
+        Command::Attachments(AttachmentsCommand::List { id }) => {
             let review = client.get_review(&id)?;
-            out::print_json(&review["artifacts"], pretty);
+            out::print_json(&review["attachments"], pretty);
             Ok(0)
         }
-        Command::Artifacts(ArtifactsCommand::Get {
+        Command::Attachments(AttachmentsCommand::Get {
             id,
             name,
             output: to,
@@ -443,7 +443,7 @@ fn run(cli: Cli) -> Result<u8> {
         }) => {
             let to = to.unwrap_or_else(|| name.clone());
             let size = if to == "-" {
-                client.download_artifact(&id, &name, &mut std::io::stdout().lock())?
+                client.download_attachment(&id, &name, &mut std::io::stdout().lock())?
             } else {
                 let path = PathBuf::from(&to);
                 anyhow::ensure!(
@@ -459,7 +459,7 @@ fn run(cli: Cli) -> Result<u8> {
                 ));
                 let mut file = std::fs::File::create(&partial)
                     .with_context(|| format!("writing {}", partial.display()))?;
-                let result = client.download_artifact(&id, &name, &mut file);
+                let result = client.download_attachment(&id, &name, &mut file);
                 drop(file);
                 match result {
                     Ok(size) => {
@@ -474,7 +474,10 @@ fn run(cli: Cli) -> Result<u8> {
                 }
             };
             if to != "-" {
-                eprintln!("pinrail: saved {name} to {to} ({})", artifacts::human(size));
+                eprintln!(
+                    "pinrail: saved {name} to {to} ({})",
+                    attachments::human(size)
+                );
             }
             Ok(0)
         }
@@ -674,19 +677,19 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
             .unwrap_or_default(),
         _ => PathBuf::new(),
     };
-    let listed = body.as_object_mut().and_then(|m| m.remove("artifacts"));
-    let files = artifacts::read(&artifacts::collect(
+    let listed = body.as_object_mut().and_then(|m| m.remove("attachments"));
+    let files = attachments::read(&attachments::collect(
         listed.as_ref(),
         &request_dir,
-        &args.artifacts,
+        &args.attachments,
     )?)?;
     if !files.is_empty() {
-        body["artifacts"] = artifacts::declare(&files);
+        body["attachments"] = attachments::declare(&files);
         // checked before anything is uploaded, so a submission that would be
         // refused does not move a byte
         if !args.dry_run {
             client.validate(&body)?;
-            artifacts::upload(client, &files)?;
+            attachments::upload(client, &files)?;
         }
     }
 

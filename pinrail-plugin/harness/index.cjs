@@ -8,7 +8,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { iconsDir: findIcons, packageRoot, sdkScript } = require("../lib/paths.cjs");
-const { resolveArtifacts } = require("./artifacts.cjs");
+const { resolveAttachments } = require("./attachments.cjs");
 
 const ORIGIN = "http://plugin.test";
 const root = packageRoot(__filename);
@@ -64,15 +64,15 @@ function gateFrom(partial) {
 
 /* The files behind a gate that fixture() read, for mountPlugin to serve:
    kept beside the gate rather than on it, since the gate goes to the view. */
-const artifactFiles = new WeakMap();
+const attachmentFiles = new WeakMap();
 
 /** A fixture file (`{ title, payload }`, or with a `decision`, and with
- *  `artifacts` by path) as a gate. */
+ *  `attachments` by path) as a gate. */
 function fixture(file) {
   const partial = JSON.parse(fs.readFileSync(file, "utf8"));
-  const { list, files } = resolveArtifacts(partial.artifacts, path.dirname(file));
-  const gate = gateFrom({ ...partial, artifacts: list });
-  artifactFiles.set(gate, files);
+  const { list, files } = resolveAttachments(partial.attachments, path.dirname(file));
+  const gate = gateFrom({ ...partial, attachments: list });
+  attachmentFiles.set(gate, files);
   return gate;
 }
 
@@ -82,12 +82,12 @@ async function mountPlugin(page, pluginDir, opts) {
   const harness = fs.readFileSync(path.join(__dirname, "harness.html"), "utf8");
 
   // the files the view may ask for: from fixture(), or given as { name: path }
-  const given = opts.artifacts ? resolveArtifacts(opts.artifacts, pluginDir) : null;
-  const gate = gateFrom({ ...opts.gate, ...(given ? { artifacts: given.list } : {}) });
+  const given = opts.attachments ? resolveAttachments(opts.attachments, pluginDir) : null;
+  const gate = gateFrom({ ...opts.gate, ...(given ? { attachments: given.list } : {}) });
   const previous = opts.previous ? gateFrom(opts.previous) : null;
   const served = {
-    current: (given && given.files) || artifactFiles.get(opts.gate) || {},
-    previous: (opts.previous && artifactFiles.get(opts.previous)) || {},
+    current: (given && given.files) || attachmentFiles.get(opts.gate) || {},
+    previous: (opts.previous && attachmentFiles.get(opts.previous)) || {},
   };
 
   await page.route(`${ORIGIN}/**`, async (route) => {
@@ -95,10 +95,10 @@ async function mountPlugin(page, pluginDir, opts) {
     const p = url.pathname;
     if (p === "/_harness.html") return route.fulfill({ contentType: "text/html", body: harness });
     // the shell's own fetch of a file, as the app fetches it from the core
-    if (p.startsWith("/_artifacts/")) {
-      const [round, ...rest] = p.slice("/_artifacts/".length).split("/");
+    if (p.startsWith("/_attachments/")) {
+      const [round, ...rest] = p.slice("/_attachments/".length).split("/");
       const entry = (served[round] || {})[decodeURIComponent(rest.join("/"))];
-      if (!entry) return route.fulfill({ status: 404, body: "no such artifact" });
+      if (!entry) return route.fulfill({ status: 404, body: "no such attachment" });
       return route.fulfill({ contentType: "application/octet-stream", body: fs.readFileSync(entry.path) });
     }
     if (p === "/sdk/v1/pinrail-plugin.js") return route.fulfill({ contentType: mime[".js"], body: sdk });
@@ -137,7 +137,7 @@ async function mountPlugin(page, pluginDir, opts) {
     readonly: !!opts.readonly,
     draft: opts.draft ?? null,
     settings: opts.settings ?? {},
-    capabilities: opts.capabilities ?? ["artifacts"],
+    capabilities: opts.capabilities ?? ["attachments"],
   };
   await page.evaluate((i) => window.__shell.init(i), init);
 

@@ -14,7 +14,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveArtifacts } from "../harness/artifacts.cjs";
+import { resolveAttachments } from "../harness/attachments.cjs";
 import { iconsDir, packageRoot, sdkScript } from "../lib/paths.cjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -180,22 +180,22 @@ export function serve(argv) {
       // the files a fixture lists by path, as the app lists them: name, size, type, hash
       try {
         const fixture = JSON.parse(fs.readFileSync(file, "utf8"));
-        if (fixture.artifacts && !Array.isArray(fixture.artifacts)) fixture.artifacts = resolveArtifacts(fixture.artifacts, path.dirname(file)).list;
+        if (fixture.attachments && !Array.isArray(fixture.attachments)) fixture.attachments = resolveAttachments(fixture.attachments, path.dirname(file)).list;
         return send(res, 200, JSON.stringify(fixture), { "content-type": "application/json" });
       } catch (e) {
         return send(res, 422, JSON.stringify({ error: String(e.message || e) }), { "content-type": "application/json" });
       }
     }
     // a file a fixture carries, fetched by the shell for the view that asked
-    if (p.startsWith("/dev/artifacts/")) {
-      const [fixtureName, ...rest] = p.slice("/dev/artifacts/".length).split("/").map(decodeURIComponent);
+    if (p.startsWith("/dev/attachments/")) {
+      const [fixtureName, ...rest] = p.slice("/dev/attachments/".length).split("/").map(decodeURIComponent);
       const file = under(path.join(pluginDir, "fixtures"), fixtureName);
       try {
         const fixture = file && JSON.parse(fs.readFileSync(file, "utf8"));
-        const entry = fixture && resolveArtifacts(fixture.artifacts, path.dirname(file)).files[rest.join("/")];
-        return entry ? sendFile(res, entry.path, { "content-type": "application/octet-stream" }) : send(res, 404, "no such artifact");
+        const entry = fixture && resolveAttachments(fixture.attachments, path.dirname(file)).files[rest.join("/")];
+        return entry ? sendFile(res, entry.path, { "content-type": "application/octet-stream" }) : send(res, 404, "no such attachment");
       } catch {
-        return send(res, 404, "no such artifact");
+        return send(res, 404, "no such attachment");
       }
     }
     if (p === "/dev/stamp") return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir, icons: !!iconDir }), { "content-type": "application/json" });

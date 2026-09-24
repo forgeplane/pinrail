@@ -40,7 +40,7 @@ impl Db {
         conn.prepare(
             "SELECT b.sha256 FROM blobs b
              WHERE b.created_at < ?1
-               AND NOT EXISTS (SELECT 1 FROM review_artifacts a WHERE a.sha256 = b.sha256)",
+               AND NOT EXISTS (SELECT 1 FROM review_attachments a WHERE a.sha256 = b.sha256)",
         )?
         .query_map(
             params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],

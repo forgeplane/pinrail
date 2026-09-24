@@ -51,9 +51,9 @@ pub struct Plugin {
     pub example: Option<Value>,
     pub example_error: Option<String>,
     /// The files the plugin takes beside a payload (the manifest's
-    /// `artifacts`); none takes none. A malformed block makes the plugin
+    /// `attachments`); none takes none. A malformed block makes the plugin
     /// unusable, as a broken schema does.
-    pub artifacts: Option<crate::artifacts::ArtifactRules>,
+    pub attachments: Option<crate::attachments::AttachmentRules>,
     /// How the plugin got here: a link served live, or a store entry with
     /// its record; none for the built-in and for a configured directory.
     pub install: Option<Install>,
@@ -152,7 +152,7 @@ impl Plugin {
                 use_when: None,
                 example: None,
                 example_error: None,
-                artifacts: None,
+                attachments: None,
                 install: None,
                 error: Some(message),
             },
@@ -277,9 +277,9 @@ impl Plugin {
             .get("use_when")
             .and_then(Value::as_str)
             .map(str::to_string);
-        let artifacts = match manifest.get("artifacts") {
+        let attachments = match manifest.get("attachments") {
             None | Some(Value::Null) => None,
-            Some(block) => Some(crate::artifacts::ArtifactRules::parse(block)?),
+            Some(block) => Some(crate::attachments::AttachmentRules::parse(block)?),
         };
 
         Ok(Plugin {
@@ -315,7 +315,7 @@ impl Plugin {
             use_when,
             example,
             example_error,
-            artifacts,
+            attachments,
             install: None,
             error: None,
         })
@@ -423,7 +423,7 @@ impl Plugin {
             "payload_schema": self.schema_document("payload_schema"),
             "decision_schema": self.schema_document("decision_schema"),
             "example": self.example,
-            "artifacts": self.manifest.get("artifacts"),
+            "attachments": self.manifest.get("attachments"),
             "markdown": self.decision_template.is_some(),
         })
     }
@@ -471,7 +471,7 @@ impl Plugin {
             "description": self.manifest.get("description"),
             "use_when": self.use_when,
             "example_error": self.example_error,
-            "artifacts": self.manifest.get("artifacts"),
+            "attachments": self.manifest.get("attachments"),
             "install": self.install.as_ref().map(Install::to_json),
         })
     }

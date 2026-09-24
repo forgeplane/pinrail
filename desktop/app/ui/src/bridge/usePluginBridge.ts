@@ -5,12 +5,12 @@
 // Every message is {pinrail: 1, type, ...}.
 //   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
 //                    status {label} | settings_set {patch} |
-//                    artifact {req, name, round?: "previous"}
+//                    attachment {req, name, round?: "previous"}
 //   shell -> plugin: init {gate, previous, readonly, draft, settings, shell_origin,
 //                          capabilities} |
 //                    violations {errors} | submitted {decision} | collect |
 //                    appearance {theme} | settings {settings} |
-//                    artifact {req, ok, name, media_type, size, bytes} | {req, ok: false, error}
+//                    attachment {req, ok, name, media_type, size, bytes} | {req, ok: false, error}
 //
 // A view cannot fetch anything, so a file its review carries comes this way:
 // the view asks by name, the shell fetches it from the core (only names the
@@ -30,7 +30,7 @@ const DRAFT_PREFIX = "pinrail:draft:";
 const LOADING_FALLBACK_MS = 2500;
 const MAX_HEIGHT = 50000;
 /** what this shell can do for a view beyond protocol 1's first messages */
-const CAPABILITIES = ["artifacts"];
+const CAPABILITIES = ["attachments"];
 
 export type SubmitResult = { ok: true; decision: Decision } | { ok: false; violations: Violation[] };
 
@@ -81,24 +81,24 @@ export function usePluginBridge(options: Options): Bridge {
   // A file fetched once per frame and review, however often the view asks;
   // each answer transfers a copy, since a transferred buffer is gone.
   const files = useRef(new Map<string, Promise<ArrayBuffer>>());
-  const answerArtifact = async (req: unknown, name: unknown, round: unknown) => {
+  const answerAttachment = async (req: unknown, name: unknown, round: unknown) => {
     if (typeof req !== "number" || typeof name !== "string") return;
     const { review, previous } = latest.current;
     const from = round === "previous" ? previous : review;
-    const listed = from?.artifacts?.find((a) => a.name === name);
-    const fail = (error: string) => post({ type: "artifact", req, ok: false, name, error });
-    if (!from || !listed) return fail(`no artifact "${name}" on this ${round === "previous" ? "previous round" : "review"}`);
+    const listed = from?.attachments?.find((a) => a.name === name);
+    const fail = (error: string) => post({ type: "attachment", req, ok: false, name, error });
+    if (!from || !listed) return fail(`no attachment "${name}" on this ${round === "previous" ? "previous round" : "review"}`);
     const key = `${from.id}\u0000${name}`;
     let bytes = files.current.get(key);
     if (!bytes) {
-      bytes = api.artifactBytes(from.id, name);
+      bytes = api.attachmentBytes(from.id, name);
       files.current.set(key, bytes);
       bytes.catch(() => files.current.delete(key));
     }
     try {
       const copy = (await bytes).slice(0);
       frame.current?.contentWindow?.postMessage(
-        { pinrail: PROTOCOL, type: "artifact", req, ok: true, name, media_type: listed.media_type, size: listed.size, bytes: copy },
+        { pinrail: PROTOCOL, type: "attachment", req, ok: true, name, media_type: listed.media_type, size: listed.size, bytes: copy },
         "*",
         [copy],
       );
@@ -206,8 +206,8 @@ export function usePluginBridge(options: Options): Bridge {
         case "status":
           if (typeof msg.label === "string" && msg.label.trim()) setHandoverLabel(msg.label);
           break;
-        case "artifact":
-          void answerArtifact(msg.req, msg.name, msg.round);
+        case "attachment":
+          void answerAttachment(msg.req, msg.name, msg.round);
           break;
         case "settings_set": {
           // the view may only ever write its own settings: the handler

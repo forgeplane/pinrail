@@ -143,20 +143,20 @@ export function checkPlugin(dir) {
 
   // files beside the payload: each kind as the core reads it, and a payload
   // schema that says where they go, or an agent cannot tell
-  const takesFiles = isObject(manifest.artifacts) && !refused("artifacts");
+  const takesFiles = isObject(manifest.attachments) && !refused("attachments");
   if (takesFiles) {
-    const bad = manifest.artifacts.accept.find((k) => !isKind(k));
-    if (bad !== undefined) problem("artifacts", `artifacts.accept: ${JSON.stringify(bad)} is neither an extension like .glb nor a media type like image/png`);
+    const bad = manifest.attachments.accept.find((k) => !isKind(k));
+    if (bad !== undefined) problem("attachments", `attachments.accept: ${JSON.stringify(bad)} is neither an extension like .glb nor a media type like image/png`);
   }
   if (!refused("payload_schema") && "payload_schema" in manifest) {
     let names = false;
     try {
-      names = JSON.stringify(schemaDocument(dir, manifest.payload_schema) ?? {}).includes('"$artifact"');
+      names = JSON.stringify(schemaDocument(dir, manifest.payload_schema) ?? {}).includes('"$attachment"');
     } catch {
       // an unreadable schema is reported above
     }
-    if (takesFiles && !names) warn("artifacts", 'payload_schema never names {"$artifact": …}: say where a file goes, or an agent cannot tell (Pinrail.ARTIFACT_SCHEMA is the $defs entry)');
-    if (!takesFiles && names) warn("artifacts", 'payload_schema names {"$artifact": …} but the manifest declares no artifacts: the app refuses every file for this plugin');
+    if (takesFiles && !names) warn("attachments", 'payload_schema never names {"$attachment": …}: say where a file goes, or an agent cannot tell (Pinrail.ATTACHMENT_SCHEMA is the $defs entry)');
+    if (!takesFiles && names) warn("attachments", 'payload_schema names {"$attachment": …} but the manifest declares no attachments: the app refuses every file for this plugin');
   }
 
   if (manifest.decision_template !== undefined && manifest.decision_template !== null && !dropped.has("decision_template")) {
@@ -171,7 +171,7 @@ export function checkPlugin(dir) {
   return result();
 }
 
-/** `.ext`, `type/subtype` or `type/*`: a kind the core reads in artifacts.accept. */
+/** `.ext`, `type/subtype` or `type/*`: a kind the core reads in attachments.accept. */
 function isKind(kind) {
   const token = (t) => /^[A-Za-z0-9+.-]+$/.test(t);
   if (kind.startsWith(".")) return token(kind.slice(1));

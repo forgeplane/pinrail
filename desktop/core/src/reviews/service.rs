@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
 use super::model::{Decision, Review, Status, parse_datetime};
-use crate::artifacts::{Artifacts, Presence, ReviewArtifact};
+use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{Db, Event, Filters};
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
@@ -41,7 +41,7 @@ pub struct Reviews {
     registry: Arc<Registry>,
     bus: Bus,
     user: String,
-    artifacts: Artifacts,
+    attachments: Attachments,
 }
 
 /// A submission that passed every check, ready to store.
@@ -49,7 +49,7 @@ struct Checked<'a> {
     attrs: &'a Map<String, Value>,
     plugin: Arc<Plugin>,
     payload: Value,
-    artifacts: Vec<ReviewArtifact>,
+    attachments: Vec<ReviewAttachment>,
 }
 
 impl Reviews {
@@ -58,14 +58,14 @@ impl Reviews {
         registry: Arc<Registry>,
         bus: Bus,
         user: String,
-        artifacts: Artifacts,
+        attachments: Attachments,
     ) -> Self {
         Reviews {
             db,
             registry,
             bus,
             user,
-            artifacts,
+            attachments,
         }
     }
 
@@ -78,7 +78,7 @@ impl Reviews {
             attrs,
             plugin,
             payload,
-            artifacts,
+            attachments,
         } = self.check(body, Presence::Stored)?;
         let review = Review {
             id: crate::id::next(),
@@ -109,11 +109,11 @@ impl Reviews {
             discarded_at: None,
             discarded_by: None,
             discarded_reason: None,
-            artifacts_total: (
-                artifacts.len() as u64,
-                artifacts.iter().map(|a| a.size).sum(),
+            attachments_total: (
+                attachments.len() as u64,
+                attachments.iter().map(|a| a.size).sum(),
             ),
-            artifacts,
+            attachments,
         };
         let event_id = self.db.insert_review(&review, actor)?;
         self.publish(event_id, events::CREATED, &review);
@@ -122,7 +122,7 @@ impl Reviews {
 
     /// Runs every check a submission gets and stores nothing: the plugin
     /// that would render the review, or the violations `submit` would give.
-    /// Artifacts are checked as described, not for being uploaded, so a
+    /// Attachments are checked as described, not for being uploaded, so a
     /// dry run can come before the uploads.
     pub fn validate(&self, body: &Value) -> Result<Arc<Plugin>, Error> {
         self.check(body, Presence::Described)
@@ -149,11 +149,11 @@ impl Reviews {
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
         }
-        let artifacts = self
-            .artifacts
+        let attachments = self
+            .attachments
             .check(
-                attrs.get("artifacts"),
-                plugin.artifacts.as_ref(),
+                attrs.get("attachments"),
+                plugin.attachments.as_ref(),
                 &payload,
                 presence,
             )
@@ -162,7 +162,7 @@ impl Reviews {
             attrs,
             plugin,
             payload,
-            artifacts,
+            attachments,
         })
     }
 

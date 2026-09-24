@@ -4,7 +4,7 @@
 // has ended, `decision` (with an optional `note` to the agent), `discard` or
 // `withdraw` (the reason), with `decided` saying when. `revises` names the
 // fixture a round answers. `age` and `decided` are how long before NOW, as
-// "4m", "2h" or "3d". `artifacts` names files the review carries by path,
+// "4m", "2h" or "3d". `attachments` names files the review carries by path,
 // relative to the fixture, `{ "pivot.glb": { "path": "…" } }`: each is
 // uploaded first. The optional plugins are installed from plugins/ first.
 
@@ -49,7 +49,7 @@ async function upload(app, spec) {
   for (const [name, entry] of Object.entries(spec || {})) {
     const bytes = fs.readFileSync(path.resolve(dir, entry.path));
     const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
-    const res = await fetch(`${app.core}/api/v1/artifacts/${sha256}`, {
+    const res = await fetch(`${app.core}/api/v1/attachments/${sha256}`, {
       method: "PUT",
       headers: { "content-type": "application/octet-stream" },
       body: bytes,
@@ -75,7 +75,7 @@ export async function seed(app) {
       origin: f.origin,
       requested_by: f.requested_by,
       payload: f.payload,
-      ...(f.artifacts ? { artifacts: await upload(app, f.artifacts) } : {}),
+      ...(f.attachments ? { attachments: await upload(app, f.attachments) } : {}),
       ...(f.revises ? { revises: created[f.revises] } : {}),
     });
     created[f.key] = review.id;

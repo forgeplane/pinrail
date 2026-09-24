@@ -3,7 +3,7 @@
  * view the way the app does. A fixture lists them by name, with a path
  * relative to the fixture file:
  *
- *   "artifacts": { "pivot.glb": { "path": "pivot.glb" } }
+ *   "attachments": { "pivot.glb": { "path": "pivot.glb" } }
  *
  * and the gate gets what the app would put there: name, size, media type
  * and hash for each, in name order.
@@ -21,13 +21,13 @@ const TYPES = {
 };
 
 /** `{ name: {path, media_type?} | path }` → `{ list: [...], files: { name: { path, media_type } } }` */
-function resolveArtifacts(spec, baseDir) {
+function resolveAttachments(spec, baseDir) {
   const files = {};
   for (const [name, entry] of Object.entries(spec || {})) {
     const given = typeof entry === "string" ? { path: entry } : entry || {};
-    if (typeof given.path !== "string") throw new Error(`artifact ${name}: give it a path`);
+    if (typeof given.path !== "string") throw new Error(`attachment ${name}: give it a path`);
     const file = path.resolve(baseDir, given.path);
-    if (!fs.existsSync(file)) throw new Error(`artifact ${name}: no file at ${file}`);
+    if (!fs.existsSync(file)) throw new Error(`attachment ${name}: no file at ${file}`);
     files[name] = { path: file, media_type: given.media_type || TYPES[path.extname(name).toLowerCase()] || "application/octet-stream" };
   }
   const list = Object.keys(files)
@@ -39,4 +39,4 @@ function resolveArtifacts(spec, baseDir) {
   return { list, files };
 }
 
-module.exports = { resolveArtifacts };
+module.exports = { resolveAttachments };

@@ -384,25 +384,25 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 /* the id and the button that copies it read as one item in the strip */
 .strip-id { display: inline-flex; align-items: center; gap: 4px; }
 /* the files a review carries: a chip in the strip, and on a click the list */
-.artifacts-chip {
+.attachments-chip {
   display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border: 1px solid var(--border);
   border-radius: 99px; background: none; color: var(--dim); font: inherit; cursor: pointer;
 }
-.artifacts-chip:hover, .artifacts-chip.is-open { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
-.artifacts-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.artifacts-panel {
+.attachments-chip:hover, .attachments-chip.is-open { color: var(--text); border-color: var(--border-strong); background: var(--bg-hover); }
+.attachments-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.attachments-panel {
   position: fixed; z-index: 60; width: min(420px, calc(100vw - 16px)); padding: 6px;
   border: 1px solid var(--border-strong); border-radius: 10px; background: var(--bg-raised);
   box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.45); font-size: 12.5px;
 }
-.artifacts-head { display: flex; justify-content: space-between; padding: 6px 8px 8px; color: var(--dim); font-size: 11.5px; }
-.artifacts-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.artifacts-list li { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 7px; }
-.artifacts-list li:hover { background: var(--bg-hover); }
-.artifact-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
-.artifact-name { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.artifact-meta { color: var(--faint); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.artifact-save { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.attachments-head { display: flex; justify-content: space-between; padding: 6px 8px 8px; color: var(--dim); font-size: 11.5px; }
+.attachments-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.attachments-list li { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 7px; }
+.attachments-list li:hover { background: var(--bg-hover); }
+.attachment-text { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.attachment-name { color: var(--text); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-meta { color: var(--faint); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-save { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .id-copy { display: inline-flex; padding: 0; border: 0; background: none; color: var(--faint); }
 .id-copy:hover { color: var(--text); }
 .id-copy.ok, .id-copy.ok:hover { color: var(--ok); }

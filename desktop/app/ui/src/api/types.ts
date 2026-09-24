@@ -42,20 +42,20 @@ export type Review = {
   /** present on single-review responses, absent in listings */
   payload?: unknown;
   /** the files the review carries; on single-review responses only, as the payload */
-  artifacts?: Artifact[];
+  attachments?: Attachment[];
   /** how many files it carries and their bytes: on every review, listings too */
-  artifacts_total?: { count: number; bytes: number };
+  attachments_total?: { count: number; bytes: number };
 };
 
 /** What a plugin takes: kinds as `.ext` or media types, and its limits. */
-export type ArtifactRules = {
+export type AttachmentRules = {
   accept: string[];
   max_size?: number;
   max_count?: number;
 };
 
-/** A file sent beside a review's payload, which names it {"$artifact": name}. */
-export type Artifact = {
+/** A file sent beside a review's payload, which names it {"$attachment": name}. */
+export type Attachment = {
   name: string;
   size: number;
   media_type: string;
@@ -95,7 +95,7 @@ export type Plugin = {
   shortcuts: PluginShortcut[];
   shortcuts_error: string | null;
   /** the files it takes beside a payload, as the manifest declares them; null for none */
-  artifacts?: ArtifactRules | null;
+  attachments?: AttachmentRules | null;
   /** how it got here; null for a built-in */
   install: PluginInstall | null;
 };
@@ -129,7 +129,7 @@ export type Inspection = {
   /** the exact command a build runs; null when nothing runs */
   build: string | null;
   /** the files it would take beside a payload; null for none */
-  artifacts?: ArtifactRules | null;
+  attachments?: AttachmentRules | null;
   origin: {
     kind: "path" | "git" | "release";
     resolved: string | { url?: string; path?: string | null; ref?: string | null; owner?: string; repo?: string; tag?: string; asset?: string; asset_size?: number; pinned?: boolean };
@@ -217,5 +217,5 @@ export type Info = {
   started_at: string;
   user: string;
   /** the files stored beside reviews */
-  artifacts?: { count: number; bytes: number };
+  attachments?: { count: number; bytes: number };
 };

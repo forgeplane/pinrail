@@ -93,8 +93,8 @@ export const api = {
     return response.text();
   },
   /** a file a review carries, its bytes whole: for the view, which asks by name */
-  artifactBytes: async (id: string, name: string) => {
-    const response = await fetch(`${await serverUrl()}/api/v1/reviews/${id}/artifacts/${encodeURIComponent(name)}`);
+  attachmentBytes: async (id: string, name: string) => {
+    const response = await fetch(`${await serverUrl()}/api/v1/reviews/${id}/attachments/${encodeURIComponent(name)}`);
     if (!response.ok) {
       const text = await response.text();
       let body = null;

@@ -12,8 +12,8 @@ use serde_json::{Map, json};
 
 fn review(id: &str, expires_in: Option<Duration>) -> Review {
     Review {
-        artifacts: Vec::new(),
-        artifacts_total: (0, 0),
+        attachments: Vec::new(),
+        attachments_total: (0, 0),
         id: id.into(),
         plugin: "list".into(),
         plugin_version: 1,

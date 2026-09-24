@@ -102,11 +102,11 @@ test("three.js JSON is read as well as GLB", async ({ page }) => {
 
 test("a model that cannot be read says so, and the others still show", async ({ page }) => {
   const gate = round();
-  gate.payload.models[0].file = { $artifact: "broken.glb" };
+  gate.payload.models[0].file = { $attachment: "broken.glb" };
   const broken = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "model-")), "broken.glb");
   fs.writeFileSync(broken, "not a model");
   const files = Object.fromEntries(["arc", "column", "tripod"].map((n) => [`${n}.glb`, `fixtures/halden/${n}.glb`]));
-  const plugin = await mountPlugin(page, dir, { gate, artifacts: { ...files, "broken.glb": broken } });
+  const plugin = await mountPlugin(page, dir, { gate, attachments: { ...files, "broken.glb": broken } });
   const f = plugin.frame;
   await expect(f.locator(".broken")).toContainText("could not be read");
   await expect(f.locator(".pick .still img")).toHaveCount(3);
@@ -115,7 +115,7 @@ test("a model that cannot be read says so, and the others still show", async ({ 
 test("the models come from files the shell hands over, not from the payload", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round() });
   await expect(plugin.frame.locator(".pick .still img")).toHaveCount(4);
-  const asked = (await plugin.messages()).filter((m: any) => m.type === "artifact").map((m: any) => m.name).sort();
+  const asked = (await plugin.messages()).filter((m: any) => m.type === "attachment").map((m: any) => m.name).sort();
   expect(asked).toEqual(["arc.glb", "column.glb", "pivot.glb", "tripod.glb"]);
 });
 

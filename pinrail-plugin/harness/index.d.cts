@@ -14,9 +14,9 @@ export type MountOptions = {
   /** the plugin's own settings, every key the manifest declares */
   settings?: Settings;
   /** files the review carries, by name: a path (relative to the plugin
-   *  folder) or `{ path, media_type }`. A fixture's own `artifacts` are
+   *  folder) or `{ path, media_type }`. A fixture's own `attachments` are
    *  served without this. */
-  artifacts?: Record<string, string | { path: string; media_type?: string }>;
+  attachments?: Record<string, string | { path: string; media_type?: string }>;
   /** what the fake shell says it can do; `[]` plays an app too old for files */
   capabilities?: string[];
 };

@@ -252,7 +252,7 @@ export function History() {
                         <PluginIcon icon={live.pluginIcon(r.plugin)} size={12} />
                         {r.plugin}
                       </span>{" "}
-                      <FilesCount total={r.artifacts_total} />
+                      <FilesCount total={r.attachments_total} />
                     </small>
                   </td>
                   <td>

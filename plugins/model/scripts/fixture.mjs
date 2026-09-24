@@ -1,6 +1,6 @@
 // The Halden fixture: four candidate desk lamps, each built from named
 // parts and exported as a binary glTF file, the way an agent would send
-// them with --artifact. Writes the files to fixtures/halden/, and beside
+// them with --attach. Writes the files to fixtures/halden/, and beside
 // them the harness fixture, the decided one, and the screenshots' review,
 // each naming the files by path: npm run fixture
 import fs from "node:fs";
@@ -137,16 +137,16 @@ const decision = {
 const here = import.meta.dirname;
 const files = path.resolve(here, "../fixtures/halden");
 fs.mkdirSync(files, { recursive: true });
-const artifacts = {};
+const attachments = {};
 for (const m of models) {
   const file = `${m.name.toLowerCase()}.glb`;
   fs.writeFileSync(path.join(files, file), await glb(m.build()));
-  artifacts[file] = path.join(files, file);
-  payload.models.push({ id: m.id, name: m.name, reasoning: m.reasoning, file: { $artifact: file }, views: [{ name: "Seated", position: [0.55, 0.32, 0.55], target: [0, 0.2, 0] }] });
+  attachments[file] = path.join(files, file);
+  payload.models.push({ id: m.id, name: m.name, reasoning: m.reasoning, file: { $attachment: file }, views: [{ name: "Seated", position: [0.55, 0.32, 0.55], target: [0, 0.2, 0] }] });
 }
 // each fixture names the files by path, relative to itself
 const relative = (fixture) =>
-  Object.fromEntries(Object.entries(artifacts).map(([name, file]) => [name, { path: path.relative(path.dirname(path.resolve(here, fixture)), file) }]));
+  Object.fromEntries(Object.entries(attachments).map(([name, file]) => [name, { path: path.relative(path.dirname(path.resolve(here, fixture)), file) }]));
 const write = (file, value) => fs.writeFileSync(path.resolve(here, file), JSON.stringify(value, null, 2) + "\n");
 const title = "Halden desk lamp — round 1";
 const origin = { repo: "halden/lamp", workflow: "design" };
@@ -155,6 +155,6 @@ const fixtures = {
   "../fixtures/halden.decided.json": { title, origin, payload, decision: { decided_by: "maya", decided_at: "2026-09-23T17:40:00Z", data: decision }, agent_note: "Go with Pivot; the base and shade notes first." },
   "../../../e2e/screenshots/fixtures/19-model-halden.json": { plugin: "model", title, origin, requested_by: "claude", age: "40m", payload },
 };
-for (const [file, value] of Object.entries(fixtures)) write(file, { ...value, artifacts: relative(file) });
-const sizes = Object.values(artifacts).map((f) => fs.statSync(f).size);
+for (const [file, value] of Object.entries(fixtures)) write(file, { ...value, attachments: relative(file) });
+const sizes = Object.values(attachments).map((f) => fs.statSync(f).size);
 console.log(`${models.length} models, ${(sizes.reduce((a, b) => a + b, 0) / 1024).toFixed(0)} KB of GLB, payload ${(JSON.stringify(payload).length / 1024).toFixed(1)} KB`);

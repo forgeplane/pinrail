@@ -1,4 +1,4 @@
-//! `/api/v1/artifacts/{sha256}`: whether a file is stored, and uploading
+//! `/api/v1/attachments/{sha256}`: whether a file is stored, and uploading
 //! one. An upload is streamed to disk, hashed on the way, and refused the
 //! moment it passes the cap; its body must say `application/octet-stream`,
 //! which no web page can send across origins without a preflight.
@@ -18,11 +18,11 @@ use super::ApiState;
 use super::error::ApiError;
 use super::guard::{megabytes, refuse};
 use crate::Pinrail;
-use crate::artifacts::UploadError;
+use crate::attachments::UploadError;
 use crate::error::Error;
 
 pub fn routes() -> Router<ApiState> {
-    Router::new().route("/api/v1/artifacts/{sha256}", put(upload).head(stored))
+    Router::new().route("/api/v1/attachments/{sha256}", put(upload).head(stored))
 }
 
 /// 200 with the size as `Content-Length` when the blob is stored, 404 when not.
@@ -30,7 +30,7 @@ async fn stored(
     State(state): State<Arc<Pinrail>>,
     Path(sha256): Path<String>,
 ) -> Result<Response, ApiError> {
-    Ok(match state.artifacts().stored(&sha256)? {
+    Ok(match state.attachments().stored(&sha256)? {
         Some(blob) => (
             StatusCode::OK,
             [(header::CONTENT_LENGTH, blob.size.to_string())],
@@ -59,8 +59,8 @@ async fn upload(
             "an upload must send Content-Type: application/octet-stream".into(),
         ));
     }
-    let artifacts = state.artifacts();
-    if let Some(blob) = artifacts.stored(&sha256)? {
+    let attachments = state.attachments();
+    if let Some(blob) = attachments.stored(&sha256)? {
         return Ok((
             StatusCode::OK,
             axum::Json(json!({ "sha256": blob.sha256, "size": blob.size })),
@@ -71,17 +71,17 @@ async fn upload(
         refuse(
             StatusCode::PAYLOAD_TOO_LARGE,
             "too_large",
-            format!("an artifact may be {} at most", megabytes(limit as usize)),
+            format!("an attachment may be {} at most", megabytes(limit as usize)),
         )
     };
     let declared = headers
         .get(header::CONTENT_LENGTH)
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.parse::<u64>().ok());
-    if declared.is_some_and(|n| n > artifacts.max_bytes()) {
-        return Ok(too_large(artifacts.max_bytes()));
+    if declared.is_some_and(|n| n > attachments.max_bytes()) {
+        return Ok(too_large(attachments.max_bytes()));
     }
-    let mut upload = artifacts.begin(&sha256)?;
+    let mut upload = attachments.begin(&sha256)?;
     let mut stream = body.into_data_stream();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|e| Error::invalid("", format!("the upload broke off: {e}")))?;

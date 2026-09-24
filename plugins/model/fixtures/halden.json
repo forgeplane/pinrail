@@ -16,7 +16,7 @@
         "name": "Pivot",
         "reasoning": "The classic two-arm task lamp, in an oak base and dark powder coat. Brass only where it moves: the **joints and the switch**. Reads as a tool first.",
         "file": {
-          "$artifact": "pivot.glb"
+          "$attachment": "pivot.glb"
         },
         "views": [
           {
@@ -39,7 +39,7 @@
         "name": "Arc",
         "reasoning": "One bent aluminium tube from a terrazzo block to a dome. No joints, so it cannot be aimed, but it is the calmest silhouette of the four.",
         "file": {
-          "$artifact": "arc.glb"
+          "$attachment": "arc.glb"
         },
         "views": [
           {
@@ -62,7 +62,7 @@
         "name": "Column",
         "reasoning": "A bedside lamp rather than a task lamp: walnut, a brass stem, a linen drum that glows. Included to check whether *task* is the right brief at all.",
         "file": {
-          "$artifact": "column.glb"
+          "$attachment": "column.glb"
         },
         "views": [
           {
@@ -85,7 +85,7 @@
         "name": "Tripod",
         "reasoning": "Three ash legs and a paper globe. The softest light of the four, and the only one that looks good switched off in a photo.",
         "file": {
-          "$artifact": "tripod.glb"
+          "$attachment": "tripod.glb"
         },
         "views": [
           {
@@ -105,7 +105,7 @@
       }
     ]
   },
-  "artifacts": {
+  "attachments": {
     "pivot.glb": {
       "path": "halden/pivot.glb"
     },

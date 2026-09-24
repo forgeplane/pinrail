@@ -737,7 +737,7 @@ fn submit_checks_then_uploads_only_what_the_app_lacks() {
     let dir = tempdir();
     std::fs::write(
         dir.join("p.json"),
-        r#"{"models":[{"id":"L1","name":"Pivot","file":{"$artifact":"pivot.glb"}}]}"#,
+        r#"{"models":[{"id":"L1","name":"Pivot","file":{"$attachment":"pivot.glb"}}]}"#,
     )
     .unwrap();
     std::fs::write(dir.join("pivot.glb"), "pivot glb").unwrap();
@@ -752,9 +752,9 @@ fn submit_checks_then_uploads_only_what_the_app_lacks() {
             "--no-start",
             "--data",
             dir.join("p.json").to_str().unwrap(),
-            "--artifact",
+            "--attach",
             dir.join("pivot.glb").to_str().unwrap(),
-            "--artifact",
+            "--attach",
             &format!("{}=column.glb", dir.join("v2.glb").display()),
         ],
     );
@@ -776,16 +776,16 @@ fn submit_checks_then_uploads_only_what_the_app_lacks() {
         order,
         [
             "POST /api/v1/reviews/validate",
-            "HEAD /api/v1/artifacts/{column}",
-            "HEAD /api/v1/artifacts/{pivot}",
-            "PUT /api/v1/artifacts/{pivot}",
+            "HEAD /api/v1/attachments/{column}",
+            "HEAD /api/v1/attachments/{pivot}",
+            "PUT /api/v1/attachments/{pivot}",
             "POST /api/v1/reviews",
         ]
     );
     assert_eq!(sent[3].2, "pivot glb", "the file's bytes, as they are");
     let submitted: serde_json::Value = serde_json::from_str(&sent[4].2).unwrap();
     assert_eq!(
-        submitted["artifacts"],
+        submitted["attachments"],
         serde_json::json!({
             "column.glb": { "sha256": column, "size": 10, "media_type": "model/gltf-binary" },
             "pivot.glb": { "sha256": pivot, "size": 9, "media_type": "model/gltf-binary" },
@@ -801,7 +801,7 @@ fn a_dry_run_or_a_refused_submission_uploads_nothing() {
         match (method, path) {
         ("POST", "/api/v1/reviews/validate") if *refusing.lock().unwrap() => (
             422,
-            r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/artifacts/a.glb","message":"this plugin takes .png, not model/gltf-binary"}]}"#.into(),
+            r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/attachments/a.glb","message":"this plugin takes .png, not model/gltf-binary"}]}"#.into(),
         ),
         ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"plugin":"model","plugin_release":"2.0.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
@@ -812,7 +812,7 @@ fn a_dry_run_or_a_refused_submission_uploads_nothing() {
     // the request file names its files relative to itself
     std::fs::write(
         dir.join("request.json"),
-        r#"{"plugin":"model","title":"t","payload":{},"artifacts":{"a.glb":"a.glb"}}"#,
+        r#"{"plugin":"model","title":"t","payload":{},"attachments":{"a.glb":"a.glb"}}"#,
     )
     .unwrap();
     let request = dir.join("request.json");
@@ -855,7 +855,7 @@ fn a_missing_file_or_two_flags_with_one_name_stop_before_anything_is_sent() {
             "--title",
             "t",
             "--no-start",
-            "--artifact",
+            "--attach",
             "nowhere/x.glb",
         ],
     );
@@ -869,31 +869,28 @@ fn a_missing_file_or_two_flags_with_one_name_stop_before_anything_is_sent() {
             "--title",
             "t",
             "--no-start",
-            "--artifact",
+            "--attach",
             a.to_str().unwrap(),
-            "--artifact",
+            "--attach",
             a.to_str().unwrap(),
         ],
     );
     assert_eq!(code, 1);
-    assert!(
-        stderr.contains("two --artifact flags name a.glb"),
-        "{stderr}"
-    );
+    assert!(stderr.contains("two --attach flags name a.glb"), "{stderr}");
     assert!(server.requests().is_empty());
 }
 
 #[test]
-fn artifacts_lists_a_review_s_files_and_saves_one() {
+fn attachments_lists_a_review_s_files_and_saves_one() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
-        ("GET", "/api/v1/reviews/r_1") => (200, r#"{"id":"r_1","artifacts":[{"name":"Pivot lamp.glb","size":9,"media_type":"model/gltf-binary","sha256":"ab"}]}"#.into()),
-        ("GET", "/api/v1/reviews/r_1/artifacts/Pivot%20lamp.glb") => (200, "pivot glb".into()),
-        ("GET", "/api/v1/reviews/r_1/artifacts/nope.glb") => (404, r#"{"error":"not_found","message":"review r_1 carries no artifact \"nope.glb\"","violations":[]}"#.into()),
+        ("GET", "/api/v1/reviews/r_1") => (200, r#"{"id":"r_1","attachments":[{"name":"Pivot lamp.glb","size":9,"media_type":"model/gltf-binary","sha256":"ab"}]}"#.into()),
+        ("GET", "/api/v1/reviews/r_1/attachments/Pivot%20lamp.glb") => (200, "pivot glb".into()),
+        ("GET", "/api/v1/reviews/r_1/attachments/nope.glb") => (404, r#"{"error":"not_found","message":"review r_1 carries no attachment \"nope.glb\"","violations":[]}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));
-    let (code, stdout, _) = run(&server, &["artifacts", "list", "r_1"]);
+    let (code, stdout, _) = run(&server, &["attachments", "list", "r_1"]);
     assert_eq!(code, 0);
     assert!(stdout.contains(r#""name":"Pivot lamp.glb""#), "{stdout}");
 
@@ -902,7 +899,7 @@ fn artifacts_lists_a_review_s_files_and_saves_one() {
     let (code, _, stderr) = run(
         &server,
         &[
-            "artifacts",
+            "attachments",
             "get",
             "r_1",
             "Pivot lamp.glb",
@@ -916,7 +913,7 @@ fn artifacts_lists_a_review_s_files_and_saves_one() {
     let (code, _, stderr) = run(
         &server,
         &[
-            "artifacts",
+            "attachments",
             "get",
             "r_1",
             "Pivot lamp.glb",
@@ -929,7 +926,7 @@ fn artifacts_lists_a_review_s_files_and_saves_one() {
     let (code, _, _) = run(
         &server,
         &[
-            "artifacts",
+            "attachments",
             "get",
             "r_1",
             "Pivot lamp.glb",
@@ -944,7 +941,7 @@ fn artifacts_lists_a_review_s_files_and_saves_one() {
     let (code, _, stderr) = run(
         &server,
         &[
-            "artifacts",
+            "attachments",
             "get",
             "r_1",
             "nope.glb",
@@ -953,7 +950,7 @@ fn artifacts_lists_a_review_s_files_and_saves_one() {
         ],
     );
     assert_eq!(code, 2);
-    assert!(stderr.contains("carries no artifact"), "{stderr}");
+    assert!(stderr.contains("carries no attachment"), "{stderr}");
     assert!(!missing.exists());
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no .part left");
 }
@@ -963,8 +960,8 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
     let server = MockServer::start(Box::new(|_, path, _| {
         let body = r#"{"plugins":[
             {"name":"model","title":"3D model review","release":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
-             "artifacts":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
-            {"name":"list","title":"List","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"artifacts":null}]}"#;
+             "attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
+            {"name":"list","title":"List","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"attachments":null}]}"#;
         match path {
             "/api/v1/plugins/describe" => (200, body.into()),
             other => panic!("unexpected {other}"),
@@ -973,12 +970,12 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
     let (code, stdout, stderr) = run(&server, &["plugins", "describe"]);
     assert_eq!(code, 0, "{stderr}");
     let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(doc["plugins"][0]["artifacts"]["accept"][0], ".glb");
+    assert_eq!(doc["plugins"][0]["attachments"]["accept"][0], ".glb");
     assert!(
-        doc["submit"]["artifacts"]
+        doc["submit"]["attachments"]
             .as_str()
             .unwrap()
-            .contains("--artifact PATH[=NAME]")
+            .contains("--attach PATH[=NAME]")
     );
 
     let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);
@@ -987,7 +984,7 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
         stdout.contains("### Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
         "{stdout}"
     );
-    assert!(stdout.contains("pinrail submit model --title \"<what it is about>\" --data payload.json --artifact <file> --wait"));
+    assert!(stdout.contains("pinrail submit model --title \"<what it is about>\" --data payload.json --attach <file> --wait"));
     // a plugin that takes none says nothing about files
     assert_eq!(stdout.matches("### Files").count(), 1);
     assert!(stdout.contains("Files go beside the payload for a plugin that takes them"));

@@ -245,16 +245,16 @@ Some things a person reviews are files: a 3D model, a PDF, a recording, a set of
 Declare the kinds the plugin takes in the manifest:
 
 ```json title="manifest.json"
-"artifacts": {
+"attachments": {
   "accept": [".glb", "model/gltf-binary", "image/*"],
   "max_size": 52428800,
   "max_count": 12
 }
 ```
 
-`accept` lists extensions and media types; a file matches by either. `max_size` (bytes) and `max_count` are optional and can only be lower than the app's own limits of 100 MB a file and 32 files a review. A plugin without `artifacts` takes no files.
+`accept` lists extensions and media types; a file matches by either. `max_size` (bytes) and `max_count` are optional and can only be lower than the app's own limits of 100 MB a file and 32 files a review. A plugin without `attachments` takes no files.
 
-The payload names each file by an object with one key, `$artifact`:
+The payload names each file by an object with one key, `$attachment`:
 
 ```json
 {
@@ -262,22 +262,22 @@ The payload names each file by an object with one key, `$artifact`:
     {
       "id": "L1",
       "name": "Pivot",
-      "file": { "$artifact": "pivot.glb" }
+      "file": { "$attachment": "pivot.glb" }
     }
   ]
 }
 ```
 
-Describe that field in your payload schema with `Pinrail.ARTIFACT_SCHEMA`, pasted into `$defs`:
+Describe that field in your payload schema with `Pinrail.ATTACHMENT_SCHEMA`, pasted into `$defs`:
 
 ```json title="schemas/payload.schema.json"
 "$defs": {
-  "artifact": {
+  "attachment": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["$artifact"],
+    "required": ["$attachment"],
     "properties": {
-      "$artifact": { "type": "string", "minLength": 1, "maxLength": 120 }
+      "$attachment": { "type": "string", "minLength": 1, "maxLength": 120 }
     }
   }
 }
@@ -288,12 +288,12 @@ The app refuses a submission whose payload names a file it did not receive, or a
 The view still cannot fetch. It asks the app for the bytes:
 
 ```js
-const name = Pinrail.artifactName(model.file);      // "pivot.glb"
-const bytes = await plugin.artifact(name);          // an ArrayBuffer
-const url = await plugin.artifactUrl("desk.jpg");   // a blob: URL for an <img>, <video> or <audio>
+const name = Pinrail.attachmentName(model.file);      // "pivot.glb"
+const bytes = await plugin.attachment(name);          // an ArrayBuffer
+const url = await plugin.attachmentUrl("desk.jpg");   // a blob: URL for an <img>, <video> or <audio>
 ```
 
-`plugin.artifacts` lists what the review carries: each file's `name`, `size`, `media_type` and `sha256`. `plugin.artifact(name, { round: "previous" })` reads a file of the round this one revises, to compare. Revoke a `blob:` URL with `URL.revokeObjectURL` when you are done with it.
+`plugin.attachments` lists what the review carries: each file's `name`, `size`, `media_type` and `sha256`. `plugin.attachment(name, { round: "previous" })` reads a file of the round this one revises, to compare. Revoke a `blob:` URL with `URL.revokeObjectURL` when you are done with it.
 
 The person sees every file a review carries, whatever the plugin draws: the inbox marks the review, and the review shows the files by name and size, each one ready to save.
 
@@ -336,7 +336,7 @@ A fixture is a partial review: a `title`, a `payload`, and optionally a `decisio
 }
 ```
 
-A fixture can carry files too, by path relative to the fixture: `"artifacts": { "pivot.glb": { "path": "pivot.glb" } }`. The test harness and `pinrail-plugin dev` hand them to the view as the app does.
+A fixture can carry files too, by path relative to the fixture: `"attachments": { "pivot.glb": { "path": "pivot.glb" } }`. The test harness and `pinrail-plugin dev` hand them to the view as the app does.
 
 A fixture is also a request the app takes as it is, files and all, so the same round can be sent to the app to see it there:
 

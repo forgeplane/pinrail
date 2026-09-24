@@ -10,7 +10,7 @@ const SUBMIT: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
 const CHECK: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
-const FILES: &str = "for a plugin with `artifacts`, send each file its payload schema asks for with --artifact PATH[=NAME]; the schema says where a file goes, as {\"$artifact\": \"<name>\"}, and --dry-run checks it all before anything is uploaded";
+const FILES: &str = "for a plugin with `attachments`, send each file its payload schema asks for with --attach PATH[=NAME]; the schema says where a file goes, as {\"$attachment\": \"<name>\"}, and --dry-run checks it all before anything is uploaded";
 
 /// What each exit code tells the agent to do next.
 const EXIT_CODES: &[(u8, &str)] = &[
@@ -60,7 +60,7 @@ pub fn document(described: Value) -> Value {
             "check": CHECK,
             "result": result,
             "markdown": "--format markdown prints a decided review as markdown, for a plugin whose `markdown` is true",
-            "artifacts": FILES,
+            "attachments": FILES,
             "exit_codes": exit_codes,
         },
     })
@@ -86,7 +86,7 @@ pub fn markdown(described: &Value) -> String {
     ));
     out.push_str(&format!(
         "Files go beside the payload for a plugin that takes them ({}).\n\n",
-        FILES.trim_start_matches("for a plugin with `artifacts`, ")
+        FILES.trim_start_matches("for a plugin with `attachments`, ")
     ));
     out.push_str("The review printed once it is decided carries:\n\n");
     for (key, meaning) in RESULT {
@@ -120,7 +120,7 @@ fn plugin_section(out: &mut String, plugin: &Value) {
     if !plugin["example"].is_null() {
         out.push_str(&format!("\nExample:\n\n{}", json_block(&plugin["example"])));
     }
-    if let Some(files) = plugin["artifacts"].as_object() {
+    if let Some(files) = plugin["attachments"].as_object() {
         let kinds: Vec<&str> = files
             .get("accept")
             .and_then(Value::as_array)
@@ -134,7 +134,7 @@ fn plugin_section(out: &mut String, plugin: &Value) {
             limits.push(format!("{count} at most"));
         }
         out.push_str(&format!(
-            "\n### Files\n\nTakes files beside the payload: {}{}. The payload schema above says where each goes, as `{{\"$artifact\": \"<name>\"}}`; send each file it names with `--artifact PATH[=NAME]`.\n\n```sh\npinrail submit {name} --title \"<what it is about>\" --data payload.json --artifact <file> --wait\n```\n",
+            "\n### Files\n\nTakes files beside the payload: {}{}. The payload schema above says where each goes, as `{{\"$attachment\": \"<name>\"}}`; send each file it names with `--attach PATH[=NAME]`.\n\n```sh\npinrail submit {name} --title \"<what it is about>\" --data payload.json --attach <file> --wait\n```\n",
             kinds.join(", "),
             if limits.is_empty() { String::new() } else { format!(" ({})", limits.join(", ")) },
         ));

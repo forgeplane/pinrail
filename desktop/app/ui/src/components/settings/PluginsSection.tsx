@@ -281,9 +281,9 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
               {p.error ? "broken" : linked ? "linked" : p.dev ? "development" : "ready"}
             </span>
             {p.install && !linked ? <span className="faint">{p.install.version}</span> : null}
-            {p.artifacts ? (
+            {p.attachments ? (
               <span className="faint" data-plugin-takes>
-                {takes(p.artifacts).replace("Takes files", "takes files")}
+                {takes(p.attachments).replace("Takes files", "takes files")}
               </span>
             ) : null}
             {entries.length ? (

@@ -7,7 +7,7 @@ import { Download, FileBox } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { inTauri, serverUrl } from "../api/client";
-import type { Artifact } from "../api/types";
+import type { Attachment } from "../api/types";
 import { size } from "../lib/format";
 import { useToasts } from "../state/toasts";
 
@@ -16,16 +16,16 @@ const MARGIN = 8;
 
 type Props = {
   reviewId: string;
-  artifacts: Artifact[];
+  attachments: Attachment[];
 };
 
-export function ArtifactsChip({ reviewId, artifacts }: Props) {
+export function AttachmentsChip({ reviewId, attachments }: Props) {
   const { notify } = useToasts();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const panel = useRef<HTMLDivElement | null>(null);
-  const total = artifacts.reduce((sum, a) => sum + a.size, 0);
+  const total = attachments.reduce((sum, a) => sum + a.size, 0);
 
   useLayoutEffect(() => {
     if (!open || !trigger.current || !panel.current) return;
@@ -63,7 +63,7 @@ export function ArtifactsChip({ reviewId, artifacts }: Props) {
       if (inTauri()) {
         try {
           const { invoke } = await import("@tauri-apps/api/core");
-          const saved = await invoke<string | null>("save_artifact", { review: reviewId, name });
+          const saved = await invoke<string | null>("save_attachment", { review: reviewId, name });
           if (saved) notify(`Saved ${name} to ${saved}`);
         } catch (error) {
           notify(String(error), "danger");
@@ -72,7 +72,7 @@ export function ArtifactsChip({ reviewId, artifacts }: Props) {
       }
       // outside the app: the core answers with an attachment, so this downloads
       const link = document.createElement("a");
-      link.href = `${await serverUrl()}/api/v1/reviews/${reviewId}/artifacts/${encodeURIComponent(name)}`;
+      link.href = `${await serverUrl()}/api/v1/reviews/${reviewId}/attachments/${encodeURIComponent(name)}`;
       link.download = name;
       link.rel = "noreferrer";
       document.body.append(link);
@@ -82,18 +82,18 @@ export function ArtifactsChip({ reviewId, artifacts }: Props) {
     [reviewId, notify],
   );
 
-  if (!artifacts.length) return null;
-  const count = `${artifacts.length} file${artifacts.length === 1 ? "" : "s"}`;
+  if (!attachments.length) return null;
+  const count = `${attachments.length} file${attachments.length === 1 ? "" : "s"}`;
   return (
     <>
       <button
         ref={trigger}
         type="button"
-        className={`artifacts-chip ${open ? "is-open" : ""}`}
+        className={`attachments-chip ${open ? "is-open" : ""}`}
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        data-artifacts-chip
+        data-attachments-chip
       >
         <FileBox size={13} /> {count} · {size(total)}
       </button>
@@ -101,26 +101,26 @@ export function ArtifactsChip({ reviewId, artifacts }: Props) {
         ? createPortal(
             <div
               ref={panel}
-              className="artifacts-panel"
+              className="attachments-panel"
               role="dialog"
               aria-label={`Files this review carries: ${count}`}
               style={pos ? { top: pos.top, left: pos.left } : { visibility: "hidden" }}
-              data-artifacts-panel
+              data-attachments-panel
             >
-              <div className="artifacts-head">
+              <div className="attachments-head">
                 <span>Sent with this review</span>
                 <span className="faint">{size(total)}</span>
               </div>
-              <ul className="artifacts-list">
-                {artifacts.map((a) => (
-                  <li key={a.name} data-artifact={a.name}>
-                    <div className="artifact-text">
-                      <span className="artifact-name">{a.name}</span>
-                      <span className="artifact-meta">
+              <ul className="attachments-list">
+                {attachments.map((a) => (
+                  <li key={a.name} data-attachment={a.name}>
+                    <div className="attachment-text">
+                      <span className="attachment-name">{a.name}</span>
+                      <span className="attachment-meta">
                         {size(a.size)} · {a.media_type} · <span className="mono" title={a.sha256}>{a.sha256.slice(0, 12)}</span>
                       </span>
                     </div>
-                    <button type="button" className="chrome-button artifact-save" onClick={() => void save(a.name)} data-artifact-save={a.name}>
+                    <button type="button" className="chrome-button attachment-save" onClick={() => void save(a.name)} data-attachment-save={a.name}>
                       <Download size={13} /> Save…
                     </button>
                   </li>

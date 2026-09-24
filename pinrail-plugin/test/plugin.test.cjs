@@ -375,49 +375,49 @@ test("a link is the shell's to open, and only where a view may send someone", ()
   assert.equal(env.types().filter((t) => t === "open").length, 2);
 });
 
-test("artifact asks the shell for a file the review lists, and resolves with the bytes it answers", async () => {
+test("attachment asks the shell for a file the review lists, and resolves with the bytes it answers", async () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
   const files = [{ name: "pivot.glb", size: 3, media_type: "model/gltf-binary", sha256: "ab" }];
-  env.deliver(init({ gate: gate({ artifacts: files }), previous: gate({ id: "g_0", artifacts: [{ name: "old.glb", size: 1, media_type: "model/gltf-binary", sha256: "cd" }] }), capabilities: ["artifacts"] }));
-  assert.deepEqual(plugin.artifacts, files);
+  env.deliver(init({ gate: gate({ attachments: files }), previous: gate({ id: "g_0", attachments: [{ name: "old.glb", size: 1, media_type: "model/gltf-binary", sha256: "cd" }] }), capabilities: ["attachments"] }));
+  assert.deepEqual(plugin.attachments, files);
 
-  const asked = plugin.artifact("pivot.glb");
-  assert.deepEqual(env.last("artifact"), { msg: { pinrail: 1, type: "artifact", req: 1, name: "pivot.glb" }, target: "http://shell.test" });
+  const asked = plugin.attachment("pivot.glb");
+  assert.deepEqual(env.last("attachment"), { msg: { pinrail: 1, type: "attachment", req: 1, name: "pivot.glb" }, target: "http://shell.test" });
   const bytes = new Uint8Array([1, 2, 3]).buffer;
-  env.deliver(shell({ type: "artifact", req: 1, ok: true, name: "pivot.glb", bytes }));
+  env.deliver(shell({ type: "attachment", req: 1, ok: true, name: "pivot.glb", bytes }));
   assert.equal(await asked, bytes);
 
   // a file of the round this one revises
-  const old = plugin.artifact("old.glb", { round: "previous" });
-  assert.deepEqual(env.last("artifact").msg, { pinrail: 1, type: "artifact", req: 2, name: "old.glb", round: "previous" });
-  env.deliver(shell({ type: "artifact", req: 2, ok: false, error: "gone" }));
+  const old = plugin.attachment("old.glb", { round: "previous" });
+  assert.deepEqual(env.last("attachment").msg, { pinrail: 1, type: "attachment", req: 2, name: "old.glb", round: "previous" });
+  env.deliver(shell({ type: "attachment", req: 2, ok: false, error: "gone" }));
   await assert.rejects(old, /gone/);
 
   // as a blob: URL, typed as the review lists it
-  const url = plugin.artifactUrl("pivot.glb");
-  env.deliver(shell({ type: "artifact", req: 3, ok: true, name: "pivot.glb", bytes }));
+  const url = plugin.attachmentUrl("pivot.glb");
+  env.deliver(shell({ type: "attachment", req: 3, ok: true, name: "pivot.glb", bytes }));
   assert.equal(await url, "blob:test/model/gltf-binary/3");
 });
 
-test("artifact refuses a name the review does not list, and a shell that cannot hand files over", async () => {
+test("attachment refuses a name the review does not list, and a shell that cannot hand files over", async () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
-  env.deliver(init({ gate: gate({ artifacts: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }), capabilities: ["artifacts"] }));
-  await assert.rejects(plugin.artifact("b.glb"), /no artifact "b.glb" on this review/);
-  assert.equal(env.last("artifact"), undefined, "nothing was asked");
+  env.deliver(init({ gate: gate({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }), capabilities: ["attachments"] }));
+  await assert.rejects(plugin.attachment("b.glb"), /no attachment "b.glb" on this review/);
+  assert.equal(env.last("attachment"), undefined, "nothing was asked");
 
   const old = fakeEnv();
   const older = Pinrail.createPlugin(old, { resize: "manual" });
-  old.deliver(init({ gate: gate({ artifacts: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }) }));
-  await assert.rejects(older.artifact("a.glb"), /cannot hand files to a view; update the app/);
+  old.deliver(init({ gate: gate({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }) }));
+  await assert.rejects(older.attachment("a.glb"), /cannot hand files to a view; update the app/);
 });
 
-test("artifactName reads a reference, and ARTIFACT_SCHEMA describes one", () => {
-  assert.equal(Pinrail.artifactName({ $artifact: "pivot.glb" }), "pivot.glb");
-  for (const not of [null, "artifact:pivot.glb", { $artifact: 7 }, {}]) assert.equal(Pinrail.artifactName(not), null);
-  assert.deepEqual(Pinrail.ARTIFACT_SCHEMA.required, ["$artifact"]);
-  assert.equal(Object.isFrozen(Pinrail.ARTIFACT_SCHEMA), true);
+test("attachmentName reads a reference, and ATTACHMENT_SCHEMA describes one", () => {
+  assert.equal(Pinrail.attachmentName({ $attachment: "pivot.glb" }), "pivot.glb");
+  for (const not of [null, "attachment:pivot.glb", { $attachment: 7 }, {}]) assert.equal(Pinrail.attachmentName(not), null);
+  assert.deepEqual(Pinrail.ATTACHMENT_SCHEMA.required, ["$attachment"]);
+  assert.equal(Object.isFrozen(Pinrail.ATTACHMENT_SCHEMA), true);
 });
 
 test("the script a view loads names no source map, which nothing serves", () => {

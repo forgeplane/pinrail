@@ -270,7 +270,7 @@ export function Inbox() {
                         {review.requested_by && review.origin.workflow ? <span>·</span> : null}
                         {review.origin.workflow ? <span>{review.origin.workflow}</span> : null}
                         {review.revises ? <span>· New round</span> : null}
-                        <FilesCount total={review.artifacts_total} />
+                        <FilesCount total={review.attachments_total} />
                       </span>
                     </span>
                     <span className="review-row-plugin">

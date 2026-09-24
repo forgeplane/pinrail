@@ -117,7 +117,7 @@ async fn cli_status() -> Result<cli_install::Status, String> {
 /// shell needs no file access of its own. None when the dialog is
 /// cancelled; the path written otherwise.
 #[tauri::command]
-async fn save_artifact(
+async fn save_attachment(
     app: AppHandle,
     native: State<'_, Native>,
     review: String,
@@ -129,11 +129,11 @@ async fn save_artifact(
         .reviews()
         .get(&review)
         .map_err(|e| e.to_string())?
-        .artifacts
+        .attachments
         .into_iter()
         .find(|a| a.name == name)
-        .ok_or_else(|| format!("review {review} carries no artifact \"{name}\""))?;
-    let from = state.artifacts().path(&carried.sha256);
+        .ok_or_else(|| format!("review {review} carries no attachment \"{name}\""))?;
+    let from = state.attachments().path(&carried.sha256);
     tauri::async_runtime::spawn_blocking(move || {
         let Some(to) = app
             .dialog()
@@ -343,7 +343,7 @@ pub fn run() {
             cli_status,
             install_cli,
             open_notices,
-            save_artifact
+            save_attachment
         ])
         .build(tauri::generate_context!())
         .expect("pinrail could not start its window");

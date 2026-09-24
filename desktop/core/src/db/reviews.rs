@@ -68,10 +68,10 @@ impl Db {
             actor,
             &Value::Null,
         )?;
-        for artifact in &review.artifacts {
+        for attachment in &review.attachments {
             tx.execute(
-                "INSERT INTO review_artifacts (review_id, name, sha256, size, media_type) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![review.id, artifact.name, artifact.sha256, artifact.size as i64, artifact.media_type],
+                "INSERT INTO review_attachments (review_id, name, sha256, size, media_type) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![review.id, attachment.name, attachment.sha256, attachment.size as i64, attachment.media_type],
             )?;
         }
         tx.commit()?;
@@ -88,10 +88,10 @@ impl Db {
         let Some(mut review) = review else {
             return Ok(None);
         };
-        review.artifacts = conn
-            .prepare("SELECT name, sha256, size, media_type FROM review_artifacts WHERE review_id = ?1 ORDER BY name")?
+        review.attachments = conn
+            .prepare("SELECT name, sha256, size, media_type FROM review_attachments WHERE review_id = ?1 ORDER BY name")?
             .query_map(params![id], |r| {
-                Ok(crate::artifacts::ReviewArtifact {
+                Ok(crate::attachments::ReviewAttachment {
                     name: r.get(0)?,
                     sha256: r.get(1)?,
                     size: r.get::<_, i64>(2)? as u64,
@@ -366,7 +366,7 @@ impl Db {
     }
 
     /// Deletes reviews with their events, outcomes and the record of the
-    /// files they carried (the blobs themselves go in the artifacts sweep),
+    /// files they carried (the blobs themselves go in the attachments sweep),
     /// all or nothing. A
     /// round among them that revises another among them lets go of it
     /// first, so the order they go in does not matter.
@@ -384,7 +384,7 @@ impl Db {
             tx.execute("DELETE FROM events WHERE review_id = ?1", params![id])?;
             tx.execute("DELETE FROM outcomes WHERE review_id = ?1", params![id])?;
             tx.execute(
-                "DELETE FROM review_artifacts WHERE review_id = ?1",
+                "DELETE FROM review_attachments WHERE review_id = ?1",
                 params![id],
             )?;
             count += tx.execute("DELETE FROM reviews WHERE id = ?1", params![id])?;
@@ -398,8 +398,8 @@ const SELECT: &str = "SELECT r.id, r.plugin, r.plugin_version, r.title, r.origin
     r.revises, r.expires_at, r.created_at,
     o.kind, o.at, o.by, o.reason, o.data, o.agent_note,
     r.plugin_release,
-    (SELECT count(*) FROM review_artifacts a WHERE a.review_id = r.id),
-    (SELECT coalesce(sum(a.size), 0) FROM review_artifacts a WHERE a.review_id = r.id)
+    (SELECT count(*) FROM review_attachments a WHERE a.review_id = r.id),
+    (SELECT coalesce(sum(a.size), 0) FROM review_attachments a WHERE a.review_id = r.id)
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id";
 
@@ -435,7 +435,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     let data: Option<String> = row.get(15)?;
     let agent_note: Option<String> = row.get(16)?;
     let plugin_release: Option<String> = row.get(17)?;
-    let artifacts_total = (row.get::<_, i64>(18)? as u64, row.get::<_, i64>(19)? as u64);
+    let attachments_total = (row.get::<_, i64>(18)? as u64, row.get::<_, i64>(19)? as u64);
     let plugin_version = row.get::<_, i64>(2)? as u32;
     let at = at.and_then(|s| parse_datetime(&s));
     let (
@@ -469,8 +469,8 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
         _ => {}
     }
     Ok(Review {
-        artifacts: Vec::new(),
-        artifacts_total,
+        attachments: Vec::new(),
+        attachments_total,
         id: row.get(0)?,
         plugin: row.get(1)?,
         plugin_version,

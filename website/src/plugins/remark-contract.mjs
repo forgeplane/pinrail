@@ -38,7 +38,7 @@ function resolve(root, schema) {
   return s ?? {};
 }
 
-const isFile = (s) => s?.type === "object" && s.properties && "$artifact" in s.properties;
+const isFile = (s) => s?.type === "object" && s.properties && "$attachment" in s.properties;
 
 /** The name of a local definition a schema refers to: `condition` for `#/$defs/condition`. */
 const defName = (raw) => (typeof raw?.$ref === "string" && raw.$ref.startsWith("#/") ? raw.$ref.split("/").pop() : null);
@@ -173,10 +173,10 @@ function manifestPanel(m) {
   row("title", escape(m.title ?? ""));
   row("description", m.description ? prose(m.description) : "");
   row("use_when", m.use_when ? prose(m.use_when) : "");
-  if (m.artifacts) {
-    const a = m.artifacts;
+  if (m.attachments) {
+    const a = m.attachments;
     const limits = [a.max_size ? `up to ${size(a.max_size)} each` : null, a.max_count ? `${a.max_count} a review` : null].filter(Boolean).join(", ");
-    row("artifacts", `${a.accept.map((k) => `<code>${escape(k)}</code>`).join(" ")}${limits ? ` · ${limits}` : ""}`);
+    row("attachments", `${a.accept.map((k) => `<code>${escape(k)}</code>`).join(" ")}${limits ? ` · ${limits}` : ""}`);
   }
   row("entry", m.entry ? `<code>${escape(m.entry)}</code>` : "");
   // the keys as keycaps, the way the docs write them everywhere else

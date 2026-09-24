@@ -129,25 +129,25 @@ test("what costs a feature: settings, shortcuts, the template; a missing title i
 
 test("files: a kind the core cannot read refuses the plugin; a schema that never says where they go is a warning", async () => {
   const { checkPlugin } = await load();
-  const artifact = { type: "object", required: ["$artifact"], properties: { $artifact: { type: "string" } } };
+  const attachment = { type: "object", required: ["$attachment"], properties: { $attachment: { type: "string" } } };
   const takes = { accept: [".glb", "image/*"] };
 
-  const good = checkPlugin(plugin({ artifacts: takes, payload_schema: { type: "object", properties: { file: artifact } } }));
+  const good = checkPlugin(plugin({ attachments: takes, payload_schema: { type: "object", properties: { file: attachment } } }));
   assert.equal(good.ok, true, JSON.stringify(good.problems));
   assert.deepEqual(keys(good.warnings).filter((k) => k !== "title"), []);
 
-  const kind = checkPlugin(plugin({ artifacts: { accept: ["glb"] } }));
+  const kind = checkPlugin(plugin({ attachments: { accept: ["glb"] } }));
   assert.equal(kind.ok, false);
-  assert.match(kind.problems.find((p) => p.key === "artifacts").message, /"glb" is neither an extension like \.glb nor a media type/);
+  assert.match(kind.problems.find((p) => p.key === "attachments").message, /"glb" is neither an extension like \.glb nor a media type/);
 
   for (const block of [{ accepts: [".glb"] }, { accept: [] }, { accept: [".glb"], max_size: 200 * 1024 * 1024 }]) {
-    assert.equal(checkPlugin(plugin({ artifacts: block })).ok, false, JSON.stringify(block));
+    assert.equal(checkPlugin(plugin({ attachments: block })).ok, false, JSON.stringify(block));
   }
 
-  const nowhere = checkPlugin(plugin({ artifacts: takes }));
+  const nowhere = checkPlugin(plugin({ attachments: takes }));
   assert.equal(nowhere.ok, true);
-  assert.match(nowhere.warnings.find((w) => w.key === "artifacts").message, /never names \{"\$artifact": …\}/);
+  assert.match(nowhere.warnings.find((w) => w.key === "attachments").message, /never names \{"\$attachment": …\}/);
 
-  const undeclared = checkPlugin(plugin({ payload_schema: { type: "object", properties: { file: artifact } } }));
-  assert.match(undeclared.warnings.find((w) => w.key === "artifacts").message, /declares no artifacts/);
+  const undeclared = checkPlugin(plugin({ payload_schema: { type: "object", properties: { file: attachment } } }));
+  assert.match(undeclared.warnings.find((w) => w.key === "attachments").message, /declares no attachments/);
 });

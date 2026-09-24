@@ -108,9 +108,9 @@ function Consequences({ seen }: { seen: Inspection }) {
           <b>No build.</b> The folder is copied as it is, without sources, tests and dot-entries.
         </p>
       )}
-      {seen.artifacts ? (
+      {seen.attachments ? (
         <p className="install-runs" data-takes>
-          <b>{takes(seen.artifacts)}.</b> An agent can send them beside a review; they are kept with it, shown on it, and handed to this view only.
+          <b>{takes(seen.attachments)}.</b> An agent can send them beside a review; they are kept with it, shown on it, and handed to this view only.
         </p>
       ) : null}
       {installed ? (

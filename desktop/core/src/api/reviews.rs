@@ -35,7 +35,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/discard", post(discard))
         .route("/api/v1/reviews/{id}/viewed", post(viewed))
         .route("/api/v1/reviews/{id}/events", get(events))
-        .route("/api/v1/reviews/{id}/artifacts/{name}", get(artifact))
+        .route("/api/v1/reviews/{id}/attachments/{name}", get(attachment))
 }
 
 async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
@@ -288,22 +288,22 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
 /// whatever an agent uploaded (an `.html`, an `.svg` with a script), a
 /// browser neither sniffs it nor renders it in this origin, where it could
 /// call the API.
-async fn artifact(
+async fn attachment(
     State(state): State<Arc<Pinrail>>,
     Path((id, name)): Path<(String, String)>,
 ) -> Result<Response, ApiError> {
     let review = state.reviews().get(&id)?;
-    let Some(carried) = review.artifacts.iter().find(|a| a.name == name) else {
+    let Some(carried) = review.attachments.iter().find(|a| a.name == name) else {
         return Ok(super::guard::refuse(
             StatusCode::NOT_FOUND,
             "not_found",
-            format!("review {id} carries no artifact \"{name}\""),
+            format!("review {id} carries no attachment \"{name}\""),
         ));
     };
-    let path = state.artifacts().path(&carried.sha256);
+    let path = state.attachments().path(&carried.sha256);
     let file = tokio::fs::File::open(&path)
         .await
-        .map_err(|e| Error::Internal(format!("artifact {}: {e}", carried.sha256)))?;
+        .map_err(|e| Error::Internal(format!("attachment {}: {e}", carried.sha256)))?;
     let encoded: String = name
         .bytes()
         .map(|b| match b {
