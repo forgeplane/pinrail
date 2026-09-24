@@ -93,7 +93,13 @@ textarea.ta:focus { border-color: var(--accent); }
 .diff-row.add .sign { color: var(--ok); }
 .diff-row.del .sign { color: var(--danger); }
 .diff-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--text); }
-.diff-row.split .code { padding: 0 12px 0 10px; }
+/* a wrapped line carries on two characters in, so it never reads as a new one */
+.diff-row .code { tab-size: 4; }
+.diff-row.inline .code { padding-left: calc((var(--i, 0) + 2) * 1ch); text-indent: calc((var(--i, 0) + 2) * -1ch); }
+.diff-row.split .code { padding: 0 12px 0 calc(24px + (var(--i, 0) + 2) * 1ch); text-indent: calc((var(--i, 0) + 2) * -1ch); }
+/* no sign column side by side: the + sits in the room before the code */
+.diff-row.split .addbtn { transform: translateX(3px); }
+.diff-row.split .addbtn:hover { transform: translateX(3px) scale(1.12); }
 .diff-row.split .code.l { border-right: 1px solid var(--border); }
 .diff-row.split .code.add, .diff-row.split .ln.add { background: var(--rv-add); }
 .diff-row.split .code.del, .diff-row.split .ln.del { background: var(--rv-del); }
@@ -106,8 +112,8 @@ textarea.ta:focus { border-color: var(--accent); }
 [data-filesec] { content-visibility: auto; contain: content; }
 .diff-row .addbtn { opacity: 0; transition: opacity 0.08s; pointer-events: none; }
 .diff-row:hover .addbtn, .addbtn:focus-visible { opacity: 1; pointer-events: auto; }
-.addbtn { all: unset; box-sizing: border-box; position: absolute; left: 100%; top: 50%; transform: translate(1px, -50%); z-index: 2; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; background: var(--accent); color: oklch(0.99 0 0); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
-.addbtn:hover { transform: translate(1px, -50%) scale(1.12); }
+.addbtn { all: unset; box-sizing: border-box; position: absolute; left: 100%; top: 1.5px; transform: translateX(1px); z-index: 2; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; background: var(--accent); color: oklch(0.99 0 0); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.addbtn:hover { transform: translateX(1px) scale(1.12); }
 /* your own comment on a line, and the box you write it in */
 .mine { font: var(--ui) var(--sans); padding: 9px 16px 11px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg-raised); box-shadow: inset 3px 0 0 var(--accent); }
 .mine-head { display: flex; align-items: center; gap: 7px; min-height: 26px; color: var(--accent); }
@@ -757,12 +763,19 @@ function hunked(f, rows, rowHtml) {
   flush();
   return out;
 }
+/* A line long enough to wrap carries on two characters past its own
+   indentation; a short one carries nothing. */
+const hang = (text) => {
+  if (!text || text.length < 48) return "";
+  const lead = text.match(/^[ \t]*/)[0].replace(/\t/g, "    ").length;
+  return lead ? ` style="--i:${lead}"` : "";
+};
 function inlineRowsHtml(f, fi) {
   const P = PARSED[fi];
   return hunked(f, P.rows, (r) => {
     if (r.kind === "hunk") return `<div class="hunk">${esc(r.text)}</div>`;
     const isAdd = r.kind === "add", isDel = r.kind === "del";
-    return `<div class="diff-row inline${isAdd ? " add" : isDel ? " del" : ""}"${r.new != null ? ` data-n="${r.new}"` : ""}${r.old != null ? ` data-o="${r.old}"` : ""}><span class="ln">${r.old ?? ""}</span><span class="ln">${r.new ?? ""}</span><span class="sign">${isAdd ? "+" : isDel ? "−" : ""}</span><span class="code">${esc(r.text)}</span></div>` +
+    return `<div class="diff-row inline${isAdd ? " add" : isDel ? " del" : ""}"${r.new != null ? ` data-n="${r.new}"` : ""}${r.old != null ? ` data-o="${r.old}"` : ""}><span class="ln">${r.old ?? ""}</span><span class="ln">${r.new ?? ""}</span><span class="sign">${isAdd ? "+" : isDel ? "−" : ""}</span><span class="code"${hang(r.text)}>${esc(r.text)}</span></div>` +
       rowAttachments(f, r.new ?? null, r.old ?? null, 106);
   });
 }
@@ -774,7 +787,7 @@ function splitRowsHtml(f, fi) {
     const lDel = l && l.kind === "del", rAdd = rr && rr.kind === "add";
     const newLn = rr && rr.new != null ? rr.new : null;
     const oldLn = l && l.old != null ? l.old : null;
-    return `<div class="diff-row split"${newLn != null ? ` data-n="${newLn}"` : ""}${lDel && oldLn != null ? ` data-o="${oldLn}"` : ""}><span class="ln${lDel ? " del" : ""}">${oldLn ?? ""}</span><span class="code l${lDel ? " del" : ""}">${esc(l ? l.text : "")}</span><span class="ln${rAdd ? " add" : ""}">${newLn ?? ""}</span><span class="code${rAdd ? " add" : ""}">${esc(rr ? rr.text : "")}</span></div>` +
+    return `<div class="diff-row split"${newLn != null ? ` data-n="${newLn}"` : ""}${lDel && oldLn != null ? ` data-o="${oldLn}"` : ""}><span class="ln${lDel ? " del" : ""}">${oldLn ?? ""}</span><span class="code l${lDel ? " del" : ""}"${hang(l && l.text)}>${esc(l ? l.text : "")}</span><span class="ln${rAdd ? " add" : ""}">${newLn ?? ""}</span><span class="code${rAdd ? " add" : ""}"${hang(rr && rr.text)}>${esc(rr ? rr.text : "")}</span></div>` +
       rowAttachments(f, newLn, lDel ? oldLn : null, 52);
   });
 }
