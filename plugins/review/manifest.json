@@ -5,23 +5,72 @@
   "description": "A change's diff with the comments a reviewer agent proposes to post, each accepted or rejected before anything is posted.",
   "use_when": "You reviewed a merge or pull request and want a person to approve each comment before it is posted to the forge.",
   "icon": "git-pull-request",
-  "payload_schema": { "$ref": "schemas/payload.schema.json" },
-  "decision_schema": { "$ref": "schemas/decision.schema.json" },
+  "payload_schema": {
+    "$ref": "schemas/payload.schema.json"
+  },
+  "decision_schema": {
+    "$ref": "schemas/decision.schema.json"
+  },
   "example": "example.json",
   "decision_template": "templates/decision.md.j2",
   "entry": "view/index.html",
   "min_height": 600,
   "shortcuts": [
-    { "keys": "j", "does": "Next proposal", "group": "Move" },
-    { "keys": "k", "does": "Previous proposal", "group": "Move" },
-    { "keys": "a", "does": "Accept the focused proposal", "group": "Decide" },
-    { "keys": "x", "does": "Reject the focused proposal, with a reason", "group": "Decide" },
-    { "keys": "e", "does": "Add a note to the focused proposal", "group": "Decide" },
-    { "keys": "c", "does": "Comment on the focused proposal's line", "group": "Decide" },
-    { "keys": "s", "does": "Review what goes back and hand over", "group": "Decide" },
-    { "keys": "v", "does": "Inline or side-by-side diff", "group": "View" },
-    { "keys": "o", "does": "Semantic or alphabetical file order", "group": "View" },
-    { "keys": "escape", "does": "Close dialogs and composers", "group": "View" }
+    {
+      "keys": "j",
+      "does": "Next proposal",
+      "group": "Move"
+    },
+    {
+      "keys": "k",
+      "does": "Previous proposal",
+      "group": "Move"
+    },
+    {
+      "keys": "a",
+      "does": "Accept the focused proposal",
+      "group": "Decide"
+    },
+    {
+      "keys": "x",
+      "does": "Reject the focused proposal, with a reason",
+      "group": "Decide"
+    },
+    {
+      "keys": "e",
+      "does": "Add a note to the focused proposal",
+      "group": "Decide"
+    },
+    {
+      "keys": "c",
+      "does": "Comment on the focused proposal's line",
+      "group": "Decide"
+    },
+    {
+      "keys": "s",
+      "does": "Review what goes back and hand over",
+      "group": "Decide"
+    },
+    {
+      "keys": "v",
+      "does": "Inline or side-by-side diff",
+      "group": "View"
+    },
+    {
+      "keys": "w",
+      "does": "Wrap long lines or scroll sideways",
+      "group": "View"
+    },
+    {
+      "keys": "o",
+      "does": "Semantic or alphabetical file order",
+      "group": "View"
+    },
+    {
+      "keys": "escape",
+      "does": "Close dialogs and composers",
+      "group": "View"
+    }
   ],
   "settings_schema": {
     "type": "object",
@@ -30,18 +79,52 @@
         "type": "string",
         "title": "Diff",
         "description": "How a file's changes are laid out",
-        "oneOf": [{ "const": "inline", "title": "Inline" }, { "const": "split", "title": "Side by side" }],
+        "oneOf": [
+          {
+            "const": "inline",
+            "title": "Inline"
+          },
+          {
+            "const": "split",
+            "title": "Side by side"
+          }
+        ],
         "default": "inline"
+      },
+      "wrap": {
+        "type": "boolean",
+        "title": "Wrap long lines",
+        "description": "Long lines carry on underneath; off, a file scrolls sideways (inline diff only)",
+        "default": true
       },
       "order": {
         "type": "string",
         "title": "File order",
         "description": "The order the agent suggests, or by path; a change without an order is by path",
-        "oneOf": [{ "const": "semantic", "title": "Semantic" }, { "const": "path", "title": "By path" }],
+        "oneOf": [
+          {
+            "const": "semantic",
+            "title": "Semantic"
+          },
+          {
+            "const": "path",
+            "title": "By path"
+          }
+        ],
         "default": "semantic"
       },
-      "findings_only": { "type": "boolean", "title": "Only files with findings", "description": "Hide files the agent had nothing to say about", "default": false },
-      "tree_open": { "type": "boolean", "title": "File tree open", "description": "Start with the file tree beside the diff", "default": true }
+      "findings_only": {
+        "type": "boolean",
+        "title": "Only files with findings",
+        "description": "Hide files the agent had nothing to say about",
+        "default": false
+      },
+      "tree_open": {
+        "type": "boolean",
+        "title": "File tree open",
+        "description": "Start with the file tree beside the diff",
+        "default": true
+      }
     }
   }
 }

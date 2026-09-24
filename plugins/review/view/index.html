@@ -86,9 +86,9 @@ textarea.ta:focus { border-color: var(--accent); }
 .diff-row.split { grid-template-columns: 40px 1fr 40px 1fr; }
 .diff-row.inline.add { background: var(--rv-add); }
 .diff-row.inline.del { background: var(--rv-del); }
-.diff-row .ln { text-align: right; padding: 0 8px 0 4px; color: var(--faint); opacity: 0.8; user-select: none; position: relative; font-variant-numeric: tabular-nums; }
-.diff-row.inline.add .ln, .diff-row.split .ln.add { color: var(--ok); opacity: 0.7; }
-.diff-row.inline.del .ln, .diff-row.split .ln.del { color: var(--danger); opacity: 0.7; }
+.diff-row .ln { text-align: right; padding: 0 8px 0 4px; color: color-mix(in oklab, var(--faint) 85%, transparent); user-select: none; position: relative; font-variant-numeric: tabular-nums; }
+.diff-row.inline.add .ln, .diff-row.split .ln.add { color: color-mix(in oklab, var(--ok) 72%, transparent); }
+.diff-row.inline.del .ln, .diff-row.split .ln.del { color: color-mix(in oklab, var(--danger) 72%, transparent); }
 .diff-row .sign { text-align: center; user-select: none; }
 .diff-row.add .sign { color: var(--ok); }
 .diff-row.del .sign { color: var(--danger); }
@@ -218,6 +218,24 @@ section.file { margin-bottom: 18px; border: 1px solid var(--border); border-radi
 .file-diff { overflow: hidden; border-radius: 0 0 10px 10px; font: var(--code-size)/1.6 var(--mono); }
 .file-unanchored { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 1px dashed var(--border-strong); }
 .file-unanchored-head { font-size: 11px; color: var(--faint); }
+/* unwrapped: long lines keep to one row and the file scrolls sideways; the
+   numbers stay put, and what sits between the rows stays in view */
+.in-diff { font-family: var(--sans); }
+.file-diff.nowrap { overflow-x: auto; container-type: inline-size; }
+.file-diff.nowrap > div { width: max-content; min-width: 100%; }
+.file-diff.nowrap .diff-row.inline { width: max-content; min-width: 100%; }
+.file-diff.nowrap .diff-row .code { white-space: pre; padding-left: 0; text-indent: 0; }
+.file-diff.nowrap .diff-row.inline .ln, .file-diff.nowrap .diff-row.inline .sign { position: sticky; z-index: 2; background: var(--bg-raised); }
+.file-diff.nowrap .diff-row.inline .ln:nth-child(1) { left: 0; }
+.file-diff.nowrap .diff-row.inline .ln:nth-child(2) { left: 44px; z-index: 3; }
+.file-diff.nowrap .diff-row.inline .ln:nth-child(1):has(.addbtn) { z-index: 4; }
+.addbtn.past-new { left: calc(100% + 44px); }
+.file-diff.nowrap .diff-row.inline .sign { left: 88px; }
+.file-diff.nowrap .diff-row.inline.add :is(.ln, .sign) { background: color-mix(in oklab, var(--ok) 9%, var(--bg-raised)); }
+.file-diff.nowrap .diff-row.inline.del :is(.ln, .sign) { background: color-mix(in oklab, var(--danger) 8%, var(--bg-raised)); }
+.file-diff.nowrap :is(.in-diff, .mine, .hunk) { position: sticky; left: 0; z-index: 3; width: 100cqw; box-sizing: border-box; }
+button.tool.on { color: var(--accent); }
+button.tool:disabled { opacity: 0.45; cursor: default; }
 /* calmer diff colours: the tint on the row, the colour in the sign and the number */
 .file-diff { --rv-add: color-mix(in oklab, var(--add-bg) 75%, transparent); --rv-del: color-mix(in oklab, var(--del-bg) 75%, transparent); }
 /* the header: the change and how far along its review is */
@@ -286,6 +304,10 @@ const plugin = Pinrail.connect({
     set(() => applySettings(settings));
   },
   onViolations(errors) {
+    // violations answer a hand-over; one that comes without (a setting the
+    // app would not keep) is not the decision's, and opens nothing
+    if (!handingOver) return;
+    handingOver = false;
     set(() => { S.errors = errors; S.confirmSubmitArm = false; S.showSubmit = true; });
   },
   onSubmitted(decision) {
@@ -308,14 +330,14 @@ let D = null;          // adapted payload
 let PARSED = [];       // per-file parsed rows/splitRows/add/del
 let SEGMENTS = {};     // proposal id -> md segments
 const S = {
-  decisions: {}, focusedId: null, diffMode: "inline",
+  decisions: {}, focusedId: null, diffMode: "inline", wrap: true,
   folded: {}, treeOpen: true, findingsOnly: false, briefOpen: false, concernsOpen: false,
   composer: null, manualComments: [],
   confirmBulk: null, showSubmit: false, done: false, errors: null,
   collapsedDirs: {}, activeFile: null, noteOpen: {}, expanded: {},
   confirmSubmitArm: false, orderMode: "semantic",
 };
-let mseq = 0, bulkT = null;
+let mseq = 0, bulkT = null, handingOver = false;
 const esc = Pinrail.escape;
 
 function adapt(payload) {
@@ -476,6 +498,7 @@ function set(mut) { captureDrafts(); mut(); render(); draft(); }
 function applySettings(settings) {
   const s = settings || {};
   if (s.diff === "inline" || s.diff === "split") S.diffMode = s.diff;
+  if (typeof s.wrap === "boolean") S.wrap = s.wrap;
   if (s.order === "semantic" || s.order === "path") S.orderMode = s.order;
   if (typeof s.findings_only === "boolean") S.findingsOnly = s.findings_only;
   if (typeof s.tree_open === "boolean") S.treeOpen = s.tree_open;
@@ -704,7 +727,7 @@ function rowAttachments(f, newLn, oldLn, pad) {
   const manual = S.manualComments.filter(at);
   const comp = S.composer && !RO() && at(S.composer);
   let html = "";
-  anchoredCards.forEach((p) => { html += `<div style="font-family:var(--sans)">${cardHtml(p, true)}</div>`; });
+  anchoredCards.forEach((p) => { html += `<div class="in-diff">${cardHtml(p, true)}</div>`; });
   // a comment being edited is written where it stands, not in a box of its own
   const editing = comp && S.composer.editId != null;
   manual.forEach((m) => { html += editing && S.composer.editId === m.id ? composerHtml() : manualHtml(m); });
@@ -738,6 +761,8 @@ document.addEventListener("mouseover", (e) => {
   btn.setAttribute("data-file", sec.getAttribute("data-filesec"));
   btn.setAttribute("data-line", side === "new" ? newLn : oldLn);
   btn.setAttribute("data-side", side);
+  // inline, an old line's + skips the new number, so it sits where every other one does
+  btn.classList.toggle("past-new", side === "old" && row.classList.contains("inline"));
   const label = `comment on ${sec.getAttribute("data-filesec")}:${side === "new" ? newLn : oldLn}${side === "old" ? " old" : ""}`;
   btn.setAttribute("aria-label", label); btn.title = side === "new" ? "Add your comment on this line" : "Comment on the old line";
   if (btn.parentNode !== cell) cell.appendChild(btn);
@@ -800,7 +825,7 @@ function fileSectionHtml(f, fi) {
   const badge = f.status === "added" ? "NEW" : f.status === "renamed" ? "RENAMED" : f.status === "deleted" ? "DELETED" : null;
   const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/") + 1) : "";
   const base = f.path.split("/").pop();
-  const body = folded ? "" : `<div class="file-diff">${S.diffMode === "inline" ? inlineRowsHtml(f, fi) : splitRowsHtml(f, fi)}</div>`;
+  const body = folded ? "" : `<div class="file-diff${!S.wrap && S.diffMode === "inline" ? " nowrap" : ""}">${S.diffMode === "inline" ? inlineRowsHtml(f, fi) : splitRowsHtml(f, fi)}</div>`;
   const summary = f.summary && !folded ? `<div class="file-summary">${esc(f.summary)}</div>` : "";
   const un = unanchored.length ? `<div class="file-unanchored">
       <div class="file-unanchored-head">On the file, not a line · posts as a file-level comment</div>
@@ -1015,6 +1040,7 @@ function toolbarHtml() {
       <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" title="Split diff">${Pinrail.icon("columns-2", { size: 14, label: "Split diff" })}</button>
     </div>
     <button class="tool" data-act="fold-all">${ico(allFolded ? "unfold-vertical" : "fold-vertical")}${allFolded ? "Unfold all" : "Fold all"}</button>
+    <button class="tool${S.wrap ? " on" : ""}" data-act="toggle-wrap" aria-pressed="${S.wrap ? "true" : "false"}" ${S.diffMode === "split" ? `disabled title="Side by side always wraps, so the two sides stay level"` : `title="Wrap long lines, or scroll sideways (w)"`}>${ico("wrap-text")}Wrap</button>
     <span class="grow"></span>
     ${!RO() && undecided ? `${bulk("accept", "Accept", "list-check")}${bulk("reject", "Reject", "list-x")}` : ""}
   </div>`;
@@ -1180,6 +1206,7 @@ function confirmSubmit() {
   const undecidedCount = D.proposals.filter((p) => !decided(p.id)).length;
   if (!S.confirmSubmitArm && undecidedCount) { set(() => { S.confirmSubmitArm = true; }); return; }
   set(() => { S.errors = null; });
+  handingOver = true;
   plugin.submit(buildDecision());
 }
 /* The shell's hand-over button asks for the decision: the first press opens
@@ -1260,6 +1287,7 @@ document.addEventListener("click", (e) => {
     case "toggle-order": set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); keep("order", S.orderMode); break;
     case "set-inline": set(() => { S.diffMode = "inline"; }); keep("diff", "inline"); break;
     case "set-split": set(() => { S.diffMode = "split"; }); keep("diff", "split"); break;
+    case "toggle-wrap": set(() => { S.wrap = !S.wrap; }); keep("wrap", S.wrap); break;
     case "bulk-accept": bulk("accept"); break;
     case "bulk-reject": bulk("reject"); break;
     case "toggle-brief": set(() => { S.briefOpen = !S.briefOpen; }); break;
@@ -1308,6 +1336,7 @@ document.addEventListener("keydown", (e) => {
       break;
     }
     case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); keep("diff", S.diffMode); break;
+    case "w": if (S.diffMode === "inline") { e.preventDefault(); set(() => { S.wrap = !S.wrap; }); keep("wrap", S.wrap); } break;
     case "o": e.preventDefault(); set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); keep("order", S.orderMode); break;
     case "s": if (!RO()) { e.preventDefault(); set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); } break;
   }

@@ -100,6 +100,11 @@ test("a draft survives a reload", async ({ page }) => {
 test("violations reopen the summary with the errors; submitted renders read-only with verdicts", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const f = plugin.frame;
+  // hand over: the summary, then the confirmation with undecided left, then the submit
+  await plugin.collect();
+  await plugin.collect();
+  await plugin.collect();
+  await plugin.nextSubmit();
   await plugin.sendViolations([{ path: "/comments/0/line", message: "value is not of type integer" }]);
   await expect(f.locator("#submit-modal #errors")).toContainText("/comments/0/line: value is not of type integer");
   await f.getByRole("button", { name: "Keep reviewing" }).click();
@@ -155,7 +160,7 @@ test("the diff's bar holds how it reads and the bulk decisions; icons carry name
   // the header: only the rail's toggle
   expect(await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual(["panel-left-close"]);
   // the diff's bar: how it reads, and the decisions on the findings still open below
-  expect(await bar.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual(["rows-3", "columns-2", "fold-vertical", "list-check", "list-x"]);
+  expect(await bar.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual(["rows-3", "columns-2", "fold-vertical", "wrap-text", "list-check", "list-x"]);
 
   // Beside a word, an icon is decoration and the word is the name.
   await expect(bar.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
@@ -230,6 +235,35 @@ test("settings lay out the view; a pill or a key asks the shell to keep the choi
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ diff: "inline" });
   await f.locator('[data-act="toggle-findings-only"]').click();
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ findings_only: true });
+
+  // wrapping: a setting, a button and a key; unwrapped, a file scrolls sideways
+  await plugin.settings({ diff: "inline", order: "path", findings_only: false, tree_open: true, wrap: false });
+  await expect(f.locator(".file-diff.nowrap").first()).toBeVisible();
+  // the + still shows over the pinned gutter
+  const line = f.locator('[data-filesec="lib/acme/tickets.ex"] .diff-row').filter({ hasText: "Repo.insert_all" });
+  await line.hover();
+  const plus = f.getByLabel("comment on lib/acme/tickets.ex:150", { exact: true });
+  const box = (await plus.boundingBox())!;
+  const top = await f.locator("body").evaluate((_, [x, y]) => document.elementFromPoint(x, y)?.closest("#addbtn") != null, [box.x + box.width / 2, box.y + box.height / 2]);
+  expect(top).toBe(true);
+  // and on a deleted line, commented on its old number
+  const gone = f.locator('[data-filesec] .diff-row.inline.del').first();
+  await gone.hover();
+  const oldPlus = f.locator("#addbtn");
+  await expect(oldPlus).toHaveAttribute("data-side", "old");
+  const ob = (await oldPlus.boundingBox())!;
+  const onTop = await f.locator("body").evaluate((_, [x, y]) => document.elementFromPoint(x, y)?.closest("#addbtn") != null, [ob.x + ob.width / 2, ob.y + ob.height / 2]);
+  expect(onTop).toBe(true);
+  await f.locator('[data-act="toggle-wrap"]').click();
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ wrap: true });
+  await expect(f.locator(".file-diff.nowrap")).toHaveCount(0);
+  await f.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("w");
+  await expect.poll(() => plugin.lastSettingsSet()).toEqual({ wrap: false });
+  // side by side always wraps
+  await f.locator('[data-act="set-split"]').click();
+  await expect(f.locator('[data-act="toggle-wrap"]')).toBeDisabled();
+  await expect(f.locator(".file-diff.nowrap")).toHaveCount(0);
 });
 
 test("a declared key forwarded by the shell works like one typed in the frame", async ({ page }) => {
@@ -326,4 +360,13 @@ test("your comment is edited where it stands, by clicking its text", async ({ pa
   await expect(mine).toContainText("L150");
   const order = await rail.locator('[data-act="jump-card"], [data-act="jump-comment"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-act")));
   expect(order.indexOf("jump-comment")).toBeGreaterThan(0);
+});
+
+test("violations that answer no hand-over, such as a refused setting, open nothing", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const f = plugin.frame;
+  await expect(f.locator("#card-18")).toBeVisible();
+  await plugin.sendViolations([{ path: "/wrap", message: "not a setting of this plugin" }]);
+  await page.waitForTimeout(200);
+  await expect(f.locator("#submit-modal")).toHaveCount(0);
 });

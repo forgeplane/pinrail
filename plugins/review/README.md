@@ -71,8 +71,10 @@ The view asks the shell for a viewport-height frame and scrolls inside it.
 
 ## Settings
 
-The manifest declares four, shown under *Code review* in *Settings ›
-Plugins*: the diff inline or side by side, files in the agent's order or
-by path, only files with findings, and whether the tree starts open. The
-pills in the view and the V and O keys change the same settings, so a
-choice made while reviewing holds for the next review too.
+The manifest declares five, shown under *Code review* in *Settings ›
+Plugins*: the diff inline or side by side, whether long lines wrap or the
+file scrolls sideways (inline only; side by side always wraps), files in
+the agent's order or by path, only files with findings, and whether the
+tree starts open. The controls in the view and the V, W and O keys change
+the same settings, so a choice made while reviewing holds for the next
+review too.
