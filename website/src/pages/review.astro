@@ -7,6 +7,7 @@
 import "../styles/index.css";
 import Zoom from "../components/index/Zoom.astro";
 import AppleIcon from "../components/AppleIcon.astro";
+import GitHubIcon from "../components/GitHubIcon.astro";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
@@ -245,7 +246,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             <div class="ctas">
               <a class="primary big" href={releases}><AppleIcon />Download for macOS</a>
               <a class="ghost big" href="/docs/getting-started/install/">Read the docs</a>
-              <a class="ghost big" href={repo}>GitHub ↗</a>
+              <a class="ghost big" href={repo}><GitHubIcon />Star on GitHub</a>
             </div>
             <button type="button" class="restart" data-restart>Review the draft again</button>
           </div>
