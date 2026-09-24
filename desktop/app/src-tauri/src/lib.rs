@@ -309,6 +309,7 @@ pub fn run() {
                     | "go-history"
                     | "go-plugins"
                     | "toggle-sidebar"
+                    | "toggle-theme"
                     | "maximize-view"
                     | "back"
                     | "forward"
@@ -399,6 +400,13 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
                 "Toggle Sidebar",
                 true,
                 Some("CmdOrCtrl+B"),
+            )?,
+            &MenuItem::with_id(
+                app,
+                "toggle-theme",
+                "Toggle Theme",
+                true,
+                Some("CmdOrCtrl+Shift+L"),
             )?,
             &MenuItem::with_id(app, "back", "Back", true, Some("CmdOrCtrl+["))?,
             &MenuItem::with_id(app, "forward", "Forward", true, Some("CmdOrCtrl+]"))?,

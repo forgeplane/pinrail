@@ -67,7 +67,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { id: "history", label: "Go to history", keys: NAV[1].keys, icon: History, run: () => navigate("/history") },
     { id: "plugins", label: "Plugins", keys: PLUGINS_KEYS, icon: Blocks, run: () => setSettings("plugins") },
     { id: "reload-plugins", label: "Reload plugins", icon: RefreshCw, run: () => void api.reloadPlugins().catch(() => {}) },
-    { id: "theme", label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme", keys: ["T"], icon: SunMoon, run: toggleTheme },
+    { id: "theme", label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme", keys: [MOD, "⇧", "L"], icon: SunMoon, run: toggleTheme },
     { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
     { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
@@ -123,6 +123,11 @@ export function Layout({ children }: { children: ReactNode }) {
           setSettings("plugins");
           return;
         }
+        if (event.shiftKey && event.key.toLowerCase() === "l") {
+          event.preventDefault();
+          toggleTheme();
+          return;
+        }
       }
       if (hasMod(event) && !event.altKey && !event.shiftKey) {
         if (event.key === "k" || event.key === "K") {
@@ -154,7 +159,6 @@ export function Layout({ children }: { children: ReactNode }) {
         event.preventDefault();
         setHelp((h) => !h);
       }
-      if (event.key === "t" || event.key === "T") toggleTheme();
     };
     const onCommand = (event: Event) => {
       switch ((event as CustomEvent<string>).detail) {
@@ -175,6 +179,9 @@ export function Layout({ children }: { children: ReactNode }) {
           break;
         case "toggle-sidebar":
           toggleSidebar();
+          break;
+        case "toggle-theme":
+          toggleTheme();
           break;
         case "back":
           navigate(-1);

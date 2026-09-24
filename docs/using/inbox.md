@@ -70,7 +70,7 @@ Press <kbd>?</kbd> anywhere in the app to see these. On Windows and Linux, <kbd>
 | <kbd>⌘I</kbd> | Inbox |
 | <kbd>⌘⇧H</kbd> / <kbd>⌘⇧P</kbd> | History / Plugins |
 | <kbd>⌘,</kbd> | Settings |
-| <kbd>T</kbd> | Switch theme |
+| <kbd>⌘⇧L</kbd> | Switch theme |
 | <kbd>⌘B</kbd> | Show or hide the sidebar |
 | <kbd>⌘[</kbd> / <kbd>⌘]</kbd> | Back / forward |
 | <kbd>⌘↵</kbd> | Hand over to the agent |

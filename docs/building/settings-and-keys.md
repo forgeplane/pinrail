@@ -132,5 +132,5 @@ document.addEventListener("keydown", (e) => {
 Only declared keys are forwarded. A view that declares none receives none.
 
 :::caution[Keys the app keeps]
-Some keys belong to the review screen and are never forwarded: <kbd>?</kbd>, <kbd>t</kbd>, <kbd>[</kbd>, <kbd>]</kbd>, <kbd>esc</kbd>, <kbd>⌘⇧M</kbd>, <kbd>⌘↵</kbd> and the <kbd>⌘</kbd> shortcuts of the app's menus. If you declare one, the keyboard help marks it as taken by the app.
+Some keys belong to the review screen and are never forwarded: <kbd>?</kbd>, <kbd>[</kbd>, <kbd>]</kbd>, <kbd>esc</kbd>, <kbd>⌘⇧M</kbd>, <kbd>⌘↵</kbd> and the <kbd>⌘</kbd> shortcuts of the app's menus. If you declare one, the keyboard help marks it as taken by the app.
 :::

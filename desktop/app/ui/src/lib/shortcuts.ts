@@ -17,7 +17,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Inbox", keys: [[MOD, "I"]] },
   { what: "History / Plugins", keys: [[MOD, "⇧", "H"], [MOD, "⇧", "P"]] },
   { what: "Settings", keys: [[MOD, ","]] },
-  { what: "Switch theme", keys: [["T"]] },
+  { what: "Switch theme", keys: [[MOD, "⇧", "L"]] },
   { what: "Show or hide the sidebar", keys: [[MOD, "B"]] },
   { what: "Back / forward", keys: [[MOD, "["], [MOD, "]"]] },
   { what: "Hand over to the agent", keys: [[MOD, "Enter"]] },
@@ -124,7 +124,7 @@ export function comboFromEvent(event: KeyboardEvent): string | null {
  * The keys the app itself answers on the review screen. A plugin that
  * declares one of these is told so, and never receives it.
  */
-export const REVIEW_SCREEN_KEYS = new Set(["shift+/", "t", "[", "]", "escape", "cmd+shift+m", "cmd+enter", "ctrl+enter"]);
+export const REVIEW_SCREEN_KEYS = new Set(["shift+/", "[", "]", "escape", "cmd+shift+m", "cmd+enter", "ctrl+enter"]);
 export const isShadowed = (combo: string) => REVIEW_SCREEN_KEYS.has(combo) || combo.startsWith("cmd+") || combo.startsWith("ctrl+");
 
 /**
