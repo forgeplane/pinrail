@@ -100,8 +100,10 @@ test("a draft survives a reload", async ({ page }) => {
 test("violations reopen the summary with the errors; submitted renders read-only with verdicts", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const f = plugin.frame;
+  await expect(f.locator("#card-18")).toBeVisible();
   // hand over: the summary, then the confirmation with undecided left, then the submit
   await plugin.collect();
+  await expect(f.locator("#submit-modal")).toBeVisible();
   await plugin.collect();
   await plugin.collect();
   await plugin.nextSubmit();
@@ -372,6 +374,7 @@ test("violations that answer no hand-over, such as a refused setting, open nothi
 });
 
 test("expanding a finding keeps it in place, even with a note left open further up", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
   const webhooks = fixture(path.resolve(dir, "../../e2e/screenshots/fixtures/10-review-webhooks.json"));
   const plugin = await mountPlugin(page, dir, { gate: webhooks });
   await plugin.setFrameHeight(800);
@@ -384,4 +387,42 @@ test("expanding a finding keeps it in place, even with a note left open further 
   await card.locator('[data-act="expand"]').click();
   await expect(card).not.toHaveClass(/\bfolded\b/);
   expect(Math.abs((await card.locator(".card-head").boundingBox())!.y - before)).toBeLessThan(2);
+});
+
+test("a clicked verdict stays on its finding, so c comments there", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const f = plugin.frame;
+  await f.locator("#card-18 .accept-btn").click();
+  await expect(f.locator("#card-18")).toHaveClass(/\bfocused\b/);
+  await f.locator("body").click({ position: { x: 5, y: 5 } });
+  await expect(f.locator("#card-18")).toHaveClass(/\bfolded\b/);
+  await page.keyboard.press("c");
+  await expect(f.locator(".mine.editing .mine-at")).toHaveText("tickets.ex:149");
+  // a folded finding opens, so its comment is in view beside yours
+  await expect(f.locator("#card-18")).not.toHaveClass(/\bfolded\b/);
+  await page.keyboard.press("Escape");
+  await expect(f.getByLabel("your comment")).toHaveCount(0);
+  await expect(f.locator("#card-18")).toHaveClass(/\bfocused\b/);
+});
+
+test("clicking a verdict, c and Esc keep the finding where it is on screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const webhooks = fixture(path.resolve(dir, "../../e2e/screenshots/fixtures/10-review-webhooks.json"));
+  const plugin = await mountPlugin(page, dir, { gate: webhooks });
+  await plugin.setFrameHeight(800);
+  const f = plugin.frame;
+  // the last finding below, the rest undecided above it
+  const card = f.locator("#card-5");
+  await card.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  const y = async () => (await card.locator(".card-head").boundingBox())!.y;
+  const start = await y();
+  await card.locator(".accept-btn").click();
+  expect(Math.abs((await y()) - start)).toBeLessThan(2);
+  await f.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("c");
+  await expect(f.getByLabel("your comment")).toBeVisible();
+  expect(Math.abs((await y()) - start)).toBeLessThan(2);
+  await page.keyboard.press("Escape");
+  await expect(f.getByLabel("your comment")).toHaveCount(0);
+  expect(Math.abs((await y()) - start)).toBeLessThan(2);
 });

@@ -553,15 +553,27 @@ function moveFocus(dir) {
 /* A finding opened or folded stays where it was on screen: its header is
    measured before and after, and the scroll takes up any difference,
    whatever else the redraw moved. */
+let pinning = 0;
 function inPlace(id, change) {
+  if (id == null) { change(); return; }
   const main = document.getElementById("main");
   const head = () => document.querySelector(`#card-${CSS.escape(String(id))} .card-head`);
   const before = head() && main ? head().getBoundingClientRect().top : null;
+  const mine = ++pinning;   // a later action's pin replaces this one
   change();
   if (before == null) return;
-  const settle = () => { const h = head(); if (h) main.scrollTop += h.getBoundingClientRect().top - before; };
+  let left = null;          // where the last pin left the scroll
+  const settle = () => {
+    const m = document.getElementById("main"), h = head();
+    if (mine !== pinning || !m || !h) return;
+    if (left != null && Math.abs(m.scrollTop - left) > 1) return;   // scrolled since, by the person
+    m.scrollTop += h.getBoundingClientRect().top - before;
+    left = m.scrollTop;
+  };
   settle();
   requestAnimationFrame(settle);
+  // once more after the key or click has fully played out in the browser
+  setTimeout(settle, 120);
 }
 function scrollTo(el, offset) {
   const c = document.getElementById("main");
@@ -1138,7 +1150,7 @@ function render() {
     <div class="pane">
     ${regions.get("toolbar")}
     <div id="main" style="flex:1;overflow-y:auto;min-width:0;min-height:0">
-      <div style="padding:16px 24px 120px 24px">
+      <div style="padding:16px 24px 420px 24px">
         ${regions.get("brief")}
         ${order.map((i) => compose(regions.get(`file:${D.files[i].path}`))).join("")}
         ${regions.get("unanchored")}
@@ -1244,6 +1256,12 @@ function syncStatus() {
   });
 }
 
+// WebKit keeps a text field focused when a button elsewhere is clicked; a
+// press outside the field lets go of it, so a redraw never returns to it
+document.addEventListener("mousedown", (e) => {
+  const a = document.activeElement;
+  if (a && a.matches && a.matches("textarea, input") && !a.contains(e.target)) a.blur();
+}, true);
 document.addEventListener("click", (e) => {
   const cardEl = e.target.closest("[data-card]");
   const cardId = cardEl ? parseInt(cardEl.getAttribute("data-card"), 10) : null;
@@ -1258,8 +1276,9 @@ document.addEventListener("click", (e) => {
   const act = t.getAttribute("data-act");
   const id = t.hasAttribute("data-id") ? parseInt(t.getAttribute("data-id"), 10) : null;
   switch (act) {
-    case "accept": decide(id, "accept", true); break;
-    case "reject": decide(id, "reject", false); break;
+    // a click stays on the finding; the a key moves on, for going through them in order
+    case "accept": inPlace(id, () => decide(id, "accept", false)); break;
+    case "reject": inPlace(id, () => decide(id, "reject", false)); break;
     case "undo": undo(id); break;
     case "expand": inPlace(id, () => set(() => { S.expanded[id] = true; })); break;
     case "collapse": inPlace(id, () => set(() => { delete S.expanded[id]; })); break;
@@ -1273,8 +1292,8 @@ document.addEventListener("click", (e) => {
       set(() => { S.composer = { file, line, side, text: "", editId: null }; });
       break;
     }
-    case "save-composer": saveComposer(); break;
-    case "cancel-composer": set(() => { S.composer = null; }); break;
+    case "save-composer": inPlace(S.focusedId, saveComposer); break;
+    case "cancel-composer": inPlace(S.focusedId, () => set(() => { S.composer = null; })); break;
     case "edit-manual": {
       const m = S.manualComments.find((x) => x.id === t.getAttribute("data-mid"));
       if (m) set(() => { S.composer = { file: m.file, line: m.line, side: m.side, text: m.body, editId: m.id }; });
@@ -1319,17 +1338,21 @@ document.addEventListener("keydown", (e) => {
   const tag = e.target && e.target.tagName;
   const typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable);
   if (e.key === "Escape") {
+    // the key is ours: nothing else acts on it, and the field it was typed in
+    // lets go of focus before it goes
+    e.preventDefault();
+    if (typing && e.target.blur) e.target.blur();
     if (typing && e.target.hasAttribute && e.target.hasAttribute("data-note-ta")) {
       const id = e.target.getAttribute("data-note-ta");
-      set(() => { delete S.noteOpen[id]; });
+      inPlace(id, () => set(() => { delete S.noteOpen[id]; }));
       return;
     }
-    set(() => { S.showSubmit = false; S.composer = null; S.confirmBulk = null; S.confirmSubmitArm = false; });
+    inPlace(S.focusedId, () => set(() => { S.showSubmit = false; S.composer = null; S.confirmBulk = null; S.confirmSubmitArm = false; }));
     return;
   }
   if (typing) {
     if (e.key === "Enter" && !e.shiftKey) {
-      if (e.target.id === "composer-ta") { e.preventDefault(); saveComposer(); }
+      if (e.target.id === "composer-ta") { e.preventDefault(); inPlace(S.focusedId, saveComposer); }
       else if (e.target.hasAttribute("data-note-ta")) {
         e.preventDefault();
         const id = parseInt(e.target.getAttribute("data-note-ta"), 10);
@@ -1349,7 +1372,7 @@ document.addEventListener("keydown", (e) => {
     case "c": if (!RO() && fid != null) {
       e.preventDefault();
       const p = D.proposals.find((x) => x.id === fid);
-      if (p && p.file && p.line != null) set(() => { S.composer = { file: p.file, line: p.line, side: p.side, text: "", editId: null }; });
+      if (p && p.file && p.line != null) inPlace(fid, () => set(() => { S.composer = { file: p.file, line: p.line, side: p.side, text: "", editId: null }; S.expanded[fid] = true; }));
       break;
     }
     case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); keep("diff", S.diffMode); break;
