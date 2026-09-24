@@ -5,6 +5,7 @@ import "../styles/index.css";
 import "../styles/index-classic.css";
 import Zoom from "../components/index/Zoom.astro";
 import HeroDemo from "../components/index/HeroDemo.astro";
+import { icons } from "../components/index/lucide";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
@@ -99,7 +100,7 @@ const codes = [
 
       <section class="c-agents" aria-label="Works with any agent">
         <p>Works with any agent that can run a command</p>
-        <ul>{agents.map((a) => <li><img src={`/agents/${a.icon}.svg`} width="20" height="20" alt="" />{a.name}</li>)}</ul>
+        <ul>{agents.map((a) => <li><img src={`/agents/${a.icon}.svg`} width="20" height="20" alt="" />{a.name}</li>)}<li class="c-agents-more"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={icons["bot"]} />yours</li></ul>
       </section>
 
       <section class="c-section" id="how">
