@@ -61,6 +61,41 @@
 .c-view figcaption { padding: 16px 4px 0; font-size: 16px; line-height: 1.5; color: var(--ink-2); }
 .c-view figcaption b { display: block; margin-bottom: 4px; font: 600 20px var(--serif); color: var(--ink); }
 .plugin { float: right; margin-left: 12px; padding: 2px 7px; border: 1px solid var(--rule-strong); border-radius: 4px; font: 500 11px var(--mono); color: var(--faint); }
+/* the samples carousel: the track runs to the page's edges, its slides line up with the text */
+.c-carousel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
+.c-carousel-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 40px; flex: none; }
+.c-count { margin-right: 6px; font: 500 13px var(--mono); color: var(--faint); }
+.c-count b { color: var(--ink); font-weight: 600; }
+.c-arrow { width: 44px; height: 44px; display: grid; place-items: center; border: 1.5px solid var(--rule-strong); border-radius: 50%; background: transparent; color: var(--ink); font: 500 18px var(--mono); cursor: pointer; transition: background 0.15s, border-color 0.15s, opacity 0.15s; }
+.c-arrow:hover:not(:disabled) { background: var(--ink); border-color: var(--ink); color: var(--paper, #f5f0e6); }
+.c-arrow:disabled { opacity: 0.3; cursor: default; }
+.c-carousel { --bleed: max(28px, calc(50vw - 562px)); position: relative; display: flex; gap: 28px; margin-inline: calc(-1 * var(--bleed)); padding: 4px var(--bleed) 24px; scroll-padding-inline: var(--bleed); overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.c-carousel::-webkit-scrollbar { display: none; }
+.c-carousel:focus-visible { outline: none; }
+.c-carousel:focus-visible .c-slide.is-active .zoom { outline: 2px solid var(--pen); outline-offset: 4px; }
+.c-slide { flex: 0 0 min(940px, 84%); margin: 0; scroll-snap-align: start; opacity: 0.4; transform: scale(0.97); transform-origin: left center; transition: opacity 0.35s ease, transform 0.35s ease; cursor: pointer; }
+.c-slide.is-active { opacity: 1; transform: none; cursor: auto; }
+.c-slide .zoom { border-radius: 14px; overflow: hidden; border: 1px solid var(--rule-strong); background: var(--night); box-shadow: 0 30px 60px -36px rgba(30,20,10,0.55); }
+.c-slide .zoom img { display: block; width: 100%; height: auto; aspect-ratio: 2344 / 1378; object-fit: cover; }
+.c-slide figcaption { max-width: 640px; padding: 18px 4px 0; font-size: 15.5px; line-height: 1.5; color: var(--ink-2); }
+.c-slide figcaption b { display: block; margin-bottom: 4px; font: 600 20px var(--serif); letter-spacing: -0.02em; color: var(--ink); }
+.c-slide .plugin { float: none; margin: 0 0 10px; display: inline-block; }
+.c-progress { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.c-progress button { display: grid; gap: 10px; padding: 0; border: 0; background: none; text-align: left; font: 500 12px var(--mono); color: var(--faint); cursor: pointer; }
+.c-progress button::before { content: ""; height: 3px; border-radius: 3px; background: var(--rule-strong); transition: background 0.25s; }
+.c-progress button:hover { color: var(--ink-2); }
+.c-progress button[aria-current] { color: var(--ink); }
+.c-progress button[aria-current]::before { background: var(--pen); }
+.c-progress button:focus-visible { outline: 2px solid var(--pen); outline-offset: 4px; border-radius: 2px; }
+@media (max-width: 800px) {
+  .c-carousel-head { display: block; }
+  .c-carousel-nav { display: none; }
+  .c-carousel { gap: 16px; }
+  .c-slide { flex-basis: 88%; }
+  .c-progress span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .c-slide { transition: none; } }
+
 .c-own { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 24px; margin-top: 28px; padding: 22px 26px; border: 1.5px dashed var(--rule-strong); border-radius: 14px; }
 .c-own code { padding: 8px 12px; background: var(--night); color: var(--night-fg); font-size: 13px; }
 .c-own p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--ink-2); }
