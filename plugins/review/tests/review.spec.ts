@@ -370,3 +370,18 @@ test("violations that answer no hand-over, such as a refused setting, open nothi
   await page.waitForTimeout(200);
   await expect(f.locator("#submit-modal")).toHaveCount(0);
 });
+
+test("expanding a finding keeps it in place, even with a note left open further up", async ({ page }) => {
+  const webhooks = fixture(path.resolve(dir, "../../e2e/screenshots/fixtures/10-review-webhooks.json"));
+  const plugin = await mountPlugin(page, dir, { gate: webhooks });
+  await plugin.setFrameHeight(800);
+  const f = plugin.frame;
+  await f.locator("#card-5 .accept-btn").click();
+  await f.locator("#card-1 .reject-btn").click();   // its reason left open, unsaved
+  const card = f.locator("#card-5");
+  await card.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  const before = (await card.locator(".card-head").boundingBox())!.y;
+  await card.locator('[data-act="expand"]').click();
+  await expect(card).not.toHaveClass(/\bfolded\b/);
+  expect(Math.abs((await card.locator(".card-head").boundingBox())!.y - before)).toBeLessThan(2);
+});

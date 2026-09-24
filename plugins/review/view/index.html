@@ -510,7 +510,7 @@ function decide(id, action, advance) {
   set(() => {
     S.decisions[id] = { ...(S.decisions[id] || {}), action };
     delete S.expanded[id];
-    if (action === "reject" && !(S.decisions[id].note)) S.noteOpen[id] = { open: true, draft: "" };
+    if (action === "reject" && !(S.decisions[id].note)) { S.noteOpen[id] = { open: true, draft: "" }; S.focusNote = id; }
     else delete S.noteOpen[id];
   });
   if (advance) advanceFocus(id);
@@ -550,6 +550,19 @@ function moveFocus(dir) {
 }
 /* Sections off screen are skipped until scrolled to, so their place is an
    estimate: scroll, let the browser lay the target out, then correct. */
+/* A finding opened or folded stays where it was on screen: its header is
+   measured before and after, and the scroll takes up any difference,
+   whatever else the redraw moved. */
+function inPlace(id, change) {
+  const main = document.getElementById("main");
+  const head = () => document.querySelector(`#card-${CSS.escape(String(id))} .card-head`);
+  const before = head() && main ? head().getBoundingClientRect().top : null;
+  change();
+  if (before == null) return;
+  const settle = () => { const h = head(); if (h) main.scrollTop += h.getBoundingClientRect().top - before; };
+  settle();
+  requestAnimationFrame(settle);
+}
 function scrollTo(el, offset) {
   const c = document.getElementById("main");
   if (!el || !c) return;
@@ -1148,8 +1161,12 @@ function restoreFocus(focusDesc) {
   let toFocus = null;
   if (focusDesc) toFocus = focusDesc.id ? document.getElementById(focusDesc.id) : document.querySelector(`[data-note-ta="${focusDesc.note}"]`);
   else if (S.composer) toFocus = document.getElementById("composer-ta");
-  else { const openNotes = document.querySelectorAll("[data-note-ta]"); if (openNotes.length === 1) toFocus = openNotes[0]; }
-  if (toFocus && toFocus !== document.activeElement) { toFocus.focus(); const v = toFocus.value; toFocus.value = ""; toFocus.value = v; }
+  // a note field takes the cursor when it has just been opened, not on every
+  // redraw: one left open further up must not pull the page back to it
+  else if (S.focusNote != null) toFocus = document.querySelector(`[data-note-ta="${S.focusNote}"]`);
+  S.focusNote = null;
+  // putting the cursor back where it was never scrolls; a field just opened may
+  if (toFocus && toFocus !== document.activeElement) { toFocus.focus({ preventScroll: !!focusDesc }); const v = toFocus.value; toFocus.value = ""; toFocus.value = v; }
 }
 
 /* ---------- scrollspy ---------- */
@@ -1244,10 +1261,10 @@ document.addEventListener("click", (e) => {
     case "accept": decide(id, "accept", true); break;
     case "reject": decide(id, "reject", false); break;
     case "undo": undo(id); break;
-    case "expand": set(() => { S.expanded[id] = true; }); break;
-    case "collapse": set(() => { delete S.expanded[id]; }); break;
-    case "toggle-thread": { const k = "t" + t.getAttribute("data-id"); const cur = t.getAttribute("data-open") === "1"; set(() => { S.expanded[k] = !cur; }); break; }
-    case "open-note": set(() => { S.noteOpen[id] = { open: true, draft: (S.decisions[id] && S.decisions[id].note) || "" }; }); break;
+    case "expand": inPlace(id, () => set(() => { S.expanded[id] = true; })); break;
+    case "collapse": inPlace(id, () => set(() => { delete S.expanded[id]; })); break;
+    case "toggle-thread": { const k = "t" + t.getAttribute("data-id"); const cur = t.getAttribute("data-open") === "1"; inPlace(id, () => set(() => { S.expanded[k] = !cur; })); break; }
+    case "open-note": set(() => { S.noteOpen[id] = { open: true, draft: (S.decisions[id] && S.decisions[id].note) || "" }; S.focusNote = id; }); break;
     case "save-note": { const ta = document.querySelector(`[data-note-ta="${id}"]`); setNote(id, ta ? ta.value.trim() : ""); break; }
     case "del-note": setNote(id, ""); break;
     case "open-composer": {
@@ -1328,7 +1345,7 @@ document.addEventListener("keydown", (e) => {
     case "k": e.preventDefault(); moveFocus(-1); break;
     case "a": if (!RO() && fid != null) { e.preventDefault(); decide(fid, "accept", true); } break;
     case "x": if (!RO() && fid != null) { e.preventDefault(); decide(fid, "reject", false); } break;
-    case "e": if (!RO() && fid != null) { e.preventDefault(); set(() => { S.noteOpen[fid] = { open: true, draft: (S.decisions[fid] && S.decisions[fid].note) || "" }; }); } break;
+    case "e": if (!RO() && fid != null) { e.preventDefault(); set(() => { S.noteOpen[fid] = { open: true, draft: (S.decisions[fid] && S.decisions[fid].note) || "" }; S.focusNote = fid; }); } break;
     case "c": if (!RO() && fid != null) {
       e.preventDefault();
       const p = D.proposals.find((x) => x.id === fid);
