@@ -6,6 +6,7 @@
 // back plays out in the agent's terminal.
 import "../styles/index.css";
 import Zoom from "../components/index/Zoom.astro";
+import AppleIcon from "../components/AppleIcon.astro";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
@@ -242,7 +243,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             <h2 class="closing-title"><span class="line">Put <em><Typed words={["a pinrail", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
             <p>macOS today. Free and open source, in early development.</p>
             <div class="ctas">
-              <a class="primary big" href={releases}>Download for macOS</a>
+              <a class="primary big" href={releases}><AppleIcon />Download for macOS</a>
               <a class="ghost big" href="/docs/getting-started/install/">Read the docs</a>
               <a class="ghost big" href={repo}>GitHub ↗</a>
             </div>

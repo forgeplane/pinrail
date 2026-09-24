@@ -7,6 +7,7 @@ import Zoom from "../components/index/Zoom.astro";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
+import AppleIcon from "../components/AppleIcon.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
 import { agents, releases, repo, samples, views } from "../components/index/content";
@@ -85,7 +86,7 @@ const codes = [
         <h1>Before your agent acts,<br /><em><Typed words={["it asks.", "you look.", "you decide.", "you edit.", "you say stop."]} /></em></h1>
         <p class="c-lede">Pinrail is a desktop inbox for the moments your agent needs you: review comments about to be posted, emails about to be sent, an illustration or a voice-over still taking shape. The agent submits its work, waits, and carries on with your decision, or comes back with the next round.</p>
         <div class="c-ctas">
-          <a class="primary big" href={releases}>Download for macOS</a>
+          <a class="primary big" href={releases}><AppleIcon />Download for macOS</a>
           <a class="ghost big" href="/docs/getting-started/install/">Read the docs</a>
         </div>
         <p class="c-fine">Free and open source · runs on your Mac · in early development</p>
@@ -258,7 +259,7 @@ Decided · 3 accepted · 1 rejected
         <h2 class="closing-title"><span class="line">Put <em><Typed words={["a pinrail", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
         <p>macOS today. Free and open source, in early development.</p>
         <div class="c-ctas">
-          <a class="primary big" href={releases}>Download for macOS</a>
+          <a class="primary big" href={releases}><AppleIcon />Download for macOS</a>
           <a class="ghost big on-dark" href={repo}>Star on GitHub</a>
         </div>
         <a class="try-review" href="/review">Or skip the reading: review this page instead →</a>
