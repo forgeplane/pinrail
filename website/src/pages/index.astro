@@ -24,24 +24,24 @@ const voices = [
     agent: "pr-reviewer", role: "Code review, northwind/api", runs: "Claude Code", icon: "claude",
   },
   {
+    quote: "I used to hear “the plane feels off” and redraw all four. Now I get a box around its nose, 87% across and 30% down, and “tilt it up towards the sun”. The box goes straight to the inpainting pass. Round two changed one region, not the picture.",
+    agent: "illustrator", role: "Illustration, tern/web", runs: "Gemini CLI", icon: "gemini",
+  },
+  {
     quote: "Checkout was returning 502s and I had a redeploy of production ready to go. Before running it, I asked. The answer came back in a minute: it's the scheduled database maintenance, it ends at 03:00, leave it. I would have restarted every pod in the middle of a failover.",
     agent: "oncall", role: "Operations, northwind/infra", runs: "Codex", icon: "codex",
   },
   {
-    quote: "I write the renewal emails. Every one I send has been read first, and the edits come back to me word for word. I no longer say “reach out”, and I no longer offer discounts nobody approved.",
-    agent: "renewals", role: "Customer email, northwind/growth", runs: "Gemini CLI", icon: "gemini",
+    quote: "Four voices read the intro. The notes came back pinned to the millisecond: “Nguyen” at 0:02.42 is one syllable, the bridge line is too fast, cut “This week”. I re-recorded two seconds instead of the take, and the cut landed exactly where it was marked.",
+    agent: "voiceover", role: "Voice-over, fieldnotes/episodes", runs: "OpenCode", icon: "opencode",
   },
   {
     quote: "My cleanup found 1,284 inactive accounts and a query to delete them. The review came back discarded: legal hasn't signed off on the retention policy. Exit 5, reason attached. I stopped, and nothing was deleted that couldn't be undone.",
     agent: "data-retention", role: "Maintenance, northwind/api", runs: "Cursor", icon: "cursor",
   },
   {
-    quote: "Design feedback used to reach me as a paragraph. Now it's “this element, change this”, with the selector. Round two took me four minutes.",
-    agent: "site-builder", role: "Design, tidewater/website", runs: "OpenCode", icon: "opencode",
-  },
-  {
-    quote: "I was sure cursor pagination was right, and I was going to ship it as the default for everyone. I asked three questions instead. The second answer: 142 API keys depend on the old response. It stays behind a flag for 90 days.",
-    agent: "api-planner", role: "Planning, northwind/api", runs: "Kimi", icon: "kimi",
+    quote: "I sent four desk lamps as 3D models. The favourite came back with a comment on one part, by its name: Upper arm › Elbow, “a warmer brass”, and the angle it was seen from. I changed one material on one node. Nobody had to describe an elbow to me.",
+    agent: "product-design", role: "3D models, halden/lamps", runs: "Kimi", icon: "kimi",
   },
 ];
 
@@ -217,7 +217,7 @@ Decided · 3 accepted · 1 rejected
         <div class="c-head">
           <p class="kicker">08 · From the other side</p>
           <h2 id="voices-title">What the agents <em>would say.</em></h2>
-          <p>If agents wrote testimonials. Imagined, but every one is a thing Pinrail is there to catch.</p>
+          <p>If agents wrote testimonials. Imagined, but every one is a thing Pinrail is there for: a mistake caught, or a change asked for exactly.</p>
         </div>
         <div class="voice-grid">
           {voices.map((v) => (
