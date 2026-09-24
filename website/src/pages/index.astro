@@ -45,6 +45,11 @@ const voices = [
   },
 ];
 
+const sets = [
+  { label: "Before it acts", items: views },
+  { label: "On what it makes", items: samples },
+];
+
 const codes = [
   ["0", "Decided. The decision is on stdout, and in --decision-out if given."],
   ["3", "Withdrawn by the agent, or expired, before anyone decided."],
@@ -73,7 +78,7 @@ const codes = [
     <header class="topnav">
       <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
       <nav class="links" aria-label="Main">
-        <a href="#how">How it works</a><a href="#views">Views</a><a href="#shape">Feedback</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
+        <a href="#how">How it works</a><a href="#views">Views</a><a href="#cli">CLI</a><a href="#faq">FAQ</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
       </nav>
       <ModeSwitch current="classic" />
     </header>
@@ -108,58 +113,51 @@ const codes = [
         <HowItWorks />
       </section>
 
-      <section class="c-section" id="views">
-        <div class="c-head">
-          <p class="kicker">02 · Views</p>
-          <h2>A diff deserves <em>a diff.</em></h2>
-          <p>Each kind of request is a plugin, with a view made for deciding it. Two are built in and three more are ready to install. Click a screenshot to see it full size.</p>
-        </div>
-        <div class="c-views">
-          {views.map((v) => (
-            <figure class="c-view">
-              <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 94vw, 560px" />
-              <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
-
-      <section class="c-section" id="shape">
+      <section class="c-section" id="views" data-carousels>
         <div class="c-carousel-head">
           <div class="c-head">
-            <p class="kicker">03 · Feedback</p>
-            <h2>Point at the pixel, <em>not at a paragraph.</em></h2>
-            <p>When the agent makes something, you react on the thing itself: box a region of an image, comment on a word of a voice take, give one colour a new value, check a fix against the version before. Each comment goes back with what it points at, in pixels, milliseconds or token names the agent can act on.</p>
+            <p class="kicker">02 · Views</p>
+            <h2>A diff deserves a diff. <em>A picture deserves a pen.</em></h2>
+            <p>Each kind of request is a plugin, with a view made for deciding it: the diff for a code review, the draft itself for an email, the image for a picture, the waveform for a voice take. What you say goes back with what it points at, down to the line, the pixel or the millisecond.</p>
           </div>
           <div class="c-carousel-nav" aria-hidden="true">
-            <span class="c-count"><b data-carousel-at>1</b> / {samples.length}</span>
+            <span class="c-count"><b data-carousel-at>1</b> / <span data-carousel-total>{sets[0].items.length}</span></span>
             <button type="button" class="c-arrow" data-carousel-step="-1" tabindex="-1">←</button>
             <button type="button" class="c-arrow" data-carousel-step="1" tabindex="-1">→</button>
           </div>
         </div>
-        <div class="c-carousel" data-carousel tabindex="0" role="region" aria-roledescription="carousel" aria-label="Sample plugins: scroll sideways for more">
-          {samples.map((v, i) => (
-            <figure class:list={["c-slide", { "is-active": i === 0 }]} aria-roledescription="slide" aria-label={`${i + 1} of ${samples.length}: ${v.name}`}>
-              <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 90vw, 960px" />
-              <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
-            </figure>
+        <div class="c-switch" role="tablist" aria-label="Kinds of view">
+          {sets.map((set, s) => (
+            <button type="button" role="tab" id={`views-tab-${s}`} aria-controls={`views-set-${s}`} aria-selected={s === 0 ? "true" : "false"} data-carousel-set={s}>{set.label}<span>{set.items.length}</span></button>
           ))}
         </div>
-        <div class="c-progress" role="group" aria-label="Go to a sample">
-          {samples.map((v, i) => (
-            <button type="button" data-carousel-go={i} aria-label={v.name} aria-current={i === 0 ? "true" : undefined}><span>{v.name}</span></button>
-          ))}
-        </div>
+        {sets.map((set, s) => (
+          <div class="c-carousel-set" role="tabpanel" id={`views-set-${s}`} aria-labelledby={`views-tab-${s}`} data-set={s} hidden={s !== 0}>
+            <div class="c-carousel" data-carousel tabindex="0" role="region" aria-roledescription="carousel" aria-label={`${set.label}: scroll sideways for more`}>
+              {set.items.map((v, i) => (
+                <figure class:list={["c-slide", { "is-active": i === 0 }]} aria-roledescription="slide" aria-label={`${i + 1} of ${set.items.length}: ${v.name}`}>
+                  <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 90vw, 960px" />
+                  <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
+                </figure>
+              ))}
+            </div>
+            <div class="c-progress" role="group" aria-label={`Go to a view: ${set.label}`}>
+              {set.items.map((v, i) => (
+                <button type="button" data-carousel-go={i} aria-label={v.name} aria-current={i === 0 ? "true" : undefined}><span>{v.name}</span></button>
+              ))}
+            </div>
+          </div>
+        ))}
         <div class="c-own">
           <code>pinrail-plugin create</code>
-          <p><b>Those four are just for show. The next one is yours.</b> A plugin is a manifest, two JSON schemas and a web page, built with any web framework you like, or none at all. Storyboards, floor plans, moodboards, a map with a no-go zone scribbled on it: if your agent can make it, you can put it in front of your eyes and mark it up. The only limits are your imagination and your agent's.</p>
+          <p><b>Ten views so far. The next one is yours.</b> A plugin is a manifest, two JSON schemas and a web page, built with any web framework you like, or none at all. Storyboards, floor plans, moodboards, a map with a no-go zone scribbled on it: if your agent can make it, you can put it in front of your eyes and mark it up. The only limits are your imagination and your agent's.</p>
           <a href="/docs/building/writing/">Write a plugin →</a>
         </div>
       </section>
 
       <section class="c-section c-split">
         <div>
-          <p class="kicker">04 · Rounds</p>
+          <p class="kicker">03 · Rounds</p>
           <h2>A no comes with a reason, <em>and the reason comes back.</em></h2>
           <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts and comments, so you see what changed and why, and a view can set the two rounds side by side to check each fix. Every round and every decision is kept, and can be opened again later.</p>
           <div class="round-demo" aria-hidden="true">
@@ -168,7 +166,7 @@ const codes = [
           </div>
         </div>
         <div>
-          <p class="kicker">05 · Stop</p>
+          <p class="kicker">04 · Stop</p>
           <h2>“Stop” is <em>a real answer.</em></h2>
           <p>Discard a review with a reason and the waiting command exits 5. The agent stops the work the review was gating, reports why, and doesn't try again. Every ending has its code:</p>
           <table class="codes">
@@ -179,7 +177,7 @@ const codes = [
 
       <section class="c-section c-cli" id="cli">
         <div class="c-head">
-          <p class="kicker">06 · The CLI</p>
+          <p class="kicker">05 · The CLI</p>
           <h2>For an agent, <em>and for a script.</em></h2>
           <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
         </div>
@@ -203,7 +201,7 @@ Decided · 3 accepted · 1 rejected
       </section>
 
       <section class="c-section c-facts">
-        <p class="kicker">07 · Yours</p>
+        <p class="kicker">06 · Yours</p>
         <h2>On your machine, <em>with your agents.</em></h2>
         <div class="c-fact-grid">
           <article><h3>Local</h3><p>The app runs its server on loopback. Reviews and decisions stay on your Mac. No account.</p></article>
@@ -215,7 +213,7 @@ Decided · 3 accepted · 1 rejected
 
       <section class="c-section c-voices" id="voices" aria-labelledby="voices-title">
         <div class="c-head">
-          <p class="kicker">08 · From the other side</p>
+          <p class="kicker">07 · From the other side</p>
           <h2 id="voices-title">What the agents <em>would say.</em></h2>
           <p>If agents wrote testimonials. Imagined, but every one is a thing Pinrail is there for: a mistake caught, or a change asked for exactly.</p>
         </div>
@@ -234,7 +232,7 @@ Decided · 3 accepted · 1 rejected
 
       <section class="c-section c-faq" id="faq">
         <div class="c-head">
-          <p class="kicker">09 · Questions</p>
+          <p class="kicker">08 · Questions</p>
           <h2>Before you <em>ask.</em></h2>
         </div>
         <div class="faq-list"><Faq /></div>
@@ -255,52 +253,72 @@ Decided · 3 accepted · 1 rejected
     <Lightbox />
 
     <script>
-      // The samples carousel: sideways scrolling (a trackpad, touch, shift and
-      // the wheel, or the arrow keys on the focused track) snaps slide by slide;
-      // the arrows and the progress bar move it, and follow wherever it is.
-      for (const track of document.querySelectorAll<HTMLElement>("[data-carousel]")) {
-        const section = track.closest("section")!;
-        const slides = [...track.querySelectorAll<HTMLElement>(".c-slide")];
+      // The views: a carousel for each kind, one showing at a time. Sideways
+      // scrolling (a trackpad, touch, shift and the wheel, or the arrow keys
+      // on the focused track) snaps slide by slide; the switch picks the kind,
+      // and the arrows, the count and the progress bar follow the one showing.
+      const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
+      for (const section of document.querySelectorAll<HTMLElement>("[data-carousels]")) {
         const at = section.querySelector("[data-carousel-at]")!;
+        const total = section.querySelector("[data-carousel-total]")!;
         const arrows = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-step]")];
-        const marks = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-go]")];
-        const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const pad = () => parseFloat(getComputedStyle(track).scrollPaddingInlineStart) || 0;
-        let current = -1;
+        const switches = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-set]")];
+        const panels = [...section.querySelectorAll<HTMLElement>("[data-set]")];
+        let active = 0;
 
-        const go = (i: number) => {
-          const slide = slides[Math.max(0, Math.min(slides.length - 1, i))];
-          track.scrollTo({ left: slide.offsetLeft - pad(), behavior: smooth ? "smooth" : "auto" });
-        };
-        const show = (i: number) => {
-          if (i === current) return;
-          current = i;
-          slides.forEach((s, k) => s.classList.toggle("is-active", k === i));
-          marks.forEach((m, k) => (k === i ? m.setAttribute("aria-current", "true") : m.removeAttribute("aria-current")));
-          at.textContent = String(i + 1);
-          arrows[0].disabled = i === 0;
-          arrows[1].disabled = i === slides.length - 1;
-        };
-        // the slide whose start is nearest the track's, or the last at the end
-        const follow = () => {
-          const x = track.scrollLeft + pad();
-          let i = slides.reduce((best, s, k) => (Math.abs(s.offsetLeft - x) < Math.abs(slides[best].offsetLeft - x) ? k : best), 0);
-          if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 2) i = slides.length - 1;
-          show(i);
-        };
+        const carousels = panels.map((panel, n) => {
+          const track = panel.querySelector<HTMLElement>("[data-carousel]")!;
+          const slides = [...track.querySelectorAll<HTMLElement>(".c-slide")];
+          const marks = [...panel.querySelectorAll<HTMLButtonElement>("[data-carousel-go]")];
+          const pad = () => parseFloat(getComputedStyle(track).scrollPaddingInlineStart) || 0;
+          const c = { current: -1, go: (_: number) => {}, count: () => {} };
+          c.count = () => {
+            if (n !== active) return;
+            at.textContent = String(c.current + 1);
+            total.textContent = String(slides.length);
+            arrows[0].disabled = c.current <= 0;
+            arrows[1].disabled = c.current === slides.length - 1;
+          };
+          c.go = (i: number) => {
+            const slide = slides[Math.max(0, Math.min(slides.length - 1, i))];
+            track.scrollTo({ left: slide.offsetLeft - pad(), behavior: smooth ? "smooth" : "auto" });
+          };
+          const show = (i: number) => {
+            if (i === c.current) return;
+            c.current = i;
+            slides.forEach((s, k) => s.classList.toggle("is-active", k === i));
+            marks.forEach((m, k) => (k === i ? m.setAttribute("aria-current", "true") : m.removeAttribute("aria-current")));
+            c.count();
+          };
+          // the slide whose start is nearest the track's, or the last at the end
+          const follow = () => {
+            const x = track.scrollLeft + pad();
+            let i = slides.reduce((best, s, k) => (Math.abs(s.offsetLeft - x) < Math.abs(slides[best].offsetLeft - x) ? k : best), 0);
+            if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 2) i = slides.length - 1;
+            show(i);
+          };
+          let frame = 0;
+          track.addEventListener("scroll", () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(follow); }, { passive: true });
+          marks.forEach((m) => m.addEventListener("click", () => c.go(Number(m.dataset.carouselGo))));
+          // a slide peeking in comes forward on a click, rather than opening full size
+          slides.forEach((s, k) => s.addEventListener("click", (e) => {
+            if (k === c.current) return;
+            e.preventDefault();
+            e.stopPropagation();
+            c.go(k);
+          }, { capture: true }));
+          show(0);
+          return c;
+        });
 
-        let frame = 0;
-        track.addEventListener("scroll", () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(follow); }, { passive: true });
-        arrows.forEach((a) => a.addEventListener("click", () => go(current + Number(a.dataset.carouselStep))));
-        marks.forEach((m) => m.addEventListener("click", () => go(Number(m.dataset.carouselGo))));
-        // a slide peeking in comes forward on a click, rather than opening full size
-        slides.forEach((s, k) => s.addEventListener("click", (e) => {
-          if (k === current) return;
-          e.preventDefault();
-          e.stopPropagation();
-          go(k);
-        }, { capture: true }));
-        follow();
+        arrows.forEach((a) => a.addEventListener("click", () => carousels[active].go(carousels[active].current + Number(a.dataset.carouselStep))));
+        switches.forEach((sw, n) => sw.addEventListener("click", () => {
+          active = n;
+          switches.forEach((x, k) => x.setAttribute("aria-selected", String(k === n)));
+          panels.forEach((p, k) => (p.hidden = k !== n));
+          carousels[n].count();
+        }));
+        carousels[0].count();
       }
     </script>
 

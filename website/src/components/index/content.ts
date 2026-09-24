@@ -12,6 +12,7 @@ import image from "../../assets/samples/image-view-light.png";
 import audio from "../../assets/samples/audio-view-light.png";
 import compare from "../../assets/samples/compare-view-light.png";
 import palette from "../../assets/samples/palette-view-light.png";
+import model from "../../assets/screenshots/model-view-light.png";
 // the hero window's views, each at the pane's width and its whole length, as
 // the experiments' scripts/hero-shots.mjs makes them
 import demoReview from "../../assets/hero/review.png";
@@ -39,6 +40,7 @@ export const views = [
 
 export const samples = [
   { name: "Images & illustrations", plugin: "image", image, detail: "Box a region or pin a point and say what to change. Each one goes back in pixels and in fractions of the image, ready for an inpainting pass.", alt: "A sample image plugin: four illustrations in a rail, one on the stage with two regions boxed and a note being written on a third." },
+  { name: "3D models", plugin: "model", image: model, detail: "Orbit each model under studio light, from set views and the agent's own. Click a part and say what to change; it goes back by the part's name, with the angle you saw it from.", alt: "The 3D model view: four desk lamps in a rail, one on the stage with a comment being written on its shade." },
   { name: "Voice & audio", plugin: "audio", image: audio, detail: "The waveform and the transcript in sync. Comment on a word or a stretch, mark what to cut, and hear the take without the cuts.", alt: "A sample audio plugin: four voice takes, one open with its waveform, two comments, a cut and the transcript underneath." },
   { name: "Before & after", plugin: "compare", image: compare, detail: "Did the revision fix what you asked? Wipe, fade or diff the two, and mark each claimed fix fixed, partly or not fixed.", alt: "A sample compare plugin: a pricing card with its changed areas boxed, and one requested fix marked not fixed." },
   { name: "Colour systems", plugin: "palette", image: palette, detail: "Each palette on a sample screen, light and dark, with contrast measured. Click a colour to comment on its token or try a new value.", alt: "A sample palette plugin: a colour system on an app screen in light and dark, beside three other palettes." },

@@ -144,7 +144,7 @@ export const scenes = [
       await f.locator("#sheet").evaluate((el) => { el.scrollTop = 0; });
       await settle(page, 600);
       await shot("model");
-      await shot("model-view", page.locator("#plugin-frame"));
+      await shot("model-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {
