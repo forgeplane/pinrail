@@ -4,6 +4,7 @@
 import "../styles/index.css";
 import "../styles/index-classic.css";
 import Zoom from "../components/index/Zoom.astro";
+import HeroDemo from "../components/index/HeroDemo.astro";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
@@ -12,7 +13,6 @@ import GitHubIcon from "../components/GitHubIcon.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
 import { agents, releases, repo, samples, views } from "../components/index/content";
-import hero from "../assets/screenshots/review-light.png";
 
 const steps = [
   { title: "The agent submits", text: "At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.", art: "$ pinrail submit review --data proposals.json --wait" },
@@ -92,11 +92,8 @@ const codes = [
         </div>
         <p class="c-fine">Free and open source · runs on your Mac · in early development</p>
         <div class="c-shot">
-          <span class="hand shot-note" aria-hidden="true">the actual app ↘</span>
-          <div class="window">
-            <div class="window-bar"><span></span><span></span><span></span><b>Pinrail</b></div>
-            <Zoom src={hero} alt="The Pinrail app: a code review of a TypeScript change, with one finding accepted and a note to the agent being written." caption="The Pinrail app: a code review, one finding accepted with a note to the agent." sizes="(max-width: 1100px) 94vw, 1080px" />
-          </div>
+          <span class="hand shot-note left" aria-hidden="true">click a review<svg class="scribble" viewBox="0 0 64 50"><path d="M2 12c14-7 34-8 44 2 7 7 8 17 6 30" /><path d="M44 36l8 9 7-10" /></svg></span>
+          <HeroDemo />
         </div>
       </section>
 

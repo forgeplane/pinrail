@@ -1,0 +1,92 @@
+---
+// The hero's app window: the reviews waiting in the sidebar, and the chosen
+// one's view in the pane, scrolled like the app scrolls it. The views are
+// screenshots; the window around them is the app's, drawn here.
+import { Image } from "astro:assets";
+import { demo } from "./content";
+import { icons } from "./lucide";
+
+const svg = (name: string) => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icons[name]}</svg>`;
+---
+<div class="demo window" data-demo>
+  <div class="window-bar"><span></span><span></span><span></span><b>Pinrail</b></div>
+  <div class="demo-body">
+    <aside class="demo-side">
+      <div class="demo-nav" aria-hidden="true">
+        <span class="demo-on"><Fragment set:html={svg("inbox")} />Inbox<i>{demo.length}</i></span>
+        <span><Fragment set:html={svg("history")} />History</span>
+        <span><Fragment set:html={svg("search")} />Search<kbd>⌘K</kbd></span>
+      </div>
+      <p class="demo-label" id="demo-waiting">Waiting</p>
+      <div class="demo-tabs" role="tablist" aria-labelledby="demo-waiting" aria-orientation="vertical">
+        {demo.map((r, i) => (
+          <button type="button" role="tab" id={`demo-tab-${i}`} aria-controls={`demo-pane-${i}`} aria-selected={i === 0 ? "true" : "false"} tabindex={i === 0 ? 0 : -1} data-demo-tab={i}>
+            <Fragment set:html={svg(r.icon)} />
+            <span class="demo-t">{r.title}</span>
+            <span class="demo-m">{r.repo} · {r.agent} · {r.age}</span>
+            <span class="demo-short">{r.short}</span>
+          </button>
+        ))}
+      </div>
+    </aside>
+    <div class="demo-main">
+      {demo.map((r, i) => (
+        <section class="demo-pane" role="tabpanel" id={`demo-pane-${i}`} aria-labelledby={`demo-tab-${i}`} hidden={i !== 0} data-demo-pane={i}>
+          <header class="demo-head">
+            <p class="demo-crumb">Inbox <span aria-hidden="true">›</span> <b>{r.title}</b></p>
+            <p class="demo-chips">
+              <span class="demo-pending">Pending</span>
+              <span>{r.plugin} v1</span>
+              <span>{r.repo} / {r.workflow}{r.ref ? ` ${r.ref}` : ""}</span>
+              <span>{r.agent}</span>
+              <span>{r.age} ago</span>
+            </p>
+          </header>
+          <div class="demo-scroll" tabindex="0" aria-label={`${r.title}: the ${r.plugin} view, scroll to see all of it`}>
+            <Image src={r.image} alt={r.alt} widths={[1020, 2040]} sizes="(max-width: 800px) 200vw, (max-width: 1300px) 80vw, 1020px" loading={i === 0 ? "eager" : "lazy"} />
+          </div>
+          <footer class="demo-foot" aria-hidden="true">
+            <span class="demo-note">Add a note for the agent…</span>
+            <span class="demo-handover"><Fragment set:html={svg("send")} />Review and hand over <kbd>⌘↵</kbd></span>
+          </footer>
+        </section>
+      ))}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Choosing a review shows its view; each view keeps where it was scrolled.
+  // A view loads when its review is hovered or chosen, not before.
+  for (const root of document.querySelectorAll<HTMLElement>("[data-demo]")) {
+    const tabs = [...root.querySelectorAll<HTMLButtonElement>("[data-demo-tab]")];
+    const panes = [...root.querySelectorAll<HTMLElement>("[data-demo-pane]")];
+    const warm = (i: number) => panes[i].querySelector("img")?.setAttribute("loading", "eager");
+    const show = (i: number, focus = false) => {
+      tabs.forEach((t, k) => {
+        t.setAttribute("aria-selected", String(k === i));
+        t.tabIndex = k === i ? 0 : -1;
+      });
+      panes.forEach((p, k) => {
+        if (k === i && p.hidden) {
+          warm(k);
+          p.hidden = false;
+          p.classList.remove("enter");
+          void p.offsetWidth;
+          p.classList.add("enter");
+        } else if (k !== i) p.hidden = true;
+      });
+      if (focus) tabs[i].focus();
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener("click", () => show(i));
+      t.addEventListener("pointerenter", () => warm(i), { once: true });
+      t.addEventListener("keydown", (e) => {
+        const step = { ArrowDown: 1, ArrowUp: -1, ArrowRight: 1, ArrowLeft: -1 }[e.key];
+        if (step) { e.preventDefault(); show((i + step + tabs.length) % tabs.length, true); }
+        else if (e.key === "Home") { e.preventDefault(); show(0, true); }
+        else if (e.key === "End") { e.preventDefault(); show(tabs.length - 1, true); }
+      });
+    });
+  }
+</script>

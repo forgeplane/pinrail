@@ -12,6 +12,14 @@ import image from "../../assets/samples/image-view-light.png";
 import audio from "../../assets/samples/audio-view-light.png";
 import compare from "../../assets/samples/compare-view-light.png";
 import palette from "../../assets/samples/palette-view-light.png";
+// the hero window's views, each at the pane's width and its whole length, as
+// the experiments' scripts/hero-shots.mjs makes them
+import demoReview from "../../assets/hero/review.png";
+import demoImage from "../../assets/hero/image.png";
+import demoFeedback from "../../assets/hero/feedback.png";
+import demoAudio from "../../assets/hero/audio.png";
+import demoList from "../../assets/hero/list.png";
+import demoEmail from "../../assets/hero/email.png";
 
 export const repo = "https://github.com/forgeplane/pinrail";
 export const releases = `${repo}/releases`;
@@ -34,4 +42,15 @@ export const samples = [
   { name: "Voice & audio", plugin: "audio", image: audio, detail: "The waveform and the transcript in sync. Comment on a word or a stretch, mark what to cut, and hear the take without the cuts.", alt: "A sample audio plugin: four voice takes, one open with its waveform, two comments, a cut and the transcript underneath." },
   { name: "Before & after", plugin: "compare", image: compare, detail: "Did the revision fix what you asked? Wipe, fade or diff the two, and mark each claimed fix fixed, partly or not fixed.", alt: "A sample compare plugin: a pricing card with its changed areas boxed, and one requested fix marked not fixed." },
   { name: "Colour systems", plugin: "palette", image: palette, detail: "Each palette on a sample screen, light and dark, with contrast measured. Click a colour to comment on its token or try a new value.", alt: "A sample palette plugin: a colour system on an app screen in light and dark, beside three other palettes." },
+];
+
+// What waits in the hero window's sidebar, oldest first as the app lists it;
+// the titles and projects are the fixtures' the views were made from.
+export const demo = [
+  { plugin: "review", short: "Code review", icon: "git-pull-request", title: "Retry failed webhook deliveries with exponential backoff", repo: "northwind/api", workflow: "pr-review", ref: "#482", agent: "claude", age: "41m", image: demoReview, alt: "The code review view: a diff of deliver.ts and backoff.ts, one finding accepted with a note being written, one rejected with a reason." },
+  { plugin: "image", short: "Illustration", icon: "image", title: "Empty inbox illustration — round 1", repo: "tern/web", workflow: "illustration", agent: "gemini", age: "34m", image: demoImage, alt: "The image view: four illustrations in a rail, the paper plane on the stage with two regions boxed and noted." },
+  { plugin: "feedback", short: "Questions", icon: "messages-square", title: "Pagination for the orders API: a few decisions first", repo: "northwind/api", workflow: "planning", ref: "ENG-1142", agent: "claude", age: "27m", image: demoFeedback, alt: "The feedback view: questions about paginating an API, answered beside the agent's recommendations, with a comment on one." },
+  { plugin: "audio", short: "Voice takes", icon: "audio-lines", title: "Field Notes intro — voice takes", repo: "fieldnotes/episodes", workflow: "voiceover", agent: "opencode", age: "19m", image: demoAudio, alt: "The audio view: four voice takes, one open with its waveform and transcript, two comments and a cut." },
+  { plugin: "list", short: "Upgrades", icon: "list-checks", title: "Dependency upgrades for web-app", repo: "northwind/web-app", workflow: "deps", agent: "renovate-agent", age: "12m", image: demoList, alt: "The list view: dependency upgrades, the safe ones accepted, one held back with a reason." },
+  { plugin: "email", short: "Emails", icon: "mail", title: "Beta invitations for the analytics dashboard", repo: "northwind/growth", workflow: "outreach", agent: "codex", age: "6m", image: demoEmail, alt: "The email view: three drafts, one to send, one edited in place against the agent's words." },
 ];
