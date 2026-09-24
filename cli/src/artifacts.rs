@@ -23,6 +23,13 @@ pub struct Local {
     pub media_type: String,
 }
 
+/// Where a file to send is, and what it is when the request says so.
+#[derive(Debug, PartialEq)]
+pub struct Source {
+    pub path: PathBuf,
+    pub media_type: Option<String>,
+}
+
 /// `PATH` or `PATH=NAME`, as `--artifact` takes it; the name defaults to
 /// the file's own.
 pub fn parse_flag(spec: &str) -> Result<(String, PathBuf), String> {
@@ -45,20 +52,35 @@ pub fn parse_flag(spec: &str) -> Result<(String, PathBuf), String> {
 /// The files to send, by name: the request file's `artifacts` (paths
 /// relative to the file) and then the flags, a flag replacing a file entry
 /// of the same name. Two flags with one name is a mistake.
+///
+/// An entry is a path, or `{"path": …, "media_type": …}` as a plugin's
+/// fixture has it, so a fixture can be sent as it is.
 pub fn collect(
     from_request: Option<&Value>,
     request_dir: &Path,
     flags: &[(String, PathBuf)],
-) -> Result<BTreeMap<String, PathBuf>> {
+) -> Result<BTreeMap<String, Source>> {
     let mut files = BTreeMap::new();
     match from_request {
         None | Some(Value::Null) => {}
         Some(Value::Object(map)) => {
-            for (name, path) in map {
-                let path = path.as_str().with_context(|| {
-                    format!("the request's artifacts: {name} must be a file path")
-                })?;
-                files.insert(name.clone(), request_dir.join(path));
+            for (name, entry) in map {
+                let (path, media_type) = match entry {
+                    Value::String(path) => (path.as_str(), None),
+                    Value::Object(o) => (
+                        o.get("path").and_then(Value::as_str).with_context(|| {
+                            format!("the request's artifacts: {name} needs a path")
+                        })?,
+                        o.get("media_type")
+                            .and_then(Value::as_str)
+                            .map(str::to_string),
+                    ),
+                    _ => anyhow::bail!(
+                        "the request's artifacts: {name} must be a file path or {{\"path\": …}}"
+                    ),
+                };
+                let path = request_dir.join(path);
+                files.insert(name.clone(), Source { path, media_type });
             }
         }
         Some(_) => anyhow::bail!("the request's artifacts must map a name to a file path"),
@@ -69,29 +91,43 @@ pub fn collect(
             flagged.insert(name.clone()),
             "two --artifact flags name {name}; give one of them another name with PATH=NAME"
         );
-        files.insert(name.clone(), path.clone());
+        let source = Source {
+            path: path.clone(),
+            media_type: None,
+        };
+        files.insert(name.clone(), source);
     }
     Ok(files)
 }
 
 /// Hashes each file and says what it is.
-pub fn read(files: &BTreeMap<String, PathBuf>) -> Result<Vec<Local>> {
+pub fn read(files: &BTreeMap<String, Source>) -> Result<Vec<Local>> {
     files
         .iter()
-        .map(|(name, path)| {
-            let mut file =
-                File::open(path).with_context(|| format!("reading {}", path.display()))?;
-            let mut hasher = Sha256::new();
-            let size = std::io::copy(&mut file, &mut hasher)
-                .with_context(|| format!("reading {}", path.display()))?;
-            Ok(Local {
-                name: name.clone(),
-                path: path.clone(),
-                sha256: format!("{:x}", hasher.finalize()),
-                size,
-                media_type: media_type(name).to_string(),
-            })
-        })
+        .map(
+            |(
+                name,
+                Source {
+                    path,
+                    media_type: given,
+                },
+            )| {
+                let mut file =
+                    File::open(path).with_context(|| format!("reading {}", path.display()))?;
+                let mut hasher = Sha256::new();
+                let size = std::io::copy(&mut file, &mut hasher)
+                    .with_context(|| format!("reading {}", path.display()))?;
+                Ok(Local {
+                    name: name.clone(),
+                    path: path.clone(),
+                    sha256: format!("{:x}", hasher.finalize()),
+                    size,
+                    media_type: given
+                        .clone()
+                        .unwrap_or_else(|| media_type(name).to_string()),
+                })
+            },
+        )
         .collect()
 }
 
@@ -234,17 +270,57 @@ mod tests {
             ("desk.jpg".to_string(), PathBuf::from("desk.jpg")),
         ];
         let files = collect(Some(&request), Path::new("/work"), &flags).unwrap();
-        assert_eq!(files["pivot.glb"], PathBuf::from("/tmp/new-pivot.glb"));
+        assert_eq!(files["pivot.glb"].path, PathBuf::from("/tmp/new-pivot.glb"));
         assert_eq!(
-            files["column.glb"],
+            files["column.glb"].path,
             PathBuf::from("/work/models/column.glb")
         );
-        assert_eq!(files["desk.jpg"], PathBuf::from("desk.jpg"));
+        assert_eq!(files["desk.jpg"].path, PathBuf::from("desk.jpg"));
         let twice = [
             ("a.glb".to_string(), PathBuf::from("x.glb")),
             ("a.glb".to_string(), PathBuf::from("y.glb")),
         ];
         assert!(collect(None, Path::new("."), &twice).is_err());
+    }
+
+    #[test]
+    fn a_fixture_entry_is_a_path_with_an_optional_kind() {
+        let request = json!({
+            "pivot.glb": { "path": "halden/pivot.glb" },
+            "take.opus": { "path": "takes/take.opus", "media_type": "audio/ogg" },
+        });
+        let files = collect(Some(&request), Path::new("/work/fixtures"), &[]).unwrap();
+        assert_eq!(
+            files["pivot.glb"],
+            Source {
+                path: PathBuf::from("/work/fixtures/halden/pivot.glb"),
+                media_type: None
+            }
+        );
+        assert_eq!(files["take.opus"].media_type.as_deref(), Some("audio/ogg"));
+        let pathless = json!({ "pivot.glb": { "media_type": "model/gltf-binary" } });
+        assert!(collect(Some(&pathless), Path::new("."), &[]).is_err());
+        assert!(collect(Some(&json!({ "pivot.glb": 3 })), Path::new("."), &[]).is_err());
+    }
+
+    #[test]
+    fn a_given_kind_wins_over_the_extension() {
+        let path = std::env::temp_dir().join(format!("pinrail-kind-{}.bin", std::process::id()));
+        std::fs::write(&path, b"take").unwrap();
+        let given = Source {
+            path: path.clone(),
+            media_type: Some("audio/ogg".into()),
+        };
+        let guessed = Source {
+            path: path.clone(),
+            media_type: None,
+        };
+        let files = BTreeMap::from([("a.bin".to_string(), given), ("b.bin".to_string(), guessed)]);
+        let read = read(&files);
+        std::fs::remove_file(&path).unwrap();
+        let read = read.unwrap();
+        assert_eq!(read[0].media_type, "audio/ogg");
+        assert_eq!(read[1].media_type, "application/octet-stream");
     }
 
     #[test]

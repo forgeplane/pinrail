@@ -115,9 +115,10 @@ enum Command {
     ///       --artifact out/pivot.glb --artifact out/v2.glb=column.glb
     ///
     /// In a --request file they are "artifacts": {"pivot.glb":
-    /// "out/pivot.glb"}, paths relative to the file. The submission is
-    /// checked before anything is uploaded, and a file the app already has
-    /// is not sent again.
+    /// "out/pivot.glb"}, paths relative to the file, or {"path": …,
+    /// "media_type": …} as a plugin's fixture has them, so a fixture is
+    /// sent as it is. The submission is checked before anything is
+    /// uploaded, and a file the app already has is not sent again.
     #[command(alias = "create", verbatim_doc_comment)]
     Submit(SubmitArgs),
     /// Block until a review leaves pending; print it

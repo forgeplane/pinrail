@@ -20,6 +20,10 @@ its own, and its major is the plugin protocol's.
 
 - The theme switches with <kbd>⌘⇧L</kbd> (<kbd>Ctrl+Shift+L</kbd> on Windows and Linux), and from the Navigate menu, so it works while a plugin has the keyboard. <kbd>T</kbd> now reaches plugins, which use it themselves.
 
+#### CLI
+
+- `pinrail submit --request` takes a plugin's fixture as it is: an entry under `artifacts` can be `{"path": …, "media_type": …}` as well as a plain path, and a `media_type` given there is sent instead of the one the extension suggests.
+
 ## [0.1.0] - 2026-09-21
 
 Initial release. Pinrail is the inbox where an agent asks before it acts.

@@ -338,6 +338,12 @@ A fixture is a partial review: a `title`, a `payload`, and optionally a `decisio
 
 A fixture can carry files too, by path relative to the fixture: `"artifacts": { "pivot.glb": { "path": "pivot.glb" } }`. The test harness and `pinrail-plugin dev` hand them to the view as the app does.
 
+A fixture is also a request the app takes as it is, files and all, so the same round can be sent to the app to see it there:
+
+```sh
+pinrail submit model --request fixtures/halden.json
+```
+
 `pinrail-plugin/testing` mounts the view alone in a sandboxed frame under the app's CSP, so a test drives it the way a person would and reads back exactly what it submits:
 
 ```ts title="tests/ticket_triage.spec.ts"
