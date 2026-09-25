@@ -159,7 +159,7 @@ A payload that fails its schema never reaches the inbox: the agent's `pinrail su
 
 ## The view
 
-The view is one HTML page. It loads the SDK from the app, answers the handshake, renders the payload, and hands a decision back.
+The view is one HTML page. It loads the SDK from the app, answers the handshake, renders the payload, and hands a decision back. This example keeps its script in the page to show it whole; the scaffold puts it in `view/view.js`, where `// @ts-check` and `pinrail-plugin.d.ts` let your editor check every call.
 
 ```html title="view/index.html" {3,5,9-17}
 <!doctype html>

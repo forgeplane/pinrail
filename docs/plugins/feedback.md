@@ -34,6 +34,8 @@ Keys: <kbd>j</kbd> / <kbd>k</kbd> move to the next and previous question and put
 
 The app asks you to complete required questions before you hand over.
 
+To see it before any agent asks with it, send its sample: `pinrail submit feedback --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+
 ## Asking from your agent
 
 ```md title="AGENTS.md"

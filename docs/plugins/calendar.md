@@ -37,6 +37,8 @@ pinrail plugins install github.com/forgeplane/pinrail/plugins/calendar
 
 Keys: <kbd>d</kbd>, <kbd>w</kbd> and <kbd>l</kbd> switch between the day, week and list views; <kbd>j</kbd> and <kbd>k</kbd> move to the next and previous day or week; <kbd>t</kbd> goes back to the first day. *Settings › Plugins › Calendar* chooses the view a calendar opens in.
 
+To see it before any agent asks with it, send its sample: `pinrail submit calendar --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+
 ## Asking from your agent
 
 ```md title="AGENTS.md"

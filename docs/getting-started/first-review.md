@@ -15,6 +15,10 @@ sequenceDiagram
   W->>T: the decision, as markdown
 ```
 
+:::tip[Only want to see one?]
+`pinrail submit list --sample --wait --format markdown` sends the list plugin's own sample and waits for your decision, all in one line. The steps below do the same with a payload you write, which is what an agent does.
+:::
+
 ## 1. Write a payload
 
 Every review belongs to a plugin. The built-in [List](/docs/plugins/list/) plugin shows items grouped under headings and asks for a verdict on each. Save this as `triage.json`:

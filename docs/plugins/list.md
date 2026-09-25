@@ -31,6 +31,8 @@ If the items need a richer view, such as a diff for each, look at [Code review](
 
 Anything you leave undecided is reported as undecided, and the app asks for confirmation before you hand over with items left.
 
+To see it before any agent asks with it, send its sample: `pinrail submit list --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+
 ## Asking from your agent
 
 Paste this into your agent's instructions and adjust the first line to the moment you want it to ask:

@@ -38,6 +38,8 @@ This plugin's view is built with Vite, so installing it from a folder or a repos
 - **A verdict.** Any comment means *request changes*, unless you set the verdict yourself.
 - **The previous round's comments**, beside the new version of the page.
 
+To see it before any agent asks with it, send its sample: `pinrail submit artifact --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+
 ## Asking from your agent
 
 ```md title="AGENTS.md"

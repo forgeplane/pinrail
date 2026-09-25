@@ -37,6 +37,8 @@ pinrail plugins install github.com/forgeplane/pinrail/plugins/email
 
 Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous draft, <kbd>s</kbd> send, <kbd>r</kbd> revise, <kbd>x</kbd> discard, <kbd>shift+s</kbd> send every draft still undecided, <kbd>e</kbd> put the cursor in the message.
 
+To see it before any agent asks with it, send its sample: `pinrail submit email --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+
 ## Asking from your agent
 
 ```md title="AGENTS.md"

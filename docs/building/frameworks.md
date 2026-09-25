@@ -27,7 +27,7 @@ The plugin's manifest, and the schemas every framework's version shares:
 
 ## 1. Create the folder
 
-Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on:
+Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on, with a `sample.json` to send and an `AGENTS.md` that explains the plugin to a coding agent:
 
 ```sh
 npx @forgeplane/pinrail-plugin create push_check --template react    # or vite (TypeScript), vue, svelte

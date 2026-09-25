@@ -37,6 +37,8 @@ pinrail plugins install github.com/forgeplane/pinrail/plugins/model
 
 Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous model, <kbd>1</kbd>–<kbd>9</kbd> the views, <kbd>t</kbd> turntable, <kbd>w</kbd> wireframe, <kbd>l</kbd> the next light, <kbd>f</kbd> favourite, <kbd>s</kbd> keep, <kbd>x</kbd> drop.
 
+To see it before any agent asks with it, send its sample: `pinrail submit model --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+
 ## Asking from your agent
 
 ```md title="AGENTS.md"
