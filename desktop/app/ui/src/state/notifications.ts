@@ -39,3 +39,16 @@ export function useNotificationStatus(open: boolean) {
   const openSystemSettings = useCallback(() => invoke<void>("open_notification_settings").catch(() => {}), []);
   return { system: state, request, openSystemSettings };
 }
+
+/** What macOS will do with a notification, in a line for a settings row. */
+export const describeSystem = ({ known, status }: SystemState) => {
+  if (!inTauri()) return "What macOS allows shows here in the app";
+  if (!known) return "…";
+  if (!status) return "Through the notification plugin in this development build; macOS reports nothing for it";
+  if (status.authorization === "denied") return "Not allowed in System Settings";
+  if (status.authorization === "not_determined") return "Not yet allowed; macOS asks when you turn them on, or with the first one";
+  if (status.alert_style === "none") return "Allowed, but the alert style is None in System Settings, so nothing appears";
+  if (!status.alerts) return "Allowed, but alerts are off in System Settings";
+  const parts = [status.alert_style === "alert" ? "Alerts" : "Banners", status.sound ? "sound on" : "sound off in System Settings", status.badge ? "badge" : "no badge"];
+  return `Allowed: ${parts.join(", ")}`;
+};

@@ -12,7 +12,7 @@ import type { Info as ServerInfo } from "../../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
-import { useNotificationStatus, type SystemState } from "../../state/notifications";
+import { describeSystem, useNotificationStatus } from "../../state/notifications";
 import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
@@ -64,17 +64,6 @@ const pauseUntil = (choice: string): string | null => {
   return null;
 };
 
-const describeSystem = ({ known, status }: SystemState) => {
-  if (!inTauri()) return "What macOS allows shows here in the app";
-  if (!known) return "…";
-  if (!status) return "Through the notification plugin in this development build; macOS reports nothing for it";
-  if (status.authorization === "denied") return "Not allowed in System Settings";
-  if (status.authorization === "not_determined") return "Not yet allowed; macOS asks when you turn them on, or with the first one";
-  if (status.alert_style === "none") return "Allowed, but the alert style is None in System Settings, so nothing appears";
-  if (!status.alerts) return "Allowed, but alerts are off in System Settings";
-  const parts = [status.alert_style === "alert" ? "Alerts" : "Banners", status.sound ? "sound on" : "sound off in System Settings", status.badge ? "badge" : "no badge"];
-  return `Allowed: ${parts.join(", ")}`;
-};
 
 /** The shortcut as the app registered it; null in a browser. */
 type ShortcutState = { shortcut: string; error: string | null };

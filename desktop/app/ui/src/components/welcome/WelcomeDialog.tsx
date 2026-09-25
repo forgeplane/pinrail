@@ -10,7 +10,10 @@ import { inTauri } from "../../api/client";
 import { copyText } from "../../lib/clipboard";
 import { openExternal } from "../../lib/native";
 import { useLive } from "../../state/live";
-import { useNotificationStatus } from "../../state/notifications";
+import { describeSystem, useNotificationStatus } from "../../state/notifications";
+import { useSettings } from "../../state/settings";
+import { Toggle } from "../settings/controls";
+import { SettingsRow } from "../settings/layout";
 import { useCli, type CliStatus } from "../settings/CliRow";
 
 // the list plugin is built in, so its sample is there on every install
@@ -212,6 +215,45 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
   );
 }
 
+/** Notifications, as Settings › General has them: turning them on is when
+ * macOS is asked, and a system that says no gets its settings page. */
+function NotificationsStep({ system, request, openSystemSettings }: ReturnType<typeof useNotificationStatus>) {
+  const { settings, update, native } = useSettings();
+  const status = system.status;
+  const on = settings.notifications.enabled;
+  const turn = (enabled: boolean) => {
+    void update({ notifications: { enabled } });
+    if (enabled && status?.authorization === "not_determined") void request();
+  };
+  return (
+    <>
+      <h2>Turn on notifications</h2>
+      <p>So you know when an agent is waiting, even with the window closed. The menu bar counts what waits either way.</p>
+      <div className="settings-card">
+        <SettingsRow label="Notify me when a review arrives" description="A system notification for each new review">
+          <Toggle label="Notify me when a review arrives" checked={on} onChange={turn} />
+        </SettingsRow>
+        <SettingsRow label="Play a sound" description="The system's notification sound with each one">
+          <Toggle label="Play a sound" checked={on && settings.notifications.sound} disabled={!on} onChange={(sound) => update({ notifications: { sound } })} />
+        </SettingsRow>
+        {native && status ? (
+          <SettingsRow label="macOS" description={describeSystem(system)}>
+            {status.authorization === "not_determined" ? (
+              <button type="button" className="chrome-button" onClick={() => turn(true)}>
+                Allow
+              </button>
+            ) : !status.shows ? (
+              <button type="button" className="chrome-button" onClick={openSystemSettings}>
+                Open System Settings
+              </button>
+            ) : null}
+          </SettingsRow>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
 /** Where the setup picks up: the step, and the first review once it came. */
 export type WelcomeAt = { step: number; sample?: string; decided?: boolean };
 
@@ -243,12 +285,13 @@ export function WelcomeDialog({ at, onClose, onOpenReview }: { at: WelcomeAt; on
   }, [live.pending, sample, opened]);
   const arrived = sample ? live.pending.find((r) => r.id === sample) : undefined;
 
+  const { settings } = useSettings();
   const status = system.status;
   const done = [
     !!cli.status?.runs && (!cli.status.bundled || cli.status.installed),
     !!sample,
     // without macOS's word (Linux, a development build) notifications just work
-    system.known && (!status || status.shows),
+    settings.notifications.enabled && system.known && (!status || status.shows),
     told,
   ];
   const last = step === STEPS.length - 1;
@@ -319,35 +362,7 @@ export function WelcomeDialog({ at, onClose, onOpenReview }: { at: WelcomeAt; on
               </>
             ) : null}
 
-            {step === 2 ? (
-              <>
-                <h2>Turn on notifications</h2>
-                <p>
-                  {!system.known
-                    ? "So you know when an agent is waiting, even with the window closed."
-                    : !status
-                      ? "A notification announces each new review; the menu bar counts them."
-                      : status.shows
-                        ? "Allowed. Each new review is announced, and the menu bar counts them."
-                        : status.authorization === "not_determined"
-                          ? "So you know when an agent is waiting, even with the window closed. macOS asks you once."
-                          : "macOS isn't showing them. Allow Pinrail's notifications in System Settings."}
-                </p>
-                {status?.authorization === "not_determined" ? (
-                  <div className="welcome-actions">
-                    <button type="button" className="chrome-button button-primary" onClick={request}>
-                      Turn on notifications
-                    </button>
-                  </div>
-                ) : status && !status.shows ? (
-                  <div className="welcome-actions">
-                    <button type="button" className="chrome-button" onClick={openSystemSettings}>
-                      Open System Settings
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            ) : null}
+            {step === 2 ? <NotificationsStep system={system} request={request} openSystemSettings={openSystemSettings} /> : null}
 
             {step === 3 ? (
               <>
