@@ -56,7 +56,7 @@ test("the plain template is a whole plugin, named throughout", async () => {
   assert.equal(manifest.sample, "sample.json");
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "sample.json"), "utf8")).title.length > 0, true);
   assert.equal(fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8").trim(), "@AGENTS.md", "Claude Code reads the same brief");
-  assert.match(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8"), /pinrail submit ticket_triage --sample/);
+  assert.match(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8"), /pinrail docs plugins\/building/, "points the agent at the briefs");
   for (const ref of [manifest.payload_schema.$ref, manifest.decision_schema.$ref]) {
     assert.ok(fs.existsSync(path.join(dir, ref)), `${ref} exists`);
   }

@@ -8,16 +8,12 @@ use serde_json::{Value, json};
 /// Each brief: its path (`asking/rounds`, `index` for the root) and source.
 const BRIEFS: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/briefs.rs"));
 
-const SITE: &str = "https://pinrail.dev/docs";
-
 pub struct Brief {
     pub path: &'static str,
     pub title: String,
     pub summary: String,
     /// the children, in the order the menu shows them
     pub menu: Vec<String>,
-    /// the site's page with the long form, `agents/cli`; none for none
-    pub long_form: Option<String>,
     pub body: &'static str,
 }
 
@@ -31,7 +27,6 @@ fn parse(path: &'static str, source: &'static str) -> Brief {
         title: String::new(),
         summary: String::new(),
         menu: Vec::new(),
-        long_form: None,
         body: body.trim_start_matches('\n'),
     };
     for line in head.lines() {
@@ -42,7 +37,6 @@ fn parse(path: &'static str, source: &'static str) -> Brief {
         match key.trim() {
             "title" => brief.title = value.to_string(),
             "summary" => brief.summary = value.to_string(),
-            "long_form" => brief.long_form = (!value.is_empty()).then(|| value.to_string()),
             "menu" => {
                 brief.menu = value
                     .trim_matches(['[', ']'])
@@ -80,10 +74,15 @@ pub fn find(path: Option<&str>) -> Option<Brief> {
     all().into_iter().find(|b| b.path == wanted)
 }
 
-/// The brief as it prints: its text, the menu of what is under it, and
-/// where the long form is.
+/// The brief as it prints: its text, then the menu of what is under it.
+/// The manifest's JSON Schema, as the SDK ships it and the core checks it.
+const MANIFEST_SCHEMA: &str = include_str!("../../pinrail-plugin/schemas/manifest.schema.json");
+
 pub fn render(brief: &Brief) -> String {
-    let mut out = brief.body.trim_end().to_string();
+    let mut out = brief
+        .body
+        .trim_end()
+        .replace("{{manifest_schema}}", MANIFEST_SCHEMA.trim_end());
     out.push('\n');
     let children: Vec<Brief> = brief.menu.iter().filter_map(|p| find(Some(p))).collect();
     if !children.is_empty() {
@@ -94,9 +93,6 @@ pub fn render(brief: &Brief) -> String {
                 child.path, child.summary
             ));
         }
-    }
-    if let Some(page) = &brief.long_form {
-        out.push_str(&format!("\nLong form: {SITE}/{page}/\n"));
     }
     out
 }

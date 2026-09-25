@@ -2,7 +2,6 @@
 title: Pinrail
 summary: What Pinrail is, the loop, and the rules to keep.
 menu: [asking, plugins, instructions]
-long_form: ""
 ---
 # Pinrail, for agents
 

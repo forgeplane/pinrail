@@ -2,7 +2,6 @@
 title: Instructions
 summary: Write yourself a standing rule or skill, so you ask at the right moment.
 menu: []
-long_form: agents/instructing
 ---
 # Instructions
 

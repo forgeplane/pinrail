@@ -232,7 +232,6 @@ pinrail plugins update [name]                            # reinstall from the so
 pinrail plugins remove <name>
 pinrail plugins new ticket_triage --link                 # a new plugin that needs no build, linked
 pinrail plugins check ./ticket_triage                    # what the app would refuse or drop, and why
-pinrail plugins guide [topic]                            # how to build a plugin, offline
 ```
 
 An install shows its progress on stderr, including a build's output when the

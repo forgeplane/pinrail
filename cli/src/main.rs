@@ -17,7 +17,6 @@ mod briefs;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
-mod guide;
 mod origin;
 mod out;
 mod scaffold;
@@ -411,13 +410,6 @@ enum PluginsCommand {
         #[arg(long)]
         link: bool,
     },
-    /// How to build a plugin, from the docs of the Pinrail installed: an
-    /// index of topics, or the one named, as markdown
-    Guide {
-        /// writing, design, settings-and-keys, protocol, frameworks or
-        /// publishing; the index when omitted
-        topic: Option<String>,
-    },
     /// What the app would make of a plugin folder, installing nothing: why
     /// it would refuse it, and each feature it would drop; exit 0 when it
     /// would take it, 2 when not
@@ -508,7 +500,7 @@ fn run(cli: Cli) -> Result<u8> {
             .map(|(i, s)| format!("  {}. {s}", i + 1))
             .collect();
         eprintln!(
-            "\nNext:\n{}\n\nHow to build a plugin, a topic at a time: pinrail plugins guide\nA framework, or tests without the app: npx @forgeplane/pinrail-plugin create",
+            "\nNext:\n{}\n\nHow a plugin works: pinrail docs plugins/building\nA framework, or tests without the app: npx @forgeplane/pinrail-plugin create",
             steps.join("\n")
         );
         return Ok(0);
@@ -527,24 +519,6 @@ fn run(cli: Cli) -> Result<u8> {
             out::print_json(&briefs::to_json(&brief), pretty);
         } else {
             print!("{}", briefs::render(&brief));
-        }
-        return Ok(0);
-    }
-
-    // the guide is in the command itself: no server needed
-    if let Command::Plugins(PluginsArgs {
-        command: Some(PluginsCommand::Guide { topic }),
-    }) = &cli.command
-    {
-        match topic.as_deref() {
-            None => print!("{}", guide::index()),
-            Some(topic) => match guide::page(topic) {
-                Some(page) => print!("{page}"),
-                None => anyhow::bail!(
-                    "no guide on {topic}; the topics are {}",
-                    guide::topics().join(", ")
-                ),
-            },
         }
         return Ok(0);
     }
@@ -788,7 +762,6 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(
                     PluginsCommand::Describe { .. }
                     | PluginsCommand::Check { .. }
-                    | PluginsCommand::Guide { .. }
                     | PluginsCommand::New { .. },
                 ) => {
                     unreachable!()

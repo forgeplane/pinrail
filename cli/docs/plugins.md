@@ -1,8 +1,7 @@
 ---
 title: Plugins
 summary: Find the plugin that fits, and what is installed.
-menu: []
-long_form: concepts/plugins
+menu: [building]
 ---
 # Plugins
 

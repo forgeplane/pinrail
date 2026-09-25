@@ -64,7 +64,7 @@ pinrail plugins install . --link    # the app serves this folder live
 pinrail submit __NAME__ --sample    # send it its sample; the review opens in the app
 pinrail plugins reload              # after changing the manifest or a schema
 pinrail plugins check .             # what the app would refuse, and why
-pinrail plugins guide               # how to build a plugin, a topic at a time
+pinrail docs plugins/building      # how a plugin works, and how to build one
 ```
 
 `AGENTS.md` explains the plugin to an agent helping you build it.
