@@ -69,6 +69,7 @@ fn agree(dir: &Path, js: &Value) {
         ("shortcuts", plugin.shortcuts_error.is_some()),
         ("decision_template", plugin.template_error.is_some()),
         ("example", plugin.example_error.is_some()),
+        ("sample", plugin.sample_error.is_some()),
     ] {
         assert_eq!(
             warned.contains(&key),
@@ -241,6 +242,52 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
         (
             "example_outside",
             base(json!({"example": "../ex.json"})),
+            entry,
+        ),
+        // a sample: a request with a title, a payload that passes, its files
+        (
+            "sample_ok",
+            base(
+                json!({"payload_schema": {"type": "object", "required": ["n"]}, "sample": "s.json"}),
+            ),
+            &[
+                ("index.html", ""),
+                (
+                    "s.json",
+                    r#"{"title": "t", "payload": {"n": 1}, "attachments": {"a.png": "a.png"}}"#,
+                ),
+                ("a.png", "png"),
+            ],
+        ),
+        (
+            "sample_untitled",
+            base(json!({"sample": "s.json"})),
+            &[("index.html", ""), ("s.json", r#"{"payload": {}}"#)],
+        ),
+        (
+            "sample_fails",
+            base(
+                json!({"payload_schema": {"type": "object", "required": ["n"]}, "sample": "s.json"}),
+            ),
+            &[
+                ("index.html", ""),
+                ("s.json", r#"{"title": "t", "payload": {"m": 1}}"#),
+            ],
+        ),
+        (
+            "sample_file_missing",
+            base(json!({"sample": "s.json"})),
+            &[
+                ("index.html", ""),
+                (
+                    "s.json",
+                    r#"{"title": "t", "payload": {}, "attachments": {"a.png": "a.png"}}"#,
+                ),
+            ],
+        ),
+        (
+            "sample_outside",
+            base(json!({"sample": "../s.json"})),
             entry,
         ),
         (

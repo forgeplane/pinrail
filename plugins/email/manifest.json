@@ -8,6 +8,7 @@
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
   "example": "example.json",
+  "sample": "sample.json",
   "entry": "view/index.html",
   "min_height": 560,
   "shortcuts": [

@@ -30,11 +30,28 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/plugins/{name}", delete(remove))
         .route("/api/v1/plugins/{name}/versions", get(versions))
         .route("/api/v1/plugins/{name}/describe", get(describe))
+        .route("/api/v1/plugins/{name}/sample", post(sample))
 }
 
 async fn index(State(state): State<Arc<Pinrail>>) -> Json<Value> {
     let stored = state.settings().value(crate::settings::PLUGINS);
     Json(state.plugins().listing(&stored))
+}
+
+/// Sends the plugin's sample as a new review; the body may give a
+/// `title`, `requested_by` or `origin`. 201 with the review.
+async fn sample(
+    State(state): State<Arc<Pinrail>>,
+    Path(name): Path<String>,
+    body: Bytes,
+) -> Result<Response, ApiError> {
+    let overrides = if body.is_empty() {
+        json!({})
+    } else {
+        parse_body(&body)?
+    };
+    let review = state.send_sample(&name, &overrides)?;
+    Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
 }
 
 async fn describe_all(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {

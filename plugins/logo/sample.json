@@ -1,0 +1,67 @@
+{
+  "title": "Tidemark marks",
+  "payload": {
+    "notes": "Round 1 of the Tidemark mark: six directions on one idea, **the line the water leaves**. Look at which still reads at 16 px and in the one-colour menu bar, and which sits best beside the wordmark.",
+    "brand": {
+      "name": "Tidemark",
+      "wordmark": "tide[mark]",
+      "wordmark_font": "\"Avenir Next\", \"Helvetica Neue\", system-ui, sans-serif",
+      "wordmark_weight": 800,
+      "tagline": "Every change leaves a line."
+    },
+    "palette": {
+      "light": {
+        "background": "#eef3f4",
+        "surface": "#f8fbfb",
+        "ink": "#12303a",
+        "muted": "#6b8189",
+        "accent": "#0f8b8d"
+      },
+      "dark": {
+        "background": "#0f1c21",
+        "surface": "#18292f",
+        "ink": "#e3eef0",
+        "muted": "#88a0a7",
+        "accent": "#3cc1c3"
+      }
+    },
+    "marks": [
+      {
+        "id": "M1",
+        "name": "Three waves",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><rect x=\"3\" y=\"6\" width=\"18\" height=\"3\" rx=\"1.5\" fill=\"var(--accent)\" /><rect x=\"5\" y=\"11\" width=\"14\" height=\"3\" rx=\"1.5\" fill=\"currentColor\" /><rect x=\"7\" y=\"16\" width=\"10\" height=\"3\" rx=\"1.5\" fill=\"currentColor\" /></svg>",
+        "reasoning": "Three bars that shorten as the tide goes out, the highest in the accent: the mark the water left. Reads as a stack at 16 px, which is the risk."
+      },
+      {
+        "id": "M2",
+        "name": "High-water ring",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"8.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" /><rect x=\"2\" y=\"10.8\" width=\"20\" height=\"2.4\" rx=\"1.2\" fill=\"var(--accent)\" /></svg>",
+        "reasoning": "A ring with the waterline through it, like a gauge seen head on. The simplest cut, and the one most like a hundred other marks."
+      },
+      {
+        "id": "M3",
+        "name": "The notch",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M4 4h16v16H4z M4 11h6l2 2l2 -2h6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linejoin=\"round\" /><rect x=\"10.8\" y=\"11\" width=\"2.4\" height=\"3\" fill=\"var(--accent)\" /></svg>",
+        "reasoning": "A square cut by a line with a notch where the level was read. Clever at 128 px; the notch closes up below 24."
+      },
+      {
+        "id": "M4",
+        "name": "Post and line",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><rect x=\"4\" y=\"3\" width=\"3\" height=\"18\" rx=\"1.5\" fill=\"currentColor\" /><rect x=\"17\" y=\"3\" width=\"3\" height=\"18\" rx=\"1.5\" fill=\"currentColor\" /><rect x=\"7\" y=\"10.5\" width=\"10\" height=\"3\" rx=\"1.5\" fill=\"var(--accent)\" /></svg>",
+        "reasoning": "Two posts with the level strung between them. The fewest parts and the most legible at 16 px; the accent carries the idea on its own."
+      },
+      {
+        "id": "M5",
+        "name": "Tide gauge",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><rect x=\"10.5\" y=\"2\" width=\"3\" height=\"20\" rx=\"1.5\" fill=\"currentColor\" /><rect x=\"6\" y=\"5\" width=\"4\" height=\"2\" rx=\"1\" fill=\"currentColor\" /><rect x=\"6\" y=\"11\" width=\"4\" height=\"2\" rx=\"1\" fill=\"currentColor\" /><rect x=\"6\" y=\"17\" width=\"4\" height=\"2\" rx=\"1\" fill=\"currentColor\" /><rect x=\"14\" y=\"13\" width=\"6\" height=\"3\" rx=\"1.5\" fill=\"var(--accent)\" /></svg>",
+        "reasoning": "A staff with its ticks and the reading beside it. Honest about what the product does; busy in the menu bar."
+      },
+      {
+        "id": "M6",
+        "name": "The drop",
+        "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M12 3c3.5 4.5 6 7.8 6 11a6 6 0 0 1 -12 0c0 -3.2 2.5 -6.5 6 -11z\" fill=\"currentColor\" /><rect x=\"6.5\" y=\"14\" width=\"11\" height=\"2.4\" rx=\"1.2\" fill=\"var(--accent)\" /></svg>",
+        "reasoning": "A drop with the line across it. Warm and readable at every size, but it says water more than it says change."
+      }
+    ]
+  }
+}

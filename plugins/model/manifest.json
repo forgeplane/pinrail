@@ -12,6 +12,7 @@
     "$ref": "schemas/decision.schema.json"
   },
   "example": "example.json",
+  "sample": "sample.json",
   "attachments": {
     "accept": [
       ".glb",

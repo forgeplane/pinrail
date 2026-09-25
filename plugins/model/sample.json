@@ -1,0 +1,110 @@
+{
+  "title": "Halden desk lamp",
+  "payload": {
+    "notes": "Round 1 of the **Halden** desk lamp: four directions. Orbit each one, look at it from the desk (the *Seated* view), and click a part to ask for a change to it.",
+    "subject": {
+      "name": "Halden desk lamp",
+      "units": "m"
+    },
+    "models": [
+      {
+        "id": "L1",
+        "name": "Pivot",
+        "reasoning": "The classic two-arm task lamp, in an oak base and dark powder coat. Brass only where it moves: the **joints and the switch**. Reads as a tool first.",
+        "file": {
+          "$attachment": "pivot.glb"
+        },
+        "views": [
+          {
+            "name": "Seated",
+            "position": [
+              0.55,
+              0.32,
+              0.55
+            ],
+            "target": [
+              0,
+              0.2,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "id": "L2",
+        "name": "Arc",
+        "reasoning": "One bent aluminium tube from a terrazzo block to a dome. No joints, so it cannot be aimed, but it is the calmest silhouette of the four.",
+        "file": {
+          "$attachment": "arc.glb"
+        },
+        "views": [
+          {
+            "name": "Seated",
+            "position": [
+              0.55,
+              0.32,
+              0.55
+            ],
+            "target": [
+              0,
+              0.2,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "id": "L3",
+        "name": "Column",
+        "reasoning": "A bedside lamp rather than a task lamp: walnut, a brass stem, a linen drum that glows. Included to check whether *task* is the right brief at all.",
+        "file": {
+          "$attachment": "column.glb"
+        },
+        "views": [
+          {
+            "name": "Seated",
+            "position": [
+              0.55,
+              0.32,
+              0.55
+            ],
+            "target": [
+              0,
+              0.2,
+              0
+            ]
+          }
+        ]
+      },
+      {
+        "id": "L4",
+        "name": "Tripod",
+        "reasoning": "Three ash legs and a paper globe. The softest light of the four, and the only one that looks good switched off in a photo.",
+        "file": {
+          "$attachment": "tripod.glb"
+        },
+        "views": [
+          {
+            "name": "Seated",
+            "position": [
+              0.55,
+              0.32,
+              0.55
+            ],
+            "target": [
+              0,
+              0.2,
+              0
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "attachments": {
+    "pivot.glb": "sample/pivot.glb",
+    "arc.glb": "sample/arc.glb",
+    "column.glb": "sample/column.glb",
+    "tripod.glb": "sample/tripod.glb"
+  }
+}

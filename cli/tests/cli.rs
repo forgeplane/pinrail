@@ -989,3 +989,25 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
     assert_eq!(stdout.matches("### Files").count(), 1);
     assert!(stdout.contains("Files go beside the payload for a plugin that takes them"));
 }
+
+#[test]
+fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
+    let server = MockServer::start(Box::new(|method, path, body| {
+        assert_eq!((method, path), ("POST", "/api/v1/plugins/list/sample"));
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        assert_eq!(sent, serde_json::json!({ "title": "Try Pinrail" }));
+        (201, review("pending"))
+    }));
+    let (code, stdout, stderr) = run(
+        &server,
+        &["submit", "list", "--sample", "--title", "Try Pinrail"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stdout.contains("\"status\":\"pending\""));
+    assert!(stderr.contains("/reviews/r_1"), "{stderr}");
+
+    // a payload of one's own is not a sample
+    let (code, _, stderr) = run(&server, &["submit", "list", "--sample", "--data", "p.json"]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("cannot be used with"), "{stderr}");
+}

@@ -9,6 +9,7 @@ mod install;
 mod jobs;
 mod manifest;
 mod registry;
+mod sample;
 mod service;
 
 pub use install::Options as InstallOptions;
@@ -17,6 +18,7 @@ pub use jobs::Job as InstallJob;
 #[cfg(feature = "docs")]
 pub use manifest::SCHEMA as MANIFEST_SCHEMA;
 pub use manifest::{Install, Plugin};
+pub use sample::Sample;
 pub use service::{PluginService, UpdateOutcome};
 
 pub(crate) use install::tidy;

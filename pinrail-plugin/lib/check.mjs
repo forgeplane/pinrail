@@ -17,7 +17,7 @@ export const MANIFEST_SCHEMA = JSON.parse(fs.readFileSync(new URL("../schemas/ma
 const validateManifest = new Ajv2020({ allErrors: true, strict: false }).compile(MANIFEST_SCHEMA);
 
 /** Keys whose violation costs the plugin that feature, not its place. */
-const FEATURES = ["settings_schema", "shortcuts", "decision_template", "example"];
+const FEATURES = ["settings_schema", "shortcuts", "decision_template", "example", "sample"];
 const SCALARS = ["boolean", "string", "integer", "number"];
 const MODIFIERS = ["cmd", "command", "super", "meta", "ctrl", "control", "alt", "option", "shift", "cmdorctrl", "commandorcontrol"];
 const JSON_TYPES = ["null", "boolean", "object", "array", "number", "string", "integer"];
@@ -141,6 +141,12 @@ export function checkPlugin(dir) {
     if (why) warn("example", why);
   }
 
+  // the sample: a request with a title, a payload that passes, and its files
+  if (typeof manifest.sample === "string" && !dropped.has("sample") && !refused("payload_schema")) {
+    const why = sampleProblem(dir, manifest.sample, manifest.payload_schema);
+    if (why) warn("sample", why);
+  }
+
   // files beside the payload: each kind as the core reads it, and a payload
   // schema that says where they go, or an agent cannot tell
   const takesFiles = isObject(manifest.attachments) && !refused("attachments");
@@ -206,6 +212,45 @@ function exampleProblem(dir, file, payloadSchema) {
   if (validate(payload)) return null;
   const e = validate.errors[0];
   return `${file}: does not pass payload_schema at ${e.instancePath || "/"}: ${e.message}`;
+}
+
+/** Why the sample would be dropped, or null. Mirrors `plugins/sample.rs`. */
+function sampleProblem(dir, file, payloadSchema) {
+  const at = safeJoin(dir, file);
+  if (!at) return `${file}: must stay inside the plugin's folder`;
+  let request;
+  try {
+    request = JSON.parse(fs.readFileSync(at, "utf8"));
+  } catch (e) {
+    return e.code ? `${file}: cannot read` : `${file}: not JSON (${e.message})`;
+  }
+  if (typeof request.title !== "string" || !request.title.trim()) return `${file}: needs a title`;
+  if (!isObject(request.payload)) return `${file}: needs a payload, a JSON object`;
+  try {
+    const doc = { ...schemaDocument(dir, payloadSchema) };
+    delete doc.$schema;
+    delete doc.$id;
+    const validate = new Ajv2020({ allErrors: false, strict: false, validateFormats: false }).compile(doc);
+    if (!validate(request.payload)) {
+      const e = validate.errors[0];
+      return `${file}: the payload does not pass payload_schema at ${e.instancePath || "/"}: ${e.message}`;
+    }
+  } catch {
+    // a schema this cannot compile is the payload_schema's problem
+  }
+  const files = request.attachments;
+  if (files === undefined || files === null) return null;
+  if (!isObject(files)) return `${file}: attachments must map each name to a file`;
+  const base = path.dirname(at);
+  for (const [name, entry] of Object.entries(files)) {
+    const relative = typeof entry === "string" ? entry : isObject(entry) ? entry.path : undefined;
+    if (isObject(entry) && typeof relative !== "string") return `${file}: attachments.${name} needs a path`;
+    if (typeof relative !== "string") return `${file}: attachments.${name} must be a path or {path, media_type}`;
+    const where = safeJoin(base, relative);
+    if (!where) return `${file}: attachments.${name} must stay inside the plugin's folder`;
+    if (!fs.existsSync(where) || !fs.statSync(where).isFile()) return `${file}: attachments.${name}: ${relative} not found`;
+  }
+  return null;
 }
 
 /** Why a payload or decision schema would be refused, or null. */

@@ -62,6 +62,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--wait` | Block until the review is decided or ends, then print it. Without it, `submit` prints the new review and returns at once. |
 | `--dry-run` | Run every check a submission gets and create no review. Exits 0 when it would be accepted, 2 with the violations. |
 | `--request <file>` | The whole request as one JSON file. See [The whole request in one file](#the-whole-request-in-one-file). |
+| `--sample` | Send the plugin's sample, a review it ships to show what it looks like, in place of a payload. `--title` and `--origin` still apply. See [A plugin's sample](#a-plugins-sample). |
 | `--format markdown` | Print the decision as markdown instead of JSON. |
 | `--origin` | Where the review comes from: `repo=…,workflow=…,run_id=…,ref=…,url=…`. The app groups reviews by project and links back to `url`. |
 | `--revises <id>` | This review is a new round of an earlier one. |
@@ -95,6 +96,16 @@ The file takes the same keys as the flags: `plugin`, `title`, `payload`, `origin
 ```sh
 pinrail submit --request request.json --revises <id> --wait --format markdown
 ```
+
+### A plugin's sample
+
+A plugin can ship a sample review. Send it to see what the plugin looks like, or to try Pinrail end to end, without writing a payload:
+
+```sh
+pinrail submit list --sample --wait --format markdown
+```
+
+The review arrives like any other; decide it and the command prints your decision, as an agent would read it. `pinrail plugins describe <plugin>` says `"sample": true` for a plugin that has one, and a plugin without one is an error that says so. The same sample is a button on the plugin's row in *Settings › Plugins*.
 
 ### Checking a payload first
 

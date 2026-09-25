@@ -67,6 +67,7 @@ Only the manifest, the schemas and the view reach the app. `fixtures/`, `tests/`
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
   "example": "example.json",
+  "sample": "sample.json",
   "entry": "view/index.html",
   "min_height": 200
 }
@@ -82,6 +83,7 @@ Only the manifest, the schemas and the view reach the app. `fixtures/`, `tests/`
 | `icon` | Any [Lucide](https://lucide.dev/icons) icon name, shown beside the plugin's reviews. |
 | `payload_schema`, `decision_schema` | JSON Schema 2020-12, inline or as a `$ref` to a file inside the folder. |
 | `example` | A JSON file inside the folder with a payload that passes `payload_schema`. Agents get it as a starting point. |
+| `sample` | A review anyone can send to see the plugin: a request file inside the folder with a `title`, a `payload` and any files. See [A sample to look at](#a-sample-to-look-at). |
 | `entry` | The view's HTML file, relative to the folder. |
 | `min_height` | The smallest height, in pixels, the app gives the view. |
 
@@ -296,6 +298,20 @@ const url = await plugin.attachmentUrl("desk.jpg");   // a blob: URL for an <img
 `plugin.attachments` lists what the review carries: each file's `name`, `size`, `media_type` and `sha256`. `plugin.attachment(name, { round: "previous" })` reads a file of the round this one revises, to compare. Revoke a `blob:` URL with `URL.revokeObjectURL` when you are done with it.
 
 The person sees every file a review carries, whatever the plugin draws: the inbox marks the review, and the review shows the files by name and size, each one ready to save.
+
+## A sample to look at
+
+`example` is for agents: the smallest payload that passes. A sample is for people. It's a whole review, with a title, a realistic payload and the files it refers to. Someone who has just installed your plugin sends it from its row in *Settings › Plugins*, or with `pinrail submit ticket_triage --sample`, and sees what your view does before any agent uses it.
+
+```json title="sample.json"
+{
+  "title": "Support queue — 4 stale tickets",
+  "payload": { "tickets": [ … ] },
+  "attachments": { "screenshot.png": "sample/screenshot.png" }
+}
+```
+
+It has the shape `pinrail submit --request` reads: `title` and `payload` are required, `summary` is optional, and `attachments` maps each name the payload refers to onto a file, relative to the sample and inside the folder. Keep the sample and its files out of `fixtures/`: installs leave that folder behind. A good fixture usually makes a good sample. A sample that doesn't load costs the plugin its sample, not its place, and the plugin's row says why.
 
 ## Look like the app
 

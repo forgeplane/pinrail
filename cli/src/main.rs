@@ -188,7 +188,7 @@ struct SubmitArgs {
     #[arg(required_unless_present = "request")]
     plugin: Option<String>,
     /// What the review is about, as the inbox shows it
-    #[arg(long, required_unless_present = "request")]
+    #[arg(long, required_unless_present_any = ["request", "sample"])]
     title: Option<String>,
     /// The whole request as JSON: a file path, or - for stdin; flags
     /// override its keys
@@ -217,6 +217,10 @@ struct SubmitArgs {
     /// Who is asking, shown on the review [default: pinrail-cli]
     #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
+    /// Send the plugin's sample, a review it ships to show what it looks
+    /// like, in place of a payload; --title and --origin still apply
+    #[arg(long, conflicts_with_all = ["request", "data", "attachments", "summary", "revises", "expires_at", "dry_run"])]
+    sample: bool,
     /// Block until decided (see wait)
     #[arg(long)]
     wait: bool,
@@ -633,6 +637,24 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if args.request.as_deref() == Some("-") && args.data.as_deref() == Some("-") {
         anyhow::bail!("--request and --data cannot both read stdin");
     }
+    if args.sample {
+        let plugin = args
+            .plugin
+            .as_deref()
+            .context("--sample needs the plugin")?;
+        let mut body = json!({});
+        if let Some(title) = &args.title {
+            body["title"] = json!(title);
+        }
+        if let Some(origin) = &args.origin {
+            body["origin"] = json!(origin);
+        }
+        if let Some(by) = &args.requested_by {
+            body["requested_by"] = json!(by);
+        }
+        let review = client.sample(plugin, &body)?;
+        return submitted(client, review, &args, output);
+    }
     let mut body = match &args.request {
         Some(spec) => match read_json_arg(spec)? {
             Value::Object(map) => Value::Object(map),
@@ -704,6 +726,11 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         return Ok(0);
     }
     let review = client.submit(&body)?;
+    submitted(client, review, &args, output)
+}
+
+/// Says where the new review is, then waits on it or prints it.
+fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) -> Result<u8> {
     let id = review["id"]
         .as_str()
         .context("server returned a review without an id")?

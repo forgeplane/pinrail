@@ -3,7 +3,10 @@
 use std::sync::Arc;
 
 use crate::Config;
-use crate::attachments::Attachments;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+
+use crate::attachments::{Attachments, UploadError};
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::Events;
@@ -54,6 +57,47 @@ impl Pinrail {
     /// Plugin operations share the registry, persistence and change notifications.
     pub fn plugins(&self) -> &PluginService {
         &self.plugins
+    }
+
+    /// Sends a plugin's sample as a new review: its files stored, its
+    /// request submitted like any other. `overrides` may give a `title`,
+    /// `requested_by` or `origin`; the sample's are used otherwise.
+    pub fn send_sample(
+        &self,
+        name: &str,
+        overrides: &Value,
+    ) -> Result<crate::reviews::Review, Error> {
+        let sample = self.plugins.sample(name)?;
+        let mut stored = Vec::new();
+        for file in &sample.files {
+            let bytes = std::fs::read(&file.path)?;
+            let sha256 = format!("{:x}", Sha256::digest(&bytes));
+            if self.attachments.stored(&sha256)?.is_none() {
+                let mut upload = self.attachments.begin(&sha256)?;
+                let too_large = |_| {
+                    Error::invalid(
+                        format!("/attachments/{}", file.name),
+                        "is larger than the app takes",
+                    )
+                };
+                upload.write(&bytes).map_err(|e| match e {
+                    UploadError::Failed(error) => error,
+                    other => too_large(other),
+                })?;
+                upload.finish().map_err(|e| match e {
+                    UploadError::Failed(error) => error,
+                    other => too_large(other),
+                })?;
+            }
+            stored.push((sha256, bytes.len() as u64));
+        }
+        let mut body = sample.request(name, &stored);
+        for key in ["title", "requested_by", "origin"] {
+            if let Some(value) = overrides.get(key).filter(|v| !v.is_null()) {
+                body[key] = value.clone();
+            }
+        }
+        self.reviews.submit(&body, None)
     }
 
     /// Opens the database, writes out the built-in plugin, scans the plugin

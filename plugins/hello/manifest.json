@@ -17,6 +17,7 @@
     "properties": { "ok": { "type": "boolean" }, "comment": { "type": "string" } }
   },
   "example": "example.json",
+  "sample": "sample.json",
   "entry": "view/index.html",
   "min_height": 200
 }

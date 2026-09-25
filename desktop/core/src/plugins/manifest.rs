@@ -50,6 +50,11 @@ pub struct Plugin {
     /// why a declared one was dropped.
     pub example: Option<Value>,
     pub example_error: Option<String>,
+    /// A review anyone can send to see the plugin (the manifest's
+    /// `sample`, a request file beside it); `sample_error` says why a
+    /// declared one was dropped.
+    pub sample: Option<super::sample::Sample>,
+    pub sample_error: Option<String>,
     /// The files the plugin takes beside a payload (the manifest's
     /// `attachments`); none takes none. A malformed block makes the plugin
     /// unusable, as a broken schema does.
@@ -152,6 +157,8 @@ impl Plugin {
                 use_when: None,
                 example: None,
                 example_error: None,
+                sample: None,
+                sample_error: None,
                 attachments: None,
                 install: None,
                 error: Some(message),
@@ -273,6 +280,17 @@ impl Plugin {
             },
             Some(_) => (None, None),
         };
+        // likewise a sample that does not load
+        let (sample, sample_error) = match manifest.get("sample") {
+            _ if shape.dropped.contains_key("sample") => {
+                (None, shape.dropped.get("sample").cloned())
+            }
+            Some(Value::String(file)) => match super::sample::load(dir, file, &payload_schema) {
+                Ok(sample) => (Some(sample), None),
+                Err(message) => (None, Some(message)),
+            },
+            _ => (None, None),
+        };
         let use_when = manifest
             .get("use_when")
             .and_then(Value::as_str)
@@ -315,6 +333,8 @@ impl Plugin {
             use_when,
             example,
             example_error,
+            sample,
+            sample_error,
             attachments,
             install: None,
             error: None,
@@ -423,6 +443,7 @@ impl Plugin {
             "payload_schema": self.schema_document("payload_schema"),
             "decision_schema": self.schema_document("decision_schema"),
             "example": self.example,
+            "sample": self.sample.is_some(),
             "attachments": self.manifest.get("attachments"),
             "markdown": self.decision_template.is_some(),
         })
@@ -471,6 +492,8 @@ impl Plugin {
             "description": self.manifest.get("description"),
             "use_when": self.use_when,
             "example_error": self.example_error,
+            "sample": self.sample.is_some(),
+            "sample_error": self.sample_error,
             "attachments": self.manifest.get("attachments"),
             "install": self.install.as_ref().map(Install::to_json),
         })
@@ -502,6 +525,7 @@ mod shape {
         "shortcuts",
         "decision_template",
         "example",
+        "sample",
     ];
 
     pub struct Shape {

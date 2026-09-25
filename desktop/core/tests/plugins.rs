@@ -375,3 +375,50 @@ fn copy_without_node_modules(from: &Path, to: &Path) {
         }
     }
 }
+
+#[tokio::test]
+async fn a_sample_is_sent_as_a_review_with_its_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+
+    // a built-in plugin's sample, the title given
+    let review = app
+        .send_sample("list", &json!({ "title": "Try Pinrail" }))
+        .unwrap();
+    assert_eq!(review.plugin, "list");
+    assert_eq!(review.title, "Try Pinrail");
+    assert_eq!(review.requested_by.as_deref(), Some("sample"));
+
+    // a linked plugin's sample, with the files it names stored
+    let model = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/model");
+    assert_eq!(link(&app, &model).await.status, "done");
+    let review = app.send_sample("model", &json!({})).unwrap();
+    assert_eq!(review.title, "Halden desk lamp");
+    let mut names: Vec<&str> = review.attachments.iter().map(|a| a.name.as_str()).collect();
+    names.sort();
+    assert_eq!(names, ["arc.glb", "column.glb", "pivot.glb", "tripod.glb"]);
+    for attachment in &review.attachments {
+        assert!(app.attachments().path(&attachment.sha256).is_file());
+    }
+
+    // one without a sample, and none at all
+    let sources = dir.path().join("sources");
+    assert_eq!(
+        link(&app, &plugin(&sources, "bare", "1.0.0")).await.status,
+        "done"
+    );
+    let message = |e: Error| {
+        e.to_json()["violations"][0]["message"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string()
+    };
+    assert_eq!(
+        message(app.send_sample("bare", &json!({})).unwrap_err()),
+        "bare has no sample"
+    );
+    assert_eq!(
+        message(app.send_sample("nope", &json!({})).unwrap_err()),
+        "no usable plugin is named nope"
+    );
+}

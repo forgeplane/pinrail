@@ -1,0 +1,192 @@
+{
+  "title": "Choose a recovery plan for checkout failures",
+  "payload": {
+    "description": "Checkout errors rose after release 2.8. I compared the previous release with the proposed fix. I need your direction before changing production or contacting customers.",
+    "groups": [
+      {
+        "id": "recovery",
+        "title": "Recovery plan",
+        "description": "Choose how to recover, and what must happen first.",
+        "questions": [
+          {
+            "id": "approach",
+            "type": "single_choice",
+            "prompt": "How should I proceed?",
+            "required": true,
+            "options": [
+              {
+                "id": "rollback",
+                "label": "Roll back to release 2.7",
+                "description": "Fastest recovery. The previous release passed the replay checks."
+              },
+              {
+                "id": "patch",
+                "label": "Apply the proposed patch",
+                "description": "Keeps the new checkout flow. Requires deployment checks."
+              },
+              {
+                "id": "investigate",
+                "label": "Keep investigating",
+                "description": "Make no production changes yet."
+              }
+            ],
+            "recommendation": {
+              "answer": "rollback",
+              "reason": "The previous release has a known-good payment path and can be restored in about five minutes."
+            }
+          },
+          {
+            "id": "checks",
+            "type": "multiple_choice",
+            "prompt": "Which checks must pass before deploying the patch?",
+            "required": true,
+            "min_selections": 1,
+            "max_selections": 3,
+            "when": {
+              "question_id": "approach",
+              "operator": "equals",
+              "value": "patch"
+            },
+            "options": [
+              {
+                "id": "integration",
+                "label": "Integration tests",
+                "description": "Run the full checkout and payment suite."
+              },
+              {
+                "id": "replay",
+                "label": "Replay failed requests",
+                "description": "Confirm the patch handles the requests that caused this incident."
+              },
+              {
+                "id": "staging",
+                "label": "Staging smoke test",
+                "description": "Verify the end-to-end purchase flow."
+              }
+            ],
+            "recommendation": {
+              "answer": [
+                "integration",
+                "replay"
+              ],
+              "reason": "Both the general payment behavior and the specific failure should be verified."
+            }
+          },
+          {
+            "id": "replay_details",
+            "type": "text",
+            "prompt": "Any constraints for the request replay?",
+            "when": {
+              "question_id": "checks",
+              "operator": "contains",
+              "value": "replay"
+            },
+            "max_length": 1000,
+            "placeholder": "For example: use anonymized requests from the last 30 minutes."
+          },
+          {
+            "id": "investigation_focus",
+            "type": "text",
+            "prompt": "What should I investigate next?",
+            "required": true,
+            "when": {
+              "question_id": "approach",
+              "operator": "equals",
+              "value": "investigate"
+            },
+            "min_length": 10,
+            "max_length": 2000
+          },
+          {
+            "id": "preserve_logs",
+            "type": "checkbox",
+            "prompt": "Preserve incident evidence before making changes",
+            "checkbox_label": "Capture logs and error samples before changing production.",
+            "required": true,
+            "when": {
+              "any": [
+                {
+                  "question_id": "approach",
+                  "operator": "equals",
+                  "value": "rollback"
+                },
+                {
+                  "question_id": "approach",
+                  "operator": "equals",
+                  "value": "patch"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "communication",
+        "title": "Customer communication",
+        "description": "Decide whether customers should hear from us.",
+        "questions": [
+          {
+            "id": "notify",
+            "type": "boolean",
+            "prompt": "Notify affected customers?",
+            "description": "I found 18 customers with failed checkout attempts.",
+            "required": true,
+            "recommendation": {
+              "answer": true,
+              "reason": "A short acknowledgment would help customers know when to retry."
+            }
+          },
+          {
+            "id": "channels",
+            "type": "multiple_choice",
+            "prompt": "Where should the update be sent?",
+            "required": true,
+            "when": {
+              "question_id": "notify",
+              "operator": "equals",
+              "value": true
+            },
+            "options": [
+              {
+                "id": "email",
+                "label": "Email affected customers"
+              },
+              {
+                "id": "status",
+                "label": "Publish on the status page"
+              }
+            ]
+          },
+          {
+            "id": "message_focus",
+            "type": "text",
+            "prompt": "What should the update emphasize?",
+            "required": true,
+            "when": {
+              "all": [
+                {
+                  "question_id": "notify",
+                  "operator": "equals",
+                  "value": true
+                },
+                {
+                  "question_id": "channels",
+                  "operator": "answered"
+                }
+              ]
+            },
+            "min_length": 10,
+            "max_length": 1200,
+            "placeholder": "For example: no charges were duplicated; customers can retry once recovery is confirmed."
+          },
+          {
+            "id": "other_context",
+            "type": "text",
+            "prompt": "Anything else I should know?",
+            "max_length": 2000
+          }
+        ]
+      }
+    ]
+  }
+}

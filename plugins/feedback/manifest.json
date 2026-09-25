@@ -14,6 +14,7 @@
     "$ref": "schemas/decision.schema.json"
   },
   "example": "example.json",
+  "sample": "sample.json",
   "min_height": 560,
   "shortcuts": [
     { "keys": "j", "does": "Next question" },

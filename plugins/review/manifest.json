@@ -12,6 +12,7 @@
     "$ref": "schemas/decision.schema.json"
   },
   "example": "example.json",
+  "sample": "sample.json",
   "decision_template": "templates/decision.md.j2",
   "entry": "view/index.html",
   "min_height": 600,

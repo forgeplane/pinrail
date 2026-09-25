@@ -3163,3 +3163,41 @@ async fn plugins_describe_themselves_and_a_submission_validates_without_being_st
         "the same checks as a submission"
     );
 }
+
+#[tokio::test]
+async fn a_plugin_sample_is_sent_over_http_and_listed_as_there() {
+    let app = app();
+    let (status, body) = call(&app, "POST", "/api/v1/plugins/list/sample", None).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(body["status"], "pending");
+    assert_eq!(body["requested_by"], "sample");
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/list/sample",
+        Some(json!({ "title": "Mine" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(body["title"], "Mine");
+    let (status, body) = call(&app, "POST", "/api/v1/plugins/nope/sample", None).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        violations(&body),
+        [(
+            "/plugin".to_string(),
+            "no usable plugin is named nope".to_string()
+        )]
+    );
+
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let list = listed["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "list")
+        .unwrap();
+    assert_eq!(list["sample"], true);
+    let (_, described) = call(&app, "GET", "/api/v1/plugins/list/describe", None).await;
+    assert_eq!(described["plugins"][0]["sample"], true);
+}

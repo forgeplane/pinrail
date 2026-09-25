@@ -70,6 +70,12 @@ impl Client {
         self.post("/api/v1/reviews", Some(body))
     }
 
+    /// Sends a plugin's sample as a new review; `body` may give a title,
+    /// an origin or who asks.
+    pub fn sample(&self, plugin: &str, body: &Value) -> Result<Value> {
+        self.post(&format!("/api/v1/plugins/{plugin}/sample"), Some(body))
+    }
+
     /// The checks a submission gets, with nothing stored.
     pub fn validate(&self, body: &Value) -> Result<Value> {
         self.post("/api/v1/reviews/validate", Some(body))

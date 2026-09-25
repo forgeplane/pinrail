@@ -42,6 +42,13 @@
       "not": { "type": "string", "pattern": "\\.\\." },
       "description": "A JSON file beside the manifest holding a payload that passes payload_schema, shown to an agent as a starting point. One that does not pass costs the plugin the example, not its place."
     },
+    "sample": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "pattern": "^[^/]",
+      "not": { "type": "string", "pattern": "\\.\\." },
+      "description": "A request file beside the manifest, in the shape `pinrail submit --request` reads: a `title`, a `payload` that passes payload_schema, and the `attachments` it names, relative to the file. `pinrail submit <plugin> --sample` and Settings send it, so anyone can see the plugin without writing a payload. Keep it out of `fixtures/`, which installs leave behind. One that does not load costs the plugin the sample, not its place."
+    },
     "icon": {
       "type": ["string", "null"],
       "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
