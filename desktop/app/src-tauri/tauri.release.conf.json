@@ -3,6 +3,7 @@
     "beforeBuildCommand": "npm run build && npm run notices"
   },
   "bundle": {
+    "createUpdaterArtifacts": true,
     "externalBin": ["binaries/pinrail-cli"],
     "resources": {
       "../sdk/v1": "sdk/v1",

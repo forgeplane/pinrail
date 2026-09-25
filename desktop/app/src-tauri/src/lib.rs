@@ -6,6 +6,7 @@ mod headless;
 mod native;
 #[cfg(target_os = "macos")]
 mod notify_mac;
+mod updater;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -18,6 +19,7 @@ use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_deep_link::DeepLinkExt;
 
 use native::Native;
+use updater::Updates;
 
 /// The shell listens for this; the payload names the command.
 const COMMAND_EVENT: &str = "pinrail:command";
@@ -201,6 +203,27 @@ fn open_notices(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Where updating stands.
+#[tauri::command]
+fn update_status(updates: State<'_, Updates>) -> updater::Status {
+    updates.status()
+}
+
+/// Looks for a new version now and downloads it; *Check for updates…*.
+#[tauri::command]
+async fn check_for_updates(app: AppHandle) -> updater::Status {
+    updater::check(&app).await
+}
+
+/// Installs the downloaded version and starts it.
+#[tauri::command]
+fn restart_to_update(app: AppHandle) -> Result<(), String> {
+    if !updater::install(&app)? {
+        return Err("no update is downloaded".into());
+    }
+    app.restart()
+}
+
 #[tauri::command]
 fn autostart_enabled(app: AppHandle) -> bool {
     app.autolaunch().is_enabled().unwrap_or(false)
@@ -256,7 +279,9 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ServerUrl(url))
+        .manage(Updates::new())
         .setup(move |app| {
             let mut config = config;
             if config.sdk_dir.is_none() {
@@ -285,6 +310,14 @@ pub fn run() {
             native::apply_shortcut(app.handle(), &state);
             native::refresh_tray_at_pause_end(app.handle(), &state);
             native::watch(app.handle().clone());
+            let settings = state.clone();
+            updater::start(app.handle(), move || {
+                settings
+                    .settings()
+                    .value("/updates/check")
+                    .as_bool()
+                    .unwrap_or(true)
+            });
 
             // pinrail:// links; a packaged app registers the scheme through
             // its bundle, a development build registers it here.
@@ -343,19 +376,27 @@ pub fn run() {
             cli_status,
             install_cli,
             open_notices,
-            save_attachment
+            save_attachment,
+            update_status,
+            check_for_updates,
+            restart_to_update
         ])
         .build(tauri::generate_context!())
         .expect("pinrail could not start its window");
 
     app.run(|app, event| {
+        // A downloaded update is installed on the way out, so quitting
+        // updates as well as restarting does.
+        if let tauri::RunEvent::Exit = event
+            && let Err(error) = updater::install(app)
+        {
+            eprintln!("pinrail: the update could not be installed: {error}");
+        }
         // The Dock icon brings the hidden window back.
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Reopen { .. } = event {
             native::open(app, "");
         }
-        #[cfg(not(target_os = "macos"))]
-        let _ = (app, event);
     });
 }
 

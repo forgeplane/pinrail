@@ -29,6 +29,10 @@
     }
   },
   "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZDRjMzQzFEOEUxNUQ3RkMKUldUODF4V09IVHp6YkFxQ1JxaUQ1SmtMOTc5M09aK2krMVJtRmdVb1pzRHN5MkxEQyt6NWZZL1EK",
+      "endpoints": ["https://github.com/forgeplane/pinrail/releases/latest/download/latest.json"]
+    },
     "deep-link": {
       "desktop": {
         "schemes": ["pinrail"]

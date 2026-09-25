@@ -129,6 +129,12 @@ const LEAVES: &[Leaf] = &[
         || Value::Null,
         "Delete ended reviews older than this many days. `null` keeps them forever.",
     ),
+    (
+        "/updates/check",
+        Kind::Bool,
+        || json!(true),
+        "Look for a new version of Pinrail at start and every few hours, and download it in the background. It is installed when Pinrail restarts.",
+    ),
 ];
 
 /// Every setting as the reference shows it: dotted key, what it holds, its

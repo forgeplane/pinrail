@@ -206,6 +206,8 @@ export type ServerSettings = {
   port: number;
   /** how long ended reviews are kept, in days; null keeps them forever */
   history: { keep_days: number | null };
+  /** look for a new version at start and every few hours */
+  updates?: { check: boolean };
   [key: string]: unknown;
 };
 

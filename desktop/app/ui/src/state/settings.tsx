@@ -26,6 +26,8 @@ export type Settings = {
   port: number;
   /** how long ended reviews are kept, in days; null keeps them forever */
   history: { keep_days: number | null };
+  /** look for a new version at start and every few hours */
+  updates: { check: boolean };
   /** launch at login; null when the app cannot say (a browser) */
   autostart: boolean | null;
 };
@@ -41,6 +43,7 @@ type Patch = {
   plugins?: Record<string, Record<string, unknown>>;
   port?: number;
   history?: Partial<Settings["history"]>;
+  updates?: Partial<Settings["updates"]>;
   autostart?: boolean;
 };
 
@@ -55,7 +58,7 @@ export function applyTextSize(size: TextSize) {
   if (root) (root.style as CSSStyleDeclaration & { zoom: string }).zoom = ZOOM[size];
 }
 
-type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins" | "port" | "history">;
+type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins" | "port" | "history" | "updates">;
 const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
   sidebar: { open: s.sidebar.open },
@@ -66,6 +69,7 @@ const fromServer = (s: ServerSettings): Served => ({
   plugins: s.plugins ?? {},
   port: s.port,
   history: { keep_days: s.history?.keep_days ?? null },
+  updates: { check: s.updates?.check ?? true },
 });
 
 const mergePlugins = (current: Settings["plugins"], patch?: Settings["plugins"]): Settings["plugins"] => {
@@ -88,6 +92,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     plugins: {},
     port: 4747,
     history: { keep_days: null },
+    updates: { check: true },
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);
@@ -140,7 +145,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback(
     async (patch: Patch) => {
       // the core's settings go to the core; applied at once, confirmed by the response
-      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins || patch.port !== undefined || patch.history) {
+      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins || patch.port !== undefined || patch.history || patch.updates) {
         const next: Served = {
           appearance: { ...settings.appearance, ...patch.appearance },
           sidebar: { ...settings.sidebar, ...patch.sidebar },
@@ -151,6 +156,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           plugins: mergePlugins(settings.plugins, patch.plugins),
           port: patch.port ?? settings.port,
           history: { ...settings.history, ...patch.history },
+          updates: { ...settings.updates, ...patch.updates },
         };
         apply(next);
         setSettings((s) => ({ ...s, ...next }));
@@ -164,6 +170,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.plugins) body.plugins = patch.plugins;
         if (patch.port !== undefined) body.port = patch.port;
         if (patch.history) body.history = patch.history;
+        if (patch.updates) body.updates = patch.updates;
         try {
           const s = fromServer(await api.patchSettings(body));
           apply(s);
@@ -178,7 +185,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setSettings((s) => ({ ...s, autostart: patch.autostart ?? s.autostart }));
       }
     },
-    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, settings.notifications, settings.shortcut, settings.plugins, apply],
+    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, settings.notifications, settings.shortcut, settings.plugins, settings.port, settings.history, settings.updates, apply],
   );
 
   const value = useMemo(() => ({ settings, update, native, loaded }), [settings, update, native, loaded]);

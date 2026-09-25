@@ -15,6 +15,7 @@ import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
 import { CliRow } from "./CliRow";
+import { UpdatesRows } from "./UpdatesRow";
 import { PluginsSection } from "./PluginsSection";
 
 export type SettingsSection = "general" | "appearance" | "shortcuts" | "plugins" | "data" | "about";
@@ -402,7 +403,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
             <SettingsPage title="About">
               <SettingsGroup>
                 <SettingsRow label="Pinrail" description={info ? `Version ${info.version} · server started ${new Date(info.started_at).toLocaleString()}` : "…"} />
-                <SettingsRow label="Updates" description="Checking for updates comes with the packaged app" />
+                <UpdatesRows />
                 <SettingsRow label="Plugins" description="How to write one: plugins/README.md in the repository" />
                 <SettingsRow label="License" description="Apache License 2.0" note={noticesError ?? undefined}>
                   {native ? (
