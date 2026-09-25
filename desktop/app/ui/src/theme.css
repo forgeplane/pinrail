@@ -602,7 +602,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .install-wait { font-size: 12.5px; align-self: center; }
 
 /* the setup wizard: a rail of steps beside the current one */
-.welcome-dialog { display: grid; grid-template-columns: 216px 1fr; width: min(760px, calc(100vw - 32px)); height: min(520px, calc(100vh - 48px)); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel); box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.45); }
+.welcome-dialog { display: grid; grid-template-columns: 216px 1fr; width: min(760px, calc(100vw - 32px)); height: min(540px, calc(100vh - 48px)); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel); box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.45); }
 .welcome-rail { display: flex; flex-direction: column; gap: 10px; padding: 24px 18px; border-right: 1px solid var(--border); background: var(--sidebar); }
 .welcome-logo { width: 40px; height: 40px; border-radius: 9px; box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.5); }
 .welcome-rail h1 { margin: 6px 0 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
@@ -616,6 +616,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .welcome-dot.is-done { border-color: var(--ok); background: var(--ok); color: var(--bg-panel); }
 .welcome-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .welcome-content { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 28px 30px 20px; animation: welcome-in 0.18s ease; }
+.welcome-content > * { flex-shrink: 0; }
 .welcome-content h2 { margin: 0 0 2px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
 .welcome-content p { margin: 0; color: var(--dim); font-size: 13px; line-height: 1.55; }
 .welcome-content code { font-family: var(--mono); font-size: 12px; color: var(--text); }
@@ -642,7 +643,7 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .welcome-nav { display: flex; gap: 8px; }
 .welcome-term-copy { position: relative; display: flex; align-items: flex-start; gap: 12px; overflow: hidden; }
 .welcome-term-copy > div { flex: 1; min-width: 0; }
-.welcome-term-button { flex: none; display: inline-flex; align-items: center; gap: 5px; margin: -2px -4px 0 0; padding: 3px 8px; border: 1px solid rgb(255 255 255 / 0.14); border-radius: 5px; background: rgb(255 255 255 / 0.06); color: #e8e3da; font: 11.5px var(--font); cursor: pointer; }
+.welcome-term-button { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 78px; margin: -2px -4px 0 0; padding: 3px 8px; border: 1px solid rgb(255 255 255 / 0.14); border-radius: 5px; background: rgb(255 255 255 / 0.06); color: #e8e3da; font: 11.5px var(--font); cursor: pointer; }
 .welcome-term-button:hover { background: rgb(255 255 255 / 0.12); }
 .welcome-wait { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; color: var(--dim); font-size: 13px; }
 .welcome-wait b { color: var(--text); font-weight: 500; }
@@ -650,6 +651,11 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .welcome-wait-mark { flex: none; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; }
 .welcome-wait.is-done .welcome-wait-mark { border: 0; background: var(--ok); color: var(--bg-panel); animation: welcome-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1); }
 .welcome-wait:not(.is-done)::after { content: ""; width: 1.4em; margin-left: -10px; text-align: left; animation: welcome-dots 1.2s steps(4) infinite; }
+.welcome-content p.welcome-caption { margin: 4px 0 -4px; color: var(--faint); font-size: 12px; }
+.welcome-term-prose { font-size: 12px; line-height: 1.6; white-space: pre-wrap; }
+.welcome-content p.welcome-next { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--border); }
+.welcome-next b { color: var(--text); font-weight: 500; }
+.welcome-next .welcome-link { padding: 0; font-size: inherit; }
 .welcome-wait-logo { flex: none; width: 24px; height: 24px; color: var(--text); overflow: visible; }
 .welcome-wait-slash { transform-box: view-box; transform-origin: 12px 14.7px; transform: rotate(20deg); animation: welcome-swing 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate; }
 @keyframes welcome-swing { from { transform: rotate(-20deg); } to { transform: rotate(20deg); } }

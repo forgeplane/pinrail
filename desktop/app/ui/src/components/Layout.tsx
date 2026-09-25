@@ -349,7 +349,15 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
-      {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
+      {welcome ? <WelcomeDialog
+          at={welcome}
+          onClose={closeWelcome}
+          onOpenReview={openFromWelcome}
+          onPlugins={() => {
+            closeWelcome();
+            setSettings("plugins");
+          }}
+        /> : null}
       <SettingsDialog
         open={settings !== null}
         section={settings ?? "general"}

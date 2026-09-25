@@ -19,19 +19,14 @@ import { useCli, type CliStatus } from "../settings/CliRow";
 // the list plugin is built in, so its sample is there on every install
 const TRY = "pinrail submit list --sample \\\n  --wait --format markdown";
 
-const SNIPPET = `## Ask me through Pinrail
+/** Prompts that leave the how to the agent: `plugins describe` teaches it
+ * the rest. Both work with the built-in list plugin. */
+const TRY_NOW =
+  "Find the TODOs in this repository and ask me through Pinrail which to tackle first. Run `pinrail plugins describe` to see how.";
+const HABIT =
+  "Write a skill that asks me through Pinrail to approve the changes before you commit. Run `pinrail plugins describe` to see how.";
 
-Before you <the step, e.g. post review comments>, ask me through Pinrail and
-wait for my decision. Don't ask in chat, and don't go ahead without an answer.
-
-- \`pinrail plugins describe --format markdown\` lists the kinds of review you
-  can send, each with its payload and an example.
-- Submit with \`pinrail submit <plugin> --title "<a title I'll recognise>"
-  --data <file>.json --wait --format markdown\`.
-- Act on each verdict and its note, leave anything undecided alone, and stop
-  if I discard the review.`;
-
-const DOCS = "https://pinrail.dev/docs/agents/instructing/";
+const BUILD = "https://pinrail.dev/docs/building/writing/";
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;
 
 const STEPS = ["The command", "A first review", "Notifications", "Your agent"] as const;
@@ -254,10 +249,41 @@ function NotificationsStep({ system, request, openSystemSettings }: ReturnType<t
   );
 }
 
+/** Two prompts to paste into an agent, and where to go from here. */
+function AgentStep({ onCopied, onPlugins }: { onCopied: () => void; onPlugins: () => void }) {
+  return (
+    <>
+      <h2>Put your agent to work</h2>
+      <p>Paste one of these into your agent. It works out the rest itself: <code>pinrail plugins describe</code> tells it how.</p>
+      <p className="welcome-caption">Try it now</p>
+      <div className="welcome-term welcome-term-copy welcome-term-prose">
+        <div>{TRY_NOW}</div>
+        <CopyButton text={TRY_NOW} dark onCopied={onCopied} />
+      </div>
+      <p className="welcome-caption">Make it a habit</p>
+      <div className="welcome-term welcome-term-copy welcome-term-prose">
+        <div>{HABIT}</div>
+        <CopyButton text={HABIT} dark onCopied={onCopied} />
+      </div>
+      <p className="welcome-next">
+        Pinrail comes with two plugins, <b>list</b> and <b>feedback</b>.{" "}
+        <button type="button" className="welcome-link" onClick={onPlugins}>
+          Add more
+        </button>{" "}
+        for code reviews, emails and designs, or{" "}
+        <button type="button" className="welcome-link" onClick={() => openExternal(BUILD)}>
+          build your own <ExternalLink size={12} />
+        </button>
+        .
+      </p>
+    </>
+  );
+}
+
 /** Where the setup picks up: the step, and the first review once it came. */
 export type WelcomeAt = { step: number; sample?: string; decided?: boolean };
 
-export function WelcomeDialog({ at, onClose, onOpenReview }: { at: WelcomeAt; onClose: () => void; onOpenReview: (id: string) => void }) {
+export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: WelcomeAt; onClose: () => void; onOpenReview: (id: string) => void; onPlugins: () => void }) {
   const live = useLive();
   const cli = useCli(true);
   const { system, request, openSystemSettings } = useNotificationStatus(true);
@@ -364,21 +390,7 @@ export function WelcomeDialog({ at, onClose, onOpenReview }: { at: WelcomeAt; on
 
             {step === 2 ? <NotificationsStep system={system} request={request} openSystemSettings={openSystemSettings} /> : null}
 
-            {step === 3 ? (
-              <>
-                <h2>Tell your agent when to ask</h2>
-                <p>
-                  Pinrail never interrupts an agent; its instructions say when to ask. Put these lines in <code>CLAUDE.md</code>, <code>AGENTS.md</code> or your agent's own file, and name the step.
-                </p>
-                <pre className="welcome-code">{SNIPPET}</pre>
-                <div className="welcome-actions">
-                  <CopyButton text={SNIPPET} onCopied={() => setTold(true)} />
-                  <button type="button" className="welcome-link" onClick={() => openExternal(DOCS)}>
-                    Instructing an agent <ExternalLink size={12} />
-                  </button>
-                </div>
-              </>
-            ) : null}
+            {step === 3 ? <AgentStep onCopied={() => setTold(true)} onPlugins={onPlugins} /> : null}
           </div>
 
           <footer className="welcome-foot">
