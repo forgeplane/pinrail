@@ -29,7 +29,7 @@ Put them wherever your agent already reads its standing instructions. The words 
 Instructions in the repository apply to everyone who runs an agent there. Instructions in your personal settings apply to you, everywhere.
 
 :::tip[Let the agent read up]
-`pinrail docs` tells an agent how to use Pinrail in a screen, and leads it to short pages on asking, plugins and writing its own rules. Point your agent at it and describe the moment you want it to ask: it can write the rule itself.
+`pinrail docs` tells an agent how to use Pinrail in a screen, and leads it to short pages on asking, plugins and writing its own rules. Point your agent at it and describe the moment you want it to ask: it can write the rule itself. See [An agent teaches itself](/docs/agents/cli/#an-agent-teaches-itself).
 :::
 
 ## What good instructions say

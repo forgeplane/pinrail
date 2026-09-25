@@ -27,6 +27,20 @@ Undecided: #19, #20
 
 The CLI holds no state and makes no decisions of its own. Output goes to stdout, diagnostics to stderr, and every outcome has an exit code, so it is safe to call from any shell, CI job or agent harness.
 
+## An agent teaches itself
+
+Pinrail doesn't need you to explain it to your agent. The command explains itself, and it does so a step at a time: each answer is short, and ends with where to look next. An agent reads only what its task needs, so its context stays small and nothing is out of date, because the text comes from the Pinrail you have installed.
+
+```sh
+pinrail docs                          # what Pinrail is, the loop, the rules, and a menu
+pinrail docs plugins/building         # one brief, and the briefs under it
+pinrail docs --tree                   # the whole map
+```
+
+`pinrail docs` starts with a screen: what Pinrail is, the one command an agent runs to ask, what to do with the answer, and the rules that apply every time. Its menu leads to short briefs, written for an agent at work rather than a person reading: asking and its exit codes, finding a plugin, writing a standing rule for itself, and building a plugin, down to the view's contract, the design language and the manifest's schema. `pinrail --help` points there, and so does everything else an agent meets first: the `describe` index, a new plugin's `AGENTS.md`, the prompts in the app's setup.
+
+The same idea runs through the rest of the command. `pinrail plugins describe` lists the plugins a line each before any of them in full; `pinrail plugins new` ends with the next commands to run; `submit` says where the review is. An agent starts from `pinrail docs`, or from the plugin its instructions name, and finds the rest as it goes.
+
 ## Learning what to ask
 
 Two steps tell an agent everything it needs to ask through Pinrail: first which plugin fits, then that plugin in full.
