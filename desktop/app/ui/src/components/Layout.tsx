@@ -16,7 +16,7 @@ import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
 import { PluginIcon } from "./PluginIcon";
 import { UpdateNotice } from "./UpdateNotice";
-import { WelcomeDialog } from "./welcome/WelcomeDialog";
+import { WelcomeDialog, type WelcomeAt } from "./welcome/WelcomeDialog";
 
 /** How many waiting reviews the sidebar lists before pointing at the inbox. */
 const WAITING_SHOWN = 5;
@@ -73,23 +73,37 @@ export function Layout({ children }: { children: ReactNode }) {
     { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
     { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
-    { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome(true) },
+    { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome({ step: 0 }) },
     ...(location.pathname.startsWith("/reviews/") ? [{ id: "discard", label: "Discard this review", icon: Ban, run: () => window.dispatchEvent(new Event("pinrail:discard")) }] : []),
   ];
 
   // Pinrail opens the setup until it is finished or skipped; asked once,
   // when the settings first arrive
-  const [welcome, setWelcome] = useState(false);
+  const [welcome, setWelcome] = useState<WelcomeAt | null>(null);
   const welcomed = useRef(false);
   useEffect(() => {
     if (!loaded || welcomed.current) return;
     welcomed.current = true;
-    if (!prefs.welcome.seen) setWelcome(true);
+    if (!prefs.welcome.seen) setWelcome({ step: 0 });
   }, [loaded, prefs.welcome.seen]);
   const closeWelcome = () => {
-    setWelcome(false);
+    setWelcome(null);
+    setAway(null);
     if (!prefs.welcome.seen) void update({ welcome: { seen: true } });
   };
+  // the setup steps aside while its first review is decided, and comes
+  // back on that step once it is
+  const [away, setAway] = useState<string | null>(null);
+  const openFromWelcome = (id: string) => {
+    setAway(id);
+    setWelcome(null);
+    navigate(`/reviews/${id}`);
+  };
+  useEffect(() => {
+    if (!away || !live.connected || live.pending.some((r) => r.id === away)) return;
+    setWelcome({ step: 1, sample: away, decided: true });
+    setAway(null);
+  }, [away, live.connected, live.pending]);
 
   // a link to /plugins lands in the settings section
   useEffect(() => {
@@ -335,7 +349,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
-      {welcome ? <WelcomeDialog onClose={closeWelcome} /> : null}
+      {welcome ? <WelcomeDialog at={welcome} onClose={closeWelcome} onOpenReview={openFromWelcome} /> : null}
       <SettingsDialog
         open={settings !== null}
         section={settings ?? "general"}

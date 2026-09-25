@@ -6,8 +6,7 @@
 
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router";
-import { api, inTauri } from "../../api/client";
+import { inTauri } from "../../api/client";
 import { copyText } from "../../lib/clipboard";
 import { openExternal } from "../../lib/native";
 import { useLive } from "../../state/live";
@@ -15,7 +14,7 @@ import { useNotificationStatus } from "../../state/notifications";
 import { useCli, type CliStatus } from "../settings/CliRow";
 
 // the list plugin is built in, so its sample is there on every install
-const TRY = "pinrail submit list --sample --wait --format markdown";
+const TRY = "pinrail submit list --sample \\\n  --wait --format markdown";
 
 const SNIPPET = `## Ask me through Pinrail
 
@@ -52,7 +51,19 @@ function Mark() {
   );
 }
 
-function CopyButton({ text, label = "Copy", onCopied }: { text: string; label?: string; onCopied?: () => void }) {
+/** The mark while waiting: the slash swings on the rail, between the pins. */
+function WaitMark() {
+  return (
+    <svg className="welcome-wait-logo" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="1.5" y="13" width="21" height="3.4" rx="1.4" fill="currentColor" />
+      <rect x="4.8" y="5" width="2.4" height="16" rx="1.2" fill="currentColor" />
+      <rect x="16.8" y="5" width="2.4" height="16" rx="1.2" fill="currentColor" />
+      <rect className="welcome-wait-slash" x="10.8" y="4.2" width="2.4" height="16.8" rx="1.2" fill="#e5694f" />
+    </svg>
+  );
+}
+
+function CopyButton({ text, label = "Copy", onCopied, dark }: { text: string; label?: string; onCopied?: () => void; dark?: boolean }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -62,7 +73,7 @@ function CopyButton({ text, label = "Copy", onCopied }: { text: string; label?: 
   return (
     <button
       type="button"
-      className="chrome-button"
+      className={dark ? "welcome-term-button" : "chrome-button"}
       onClick={() =>
         copyText(text)
           .then(() => {
@@ -201,15 +212,15 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
   );
 }
 
-export function WelcomeDialog({ onClose }: { onClose: () => void }) {
-  const navigate = useNavigate();
+/** Where the setup picks up: the step, and the first review once it came. */
+export type WelcomeAt = { step: number; sample?: string; decided?: boolean };
+
+export function WelcomeDialog({ at, onClose, onOpenReview }: { at: WelcomeAt; onClose: () => void; onOpenReview: (id: string) => void }) {
   const live = useLive();
   const cli = useCli(true);
   const { system, request, openSystemSettings } = useNotificationStatus(true);
-  const [step, setStep] = useState(0);
-  const [sample, setSample] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
+  const [step, setStep] = useState(at.step);
+  const [sample, setSample] = useState<string | null>(at.sample ?? null);
   const [told, setTold] = useState(false);
 
   // the dialog holds the keyboard: Esc skips, and no key reaches the screen
@@ -223,27 +234,14 @@ export function WelcomeDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
 
-  // the first review, from the terminal or the button: any that arrives
-  // while the setup is open
-  const [opened] = useState(() => new Date().toISOString());
+  // the first review: a list review that arrives while the setup is open
+  const [opened] = useState(() => new Date().toISOString().slice(0, 19));
   useEffect(() => {
     if (sample) return;
-    const found = live.pending.find((r) => r.created_at >= opened.slice(0, 19));
+    const found = live.pending.find((r) => r.plugin === "list" && r.created_at >= opened);
     if (found) setSample(found.id);
   }, [live.pending, sample, opened]);
-
-  const send = async () => {
-    setSending(true);
-    setSendError(null);
-    try {
-      const review = await api.sendSample("list");
-      setSample(review.id);
-    } catch (e) {
-      setSendError(String(e));
-    } finally {
-      setSending(false);
-    }
-  };
+  const arrived = sample ? live.pending.find((r) => r.id === sample) : undefined;
 
   const status = system.status;
   const done = [
@@ -281,35 +279,42 @@ export function WelcomeDialog({ onClose }: { onClose: () => void }) {
             {step === 1 ? (
               <>
                 <h2>Send yourself a review</h2>
-                {sample ? (
+                <p>Be the agent for a minute. Run this in a terminal: it sends the list plugin's sample review, and waits for your decision.</p>
+                <div className="welcome-term welcome-term-copy">
+                  <div>
+                    <span className="welcome-term-prompt">$</span> {TRY}
+                  </div>
+                  <CopyButton text={TRY} dark />
+                </div>
+                {at.decided && sample === at.sample ? (
+                  <div className="welcome-wait is-done" role="status">
+                    <span className="welcome-wait-mark">
+                      <Check size={12} strokeWidth={3} />
+                    </span>
+                    Decided. Your terminal has the answer, as an agent reads it.
+                  </div>
+                ) : sample ? (
                   <>
-                    <p>It's here, waiting in the inbox. Decide it and hand it over; a terminal that sent it prints your decision.</p>
+                    <div className="welcome-wait is-done" role="status">
+                      <span className="welcome-wait-mark">
+                        <Check size={12} strokeWidth={3} />
+                      </span>
+                      <span>
+                        Arrived: <b>{arrived?.title ?? "your first review"}</b>
+                      </span>
+                    </div>
+                    <p>Open it, accept or reject its items, and hand it over. Then look at your terminal: it prints your decision. Setup picks up here once you've decided.</p>
                     <div className="welcome-actions">
-                      <button
-                        type="button"
-                        className="chrome-button button-primary"
-                        onClick={() => {
-                          onClose();
-                          navigate(`/reviews/${sample}`);
-                        }}
-                      >
-                        Open it
+                      <button type="button" className="chrome-button button-primary" onClick={() => onOpenReview(sample)}>
+                        Open the review
                       </button>
                     </div>
                   </>
                 ) : (
-                  <>
-                    <p>Be the agent for a minute. This sends the list plugin's sample review and waits until you decide; the terminal then prints your decision, as an agent reads it.</p>
-                    <pre className="welcome-code">{TRY}</pre>
-                    <div className="welcome-actions">
-                      <CopyButton text={TRY} />
-                      <span className="welcome-or">or</span>
-                      <button type="button" className="chrome-button" onClick={send} disabled={sending}>
-                        {sending ? "Sending…" : "Send one for me"}
-                      </button>
-                    </div>
-                    {sendError ? <p className="welcome-error">{sendError}</p> : null}
-                  </>
+                  <div className="welcome-wait" role="status">
+                    <WaitMark />
+                    Waiting for the review to arrive
+                  </div>
                 )}
               </>
             ) : null}

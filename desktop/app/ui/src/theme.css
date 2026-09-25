@@ -640,4 +640,19 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .welcome-skip:hover { color: var(--text); }
 .welcome-count { margin-left: auto; color: var(--faint); font-size: 12px; }
 .welcome-nav { display: flex; gap: 8px; }
-@media (prefers-reduced-motion: reduce) { .welcome-content, .welcome-term-cursor { animation: none; } }
+.welcome-term-copy { position: relative; display: flex; align-items: flex-start; gap: 12px; overflow: hidden; }
+.welcome-term-copy > div { flex: 1; min-width: 0; }
+.welcome-term-button { flex: none; display: inline-flex; align-items: center; gap: 5px; margin: -2px -4px 0 0; padding: 3px 8px; border: 1px solid rgb(255 255 255 / 0.14); border-radius: 5px; background: rgb(255 255 255 / 0.06); color: #e8e3da; font: 11.5px var(--font); cursor: pointer; }
+.welcome-term-button:hover { background: rgb(255 255 255 / 0.12); }
+.welcome-wait { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; color: var(--dim); font-size: 13px; }
+.welcome-wait b { color: var(--text); font-weight: 500; }
+.welcome-wait.is-done { border-style: solid; border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); background: color-mix(in srgb, var(--ok) 7%, transparent); color: var(--text); }
+.welcome-wait-mark { flex: none; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; }
+.welcome-wait.is-done .welcome-wait-mark { border: 0; background: var(--ok); color: var(--bg-panel); animation: welcome-pop 0.3s cubic-bezier(0.3, 1.6, 0.6, 1); }
+.welcome-wait:not(.is-done)::after { content: ""; width: 1.4em; margin-left: -10px; text-align: left; animation: welcome-dots 1.2s steps(4) infinite; }
+.welcome-wait-logo { flex: none; width: 24px; height: 24px; color: var(--text); overflow: visible; }
+.welcome-wait-slash { transform-box: view-box; transform-origin: 12px 14.7px; transform: rotate(20deg); animation: welcome-swing 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate; }
+@keyframes welcome-swing { from { transform: rotate(-20deg); } to { transform: rotate(20deg); } }
+@keyframes welcome-pop { from { transform: scale(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes welcome-dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+@media (prefers-reduced-motion: reduce) { .welcome-content, .welcome-term-cursor, .welcome-wait-mark, .welcome-wait-slash, .welcome-wait::after { animation: none; } }
