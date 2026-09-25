@@ -23,6 +23,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/plugins/describe", get(describe_all))
         .route("/api/v1/plugins/reload", post(reload))
         .route("/api/v1/plugins/inspect", post(inspect))
+        .route("/api/v1/plugins/check", post(check))
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/jobs/{id}", get(job))
         .route("/api/v1/plugins/{name}/updates", get(updates))
@@ -91,6 +92,22 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
 async fn inspect(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
     let (source, options) = install_request(&body)?;
     Ok(Json(state.plugins().inspect(&source, options).await?))
+}
+
+/// What the app makes of a plugin folder on this machine, installing
+/// nothing: `{"dir": "/abs/path"}`, answered with the loader's verdict.
+async fn check(body: Bytes) -> Result<Json<Value>, ApiError> {
+    let body = parse_body(&body)?;
+    let dir = body
+        .get("dir")
+        .and_then(Value::as_str)
+        .map(std::path::PathBuf::from)
+        .filter(|d| d.is_absolute())
+        .ok_or_else(|| Error::invalid("/dir", "must be an absolute path"))?;
+    if !dir.is_dir() {
+        return Err(Error::invalid("/dir", format!("{} is not a folder", dir.display())).into());
+    }
+    Ok(Json(crate::plugins::Plugin::load(&dir).verdict()))
 }
 
 async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {

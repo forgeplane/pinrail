@@ -143,6 +143,40 @@ pub fn markdown(described: &Value, index: bool) -> String {
     out
 }
 
+/// `pinrail plugins check` as markdown: the verdict, then each reason.
+pub fn verdict(verdict: &Value, dir: &str) -> String {
+    let text = |v: &Value| v.as_str().unwrap_or_default().to_string();
+    let mut out = if verdict["usable"] == true {
+        format!(
+            "{} {} in {dir}: the app would take it.\n",
+            text(&verdict["name"]),
+            text(&verdict["release"])
+        )
+    } else {
+        format!("{dir}: the app would refuse it.\n")
+    };
+    for p in verdict["problems"].as_array().into_iter().flatten() {
+        out.push_str(&format!("\n- refused: {}", text(&p["message"])));
+    }
+    for w in verdict["warnings"].as_array().into_iter().flatten() {
+        out.push_str(&format!(
+            "\n- `{}` dropped: {}",
+            text(&w["key"]),
+            text(&w["message"])
+        ));
+    }
+    if verdict["problems"]
+        .as_array()
+        .is_some_and(|a| !a.is_empty())
+        || verdict["warnings"]
+            .as_array()
+            .is_some_and(|a| !a.is_empty())
+    {
+        out.push('\n');
+    }
+    out
+}
+
 /// `pinrail plugins` as markdown: what is installed, from where, and
 /// whether it works, with the way to ask with one.
 pub fn listing(listed: &Value) -> String {

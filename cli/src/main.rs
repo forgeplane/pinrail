@@ -380,6 +380,14 @@ enum PluginsCommand {
     },
     /// Reload the installed plugins from disk
     Reload,
+    /// What the app would make of a plugin folder, installing nothing: why
+    /// it would refuse it, and each feature it would drop; exit 0 when it
+    /// would take it, 2 when not
+    Check {
+        /// the plugin's folder
+        #[arg(default_value = ".")]
+        dir: PathBuf,
+    },
     /// The versions of a plugin that reviews can still render with
     Versions {
         /// the plugin's name
@@ -427,7 +435,10 @@ fn run(cli: Cli) -> Result<u8> {
 
     let auto_start = match &cli.command {
         Command::Submit(args) => !args.no_start,
-        Command::Plugins(args) => matches!(args.command, Some(PluginsCommand::Describe { .. })),
+        Command::Plugins(args) => matches!(
+            args.command,
+            Some(PluginsCommand::Describe { .. } | PluginsCommand::Check { .. })
+        ),
         _ => false,
     };
     let base = server::resolve_url(cli.url.as_deref(), auto_start)?;
@@ -558,6 +569,40 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Plugins(PluginsArgs {
+            command: Some(PluginsCommand::Check { dir }),
+        }) => {
+            let dir = dir
+                .canonicalize()
+                .with_context(|| format!("{} is not a folder here", dir.display()))?;
+            let verdict = client.plugins_check(&dir.to_string_lossy())?;
+            if output.markdown {
+                print!(
+                    "{}",
+                    describe::verdict(&verdict, &dir.display().to_string())
+                );
+            } else {
+                out::print_json(&verdict, pretty);
+                for w in verdict["warnings"].as_array().into_iter().flatten() {
+                    eprintln!(
+                        "pinrail: {} dropped: {}",
+                        w["key"].as_str().unwrap_or_default(),
+                        w["message"].as_str().unwrap_or_default()
+                    );
+                }
+                for p in verdict["problems"].as_array().into_iter().flatten() {
+                    eprintln!(
+                        "pinrail: refused: {}",
+                        p["message"].as_str().unwrap_or_default()
+                    );
+                }
+            }
+            Ok(if verdict["usable"] == true {
+                0
+            } else {
+                EXIT_REFUSED
+            })
+        }
+        Command::Plugins(PluginsArgs {
             command: Some(PluginsCommand::Describe { name, all }),
         }) => {
             let index = name.is_none() && !all;
@@ -624,7 +669,9 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
                 Some(PluginsCommand::Versions { name }) => client.plugin_versions(&name)?,
-                Some(PluginsCommand::Describe { .. }) => unreachable!(),
+                Some(PluginsCommand::Describe { .. } | PluginsCommand::Check { .. }) => {
+                    unreachable!()
+                }
             };
             out::print_json(&value, pretty);
             Ok(0)

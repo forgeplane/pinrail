@@ -3201,3 +3201,68 @@ async fn a_plugin_sample_is_sent_over_http_and_listed_as_there() {
     let (_, described) = call(&app, "GET", "/api/v1/plugins/list/describe", None).await;
     assert_eq!(described["plugins"][0]["sample"], true);
 }
+
+#[tokio::test]
+async fn a_plugin_folder_is_checked_as_the_app_would_load_it() {
+    let app = app();
+    let list = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../plugins/list")
+        .canonicalize()
+        .unwrap();
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/check",
+        Some(json!({ "dir": list })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["usable"], true);
+    assert_eq!(body["name"], "list");
+    assert_eq!(body["problems"], json!([]));
+    assert_eq!(body["warnings"], json!([]));
+
+    // a broken sample costs a warning; a missing entry, the plugin
+    let dir = tempfile::tempdir().unwrap();
+    for f in [
+        "manifest.json",
+        "payload.schema.json",
+        "decision.schema.json",
+        "example.json",
+    ] {
+        std::fs::copy(list.join(f), dir.path().join(f)).unwrap();
+    }
+    std::fs::write(dir.path().join("sample.json"), r#"{"payload": {}}"#).unwrap();
+    let (_, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/check",
+        Some(json!({ "dir": dir.path() })),
+    )
+    .await;
+    assert_eq!(body["usable"], false);
+    assert_eq!(body["problems"][0]["message"], "entry index.html not found");
+    std::fs::write(dir.path().join("index.html"), "").unwrap();
+    let (_, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/check",
+        Some(json!({ "dir": dir.path() })),
+    )
+    .await;
+    assert_eq!(body["usable"], true);
+    assert_eq!(
+        body["warnings"],
+        json!([{ "key": "sample", "message": "sample.json: needs a title" }])
+    );
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/check",
+        Some(json!({ "dir": "relative/path" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(violations(&body)[0].0, "/dir");
+}

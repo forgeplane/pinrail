@@ -229,6 +229,14 @@ impl Client {
         }
     }
 
+    /// What the app makes of a plugin folder, installing nothing.
+    pub fn plugins_check(&self, dir: &str) -> Result<Value> {
+        self.post(
+            "/api/v1/plugins/check",
+            Some(&serde_json::json!({ "dir": dir })),
+        )
+    }
+
     pub fn plugins_reload(&self) -> Result<Value> {
         self.post("/api/v1/plugins/reload", None)
     }

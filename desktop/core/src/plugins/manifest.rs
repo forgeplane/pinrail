@@ -467,6 +467,33 @@ impl Plugin {
             .unwrap_or(raw)
     }
 
+    /// What the app makes of the folder, as `pinrail-plugin check --json`
+    /// says it: usable or not, why it would be refused, and each feature it
+    /// would drop, keyed by the manifest key.
+    pub fn verdict(&self) -> Value {
+        let warnings: Vec<Value> = [
+            ("settings_schema", &self.settings_error),
+            ("shortcuts", &self.shortcuts_error),
+            ("decision_template", &self.template_error),
+            ("example", &self.example_error),
+            ("sample", &self.sample_error),
+        ]
+        .into_iter()
+        .filter_map(|(key, error)| {
+            error
+                .as_ref()
+                .map(|message| serde_json::json!({ "key": key, "message": message }))
+        })
+        .collect();
+        serde_json::json!({
+            "usable": self.usable(),
+            "name": self.usable().then_some(&self.name),
+            "release": self.usable().then_some(&self.release),
+            "problems": self.error.iter().map(|message| serde_json::json!({ "message": message })).collect::<Vec<_>>(),
+            "warnings": if self.usable() { warnings } else { Vec::new() },
+        })
+    }
+
     /// What the API lists for a plugin.
     pub fn to_json(&self) -> Value {
         serde_json::json!({

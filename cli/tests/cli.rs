@@ -1134,3 +1134,40 @@ fn plugins_as_markdown_is_a_table_of_what_is_installed() {
     );
     assert!(stdout.contains("`pinrail plugins describe`"));
 }
+
+#[test]
+fn plugins_check_asks_the_app_about_the_folder_and_exits_by_its_verdict() {
+    let dir = tempdir();
+    let verdicts = Arc::new(Mutex::new(vec![
+        r#"{"usable":true,"name":"t","release":"0.1.0","problems":[],"warnings":[{"key":"sample","message":"sample.json: needs a title"}]}"#,
+        r#"{"usable":false,"name":null,"release":null,"problems":[{"message":"entry index.html not found"}],"warnings":[]}"#,
+    ]));
+    let expected = dir.canonicalize().unwrap().to_string_lossy().to_string();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        assert_eq!((method, path), ("POST", "/api/v1/plugins/check"));
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        assert_eq!(sent["dir"], expected.as_str(), "the folder, resolved");
+        (200, verdicts.lock().unwrap().remove(0).into())
+    }));
+    let (code, _, stderr) = run(&server, &["plugins", "check", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        stderr.contains("pinrail: sample dropped: sample.json: needs a title"),
+        "{stderr}"
+    );
+    let (code, stdout, _) = run(
+        &server,
+        &[
+            "plugins",
+            "check",
+            dir.to_str().unwrap(),
+            "--format",
+            "markdown",
+        ],
+    );
+    assert_eq!(code, 2);
+    assert!(
+        stdout.contains("the app would refuse it.\n\n- refused: entry index.html not found"),
+        "{stdout}"
+    );
+}
