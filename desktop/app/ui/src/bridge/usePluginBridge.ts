@@ -4,7 +4,7 @@
 //
 // Every message is {pinrail: 1, type, ...}.
 //   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
-//                    status {label} | settings_set {patch} |
+//                    status {label} | settings_set {patch} | key {key, code, shiftKey} |
 //                    attachment {req, name, round?: "previous"}
 //   shell -> plugin: init {gate, previous, readonly, draft, settings, shell_origin,
 //                          capabilities} |
@@ -24,6 +24,9 @@ import { api } from "../api/client";
 import type { Decision, Review, Violation } from "../api/types";
 import { EXTERNAL, openExternal } from "../lib/native";
 import { currentTheme } from "../lib/theme";
+
+/** The app's review-screen keys a view may pass up: help, and the rounds. */
+const VIEW_APP_KEYS = ["?", "[", "]"];
 
 const PROTOCOL = 1;
 const DRAFT_PREFIX = "pinrail:draft:";
@@ -209,6 +212,13 @@ export function usePluginBridge(options: Options): Bridge {
         case "attachment":
           void answerAttachment(msg.req, msg.name, msg.round);
           break;
+        case "key": {
+          // one of the app's own keys, pressed inside the view: the app acts
+          // on it as if pressed in its window; nothing else is accepted
+          if (typeof msg.key !== "string" || !VIEW_APP_KEYS.includes(msg.key)) return;
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: msg.key, code: typeof msg.code === "string" ? msg.code : "", shiftKey: !!msg.shiftKey, bubbles: true, cancelable: true }));
+          break;
+        }
         case "settings_set": {
           // the view may only ever write its own settings: the handler
           // fills in the plugin's name, and the core checks the values

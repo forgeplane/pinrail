@@ -117,6 +117,7 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | `status` | `label` | What the app's hand-over button should read, such as `Hand over 3 of 5`. |
 | `submit` | `data` | The decision. Validated against the decision schema. |
 | `settings_set` | `patch` | Writes the plugin's own settings. Everyone hears the result as `settings`. |
+| `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | One of the app's own keys on the review screen, <kbd>?</kbd>, <kbd>[</kbd> or <kbd>]</kbd>, pressed in the view outside a text field and left alone by it. The SDK sends it; the app acts on it as if pressed in its window. |
 | `open` | `url` | Opens a link in the person's browser. Only `http`, `https` and `mailto` are followed. |
 | `attachment` | `req`, `name`, and `round: "previous"` for a file of the round this one revises | Asks for the bytes of a file the review carries. The app answers with `attachment` and the same `req`. |
 

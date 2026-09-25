@@ -22,6 +22,7 @@ function fakeEnv() {
     observers: [],
     themes: [],
     keys: [],
+    appKeys: [],
     post(msg, target) { env.posted.push({ msg, target }); },
     listen(fn) { env.listeners.push(fn); },
     setTimeout(fn, ms) { const id = env.nextTimer++; env.timers.push({ id, fn, ms }); return id; },
@@ -30,6 +31,7 @@ function fakeEnv() {
     applyTheme(theme) { env.themes.push(theme); },
     dispatchKey(key) { env.keys.push(key); },
     onShortcut(fn) { env.shortcuts.push(fn); },
+    onAppKey(fn) { env.appKeys.push(fn); },
     onLink(fn) { env.links.push(fn); },
     objectUrl(bytes, type) { return `blob:test/${type}/${bytes.byteLength}`; },
     // helpers
@@ -38,6 +40,7 @@ function fakeEnv() {
     types() { return env.posted.map((p) => p.msg.type); },
     last(type) { return [...env.posted].reverse().find((p) => p.msg.type === type); },
     pressShortcut() { env.shortcuts.forEach((fn) => fn()); },
+    pressAppKey(key) { env.appKeys.forEach((fn) => fn(key)); },
     clickLink(url) { env.links.forEach((fn) => fn(url)); },
   };
   return env;

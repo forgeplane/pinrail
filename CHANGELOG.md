@@ -19,6 +19,7 @@ its own, and its major is the plugin protocol's.
 #### Desktop app
 
 - The theme switches with <kbd>⌘⇧L</kbd> (<kbd>Ctrl+Shift+L</kbd> on Windows and Linux), and from the Navigate menu, so it works while a plugin has the keyboard. <kbd>T</kbd> now reaches plugins, which use it themselves.
+- <kbd>?</kbd>, <kbd>[</kbd> and <kbd>]</kbd> work while a plugin view has the keyboard: the help opens and the rounds change without clicking outside the view first.
 
 #### CLI
 

@@ -241,6 +241,8 @@
     env.listen(handle);
     if (env.onLink) env.onLink(open);
     if (handlers.shortcut !== false && env.onShortcut) env.onShortcut(collect);
+    // the app's own keys on the review screen reach it from inside the view too
+    if (env.onAppKey) env.onAppKey((key) => post(Object.assign({ type: "key" }, key)));
     post({ type: "ready" });
 
     /* The bytes of a file the review carries, from the shell: a view's
@@ -467,12 +469,24 @@
         }
         // anything else, a fragment into the view among it, behaves as written
       }),
+      // ? for the keys, [ and ] for the rounds: the app's, so a press the
+      // view left alone, outside a text field, goes up to it
+      onAppKey: (fn) => win.addEventListener("keydown", (e) => {
+        if (e.defaultPrevented || e.pinrailForwarded || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (!APP_KEYS.includes(e.key)) return;
+        const el = e.target;
+        if (el && el.closest && el.closest("input, textarea, select, [contenteditable]")) return;
+        fn({ key: e.key, code: e.code || "", metaKey: false, ctrlKey: false, altKey: false, shiftKey: !!e.shiftKey });
+      }),
       onShortcut: (fn) => win.addEventListener("keydown", (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); fn(); }
       }),
       objectUrl: (bytes, type) => win.URL.createObjectURL(new win.Blob([bytes], { type })),
     };
   }
+
+  // the keys the app answers on the review screen, which a view passes up
+  const APP_KEYS = ["?", "[", "]"];
 
   const Pinrail = {
     version: VERSION,

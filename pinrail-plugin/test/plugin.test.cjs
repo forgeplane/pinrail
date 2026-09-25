@@ -427,3 +427,10 @@ test("the script a view loads names no source map, which nothing serves", () => 
   assert.ok(script.includes("markdownit"), "the parser is in it");
   assert.ok(!/sourceMappingURL/.test(script), "no source map comment");
 });
+
+test("the app's own keys, pressed in the view, go up to the app", () => {
+  const env = fakeEnv();
+  Pinrail.createPlugin(env, {});
+  env.pressAppKey({ key: "?", code: "Slash", metaKey: false, ctrlKey: false, altKey: false, shiftKey: true });
+  assert.deepEqual(env.last("key").msg, { pinrail: 1, type: "key", key: "?", code: "Slash", metaKey: false, ctrlKey: false, altKey: false, shiftKey: true });
+});

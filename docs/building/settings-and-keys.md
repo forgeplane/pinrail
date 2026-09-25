@@ -133,4 +133,6 @@ Only declared keys are forwarded. A view that declares none receives none.
 
 :::caution[Keys the app keeps]
 Some keys belong to the review screen and are never forwarded: <kbd>?</kbd>, <kbd>[</kbd>, <kbd>]</kbd>, <kbd>esc</kbd>, <kbd>⌘⇧M</kbd>, <kbd>⌘↵</kbd> and the <kbd>⌘</kbd> shortcuts of the app's menus. If you declare one, the keyboard help marks it as taken by the app.
+
+They work while your view has the keyboard too: pressed outside a text field, <kbd>?</kbd>, <kbd>[</kbd> and <kbd>]</kbd> go up to the app, unless your view handled them first and called `preventDefault()`.
 :::

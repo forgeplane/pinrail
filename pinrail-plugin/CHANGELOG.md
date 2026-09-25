@@ -6,6 +6,11 @@ change to the protocol is a new major and a new path.
 
 ## Unreleased
 
+- The app's own keys work from inside a view. <kbd>?</kbd> for the
+  keyboard shortcuts, and <kbd>[</kbd> and <kbd>]</kbd> for the rounds, go
+  up to the app when pressed outside a text field, unless the view handled
+  them and called `preventDefault()`. The new plugin → app message is `key`.
+
 - The test harness knows audio files by their extension: `.ogg`, `.oga`
   and `.opus` as `audio/ogg`, `.m4a` as `audio/mp4`, `.aac` and `.flac`,
   beside `.mp3` and `.wav`. A fixture no longer needs a `media_type` for

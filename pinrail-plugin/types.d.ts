@@ -179,6 +179,7 @@ export type PluginMessage =
   | { pinrail: Protocol; type: "status"; label?: string }
   | { pinrail: Protocol; type: "submit"; data: any }
   | { pinrail: Protocol; type: "settings_set"; patch: Settings }
+  | { pinrail: Protocol; type: "key"; key: "?" | "[" | "]"; code: string; metaKey: false; ctrlKey: false; altKey: false; shiftKey: boolean }
   /** open this link outside the app: http, https or mailto */
   | { pinrail: Protocol; type: "open"; url: string }
   /** the bytes of a file the review (or the round it revises) carries */
