@@ -41,7 +41,13 @@ pub const EXIT_TIMEOUT: u8 = 4;
 pub const EXIT_DISCARDED: u8 = 5;
 
 #[derive(Parser)]
-#[command(name = "pinrail", version, about, long_about = None)]
+#[command(
+    name = "pinrail",
+    version,
+    about,
+    long_about = None,
+    after_help = "How to use Pinrail as an agent: pinrail docs"
+)]
 struct Cli {
     /// Server URL; default: PINRAIL_URL, then the running server's server.json, then http://127.0.0.1:4747
     #[arg(long, global = true, env = "PINRAIL_URL")]

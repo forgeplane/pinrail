@@ -93,6 +93,7 @@ pub fn document(described: Value, index: bool) -> Value {
     });
     if index {
         doc["next"] = json!(NEXT);
+        doc["docs"] = json!("pinrail docs: how to ask, and what to do with the answer");
     }
     doc
 }
@@ -111,7 +112,9 @@ pub fn markdown(described: &Value, index: bool) -> String {
         for plugin in &plugins {
             index_line(&mut out, plugin);
         }
-        out.push_str(&format!("\nNext, {NEXT}.\n"));
+        out.push_str(&format!(
+            "\nNext, {NEXT}.\n\nHow to ask, and what to do with the answer: `pinrail docs`.\n"
+        ));
     } else {
         for plugin in &plugins {
             plugin_section(&mut out, plugin);

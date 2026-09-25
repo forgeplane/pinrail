@@ -22,9 +22,9 @@ const TRY = "pinrail submit list --sample \\\n  --wait --format markdown";
 /** Prompts that leave the how to the agent: `plugins describe` teaches it
  * the rest. Both work with the built-in list plugin. */
 const TRY_NOW =
-  "Find the TODOs in this repository and ask me through Pinrail which to tackle first. Run `pinrail plugins describe` to see how.";
+  "Find the TODOs in this repository and ask me through Pinrail which to tackle first. Run `pinrail docs` to see how.";
 const HABIT =
-  "Write a skill that asks me through Pinrail to approve the changes before you commit. Run `pinrail plugins describe` to see how.";
+  "Write a skill that asks me through Pinrail to approve the changes before you commit. Run `pinrail docs` to see how.";
 
 const BUILD = "https://pinrail.dev/docs/building/writing/";
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;

@@ -28,6 +28,10 @@ Put them wherever your agent already reads its standing instructions. The words 
 
 Instructions in the repository apply to everyone who runs an agent there. Instructions in your personal settings apply to you, everywhere.
 
+:::tip[Let the agent read up]
+`pinrail docs` tells an agent how to use Pinrail in a screen, and leads it to short pages on asking, plugins and writing its own rules. Point your agent at it and describe the moment you want it to ask: it can write the rule itself.
+:::
+
 ## What good instructions say
 
 An agent follows instructions literally. Say four things, plainly:
@@ -65,6 +69,8 @@ Don't ask in chat and don't go ahead without an answer.
    `--revises <the review's id>`, so I see the new round beside the old one.
 5. If the command exits 5, I discarded the review: stop the work it was
    about, tell me my reason, and don't ask again.
+
+`pinrail docs` explains Pinrail itself, if you need more.
 ```
 
 ## Handle every outcome
