@@ -461,6 +461,8 @@ fn run(cli: Cli) -> Result<u8> {
     {
         let dir = dir.clone().unwrap_or_else(|| PathBuf::from(name));
         scaffold::write(name, &dir)?;
+        // the folder as it was named, for the prompt a person pastes
+        let given = dir.display().to_string();
         let dir = dir.canonicalize()?;
         let shown = dir.display();
         eprintln!("pinrail: {name} written to {shown}");
@@ -469,13 +471,14 @@ fn run(cli: Cli) -> Result<u8> {
             Client::new(&base).plugins_install(&dir.to_string_lossy(), true, false, None, None)?;
             eprintln!("pinrail: {name} is linked; the app serves the folder live");
         }
-        let install = if *link {
+        // what comes next, for whoever ran it, most often an agent
+        let link_step = if *link {
             String::new()
         } else {
-            format!("  pinrail plugins install {shown} --link   serve it live in the app\n")
+            format!("\n  pinrail plugins install {given} --link   so the app serves it live")
         };
         eprintln!(
-            "\n{install}  pinrail submit {name} --sample   send it its sample; the review opens in the app\n  pinrail plugins check {shown}   what the app would refuse\n  pinrail plugins guide   how to build a plugin, a topic at a time\n\nA framework, or tests without the app? npx @forgeplane/pinrail-plugin create"
+            "\nNext:{link_step}\n  1. Read AGENTS.md in {given}, then make the plugin what is needed: the\n     schemas, example, sample and view, kept in step.\n  2. pinrail plugins check {given}\n  3. pinrail submit {name} --sample, and look at the review.\n\nHow to build a plugin, a topic at a time: pinrail plugins guide\nA framework, or tests without the app: npx @forgeplane/pinrail-plugin create"
         );
         return Ok(0);
     }
