@@ -6,10 +6,10 @@ use serde_json::{Value, json};
 
 use crate::{EXIT_CLOSED, EXIT_DISCARDED, EXIT_ERROR, EXIT_REFUSED, EXIT_TIMEOUT};
 
-const SUBMIT: &str =
-    "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
+const SUBMIT: &str = "pinrail submit <plugin> --title \"<what it is about>\" --origin repo=<owner/name>,ref=<branch or PR> --data payload.json --wait --format markdown";
 const CHECK: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
+const ORIGIN: &str = "say where the review comes from with --origin: repo is the project as owner/name, as its git remote names it, or outside a git repository a short descriptive name for the project; ref the branch or pull request; url a link back, when there is one. The inbox groups reviews by repo, and one without it lands under No project";
 const FILES: &str = "for a plugin with `attachments`, send each file its payload schema asks for with --attach PATH[=NAME]; the schema says where a file goes, as {\"$attachment\": \"<name>\"}, and --dry-run checks it all before anything is uploaded";
 
 /// What each exit code tells the agent to do next.
@@ -58,6 +58,7 @@ pub fn document(described: Value) -> Value {
         "submit": {
             "command": SUBMIT,
             "check": CHECK,
+            "origin": ORIGIN,
             "result": result,
             "markdown": "--format markdown prints a decided review as markdown, for a plugin whose `markdown` is true",
             "attachments": FILES,
@@ -81,6 +82,11 @@ pub fn markdown(described: &Value) -> String {
 
     out.push_str("\n## Submitting\n\n");
     out.push_str(&format!("```sh\n{SUBMIT}\n```\n\n"));
+    out.push_str(&format!(
+        "{}{}.\n\n",
+        ORIGIN[..1].to_uppercase(),
+        &ORIGIN[1..]
+    ));
     out.push_str(&format!(
         "Check a payload first, without creating a review:\n\n```sh\n{CHECK}\n```\n\n"
     ));
