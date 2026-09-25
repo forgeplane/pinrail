@@ -44,7 +44,7 @@ const phases = [0, 5600, 9800];
         <div class="hw-line" data-at="11700"><span class="hw-bullet">⏺</span> Posting #1 and #3 as you worded them. #4 stays out; #2 and #5 wait for you.</div>
         <div class="hw-line" data-at="12400"><span class="hw-bullet hw-tool" data-ok="12900">⏺</span> <b>Bash</b>(gh pr review 482 --comment --body-file comments.md)</div>
         <div class="hw-line hw-out t-dim" data-at="12900">  ⎿  2 review comments posted</div>
-        <div class="hw-line hw-status" data-at="4200" data-until="9900"><span class="hw-star">✻</span> Waiting for your decision… <span class="t-dim">(esc to interrupt)</span></div>
+        <div class="hw-line hw-status" data-at="4200" data-until="9900"><span class="hw-star" data-hw-star>✻</span><span class="hw-verb">Pinrailing…</span> <span class="t-dim">(<span data-hw-secs>0s</span> · esc to interrupt)</span></div>
       </div>
       <div class="hw-input" aria-hidden="true"><span class="t-dim">&gt;</span> <span class="hw-line hw-inline" data-at="200" data-type="24" data-until="1900"><span data-text="review PR #482 and post your comments, but ask me first"></span></span><span class="hw-cursor"></span></div>
       <p class="hw-hint" aria-hidden="true">? for shortcuts</p>
@@ -82,7 +82,11 @@ const phases = [0, 5600, 9800];
     const go = root.querySelector<HTMLElement>("[data-hw-go]")!;
     const replay = root.querySelector<HTMLButtonElement>("[data-hw-replay]")!;
     const dots = [...root.querySelectorAll<HTMLElement>("[data-ok]")];
+    const star = root.querySelector<HTMLElement>("[data-hw-star]")!;
+    const secs = root.querySelector<HTMLElement>("[data-hw-secs]")!;
+    const status = star.closest<HTMLElement>(".hw-line")!;
     let timers: number[] = [];
+    let ticker = 0;
 
     type Event = { at: number; run: (instant: boolean) => void };
     const events: Event[] = [];
@@ -113,9 +117,22 @@ const phases = [0, 5600, 9800];
     events.push({ at: 13400, run: () => { replay.hidden = false; } });
     events.sort((a, b) => a.at - b.at);
 
+    // the spinner as Claude Code draws it: a glyph that grows and shrinks,
+    // and the seconds since the wait began, counted on the timeline
+    const glyphs = ["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"];
+    const spin = (start: number) => {
+      ticker = window.setInterval(() => {
+        const t = performance.now() - start;
+        star.textContent = glyphs[Math.floor(t / 120) % glyphs.length];
+        secs.textContent = `${Math.max(0, Math.floor((t - Number(status.dataset.at)) / 1000))}s`;
+      }, 120);
+    };
+
     const reset = () => {
       timers.forEach(clearTimeout);
       timers = [];
+      clearInterval(ticker);
+      secs.textContent = "0s";
       lines.forEach((l) => { l.classList.remove("on", "gone"); const t = l.querySelector<HTMLElement>("[data-text]"); if (t) t.textContent = ""; });
       dots.forEach((d) => d.classList.remove("ok"));
       appWindow.classList.remove("in");
@@ -127,6 +144,7 @@ const phases = [0, 5600, 9800];
     };
     const seek = (from: number) => {
       reset();
+      if (Number.isFinite(from)) spin(performance.now() - from);
       for (const e of events) {
         if (e.at < from) e.run(true);
         else timers.push(window.setTimeout(() => e.run(false), e.at - from));

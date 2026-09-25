@@ -135,13 +135,14 @@
 .hw-line b { color: #fff; font-weight: 600; }
 .hw-md { color: #fff; font-weight: 600; }
 .hw-status { margin-top: 14px; color: #d77757; }
-.hw-star { display: inline-block; animation: hw-spin 2.4s linear infinite; }
+.hw-star { display: inline-block; width: 2ch; }
+.hw-verb { background: linear-gradient(90deg, #d77757 40%, #f5c2ac 50%, #d77757 60%) 100% 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: hw-shimmer 2s linear infinite; }
 .hw-input { margin: 0 16px; padding: 8px 12px; border: 1px solid #5c5850; border-radius: 8px; font: 13px var(--mono); color: #fff; }
 .hw-cursor { display: inline-block; width: 7px; height: 15px; margin-left: 1px; vertical-align: -3px; background: #e8e3da; animation: hw-blink 1s steps(2) infinite; }
 .hw-hint { margin: 6px 18px 14px; font: 11.5px var(--mono); color: var(--night-dim); }
 @keyframes hw-blink { 50% { opacity: 0.25; } }
 @keyframes hw-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-@keyframes hw-spin { to { transform: rotate(360deg); } }
+@keyframes hw-shimmer { to { background-position: 0 0; } }
 .hw-app { position: absolute; top: 64px; right: 3%; width: 56%; opacity: 0; pointer-events: none; transform: translate(28px, 14px) scale(0.97); transition: opacity 0.45s ease, transform 0.45s ease; }
 .hw-app.in { opacity: 1; transform: none; }
 .hw-app:hover { transform: none; }
@@ -169,7 +170,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .hw-line.on, .hw-app, .hw-toast { animation: none; transition: none; }
-  .hw-star, .hw-tool, .hw-cursor { animation: none; }
+  .hw-verb, .hw-tool, .hw-cursor { animation: none; }
 }
 
 
