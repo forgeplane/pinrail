@@ -369,6 +369,7 @@ h3 { margin: 6px 0 6px; font-size: 19px; font-weight: 600; }
 .colophon { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; max-width: 1320px; margin: 0 auto; padding: 20px 28px 40px; font: 12px var(--mono); color: var(--faint); }
 .colophon nav { display: flex; gap: 18px; }
 .colophon a { text-decoration: none; }
+.colophon small { display: block; margin-top: 6px; font-size: 11px; opacity: 0.8; }
 .colophon a:hover { color: var(--ink); }
 
 /* Narrower: notes go inline, the decision becomes a sheet at the bottom */
