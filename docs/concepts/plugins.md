@@ -34,7 +34,7 @@ The agent decides *when* to ask: its own instructions say which steps need a per
 
 ## How an agent finds the right plugin
 
-A plugin describes itself, so an agent doesn't need you to explain it. Its manifest says what it is for and when to use it, and ships an example payload next to its schemas. An agent learns everything installed with one command:
+A plugin describes itself, so an agent doesn't need you to explain it. Its manifest says what it is for and when to use it, and ships an example payload next to its schemas. An agent sees everything installed, a line each, with one command, then reads the one it picks in full with `pinrail plugins describe <name>`:
 
 ```sh
 pinrail plugins describe --format markdown
@@ -42,8 +42,9 @@ pinrail plugins describe --format markdown
 
 ```mermaid title="From an unknown set of plugins to a review in the inbox"
 flowchart LR
-  A["agent"] -->|"pinrail plugins describe"| D["each plugin: when to use it,<br/>payload schema, example,<br/>decision schema"]
-  D -->|"picks one, writes the payload"| C["--dry-run"]
+  A["agent"] -->|"pinrail plugins describe"| I["each plugin:<br/>when to use it"]
+  I -->|"picks one, describes it"| D["that plugin: payload schema,<br/>example, decision schema"]
+  D -->|"writes the payload"| C["--dry-run"]
   C -->|"violations"| D
   C -->|"valid"| S["pinrail submit … --wait"]
   S --> Y(["you decide"]):::you

@@ -1,6 +1,8 @@
-//! `pinrail plugins describe`: what an agent needs to ask with Pinrail, from
-//! one command. The server describes the plugins; the CLI adds how to
-//! submit, where the decision lands and what each exit code means.
+//! `pinrail plugins describe`: what an agent needs to ask with Pinrail. With
+//! no name it is an index, each plugin in a line with when to use it, so an
+//! agent picks one without reading every schema; with a name, or `--all`,
+//! the full description. The server describes the plugins; the CLI adds how
+//! to submit, where the decision lands and what each exit code means.
 
 use serde_json::{Value, json};
 
@@ -11,6 +13,8 @@ const CHECK: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
 const ORIGIN: &str = "say where the review comes from with --origin: repo is the project, ref the branch or pull request, url a link back when there is one. Inside a git checkout the command fills repo (owner/name, from the remote) and ref (the branch) itself; outside one, give repo a short descriptive name for the project. The inbox groups reviews by repo, and one without it lands under No project";
 const FILES: &str = "for a plugin with `attachments`, send each file its payload schema asks for with --attach PATH[=NAME]; the schema says where a file goes, as {\"$attachment\": \"<name>\"}, and --dry-run checks it all before anything is uploaded";
+
+const NEXT: &str = "run `pinrail plugins describe <name>` for a plugin's payload schema, an example payload and the decision it returns, before you submit to it";
 
 /// What each exit code tells the agent to do next.
 const EXIT_CODES: &[(u8, &str)] = &[
@@ -43,8 +47,20 @@ const RESULT: &[(&str, &str)] = &[
     ),
 ];
 
-/// The server's description with the CLI's own part added.
-pub fn document(described: Value) -> Value {
+/// A plugin in the index: when to use it, and what else sets it apart.
+fn summary(plugin: &Value) -> Value {
+    json!({
+        "name": plugin["name"],
+        "title": plugin["title"],
+        "use_when": plugin["use_when"].as_str().or(plugin["description"].as_str()),
+        "files": plugin["attachments"]["accept"],
+        "sample": plugin["sample"].as_bool().unwrap_or(false),
+    })
+}
+
+/// The server's description with the CLI's own part added: every plugin in
+/// full, or, as an `index`, each in a line with the way to its full part.
+pub fn document(described: Value, index: bool) -> Value {
     let exit_codes: serde_json::Map<String, Value> = EXIT_CODES
         .iter()
         .map(|(code, meaning)| (code.to_string(), json!(meaning)))
@@ -53,8 +69,18 @@ pub fn document(described: Value) -> Value {
         .iter()
         .map(|(key, meaning)| (key.to_string(), json!(meaning)))
         .collect();
-    json!({
-        "plugins": described["plugins"],
+    let plugins = if index {
+        Value::Array(
+            described["plugins"]
+                .as_array()
+                .map(|all| all.iter().map(summary).collect())
+                .unwrap_or_default(),
+        )
+    } else {
+        described["plugins"].clone()
+    };
+    let mut doc = json!({
+        "plugins": plugins,
         "submit": {
             "command": SUBMIT,
             "check": CHECK,
@@ -64,10 +90,14 @@ pub fn document(described: Value) -> Value {
             "attachments": FILES,
             "exit_codes": exit_codes,
         },
-    })
+    });
+    if index {
+        doc["next"] = json!(NEXT);
+    }
+    doc
 }
 
-pub fn markdown(described: &Value) -> String {
+pub fn markdown(described: &Value, index: bool) -> String {
     let mut out = String::from("# Pinrail plugins\n\n");
     out.push_str(
         "Pinrail puts a question to a person and hands their decision back. Each plugin is one kind of question: pick the one whose *Use when* fits, send a payload its schema accepts, and read the decision.\n",
@@ -76,8 +106,16 @@ pub fn markdown(described: &Value) -> String {
     if plugins.is_empty() {
         out.push_str("\nNo plugin is installed and usable.\n");
     }
-    for plugin in &plugins {
-        plugin_section(&mut out, plugin);
+    if index {
+        out.push('\n');
+        for plugin in &plugins {
+            index_line(&mut out, plugin);
+        }
+        out.push_str(&format!("\nNext, {NEXT}.\n"));
+    } else {
+        for plugin in &plugins {
+            plugin_section(&mut out, plugin);
+        }
     }
 
     out.push_str("\n## Submitting\n\n");
@@ -103,6 +141,71 @@ pub fn markdown(described: &Value) -> String {
         out.push_str(&format!("| {code} | {meaning} |\n"));
     }
     out
+}
+
+/// `pinrail plugins` as markdown: what is installed, from where, and
+/// whether it works, with the way to ask with one.
+pub fn listing(listed: &Value) -> String {
+    let mut out = String::from(
+        "# Installed plugins\n\n| plugin | version | from | state |\n|---|---|---|---|\n",
+    );
+    for plugin in listed["plugins"].as_array().into_iter().flatten() {
+        let text = |v: &Value| v.as_str().unwrap_or_default().to_string();
+        let install = &plugin["install"];
+        let from = if install.is_null() {
+            "built in".to_string()
+        } else if install["linked"] == true {
+            format!("linked, {}", text(&install["source"]))
+        } else {
+            text(&install["source"])
+        };
+        let state = match plugin["error"].as_str() {
+            Some(error) => format!("broken: {error}"),
+            None => "ready".to_string(),
+        };
+        out.push_str(&format!(
+            "| {} | {} | {} | {} |\n",
+            text(&plugin["name"]),
+            text(&plugin["release"]),
+            from.replace('|', "\\|"),
+            state.replace('|', "\\|")
+        ));
+    }
+    out.push_str("\nTo ask with one, `pinrail plugins describe` says when to use each.\n");
+    out
+}
+
+/// `- **list** (Action list): use when …. Takes files: .glb.`
+fn index_line(out: &mut String, plugin: &Value) {
+    let s = summary(plugin);
+    let name = s["name"].as_str().unwrap_or_default();
+    out.push_str(&format!("- **{name}**"));
+    if let Some(title) = s["title"].as_str().filter(|t| *t != name) {
+        out.push_str(&format!(" ({title})"));
+    }
+    let when = s["use_when"].as_str();
+    if when.is_some() || s["files"].is_array() {
+        out.push(':');
+    }
+    if let Some(when) = when {
+        out.push_str(&format!(" {when}"));
+    }
+    if let Some(files) = s["files"].as_array() {
+        // extensions say it shortest; media types only when there are none
+        let kinds: Vec<&str> = files.iter().filter_map(Value::as_str).collect();
+        let extensions: Vec<&str> = kinds
+            .iter()
+            .copied()
+            .filter(|k| k.starts_with('.'))
+            .collect();
+        let shown = if extensions.is_empty() {
+            kinds
+        } else {
+            extensions
+        };
+        out.push_str(&format!(" Takes files: {}.", shown.join(", ")));
+    }
+    out.push('\n');
 }
 
 fn plugin_section(out: &mut String, plugin: &Value) {

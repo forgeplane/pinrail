@@ -29,23 +29,25 @@ The CLI holds no state and makes no decisions of its own. Output goes to stdout,
 
 ## Learning what to ask
 
-One command tells an agent everything it needs to ask through Pinrail:
+Two steps tell an agent everything it needs to ask through Pinrail: first which plugin fits, then that plugin in full.
 
 ```sh
-pinrail plugins describe                          # every usable plugin, as JSON
-pinrail plugins describe review --format markdown # one plugin, as a document
+pinrail plugins describe                          # every usable plugin, a line each
+pinrail plugins describe review --format markdown # one plugin, in full
 ```
 
-For each plugin you get:
+Without a name, `describe` is an index: each plugin in a line with **when to use it**, in the plugin author's words, and the files it takes. After the plugins come the command to submit with, what the finished review carries, and what every [exit code](#exit-codes) means.
 
-- what the plugin is for, and **when to use it**, in the plugin author's words;
+With a name, it describes that plugin in full:
+
+- what the plugin is for, and when to use it;
 - the **payload schema**, and an **example payload** that passes it;
 - the **decision schema**: the shape of `decision.data` in the review that comes back.
 
-After the plugins come the command to submit with, what the finished review carries, and what every [exit code](#exit-codes) means. Like `submit`, it starts the app if it is not running.
+`--all` describes every plugin in full at once, for a tool that wants it in one call. Like `submit`, `describe` starts the app if it is not running.
 
 :::tip[Point the agent at it]
-An agent that runs `pinrail plugins describe --format markdown` at the start of a session can choose a plugin and write its payload without a person spelling either out.
+An agent that runs `pinrail plugins describe --format markdown` can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.
 :::
 
 ## Submitting a review
@@ -203,7 +205,7 @@ JSON is the default. It is the whole review, with the decision attached, for a s
 | `pinrail discard <id>` | Discard a pending review. Its waiter exits 5. |
 | `pinrail export <dir>` | Write every review as JSON files under a directory. |
 | `pinrail serve` | Start the app's server if it is not running, and print its URL. |
-| `pinrail plugins` | List installed plugins, and [install, update or remove](/docs/using/installing-plugins/) them. |
+| `pinrail plugins` | List installed plugins, as JSON or with `--format markdown` a table, and [install, update or remove](/docs/using/installing-plugins/) them. |
 | `pinrail plugins describe [name]` | What an agent needs to ask with each plugin. See [Learning what to ask](#learning-what-to-ask). |
 
 `pinrail <command> --help` lists every flag, and the [CLI reference](/docs/reference/cli/) has them all.

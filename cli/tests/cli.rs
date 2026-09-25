@@ -553,6 +553,16 @@ fn describe_adds_how_to_submit_and_the_exit_codes_to_the_plugins() {
     assert!(stdout.contains("**Use when:** Before posting review comments"));
     assert!(stdout.contains("| 4 | timed out"));
 
+    // with no name, an index: a line a plugin, and the way to the rest
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("- **list** (List): Before posting review comments\n"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("Next, run `pinrail plugins describe <name>`"));
+    assert!(!stdout.contains("### Payload"));
+
     let (code, _, _) = run(&server, &["plugins", "describe", "nope"]);
     assert_eq!(code, 2);
     assert_eq!(
@@ -561,7 +571,7 @@ fn describe_adds_how_to_submit_and_the_exit_codes_to_the_plugins() {
             .iter()
             .filter(|r| r.contains("/describe"))
             .count(),
-        3
+        4
     );
 }
 
@@ -976,6 +986,23 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
     let (code, stdout, stderr) = run(&server, &["plugins", "describe"]);
     assert_eq!(code, 0, "{stderr}");
     let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(doc["plugins"][0]["files"][0], ".glb");
+    assert!(
+        doc["plugins"][0].get("payload_schema").is_none(),
+        "the index leaves the schemas to describe <name>"
+    );
+    assert!(doc["next"].as_str().unwrap().contains("describe <name>"));
+
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.contains("- **model** (3D model review): Takes files: .glb."),
+        "{stdout}"
+    );
+
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "--all"]);
+    assert_eq!(code, 0);
+    let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(doc["plugins"][0]["attachments"]["accept"][0], ".glb");
     assert!(
         doc["submit"]["attachments"]
@@ -984,7 +1011,10 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
             .contains("--attach PATH[=NAME]")
     );
 
-    let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);
+    let (code, stdout, _) = run(
+        &server,
+        &["plugins", "describe", "--all", "--format", "markdown"],
+    );
     assert_eq!(code, 0);
     assert!(
         stdout.contains("### Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
@@ -1080,4 +1110,27 @@ fn submit_fills_the_origin_from_the_git_checkout_it_runs_in() {
         sent[1]["origin"],
         serde_json::json!({ "repo": "acme/web", "url": "https://x", "ref": "fix/tickets" })
     );
+}
+
+#[test]
+fn plugins_as_markdown_is_a_table_of_what_is_installed() {
+    let server = MockServer::start(Box::new(|_, path, _| {
+        assert_eq!(path, "/api/v1/plugins");
+        (200, r#"{"plugins":[
+            {"name":"list","release":"1.0.0","install":null,"error":null},
+            {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"},"error":null},
+            {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"},"error":"entry index.html not found"}]}"#.into())
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "--format", "markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        stdout.contains("| list | 1.0.0 | built in | ready |"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("| review | 2.1.0 | linked, /src/review | ready |"));
+    assert!(
+        stdout
+            .contains("| odd | 0.1.0 | github.com/acme/odd | broken: entry index.html not found |")
+    );
+    assert!(stdout.contains("`pinrail plugins describe`"));
 }

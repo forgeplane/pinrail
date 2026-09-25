@@ -49,8 +49,9 @@ struct Cli {
     #[arg(long, global = true)]
     pretty: bool,
 
-    /// How a review is printed: json (the default, for scripts) or
-    /// markdown (for a session reading the decision); PINRAIL_FORMAT sets it
+    /// How a review, `plugins` and `plugins describe` are printed: json
+    /// (the default, for scripts) or markdown (for a session reading them);
+    /// PINRAIL_FORMAT sets it
     #[arg(long, global = true, env = "PINRAIL_FORMAT", value_enum, default_value_t = Format::Json)]
     format: Format,
 
@@ -163,7 +164,8 @@ enum Command {
         #[arg(long)]
         by: Option<String>,
     },
-    /// Registered plugins
+    /// The installed plugins as the app lists them, with their install
+    /// records and settings; to ask with one, see `plugins describe`
     #[command(alias = "types")]
     Plugins(PluginsArgs),
     /// The files a review carries: list them, or save one
@@ -365,13 +367,16 @@ enum PluginsCommand {
         /// the plugin's name
         name: String,
     },
-    /// What an agent needs to ask with each usable plugin, or the one
-    /// named: what it is for and when to use it, its payload and decision
-    /// schemas, an example payload, and the exit codes; markdown with
-    /// --format markdown
+    /// What an agent needs to ask with Pinrail: every usable plugin in a
+    /// line with when to use it, how to submit, and the exit codes; with a
+    /// name, that plugin in full, with its payload and decision schemas and
+    /// an example payload; markdown with --format markdown
     Describe {
-        /// the plugin's name; every usable plugin when omitted
+        /// the plugin's name; an index of every usable plugin when omitted
         name: Option<String>,
+        /// every usable plugin in full, rather than the index
+        #[arg(long, conflicts_with = "name")]
+        all: bool,
     },
     /// Reload the installed plugins from disk
     Reload,
@@ -553,18 +558,23 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Plugins(PluginsArgs {
-            command: Some(PluginsCommand::Describe { name }),
+            command: Some(PluginsCommand::Describe { name, all }),
         }) => {
+            let index = name.is_none() && !all;
             let described = client.plugins_describe(name.as_deref())?;
             if output.markdown {
-                print!("{}", describe::markdown(&described));
+                print!("{}", describe::markdown(&described, index));
             } else {
-                out::print_json(&describe::document(described), pretty);
+                out::print_json(&describe::document(described, index), pretty);
             }
             Ok(0)
         }
         Command::Plugins(args) => {
             let value = match args.command {
+                None if output.markdown => {
+                    print!("{}", describe::listing(&client.plugins()?));
+                    return Ok(0);
+                }
                 None => client.plugins()?,
                 Some(PluginsCommand::Install {
                     source,
