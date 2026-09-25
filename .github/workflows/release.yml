@@ -205,6 +205,17 @@ jobs:
           printf %s "$P8" | base64 --decode > "$RUNNER_TEMP/notarize/AuthKey.p8"
           chmod 600 "$RUNNER_TEMP/notarize/AuthKey.p8"
           echo "path=$RUNNER_TEMP/notarize/AuthKey.p8" >> "$GITHUB_OUTPUT"
+      # the changelog's section for this version, which latest.json carries
+      # to the app as the update's notes
+      - name: Read the release notes
+        id: notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          {
+            echo 'body<<NOTES_END'
+            node scripts/release-notes.mjs "${{ needs.draft.outputs.version }}"
+            echo 'NOTES_END'
+          } >> "$GITHUB_OUTPUT"
       - name: Build and upload the bundles
         id: build
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # action-v1.0.0
@@ -229,6 +240,7 @@ jobs:
           # without the updater key, the build goes without update bundles
           args: ${{ matrix.args }}${{ env.UPDATER != 'true' && ' --config src-tauri/tauri.no-updater.conf.json' || '' }}
           releaseId: ${{ needs.draft.outputs.id }}
+          releaseBody: ${{ steps.notes.outputs.body }}
           # each build adds its platforms to the release's latest.json
           uploadUpdaterJson: true
           uploadWorkflowArtifacts: true
