@@ -389,7 +389,7 @@ test("expanding a finding keeps it in place, even with a note left open further 
   expect(Math.abs((await card.locator(".card-head").boundingBox())!.y - before)).toBeLessThan(2);
 });
 
-test("a clicked verdict stays on its finding, so c comments there", async ({ page }) => {
+test("a clicked verdict stays on its finding, so c writes its note", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: round2() });
   const f = plugin.frame;
   await f.locator("#card-18 .accept-btn").click();
@@ -397,11 +397,11 @@ test("a clicked verdict stays on its finding, so c comments there", async ({ pag
   await f.locator("body").click({ position: { x: 5, y: 5 } });
   await expect(f.locator("#card-18")).toHaveClass(/\bfolded\b/);
   await page.keyboard.press("c");
-  await expect(f.locator(".mine.editing .mine-at")).toHaveText("tickets.ex:149");
-  // a folded finding opens, so its comment is in view beside yours
+  // c writes the finding's note: it opens, the note field in it
+  await expect(f.getByLabel("note for proposal 18")).toBeFocused();
   await expect(f.locator("#card-18")).not.toHaveClass(/\bfolded\b/);
   await page.keyboard.press("Escape");
-  await expect(f.getByLabel("your comment")).toHaveCount(0);
+  await expect(f.getByLabel("note for proposal 18")).toHaveCount(0);
   await expect(f.locator("#card-18")).toHaveClass(/\bfocused\b/);
 });
 
@@ -420,9 +420,9 @@ test("clicking a verdict, c and Esc keep the finding where it is on screen", asy
   expect(Math.abs((await y()) - start)).toBeLessThan(2);
   await f.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("c");
-  await expect(f.getByLabel("your comment")).toBeVisible();
+  await expect(f.getByLabel("note for proposal 5")).toBeVisible();
   expect(Math.abs((await y()) - start)).toBeLessThan(2);
   await page.keyboard.press("Escape");
-  await expect(f.getByLabel("your comment")).toHaveCount(0);
+  await expect(f.getByLabel("note for proposal 5")).toHaveCount(0);
   expect(Math.abs((await y()) - start)).toBeLessThan(2);
 });

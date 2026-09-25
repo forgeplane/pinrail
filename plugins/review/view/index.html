@@ -129,11 +129,12 @@ button.icon-btn.ok { color: var(--accent); }
 .card.boxed { border: 1px solid var(--border); border-radius: 10px; }
 .card.flush { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 /* the bar down a finding's left edge says where it stands; focus is a tint */
-.card { box-shadow: inset 3px 0 0 var(--border-strong); }
-.card.accepted { box-shadow: inset 3px 0 0 var(--ok); }
-.card.rejected { box-shadow: inset 3px 0 0 var(--danger); }
-.card.focused { background: color-mix(in oklab, var(--accent) 6%, var(--bg-raised)); }
-.card.boxed.focused { border-color: color-mix(in oklab, var(--accent) 45%, var(--border)); }
+.card { --bar: var(--border-strong); box-shadow: inset 3px 0 0 var(--bar); }
+.card.accepted { --bar: var(--ok); }
+.card.rejected { --bar: var(--danger); }
+/* the finding the keys act on: an accent ring round it, over its decision bar */
+.card.focused { position: relative; z-index: 1; background: color-mix(in oklab, var(--accent) 8%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--bar), inset 0 0 0 2px var(--accent), 0 4px 18px -8px color-mix(in oklab, var(--accent) 45%, transparent); }
+.card.boxed.focused { border-color: var(--accent); }
 .card .grow { flex: 1; }
 .card .id { flex: none; font: 11px var(--mono); color: var(--faint); }
 .sev { flex: none; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--sev-nit); background: color-mix(in oklab, var(--sev-nit) 16%, transparent); }
@@ -1368,11 +1369,10 @@ document.addEventListener("keydown", (e) => {
     case "k": e.preventDefault(); moveFocus(-1); break;
     case "a": if (!RO() && fid != null) { e.preventDefault(); decide(fid, "accept", true); } break;
     case "x": if (!RO() && fid != null) { e.preventDefault(); decide(fid, "reject", false); } break;
-    case "e": if (!RO() && fid != null) { e.preventDefault(); set(() => { S.noteOpen[fid] = { open: true, draft: (S.decisions[fid] && S.decisions[fid].note) || "" }; S.focusNote = fid; }); } break;
     case "c": if (!RO() && fid != null) {
+      // the note to the agent on the focused finding, written in place
       e.preventDefault();
-      const p = D.proposals.find((x) => x.id === fid);
-      if (p && p.file && p.line != null) inPlace(fid, () => set(() => { S.composer = { file: p.file, line: p.line, side: p.side, text: "", editId: null }; S.expanded[fid] = true; }));
+      inPlace(fid, () => set(() => { S.noteOpen[fid] = { open: true, draft: (S.decisions[fid] && S.decisions[fid].note) || "" }; S.focusNote = fid; S.expanded[fid] = true; }));
       break;
     }
     case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); keep("diff", S.diffMode); break;

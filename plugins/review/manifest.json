@@ -37,13 +37,8 @@
       "group": "Decide"
     },
     {
-      "keys": "e",
-      "does": "Add a note to the focused proposal",
-      "group": "Decide"
-    },
-    {
       "keys": "c",
-      "does": "Comment on the focused proposal's line",
+      "does": "Write a note to the agent on the focused finding",
       "group": "Decide"
     },
     {
