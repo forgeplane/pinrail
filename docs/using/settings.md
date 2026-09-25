@@ -67,7 +67,16 @@ Every installed plugin has a row: its icon and title, its version, where it came
 
 ## About
 
-The version, a check for updates, and links to the documentation and the licence.
+The version, updates, where to start writing a plugin, and the licence with its third-party notices.
+
+| Setting | What it does |
+|---|---|
+| **Updates** | Where updating stands. *Check for updates* looks now; *Restart to update* installs a version that is ready. |
+| **Check automatically** | Look for a new version when Pinrail starts and every few hours, and download it in the background. On by default. |
+
+A downloaded version is installed when you restart Pinrail, or the next time you quit it. Pinrail never restarts on its own: the sidebar and the menu bar menu say when a version is ready, and you choose when. An agent waiting on a review keeps waiting through the restart and gets its answer once Pinrail is back.
+
+Checking downloads a small file from GitHub, where Pinrail's releases are published; nothing about your reviews is sent. Every download is checked against a signature before it is installed. If you installed the `.deb` or `.rpm`, your package manager installs new versions: Pinrail says when one is out and links to it.
 
 ## Where settings are stored
 

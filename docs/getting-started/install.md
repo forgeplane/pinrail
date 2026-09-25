@@ -20,6 +20,8 @@ Download the latest release from [GitHub](https://github.com/forgeplane/pinrail/
 
 Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, so agents can still ask while the window is closed.
 
+Pinrail updates itself: it downloads new versions in the background and installs them when you restart it. On macOS the `pinrail` command links into the app, so it updates too; from an AppImage, choose **Install the CLI** again after an update. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
+
 ## The command
 
 In the app, open **Settings › Data** and choose **Install the CLI**. It puts `pinrail` into `~/.local/bin`. Make sure that folder is on your `PATH`:
