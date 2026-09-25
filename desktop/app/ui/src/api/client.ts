@@ -58,8 +58,8 @@ export const api = {
   info: () => request<Info>("GET", "/api/v1/info"),
   listReviews: (params: Record<string, string | undefined> = {}) =>
     request<ReviewListing>("GET", `/api/v1/reviews${query(params)}`),
-  /** what `pinrail submit` sends, from the app itself: the welcome's sample */
-  createReview: (body: { plugin: string; title: string; payload: unknown; requested_by?: string }) => request<Review>("POST", "/api/v1/reviews", body),
+  /** a plugin's sample, sent as a new review: what `pinrail submit <plugin> --sample` does */
+  sendSample: (plugin: string, body: { title?: string } = {}) => request<Review>("POST", `/api/v1/plugins/${encodeURIComponent(plugin)}/sample`, body),
   getReview: (id: string) => request<Review>("GET", `/api/v1/reviews/${id}`),
   rounds: (id: string) => request<Review[]>("GET", `/api/v1/reviews/${id}/rounds`),
   decide: (id: string, data: unknown, agentNote: string) =>

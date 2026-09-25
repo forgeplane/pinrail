@@ -3,6 +3,7 @@
 
 import { Bell, Blocks, Database, FolderOpen, Info, Keyboard, Palette, Settings, Settings2, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router";
 import { Select } from "../Select";
 import { api, inTauri } from "../../api/client";
 import { copyText } from "../../lib/clipboard";
@@ -121,6 +122,7 @@ const Keys = ({ keys }: { keys: string[][] }) => (
 );
 
 export function SettingsDialog({ open, section, plugin, onSection, onClose }: { open: boolean; section: SettingsSection; plugin?: string | null; onSection: (s: SettingsSection) => void; onClose: () => void }) {
+  const navigate = useNavigate();
   const { settings, update, native } = useSettings();
   const live = useLive();
   const [info, setInfo] = useState<ServerInfo | null>(null);
@@ -319,7 +321,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
             </SettingsPage>
           ) : null}
 
-          {section === "plugins" ? <PluginsSection focus={plugin ?? null} /> : null}
+          {section === "plugins" ? <PluginsSection focus={plugin ?? null} onOpenReview={(id) => { onClose(); navigate(`/reviews/${id}`); }} /> : null}
 
           {section === "data" ? (
             <SettingsPage title="Data">

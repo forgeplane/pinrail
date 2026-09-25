@@ -14,25 +14,8 @@ import { useLive } from "../../state/live";
 import { useNotificationStatus } from "../../state/notifications";
 import { useCli, type CliStatus } from "../settings/CliRow";
 
-const SAMPLE_TITLE = "Try Pinrail";
-const SAMPLE = {
-  intro: "Your first review. Accept one item, reject the other with a reason, then hand it over.",
-  groups: [
-    {
-      title: "Getting started",
-      items: [
-        { id: 1, title: "Ship the welcome screen" },
-        { id: 2, title: "Rename every variable to x" },
-      ],
-    },
-  ],
-};
-const TRY = `pinrail submit list --title "${SAMPLE_TITLE}" --data - --wait --format markdown <<'EOF'
-{"intro": "${SAMPLE.intro}",
- "groups": [{"title": "Getting started", "items": [
-   {"id": 1, "title": "Ship the welcome screen"},
-   {"id": 2, "title": "Rename every variable to x"}]}]}
-EOF`;
+// the list plugin is built in, so its sample is there on every install
+const TRY = "pinrail submit list --sample --wait --format markdown";
 
 const SNIPPET = `## Ask me through Pinrail
 
@@ -240,18 +223,20 @@ export function WelcomeDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose]);
 
-  // the first review, from the terminal or the button: seen once it waits
+  // the first review, from the terminal or the button: any that arrives
+  // while the setup is open
+  const [opened] = useState(() => new Date().toISOString());
   useEffect(() => {
     if (sample) return;
-    const found = live.pending.find((r) => r.title === SAMPLE_TITLE && r.plugin === "list");
+    const found = live.pending.find((r) => r.created_at >= opened.slice(0, 19));
     if (found) setSample(found.id);
-  }, [live.pending, sample]);
+  }, [live.pending, sample, opened]);
 
   const send = async () => {
     setSending(true);
     setSendError(null);
     try {
-      const review = await api.createReview({ plugin: "list", title: SAMPLE_TITLE, payload: SAMPLE, requested_by: "the welcome" });
+      const review = await api.sendSample("list");
       setSample(review.id);
     } catch (e) {
       setSendError(String(e));
@@ -314,7 +299,7 @@ export function WelcomeDialog({ onClose }: { onClose: () => void }) {
                   </>
                 ) : (
                   <>
-                    <p>Be the agent for a minute. Run this in a terminal; it waits until you decide.</p>
+                    <p>Be the agent for a minute. This sends the list plugin's sample review and waits until you decide; the terminal then prints your decision, as an agent reads it.</p>
                     <pre className="welcome-code">{TRY}</pre>
                     <div className="welcome-actions">
                       <CopyButton text={TRY} />

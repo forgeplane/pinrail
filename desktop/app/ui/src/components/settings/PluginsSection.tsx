@@ -2,7 +2,7 @@
 // from, a Notify toggle and its own settings folded under it; and the way
 // in, the install dialog.
 
-import { Bell, BellOff, ChevronRight, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import { Bell, BellOff, ChevronRight, Send, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, Trash2, TriangleAlert, Wrench } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
 import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
@@ -19,7 +19,7 @@ import { InstallPanel } from "./InstallPanel";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
 
 /** `focus` names a plugin whose settings open at once, from the palette. */
-export function PluginsSection({ focus }: { focus: string | null }) {
+export function PluginsSection({ focus, onOpenReview }: { focus: string | null; onOpenReview: (id: string) => void }) {
   const live = useLive();
   const { settings, update } = useSettings();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
@@ -98,6 +98,7 @@ export function PluginsSection({ focus }: { focus: string | null }) {
             onChange={(values) => update({ plugins: { [p.name]: values } })}
             onCopy={() => setInstalling({ source: p.path })}
             onMessage={notify}
+            onOpenReview={onOpenReview}
           />
         ))}
       </SettingsGroup>
@@ -147,7 +148,7 @@ function updatesLine(u: PluginUpdates): Line {
 }
 
 /** One installed plugin: its row, and its settings folded under it when it declares any. */
-function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange, onCopy, onMessage }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void; onMessage: (text: string, tone?: "ok" | "danger") => void }) {
+function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange, onCopy, onMessage, onOpenReview }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void; onMessage: (text: string, tone?: "ok" | "danger") => void; onOpenReview: (id: string) => void }) {
   const schema = p.usable ? p.settings_schema : null;
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
@@ -211,6 +212,19 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
     }
   };
 
+  // its sample, sent as a review and opened
+  const [sending, setSending] = useState(false);
+  const sendSample = async () => {
+    setSending(true);
+    try {
+      const review = await api.sendSample(p.name);
+      onOpenReview(review.id);
+    } catch (e) {
+      setSending(false);
+      onMessage(e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : `The ${p.title || p.name} sample could not be sent`, "danger");
+    }
+  };
+
   const remove = async () => {
     setRemoving("busy");
     try {
@@ -229,6 +243,8 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
     <span className="danger">{p.error}</span>
   ) : p.settings_error ? (
     <span className="danger">settings dropped: {p.settings_error}</span>
+  ) : p.sample_error ? (
+    <span className="danger">sample dropped: {p.sample_error}</span>
   ) : (
     <span className="settings-plugin-origin">
       <span className="mono">{origin ?? p.path}</span>
@@ -297,6 +313,13 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
         note={note}
         onClick={entries.length ? toggle : undefined}
       >
+        {p.usable && p.sample ? (
+          <Tooltip label="Send a sample review, to see how it looks">
+            <button type="button" className="bar-button" onClick={sendSample} aria-label={`Send a sample of ${p.name}`} disabled={sending} data-plugin-sample>
+              <Send size={15} />
+            </button>
+          </Tooltip>
+        ) : null}
         {native ? (
           <Tooltip label="Show in Finder">
             <button type="button" className="bar-button" onClick={onReveal} aria-label={`Reveal ${p.name}`}>

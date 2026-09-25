@@ -49,6 +49,7 @@ Below, the section lists the app's own keys. See [The inbox](/docs/using/inbox/#
 
 Every installed plugin has a row: its icon and title, its version, where it came from, and whether it is ready. On each row:
 
+- **Send a sample** sends the review the plugin ships to show itself, and opens it. Plugins without a sample don't have the button.
 - **Notify** turns notifications for that plugin's reviews on or off.
 - **Update**, **Remove** and **Install a copy** manage it. See [Installing plugins](/docs/using/installing-plugins/).
 - **The plugin's own settings**, when it has any, are folded under its row. The code review plugin, for example, lets you choose between an inline and a side-by-side diff.
