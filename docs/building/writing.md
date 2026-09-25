@@ -22,19 +22,15 @@ flowchart TB
   S -->|"5 · decision and exit code"| A
 ```
 
-## Before you start
-
-You need [Node.js](https://nodejs.org) 22 or later for the tooling, and the Pinrail app running if you want to try the plugin in it. The view itself needs nothing: it is plain HTML that the app serves.
-
 ## Create the folder
 
-`pinrail-plugin create` writes a plugin that runs, passes its own tests and installs before you change a line of it.
+The `pinrail` command that comes with the app writes a plugin that runs, with nothing else to install:
 
 ```sh
-npx @forgeplane/pinrail-plugin create ticket_triage
+pinrail plugins new ticket_triage --link
 ```
 
-The name is lowercase letters, digits, `_` and `-`, starting with a letter, and it must be unique among your installed plugins. Add `--template vite` for a view written in TypeScript and built with Vite, or `--template react`, `vue` or `svelte` for one in that framework (see [Building with a framework](/docs/building/frameworks/)); the default is one HTML file with its script inline.
+The name is lowercase letters, digits, `_` and `-`, starting with a letter, and it must be unique among your installed plugins. `--link` installs the folder straight away, so the app serves it live.
 
 ```text title="ticket_triage/"
 ticket_triage/
@@ -43,16 +39,27 @@ ticket_triage/
 │   ├── payload.schema.json  what the agent sends
 │   └── decision.schema.json what comes back
 ├── view/
-│   └── index.html           what the person sees
-├── fixtures/
-│   └── basic.json           a payload to develop against
-├── tests/
-│   └── ticket_triage.spec.ts
-├── package.json
-└── .github/workflows/release.yml
+│   ├── index.html           what the person sees
+│   └── view.js              its script, checked against the SDK's types
+├── example.json             the smallest payload, for agents
+├── sample.json              a review to look at
+├── pinrail-plugin.d.ts      the SDK's types, for your editor
+└── AGENTS.md                the plugin explained to an agent that helps you build it
 ```
 
-Only the manifest, the schemas and the view reach the app. `fixtures/`, `tests/`, `src/` and `node_modules/` stay in your repository.
+`AGENTS.md` (with a `CLAUDE.md` that points to it) tells a coding agent what each file is for, how the view talks to the app, and how to try it, so you can hand the folder to your agent and describe the plugin you want.
+
+:::tip[With a framework, or tests]
+For a view in React, Vue or Svelte, or tests that run without the app, start from the npm package instead. It writes the same plugin, plus a `package.json`, a Playwright test and a release workflow, and needs [Node.js](https://nodejs.org) 22 or later:
+
+```sh
+npx @forgeplane/pinrail-plugin create ticket_triage --template react
+```
+
+See [Building with a framework](/docs/building/frameworks/).
+:::
+
+Only the manifest, the schemas, the view and the sample reach the app. `fixtures/`, `tests/`, `src/` and `node_modules/` stay in your repository.
 
 ## The manifest
 
@@ -319,7 +326,17 @@ Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both t
 
 ## Run it
 
-`pinrail-plugin dev` opens your view in a browser under a stand-in for the app, without the app.
+A linked plugin is served live: send it its sample, and change the view as you look at it. A change to the view shows the next time you open the review; a change to the manifest or a schema needs a reload.
+
+```sh
+pinrail submit ticket_triage --sample   # the review opens in the app
+pinrail plugins reload                  # after changing the manifest or a schema
+pinrail plugins check ticket_triage     # what the app would refuse, and why
+```
+
+`pinrail plugins guide` prints this guide, a topic at a time, from the Pinrail you have installed.
+
+With the npm package, `pinrail-plugin dev` opens your view in a browser under a stand-in for the app, without the app.
 
 ```sh
 npx pinrail-plugin dev .
@@ -327,12 +344,11 @@ npx pinrail-plugin dev .
 
 Pick a fixture to initialise the view with, toggle read-only and the theme, send `collect` as the app's hand-over button does, and answer a submit with `submitted` or with violations you type. Everything the view posts appears in a log beside it, and a change to any file reloads the view with its draft intact.
 
-To see it in the app at the same time, link the folder. A linked plugin is served live, so a change shows the next time you open a review:
+To see it in the app at the same time, link the folder and send a fixture:
 
 ```sh
 pinrail plugins install ./ticket_triage --link
-pinrail submit ticket_triage --title "Stale tickets" \
-  --data <(jq .payload fixtures/basic.json) --wait
+pinrail submit ticket_triage --request fixtures/basic.json --wait
 ```
 
 ## Test it

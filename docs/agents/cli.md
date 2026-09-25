@@ -206,6 +206,7 @@ JSON is the default. It is the whole review, with the decision attached, for a s
 | `pinrail export <dir>` | Write every review as JSON files under a directory. |
 | `pinrail serve` | Start the app's server if it is not running, and print its URL. |
 | `pinrail plugins` | List installed plugins, as JSON or with `--format markdown` a table, and [install, update or remove](/docs/using/installing-plugins/) them. |
+| `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
 | `pinrail plugins guide [topic]` | How to build a plugin, from the docs of the Pinrail installed and offline: an index of topics, or one page as markdown. |
 | `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. |
 | `pinrail plugins describe [name]` | What an agent needs to ask with each plugin. See [Learning what to ask](#learning-what-to-ask). |

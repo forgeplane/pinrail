@@ -19,6 +19,7 @@ mod docs;
 mod guide;
 mod origin;
 mod out;
+mod scaffold;
 mod server;
 
 use std::collections::BTreeMap;
@@ -381,6 +382,18 @@ enum PluginsCommand {
     },
     /// Reload the installed plugins from disk
     Reload,
+    /// A new plugin that needs no build: manifest, schemas, a sample, a view,
+    /// the SDK's types and an AGENTS.md; --link installs it right away
+    New {
+        /// the plugin's name: a lowercase letter, then letters, digits, _ or -
+        name: String,
+        /// where to write it; ./<name> by default
+        #[arg(long)]
+        dir: Option<PathBuf>,
+        /// install it as a link once written, so the app serves it live
+        #[arg(long)]
+        link: bool,
+    },
     /// How to build a plugin, from the docs of the Pinrail installed: an
     /// index of topics, or the one named, as markdown
     Guide {
@@ -438,6 +451,32 @@ fn run(cli: Cli) -> Result<u8> {
     if let Command::Serve = cli.command {
         let info = server::ensure_running(cli.url.as_deref())?;
         out::print_json(&info, pretty);
+        return Ok(0);
+    }
+
+    // a new plugin is written here; only --link needs the app
+    if let Command::Plugins(PluginsArgs {
+        command: Some(PluginsCommand::New { name, dir, link }),
+    }) = &cli.command
+    {
+        let dir = dir.clone().unwrap_or_else(|| PathBuf::from(name));
+        scaffold::write(name, &dir)?;
+        let dir = dir.canonicalize()?;
+        let shown = dir.display();
+        eprintln!("pinrail: {name} written to {shown}");
+        if *link {
+            let base = server::resolve_url(cli.url.as_deref(), true)?;
+            Client::new(&base).plugins_install(&dir.to_string_lossy(), true, false, None, None)?;
+            eprintln!("pinrail: {name} is linked; the app serves the folder live");
+        }
+        let install = if *link {
+            String::new()
+        } else {
+            format!("  pinrail plugins install {shown} --link   serve it live in the app\n")
+        };
+        eprintln!(
+            "\n{install}  pinrail submit {name} --sample   send it its sample; the review opens in the app\n  pinrail plugins check {shown}   what the app would refuse\n  pinrail plugins guide   how to build a plugin, a topic at a time\n\nA framework, or tests without the app? npx @forgeplane/pinrail-plugin create"
+        );
         return Ok(0);
     }
 
@@ -698,7 +737,8 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(
                     PluginsCommand::Describe { .. }
                     | PluginsCommand::Check { .. }
-                    | PluginsCommand::Guide { .. },
+                    | PluginsCommand::Guide { .. }
+                    | PluginsCommand::New { .. },
                 ) => {
                     unreachable!()
                 }
