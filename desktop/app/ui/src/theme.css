@@ -600,3 +600,44 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .install-error { margin: 0; }
 .install-done { font-size: 13px; }
 .install-wait { font-size: 12.5px; align-self: center; }
+
+/* the setup wizard: a rail of steps beside the current one */
+.welcome-dialog { display: grid; grid-template-columns: 216px 1fr; width: min(760px, calc(100vw - 32px)); height: min(520px, calc(100vh - 48px)); overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-panel); box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.45); }
+.welcome-rail { display: flex; flex-direction: column; gap: 10px; padding: 24px 18px; border-right: 1px solid var(--border); background: var(--sidebar); }
+.welcome-logo { width: 40px; height: 40px; border-radius: 9px; box-shadow: 0 6px 14px -8px rgb(0 0 0 / 0.5); }
+.welcome-rail h1 { margin: 6px 0 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+.welcome-rail > p { margin: 0 0 10px; color: var(--dim); font-size: 12px; line-height: 1.5; }
+.welcome-rail ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.welcome-rail li button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; border-radius: 6px; background: none; color: var(--dim); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.welcome-rail li button:hover { background: var(--bg-hover); color: var(--text); }
+.welcome-rail li button.is-current { background: var(--accent-bg); color: var(--text); font-weight: 500; }
+.welcome-dot { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--border-strong); border-radius: 50%; font-size: 11px; font-weight: 600; color: var(--dim); background: var(--bg-panel); }
+.is-current .welcome-dot { border-color: var(--accent); color: var(--accent); }
+.welcome-dot.is-done { border-color: var(--ok); background: var(--ok); color: var(--bg-panel); }
+.welcome-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.welcome-content { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 28px 30px 20px; animation: welcome-in 0.18s ease; }
+.welcome-content h2 { margin: 0 0 2px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.welcome-content p { margin: 0; color: var(--dim); font-size: 13px; line-height: 1.55; }
+.welcome-content code { font-family: var(--mono); font-size: 12px; color: var(--text); }
+@keyframes welcome-in { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: none; } }
+.welcome-term { padding: 12px 14px; border-radius: 8px; background: #1c1a17; color: #e8e3da; font: 12.5px/1.7 var(--mono); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06); overflow-x: auto; white-space: pre; }
+.welcome-term-prompt { color: #e5694f; }
+.welcome-term-dim { color: #8f887c; }
+.welcome-term-ok { color: #7cc79e; }
+.welcome-term-warn { color: #d4ac6a; }
+.welcome-term-cursor { display: inline-block; width: 7px; height: 13px; margin-left: 3px; vertical-align: -2px; background: #8f887c; animation: welcome-blink 1s steps(2) infinite; }
+@keyframes welcome-blink { 50% { opacity: 0; } }
+.welcome-line { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); }
+.welcome-line code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; }
+.welcome-code { margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised); font: 11.5px/1.55 var(--mono); color: var(--text); white-space: pre-wrap; word-break: break-word; }
+.welcome-actions { display: flex; align-items: center; gap: 8px; }
+.welcome-or { color: var(--faint); font-size: 12px; }
+.welcome-error { color: var(--danger) !important; }
+.welcome-link { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; }
+.welcome-link:hover { text-decoration: underline; }
+.welcome-foot { display: flex; align-items: center; gap: 12px; padding: 12px 18px 12px 30px; border-top: 1px solid var(--border); }
+.welcome-skip { padding: 0; border: 0; background: none; color: var(--faint); font: inherit; font-size: 12.5px; cursor: pointer; }
+.welcome-skip:hover { color: var(--text); }
+.welcome-count { margin-left: auto; color: var(--faint); font-size: 12px; }
+.welcome-nav { display: flex; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .welcome-content, .welcome-term-cursor { animation: none; } }

@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { inTauri } from "../../api/client";
 import { SettingsRow } from "./layout";
 
-type CliStatus = {
+export type CliStatus = {
   /** link on macOS, package for a .deb or .rpm, copy from an AppImage */
   mode: "link" | "package" | "copy";
   bundled: string | null;
@@ -30,26 +30,30 @@ const tilde = (link: string) => {
 
 const folder = (p: string) => p.replace(/\/pinrail$/, "");
 
-export function CliRow({ open }: { open: boolean }) {
+/** The CLI's status while `open`, looked at again when the window comes back
+ * (from a terminal where the PATH was changed), and the install. */
+export function useCli(open: boolean) {
   const [status, setStatus] = useState<CliStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
 
   const check = useCallback(() => {
-    invoke<CliStatus>("cli_status")
+    setChecking(true);
+    return invoke<CliStatus>("cli_status")
       .then((s) => setStatus(s))
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(String(e)))
+      .finally(() => setChecking(false));
   }, []);
 
   useEffect(() => {
     if (!open || !inTauri()) return;
     check();
-    // back from a terminal where the PATH was changed: look again
     window.addEventListener("focus", check);
     return () => window.removeEventListener("focus", check);
   }, [open, check]);
 
-  const installCli = async () => {
+  const install = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
@@ -59,7 +63,13 @@ export function CliRow({ open }: { open: boolean }) {
     } finally {
       setBusy(false);
     }
-  };
+  }, []);
+
+  return { status, busy, error, install, check, checking };
+}
+
+export function CliRow({ open }: { open: boolean }) {
+  const { status, busy, error, install: installCli } = useCli(open);
 
   if (!inTauri()) return <SettingsRow label="Install the CLI" description="Puts pinrail into ~/.local/bin; the app does this" />;
   if (!status) return <SettingsRow label="Install the CLI" description={error ?? "Checking…"} />;

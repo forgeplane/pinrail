@@ -11,6 +11,7 @@ import type { Info as ServerInfo } from "../../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
+import { useNotificationStatus, type SystemState } from "../../state/notifications";
 import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
@@ -62,38 +63,12 @@ const pauseUntil = (choice: string): string | null => {
   return null;
 };
 
-/** What macOS reports for the app's notifications; null outside the app bundle. */
-type NotificationStatus = { authorization: "authorized" | "denied" | "not_determined" | "provisional"; alert_style: "none" | "banner" | "alert"; alerts: boolean; sound: boolean; badge: boolean; shows: boolean };
-type SystemState = { known: boolean; status: NotificationStatus | null };
-
-/** Asked while the dialog is open, and again each time the window comes back (from System Settings, say). */
-function useNotificationStatus(open: boolean): SystemState {
-  const [state, setState] = useState<SystemState>({ known: false, status: null });
-  useEffect(() => {
-    if (!open || !inTauri()) return;
-    let cancelled = false;
-    const ask = () =>
-      import("@tauri-apps/api/core").then(({ invoke }) =>
-        invoke<NotificationStatus | null>("notification_status")
-          .then((s) => !cancelled && setState({ known: true, status: s }))
-          .catch(() => !cancelled && setState({ known: true, status: null })),
-      );
-    ask();
-    window.addEventListener("focus", ask);
-    return () => {
-      cancelled = true;
-      window.removeEventListener("focus", ask);
-    };
-  }, [open]);
-  return state;
-}
-
 const describeSystem = ({ known, status }: SystemState) => {
   if (!inTauri()) return "What macOS allows shows here in the app";
   if (!known) return "…";
   if (!status) return "Through the notification plugin in this development build; macOS reports nothing for it";
   if (status.authorization === "denied") return "Not allowed in System Settings";
-  if (status.authorization === "not_determined") return "Not yet allowed; macOS asks the first time";
+  if (status.authorization === "not_determined") return "Not yet allowed; macOS asks when you turn them on, or with the first one";
   if (status.alert_style === "none") return "Allowed, but the alert style is None in System Settings, so nothing appears";
   if (!status.alerts) return "Allowed, but alerts are off in System Settings";
   const parts = [status.alert_style === "alert" ? "Alerts" : "Banners", status.sound ? "sound on" : "sound off in System Settings", status.badge ? "badge" : "no badge"];
@@ -132,7 +107,6 @@ const describeShortcut = (state: ShortcutState | null, wanted: string) => {
   return state.error ? `Not registered: ${state.error}` : undefined;
 };
 
-const openNotificationSettings = () => import("@tauri-apps/api/core").then(({ invoke }) => invoke("open_notification_settings")).catch(() => {});
 
 const Keys = ({ keys }: { keys: string[][] }) => (
   <span className="settings-keys">
@@ -152,7 +126,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [copied, setCopied] = useState(false);
   const paused = pausedUntil(settings.notifications.paused_until);
-  const system = useNotificationStatus(open);
+  const { system, request: requestNotifications, openSystemSettings } = useNotificationStatus(open);
   const [noticesError, setNoticesError] = useState<string | null>(null);
   const openNotices = () => {
     setNoticesError(null);
@@ -267,8 +241,12 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                   <Toggle label="Sound" checked={settings.notifications.sound} onChange={(v) => update({ notifications: { sound: v } })} />
                 </SettingsRow>
                 <SettingsRow label="System" description={describeSystem(system)}>
-                  {system.status && !system.status.shows ? (
-                    <button type="button" className="chrome-button" onClick={openNotificationSettings}>
+                  {system.status?.authorization === "not_determined" ? (
+                    <button type="button" className="chrome-button" onClick={requestNotifications}>
+                      Turn on
+                    </button>
+                  ) : system.status && !system.status.shows ? (
+                    <button type="button" className="chrome-button" onClick={openSystemSettings}>
                       <Settings size={14} /> Open System Settings
                     </button>
                   ) : null}

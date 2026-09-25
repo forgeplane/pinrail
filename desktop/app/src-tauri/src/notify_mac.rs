@@ -1,6 +1,7 @@
 //! Notifications on macOS through the UserNotifications framework: the app
-//! asks for permission once, a banner shows even while the app is in front,
-//! and a click opens the review. Only an app bundle can use the framework;
+//! asks for permission from the welcome screen or Settings, or else with the
+//! first notification it has to show; a banner shows even while the app is
+//! in front, and a click opens the review. Only an app bundle can use the framework;
 //! the bare development binary keeps the plugin's notification.
 
 use std::sync::OnceLock;
@@ -123,7 +124,8 @@ pub fn available() -> bool {
     bundle.bundleIdentifier().is_some() && bundle.bundlePath().to_string().ends_with(".app")
 }
 
-/// Asks for permission and takes the delegate. Call once, on the main thread.
+/// Takes the delegate, and says on stderr when a banner would not show.
+/// Asking for permission waits for the person. Call once, on the main thread.
 pub fn setup(app: &AppHandle) {
     let _ = APP.set(app.clone());
     let center = UNUserNotificationCenter::currentNotificationCenter();
@@ -132,20 +134,6 @@ pub fn setup(app: &AppHandle) {
     center.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
     // the center keeps a weak reference; the delegate lives as long as the app
     std::mem::forget(delegate);
-    let done = RcBlock::new(|granted: Bool, error: *mut NSError| {
-        if !granted.as_bool() {
-            let why = unsafe { error.as_ref() }
-                .map(|e| e.localizedDescription().to_string())
-                .unwrap_or_else(|| "declined".to_string());
-            eprintln!("pinrail: notifications are off: {why}");
-        }
-    });
-    center.requestAuthorizationWithOptions_completionHandler(
-        UNAuthorizationOptions::Alert
-            | UNAuthorizationOptions::Sound
-            | UNAuthorizationOptions::Badge,
-        &done,
-    );
 
     // a word on stderr when macOS will not show a banner, and nothing when
     // it will
@@ -164,6 +152,19 @@ pub fn setup(app: &AppHandle) {
     });
 }
 
+/// Asks macOS to let the app notify: its prompt the first time, and the
+/// answer already given after that. `then` gets whether it may.
+pub fn request(then: impl Fn(bool) + 'static) {
+    let done = RcBlock::new(move |granted: Bool, _error: *mut NSError| then(granted.as_bool()));
+    UNUserNotificationCenter::currentNotificationCenter()
+        .requestAuthorizationWithOptions_completionHandler(
+            UNAuthorizationOptions::Alert
+                | UNAuthorizationOptions::Sound
+                | UNAuthorizationOptions::Badge,
+            &done,
+        );
+}
+
 /// The system's notification settings, at the app's own page.
 pub fn settings_url() -> String {
     let id = NSBundle::mainBundle()
@@ -173,7 +174,8 @@ pub fn settings_url() -> String {
     format!("x-apple.systempreferences:com.apple.Notifications-Settings.extension?id={id}")
 }
 
-/// Posts a notification; a click opens the review when one is named.
+/// Posts a notification; a click opens the review when one is named. When
+/// macOS has not been asked yet, this is when it asks.
 pub fn notify(title: &str, body: &str, review_id: Option<&str>, sound: bool) {
     let content = UNMutableNotificationContent::new();
     content.setTitle(&NSString::from_str(title));
@@ -191,7 +193,7 @@ pub fn notify(title: &str, body: &str, review_id: Option<&str>, sound: bool) {
                 .unwrap_or(0)
         ),
     };
-    let request = UNNotificationRequest::requestWithIdentifier_content_trigger(
+    let notification = UNNotificationRequest::requestWithIdentifier_content_trigger(
         &NSString::from_str(&identifier),
         &content,
         None,
@@ -204,6 +206,10 @@ pub fn notify(title: &str, body: &str, review_id: Option<&str>, sound: bool) {
             );
         }
     });
-    UNUserNotificationCenter::currentNotificationCenter()
-        .addNotificationRequest_withCompletionHandler(&request, Some(&done));
+    request(move |allowed| {
+        if allowed {
+            UNUserNotificationCenter::currentNotificationCenter()
+                .addNotificationRequest_withCompletionHandler(&notification, Some(&done));
+        }
+    });
 }

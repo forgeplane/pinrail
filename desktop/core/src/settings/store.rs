@@ -135,6 +135,12 @@ const LEAVES: &[Leaf] = &[
         || json!(true),
         "Look for a new version of Pinrail at start and every few hours, and download it in the background. It is installed when Pinrail restarts.",
     ),
+    (
+        "/welcome/seen",
+        Kind::Bool,
+        || json!(false),
+        "Whether the welcome screen has been closed. While `false`, Pinrail opens on it.",
+    ),
 ];
 
 /// Every setting as the reference shows it: dotted key, what it holds, its

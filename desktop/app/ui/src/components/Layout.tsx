@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon } from "lucide-react";
+import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, Hand, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon } from "lucide-react";
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api } from "../api/client";
@@ -16,6 +16,7 @@ import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
 import { PluginIcon } from "./PluginIcon";
 import { UpdateNotice } from "./UpdateNotice";
+import { WelcomeDialog } from "./welcome/WelcomeDialog";
 
 /** How many waiting reviews the sidebar lists before pointing at the inbox. */
 const WAITING_SHOWN = 5;
@@ -48,7 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [palette, setPalette] = useState(false);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
-  const { settings: prefs, update } = useSettings();
+  const { settings: prefs, update, loaded } = useSettings();
   const sidebar = prefs.sidebar.open;
   const toggleSidebar = () => update({ sidebar: { open: !sidebar } });
   const sidebarButton = (
@@ -72,8 +73,23 @@ export function Layout({ children }: { children: ReactNode }) {
     { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
     { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
+    { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome(true) },
     ...(location.pathname.startsWith("/reviews/") ? [{ id: "discard", label: "Discard this review", icon: Ban, run: () => window.dispatchEvent(new Event("pinrail:discard")) }] : []),
   ];
+
+  // Pinrail opens the setup until it is finished or skipped; asked once,
+  // when the settings first arrive
+  const [welcome, setWelcome] = useState(false);
+  const welcomed = useRef(false);
+  useEffect(() => {
+    if (!loaded || welcomed.current) return;
+    welcomed.current = true;
+    if (!prefs.welcome.seen) setWelcome(true);
+  }, [loaded, prefs.welcome.seen]);
+  const closeWelcome = () => {
+    setWelcome(false);
+    if (!prefs.welcome.seen) void update({ welcome: { seen: true } });
+  };
 
   // a link to /plugins lands in the settings section
   useEffect(() => {
@@ -319,6 +335,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
+      {welcome ? <WelcomeDialog onClose={closeWelcome} /> : null}
       <SettingsDialog
         open={settings !== null}
         section={settings ?? "general"}

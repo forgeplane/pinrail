@@ -65,6 +65,34 @@ async fn notification_status(app: AppHandle) -> Option<notify_mac::Status> {
     rx.await.ok()
 }
 
+/// Asks macOS to let the app notify, then reports as `notification_status`;
+/// the welcome screen's and Settings' *Turn on notifications*.
+#[cfg(target_os = "macos")]
+#[tauri::command]
+async fn request_notifications(app: AppHandle) -> Option<notify_mac::Status> {
+    if !notify_mac::available() {
+        return None;
+    }
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let tx = std::sync::Mutex::new(Some(tx));
+    app.run_on_main_thread(move || {
+        notify_mac::request(move |_| {
+            if let Some(tx) = tx.lock().unwrap().take() {
+                let _ = tx.send(());
+            }
+        })
+    })
+    .ok()?;
+    rx.await.ok()?;
+    notification_status(app).await
+}
+
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+async fn request_notifications() -> Option<()> {
+    None
+}
+
 /// Elsewhere the system has no say the app can read: the plugin's
 /// notification is all there is, and the shell shows no status row.
 #[cfg(not(target_os = "macos"))]
@@ -367,6 +395,7 @@ pub fn run() {
             take_pending_route,
             shortcut_state,
             notification_status,
+            request_notifications,
             open_notification_settings,
             autostart_enabled,
             set_autostart,
