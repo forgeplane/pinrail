@@ -310,8 +310,10 @@ test("the rail lists each file's findings, where they stand, and jumps to one", 
   const f = plugin.frame;
   const rail = f.locator("aside");
   const findings = rail.locator('[data-act="jump-card"]');
-  // the findings on files; one anchored to no file stays in its own section
-  await expect(findings).toHaveCount(await f.locator("[data-filesec] [data-card]").count());
+  // every finding, those on no file under a group of their own at the end
+  await expect(findings).toHaveCount(await f.locator("[data-card]").count());
+  await expect(rail.locator(".tree-loose")).toContainText("Not on a file");
+  await expect(rail.locator(".tree-loose ~ [data-act=\"jump-card\"][data-id=\"20\"]")).toHaveCount(1);
   const first = findings.first();
   const id = await first.getAttribute("data-id");
   await first.click();

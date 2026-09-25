@@ -55,6 +55,8 @@ button.toggle.on { color: var(--accent); background: var(--accent-bg); border-co
 .tree-dir .caret.open { transform: rotate(90deg); }
 .tree-dir > .wi { flex: none; color: var(--faint); }
 .tree-dir:hover, .tree-dir:hover .caret, .tree-dir:hover > .wi { color: var(--dim); }
+.tree-loose { cursor: default; } .tree-loose:hover { background: none; }
+.tree-loose > .wi { flex: none; margin-left: 15px; }
 .tree-dir .path { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-file { padding-left: 20px; }
 .tree-file .name { min-width: 0; font: 12px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -924,6 +926,9 @@ function treeHtml() {
       </button>${items.map((x) => x.html).join("")}`;
     });
   });
+  // findings on no file, as the diff shows them after the last file
+  const loose = D.proposals.filter(unplaceable).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+  if (loose.length) rows += `<div class="tree-row tree-dir tree-loose">${Pinrail.icon("git-pull-request", { size: 13 })}<span class="path">Not on a file</span></div>${loose.map(findingRow).join("")}`;
   const hasRanks = D.files.some((f) => f.rank != null);
   return `<aside class="rail">
     <div class="rail-head">
