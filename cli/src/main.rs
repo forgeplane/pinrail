@@ -16,6 +16,7 @@ mod attachments;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
+mod origin;
 mod out;
 mod server;
 
@@ -649,6 +650,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         if let Some(origin) = &args.origin {
             body["origin"] = json!(origin);
         }
+        origin::fill_from_git(&mut body);
         if let Some(by) = &args.requested_by {
             body["requested_by"] = json!(by);
         }
@@ -681,6 +683,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }
+    origin::fill_from_git(&mut body);
     if let Some(summary) = &args.summary {
         body["summary"] = summary.clone();
     }

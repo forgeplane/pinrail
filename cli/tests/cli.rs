@@ -106,8 +106,14 @@ fn pinrail() -> Command {
 }
 
 fn run(server: &MockServer, args: &[&str]) -> (i32, String, String) {
+    // outside any git checkout, so no origin is filled from one
+    run_in(server, &std::env::temp_dir(), args)
+}
+
+fn run_in(server: &MockServer, dir: &std::path::Path, args: &[&str]) -> (i32, String, String) {
     let out = pinrail()
         .args(args)
+        .current_dir(dir)
         .env("PINRAIL_URL", &server.url)
         .output()
         .unwrap();
@@ -1010,4 +1016,68 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     let (code, _, stderr) = run(&server, &["submit", "list", "--sample", "--data", "p.json"]);
     assert_eq!(code, 2);
     assert!(stderr.contains("cannot be used with"), "{stderr}");
+}
+
+#[test]
+fn submit_fills_the_origin_from_the_git_checkout_it_runs_in() {
+    let dir = tempdir();
+    let git = |args: &[&str]| {
+        let ok = std::process::Command::new("git")
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap()
+            .status
+            .success();
+        assert!(ok, "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "fix/tickets"]);
+    git(&["remote", "add", "origin", "git@github.com:acme/api.git"]);
+    std::fs::write(dir.join("p.json"), r#"{"groups":[]}"#).unwrap();
+    let sent = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        seen.lock()
+            .unwrap()
+            .push(serde_json::from_str(body).unwrap());
+        (201, review("pending"))
+    }));
+
+    let (code, _, stderr) = run_in(
+        &server,
+        &dir,
+        &["submit", "list", "--title", "t", "--data", "p.json"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        stderr.contains("pinrail: origin from git: repo=acme/api, ref=fix/tickets"),
+        "{stderr}"
+    );
+
+    // what the agent says wins; only what it leaves out is filled
+    let (code, _, stderr) = run_in(
+        &server,
+        &dir,
+        &[
+            "submit",
+            "list",
+            "--title",
+            "t",
+            "--data",
+            "p.json",
+            "--origin",
+            "repo=acme/web,url=https://x",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+
+    let sent = sent.lock().unwrap();
+    assert_eq!(
+        sent[0]["origin"],
+        serde_json::json!({ "repo": "acme/api", "ref": "fix/tickets" })
+    );
+    assert_eq!(
+        sent[1]["origin"],
+        serde_json::json!({ "repo": "acme/web", "url": "https://x", "ref": "fix/tickets" })
+    );
 }
