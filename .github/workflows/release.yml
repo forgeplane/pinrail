@@ -4,7 +4,9 @@
 # with the pinrail CLI inside (/usr/bin/pinrail in the Linux packages, beside the
 # app as pinrail-desktop; pinrail-cli in the macOS bundle) and the third-party
 # notices as THIRD_PARTY_NOTICES.txt, a build provenance attestation for each
-# installer, and a SHA256SUMS file.
+# installer, and a SHA256SUMS file. The update bundles are signed with the
+# updater key, and latest.json lists them for the app's updater, which reads
+# it from the latest published release.
 # The draft is published by hand after a smoke test. The tag has to name
 # the version in desktop/Cargo.toml and tauri.conf.json.
 #
@@ -12,7 +14,8 @@
 # with an App Store Connect key, both from the repository's secrets. A build
 # without them is unsigned and still succeeds, so a fork needs nothing, and a
 # tag that cannot sign stops rather than shipping
-# (agent-docs/release-checklist.md §1 and §2).
+# (agent-docs/release-checklist.md §1 and §2). The same holds for the updater
+# key: without it a build leaves out the update bundles, and a tag stops.
 #
 # Run it by hand (Actions › release › Run workflow) to build without
 # releasing: the bundles are kept as workflow artifacts.
@@ -120,6 +123,7 @@ jobs:
       # a step cannot read a secret in its condition, only an environment
       # value: this says whether this run has what it takes to sign
       SIGNED: ${{ secrets.APPLE_SIGNING_IDENTITY != '' && secrets.APPLE_API_KEY_P8 != '' }}
+      UPDATER: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
     permissions:
       contents: write
       id-token: write
@@ -185,6 +189,11 @@ jobs:
         run: |
           echo "the repository has no Apple secrets, so this tag would ship unsigned" >&2
           exit 1
+      - name: Refuse to build a tag without the updater key
+        if: startsWith(github.ref, 'refs/tags/v') && env.UPDATER != 'true'
+        run: |
+          echo "the repository has no updater key, so installed copies would never see this release" >&2
+          exit 1
       # notarization takes the key as a file; the secret carries it base64
       - name: Write the notarization key (macOS)
         id: notarize
@@ -209,14 +218,19 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY_PATH: ${{ steps.notarize.outputs.path }}
+          # the updater's key signs the update bundles
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: desktop/app
           tauriScript: npx tauri
           # a flaky upload or a notarization hiccup costs a retry, not a release
           retryAttempts: 3
-          args: ${{ matrix.args }}
+          # without the updater key, the build goes without update bundles
+          args: ${{ matrix.args }}${{ env.UPDATER != 'true' && ' --config src-tauri/tauri.no-updater.conf.json' || '' }}
           releaseId: ${{ needs.draft.outputs.id }}
-          uploadUpdaterJson: false
+          # each build adds its platforms to the release's latest.json
+          uploadUpdaterJson: true
           uploadWorkflowArtifacts: true
           workflowArtifactNamePattern: pinrail-[platform]-[arch]-[bundle]
       # what the person downloading gets: a signature that checks out, and
@@ -246,12 +260,20 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: SHA256SUMS
+      - name: Check latest.json, and SHA256SUMS
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir assets && cd assets
           gh release download "$GITHUB_REF_NAME" --repo "${{ github.repository }}"
+          # what the updater reads: every platform, each with an address and
+          # a signature. Both builds add to one file, so a lost entry shows here.
+          jq -e '. as $j
+            | ($j.version | length > 0)
+            and ([ "darwin-aarch64", "darwin-x86_64", "linux-x86_64" ]
+                 | all(. as $p | ($j.platforms[$p].signature // "" | length > 0)
+                                 and ($j.platforms[$p].url // "" | length > 0)))
+          ' latest.json > /dev/null || { echo "latest.json is missing a platform or a signature:"; cat latest.json; exit 1; }
           sha256sum -- * > ../SHA256SUMS
           cat ../SHA256SUMS
           gh release upload "$GITHUB_REF_NAME" ../SHA256SUMS --repo "${{ github.repository }}" --clobber
