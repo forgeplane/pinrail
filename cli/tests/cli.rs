@@ -1171,3 +1171,26 @@ fn plugins_check_asks_the_app_about_the_folder_and_exits_by_its_verdict() {
         "{stdout}"
     );
 }
+
+#[test]
+fn plugins_guide_needs_no_server() {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        panic!("the guide asked the server: {method} {path}")
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "guide"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        stdout.contains("- **design**: Design and styling."),
+        "{stdout}"
+    );
+    let (code, stdout, _) = run(&server, &["plugins", "guide", "protocol"]);
+    assert_eq!(code, 0);
+    assert!(stdout.starts_with("# The protocol\n"), "{stdout}");
+    let (code, _, stderr) = run(&server, &["plugins", "guide", "nope"]);
+    assert_eq!(code, 1);
+    assert!(
+        stderr.contains("the topics are writing, design"),
+        "{stderr}"
+    );
+    assert!(server.requests().is_empty());
+}

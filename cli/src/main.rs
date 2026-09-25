@@ -16,6 +16,7 @@ mod attachments;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
+mod guide;
 mod origin;
 mod out;
 mod server;
@@ -380,6 +381,13 @@ enum PluginsCommand {
     },
     /// Reload the installed plugins from disk
     Reload,
+    /// How to build a plugin, from the docs of the Pinrail installed: an
+    /// index of topics, or the one named, as markdown
+    Guide {
+        /// writing, design, settings-and-keys, protocol, frameworks or
+        /// publishing; the index when omitted
+        topic: Option<String>,
+    },
     /// What the app would make of a plugin folder, installing nothing: why
     /// it would refuse it, and each feature it would drop; exit 0 when it
     /// would take it, 2 when not
@@ -430,6 +438,24 @@ fn run(cli: Cli) -> Result<u8> {
     if let Command::Serve = cli.command {
         let info = server::ensure_running(cli.url.as_deref())?;
         out::print_json(&info, pretty);
+        return Ok(0);
+    }
+
+    // the guide is in the command itself: no server needed
+    if let Command::Plugins(PluginsArgs {
+        command: Some(PluginsCommand::Guide { topic }),
+    }) = &cli.command
+    {
+        match topic.as_deref() {
+            None => print!("{}", guide::index()),
+            Some(topic) => match guide::page(topic) {
+                Some(page) => print!("{page}"),
+                None => anyhow::bail!(
+                    "no guide on {topic}; the topics are {}",
+                    guide::topics().join(", ")
+                ),
+            },
+        }
         return Ok(0);
     }
 
@@ -669,7 +695,11 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
                 Some(PluginsCommand::Versions { name }) => client.plugin_versions(&name)?,
-                Some(PluginsCommand::Describe { .. } | PluginsCommand::Check { .. }) => {
+                Some(
+                    PluginsCommand::Describe { .. }
+                    | PluginsCommand::Check { .. }
+                    | PluginsCommand::Guide { .. },
+                ) => {
                     unreachable!()
                 }
             };
