@@ -86,18 +86,20 @@ plugins, and how to write your own, are in [`plugins/`](../plugins/README.md).
 
 ## What an agent can ask
 
-An agent new to Pinrail learns it from one command:
+An agent new to Pinrail learns it in two steps: which plugin fits, then
+that plugin in full.
 
 ```sh
-pinrail plugins describe                     # every usable plugin, as JSON
-pinrail plugins describe list --format markdown
+pinrail plugins describe                          # every usable plugin, a line each
+pinrail plugins describe list --format markdown   # one plugin, in full
 ```
 
-For each plugin it gives what the plugin is for and when to use it, the
+The index gives each plugin with when to use it, then the command to submit
+with and what every exit code means. With a name it gives the plugin's
 payload schema, an example payload that passes it, and the decision schema,
-the shape of `decision.data` in the review that comes back. After the
-plugins it gives the command to submit with and what every exit code
-means. It starts the app when it is not running, as `submit` does.
+the shape of `decision.data` in the review that comes back; `--all` gives
+every plugin in full. It starts the app when it is not running, as `submit`
+does.
 
 Before asking, an agent can check a payload with `--dry-run`: the review
 gets every check a submission does and is not created. It exits 0 when the
@@ -182,7 +184,7 @@ the latest round of each review unless `--include-revised` is given, and
 | `pinrail list` | List reviews, newest first, without payloads. |
 | `pinrail rounds <id>` | Every round of a review, oldest first. |
 | `pinrail events <id>` | A review's event log. |
-| `pinrail open <id>` | Open a review in the app. |
+| `pinrail open <id>` | Open a review in the app; `--browser` opens its preview in a browser. |
 | `pinrail decide <id>` | Record a decision from a script; the app is the usual way. |
 | `pinrail withdraw <id>` | Withdraw a pending review; its waiter exits 3. |
 | `pinrail discard <id>` | Discard a pending review as the person would; its waiter exits 5. |
@@ -198,7 +200,12 @@ the latest round of each review unless `--include-revised` is given, and
   the origin's URL. `--summary` sets the counts the inbox shows beside the
   title, `--expires-at` closes a review nobody decided in time, and
   `--requested-by` (or `PINRAIL_REQUESTED_BY`) names the caller.
-  `--dry-run` checks the submission and creates nothing. `--request <file>`
+  Inside a git checkout, `repo` and `ref` default to the remote's
+  `owner/name` and the current branch. `--sample` sends the plugin's own
+  sample review instead of a payload. `submit` prints where the review is:
+  `pinrail://reviews/<id>` in the app, and `<server>/preview/reviews/<id>`,
+  the review in a browser, whose hand-over checks the decision and decides
+  nothing. `--dry-run` checks the submission and creates nothing. `--request <file>`
   (or `-` for stdin) takes the whole request as one JSON object, the body
   the API takes: `{"plugin", "title", "origin", "payload", …}`. Flags given
   as well override its keys and `--data` replaces its payload, so a new
@@ -216,13 +223,16 @@ the latest round of each review unless `--include-revised` is given, and
 
 ```sh
 pinrail plugins                                          # what is installed, and anything wrong with it
-pinrail plugins describe [name]                          # what an agent needs to ask with each one
+pinrail plugins describe [name]                          # what an agent needs to ask: an index, or one plugin in full
 pinrail plugins install ./my-plugin                      # copy a folder into the app's store
 pinrail plugins install ./my-plugin --link               # serve the folder live while you work on it
 pinrail plugins install github.com/acme/plugins/review@v3
 pinrail plugins install https://github.com/acme/pinrail-review/releases
 pinrail plugins update [name]                            # reinstall from the source, when it has something new
 pinrail plugins remove <name>
+pinrail plugins new ticket_triage --link                 # a new plugin that needs no build, linked
+pinrail plugins check ./ticket_triage                    # what the app would refuse or drop, and why
+pinrail plugins guide [topic]                            # how to build a plugin, offline
 ```
 
 An install shows its progress on stderr, including a build's output when the

@@ -16,7 +16,10 @@ Everything for writing a pinrail plugin, as one npm package:
 - `pinrail-plugin/types`, the protocol and the manifest as TypeScript.
 
 The package is authoring-time only: a shipped plugin loads the SDK from the
-app, never from `node_modules`. Until the first release it is installed
+app, never from `node_modules`. A plugin without a build needs none of it:
+`pinrail plugins new`, in the app's own command, writes the plain template
+with the SDK's types beside it, and `pinrail plugins check` and the
+browser preview stand in for `check` and `dev`. Until the first release it is installed
 from this repository (`"@forgeplane/pinrail-plugin": "file:../../pinrail-plugin"`, or the
 tarball `npm pack` writes here); it goes to npm with the app's release.
 
@@ -183,7 +186,7 @@ npm test            # the unit tests, against a fake shell environment; then
 own tests and installs with `--link` before a line of it is changed:
 
 ```sh
-npx @forgeplane/pinrail-plugin create ticket_triage                    # one HTML file, the script inline
+npx @forgeplane/pinrail-plugin create ticket_triage                    # view/index.html and view/view.js, no build
 npx @forgeplane/pinrail-plugin create ticket_triage --template vite    # src/ in TypeScript, built by Vite into view/
 npx @forgeplane/pinrail-plugin create ticket_triage --template react   # the view in React, built by Vite
 npx @forgeplane/pinrail-plugin create ticket_triage --template vue     # the view in Vue, built by Vite
@@ -192,10 +195,15 @@ npx @forgeplane/pinrail-plugin create ticket_triage --template svelte  # the vie
 
 What it writes: `manifest.json` at `0.1.0` with the schemas by `$ref` and
 the entry, a `description` and a `use_when` to replace; `example.json`, a
-payload that passes the payload schema; `schemas/` with one property each and a description saying what
-to replace; `view/index.html` (or `src/`, `vite.config.ts` and
-`tsconfig.json`), a yes-or-no question with a comment in the style of the
-sample plugins; `fixtures/basic.json`; `tests/<name>.spec.ts` under the
+payload that passes the payload schema; `sample.json`, a whole review
+(`title` and `payload`) that `pinrail submit <name> --sample` and Settings
+send; `schemas/` with one property each and a description saying what
+to replace; `view/index.html` and `view/view.js`, typed with `// @ts-check`
+against `pinrail-plugin.d.ts`, the SDK's types copied beside the manifest
+(or `src/`, `vite.config.ts` and `tsconfig.json`), a yes-or-no question
+with a comment in the style of the sample plugins; `AGENTS.md`, the plugin
+explained to an agent helping build it, and `CLAUDE.md` pointing at it;
+`fixtures/basic.json`; `tests/<name>.spec.ts` under the
 harness with its `playwright.config.ts`; `package.json` depending on this
 package and Playwright; a `.gitignore`; a README with the commands; and
 `.github/workflows/release.yml`, which attaches `<name>-<version>.zip` to a
@@ -257,8 +265,9 @@ In this repository `mise run test:plugins` runs every sample's tests from
 the app: the manifest, the name, the version, the entry (or the build that
 writes it), the schemas and their `$ref`s, the icon are *problems* that
 refuse the folder; a `settings_schema`, `shortcuts` list,
-`decision_template` or `example` with the wrong shape, or an example that
-does not pass the payload schema, is a *warning*, the feature the
+`decision_template`, `example` or `sample` with the wrong shape, an example
+that does not pass the payload schema, or a sample without a title, a
+passing payload or its files, is a *warning*, the feature the
 app drops with the reason on the plugin's row. `--json` gives the same as
 data. The rules are the core's, carried in JavaScript; a test in the core
 runs both over the same folders and compares. The one thing `check` cannot
