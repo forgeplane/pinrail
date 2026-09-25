@@ -75,7 +75,7 @@ pub struct Updates {
 impl Updates {
     pub fn new() -> Self {
         let status = if cfg!(debug_assertions) {
-            Status::Unavailable
+            dev_status().unwrap_or(Status::Unavailable)
         } else {
             Status::Idle
         };
@@ -93,8 +93,33 @@ impl Updates {
 
     fn set(&self, app: &AppHandle, status: Status) {
         *self.status.lock().unwrap() = status.clone();
+        let offers = matches!(status, Status::Ready { .. } | Status::Available { .. });
         let _ = app.emit(EVENT, status);
+        // the tray's menu offers the restart, or the download
+        if offers {
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || crate::native::refresh_tray(&handle));
+        }
     }
+}
+
+/// A development build shows a found update when told to, so the notice,
+/// the tray's item and About can be seen without a release:
+/// `PINRAIL_DEV_UPDATE=0.2.0` for one ready to install, `available:0.2.0`
+/// for one a package manager installs. Restarting then says nothing is
+/// downloaded.
+fn dev_status() -> Option<Status> {
+    let wanted = std::env::var("PINRAIL_DEV_UPDATE").ok()?;
+    Some(match wanted.strip_prefix("available:") {
+        Some(version) => Status::Available {
+            version: version.into(),
+            url: RELEASES.into(),
+        },
+        None => Status::Ready {
+            version: wanted,
+            notes: None,
+        },
+    })
 }
 
 /// Looks now and downloads what it finds; what `check_for_updates` runs,
@@ -197,6 +222,15 @@ pub fn install(app: &AppHandle) -> Result<bool, String> {
     };
     update.install(bytes).map_err(|e| e.to_string())?;
     Ok(true)
+}
+
+/// Installs the downloaded update and starts the new version; from the
+/// window's *Restart to update* and the tray's.
+pub fn restart(app: &AppHandle) -> Result<(), String> {
+    if !install(app)? {
+        return Err("no update is downloaded".into());
+    }
+    app.restart()
 }
 
 /// Looks shortly after start, then every few hours, while `updates.check`

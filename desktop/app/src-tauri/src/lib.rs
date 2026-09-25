@@ -218,10 +218,7 @@ async fn check_for_updates(app: AppHandle) -> updater::Status {
 /// Installs the downloaded version and starts it.
 #[tauri::command]
 fn restart_to_update(app: AppHandle) -> Result<(), String> {
-    if !updater::install(&app)? {
-        return Err("no update is downloaded".into());
-    }
-    app.restart()
+    updater::restart(&app)
 }
 
 #[tauri::command]

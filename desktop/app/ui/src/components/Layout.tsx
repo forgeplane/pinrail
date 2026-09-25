@@ -15,6 +15,7 @@ import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
 import { PluginIcon } from "./PluginIcon";
+import { UpdateNotice } from "./UpdateNotice";
 
 /** How many waiting reviews the sidebar lists before pointing at the inbox. */
 const WAITING_SHOWN = 5;
@@ -273,6 +274,7 @@ export function Layout({ children }: { children: ReactNode }) {
               ) : null}
             </section>
           ) : null}
+          <UpdateNotice onDetails={() => setSettings("about")} />
           <div className="sidebar-bottom">
             <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
             <span>{live.connected ? "Connected" : "Reconnecting…"}</span>

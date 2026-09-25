@@ -281,6 +281,19 @@ fn on_menu(app: &AppHandle, id: &str) {
             }
         }
         "quit" => app.exit(0),
+        "update-restart" => {
+            if let Err(error) = crate::updater::restart(app) {
+                eprintln!("pinrail: the update could not be installed: {error}");
+            }
+        }
+        "update-download" => {
+            use tauri_plugin_opener::OpenerExt;
+            if let crate::updater::Status::Available { url, .. } =
+                app.state::<crate::updater::Updates>().status()
+            {
+                let _ = app.opener().open_url(url, None::<&str>);
+            }
+        }
         other => {
             if let Some(id) = other.strip_prefix("review:") {
                 open_review(app, id);
@@ -414,6 +427,31 @@ fn menu(
         )?)?;
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
+    // a new version: the restart that installs it, or where to get it
+    let update = app
+        .try_state::<crate::updater::Updates>()
+        .map(|u| u.status());
+    match update {
+        Some(crate::updater::Status::Ready { version, .. }) => {
+            menu.append(&MenuItem::with_id(
+                app,
+                "update-restart",
+                format!("Restart to update to {version}"),
+                true,
+                None::<&str>,
+            )?)?;
+        }
+        Some(crate::updater::Status::Available { version, .. }) => {
+            menu.append(&MenuItem::with_id(
+                app,
+                "update-download",
+                format!("Download Pinrail {version}…"),
+                true,
+                None::<&str>,
+            )?)?;
+        }
+        _ => {}
+    }
     menu.append(&MenuItem::with_id(
         app,
         "quit",
