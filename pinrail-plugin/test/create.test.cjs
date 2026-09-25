@@ -28,16 +28,21 @@ test("the plain template is a whole plugin, named throughout", async () => {
   assert.deepEqual(filesUnder(dir), [
     ".github/workflows/release.yml",
     ".gitignore",
+    "AGENTS.md",
+    "CLAUDE.md",
     "README.md",
     "example.json",
     "fixtures/basic.json",
     "manifest.json",
     "package.json",
+    "pinrail-plugin.d.ts",
     "playwright.config.ts",
+    "sample.json",
     "schemas/decision.schema.json",
     "schemas/payload.schema.json",
     "tests/ticket_triage.spec.ts",
     "view/index.html",
+    "view/view.js",
   ]);
   assert.deepEqual([...written].sort(), filesUnder(dir));
 
@@ -48,6 +53,10 @@ test("the plain template is a whole plugin, named throughout", async () => {
   assert.equal(manifest.version, "0.1.0");
   assert.equal(manifest.entry, "view/index.html");
   assert.equal(manifest.build, undefined);
+  assert.equal(manifest.sample, "sample.json");
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "sample.json"), "utf8")).title.length > 0, true);
+  assert.equal(fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8").trim(), "@AGENTS.md", "Claude Code reads the same brief");
+  assert.match(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8"), /pinrail submit ticket_triage --sample/);
   for (const ref of [manifest.payload_schema.$ref, manifest.decision_schema.$ref]) {
     assert.ok(fs.existsSync(path.join(dir, ref)), `${ref} exists`);
   }

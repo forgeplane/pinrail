@@ -2,7 +2,7 @@
 
 A pinrail plugin: what the agent asks (`schemas/payload.schema.json`), what
 the person answers (`schemas/decision.schema.json`), and the view that
-turns one into the other (`view/index.html`). It starts as one yes-or-no
+turns one into the other (`view/index.html` and `view/view.js`). It starts as one yes-or-no
 question with a comment; make it yours from there.
 
 ```sh
@@ -25,6 +25,9 @@ pinrail create __NAME__ --title "Push the branch?" --data payload.json --wait
 ```
 manifest.json       name, version, the schemas and the entry, by path
 view/index.html     the view the app serves, in a sandboxed frame
+view/view.js        its script, checked against pinrail-plugin.d.ts
+sample.json         a review to look at: pinrail submit __NAME__ --sample
+AGENTS.md           how the plugin works, for the agent that helps you build it
 schemas/            payload and decision, JSON Schema 2020-12
 fixtures/           payloads to develop and test with
 tests/              the Playwright spec the harness runs

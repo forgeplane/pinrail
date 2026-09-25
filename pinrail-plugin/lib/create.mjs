@@ -71,6 +71,11 @@ export function scaffold(name, opts = {}) {
     fs.writeFileSync(target, fill(fs.readFileSync(from, "utf8")));
     written.push(path.relative(dir, target));
   }
+  // a view without a build gets the SDK's types beside it, for its editor
+  if (template === "plain") {
+    fs.copyFileSync(path.join(root, "types.d.ts"), path.join(dir, "pinrail-plugin.d.ts"));
+    written.push("pinrail-plugin.d.ts");
+  }
   return { dir, written };
 }
 

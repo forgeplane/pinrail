@@ -282,4 +282,6 @@ declare global {
   interface Window {
     Pinrail: PinrailSdk;
   }
+  /** the SDK, as a view's script sees it */
+  var Pinrail: PinrailSdk;
 }
