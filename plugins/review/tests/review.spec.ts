@@ -426,3 +426,16 @@ test("clicking a verdict, c and Esc keep the finding where it is on screen", asy
   await expect(f.getByLabel("note for proposal 5")).toHaveCount(0);
   expect(Math.abs((await y()) - start)).toBeLessThan(2);
 });
+
+test("with the findings filter on, a folder with no file left is not shown", async ({ page }) => {
+  // a file with nothing to decide, alone in its folder
+  const gate = round2();
+  gate.payload.files.push({ path: "docs/notes.md", status: "modified", diff: "@@ -1 +1 @@\n-old\n+new\n" });
+  const plugin = await mountPlugin(page, dir, { gate, settings: { findings_only: true } });
+  const aside = plugin.frame.locator("aside");
+  await expect(aside.locator('[data-act="toggle-dir"][data-dir="docs"]')).toHaveCount(0);
+  await expect(aside.locator('[data-act="jump-file"]').first()).toBeVisible();
+  const dirs = await aside.locator('[data-act="toggle-dir"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-dir")));
+  const files = await aside.locator('[data-act="jump-file"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-file")));
+  for (const d of dirs) expect(files.some((f) => f!.startsWith(d + "/"))).toBe(true);
+});

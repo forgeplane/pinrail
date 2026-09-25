@@ -897,7 +897,11 @@ function treeHtml() {
   const mineRow = (m) => `<button class="tree-finding mine-row" data-act="jump-comment" data-mid="${m.id}" title="Your comment on line ${m.line}: ${esc(m.body)}">
       ${Pinrail.icon("message-square", { size: 12 })}<span class="t">${esc(m.body)}</span><span class="n">L${m.line}</span></button>`;
   let rows = "";
+  // with the findings filter on, a file is shown only with something to decide or
+  // a comment of yours; a folder only with a file shown
+  const shown = (i) => !S.findingsOnly || D.proposals.some((p) => p.file === D.files[i].path) || S.manualComments.some((m) => m.file === D.files[i].path);
   dirs.forEach((g) => {
+    if (!g.files.some(shown)) return;
     const collapsed = !!S.collapsedDirs[g.dir];
     if (g.dir) rows += `<button class="tree-row tree-dir" data-act="toggle-dir" data-dir="${esc(g.dir)}">
       <span class="caret${collapsed ? "" : " open"}">${Pinrail.icon("chevron-right", { size: 12 })}</span>${Pinrail.icon(collapsed ? "folder" : "folder-open", { size: 13 })}<span class="path">${esc(g.dir)}/</span></button>`;
