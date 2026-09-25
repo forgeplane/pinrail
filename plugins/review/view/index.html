@@ -1382,8 +1382,8 @@ document.addEventListener("keydown", (e) => {
       // the note to the agent on the focused finding, written in place
       e.preventDefault();
       inPlace(fid, () => set(() => { S.noteOpen[fid] = { open: true, draft: (S.decisions[fid] && S.decisions[fid].note) || "" }; S.focusNote = fid; S.expanded[fid] = true; }));
-      break;
     }
+    break;
     case "v": e.preventDefault(); set(() => { S.diffMode = S.diffMode === "inline" ? "split" : "inline"; }); keep("diff", S.diffMode); break;
     case "w": if (S.diffMode === "inline") { e.preventDefault(); set(() => { S.wrap = !S.wrap; }); keep("wrap", S.wrap); } break;
     case "o": e.preventDefault(); set(() => { S.orderMode = S.orderMode === "semantic" ? "path" : "semantic"; }); keep("order", S.orderMode); break;

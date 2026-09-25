@@ -441,3 +441,14 @@ test("with the findings filter on, a folder with no file left is not shown", asy
   const files = await aside.locator('[data-act="jump-file"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-file")));
   for (const d of dirs) expect(files.some((f) => f!.startsWith(d + "/"))).toBe(true);
 });
+
+test("in a decided review, c does nothing: no note, and the diff keeps its layout", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: round1(), readonly: true });
+  const f = plugin.frame;
+  await expect(f.locator(".diff-row.inline").first()).toBeVisible();
+  await f.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("c");
+  await page.waitForTimeout(200);
+  await expect(f.locator(".diff-row.split")).toHaveCount(0);
+  await expect(f.locator("[data-note-ta]")).toHaveCount(0);
+});
