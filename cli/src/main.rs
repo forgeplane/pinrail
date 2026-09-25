@@ -180,10 +180,14 @@ enum Command {
     },
     /// Start the server if it is not running; print its URL
     Serve,
-    /// Open a review in the app
+    /// Open a review in the app; --browser opens its preview in a browser
     Open {
         /// The review's id
         id: String,
+        /// the preview the app serves, with the view and the hand-over, in
+        /// the default browser
+        #[arg(long)]
+        browser: bool,
     },
 }
 
@@ -754,8 +758,12 @@ fn run(cli: Cli) -> Result<u8> {
             eprintln!("pinrail: {count} reviews written to {}", dir.display());
             Ok(0)
         }
-        Command::Open { id } => {
-            let url = format!("{base}/reviews/{id}");
+        Command::Open { id, browser } => {
+            let url = if browser {
+                format!("{base}/preview/reviews/{id}")
+            } else {
+                format!("pinrail://reviews/{id}")
+            };
             server::open_browser(&url)?;
             eprintln!("{url}");
             Ok(0)
@@ -868,7 +876,10 @@ fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) 
         .as_str()
         .context("server returned a review without an id")?
         .to_string();
-    eprintln!("review {id}: {}/reviews/{id}", client.base());
+    eprintln!(
+        "review {id}: open it in Pinrail (pinrail://reviews/{id}) or preview it in a browser: {}/preview/reviews/{id}",
+        client.base()
+    );
 
     if args.wait {
         wait(client, &id, &args.wait_opts, output)

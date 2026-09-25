@@ -173,7 +173,10 @@ fn submit_prints_the_review_and_the_url_on_stderr() {
     assert_eq!(code, 0, "{stderr}");
     assert!(stdout.starts_with(r#"{"id":"r_1""#), "{stdout}");
     assert!(
-        stderr.contains(&format!("review r_1: {}/reviews/r_1", server.url)),
+        stderr.contains(&format!(
+            "review r_1: open it in Pinrail (pinrail://reviews/r_1) or preview it in a browser: {}/preview/reviews/r_1",
+            server.url
+        )),
         "{stderr}"
     );
 }
