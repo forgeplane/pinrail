@@ -6,10 +6,14 @@ import { cliEnv, loadState } from "./state";
 
 export type Run = { code: number | null; stdout: string; stderr: string };
 
+// the CLI runs outside any git checkout, so no review takes this
+// repository's origin and stderr carries only what a test expects
+const cwd = os.tmpdir();
+
 /** Runs the CLI to completion. */
 export function pinrail(args: string[], opts: { input?: string } = {}): Run {
   const state = loadState();
-  const r = spawnSync(state.cli, args, { env: cliEnv(state), encoding: "utf8", input: opts.input });
+  const r = spawnSync(state.cli, args, { cwd, env: cliEnv(state), encoding: "utf8", input: opts.input });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
@@ -30,7 +34,7 @@ export type Waiter = {
 /** Starts `pinrail submit … --wait` (or `pinrail wait`) in the background. */
 export function startWaiter(args: string[]): Waiter {
   const state = loadState();
-  const proc = spawn(state.cli, args, { env: cliEnv(state) });
+  const proc = spawn(state.cli, args, { cwd, env: cliEnv(state) });
   let stdout = "";
   let stderr = "";
   proc.stdout!.on("data", (d) => (stdout += d));
