@@ -13,6 +13,7 @@
 
 mod api;
 mod attachments;
+mod briefs;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
@@ -180,6 +181,18 @@ enum Command {
     },
     /// Start the server if it is not running; print its URL
     Serve,
+    /// How to use Pinrail as an agent: a short brief, and a menu of the
+    /// briefs under it; a path opens one, as `pinrail docs plugins`
+    Docs {
+        /// the brief to print, as its menu names it; the root when omitted
+        path: Option<String>,
+        /// every brief's path and what it covers, as a tree
+        #[arg(long, conflicts_with = "path")]
+        tree: bool,
+        /// the brief as JSON, with its children, for a tool
+        #[arg(long)]
+        json: bool,
+    },
     /// Open a review in the app; --browser opens its preview in a browser
     Open {
         /// The review's id
@@ -501,6 +514,23 @@ fn run(cli: Cli) -> Result<u8> {
         return Ok(0);
     }
 
+    // the briefs are in the command itself: no server needed
+    if let Command::Docs { path, tree, json } = &cli.command {
+        if *tree {
+            print!("{}", briefs::tree());
+            return Ok(0);
+        }
+        let Some(brief) = briefs::find(path.as_deref()) else {
+            anyhow::bail!("{}", briefs::not_found(path.as_deref().unwrap_or_default()));
+        };
+        if *json {
+            out::print_json(&briefs::to_json(&brief), pretty);
+        } else {
+            print!("{}", briefs::render(&brief));
+        }
+        return Ok(0);
+    }
+
     // the guide is in the command itself: no server needed
     if let Command::Plugins(PluginsArgs {
         command: Some(PluginsCommand::Guide { topic }),
@@ -782,7 +812,7 @@ fn run(cli: Cli) -> Result<u8> {
             eprintln!("{url}");
             Ok(0)
         }
-        Command::Serve => unreachable!(),
+        Command::Serve | Command::Docs { .. } => unreachable!(),
     }
 }
 
