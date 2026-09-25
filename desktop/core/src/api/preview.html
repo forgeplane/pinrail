@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinrail review preview</title>
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
+<style>
+  /* A review as the app shows it, in a browser: the header, the plugin's
+     view, the hand-over. The SDK stylesheet gives the tokens and the base. */
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; flex-direction: column; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  header .meta { color: var(--dim); font-size: 12px; }
+  header .about { flex-basis: 100%; color: var(--faint); font-size: 12px; }
+  main { flex: 1; min-height: 0; overflow: auto; }
+  iframe { display: block; width: 100%; height: 400px; border: 0; }
+  footer { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-top: 1px solid var(--border); }
+  footer textarea { flex: 1; min-height: 34px; resize: vertical; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised, var(--bg)); color: var(--text); }
+  footer button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  footer button:disabled { opacity: 0.5; cursor: default; }
+  .decided { color: var(--dim); font-size: 13px; }
+  .error { padding: 24px 18px; color: var(--danger, #c33); }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Loading…</h1>
+  <span class="meta" id="meta"></span>
+  <span class="about">A preview of a review in Pinrail. Handing it over decides it, as the app does.</span>
+</header>
+<main><iframe id="view" sandbox="allow-scripts" title="The plugin's view"></iframe></main>
+<footer id="foot">
+  <textarea id="note" placeholder="A note for the agent (optional)" aria-label="A note for the agent"></textarea>
+  <button type="button" id="handover" disabled>Hand over</button>
+</footer>
+<script>
+"use strict";
+const PROTOCOL = 1;
+const id = decodeURIComponent(location.pathname.split("/").pop());
+const frame = document.getElementById("view");
+const button = document.getElementById("handover");
+let review = null, previous = null, settings = {}, minHeight = 200, submitting = false;
+
+const post = (msg, transfer) => frame.contentWindow && frame.contentWindow.postMessage({ pinrail: PROTOCOL, ...msg }, "*", transfer || []);
+const theme = () => (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+const json = async (path, options) => {
+  const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(options && options.headers) } });
+  const body = response.status === 204 ? null : await response.json().catch(() => null);
+  return { ok: response.ok, status: response.status, body };
+};
+const readonly = () => !review || review.status !== "pending";
+
+function showDecided() {
+  const foot = document.getElementById("foot");
+  foot.innerHTML = "";
+  const line = document.createElement("span");
+  line.className = "decided";
+  line.textContent = review.status === "decided" ? "Decided." : `This review is ${review.status}.`;
+  foot.append(line);
+}
+
+function collect() {
+  if (!readonly() && !submitting) post({ type: "collect" });
+}
+
+async function submit(data) {
+  if (readonly() || submitting) return;
+  submitting = true;
+  button.disabled = true;
+  try {
+    const note = document.getElementById("note").value.trim();
+    const { ok, body } = await json(`/api/v1/reviews/${encodeURIComponent(id)}/decision`, { method: "POST", body: JSON.stringify(note ? { data, agent_note: note } : { data }) });
+    if (ok) {
+      review = body;
+      post({ type: "submitted", decision: body.decision });
+      showDecided();
+    } else {
+      post({ type: "violations", errors: (body && body.violations) || [{ path: "", message: (body && body.message) || "The decision was refused." }] });
+    }
+  } finally {
+    submitting = false;
+    if (!readonly()) button.disabled = false;
+  }
+}
+
+async function attachment(msg) {
+  const from = msg.round === "previous" ? previous : review;
+  const listed = from && (from.attachments || []).find((a) => a.name === msg.name);
+  const fail = (error) => post({ type: "attachment", req: msg.req, ok: false, name: msg.name, error });
+  if (!listed) return fail(`no attachment "${msg.name}" on this ${msg.round === "previous" ? "previous round" : "review"}`);
+  const response = await fetch(`/api/v1/reviews/${encodeURIComponent(from.id)}/attachments/${encodeURIComponent(msg.name)}`);
+  if (!response.ok) return fail(`could not fetch ${msg.name}`);
+  const bytes = await response.arrayBuffer();
+  post({ type: "attachment", req: msg.req, ok: true, name: msg.name, media_type: listed.media_type, size: listed.size, bytes }, [bytes]);
+}
+
+window.addEventListener("message", (event) => {
+  if (event.source !== frame.contentWindow) return;
+  const msg = event.data;
+  if (!msg || msg.pinrail !== PROTOCOL) return;
+  switch (msg.type) {
+    case "ready":
+      post({ type: "init", gate: review, previous, readonly: readonly(), draft: null, settings, shell_origin: location.origin, capabilities: ["attachments"] });
+      post({ type: "appearance", theme: theme() });
+      break;
+    case "resize":
+      if (msg.height === "fill") frame.style.height = "100%";
+      else if (typeof msg.height === "number" && isFinite(msg.height)) frame.style.height = `${Math.max(minHeight, Math.ceil(msg.height))}px`;
+      break;
+    case "status":
+      if (typeof msg.label === "string" && msg.label.trim()) button.textContent = msg.label;
+      break;
+    case "submit":
+      submit(msg.data);
+      break;
+    case "attachment":
+      attachment(msg);
+      break;
+    case "open":
+      if (typeof msg.url === "string" && /^(https?|mailto):/i.test(msg.url)) window.open(msg.url, "_blank", "noreferrer");
+      break;
+  }
+});
+
+button.addEventListener("click", collect);
+window.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    collect();
+  }
+});
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+  document.documentElement.dataset.theme = theme();
+  post({ type: "appearance", theme: theme() });
+});
+
+(async () => {
+  document.documentElement.dataset.theme = theme();
+  const found = await json(`/api/v1/reviews/${encodeURIComponent(id)}`);
+  if (!found.ok) {
+    document.querySelector("main").innerHTML = "";
+    const error = document.createElement("p");
+    error.className = "error";
+    error.textContent = `No review ${id}.`;
+    document.querySelector("main").append(error);
+    document.getElementById("title").textContent = "Not found";
+    return;
+  }
+  review = found.body;
+  if (review.revises) {
+    const earlier = await json(`/api/v1/reviews/${encodeURIComponent(review.revises)}`);
+    previous = earlier.ok ? earlier.body : null;
+  }
+  const listed = await json("/api/v1/plugins");
+  const plugin = ((listed.body && listed.body.plugins) || []).find((p) => p.name === review.plugin) || {};
+  settings = plugin.settings || {};
+  minHeight = plugin.min_height || 200;
+  document.title = `${review.title} · Pinrail`;
+  document.getElementById("title").textContent = review.title;
+  document.getElementById("meta").textContent = `${review.plugin} v${review.plugin_version} · ${review.status}`;
+  if (readonly()) showDecided();
+  else button.disabled = false;
+  frame.style.height = `${minHeight}px`;
+  frame.src = `/plugins/${encodeURIComponent(review.plugin)}/${review.plugin_version}/${plugin.entry || "index.html"}`;
+})();
+</script>
+</body>
+</html>

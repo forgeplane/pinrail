@@ -3266,3 +3266,29 @@ async fn a_plugin_folder_is_checked_as_the_app_would_load_it() {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(violations(&body)[0].0, "/dir");
 }
+
+#[tokio::test]
+async fn a_review_has_a_preview_page_for_a_browser() {
+    let app = app();
+    let request = Request::builder()
+        .uri("/preview/reviews/r_anything")
+        .header("host", "127.0.0.1:4747")
+        .body(Body::empty())
+        .unwrap();
+    let response = app.router.clone().oneshot(request).await.unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(
+        response.headers()[axum::http::header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("text/html")
+    );
+    assert!(
+        response.headers()[axum::http::header::CONTENT_SECURITY_POLICY]
+            .to_str()
+            .unwrap()
+            .contains("frame-src 'self'")
+    );
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    assert!(String::from_utf8_lossy(&body).contains(r#"sandbox="allow-scripts""#));
+}

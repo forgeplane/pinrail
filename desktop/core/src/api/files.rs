@@ -25,6 +25,30 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/plugins/{name}/{version}/{*path}", get(bundle))
         .route("/sdk/v1/{*path}", get(sdk))
+        .route("/preview/reviews/{id}", get(preview))
+}
+
+/// A review as the app shows it, in a browser: the plugin's view in a frame,
+/// with the hand-over. The page reads the review's id from its address and
+/// everything else from the API, so any id gets the same page.
+async fn preview() -> Response {
+    const PAGE: &str = include_str!("preview.html");
+    let csp = "default-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'";
+    (
+        [
+            (
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("text/html; charset=utf-8"),
+            ),
+            (
+                header::CONTENT_SECURITY_POLICY,
+                HeaderValue::from_static(csp),
+            ),
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
+        ],
+        PAGE,
+    )
+        .into_response()
 }
 
 async fn bundle(
