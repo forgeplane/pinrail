@@ -107,7 +107,7 @@ pinrail submit --request request.json --revises <id> --wait --format markdown
 review r_…: open it in Pinrail (pinrail://reviews/r_…) or preview it in a browser: http://127.0.0.1:4747/preview/reviews/r_…
 ```
 
-The preview is the review as the app shows it: the plugin's view, fed the review, with a note for the agent and the hand-over button. An agent with a browser tool opens it to see what it asked, and to try a plugin it is building: handing over decides the review, as in the app, and a decision that fails the plugin's schema comes back to the view.
+The preview is the review as the app shows it: the plugin's view, fed the review, with the hand-over button. An agent with a browser tool opens it to see what it asked, and to try a plugin it is building. Handing over there checks the decision against the plugin's schema and decides nothing: a decision that passes is shown as the agent would get it, and one that fails comes back to the view. Deciding is the person's, in the app.
 
 ### A plugin's sample
 

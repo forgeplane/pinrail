@@ -3292,3 +3292,23 @@ async fn a_review_has_a_preview_page_for_a_browser() {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     assert!(String::from_utf8_lossy(&body).contains(r#"sandbox="allow-scripts""#));
 }
+
+#[tokio::test]
+async fn a_decision_is_checked_without_deciding_on_a_dry_run() {
+    let app = app();
+    let review = submit(&app, submission()).await;
+    let id = review["id"].as_str().unwrap();
+    let path = format!("/api/v1/reviews/{id}/decision?dry_run=true");
+
+    let good = json!({ "decisions": [{ "id": 1, "action": "accept" }], "undecided": [] });
+    let (status, body) = call(&app, "POST", &path, Some(json!({ "data": good }))).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body, json!({ "valid": true, "data": good }));
+
+    let (status, body) = call(&app, "POST", &path, Some(json!({ "data": { "nope": 1 } }))).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(!violations(&body).is_empty());
+
+    let (_, after) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
+    assert_eq!(after["status"], "pending", "a dry run decides nothing");
+}

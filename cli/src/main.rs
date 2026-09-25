@@ -487,7 +487,7 @@ fn run(cli: Cli) -> Result<u8> {
         ));
         steps.push(format!("pinrail plugins check {given}"));
         steps.push(format!(
-            "pinrail submit {name} --sample, then open the preview address it prints\n     in a browser to see the view, and hand it over to try the decision."
+            "pinrail submit {name} --sample, then open the preview address it prints\n     in a browser to see the view, and hand it over there to check the decision."
         ));
         let steps: Vec<String> = steps
             .iter()

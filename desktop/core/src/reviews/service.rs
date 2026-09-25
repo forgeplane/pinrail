@@ -270,6 +270,21 @@ impl Reviews {
         Ok(review)
     }
 
+    /// What `decide` would say of a decision, deciding nothing: the
+    /// review is there and the data passes its plugin's decision schema.
+    pub fn check_decision(&self, id: &str, data: &Value) -> Result<(), Error> {
+        let review = self.get(id)?;
+        let plugin = self
+            .registry
+            .fetch_version(&review.plugin, review.plugin_version)?;
+        let violations = plugin.validate_decision(data);
+        if violations.is_empty() {
+            Ok(())
+        } else {
+            Err(Error::Invalid(violations))
+        }
+    }
+
     /// The requester gives up.
     pub fn withdraw(&self, id: &str, reason: Option<&str>) -> Result<Review, Error> {
         let review = self.get(id)?;

@@ -194,6 +194,11 @@ async fn decide(
     let Some(data) = body.get("data") else {
         return Err(Error::invalid("/data", "is required").into());
     };
+    // `dry_run=true`: the checks a decision gets, and nothing decided
+    if params.get("dry_run").is_some_and(|v| v == "true") {
+        state.reviews().check_decision(&id, data)?;
+        return Ok(Json(json!({ "valid": true, "data": data })).into_response());
+    }
     let note = body.get("agent_note").and_then(Value::as_str);
     let review = state.reviews().decide(&id, data, note)?;
     review_response(&state, &review, wants_markdown(&headers, &params))

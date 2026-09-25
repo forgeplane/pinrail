@@ -21,6 +21,12 @@
   footer button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
   footer button:disabled { opacity: 0.5; cursor: default; }
   .decided { color: var(--dim); font-size: 13px; }
+  header a { color: var(--accent); }
+  #result { padding: 10px 18px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  #result p { margin: 0 0 6px; }
+  #result.ok p { color: var(--ok, #2a7); }
+  #result pre { max-height: 180px; margin: 0; padding: 8px 10px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
+  footer .hint { flex: 1; color: var(--faint); font-size: 12px; }
   .error { padding: 24px 18px; color: var(--danger, #c33); }
 </style>
 </head>
@@ -28,12 +34,13 @@
 <header>
   <h1 id="title">Loading…</h1>
   <span class="meta" id="meta"></span>
-  <span class="about">A preview of a review in Pinrail. Handing it over decides it, as the app does.</span>
+  <span class="about">A preview: handing it over here checks the decision against the plugin's schema, and decides nothing. <a id="app" href="#">Decide it in Pinrail</a>.</span>
 </header>
 <main><iframe id="view" sandbox="allow-scripts" title="The plugin's view"></iframe></main>
+<section id="result" hidden aria-live="polite"><p></p><pre></pre></section>
 <footer id="foot">
-  <textarea id="note" placeholder="A note for the agent (optional)" aria-label="A note for the agent"></textarea>
-  <button type="button" id="handover" disabled>Hand over</button>
+  <span class="hint">⌘/Ctrl+Enter presses it too.</span>
+  <button type="button" id="handover" disabled>Check the hand-over</button>
 </footer>
 <script>
 "use strict";
@@ -41,7 +48,7 @@ const PROTOCOL = 1;
 const id = decodeURIComponent(location.pathname.split("/").pop());
 const frame = document.getElementById("view");
 const button = document.getElementById("handover");
-let review = null, previous = null, settings = {}, minHeight = 200, submitting = false;
+let review = null, previous = null, settings = {}, minHeight = 200, checking = false;
 
 const post = (msg, transfer) => frame.contentWindow && frame.contentWindow.postMessage({ pinrail: PROTOCOL, ...msg }, "*", transfer || []);
 const theme = () => (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
@@ -62,25 +69,39 @@ function showDecided() {
 }
 
 function collect() {
-  if (!readonly() && !submitting) post({ type: "collect" });
+  if (!readonly() && !checking) post({ type: "collect" });
 }
 
+/** What the result area says: a decision that passes, and what the agent would get. */
+function result(ok, text, data) {
+  const area = document.getElementById("result");
+  area.hidden = false;
+  area.className = ok ? "ok" : "";
+  area.querySelector("p").textContent = text;
+  const pre = area.querySelector("pre");
+  pre.hidden = data === undefined;
+  pre.textContent = data === undefined ? "" : JSON.stringify(data, null, 2);
+}
+
+// The view's decision, checked and never stored: it passes, and the page
+// shows what the agent would get; or it fails, and the view gets the
+// violations, as in the app. Either way the view can go on editing.
 async function submit(data) {
-  if (readonly() || submitting) return;
-  submitting = true;
+  if (readonly() || checking) return;
+  checking = true;
   button.disabled = true;
   try {
-    const note = document.getElementById("note").value.trim();
-    const { ok, body } = await json(`/api/v1/reviews/${encodeURIComponent(id)}/decision`, { method: "POST", body: JSON.stringify(note ? { data, agent_note: note } : { data }) });
+    const { ok, body } = await json(`/api/v1/reviews/${encodeURIComponent(id)}/decision?dry_run=true`, { method: "POST", body: JSON.stringify({ data }) });
     if (ok) {
-      review = body;
-      post({ type: "submitted", decision: body.decision });
-      showDecided();
+      result(true, "The decision passes. Decided in Pinrail, this is what the agent would get:", data);
+      post({ type: "violations", errors: [] });
     } else {
-      post({ type: "violations", errors: (body && body.violations) || [{ path: "", message: (body && body.message) || "The decision was refused." }] });
+      const errors = (body && body.violations) || [{ path: "", message: (body && body.message) || "The decision was refused." }];
+      result(false, `The decision fails the plugin's schema: ${errors.length === 1 ? "1 violation" : errors.length + " violations"}, sent back to the view.`);
+      post({ type: "violations", errors });
     }
   } finally {
-    submitting = false;
+    checking = false;
     if (!readonly()) button.disabled = false;
   }
 }
@@ -110,7 +131,7 @@ window.addEventListener("message", (event) => {
       else if (typeof msg.height === "number" && isFinite(msg.height)) frame.style.height = `${Math.max(minHeight, Math.ceil(msg.height))}px`;
       break;
     case "status":
-      if (typeof msg.label === "string" && msg.label.trim()) button.textContent = msg.label;
+      if (typeof msg.label === "string" && msg.label.trim()) button.textContent = `Check: ${msg.label}`;
       break;
     case "submit":
       submit(msg.data);
@@ -149,6 +170,7 @@ matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
     return;
   }
   review = found.body;
+  document.getElementById("app").href = `pinrail://reviews/${encodeURIComponent(id)}`;
   if (review.revises) {
     const earlier = await json(`/api/v1/reviews/${encodeURIComponent(review.revises)}`);
     previous = earlier.ok ? earlier.body : null;
