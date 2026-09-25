@@ -56,15 +56,21 @@ plugin.status({ label: "Hand over: yes" }); // the hand-over button's words
 
 ```sh
 pinrail plugins install . --link        # the app serves this folder live
-pinrail submit __NAME__ --sample        # a review opens in the app
+pinrail submit __NAME__ --sample        # a review, and where to see it
 pinrail plugins reload                  # after changing the manifest or a schema
 pinrail plugins check .                 # what the app would refuse, and why
 ```
 
-A change to the view shows the next time the review is opened; with a
-framework template, `npm run watch` rebuilds `view/` as you edit `src/`. Before you
-hand the plugin back, run `pinrail plugins check .`, send the sample, and
-decide it once in the app.
+`submit` prints two addresses: `pinrail://reviews/<id>`, the review in the
+app, and `http://127.0.0.1:<port>/preview/reviews/<id>`, the same review in a
+browser. Open the preview with a browser tool to see the view as a person
+does; handing it over there decides the review, so a decision that fails the
+decision schema comes back to the view as violations.
+
+A change to the view shows the next time the preview or the review is
+opened; with a framework template, `npm run watch` rebuilds `view/` as you
+edit `src/`. Before you hand the plugin back, run `pinrail plugins check .`,
+send the sample, and hand it over once in the preview.
 
 ## Finding out more
 

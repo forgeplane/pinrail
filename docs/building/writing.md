@@ -334,6 +334,8 @@ pinrail plugins reload                  # after changing the manifest or a schem
 pinrail plugins check ticket_triage     # what the app would refuse, and why
 ```
 
+`submit` also prints the review's preview address: the same review in a browser, with your view and the hand-over, for an agent with a browser tool to look at and try. See [A review in a browser](/docs/agents/cli/#a-review-in-a-browser).
+
 `pinrail plugins guide` prints this guide, a topic at a time, from the Pinrail you have installed.
 
 With the npm package, `pinrail-plugin dev` opens your view in a browser under a stand-in for the app, without the app.

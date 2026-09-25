@@ -476,13 +476,27 @@ fn run(cli: Cli) -> Result<u8> {
             eprintln!("pinrail: {name} is linked; the app serves the folder live");
         }
         // what comes next, for whoever ran it, most often an agent
-        let link_step = if *link {
-            String::new()
-        } else {
-            format!("\n  pinrail plugins install {given} --link   so the app serves it live")
-        };
+        let mut steps = Vec::new();
+        if !*link {
+            steps.push(format!(
+                "pinrail plugins install {given} --link, so the app serves it live."
+            ));
+        }
+        steps.push(format!(
+            "Read AGENTS.md in {given}, then make the plugin what is needed: the\n     schemas, example, sample and view, kept in step."
+        ));
+        steps.push(format!("pinrail plugins check {given}"));
+        steps.push(format!(
+            "pinrail submit {name} --sample, then open the preview address it prints\n     in a browser to see the view, and hand it over to try the decision."
+        ));
+        let steps: Vec<String> = steps
+            .iter()
+            .enumerate()
+            .map(|(i, s)| format!("  {}. {s}", i + 1))
+            .collect();
         eprintln!(
-            "\nNext:{link_step}\n  1. Read AGENTS.md in {given}, then make the plugin what is needed: the\n     schemas, example, sample and view, kept in step.\n  2. pinrail plugins check {given}\n  3. pinrail submit {name} --sample, and look at the review.\n\nHow to build a plugin, a topic at a time: pinrail plugins guide\nA framework, or tests without the app: npx @forgeplane/pinrail-plugin create"
+            "\nNext:\n{}\n\nHow to build a plugin, a topic at a time: pinrail plugins guide\nA framework, or tests without the app: npx @forgeplane/pinrail-plugin create",
+            steps.join("\n")
         );
         return Ok(0);
     }
