@@ -37,31 +37,31 @@ pinrail docs plugins/building         # one brief, and the briefs under it
 pinrail docs --tree                   # the whole map
 ```
 
-`pinrail docs` starts with a screen: what Pinrail is, the one command an agent runs to ask, what to do with the answer, and the rules that apply every time. Its menu leads to short briefs, written for an agent at work rather than a person reading: asking and its exit codes, finding a plugin, writing a standing rule for itself, and building a plugin, down to the view's contract, the design language and the manifest's schema. `pinrail --help` points there, and so does everything else an agent meets first: the `describe` index, a new plugin's `AGENTS.md`, the prompts in the app's setup.
+`pinrail docs` starts with a screen: what Pinrail is, the one command an agent runs to ask, what to do with the answer, and the rules that apply every time. Its menu leads to short briefs, written for an agent at work rather than a person reading: asking and its exit codes, finding a plugin, writing a standing rule for itself, and building a plugin, down to the view's contract, the design language and the manifest's schema. `pinrail --help` points there, and so does everything else an agent meets first: a new plugin's `AGENTS.md`, the prompts in the app's setup.
 
-The same idea runs through the rest of the command. `pinrail plugins describe` lists the plugins a line each before any of them in full; `pinrail plugins new` ends with the next commands to run; `submit` says where the review is. An agent starts from `pinrail docs`, or from the plugin its instructions name, and finds the rest as it goes.
+The same idea runs through the rest of the command. `pinrail plugins` lists the plugins a line each before `describe` gives one in full; `pinrail plugins new` ends with the next commands to run; `submit` says where the review is. An agent starts from `pinrail docs`, or from the plugin its instructions name, and finds the rest as it goes.
 
 ## Learning what to ask
 
 Two steps tell an agent everything it needs to ask through Pinrail: first which plugin fits, then that plugin in full.
 
 ```sh
-pinrail plugins describe                          # every usable plugin, a line each
-pinrail plugins describe review # one plugin, in full
+pinrail plugins                       # every plugin, a line each
+pinrail plugins describe review       # one plugin, in full
 ```
 
-Without a name, `describe` is an index: each plugin in a line with **when to use it**, in the plugin author's words, and the files it takes. After the plugins come the command to submit with, what the finished review carries, and what every [exit code](#exit-codes) means.
+`pinrail plugins` lists each plugin in a line with what it is, **when to use it**, in the plugin author's words, and the files it takes, beside its version, where it comes from and whether it works.
 
-With a name, it describes that plugin in full:
+`describe` gives one plugin in full:
 
 - what the plugin is for, and when to use it;
 - the **payload schema**, and an **example payload** that passes it;
 - the **decision schema**: the shape of `decision.data` in the review that comes back.
 
-`--all` describes every plugin in full at once, for a tool that wants it in one call. Like `submit`, `describe` starts the app if it is not running.
+Like `submit`, `describe` starts the app if it is not running.
 
 :::tip[Point the agent at it]
-An agent that runs `pinrail plugins describe` can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.
+An agent that runs `pinrail plugins`, then `pinrail plugins describe <name>`, can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.
 :::
 
 ## Submitting a review
@@ -133,7 +133,7 @@ A dry run checks the title, the origin and the payload against the plugin's sche
 
 ### Sending files
 
-Some plugins take files beside the payload. The plugin's payload schema says where each file goes, and `pinrail plugins describe` shows it with the kinds and sizes the plugin accepts; a plugin that declares none refuses a submission with files. Build the payload as the schema says, and send each file it names with `--attach`. A schema marks a file's place with an object whose one key, `$attachment`, holds the file's name. For the [3D model](/docs/plugins/model/) plugin:
+Some plugins take files beside the payload. The plugin's payload schema says where each file goes, and `pinrail plugins describe <name>` shows it with the kinds and sizes the plugin accepts; a plugin that declares none refuses a submission with files. Build the payload as the schema says, and send each file it names with `--attach`. A schema marks a file's place with an object whose one key, `$attachment`, holds the file's name. For the [3D model](/docs/plugins/model/) plugin:
 
 ```sh
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
@@ -224,7 +224,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install, update or remove](/docs/using/installing-plugins/) them. |
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
 | `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. |
-| `pinrail plugins describe [name]` | What an agent needs to ask with each plugin. See [Learning what to ask](#learning-what-to-ask). |
+| `pinrail plugins describe <name>` | What an agent needs to ask with a plugin. See [Learning what to ask](#learning-what-to-ask). |
 
 `pinrail <command> --help` lists every flag, and the [CLI reference](/docs/reference/cli/) has them all.
 

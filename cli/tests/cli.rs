@@ -554,66 +554,44 @@ fn rand_suffix() -> u128 {
 }
 
 #[test]
-fn describe_adds_how_to_submit_and_the_exit_codes_to_the_plugins() {
+fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     let server = MockServer::start(Box::new(|method, path, _| {
         assert_eq!(method, "GET");
         let body = r#"{"plugins":[{"name":"list","title":"List","release":"1.2.0","description":"Items to accept or reject.","use_when":"Before posting review comments","payload_schema":{"type":"object"},"decision_schema":{"type":"object"},"example":{"groups":[]},"markdown":true}]}"#;
         match path {
-            "/api/v1/plugins/describe" | "/api/v1/plugins/list/describe" => (200, body.into()),
+            "/api/v1/plugins/list/describe" => (200, body.into()),
+            "/api/v1/plugins" => (200, r#"{"plugins":[{"name":"hello","path":"/src/hello","error":"entry view/index.html not found"}]}"#.into()),
             _ => (
                 404,
-                r#"{"error":"not_found","message":"nope","violations":[]}"#.into(),
+                r#"{"error":"not_found","message":"plugin nope not found","violations":[]}"#.into(),
             ),
         }
     }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "describe"]);
+    // JSON is the app's description, as it gives it
+    let (code, stdout, stderr) = run(&server, &["plugins", "describe", "list"]);
     assert_eq!(code, 0, "{stderr}");
     let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(
-        doc["plugins"][0]["use_when"],
-        "Before posting review comments"
-    );
-    assert!(
-        doc["submit"]["check"]
-            .as_str()
-            .unwrap()
-            .contains("--dry-run")
-    );
-    assert!(
-        doc["submit"]["exit_codes"]["5"]
-            .as_str()
-            .unwrap()
-            .contains("stop")
-    );
+    assert_eq!(doc["name"], "list", "the plugin itself, not a list of one");
+    assert_eq!(doc["use_when"], "Before posting review comments");
+    assert!(doc.get("submit").is_none(), "{doc}");
 
+
+    // one plugin is the document: its heading first, its command, no general parts
     let (code, stdout, _) = run(&server, &["plugins", "describe", "list", "--markdown"]);
     assert_eq!(code, 0);
-    // one plugin is the document: its heading first, its command, no general parts
     assert!(stdout.starts_with("# List (`list`) · 1.2.0\n"), "{stdout}");
     assert!(stdout.contains("**Use when:** Before posting review comments"));
     assert!(stdout.contains("pinrail submit list --title"));
     assert!(!stdout.contains("| 4 | timed out") && !stdout.contains("# Pinrail plugins"));
-
-    // with no name, an index: a line a plugin, and the way to the rest
-    let (code, stdout, _) = run(&server, &["plugins", "describe", "--markdown"]);
-    assert_eq!(code, 0);
-    assert!(
-        stdout.contains("- **list** (List): Before posting review comments\n"),
-        "{stdout}"
-    );
-    assert!(stdout.contains("Next, run `pinrail plugins describe <name>`"));
-    assert!(!stdout.contains("### Payload"));
-
-    let (code, _, _) = run(&server, &["plugins", "describe", "nope"]);
+    // a plugin's name
+    let (code, _, stderr) = run(&server, &["plugins", "describe"]);
     assert_eq!(code, 2);
-    assert_eq!(
-        server
-            .requests()
-            .iter()
-            .filter(|r| r.contains("/describe"))
-            .count(),
-        4
-    );
+    assert!(stderr.contains("<NAME>"), "{stderr}");
+
+    let (code, _, stderr) = run(&server, &["plugins", "describe", "nope", "--markdown"]);
+    assert_eq!(code, 2);
+    assert_eq!(stderr, "pinrail: refused: plugin nope not found\n");
+
 }
 
 #[test]
@@ -1014,55 +992,37 @@ fn attachments_lists_a_review_s_files_and_saves_one() {
 }
 
 #[test]
-fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
+fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     let server = MockServer::start(Box::new(|_, path, _| {
         let body = r#"{"plugins":[
             {"name":"model","title":"3D model review","release":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
-             "attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
-            {"name":"list","title":"List","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"attachments":null}]}"#;
+             "install":null,"attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
+            {"name":"list","title":"List","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"install":null,"attachments":null}]}"#;
         match path {
-            "/api/v1/plugins/describe" => (200, body.into()),
+            "/api/v1/plugins" => (200, body.into()),
+            // describe answers with the one plugin asked for
+            "/api/v1/plugins/model/describe" => {
+                let all: serde_json::Value = serde_json::from_str(body).unwrap();
+                (200, serde_json::json!({ "plugins": [all["plugins"][0]] }).to_string())
+            }
             other => panic!("unexpected {other}"),
         }
     }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "describe"]);
+    // choosing: the listing says which kinds, extensions first
+    let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
-    let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(doc["plugins"][0]["files"][0], ".glb");
-    assert!(
-        doc["plugins"][0].get("payload_schema").is_none(),
-        "the index leaves the schemas to describe <name>"
-    );
-    assert!(doc["next"].as_str().unwrap().contains("describe <name>"));
+    assert!(stdout.contains("- model · 2.0.0 · built in · ready\n  Takes files: .glb.\n"), "{stdout}");
+    assert_eq!(stdout.matches("Takes files").count(), 1);
 
-    let (code, stdout, _) = run(&server, &["plugins", "describe", "--markdown"]);
+    // in full: the kinds, the limits and how to send them
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "model", "--markdown"]);
     assert_eq!(code, 0);
     assert!(
-        stdout.contains("- **model** (3D model review): Takes files: .glb."),
-        "{stdout}"
-    );
-
-    let (code, stdout, _) = run(&server, &["plugins", "describe", "--all"]);
-    assert_eq!(code, 0);
-    let doc: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(doc["plugins"][0]["attachments"]["accept"][0], ".glb");
-    assert!(
-        doc["submit"]["attachments"]
-            .as_str()
-            .unwrap()
-            .contains("--attach PATH[=NAME]")
-    );
-
-    let (code, stdout, _) = run(&server, &["plugins", "describe", "--all", "--markdown"]);
-    assert_eq!(code, 0);
-    assert!(
-        stdout.contains("### Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
+        stdout.contains("## Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
         "{stdout}"
     );
     assert!(stdout.contains("pinrail submit model --title \"<what it is about>\" --data payload.json --attach <file> --wait"));
-    // a plugin that takes none says nothing about files
-    assert_eq!(stdout.matches("### Files").count(), 1);
-    assert!(stdout.contains("Files go beside the payload for a plugin that takes them"));
+    assert_eq!(stdout.matches("## Files").count(), 1);
 }
 
 #[test]
@@ -1227,7 +1187,7 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
     let server = MockServer::start(Box::new(|_, path, _| {
         assert_eq!(path, "/api/v1/plugins");
         (200, r#"{"plugins":[
-            {"name":"list","release":"1.0.0","install":null,"error":null,"description":"Proposed actions to accept or reject."},
+            {"name":"list","release":"1.0.0","install":null,"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
             {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"},"error":null},
             {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"},"error":"entry index.html not found"}]}"#.into())
     }));
@@ -1235,9 +1195,10 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(
         stdout,
-        "3 plugins installed; pinrail plugins describe says when to use each.\n\n\
+        "3 plugins installed; pinrail plugins describe <name> gives one's payload, an example and its decision.\n\n\
          - list · 1.0.0 · built in · ready\n\
          \x20 Proposed actions to accept or reject.\n\
+         \x20 Use when: You have changes to propose.\n\
          - review · 2.1.0 · linked, /src/review · ready\n\
          - odd · 0.1.0 · github.com/acme/odd · broken: entry index.html not found\n"
     );

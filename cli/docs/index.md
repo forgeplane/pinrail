@@ -33,7 +33,7 @@ Your instructions or skill usually name the plugin for a task. Only when
 they don't, or you don't know what is installed:
 
 ```sh
-pinrail plugins describe             # every plugin, a line each: when to use it
+pinrail plugins                      # every plugin, a line each: when to use it
 pinrail plugins describe <plugin>    # its payload schema and an example
 ```
 

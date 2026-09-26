@@ -219,11 +219,8 @@ impl Client {
         self.get(&format!("/api/v1/plugins/{name}/versions"), &[])
     }
 
-    pub fn plugins_describe(&self, name: Option<&str>) -> Result<Value> {
-        match name {
-            Some(name) => self.get(&format!("/api/v1/plugins/{name}/describe"), &[]),
-            None => self.get("/api/v1/plugins/describe", &[]),
-        }
+    pub fn plugins_describe(&self, name: &str) -> Result<Value> {
+        self.get(&format!("/api/v1/plugins/{name}/describe"), &[])
     }
 
     /// What the app makes of a plugin folder, installing nothing.

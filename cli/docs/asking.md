@@ -36,8 +36,8 @@ later with `pinrail wait <id>`.
 
 ## Files
 
-Some plugins take files beside the payload: `pinrail plugins describe`
-says "Takes files" and which kinds, and the plugin's payload schema marks
+Some plugins take files beside the payload: `pinrail plugins` says
+"Takes files" and which kinds, and the plugin's payload schema marks
 where each goes, as `{"$attachment": "<name>"}`. Put that in the payload
 and send each file it names:
 

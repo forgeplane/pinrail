@@ -9,18 +9,12 @@ A plugin is one kind of review: what you send, what the person sees, and
 the shape of the answer. Pick one by its "use when", never by its name.
 
 ```sh
-pinrail plugins describe                           # every plugin, a line each: when to use it
-pinrail plugins describe <plugin> # its payload schema, an example, its decision
+pinrail plugins                      # every plugin, a line each: when to use it, where from, whether it works
+pinrail plugins describe <plugin>    # its payload schema, an example, its decision
 ```
 
 Build the payload from the schema; start from the example. `--dry-run`
 checks it before anyone sees it.
-
-## What is installed
-
-```sh
-pinrail plugins                                    # a table: name, version, where from, state
-```
 
 Install, update or remove plugins only when the person asks you to:
 `pinrail plugins install <folder or GitHub URL>`, `pinrail plugins update`,

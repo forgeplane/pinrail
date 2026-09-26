@@ -33,7 +33,7 @@
     "use_when": {
       "type": "string",
       "maxLength": 400,
-      "description": "When an agent should ask with this plugin, in one line: what situation it is for. `pinrail plugins describe` shows it to an agent choosing a plugin."
+      "description": "When an agent should ask with this plugin, in one line: what situation it is for. `pinrail plugins` shows it to an agent choosing a plugin."
     },
     "example": {
       "type": ["string", "null"],

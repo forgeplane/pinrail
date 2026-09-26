@@ -86,7 +86,7 @@ Only the manifest, the schemas, the view and the sample reach the app. `fixtures
 | `version` | Semantic, such as `"1.2.0"`. The major version is a compatibility promise; see [Versions](#versions). |
 | `title` | What the app calls the plugin in its lists and settings. |
 | `description` | A sentence on what the plugin is for. |
-| `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins describe` when they choose a plugin. |
+| `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins` when they choose a plugin. |
 | `icon` | Any [Lucide](https://lucide.dev/icons) icon name, shown beside the plugin's reviews. |
 | `payload_schema`, `decision_schema` | JSON Schema 2020-12, inline or as a `$ref` to a file inside the folder. |
 | `example` | A JSON file inside the folder with a payload that passes `payload_schema`. Agents get it as a starting point. |

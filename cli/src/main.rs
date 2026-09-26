@@ -129,7 +129,7 @@ enum Command {
     /// can be left out when the file names one.
     ///
     /// Files go beside the payload with --attach, for a plugin that
-    /// takes them (pinrail plugins describe says which). The payload names
+    /// takes them (pinrail plugins says which). The payload names
     /// each one as {"$attachment": "<name>"}; the name is the file's own, or
     /// the one after =:
     ///
@@ -194,7 +194,8 @@ enum Command {
         by: Option<String>,
     },
     /// The installed plugins as the app lists them, with their install
-    /// records and settings; to ask with one, see `plugins describe`
+    /// records and settings, and when to use each; `plugins describe <name>`
+    /// gives one in full
     #[command(alias = "types")]
     Plugins(PluginsArgs),
     /// The files a review carries: list them, or save one
@@ -429,16 +430,12 @@ enum PluginsCommand {
         /// the plugin's name
         name: String,
     },
-    /// What an agent needs to ask with Pinrail: every usable plugin in a
-    /// line with when to use it, how to submit, and the exit codes; with a
-    /// name, that plugin in full, with its payload and decision schemas and
-    /// an example payload; JSON with --json
+    /// What an agent needs to ask with a plugin: its payload schema, an
+    /// example payload, the files it takes and its decision schema; JSON
+    /// with --json. `pinrail plugins` lists them, with when to use each
     Describe {
-        /// the plugin's name; an index of every usable plugin when omitted
-        name: Option<String>,
-        /// every usable plugin in full, rather than the index
-        #[arg(long, conflicts_with = "name")]
-        all: bool,
+        /// the plugin's name
+        name: String,
     },
     /// Read the installed plugins from disk again: after changing a linked
     /// plugin's manifest or schemas, which the app reads when it loads the
@@ -758,15 +755,12 @@ fn run(cli: Cli) -> Result<u8> {
             })
         }
         Command::Plugins(PluginsArgs {
-            command: Some(PluginsCommand::Describe { name, all }),
+            command: Some(PluginsCommand::Describe { name }),
         }) => {
-            let index = name.is_none() && !all;
-            let described = client.plugins_describe(name.as_deref())?;
-            if output.markdown {
-                print!("{}", describe::markdown(&described, index, name.is_some()));
-            } else {
-                out::print_json(&describe::document(described, index), pretty);
-            }
+            let described = client.plugins_describe(&name)?;
+            // the plugin itself, not a list of one
+            let shown = described["plugins"][0].clone();
+            output.data(&shown, describe::markdown);
             Ok(0)
         }
         Command::Plugins(args) => {

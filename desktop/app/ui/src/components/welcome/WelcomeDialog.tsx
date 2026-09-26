@@ -19,7 +19,7 @@ import { useCli, type CliStatus } from "../settings/CliRow";
 // the list plugin is built in, so its sample is there on every install
 const TRY = "pinrail submit list --sample --wait";
 
-/** Prompts that leave the how to the agent: `plugins describe` teaches it
+/** Prompts that leave the how to the agent: `pinrail docs` teaches it
  * the rest. Both work with the built-in list plugin. */
 const TRY_NOW =
   "Find the TODOs in this repository and ask me through Pinrail which to tackle first. Run `pinrail docs` to see how.";
@@ -254,7 +254,7 @@ function AgentStep({ onCopied, onPlugins }: { onCopied: () => void; onPlugins: (
   return (
     <>
       <h2>Put your agent to work</h2>
-      <p>Paste one of these into your agent. It works out the rest itself: <code>pinrail plugins describe</code> tells it how.</p>
+      <p>Paste one of these into your agent. It works out the rest itself: <code>pinrail docs</code> tells it how.</p>
       <p className="welcome-caption">Try it now</p>
       <div className="welcome-term welcome-term-copy welcome-term-prose">
         <div>{TRY_NOW}</div>
