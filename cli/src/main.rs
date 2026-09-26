@@ -440,7 +440,9 @@ enum PluginsCommand {
         #[arg(long, conflicts_with = "name")]
         all: bool,
     },
-    /// Reload the installed plugins from disk
+    /// Read the installed plugins from disk again: after changing a linked
+    /// plugin's manifest or schemas, which the app reads when it loads the
+    /// plugin; its view is served live and needs no reload
     Reload,
     /// A new plugin that needs no build: manifest, schemas, a sample, a view,
     /// the SDK's types and an AGENTS.md; --link installs it right away
