@@ -159,13 +159,13 @@ test("a plugin pinrail-plugin create wrote installs as a link and decides a revi
   expect(pinrailJson(["plugins"]).plugins.find((p: any) => p.name === "triage").usable).toBe(true);
 
   const payload = tmpFile("payload.json", JSON.stringify({ message: "Push it?" }));
-  const created = pinrailJson(["create", "triage", "--title", "Push the branch?", "--data", payload]);
+  const created = pinrailJson(["submit", "triage", "--title", "Push the branch?", "--data", payload]);
   pinrailJson(["decide", created.id, "--data", tmpFile("d.json", JSON.stringify({ ok: true, comment: "go" }))]);
   const shown = pinrailJson(["show", created.id]);
   expect(shown.status).toBe("decided");
   expect(shown.decision.data).toEqual({ ok: true, comment: "go" });
 
-  const refused = pinrail(["create", "triage", "--title", "Bad", "--data", tmpFile("bad.json", JSON.stringify({ msg: 1 }))]);
+  const refused = pinrail(["submit", "triage", "--title", "Bad", "--data", tmpFile("bad.json", JSON.stringify({ msg: 1 }))]);
   expect(refused.code).not.toBe(0);
 
   pinrailJson(["plugins", "remove", "triage"]);

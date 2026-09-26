@@ -140,7 +140,7 @@ enum Command {
     /// "media_type": …} as a plugin's fixture has them, so a fixture is
     /// sent as it is. The submission is checked before anything is
     /// uploaded, and a file the app already has is not sent again.
-    #[command(alias = "create", verbatim_doc_comment)]
+    #[command(verbatim_doc_comment)]
     Submit(SubmitArgs),
     /// Block until a review leaves pending, then print it: the decision as
     /// markdown, or with --json the whole review as JSON
@@ -195,7 +195,6 @@ enum Command {
     /// The installed plugins as the app lists them, with their install
     /// records and settings, and when to use each; `plugins describe <name>`
     /// gives one in full
-    #[command(alias = "types")]
     Plugins(PluginsArgs),
     /// The files a review carries: list them, or save one
     #[command(subcommand)]
@@ -253,7 +252,7 @@ struct SubmitArgs {
     /// owner/name), ref (a branch or pull request), workflow and run_id
     /// (what asked), url (a link back). In a git checkout, repo and ref
     /// default to the remote and the branch. E.g. repo=acme/api,ref=42,url=…
-    #[arg(long, alias = "source", value_parser = parse_origin)]
+    #[arg(long, value_parser = parse_origin)]
     origin: Option<BTreeMap<String, String>>,
     /// Payload JSON: a file path, or - for stdin
     #[arg(long, value_name = "FILE|-")]
@@ -269,7 +268,7 @@ struct SubmitArgs {
     #[arg(long, value_parser = parse_json)]
     summary: Option<Value>,
     /// The review this one is a new round of
-    #[arg(long, alias = "supersedes")]
+    #[arg(long)]
     revises: Option<String>,
     /// ISO 8601 timestamp after which the review expires
     #[arg(long)]
@@ -335,7 +334,7 @@ struct ListArgs {
     #[arg(long)]
     run_id: Option<String>,
     /// Only reviews of this plugin
-    #[arg(long, alias = "type")]
+    #[arg(long)]
     plugin: Option<String>,
     /// Words to look for, all of them, in titles, payloads, plugins, requesters, origins and who decided
     #[arg(long)]
@@ -351,7 +350,7 @@ struct ListArgs {
     #[arg(long)]
     all: bool,
     /// Include rounds that a later round revises
-    #[arg(long, alias = "superseded")]
+    #[arg(long)]
     include_revised: bool,
 }
 

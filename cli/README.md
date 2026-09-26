@@ -178,7 +178,7 @@ the latest round of each review unless `--include-revised` is given, and
 
 | Command | What it does |
 |---|---|
-| `pinrail submit <plugin>` | Submit a review. `create` is an alias. |
+| `pinrail submit <plugin>` | Submit a review. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |
 | `pinrail list` | List reviews, newest first, without payloads. |

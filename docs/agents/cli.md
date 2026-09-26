@@ -88,8 +88,6 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--expires-at` | Close the review if nobody decides by then. |
 | `--requested-by` | Who is asking, shown on the review. Defaults to `PINRAIL_REQUESTED_BY`, then `pinrail-cli`. |
 
-`create` is an alias for `submit`.
-
 ### The whole request in one file
 
 Instead of flags, the agent can write the whole request as one JSON file and pass it with `--request` (or `--request -` to read stdin):

@@ -191,7 +191,7 @@ fn submit_prints_the_review_and_its_id_on_stderr() {
 }
 
 #[test]
-fn create_alias_wait_loops_through_204_then_prints_the_decision_and_writes_the_file() {
+fn submit_wait_loops_through_204_then_prints_the_decision_and_writes_the_file() {
     let mut polls = 0;
     let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
         ("POST", "/api/v1/reviews") => (201, review("pending")),
@@ -211,7 +211,7 @@ fn create_alias_wait_loops_through_204_then_prints_the_decision_and_writes_the_f
     let (code, stdout, stderr) = run(
         &server,
         &[
-            "create",
+            "submit",
             "list",
             "--title",
             "t",
@@ -457,7 +457,6 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
         0
     );
     assert_eq!(run(&server, &["plugins"]).0, 0);
-    assert_eq!(run(&server, &["types"]).0, 0);
     assert_eq!(run(&server, &["plugins", "reload"]).0, 0);
     assert_eq!(run(&server, &["plugins", "versions", "list"]).0, 0);
 }
