@@ -9,6 +9,15 @@ fn text(v: &Value) -> &str {
     v.as_str().unwrap_or_default()
 }
 
+/// An ISO time as a clock on this machine reads it, `2026-09-16 09:14`, as
+/// a review's own markdown prints it; as it came when it does not parse.
+fn when(v: &Value) -> String {
+    let iso = text(v);
+    chrono::DateTime::parse_from_rfc3339(iso)
+        .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string())
+        .unwrap_or_else(|_| iso.to_string())
+}
+
 /// What a listing was narrowed to, to say above it.
 pub struct Scope {
     pub status: Option<String>,
@@ -67,7 +76,7 @@ pub fn reviews(reviews: &Value) -> String {
                 line.push_str(&format!("@{reference}"));
             }
         }
-        line.push_str(&format!(" · {}", text(&r["created_at"])));
+        line.push_str(&format!(" · {}", when(&r["created_at"])));
         if let Some(revises) = r["revises"].as_str() {
             line.push_str(&format!(" · revises {revises}"));
         }
@@ -87,7 +96,7 @@ pub fn rounds(rounds: &Value) -> String {
             text(&r["id"]),
             text(&r["status"]),
             text(&r["title"]),
-            text(&r["created_at"])
+            when(&r["created_at"])
         ));
     }
     out
@@ -97,7 +106,7 @@ pub fn rounds(rounds: &Value) -> String {
 pub fn events(events: &Value) -> String {
     let mut out = String::new();
     for e in events.as_array().into_iter().flatten() {
-        let mut line = format!("- {} {}", text(&e["at"]), text(&e["kind"]));
+        let mut line = format!("- {} {}", when(&e["at"]), text(&e["kind"]));
         if let Some(actor) = e["actor"].as_str() {
             line.push_str(&format!(" by {actor}"));
         }
@@ -135,8 +144,8 @@ pub fn server(info: &Value) -> String {
     if let Some(pid) = info["pid"].as_u64() {
         about.push(format!("pid {pid}"));
     }
-    if let Some(since) = info["started_at"].as_str() {
-        about.push(format!("since {since}"));
+    if info["started_at"].is_string() {
+        about.push(format!("since {}", when(&info["started_at"])));
     }
     match about.is_empty() {
         true => format!("Pinrail's server: {}\n", text(&info["url"])),
