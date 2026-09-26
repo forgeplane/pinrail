@@ -1226,6 +1226,31 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
 }
 
 #[test]
+fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
+    let dir = tempdir();
+    std::fs::create_dir_all(dir.join("work")).unwrap();
+    std::fs::create_dir_all(dir.join("plugins/hello")).unwrap();
+    let expected = dir.join("plugins/hello").canonicalize().unwrap().to_string_lossy().to_string();
+    let sent = Arc::new(Mutex::new(String::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
+        ("POST", "/api/v1/plugins/install") => {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            *seen.lock().unwrap() = body["source"].as_str().unwrap().to_string();
+            (202, r#"{"job":"j1"}"#.into())
+        }
+        ("GET", "/api/v1/plugins/jobs/j1") => (
+            200,
+            r#"{"status":"done","log":"","plugin":{"name":"hello","release":"1.0.0","entry":"view/index.html"}}"#.into(),
+        ),
+        other => panic!("unexpected {other:?}"),
+    }));
+    let (code, _, stderr) = run_in(&server, &dir.join("work"), &["plugins", "install", "../plugins/hello", "--link"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(*sent.lock().unwrap(), expected);
+}
+
+#[test]
 fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
     let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[

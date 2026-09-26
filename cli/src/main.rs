@@ -837,8 +837,9 @@ fn run(cli: Cli) -> Result<u8> {
                     reference,
                     path,
                 }) => {
-                    // a folder that exists is sent as an absolute path
-                    let source = match std::path::absolute(&source) {
+                    // a folder that exists is sent as its full path, `..`
+                    // resolved, the way the app records and shows it
+                    let source = match std::fs::canonicalize(&source) {
                         Ok(p) if p.is_dir() => p.to_string_lossy().into_owned(),
                         _ => source,
                     };
