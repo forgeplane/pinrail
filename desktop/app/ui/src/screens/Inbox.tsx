@@ -98,7 +98,9 @@ export function Inbox() {
   const newRounds = live.pending.filter((r) => r.revises).length;
   const plugins = [...new Set(live.pending.map((r) => r.plugin))].sort();
 
-  // In the order the rows are drawn: by project, newest first within one.
+  // In the order the rows are drawn: by project, the project with the
+  // newest review first, and newest first within one. The reviews come
+  // newest first, so a project's place is where its newest one falls.
   // J, K and Enter walk this order, so the row they open is the row lit.
   const ordered = useMemo(() => {
     const byRepo = new Map<string, Review[]>();
@@ -106,7 +108,7 @@ export function Inbox() {
       const key = r.origin.repo ?? "";
       byRepo.set(key, [...(byRepo.get(key) ?? []), r]);
     }
-    return [...byRepo.entries()].sort(([a], [b]) => a.localeCompare(b)).flatMap(([, items]) => items);
+    return [...byRepo.entries()].flatMap(([, items]) => items);
   }, [reviews]);
 
   // a page past the end, after reviews were decided: the last page there is
