@@ -410,7 +410,7 @@ A plugin still finding its shape starts at `0.1.0`.
 
 ## Decisions as markdown
 
-An agent that waits with `--format markdown` reads your decision as prose. Without help, the app renders it by its shape: an `id` and an `action` lead each bullet, a `note` becomes a quote, and nothing is dropped. When a decision only reads well beside its payload, such as "closed: *Export times out*" rather than "closed: 101", ship a template:
+An agent reads your decision as prose: markdown is what the command prints. Without help, the app renders it by its shape: an `id` and an `action` lead each bullet, a `note` becomes a quote, and nothing is dropped. When a decision only reads well beside its payload, such as "closed: *Export times out*" rather than "closed: 101", ship a template:
 
 ```jinja title="templates/decision.md.j2"
 {% for item in items -%}

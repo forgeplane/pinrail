@@ -38,11 +38,11 @@ An agent follows instructions literally. Say four things, plainly:
 
 1. **When to ask.** Name the moment: *before posting review comments*, *before sending email*, *before deleting anything in production*. A vague rule ("ask when unsure") gets you asked about everything or nothing.
 2. **What to send.** Name the plugin and describe the payload in a sentence, so the agent knows what to put in it. The agent can read the exact shape, with an example, from `pinrail plugins describe <plugin>`; each [plugin page](/docs/plugins/) has it too.
-3. **The command.** Give it exactly, with `--wait` so the agent blocks until you decide, and `--format markdown` so the answer reads as prose.
+3. **The command.** Give it exactly, with `--wait` so the agent blocks until you decide. The answer comes back as markdown, which the agent reads as prose.
 4. **What to do with the answer.** Which verdicts to act on, what notes mean, what to do with anything undecided, and what to do if you say stop.
 
-:::tip[Let the agent read markdown]
-`--format markdown` returns the decision as a short document the agent reads like any other text: the title, who decided, and each verdict with its note. Set `PINRAIL_FORMAT=markdown` in the agent's environment to make it the default.
+:::tip[Markdown for agents, JSON for scripts]
+The decision comes back as a short document the agent reads like any other text: the title, who decided, and each verdict with its note. A step that processes it instead, looping over items or handing it to a script, adds `--json`.
 :::
 
 ## A template
@@ -57,12 +57,12 @@ Don't ask in chat and don't go ahead without an answer.
 
 1. Write <what you're proposing> to a JSON file for the `<plugin>` plugin:
    <one sentence on the payload's shape>. `pinrail plugins describe <plugin>
-   --format markdown` has the schema and an example. Check the file with
+   ` has the schema and an example. Check the file with
    the command below and `--dry-run` in place of `--wait`.
 2. Run:
    pinrail submit <plugin> --title "<a title I'll recognise>" \
      --origin repo=<owner/repo>,ref=<branch or PR> \
-     --data <file>.json --wait --format markdown
+     --data <file>.json --wait
 3. Act on the decision: <which verdicts to act on, and how to use notes>.
    Treat anything undecided as not approved.
 4. If I ask for changes, make them and submit again with
@@ -109,7 +109,7 @@ pinrail show <id>    # where the review stands, and its decision
 When you ask for changes, the agent makes them and submits a new round that names the one it answers:
 
 ```sh
-pinrail submit review --title "Dedup tickets on save — round 2" --revises <id> --data review.json --wait --format markdown
+pinrail submit review --title "Dedup tickets on save — round 2" --revises <id> --data review.json --wait
 ```
 
 The app shows the new round with your previous verdicts beside each item, so you only review what changed. Every round is kept. `pinrail rounds <id>` prints them all, oldest first.
@@ -119,11 +119,11 @@ The app shows the new round with your previous verdicts beside each item, so you
 Questions that belong together go in one review: the `feedback` plugin takes several groups of questions answered in one pass, and `list` groups items under headings. When the questions are independent, or need different plugins, the agent submits each one without `--wait`, then waits on them:
 
 ```sh
-a=$(pinrail submit review --title "Dedup tickets on save" --data review.json | jq -r .id)
-b=$(pinrail submit email --title "Renewal emails" --data drafts.json | jq -r .id)
+a=$(pinrail submit review --title "Dedup tickets on save" --data review.json --json | jq -r .id)
+b=$(pinrail submit email --title "Renewal emails" --data drafts.json --json | jq -r .id)
 
-pinrail wait "$a" --format markdown   # returns when this one is decided
-pinrail wait "$b" --format markdown   # at once, if you decided it meanwhile
+pinrail wait "$a"   # returns when this one is decided
+pinrail wait "$b"   # at once, if you decided it meanwhile
 ```
 
 The reviews are all pending together, so you can decide them in any order. Waiting on each in turn ends when the last one is decided, and each `wait` exits with its own [exit code](/docs/agents/cli/#exit-codes), so the agent knows how each one ended.

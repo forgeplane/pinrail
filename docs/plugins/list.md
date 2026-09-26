@@ -46,7 +46,7 @@ Before you close, mute or change more than one item, ask me with Pinrail's
 1. Write the items to a JSON file: `{ "intro": "…", "groups": [{ "title": "…",
    "items": [{ "id": 1, "severity": "major", "title": "…", "body": "…" }] }] }`.
    Give each item a stable integer `id` and say in `body` what you will do.
-2. Run: `pinrail submit list --title "<what this is>" --data items.json --wait --format markdown`
+2. Run: `pinrail submit list --title "<what this is>" --data items.json --wait`
 3. Act only on items marked accepted, applying any note as an instruction.
    Rejected and undecided items are not approved: leave them.
 4. If the command exits 5, the review was discarded: stop and tell me why.
@@ -104,7 +104,7 @@ See [Instructing an agent](/docs/agents/instructing/) for where these instructio
 - `decisions` has one entry per item with a verdict. `note` is a revision instruction on `accept` and the reason on `reject`.
 - `undecided` lists every item left without a verdict. Treat those as not approved.
 
-With `--format markdown`, the agent reads the same decision as prose, with the verdicts and notes under each group's heading.
+In markdown, the default, the agent reads the same decision as prose, with the verdicts and notes under each group's heading.
 
 ## Reference
 

@@ -16,7 +16,7 @@ set -euo pipefail
 status=0
 pinrail submit list --title "Prune stale branches in acme/api" \
   --origin repo=acme/api,workflow=prune,run_id="$RUN_ID" \
-  --data proposals.json --wait --decision-out decision.json > review.json || status=$?
+  --data proposals.json --wait --json --decision-out decision.json > review.json || status=$?
 
 case $status in
   0) ./apply-decisions decision.json ;;        # decided: act on the verdicts

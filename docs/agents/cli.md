@@ -8,7 +8,7 @@ description: "The pinrail command, in use: submitting a review, waiting for the 
 ```sh
 pinrail submit review --title "Dedup tickets on save — round 1" \
   --origin repo=acme/api,workflow=review,ref=42 \
-  --data proposals.json --wait --format markdown
+  --data proposals.json --wait
 ```
 
 ```md title="What the agent reads"
@@ -47,7 +47,7 @@ Two steps tell an agent everything it needs to ask through Pinrail: first which 
 
 ```sh
 pinrail plugins describe                          # every usable plugin, a line each
-pinrail plugins describe review --format markdown # one plugin, in full
+pinrail plugins describe review # one plugin, in full
 ```
 
 Without a name, `describe` is an index: each plugin in a line with **when to use it**, in the plugin author's words, and the files it takes. After the plugins come the command to submit with, what the finished review carries, and what every [exit code](#exit-codes) means.
@@ -61,7 +61,7 @@ With a name, it describes that plugin in full:
 `--all` describes every plugin in full at once, for a tool that wants it in one call. Like `submit`, `describe` starts the app if it is not running.
 
 :::tip[Point the agent at it]
-An agent that runs `pinrail plugins describe --format markdown` can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.
+An agent that runs `pinrail plugins describe` can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.
 :::
 
 ## Submitting a review
@@ -79,7 +79,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--dry-run` | Run every check a submission gets and create no review. Exits 0 when it would be accepted, 2 with the violations. |
 | `--request <file>` | The whole request as one JSON file. See [The whole request in one file](#the-whole-request-in-one-file). |
 | `--sample` | Send the plugin's sample, a review it ships to show what it looks like, in place of a payload. `--title` and `--origin` still apply. See [A plugin's sample](#a-plugins-sample). |
-| `--format markdown` | Print the decision as markdown instead of JSON. |
+| `--json` | Print the review as JSON instead of markdown, for a script. |
 | `--origin` | Where the review comes from: `repo=…,workflow=…,run_id=…,ref=…,url=…`. The app groups reviews by project and links back to `url`. Inside a git checkout, `repo` and `ref` default to the remote's `owner/name` and the current branch; outside one, give `repo` a short name for the project. |
 | `--revises <id>` | This review is a new round of an earlier one. |
 | `--timeout <seconds>` | With `--wait`: give up after this long, exit 4, and leave the review pending. |
@@ -104,13 +104,13 @@ Instead of flags, the agent can write the whole request as one JSON file and pas
 ```
 
 ```sh
-pinrail submit --request request.json --wait --format markdown
+pinrail submit --request request.json --wait
 ```
 
 The file takes the same keys as the flags: `plugin`, `title`, `payload`, `origin`, `summary`, `revises`, `expires_at`, `requested_by`, and `attachments`, a map of name to path relative to the file. Any flag given as well overrides the file's key, and `--data` replaces its payload. So a new round is the same file with one more flag:
 
 ```sh
-pinrail submit --request request.json --revises <id> --wait --format markdown
+pinrail submit --request request.json --revises <id> --wait
 ```
 
 ### A review in a browser
@@ -128,7 +128,7 @@ The preview is the review as the app shows it: the plugin's view, fed the review
 A plugin can ship a sample review. Send it to see what the plugin looks like, or to try Pinrail end to end, without writing a payload:
 
 ```sh
-pinrail submit list --sample --wait --format markdown
+pinrail submit list --sample --wait
 ```
 
 The review arrives like any other; decide it and the command prints your decision, as an agent would read it. `pinrail plugins describe <plugin>` says `"sample": true` for a plugin that has one, and a plugin without one is an error that says so. The same sample is a button on the plugin's row in *Settings › Plugins*.
@@ -147,7 +147,7 @@ Some plugins take files beside the payload. The plugin's payload schema says whe
 
 ```sh
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
-  --attach out/pivot.glb --attach out/v2.glb=column.glb --wait --format markdown
+  --attach out/pivot.glb --attach out/v2.glb=column.glb --wait
 ```
 
 ```json title="models.json"
@@ -176,7 +176,7 @@ pinrail attachments get <id> pivot.glb -o pivot.glb  # save one; -o - writes it 
 `submit --wait` is the usual way: one command that submits, waits and prints. When the waiting has to happen somewhere else, submit without `--wait` and wait later, from any process:
 
 ```sh
-id=$(pinrail submit list --title "Nightly cleanup" --data items.json | jq -r .id)
+id=$(pinrail submit list --title "Nightly cleanup" --data items.json --json | jq -r .id)
 # …later, or elsewhere
 pinrail wait "$id"
 ```
@@ -200,16 +200,17 @@ A discarded review has no decision, so `--decision-out` writes nothing. The prin
 
 ## Output
 
-JSON is the default. It is the whole review, with the decision attached, for a script to read with `jq` or anything else. Markdown is for agents: the title, where the review came from, who decided and when, a tally, your note, then the decision. Each plugin renders its decision in a way that suits it.
+Markdown is the default, because an agent reads it: the title, where the review came from, who decided and when, a tally, your note, then the decision, each plugin rendering its decision in a way that suits it. Every other command prints markdown too: a listing a line per review, a plugin's description, what a plugin command did.
+
+JSON is for a script or a tool that processes the result rather than reads it: the whole review with the decision attached, to read with `jq` or anything else.
 
 | Set | Effect |
 |---|---|
-| `--format json` | The default. |
-| `--format markdown` | The decision as prose. |
-| `PINRAIL_FORMAT=markdown` | Make markdown the default in this environment. |
+| `--json` | JSON instead of markdown. |
+| `PINRAIL_JSON=1` | JSON for every command in this environment, such as a CI job. |
 | `--pretty` | Indented JSON. |
 
-`--decision-out` always writes JSON, whatever `--format` says.
+`--decision-out` always writes JSON.
 
 ## Every command
 
@@ -229,7 +230,7 @@ JSON is the default. It is the whole review, with the decision attached, for a s
 | `pinrail discard <id>` | Discard a pending review. Its waiter exits 5. |
 | `pinrail export <dir>` | Write every review as JSON files under a directory. |
 | `pinrail serve` | Start the app's server if it is not running, and print its URL. |
-| `pinrail plugins` | List installed plugins, as JSON or with `--format markdown` a table, and [install, update or remove](/docs/using/installing-plugins/) them. |
+| `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install, update or remove](/docs/using/installing-plugins/) them. |
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
 | `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. |
 | `pinrail plugins describe [name]` | What an agent needs to ask with each plugin. See [Learning what to ask](#learning-what-to-ask). |
@@ -260,5 +261,5 @@ export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --he
 | `PINRAIL_DATA_DIR` | Where the running server's `server.json` and `server.log` are. |
 | `PINRAIL_PORT` | The port to try when nothing is advertised. |
 | `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
-| `PINRAIL_FORMAT` | `json` or `markdown`: the default for `--format`. |
+| `PINRAIL_JSON` | `1` for JSON output from every command, as `--json` gives. |
 | `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review. |

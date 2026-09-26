@@ -49,7 +49,7 @@ Never send email directly. Submit drafts to Pinrail as `email` and wait:
 1. Write the payload: `from`, and one draft per message with `id`, `to`,
    `subject`, `body` (plain text, as it would be sent) and `why`, your reason
    for writing it this way.
-2. Run: `pinrail submit email --title "<what these emails are>" --data drafts.json --wait --format markdown`
+2. Run: `pinrail submit email --title "<what these emails are>" --data drafts.json --wait`
 3. For `send`, send the returned `subject` and `body` exactly as they are.
    For `revise`, rewrite from my comments and note, and submit a new round
    with `--revises <id>`. For `discard`, drop it. Never send an undecided draft.

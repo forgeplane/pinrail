@@ -23,7 +23,7 @@ runs on the Pinrail SDK and its stylesheet, inside the app's sandboxed frame.
 
 ```sh
 pinrail plugins install ./plugins/calendar
-pinrail submit calendar --title "Schedule four candidate interviews" --data slots.json --wait --format markdown
+pinrail submit calendar --title "Schedule four candidate interviews" --data slots.json --wait
 ```
 
 The fixtures show the range of it:

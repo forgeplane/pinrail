@@ -51,7 +51,7 @@ to Pinrail as an `artifact` and wait:
 1. Make the HTML self-contained: styles in `<style>` elements, images and
    fonts as data URIs. Nothing external loads.
 2. Write the payload: `{ "title": "…", "notes": "what to look at", "viewport": "desktop", "html": "<!doctype html>…" }`.
-3. Run: `pinrail submit artifact --title "<page> — round 1" --data page.json --wait --format markdown`
+3. Run: `pinrail submit artifact --title "<page> — round 1" --data page.json --wait`
 4. If the verdict is `approve`, ship it. If it is `revise`, apply each
    comment to the element its `selector` names, then submit the new version
    with `--revises <id>`.

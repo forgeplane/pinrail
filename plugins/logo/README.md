@@ -16,7 +16,7 @@ is one favourite at most: choosing another moves the old one to *keep*.
 
 ```sh
 pinrail plugins install ./plugins/logo
-pinrail submit logo --title "Tidemark marks — round 1" --data marks.json --wait --format markdown
+pinrail submit logo --title "Tidemark marks — round 1" --data marks.json --wait
 ```
 
 ## Payload

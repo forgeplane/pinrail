@@ -47,7 +47,7 @@ Pinrail's `feedback` plugin and wait:
 1. Write the questions to a JSON file (the shape is below). Give every group
    and question a stable `id`. Offer choices when you can, and add a
    `recommendation` with your reasoning when you have one.
-2. Run: `pinrail submit feedback --title "<what you need to decide>" --data questions.json --wait --format markdown`
+2. Run: `pinrail submit feedback --title "<what you need to decide>" --data questions.json --wait`
 3. Use the answers as given. An answer's comment qualifies it; read it.
    Questions under `unanswered` got no answer: don't assume one.
 4. If the command exits 5, stop and tell me why.

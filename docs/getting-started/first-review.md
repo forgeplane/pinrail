@@ -16,7 +16,7 @@ sequenceDiagram
 ```
 
 :::tip[Only want to see one?]
-`pinrail submit list --sample --wait --format markdown` sends the list plugin's own sample and waits for your decision, all in one line. The steps below do the same with a payload you write, which is what an agent does.
+`pinrail submit list --sample --wait` sends the list plugin's own sample and waits for your decision, all in one line. The steps below do the same with a payload you write, which is what an agent does.
 :::
 
 ## 1. Write a payload
@@ -51,7 +51,7 @@ Every review belongs to a plugin. The built-in [List](/docs/plugins/list/) plugi
 ## 2. Ask
 
 ```sh
-pinrail submit list --title "Sentry triage" --data triage.json --wait --format markdown
+pinrail submit list --title "Sentry triage" --data triage.json --wait
 ```
 
 The command prints the review's address and waits. This is exactly what an agent's command does when it asks you something.

@@ -52,7 +52,7 @@ Pinrail as a `model` review and wait:
 2. Write the payload: the subject and its units, and the models, each with
    an `id`, a `name`, its file as `{"$attachment": "<file name>"}`, a line of
    `reasoning`, and any camera `views` worth a look.
-3. Run: `pinrail submit model --title "<subject> — round 1" --data models.json --attach <file>.glb … --wait --format markdown`,
+3. Run: `pinrail submit model --title "<subject> — round 1" --data models.json --attach <file>.glb … --wait`,
    one `--attach` per model file.
 4. Take the favourite forward. Apply each note, and each change asked for on
    a part to the node its `target` names. Drop what was dropped. Submit the
@@ -64,7 +64,7 @@ Pinrail as a `model` review and wait:
 
 ```sh
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
-  --attach out/pivot.glb --wait --format markdown
+  --attach out/pivot.glb --wait
 ```
 
 ```json title="models.json"
@@ -132,7 +132,7 @@ A file may be up to 50 MB, and a round may carry 12. The app stores each file on
 | `decisions[].comments[].view` | The camera it was seen through, in the same coordinates. |
 | `undecided` | The models given no verdict. Treat them as not chosen. |
 
-With `--format markdown`, the agent reads the favourite first, then what was kept and dropped, each model by name with its notes and the changes asked for on its parts.
+In markdown, the default, the agent reads the favourite first, then what was kept and dropped, each model by name with its notes and the changes asked for on its parts.
 
 ## Reference
 

@@ -21,7 +21,7 @@ it: the comment is pinned to the point you clicked.
 ```sh
 pinrail plugins install ./plugins/model
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
-  --attach out/pivot.glb --attach out/column.glb --wait --format markdown
+  --attach out/pivot.glb --attach out/column.glb --wait
 ```
 
 ## Payload

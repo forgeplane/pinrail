@@ -87,7 +87,7 @@ scaffolds. The bundle the app installs is the folder without `src/`,
 - `shortcuts` declares the keys your view answers, so the app lists them and
   hands them over whether or not the frame has focus. See below.
 - `decision_template` names a file beside the manifest that renders a
-  decision as markdown, for `pinrail --format markdown` and *Copy as
+  decision as markdown, for the command's output and *Copy as
   markdown* in the app. Without one the app renders the decision by its
   shape. See *Decisions as markdown* below.
 - `build` names the command that produces the bundle, for a plugin written
@@ -190,7 +190,7 @@ folder without its sources, attach.
 
 ## Decisions as markdown
 
-An agent that ran `pinrail create … --wait --format markdown` reads the
+An agent that ran `pinrail create … --wait` reads the
 decision as prose: the title, where the review sits, who decided and
 when with a tally, the reviewer's note, then the decision. The app renders
 the decision by its shape: every array of objects becomes a headed list,
@@ -221,7 +221,7 @@ rendering by shape.
 ### Adding a template
 
 1. Write `templates/decision.md.j2`. Start from what the
-   rendering by shape gives you (`pinrail show <id> --format markdown` on
+   rendering by shape gives you (`pinrail show <id>` on
    a decided review) and improve the bullets that need the payload. The
    syntax is Jinja's: `{% for item in items %}`, `{% if item.note %}`,
    `{{ item.payload.title }}`, filters such as `selectattr`, `length`,
@@ -244,9 +244,9 @@ The quickest loop is a decided review in the running app: create one
 from a fixture, decide it, and read it back.
 
 ```sh
-pinrail create review --data <(jq .payload fixtures/dedup-round-2.json) --title "Template check" > /tmp/r.json
+pinrail create review --data <(jq .payload fixtures/dedup-round-2.json) --title "Template check" --json > /tmp/r.json
 pinrail decide "$(jq -r .id /tmp/r.json)" --data <(jq .decision.data fixtures/dedup-round-1.decided.json) --note "looks right"
-pinrail show "$(jq -r .id /tmp/r.json)" --format markdown
+pinrail show "$(jq -r .id /tmp/r.json)"
 ```
 
 A decided fixture (`fixtures/<name>.decided.json`: `title`, `payload`,

@@ -49,7 +49,7 @@ Submit them to Pinrail as a `calendar` review and wait:
 
 1. Write the payload: the timezone, the first day and how many days to show,
    what is already booked, and each item with its candidate times.
-2. Run: `pinrail submit calendar --title "<what these are>" --data slots.json --wait --format markdown`
+2. Run: `pinrail submit calendar --title "<what these are>" --data slots.json --wait`
 3. Book the `selections`, checking each is still free first.
 4. For `deferred` items, find other times, using the note, and submit a new
    round with `--revises <id>`. Do not book anything for `declined` items.
@@ -111,7 +111,7 @@ Submit them to Pinrail as a `calendar` review and wait:
 | `declined` | Items not to schedule at all. |
 | `notes` | What the person said about an item sent back or declined. |
 
-With `--format markdown`, the agent reads the chosen times by item with the day, hours and place, then what needs another time and what was declined, each with its note.
+In markdown, the default, the agent reads the chosen times by item with the day, hours and place, then what needs another time and what was declined, each with its note.
 
 ## Reference
 

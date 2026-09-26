@@ -10,7 +10,7 @@ session.
 ```sh
 pinrail submit review --title "Dedup tickets on save — round 1" \
   --origin repo=acme/api,workflow=review,ref=42 \
-  --data proposals.json --wait --format markdown
+  --data proposals.json --wait
 ```
 
 ```markdown
@@ -91,7 +91,7 @@ that plugin in full.
 
 ```sh
 pinrail plugins describe                          # every usable plugin, a line each
-pinrail plugins describe list --format markdown   # one plugin, in full
+pinrail plugins describe list   # one plugin, in full
 ```
 
 The index gives each plugin with when to use it, then the command to submit
@@ -116,25 +116,24 @@ The two callers want different things from the same command, and the CLI
 serves both.
 
 An **agent** in a coding session reads the decision as text and acts on it.
-Give it markdown: `--format markdown`, or `PINRAIL_FORMAT=markdown` set once
-in the environment the agent runs in. The rendering leads with the title and
+It gets markdown, the default. The rendering leads with the title and
 the outcome, then lists every item with its verdict and the person's note.
 A plugin can ship its own template for this; the rest are rendered from the
 shape of their decision.
 
-A **script** or CI job branches on the result. It keeps the default JSON
-and the exit code, and can write the decision's data to a file with
+A **script** or CI job branches on the result. It asks for JSON with
+`--json` (or `PINRAIL_JSON=1`) and reads the exit code, and can write the decision's data to a file with
 `--decision-out`, so a workflow that already reads a decisions file keeps
 working unchanged:
 
 ```sh
 if pinrail submit list --title "MR !42" --origin repo=acme,workflow=review,ref=42 \
-     --data payload.json --wait --decision-out mr-42.decisions.json > review.json; then
+     --data payload.json --wait --json --decision-out mr-42.decisions.json > review.json; then
   ./apply-decisions mr-42.decisions.json
 fi
 ```
 
-`--decision-out` always writes JSON, whatever `--format` says.
+`--decision-out` always writes JSON.
 
 ## Waiting
 
@@ -217,7 +216,7 @@ the latest round of each review unless `--include-revised` is given, and
   `--limit` and `--cursor`, and `--all` follows the pages to the end.
 - **`decide`** takes `--data` with the decision and `--note` for the agent.
   `withdraw` and `discard` take `--reason`.
-- **Every command** accepts `--url`, `--pretty` and `--format`.
+- **Every command** accepts `--url`, `--json` and `--pretty`.
 
 ### Plugins
 
@@ -275,7 +274,7 @@ starting one.
 | `PINRAIL_DATA_DIR` | Where the running server's `server.json` and `server.log` are. |
 | `PINRAIL_PORT` | The port to try when nothing is advertised. |
 | `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
-| `PINRAIL_FORMAT` | `json` or `markdown`, the default for `--format`. |
+| `PINRAIL_JSON` | `1` for JSON output from every command, as `--json` gives. |
 | `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review. Defaults to `pinrail-cli`. |
 
 ## Development

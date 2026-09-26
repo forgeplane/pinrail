@@ -51,7 +51,7 @@ to Pinrail as a `logo` review and wait:
    background.
 2. Write the payload: the brand, its palette, and the marks, each with an
    `id`, a `name`, the `svg` and a line of `reasoning`.
-3. Run: `pinrail submit logo --title "<brand> marks — round 1" --data marks.json --wait --format markdown`
+3. Run: `pinrail submit logo --title "<brand> marks — round 1" --data marks.json --wait`
 4. Take the favourite forward. Apply each note, and each change asked for on
    a part of a mark to the element its `target` names. Drop what was
    dropped. Submit the next round with `--revises <id>`.
@@ -124,7 +124,7 @@ Scripts, `<style>` elements, event handlers and links to anything outside the dr
 | `decisions[].comments[].markup` | The element as it was drawn, so the agent can find it again if the path moved. |
 | `undecided` | The marks given no verdict. Treat them as not chosen. |
 
-With `--format markdown`, the agent reads the favourite first, then what was kept and dropped, each mark by name with its notes and the changes asked for on its parts.
+In markdown, the default, the agent reads the favourite first, then what was kept and dropped, each mark by name with its notes and the changes asked for on its parts.
 
 ## Reference
 

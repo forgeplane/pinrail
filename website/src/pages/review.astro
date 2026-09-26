@@ -463,7 +463,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         const accepted = d.decisions.filter((r) => r.action === "accept");
         const rejected = d.decisions.filter((r) => r.action === "reject");
         const lines: [string, string, number][] = [
-          ["cmd", `pinrail submit list --title "Landing page, draft 1" \\\n    --data page.json --wait --format markdown`, 420],
+          ["cmd", `pinrail submit list --title "Landing page, draft 1" \\\n    --data page.json --wait`, 420],
           ["dim", "waiting for a decision…", 700],
           ["out", "# Landing page, draft 1", 60],
           ["out", `Decided · ${accepted.length} accepted · ${rejected.length} rejected · ${d.undecided.length} undecided`, 60],

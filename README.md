@@ -30,7 +30,7 @@ comment, then hand the decision over. The CLI returns it to the agent.
 ```sh
 pinrail submit review --title "Dedup tickets on save" \
   --origin repo=acme/api,workflow=pr-review,ref=42 \
-  --data proposals.json --wait --format markdown
+  --data proposals.json --wait
 ```
 
 The command blocks until you decide, then prints the decision as markdown
