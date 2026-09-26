@@ -24,7 +24,7 @@ const TRY = "pinrail submit list --sample --wait";
 const TRY_NOW =
   "Find the TODOs in this repository and ask me through Pinrail which to tackle first. Run `pinrail docs` to see how.";
 const HABIT =
-  "Write a skill that asks me through Pinrail to approve the changes before you commit. Run `pinrail docs` to see how.";
+  "Write a skill that asks me through Pinrail to approve the changes before you commit, with the installed plugin that fits best, or a new one if none does. Run `pinrail docs` to see how.";
 
 const BUILD = "https://pinrail.dev/docs/building/writing/";
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;

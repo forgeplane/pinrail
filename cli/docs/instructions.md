@@ -11,9 +11,23 @@ standing instructions live, so you and other sessions keep doing it:
 `GEMINI.md` for Gemini CLI.
 
 A rule names four things: the moment, the plugin and what to send in it,
-the command, and what to do with the answer. Name the plugin and the
-payload's shape in the rule itself: run `pinrail plugins describe <plugin>`
-once, as you write it, so you never have to rediscover them.
+the command, and what to do with the answer.
+
+Pick the plugin first. One fits when it both shows what the person needs
+to see and returns the decision you need:
+
+- `pinrail plugins` lists the installed ones with when to use each.
+- Showing the right material is not enough: a diff view does not make a
+  plugin fit for approving a commit if it does not return an approval.
+- Don't bend the task to a schema: no made-up item or comment just to
+  have something to decide on.
+- If none represents the decision, build one, then write the rule for it:
+  `pinrail docs plugins/building`. That is a normal step, not a last
+  resort.
+
+Name the plugin and the payload's shape in the rule itself: run
+`pinrail plugins describe <plugin>` once, as you write it, so you never
+have to rediscover them.
 
 ```md
 ## Ask before <the moment>
