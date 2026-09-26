@@ -6,8 +6,9 @@ menu: [building]
 # Plugins
 
 A plugin is one kind of review: what you send, what the person sees, and
-the shape of the answer. "Use when" gives you the candidates; the decision
-schema decides: a plugin fits only if it returns the decision you need.
+the shape of the answer. "Use when" gives you the candidates. A plugin
+fits only if it both shows what the person needs to review and returns
+the decision you need: its decision schema says what it returns.
 
 ```sh
 pinrail plugins                      # every plugin, a line each: when to use it, where from, whether it works

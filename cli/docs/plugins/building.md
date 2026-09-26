@@ -13,6 +13,7 @@ another kind of answer does not do the job.
 
 ```sh
 pinrail plugins new <name> --dir <path>   # scaffold it; no build, nothing installed
+# make it yours: the decision and payload schemas, the view, example and sample
 pinrail plugins check <path>              # what the app would refuse, and why
 pinrail plugins install <path> --link     # the app serves the folder live
 pinrail submit <name> --sample            # a real review of its sample, in the person's inbox

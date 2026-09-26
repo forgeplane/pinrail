@@ -55,9 +55,10 @@ before anything is uploaded.
 ## Exit codes
 
 - `0`: decided. Act on the decision.
-- `1`: could not be sent. Report the error.
-- `2`: refused, the payload failed the plugin's schema. Fix the field the
-  error names and submit again.
+- `1`: bad arguments, or the request could not be sent. Report the error.
+- `2`: refused by the app: a field that fails the plugin's schema, a
+  review no longer pending, a plugin not installed. stderr says which;
+  fix it and submit again.
 - `3`: withdrawn, or expired undecided. Stop, and say nobody decided.
 - `4`: still pending, `--timeout` ran out. Go on with other work;
   `pinrail wait <id>` later.
