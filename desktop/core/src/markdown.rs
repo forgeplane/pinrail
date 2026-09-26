@@ -270,12 +270,13 @@ fn render_item(item: &Value, depth: usize) -> String {
         place.push(format!("`{selector}`"));
     }
     if let Some(quote) = item["quote"].as_str() {
-        place.push(format!("“{}”", first_line(quote, 100)));
+        place.push(format!("“{}”", one_line(quote)));
     }
-    let body = ["title", "subject", "text", "body", "snippet"]
-        .iter()
-        .find_map(|k| item[k].as_str().filter(|s| !s.trim().is_empty()))
-        .map(|s| first_line(s, 140));
+    let body_key = ["title", "subject", "text", "body", "snippet"]
+        .into_iter()
+        .find(|k| item[*k].as_str().is_some_and(|s| !s.trim().is_empty()));
+    let body_text = body_key.and_then(|k| item[k].as_str()).map(str::trim);
+    let body = body_text.map(|s| s.lines().next().unwrap_or("").to_string());
     let mut parts: Vec<String> = Vec::new();
     if !head.is_empty() {
         parts.push(head.join(" "));
@@ -296,6 +297,41 @@ fn render_item(item: &Value, depth: usize) -> String {
         line = item.to_string();
     }
     let mut out = format!("{indent}- {line}\n");
+    // the rest of a long body, then every field the line did not show, so
+    // nothing the person said is lost
+    for l in body_text.into_iter().flat_map(|s| s.lines().skip(1)) {
+        match l.trim() {
+            "" => out.push('\n'),
+            _ => out.push_str(&format!("{indent}  {l}\n")),
+        }
+    }
+    let shown = [
+        "id", "action", "verdict", "file", "path", "line", "selector", "quote", "note", "edits",
+        "comments",
+    ];
+    if let Some(map) = item.as_object().filter(|_| line != item.to_string()) {
+        for (key, value) in map {
+            if shown.contains(&key.as_str()) || Some(key.as_str()) == body_key || value.is_null() {
+                continue;
+            }
+            let value = match value {
+                Value::String(s) if s.trim().is_empty() => continue,
+                Value::String(s) => s
+                    .trim()
+                    .lines()
+                    .map(|l| match l.trim() {
+                        "" => String::new(),
+                        _ => format!("{indent}    {l}"),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .trim_start()
+                    .to_string(),
+                other => other.to_string(),
+            };
+            out.push_str(&format!("{indent}  {}: {value}\n", humanise(key)));
+        }
+    }
     if let Some(note) = item["note"].as_str().filter(|s| !s.trim().is_empty()) {
         for l in note.lines() {
             out.push_str(&format!("{indent}  > {l}\n"));
@@ -303,8 +339,8 @@ fn render_item(item: &Value, depth: usize) -> String {
     }
     if let Some(edits) = item["edits"].as_array().filter(|e| !e.is_empty()) {
         for edit in edits {
-            let from = first_line(edit["from"].as_str().unwrap_or(""), 60);
-            let to = first_line(edit["to"].as_str().unwrap_or(""), 60);
+            let from = one_line(edit["from"].as_str().unwrap_or(""));
+            let to = one_line(edit["to"].as_str().unwrap_or(""));
             let shown = match (from.is_empty(), to.is_empty()) {
                 (true, _) => format!("added “{to}”"),
                 (_, true) => format!("cut “{from}”"),
@@ -399,14 +435,9 @@ fn text(v: &Value) -> Option<String> {
         .map(str::to_string)
 }
 
-fn first_line(s: &str, max: usize) -> String {
-    let line = s.lines().next().unwrap_or("").trim();
-    if line.chars().count() > max {
-        let cut: String = line.chars().take(max - 1).collect();
-        format!("{}…", cut.trim_end())
-    } else {
-        line.to_string()
-    }
+/// Every line of `s`, on one.
+fn one_line(s: &str) -> String {
+    s.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// An ISO time as a clock reads it, `2026-09-16 09:14`: the local clock,
@@ -512,7 +543,7 @@ mod tests {
         );
         let md = render(&review, None, None);
         assert!(md.contains("· 1 sent, 1 discarded\n"), "{md}");
-        assert!(md.contains("- **`northwind`** **sent** — Your Acme renewal on 12 October\n  - “at your earliest convenience” → “this week”\n  - “I wanted to reach out”\n    > we never say reach out\n"), "{md}");
+        assert!(md.contains("- **`northwind`** **sent** — Your Acme renewal on 12 October\n  Body: Hi Priya,\n\n    long body\n  - “at your earliest convenience” → “this week”\n  - “I wanted to reach out”\n    > we never say reach out\n"), "{md}");
         assert!(
             md.contains(
                 "- **`kestrel`** **discarded** — Overdue invoice\n  > finance handles this one\n"
