@@ -54,7 +54,7 @@ export function startWaiter(args: string[]): Waiter {
     if (args[0] !== "submit") return resolve(args[1]);
     proc.stderr!.on("data", (d) => {
       stderr += d;
-      const m = stderr.match(/review (r_[0-9A-Z]+):/);
+      const m = stderr.match(/review (r_[0-9A-Z]+) submitted/);
       if (m) resolve(m[1]);
     });
   });

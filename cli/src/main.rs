@@ -63,6 +63,12 @@ struct Cli {
     #[arg(long, global = true, env = "PINRAIL_JSON", value_parser = clap::builder::BoolishValueParser::new())]
     json: bool,
 
+    /// Also say on stderr what happened along the way: the origin read
+    /// from git, the server started, the files uploaded, where things
+    /// were written
+    #[arg(short, long, global = true, env = "PINRAIL_VERBOSE", value_parser = clap::builder::BoolishValueParser::new())]
+    verbose: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -447,6 +453,7 @@ fn main() -> ExitCode {
     }
     let cli = Cli::parse();
     let json = cli.json;
+    out::set_verbose(cli.verbose);
     match run(cli) {
         Ok(code) => ExitCode::from(code),
         Err(err) => {
@@ -892,12 +899,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     }
 
     if args.dry_run {
-        let answer = client.validate(&body)?;
-        eprintln!(
-            "pinrail: valid; {} {} would render it",
-            answer["plugin"].as_str().unwrap_or_default(),
-            answer["plugin_release"].as_str().unwrap_or_default()
-        );
+        let answer = client.validate(&body).map_err(|e| schema_hint(e, &body))?;
         output.data(&answer, md::valid);
         return Ok(0);
     }
@@ -931,10 +933,12 @@ fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) 
         .as_str()
         .context("server returned a review without an id")?
         .to_string();
-    eprintln!(
-        "review {id}: open it in Pinrail (pinrail://reviews/{id}) or preview it in a browser: {}/preview/reviews/{id}",
-        client.base()
-    );
+    // said at once, so whoever runs it has the id even while --wait blocks
+    if args.wait {
+        eprintln!("pinrail: review {id} submitted; waiting for a decision");
+    } else {
+        eprintln!("pinrail: review {id} submitted");
+    }
 
     if args.wait {
         wait(client, &id, &args.wait_opts, output)
@@ -976,10 +980,10 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8
                 if status == "decided" {
                     if let Some(path) = &opts.decision_out {
                         out::write_decision(path, &review["decision"]["data"])?;
-                        eprintln!("pinrail: decision written to {}", path.display());
+                        out::note(format_args!("decision written to {}", path.display()));
                     }
                     if let Some(counts) = out::editorial_counts(&review["decision"]["data"]) {
-                        eprintln!("pinrail: {counts}");
+                        out::note(counts);
                     }
                 }
                 output.review(client, &review)?;

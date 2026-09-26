@@ -25,7 +25,7 @@ Decided by alice at 2026-09-10 09:00 · 1 rejected
 Undecided: #19, #20
 ```
 
-The CLI holds no state and makes no decisions of its own. Output goes to stdout, diagnostics to stderr, and every outcome has an exit code, so it is safe to call from any shell, CI job or agent harness.
+The CLI holds no state and makes no decisions of its own. The answer goes to stdout, errors and warnings to stderr, and every outcome has an exit code, so it is safe to call from any shell, CI job or agent harness.
 
 ## An agent teaches itself
 
@@ -199,6 +199,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `--json` | JSON instead of markdown. |
 | `PINRAIL_JSON=1` | JSON for every command in this environment, such as a CI job. |
 | `--pretty` | Indented JSON. |
+| `--verbose`, `-v` | Also say on stderr what happened along the way: the origin read from git, the server started, the files uploaded. `PINRAIL_VERBOSE=1` sets it for every command. |
 
 `--decision-out` always writes JSON.
 

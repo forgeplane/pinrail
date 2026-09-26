@@ -56,7 +56,7 @@ pub fn resolve_url(explicit: Option<&str>, auto_start: bool) -> Result<String> {
         .unwrap_or_else(default_url);
 
     if auto_start && !Client::new(&url).reachable() {
-        eprintln!("pinrail: server not running at {url}, starting it");
+        crate::out::note(format_args!("server not running at {url}, starting it"));
         let info = start()?;
         return Ok(info["url"].as_str().unwrap_or(&url).to_string());
     }
@@ -100,11 +100,11 @@ fn start() -> Result<Value> {
     let child = cmd
         .spawn()
         .with_context(|| format!("starting the server with {command}"))?;
-    eprintln!(
-        "pinrail: started server (pid {}), log at {}",
+    crate::out::note(format_args!(
+        "started server (pid {}), log at {}",
         child.id(),
         dir.join("server.log").display()
-    );
+    ));
 
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {

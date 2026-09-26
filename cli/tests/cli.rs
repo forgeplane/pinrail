@@ -104,6 +104,7 @@ fn pinrail() -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_pinrail"));
     cmd.env_remove("PINRAIL_URL")
         .env_remove("PINRAIL_SERVER_CMD")
+        .env_remove("PINRAIL_VERBOSE")
         .env("PINRAIL_JSON", "1");
     cmd.stdin(Stdio::null());
     cmd
@@ -150,7 +151,7 @@ fn review(status: &str) -> String {
 }
 
 #[test]
-fn submit_prints_the_review_and_the_url_on_stderr() {
+fn submit_prints_the_review_and_its_id_on_stderr() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/reviews"));
         let sent: serde_json::Value = serde_json::from_str(body).unwrap();
@@ -186,13 +187,7 @@ fn submit_prints_the_review_and_the_url_on_stderr() {
     );
     assert_eq!(code, 0, "{stderr}");
     assert!(stdout.starts_with(r#"{"id":"r_1""#), "{stdout}");
-    assert!(
-        stderr.contains(&format!(
-            "review r_1: open it in Pinrail (pinrail://reviews/r_1) or preview it in a browser: {}/preview/reviews/r_1",
-            server.url
-        )),
-        "{stderr}"
-    );
+    assert_eq!(stderr, "pinrail: review r_1 submitted\n");
 }
 
 #[test]
@@ -515,7 +510,7 @@ fn create_auto_starts_the_server_with_the_configured_command() {
         server.url
     );
     let out = pinrail()
-        .args(["submit", "list", "--title", "t"])
+        .args(["submit", "list", "--title", "t", "--verbose"])
         .env("PINRAIL_DATA_DIR", &dir)
         .env("PINRAIL_SERVER_CMD", &cmd)
         .env("PINRAIL_PORT", "9")
@@ -627,7 +622,7 @@ fn a_dry_run_checks_the_submission_and_creates_nothing() {
     );
     assert_eq!(code, 0, "{stderr}");
     assert!(stdout.contains(r#""valid":true"#), "{stdout}");
-    assert!(stderr.contains("valid; list 1.2.0"), "{stderr}");
+    assert!(stderr.is_empty(), "{stderr}");
 
     let (code, _, stderr) = run(
         &server,
@@ -805,6 +800,7 @@ fn submit_checks_then_uploads_only_what_the_app_lacks() {
             dir.join("pivot.glb").to_str().unwrap(),
             "--attach",
             &format!("{}=column.glb", dir.join("v2.glb").display()),
+            "--verbose",
         ],
     );
     assert_eq!(code, 0, "{stderr}");
@@ -1070,7 +1066,7 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     );
     assert_eq!(code, 0, "{stderr}");
     assert!(stdout.contains("\"status\":\"pending\""));
-    assert!(stderr.contains("/reviews/r_1"), "{stderr}");
+    assert!(stderr.contains("review r_1 submitted"), "{stderr}");
 
     // a payload of one's own is not a sample
     let (code, _, stderr) = run(&server, &["submit", "list", "--sample", "--data", "p.json"]);
@@ -1106,7 +1102,7 @@ fn submit_fills_the_origin_from_the_git_checkout_it_runs_in() {
     let (code, _, stderr) = run_in(
         &server,
         &dir,
-        &["submit", "list", "--title", "t", "--data", "p.json"],
+        &["submit", "list", "--title", "t", "--data", "p.json", "-v"],
     );
     assert_eq!(code, 0, "{stderr}");
     assert!(

@@ -26,8 +26,13 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
   its keys.
 
 Without `--wait`, `submit` prints the new review and returns: wait on it
-later with `pinrail wait <id>`. `submit` also prints two
-addresses: the review in the app, and a preview of it in a browser.
+later with `pinrail wait <id>`.
+
+- stdout is the result: the review, or with `--wait` the decision. Read or
+  parse only stdout.
+- stderr is errors, warnings, and `review <id> submitted` as soon as the
+  review exists, so you have the id while `--wait` blocks. `--verbose`
+  adds what happened along the way.
 
 ## Files
 

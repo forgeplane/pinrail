@@ -2,11 +2,27 @@
 //! export tree.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use anyhow::{Context, Result};
 use serde_json::Value;
 
 use crate::api::Client;
+
+static VERBOSE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_verbose(on: bool) {
+    VERBOSE.store(on, Ordering::Relaxed);
+}
+
+/// A note on what the command did along the way, on stderr with
+/// --verbose only; the answer itself is on stdout, and errors and
+/// warnings are printed whatever the flag.
+pub fn note(message: impl std::fmt::Display) {
+    if VERBOSE.load(Ordering::Relaxed) {
+        eprintln!("pinrail: {message}");
+    }
+}
 
 pub fn print_json(value: &Value, pretty: bool) {
     let text = if pretty {

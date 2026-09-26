@@ -30,7 +30,8 @@ Undecided: #19, #20
 The CLI holds no state and makes no decisions. It is a small, dependency-light
 Rust binary that talks HTTP to the server the app runs on your machine, which
 makes it safe to call from any shell, CI job or agent harness: output on
-stdout, diagnostics on stderr, and an exit code for every outcome.
+stdout, errors and warnings on stderr (and with `--verbose`, what happened
+along the way), and an exit code for every outcome.
 
 ## Installing
 
@@ -201,10 +202,10 @@ the latest round of each review unless `--include-revised` is given, and
   `--requested-by` (or `PINRAIL_REQUESTED_BY`) names the caller.
   Inside a git checkout, `repo` and `ref` default to the remote's
   `owner/name` and the current branch. `--sample` sends the plugin's own
-  sample review instead of a payload. `submit` prints where the review is:
-  `pinrail://reviews/<id>` in the app, and `<server>/preview/reviews/<id>`,
-  the review in a browser, whose hand-over checks the decision and decides
-  nothing. `--dry-run` checks the submission and creates nothing. `--request <file>`
+  sample review instead of a payload. `submit` prints the review on stdout, and
+  `review <id> submitted` on stderr at once, so the id is known while
+  `--wait` blocks. `pinrail open <id> --browser` opens
+  its preview, for building a plugin. `--dry-run` checks the submission and creates nothing. `--request <file>`
   (or `-` for stdin) takes the whole request as one JSON object, the body
   the API takes: `{"plugin", "title", "origin", "payload", …}`. Flags given
   as well override its keys and `--data` replaces its payload, so a new
@@ -216,7 +217,7 @@ the latest round of each review unless `--include-revised` is given, and
   `--limit` and `--cursor`, and `--all` follows the pages to the end.
 - **`decide`** takes `--data` with the decision and `--note` for the agent.
   `withdraw` and `discard` take `--reason`.
-- **Every command** accepts `--url`, `--json` and `--pretty`.
+- **Every command** accepts `--url`, `--json`, `--pretty` and `--verbose`.
 
 ### Plugins
 
@@ -275,6 +276,7 @@ starting one.
 | `PINRAIL_PORT` | The port to try when nothing is advertised. |
 | `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
 | `PINRAIL_JSON` | `1` for JSON output from every command, as `--json` gives. |
+| `PINRAIL_VERBOSE` | `1` for the notes `--verbose` prints, from every command. |
 | `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review. Defaults to `pinrail-cli`. |
 
 ## Development

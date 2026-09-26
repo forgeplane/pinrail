@@ -29,7 +29,7 @@ pub fn fill_from_git(body: &mut Value) {
         }
     }
     if !said.is_empty() {
-        eprintln!("pinrail: origin from git: {}", said.join(", "));
+        crate::out::note(format_args!("origin from git: {}", said.join(", ")));
         body["origin"] = Value::Object(origin);
     }
 }

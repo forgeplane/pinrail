@@ -52,10 +52,6 @@ impl Client {
         Agent::new_with_config(config)
     }
 
-    pub fn base(&self) -> &str {
-        &self.base
-    }
-
     /// True if something answers at /api/v1/info.
     pub fn reachable(&self) -> bool {
         let quick = Agent::config_builder()
