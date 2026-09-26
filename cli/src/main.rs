@@ -143,9 +143,11 @@ enum Command {
     /// uploaded, and a file the app already has is not sent again.
     #[command(alias = "create", verbatim_doc_comment)]
     Submit(SubmitArgs),
-    /// Block until a review leaves pending; print it
+    /// Block until a review leaves pending, then print it: the decision as
+    /// markdown, or with --json the whole review as JSON
     Wait(WaitArgs),
-    /// Print a review: envelope, payload and decision
+    /// Print a review: as markdown, or with --json the whole review as JSON,
+    /// its payload and decision
     Show {
         /// The review's id
         id: String,
@@ -292,8 +294,7 @@ struct WaitOpts {
     #[arg(long, default_value_t = 0)]
     timeout: u64,
     /// Also write decision.data to this file, as JSON, once decided;
-    /// without it the decision is only printed, and stays in the app for
-    /// pinrail show <id>
+    /// pinrail show <id> shows the decision any time
     #[arg(long, value_name = "FILE")]
     decision_out: Option<PathBuf>,
 }
