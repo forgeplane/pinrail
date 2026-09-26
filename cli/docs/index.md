@@ -12,7 +12,7 @@ instructions name, not in chat, and don't go ahead without the answer.
 ## The loop
 
 ```sh
-pinrail submit <plugin> --title "<title>" --data payload.json --wait --format markdown
+pinrail submit <plugin> --title "<title>" --data payload.json --wait
 ```
 
 It prints the review's id at once, `review <id>: …`, then waits for the
@@ -50,3 +50,5 @@ Two come with every install:
 - Say which project it is for. Inside a git checkout the command fills in
   the repository and branch; elsewhere add `--origin repo=<project name>`.
 - Every command explains itself: `pinrail <command> --help`.
+- Output is markdown, to read. Add `--json` only when you process the
+  result rather than read it.

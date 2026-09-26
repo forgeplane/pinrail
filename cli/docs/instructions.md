@@ -24,7 +24,7 @@ Don't ask in chat and don't go ahead without an answer.
 1. Write <what you propose> as a payload for the `<plugin>` plugin:
    <its shape, e.g. `{"groups": [{"title", "items": [{"id", "title", "body"}]}]}`>.
 2. pinrail submit <plugin> --title "<a title I'll recognise>" \
-     --data <file>.json --wait --format markdown
+     --data <file>.json --wait
 3. Act only on what I decided; treat anything undecided as not approved.
 4. If I ask for changes, send the new version with `--revises <id>`.
 5. Exit 5 means I said stop: drop the work and don't ask again.

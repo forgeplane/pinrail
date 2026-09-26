@@ -6,7 +6,7 @@ menu: []
 # Asking
 
 ```sh
-pinrail submit <plugin> --title "<title>" --data payload.json --wait --format markdown
+pinrail submit <plugin> --title "<title>" --data payload.json --wait
 ```
 
 - `--title`: what the person sees in the inbox. Required.
@@ -15,9 +15,9 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait --format ma
 - `--origin repo=…,ref=…,url=…`: the project, branch or pull request, and a
   link back. `repo` and `ref` come from git when you are in a checkout.
 - `--wait`: block until the review ends, then print it.
-- `--format markdown`: the decision as markdown, compact, with who decided
-  and their notes, shaped by the plugin. Without it, JSON, exact to the
-  plugin's decision schema, for acting on the decision item by item.
+- `--json`: the decision as JSON, exact to the plugin's decision schema.
+  Use it when you process the result, looping over items or passing it to
+  a script; read the default markdown otherwise.
 - `--dry-run`: every check a submission gets, and nothing created: exit 0
   or 2.
 - `--timeout <seconds>`: with `--wait`, stop waiting after this long, exit 4.
@@ -26,7 +26,7 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait --format ma
   its keys.
 
 Without `--wait`, `submit` prints the new review and returns: wait on it
-later with `pinrail wait <id> --format markdown`. `submit` also prints two
+later with `pinrail wait <id>`. `submit` also prints two
 addresses: the review in the app, and a preview of it in a browser.
 
 ## Files
@@ -37,7 +37,7 @@ where each goes, as `{"$attachment": "<name>"}`. Put that in the payload
 and send each file it names:
 
 ```sh
-pinrail submit <plugin> --title "<title>" --data payload.json --attach render.png --attach out/v2.glb=model.glb --wait --format markdown
+pinrail submit <plugin> --title "<title>" --data payload.json --attach render.png --attach out/v2.glb=model.glb --wait
 ```
 
 `--attach PATH` sends a file under its own name, `PATH=NAME` under the name

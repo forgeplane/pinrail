@@ -97,7 +97,7 @@
       "minLength": 1,
       "pattern": "^[^/]",
       "not": { "type": "string", "pattern": "\\.\\." },
-      "description": "A MiniJinja file that renders a decision as markdown, for `--format markdown` and Copy as markdown. A template that does not compile costs the plugin the template."
+      "description": "A MiniJinja file that renders a decision as markdown, for the command's markdown output and Copy as markdown. A template that does not compile costs the plugin the template."
     },
     "build": {
       "type": ["object", "null"],

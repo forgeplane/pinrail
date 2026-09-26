@@ -87,15 +87,15 @@ test("a refused request exits 2 with the violations on stderr", async () => {
   expect(bad.stderr).toContain("not_found");
 });
 
-test("--format markdown prints the decision as prose, and the decision file stays JSON", async () => {
-  const waiter = submitListReview("markdown please", ["--format", "markdown", "--decision-out", tmpFile("d.json", "")]);
+test("markdown, the default, prints the decision as prose, and the decision file stays JSON", async () => {
+  const waiter = submitListReview("markdown please", ["--markdown", "--decision-out", tmpFile("d.json", "")]);
   const id = await waiter.reviewId;
   pinrailJson(["decide", id, "--data", tmpFile("d.json", JSON.stringify({ decisions: [{ id: 1, action: "accept" }, { id: 2, action: "reject", note: "typo is fine" }], undecided: [] })), "--note", "ship it"]);
   const result = await waiter.done;
   expect(result.code).toBe(0);
   expect(result.stdout).toMatch(/^# markdown please\n\nlist · acme · review · 42\nDecided by .* · 1 accepted, 1 rejected\n\n> ship it\n\n## Decisions\n\n- \*\*#1\*\* \*\*accepted\*\*\n- \*\*#2\*\* \*\*rejected\*\*\n  > typo is fine\n$/);
 
-  const shown = pinrail(["show", id, "--format", "md"]);
+  const shown = pinrail(["show", id, "--markdown"]);
   expect(shown.code).toBe(0);
   expect(shown.stdout.startsWith("# markdown please")).toBe(true);
   const env = pinrail(["show", id]);

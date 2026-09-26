@@ -32,6 +32,8 @@ export function cliEnv(state: State = loadState()): NodeJS.ProcessEnv {
     PINRAIL_CONFIG_DIR: state.configDir,
     PINRAIL_PORT: String(state.port),
     PINRAIL_URL: undefined,
+    // JSON, as a script reads it; a test of the markdown passes `--markdown`
+    PINRAIL_JSON: "1",
     // the SDK views load from /sdk/v1, as the shell's build writes it,
     // with its markdown parser and icons
     PINRAIL_SDK_DIR: path.join(root, "desktop", "app", "sdk", "v1"),

@@ -17,7 +17,7 @@ import { SettingsRow } from "../settings/layout";
 import { useCli, type CliStatus } from "../settings/CliRow";
 
 // the list plugin is built in, so its sample is there on every install
-const TRY = "pinrail submit list --sample \\\n  --wait --format markdown";
+const TRY = "pinrail submit list --sample --wait";
 
 /** Prompts that leave the how to the agent: `plugins describe` teaches it
  * the rest. Both work with the built-in list plugin. */

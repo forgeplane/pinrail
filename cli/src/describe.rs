@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 
 use crate::{EXIT_CLOSED, EXIT_DISCARDED, EXIT_ERROR, EXIT_REFUSED, EXIT_TIMEOUT};
 
-const SUBMIT: &str = "pinrail submit <plugin> --title \"<what it is about>\" --origin repo=<owner/name>,ref=<branch or PR> --data payload.json --wait --format markdown";
+const SUBMIT: &str = "pinrail submit <plugin> --title \"<what it is about>\" --origin repo=<owner/name>,ref=<branch or PR> --data payload.json --wait";
 const CHECK: &str =
     "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --dry-run";
 const ORIGIN: &str = "say where the review comes from with --origin: repo is the project, ref the branch or pull request, url a link back when there is one. Inside a git checkout the command fills repo (owner/name, from the remote) and ref (the branch) itself; outside one, give repo a short descriptive name for the project. The inbox groups reviews by repo, and one without it lands under No project";
@@ -86,7 +86,7 @@ pub fn document(described: Value, index: bool) -> Value {
             "check": CHECK,
             "origin": ORIGIN,
             "result": result,
-            "markdown": "--format markdown prints a decided review as markdown, for a plugin whose `markdown` is true",
+            "markdown": "a decided review prints as markdown by default, shaped by the plugin's template when its `markdown` is true; --json prints it as JSON",
             "attachments": FILES,
             "exit_codes": exit_codes,
         },

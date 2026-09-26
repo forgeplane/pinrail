@@ -17,6 +17,7 @@ mod briefs;
 mod describe;
 #[cfg(feature = "docs")]
 mod docs;
+mod md;
 mod origin;
 mod out;
 mod scaffold;
@@ -57,25 +58,17 @@ struct Cli {
     #[arg(long, global = true)]
     pretty: bool,
 
-    /// How a review, `plugins` and `plugins describe` are printed: json
-    /// (the default, for scripts) or markdown (for a session reading them);
-    /// PINRAIL_FORMAT sets it
-    #[arg(long, global = true, env = "PINRAIL_FORMAT", value_enum, default_value_t = Format::Json)]
-    format: Format,
+    /// Print JSON instead of markdown, for a script or a tool that processes
+    /// the result rather than reads it; PINRAIL_JSON=1 sets it for a session
+    #[arg(long, global = true, env = "PINRAIL_JSON", value_parser = clap::builder::BoolishValueParser::new())]
+    json: bool,
 
     #[command(subcommand)]
     command: Command,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-enum Format {
-    Json,
-    #[value(alias = "md")]
-    Markdown,
-}
-
-/// How reviews are printed: JSON as the API gives them, or the markdown
-/// the server renders. Everything that is not a review stays JSON.
+/// How results are printed: markdown by default, for an agent reading
+/// them; JSON with --json, as the API gives them.
 #[derive(Clone, Copy)]
 struct Output {
     pretty: bool,
@@ -83,6 +76,15 @@ struct Output {
 }
 
 impl Output {
+    /// JSON with --json; otherwise the markdown `render` makes of it.
+    fn data(&self, value: &serde_json::Value, render: impl FnOnce(&serde_json::Value) -> String) {
+        if self.markdown {
+            print!("{}", render(value));
+        } else {
+            out::print_json(value, self.pretty);
+        }
+    }
+
     fn review(&self, client: &Client, review: &serde_json::Value) -> Result<()> {
         if self.markdown
             && let Some(id) = review["id"].as_str()
@@ -194,9 +196,6 @@ enum Command {
         /// every brief's path and what it covers, as a tree
         #[arg(long, conflicts_with = "path")]
         tree: bool,
-        /// the brief as JSON, with its children, for a tool
-        #[arg(long)]
-        json: bool,
     },
     /// Open a review in the app; --browser opens its preview in a browser
     Open {
@@ -394,7 +393,7 @@ enum PluginsCommand {
     /// What an agent needs to ask with Pinrail: every usable plugin in a
     /// line with when to use it, how to submit, and the exit codes; with a
     /// name, that plugin in full, with its payload and decision schemas and
-    /// an example payload; markdown with --format markdown
+    /// an example payload; JSON with --json
     Describe {
         /// the plugin's name; an index of every usable plugin when omitted
         name: Option<String>,
@@ -460,12 +459,12 @@ fn run(cli: Cli) -> Result<u8> {
     let pretty = cli.pretty;
     let output = Output {
         pretty,
-        markdown: cli.format == Format::Markdown,
+        markdown: !cli.json,
     };
 
     if let Command::Serve = cli.command {
         let info = server::ensure_running(cli.url.as_deref())?;
-        out::print_json(&info, pretty);
+        output.data(&info, md::server);
         return Ok(0);
     }
 
@@ -513,7 +512,7 @@ fn run(cli: Cli) -> Result<u8> {
     }
 
     // the briefs are in the command itself: no server needed
-    if let Command::Docs { path, tree, json } = &cli.command {
+    if let Command::Docs { path, tree } = &cli.command {
         if *tree {
             print!("{}", briefs::tree());
             return Ok(0);
@@ -521,7 +520,7 @@ fn run(cli: Cli) -> Result<u8> {
         let Some(brief) = briefs::find(path.as_deref()) else {
             anyhow::bail!("{}", briefs::not_found(path.as_deref().unwrap_or_default()));
         };
-        if *json {
+        if cli.json {
             out::print_json(&briefs::to_json(&brief), pretty);
         } else {
             print!("{}", briefs::render(&brief));
@@ -549,7 +548,7 @@ fn run(cli: Cli) -> Result<u8> {
         }
         Command::Attachments(AttachmentsCommand::List { id }) => {
             let review = client.get_review(&id)?;
-            out::print_json(&review["attachments"], pretty);
+            output.data(&review["attachments"], md::attachments);
             Ok(0)
         }
         Command::Attachments(AttachmentsCommand::Get {
@@ -599,11 +598,11 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Rounds { id } => {
-            out::print_json(&client.rounds(&id)?, pretty);
+            output.data(&client.rounds(&id)?, md::rounds);
             Ok(0)
         }
         Command::Events { id } => {
-            out::print_json(&client.events(&id)?, pretty);
+            output.data(&client.events(&id)?, md::events);
             Ok(0)
         }
         Command::List(args) => {
@@ -629,7 +628,7 @@ fn run(cli: Cli) -> Result<u8> {
             // the reviews alone, as before the API wrapped them with its paging
             let mut listing = client.list(&query)?;
             if !args.all {
-                out::print_json(&listing["reviews"], pretty);
+                output.data(&listing["reviews"], md::reviews);
                 return Ok(0);
             }
             let mut reviews = Vec::new();
@@ -647,7 +646,7 @@ fn run(cli: Cli) -> Result<u8> {
                     _ => break,
                 }
             }
-            out::print_json(&Value::Array(reviews), pretty);
+            output.data(&Value::Array(reviews), md::reviews);
             Ok(0)
         }
         Command::Decide(args) => {
@@ -657,11 +656,11 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Withdraw { id, reason } => {
-            out::print_json(&client.withdraw(&id, reason)?, pretty);
+            output.review(&client, &client.withdraw(&id, reason)?)?;
             Ok(0)
         }
         Command::Discard { id, reason, by } => {
-            out::print_json(&client.discard(&id, reason, by)?, pretty);
+            output.review(&client, &client.discard(&id, reason, by)?)?;
             Ok(0)
         }
         Command::Plugins(PluginsArgs {
@@ -773,7 +772,7 @@ fn run(cli: Cli) -> Result<u8> {
                     unreachable!()
                 }
             };
-            out::print_json(&value, pretty);
+            output.data(&value, md::plugins_result);
             Ok(0)
         }
         Command::Export { dir } => {
@@ -886,7 +885,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
             answer["plugin"].as_str().unwrap_or_default(),
             answer["plugin_release"].as_str().unwrap_or_default()
         );
-        out::print_json(&answer, output.pretty);
+        output.data(&answer, md::valid);
         return Ok(0);
     }
     let review = client.submit(&body)?;

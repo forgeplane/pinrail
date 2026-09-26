@@ -10,10 +10,20 @@ export type Run = { code: number | null; stdout: string; stderr: string };
 // repository's origin and stderr carries only what a test expects
 const cwd = os.tmpdir();
 
+/** The arguments and env for a run: JSON, unless the test asks for the
+ * markdown an agent reads with `--markdown`, which is taken out. */
+function invocation(args: string[]) {
+  const env = cliEnv(loadState());
+  if (!args.includes("--markdown")) return { args, env };
+  const { PINRAIL_JSON: _json, ...rest } = env;
+  return { args: args.filter((a) => a !== "--markdown"), env: rest };
+}
+
 /** Runs the CLI to completion. */
 export function pinrail(args: string[], opts: { input?: string } = {}): Run {
   const state = loadState();
-  const r = spawnSync(state.cli, args, { cwd, env: cliEnv(state), encoding: "utf8", input: opts.input });
+  const run = invocation(args);
+  const r = spawnSync(state.cli, run.args, { cwd, env: run.env, encoding: "utf8", input: opts.input });
   return { code: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
@@ -34,7 +44,8 @@ export type Waiter = {
 /** Starts `pinrail submit … --wait` (or `pinrail wait`) in the background. */
 export function startWaiter(args: string[]): Waiter {
   const state = loadState();
-  const proc = spawn(state.cli, args, { cwd, env: cliEnv(state) });
+  const run = invocation(args);
+  const proc = spawn(state.cli, run.args, { cwd, env: run.env });
   let stdout = "";
   let stderr = "";
   proc.stdout!.on("data", (d) => (stdout += d));

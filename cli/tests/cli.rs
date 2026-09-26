@@ -97,10 +97,14 @@ fn serve_one(mut stream: TcpStream, handler: Arc<Mutex<Handler>>, seen: Arc<Mute
     let _ = stream.flush();
 }
 
+/// The command as a script runs it: JSON, which most tests read back. A
+/// test of the markdown an agent reads gives `--markdown`, which this takes
+/// out of the arguments and turns into the default output.
 fn pinrail() -> Command {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_pinrail"));
     cmd.env_remove("PINRAIL_URL")
-        .env_remove("PINRAIL_SERVER_CMD");
+        .env_remove("PINRAIL_SERVER_CMD")
+        .env("PINRAIL_JSON", "1");
     cmd.stdin(Stdio::null());
     cmd
 }
@@ -111,8 +115,18 @@ fn run(server: &MockServer, args: &[&str]) -> (i32, String, String) {
 }
 
 fn run_in(server: &MockServer, dir: &std::path::Path, args: &[&str]) -> (i32, String, String) {
-    let out = pinrail()
-        .args(args)
+    let markdown = args.contains(&"--markdown");
+    let args: Vec<&str> = args
+        .iter()
+        .copied()
+        .filter(|a| *a != "--markdown")
+        .collect();
+    let mut cmd = pinrail();
+    if markdown {
+        cmd.env_remove("PINRAIL_JSON");
+    }
+    let out = cmd
+        .args(&args)
         .current_dir(dir)
         .env("PINRAIL_URL", &server.url)
         .output()
@@ -547,10 +561,7 @@ fn describe_adds_how_to_submit_and_the_exit_codes_to_the_plugins() {
             .contains("stop")
     );
 
-    let (code, stdout, _) = run(
-        &server,
-        &["plugins", "describe", "list", "--format", "markdown"],
-    );
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "list", "--markdown"]);
     assert_eq!(code, 0);
     // one plugin is the document: its heading first, its command, no general parts
     assert!(stdout.starts_with("# List (`list`) · 1.2.0\n"), "{stdout}");
@@ -559,7 +570,7 @@ fn describe_adds_how_to_submit_and_the_exit_codes_to_the_plugins() {
     assert!(!stdout.contains("| 4 | timed out") && !stdout.contains("# Pinrail plugins"));
 
     // with no name, an index: a line a plugin, and the way to the rest
-    let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "--markdown"]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("- **list** (List): Before posting review comments\n"),
@@ -998,7 +1009,7 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
     );
     assert!(doc["next"].as_str().unwrap().contains("describe <name>"));
 
-    let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "--markdown"]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("- **model** (3D model review): Takes files: .glb."),
@@ -1016,10 +1027,7 @@ fn describe_says_what_files_a_plugin_takes_and_how_to_send_them() {
             .contains("--attach PATH[=NAME]")
     );
 
-    let (code, stdout, _) = run(
-        &server,
-        &["plugins", "describe", "--all", "--format", "markdown"],
-    );
+    let (code, stdout, _) = run(&server, &["plugins", "describe", "--all", "--markdown"]);
     assert_eq!(code, 0);
     assert!(
         stdout.contains("### Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
@@ -1126,7 +1134,7 @@ fn plugins_as_markdown_is_a_table_of_what_is_installed() {
             {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"},"error":null},
             {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"},"error":"entry index.html not found"}]}"#.into())
     }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "--format", "markdown"]);
+    let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert!(
         stdout.contains("| list | 1.0.0 | built in | ready |"),
@@ -1162,13 +1170,7 @@ fn plugins_check_asks_the_app_about_the_folder_and_exits_by_its_verdict() {
     );
     let (code, stdout, _) = run(
         &server,
-        &[
-            "plugins",
-            "check",
-            dir.to_str().unwrap(),
-            "--format",
-            "markdown",
-        ],
+        &["plugins", "check", dir.to_str().unwrap(), "--markdown"],
     );
     assert_eq!(code, 2);
     assert!(
