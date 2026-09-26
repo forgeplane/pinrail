@@ -757,7 +757,9 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Plugins(PluginsArgs {
             command: Some(PluginsCommand::Describe { name }),
         }) => {
-            let described = client.plugins_describe(&name)?;
+            let described = client
+                .plugins_describe(&name)
+                .map_err(|err| unusable(&client, &name, err))?;
             // the plugin itself, not a list of one
             let shown = described["plugins"][0].clone();
             output.data(&shown, describe::markdown);
@@ -935,6 +937,34 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     }
     let review = client.submit(&body).map_err(|e| schema_hint(e, &body))?;
     submitted(client, review, &args, output)
+}
+
+/// A plugin describe could not find: when it is installed but broken, says
+/// so and why, and how to see what to fix, rather than that it is not there.
+fn unusable(client: &Client, name: &str, err: anyhow::Error) -> anyhow::Error {
+    if !err.downcast_ref::<ApiError>().is_some_and(|a| a.status == 404) {
+        return err;
+    }
+    let listed = client.plugins().ok();
+    let Some(plugin) = listed
+        .as_ref()
+        .and_then(|l| l["plugins"].as_array())
+        .and_then(|rows| rows.iter().find(|p| p["name"] == name && p["error"].is_string()))
+    else {
+        return err;
+    };
+    ApiError {
+        status: 409,
+        body: json!({
+            "error": "unusable",
+            "message": format!("plugin {name} is installed but can't be used: {}", plugin["error"].as_str().unwrap_or_default()),
+            "violations": [],
+        }),
+        hint: plugin["path"]
+            .as_str()
+            .map(|path| format!("What to fix: pinrail plugins check {path}")),
+    }
+    .into()
 }
 
 /// A payload the plugin refused, with where to read the shape it takes.

@@ -58,7 +58,7 @@ pinrail plugins describe review       # one plugin, in full
 - the **payload schema**, and an **example payload** that passes it;
 - the **decision schema**: the shape of `decision.data` in the review that comes back.
 
-Like `submit`, `describe` starts the app if it is not running.
+Like `submit`, `describe` starts the app if it is not running. For a plugin that is installed but broken, it says what is wrong and how to check it.
 
 :::tip[Point the agent at it]
 An agent that runs `pinrail plugins`, then `pinrail plugins describe <name>`, can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.

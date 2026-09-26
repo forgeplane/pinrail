@@ -592,6 +592,14 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     assert_eq!(code, 2);
     assert_eq!(stderr, "pinrail: refused: plugin nope not found\n");
 
+    // installed but broken: said so, with where to look
+    let (code, _, stderr) = run(&server, &["plugins", "describe", "hello", "--markdown"]);
+    assert_eq!(code, 2);
+    assert_eq!(
+        stderr,
+        "pinrail: refused: plugin hello is installed but can't be used: entry view/index.html not found\n\
+         What to fix: pinrail plugins check /src/hello\n"
+    );
 }
 
 #[test]
