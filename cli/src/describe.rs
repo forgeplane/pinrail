@@ -209,13 +209,16 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
     out
 }
 
-/// `pinrail plugins` as markdown: what is installed, from where, and
-/// whether it works, with the way to ask with one.
+/// `pinrail plugins` as markdown: how many, then a plugin a line, its
+/// version, where it is from and whether it works, and under it what it is.
 pub fn listing(listed: &Value) -> String {
-    let mut out = String::from(
-        "# Installed plugins\n\n| plugin | version | from | state |\n|---|---|---|---|\n",
+    let rows = listed["plugins"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let noun = if rows.len() == 1 { "plugin" } else { "plugins" };
+    let mut out = format!(
+        "{} {noun} installed; pinrail plugins describe says when to use each.\n\n",
+        rows.len()
     );
-    for plugin in listed["plugins"].as_array().into_iter().flatten() {
+    for plugin in rows {
         let text = |v: &Value| v.as_str().unwrap_or_default().to_string();
         let install = &plugin["install"];
         let from = if install.is_null() {
@@ -230,14 +233,14 @@ pub fn listing(listed: &Value) -> String {
             None => "ready".to_string(),
         };
         out.push_str(&format!(
-            "| {} | {} | {} | {} |\n",
+            "- {} · {} · {from} · {state}\n",
             text(&plugin["name"]),
             text(&plugin["release"]),
-            from.replace('|', "\\|"),
-            state.replace('|', "\\|")
         ));
+        if let Some(about) = plugin["description"].as_str().filter(|d| !d.trim().is_empty()) {
+            out.push_str(&format!("  {}\n", about.trim()));
+        }
     }
-    out.push_str("\nTo ask with one, `pinrail plugins describe` says when to use each.\n");
     out
 }
 

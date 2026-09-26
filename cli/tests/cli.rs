@@ -1223,26 +1223,24 @@ fn submit_fills_the_origin_from_the_git_checkout_it_runs_in() {
 }
 
 #[test]
-fn plugins_as_markdown_is_a_table_of_what_is_installed() {
+fn plugins_as_markdown_is_a_line_a_plugin() {
     let server = MockServer::start(Box::new(|_, path, _| {
         assert_eq!(path, "/api/v1/plugins");
         (200, r#"{"plugins":[
-            {"name":"list","release":"1.0.0","install":null,"error":null},
+            {"name":"list","release":"1.0.0","install":null,"error":null,"description":"Proposed actions to accept or reject."},
             {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"},"error":null},
             {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"},"error":"entry index.html not found"}]}"#.into())
     }));
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
-    assert!(
-        stdout.contains("| list | 1.0.0 | built in | ready |"),
-        "{stdout}"
+    assert_eq!(
+        stdout,
+        "3 plugins installed; pinrail plugins describe says when to use each.\n\n\
+         - list · 1.0.0 · built in · ready\n\
+         \x20 Proposed actions to accept or reject.\n\
+         - review · 2.1.0 · linked, /src/review · ready\n\
+         - odd · 0.1.0 · github.com/acme/odd · broken: entry index.html not found\n"
     );
-    assert!(stdout.contains("| review | 2.1.0 | linked, /src/review | ready |"));
-    assert!(
-        stdout
-            .contains("| odd | 0.1.0 | github.com/acme/odd | broken: entry index.html not found |")
-    );
-    assert!(stdout.contains("`pinrail plugins describe`"));
 }
 
 #[test]
