@@ -704,7 +704,7 @@ fn run(cli: Cli) -> Result<u8> {
             let index = name.is_none() && !all;
             let described = client.plugins_describe(name.as_deref())?;
             if output.markdown {
-                print!("{}", describe::markdown(&described, index));
+                print!("{}", describe::markdown(&described, index, name.is_some()));
             } else {
                 out::print_json(&describe::document(described, index), pretty);
             }

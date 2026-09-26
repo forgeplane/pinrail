@@ -552,9 +552,11 @@ fn describe_adds_how_to_submit_and_the_exit_codes_to_the_plugins() {
         &["plugins", "describe", "list", "--format", "markdown"],
     );
     assert_eq!(code, 0);
-    assert!(stdout.contains("## List (`list`) · 1.2.0"), "{stdout}");
+    // one plugin is the document: its heading first, its command, no general parts
+    assert!(stdout.starts_with("# List (`list`) · 1.2.0\n"), "{stdout}");
     assert!(stdout.contains("**Use when:** Before posting review comments"));
-    assert!(stdout.contains("| 4 | timed out"));
+    assert!(stdout.contains("pinrail submit list --title"));
+    assert!(!stdout.contains("| 4 | timed out") && !stdout.contains("# Pinrail plugins"));
 
     // with no name, an index: a line a plugin, and the way to the rest
     let (code, stdout, _) = run(&server, &["plugins", "describe", "--format", "markdown"]);

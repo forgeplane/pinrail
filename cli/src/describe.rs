@@ -98,12 +98,30 @@ pub fn document(described: Value, index: bool) -> Value {
     doc
 }
 
-pub fn markdown(described: &Value, index: bool) -> String {
+/// As markdown: the index, every plugin in full, or, `named`, the one
+/// plugin asked for, which opens the document and fills the commands.
+pub fn markdown(described: &Value, index: bool, named: bool) -> String {
+    let plugins = described["plugins"].as_array().cloned().unwrap_or_default();
+    if named && let [plugin] = plugins.as_slice() {
+        let mut section = String::new();
+        plugin_section(&mut section, plugin);
+        // the plugin is the document: its heading the title, the rest one level up
+        let mut out = section
+            .trim_start()
+            .replacen("## ", "# ", 1)
+            .replace("\n### ", "\n## ");
+        // how to send it; the rest, exit codes included, is `pinrail docs asking`
+        let name = plugin["name"].as_str().unwrap_or("<plugin>");
+        out.push_str(&format!(
+            "\n## Submitting\n\n```sh\n{}\n```\n\nExit codes, rounds and the rest: `pinrail docs asking`.\n",
+            SUBMIT.replace("<plugin>", name)
+        ));
+        return out;
+    }
     let mut out = String::from("# Pinrail plugins\n\n");
     out.push_str(
         "Pinrail puts a question to a person and hands their decision back. Each plugin is one kind of question: pick the one whose *Use when* fits, send a payload its schema accepts, and read the decision.\n",
     );
-    let plugins = described["plugins"].as_array().cloned().unwrap_or_default();
     if plugins.is_empty() {
         out.push_str("\nNo plugin is installed and usable.\n");
     }
@@ -121,15 +139,26 @@ pub fn markdown(described: &Value, index: bool) -> String {
         }
     }
 
+    out.push_str(&general("<plugin>"));
+    out
+}
+
+/// How to submit, what comes back and the exit codes, for `plugin`.
+fn general(plugin: &str) -> String {
+    let mut out = String::new();
     out.push_str("\n## Submitting\n\n");
-    out.push_str(&format!("```sh\n{SUBMIT}\n```\n\n"));
+    out.push_str(&format!(
+        "```sh\n{}\n```\n\n",
+        SUBMIT.replace("<plugin>", plugin)
+    ));
     out.push_str(&format!(
         "{}{}.\n\n",
         ORIGIN[..1].to_uppercase(),
         &ORIGIN[1..]
     ));
     out.push_str(&format!(
-        "Check a payload first, without creating a review:\n\n```sh\n{CHECK}\n```\n\n"
+        "Check a payload first, without creating a review:\n\n```sh\n{}\n```\n\n",
+        CHECK.replace("<plugin>", plugin)
     ));
     out.push_str(&format!(
         "Files go beside the payload for a plugin that takes them ({}).\n\n",
