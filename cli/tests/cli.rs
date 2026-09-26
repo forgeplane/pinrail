@@ -317,6 +317,19 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
 }
 
 #[test]
+fn open_refuses_a_review_the_app_does_not_have_before_opening_anything() {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        assert_eq!((method, path), ("GET", "/api/v1/reviews/r_x"));
+        (404, r#"{"error":"not_found","message":"review r_x not found","violations":[]}"#.into())
+    }));
+    let (code, stdout, stderr) = run(&server, &["open", "r_x", "--markdown"]);
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty(), "{stdout}");
+    assert_eq!(stderr, "pinrail: refused: review r_x not found\n");
+    assert_eq!(server.requests().len(), 1);
+}
+
+#[test]
 fn a_refused_payload_reads_as_markdown_and_points_at_the_plugins_shape() {
     let server = MockServer::start(Box::new(|_, _, _| {
         (422, r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/payload/groups","message":"value is not of type array"}]}"#.into())

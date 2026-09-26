@@ -217,12 +217,21 @@ enum Command {
         tree: bool,
     },
     /// Open a review in the app; --browser opens its preview, for building a plugin
+    ///
+    /// Opens the deep link pinrail://reviews/<id> with the system's opener,
+    /// which hands it to the Pinrail app and brings the review up there.
+    /// Prints the address it opened; an id the app does not have is
+    /// refused (exit 2) and nothing opens.
+    ///
+    /// --browser opens <server>/preview/reviews/<id> instead: the review
+    /// with the plugin's view, served by the running app to this machine
+    /// only. It is for trying a view while building a plugin: its hand-over
+    /// checks the decision against the plugin's schema and shows it, and
+    /// decides nothing. The person decides in the app.
     Open {
         /// The review's id
         id: String,
-        /// the preview the app serves, for building a plugin: the view in the
-        /// default browser, whose hand-over checks the decision and decides
-        /// nothing; prints its address
+        /// The preview in the default browser, for building a plugin
         #[arg(long)]
         browser: bool,
     },
@@ -830,6 +839,8 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Open { id, browser } => {
+            // a review the app does not have is refused here, not opened
+            client.get_review(&id)?;
             let url = if browser {
                 format!("{base}/preview/reviews/{id}")
             } else {
