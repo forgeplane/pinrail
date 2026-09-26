@@ -67,7 +67,10 @@ pub fn resolve_url(explicit: Option<&str>, auto_start: bool) -> Result<String> {
 pub fn ensure_running(explicit: Option<&str>) -> Result<Value> {
     let url = resolve_url(explicit, false)?;
     if Client::new(&url).reachable() {
-        return Ok(advertised().unwrap_or_else(|| json!({ "url": url })));
+        // what server.json says, when it is about this server
+        return Ok(advertised()
+            .filter(|info| info["url"].as_str().map(|u| u.trim_end_matches('/')) == Some(url.as_str()))
+            .unwrap_or_else(|| json!({ "url": url })));
     }
     start()
 }

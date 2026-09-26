@@ -130,12 +130,18 @@ pub fn attachments(files: &Value) -> String {
 
 /// Where the server is.
 pub fn server(info: &Value) -> String {
-    format!(
-        "Pinrail's server: {} (pid {}, since {})\n",
-        text(&info["url"]),
-        info["pid"],
-        text(&info["started_at"])
-    )
+    // pid and start time when server.json has them for this server
+    let mut about = Vec::new();
+    if let Some(pid) = info["pid"].as_u64() {
+        about.push(format!("pid {pid}"));
+    }
+    if let Some(since) = info["started_at"].as_str() {
+        about.push(format!("since {since}"));
+    }
+    match about.is_empty() {
+        true => format!("Pinrail's server: {}\n", text(&info["url"])),
+        false => format!("Pinrail's server: {} ({})\n", text(&info["url"]), about.join(", ")),
+    }
 }
 
 /// What a `plugins` command other than the listing did.
