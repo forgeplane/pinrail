@@ -15,10 +15,12 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
 - `--origin repo=…,ref=…,url=…`: the project, branch or pull request, and a
   link back. `repo` and `ref` come from git when you are in a checkout.
 - `--wait`: block until the review ends, then print it.
-- `--json`: the decision as JSON, exact to the plugin's decision schema
-  (`pinrail plugins describe <plugin> --decision-schema`).
-  Use it when you process the result, looping over items or passing it to
-  a script; read the default markdown otherwise.
+- `--json`: the whole review as JSON; the person's answer is its
+  `decision.data`, shaped by the plugin's decision schema
+  (`pinrail plugins describe <plugin> --decision-schema`). Use it when you
+  process the result; read the default markdown otherwise.
+- `--decision-out <file>`: with `--wait`, write only `decision.data` to a
+  file as well.
 - `--dry-run`: every check a submission gets, and nothing created: exit 0
   or 2.
 - `--timeout <seconds>`: with `--wait`, stop waiting after this long, exit 4.
@@ -29,8 +31,8 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
 Without `--wait`, `submit` prints the new review and returns: wait on it
 later with `pinrail wait <id>`.
 
-- stdout is the result: the review, or with `--wait` the decision. Read or
-  parse only stdout.
+- stdout is the result: the review, and with `--wait` the review as it
+  ended, its decision included. Read or parse only stdout.
 - stderr is errors, warnings, and `review <id> submitted` as soon as the
   review exists, so you have the id while `--wait` blocks. `--verbose`
   adds what happened along the way.

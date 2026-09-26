@@ -7,8 +7,8 @@ menu: []
 
 When the person wants you to ask before something, write it down where your
 standing instructions live, so you and other sessions keep doing it:
-`CLAUDE.md` or a skill for Claude Code, `AGENTS.md` for most other agents,
-`GEMINI.md` for Gemini CLI.
+`CLAUDE.md` or a skill for Claude Code, `GEMINI.md` for Gemini CLI,
+`AGENTS.md`, or a skill where your agent supports them, for the others.
 
 A rule names four things: the moment, the plugin and what to send in it,
 the command, and what to do with the answer.
@@ -16,7 +16,9 @@ the command, and what to do with the answer.
 Pick the plugin first. One fits when it both shows what the person needs
 to see and returns the decision you need:
 
-- `pinrail plugins` lists the installed ones with when to use each.
+- `pinrail plugins` lists the installed ones with when to use each: your
+  candidates. `pinrail plugins describe <plugin> --decision-schema` shows
+  what one returns: the test.
 - Showing the right material is not enough: a diff view does not make a
   plugin fit for approving a commit if it does not return an approval.
 - Don't bend the task to a schema: no made-up item or comment just to
@@ -36,7 +38,7 @@ Before you <the moment>, ask me through Pinrail and wait for my decision.
 Don't ask in chat and don't go ahead without an answer.
 
 1. Write <what you propose> as a payload for the `<plugin>` plugin:
-   <its shape, e.g. `{"groups": [{"title", "items": [{"id", "title", "body"}]}]}`>.
+   <its shape, as `pinrail plugins describe <plugin>` gives it>.
 2. pinrail submit <plugin> --title "<a title I'll recognise>" \
      --data <file>.json --wait
 3. Act only on what I decided; treat anything undecided as not approved.
