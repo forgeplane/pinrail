@@ -231,7 +231,10 @@ struct SubmitArgs {
     /// override its keys
     #[arg(long, value_name = "FILE|-")]
     request: Option<String>,
-    /// Where the review comes from: repo=acme,workflow=review,run_id=…,ref=42,url=…
+    /// Where the review comes from, as key=value pairs: repo (the project,
+    /// owner/name), ref (a branch or pull request), workflow and run_id
+    /// (what asked), url (a link back). In a git checkout, repo and ref
+    /// default to the remote and the branch. E.g. repo=acme/api,ref=42,url=…
     #[arg(long, alias = "source", value_parser = parse_origin)]
     origin: Option<BTreeMap<String, String>>,
     /// Payload JSON: a file path, or - for stdin
@@ -242,7 +245,9 @@ struct SubmitArgs {
     /// Repeat for more
     #[arg(long = "attach", value_name = "PATH[=NAME]", value_parser = attachments::parse_flag)]
     attachments: Vec<(String, PathBuf)>,
-    /// Inbox summary JSON, e.g. '{"counts":[["major",2]],"subtitle":"3 new"}'
+    /// What the inbox row shows beside the title, as JSON: counts, a list
+    /// of [label, number] pairs (blocker, major, minor and nit in their
+    /// colours), and a subtitle. E.g. '{"counts":[["major",2]],"subtitle":"3 new"}'
     #[arg(long, value_parser = parse_json)]
     summary: Option<Value>,
     /// The review this one is a new round of
@@ -251,7 +256,8 @@ struct SubmitArgs {
     /// ISO 8601 timestamp after which the review expires
     #[arg(long)]
     expires_at: Option<String>,
-    /// Who is asking, shown on the review [default: pinrail-cli]
+    /// Who is asking, shown on the review as its requester: the agent or
+    /// tool, e.g. claude-code [default: pinrail-cli]
     #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
     /// Send the plugin's sample, a review it ships to show what it looks
@@ -285,7 +291,9 @@ struct WaitOpts {
     /// Give up after this many seconds (exit 4); 0 waits forever
     #[arg(long, default_value_t = 0)]
     timeout: u64,
-    /// Write decision.data to this file once decided
+    /// Also write decision.data to this file, as JSON, once decided;
+    /// without it the decision is only printed, and stays in the app for
+    /// pinrail show <id>
     #[arg(long, value_name = "FILE")]
     decision_out: Option<PathBuf>,
 }
