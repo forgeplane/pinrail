@@ -40,7 +40,7 @@
       "minLength": 1,
       "pattern": "^[^/]",
       "not": { "type": "string", "pattern": "\\.\\." },
-      "description": "A JSON file beside the manifest holding a payload that passes payload_schema, shown to an agent as a starting point. One that does not pass costs the plugin the example, not its place."
+      "description": "A JSON file beside the manifest holding a payload that passes payload_schema, shown to an agent as a starting point. Keep it to the fewest items that show the shape: agents read it whole. One that does not pass costs the plugin the example, not its place."
     },
     "sample": {
       "type": ["string", "null"],

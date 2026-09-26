@@ -89,7 +89,7 @@ Only the manifest, the schemas, the view and the sample reach the app. `fixtures
 | `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins` when they choose a plugin. |
 | `icon` | Any [Lucide](https://lucide.dev/icons) icon name, shown beside the plugin's reviews. |
 | `payload_schema`, `decision_schema` | JSON Schema 2020-12, inline or as a `$ref` to a file inside the folder. |
-| `example` | A JSON file inside the folder with a payload that passes `payload_schema`. Agents get it as a starting point. |
+| `example` | A JSON file inside the folder with a payload that passes `payload_schema`. Agents get it as a starting point, and read it whole every time they describe the plugin, so keep it to the fewest items that show the shape: one of each kind, short texts, files by name rather than inline. |
 | `sample` | A review anyone can send to see the plugin: a request file inside the folder with a `title`, a `payload` and any files. See [A sample to look at](#a-sample-to-look-at). |
 | `entry` | The view's HTML file, relative to the folder. |
 | `min_height` | The smallest height, in pixels, the app gives the view. |

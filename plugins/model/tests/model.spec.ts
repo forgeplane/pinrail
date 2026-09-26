@@ -93,7 +93,7 @@ test("a click on the model itself opens a comment on the part under it", async (
 
 test("three.js JSON is read as well as GLB", async ({ page }) => {
   const gate = round();
-  gate.payload = JSON.parse(fs.readFileSync(path.join(dir, "example.json"), "utf8"));
+  gate.payload = JSON.parse(fs.readFileSync(path.join(dir, "fixtures/inline-object.json"), "utf8"));
   const plugin = await mountPlugin(page, dir, { gate });
   const f = plugin.frame;
   await expect(f.locator("#model-name")).toHaveText("Column");
