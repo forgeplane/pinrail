@@ -45,7 +45,7 @@ impl PluginService {
             .map(|p| p.describe())
             .collect();
         match name {
-            Some(n) if plugins.is_empty() => Err(Error::NotFound(n.to_string())),
+            Some(n) if plugins.is_empty() => Err(Error::NotFound(format!("plugin {n}"))),
             _ => Ok(json!({ "plugins": plugins })),
         }
     }
@@ -112,7 +112,7 @@ impl PluginService {
             versions.push(p.version);
         }
         if current.is_none() && versions.is_empty() {
-            return Err(Error::NotFound(name.to_string()));
+            return Err(Error::NotFound(format!("plugin {name}")));
         }
         versions.sort_unstable();
         Ok(json!({
@@ -188,7 +188,7 @@ impl PluginService {
     pub fn job(&self, id: &str) -> Result<InstallJob, Error> {
         self.jobs
             .get(id)
-            .ok_or_else(|| Error::NotFound(id.to_string()))
+            .ok_or_else(|| Error::NotFound(format!("install job {id}")))
     }
 
     /// Asks the original source whether a newer version is available.
@@ -236,7 +236,7 @@ impl PluginService {
             .installed_plugins()?
             .into_iter()
             .find(|r| r.name == name)
-            .ok_or_else(|| Error::NotFound(name.to_string()))
+            .ok_or_else(|| Error::NotFound(format!("plugin {name}")))
     }
 
     async fn check_record(&self, record: InstalledRecord) -> Result<Value, Error> {

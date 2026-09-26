@@ -321,7 +321,7 @@ pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> 
         .installed_plugins()?
         .into_iter()
         .find(|r| r.name == name)
-        .ok_or_else(|| Error::NotFound(name.to_string()))?;
+        .ok_or_else(|| Error::NotFound(format!("plugin {name}")))?;
     let mut kept: Vec<i64> = Vec::new();
     let mut removed: Vec<i64> = Vec::new();
     if let Ok(entries) = std::fs::read_dir(registry.store_dir().join(name)) {

@@ -26,6 +26,7 @@ impl Violation {
 
 #[derive(Debug)]
 pub enum Error {
+    /// What was not found, as the message names it: `review r_1`, `plugin hello`
     NotFound(String),
     NotPending(String),
     Invalid(Vec<Violation>),
@@ -39,7 +40,7 @@ impl Error {
 
     pub fn message(&self) -> String {
         match self {
-            Error::NotFound(id) => format!("review {id} not found"),
+            Error::NotFound(what) => format!("{what} not found"),
             Error::NotPending(id) => format!("review {id} is no longer pending"),
             Error::Invalid(violations) => {
                 let mut lines = vec!["validation failed:".to_string()];
@@ -100,7 +101,7 @@ mod tests {
         );
         assert_eq!(e.to_json()["error"], "invalid");
         assert_eq!(
-            Error::NotFound("r_1".into()).to_json()["message"],
+            Error::NotFound("review r_1".into()).to_json()["message"],
             "review r_1 not found"
         );
         assert_eq!(

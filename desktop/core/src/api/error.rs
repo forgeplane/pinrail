@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn each_kind_of_error_has_its_status() {
         assert_eq!(
-            status(&Error::NotFound("r_1".into())),
+            status(&Error::NotFound("review r_1".into())),
             StatusCode::NOT_FOUND
         );
         assert_eq!(

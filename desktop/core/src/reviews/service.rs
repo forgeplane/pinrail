@@ -169,7 +169,7 @@ impl Reviews {
     pub fn get(&self, id: &str) -> Result<Review, Error> {
         self.db
             .get_review(id)?
-            .ok_or_else(|| Error::NotFound(id.to_string()))
+            .ok_or_else(|| Error::NotFound(format!("review {id}")))
     }
 
     pub fn list(&self, filters: &Filters) -> Result<Vec<Review>, Error> {
@@ -224,14 +224,14 @@ impl Reviews {
     pub fn rounds(&self, id: &str) -> Result<Vec<Review>, Error> {
         let rounds = self.db.rounds(id)?;
         if rounds.is_empty() {
-            return Err(Error::NotFound(id.to_string()));
+            return Err(Error::NotFound(format!("review {id}")));
         }
         Ok(rounds)
     }
 
     pub fn events(&self, id: &str) -> Result<Vec<Event>, Error> {
         if !self.db.exists(id)? {
-            return Err(Error::NotFound(id.to_string()));
+            return Err(Error::NotFound(format!("review {id}")));
         }
         Ok(self.db.events_for(id)?)
     }
