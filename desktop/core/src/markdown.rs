@@ -62,7 +62,10 @@ pub fn render_in(
         }
     }
     if let Some((n, of)) = round {
-        place.push(format!("round {n} of {of}"));
+        match review["revises"].as_str().filter(|_| head == Head::Command) {
+            Some(revises) => place.push(format!("round {n} of {of}, revises {revises}")),
+            None => place.push(format!("round {n} of {of}")),
+        }
     }
 
     // how it stands, in a line
