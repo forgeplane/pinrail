@@ -327,6 +327,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .list-tabs button span { color: var(--faint); margin-left: 4px; }
 .list-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
 .list-sort { margin-left: auto; font-size: 11.5px; color: var(--faint); }
+.inbox-layout { margin-left: 8px; }
+.inbox-layout button { display: inline-flex; align-items: center; padding: 3px 7px; }
+.inbox-list { display: grid; }
 .inbox-groups { display: grid; gap: 10px; }
 .inbox-repo summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; padding: 6px 4px; font-size: 12.5px; color: var(--dim); list-style: none; }
 .inbox-repo summary::-webkit-details-marker { display: none; }

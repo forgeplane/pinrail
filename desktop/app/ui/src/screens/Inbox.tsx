@@ -1,4 +1,4 @@
-import { Ban, Blocks, CheckCheck, FolderGit2, Search, SearchX } from "lucide-react";
+import { Ban, Blocks, CheckCheck, FolderGit2, List, Search, SearchX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { Review } from "../api/types";
@@ -13,6 +13,17 @@ import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { NO_PROJECT, inProject } from "../lib/shortcuts";
+
+/** How the inbox is laid out, remembered on this machine. */
+type Layout = "projects" | "list";
+const LAYOUT = "pinrail.inbox.layout";
+function savedLayout(): Layout {
+  try {
+    return localStorage.getItem(LAYOUT) === "list" ? "list" : "projects";
+  } catch {
+    return "projects";
+  }
+}
 
 function matches(review: Review, q: string) {
   if (!q) return true;
@@ -34,6 +45,16 @@ export function Inbox() {
   const plugin = params.get("plugin") ?? "";
   const rounds = params.get("rounds") ?? "";
   const [focused, setFocused] = useState(0);
+  const [layout, setLayoutState] = useState<Layout>(savedLayout);
+  const setLayout = (next: Layout) => {
+    setLayoutState(next);
+    try {
+      localStorage.setItem(LAYOUT, next);
+    } catch {
+      // private mode or no storage: the choice lasts until the app restarts
+    }
+    setFocused(0);
+  };
   const [discarding, setDiscarding] = useState<Review | null>(null);
   const search = useRef<HTMLInputElement>(null);
   // While the keyboard moves the focus the list scrolls under a still
@@ -98,18 +119,20 @@ export function Inbox() {
   const newRounds = live.pending.filter((r) => r.revises).length;
   const plugins = [...new Set(live.pending.map((r) => r.plugin))].sort();
 
-  // In the order the rows are drawn: by project, the project with the
-  // newest review first, and newest first within one. The reviews come
-  // newest first, so a project's place is where its newest one falls.
-  // J, K and Enter walk this order, so the row they open is the row lit.
+  // In the order the rows are drawn. By project: the project with the
+  // newest review first, and newest first within one; the reviews come
+  // newest first, so a project's place is where its newest one falls. As a
+  // list: newest first, as they come. J, K and Enter walk this order, so
+  // the row they open is the row lit.
   const ordered = useMemo(() => {
+    if (layout === "list") return reviews;
     const byRepo = new Map<string, Review[]>();
     for (const r of reviews) {
       const key = r.origin.repo ?? "";
       byRepo.set(key, [...(byRepo.get(key) ?? []), r]);
     }
     return [...byRepo.entries()].flatMap(([, items]) => items);
-  }, [reviews]);
+  }, [reviews, layout]);
 
   // a page past the end, after reviews were decided: the last page there is
   const pages = Math.max(1, Math.ceil(ordered.length / size));
@@ -156,6 +179,60 @@ export function Inbox() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [shown, focused, navigate, discarding]);
+
+  /** A review's row; `here` is its place in the order J and K walk. */
+  const row = (review: Review, here: number) => (
+    <Link
+      key={review.id}
+      to={`/reviews/${review.id}`}
+      className={`review-row ${here === focused ? "is-focused" : ""}`}
+      onMouseEnter={() => !keyboard.current && setFocused(here)}
+      data-review-row
+    >
+      <span className="review-row-marker" aria-label="Pending" />
+      <span className="review-row-main">
+        <span className="review-row-title">
+          {review.title}
+          {review.origin.ref ? <span className="review-row-ref">{review.origin.ref}</span> : null}
+        </span>
+        <span className="review-row-meta">
+          {layout === "list" ? <span className="review-row-project">{review.origin.repo ?? "No project"}</span> : null}
+          {layout === "list" && (review.requested_by || review.origin.workflow) ? <span>·</span> : null}
+          {review.requested_by ? <span>{review.requested_by}</span> : null}
+          {review.requested_by && review.origin.workflow ? <span>·</span> : null}
+          {review.origin.workflow ? <span>{review.origin.workflow}</span> : null}
+          {review.revises ? <span>· New round</span> : null}
+          <FilesCount total={review.attachments_total} />
+        </span>
+      </span>
+      <span className="review-row-plugin">
+        <PluginIcon icon={live.pluginIcon(review.plugin)} size={13} />
+        {review.plugin}
+      </span>
+      <span className="review-row-summary">
+        <SummaryCounts summary={review.summary} />
+      </span>
+      <span className="review-row-end">
+        <time className="review-row-time" dateTime={review.created_at}>
+          {age(review.created_at, now)}
+        </time>
+        <Tooltip label="Discard: the agent is told to stop" keys={["D"]} side="top">
+          <button
+            type="button"
+            className="bar-button"
+            aria-label={`Discard ${review.title}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDiscarding(review);
+            }}
+          >
+            <Ban size={14} />
+          </button>
+        </Tooltip>
+      </span>
+    </Link>
+  );
 
   const filtered = !!(q || repo || plugin || rounds);
   const now = Date.now();
@@ -216,6 +293,18 @@ export function Inbox() {
           New rounds <span>{newRounds}</span>
         </button>
         <span className="list-sort">Newest first</span>
+        <span className="segmented inbox-layout" role="radiogroup" aria-label="Inbox layout">
+          <Tooltip label="Grouped by project" side="top">
+            <button type="button" role="radio" aria-checked={layout === "projects"} aria-label="Grouped by project" className={layout === "projects" ? "is-on" : ""} onClick={() => setLayout("projects")}>
+              <FolderGit2 size={13} />
+            </button>
+          </Tooltip>
+          <Tooltip label="One list, newest first" side="top">
+            <button type="button" role="radio" aria-checked={layout === "list"} aria-label="One list" className={layout === "list" ? "is-on" : ""} onClick={() => setLayout("list")}>
+              <List size={13} />
+            </button>
+          </Tooltip>
+        </span>
       </nav>
       {groups.length === 0 ? (
         <EmptyState
@@ -242,6 +331,8 @@ export function Inbox() {
         >
           {filtered ? "Try a different search or clear the filters." : "New reviews appear here when an agent needs you."}
         </EmptyState>
+      ) : layout === "list" ? (
+        <div className="inbox-list">{shown.map((review, i) => row(review, i))}</div>
       ) : (
         <div className="inbox-groups">
           {groups.map(([repoName, items]) => (
@@ -252,57 +343,7 @@ export function Inbox() {
               </summary>
               {items.map((review) => {
                 index += 1;
-                const here = index;
-                return (
-                  <Link
-                    key={review.id}
-                    to={`/reviews/${review.id}`}
-                    className={`review-row ${here === focused ? "is-focused" : ""}`}
-                    onMouseEnter={() => !keyboard.current && setFocused(here)}
-                    data-review-row
-                  >
-                    <span className="review-row-marker" aria-label="Pending" />
-                    <span className="review-row-main">
-                      <span className="review-row-title">
-                        {review.title}
-                        {review.origin.ref ? <span className="review-row-ref">{review.origin.ref}</span> : null}
-                      </span>
-                      <span className="review-row-meta">
-                        {review.requested_by ? <span>{review.requested_by}</span> : null}
-                        {review.requested_by && review.origin.workflow ? <span>·</span> : null}
-                        {review.origin.workflow ? <span>{review.origin.workflow}</span> : null}
-                        {review.revises ? <span>· New round</span> : null}
-                        <FilesCount total={review.attachments_total} />
-                      </span>
-                    </span>
-                    <span className="review-row-plugin">
-                      <PluginIcon icon={live.pluginIcon(review.plugin)} size={13} />
-                      {review.plugin}
-                    </span>
-                    <span className="review-row-summary">
-                      <SummaryCounts summary={review.summary} />
-                    </span>
-                    <span className="review-row-end">
-                      <time className="review-row-time" dateTime={review.created_at}>
-                        {age(review.created_at, now)}
-                      </time>
-                      <Tooltip label="Discard: the agent is told to stop" keys={["D"]} side="top">
-                        <button
-                          type="button"
-                          className="bar-button"
-                          aria-label={`Discard ${review.title}`}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDiscarding(review);
-                          }}
-                        >
-                          <Ban size={14} />
-                        </button>
-                      </Tooltip>
-                    </span>
-                  </Link>
-                );
+                return row(review, index);
               })}
             </details>
           ))}
