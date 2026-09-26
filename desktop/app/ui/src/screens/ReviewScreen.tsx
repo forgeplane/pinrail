@@ -1,10 +1,11 @@
-import { Ban, Bot, ClipboardCheck, ClipboardX, Clock, Copy, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
+import { Ban, ClipboardCheck, ClipboardX, Clock, Copy, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
 import { copyText } from "../lib/clipboard";
 import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
+import { AgentIcon } from "../components/AgentIcon";
 import { AttachmentsChip } from "../components/AttachmentsChip";
 import { OutcomeBadge, PluginBadge, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
@@ -368,7 +369,7 @@ export function ReviewScreen() {
         ) : null}
         {review.requested_by ? (
           <span className="with-icon">
-            <Bot size={13} /> {review.requested_by}
+            <AgentIcon requestedBy={review.requested_by} /> {review.requested_by}
           </span>
         ) : null}
         <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>

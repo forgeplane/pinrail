@@ -330,6 +330,9 @@ h1 { font-size: 16px; font-weight: 600; margin: 0; }
 .inbox-layout { margin-left: 8px; }
 .inbox-layout button { display: inline-flex; align-items: center; padding: 3px 7px; }
 .inbox-list { display: grid; }
+.agent-icon { display: inline-flex; flex: none; }
+.agent-icon svg { width: 100%; height: 100%; }
+.requester { display: inline-flex; align-items: center; gap: 4px; }
 .inbox-groups { display: grid; gap: 10px; }
 .inbox-repo summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; padding: 6px 4px; font-size: 12.5px; color: var(--dim); list-style: none; }
 .inbox-repo summary::-webkit-details-marker { display: none; }

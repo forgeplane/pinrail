@@ -8,6 +8,7 @@ import { DiscardDialog } from "../components/DiscardDialog";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
+import { AgentIcon } from "../components/AgentIcon";
 import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
@@ -198,7 +199,12 @@ export function Inbox() {
         <span className="review-row-meta">
           {layout === "list" ? <span className="review-row-project">{review.origin.repo ?? "No project"}</span> : null}
           {layout === "list" && (review.requested_by || review.origin.workflow) ? <span>·</span> : null}
-          {review.requested_by ? <span>{review.requested_by}</span> : null}
+          {review.requested_by ? (
+            <span className="requester">
+              <AgentIcon requestedBy={review.requested_by} />
+              {review.requested_by}
+            </span>
+          ) : null}
           {review.requested_by && review.origin.workflow ? <span>·</span> : null}
           {review.origin.workflow ? <span>{review.origin.workflow}</span> : null}
           {review.revises ? <span>· New round</span> : null}

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { Review, ReviewListing } from "../api/types";
+import { AgentIcon } from "../components/AgentIcon";
 import { FilesCount, OutcomeBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
@@ -246,7 +247,12 @@ export function History() {
                       {r.title}
                     </Link>
                     <small>
-                      {r.requested_by}
+                      {r.requested_by ? (
+                        <span className="requester">
+                          <AgentIcon requestedBy={r.requested_by} size={12} />
+                          {r.requested_by}
+                        </span>
+                      ) : null}
                       {r.requested_by ? " · " : ""}
                       <span className="history-plugin">
                         <PluginIcon icon={live.pluginIcon(r.plugin)} size={12} />
