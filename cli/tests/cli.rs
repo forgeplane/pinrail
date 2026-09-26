@@ -593,11 +593,11 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     let (_, stdout, _) = run(&server, &["plugins", "describe", "list", "--example"]);
     assert_eq!(serde_json::from_str::<serde_json::Value>(&stdout).unwrap(), serde_json::json!({"groups":[]}));
     let (code, _, _) = run(&server, &["plugins", "describe", "list", "--example", "--payload-schema"]);
-    assert_eq!(code, 2, "one part at a time");
+    assert_eq!(code, 1, "one part at a time");
 
     // a plugin's name
     let (code, _, stderr) = run(&server, &["plugins", "describe"]);
-    assert_eq!(code, 2);
+    assert_eq!(code, 1, "bad arguments, not refused");
     assert!(stderr.contains("<NAME>"), "{stderr}");
 
     let (code, _, stderr) = run(&server, &["plugins", "describe", "nope", "--markdown"]);
@@ -646,7 +646,7 @@ fn a_dry_run_checks_the_submission_and_creates_nothing() {
         &server,
         &["submit", "list", "--title", "t", "--dry-run", "--wait"],
     );
-    assert_eq!(code, 2, "clap refuses --dry-run with --wait");
+    assert_eq!(code, 1, "--dry-run with --wait is bad arguments");
 }
 
 #[test]
@@ -728,7 +728,7 @@ fn a_request_file_is_the_body_and_flags_override_its_keys() {
     assert_eq!(code, 1);
     assert!(stderr.contains("must hold a JSON object"), "{stderr}");
     let (code, _, _) = run(&server, &["submit", "list", "--no-start"]);
-    assert_eq!(code, 2, "clap still wants --title without --request");
+    assert_eq!(code, 1, "--title is wanted without --request");
 }
 
 #[test]
@@ -1063,7 +1063,7 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
 
     // a payload of one's own is not a sample
     let (code, _, stderr) = run(&server, &["submit", "list", "--sample", "--data", "p.json"]);
-    assert_eq!(code, 2);
+    assert_eq!(code, 1);
     assert!(stderr.contains("cannot be used with"), "{stderr}");
 }
 

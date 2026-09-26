@@ -514,9 +514,17 @@ fn main() -> ExitCode {
         );
         return ExitCode::SUCCESS;
     }
-    let cli = match Cli::from_arg_matches(&command().get_matches()) {
+    let parsed = command()
+        .try_get_matches()
+        .and_then(|matches| Cli::from_arg_matches(&matches));
+    let cli = match parsed {
         Ok(cli) => cli,
-        Err(err) => err.exit(),
+        // help and version are answers; anything else is bad arguments,
+        // exit 1 as the exit codes say, not clap's 2, which means refused
+        Err(err) => {
+            let _ = err.print();
+            return ExitCode::from(if err.use_stderr() { EXIT_ERROR } else { 0 });
+        }
     };
     let json = cli.json;
     out::set_verbose(cli.verbose);
