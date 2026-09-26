@@ -7,6 +7,26 @@ use std::process::{Command, Stdio};
 
 use serde_json::{Map, Value, json};
 
+/// The origin keys the app keeps, as the core's `ORIGIN_KEYS` lists them;
+/// it drops any other.
+const KEYS: [&str; 5] = ["repo", "ref", "workflow", "run_id", "url"];
+
+/// Takes out of the body's origin the keys the app would drop without a
+/// word, and says so on stderr, so a misspelled key is noticed.
+pub fn drop_unknown(body: &mut Value) {
+    let Some(origin) = body.get_mut("origin").and_then(Value::as_object_mut) else {
+        return;
+    };
+    let unknown: Vec<String> = origin.keys().filter(|k| !KEYS.contains(&k.as_str())).cloned().collect();
+    for key in unknown {
+        origin.remove(&key);
+        eprintln!(
+            "pinrail: warning: origin key {key} dropped: the app keeps {}",
+            KEYS.join(", ")
+        );
+    }
+}
+
 /// Fills `repo` and `ref` in the body's origin from the checkout the command
 /// runs in, when they are missing, and says so on stderr. Outside a
 /// checkout, or without git, the body is left as it is.

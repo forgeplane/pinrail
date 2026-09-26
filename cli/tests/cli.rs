@@ -330,6 +330,34 @@ fn open_refuses_a_review_the_app_does_not_have_before_opening_anything() {
 }
 
 #[test]
+fn unknown_origin_keys_are_dropped_with_a_warning() {
+    let server = MockServer::start(Box::new(|method, path, body| {
+        assert_eq!((method, path), ("POST", "/api/v1/reviews"));
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        assert_eq!(sent["origin"], serde_json::json!({"repo": "acme", "ref": "42"}));
+        (201, review("pending"))
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("r.json"), r#"{"plugin":"list","title":"t","origin":{"repo":"acme","team":"core"}}"#).unwrap();
+
+    let (code, _, stderr) = run(&server, &["submit", "list", "--title", "t", "--origin", "repo=acme,ref=42,agnet=codex", "--no-start"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stderr.contains("pinrail: warning: origin key agnet dropped: the app keeps repo, ref, workflow, run_id, url\n"), "{stderr}");
+
+    // from a request file too
+    let (_, _, stderr) = run(&server, &["submit", "--request", dir.join("r.json").to_str().unwrap(), "--origin", "repo=acme,ref=42", "--no-start"]);
+    assert!(!stderr.contains("warning"), "the flag replaced the file's origin: {stderr}");
+    let server2 = MockServer::start(Box::new(|_, _, body| {
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        assert_eq!(sent["origin"], serde_json::json!({"repo": "acme"}));
+        (201, review("pending"))
+    }));
+    let (code, _, stderr) = run(&server2, &["submit", "--request", dir.join("r.json").to_str().unwrap(), "--no-start"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stderr.contains("origin key team dropped"), "{stderr}");
+}
+
+#[test]
 fn a_refused_payload_reads_as_markdown_and_points_at_the_plugins_shape() {
     let server = MockServer::start(Box::new(|_, _, _| {
         (422, r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/payload/groups","message":"value is not of type array"}]}"#.into())

@@ -923,6 +923,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         if let Some(origin) = &args.origin {
             body["origin"] = json!(origin);
         }
+        origin::drop_unknown(&mut body);
         origin::fill_from_git(&mut body);
         if let Some(by) = &args.requested_by {
             body["requested_by"] = json!(by);
@@ -956,6 +957,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }
+    origin::drop_unknown(&mut body);
     origin::fill_from_git(&mut body);
     if let Some(summary) = &args.summary {
         body["summary"] = summary.clone();
