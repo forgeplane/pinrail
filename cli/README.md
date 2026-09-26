@@ -183,7 +183,7 @@ the latest round of each review unless `--include-revised` is given, and
 | `pinrail list` | List reviews, newest first, without payloads. |
 | `pinrail rounds <id>` | Every round of a review, oldest first. |
 | `pinrail events <id>` | A review's event log. |
-| `pinrail open <id>` | Open a review in the app; `--browser` opens its preview in a browser. |
+| `pinrail open <id>` | Open a review in the app; `--browser` opens its preview, for building a plugin. |
 | `pinrail decide <id>` | Record a decision from a script; the app is the usual way. |
 | `pinrail withdraw <id>` | Withdraw a pending review; its waiter exits 3. |
 | `pinrail discard <id>` | Discard a pending review as the person would; its waiter exits 5. |

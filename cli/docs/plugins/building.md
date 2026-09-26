@@ -11,7 +11,8 @@ a sandboxed frame.
 
 ```sh
 pinrail plugins new <name> --link    # a plugin that needs no build, served live by the app
-pinrail submit <name> --sample       # send its sample; open the preview address it prints
+pinrail submit <name> --sample       # send its sample
+pinrail open <id> --browser          # its preview: the view in a browser, prints the address
 pinrail plugins check <dir>          # what the app would refuse, and why
 pinrail plugins reload               # after changing the manifest or a schema
 ```

@@ -201,12 +201,13 @@ enum Command {
         #[arg(long, conflicts_with = "path")]
         tree: bool,
     },
-    /// Open a review in the app; --browser opens its preview in a browser
+    /// Open a review in the app; --browser opens its preview, for building a plugin
     Open {
         /// The review's id
         id: String,
-        /// the preview the app serves, with the view and the hand-over, in
-        /// the default browser
+        /// the preview the app serves, for building a plugin: the view in the
+        /// default browser, whose hand-over checks the decision and decides
+        /// nothing; prints its address
         #[arg(long)]
         browser: bool,
     },
@@ -509,7 +510,7 @@ fn run(cli: Cli) -> Result<u8> {
         ));
         steps.push(format!("pinrail plugins check {given}"));
         steps.push(format!(
-            "pinrail submit {name} --sample, then open the preview address it prints\n     in a browser to see the view, and hand it over there to check the decision."
+            "pinrail submit {name} --sample, then pinrail open <id> --browser, the\n     preview: the view in a browser, whose hand-over checks the decision."
         ));
         let steps: Vec<String> = steps
             .iter()
@@ -799,7 +800,7 @@ fn run(cli: Cli) -> Result<u8> {
                 format!("pinrail://reviews/{id}")
             };
             server::open_browser(&url)?;
-            eprintln!("{url}");
+            println!("{url}");
             Ok(0)
         }
         Command::Serve | Command::Docs { .. } => unreachable!(),

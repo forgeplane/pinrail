@@ -113,16 +113,6 @@ The file takes the same keys as the flags: `plugin`, `title`, `payload`, `origin
 pinrail submit --request request.json --revises <id> --wait
 ```
 
-### A review in a browser
-
-`submit` says where the new review is: in the app, and in a browser.
-
-```text
-review r_…: open it in Pinrail (pinrail://reviews/r_…) or preview it in a browser: http://127.0.0.1:4747/preview/reviews/r_…
-```
-
-The preview is the review as the app shows it: the plugin's view, fed the review, with the hand-over button. An agent with a browser tool opens it to see what it asked, and to try a plugin it is building. Handing over there checks the decision against the plugin's schema and decides nothing: a decision that passes is shown as the agent would get it, and one that fails comes back to the view. Deciding is the person's, in the app.
-
 ### A plugin's sample
 
 A plugin can ship a sample review. Send it to see what the plugin looks like, or to try Pinrail end to end, without writing a payload:
@@ -222,7 +212,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail list` | List reviews, newest first. Filter with `--status`, `--repo`, `--workflow`, `--ref`, `--plugin` and `--q`. |
 | `pinrail rounds <id>` | Every round of a review, oldest first. |
 | `pinrail events <id>` | A review's event log. |
-| `pinrail open <id> [--browser]` | Open a review in the app, or with `--browser` its [preview](#a-review-in-a-browser) in the default browser. |
+| `pinrail open <id> [--browser]` | Open a review in the app, or with `--browser` its [preview](/docs/building/writing/#see-it-in-a-browser), for building a plugin. |
 | `pinrail attachments list <id>` | The files a review carries. |
 | `pinrail attachments get <id> <name>` | Save a file a review carries. `-o` says where; it never overwrites without `--force`. |
 | `pinrail decide <id>` | Record a decision from a script. The app is the usual way. |

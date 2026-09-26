@@ -334,7 +334,11 @@ pinrail plugins reload                  # after changing the manifest or a schem
 pinrail plugins check ticket_triage     # what the app would refuse, and why
 ```
 
-`submit` also prints the review's preview address: the same review in a browser, with your view and a hand-over that checks the decision without deciding, for an agent with a browser tool to look at and try. See [A review in a browser](/docs/agents/cli/#a-review-in-a-browser).
+### See it in a browser
+
+Every review has a preview at `<server>/preview/reviews/<id>`, by default `http://127.0.0.1:4747/preview/reviews/r_…`. `pinrail open <id> --browser` opens it and prints the address.
+
+The preview is the review as the app shows it: your view, fed the review, with the hand-over button. It is for building a plugin, most of all for an agent with a browser tool that is building one: it sees the view it made and tries the hand-over. Handing over there checks the decision against the plugin's decision schema and decides nothing: a decision that passes is shown as the agent would get it, and one that fails comes back to the view. Deciding is the person's, in the app.
 
 `pinrail docs plugins/building` gives the same to an agent, briefly, from the Pinrail you have installed.
 
