@@ -431,11 +431,23 @@ enum PluginsCommand {
         name: String,
     },
     /// What an agent needs to ask with a plugin: its payload schema, an
-    /// example payload, the files it takes and its decision schema; JSON
-    /// with --json. `pinrail plugins` lists them, with when to use each
+    /// example payload and the files it takes; JSON with --json, the
+    /// decision schema included. `pinrail plugins` lists them, with when to
+    /// use each
     Describe {
         /// the plugin's name
         name: String,
+        /// only the payload's JSON schema, for a tool that checks or builds
+        /// payloads
+        #[arg(long, group = "part")]
+        payload_schema: bool,
+        /// only the example payload, a start for your own
+        #[arg(long, group = "part")]
+        example: bool,
+        /// only the decision's JSON schema, the shape of decision.data, for
+        /// processing the decision with --json; it otherwise reads as markdown
+        #[arg(long, group = "part")]
+        decision_schema: bool,
     },
     /// Read the installed plugins from disk again: after changing a linked
     /// plugin's manifest or schemas, which the app reads when it loads the
@@ -755,13 +767,31 @@ fn run(cli: Cli) -> Result<u8> {
             })
         }
         Command::Plugins(PluginsArgs {
-            command: Some(PluginsCommand::Describe { name }),
+            command:
+                Some(PluginsCommand::Describe {
+                    name,
+                    payload_schema,
+                    example,
+                    decision_schema,
+                }),
         }) => {
             let described = client
                 .plugins_describe(&name)
                 .map_err(|err| unusable(&client, &name, err))?;
             // the plugin itself, not a list of one
             let shown = described["plugins"][0].clone();
+            // one part alone: JSON whichever way it is printed
+            let part = [
+                (payload_schema, "payload_schema"),
+                (example, "example"),
+                (decision_schema, "decision_schema"),
+            ]
+            .into_iter()
+            .find_map(|(asked, key)| asked.then_some(key));
+            if let Some(key) = part {
+                println!("{}", serde_json::to_string_pretty(&shown[key]).unwrap_or_default());
+                return Ok(0);
+            }
             output.data(&shown, describe::markdown);
             Ok(0)
         }

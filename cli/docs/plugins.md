@@ -10,7 +10,8 @@ the shape of the answer. Pick one by its "use when", never by its name.
 
 ```sh
 pinrail plugins                      # every plugin, a line each: when to use it, where from, whether it works
-pinrail plugins describe <plugin>    # its payload schema, an example, its decision
+pinrail plugins describe <plugin>    # its payload schema and an example
+pinrail plugins describe <plugin> --example > payload.json   # a start for yours
 ```
 
 Build the payload from the schema; start from the example. `--dry-run`

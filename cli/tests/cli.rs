@@ -583,6 +583,19 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     assert!(stdout.contains("**Use when:** Before posting review comments"));
     assert!(stdout.contains("pinrail submit list --title"));
     assert!(!stdout.contains("| 4 | timed out") && !stdout.contains("# Pinrail plugins"));
+    // the decision's schema only when asked for; it reads as markdown otherwise
+    assert!(stdout.contains("pinrail plugins describe list --decision-schema"), "{stdout}");
+    assert!(!stdout.contains("is shaped by"));
+    // --decision-schema: the schema alone, JSON either way
+    let (_, stdout, _) = run(&server, &["plugins", "describe", "list", "--decision-schema", "--markdown"]);
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&stdout).unwrap(), serde_json::json!({"type":"object"}));
+    let (_, stdout, _) = run(&server, &["plugins", "describe", "list", "--payload-schema", "--markdown"]);
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&stdout).unwrap(), serde_json::json!({"type":"object"}));
+    let (_, stdout, _) = run(&server, &["plugins", "describe", "list", "--example"]);
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&stdout).unwrap(), serde_json::json!({"groups":[]}));
+    let (code, _, _) = run(&server, &["plugins", "describe", "list", "--example", "--payload-schema"]);
+    assert_eq!(code, 2, "one part at a time");
+
     // a plugin's name
     let (code, _, stderr) = run(&server, &["plugins", "describe"]);
     assert_eq!(code, 2);

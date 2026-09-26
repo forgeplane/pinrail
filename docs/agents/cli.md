@@ -56,7 +56,7 @@ pinrail plugins describe review       # one plugin, in full
 
 - what the plugin is for, and when to use it;
 - the **payload schema**, and an **example payload** that passes it;
-- the **decision schema**: the shape of `decision.data` in the review that comes back.
+- where to get the **decision schema**, the shape of `decision.data` in the review that comes back: `--decision-schema` prints it alone, as `--payload-schema` and `--example` print theirs: JSON, for a tool, or to start a payload with `--example > payload.json`. An agent reading the decision as markdown doesn't need it; one processing it with `--json` does. The JSON output always carries it.
 
 Like `submit`, `describe` starts the app if it is not running. For a plugin that is installed but broken, it says what is wrong and how to check it.
 
@@ -224,7 +224,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install, update or remove](/docs/using/installing-plugins/) them. |
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
 | `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. |
-| `pinrail plugins describe <name>` | What an agent needs to ask with a plugin. See [Learning what to ask](#learning-what-to-ask). |
+| `pinrail plugins describe <name>` | What an agent needs to ask with a plugin; `--payload-schema`, `--example` or `--decision-schema` for one part alone. See [Learning what to ask](#learning-what-to-ask). |
 
 `pinrail <command> --help` lists every flag, and the [CLI reference](/docs/reference/cli/) has them all.
 

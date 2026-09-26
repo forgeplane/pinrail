@@ -15,7 +15,8 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
 - `--origin repo=…,ref=…,url=…`: the project, branch or pull request, and a
   link back. `repo` and `ref` come from git when you are in a checkout.
 - `--wait`: block until the review ends, then print it.
-- `--json`: the decision as JSON, exact to the plugin's decision schema.
+- `--json`: the decision as JSON, exact to the plugin's decision schema
+  (`pinrail plugins describe <plugin> --decision-schema`).
   Use it when you process the result, looping over items or passing it to
   a script; read the default markdown otherwise.
 - `--dry-run`: every check a submission gets, and nothing created: exit 0

@@ -1,6 +1,5 @@
 //! `pinrail plugins describe <name>`: what an agent needs to ask with one
-//! plugin, its payload schema, an example, the files it takes and its
-//! decision. Choosing
+//! plugin, its payload schema, an example and the files it takes. Choosing
 //! one is `pinrail plugins`, a line a plugin with when to use it; how to ask
 //! is `pinrail docs`.
 
@@ -9,7 +8,9 @@ use serde_json::Value;
 const SUBMIT: &str = "pinrail submit <plugin> --title \"<what it is about>\" --origin repo=<owner/name>,ref=<branch or PR> --data payload.json --wait";
 
 /// As markdown: the plugin as a document, its heading the title, then how
-/// to send it; the rest, exit codes included, is `pinrail docs asking`.
+/// to send it; the rest, exit codes included, is `pinrail docs asking`. The
+/// decision's schema is left to `--decision-schema`: the decision reads as
+/// markdown, and only an agent processing its JSON needs it.
 pub fn markdown(plugin: &Value) -> String {
     let mut section = String::new();
     plugin_section(&mut section, plugin);
@@ -154,8 +155,8 @@ fn plugin_section(out: &mut String, plugin: &Value) {
         ));
     }
     out.push_str(&format!(
-        "\n### Decision\n\n`decision.data` is shaped by:\n\n{}",
-        json_block(&plugin["decision_schema"])
+        "\n### Decision\n\nThe decision comes back as markdown to read. To process it as JSON (`--json`), its schema: `pinrail plugins describe {} --decision-schema`.\n",
+        plugin["name"].as_str().unwrap_or("<plugin>")
     ));
 }
 
