@@ -337,15 +337,15 @@ fn a_refused_payload_reads_as_markdown_and_points_at_the_plugins_shape() {
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
-        ("GET", "/api/v1/reviews?status=decided&limit=2") => (
+        ("GET", "/api/v1/reviews?status=decided") => (
             200,
             r#"{"reviews":[{"id":"r_4"},{"id":"r_3"}],"total":5,"has_more":true,"next_cursor":"r_3"}"#.into(),
         ),
-        ("GET", "/api/v1/reviews?status=decided&limit=2&cursor=r_3") => (
+        ("GET", "/api/v1/reviews?status=decided&cursor=r_3") => (
             200,
             r#"{"reviews":[{"id":"r_2"},{"id":"r_1"}],"total":5,"has_more":true,"next_cursor":"r_1"}"#.into(),
         ),
-        ("GET", "/api/v1/reviews?status=decided&limit=2&cursor=r_1") => (
+        ("GET", "/api/v1/reviews?status=decided&cursor=r_1") => (
             200,
             r#"{"reviews":[{"id":"r_0"}],"total":5,"has_more":false,"next_cursor":null}"#.into(),
         ),
@@ -354,7 +354,7 @@ fn list_all_follows_the_cursor_to_the_last_page() {
     }));
     let (code, stdout, stderr) = run(
         &server,
-        &["list", "--status", "decided", "--limit", "2", "--all"],
+        &["list", "--status", "decided", "--all"],
     );
     assert_eq!(code, 0, "{stderr}");
     let ids: Vec<String> = serde_json::from_str::<serde_json::Value>(&stdout)
@@ -368,7 +368,7 @@ fn list_all_follows_the_cursor_to_the_last_page() {
     assert_eq!(server.requests().len(), 3);
 
     // without --all, one page, as a plain array
-    let (code, stdout, _) = run(&server, &["list", "--status", "decided", "--limit", "2"]);
+    let (code, stdout, _) = run(&server, &["list", "--status", "decided"]);
     assert_eq!(code, 0);
     assert_eq!(
         serde_json::from_str::<serde_json::Value>(&stdout)
@@ -386,7 +386,7 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
             200,
             r#"{"reviews":[],"total":0,"has_more":false,"next_cursor":null}"#.into(),
         ),
-        ("GET", "/api/v1/reviews?include_revised=true") => (
+        ("GET", "/api/v1/reviews?status=pending&include_revised=true") => (
             200,
             r#"{"reviews":[],"total":0,"has_more":false,"next_cursor":null}"#.into(),
         ),
@@ -1072,6 +1072,77 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     let (code, _, stderr) = run(&server, &["submit", "list", "--sample", "--data", "p.json"]);
     assert_eq!(code, 2);
     assert!(stderr.contains("cannot be used with"), "{stderr}");
+}
+
+#[test]
+fn list_shows_the_pending_reviews_of_the_checkout_and_all_with_all() {
+    let dir = tempdir();
+    let git = |args: &[&str]| {
+        let ok = std::process::Command::new("git")
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap()
+            .status
+            .success();
+        assert!(ok, "git {args:?}");
+    };
+    git(&["init", "-q", "-b", "main"]);
+    git(&["remote", "add", "origin", "git@github.com:acme/api.git"]);
+    let asked = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen = asked.clone();
+    let server = MockServer::start(Box::new(move |_, path, _| {
+        seen.lock().unwrap().push(path.to_string());
+        (
+            200,
+            format!(
+                r#"{{"reviews":[{}],"total":3,"has_more":true,"next_cursor":"r_1"}}"#,
+                review("pending")
+            ),
+        )
+    }));
+
+    let (code, stdout, stderr) = run_in(&server, &dir, &["list", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        stdout.starts_with("1 of 3 pending reviews in acme/api, newest first; --all for every review.\n\n- r_1 · pending · "),
+        "{stdout}"
+    );
+    assert!(stdout.ends_with("\nMore: --cursor r_1\n"), "{stdout}");
+
+    run_in(&server, &dir, &["list", "--status", "decided"]);
+    let asked = asked.lock().unwrap();
+    assert_eq!(asked[0], "/api/v1/reviews?status=pending&repo=acme%2Fapi");
+    assert_eq!(asked[1], "/api/v1/reviews?status=decided&repo=acme%2Fapi");
+}
+
+#[test]
+fn list_all_asks_for_every_review_and_every_page() {
+    let server = MockServer::start(Box::new(|_, path, _| {
+        assert_eq!(path, "/api/v1/reviews");
+        (200, r#"{"reviews":[],"total":0,"has_more":false}"#.into())
+    }));
+    let (code, stdout, stderr) = run(&server, &["list", "--all", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(stdout, "0 reviews.\n");
+}
+
+#[test]
+fn list_all_with_a_limit_prints_that_many_and_where_the_rest_start() {
+    let server = MockServer::start(Box::new(|_, path, _| {
+        assert_eq!(path, "/api/v1/reviews?limit=1");
+        (
+            200,
+            format!(
+                r#"{{"reviews":[{}],"total":3,"has_more":true,"next_cursor":"r_1"}}"#,
+                review("decided")
+            ),
+        )
+    }));
+    let (code, stdout, stderr) = run(&server, &["list", "--all", "--limit", "1", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stdout.starts_with("1 of 3 reviews, newest first.\n\n- r_1 · decided · "), "{stdout}");
+    assert!(stdout.ends_with("\nMore: --cursor r_1\n"), "{stdout}");
 }
 
 #[test]

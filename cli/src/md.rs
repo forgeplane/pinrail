@@ -9,16 +9,53 @@ fn text(v: &Value) -> &str {
     v.as_str().unwrap_or_default()
 }
 
-/// `- r_… · pending · list · Title · acme/api@main`, one review a line.
-pub fn reviews(reviews: &Value) -> String {
-    let rows = reviews.as_array().map(Vec::as_slice).unwrap_or_default();
-    if rows.is_empty() {
-        return "No reviews.\n".into();
+/// What a listing was narrowed to, to say above it.
+pub struct Scope {
+    pub status: Option<String>,
+    pub repo: Option<String>,
+    /// narrowed by the defaults rather than the flags given
+    pub narrowed: bool,
+}
+
+/// A listing: how many of how many and of what, then a review a line, then
+/// how to see more.
+pub fn listing(rows: &Value, page: &Value, scope: &Scope) -> String {
+    let shown = rows.as_array().map_or(0, Vec::len);
+    let total = page["total"].as_u64().unwrap_or(shown as u64);
+    let noun = if total == 1 { "review" } else { "reviews" };
+    let what = match &scope.status {
+        Some(status) => format!("{} {noun}", status.replace(',', " or ")),
+        None => noun.to_string(),
+    };
+    let place = scope
+        .repo
+        .as_deref()
+        .map(|r| format!(" in {}", if r == "-" { "no project" } else { r }))
+        .unwrap_or_default();
+    let mut out = if shown as u64 == total {
+        format!("{total} {what}{place}")
+    } else {
+        format!("{shown} of {total} {what}{place}, newest first")
+    };
+    if scope.narrowed {
+        out.push_str("; --all for every review");
     }
+    out.push_str(if shown == 0 { ".\n" } else { ".\n\n" });
+    out.push_str(&reviews(rows));
+    if page["has_more"] == true
+        && let Some(next) = page["next_cursor"].as_str()
+    {
+        out.push_str(&format!("\nMore: --cursor {next}\n"));
+    }
+    out
+}
+
+/// `- r_… · pending · list · Title · acme/api@main · …`, one review a line.
+pub fn reviews(reviews: &Value) -> String {
     let mut out = String::new();
-    for r in rows {
+    for r in reviews.as_array().into_iter().flatten() {
         let mut line = format!(
-            "- `{}` · {} · {} · {}",
+            "- {} · {} · {} · {}",
             text(&r["id"]),
             text(&r["status"]),
             text(&r["plugin"]),
@@ -30,8 +67,12 @@ pub fn reviews(reviews: &Value) -> String {
                 line.push_str(&format!("@{reference}"));
             }
         }
-        line.push_str(&format!(" · {}\n", text(&r["created_at"])));
+        line.push_str(&format!(" · {}", text(&r["created_at"])));
+        if let Some(revises) = r["revises"].as_str() {
+            line.push_str(&format!(" · revises {revises}"));
+        }
         out.push_str(&line);
+        out.push('\n');
     }
     out
 }
@@ -41,7 +82,7 @@ pub fn rounds(rounds: &Value) -> String {
     let mut out = String::new();
     for (i, r) in rounds.as_array().into_iter().flatten().enumerate() {
         out.push_str(&format!(
-            "{}. `{}` · {} · {} · {}\n",
+            "{}. {} · {} · {} · {}\n",
             i + 1,
             text(&r["id"]),
             text(&r["status"]),

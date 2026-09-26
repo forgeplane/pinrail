@@ -41,6 +41,12 @@ fn missing(origin: &Map<String, Value>, key: &str) -> bool {
         .is_none_or(str::is_empty)
 }
 
+/// The project of the checkout the command runs in, as `fill_from_git`
+/// would name it.
+pub fn repo() -> Option<String> {
+    from_git()?.repo
+}
+
 struct Found {
     repo: Option<String>,
     reference: Option<String>,

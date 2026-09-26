@@ -210,7 +210,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail submit <plugin>` | Submit a review. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |
-| `pinrail list` | List reviews, newest first. Filter with `--status`, `--repo`, `--workflow`, `--ref`, `--plugin` and `--q`. |
+| `pinrail list` | The pending reviews of the project you are in, newest first; `--all` for every review. Filter with `--status`, `--repo`, `--workflow`, `--ref`, `--plugin` and `--q`. |
 | `pinrail rounds <id>` | Every round of a review, oldest first. |
 | `pinrail events <id>` | A review's event log. |
 | `pinrail open <id> [--browser]` | Open a review in the app, or with `--browser` its [preview](/docs/building/writing/#see-it-in-a-browser), for building a plugin. |

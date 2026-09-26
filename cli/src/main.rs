@@ -162,7 +162,14 @@ enum Command {
         /// The review's id
         id: String,
     },
-    /// List reviews, newest first, without payloads
+    /// List reviews, newest first, without payloads: by default the pending
+    /// ones of this project
+    ///
+    /// By default only pending reviews, and in a git checkout only those of
+    /// its project, named as submit names it: the remote's owner/name, or
+    /// the folder's name when there is no remote. Outside a git checkout,
+    /// the pending reviews of every project. --status and --repo choose
+    /// other subsets; --all lists every review.
     List(ListArgs),
     /// Record a decision from a script (the app is the usual way)
     Decide(DecideArgs),
@@ -301,10 +308,12 @@ struct WaitOpts {
 
 #[derive(Args)]
 struct ListArgs {
-    /// pending, decided, withdrawn, discarded, expired; comma-separated for several
+    /// pending, decided, withdrawn, discarded, expired; comma-separated for
+    /// several [default: pending, unless --all]
     #[arg(long)]
     status: Option<String>,
-    /// The project (origin repo); "-" for reviews that name none
+    /// The project (origin repo); "-" for reviews that name none [default:
+    /// the git checkout's, unless --all]
     #[arg(long)]
     repo: Option<String>,
     /// The workflow that asked (origin workflow)
@@ -325,10 +334,11 @@ struct ListArgs {
     /// Only reviews older than this id
     #[arg(long)]
     cursor: Option<String>,
-    /// How many reviews to ask for; with --all, how many per request
+    /// How many reviews at most; the rest are a --cursor away
     #[arg(long)]
     limit: Option<u32>,
-    /// Every matching review, following the cursor to the last page
+    /// Every review, whatever its status or project unless --status or
+    /// --repo say, and every page unless --limit caps them
     #[arg(long)]
     all: bool,
     /// Include rounds that a later round revises
@@ -635,10 +645,19 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::List(args) => {
+            // what an agent means by "the reviews": the pending ones of the
+            // project it works in; --all for every one
+            let status = args.status.clone().or_else(|| (!args.all).then(|| "pending".into()));
+            let repo = args.repo.clone().or_else(|| (!args.all).then(origin::repo).flatten());
+            let scope = md::Scope {
+                status: status.clone(),
+                repo: repo.clone(),
+                narrowed: !args.all && (args.status.is_none() || (args.repo.is_none() && repo.is_some())),
+            };
             let mut query: Vec<(&str, String)> = Vec::new();
             for (k, v) in [
-                ("status", args.status),
-                ("repo", args.repo),
+                ("status", status),
+                ("repo", repo),
                 ("workflow", args.workflow),
                 ("ref", args.reference),
                 ("run_id", args.run_id),
@@ -656,8 +675,8 @@ fn run(cli: Cli) -> Result<u8> {
             }
             // the reviews alone, as before the API wrapped them with its paging
             let mut listing = client.list(&query)?;
-            if !args.all {
-                output.data(&listing["reviews"], md::reviews);
+            if !args.all || args.limit.is_some() {
+                output.data(&listing["reviews"], |rows| md::listing(rows, &listing, &scope));
                 return Ok(0);
             }
             let mut reviews = Vec::new();
@@ -675,7 +694,8 @@ fn run(cli: Cli) -> Result<u8> {
                     _ => break,
                 }
             }
-            output.data(&Value::Array(reviews), md::reviews);
+            let all = Value::Array(reviews);
+            output.data(&all, |rows| md::listing(rows, &json!({ "total": rows.as_array().map_or(0, Vec::len) }), &scope));
             Ok(0)
         }
         Command::Decide(args) => {

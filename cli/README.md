@@ -210,11 +210,15 @@ the latest round of each review unless `--include-revised` is given, and
   the API takes: `{"plugin", "title", "origin", "payload", …}`. Flags given
   as well override its keys and `--data` replaces its payload, so a new
   round is the same file with `--revises`.
-- **`list`** filters with `--status` (comma-separated), `--repo` (`-` for
+- **`list`** shows the pending reviews of the git checkout it runs in, or
+  of every project outside one; `--all` shows every review, whatever its
+  status or project, following the pages to the end unless `--limit`
+  caps them. It filters with
+  `--status` (comma-separated), `--repo` (`-` for
   reviews that name no project), `--workflow`, `--ref`, `--run-id`,
   `--plugin` and `--q`, whose words must all appear somewhere among the
   title, payload, plugin, requester, origin and who decided; it pages with
-  `--limit` and `--cursor`, and `--all` follows the pages to the end.
+  `--limit` and `--cursor`.
 - **`decide`** takes `--data` with the decision and `--note` for the agent.
   `withdraw` and `discard` take `--reason`.
 - **Every command** accepts `--url`, `--json`, `--pretty` and `--verbose`.

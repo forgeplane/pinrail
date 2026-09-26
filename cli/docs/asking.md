@@ -73,4 +73,5 @@ together. Otherwise submit each without `--wait`, then
   `--revises <id>`; `pinrail rounds <id>` prints every round.
 - `pinrail show <id>`: where a review stands, and its decision.
 - `pinrail withdraw <id> --reason "<why>"`: you no longer need the answer.
-- `pinrail list --status pending`: what is waiting on the person.
+- `pinrail list`: what is waiting on the person in this project; `--all`
+  for every review.
