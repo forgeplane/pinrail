@@ -1250,6 +1250,24 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
 }
 
 #[test]
+fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
+    let dir = tempdir();
+    let server = MockServer::start(Box::new(|_, path, _| panic!("no app needed, asked for {path}")));
+    let (code, stdout, stderr) = run_in(&server, &dir, &["plugins", "new", "triage", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stderr.is_empty(), "{stderr}");
+    let written = dir.join("triage").canonicalize().unwrap();
+    assert!(stdout.starts_with(&format!("triage written to {}.\n\nNext:\n  1. pinrail plugins install triage --link", written.display())), "{stdout}");
+    assert!(stdout.contains("How a plugin works: pinrail docs plugins/building\n"));
+
+    let (code, stdout, _) = run_in(&server, &dir, &["plugins", "new", "other"]);
+    assert_eq!(code, 0);
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["linked"], false);
+    assert_eq!(json["next"][2], "pinrail plugins check other");
+}
+
+#[test]
 fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
     let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[

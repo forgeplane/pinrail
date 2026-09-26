@@ -564,36 +564,31 @@ fn run(cli: Cli) -> Result<u8> {
         // the folder as it was named, for the prompt a person pastes
         let given = dir.display().to_string();
         let dir = dir.canonicalize()?;
-        let shown = dir.display();
-        eprintln!("pinrail: {name} written to {shown}");
         if *link {
             let base = server::resolve_url(cli.url.as_deref(), true)?;
             Client::new(&base).plugins_install(&dir.to_string_lossy(), true, false, None, None)?;
-            eprintln!("pinrail: {name} is linked; the app serves the folder live");
         }
         // what comes next, for whoever ran it, most often an agent
-        let mut steps = Vec::new();
+        let mut next = Vec::new();
         if !*link {
-            steps.push(format!(
-                "pinrail plugins install {given} --link, so the app serves it live."
-            ));
+            next.push(format!("pinrail plugins install {given} --link, so the app serves it live."));
         }
-        steps.push(format!(
-            "Read AGENTS.md in {given}, then make the plugin what is needed: the\n     schemas, example, sample and view, kept in step."
+        next.push(format!(
+            "Read AGENTS.md in {given}, then make the plugin what is needed: the schemas, example, sample and view, kept in step."
         ));
-        steps.push(format!("pinrail plugins check {given}"));
-        steps.push(format!(
-            "pinrail submit {name} --sample, then pinrail open <id> --browser, the\n     preview: the view in a browser, whose hand-over checks the decision."
+        next.push(format!("pinrail plugins check {given}"));
+        next.push(format!(
+            "pinrail submit {name} --sample, then pinrail open <id> --browser, the preview: the view in a browser, whose hand-over checks the decision."
         ));
-        let steps: Vec<String> = steps
-            .iter()
-            .enumerate()
-            .map(|(i, s)| format!("  {}. {s}", i + 1))
-            .collect();
-        eprintln!(
-            "\nNext:\n{}\n\nHow a plugin works: pinrail docs plugins/building\nA framework, or tests without the app: npx @forgeplane/pinrail-plugin create",
-            steps.join("\n")
-        );
+        let written = json!({
+            "name": name,
+            "dir": dir.to_string_lossy(),
+            "linked": link,
+            "next": next,
+            "docs": "pinrail docs plugins/building",
+            "frameworks": "npx @forgeplane/pinrail-plugin create",
+        });
+        output.data(&written, md::scaffolded);
         return Ok(0);
     }
 

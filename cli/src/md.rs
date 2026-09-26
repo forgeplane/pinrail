@@ -201,6 +201,25 @@ pub fn plugins_result(value: &Value) -> String {
     }
 }
 
+/// A new plugin: where it was written, whether the app serves it, and the
+/// steps from there.
+pub fn scaffolded(written: &Value) -> String {
+    let mut out = format!("{} written to {}.\n", text(&written["name"]), text(&written["dir"]));
+    if written["linked"] == true {
+        out.push_str("Linked: the app serves the folder live.\n");
+    }
+    out.push_str("\nNext:\n");
+    for (i, step) in written["next"].as_array().into_iter().flatten().enumerate() {
+        out.push_str(&format!("  {}. {}\n", i + 1, text(step)));
+    }
+    out.push_str(&format!(
+        "\nHow a plugin works: {}\nA framework, or tests without the app: {}\n",
+        text(&written["docs"]),
+        text(&written["frameworks"])
+    ));
+    out
+}
+
 /// A dry run that passed.
 pub fn valid(answer: &Value) -> String {
     format!(
