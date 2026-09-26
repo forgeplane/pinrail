@@ -1,7 +1,7 @@
 # Dedup tickets on save — round 1
 
 review · acme/api · review · 42
-Decided by alice at 2026-09-10 09:00 · 1 rejected
+Decided by alice at 2026-09-10 09:00
 
 ## Proposals
 

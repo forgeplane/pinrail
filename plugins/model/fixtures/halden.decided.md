@@ -1,7 +1,7 @@
 # Halden desk lamp — round 1
 
 model · halden/lamp · design
-Decided by maya at 2026-09-23 17:40 · 1 favorite, 1 accepted, 1 drop
+Decided by maya at 2026-09-23 17:40
 
 > Go with Pivot; the base and shade notes first.
 

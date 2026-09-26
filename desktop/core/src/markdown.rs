@@ -3,7 +3,8 @@
 //! record, in a fixed order, that says what was decided and why.
 //!
 //! The head is the same for every plugin: the title, a line placing the
-//! review, the outcome with who, when and a tally, the person's note. The
+//! review, the outcome with who and when, the person's note; what was
+//! decided is the plugin's to say, below. The
 //! body is the decision data rendered by a generic rule keyed on the
 //! vocabulary the plugins share (`decisions`, `action`, `note`, `file`,
 //! `line`, `undecided`…), so nothing is lost silently and anything
@@ -74,11 +75,7 @@ pub fn render_in(
     let standing = match status {
         "decided" => {
             let by = review["decision"]["decided_by"].as_str().unwrap_or("someone");
-            let mut line = format!("Decided by {by} at {}", when(review["decision"]["decided_at"].as_str()));
-            if let Some(tally) = tally(data) {
-                line.push_str(&format!(" · {tally}"));
-            }
-            line
+            format!("Decided by {by} at {}", when(review["decision"]["decided_at"].as_str()))
         }
         "withdrawn" => {
             let mut line = format!("Withdrawn by the agent at {}", when(review["withdrawn_at"].as_str()));
@@ -376,42 +373,6 @@ fn render_item(item: &Value, depth: usize) -> String {
     out
 }
 
-/// `2 accepted, 1 rejected`, or `approved`, or `4 items`, from the
-/// action and verdict values across every array of objects.
-fn tally(data: &Value) -> Option<String> {
-    let map = data.as_object()?;
-    let mut counts: Vec<(String, usize)> = Vec::new();
-    let mut items = 0;
-    for value in map.values() {
-        let Some(list) = value.as_array() else {
-            continue;
-        };
-        for item in list.iter().filter(|i| i.is_object()) {
-            items += 1;
-            if let Some(v) = item["action"].as_str().or(item["verdict"].as_str()) {
-                let word = verb(v).unwrap_or_else(|| v.to_string());
-                match counts.iter_mut().find(|(w, _)| *w == word) {
-                    Some((_, n)) => *n += 1,
-                    None => counts.push((word, 1)),
-                }
-            }
-        }
-    }
-    if !counts.is_empty() {
-        return Some(
-            counts
-                .iter()
-                .map(|(w, n)| format!("{n} {w}"))
-                .collect::<Vec<_>>()
-                .join(", "),
-        );
-    }
-    if let Some(v) = map.get("verdict").and_then(Value::as_str) {
-        return Some(verb(v).unwrap_or_else(|| v.to_string()));
-    }
-    (items > 0).then(|| format!("{items} item{}", if items == 1 { "" } else { "s" }))
-}
-
 /// An action or verdict as the past participle it reads as.
 fn verb(v: &str) -> Option<String> {
     Some(
@@ -509,7 +470,6 @@ mod tests {
             "review · acme/api · pr-review · 42 · round 2 of 2"
         );
         assert!(lines[3].starts_with("Decided by pnezis at "), "{md}");
-        assert!(lines[3].ends_with("· 2 accepted, 1 rejected"), "{md}");
         assert!(
             md.contains("> Reversing is a no-op here either way.\n"),
             "{md}"
@@ -537,7 +497,6 @@ mod tests {
             }),
         );
         let md = render(&review, None, None);
-        assert!(md.contains("· 1 accepted, 1 rejected\n"), "{md}");
         assert!(
             md.contains("\n## Additions\n\n- Also rotate the key.\n"),
             "{md}"
@@ -561,7 +520,6 @@ mod tests {
             }),
         );
         let md = render(&review, None, None);
-        assert!(md.contains("· 1 sent, 1 discarded\n"), "{md}");
         assert!(md.contains("- **`northwind`** **sent** — Your Acme renewal on 12 October\n  Body: Hi Priya,\n\n    long body\n  - “at your earliest convenience” → “this week”\n  - “I wanted to reach out”\n    > we never say reach out\n"), "{md}");
         assert!(
             md.contains(
@@ -582,7 +540,6 @@ mod tests {
             }),
         );
         let md = render(&review, None, None);
-        assert!(md.contains("· changes requested\n"), "{md}");
         assert!(md.contains("\nVerdict: changes requested\n"), "{md}");
         assert!(
             md.contains("- **`c1`** `#features > div:nth-of-type(2) > h3` — too small on mobile\n"),
@@ -647,13 +604,6 @@ mod tests {
             "{md}"
         );
         assert!(md.contains("Decided by alice at "), "{md}");
-        assert!(
-            md.contains(
-                "· 1 rejected
-"
-            ),
-            "{md}"
-        );
         assert!(
             md.contains(
                 "- **#18** **rejected**
@@ -786,6 +736,5 @@ Undecided: #19, #20
         assert!(md.contains("\nScores: [1,2,3]\n"), "{md}");
         assert!(md.contains("\nMeta: {\"k\":\"v\"}\n"), "{md}");
         assert!(md.contains("\n## Things\n\n- **#1**\n"), "{md}");
-        assert!(md.contains("· 1 item\n"), "{md}");
     }
 }

@@ -857,7 +857,7 @@ Pending since "
     assert!(body.contains("Decided by tester at "), "{body}");
     assert!(
         body.contains(
-            "· 1 accepted, 1 rejected
+            "
 
 > ship it
 

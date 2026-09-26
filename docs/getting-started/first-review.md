@@ -73,10 +73,8 @@ Leave an item without a verdict to see what happens: the app asks you to confirm
 Back in your terminal, the command has returned:
 
 ```md
-# Sentry triage
-
-list
-Decided by you at 2026-09-23 10:14 · 1 accepted · 1 rejected
+r_01K5… · decided · Sentry triage
+list · decided by you at 2026-09-23 10:14
 
 ## acme-api
 

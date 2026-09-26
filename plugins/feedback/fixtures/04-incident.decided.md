@@ -1,7 +1,7 @@
 # Checkout recovery — previous response
 
 feedback · acme/api · review · 42
-Decided by You at 2026-09-16 10:00 · 3 items
+Decided by You at 2026-09-16 10:00
 
 ## Answers
 

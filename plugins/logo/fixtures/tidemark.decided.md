@@ -1,7 +1,7 @@
 # Tidemark marks — round 1
 
 logo · acme/api · review · 42
-Decided by maya at 2026-09-23 10:00 · 1 favorite, 1 accepted, 1 drop
+Decided by maya at 2026-09-23 10:00
 
 > Take M4 forward; try it with rounder posts.
 

@@ -1,7 +1,7 @@
 # Ledgerly landing page — first draft
 
 artifact · acme/site · design · landing
-Decided by alice at 2026-09-10 10:15 · changes requested
+Decided by alice at 2026-09-10 10:15
 
 > Two changes, then it is good to ship.
 

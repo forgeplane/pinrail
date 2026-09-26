@@ -1,7 +1,7 @@
 # Approved schedule: dinner, doctor & tennis
 
 calendar · acme/api · review · 42
-Decided by You at 2026-09-16 10:00 · approved
+Decided by You at 2026-09-16 10:00
 
 ## Chosen times (Europe/Athens)
 

@@ -1,7 +1,7 @@
 # Renewal emails — 3 drafts
 
 email · acme/crm · mailer · main
-Decided by alice at 2026-09-10 09:30 · 1 sent, 1 discarded
+Decided by alice at 2026-09-10 09:30
 
 > Send the first, drop the third, and come back with Brightside once June is sorted.
 
