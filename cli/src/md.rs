@@ -154,3 +154,24 @@ pub fn valid(answer: &Value) -> String {
         text(&answer["plugin_release"])
     )
 }
+
+/// Why the app refused a request: its message, then each violation's place
+/// and reason, a line each.
+pub fn refusal(body: &Value) -> String {
+    let violations = body["violations"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    if violations.is_empty() {
+        let message = body["message"]
+            .as_str()
+            .unwrap_or("the server refused the request");
+        return format!("pinrail: refused: {message}\n");
+    }
+    let mut out = String::from("pinrail: refused:\n");
+    for v in violations {
+        let path = v["path"].as_str().filter(|p| !p.is_empty()).unwrap_or("/");
+        out.push_str(&format!("  {path}: {}\n", text(&v["message"])));
+    }
+    out
+}

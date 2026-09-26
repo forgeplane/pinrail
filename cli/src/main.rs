@@ -445,11 +445,19 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
     let cli = Cli::parse();
+    let json = cli.json;
     match run(cli) {
         Ok(code) => ExitCode::from(code),
         Err(err) => {
             if let Some(api) = err.downcast_ref::<ApiError>() {
-                out::error_json(&api.body);
+                if json {
+                    out::error_json(&api.body);
+                } else {
+                    eprint!("{}", md::refusal(&api.body));
+                    if let Some(hint) = &api.hint {
+                        eprintln!("{hint}");
+                    }
+                }
                 ExitCode::from(EXIT_REFUSED)
             } else {
                 eprintln!("pinrail: {err:#}");
@@ -877,7 +885,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         // checked before anything is uploaded, so a submission that would be
         // refused does not move a byte
         if !args.dry_run {
-            client.validate(&body)?;
+            client.validate(&body).map_err(|e| schema_hint(e, &body))?;
             attachments::upload(client, &files)?;
         }
     }
@@ -892,8 +900,28 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         output.data(&answer, md::valid);
         return Ok(0);
     }
-    let review = client.submit(&body)?;
+    let review = client.submit(&body).map_err(|e| schema_hint(e, &body))?;
     submitted(client, review, &args, output)
+}
+
+/// A payload the plugin refused, with where to read the shape it takes.
+fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
+    let Some(plugin) = body["plugin"].as_str() else {
+        return err;
+    };
+    let mut api = match err.downcast::<ApiError>() {
+        Ok(api) => api,
+        Err(err) => return err,
+    };
+    let about_payload = api.body["violations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|v| v["path"].as_str().is_some_and(|p| p.starts_with("/payload")));
+    if about_payload {
+        api.hint = Some(format!("The payload it takes: pinrail plugins describe {plugin}"));
+    }
+    api.into()
 }
 
 /// Says where the new review is, then waits on it or prints it.

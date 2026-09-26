@@ -154,7 +154,7 @@ A review can end without a decision, and the exit code says how:
 |---|---|
 | 0 | Done. For `wait` and `submit --wait`: the review was decided. |
 | 1 | Error: bad arguments, the server unreachable, a file that could not be read or written. |
-| 2 | The server refused the request, for example a payload the plugin's schema rejects. Its JSON answer is on stderr. |
+| 2 | The server refused the request, for example a payload the plugin's schema rejects. Why is on stderr: each refused field and the reason, or the JSON answer with `--json`. |
 | 3 | The review was withdrawn by the agent, or expired, before anyone decided. |
 | 4 | `--timeout` ran out. The review is still pending. |
 | 5 | The person discarded the review: stop the work it was gating. |

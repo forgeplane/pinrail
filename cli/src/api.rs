@@ -13,6 +13,8 @@ use ureq::Agent;
 pub struct ApiError {
     pub status: u16,
     pub body: Value,
+    /// What to read or run next, said after the refusal in markdown
+    pub hint: Option<String>,
 }
 
 impl fmt::Display for ApiError {
@@ -210,6 +212,7 @@ impl Client {
                     return Err(ApiError {
                         status: 422,
                         body: serde_json::json!({ "error": "install_failed", "message": job["error"] }),
+                        hint: None,
                     }
                     .into());
                 }
@@ -380,6 +383,7 @@ impl Client {
             Err(ApiError {
                 status,
                 body: value,
+                hint: None,
             }
             .into())
         }

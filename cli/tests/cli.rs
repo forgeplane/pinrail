@@ -322,6 +322,23 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
 }
 
 #[test]
+fn a_refused_payload_reads_as_markdown_and_points_at_the_plugins_shape() {
+    let server = MockServer::start(Box::new(|_, _, _| {
+        (422, r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/payload/groups","message":"value is not of type array"}]}"#.into())
+    }));
+    let (code, stdout, stderr) = run(
+        &server,
+        &["submit", "list", "--title", "t", "--no-start", "--markdown"],
+    );
+    assert_eq!(code, 2);
+    assert!(stdout.is_empty());
+    assert_eq!(
+        stderr,
+        "pinrail: refused:\n  /payload/groups: value is not of type array\nThe payload it takes: pinrail plugins describe list\n"
+    );
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
