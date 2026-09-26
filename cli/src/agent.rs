@@ -75,18 +75,37 @@ mod tests {
 
     #[test]
     fn an_agent_is_named_by_the_shared_convention_then_by_its_own_markers() {
-        assert_eq!(detect(&[("AI_AGENT", "claude-code_2-1-281_agent"), ("CLAUDECODE", "1")]).as_deref(), Some("claude-code"));
+        assert_eq!(
+            detect(&[
+                ("AI_AGENT", "claude-code_2-1-281_agent"),
+                ("CLAUDECODE", "1")
+            ])
+            .as_deref(),
+            Some("claude-code")
+        );
         // any agent AI_AGENT names, known or not
         assert_eq!(detect(&[("AI_AGENT", "goose")]).as_deref(), Some("goose"));
         // AGENT only for a name Pinrail knows: other tools set it too
         assert_eq!(detect(&[("AGENT", "codex")]).as_deref(), Some("codex"));
         assert_eq!(detect(&[("AGENT", "build-agent-7")]), None);
-        assert_eq!(detect(&[("CLAUDECODE", "1")]).as_deref(), Some("claude-code"));
-        assert_eq!(detect(&[("CODEX_SANDBOX", "seatbelt")]).as_deref(), Some("codex"));
+        assert_eq!(
+            detect(&[("CLAUDECODE", "1")]).as_deref(),
+            Some("claude-code")
+        );
+        assert_eq!(
+            detect(&[("CODEX_SANDBOX", "seatbelt")]).as_deref(),
+            Some("codex")
+        );
         assert_eq!(detect(&[("CURSOR_AGENT", "1")]).as_deref(), Some("cursor"));
-        assert_eq!(detect(&[("GEMINI_CLI", "1")]).as_deref(), Some("gemini-cli"));
+        assert_eq!(
+            detect(&[("GEMINI_CLI", "1")]).as_deref(),
+            Some("gemini-cli")
+        );
         assert_eq!(detect(&[("OPENCODE", "1")]).as_deref(), Some("opencode"));
         // a person's own terminal in Cursor, and blank values, name nobody
-        assert_eq!(detect(&[("CURSOR_TRACE_ID", "abc"), ("GEMINI_CLI", " ")]), None);
+        assert_eq!(
+            detect(&[("CURSOR_TRACE_ID", "abc"), ("GEMINI_CLI", " ")]),
+            None
+        );
     }
 }

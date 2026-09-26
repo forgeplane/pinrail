@@ -162,7 +162,11 @@ pub fn upload(client: &Client, files: &[Local]) -> Result<()> {
             shown: 0,
             terminal,
         };
-        crate::out::note(format_args!("uploading {} ({})", file.name, human(file.size)));
+        crate::out::note(format_args!(
+            "uploading {} ({})",
+            file.name,
+            human(file.size)
+        ));
         client
             .upload_attachment(&file.sha256, file.size, progress)
             .with_context(|| format!("uploading {}", file.name))?;

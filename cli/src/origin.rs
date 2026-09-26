@@ -17,7 +17,11 @@ pub fn drop_unknown(body: &mut Value) {
     let Some(origin) = body.get_mut("origin").and_then(Value::as_object_mut) else {
         return;
     };
-    let unknown: Vec<String> = origin.keys().filter(|k| !KEYS.contains(&k.as_str())).cloned().collect();
+    let unknown: Vec<String> = origin
+        .keys()
+        .filter(|k| !KEYS.contains(&k.as_str()))
+        .cloned()
+        .collect();
     for key in unknown {
         origin.remove(&key);
         eprintln!(

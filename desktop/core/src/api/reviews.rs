@@ -142,7 +142,13 @@ fn review_response(
         .fetch_version(&review.plugin, review.plugin_version)
         .ok()
         .and_then(|p| p.decision_template.clone());
-    let text = crate::markdown::render_in(&review.to_json(true), round, template.as_deref(), None, head);
+    let text = crate::markdown::render_in(
+        &review.to_json(true),
+        round,
+        template.as_deref(),
+        None,
+        head,
+    );
     Ok((
         [(header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
         text,

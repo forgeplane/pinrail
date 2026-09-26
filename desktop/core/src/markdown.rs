@@ -74,11 +74,19 @@ pub fn render_in(
     let data = &review["decision"]["data"];
     let standing = match status {
         "decided" => {
-            let by = review["decision"]["decided_by"].as_str().unwrap_or("someone");
-            format!("Decided by {by} at {}", when(review["decision"]["decided_at"].as_str()))
+            let by = review["decision"]["decided_by"]
+                .as_str()
+                .unwrap_or("someone");
+            format!(
+                "Decided by {by} at {}",
+                when(review["decision"]["decided_at"].as_str())
+            )
         }
         "withdrawn" => {
-            let mut line = format!("Withdrawn by the agent at {}", when(review["withdrawn_at"].as_str()));
+            let mut line = format!(
+                "Withdrawn by the agent at {}",
+                when(review["withdrawn_at"].as_str())
+            );
             if let Some(reason) = text(&review["withdrawn_reason"]) {
                 line.push_str(&format!(": {reason}"));
             }
@@ -86,7 +94,10 @@ pub fn render_in(
         }
         "discarded" => {
             let by = review["discarded_by"].as_str().unwrap_or("someone");
-            let mut line = format!("Discarded by {by} at {}", when(review["discarded_at"].as_str()));
+            let mut line = format!(
+                "Discarded by {by} at {}",
+                when(review["discarded_at"].as_str())
+            );
             if let Some(reason) = text(&review["discarded_reason"]) {
                 line.push_str(&format!(": {reason}"));
             }
@@ -114,7 +125,10 @@ pub fn render_in(
             if let Some(first) = lower.get_mut(0..1) {
                 first.make_ascii_lowercase();
             }
-            out.push_str(&format!("{id} · {status} · {title}\n{} · {lower}\n", place.join(" · ")));
+            out.push_str(&format!(
+                "{id} · {status} · {title}\n{} · {lower}\n",
+                place.join(" · ")
+            ));
             if let Some(url) = url {
                 out.push_str(&format!("{url}\n"));
             }

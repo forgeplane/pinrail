@@ -14,7 +14,11 @@ fn text(v: &Value) -> &str {
 fn when(v: &Value) -> String {
     let iso = text(v);
     chrono::DateTime::parse_from_rfc3339(iso)
-        .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string())
+        .map(|t| {
+            t.with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M")
+                .to_string()
+        })
         .unwrap_or_else(|_| iso.to_string())
 }
 
@@ -149,7 +153,11 @@ pub fn server(info: &Value) -> String {
     }
     match about.is_empty() {
         true => format!("Pinrail's server: {}\n", text(&info["url"])),
-        false => format!("Pinrail's server: {} ({})\n", text(&info["url"]), about.join(", ")),
+        false => format!(
+            "Pinrail's server: {} ({})\n",
+            text(&info["url"]),
+            about.join(", ")
+        ),
     }
 }
 
@@ -188,7 +196,9 @@ pub fn plugins_result(value: &Value) -> String {
             text(&value["name"]),
             text(&value["version"])
         ),
-        (Some("built_in"), ..) => format!("{}: built in, updated with the app\n", text(&value["name"])),
+        (Some("built_in"), ..) => {
+            format!("{}: built in, updated with the app\n", text(&value["name"]))
+        }
         (Some("linked"), ..) => format!(
             "{}: linked, served live from {}\n",
             text(&value["name"]),
@@ -213,7 +223,11 @@ pub fn plugins_result(value: &Value) -> String {
 /// A new plugin: where it was written, whether the app serves it, and the
 /// steps from there.
 pub fn scaffolded(written: &Value) -> String {
-    let mut out = format!("{} written to {}.\n", text(&written["name"]), text(&written["dir"]));
+    let mut out = format!(
+        "{} written to {}.\n",
+        text(&written["name"]),
+        text(&written["dir"])
+    );
     if written["linked"] == true {
         out.push_str("Linked: the app serves the folder live.\n");
     }

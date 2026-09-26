@@ -69,7 +69,9 @@ pub fn ensure_running(explicit: Option<&str>) -> Result<Value> {
     if Client::new(&url).reachable() {
         // what server.json says, when it is about this server
         return Ok(advertised()
-            .filter(|info| info["url"].as_str().map(|u| u.trim_end_matches('/')) == Some(url.as_str()))
+            .filter(|info| {
+                info["url"].as_str().map(|u| u.trim_end_matches('/')) == Some(url.as_str())
+            })
             .unwrap_or_else(|| json!({ "url": url })));
     }
     start()

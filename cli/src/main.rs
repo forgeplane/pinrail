@@ -504,7 +504,9 @@ fn command() -> clap::Command {
         }
         listed.push_str(&format!("  {name}{value}\n          {help}\n"));
     }
-    root.after_help(format!("{listed}\nHow to use Pinrail as an agent: pinrail docs"))
+    root.after_help(format!(
+        "{listed}\nHow to use Pinrail as an agent: pinrail docs"
+    ))
 }
 
 fn main() -> ExitCode {
@@ -582,7 +584,9 @@ fn run(cli: Cli) -> Result<u8> {
         // what comes next, for whoever ran it, most often an agent
         let mut next = Vec::new();
         if !*link {
-            next.push(format!("pinrail plugins install {given} --link, so the app serves it live."));
+            next.push(format!(
+                "pinrail plugins install {given} --link, so the app serves it live."
+            ));
         }
         next.push(format!(
             "Read AGENTS.md in {given}, then make the plugin what is needed: the schemas, example, sample and view, kept in step."
@@ -700,12 +704,19 @@ fn run(cli: Cli) -> Result<u8> {
         Command::List(args) => {
             // what an agent means by "the reviews": the pending ones of the
             // project it works in; --all for every one
-            let status = args.status.clone().or_else(|| (!args.all).then(|| "pending".into()));
-            let repo = args.repo.clone().or_else(|| (!args.all).then(origin::repo).flatten());
+            let status = args
+                .status
+                .clone()
+                .or_else(|| (!args.all).then(|| "pending".into()));
+            let repo = args
+                .repo
+                .clone()
+                .or_else(|| (!args.all).then(origin::repo).flatten());
             let scope = md::Scope {
                 status: status.clone(),
                 repo: repo.clone(),
-                narrowed: !args.all && (args.status.is_none() || (args.repo.is_none() && repo.is_some())),
+                narrowed: !args.all
+                    && (args.status.is_none() || (args.repo.is_none() && repo.is_some())),
             };
             let mut query: Vec<(&str, String)> = Vec::new();
             for (k, v) in [
@@ -729,7 +740,9 @@ fn run(cli: Cli) -> Result<u8> {
             // the reviews alone, as before the API wrapped them with its paging
             let mut listing = client.list(&query)?;
             if !args.all || args.limit.is_some() {
-                output.data(&listing["reviews"], |rows| md::listing(rows, &listing, &scope));
+                output.data(&listing["reviews"], |rows| {
+                    md::listing(rows, &listing, &scope)
+                });
                 return Ok(0);
             }
             let mut reviews = Vec::new();
@@ -748,7 +761,13 @@ fn run(cli: Cli) -> Result<u8> {
                 }
             }
             let all = Value::Array(reviews);
-            output.data(&all, |rows| md::listing(rows, &json!({ "total": rows.as_array().map_or(0, Vec::len) }), &scope));
+            output.data(&all, |rows| {
+                md::listing(
+                    rows,
+                    &json!({ "total": rows.as_array().map_or(0, Vec::len) }),
+                    &scope,
+                )
+            });
             Ok(0)
         }
         Command::Decide(args) => {
@@ -822,7 +841,10 @@ fn run(cli: Cli) -> Result<u8> {
             .into_iter()
             .find_map(|(asked, key)| asked.then_some(key));
             if let Some(key) = part {
-                println!("{}", serde_json::to_string_pretty(&shown[key]).unwrap_or_default());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&shown[key]).unwrap_or_default()
+                );
                 return Ok(0);
             }
             output.data(&shown, describe::markdown);
@@ -856,7 +878,9 @@ fn run(cli: Cli) -> Result<u8> {
                         path.as_deref(),
                     )?
                 }
-                Some(PluginsCommand::Update { name: Some(name) }) => client.plugins_update(&name)?,
+                Some(PluginsCommand::Update { name: Some(name) }) => {
+                    client.plugins_update(&name)?
+                }
                 // every installed plugin, each with what became of it: the
                 // built-in ones come with the app, a linked one is its folder
                 Some(PluginsCommand::Update { name: None }) => {
@@ -1004,14 +1028,20 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
 /// A plugin describe could not find: when it is installed but broken, says
 /// so and why, and how to see what to fix, rather than that it is not there.
 fn unusable(client: &Client, name: &str, err: anyhow::Error) -> anyhow::Error {
-    if !err.downcast_ref::<ApiError>().is_some_and(|a| a.status == 404) {
+    if !err
+        .downcast_ref::<ApiError>()
+        .is_some_and(|a| a.status == 404)
+    {
         return err;
     }
     let listed = client.plugins().ok();
     let Some(plugin) = listed
         .as_ref()
         .and_then(|l| l["plugins"].as_array())
-        .and_then(|rows| rows.iter().find(|p| p["name"] == name && p["error"].is_string()))
+        .and_then(|rows| {
+            rows.iter()
+                .find(|p| p["name"] == name && p["error"].is_string())
+        })
     else {
         return err;
     };
@@ -1042,9 +1072,15 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
         .as_array()
         .into_iter()
         .flatten()
-        .any(|v| v["path"].as_str().is_some_and(|p| p.starts_with("/payload")));
+        .any(|v| {
+            v["path"]
+                .as_str()
+                .is_some_and(|p| p.starts_with("/payload"))
+        });
     if about_payload {
-        api.hint = Some(format!("The payload it takes: pinrail plugins describe {plugin}"));
+        api.hint = Some(format!(
+            "The payload it takes: pinrail plugins describe {plugin}"
+        ));
     }
     api.into()
 }
@@ -1057,7 +1093,9 @@ fn requester(given: Option<&str>) -> String {
     }
     match agent::detect() {
         Some(agent) => {
-            out::note(format_args!("requested by {agent}, the agent this runs under"));
+            out::note(format_args!(
+                "requested by {agent}, the agent this runs under"
+            ));
             agent
         }
         None => "pinrail-cli".to_string(),

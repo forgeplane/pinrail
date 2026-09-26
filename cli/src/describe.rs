@@ -63,7 +63,10 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
 /// `pinrail plugins` as markdown: how many, then a plugin a line, its
 /// version, where it is from and whether it works, and under it what it is.
 pub fn listing(listed: &Value) -> String {
-    let rows = listed["plugins"].as_array().map(Vec::as_slice).unwrap_or_default();
+    let rows = listed["plugins"]
+        .as_array()
+        .map(Vec::as_slice)
+        .unwrap_or_default();
     let noun = if rows.len() == 1 { "plugin" } else { "plugins" };
     let mut out = format!(
         "{} {noun} installed; pinrail plugins describe <name> gives one's payload, an example and its decision.\n\n",
@@ -88,7 +91,10 @@ pub fn listing(listed: &Value) -> String {
             text(&plugin["name"]),
             text(&plugin["release"]),
         ));
-        if let Some(about) = plugin["description"].as_str().filter(|d| !d.trim().is_empty()) {
+        if let Some(about) = plugin["description"]
+            .as_str()
+            .filter(|d| !d.trim().is_empty())
+        {
             out.push_str(&format!("  {}\n", about.trim()));
         }
         if let Some(when) = plugin["use_when"].as_str().filter(|w| !w.trim().is_empty()) {
@@ -109,8 +115,16 @@ fn files(plugin: &Value) -> Option<String> {
         .iter()
         .filter_map(Value::as_str)
         .collect();
-    let extensions: Vec<&str> = kinds.iter().copied().filter(|k| k.starts_with('.')).collect();
-    let shown = if extensions.is_empty() { kinds } else { extensions };
+    let extensions: Vec<&str> = kinds
+        .iter()
+        .copied()
+        .filter(|k| k.starts_with('.'))
+        .collect();
+    let shown = if extensions.is_empty() {
+        kinds
+    } else {
+        extensions
+    };
     Some(shown.join(", "))
 }
 

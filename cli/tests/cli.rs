@@ -333,7 +333,10 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
 fn open_refuses_a_review_the_app_does_not_have_before_opening_anything() {
     let server = MockServer::start(Box::new(|method, path, _| {
         assert_eq!((method, path), ("GET", "/api/v1/reviews/r_x"));
-        (404, r#"{"error":"not_found","message":"review r_x not found","violations":[]}"#.into())
+        (
+            404,
+            r#"{"error":"not_found","message":"review r_x not found","violations":[]}"#.into(),
+        )
     }));
     let (code, stdout, stderr) = run(&server, &["open", "r_x", "--markdown"]);
     assert_eq!(code, 2);
@@ -348,27 +351,49 @@ fn a_review_is_requested_by_the_agent_the_cli_runs_under_unless_told() {
     let seen = sent.clone();
     let server = MockServer::start(Box::new(move |_, _, body| {
         let body: serde_json::Value = serde_json::from_str(body).unwrap();
-        seen.lock().unwrap().push(body["requested_by"].as_str().unwrap_or_default().to_string());
+        seen.lock().unwrap().push(
+            body["requested_by"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+        );
         (201, review("pending"))
     }));
     let submit = |envs: &[(&str, &str)], extra: &[&str]| {
         let mut cmd = pinrail();
-        cmd.args(["submit", "list", "--title", "t", "--no-start"]).args(extra).env("PINRAIL_URL", &server.url).current_dir(std::env::temp_dir());
+        cmd.args(["submit", "list", "--title", "t", "--no-start"])
+            .args(extra)
+            .env("PINRAIL_URL", &server.url)
+            .current_dir(std::env::temp_dir());
         for (k, v) in envs {
             cmd.env(k, v);
         }
         let out = cmd.output().unwrap();
-        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
     };
     submit(&[("CLAUDECODE", "1")], &[]);
     submit(&[("AI_AGENT", "claude-code_2-1-281_agent")], &[]);
     submit(&[("CODEX_SANDBOX", "seatbelt")], &[]);
     submit(&[], &[]);
     submit(&[("CLAUDECODE", "1")], &["--requested-by", "pr-reviewer"]);
-    submit(&[("CLAUDECODE", "1"), ("PINRAIL_REQUESTED_BY", "nightly")], &[]);
+    submit(
+        &[("CLAUDECODE", "1"), ("PINRAIL_REQUESTED_BY", "nightly")],
+        &[],
+    );
     assert_eq!(
         *sent.lock().unwrap(),
-        ["claude-code", "claude-code", "codex", "pinrail-cli", "pr-reviewer", "nightly"]
+        [
+            "claude-code",
+            "claude-code",
+            "codex",
+            "pinrail-cli",
+            "pr-reviewer",
+            "nightly"
+        ]
     );
 }
 
@@ -378,25 +403,64 @@ fn unknown_origin_keys_are_dropped_with_a_warning() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/reviews"));
         let sent: serde_json::Value = serde_json::from_str(body).unwrap();
-        assert_eq!(sent["origin"], serde_json::json!({"repo": "acme", "ref": "42"}));
+        assert_eq!(
+            sent["origin"],
+            serde_json::json!({"repo": "acme", "ref": "42"})
+        );
         (201, review("pending"))
     }));
     let dir = tempdir();
-    std::fs::write(dir.join("r.json"), r#"{"plugin":"list","title":"t","origin":{"repo":"acme","team":"core"}}"#).unwrap();
+    std::fs::write(
+        dir.join("r.json"),
+        r#"{"plugin":"list","title":"t","origin":{"repo":"acme","team":"core"}}"#,
+    )
+    .unwrap();
 
-    let (code, _, stderr) = run(&server, &["submit", "list", "--title", "t", "--origin", "repo=acme,ref=42,agnet=codex", "--no-start"]);
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "list",
+            "--title",
+            "t",
+            "--origin",
+            "repo=acme,ref=42,agnet=codex",
+            "--no-start",
+        ],
+    );
     assert_eq!(code, 0, "{stderr}");
     assert!(stderr.contains("pinrail: warning: origin key agnet dropped: the app keeps repo, ref, workflow, run_id, url\n"), "{stderr}");
 
     // from a request file too
-    let (_, _, stderr) = run(&server, &["submit", "--request", dir.join("r.json").to_str().unwrap(), "--origin", "repo=acme,ref=42", "--no-start"]);
-    assert!(!stderr.contains("warning"), "the flag replaced the file's origin: {stderr}");
+    let (_, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "--request",
+            dir.join("r.json").to_str().unwrap(),
+            "--origin",
+            "repo=acme,ref=42",
+            "--no-start",
+        ],
+    );
+    assert!(
+        !stderr.contains("warning"),
+        "the flag replaced the file's origin: {stderr}"
+    );
     let server2 = MockServer::start(Box::new(|_, _, body| {
         let sent: serde_json::Value = serde_json::from_str(body).unwrap();
         assert_eq!(sent["origin"], serde_json::json!({"repo": "acme"}));
         (201, review("pending"))
     }));
-    let (code, _, stderr) = run(&server2, &["submit", "--request", dir.join("r.json").to_str().unwrap(), "--no-start"]);
+    let (code, _, stderr) = run(
+        &server2,
+        &[
+            "submit",
+            "--request",
+            dir.join("r.json").to_str().unwrap(),
+            "--no-start",
+        ],
+    );
     assert_eq!(code, 0, "{stderr}");
     assert!(stderr.contains("origin key team dropped"), "{stderr}");
 }
@@ -437,10 +501,7 @@ fn list_all_follows_the_cursor_to_the_last_page() {
         other => panic!("unexpected {other:?}"),
     }
     }));
-    let (code, stdout, stderr) = run(
-        &server,
-        &["list", "--status", "decided", "--all"],
-    );
+    let (code, stdout, stderr) = run(&server, &["list", "--status", "decided", "--all"]);
     assert_eq!(code, 0, "{stderr}");
     let ids: Vec<String> = serde_json::from_str::<serde_json::Value>(&stdout)
         .unwrap()
@@ -646,7 +707,6 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     assert_eq!(doc["use_when"], "Before posting review comments");
     assert!(doc.get("submit").is_none(), "{doc}");
 
-
     // one plugin is the document: its heading first, its command, no general parts
     let (code, stdout, _) = run(&server, &["plugins", "describe", "list", "--markdown"]);
     assert_eq!(code, 0);
@@ -655,16 +715,55 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     assert!(stdout.contains("pinrail submit list --title"));
     assert!(!stdout.contains("| 4 | timed out") && !stdout.contains("# Pinrail plugins"));
     // the decision's schema only when asked for; it reads as markdown otherwise
-    assert!(stdout.contains("pinrail plugins describe list --decision-schema"), "{stdout}");
+    assert!(
+        stdout.contains("pinrail plugins describe list --decision-schema"),
+        "{stdout}"
+    );
     assert!(!stdout.contains("is shaped by"));
     // --decision-schema: the schema alone, JSON either way
-    let (_, stdout, _) = run(&server, &["plugins", "describe", "list", "--decision-schema", "--markdown"]);
-    assert_eq!(serde_json::from_str::<serde_json::Value>(&stdout).unwrap(), serde_json::json!({"type":"object"}));
-    let (_, stdout, _) = run(&server, &["plugins", "describe", "list", "--payload-schema", "--markdown"]);
-    assert_eq!(serde_json::from_str::<serde_json::Value>(&stdout).unwrap(), serde_json::json!({"type":"object"}));
+    let (_, stdout, _) = run(
+        &server,
+        &[
+            "plugins",
+            "describe",
+            "list",
+            "--decision-schema",
+            "--markdown",
+        ],
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&stdout).unwrap(),
+        serde_json::json!({"type":"object"})
+    );
+    let (_, stdout, _) = run(
+        &server,
+        &[
+            "plugins",
+            "describe",
+            "list",
+            "--payload-schema",
+            "--markdown",
+        ],
+    );
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&stdout).unwrap(),
+        serde_json::json!({"type":"object"})
+    );
     let (_, stdout, _) = run(&server, &["plugins", "describe", "list", "--example"]);
-    assert_eq!(serde_json::from_str::<serde_json::Value>(&stdout).unwrap(), serde_json::json!({"groups":[]}));
-    let (code, _, _) = run(&server, &["plugins", "describe", "list", "--example", "--payload-schema"]);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&stdout).unwrap(),
+        serde_json::json!({"groups":[]})
+    );
+    let (code, _, _) = run(
+        &server,
+        &[
+            "plugins",
+            "describe",
+            "list",
+            "--example",
+            "--payload-schema",
+        ],
+    );
     assert_eq!(code, 1, "one part at a time");
 
     // a plugin's name
@@ -1095,7 +1194,10 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
             // describe answers with the one plugin asked for
             "/api/v1/plugins/model/describe" => {
                 let all: serde_json::Value = serde_json::from_str(body).unwrap();
-                (200, serde_json::json!({ "plugins": [all["plugins"][0]] }).to_string())
+                (
+                    200,
+                    serde_json::json!({ "plugins": [all["plugins"][0]] }).to_string(),
+                )
             }
             other => panic!("unexpected {other}"),
         }
@@ -1103,7 +1205,10 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     // choosing: the listing says which kinds, extensions first
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
-    assert!(stdout.contains("- model · 2.0.0 · built in · ready\n  Takes files: .glb.\n"), "{stdout}");
+    assert!(
+        stdout.contains("- model · 2.0.0 · built in · ready\n  Takes files: .glb.\n"),
+        "{stdout}"
+    );
     assert_eq!(stdout.matches("Takes files").count(), 1);
 
     // in full: the kinds, the limits and how to send them
@@ -1122,7 +1227,10 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/plugins/list/sample"));
         let sent: serde_json::Value = serde_json::from_str(body).unwrap();
-        assert_eq!(sent, serde_json::json!({ "title": "Try Pinrail", "requested_by": "pinrail-cli" }));
+        assert_eq!(
+            sent,
+            serde_json::json!({ "title": "Try Pinrail", "requested_by": "pinrail-cli" })
+        );
         (201, review("pending"))
     }));
     let (code, stdout, stderr) = run(
@@ -1206,7 +1314,10 @@ fn list_all_with_a_limit_prints_that_many_and_where_the_rest_start() {
     }));
     let (code, stdout, stderr) = run(&server, &["list", "--all", "--limit", "1", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
-    assert!(stdout.starts_with("1 of 3 reviews, newest first.\n\n- r_1 · decided · "), "{stdout}");
+    assert!(
+        stdout.starts_with("1 of 3 reviews, newest first.\n\n- r_1 · decided · "),
+        "{stdout}"
+    );
     assert!(stdout.ends_with("\nMore: --cursor r_1\n"), "{stdout}");
 }
 
@@ -1301,10 +1412,16 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
     let dir = tempdir();
     std::fs::create_dir_all(dir.join("work")).unwrap();
     std::fs::create_dir_all(dir.join("plugins/hello")).unwrap();
-    let expected = dir.join("plugins/hello").canonicalize().unwrap().to_string_lossy().to_string();
+    let expected = dir
+        .join("plugins/hello")
+        .canonicalize()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
     let sent = Arc::new(Mutex::new(String::new()));
     let seen = sent.clone();
-    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        match (method, path) {
         ("POST", "/api/v1/plugins/install") => {
             let body: serde_json::Value = serde_json::from_str(body).unwrap();
             *seen.lock().unwrap() = body["source"].as_str().unwrap().to_string();
@@ -1315,8 +1432,13 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
             r#"{"status":"done","log":"","plugin":{"name":"hello","release":"1.0.0","entry":"view/index.html"}}"#.into(),
         ),
         other => panic!("unexpected {other:?}"),
+    }
     }));
-    let (code, _, stderr) = run_in(&server, &dir.join("work"), &["plugins", "install", "../plugins/hello", "--link"]);
+    let (code, _, stderr) = run_in(
+        &server,
+        &dir.join("work"),
+        &["plugins", "install", "../plugins/hello", "--link"],
+    );
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(*sent.lock().unwrap(), expected);
 }
@@ -1324,12 +1446,20 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
 #[test]
 fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     let dir = tempdir();
-    let server = MockServer::start(Box::new(|_, path, _| panic!("no app needed, asked for {path}")));
+    let server = MockServer::start(Box::new(|_, path, _| {
+        panic!("no app needed, asked for {path}")
+    }));
     let (code, stdout, stderr) = run_in(&server, &dir, &["plugins", "new", "triage", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert!(stderr.is_empty(), "{stderr}");
     let written = dir.join("triage").canonicalize().unwrap();
-    assert!(stdout.starts_with(&format!("triage written to {}.\n\nNext:\n  1. pinrail plugins install triage --link", written.display())), "{stdout}");
+    assert!(
+        stdout.starts_with(&format!(
+            "triage written to {}.\n\nNext:\n  1. pinrail plugins install triage --link",
+            written.display()
+        )),
+        "{stdout}"
+    );
     assert!(stdout.contains("How a plugin works: pinrail docs plugins/building\n"));
 
     let (code, stdout, _) = run_in(&server, &dir, &["plugins", "new", "other"]);
@@ -1341,13 +1471,15 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
 
 #[test]
 fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
-    let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        match (method, path) {
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[
             {"name":"list","release":"1.0.0","install":null},
             {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"}},
             {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"}}]}"#.into()),
         ("POST", "/api/v1/plugins/odd/update") => (200, r#"{"state":"up_to_date","version":"0.1.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
+    }
     }));
     let (code, stdout, stderr) = run(&server, &["plugins", "update", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
