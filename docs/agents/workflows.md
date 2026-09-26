@@ -94,4 +94,4 @@ For a step that should not hold a runner at all, split it in two: submit without
 pinrail list --repo acme/api --workflow prune --status pending
 ```
 
-`--requested-by` (or `PINRAIL_REQUESTED_BY`) names the job on every review it creates, so the person deciding knows which pipeline is asking.
+`workflow` names the job, so the person deciding knows which pipeline is asking. `--requested-by` (or `PINRAIL_REQUESTED_BY`) names who is asking: by default the coding agent the job runs, when it runs one, and otherwise `pinrail-cli`.

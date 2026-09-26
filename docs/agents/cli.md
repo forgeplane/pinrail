@@ -86,7 +86,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--decision-out <file>` | Also write the decision's data, as JSON, to a file. |
 | `--summary` | The counts the inbox shows beside the title. |
 | `--expires-at` | Close the review if nobody decides by then. |
-| `--requested-by` | Who is asking, shown on the review. Defaults to `PINRAIL_REQUESTED_BY`, then `pinrail-cli`. |
+| `--requested-by` | Who is asking, shown on the review, with the agent's icon when the app knows it. Defaults to `PINRAIL_REQUESTED_BY`, then the coding agent the command runs under, found from the variables it sets (`claude-code`, `codex`, `cursor`, `gemini-cli`, `opencode`), then `pinrail-cli`. Name the job or role with `--origin workflow=…`. |
 
 ### The whole request in one file
 
@@ -251,4 +251,4 @@ export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --he
 | `PINRAIL_PORT` | The port to try when nothing is advertised. |
 | `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
 | `PINRAIL_JSON` | `1` for JSON output from every command, as `--json` gives. |
-| `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review. |
+| `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review, ahead of the agent the command finds itself running under. |

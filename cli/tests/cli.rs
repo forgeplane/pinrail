@@ -105,6 +105,19 @@ fn pinrail() -> Command {
     cmd.env_remove("PINRAIL_URL")
         .env_remove("PINRAIL_SERVER_CMD")
         .env_remove("PINRAIL_VERBOSE")
+        // the agent running the tests is not the one the tests are about
+        .env_remove("AI_AGENT")
+        .env_remove("AGENT")
+        .env_remove("CLAUDECODE")
+        .env_remove("CLAUDE_CODE_ENTRYPOINT")
+        .env_remove("CODEX_THREAD_ID")
+        .env_remove("CODEX_SANDBOX")
+        .env_remove("CODEX_CI")
+        .env_remove("CURSOR_AGENT")
+        .env_remove("GEMINI_CLI")
+        .env_remove("OPENCODE")
+        .env_remove("OPENCODE_PID")
+        .env_remove("OPENCODE_CLIENT")
         .env("PINRAIL_JSON", "1");
     cmd.stdin(Stdio::null());
     cmd
@@ -329,6 +342,37 @@ fn open_refuses_a_review_the_app_does_not_have_before_opening_anything() {
     assert_eq!(server.requests().len(), 1);
 }
 
+#[test]
+fn a_review_is_requested_by_the_agent_the_cli_runs_under_unless_told() {
+    let sent = Arc::new(Mutex::new(Vec::<String>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        let body: serde_json::Value = serde_json::from_str(body).unwrap();
+        seen.lock().unwrap().push(body["requested_by"].as_str().unwrap_or_default().to_string());
+        (201, review("pending"))
+    }));
+    let submit = |envs: &[(&str, &str)], extra: &[&str]| {
+        let mut cmd = pinrail();
+        cmd.args(["submit", "list", "--title", "t", "--no-start"]).args(extra).env("PINRAIL_URL", &server.url).current_dir(std::env::temp_dir());
+        for (k, v) in envs {
+            cmd.env(k, v);
+        }
+        let out = cmd.output().unwrap();
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    };
+    submit(&[("CLAUDECODE", "1")], &[]);
+    submit(&[("AI_AGENT", "claude-code_2-1-281_agent")], &[]);
+    submit(&[("CODEX_SANDBOX", "seatbelt")], &[]);
+    submit(&[], &[]);
+    submit(&[("CLAUDECODE", "1")], &["--requested-by", "pr-reviewer"]);
+    submit(&[("CLAUDECODE", "1"), ("PINRAIL_REQUESTED_BY", "nightly")], &[]);
+    assert_eq!(
+        *sent.lock().unwrap(),
+        ["claude-code", "claude-code", "codex", "pinrail-cli", "pr-reviewer", "nightly"]
+    );
+}
+
+#[test]
 #[test]
 fn unknown_origin_keys_are_dropped_with_a_warning() {
     let server = MockServer::start(Box::new(|method, path, body| {
@@ -1078,7 +1122,7 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/plugins/list/sample"));
         let sent: serde_json::Value = serde_json::from_str(body).unwrap();
-        assert_eq!(sent, serde_json::json!({ "title": "Try Pinrail" }));
+        assert_eq!(sent, serde_json::json!({ "title": "Try Pinrail", "requested_by": "pinrail-cli" }));
         (201, review("pending"))
     }));
     let (code, stdout, stderr) = run(

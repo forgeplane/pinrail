@@ -11,6 +11,7 @@
 //! | 4 | `wait` timed out; the review is still pending |
 //! | 5 | the person discarded the review: stop the work it was gating |
 
+mod agent;
 mod api;
 mod attachments;
 mod briefs;
@@ -273,8 +274,10 @@ struct SubmitArgs {
     /// ISO 8601 timestamp after which the review expires
     #[arg(long)]
     expires_at: Option<String>,
-    /// Who is asking, shown on the review as its requester: the agent or
-    /// tool, e.g. claude-code [default: pinrail-cli]
+    /// Who is asking, shown on the review as its requester, with the
+    /// agent's icon when the app knows it [default: the coding agent this
+    /// runs under, from the variables it sets (claude-code, codex, cursor,
+    /// gemini-cli, opencode), else pinrail-cli]
     #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
     /// Send the plugin's sample, a review it ships to show what it looks
@@ -925,9 +928,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         }
         origin::drop_unknown(&mut body);
         origin::fill_from_git(&mut body);
-        if let Some(by) = &args.requested_by {
-            body["requested_by"] = json!(by);
-        }
+        body["requested_by"] = json!(requester(args.requested_by.as_deref()));
         let review = client.sample(plugin, &body)?;
         return submitted(client, review, &args, output);
     }
@@ -949,10 +950,8 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     } else if body.get("payload").is_none() {
         body["payload"] = json!({});
     }
-    match &args.requested_by {
-        Some(by) => body["requested_by"] = json!(by),
-        None if body.get("requested_by").is_none() => body["requested_by"] = json!("pinrail-cli"),
-        None => {}
+    if args.requested_by.is_some() || body.get("requested_by").is_none() {
+        body["requested_by"] = json!(requester(args.requested_by.as_deref()));
     }
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
@@ -1048,6 +1047,21 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
         api.hint = Some(format!("The payload it takes: pinrail plugins describe {plugin}"));
     }
     api.into()
+}
+
+/// Who a review is from: who the flag or PINRAIL_REQUESTED_BY names, else
+/// the coding agent the CLI runs under, else the CLI itself.
+fn requester(given: Option<&str>) -> String {
+    if let Some(by) = given {
+        return by.to_string();
+    }
+    match agent::detect() {
+        Some(agent) => {
+            out::note(format_args!("requested by {agent}, the agent this runs under"));
+            agent
+        }
+        None => "pinrail-cli".to_string(),
+    }
 }
 
 /// Says where the new review is, then waits on it or prints it.

@@ -199,7 +199,9 @@ the latest round of each review unless `--include-revised` is given, and
   the review comes from; the app groups reviews by project and links back to
   the origin's URL. `--summary` sets the counts the inbox shows beside the
   title, `--expires-at` closes a review nobody decided in time, and
-  `--requested-by` (or `PINRAIL_REQUESTED_BY`) names the caller.
+  `--requested-by` (or `PINRAIL_REQUESTED_BY`) names the caller; by default
+  it is the coding agent the command runs under, found from the variables
+  it sets, or `pinrail-cli`.
   Inside a git checkout, `repo` and `ref` default to the remote's
   `owner/name` and the current branch. `--sample` sends the plugin's own
   sample review instead of a payload. `submit` prints the review on stdout, and
@@ -281,7 +283,7 @@ starting one.
 | `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
 | `PINRAIL_JSON` | `1` for JSON output from every command, as `--json` gives. |
 | `PINRAIL_VERBOSE` | `1` for the notes `--verbose` prints, from every command. |
-| `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review. Defaults to `pinrail-cli`. |
+| `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review. Defaults to the coding agent the command runs under, then `pinrail-cli`. |
 
 ## Development
 
