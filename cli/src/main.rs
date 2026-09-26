@@ -582,18 +582,19 @@ fn run(cli: Cli) -> Result<u8> {
             Client::new(&base).plugins_install(&dir.to_string_lossy(), true, false, None, None)?;
         }
         // what comes next, for whoever ran it, most often an agent
-        let mut next = Vec::new();
+        let mut next = vec![
+            format!(
+                "Read AGENTS.md in {given}, then make the plugin what is needed: the decision schema first, around the action you will take on the answer, then the payload schema, example, sample and view, kept in step."
+            ),
+            format!("pinrail plugins check {given}"),
+        ];
         if !*link {
             next.push(format!(
                 "pinrail plugins install {given} --link, so the app serves it live."
             ));
         }
         next.push(format!(
-            "Read AGENTS.md in {given}, then make the plugin what is needed: the schemas, example, sample and view, kept in step."
-        ));
-        next.push(format!("pinrail plugins check {given}"));
-        next.push(format!(
-            "pinrail submit {name} --sample, then pinrail open <id> --browser, the preview: the view in a browser, whose hand-over checks the decision."
+            "pinrail submit {name} --sample, a real review in the person's inbox, then pinrail open <id> --browser, the preview: the view in a browser, whose hand-over checks the decision. pinrail withdraw <id> when done."
         ));
         let written = json!({
             "name": name,

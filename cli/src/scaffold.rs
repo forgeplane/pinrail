@@ -60,11 +60,11 @@ them (`view/index.html` and `view/view.js`). It starts as one yes-or-no
 question with a comment; make it yours from there.
 
 ```sh
-pinrail plugins install . --link    # the app serves this folder live
-pinrail submit __NAME__ --sample    # send it its sample; the review opens in the app
-pinrail plugins reload              # after changing the manifest or a schema
 pinrail plugins check .             # what the app would refuse, and why
-pinrail docs plugins/building      # how a plugin works, and how to build one
+pinrail plugins install . --link    # the app serves this folder live
+pinrail submit __NAME__ --sample    # a real review of its sample, in the inbox
+pinrail plugins reload              # after changing the manifest or a schema
+pinrail docs plugins/building       # how a plugin works, and how to build one
 ```
 
 `AGENTS.md` explains the plugin to an agent helping you build it.

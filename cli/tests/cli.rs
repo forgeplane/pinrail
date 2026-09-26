@@ -1455,9 +1455,13 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     let written = dir.join("triage").canonicalize().unwrap();
     assert!(
         stdout.starts_with(&format!(
-            "triage written to {}.\n\nNext:\n  1. pinrail plugins install triage --link",
+            "triage written to {}.\n\nNext:\n  1. Read AGENTS.md in triage",
             written.display()
         )),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("  2. pinrail plugins check triage\n  3. pinrail plugins install triage --link"),
         "{stdout}"
     );
     assert!(stdout.contains("How a plugin works: pinrail docs plugins/building\n"));
@@ -1466,7 +1470,7 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     assert_eq!(code, 0);
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["linked"], false);
-    assert_eq!(json["next"][2], "pinrail plugins check other");
+    assert_eq!(json["next"][1], "pinrail plugins check other");
 }
 
 #[test]

@@ -31,4 +31,5 @@ Keys: list them in the manifest's `shortcuts`:
   `Digit`: `j`, `1`, `enter`, `arrowdown`.
 - The app lists them in its keyboard help, and forwards them to the view
   as `keydown` when the app, not the frame, has the focus.
-- The app keeps `?`, `[`, `]`, `esc`, `⌘⇧M`, `⌘↵` and its menus' keys.
+- The app keeps `?`, `[`, `]`, `escape`, `cmd+shift+m` (⌘⇧M),
+  `cmd+enter` (⌘↵) and its menus' keys.

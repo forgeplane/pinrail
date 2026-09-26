@@ -13,6 +13,9 @@ The view loads the SDK from the app and talks to it only through it:
 <script src="view.js"></script>
 ```
 
+The calls, as a sketch: `decision` is what the person's controls built,
+shaped by your decision schema, and `value` whatever state you keep.
+
 ```js
 const plugin = Pinrail.connect({
   onInit({ gate, readonly, draft, settings }) {}, // gate.payload is what the agent sent
