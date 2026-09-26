@@ -18,6 +18,7 @@ use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
 use crate::error::Error;
+use crate::markdown::Head;
 use crate::reviews::{Filters, Status};
 
 const DEFAULT_WAIT: u64 = 300;
@@ -93,13 +94,19 @@ async fn list(
     Ok(Json(body))
 }
 
-/// Whether the caller wants the review as markdown: `?format=markdown`,
-/// or an Accept header that names text/markdown ahead of JSON.
-fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> bool {
+/// Whether the caller wants the review as markdown, and opening how:
+/// `?format=markdown`, or an Accept header that names text/markdown ahead
+/// of JSON; `&head=command` for the lines a command prints rather than a
+/// document's heading.
+fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> Option<Head> {
+    let head = match params.get("head").map(String::as_str) {
+        Some("command") => Head::Command,
+        _ => Head::Document,
+    };
     if let Some(f) = params.get("format") {
-        return f == "markdown" || f == "md";
+        return (f == "markdown" || f == "md").then_some(head);
     }
-    headers
+    let wanted = headers
         .get(header::ACCEPT)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|accept| {
@@ -107,7 +114,8 @@ fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> bool
             let json = accept.find("application/json");
             matches!((md, json), (Some(m), Some(j)) if m < j)
                 || matches!((md, json), (Some(_), None))
-        })
+        });
+    wanted.then_some(head)
 }
 
 /// A review as the caller asked for it: markdown with its round placed
@@ -115,11 +123,11 @@ fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> bool
 fn review_response(
     state: &Pinrail,
     review: &crate::reviews::Review,
-    markdown: bool,
+    markdown: Option<Head>,
 ) -> Result<Response, ApiError> {
-    if !markdown {
+    let Some(head) = markdown else {
         return Ok(Json(review.to_json(true)).into_response());
-    }
+    };
     let rounds = state.reviews().rounds(&review.id)?;
     let round = (rounds.len() > 1)
         .then(|| {
@@ -134,7 +142,7 @@ fn review_response(
         .fetch_version(&review.plugin, review.plugin_version)
         .ok()
         .and_then(|p| p.decision_template.clone());
-    let text = crate::markdown::render(&review.to_json(true), round, template.as_deref());
+    let text = crate::markdown::render_in(&review.to_json(true), round, template.as_deref(), None, head);
     Ok((
         [(header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
         text,

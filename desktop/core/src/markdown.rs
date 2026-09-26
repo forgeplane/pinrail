@@ -24,22 +24,34 @@ pub fn compile(source: &str) -> Result<(), String> {
 /// when the review is one of a chain; `template` is the plugin's own
 /// rendering of the body, when it declares one. Times read in the local
 /// zone.
-pub fn render(review: &Value, round: Option<(usize, usize)>, template: Option<&str>) -> String {
-    render_in(review, round, template, None)
+/// How a review's markdown opens.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Head {
+    /// A document: the title as a heading, then where it sits and how it
+    /// ended; what *Copy as markdown* gives.
+    Document,
+    /// Command output: the id, status and title on the first line, where it
+    /// sits and how it ended on the second; what `pinrail` prints.
+    Command,
 }
 
-/// `render`, with times in `zone` rather than the local one; the fixture
-/// tests pass UTC so their expected files hold anywhere.
+pub fn render(review: &Value, round: Option<(usize, usize)>, template: Option<&str>) -> String {
+    render_in(review, round, template, None, Head::Document)
+}
+
+/// `render`, with times in `zone` rather than the local one (the fixture
+/// tests pass UTC so their expected files hold anywhere), and the `head`
+/// the caller wants.
 pub fn render_in(
     review: &Value,
     round: Option<(usize, usize)>,
     template: Option<&str>,
     zone: Option<FixedOffset>,
+    head: Head,
 ) -> String {
     let when = |iso: Option<&str>| when_in(iso, zone);
-    let mut out = String::new();
     let title = review["title"].as_str().unwrap_or("Review");
-    out.push_str(&format!("# {title}\n\n"));
+    let id = review["id"].as_str().unwrap_or("");
 
     // where it sits: plugin · repo · workflow · ref · round n of m
     let origin = &review["origin"];
@@ -52,61 +64,65 @@ pub fn render_in(
     if let Some((n, of)) = round {
         place.push(format!("round {n} of {of}"));
     }
-    out.push_str(&place.join(" · "));
-    out.push('\n');
 
+    // how it stands, in a line
     let status = review["status"].as_str().unwrap_or("pending");
     let data = &review["decision"]["data"];
-    match status {
+    let standing = match status {
         "decided" => {
-            let by = review["decision"]["decided_by"]
-                .as_str()
-                .unwrap_or("someone");
-            let at = when(review["decision"]["decided_at"].as_str());
-            let mut line = format!("Decided by {by} at {at}");
+            let by = review["decision"]["decided_by"].as_str().unwrap_or("someone");
+            let mut line = format!("Decided by {by} at {}", when(review["decision"]["decided_at"].as_str()));
             if let Some(tally) = tally(data) {
                 line.push_str(&format!(" · {tally}"));
             }
-            out.push_str(&line);
-            out.push('\n');
+            line
         }
         "withdrawn" => {
-            out.push_str(&format!(
-                "Withdrawn by the agent at {}",
-                when(review["withdrawn_at"].as_str())
-            ));
+            let mut line = format!("Withdrawn by the agent at {}", when(review["withdrawn_at"].as_str()));
             if let Some(reason) = text(&review["withdrawn_reason"]) {
-                out.push_str(&format!(": {reason}"));
+                line.push_str(&format!(": {reason}"));
             }
-            out.push('\n');
+            line
         }
         "discarded" => {
             let by = review["discarded_by"].as_str().unwrap_or("someone");
-            out.push_str(&format!(
-                "Discarded by {by} at {}",
-                when(review["discarded_at"].as_str())
-            ));
+            let mut line = format!("Discarded by {by} at {}", when(review["discarded_at"].as_str()));
             if let Some(reason) = text(&review["discarded_reason"]) {
-                out.push_str(&format!(": {reason}"));
+                line.push_str(&format!(": {reason}"));
             }
-            out.push('\n');
+            line
         }
-        "expired" => {
-            out.push_str(&format!(
-                "Expired at {}\n",
-                when(review["expires_at"].as_str())
-            ));
+        "expired" => format!("Expired at {}", when(review["expires_at"].as_str())),
+        _ => format!("Pending since {}", when(review["created_at"].as_str())),
+    };
+    let url = origin["url"].as_str().filter(|s| !s.is_empty());
+
+    let mut out = String::new();
+    match head {
+        Head::Document => {
+            out.push_str(&format!("# {title}\n\n{}\n{standing}\n", place.join(" · ")));
+            if status == "pending" {
+                if let Some(url) = url {
+                    out.push_str(&format!("{url}\n"));
+                }
+                out.push_str("\nWaiting for a decision.\n");
+                return out;
+            }
         }
-        _ => {
-            out.push_str(&format!(
-                "Pending since {}\n",
-                when(review["created_at"].as_str())
-            ));
-            if let Some(url) = origin["url"].as_str().filter(|s| !s.is_empty()) {
+        Head::Command => {
+            let mut lower = standing.clone();
+            if let Some(first) = lower.get_mut(0..1) {
+                first.make_ascii_lowercase();
+            }
+            out.push_str(&format!("{id} · {status} · {title}\n{} · {lower}\n", place.join(" · ")));
+            if let Some(url) = url {
                 out.push_str(&format!("{url}\n"));
             }
-            out.push_str("\nWaiting for a decision.\n");
-            return out;
+            // the command says where to see a pending review and how to
+            // wait on it; the body comes with a decision
+            if status == "pending" {
+                return out;
+            }
         }
     }
 
@@ -723,6 +739,7 @@ Undecided: #19, #20
                     None,
                     template.as_deref(),
                     Some(FixedOffset::east_opt(0).unwrap()),
+                    Head::Document,
                 );
                 let expected_path = path.with_file_name(format!("{stem}.decided.md"));
                 if update {

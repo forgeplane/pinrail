@@ -90,6 +90,10 @@ impl Output {
             && let Some(id) = review["id"].as_str()
         {
             println!("{}", client.review_markdown(id)?.trim_end());
+            // a review still waiting: how to wait on it
+            if review["status"] == "pending" {
+                println!("\nWait for the decision: pinrail wait {id}");
+            }
         } else {
             out::print_json(review, self.pretty);
         }

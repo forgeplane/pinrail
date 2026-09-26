@@ -241,12 +241,14 @@ impl Client {
         self.post("/api/v1/plugins/reload", None)
     }
 
-    /// The review rendered as markdown by the server.
+    /// The review rendered as markdown by the server, opening the way a
+    /// command's output does.
     pub fn review_markdown(&self, id: &str) -> Result<String> {
         let mut resp = self
             .agent
             .get(format!("{}/api/v1/reviews/{id}", self.base))
             .query("format", "markdown")
+            .query("head", "command")
             .call()
             .context("connecting to the server")?;
         let status = resp.status().as_u16();
