@@ -29,7 +29,7 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, FromArgMatches, Parser, Subcommand};
 use serde_json::{Value, json};
 
 use api::{ApiError, Client};
@@ -46,27 +46,26 @@ pub const EXIT_DISCARDED: u8 = 5;
     name = "pinrail",
     version,
     about,
-    long_about = None,
-    after_help = "How to use Pinrail as an agent: pinrail docs"
+    long_about = None
 )]
 struct Cli {
     /// Server URL; default: PINRAIL_URL, then the running server's server.json, then http://127.0.0.1:4747
-    #[arg(long, global = true, env = "PINRAIL_URL")]
+    #[arg(long, global = true, env = "PINRAIL_URL", hide = true)]
     url: Option<String>,
 
     /// Indent the JSON; with --json
-    #[arg(long, global = true, requires = "json")]
+    #[arg(long, global = true, requires = "json", hide = true)]
     pretty: bool,
 
     /// Print JSON instead of markdown, for a script or a tool that processes
     /// the result rather than reads it; PINRAIL_JSON=1 sets it for a session
-    #[arg(long, global = true, env = "PINRAIL_JSON", value_parser = clap::builder::BoolishValueParser::new())]
+    #[arg(long, global = true, env = "PINRAIL_JSON", value_parser = clap::builder::BoolishValueParser::new(), hide = true)]
     json: bool,
 
     /// Also say on stderr what happened along the way: the origin read
     /// from git, the server started, the files uploaded, where things
     /// were written
-    #[arg(short, long, global = true, env = "PINRAIL_VERBOSE", value_parser = clap::builder::BoolishValueParser::new())]
+    #[arg(short, long, global = true, env = "PINRAIL_VERBOSE", value_parser = clap::builder::BoolishValueParser::new(), hide = true)]
     verbose: bool,
 
     #[command(subcommand)]
@@ -480,6 +479,32 @@ enum PluginsCommand {
     },
 }
 
+/// The CLI as clap parses it. The flags every command takes are hidden
+/// where they are defined, so no command's help repeats them, as git's
+/// don't; the root's help lists them once, from their definitions.
+fn command() -> clap::Command {
+    let root = <Cli as clap::CommandFactory>::command();
+    let mut listed = String::from("Every command takes:\n");
+    for arg in root.get_arguments().filter(|a| a.is_global_set()) {
+        let long = arg.get_long().map(|l| format!("--{l}")).unwrap_or_default();
+        let name = match arg.get_short() {
+            Some(short) => format!("-{short}, {long}"),
+            None => format!("    {long}"),
+        };
+        let value = if arg.get_action().takes_values() {
+            format!(" <{}>", arg.get_id().as_str().to_uppercase())
+        } else {
+            String::new()
+        };
+        let mut help = arg.get_help().map(ToString::to_string).unwrap_or_default();
+        if let Some(env) = arg.get_env() {
+            help.push_str(&format!(" [env: {}]", env.to_string_lossy()));
+        }
+        listed.push_str(&format!("  {name}{value}\n          {help}\n"));
+    }
+    root.after_help(format!("{listed}\nHow to use Pinrail as an agent: pinrail docs"))
+}
+
 fn main() -> ExitCode {
     // the docs' CLI reference, from this definition; only in a docs build
     #[cfg(feature = "docs")]
@@ -490,7 +515,10 @@ fn main() -> ExitCode {
         );
         return ExitCode::SUCCESS;
     }
-    let cli = Cli::parse();
+    let cli = match Cli::from_arg_matches(&command().get_matches()) {
+        Ok(cli) => cli,
+        Err(err) => err.exit(),
+    };
     let json = cli.json;
     out::set_verbose(cli.verbose);
     match run(cli) {

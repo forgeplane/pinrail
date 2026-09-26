@@ -72,7 +72,8 @@ pub fn render(root: &Command) -> String {
         "Every command and flag of `{name}`, from the same definition `{name} --help` prints. For the commands in use, see [The CLI](/docs/agents/cli/).\n"
     );
 
-    let globals: Vec<&Arg> = visible_args(root).filter(|a| a.is_global_set()).collect();
+    // hidden from each command's help, so listed here from the root
+    let globals: Vec<&Arg> = root.get_arguments().filter(|a| a.is_global_set()).collect();
     if !globals.is_empty() {
         page.push_str("## Global flags\n\nEvery command accepts these.\n\n");
         table(&mut page, &globals);
@@ -230,7 +231,9 @@ fn environment(root: &Command) -> BTreeMap<String, String> {
 }
 
 fn collect_env(cmd: &Command, vars: &mut BTreeMap<String, String>) {
-    for arg in visible_args(cmd) {
+    // the global flags too, hidden from each command's help but read everywhere
+    let args = visible_args(cmd).chain(cmd.get_arguments().filter(|a| a.is_global_set()));
+    for arg in args {
         if let Some(env) = arg.get_env() {
             let help = arg
                 .get_help()
