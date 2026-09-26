@@ -170,10 +170,8 @@ impl Client {
                 )
             }
             None => {
-                eprintln!(
-                    "pinrail: {name} {} is up to date",
-                    started["version"].as_str().unwrap_or("")
-                );
+                let mut started = started;
+                started["name"] = serde_json::json!(name);
                 Ok(started)
             }
         }

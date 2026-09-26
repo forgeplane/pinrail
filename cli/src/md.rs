@@ -163,12 +163,10 @@ pub fn plugins_result(value: &Value) -> String {
             .as_str()
             .map(|s| format!(" from {s}"))
             .unwrap_or_default();
-        let verb = if value["state"] == "updated" {
-            "Updated"
-        } else {
-            "Installed"
-        };
-        return format!("{verb} `{name}` {}{from}.\n", text(&plugin["release"]));
+        if value["state"] == "updated" {
+            return format!("{name}: updated to {}{from}\n", text(&plugin["release"]));
+        }
+        return format!("Installed {name} {}{from}.\n", text(&plugin["release"]));
     }
     match (
         value["state"].as_str(),
@@ -176,11 +174,21 @@ pub fn plugins_result(value: &Value) -> String {
         value["count"].as_u64(),
         value["versions"].as_array(),
     ) {
-        (Some("up_to_date"), ..) => format!("Up to date: {}.\n", text(&value["version"])),
-        (_, Some(name), ..) => format!("Removed `{name}`.\n"),
+        (Some("up_to_date"), ..) => format!(
+            "{}: up to date, {}\n",
+            text(&value["name"]),
+            text(&value["version"])
+        ),
+        (Some("built_in"), ..) => format!("{}: built in, updated with the app\n", text(&value["name"])),
+        (Some("linked"), ..) => format!(
+            "{}: linked, served live from {}\n",
+            text(&value["name"]),
+            text(&value["source"])
+        ),
+        (_, Some(name), ..) => format!("Removed {name}.\n"),
         (_, _, Some(count), _) => format!("Reloaded {count} plugins.\n"),
         (_, _, _, Some(versions)) => format!(
-            "`{}`: current v{}; reviews render with {}.\n",
+            "{}: current v{}; reviews render with {}.\n",
             text(&value["name"]),
             value["current"],
             versions

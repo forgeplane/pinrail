@@ -1244,6 +1244,27 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
 }
 
 #[test]
+fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
+    let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
+        ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[
+            {"name":"list","release":"1.0.0","install":null},
+            {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"}},
+            {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"}}]}"#.into()),
+        ("POST", "/api/v1/plugins/odd/update") => (200, r#"{"state":"up_to_date","version":"0.1.0"}"#.into()),
+        other => panic!("unexpected {other:?}"),
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "update", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stderr.is_empty(), "{stderr}");
+    assert_eq!(
+        stdout,
+        "list: built in, updated with the app\n\
+         review: linked, served live from /src/review\n\
+         odd: up to date, 0.1.0\n"
+    );
+}
+
+#[test]
 fn plugins_check_asks_the_app_about_the_folder_and_exits_by_its_verdict() {
     let dir = tempdir();
     let verdicts = Arc::new(Mutex::new(vec![

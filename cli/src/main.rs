@@ -796,30 +796,24 @@ fn run(cli: Cli) -> Result<u8> {
                         path.as_deref(),
                     )?
                 }
-                Some(PluginsCommand::Update { name }) => {
-                    let names: Vec<String> = match name {
-                        Some(name) => vec![name],
-                        None => client.plugins()?["plugins"]
-                            .as_array()
-                            .map(|rows| {
-                                rows.iter()
-                                    .filter(|p| {
-                                        p["install"].is_object() && p["install"]["linked"] != true
-                                    })
-                                    .filter_map(|p| p["name"].as_str().map(str::to_string))
-                                    .collect()
-                            })
-                            .unwrap_or_default(),
-                    };
+                Some(PluginsCommand::Update { name: Some(name) }) => client.plugins_update(&name)?,
+                // every installed plugin, each with what became of it: the
+                // built-in ones come with the app, a linked one is its folder
+                Some(PluginsCommand::Update { name: None }) => {
+                    let listed = client.plugins()?;
                     let mut answers = Vec::new();
-                    for name in names {
-                        eprintln!("pinrail: {name}");
-                        answers.push(client.plugins_update(&name)?);
+                    for plugin in listed["plugins"].as_array().into_iter().flatten() {
+                        let name = plugin["name"].as_str().unwrap_or_default();
+                        let install = &plugin["install"];
+                        answers.push(if !install.is_object() {
+                            json!({ "name": name, "state": "built_in" })
+                        } else if install["linked"] == true {
+                            json!({ "name": name, "state": "linked", "source": install["source"] })
+                        } else {
+                            client.plugins_update(name)?
+                        });
                     }
-                    match answers.len() {
-                        1 => answers.remove(0),
-                        _ => serde_json::Value::Array(answers),
-                    }
+                    Value::Array(answers)
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
