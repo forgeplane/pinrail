@@ -15,7 +15,7 @@ instructions name, not in chat, and don't go ahead without the answer.
 pinrail submit <plugin> --title "<title>" --data payload.json --wait
 ```
 
-It prints the review's id at once, `review <id>: …`, then waits for the
+It prints the review's id at once, `review <id> submitted`, then waits for the
 person's decision and prints it; keep the id for `--revises` and
 `pinrail wait <id>`. A payload the plugin does not accept fails at once
 (exit 2) with what is wrong: fix it and submit again. With the decision:
