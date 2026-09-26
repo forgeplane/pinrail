@@ -198,7 +198,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 |---|---|
 | `--json` | JSON instead of markdown. |
 | `PINRAIL_JSON=1` | JSON for every command in this environment, such as a CI job. |
-| `--pretty` | Indented JSON. |
+| `--pretty` | Indented JSON; with `--json`. |
 | `--verbose`, `-v` | Also say on stderr what happened along the way: the origin read from git, the server started, the files uploaded. `PINRAIL_VERBOSE=1` sets it for every command. |
 
 `--decision-out` always writes JSON.

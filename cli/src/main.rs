@@ -54,8 +54,8 @@ struct Cli {
     #[arg(long, global = true, env = "PINRAIL_URL")]
     url: Option<String>,
 
-    /// Pretty-print JSON output
-    #[arg(long, global = true)]
+    /// Indent the JSON; with --json
+    #[arg(long, global = true, requires = "json")]
     pretty: bool,
 
     /// Print JSON instead of markdown, for a script or a tool that processes

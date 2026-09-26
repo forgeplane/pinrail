@@ -221,7 +221,7 @@ the latest round of each review unless `--include-revised` is given, and
   `--limit` and `--cursor`.
 - **`decide`** takes `--data` with the decision and `--note` for the agent.
   `withdraw` and `discard` take `--reason`.
-- **Every command** accepts `--url`, `--json`, `--pretty` and `--verbose`.
+- **Every command** accepts `--url`, `--json` (and with it `--pretty`) and `--verbose`.
 
 ### Plugins
 
