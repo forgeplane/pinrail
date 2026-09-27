@@ -170,3 +170,57 @@ test("a plugin view loads images and fonts from the app, and from nowhere else",
   expect(load.imageFromPlugin, "a plugin's own icons must load").toBe("loaded");
   expect(load.fontFromSdk, "the typeface the app serves must load").toBe("loaded");
 });
+
+test("a view's own file opened as a page is as sandboxed as in its frame", async ({ page, context }) => {
+  // The frame's sandbox attribute does nothing for a page loaded top-level,
+  // and a view can get its own files loaded that way: the files sit on the
+  // app's server, beside the API. Loaded on the API's origin, a page could
+  // open a window on that origin without a policy and drive the API from it:
+  // read every review, decide them, install a plugin that runs a build.
+  const view = (await pluginFrame(page)).url();
+  const escaped = await context.newPage();
+  await escaped.goto(view);
+
+  const reach = await escaped.evaluate(async (sdk) => {
+    const opened = window.open(sdk);
+    let window_: string;
+    try {
+      window_ = opened ? `allowed: ${opened.document.title}` : "refused: no window";
+    } catch (e) {
+      window_ = `refused: ${(e as Error).name}`;
+    }
+    opened?.close();
+    return { origin: self.origin, window: window_ };
+  }, `${core}/sdk/v1/pinrail-plugin.js`);
+
+  expect.soft(reach.origin, "the page must not have the app's origin").toBe("null");
+  expect.soft(reach.window, "a window on the app's origin is one the page could drive").toContain("refused");
+});
+
+test("a view cannot have the shell open the app's own server", async ({ page }) => {
+  // Opening a link is the one thing a view asks the shell to do with the
+  // world outside. Pointed at the app's own server, it would load a view's
+  // file top-level, or the API, outside every frame.
+  const frame = await pluginFrame(page);
+  // Outside the app the shell opens a link with window.open, and the browser
+  // blocks a window no click started; record what the shell asks for instead
+  await page.evaluate(() => {
+    const opened: string[] = [];
+    (window as unknown as { opened: string[] }).opened = opened;
+    window.open = (url?: string | URL) => {
+      opened.push(String(url));
+      return null;
+    };
+  });
+  const opened = () => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
+
+  const ask = (url: string) => frame.evaluate((u) => parent.postMessage({ pinrail: 1, type: "open", url: u }, "*"), url);
+  await ask(frame.url());
+  await ask(`${core}/api/v1/info`);
+  await ask("http://localhost:4799/api/v1/info");
+  // the control: a link out still opens, so the refusals above are the rule's
+  await ask("https://example.invalid/");
+
+  await expect.poll(async () => (await opened()).length, { message: "the link out never opened" }).toBeGreaterThanOrEqual(1);
+  expect(await opened(), "the shell opened the app's own server").toEqual(["https://example.invalid/"]);
+});

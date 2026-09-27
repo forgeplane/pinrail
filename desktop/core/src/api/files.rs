@@ -76,6 +76,10 @@ async fn bundle(
     let origin = format!("http://{host}");
     let bundle = format!("{origin}/plugins/{name}/{version}/");
     let csp = [
+        // The frame's sandbox attribute does nothing for a file loaded as a
+        // page of its own; this gives it the same opaque origin either way,
+        // so it can never act as the API's origin
+        "sandbox allow-scripts".to_string(),
         "default-src 'none'".to_string(),
         format!("script-src 'unsafe-inline' {bundle} {origin}/sdk/"),
         format!("style-src 'unsafe-inline' {bundle} {origin}/sdk/"),
@@ -108,6 +112,9 @@ async fn bundle(
                 header::X_CONTENT_TYPE_OPTIONS,
                 HeaderValue::from_static("nosniff"),
             ),
+            // Views load these as scripts, styles and fonts, which ignore a
+            // policy; opened as a page, one gets an opaque origin and runs
+            // nothing
             // A sandboxed view has an opaque origin, and CSS masks (the icon
             // set) and fonts load only from a server that says so.
             (

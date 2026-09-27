@@ -51,6 +51,15 @@ const button = document.getElementById("handover");
 let review = null, previous = null, settings = {}, minHeight = 200, checking = false;
 
 const post = (msg, transfer) => frame.contentWindow && frame.contentWindow.postMessage({ pinrail: PROTOCOL, ...msg }, "*", transfer || []);
+// a link a view asks for opens out in the world, never back to this machine
+const followable = (url) => {
+  try {
+    const { protocol, hostname } = new URL(url);
+    return /^(https?|mailto):$/.test(protocol) && !/^(localhost|.+\.localhost|127(\.\d{1,3}){3}|0\.0\.0\.0|\[::1?\])$/i.test(hostname);
+  } catch {
+    return false;
+  }
+};
 const theme = () => (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
 const json = async (path, options) => {
   const response = await fetch(path, { ...options, headers: { "content-type": "application/json", ...(options && options.headers) } });
@@ -140,7 +149,7 @@ window.addEventListener("message", (event) => {
       attachment(msg);
       break;
     case "open":
-      if (typeof msg.url === "string" && /^(https?|mailto):/i.test(msg.url)) window.open(msg.url, "_blank", "noreferrer");
+      if (typeof msg.url === "string" && followable(msg.url)) window.open(msg.url, "_blank", "noreferrer");
       break;
   }
 });

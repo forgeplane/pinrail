@@ -22,7 +22,7 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { api } from "../api/client";
 import type { Decision, Review, Violation } from "../api/types";
-import { EXTERNAL, openExternal } from "../lib/native";
+import { openExternal } from "../lib/native";
 import { currentTheme } from "../lib/theme";
 
 /** The app's review-screen keys a view may pass up: help, and the rounds. */
@@ -202,9 +202,10 @@ export function usePluginBridge(options: Options): Bridge {
           saveDraft(msg.data);
           break;
         // A view's frame is sandboxed and cannot open anything itself; the
-        // shell opens the link it asks for, once it is one we would follow.
+        // shell opens the link it asks for, once it is one we would follow:
+        // out into the world, never back to this machine.
         case "open":
-          if (typeof msg.url === "string" && EXTERNAL.test(msg.url)) openExternal(msg.url);
+          if (typeof msg.url === "string") openExternal(msg.url);
           break;
         case "status":
           if (typeof msg.label === "string" && msg.label.trim()) setHandoverLabel(msg.label);

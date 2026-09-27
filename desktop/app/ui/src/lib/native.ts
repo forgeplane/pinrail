@@ -15,9 +15,22 @@ const COMMAND_EVENT = "pinrail:command";
 /** The scheme of a link this app will follow. */
 export const EXTERNAL = /^(https?|mailto):/i;
 
+/** This machine's own addresses, where the app's server and plugin files live. */
+const LOOPBACK = /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|0\.0\.0\.0|\[::1?\])$/i;
+
+/** A link the app opens in the outside world: not one back into this machine. */
+export function followable(url: string): boolean {
+  if (!EXTERNAL.test(url)) return false;
+  try {
+    return !LOOPBACK.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /** Opens a link outside the app: the system browser, or the mail client. */
 export function openExternal(url: string) {
-  if (!EXTERNAL.test(url)) return;
+  if (!followable(url)) return;
   if (!inTauri()) {
     window.open(url, "_blank", "noreferrer");
     return;
