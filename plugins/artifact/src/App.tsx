@@ -30,6 +30,9 @@ export function App() {
   const [focused, setFocused] = useState<string | null>(null);
   const [pins, setPins] = useState<Map<string, Box>>(new Map());
   const [layoutTick, setLayoutTick] = useState(0);
+  // the document: the payload's html, or its file once read
+  const [html, setHtml] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const mounted = useRef<{ root: ShadowRoot; body: HTMLElement } | null>(null);
@@ -82,15 +85,34 @@ export function App() {
     plugin.current = connected;
   }, []);
 
-  // the artifact goes into its shadow root once the payload is here
+  // the document, inline or from the file the review carries
   useEffect(() => {
-    if (!host.current || !payload) return;
-    mounted.current = mount(host.current, payload.html);
+    if (!payload) return;
+    if (typeof payload.html === "string") {
+      setHtml(payload.html);
+      return;
+    }
+    const name = window.Pinrail.attachmentName(payload.file);
+    if (!name || !plugin.current) return;
+    let gone = false;
+    plugin.current
+      .attachment(name)
+      .then((bytes) => !gone && setHtml(new TextDecoder().decode(bytes)))
+      .catch((e: unknown) => !gone && setLoadError(`${name} could not be read: ${e instanceof Error ? e.message : String(e)}`));
+    return () => {
+      gone = true;
+    };
+  }, [payload]);
+
+  // the artifact goes into its shadow root once the document is here
+  useEffect(() => {
+    if (!host.current || html === null) return;
+    mounted.current = mount(host.current, html);
     const observer = new ResizeObserver(() => setLayoutTick((t) => t + 1));
     observer.observe(mounted.current.body);
     setLayoutTick((t) => t + 1);
     return () => observer.disconnect();
-  }, [payload?.html]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [html]);
 
   // the shell hears what the button should say, and keeps the draft
   useEffect(() => {
@@ -227,6 +249,11 @@ export function App() {
         decided={decision}
       />
       {payload.notes ? <div className="notes" dangerouslySetInnerHTML={{ __html: window.Pinrail.markdown(payload.notes) }} /> : null}
+      {loadError ? (
+        <div className="errors" data-load-error>
+          {loadError}
+        </div>
+      ) : null}
       {errors.length > 0 ? (
         <div className="errors">
           {errors.map((e, i) => (

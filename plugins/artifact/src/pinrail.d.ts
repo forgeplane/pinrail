@@ -33,6 +33,8 @@ export type Plugin = {
   draft: (data: unknown, opts?: { flush?: boolean }) => void;
   status: (status: { label: string }) => void;
   collect: () => void;
+  /** a file the review carries, by the name its payload gives it */
+  attachment: (name: string) => Promise<ArrayBuffer>;
 };
 
 declare global {
@@ -41,6 +43,7 @@ declare global {
       connect: (handlers: Handlers) => Plugin;
       escape: (s: string) => string;
       markdown: (s: string) => string;
+      attachmentName: (ref: unknown) => string | null;
     };
   }
 }

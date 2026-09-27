@@ -31,6 +31,21 @@ test("renders the artifact with its own styles, inert", async ({ page }) => {
   await expect.poll(() => plugin.lastStatus()).toBe("Approve");
 });
 
+test("the document can come as a file beside the payload, and one that cannot be read says so", async ({ page }) => {
+  const gate = landing();
+  const { html, ...rest } = gate.payload as { html: string };
+  gate.payload = { ...rest, file: { $attachment: "landing.html" } };
+  const plugin = await mountPlugin(page, dir, { gate, attachments: { "landing.html": path.join(dir, "fixtures", "landing.html") } });
+  await expect(plugin.frame.locator("[data-artifact] h1")).toHaveText("Bookkeeping that closes itself");
+  await expect(plugin.frame.locator("[data-load-error]")).toHaveCount(0);
+
+  const missing = landing();
+  const { html: _, ...others } = missing.payload as { html: string };
+  missing.payload = { ...others, file: { $attachment: "gone.html" } };
+  const broken = await mountPlugin(page, dir, { gate: missing });
+  await expect(broken.frame.locator("[data-load-error]")).toContainText("gone.html could not be read");
+});
+
 test("a comment hangs on the element by a selector and travels in the decision", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { gate: landing() });
   const f = plugin.frame;

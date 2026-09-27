@@ -24,7 +24,10 @@ comments beside the new page.
 }
 ```
 
-`html` is the whole document. The view renders it in a shadow root of its
+`html` is the whole document; or, for one already in a file, `"file":
+{"$attachment": "landing.html"}` in its place, sent with `--attach
+landing.html` (one `.html` file, up to 10 MB). The view renders it in a
+shadow root of its
 own page, so it must be **self-contained**: `<style>` elements inline,
 images and fonts as data URIs. External stylesheets, scripts and images do
 not load, links and forms go nowhere, and scripts do not run — the page is

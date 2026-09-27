@@ -15,7 +15,9 @@ export type Decision = { verdict: Verdict; comments: Comment[] };
 
 export type Payload = {
   title?: string;
-  html: string;
+  /** the document inline, or `file`, the same sent beside the payload */
+  html?: string;
+  file?: { $attachment: string };
   notes?: string;
   viewport?: Viewport;
 };

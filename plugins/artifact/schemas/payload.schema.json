@@ -1,18 +1,61 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "HTML artifact payload",
-  "description": "A self-contained HTML document to review: inline styles, data-URI images and fonts. External resources do not load inside the view.",
+  "description": "A self-contained HTML document to review, inline as `html` or as a file sent beside the payload as `file`: inline styles, data-URI images and fonts. External resources do not load inside the view.",
   "type": "object",
-  "required": ["html"],
   "additionalProperties": false,
   "properties": {
-    "title": { "type": "string", "maxLength": 200, "description": "What the artifact is, shown above it" },
-    "html": { "type": "string", "minLength": 1, "maxLength": 2000000, "description": "The document, complete with <style> elements" },
-    "notes": { "type": "string", "maxLength": 4000, "description": "What the agent wants the reviewer to look at, as markdown" },
+    "title": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "What the artifact is, shown above it"
+    },
+    "html": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000000,
+      "description": "The document, complete with <style> elements; or send it as `file`"
+    },
+    "file": {
+      "type": "object",
+      "required": [
+        "$attachment"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "$attachment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "description": "The document as an .html file sent with --attach, for one too big to inline or already on disk; instead of `html`"
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "What the agent wants the reviewer to look at, as markdown"
+    },
     "viewport": {
       "type": "string",
-      "enum": ["desktop", "tablet", "phone"],
+      "enum": [
+        "desktop",
+        "tablet",
+        "phone"
+      ],
       "description": "The width to open the artifact at; the reviewer can switch"
     }
-  }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "html"
+      ]
+    },
+    {
+      "required": [
+        "file"
+      ]
+    }
+  ]
 }

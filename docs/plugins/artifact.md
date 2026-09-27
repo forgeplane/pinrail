@@ -50,8 +50,10 @@ to Pinrail as an `artifact` and wait:
 
 1. Make the HTML self-contained: styles in `<style>` elements, images and
    fonts as data URIs. Nothing external loads.
-2. Write the payload: `{ "title": "…", "notes": "what to look at", "viewport": "desktop", "html": "<!doctype html>…" }`.
-3. Run: `pinrail submit artifact --title "<page> — round 1" --data page.json --wait`
+2. Write the payload: `{ "title": "…", "notes": "what to look at", "viewport": "desktop", "html": "<!doctype html>…" }`,
+   or, for a page already in a file, `"file": {"$attachment": "page.html"}` in place of `html`.
+3. Run: `pinrail submit artifact --title "<page> — round 1" --data page.json --wait`,
+   adding `--attach page.html` when the payload names a file.
 4. If the verdict is `approve`, ship it. If it is `revise`, apply each
    comment to the element its `selector` names, then submit the new version
    with `--revises <id>`.
@@ -67,6 +69,16 @@ to Pinrail as an `artifact` and wait:
   "viewport": "desktop",
   "html": "<!doctype html><html><head><style>…</style></head><body>…</body></html>"
 }
+```
+
+A page already in a file goes beside the payload instead of inside it: name it as `file` and send it with `--attach`. One `.html` file, up to 10 MB.
+
+```sh
+pinrail submit artifact --title "Ledgerly landing page" --data page.json --attach landing.html --wait
+```
+
+```json title="page.json"
+{ "title": "Ledgerly landing page", "file": { "$attachment": "landing.html" } }
 ```
 
 :::caution[Self-contained HTML only]
