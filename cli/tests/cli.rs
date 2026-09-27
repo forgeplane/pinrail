@@ -623,6 +623,29 @@ fn ids_and_names_stay_one_path_segment() {
 }
 
 #[test]
+fn a_decision_that_cannot_be_rendered_still_exits_as_decided() {
+    // the review ended and its decision arrived; only the markdown failed
+    let server = MockServer::start(Box::new(|_, path, _| {
+        if path.starts_with("/api/v1/reviews/r_1/wait") {
+            (200, review("decided"))
+        } else {
+            (
+                500,
+                r#"{"error":"internal","message":"the template broke","violations":[]}"#.into(),
+            )
+        }
+    }));
+    let (code, stdout, stderr) = run(&server, &["wait", "r_1", "--markdown"]);
+    assert_eq!(code, 0, "decided is decided: {stderr}");
+    assert!(stdout.contains("decided"), "{stdout}");
+    assert!(
+        stdout.contains("\"action\": \"accept\""),
+        "the decision itself: {stdout}"
+    );
+    assert!(stderr.contains("markdown"), "{stderr}");
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {

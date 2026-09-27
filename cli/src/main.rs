@@ -95,7 +95,26 @@ impl Output {
         if self.markdown
             && let Some(id) = review["id"].as_str()
         {
-            println!("{}", client.review_markdown(id)?.trim_end());
+            match client.review_markdown(id) {
+                Ok(markdown) => println!("{}", markdown.trim_end()),
+                // the review is already here: the exit code must still say
+                // how it ended, so print what it holds
+                Err(err) => {
+                    eprintln!(
+                        "pinrail: the review's markdown is unavailable ({err:#}); printing it as it came"
+                    );
+                    println!(
+                        "Review {id}: {}",
+                        review["status"].as_str().unwrap_or("unknown")
+                    );
+                    if !review["decision"]["data"].is_null() {
+                        println!(
+                            "\nDecision:\n\n```json\n{}\n```",
+                            serde_json::to_string_pretty(&review["decision"]["data"])?
+                        );
+                    }
+                }
+            }
             // a review still waiting: how to wait on it
             if review["status"] == "pending" {
                 println!("\nWait for the decision: pinrail wait {id}");
