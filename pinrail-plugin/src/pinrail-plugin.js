@@ -462,10 +462,13 @@
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
         const anchor = e.target && e.target.closest ? e.target.closest("a[href]") : null;
         if (!anchor) return;
-        if (SAFE_HREF.test(anchor.href)) {
+        // the address as written: the resolved one of "#" or a relative
+        // link is the view's own, which is not a page to open
+        const href = anchor.getAttribute("href");
+        if (SAFE_HREF.test(href)) {
           e.preventDefault();
           fn(anchor.href);
-        } else if (anchor.getAttribute("href") === "#") {
+        } else if (href === "#") {
           // a link the renderer emptied, or a control written as one: it
           // goes nowhere, so it should not jump the view to the top either
           e.preventDefault();
