@@ -259,8 +259,13 @@ fn pending(state: &Pinrail) -> Vec<Review> {
     state.reviews().list(&filters).unwrap_or_default()
 }
 
+/// The menu bar icon, and the same at 45% opacity while notifications are
+/// paused or off.
+const TRAY_ICON: &[u8] = include_bytes!("../icons/tray.png");
+const TRAY_PAUSED_ICON: &[u8] = include_bytes!("../icons/tray-paused.png");
+
 pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
-    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+    let icon = tauri::image::Image::from_bytes(TRAY_ICON)?;
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .icon_as_template(true)
@@ -325,18 +330,41 @@ pub fn refresh_tray(app: &AppHandle) {
     };
     let pending = pending(&native.state);
     let count = pending.len();
+    let notifications = notification_settings(&native.state);
+    // dimmed while nothing will notify: paused, or off in Settings
+    let quiet = if !notifications.enabled {
+        Some(" · notifications off".to_string())
+    } else {
+        notifications.paused_until.map(|until| {
+            let local = until.with_timezone(&chrono::Local);
+            format!(" · notifications paused until {}", local.format("%H:%M"))
+        })
+    };
+    let icon = if quiet.is_some() {
+        TRAY_PAUSED_ICON
+    } else {
+        TRAY_ICON
+    };
+    if let Ok(image) = tauri::image::Image::from_bytes(icon) {
+        let _ = tray.set_icon(Some(image));
+        let _ = tray.set_icon_as_template(true);
+    }
     // an empty title, not None: None leaves the old title in place on macOS
     let _ = tray.set_title(Some(if count == 0 {
         String::new()
     } else {
         count.to_string()
     }));
-    let _ = tray.set_tooltip(Some(match count {
-        0 => "Pinrail: nothing pending".to_string(),
-        1 => "Pinrail: 1 review pending".to_string(),
-        n => format!("Pinrail: {n} reviews pending"),
-    }));
-    if let Ok(menu) = menu(app, &pending, &notification_settings(&native.state)) {
+    let _ = tray.set_tooltip(Some(format!(
+        "{}{}",
+        match count {
+            0 => "Pinrail: nothing pending".to_string(),
+            1 => "Pinrail: 1 review pending".to_string(),
+            n => format!("Pinrail: {n} reviews pending"),
+        },
+        quiet.unwrap_or_default()
+    )));
+    if let Ok(menu) = menu(app, &pending, &notifications) {
         let _ = tray.set_menu(Some(menu));
     }
     // The Dock icon carries the count too, for a menu bar that hides the tray.

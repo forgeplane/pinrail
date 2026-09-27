@@ -1,0 +1,21 @@
+<!-- The menu bar icon while notifications are paused or off: tray.svg at 45%
+     opacity, which macOS draws dimmer since it uses only the alpha.
+     The menu bar icon: the mark, R4 "pin, slash, pin", heavier for a 16pt bar,
+     the rail whole and the slash kept clear of the pins, so it reads in one
+     colour. Drawn for a 22pt menu bar at 2x; macOS uses it as
+     a template, so only the alpha counts. Rendered to tray.png with
+     rsvg-convert -w 44 -h 44 tray-paused.svg -o tray-paused.png -->
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" opacity="0.45">
+  <defs>
+    <mask id="clear" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="#fff"/>
+      <g transform="rotate(20 12 13.4)"><rect x="9.6" y="2.2" width="4.8" height="20.6" rx="2.4" fill="#000"/></g>
+    </mask>
+  </defs>
+  <rect x="1.2" y="12.6" width="21.6" height="3.4" rx="1.7"/>
+  <g mask="url(#clear)">
+    <rect x="4" y="3.4" width="3" height="17.6" rx="1.5"/>
+    <rect x="17" y="3.4" width="3" height="17.6" rx="1.5"/>
+  </g>
+  <g transform="rotate(20 12 13.4)"><rect x="10.5" y="3.2" width="3" height="18.6" rx="1.5"/></g>
+</svg>
