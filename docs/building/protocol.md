@@ -23,8 +23,8 @@ The view announces itself with `ready`; the app answers with `init`, and from th
 sequenceDiagram
   participant S as the app
   participant V as your view
-  S->>V: appearance { theme }
   V->>S: ready
+  S->>V: appearance { theme }
   S->>V: init { gate, previous, readonly, draft, settings }
   V->>S: resize { height }
   V->>S: draft { data }
@@ -43,7 +43,7 @@ sequenceDiagram
 | `init` | `gate`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | Once, in answer to `ready`. |
 | `attachment` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `attachment`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
 | `collect` | | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. |
-| `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema. |
+| `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema, or a `settings_set` failed the plugin's settings schema. Settings errors have paths under `/plugins/<name>`, so a view can tell them apart. |
 | `submitted` | `decision` | The decision was accepted. The review is read-only from here. |
 | `appearance` | `theme: "dark" \| "light"` | Before `init`, and whenever the app's theme changes. |
 | `settings` | `settings` | The plugin's own settings changed, in the app or from a view. |

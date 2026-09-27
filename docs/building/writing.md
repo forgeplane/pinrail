@@ -46,16 +46,17 @@ ticket_triage/
 ├── example.json             the smallest payload, for agents
 ├── sample.json              a review to look at
 ├── pinrail-plugin.d.ts      the SDK's types, for your editor
-└── AGENTS.md                the plugin explained to an agent that helps you build it
+├── AGENTS.md                the plugin explained to an agent that helps you build it
+└── CLAUDE.md                points Claude Code to AGENTS.md
 ```
 
 `AGENTS.md` (with a `CLAUDE.md` that points to it) tells a coding agent what each file is for, how the view talks to the app, and how to try it, so you can hand the folder to your agent and describe the plugin you want.
 
 :::note[With a framework, or tests]
-A view in React, Vue or Svelte, with a browser shell and a test harness that run without the app, comes with the SDK package in a later release: see [Building with a framework](/docs/building/frameworks/).
+To build the view with React, Vue or Svelte, or to test it in a browser without the app, use the plugin SDK from a checkout of the Pinrail repository. See [Building with a framework](/docs/building/frameworks/).
 :::
 
-Only the manifest, the schemas, the view and the sample reach the app. `fixtures/`, `tests/`, `src/` and `node_modules/` stay in your repository.
+When the plugin is installed, Pinrail copies the folder except `src/`, `tests/`, `fixtures/`, `node_modules/`, package and tool configuration such as `package.json` and `vite.config.ts`, and hidden files. Everything else, including `AGENTS.md` and `pinrail-plugin.d.ts`, is copied and served with the view.
 
 ## The manifest
 
@@ -226,7 +227,7 @@ Your view does not draw a submit button. The app puts one below every review, in
 Tell the button what it will do with `plugin.status`:
 
 ```js
-plugin.status({ label: `Hand over ${choices.size} of ${tickets.length}` });
+plugin.status({ label: `Hand over ${choices.size} of ${plugin.gate.payload.tickets.length}` });
 ```
 
 ### When the review is read-only
@@ -364,13 +365,13 @@ A fixture is a partial review: a `title`, a `payload`, and optionally a `decisio
 
 A fixture can carry files too, by path relative to the fixture: `"attachments": { "pivot.glb": { "path": "pivot.glb" } }`.
 
-A fixture is also a request the app takes as it is, files and all, so the same round can be sent to the app to see it there:
+A fixture is also a request that the app accepts as it is, files included, so you can send the same review to the app to see it there:
 
 ```sh
-pinrail submit model --request fixtures/halden.json
+pinrail submit ticket_triage --request fixtures/basic.json
 ```
 
-Tests that mount the view alone, drive it the way a person would and read back exactly what it submits come with the SDK package's test harness, in a later release.
+To test the view on its own, in a browser without the app, use the test harness of the plugin SDK. The tests mount the view, use it the way a person would, and read back exactly what it submits. See the [SDK's README](https://github.com/forgeplane/pinrail/tree/main/pinrail-plugin#readme).
 
 ## Versions
 
