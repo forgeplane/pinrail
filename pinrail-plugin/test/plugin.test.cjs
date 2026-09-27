@@ -295,6 +295,10 @@ test("icon markup takes the name, the colour of its text, and nothing from a pay
 
   assert.match(Pinrail.icon("check", { size: 18 }), /--wi-size:18px/);
   assert.match(Pinrail.icon("check", { size: "1.25em" }), /--wi-size:1\.25em/);
+  // a size taken from a payload cannot leave the style attribute
+  const breakout = Pinrail.icon("check", { size: '1px" onmouseover="alert(1)' });
+  assert.doesNotMatch(breakout, /onmouseover/);
+  assert.doesNotMatch(breakout, /--wi-size/);
   assert.match(Pinrail.icon("check", { class: "spacer" }), /class="wi spacer"/);
 
   const named = Pinrail.icon("trash-2", { label: "delete" });

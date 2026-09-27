@@ -416,7 +416,11 @@
   function icon(name, options) {
     options = options || {};
     const safe = String(name == null ? "" : name).toLowerCase().replace(/[^a-z0-9-]/g, "");
-    const size = options.size == null ? "" : `--wi-size:${typeof options.size === "number" ? options.size + "px" : options.size};`;
+    // a number of pixels, or a length such as "1.25em"; anything else is ignored
+    const length = typeof options.size === "number" && Number.isFinite(options.size) ? options.size + "px"
+      : typeof options.size === "string" && /^[0-9.]+(px|em|rem|%)$/.test(options.size) ? options.size
+      : null;
+    const size = length ? `--wi-size:${length};` : "";
     const extra = options.class ? " " + escape(options.class) : "";
     const described = options.label
       ? ` role="img" aria-label="${escape(options.label)}"`
