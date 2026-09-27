@@ -18,10 +18,10 @@ others are installed one at a time:
 | [`model/`](model/README.md) | candidate 3D models (glTF or three.js JSON) on a stage to orbit, from set views and the agent's own, under three lights: pick a favourite, keep or drop the rest, ask for changes to parts of a model |
 | [`hello/`](hello/README.md) | the smallest complete plugin, to copy from |
 
-Register a directory of plugins (each immediate subdirectory is one plugin):
+Link a plugin folder, and the app serves it as it is on disk:
 
 ```sh
-pinrail types add ./plugins        # or via the API: POST /api/types/dirs {"dir": "..."}
+pinrail plugins install ./plugins/review --link
 ```
 
 ## Layout
@@ -190,9 +190,9 @@ folder without its sources, attach.
 
 ## Decisions as markdown
 
-An agent that ran `pinrail create … --wait` reads the
+An agent that ran `pinrail submit … --wait` reads the
 decision as prose: the title, where the review sits, who decided and
-when with a tally, the reviewer's note, then the decision. The app renders
+when, the reviewer's note, then the decision. The app renders
 the decision by its shape: every array of objects becomes a headed list,
 an `id` and an `action` or `verdict` lead each bullet in bold, a `file`
 and `line` or a `selector` come next in backticks, a `title`, `subject`,
@@ -244,7 +244,7 @@ The quickest loop is a decided review in the running app: create one
 from a fixture, decide it, and read it back.
 
 ```sh
-pinrail create review --data <(jq .payload fixtures/dedup-round-2.json) --title "Template check" --json > /tmp/r.json
+pinrail submit review --data <(jq .payload fixtures/dedup-round-2.json) --title "Template check" --json > /tmp/r.json
 pinrail decide "$(jq -r .id /tmp/r.json)" --data <(jq .decision.data fixtures/dedup-round-1.decided.json) --note "looks right"
 pinrail show "$(jq -r .id /tmp/r.json)"
 ```

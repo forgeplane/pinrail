@@ -18,7 +18,7 @@ pinrail plugins install . --link       # the app serves this folder live; keep t
 Then, from an agent's session:
 
 ```sh
-pinrail create __NAME__ --title "Push the branch?" --data payload.json --wait
+pinrail submit __NAME__ --title "Push the branch?" --data example.json --wait
 ```
 
 ## Layout

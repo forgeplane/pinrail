@@ -7,9 +7,9 @@ lines, then copy the directory to start your own type.
 Payload: `{ "message": "..." }`. Decision: `{ "ok": true }`, optionally
 with `"comment"`.
 
-Register the parent directory and create a gate:
+Link the folder and send it a review:
 
 ```sh
-pinrail types add ./plugins
-pinrail create hello --title "Push the branch?" --data <(echo '{"message":"3 commits, CI green. Push?"}') --wait
+pinrail plugins install ./plugins/hello --link
+pinrail submit hello --title "Push the branch?" --data plugins/hello/example.json --wait
 ```
