@@ -37,7 +37,18 @@ export function SettingsRow({ label, description, children, note, icon, onClick 
       <div className="settings-text" onClick={onClick}>
         <div className="settings-label">{label}</div>
         {description ? <div className="settings-desc">{description}</div> : null}
-        {note ? <div className="settings-note">{note}</div> : null}
+        {note ? (
+          // a control in the note does what it says, and only that: its
+          // click does not also fold the row
+          <div
+            className="settings-note"
+            onClick={(event) => {
+              if ((event.target as HTMLElement).closest("button, a, input, select, textarea")) event.stopPropagation();
+            }}
+          >
+            {note}
+          </div>
+        ) : null}
       </div>
       {children ? <div className="settings-control">{children}</div> : null}
     </div>
