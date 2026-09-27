@@ -1251,10 +1251,15 @@ fn wait(
                         }
                         EXIT_DISCARDED
                     }
-                    _ => {
+                    "withdrawn" | "expired" => {
                         eprintln!("pinrail: review {id} was {status}, not decided");
                         EXIT_CLOSED
                     }
+                    // a status a newer app knows and this CLI does not: an
+                    // exit code for it would be a guess
+                    other => anyhow::bail!(
+                        "review {id} ended as {other:?}, which this pinrail does not know; update the pinrail command"
+                    ),
                 });
             }
             Ok(None) => continue,

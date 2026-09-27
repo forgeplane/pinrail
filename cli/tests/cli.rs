@@ -660,6 +660,18 @@ fn an_install_answer_with_no_job_says_so() {
 }
 
 #[test]
+fn a_status_the_cli_does_not_know_is_an_error_not_an_ending() {
+    // a newer server, or a body that is not a review: exit 3 would tell the
+    // agent that nobody decided
+    let server = MockServer::start(Box::new(|_, _, _| {
+        (200, r#"{"id":"r_1","plugin":"list","title":"t","status":"archived","decision":null,"payload":{}}"#.into())
+    }));
+    let (code, _, stderr) = run(&server, &["wait", "r_1"]);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("archived"), "{stderr}");
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
