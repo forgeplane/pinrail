@@ -1,6 +1,6 @@
 {
   "name": "feedback",
-  "version": "1.0.0",
+  "version": 1,
   "title": "Feedback",
   "description": "Questions answered in one pass: choices, yes or no, free text, each with an optional recommendation.",
   "use_when": "You are blocked on decisions only the person can make, such as choices between options, missing facts or preferences, and want them answered before you go on.",

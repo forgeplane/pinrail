@@ -2,7 +2,7 @@
 // app ships that someone else wrote. The Rust crates of the desktop app and of
 // the bundled CLI come from cargo-about; the npm packages in the UI bundle from
 // the production build (vite.config.ts writes notices/npm.json); the Lucide
-// icons the app serves to plugins and the font the window draws in are added
+// icons in the official plugins and the font the window draws in are added
 // by hand. Each distinct licence
 // text is printed once, after the packages that use it.
 //
