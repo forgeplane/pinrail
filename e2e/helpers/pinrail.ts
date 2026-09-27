@@ -50,13 +50,15 @@ export function startWaiter(args: string[]): Waiter {
   let stderr = "";
   proc.stdout!.on("data", (d) => (stdout += d));
   // `submit` announces the review on stderr; `wait` already knows it
-  const reviewId = new Promise<string>((resolve) => {
+  const reviewId = new Promise<string>((resolve, reject) => {
     if (args[0] !== "submit") return resolve(args[1]);
     proc.stderr!.on("data", (d) => {
       stderr += d;
       const m = stderr.match(/review (r_[0-9A-Z]+) submitted/);
       if (m) resolve(m[1]);
     });
+    // a submit refused or crashed says why, rather than the test timing out
+    proc.on("close", (code) => reject(new Error(`submit exited ${code} without a review:\n${stderr}`)));
   });
   if (args[0] !== "submit") proc.stderr!.on("data", (d) => (stderr += d));
   // "close", not "exit": a child's output can still be arriving when it exits,
