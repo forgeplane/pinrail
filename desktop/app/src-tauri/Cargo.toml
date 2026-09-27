@@ -4,6 +4,7 @@ description = "The pinrail desktop app: the review server with a menu-bar shell"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [lib]
 name = "pinrail_desktop"

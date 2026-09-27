@@ -4,6 +4,7 @@ description = "The pinrail review server as a library: storage, plugins, validat
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [features]
 # The docs' reference pages, rendered from the tables the core reads:
