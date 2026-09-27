@@ -867,6 +867,7 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Plugins(args) => {
+            let mut failed = false;
             let value = match args.command {
                 None if output.markdown => {
                     print!("{}", describe::listing(&client.plugins()?));
@@ -910,7 +911,17 @@ fn run(cli: Cli) -> Result<u8> {
                         } else if install["linked"] == true {
                             json!({ "name": name, "state": "linked", "source": install["source"] })
                         } else {
-                            client.plugins_update(name)?
+                            // one that fails is said, and the rest still go
+                            client.plugins_update(name).unwrap_or_else(|err| {
+                                failed = true;
+                                let error = match err.downcast_ref::<ApiError>() {
+                                    Some(api) => api.body["message"]
+                                        .as_str()
+                                        .map_or_else(|| api.to_string(), str::to_string),
+                                    None => format!("{err:#}"),
+                                };
+                                json!({ "name": name, "state": "failed", "error": error })
+                            })
                         });
                     }
                     Value::Array(answers)
@@ -927,7 +938,7 @@ fn run(cli: Cli) -> Result<u8> {
                 }
             };
             output.data(&value, md::plugins_result);
-            Ok(0)
+            Ok(if failed { EXIT_REFUSED } else { 0 })
         }
         Command::Export { dir } => {
             let count = out::export(&client, &dir)?;

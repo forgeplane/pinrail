@@ -1637,6 +1637,32 @@ fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
 }
 
 #[test]
+fn plugins_update_without_a_name_reports_every_plugin_when_one_fails() {
+    // one failure in the middle: what was updated before it, and what comes
+    // after it, still has to be said
+    let server = MockServer::start(Box::new(|method, path, _| {
+        match (method, path) {
+        ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[
+            {"name":"first","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/first"}},
+            {"name":"broken","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/broken"}},
+            {"name":"last","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/last"}}]}"#.into()),
+        ("POST", "/api/v1/plugins/first/update") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
+        ("POST", "/api/v1/plugins/broken/update") => (422, r#"{"error":"invalid","message":"github.com/acme/broken could not be fetched","violations":[]}"#.into()),
+        ("POST", "/api/v1/plugins/last/update") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "update", "--markdown"]);
+    assert_eq!(code, 2, "a failure is still a failure: {stderr}");
+    assert_eq!(
+        stdout,
+        "first: up to date, 1.0.0\n\
+         broken: failed: github.com/acme/broken could not be fetched\n\
+         last: up to date, 1.0.0\n"
+    );
+}
+
+#[test]
 fn plugins_check_asks_the_app_about_the_folder_and_exits_by_its_verdict() {
     let dir = tempdir();
     let verdicts = Arc::new(Mutex::new(vec![

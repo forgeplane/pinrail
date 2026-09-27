@@ -196,6 +196,11 @@ pub fn plugins_result(value: &Value) -> String {
             text(&value["name"]),
             text(&value["version"])
         ),
+        (Some("failed"), ..) => format!(
+            "{}: failed: {}\n",
+            text(&value["name"]),
+            text(&value["error"])
+        ),
         (Some("built_in"), ..) => {
             format!("{}: built in, updated with the app\n", text(&value["name"]))
         }
