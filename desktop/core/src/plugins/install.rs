@@ -549,8 +549,8 @@ fn prepare(
                 .ok()
                 .and_then(|m| m.get("version").and_then(crate::plugins::version_of))
                 .map(|(v, _)| v);
-            let tagged = release.tag.trim_start_matches('v');
-            if declared.as_deref() != Some(tagged) {
+            let tagged = tag_version(&release.tag).map(|(_, version)| version);
+            if declared.as_deref() != tagged {
                 let _ = std::fs::remove_dir_all(&release.scratch);
                 return Err(Error::invalid(
                     "/source",
@@ -568,7 +568,9 @@ fn prepare(
                     kind: "release",
                     source: source.trim().to_string(),
                     resolved: serde_json::json!({
-                        "owner": owner, "repo": repo, "tag": release.tag, "pinned": tag.is_some(),
+                        // a tag of one plugin's series is followed, not pinned
+                        "owner": owner, "repo": repo, "tag": release.tag,
+                        "pinned": tag.as_deref().is_some_and(|t| tag_version(t).is_none_or(|(series, _)| series.is_empty())),
                         "asset": release.asset_name, "asset_url": release.asset_url,
                         "asset_size": release.asset_size,
                     })
@@ -993,19 +995,50 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             }
             let owner = resolved["owner"].as_str().unwrap_or_default();
             let repo = resolved["repo"].as_str().unwrap_or_default();
-            let latest = github_get(&format!(
-                "{}/repos/{owner}/{repo}/releases/latest",
-                registry.github_api()
-            ))
-            .and_then(|mut r| {
-                r.body_mut()
-                    .read_json::<Value>()
-                    .map_err(|e| Error::Internal(e.to_string()))
-            });
+            let read = |url: String| {
+                github_get(&url).and_then(|mut r| {
+                    r.body_mut()
+                        .read_json::<Value>()
+                        .map_err(|e| Error::Internal(e.to_string()))
+                })
+            };
+            let series = resolved["tag"]
+                .as_str()
+                .and_then(tag_version)
+                .map(|(series, _)| series.to_string())
+                .unwrap_or_default();
+            let latest = if series.is_empty() {
+                read(format!(
+                    "{}/repos/{owner}/{repo}/releases/latest",
+                    registry.github_api()
+                ))
+            } else {
+                // the repository's latest release may be another plugin's or
+                // the repository's own: the newest of this plugin's series
+                read(format!(
+                    "{}/repos/{owner}/{repo}/releases?per_page=100",
+                    registry.github_api()
+                ))
+                .map(|all| {
+                    all.as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|r| {
+                            let tag = r["tag_name"].as_str()?;
+                            let (s, version) = tag_version(tag)?;
+                            (s == series).then(|| (semver(version), r.clone()))
+                        })
+                        .max_by_key(|(version, _)| *version)
+                        .map(|(_, r)| r)
+                        .unwrap_or(Value::Null)
+                })
+            };
             match latest {
                 Ok(v) => {
                     let tag = v["tag_name"].as_str().unwrap_or_default().to_string();
-                    let version = tag.trim_start_matches('v').to_string();
+                    let version = tag_version(&tag)
+                        .map(|(_, version)| version.to_string())
+                        .unwrap_or_default();
                     if semver(&version) > semver(&record.version) {
                         serde_json::json!({ "state": "available", "tag": tag, "version": version, "installed": record.version })
                     } else {
@@ -1431,6 +1464,21 @@ fn copy_tree(from: &Path, to: &Path, skip: &[&str]) -> std::io::Result<()> {
 }
 
 /// "1.2.3" as something that orders; anything else sorts first.
+/// A release tag's series and version. `1.2.0` and `v1.2.0` are the
+/// repository's own series; `plugin-review-v1.2.0` is one plugin's series in
+/// a repository that releases several. None when what follows the last `v`
+/// is not a semantic version.
+fn tag_version(tag: &str) -> Option<(&str, &str)> {
+    let tag = tag.trim();
+    let is_version = |text: &str| crate::plugins::version_of(&Value::from(text)).is_some();
+    if is_version(tag) {
+        return Some(("", tag));
+    }
+    let at = tag.rfind('v')?;
+    let version = &tag[at + 1..];
+    is_version(version).then(|| (&tag[..at], version))
+}
+
 pub fn semver(text: &str) -> (u64, u64, u64) {
     let mut parts = text.split('.').map(|p| p.parse::<u64>().unwrap_or(0));
     (

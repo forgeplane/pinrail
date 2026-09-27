@@ -12,7 +12,7 @@ pinrail plugins install https://github.com/acme/ticket-triage/releases
 ## What a release needs
 
 - **One `.zip` that is the bundle.** It holds `manifest.json`, the schemas and the view, either at the root of the archive or inside a single folder, the way most zip tools lay it out. If you attach several zips, name the bundle `pinrail-plugin.zip`.
-- **A tag that matches the manifest's version**, with or without a leading `v`. A release tagged `v1.2.0` whose manifest says `1.1.0` is refused.
+- **A tag that matches the manifest's version**, with or without a leading `v`. A release tagged `v1.2.0` whose manifest says `1.1.0` is refused. A repository that releases several plugins can put the plugin's name before the version, as in `review-v1.2.0`. Pinrail then checks for updates only among the releases whose tags start with the same name.
 - **Only what the app serves.** Leave out sources, tests, fixtures, `node_modules` and tool configuration. Anything else in the zip is served with the view.
 
 ## Publish with GitHub Actions

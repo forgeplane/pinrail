@@ -2857,6 +2857,23 @@ async fn releases_server(fake: Arc<Releases>) -> String {
             ),
         )
         .route(
+            "/repos/{owner}/{repo}/releases",
+            get(
+                |State(f): State<Arc<Releases>>, P((owner, repo)): P<(String, String)>| async move {
+                    let name = format!("{owner}/{repo}");
+                    let all: Vec<Value> = f
+                        .releases
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .filter(|((r, _), _)| *r == name)
+                        .map(|(_, v)| v.clone())
+                        .collect();
+                    axum::Json(all)
+                },
+            ),
+        )
+        .route(
             "/assets/{name}",
             get(
                 |State(f): State<Arc<Releases>>, P(name): P<String>| async move {
@@ -2887,6 +2904,52 @@ impl Releases {
     fn latest(&self, repo: &str, tag: &str) {
         self.latest.lock().unwrap().insert(repo.into(), tag.into());
     }
+}
+
+/// A repository that releases several plugins, and the app itself, tags each
+/// release `<name>-v<version>`, as the official plugins are released.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_release_tagged_with_the_plugins_name_installs_and_follows_its_own_releases() {
+    let mut assets = std::collections::HashMap::new();
+    for version in ["1.0.0", "1.1.0"] {
+        assets.insert(
+            format!("review-{version}.zip"),
+            zipped(&[
+                ("manifest.json", &bundle_manifest("review", version)),
+                ("index.html", "<html>review</html>"),
+            ]),
+        );
+    }
+    let fake = Arc::new(Releases {
+        latest: Default::default(),
+        releases: Default::default(),
+        assets,
+        base: Default::default(),
+    });
+    let base = releases_server(fake.clone()).await;
+    let app = app_with(|c| c.github_api = base.clone());
+    fake.release("acme/mono", "plugin-review-v1.0.0", &["review-1.0.0.zip"]);
+    // the repository's latest release is the app's, and another plugin's is newer
+    fake.release("acme/mono", "v9.0.0", &[]);
+    fake.release("acme/mono", "plugin-other-v5.0.0", &[]);
+    fake.latest("acme/mono", "v9.0.0");
+
+    let (status, row) = install(
+        &app,
+        Path::new("https://github.com/acme/mono/releases/tag/plugin-review-v1.0.0"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["release"], "1.0.0", "{row}");
+
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/review/updates", None).await;
+    assert_eq!(updates["state"], "up_to_date", "{updates}");
+    fake.release("acme/mono", "plugin-review-v1.1.0", &["review-1.1.0.zip"]);
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/review/updates", None).await;
+    assert_eq!(updates["state"], "available", "{updates}");
+    assert_eq!(updates["tag"], "plugin-review-v1.1.0", "{updates}");
+    assert_eq!(updates["version"], "1.1.0", "{updates}");
 }
 
 #[tokio::test(flavor = "multi_thread")]
