@@ -23,8 +23,11 @@ pub struct Plugin {
     pub min_height: u32,
     pub dev: bool,
     pub editorial: bool,
-    /// A lucide icon name, shown wherever the plugin is named.
+    /// The plugin's icon, the SVG markup of the file its manifest names,
+    /// shown wherever the plugin is named; `icon_error` says why a declared
+    /// one was dropped.
     pub icon: Option<String>,
+    pub icon_error: Option<String>,
     pub manifest: Map<String, Value>,
     pub payload_schema: Option<Schema>,
     pub decision_schema: Option<Schema>,
@@ -144,6 +147,7 @@ impl Plugin {
                 dev: false,
                 editorial: false,
                 icon: None,
+                icon_error: None,
                 manifest: Map::new(),
                 payload_schema: None,
                 decision_schema: None,
@@ -195,10 +199,15 @@ impl Plugin {
         if !dir.join(&entry).is_file() {
             return Err(format!("entry {entry} not found"));
         }
-        let icon = manifest
-            .get("icon")
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        // an icon that does not load costs the plugin its icon, not its place
+        let (icon, icon_error) = match manifest.get("icon") {
+            _ if shape.dropped.contains_key("icon") => (None, shape.dropped.get("icon").cloned()),
+            Some(Value::String(file)) => match icon_markup(dir, file) {
+                Ok(svg) => (Some(svg), None),
+                Err(message) => (None, Some(message)),
+            },
+            _ => (None, None),
+        };
 
         let payload_schema = Schema::compile(
             dir,
@@ -320,6 +329,7 @@ impl Plugin {
             dev: manifest.get("dev") == Some(&Value::Bool(true)),
             editorial: manifest.get("editorial") == Some(&Value::Bool(true)),
             icon,
+            icon_error,
             manifest,
             payload_schema: Some(payload_schema),
             decision_schema: Some(decision_schema),
@@ -477,6 +487,7 @@ impl Plugin {
             ("decision_template", &self.template_error),
             ("example", &self.example_error),
             ("sample", &self.sample_error),
+            ("icon", &self.icon_error),
         ]
         .into_iter()
         .filter_map(|(key, error)| {
@@ -507,6 +518,7 @@ impl Plugin {
             "dev": self.dev,
             "editorial": self.editorial,
             "icon": self.icon,
+            "icon_error": self.icon_error,
             "usable": self.usable(),
             "error": self.error,
             "payload_schema": self.manifest.get("payload_schema"),
@@ -525,6 +537,30 @@ impl Plugin {
             "install": self.install.as_ref().map(Install::to_json),
         })
     }
+}
+
+/// The largest icon file the app takes: an icon is a few paths.
+const ICON_MAX_BYTES: u64 = 32 * 1024;
+
+/// The markup of a plugin's icon, the SVG file `file` names inside `dir`.
+/// The app draws it as a mask, in the text's colour, so its shapes count and
+/// its colours do not; nothing in it runs.
+pub fn icon_markup(dir: &Path, file: &str) -> Result<String, String> {
+    let path = crate::schema::safe_join(dir, file).ok_or_else(|| format!("{file}: outside the plugin's folder"))?;
+    let size = std::fs::metadata(&path)
+        .map_err(|e| format!("{file}: cannot read ({e})"))?
+        .len();
+    if size > ICON_MAX_BYTES {
+        return Err(format!("{file}: {size} bytes; an icon is at most {ICON_MAX_BYTES}"));
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{file}: cannot read ({e})"))?;
+    let svg = text.trim();
+    // an XML declaration or a comment may come first; the root is <svg>
+    let start = svg.find("<svg").ok_or_else(|| format!("{file}: not an SVG"))?;
+    if !svg.ends_with("</svg>") && !svg.ends_with("/>") {
+        return Err(format!("{file}: not an SVG"));
+    }
+    Ok(svg[start..].to_string())
 }
 
 /// The keys a plugin's view answers: a list of `{keys, does, group?}`,
@@ -553,6 +589,7 @@ mod shape {
         "decision_template",
         "example",
         "sample",
+        "icon",
     ];
 
     pub struct Shape {
@@ -855,6 +892,40 @@ mod tests {
     }
 
     #[test]
+    fn an_icon_is_the_markup_of_its_svg_file_and_a_bad_one_costs_only_the_icon() {
+        use serde_json::json;
+        let tmp = tempfile::tempdir().unwrap();
+        let ok = with_manifest(tmp.path(), "ok", manifest(json!({"icon": "icons/mark.svg"})));
+        std::fs::create_dir_all(ok.join("icons")).unwrap();
+        std::fs::write(
+            ok.join("icons/mark.svg"),
+            "<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M4 4h16\"/></svg>\n",
+        )
+        .unwrap();
+        let p = Plugin::load(&ok);
+        assert!(p.icon.as_deref().unwrap_or_default().starts_with("<svg xmlns"), "{:?}", p.icon);
+        assert!(p.icon_error.is_none());
+
+        for (i, (changes, why)) in [
+            (json!({"icon": "mail"}), "icon: "),
+            (json!({"icon": "missing.svg"}), "missing.svg: cannot read"),
+            (json!({"icon": "../outside.svg"}), "icon: "),
+            (json!({"icon": "not.svg"}), "not.svg: not an SVG"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let dir = with_manifest(tmp.path(), &format!("bad{i}"), manifest(changes.clone()));
+            std::fs::write(dir.join("not.svg"), "hello").unwrap();
+            let p = Plugin::load(&dir);
+            assert!(p.usable(), "{changes}: {:?}", p.error);
+            assert!(p.icon.is_none(), "{changes}");
+            let error = p.icon_error.clone().unwrap_or_default();
+            assert!(error.starts_with(why), "{changes}: {error}");
+        }
+    }
+
+    #[test]
     fn a_manifest_that_breaks_its_schema_is_refused_and_says_where() {
         use serde_json::json;
         let tmp = tempfile::tempdir().unwrap();
@@ -881,9 +952,6 @@ mod tests {
             (json!({"version": true}), "version: "),
             (json!({"title": 3}), "title: "),
             (json!({"description": ["a"]}), "description: "),
-            (json!({"icon": "Mail"}), "icon: "),
-            (json!({"icon": "-mail"}), "icon: "),
-            (json!({"icon": "git--branch"}), "icon: "),
             (
                 json!({"payload_schema": "schemas/payload.json"}),
                 "payload_schema: ",

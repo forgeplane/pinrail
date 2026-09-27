@@ -51,8 +51,10 @@
     },
     "icon": {
       "type": ["string", "null"],
-      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "A Lucide icon name, such as `mail` or `git-pull-request`, shown beside the plugin's reviews."
+      "minLength": 1,
+      "pattern": "^[^/\\u0000][^\\u0000]*\\.svg$",
+      "not": { "type": "string", "pattern": "\\.\\." },
+      "description": "An SVG file beside the manifest, shown beside the plugin's reviews, such as `icon.svg`. The app draws it in the text's colour at 13 to 16 px, as it draws its own Lucide icons: a 24 × 24 outline in `currentColor` fits best. At most 32 KB. One that does not load costs the plugin its icon, not its place."
     },
     "payload_schema": {
       "type": "object",

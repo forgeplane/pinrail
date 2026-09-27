@@ -455,7 +455,11 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
         "version": version,
         "major": major,
         "title": manifest.get("title").and_then(Value::as_str).unwrap_or(&name),
-        "icon": manifest.get("icon").and_then(Value::as_str),
+        // the icon's markup, as the app shows an installed plugin's
+        "icon": manifest
+            .get("icon")
+            .and_then(Value::as_str)
+            .and_then(|file| super::manifest::icon_markup(&prepared.dir, file).ok()),
         "entry": manifest.get("entry").and_then(Value::as_str).unwrap_or("index.html"),
         "build": build,
         // the files it takes beside a payload, for the dialog to say before the yes

@@ -4,7 +4,7 @@
   "title": "Logo review",
   "description": "Candidate logo marks, shown the way they will live: at every size, as app icons, in a browser tab and a menu bar, and beside the wordmark, in the brand's own colours. Pick a favourite, keep or drop the rest.",
   "use_when": "You designed candidate logo marks, app icons or favicons as SVG and need a person to pick one, shortlist or drop the rest, and ask for changes to parts of a mark.",
-  "icon": "shapes",
+  "icon": "icon.svg",
   "payload_schema": {
     "$ref": "schemas/payload.schema.json"
   },

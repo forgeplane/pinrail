@@ -4,7 +4,7 @@
   "title": "Ship it?",
   "description": "A deploy waiting on a person: what goes out and how the checks went, to ship or to hold with a note.",
   "use_when": "You are about to deploy and need a person to say ship or hold, having seen the changes going out and the checks.",
-  "icon": "rocket",
+  "icon": "icon.svg",
   "payload_schema": {
     "$ref": "schemas/payload.schema.json"
   },

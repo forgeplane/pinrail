@@ -70,7 +70,7 @@ const entries = [
     name: "ISC License",
     id: "ISC",
     text: fs.readFileSync(path.join(root, "pinrail-plugin", "licenses", "lucide-icons.txt"), "utf8"),
-    packages: ["Lucide icons (lucide-static 1.45.0)"],
+    packages: ["Lucide icons, in the official plugins"],
   },
   // the font files the window draws in, imported as CSS
   shipped("@fontsource-variable/inter", { name: "SIL Open Font License 1.1", id: "OFL-1.1" }),

@@ -22,6 +22,18 @@ const FILES: &[(&str, &str)] = &[
         include_str!("../../pinrail-plugin/templates/plain/view/view.js"),
     ),
     (
+        "icon.svg",
+        include_str!("../../pinrail-plugin/templates/plain/icon.svg"),
+    ),
+    (
+        "view/icons/check.svg",
+        include_str!("../../pinrail-plugin/templates/plain/view/icons/check.svg"),
+    ),
+    (
+        "view/icons/x.svg",
+        include_str!("../../pinrail-plugin/templates/plain/view/icons/x.svg"),
+    ),
+    (
         "schemas/payload.schema.json",
         include_str!("../../pinrail-plugin/templates/common/schemas/payload.schema.json"),
     ),

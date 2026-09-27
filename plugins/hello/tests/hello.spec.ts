@@ -100,7 +100,8 @@ test("an icon paints inside the sandbox and takes the colour of its button", asy
   const fetched: Record<string, number> = {};
   const blocked: string[] = [];
   page.on("response", (r) => {
-    if (r.url().includes("/sdk/v1/icons/")) fetched[r.url().split("/").pop()!] = r.status();
+    // the plugin's own icons, beside its view
+    if (r.url().includes("/view/icons/")) fetched[r.url().split("/").pop()!] = r.status();
   });
   page.on("console", (m) => {
     if (/content security policy/i.test(m.text())) blocked.push(m.text());
@@ -123,7 +124,7 @@ test("an icon paints inside the sandbox and takes the colour of its button", asy
       height: Math.round(box.height),
       colour: style.backgroundColor,
       textColour: getComputedStyle(el.closest("button")!).color,
-      mask: (style.maskImage || (style as any).webkitMaskImage || "").includes("/sdk/v1/icons/check.svg"),
+      mask: (style.maskImage || (style as any).webkitMaskImage || "").includes("/view/icons/check.svg"),
     };
   });
   expect(painted.width).toBeGreaterThan(8);

@@ -141,7 +141,8 @@ test("a plugin view loads images and fonts from the app, and from nowhere else",
       };
       const out = {
         imageOff: await image(`${urls.refused}?leak=secret`),
-        imageFromSdk: await image(`${urls.core}/sdk/v1/icons/check.svg`),
+        // the plugin's own icon, beside its view
+        imageFromPlugin: await image(new URL("icon.svg", document.baseURI).href),
         fontOff: await font(urls.refused),
         fontFromSdk: await font(urls.sdkFont),
         rules: [] as string[],
@@ -166,6 +167,6 @@ test("a plugin view loads images and fonts from the app, and from nowhere else",
   // The other half: the app serves the icon set and the typeface it draws
   // itself in, so a view looks like the window around it without reaching
   // outside. If either of these breaks, panels silently fall back.
-  expect(load.imageFromSdk, "the icon set the app serves must load").toBe("loaded");
+  expect(load.imageFromPlugin, "a plugin's own icons must load").toBe("loaded");
   expect(load.fontFromSdk, "the typeface the app serves must load").toBe("loaded");
 });

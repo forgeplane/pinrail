@@ -1,7 +1,6 @@
 // Assembles the directory the server serves at /sdk/v1/: the plugin SDK from
-// pinrail-plugin/src, the optional markdown module, the icon set plugin views
-// draw from, and the font the window itself is drawn in. The icons come from the pinned lucide-static
-// package, the same release pinrail-plugin depends on; the font from the same
+// pinrail-plugin/src, the optional markdown module, and the font the window
+// itself is drawn in. Plugins bring their own icons. The font comes from the same
 // package the shell bundles, so a plugin panel and the window around it are
 // set in one typeface. The app carries the files so it draws the same with no
 // network at all; the SDK dev server points the same import at a CDN instead
@@ -13,22 +12,15 @@ import { sdkScript } from "../../../pinrail-plugin/lib/paths.cjs";
 
 const app = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sdkSrc = path.resolve(app, "..", "..", "pinrail-plugin", "src");
-const icons = path.resolve(app, "node_modules", "lucide-static", "icons");
 const font = path.resolve(app, "node_modules", "@fontsource-variable", "inter");
 const out = path.join(app, "sdk", "v1");
 
 fs.rmSync(out, { recursive: true, force: true });
-fs.mkdirSync(path.join(out, "icons"), { recursive: true });
+fs.mkdirSync(out, { recursive: true });
 // pinrail-plugin.js is assembled below rather than copied: it carries a parser
 for (const file of fs.readdirSync(sdkSrc)) {
   if (file === "pinrail-plugin.js") continue;
   fs.copyFileSync(path.join(sdkSrc, file), path.join(out, file));
-}
-let count = 0;
-for (const file of fs.readdirSync(icons)) {
-  if (!file.endsWith(".svg")) continue;
-  fs.copyFileSync(path.join(icons, file), path.join(out, "icons", file));
-  count += 1;
 }
 // the weight axis, every script, normal only: what the shell imports
 fs.mkdirSync(path.join(out, "files"), { recursive: true });
@@ -45,4 +37,4 @@ fs.copyFileSync(path.join(font, "wght.css"), path.join(out, "fonts.css"));
 // no others.
 fs.writeFileSync(path.join(out, "pinrail-plugin.js"), sdkScript(app, sdkSrc));
 
-console.log(`sdk: ${fs.readdirSync(sdkSrc).length} SDK files, ${count} icons and ${faces.length} font files in ${path.relative(app, out)}`);
+console.log(`sdk: ${fs.readdirSync(sdkSrc).length} SDK files and ${faces.length} font files in ${path.relative(app, out)}`);

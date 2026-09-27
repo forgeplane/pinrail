@@ -33,6 +33,7 @@ test("the plain template is a whole plugin, named throughout", async () => {
     "README.md",
     "example.json",
     "fixtures/basic.json",
+    "icon.svg",
     "manifest.json",
     "package.json",
     "pinrail-plugin.d.ts",
@@ -41,6 +42,8 @@ test("the plain template is a whole plugin, named throughout", async () => {
     "schemas/decision.schema.json",
     "schemas/payload.schema.json",
     "tests/ticket_triage.spec.ts",
+    "view/icons/check.svg",
+    "view/icons/x.svg",
     "view/index.html",
     "view/view.js",
   ]);

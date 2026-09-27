@@ -15,13 +15,11 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveAttachments } from "../harness/attachments.cjs";
-import { iconsDir, packageRoot, sdkScript } from "../lib/paths.cjs";
+import { packageRoot, sdkScript } from "../lib/paths.cjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = packageRoot(fileURLToPath(import.meta.url));
 const sdkSrc = path.join(root, "src");
-// A plugin's icons simply do not render when no set is found.
-const iconDir = iconsDir(root);
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -198,7 +196,7 @@ export function serve(argv) {
         return send(res, 404, "no such attachment");
       }
     }
-    if (p === "/dev/stamp") return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir, icons: !!iconDir }), { "content-type": "application/json" });
+    if (p === "/dev/stamp") return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir }), { "content-type": "application/json" });
     if (p === "/sdk/v1/fonts.css") {
       return send(res, 200, fontsCss(), { "content-type": "text/css", "access-control-allow-origin": "*" });
     }
@@ -207,10 +205,6 @@ export function serve(argv) {
       return send(res, 200, sdkScript(root), { "content-type": mime[".js"], "access-control-allow-origin": "*" });
     }
     if (p === "/sdk/v1/pinrail-plugin.css") return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
-    if (p.startsWith("/sdk/v1/icons/")) {
-      const file = iconDir && under(iconDir, path.basename(p));
-      return file ? sendFile(res, file, { "access-control-allow-origin": "*" }) : send(res, 404, "no such icon");
-    }
     if (p.startsWith("/plugin/")) {
       const file = under(pluginDir, p.slice("/plugin/".length));
       return file ? sendFile(res, file, { "content-security-policy": csp(origin), "access-control-allow-origin": "*" }) : send(res, 404, "not found");
@@ -222,7 +216,7 @@ export function serve(argv) {
     const url = `http://127.0.0.1:${port}/`;
     const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
     console.log(`${manifest.name ?? "plugin"} v${manifest.version ?? "?"} from ${pluginDir}`);
-    console.log(`shell at ${url}${iconDir ? "" : "  (no icon set found; icons will not render)"}`);
+    console.log(`shell at ${url}`);
     console.log(`in the app: pinrail plugins install ${pluginDir} --link`);
     if (open) {
       const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";

@@ -3229,6 +3229,7 @@ async fn a_plugin_folder_is_checked_as_the_app_would_load_it() {
         "payload.schema.json",
         "decision.schema.json",
         "example.json",
+        "icon.svg",
     ] {
         std::fs::copy(list.join(f), dir.path().join(f)).unwrap();
     }

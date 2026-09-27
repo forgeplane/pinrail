@@ -4,7 +4,7 @@
   "title": "Calendar",
   "description": "Times to arrange on a calendar around what is already booked: pick one suggested slot per item, or leave it for the agent.",
   "use_when": "You found candidate times for appointments, meetings or interviews and need the person to choose one for each, around their existing calendar, before you book anything.",
-  "icon": "calendar-days",
+  "icon": "icon.svg",
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
   "example": "example.json",

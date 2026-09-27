@@ -4,7 +4,7 @@
   "title": "HTML artifact",
   "description": "An HTML page reviewed element by element: each comment comes back with the element's CSS selector.",
   "use_when": "You designed an HTML page, such as a mockup, a landing page, an email template or a dashboard, and want comments pinned to its elements before you publish it.",
-  "icon": "layout-template",
+  "icon": "icon.svg",
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
   "example": "example.json",

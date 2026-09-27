@@ -263,7 +263,7 @@ export type PinrailSdk = {
   connect<Payload = unknown, Data = unknown>(handlers: Handlers<Payload, Data>): Plugin<Payload, Data>;
   /** the standard skeleton the stylesheet expects: a header that stays put and a body that scrolls */
   layout(options?: LayoutOptions): Layout;
-  /** an icon from the set the app serves, as markup that takes the text's colour */
+  /** the plugin's own `icons/<name>.svg`, beside the view, as markup that takes the text's colour */
   icon(name: string, opts?: { label?: string; size?: number | string; class?: string }): string;
   escape(text: string): string;
   /** markdown as HTML: raw HTML escaped, unsafe addresses dropped */

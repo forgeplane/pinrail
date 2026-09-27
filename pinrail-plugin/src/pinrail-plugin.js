@@ -27,8 +27,8 @@
  *   plugin.settings;                  // the plugin's own settings, as the manifest declares them
  *   plugin.setSetting("diff", "split"); // asks the shell to keep one; it comes back as `settings`
  *
- * Pinrail.icon("check") returns an icon from the set the app serves, as markup
- * that takes the colour of the text around it:
+ * Pinrail.icon("check") returns the plugin's own icons/check.svg, beside the
+ * view, as markup that takes the colour of the text around it:
  *
  *   `<button class="btn">${Pinrail.icon("check")} Accept</button>`
  *
@@ -48,7 +48,6 @@
   const VERSION = "1.8.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
-  const ICON_BASE = "/sdk/v1/icons/";
 
   function escape(s) {
     return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -405,11 +404,13 @@
     return found && THEMES.includes(found[1]) ? found[1] : null;
   }
 
-  /* An icon from the set the app serves, as markup, so a view that builds
-     HTML strings can drop one in. The name is reduced to the characters an
-     icon file can have: a view may take it from a gate payload, and a payload
-     is not ours to trust. A name with no file behind it renders as nothing,
-     with the name left on the element to find it by.
+  /* One of the plugin's own icons, icons/<name>.svg beside the view, as
+     markup, so a view that builds HTML strings can drop one in. The address is
+     made whole here: a relative one inside a custom property may be read
+     against the SDK's stylesheet instead. The name is reduced to the
+     characters an icon file can have: a view may take it from a gate payload,
+     and a payload is not ours to trust. A name with no file behind it renders
+     as nothing, with the name left on the element to find it by.
 
      Decorative by default; pass a label and it becomes an image with a name. */
   function icon(name, options) {
@@ -420,7 +421,9 @@
     const described = options.label
       ? ` role="img" aria-label="${escape(options.label)}"`
       : ' aria-hidden="true"';
-    return `<span class="wi${extra}" data-icon="${safe}" style="--wi:url(${ICON_BASE}${safe}.svg);${size}"${described}></span>`;
+    const base = typeof document === "undefined" ? "http://plugin.invalid/view/" : document.baseURI;
+    const url = new URL(`icons/${safe}.svg`, base).href;
+    return `<span class="wi${extra}" data-icon="${safe}" style="--wi:url(&quot;${escape(url)}&quot;);${size}"${described}></span>`;
   }
 
   function browserEnv(win) {

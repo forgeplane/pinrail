@@ -17,7 +17,9 @@ export const MANIFEST_SCHEMA = JSON.parse(fs.readFileSync(new URL("../schemas/ma
 const validateManifest = new Ajv2020({ allErrors: true, strict: false }).compile(MANIFEST_SCHEMA);
 
 /** Keys whose violation costs the plugin that feature, not its place. */
-const FEATURES = ["settings_schema", "shortcuts", "decision_template", "example", "sample"];
+const FEATURES = ["settings_schema", "shortcuts", "decision_template", "example", "sample", "icon"];
+/** The largest icon file the app takes. Mirrors `ICON_MAX_BYTES`. */
+const ICON_MAX_BYTES = 32 * 1024;
 const SCALARS = ["boolean", "string", "integer", "number"];
 const MODIFIERS = ["cmd", "command", "super", "meta", "ctrl", "control", "alt", "option", "shift", "cmdorctrl", "commandorcontrol"];
 const JSON_TYPES = ["null", "boolean", "object", "array", "number", "string", "integer"];
@@ -141,6 +143,12 @@ export function checkPlugin(dir) {
     if (why) warn("example", why);
   }
 
+  // the icon: an SVG file in the folder
+  if (typeof manifest.icon === "string" && !dropped.has("icon")) {
+    const why = iconProblem(dir, manifest.icon);
+    if (why) warn("icon", why);
+  }
+
   // the sample: a request with a title, a payload that passes, and its files
   if (typeof manifest.sample === "string" && !dropped.has("sample") && !refused("payload_schema")) {
     const why = sampleProblem(dir, manifest.sample, manifest.payload_schema);
@@ -189,6 +197,22 @@ function isKind(kind) {
 function schemaDocument(dir, schema) {
   if (!isObject(schema) || typeof schema.$ref !== "string") return schema;
   return JSON.parse(fs.readFileSync(safeJoin(dir, schema.$ref), "utf8"));
+}
+
+/** Why the manifest's icon would be dropped, or null. Mirrors `icon_markup`. */
+function iconProblem(dir, file) {
+  const at = safeJoin(dir, file);
+  if (!at) return `${file}: outside the plugin's folder`;
+  let size, text;
+  try {
+    size = fs.statSync(at).size;
+    if (size > ICON_MAX_BYTES) return `${file}: ${size} bytes; an icon is at most ${ICON_MAX_BYTES}`;
+    text = fs.readFileSync(at, "utf8").trim();
+  } catch {
+    return `${file}: cannot read`;
+  }
+  if (!text.includes("<svg") || !(text.endsWith("</svg>") || text.endsWith("/>"))) return `${file}: not an SVG`;
+  return null;
 }
 
 /** Why the manifest's example would be dropped, or null. Mirrors the core. */

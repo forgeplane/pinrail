@@ -146,12 +146,12 @@ kbd {
 .spacer { flex: 1; }
 
 /* -------------------------------------------------------------------------
-   Icons. The app serves the Lucide set a file at a time under /sdk/v1/icons,
-   so a view downloads only the icons it names. The glyph is a mask, which is
-   what makes it take currentColor: an icon is the colour of the text it sits
-   in, in either theme, with nothing to configure.
+   Icons. A plugin brings its own, as SVG files in icons/ beside its view.
+   The glyph is a mask, which is what makes it take currentColor: an icon is
+   the colour of the text it sits in, in either theme, with nothing to
+   configure.
 
-     <span class="wi" style="--wi: url(/sdk/v1/icons/check.svg)"></span>
+     <span class="wi" style="--wi: url(icons/check.svg)"></span>
 
    Pinrail.icon("check") writes that for you. Size follows the font size;
    override it with --wi-size.

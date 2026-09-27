@@ -7,12 +7,11 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
-const { iconsDir: findIcons, packageRoot, sdkScript } = require("../lib/paths.cjs");
+const { packageRoot, sdkScript } = require("../lib/paths.cjs");
 const { resolveAttachments } = require("./attachments.cjs");
 
 const ORIGIN = "http://plugin.test";
 const root = packageRoot(__filename);
-const iconsDir = findIcons(root);
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -105,19 +104,6 @@ async function mountPlugin(page, pluginDir, opts) {
     if (p === "/sdk/v1/pinrail-plugin.css") return route.fulfill({ contentType: mime[".css"], body: sdkCss });
     // the stylesheet imports a typeface; tests run offline and in the system font
     if (p === "/sdk/v1/fonts.css") return route.fulfill({ contentType: mime[".css"], body: "" });
-    if (p.startsWith("/sdk/v1/icons/")) {
-      const icon = iconsDir && path.join(iconsDir, path.basename(p));
-      if (!icon || !fs.existsSync(icon)) return route.fulfill({ status: 404, body: "no such icon" });
-      // The app sends this because a view's frame has an opaque origin and a
-      // mask image is fetched under CORS. A fulfilled route is exempt from that
-      // check, so the header here only keeps the harness honest; whether the
-      // real policy lets an icon through is settled by the end-to-end suite.
-      return route.fulfill({
-        contentType: mime[".svg"],
-        body: fs.readFileSync(icon),
-        headers: { "access-control-allow-origin": "*" },
-      });
-    }
     const file = path.join(pluginDir, decodeURIComponent(p.replace(/^\//, "")));
     if (!file.startsWith(path.resolve(pluginDir)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return route.fulfill({ status: 404, body: "not found" });

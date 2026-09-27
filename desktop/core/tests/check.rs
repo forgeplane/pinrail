@@ -70,6 +70,7 @@ fn agree(dir: &Path, js: &Value) {
         ("decision_template", plugin.template_error.is_some()),
         ("example", plugin.example_error.is_some()),
         ("sample", plugin.sample_error.is_some()),
+        ("icon", plugin.icon_error.is_some()),
     ] {
         assert_eq!(
             warned.contains(&key),
@@ -131,8 +132,17 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
     let cases: Vec<(&str, Value, Files)> = vec![
         (
             "fine",
-            base(json!({"title": "Sample", "icon": "mail", "min_height": 300})),
-            entry,
+            base(json!({"title": "Sample", "icon": "icon.svg", "min_height": 300})),
+            &[
+                ("index.html", "<html></html>"),
+                ("icon.svg", r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 4h16"/></svg>"#),
+            ],
+        ),
+        ("icon_missing", base(json!({"icon": "missing.svg"})), entry),
+        (
+            "icon_not_svg",
+            base(json!({"icon": "icon.svg"})),
+            &[("index.html", ""), ("icon.svg", "hello")],
         ),
         ("young", base(json!({"version": "0.1.0"})), entry),
         ("zero", base(json!({"version": "0.0.0"})), entry),

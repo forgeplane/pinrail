@@ -96,8 +96,8 @@
             "maxLength": 2000
           },
           "icon": {
-            "type": "string",
-            "pattern": "^[a-z0-9-]+$"
+            "enum": ["calendar", "stethoscope", "user-round", "users", "utensils", "circle-dot", "coffee", "briefcase", "plane", "car", "dumbbell", "heart-pulse", "graduation-cap", "baby", "dog", "house", "phone", "video", "music", "book-open", "shopping-cart", "scissors", "wrench", "party-popper", "bike"],
+            "description": "The activity's icon, one of those the plugin carries; calendar when none is given."
           },
           "options": {
             "type": "array",
