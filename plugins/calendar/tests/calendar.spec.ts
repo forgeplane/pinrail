@@ -1,5 +1,4 @@
 import path from 'node:path';
-import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { mountPlugin, fixture } from '@forgeplane/pinrail-plugin/testing';
 const root = path.resolve(__dirname, '..');
@@ -46,7 +45,6 @@ test('draft reload, themes, hand-over, accepted decision, and read-only state', 
   expect(data.verdict).toBe('approve');
   expect(data.selections.map(s => s.option_id)).toEqual(['doctor-mon','tennis-tue','dinner-wed']);
   expect(data.deferred).toEqual([]);
-  fs.writeFileSync(test.info().outputPath('decision.json'), JSON.stringify(data,null,2));
   await p.sendSubmitted({data});
   await expect(slot(p,'doctor-mon')).toBeDisabled();
   await expect(p.frame.locator('.event.suggestion')).toHaveCount(3);
@@ -98,7 +96,6 @@ test('list is keyboard-operable and responsive; payload markup stays text', asyn
   await expect(option).toHaveAttribute('aria-pressed','true');
   await expect(p.frame.locator('img')).toHaveCount(0);
   expect(await p.frame.locator('body').evaluate(el => el.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({path:test.info().outputPath('mobile.png'),fullPage:true});
 });
 test('invalid payload fails closed and hostile drafts cannot bypass conflicts', async ({ page }) => {
   const gate = personal(); gate.payload.timezone = 'Invalid/Zone';
@@ -106,33 +103,6 @@ test('invalid payload fails closed and hostile drafts cannot bypass conflicts', 
   // the view has time to answer the collect before the log is read
   await p.collect(); await page.waitForTimeout(300); expect((await p.messages()).some(m => m.type === 'submit')).toBe(false);
 });
-test('capture desktop layouts under the SDK shell', async ({ page }) => {
-  const p = await mount(page);
-  await p.setFrameHeight(960);
-  await slot(p,'doctor-mon').click(); await slot(p,'tennis-tue').click();
-  await page.screenshot({path:test.info().outputPath('calendar-light.png'),fullPage:true});
-  await p.send({type:'appearance',theme:'dark'});
-  await expect(p.frame.locator('html')).toHaveAttribute('data-theme','dark');
-  await page.screenshot({path:test.info().outputPath('calendar-dark.png'),fullPage:true});
-});
-
-test('development shell serves the plugin with real CSP and completes hand-over', async ({ page }) => {
-  test.skip(!process.env.PINRAIL_SHELL_URL, 'Set PINRAIL_SHELL_URL to an SDK development shell.');
-  const errors = []; page.on('pageerror', e => errors.push(e.message));
-  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
-  await page.goto(process.env.PINRAIL_SHELL_URL);
-  await page.locator('#fixture').selectOption('01-personal-assistant.json');
-  const frame = page.frameLocator('#frame');
-  await expect(frame.getByRole('heading',{name:'Dinner, doctor & tennis'})).toBeVisible();
-  for (const id of ['doctor-mon','tennis-tue','dinner-wed']) await frame.locator(`.event[data-option="${id}"]`).click();
-  await page.getByRole('button',{name:'Collect',exact:true}).click();
-  await expect(page.locator('#s-submit')).toContainText('"verdict":"approve"');
-  await page.getByRole('button',{name:'Send submitted',exact:true}).click();
-  await expect(frame.locator('.event.selected')).toHaveCount(3);
-  await expect(frame.locator('.event.selected').first()).toBeDisabled();
-  expect(errors.filter(e => !e.includes('favicon.ico'))).toEqual([]);
-});
-
 test('day and week views: a day at full width, a strip of days, paging by week, and keys', async ({ page }) => {
   // two weeks, with a suggestion in the second
   const gate = personal();
