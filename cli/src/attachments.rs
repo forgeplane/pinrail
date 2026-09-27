@@ -208,7 +208,10 @@ impl Read for Progress {
 
 pub fn human(bytes: u64) -> String {
     match bytes {
-        b if b >= 1024 * 1024 => format!("{:.1} MB", b as f64 / (1024.0 * 1024.0)),
+        b if b >= 1024 * 1024 => {
+            let mb = format!("{:.1}", b as f64 / (1024.0 * 1024.0));
+            format!("{} MB", mb.trim_end_matches(".0"))
+        }
         b if b >= 1024 => format!("{:.0} KB", b as f64 / 1024.0),
         b => format!("{b} bytes"),
     }

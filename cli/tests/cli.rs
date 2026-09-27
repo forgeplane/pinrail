@@ -1222,6 +1222,23 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
 }
 
 #[test]
+fn describe_gives_a_file_limit_under_a_megabyte_as_it_is() {
+    // a plugin that takes small files: 500 KB must not read as "up to 0 MB"
+    let server = MockServer::start(Box::new(|_, path, _| {
+        assert_eq!(path, "/api/v1/plugins/notes/describe");
+        (
+            200,
+            r#"{"plugins":[{"name":"notes","title":"Notes","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
+                "install":null,"attachments":{"accept":[".txt"],"max_size":512000}}]}"#
+                .into(),
+        )
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "describe", "notes", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stdout.contains("(up to 500 KB each)"), "{stdout}");
+}
+
+#[test]
 fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/plugins/list/sample"));

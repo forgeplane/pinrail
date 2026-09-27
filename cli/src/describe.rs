@@ -157,7 +157,7 @@ fn plugin_section(out: &mut String, plugin: &Value) {
             .unwrap_or_default();
         let mut limits = Vec::new();
         if let Some(size) = files.get("max_size").and_then(Value::as_u64) {
-            limits.push(format!("up to {} MB each", size / (1024 * 1024)));
+            limits.push(format!("up to {} each", crate::attachments::human(size)));
         }
         if let Some(count) = files.get("max_count").and_then(Value::as_u64) {
             limits.push(format!("{count} at most"));
