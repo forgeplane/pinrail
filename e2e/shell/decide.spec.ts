@@ -8,6 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { clearInbox, core, createReview, linkPlugin } from "./helpers";
+import { scratch } from "../helpers/scratch";
 
 const root = path.resolve(__dirname, "..", "..");
 const hello = path.join(root, "plugins", "hello");
@@ -17,7 +18,7 @@ const hello = path.join(root, "plugins", "hello");
  * `{ ok: "yes" }`, which its own decision schema refuses.
  */
 function probe(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-probe-"));
+  const dir = scratch("pinrail-probe-");
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
@@ -148,7 +149,7 @@ test("a review withdrawn elsewhere turns the open view read-only", async ({ page
 
 test("an agent waiting in the CLI wakes with what the person decided in the app", async ({ page }) => {
   const cli = path.join(root, "cli", "target", "debug", "pinrail");
-  const payload = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-decide-")), "payload.json");
+  const payload = path.join(scratch("pinrail-decide-"), "payload.json");
   fs.writeFileSync(payload, JSON.stringify({ message: "Ship it?" }));
   const agent = spawn(cli, ["submit", "hello", "--title", "Decide: from the CLI", "--data", payload, "--wait"], {
     cwd: os.tmpdir(),

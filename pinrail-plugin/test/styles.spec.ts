@@ -1,14 +1,14 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { scratch } from "./scratch.cjs";
 
 // What the SDK's stylesheet gives every view, checked in a view's frame.
 
 /** A plugin whose view is a button and the SDK's text fields. */
 function fields(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-styles-"));
+  const dir = scratch("pinrail-styles-");
   fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "styles", version: 1, entry: "index.html" }));
   fs.writeFileSync(
     path.join(dir, "index.html"),

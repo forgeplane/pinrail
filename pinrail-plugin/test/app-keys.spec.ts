@@ -1,12 +1,12 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { mountPlugin } from "../harness/index.cjs";
+import { scratch } from "./scratch.cjs";
 
 // A view with a text field, and a key of its own it keeps from the app.
 function view(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-app-keys-"));
+  const dir = scratch("pinrail-app-keys-");
   fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "keys", version: 1, title: "Keys", entry: "index.html" }));
   fs.writeFileSync(
     path.join(dir, "index.html"),

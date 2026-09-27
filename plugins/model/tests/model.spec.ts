@@ -1,6 +1,5 @@
 import { expect as base, test } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
@@ -106,7 +105,8 @@ test("three.js JSON is read as well as GLB", async ({ page }) => {
 test("a model that cannot be read says so, and the others still show", async ({ page }) => {
   const gate = round();
   gate.payload.models[0].file = { $attachment: "broken.glb" };
-  const broken = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "model-")), "broken.glb");
+  const broken = test.info().outputPath("broken.glb");
+  fs.mkdirSync(path.dirname(broken), { recursive: true });
   fs.writeFileSync(broken, "not a model");
   const files = Object.fromEntries(["arc", "column", "tripod"].map((n) => [`${n}.glb`, `fixtures/halden/${n}.glb`]));
   const plugin = await mountPlugin(page, dir, { gate, attachments: { ...files, "broken.glb": broken } });

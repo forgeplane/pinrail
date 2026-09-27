@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
-import os from "node:os";
 import path from "node:path";
+import { scratch } from "./scratch.cjs";
 
 // `pinrail-plugin dev`, the shell in a browser: a plugin from create, with
 // a pending fixture and a decided one beside it.
@@ -20,7 +20,7 @@ const freePort = () =>
   });
 
 test("the fixture menu marks a decided fixture, and choosing one loads it", async ({ page }) => {
-  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-dev-")), "triage");
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
   execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
   const basic = JSON.parse(fs.readFileSync(path.join(dir, "fixtures", "basic.json"), "utf8"));
   // the decided round sorts first, and has the pending one's title

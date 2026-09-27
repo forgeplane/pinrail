@@ -1,11 +1,11 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
+const { scratch } = require("./scratch.cjs");
 
 const load = () => import("../lib/create.mjs");
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-create-"));
+const tmp = () => scratch("pinrail-create-");
 
 const filesUnder = (dir) => {
   const out = [];

@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { scratch } from "./scratch.cjs";
 
 // Markdown, in the place it runs: a view's frame, which has an opaque origin,
 // no network of its own, and inline scripts allowed. The last of those is why
@@ -10,7 +10,7 @@ import { gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
 /** A plugin whose whole view renders `Pinrail.markdown` of its payload. */
 function renderer(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-markdown-"));
+  const dir = scratch("pinrail-markdown-");
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({ name: "markdown", version: 1, title: "Markdown", entry: "index.html" }),

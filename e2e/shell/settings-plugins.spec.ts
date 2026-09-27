@@ -1,14 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { core } from "./helpers";
+import { scratch } from "../helpers/scratch";
 
 const root = path.resolve(__dirname, "..", "..");
 
 /** A copy of a sample plugin under a name and version of its own. */
 function pluginCopy(sample: string, name: string, version: string, extra: Record<string, unknown> = {}): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `pinrail-${name}-`));
+  const dir = scratch(`pinrail-${name}-`);
   const from = path.join(root, "plugins", sample);
   // the plugin as a bundle: the folder without its tests and fixtures
   fs.cpSync(from, dir, { recursive: true, filter: (src) => !/\/(tests|fixtures|node_modules)(\/|$)/.test(src) });
@@ -148,7 +148,7 @@ test("a link serves the folder live and offers to install a copy", async ({ page
 });
 
 test("what is not a plugin is refused before anything runs", async ({ page }) => {
-  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-empty-"));
+  const empty = scratch("pinrail-empty-");
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(empty);
   await dialog.locator("[data-install-look]").click();

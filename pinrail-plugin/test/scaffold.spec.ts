@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { scratch } from "./scratch.cjs";
 
 // A scaffolded plugin, before a line of it is changed, under the harness:
 // what `create` writes has to work, not only exist.
@@ -11,7 +11,7 @@ const sdk = path.resolve(import.meta.dirname, "..");
 const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
 
 function scaffold(name: string, template: "plain" | "vite" | "react" | "vue" | "svelte"): string {
-  const dir = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-scaffold-")), name);
+  const dir = path.join(scratch("pinrail-scaffold-"), name);
   execFileSync(process.execPath, [bin, "create", name, "--template", template, "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
   return dir;
 }

@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { scratch } from "./scratch.cjs";
 
 // Files a review carries, in the place a view uses them: a frame that can
 // fetch nothing, which asks the shell by name and gets the bytes back.
 
 /** A plugin whose view asks for the file its payload names and reports what came. */
 function reader(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-attachments-"));
+  const dir = scratch("pinrail-attachments-");
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({ name: "reader", version: 1, title: "Reader", entry: "index.html", attachments: { accept: [".bin", "image/*"] } }),

@@ -1,15 +1,15 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const os = require("node:os");
 const path = require("node:path");
+const { scratch } = require("./scratch.cjs");
 
 const load = () => import("../lib/check.mjs");
 const samples = path.resolve(__dirname, "..", "..", "plugins");
 
 /** A plugin folder with the given manifest fields on top of the minimum, and an entry. */
 function plugin(extra = {}, files = { "index.html": "<html></html>" }) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-check-"));
+  const dir = scratch("pinrail-check-");
   const manifest = { name: "sample", version: "1.0.0", payload_schema: {}, decision_schema: {}, ...extra };
   for (const [k, v] of Object.entries(manifest)) if (v === undefined) delete manifest[k];
   fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest));
@@ -51,7 +51,7 @@ test("what refuses a plugin: manifest, name, version, entry, schemas, build", as
     assert.equal(r.ok, false, JSON.stringify(extra));
     return keys(r.problems);
   };
-  assert.deepEqual(keys(checkPlugin(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-empty-"))).problems), ["manifest"]);
+  assert.deepEqual(keys(checkPlugin(scratch("pinrail-empty-")).problems), ["manifest"]);
   assert.deepEqual(refused({ name: "Bad" }), ["name"]);
   assert.deepEqual(refused({ name: undefined }), ["name"]);
   assert.deepEqual(refused({ version: "0.0.0" }), ["version"]);

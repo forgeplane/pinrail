@@ -1,15 +1,15 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { scratch } from "./scratch.cjs";
 
 // The harness holds a plugin to what the app would: a decision that does not
 // pass the plugin's own decision_schema is refused there, so it fails here.
 
 /** A plugin whose view hands over `{ ok: "yes" }`, a string where its schema wants a boolean. */
 function wrongDecision(): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-harness-"));
+  const dir = scratch("pinrail-harness-");
   fs.mkdirSync(path.join(dir, "schemas"));
   fs.writeFileSync(
     path.join(dir, "schemas", "decision.schema.json"),
@@ -40,7 +40,7 @@ test("a decision that fails the plugin's decision_schema fails nextSubmit", asyn
 test("a view that loads its script by an absolute path fails here as in the app", async ({ page }) => {
   // the app serves a plugin under /plugins/<name>/<major>/ and allows scripts
   // from there alone: /view.js is another server path, which it refuses
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-harness-"));
+  const dir = scratch("pinrail-harness-");
   fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "absolute", version: 1, entry: "index.html" }));
   fs.writeFileSync(path.join(dir, "view.js"), "document.documentElement.dataset.ran = 'yes';");
   fs.writeFileSync(
@@ -56,7 +56,7 @@ test("a view that loads its script by an absolute path fails here as in the app"
 
 test("sendKey sends only what the app would forward to the view", async ({ page }) => {
   // the app forwards a declared key, and not one it keeps for itself
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-harness-"));
+  const dir = scratch("pinrail-harness-");
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({

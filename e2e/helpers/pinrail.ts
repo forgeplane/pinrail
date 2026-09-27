@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { cliEnv, loadState } from "./state";
+import { scratch } from "./scratch";
 
 export type Run = { code: number | null; stdout: string; stderr: string };
 
@@ -68,7 +69,7 @@ export function startWaiter(args: string[]): Waiter {
 }
 
 export function tmpFile(name: string, content: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-e2e-"));
+  const dir = scratch("pinrail-e2e-");
   const file = path.join(dir, name);
   fs.writeFileSync(file, content);
   return file;
