@@ -235,6 +235,11 @@ jobs:
         with:
           projectPath: desktop/app
           tauriScript: npx tauri
+          # no version in the files' names, so the site links to
+          # releases/latest/download/<name> and never goes stale; latest.json
+          # names them the same: pinrail-app-universal.dmg, pinrail-app-amd64.AppImage,
+          # pinrail-app-amd64.deb, pinrail-app-x86_64.rpm
+          releaseAssetNamePattern: "pinrail-app-[arch][ext]"
           # a flaky upload or a notarization hiccup costs a retry, not a release
           retryAttempts: 3
           # without the updater key, the build goes without update bundles
