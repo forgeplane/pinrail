@@ -36,7 +36,7 @@ A plugin's view is a page the app shows inside a sandboxed frame. However the pl
 
 Everything a view shows arrives in the review's payload, or in the files beside it. That is why a code review sends the diff rather than a link to it.
 
-A file an agent sends is never opened as a page by the app, whatever it holds: the review lists it by name and size for you to see, and saving it writes the bytes as they are.
+Files that an agent attaches to a review are only displayed inside a view's sandbox, whatever they contain. The view asks the app for a file's contents and displays it itself; the artifact plugin, for example, displays an attached HTML page this way. The app itself never opens an attachment: it lists each one by name and size, and saving one writes its contents to disk unchanged.
 
 ## What installing a plugin runs
 
