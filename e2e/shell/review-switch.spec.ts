@@ -159,3 +159,17 @@ test("a view that posts its hand-over twice decides the review once", async ({ p
   await page.waitForTimeout(500);
   expect(decisions, "the hand-over was sent twice").toHaveLength(1);
 });
+
+test("an error that is not JSON still says what the server answered", async ({ page }) => {
+  // a proxy's HTML page, or a body cut short: the status is still news
+  await clearInbox(page.request);
+  const review = await createReview(page.request, "list", "Not JSON: one review", {
+    intro: "Never shown.",
+    groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
+  });
+  await page.route(`${core}/api/v1/reviews/${review.id}`, (route) =>
+    route.fulfill({ status: 502, contentType: "text/html", body: "<html><body>Bad gateway</body></html>" }),
+  );
+  await page.goto(`/#/reviews/${review.id}`);
+  await expect(page.getByText("request failed (502)")).toBeVisible();
+});
