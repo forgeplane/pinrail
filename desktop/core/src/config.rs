@@ -18,6 +18,9 @@ pub struct Config {
     pub sdk_dir: Option<PathBuf>,
     /// The most one uploaded attachment may be, in bytes.
     pub max_attachment_bytes: u64,
+    /// The GitHub API's root, which release installs and update checks
+    /// ask; a test points it at a server of its own.
+    pub github_api: String,
 }
 
 /// 100 MiB: a model, a recording, a document with its images.
@@ -57,6 +60,7 @@ impl Config {
             user: "pinrail".to_string(),
             sdk_dir: None,
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
+            github_api: "https://api.github.com".to_string(),
         }
     }
 

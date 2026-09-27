@@ -2939,7 +2939,6 @@ impl Releases {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_latest() {
-    let app = app();
     let thing_120 = zipped(&[
         ("manifest.json", &bundle_manifest("thing", "1.2.0")),
         ("index.html", "<html>1.2.0</html>"),
@@ -2978,8 +2977,8 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
         base: Default::default(),
     });
     let base = releases_server(fake.clone()).await;
-    // the core asks the API where this points; the only test that sets it
-    unsafe { std::env::set_var("PINRAIL_GITHUB_API", &base) };
+    // the core asks GitHub at the root its configuration names
+    let app = app_with(|c| c.github_api = base.clone());
     fake.release("acme/thing", "v1.2.0", &["thing-1.2.0.zip", "thing.tar.gz"]);
     fake.release("acme/thing", "v1.3.0", &["thing-1.3.0.zip"]);
     fake.latest("acme/thing", "v1.2.0");

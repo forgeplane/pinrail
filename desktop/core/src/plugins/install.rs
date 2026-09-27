@@ -605,11 +605,6 @@ struct FetchedRelease {
     asset_hash: String,
 }
 
-/// The GitHub API's root; a test points it at a server of its own.
-fn github_api() -> String {
-    std::env::var("PINRAIL_GITHUB_API").unwrap_or_else(|_| "https://api.github.com".into())
-}
-
 /// The most an asset may weigh.
 const ASSET_LIMIT: u64 = 200 * 1024 * 1024;
 
@@ -625,7 +620,7 @@ fn fetch_release(
 ) -> Result<FetchedRelease, Error> {
     let api = format!(
         "{}/repos/{owner}/{repo}/releases/{}",
-        github_api(),
+        registry.github_api(),
         match tag {
             Some(t) => format!("tags/{t}"),
             None => "latest".into(),
@@ -937,7 +932,7 @@ fn fetch_dir(registry: &Registry) -> PathBuf {
 /// What is new for an installed plugin, asked of its source: `up_to_date`,
 /// `available` with the newer commit, `pinned` for a tag or a commit that
 /// never moves, or `unknown` when the source cannot be asked.
-pub fn check_updates(record: &InstalledRecord) -> serde_json::Value {
+pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_json::Value {
     if record.linked {
         return serde_json::json!({ "state": "linked" });
     }
@@ -1000,7 +995,7 @@ pub fn check_updates(record: &InstalledRecord) -> serde_json::Value {
             let repo = resolved["repo"].as_str().unwrap_or_default();
             let latest = github_get(&format!(
                 "{}/repos/{owner}/{repo}/releases/latest",
-                github_api()
+                registry.github_api()
             ))
             .and_then(|mut r| {
                 r.body_mut()

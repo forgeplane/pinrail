@@ -240,7 +240,8 @@ impl PluginService {
     }
 
     async fn check_record(&self, record: InstalledRecord) -> Result<Value, Error> {
-        tokio::task::spawn_blocking(move || install::check_updates(&record))
+        let registry = self.registry.clone();
+        tokio::task::spawn_blocking(move || install::check_updates(&registry, &record))
             .await
             .map_err(|error| Error::Internal(error.to_string()))
     }

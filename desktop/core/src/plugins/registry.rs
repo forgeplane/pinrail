@@ -103,6 +103,8 @@ pub struct Registry {
     /// The plugin every install starts from, shipped inside the app.
     builtin_dir: PathBuf,
     store_dir: PathBuf,
+    /// Where release installs and update checks ask GitHub.
+    github_api: String,
     state: RwLock<RegistryState>,
 }
 
@@ -117,6 +119,7 @@ impl Registry {
         let registry = Registry {
             builtin_dir,
             store_dir,
+            github_api: "https://api.github.com".to_string(),
             state: RwLock::new(RegistryState {
                 plugins: BTreeMap::new(),
                 kept: HashMap::new(),
@@ -125,6 +128,16 @@ impl Registry {
         };
         registry.reload()?;
         Ok(registry)
+    }
+
+    /// Asks another GitHub API root than the public one.
+    pub fn with_github_api(mut self, root: impl Into<String>) -> Self {
+        self.github_api = root.into();
+        self
+    }
+
+    pub fn github_api(&self) -> &str {
+        &self.github_api
     }
 
     pub fn store_dir(&self) -> &Path {
