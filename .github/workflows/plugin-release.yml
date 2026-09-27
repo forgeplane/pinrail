@@ -41,6 +41,9 @@ jobs:
             -x "node_modules/*" "src/*" "tests/*" "test/*" "fixtures/*" ".*" "*/.*" \
                "package.json" "package-lock.json" "pnpm-lock.yaml" "yarn.lock" "bun.lockb" \
                "tsconfig*.json" "vite.config.*" "vitest.config.*" "playwright.config.*"
+      # the app's updater and the download links read this repository's
+      # latest release, which must stay the app's
       - uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.tag.outputs.name }}-${{ steps.tag.outputs.version }}.zip
+          make_latest: "false"

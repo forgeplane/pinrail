@@ -49,9 +49,12 @@ jobs:
       - name: Pack
         working-directory: pinrail-plugin
         run: npm pack
+      # the app's updater and the download links read this repository's
+      # latest release, which must stay the app's
       - uses: softprops/action-gh-release@v2
         with:
           files: pinrail-plugin/pinrail-plugin-${{ steps.version.outputs.version }}.tgz
+          make_latest: "false"
 
   npm:
     needs: tarball
