@@ -521,6 +521,29 @@ fn a_plugin_that_is_not_installed_points_at_the_list_of_those_that_are() {
 }
 
 #[test]
+fn waiting_flags_on_a_submit_that_does_not_wait_are_refused() {
+    // without --wait the command returns at once: a decision file would
+    // never be written, and an agent reading it later would find nothing
+    let server = MockServer::start(Box::new(|_, _, _| (201, review("pending"))));
+    for flag in [["--decision-out", "d.json"], ["--timeout", "60"]] {
+        let (code, _, stderr) = run(
+            &server,
+            &[
+                "submit",
+                "list",
+                "--title",
+                "t",
+                "--no-start",
+                flag[0],
+                flag[1],
+            ],
+        );
+        assert_eq!(code, 1, "{} without --wait: {stderr}", flag[0]);
+        assert!(stderr.contains("--wait"), "{stderr}");
+    }
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {

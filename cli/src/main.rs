@@ -291,8 +291,13 @@ struct SubmitArgs {
     /// it would be accepted, 2 with the violations
     #[arg(long, conflicts_with = "wait")]
     dry_run: bool,
-    #[command(flatten)]
-    wait_opts: WaitOpts,
+    /// With --wait: give up after this many seconds (exit 4); 0 waits forever
+    #[arg(long, default_value_t = 0, requires = "wait")]
+    timeout: u64,
+    /// With --wait: also write decision.data to this file, as JSON, once
+    /// decided; pinrail show <id> shows the decision any time
+    #[arg(long, value_name = "FILE", requires = "wait")]
+    decision_out: Option<PathBuf>,
     /// Do not start the server when it is not running
     #[arg(long)]
     no_start: bool,
@@ -1129,7 +1134,11 @@ fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) 
     }
 
     if args.wait {
-        wait(client, &id, &args.wait_opts, output)
+        let opts = WaitOpts {
+            timeout: args.timeout,
+            decision_out: args.decision_out.clone(),
+        };
+        wait(client, &id, &opts, output)
     } else {
         output.review(client, &review)?;
         Ok(0)
