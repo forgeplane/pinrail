@@ -27,7 +27,8 @@ pinrail withdraw <id>                     # when you are done with the sample
   task. `plugins new --link` scaffolds and links in one step.
 - A manifest needs `name`, `version`, `payload_schema` and
   `decision_schema`. Always give `use_when` too, the moment an agent
-  should ask with the plugin, specific: agents choose by it.
+  should ask with the plugin, specific: agents choose by it. `icon` is an
+  SVG file in the folder, `icon.svg` in the scaffold.
 - The view is `view/index.html` and `view/view.js`; the SDK's types are in
   `pinrail-plugin.d.ts`. The scaffold sets `"entry": "view/index.html"`;
   without it the app looks for `index.html` at the folder's top.

@@ -92,25 +92,27 @@ has handles a forwarded key like a typed one; `onKey(key)` fires as well.
 
 ## Icons
 
-The app serves the [Lucide](https://lucide.dev) set, one file per icon, under
-`/sdk/v1/icons/<name>.svg`. `Pinrail.icon(name)` returns the markup:
+A plugin brings its own icons, as SVG files in `icons/` beside its view
+(`view/icons/`; for a Vite build, `src/public/icons/`, which the build copies
+there). `Pinrail.icon(name)` returns the markup for `icons/<name>.svg`:
 
 ```js
 `<button class="btn">${Pinrail.icon("check")} Accept</button>`
 ```
 
-Every name in the set works, and a view downloads only the icons it names, so
-the size of the set costs you nothing. The glyph is drawn as a mask, which is
-what makes it take `currentColor`: an icon is the colour of the text it sits
-in, in either theme, with nothing to configure. Size follows the font size;
+The app draws with [Lucide](https://lucide.dev), and its icons fit best:
+copy the ones you use from `lucide-static`, keeping the licence comment each
+file starts with (ISC). The glyph is drawn as a mask, which is what makes it
+take `currentColor`: an icon is the colour of the text it sits in, in either
+theme, with nothing to configure. Size follows the font size;
 `{ size: 18 }` or `{ size: "1.25em" }` overrides it.
 
 An icon is decorative by default and is not announced. Pass `{ label: "delete" }`
 when the icon is the only thing saying what a control does. A name with no icon
 behind it renders as empty space, with the name left on the element.
 
-The set is ISC licensed and the licence is served beside it at
-`/sdk/v1/icons/LICENSE`; the copy in this repository is `licenses/lucide-icons.txt`.
+The manifest's `icon` is an SVG file in the plugin's folder too, such as
+`icon.svg`: the app shows it wherever it names the plugin, drawn the same way.
 
 Helpers: `Pinrail.escape(s)` and `Pinrail.previousVerdict(previous, id)`, for
 decisions shaped as `{ decisions: [{ id, action, note }], undecided: [id] }`.

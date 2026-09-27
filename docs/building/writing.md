@@ -40,7 +40,9 @@ ticket_triage/
 │   └── decision.schema.json what comes back
 ├── view/
 │   ├── index.html           what the person sees
-│   └── view.js              its script, checked against the SDK's types
+│   ├── view.js              its script, checked against the SDK's types
+│   └── icons/               the icons the view draws, check.svg and x.svg
+├── icon.svg                 the plugin's icon, in the app
 ├── example.json             the smallest payload, for agents
 ├── sample.json              a review to look at
 ├── pinrail-plugin.d.ts      the SDK's types, for your editor
@@ -70,7 +72,7 @@ Only the manifest, the schemas, the view and the sample reach the app. `fixtures
   "title": "Ticket triage",
   "description": "Support tickets sorted into keep, merge or close.",
   "use_when": "You triaged a queue of support tickets and need a person to confirm each call before you act on it.",
-  "icon": "ticket",
+  "icon": "icon.svg",
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
   "example": "example.json",
@@ -87,7 +89,7 @@ Only the manifest, the schemas, the view and the sample reach the app. `fixtures
 | `title` | What the app calls the plugin in its lists and settings. |
 | `description` | A sentence on what the plugin is for. |
 | `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins` when they choose a plugin. |
-| `icon` | Any [Lucide](https://lucide.dev/icons) icon name, shown beside the plugin's reviews. |
+| `icon` | An SVG file in the folder, shown wherever the app names the plugin, in the text's colour. A [Lucide](https://lucide.dev/icons) icon fits the app best. |
 | `payload_schema`, `decision_schema` | JSON Schema 2020-12, inline or as a `$ref` to a file inside the folder. |
 | `example` | A JSON file inside the folder with a payload that passes `payload_schema`. Agents get it as a starting point, and read it whole every time they describe the plugin, so keep it to the fewest items that show the shape: one of each kind, short texts, files by name rather than inline. |
 | `sample` | A review anyone can send to see the plugin: a request file inside the folder with a `title`, a `payload` and any files. See [A sample to look at](#a-sample-to-look-at). |
@@ -322,7 +324,7 @@ It has the shape `pinrail submit --request` reads: `title` and `payload` are req
 
 ## Look like the app
 
-Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both themes, its type, and classes for the usual shapes: a header, items, buttons, fields, notices. `Pinrail.icon(name)` gives any Lucide icon, and `Pinrail.layout()` the header-and-body skeleton. It is all optional, and your own fonts, styles and scripts can ship in the plugin folder: see [Design and styling](/docs/building/design/).
+Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both themes, its type, and classes for the usual shapes: a header, items, buttons, fields, notices. `Pinrail.icon(name)` draws one of the plugin's own icons, and `Pinrail.layout()` the header-and-body skeleton. It is all optional, and your own fonts, styles and scripts can ship in the plugin folder: see [Design and styling](/docs/building/design/).
 
 ## Run it
 
