@@ -598,6 +598,31 @@ fn a_command_with_no_server_says_to_open_the_app() {
 }
 
 #[test]
+fn ids_and_names_stay_one_path_segment() {
+    // what is typed as an id or a name must not become a query or a route
+    let paths = Arc::new(Mutex::new(Vec::new()));
+    let seen = paths.clone();
+    let server = MockServer::start(Box::new(move |_, path, _| {
+        seen.lock().unwrap().push(path.to_string());
+        (
+            404,
+            r#"{"error":"not_found","message":"not found","violations":[]}"#.into(),
+        )
+    }));
+    run(&server, &["show", "r_1?format=markdown"]);
+    run(&server, &["plugins", "remove", "a/b"]);
+    let paths = paths.lock().unwrap();
+    assert!(
+        paths.contains(&"/api/v1/reviews/r_1%3Fformat%3Dmarkdown".to_string()),
+        "{paths:?}"
+    );
+    assert!(
+        paths.contains(&"/api/v1/plugins/a%2Fb".to_string()),
+        "{paths:?}"
+    );
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {

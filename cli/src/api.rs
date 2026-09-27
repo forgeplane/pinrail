@@ -80,7 +80,10 @@ impl Client {
     /// Sends a plugin's sample as a new review; `body` may give a title,
     /// an origin or who asks.
     pub fn sample(&self, plugin: &str, body: &Value) -> Result<Value> {
-        self.post(&format!("/api/v1/plugins/{plugin}/sample"), Some(body))
+        self.post(
+            &format!("/api/v1/plugins/{}/sample", segment(plugin)),
+            Some(body),
+        )
     }
 
     /// The checks a submission gets, with nothing stored.
@@ -89,15 +92,15 @@ impl Client {
     }
 
     pub fn get_review(&self, id: &str) -> Result<Value> {
-        self.get(&format!("/api/v1/reviews/{id}"), &[])
+        self.get(&format!("/api/v1/reviews/{}", segment(id)), &[])
     }
 
     pub fn rounds(&self, id: &str) -> Result<Value> {
-        self.get(&format!("/api/v1/reviews/{id}/rounds"), &[])
+        self.get(&format!("/api/v1/reviews/{}/rounds", segment(id)), &[])
     }
 
     pub fn events(&self, id: &str) -> Result<Value> {
-        self.get(&format!("/api/v1/reviews/{id}/events"), &[])
+        self.get(&format!("/api/v1/reviews/{}/events", segment(id)), &[])
     }
 
     /// `Some(review)` when the server answered 200 (settled, or pending if it
@@ -107,8 +110,9 @@ impl Client {
     pub fn wait(&self, id: &str, timeout_secs: u64) -> Result<Option<Value>> {
         let timeout_secs = timeout_secs.min(Self::POLL_SECS);
         let url = format!(
-            "{}/api/v1/reviews/{id}/wait?timeout={timeout_secs}",
-            self.base
+            "{}/api/v1/reviews/{}/wait?timeout={timeout_secs}",
+            self.base,
+            segment(id)
         );
         let agent = Self::agent(Duration::from_secs(timeout_secs + 5));
         let mut resp = agent.get(&url).call().context("connecting to the server")?;
@@ -123,12 +127,18 @@ impl Client {
         if let Some(note) = note {
             body["agent_note"] = Value::String(note);
         }
-        self.post(&format!("/api/v1/reviews/{id}/decision"), Some(&body))
+        self.post(
+            &format!("/api/v1/reviews/{}/decision", segment(id)),
+            Some(&body),
+        )
     }
 
     pub fn withdraw(&self, id: &str, reason: Option<String>) -> Result<Value> {
         let body = reason.map(|r| serde_json::json!({ "reason": r }));
-        self.post(&format!("/api/v1/reviews/{id}/withdraw"), body.as_ref())
+        self.post(
+            &format!("/api/v1/reviews/{}/withdraw", segment(id)),
+            body.as_ref(),
+        )
     }
 
     pub fn discard(&self, id: &str, reason: Option<String>, by: Option<String>) -> Result<Value> {
@@ -140,7 +150,10 @@ impl Client {
             body.insert("by".into(), Value::String(by));
         }
         let body = (!body.is_empty()).then_some(Value::Object(body));
-        self.post(&format!("/api/v1/reviews/{id}/discard"), body.as_ref())
+        self.post(
+            &format!("/api/v1/reviews/{}/discard", segment(id)),
+            body.as_ref(),
+        )
     }
 
     pub fn list(&self, query: &[(&str, String)]) -> Result<Value> {
@@ -170,7 +183,7 @@ impl Client {
     /// when there is nothing new, and otherwise the job is followed like
     /// an install's.
     pub fn plugins_update(&self, name: &str) -> Result<Value> {
-        let started = self.post(&format!("/api/v1/plugins/{name}/update"), None)?;
+        let started = self.post(&format!("/api/v1/plugins/{}/update", segment(name)), None)?;
         match started["job"].as_str() {
             Some(id) => {
                 let plugin = self.follow_job(id)?;
@@ -187,7 +200,7 @@ impl Client {
     }
 
     pub fn plugins_remove(&self, name: &str) -> Result<Value> {
-        self.delete(&format!("/api/v1/plugins/{name}"))
+        self.delete(&format!("/api/v1/plugins/{}", segment(name)))
     }
 
     /// Follows an install job to its end, printing each step and the log
@@ -196,7 +209,7 @@ impl Client {
         let mut shown = 0;
         let mut step = String::new();
         loop {
-            let job = self.get(&format!("/api/v1/plugins/jobs/{id}"), &[])?;
+            let job = self.get(&format!("/api/v1/plugins/jobs/{}", segment(id)), &[])?;
             let status = job["status"].as_str().unwrap_or("");
             if status != step {
                 step = status.to_string();
@@ -225,11 +238,11 @@ impl Client {
     }
 
     pub fn plugin_versions(&self, name: &str) -> Result<Value> {
-        self.get(&format!("/api/v1/plugins/{name}/versions"), &[])
+        self.get(&format!("/api/v1/plugins/{}/versions", segment(name)), &[])
     }
 
     pub fn plugins_describe(&self, name: &str) -> Result<Value> {
-        self.get(&format!("/api/v1/plugins/{name}/describe"), &[])
+        self.get(&format!("/api/v1/plugins/{}/describe", segment(name)), &[])
     }
 
     /// What the app makes of a plugin folder, installing nothing.
@@ -249,7 +262,7 @@ impl Client {
     pub fn review_markdown(&self, id: &str) -> Result<String> {
         let mut resp = self
             .agent
-            .get(format!("{}/api/v1/reviews/{id}", self.base))
+            .get(format!("{}/api/v1/reviews/{}", self.base, segment(id)))
             .query("format", "markdown")
             .query("head", "command")
             .call()
@@ -303,19 +316,12 @@ impl Client {
         name: &str,
         out: &mut impl std::io::Write,
     ) -> Result<u64> {
-        let encoded: String = name
-            .bytes()
-            .map(|b| match b {
-                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'-' | b'_' | b'~' => {
-                    (b as char).to_string()
-                }
-                _ => format!("%{b:02X}"),
-            })
-            .collect();
         let mut resp = Self::agent(Duration::from_secs(60 * 60))
             .get(format!(
-                "{}/api/v1/reviews/{id}/attachments/{encoded}",
-                self.base
+                "{}/api/v1/reviews/{}/attachments/{}",
+                self.base,
+                segment(id),
+                segment(name)
             ))
             .call()
             .with_context(|| self.unreachable())?;
@@ -388,4 +394,18 @@ impl Client {
             .into())
         }
     }
+}
+
+/// A value as one path segment: an id or a name, whatever it holds, never
+/// a query or another route.
+fn segment(value: &str) -> String {
+    value
+        .bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'-' | b'_' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
 }
