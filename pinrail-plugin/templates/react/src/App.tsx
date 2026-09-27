@@ -6,6 +6,7 @@
 //
 // The SDK is on the window from the script tag in index.html; the types
 // come from the package, so `gate.payload` is your payload.
+import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
 
@@ -15,11 +16,6 @@ type Decision = { ok: boolean; comment?: string };
 type Draft = { ok: boolean | null; comment: string };
 
 const { Pinrail } = window;
-
-/** One of the plugin's own icons, icons/<name>.svg; the SDK writes its markup. */
-function Icon({ name }: { name: string }) {
-  return <span style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: Pinrail.icon(name) }} />;
-}
 
 export function App() {
   const [gate, setGate] = useState<Gate<Payload, Decision> | null>(null);
@@ -87,10 +83,10 @@ export function App() {
         <>
           <div className="choice">
             <button type="button" className="btn" id="yes" aria-pressed={draft.ok === true} onClick={() => pick(true)}>
-              <Icon name="check" /> Yes
+              <Check /> Yes
             </button>
             <button type="button" className="btn" id="no" aria-pressed={draft.ok === false} onClick={() => pick(false)}>
-              <Icon name="x" /> No
+              <X /> No
             </button>
           </div>
           <input

@@ -3,6 +3,7 @@
      state, and the markup renders from it. The SDK is on the window from the
      script tag in index.html; the types come from the package. -->
 <script lang="ts">
+  import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/svelte";
   import { onMount } from "svelte";
   import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
 
@@ -101,7 +102,7 @@
       <ul aria-label="Checks">
         {#each gate.payload.checks as c (c.name)}
           <li data-passed={String(c.passed)}>
-            {@html Pinrail.icon(c.passed ? "circle-check" : "circle-x")} {c.name}{#if c.detail}{" "}<span class="detail">{c.detail}</span>{/if}
+            {#if c.passed}<CircleCheck />{:else}<CircleX />{/if} {c.name}{#if c.detail}{" "}<span class="detail">{c.detail}</span>{/if}
           </li>
         {/each}
       </ul>
@@ -111,10 +112,10 @@
     {:else}
       <div class="choice" role="group" aria-label="Verdict">
         <button type="button" class="btn" aria-pressed={draft.verdict === "ship"} onclick={() => choose("ship")}>
-          {@html Pinrail.icon("rocket")} Ship <kbd>s</kbd>
+          <Rocket /> Ship <kbd>s</kbd>
         </button>
         <button type="button" class="btn" aria-pressed={draft.verdict === "hold"} onclick={() => choose("hold")}>
-          {@html Pinrail.icon("hand")} Hold <kbd>h</kbd>
+          <Hand /> Hold <kbd>h</kbd>
         </button>
       </div>
       <textarea class="note" aria-label="Note to the agent" placeholder="A note for the agent (optional)" value={draft.note} oninput={writeNote}></textarea>

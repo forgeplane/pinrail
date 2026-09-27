@@ -17,5 +17,8 @@
     "svelte-check": "^4",
     "typescript": "^5",
     "vite": "^7"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1"
   }
 }

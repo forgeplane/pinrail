@@ -25,10 +25,13 @@ follows the app's theme.
   other levels; `.meta`, `.eyebrow`, `.dim`, `.faint`, `.empty`, `.errors`.
 - Themes: the root element has `data-theme="dark"` or `"light"`; key any
   colour of your own on it. `onAppearance(theme)` says when it changes.
-- Icons: `Pinrail.icon(name)` draws `icons/<name>.svg` beside the view
-  (for a Vite build, `src/public/icons/`), in the text's colour. Bring the
-  ones you use; the app's are Lucide, from `lucide-static`, which fit best.
-  The manifest's `icon` is an SVG file in the folder too.
+- Icons, without a build: `Pinrail.icon(name)` draws `icons/<name>.svg`
+  from `view/icons/`, in the text's colour. Bring the ones you use; the
+  app's are Lucide, from `lucide-static`, which fit best.
+- Icons, with a build: import them from `lucide-react`, `@lucide/vue`,
+  `@lucide/svelte`, or `lucide` (`createElement(icon, { class: "lucide" })`);
+  the stylesheet sizes an `svg.lucide` to the text.
+- The manifest's `icon` is an SVG file in the folder, either way.
 - The app draws the title and the hand-over: the view draws neither.
 - Dense and quiet: one accent, lines rather than boxes. A decided review
   shows what was there and what was decided, without controls.

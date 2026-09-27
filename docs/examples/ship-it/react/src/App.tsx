@@ -2,6 +2,7 @@
 // hands over (the review, whether it is read-only, the draft) becomes state,
 // and the page renders from it. The SDK is on the window from the script tag
 // in index.html; the types come from the package.
+import { CircleCheck, CircleX, Hand, Rocket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
 
@@ -18,11 +19,6 @@ type Decision = { verdict: Verdict; note?: string };
 type Draft = { verdict: Verdict | null; note: string };
 
 const { Pinrail } = window;
-
-/** One of the plugin's own icons, icons/<name>.svg; the SDK writes its markup. */
-function Icon({ name }: { name: string }) {
-  return <span style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: Pinrail.icon(name) }} />;
-}
 
 export function App() {
   const [gate, setGate] = useState<Gate<Payload, Decision> | null>(null);
@@ -114,7 +110,7 @@ export function App() {
         <ul aria-label="Checks">
           {payload.checks.map((c) => (
             <li key={c.name} data-passed={String(c.passed)}>
-              <Icon name={c.passed ? "circle-check" : "circle-x"} /> {c.name}
+              {c.passed ? <CircleCheck /> : <CircleX />} {c.name}
               {c.detail ? <> <span className="detail">{c.detail}</span></> : null}
             </li>
           ))}
@@ -129,10 +125,10 @@ export function App() {
         <>
           <div className="choice" role="group" aria-label="Verdict">
             <button type="button" className="btn" aria-pressed={draft.verdict === "ship"} onClick={() => choose("ship")}>
-              <Icon name="rocket" /> Ship <kbd>s</kbd>
+              <Rocket /> Ship <kbd>s</kbd>
             </button>
             <button type="button" className="btn" aria-pressed={draft.verdict === "hold"} onClick={() => choose("hold")}>
-              <Icon name="hand" /> Hold <kbd>h</kbd>
+              <Hand /> Hold <kbd>h</kbd>
             </button>
           </div>
           <textarea

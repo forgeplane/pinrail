@@ -7,6 +7,7 @@
      The SDK is on the window from the script tag in index.html; the types
      come from the package, so `gate.payload` is your payload. -->
 <script setup lang="ts">
+import { Check, X } from "@lucide/vue";
 import { onMounted, ref, watchEffect } from "vue";
 import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
 
@@ -68,7 +69,6 @@ watchEffect(() => {
   plugin.status({ label: ok === null ? "Hand over" : `Hand over: ${ok ? "yes" : "no"}` });
 });
 
-const icon = (name: string) => Pinrail.icon(name);
 const markdown = (source: string) => Pinrail.markdown(source);
 </script>
 
@@ -82,10 +82,10 @@ const markdown = (source: string) => Pinrail.markdown(source);
     <template v-else>
       <div class="choice">
         <button type="button" class="btn" id="yes" :aria-pressed="draft.ok === true" @click="pick(true)">
-          <span style="display: contents" v-html="icon('check')"></span> Yes
+          <Check /> Yes
         </button>
         <button type="button" class="btn" id="no" :aria-pressed="draft.ok === false" @click="pick(false)">
-          <span style="display: contents" v-html="icon('x')"></span> No
+          <X /> No
         </button>
       </div>
       <input class="field" id="comment" placeholder="comment (optional)" aria-label="comment" :value="draft.comment" @input="writeComment" />

@@ -113,7 +113,7 @@ Styles written against the tokens need nothing more. For anything else, key it o
 
 ## Icons
 
-A plugin brings its own icons, as SVG files in `icons/` beside its view: `view/icons/`, or for a Vite build `src/public/icons/`, which the build copies there. `Pinrail.icon(name)` draws `icons/<name>.svg`.
+A plugin brings its own icons. A view without a build keeps them as SVG files in `view/icons/`, and `Pinrail.icon(name)` draws `icons/<name>.svg`.
 
 ```js
 button.innerHTML = `${Pinrail.icon("check")} Accept`;
@@ -121,6 +121,8 @@ Pinrail.icon("triangle-alert", { size: 16, label: "Warning" });
 ```
 
 The app draws with [Lucide](https://lucide.dev/icons), so its icons fit best: copy the ones you use from the `lucide-static` package, keeping the licence comment each file starts with. An icon takes the colour of the text around it, in either theme, drawn from its shapes alone. It follows the font size unless you give `size`; give `label` when the icon means something on its own, so screen readers say it.
+
+A view with a build imports its icons from its framework's Lucide package instead, as the React, Vue, Svelte and Vite templates do: `lucide-react`, `@lucide/vue`, `@lucide/svelte`, or `lucide` for plain TypeScript. The build keeps only the icons the view imports, and the SDK stylesheet sizes each `svg.lucide` to the text.
 
 The manifest's `icon` is an SVG file in the folder too, `icon.svg` in the scaffold, which the app shows wherever it names the plugin, drawn the same way. It is at most 32 KB; one that does not load costs the plugin its icon, not its place.
 

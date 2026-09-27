@@ -3,6 +3,11 @@
 // The SDK is on the window from the script tag in index.html; the types come
 // from the package.
 import type { Init } from "@forgeplane/pinrail-plugin/types";
+import { createElement, CircleCheck, CircleX, Hand, Rocket, type IconNode } from "lucide";
+
+/** A Lucide icon as markup, for the HTML this view builds as a string; the
+ *  class sizes it to the text, as the framework packages' icons are. */
+const svg = (icon: IconNode) => createElement(icon, { class: "lucide", "aria-hidden": "true" }).outerHTML;
 
 type Payload = {
   service: string;
@@ -70,14 +75,14 @@ function render() {
       <section>
         <h2 class="eyebrow">Checks</h2>
         <ul aria-label="Checks">
-          ${payload.checks.map((c) => `<li data-passed="${c.passed}">${Pinrail.icon(c.passed ? "circle-check" : "circle-x")} ${esc(c.name)}${c.detail ? ` <span class="detail">${esc(c.detail)}</span>` : ""}</li>`).join("")}
+          ${payload.checks.map((c) => `<li data-passed="${c.passed}">${svg(c.passed ? CircleCheck : CircleX)} ${esc(c.name)}${c.detail ? ` <span class="detail">${esc(c.detail)}</span>` : ""}</li>`).join("")}
         </ul>
       </section>
       ${plugin.readonly
         ? `<p class="decided"><b>${decided?.verdict === "ship" ? "Shipped" : "Held"}</b>${decided?.note ? `: ${esc(decided.note)}` : ""}</p>`
         : `<div class="choice" role="group" aria-label="Verdict">
-            <button type="button" class="btn" data-verdict="ship" aria-pressed="${draft.verdict === "ship"}">${Pinrail.icon("rocket")} Ship <kbd>s</kbd></button>
-            <button type="button" class="btn" data-verdict="hold" aria-pressed="${draft.verdict === "hold"}">${Pinrail.icon("hand")} Hold <kbd>h</kbd></button>
+            <button type="button" class="btn" data-verdict="ship" aria-pressed="${draft.verdict === "ship"}">${svg(Rocket)} Ship <kbd>s</kbd></button>
+            <button type="button" class="btn" data-verdict="hold" aria-pressed="${draft.verdict === "hold"}">${svg(Hand)} Hold <kbd>h</kbd></button>
           </div>
           <textarea class="note" aria-label="Note to the agent" placeholder="A note for the agent (optional)">${esc(draft.note)}</textarea>
           <div class="errors" role="alert">${esc(error)}</div>`}

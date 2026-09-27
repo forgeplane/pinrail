@@ -5,6 +5,11 @@
 // The SDK is on the window from the script tag in index.html; the types
 // come from the package, so `plugin.gate.payload` is your payload.
 import type { Init } from "@forgeplane/pinrail-plugin/types";
+import { createElement, Check, X, type IconNode } from "lucide";
+
+/** A Lucide icon as markup, for the HTML this view builds as a string; the
+ *  class sizes it to the text, as the framework packages' icons are. */
+const svg = (icon: IconNode) => createElement(icon, { class: "lucide", "aria-hidden": "true" }).outerHTML;
 
 type Payload = { message: string };
 type Decision = { ok: boolean; comment?: string };
@@ -55,8 +60,8 @@ function render(draft?: Draft | null) {
   view.content.innerHTML = Pinrail.markdown(gate.payload.message) + (plugin.readonly
     ? `<p class="dim">Decided: <b>${decided?.ok ? "yes" : "no"}</b>${decided?.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
     : `<div class="choice">
-         <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${Pinrail.icon("check")} Yes</button>
-         <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${Pinrail.icon("x")} No</button>
+         <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${svg(Check)} Yes</button>
+         <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${svg(X)} No</button>
        </div>
        <input class="field" id="comment" placeholder="comment (optional)" aria-label="comment" value="${Pinrail.escape(draft?.comment ?? "")}">
        <div id="errors" class="errors"></div>`);

@@ -14,5 +14,8 @@
     "typescript": "^5",
     "vite": "^7",
     "@forgeplane/pinrail-plugin": "__SDK_DEP__"
+  },
+  "dependencies": {
+    "lucide": "^1"
   }
 }

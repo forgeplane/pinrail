@@ -3,6 +3,7 @@
      reactive state, and the template renders from it. The SDK is on the
      window from the script tag in index.html; the types come from the package. -->
 <script setup lang="ts">
+import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/vue";
 import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
 import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
 
@@ -83,7 +84,6 @@ watchEffect(() => {
 });
 
 const decided = computed(() => gate.value?.decision?.data);
-const icon = (name: string) => Pinrail.icon(name);
 </script>
 
 <template>
@@ -102,7 +102,7 @@ const icon = (name: string) => Pinrail.icon(name);
       <h2 class="eyebrow">Checks</h2>
       <ul aria-label="Checks">
         <li v-for="c in gate.payload.checks" :key="c.name" :data-passed="String(c.passed)">
-          <span style="display: contents" v-html="icon(c.passed ? 'circle-check' : 'circle-x')"></span> {{ c.name }}<template v-if="c.detail">&#32;<span class="detail">{{ c.detail }}</span></template>
+          <CircleCheck v-if="c.passed" /><CircleX v-else /> {{ c.name }}<template v-if="c.detail">&#32;<span class="detail">{{ c.detail }}</span></template>
         </li>
       </ul>
     </section>
@@ -112,10 +112,10 @@ const icon = (name: string) => Pinrail.icon(name);
     <template v-else>
       <div class="choice" role="group" aria-label="Verdict">
         <button type="button" class="btn" :aria-pressed="draft.verdict === 'ship'" @click="choose('ship')">
-          <span style="display: contents" v-html="icon('rocket')"></span> Ship <kbd>s</kbd>
+          <Rocket /> Ship <kbd>s</kbd>
         </button>
         <button type="button" class="btn" :aria-pressed="draft.verdict === 'hold'" @click="choose('hold')">
-          <span style="display: contents" v-html="icon('hand')"></span> Hold <kbd>h</kbd>
+          <Hand /> Hold <kbd>h</kbd>
         </button>
       </div>
       <textarea

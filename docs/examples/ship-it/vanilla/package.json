@@ -14,5 +14,8 @@
     "@playwright/test": "^1.56",
     "typescript": "^5",
     "vite": "^7"
+  },
+  "dependencies": {
+    "lucide": "^1"
   }
 }

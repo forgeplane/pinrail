@@ -17,5 +17,8 @@
     "@sveltejs/vite-plugin-svelte": "^6",
     "svelte": "^5",
     "svelte-check": "^4"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1"
   }
 }

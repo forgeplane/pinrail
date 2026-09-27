@@ -166,6 +166,11 @@ kbd {
   mask: var(--wi) no-repeat center / contain;
 }
 
+/* A view with a build may draw icons from its framework's Lucide package
+   (lucide-react, @lucide/vue, @lucide/svelte, lucide) instead: their SVGs
+   sit in the text the same way. */
+svg.lucide { flex: none; width: var(--wi-size, 1em); height: var(--wi-size, 1em); vertical-align: -0.14em; }
+
 /* -------------------------------------------------------------------------
    Pieces.
    ------------------------------------------------------------------------- */

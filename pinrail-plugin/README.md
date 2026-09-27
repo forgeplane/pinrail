@@ -92,9 +92,9 @@ has handles a forwarded key like a typed one; `onKey(key)` fires as well.
 
 ## Icons
 
-A plugin brings its own icons, as SVG files in `icons/` beside its view
-(`view/icons/`; for a Vite build, `src/public/icons/`, which the build copies
-there). `Pinrail.icon(name)` returns the markup for `icons/<name>.svg`:
+A plugin brings its own icons. A view without a build keeps them as SVG
+files in `view/icons/`, and `Pinrail.icon(name)` returns the markup for
+`icons/<name>.svg`:
 
 ```js
 `<button class="btn">${Pinrail.icon("check")} Accept</button>`
@@ -110,6 +110,12 @@ theme, with nothing to configure. Size follows the font size;
 An icon is decorative by default and is not announced. Pass `{ label: "delete" }`
 when the icon is the only thing saying what a control does. A name with no icon
 behind it renders as empty space, with the name left on the element.
+
+A view with a build imports its icons from its framework's Lucide package
+instead, as the templates do: `lucide-react`, `@lucide/vue`, `@lucide/svelte`,
+or `lucide` for plain TypeScript (`createElement(icon, { class: "lucide" })`).
+The build keeps only the icons the view imports, and the stylesheet sizes an
+`svg.lucide` to the text as it does `Pinrail.icon`.
 
 The manifest's `icon` is an SVG file in the plugin's folder too, such as
 `icon.svg`: the app shows it wherever it names the plugin, drawn the same way.
@@ -265,9 +271,10 @@ In this repository `mise run test:plugins` runs every sample's tests from
 
 `pinrail-plugin check [dir]` says what the app's inspect would say, without
 the app: the manifest, the name, the version, the entry (or the build that
-writes it), the schemas and their `$ref`s, the icon are *problems* that
-refuse the folder; a `settings_schema`, `shortcuts` list,
-`decision_template`, `example` or `sample` with the wrong shape, an example
+writes it), the schemas and their `$ref`s are *problems* that refuse the
+folder; a `settings_schema`, `shortcuts` list, `decision_template`,
+`example`, `sample` or `icon` with the wrong shape, an icon that is not an
+SVG file in the folder, an example
 that does not pass the payload schema, or a sample without a title, a
 passing payload or its files, is a *warning*, the feature the
 app drops with the reason on the plugin's row. `--json` gives the same as

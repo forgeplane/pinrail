@@ -7,6 +7,7 @@
      The SDK is on the window from the script tag in index.html; the types
      come from the package, so `gate.payload` is your payload. -->
 <script lang="ts">
+  import { Check, X } from "@lucide/svelte";
   import { onMount } from "svelte";
   import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
 
@@ -80,10 +81,10 @@
     {:else}
       <div class="choice">
         <button type="button" class="btn" id="yes" aria-pressed={draft.ok === true} onclick={() => pick(true)}>
-          {@html Pinrail.icon("check")} Yes
+          <Check /> Yes
         </button>
         <button type="button" class="btn" id="no" aria-pressed={draft.ok === false} onclick={() => pick(false)}>
-          {@html Pinrail.icon("x")} No
+          <X /> No
         </button>
       </div>
       <input class="field" id="comment" placeholder="comment (optional)" aria-label="comment" value={draft.comment} oninput={writeComment} />
