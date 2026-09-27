@@ -129,11 +129,26 @@ async fn submit(app: &App, body: Value) -> Value {
 async fn submit_returns_every_field_of_the_envelope() {
     let app = app();
     let review = submit(&app, submission()).await;
-    let (_, recorded) = fixture("create-ok");
-
-    for key in recorded.as_object().unwrap().keys() {
-        assert!(review.get(key).is_some(), "missing {key} in {review}");
+    // the recorded answer holds exactly the fields a review has: one added
+    // or dropped is a deliberate change of the fixture, which
+    // `UPDATE_FIXTURES=1 cargo test` writes
+    if std::env::var_os("UPDATE_FIXTURES").is_some() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/api/create-ok.txt");
+        std::fs::write(&path, format!("{review}\n201\n")).unwrap();
     }
+    let (_, recorded) = fixture("create-ok");
+    let fields = |v: &Value| {
+        v.as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    assert_eq!(
+        fields(&review),
+        fields(&recorded),
+        "the envelope changed; run with UPDATE_FIXTURES=1 if that is meant"
+    );
     assert!(review["id"].as_str().unwrap().starts_with("r_"));
     assert_eq!(review["plugin"], "list");
     assert_eq!(review["plugin_version"], 1);
