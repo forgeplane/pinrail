@@ -452,3 +452,16 @@ test("in a decided review, c does nothing: no note, and the diff keeps its layou
   await expect(f.locator(".diff-row.split")).toHaveCount(0);
   await expect(f.locator("[data-note-ta]")).toHaveCount(0);
 });
+
+test("a proposal's markdown renders in full: lists, links and emphasis", async ({ page }) => {
+  // the schema tells agents these fields are markdown
+  const gate = round2();
+  const payload = gate.payload as { proposals: { body: string }[] };
+  payload.proposals[0].body = "Two things:\n\n- drop the second `reverse`\n- keep _one_ pass\n\nSee [the docs](https://hexdocs.pm/elixir/Enum.html).";
+  const plugin = await mountPlugin(page, dir, { gate });
+  const card = plugin.frame.locator(".card-body").first();
+  await expect(card.locator("ul li")).toHaveCount(2);
+  await expect(card.locator("em")).toHaveText("one");
+  await expect(card.locator("a")).toHaveAttribute("href", "https://hexdocs.pm/elixir/Enum.html");
+  await expect(card.locator("code").first()).toHaveText("reverse");
+});

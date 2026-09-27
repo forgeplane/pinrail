@@ -168,6 +168,9 @@ button.card-toggle .caret.open { transform: rotate(90deg); }
 .card-body { display: flex; flex-direction: column; gap: 9px; margin: 8px 16px 14px; line-height: 1.6; color: var(--text); }
 .card.rejected .card-body { color: var(--dim); }
 .card-body p { margin: 0; }
+.md-text > :last-child { margin-bottom: 0; }
+.md-text p, .md-text ul, .md-text ol { margin: 0 0 6px; }
+.md-text ul, .md-text ol { padding-left: 18px; }
 .code-block { margin: 0; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font: var(--code-size)/1.55 var(--mono); white-space: pre-wrap; overflow-x: auto; color: var(--text); }
 .sugg { border: 1px solid var(--border-strong); border-radius: 7px; overflow: hidden; }
 .sugg-head { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--border); background: var(--bg); font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; color: var(--dim); }
@@ -365,17 +368,13 @@ function loadDecision(data) {
 
 const previousVerdict = (id) => Pinrail.previousVerdict(PREVIOUS, id);
 
-/* ---------- markdown-lite ---------- */
-function inlineHtml(text) {
-  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).filter(Boolean).map((p) => {
-    if (p.startsWith("`")) return `<code class="inl">${esc(p.slice(1, -1))}</code>`;
-    if (p.startsWith("**")) return `<b>${esc(p.slice(2, -2))}</b>`;
-    return esc(p);
-  }).join("");
-}
+/* ---------- markdown ---------- */
+// The SDK renders the markdown; the view only splits out the fenced blocks
+// it draws itself, ```suggestion above all.
+const inlineHtml = (text) => Pinrail.markdownInline(text || "");
 function mdSegments(body) {
   const segs = []; const re = /```([^\n`]*)\n([\s\S]*?)```/g; let last = 0, m;
-  const pushText = (t) => t.split(/\n\n+/).map((s) => s.trim()).filter(Boolean).forEach((p) => segs.push({ kind: "para", html: inlineHtml(p) }));
+  const pushText = (t) => { if (t.trim()) segs.push({ kind: "para", html: Pinrail.markdown(t) }); };
   while ((m = re.exec(body))) {
     if (m.index > last) pushText(body.slice(last, m.index));
     const info = m[1].trim();
@@ -394,7 +393,7 @@ function mdSegments(body) {
 }
 function mdBlockHtml(body) {
   return mdSegments(body || "").map((seg) => {
-    if (seg.kind === "para") return `<p style="margin:0 0 6px 0">${seg.html}</p>`;
+    if (seg.kind === "para") return `<div class="md-text">${seg.html}</div>`;
     return `<pre style="margin:0 0 6px 0;background:var(--bg-panel);border:1px solid var(--border);border-radius:5px;padding:6px 9px;font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap">${esc(seg.text)}</pre>`;
   }).join("");
 }
@@ -665,7 +664,7 @@ function threadBlockHtml(p) {
 }
 function segmentsHtml(p) {
   return (SEGMENTS[p.id] || []).map((seg) => {
-    if (seg.kind === "para") return `<p>${seg.html}</p>`;
+    if (seg.kind === "para") return `<div class="md-text">${seg.html}</div>`;
     if (seg.kind === "code") return `<pre class="code-block">${esc(seg.text)}</pre>`;
     const row = (cls, sign, ln, text) => `<div class="sugg-row ${cls}"><span class="ln">${ln}</span><span class="sign">${sign}</span><span class="code">${esc(text)}</span></div>`;
     const delRows = (seg.oldLines || []).map((o) => row("del", "−", o.line, o.text)).join("");
