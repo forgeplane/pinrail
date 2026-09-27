@@ -44,7 +44,7 @@ test("versions read as the app reads them", async () => {
   for (const bad of [0, -1, 1.5, "1.2", "v1.2.0", "1.2.x", true, null, undefined]) assert.equal(versionOf(bad), null, String(bad));
 });
 
-test("what refuses a plugin: manifest, name, version, entry, schemas, icon, build", async () => {
+test("what refuses a plugin: manifest, name, version, entry, schemas, build", async () => {
   const { checkPlugin } = await load();
   const refused = (extra, files) => {
     const r = checkPlugin(plugin(extra, files));
@@ -64,7 +64,6 @@ test("what refuses a plugin: manifest, name, version, entry, schemas, icon, buil
   assert.deepEqual(refused({ payload_schema: { $ref: "missing.json" } }), ["payload_schema"]);
   assert.deepEqual(refused({ payload_schema: { $ref: "p.json" } }, { "index.html": "", "p.json": "{" }), ["payload_schema"]);
   assert.deepEqual(refused({ payload_schema: { type: "thing" } }), ["payload_schema"]);
-  assert.deepEqual(refused({ icon: "Mail" }), ["icon"]);
   assert.deepEqual(refused({ build: { command: "" } }), ["build"]);
   assert.deepEqual(refused({ build: "npm run build" }), ["build"]);
   // the manifest schema's rules for the rest of the keys
@@ -76,7 +75,7 @@ test("what refuses a plugin: manifest, name, version, entry, schemas, icon, buil
   assert.deepEqual(refused({ entry: "" }), ["entry"]);
   assert.deepEqual(refused({ version: "1.2" }), ["version"]);
   // everything wrong at once is listed at once
-  assert.deepEqual(refused({ name: "-", version: 0, icon: "--" }), ["name", "version", "icon"]);
+  assert.deepEqual(refused({ name: "-", version: 0 }), ["name", "version"]);
 });
 
 test("a source that builds is ok before its build and usable after", async () => {
@@ -93,7 +92,7 @@ test("a source that builds is ok before its build and usable after", async () =>
   assert.deepEqual(after.notes, []);
 });
 
-test("what costs a feature: settings, shortcuts, the template; a missing title is only a note", async () => {
+test("what costs a feature: settings, shortcuts, the template, the icon; a missing title is only a note", async () => {
   const { checkPlugin } = await load();
   const warned = (extra, files) => {
     const r = checkPlugin(plugin({ title: "T", ...extra }, files));
@@ -101,6 +100,11 @@ test("what costs a feature: settings, shortcuts, the template; a missing title i
     return keys(r.warnings);
   };
   assert.deepEqual(keys(checkPlugin(plugin()).warnings), ["title"]);
+  // the icon: an SVG file in the folder, or the plugin shows the generic one
+  assert.deepEqual(warned({ icon: "mail" }), ["icon"]);
+  assert.deepEqual(warned({ icon: "missing.svg" }), ["icon"]);
+  assert.deepEqual(warned({ icon: "icon.svg" }, { "index.html": "", "icon.svg": "hello" }), ["icon"]);
+  assert.deepEqual(warned({ icon: "icon.svg" }, { "index.html": "", "icon.svg": '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1"/></svg>' }), []);
   assert.deepEqual(warned({ settings_schema: [] }), ["settings_schema"]);
   assert.deepEqual(warned({ settings_schema: { type: "array" } }), ["settings_schema"]);
   assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "object", default: {} } } } }), ["settings_schema"]);
