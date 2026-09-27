@@ -174,18 +174,21 @@ async fn save_attachment(
             return Ok(None);
         };
         let to = to.into_path().map_err(|e| e.to_string())?;
-        std::fs::copy(&from, &to).map_err(|e| format!("saving {}: {e}", to.display()))?;
-        // the store keeps its files read-only; the copy is the person's own
-        if let Ok(meta) = std::fs::metadata(&to) {
-            let mut permissions = meta.permissions();
-            #[allow(clippy::permissions_set_readonly_false)]
-            permissions.set_readonly(false);
-            let _ = std::fs::set_permissions(&to, permissions);
-        }
+        save_copy(&from, &to).map_err(|e| format!("saving {}: {e}", to.display()))?;
         Ok(Some(to.display().to_string()))
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Copies a stored attachment to where the person chose. The store keeps
+/// its files read-only; the copy is the person's own, a new file made as
+/// any they save is, so their umask sets who else may read it.
+fn save_copy(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut stored = std::fs::File::open(from)?;
+    let mut saved = std::fs::File::create(to)?;
+    std::io::copy(&mut stored, &mut saved)?;
+    Ok(())
 }
 
 /// Links or copies the bundled CLI to `~/.local/bin/pinrail`, as the way the
@@ -518,4 +521,24 @@ pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
         .map(|r| r.join("sdk/v1"))
         .chain([PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/v1")])
         .find(|dir| dir.join("pinrail-plugin.js").is_file())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn a_saved_attachment_is_the_persons_to_write_and_no_one_elses() {
+        let dir = tempfile::tempdir().unwrap();
+        let (stored, saved) = (dir.path().join("blob"), dir.path().join("pivot.glb"));
+        std::fs::write(&stored, b"glTF").unwrap();
+        // as the store keeps its files
+        std::fs::set_permissions(&stored, std::fs::Permissions::from_mode(0o444)).unwrap();
+
+        super::save_copy(&stored, &saved).unwrap();
+        let mode = std::fs::metadata(&saved).unwrap().permissions().mode() & 0o777;
+        assert_eq!(std::fs::read(&saved).unwrap(), b"glTF");
+        assert_ne!(mode & 0o200, 0, "the person can write it: {mode:o}");
+        assert_eq!(mode & 0o022, 0, "nobody else can: {mode:o}");
+    }
 }
