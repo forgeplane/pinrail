@@ -24,6 +24,7 @@ import { api } from "../api/client";
 import type { Decision, Review, Violation } from "../api/types";
 import { openExternal } from "../lib/native";
 import { currentTheme } from "../lib/theme";
+import { modalOpen } from "../lib/keys";
 
 /** The app's review-screen keys a view may pass up: help, and the rounds. */
 const VIEW_APP_KEYS = ["?", "[", "]"];
@@ -263,6 +264,9 @@ export function usePluginBridge(options: Options): Bridge {
     window.addEventListener("message", onMessage);
 
     const onKey = (event: KeyboardEvent) => {
+      // not while a dialog is open: ⌘Enter in a plugin's setting field is
+      // no hand-over
+      if (modalOpen()) return;
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault();
         collect();

@@ -38,7 +38,7 @@ export function DiscardDialog({ review, onClose, onDone }: { review: Review; onC
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div className="app-dialog discard-dialog" role="dialog" aria-labelledby="discard-title" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="app-dialog discard-dialog" role="dialog" aria-modal="true" aria-labelledby="discard-title" onMouseDown={(e) => e.stopPropagation()}>
         <div className="dialog-head">
           <h2 id="discard-title">Discard this review?</h2>
         </div>

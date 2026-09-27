@@ -206,7 +206,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
 
   return (
     <div className="app-dialog-backdrop palette-backdrop" onMouseDown={onClose}>
-      <div className="palette" role="dialog" aria-label="Search" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKeyDown}>
+      <div className="palette" role="dialog" aria-modal="true" aria-label="Search" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKeyDown}>
         <label className="palette-field">
           <Search size={16} aria-hidden="true" />
           <input

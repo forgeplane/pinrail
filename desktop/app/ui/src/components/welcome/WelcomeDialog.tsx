@@ -324,7 +324,7 @@ export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: We
 
   return (
     <div className="app-dialog-backdrop">
-      <div className="welcome-dialog" role="dialog" aria-labelledby="welcome-title">
+      <div className="welcome-dialog" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
         <aside className="welcome-rail">
           <Mark />
           <h1 id="welcome-title">Set up Pinrail</h1>

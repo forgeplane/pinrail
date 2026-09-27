@@ -51,3 +51,29 @@ test("the inbox is grouped by project or one list, newest first, and remembers w
   await page.getByRole("radio", { name: "Grouped by project" }).click();
   await expect(page.locator(".inbox-repo")).toHaveCount(2);
 });
+
+test("the inbox's keys stay quiet under a dialog, and with a modifier", async ({ page }) => {
+  // d discards the focused review: not from behind Settings, and not as ⌘D
+  const pending = (await (await page.request.get("http://127.0.0.1:4799/api/v1/reviews?status=pending&limit=500")).json()).reviews as { id: string }[];
+  for (const r of pending) await page.request.post(`http://127.0.0.1:4799/api/v1/reviews/${r.id}/discard`, { data: { reason: "spec cleanup" } });
+  const made = await page.request.post("http://127.0.0.1:4799/api/v1/reviews", {
+    data: { plugin: "list", title: "Quiet keys", origin: { repo: "acme/api" }, payload: { groups: [{ title: "a", items: [{ id: 1, title: "x" }] }] } },
+  });
+  expect(made.status(), await made.text()).toBe(201);
+  const discard = page.locator(".discard-dialog");
+
+  await page.goto("/#/");
+  await expect(page.locator("[data-review-row]")).toHaveCount(1);
+  await page.keyboard.press("ControlOrMeta+,");
+  await expect(page.locator("[data-settings]")).toBeVisible();
+  await page.keyboard.press("d");
+  await expect(discard, "d reached the inbox behind Settings").toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("[data-settings]")).toHaveCount(0);
+
+  await page.keyboard.press("ControlOrMeta+d");
+  await expect(discard, "⌘D opened the discard dialog").toHaveCount(0);
+  // d alone still does
+  await page.keyboard.press("d");
+  await expect(discard).toBeVisible();
+});

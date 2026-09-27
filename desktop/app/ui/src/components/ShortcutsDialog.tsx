@@ -37,7 +37,7 @@ export function ShortcutsDialog({ plugin, onClose }: { plugin?: OpenPlugin; onCl
 
   return (
     <div className="app-dialog-backdrop shortcuts-backdrop" onClick={onClose}>
-      <div className="app-dialog shortcuts-dialog" role="dialog" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
+      <div className="app-dialog shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
         <div className="dialog-head">
           <h2 id="keyboard-title">Keyboard shortcuts</h2>
           <Tooltip label="Close" keys={["Esc"]}>

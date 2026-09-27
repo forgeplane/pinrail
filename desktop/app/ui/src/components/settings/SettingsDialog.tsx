@@ -165,7 +165,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div className="settings" role="dialog" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()} data-settings>
+      <div className="settings" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()} data-settings>
         <nav className="settings-rail" aria-label="Settings sections">
           <div className="settings-rail-title">Settings</div>
           {SECTIONS.map((s) => (

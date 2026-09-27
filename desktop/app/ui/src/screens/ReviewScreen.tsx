@@ -10,7 +10,7 @@ import { AttachmentsChip } from "../components/AttachmentsChip";
 import { OutcomeBadge, PluginBadge, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { Tooltip } from "../components/Tooltip";
-import { MOD, hasMod } from "../lib/keys";
+import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { comboFromEvent, isShadowed } from "../lib/shortcuts";
 import { overlayTitleBar } from "../lib/native";
 import { age, stamp } from "../lib/format";
@@ -233,6 +233,8 @@ export function ReviewScreen() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // a dialog in front of the review has the keys
+      if (modalOpen()) return;
       if (event.key === "Escape" && maximized) {
         setMaximized(false);
         return;

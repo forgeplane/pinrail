@@ -14,6 +14,7 @@ import { stamp } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { NO_PROJECT } from "../lib/shortcuts";
+import { modalOpen } from "../lib/keys";
 
 const settledAt = (r: Review) => r.decision?.decided_at ?? r.withdrawn_at ?? r.discarded_at ?? r.expires_at;
 
@@ -119,7 +120,7 @@ export function History() {
   // the same keys as the inbox: j/k move, enter opens, / searches
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
       const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
       if (event.key === "/" && !typing) {

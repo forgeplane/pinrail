@@ -14,6 +14,7 @@ import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { NO_PROJECT, inProject } from "../lib/shortcuts";
+import { modalOpen } from "../lib/keys";
 
 /** How the inbox is laid out, remembered on this machine. */
 type Layout = "projects" | "list";
@@ -155,6 +156,8 @@ export function Inbox() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      // the inbox's keys are plain ones, and not for a dialog in front of it
+      if (event.metaKey || event.ctrlKey || event.altKey || modalOpen()) return;
       const el = event.target as HTMLElement | null;
       const typing = !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
       if (event.key === "/" && !typing) {
