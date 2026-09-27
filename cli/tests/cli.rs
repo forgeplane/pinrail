@@ -644,6 +644,32 @@ fn a_decision_that_cannot_be_rendered_still_exits_as_decided() {
 }
 
 #[test]
+fn text_from_a_review_cannot_drive_the_terminal() {
+    // a title with escape sequences: clear the screen, set the clipboard
+    let server = MockServer::start(Box::new(|_, path, _| {
+        if path.starts_with("/api/v1/reviews/r_1/wait") {
+            (200, review("decided"))
+        } else {
+            (
+                200,
+                "r_1 · decided · Ship\u{1b}[2J it\u{1b}]52;c;cm0gLXJm\u{7}\nlist\n\n\t- a tab stays\n"
+                    .into(),
+            )
+        }
+    }));
+    let (code, stdout, stderr) = run(&server, &["wait", "r_1", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        !stdout.contains('\u{1b}') && !stdout.contains('\u{7}'),
+        "{stdout:?}"
+    );
+    assert!(
+        stdout.contains("Ship[2J it]52;c;cm0gLXJm\nlist\n\n\t- a tab stays"),
+        "{stdout:?}"
+    );
+}
+
+#[test]
 fn an_install_answer_with_no_job_says_so() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/install" => (202, "{}".into()),

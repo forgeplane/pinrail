@@ -85,7 +85,7 @@ impl Output {
     /// JSON with --json; otherwise the markdown `render` makes of it.
     fn data(&self, value: &serde_json::Value, render: impl FnOnce(&serde_json::Value) -> String) {
         if self.markdown {
-            print!("{}", render(value));
+            print!("{}", out::terminal_safe(&render(value)));
         } else {
             out::print_json(value, self.pretty);
         }
@@ -96,7 +96,7 @@ impl Output {
             && let Some(id) = review["id"].as_str()
         {
             match client.review_markdown(id) {
-                Ok(markdown) => println!("{}", markdown.trim_end()),
+                Ok(markdown) => println!("{}", out::terminal_safe(markdown.trim_end())),
                 // the review is already here: the exit code must still say
                 // how it ended, so print what it holds
                 Err(err) => {

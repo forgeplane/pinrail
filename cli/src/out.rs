@@ -24,6 +24,16 @@ pub fn note(message: impl std::fmt::Display) {
     }
 }
 
+/// Text for a terminal: control characters removed, except newlines and
+/// tabs, so text from a review cannot move the cursor, clear the screen,
+/// plant links or write the clipboard. JSON needs none of this, since its
+/// encoder escapes them.
+pub fn terminal_safe(text: &str) -> String {
+    text.chars()
+        .filter(|c| *c == '\n' || *c == '\t' || !c.is_control())
+        .collect()
+}
+
 pub fn print_json(value: &Value, pretty: bool) {
     let text = if pretty {
         serde_json::to_string_pretty(value).unwrap_or_default()
