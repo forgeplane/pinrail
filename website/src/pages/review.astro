@@ -6,14 +6,14 @@
 // back plays out in the agent's terminal.
 import "../styles/index.css";
 import Zoom from "../components/index/Zoom.astro";
-import AppleIcon from "../components/AppleIcon.astro";
+import Download from "../components/Download.astro";
 import GitHubIcon from "../components/GitHubIcon.astro";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
-import { agents, releases, repo, views } from "../components/index/content";
+import { agents, repo, views } from "../components/index/content";
 
 const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"];
 ---
@@ -70,7 +70,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             <template data-round="2">
               <div class="content" data-round="2">
                 <h1>Your agents do the work. <em>You keep the final say.</em></h1>
-                <p class="lede">Agents stop at the steps you pick and wait in one inbox on your Mac. You look at the actual work, decide, and your decision goes back to them as something they can act on.</p>
+                <p class="lede">Agents stop at the steps you pick and wait in one inbox on your computer. You look at the actual work, decide, and your decision goes back to them as something they can act on.</p>
               </div>
             </template>
           </div>
@@ -204,7 +204,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             <div class="content" data-round="1">
               <h2>On your machine, with your agents.</h2>
               <ul class="facts">
-                <li><b>Local.</b> The app runs its server on loopback. Reviews and decisions stay on your Mac.</li>
+                <li><b>Local.</b> The app runs its server on loopback. Reviews and decisions stay on your computer.</li>
                 <li><b>Contained.</b> A plugin's view is sandboxed: it draws, talks to the app, and nothing else.</li>
                 <li><b>Any agent.</b> If it can run a command, it can ask through Pinrail. The agent's own instructions say when.</li>
               </ul>
@@ -242,9 +242,9 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           <div class="finale" hidden>
             <p class="hand big-hand">That's the whole loop.</p>
             <h2 class="closing-title"><span class="line">Put <em><Typed words={["a pinrail", "a second look", "a red pen", "your judgment", "a person"]} /></em></span><br /><span class="line">in front of your agents.</span></h2>
-            <p>macOS today. Free and open source, in early development.</p>
+            <p>macOS and Linux today, Windows soon. Free and open source, in early development.</p>
             <div class="ctas">
-              <a class="primary big" href={releases}><AppleIcon />Download for macOS</a>
+              <Download />
               <a class="ghost big" href="/docs/getting-started/install/">Read the docs</a>
               <a class="ghost big" href={repo}><GitHubIcon />Star on GitHub</a>
             </div>

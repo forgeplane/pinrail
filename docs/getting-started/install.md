@@ -11,12 +11,13 @@ Pinrail is in early development. Expect rough edges, and expect things to change
 
 ## The app
 
-Download the latest release from [GitHub](https://github.com/forgeplane/pinrail/releases).
+Download it from [the download page](/download/), which has every system and format.
 
 | System | Download |
 |---|---|
-| macOS 13 or later | The `.dmg`. Open it and drag Pinrail to Applications. |
-| Linux | The AppImage, or the `.deb` or `.rpm` for your distribution. |
+| macOS 13 or later | [pinrail-app-universal.dmg](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-universal.dmg). Open it and drag Pinrail to Applications. |
+| Linux, x86-64 | [AppImage](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.AppImage) for any distribution (`chmod +x` it, then run it), [.deb](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.deb) (`sudo apt install ./pinrail-app-amd64.deb`) or [.rpm](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-x86_64.rpm) (`sudo dnf install ./pinrail-app-x86_64.rpm`). |
+| Windows | Coming soon. |
 
 Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, so agents can still ask while the window is closed.
 

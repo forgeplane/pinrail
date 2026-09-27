@@ -24,6 +24,17 @@ import demoEmail from "../../assets/hero/email.png";
 
 export const repo = "https://github.com/forgeplane/pinrail";
 export const releases = `${repo}/releases`;
+/** The newest release's installers. Their names carry no version (the
+ *  release workflow's releaseAssetNamePattern), so a link never goes stale. */
+const latest = `${releases}/latest/download`;
+export const downloads = {
+  mac: `${latest}/pinrail-app-universal.dmg`,
+  appimage: `${latest}/pinrail-app-amd64.AppImage`,
+  deb: `${latest}/pinrail-app-amd64.deb`,
+  rpm: `${latest}/pinrail-app-x86_64.rpm`,
+};
+/** Every download, one system a card. */
+export const downloadPage = "/download/";
 
 export const agents = [
   { name: "Claude Code", icon: "claude" }, { name: "Codex", icon: "codex" }, { name: "Cursor", icon: "cursor" },

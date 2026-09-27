@@ -1,0 +1,9 @@
+---
+// Four panes, for the Windows button: drawn here rather than a vendor's mark.
+interface Props { size?: number }
+const { size = 16 } = Astro.props;
+---
+<svg class="windows-icon" width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><rect x="2" y="2" width="9.5" height="9.5" rx="1" /><rect x="12.5" y="2" width="9.5" height="9.5" rx="1" /><rect x="2" y="12.5" width="9.5" height="9.5" rx="1" /><rect x="12.5" y="12.5" width="9.5" height="9.5" rx="1" /></svg>
+<style>
+  .windows-icon { flex: none; margin-top: -1px; }
+</style>

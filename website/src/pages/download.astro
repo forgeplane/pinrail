@@ -1,0 +1,120 @@
+---
+// Every download, one system a card: what it runs on, the file, and the
+// line that installs it. The hero's button is the visitor's own; the cards
+// are there for another machine, another format, or to check what is out.
+import "../styles/index.css";
+import "../styles/index-classic.css";
+import Brand from "../components/Brand.astro";
+import Download from "../components/Download.astro";
+import AppleIcon from "../components/AppleIcon.astro";
+import LinuxIcon from "../components/LinuxIcon.astro";
+import WindowsIcon from "../components/WindowsIcon.astro";
+import GitHubIcon from "../components/GitHubIcon.astro";
+import { downloads, releases, repo } from "../components/index/content";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Download Pinrail for macOS and Linux: the desktop inbox where agents wait for your decision, with the pinrail command inside it. Windows is coming." />
+    <meta name="theme-color" content="#f5f0e6" />
+    <title>Download Pinrail</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;700&display=swap" />
+  </head>
+  <body class="classic">
+    <a href="#main" class="skip">Skip to content</a>
+
+    <header class="topnav">
+      <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
+      <nav class="links" aria-label="Main">
+        <a href="/#how">How it works</a><a href="/#views">Views</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="c-hero dl-hero">
+        <h1>Download Pinrail</h1>
+        <p class="c-lede">The app, with the <code>pinrail</code> command inside it. Free and open source, and it updates itself.</p>
+        <div class="c-ctas"><Download /></div>
+        <p class="c-fine">In early development: expect rough edges and changes between releases.</p>
+      </section>
+
+      <section class="dl-systems" aria-label="Every download">
+        <article class="dl-card">
+          <h2><AppleIcon size={22} />macOS</h2>
+          <p class="dl-needs">macOS 13 or later · Apple silicon and Intel, one app</p>
+          <a class="primary big" href={downloads.mac}>pinrail-app-universal.dmg</a>
+          <p>Open it and drag Pinrail to Applications. Signed and notarized by Apple.</p>
+        </article>
+
+        <article class="dl-card">
+          <h2><LinuxIcon size={22} />Linux</h2>
+          <p class="dl-needs">x86-64 · Ubuntu 22.04, Debian 12, Fedora 36 or newer</p>
+          <div class="dl-formats">
+            <a class="primary big" href={downloads.appimage}>AppImage</a>
+            <a class="ghost big" href={downloads.deb}>.deb</a>
+            <a class="ghost big" href={downloads.rpm}>.rpm</a>
+          </div>
+          <dl class="dl-commands">
+            <dt>AppImage, any distribution</dt>
+            <dd><code>chmod +x pinrail-app-amd64.AppImage && ./pinrail-app-amd64.AppImage</code></dd>
+            <dt>Debian and Ubuntu</dt>
+            <dd><code>sudo apt install ./pinrail-app-amd64.deb</code></dd>
+            <dt>Fedora and RHEL</dt>
+            <dd><code>sudo dnf install ./pinrail-app-x86_64.rpm</code></dd>
+          </dl>
+        </article>
+
+        <article class="dl-card is-soon">
+          <h2><WindowsIcon size={22} />Windows</h2>
+          <p class="dl-needs">Coming soon</p>
+          <a class="ghost big" href={repo}><GitHubIcon />Watch the repository</a>
+          <p>Star or watch it on GitHub to hear when the Windows build lands.</p>
+        </article>
+      </section>
+
+      <section class="dl-after">
+        <p>Then install the command and send your first review: <a href="/docs/getting-started/install/">Install</a> · <a href="/docs/getting-started/first-review/">Your first review</a>.</p>
+        <p class="dl-fine">Every release, older ones, <code>SHA256SUMS</code> and build provenance (<code>gh attestation verify</code>): <a href={releases}>GitHub releases</a>.</p>
+      </section>
+    </main>
+
+    <footer class="colophon">
+      <span>Pinrail · a small gate in a larger door.<small>No cookies: Cloudflare counts visits anonymously.</small></span>
+      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/review">Review version</a></nav>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .dl-hero { padding-bottom: 28px; }
+  .dl-hero h1 { max-width: none; font-size: clamp(44px, 6vw, 80px); }
+  .dl-systems {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 18px;
+    max-width: 1180px; margin: 0 auto; padding: 12px 28px 36px;
+  }
+  .dl-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 12px;
+    padding: 24px; border: 1px solid var(--rule-strong); border-radius: 12px; background: var(--sheet);
+  }
+  .dl-card h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 24px; }
+  .dl-card p { margin: 0; color: var(--ink-2); line-height: 1.5; }
+  .dl-card .dl-needs { font: 12.5px/1.4 var(--mono); color: var(--faint); }
+  .dl-card.is-soon { opacity: 0.8; }
+  .dl-formats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dl-commands { margin: 4px 0 0; width: 100%; }
+  .dl-commands dt { margin-top: 8px; font: 12px var(--mono); color: var(--faint); }
+  .dl-commands dd { margin: 3px 0 0; }
+  .dl-commands code, .dl-after code, .c-lede code {
+    font: 12.5px var(--mono); padding: 2px 6px; border-radius: 5px; background: color-mix(in oklab, var(--ink) 7%, transparent);
+    overflow-wrap: anywhere;
+  }
+  .dl-after { max-width: 1180px; margin: 0 auto; padding: 0 28px 48px; text-align: center; color: var(--ink-2); }
+  .dl-after p { margin: 6px 0; }
+  .dl-after .dl-fine { font-size: 13px; color: var(--faint); }
+</style>
