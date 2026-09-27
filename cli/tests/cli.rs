@@ -275,23 +275,21 @@ fn wait_exits_4_on_timeout() {
 
 #[test]
 fn wait_survives_the_server_going_away_and_coming_back() {
-    // first server dies after answering 204 once; the CLI must retry and
-    // finish against the second server on the same URL
+    // the server answers once, then drops a connection unanswered, as one
+    // going down does; the CLI must retry and finish when it answers again.
+    // The port stays held throughout, so nothing else can take it meanwhile.
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
     let url = format!("http://{addr}");
     thread::spawn(move || {
-        let (stream, _) = listener.accept().unwrap();
-        let handler: Arc<Mutex<Handler>> =
-            Arc::new(Mutex::new(Box::new(|_, _, _| (204, String::new()))));
-        serve_one(stream, handler, Arc::new(Mutex::new(Vec::new())));
-        drop(listener);
-        thread::sleep(std::time::Duration::from_millis(2500));
-        let listener = TcpListener::bind(addr).unwrap();
-        let handler: Arc<Mutex<Handler>> =
-            Arc::new(Mutex::new(Box::new(|_, _, _| (200, review("decided")))));
-        let (stream, _) = listener.accept().unwrap();
-        serve_one(stream, handler, Arc::new(Mutex::new(Vec::new())));
+        let answer = |stream, status, body: String| {
+            let handler: Arc<Mutex<Handler>> =
+                Arc::new(Mutex::new(Box::new(move |_, _, _| (status, body.clone()))));
+            serve_one(stream, handler, Arc::new(Mutex::new(Vec::new())));
+        };
+        answer(listener.accept().unwrap().0, 204, String::new());
+        drop(listener.accept().unwrap().0);
+        answer(listener.accept().unwrap().0, 200, review("decided"));
     });
 
     let out = pinrail()
@@ -859,14 +857,42 @@ fn create_auto_starts_the_server_with_the_configured_command() {
     assert!(dir.join("server.log").exists());
 }
 
-fn tempdir() -> std::path::PathBuf {
+/// A folder of the test's own, removed when the test ends.
+struct TempDir(std::path::PathBuf);
+
+impl std::ops::Deref for TempDir {
+    type Target = std::path::PathBuf;
+    fn deref(&self) -> &std::path::PathBuf {
+        &self.0
+    }
+}
+
+impl AsRef<std::path::Path> for TempDir {
+    fn as_ref(&self) -> &std::path::Path {
+        &self.0
+    }
+}
+
+impl AsRef<std::ffi::OsStr> for TempDir {
+    fn as_ref(&self) -> &std::ffi::OsStr {
+        self.0.as_os_str()
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn tempdir() -> TempDir {
     let dir = std::env::temp_dir().join(format!(
         "pinrail-cli-test-{}-{}",
         std::process::id(),
         rand_suffix()
     ));
     std::fs::create_dir_all(&dir).unwrap();
-    dir
+    TempDir(dir)
 }
 
 fn rand_suffix() -> u128 {
