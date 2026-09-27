@@ -86,7 +86,7 @@ list · decided by you at 2026-09-23 10:14
 
 An agent reads this and carries on: it fixes the first item as you asked, and leaves the second. A script would ask for JSON instead and branch on it. See [Scripts and CI](/docs/agents/workflows/).
 
-The command exited with `0`, which means the review was decided. Try it again and **discard** the review instead, with `D` in the app: the command exits with `5`, the signal for "no, and stop".
+The command exited with `0`, which means the review was decided. Try it again and **discard** the review instead, with the *Discard* button in its bar: the command exits with `5`, the signal for "no, and stop".
 
 ## Next
 

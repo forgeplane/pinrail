@@ -62,7 +62,7 @@ export function setThemePreference(pref: ThemePreference) {
   apply(resolve(pref));
 }
 
-/** The T key asks for an explicit flip; the settings store records it. */
+/** ⌘⇧L asks for an explicit flip; the settings store records it. */
 export function toggleTheme() {
   window.dispatchEvent(new CustomEvent("pinrail:theme-toggle", { detail: currentTheme() === "dark" ? "light" : "dark" }));
 }

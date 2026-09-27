@@ -249,7 +249,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "appearance" ? (
             <SettingsPage title="Appearance">
               <SettingsGroup>
-                <SettingsRow label="Theme" description="System follows macOS; T switches between dark and light">
+                <SettingsRow label="Theme" description="System follows your computer's setting. ⌘⇧L switches between dark and light.">
                   <Segmented
                     label="Theme"
                     value={settings.appearance.theme}

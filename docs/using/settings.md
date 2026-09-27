@@ -31,7 +31,7 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 | Setting | What it does |
 |---|---|
-| **Theme** | *System*, *Dark* or *Light*. Plugin views follow it. `T` switches it from anywhere in the app. |
+| **Theme** | *System*, *Dark* or *Light*. Plugin views follow it. <kbd>⌘⇧L</kbd> switches it from anywhere in the app. |
 | **Text size** | *Small*, *Default* or *Large*. |
 
 ## Shortcuts
@@ -77,7 +77,7 @@ The version, updates, where to start writing a plugin, and the licence with its 
 
 A downloaded version is installed when you restart Pinrail, or the next time you quit it. Pinrail never restarts on its own: the sidebar and the menu bar menu say when a version is ready, and you choose when. An agent waiting on a review keeps waiting through the restart and gets its answer once Pinrail is back.
 
-Checking downloads a small file from GitHub, where Pinrail's releases are published; nothing about your reviews is sent. Every download is checked against a signature before it is installed. If you installed the `.deb` or `.rpm`, your package manager installs new versions: Pinrail says when one is out and links to it.
+Checking downloads a small file from GitHub, where Pinrail's releases are published; nothing about your reviews is sent. Every download is checked against a signature before it is installed. If you installed the `.deb` or `.rpm`, Pinrail tells you when a new version is out and links to it; download it and install it the way you installed the first one.
 
 ## Where settings are stored
 

@@ -58,7 +58,7 @@ pinrail plugins describe review       # one plugin, in full
 - the **payload schema**, and an **example payload** that passes it;
 - where to get the **decision schema**, the shape of `decision.data` in the review that comes back: `--decision-schema` prints it alone, as `--payload-schema` and `--example` print theirs: JSON, for a tool, or to start a payload with `--example > payload.json`. An agent reading the decision as markdown doesn't need it; one processing it with `--json` does. The JSON output always carries it.
 
-Like `submit`, `describe` starts the app if it is not running. For a plugin that is installed but broken, it says what is wrong and how to check it.
+Like `submit`, `describe` can start a server when none is running, if `PINRAIL_SERVER_CMD` says how (see [Finding the app](#finding-the-app)). For a plugin that is installed but broken, it says what is wrong and how to check it.
 
 :::tip[Point the agent at it]
 An agent that runs `pinrail plugins`, then `pinrail plugins describe <name>`, can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.
@@ -150,7 +150,7 @@ pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
 }
 ```
 
-A file keeps its own name unless another follows `=`. The CLI checks the whole submission before it uploads anything, so a refused one moves nothing. It then uploads only the files the app does not have yet, which makes a new round cheap: only the files that changed are sent again. A file may be up to 100 MB, and a review may carry 32, unless the plugin sets lower limits.
+A file keeps its own name unless another follows `=`. The CLI checks the whole submission before it uploads anything, so a refused one moves nothing. It then uploads only the files the app does not have yet, which makes a new round cheap: only the files that changed are sent again. A file may be up to 100 MiB, and a review may carry 32 files adding up to 512 MiB, unless the plugin sets lower limits.
 
 The files come back with `pinrail attachments`:
 
@@ -223,6 +223,9 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
 | `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. |
 | `pinrail plugins describe <name>` | What an agent needs to ask with a plugin; `--payload-schema`, `--example` or `--decision-schema` for one part alone. See [Learning what to ask](#learning-what-to-ask). |
+| `pinrail plugins versions <name>` | The versions of a plugin that reviews can still render with, one per major. |
+| `pinrail plugins reload` | Read every plugin again from disk, after changing a linked plugin's manifest or schemas. |
+| `pinrail docs [path]` | The briefs for an agent: how to ask, and how to build a plugin. `--tree` lists them all. |
 
 `pinrail <command> --help` lists every flag, and the [CLI reference](/docs/reference/cli/) has them all.
 
@@ -234,7 +237,7 @@ The CLI talks to the server the Pinrail app runs on your machine, and finds it o
 2. The `server.json` the running app writes into its data directory: `PINRAIL_DATA_DIR`, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 3. `http://127.0.0.1:4747`, or the port in `PINRAIL_PORT`.
 
-When nothing answers, `submit` and `serve` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
+When nothing answers, `submit`, `serve`, `plugins describe` and `plugins check` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
 
 ```sh
 export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --headless'

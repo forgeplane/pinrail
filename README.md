@@ -35,8 +35,8 @@ pinrail submit review --title "Dedup tickets on save" \
 
 The command blocks until you decide, then prints the decision as markdown
 for the agent to act on (or JSON for a script), and exits with a code that
-says how the review ended: decided, withdrawn, timed out, or discarded with
-an instruction to stop.
+says how the review ended: decided, discarded with an instruction to stop,
+withdrawn or expired, or still pending when its `--timeout` ran out.
 
 When you ask for changes, the agent submits a new round that revises the
 last one, and the app shows your previous verdicts beside it. Every round

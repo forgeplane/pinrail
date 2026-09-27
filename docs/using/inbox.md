@@ -25,7 +25,7 @@ Open a review with <kbd>Enter</kbd> or a click. The plugin's view fills the scre
 
 A review that came with files lists them above the view: click *N files* to see each by name, size and type, and *Save…* any of them.
 
-If the whole review is wrong, **discard** it with <kbd>D</kbd> or the *Discard* button instead: the agent is told to stop, with your reason. See [Deciding and discarding](/docs/concepts/reviews/#deciding-and-discarding).
+If the whole review is wrong, **discard** it with the *Discard* button in the review's bar, or with <kbd>D</kbd> on it in the inbox list: the agent is told to stop, with your reason. See [Deciding and discarding](/docs/concepts/reviews/#deciding-and-discarding).
 
 ![The discard dialog, with a reason for the agent typed in.](screenshot:discard "Discarding: nothing is decided, and the agent is told to stop, with your reason.")
 

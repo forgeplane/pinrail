@@ -338,7 +338,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <Keyboard size={16} />
             </button>
           </Tooltip>
-          <Tooltip label={theme === "dark" ? "Light theme" : "Dark theme"} keys={["T"]}>
+          <Tooltip label={theme === "dark" ? "Light theme" : "Dark theme"} keys={[MOD, "⇧", "L"]}>
             <button type="button" className="bar-button" onClick={toggleTheme} aria-label="Toggle light and dark theme">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>

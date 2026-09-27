@@ -55,23 +55,15 @@ Everything else about the review, who decided, when, and their note to the agent
 
 ## Running in CI
 
-A CI runner has no Pinrail app on it. Point the CLI at a machine that has one, reachable from the runner:
+Pinrail's server accepts requests only from programs on the same computer. It listens on `127.0.0.1` and refuses requests addressed to any other host, so a hosted CI runner cannot reach it.
 
-```sh
-export PINRAIL_URL=https://pinrail.internal.example
-```
-
-Or start the app's server headless on the runner itself, when the person deciding can reach it:
+To request a review from a CI job, run the job on the computer where Pinrail runs, for example on a self-hosted runner installed on the reviewer's computer. If the app might not be open when the job runs, tell the CLI how to start the server:
 
 ```sh
 export PINRAIL_SERVER_CMD='pinrail-desktop --headless'   # Linux, from the .deb or .rpm
 ```
 
-`submit` starts it if nothing is running. It runs detached and logs to `server.log` in its data directory.
-
-:::note
-Pinrail's server listens on your machine's loopback address by default. Exposing it to a network is a decision about who can submit reviews and see them. Put it behind something that authenticates.
-:::
+If no server is running, `submit` starts one. The server runs in the background and writes its log to `server.log` in its data directory.
 
 ## Don't block the pipeline
 
