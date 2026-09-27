@@ -377,7 +377,7 @@ test("violations that answer no hand-over, such as a refused setting, open nothi
 
 test("expanding a finding keeps it in place, even with a note left open further up", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  const webhooks = fixture(path.resolve(dir, "../../e2e/screenshots/fixtures/10-review-webhooks.json"));
+  const webhooks = fixture(path.join(dir, "fixtures", "webhooks.json"));
   const plugin = await mountPlugin(page, dir, { gate: webhooks });
   await plugin.setFrameHeight(800);
   const f = plugin.frame;
@@ -409,7 +409,7 @@ test("a clicked verdict stays on its finding, so c writes its note", async ({ pa
 
 test("clicking a verdict, c and Esc keep the finding where it is on screen", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
-  const webhooks = fixture(path.resolve(dir, "../../e2e/screenshots/fixtures/10-review-webhooks.json"));
+  const webhooks = fixture(path.join(dir, "fixtures", "webhooks.json"));
   const plugin = await mountPlugin(page, dir, { gate: webhooks });
   await plugin.setFrameHeight(800);
   const f = plugin.frame;

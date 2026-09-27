@@ -26,7 +26,7 @@ export type Message = PluginMessage;
 export type MountedPlugin = {
   frame: FrameLocator;
   messages(): Promise<Message[]>;
-  /** waits for the next `submit` after `after` messages had been seen */
+  /** the latest `submit`, once more than `after` submits have been posted */
   nextSubmit(after?: number): Promise<any>;
   lastDraft(): Promise<any>;
   /** the label the view last asked the shell's hand-over button to show */

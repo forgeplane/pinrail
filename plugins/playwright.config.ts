@@ -1,13 +1,11 @@
 import { defineConfig } from "@playwright/test";
 import path from "node:path";
 
-// Each plugin's tests/*.spec.ts, mounted under the pinrail-plugin harness:
-// the samples here and the built-in list plugin inside the core. No server,
-// no CLI. The built-in one sits outside this folder, which is why npm test
-// puts node_modules on NODE_PATH: its spec resolves the package the same way.
+// Each plugin's tests/*.spec.ts, mounted under the pinrail-plugin harness.
+// No server, no CLI.
 export default defineConfig({
-  testDir: path.resolve(__dirname, ".."),
-  testMatch: /plugins\/[^/]+\/tests\/.*\.spec\.ts$/,
+  testDir: __dirname,
+  testMatch: /[^/]+\/tests\/.*\.spec\.ts$/,
   testIgnore: ["**/node_modules/**", "**/target/**"],
   timeout: 30_000,
   expect: { timeout: 5_000 },

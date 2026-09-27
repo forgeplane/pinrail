@@ -1815,8 +1815,6 @@ async fn discarding_records_who_and_why_wakes_the_waiter_and_then_refuses() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// A store entry: the built-in list plugin copied under another name, as
-/// an install would place it, with its record and hash.
 #[tokio::test]
 async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     let app = app();
@@ -1937,6 +1935,8 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     );
 }
 
+/// A store entry: the built-in list plugin copied under another name, as
+/// an install would place it, with its record and hash.
 #[tokio::test]
 async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
     let app = app();
@@ -2190,7 +2190,6 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     );
 }
 
-/// A plugin whose bundle only exists after its build runs.
 #[tokio::test]
 async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     let app = app();
@@ -2494,6 +2493,7 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
     assert_eq!(logs.len(), 5, "{logs:?}");
 }
 
+/// A plugin whose bundle only exists after its build runs.
 fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(dir.join("src")).unwrap();
