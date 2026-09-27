@@ -26,8 +26,13 @@ concurrency:
   group: website-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
   cancel-in-progress: false
 
+# CI's settings, so the cache it saves on Linux serves this build too: the
+# cache's key and cargo's fingerprints both depend on them
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
 
 jobs:
   site:
@@ -44,10 +49,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.98.1"
+      # CI's Linux cache, read only: the dependencies come built, and only
+      # CI's own builds are saved under its name
       - uses: Swatinem/rust-cache@v2
         with:
-          shared-key: website
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          shared-key: pinrail-ubuntu-latest
+          save-if: false
           workspaces: |
             desktop
             cli
@@ -55,8 +62,9 @@ jobs:
         working-directory: website
         run: |
           npm ci
-          # the mermaid diagrams are drawn in a headless browser
-          npx playwright install --with-deps chromium
+          # the mermaid diagrams are drawn in a headless browser; the shell
+          # is all that takes, not the full Chrome
+          npx playwright install --with-deps --only-shell chromium
       - name: Build
         working-directory: website
         run: npm run build
