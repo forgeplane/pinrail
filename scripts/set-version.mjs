@@ -20,6 +20,31 @@ if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) {
   process.exit(1);
 }
 
+// what a release commit holds: the files this script writes, the lock files
+// cargo rewrites, and the changelog written for it beforehand
+const released = [
+  "desktop/Cargo.toml",
+  "desktop/Cargo.lock",
+  "cli/Cargo.toml",
+  "cli/Cargo.lock",
+  "desktop/app/src-tauri/tauri.conf.json",
+  "desktop/app/package.json",
+  "CHANGELOG.md",
+];
+
+if (alsoTag) {
+  // anything else changed would be tagged and built with the release
+  const others = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { cwd: root, encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => line.slice(3))
+    .filter((file) => !released.includes(file));
+  if (others.length) {
+    console.error(`set-version: commit or stash these first, or they go into the release:\n  ${others.join("\n  ")}`);
+    process.exit(1);
+  }
+}
+
 const write = (file, change) => {
   const full = path.join(root, file);
   const before = fs.readFileSync(full, "utf8");
@@ -45,7 +70,7 @@ console.log(`version ${version}`);
 if (alsoTag) {
   // a release with nothing to say about itself is a mistake, not a release
   run("node", [path.join(root, "scripts", "release-notes.mjs"), version]);
-  run("git", ["commit", "-am", `Release v${version}`]);
+  run("git", ["commit", "-m", `Release v${version}`, "--", ...released]);
   run("git", ["tag", "-a", `v${version}`, "-m", `Pinrail ${version}`]);
   console.log(`tagged v${version}; push with: git push --follow-tags origin main`);
 }
