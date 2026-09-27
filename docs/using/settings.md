@@ -51,6 +51,7 @@ Every installed plugin has a row: its icon and title, its version, where it came
 
 - **Send a sample** sends the review the plugin ships to show itself, and opens it. Plugins without a sample don't have the button.
 - **Notify** turns notifications for that plugin's reviews on or off.
+- **Opens links without asking on** lists the sites whose links the plugin may open without asking you first. You allow a site from the question Pinrail shows when a plugin wants to open a link. Remove a site with its ✕. Removing the plugin, or installing it again from a different source, removes all of them.
 - **Update**, **Remove** and **Install a copy** manage it. See [Installing plugins](/docs/using/installing-plugins/).
 - **The plugin's own settings**, when it has any, are folded under its row. The code review plugin, for example, lets you choose between an inline and a side-by-side diff.
 

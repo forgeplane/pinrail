@@ -9,6 +9,9 @@ import { AgentIcon } from "../components/AgentIcon";
 import { AttachmentsChip } from "../components/AttachmentsChip";
 import { OutcomeBadge, PluginBadge, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
+import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
+import { allowedWithoutAsking, allowing, linkRequest, sourceOf, type LinkRequest } from "../lib/links";
+import { openExternal } from "../lib/native";
 import { Tooltip } from "../components/Tooltip";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { comboFromEvent, isShadowed } from "../lib/shortcuts";
@@ -23,7 +26,7 @@ const NOTE_PREFIX = "pinrail:draft:";
 export function ReviewScreen() {
   const { id = "" } = useParams();
   const live = useLive();
-  const { settings: prefs } = useSettings();
+  const { settings: prefs, update: updatePrefs } = useSettings();
   const navigate = useNavigate();
   const [copied, setCopied] = useState<"done" | "failed" | null>(null);
   const [copiedId, setCopiedId] = useState<"done" | "failed" | null>(null);
@@ -222,6 +225,41 @@ export function ReviewScreen() {
     [plugin],
   );
 
+  // A link the view asked to open: opened when its origin is allowed for this
+  // plugin, and otherwise asked about, one request at a time; any that
+  // arrive while the person is being asked are dropped.
+  const [linkAsk, setLinkAsk] = useState<LinkRequest | null>(null);
+  const asking = useRef(false);
+  const prefsNow = useRef(prefs);
+  prefsNow.current = prefs;
+  const onOpen = useCallback(
+    (url: string) => {
+      if (!plugin || asking.current) return;
+      const request = linkRequest(url);
+      if (!request) return;
+      if (allowedWithoutAsking(request, prefsNow.current.links[plugin.name], sourceOf(plugin))) {
+        openExternal(url);
+        return;
+      }
+      asking.current = true;
+      setLinkAsk(request);
+    },
+    [plugin],
+  );
+  const onLinkChoice = useCallback(
+    (choice: LinkChoice) => {
+      const request = linkAsk;
+      asking.current = false;
+      setLinkAsk(null);
+      if (!request || !plugin || choice === "cancel") return;
+      if (choice === "always" && request.origin) {
+        updatePrefs({ links: { [plugin.name]: allowing(prefsNow.current.links[plugin.name], sourceOf(plugin), request.origin) } });
+      }
+      openExternal(request.url);
+    },
+    [linkAsk, plugin, updatePrefs],
+  );
+
   const bridge = usePluginBridge({
     frame,
     reviewId: review?.id ?? null,
@@ -234,6 +272,7 @@ export function ReviewScreen() {
     onSubmit,
     settings: pluginSettings,
     onSetSetting,
+    onOpen,
   });
 
   useEffect(() => {
@@ -464,6 +503,7 @@ export function ReviewScreen() {
           {review.discarded_reason ? `: ${review.discarded_reason}` : "."} The agent was told to stop; nothing was decided.
         </p>
       ) : null}
+      {linkAsk && plugin ? <LinkDialog plugin={plugin.title || plugin.name} request={linkAsk} onClose={onLinkChoice} /> : null}
       {discarding && review.status === "pending" ? (
         <DiscardDialog
           review={review}

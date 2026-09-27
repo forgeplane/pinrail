@@ -23,7 +23,7 @@
  *   plugin.submit(data);
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
- *   plugin.open("https://example.com"); // the shell opens it in the system browser
+ *   plugin.open("https://example.com"); // the app asks the person, then opens it in the browser
  *   plugin.settings;                  // the plugin's own settings, as the manifest declares them
  *   plugin.setSetting("diff", "split"); // asks the shell to keep one; it comes back as `settings`
  *
@@ -301,7 +301,7 @@
         if (opts && opts.flush) send();
         else draftTimer = env.setTimeout(send, DRAFT_DEBOUNCE_MS);
       },
-      /** opens a link in the system browser, as a click on one in the view does */
+      /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */
       open,
       resize(height) { post({ type: "resize", height }); },
       status(status) { post({ type: "status", label: (status || {}).label }); },

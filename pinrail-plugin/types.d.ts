@@ -225,7 +225,7 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   resize(height: number | "fill"): void;
   /** what the shell's hand-over button should read */
   status(status: { label?: string }): void;
-  /** opens a link in the system browser, as a click on one in the view does */
+  /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */
   open(url: string): void;
   /** asks the shell to keep one setting; it comes back as `settings`, or as `violations` */
   setSetting(key: string, value: string | number | boolean): void;

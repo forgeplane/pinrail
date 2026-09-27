@@ -22,7 +22,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { api } from "../api/client";
 import type { Decision, Review, Violation } from "../api/types";
-import { openExternal } from "../lib/native";
 import { currentTheme } from "../lib/theme";
 import { modalOpen } from "../lib/keys";
 
@@ -54,6 +53,8 @@ type Options = {
   settings: Record<string, unknown> | null;
   /** the view asks to keep one of its settings; violations when the core refuses */
   onSetSetting: (patch: Record<string, unknown>) => Promise<Violation[]>;
+  /** the view asks to open a link; the screen decides whether it opens */
+  onOpen: (url: string) => void;
 };
 
 export type Bridge = {
@@ -67,7 +68,7 @@ export type Bridge = {
 };
 
 export function usePluginBridge(options: Options): Bridge {
-  const { frame, reviewId, review, previous, readonly, minHeight, src, connected, onSubmit, settings, onSetSetting } = options;
+  const { frame, reviewId, review, previous, readonly, minHeight, src, connected, onSubmit, settings, onSetSetting, onOpen } = options;
   const [loaded, setLoaded] = useState(false);
   const [fill, setFill] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -77,8 +78,8 @@ export function usePluginBridge(options: Options): Bridge {
   // render, too late for a second submit posted in the same moment
   const inFlight = useRef(false);
   const fallback = useRef<number | undefined>(undefined);
-  const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit, settings, onSetSetting, minHeight });
-  latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting, minHeight };
+  const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit, settings, onSetSetting, onOpen, minHeight });
+  latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting, onOpen, minHeight };
 
   const post = useCallback(
     (msg: Record<string, unknown>) => frame.current?.contentWindow?.postMessage({ pinrail: PROTOCOL, ...msg }, "*"),
@@ -209,7 +210,7 @@ export function usePluginBridge(options: Options): Bridge {
         // shell opens the link it asks for, once it is one we would follow:
         // out into the world, never back to this machine.
         case "open":
-          if (typeof msg.url === "string") openExternal(msg.url);
+          if (typeof msg.url === "string") latest.current.onOpen(msg.url);
           break;
         case "status":
           if (typeof msg.label === "string" && msg.label.trim()) setHandoverLabel(msg.label);

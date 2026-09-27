@@ -197,6 +197,10 @@ export type Notice = {
 };
 
 /** What /api/v1/settings returns; the shell reads the keys it applies. */
+/** The web origins a plugin may open without asking, while it stays
+ *  installed from the source it had when they were allowed. */
+export type LinkPermission = { source: string; origins: string[] };
+
 export type ServerSettings = {
   appearance: { theme: "system" | "dark" | "light"; text_size: "small" | "default" | "large" };
   sidebar: { open: boolean };
@@ -206,6 +210,8 @@ export type ServerSettings = {
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
+  /** each plugin's permission to open links without asking */
+  links?: Record<string, LinkPermission>;
   /** the loopback server's port; applies at the next start */
   port: number;
   /** how long ended reviews are kept, in days; null keeps them forever */

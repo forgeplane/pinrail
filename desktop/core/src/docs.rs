@@ -33,6 +33,11 @@ pub fn settings_page() -> String {
         "\n## Plugin settings\n\n\
          Under `plugins.<name>`, each plugin keeps the settings its manifest declares in `settings_schema`, \
          checked against that schema. See [Settings and keys of a plugin](/docs/building/settings-and-keys/).\n\n\
+         ## Link permissions\n\n\
+         Under `links.<name>`, Pinrail keeps the sites a plugin may open without asking: `source`, where the plugin was installed from \
+         when the sites were allowed, and `origins`, such as `[\"https://github.com\"]`. The permission applies only while the plugin is \
+         installed from that source, and removing the plugin removes it. The app writes it when you allow a site, and a plugin's view \
+         cannot change it.\n\n\
          ## Changing settings\n\n\
          The app writes the file as settings change, and notices an edit made outside it. \
          A key it does not know is kept as it is. A script can read and change settings through the local API, \

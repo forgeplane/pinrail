@@ -2,13 +2,14 @@
 // from, a Notify toggle and its own settings folded under it; and the way
 // in, the install dialog.
 
-import { Bell, BellOff, ChevronRight, Send, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import { Bell, BellOff, ChevronRight, Send, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, Trash2, TriangleAlert, Wrench, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
 import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
 import { followJob } from "../../lib/jobs";
 import { REVEAL } from "../../lib/keys";
+import { sourceOf } from "../../lib/links";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
 import { Select } from "../Select";
@@ -55,6 +56,16 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
     revealItemInDir(path).catch(() => {});
   };
 
+  // the origins a plugin may open without asking, while it keeps its source
+  const allowedOrigins = (p: Plugin) => {
+    const permission = settings.links[p.name];
+    return permission && permission.source === sourceOf(p) ? permission.origins : [];
+  };
+  const forgetLink = (p: Plugin, origin: string) => {
+    const rest = allowedOrigins(p).filter((o) => o !== origin);
+    update({ links: { [p.name]: rest.length ? { source: sourceOf(p), origins: rest } : null } });
+  };
+
   const setNotify = (name: string, on: boolean) => {
     const next = on ? muted.filter((n) => n !== name) : [...muted.filter((n) => n !== name), name];
     update({ notifications: { muted_plugins: next } });
@@ -97,6 +108,8 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
             open={focus === p.name}
             onReveal={() => reveal(p.path)}
             onNotify={(on) => setNotify(p.name, on)}
+            links={allowedOrigins(p)}
+            onForgetLink={(origin) => forgetLink(p, origin)}
             onChange={(values) => update({ plugins: { [p.name]: values } })}
             onCopy={() => setInstalling({ source: p.path })}
             onMessage={notify}
@@ -150,7 +163,7 @@ function updatesLine(u: PluginUpdates): Line {
 }
 
 /** One installed plugin: its row, and its settings folded under it when it declares any. */
-function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, onChange, onCopy, onMessage, onOpenReview }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void; onMessage: (text: string, tone?: "ok" | "danger") => void; onOpenReview: (id: string) => void }) {
+function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, links, onForgetLink, onChange, onCopy, onMessage, onOpenReview }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; links: string[]; onForgetLink: (origin: string) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void; onMessage: (text: string, tone?: "ok" | "danger") => void; onOpenReview: (id: string) => void }) {
   const schema = p.usable ? p.settings_schema : null;
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
@@ -364,6 +377,19 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           </Tooltip>
         ) : null}
       </SettingsRow>
+      {links.length ? (
+        <div className="settings-plugin-links" data-plugin-links={p.name}>
+          <span className="dim">Opens links without asking on</span>
+          {links.map((origin) => (
+            <span key={origin} className="settings-link-chip mono">
+              {origin}
+              <button type="button" className="settings-link-forget" aria-label={`Ask again before opening ${origin}`} onClick={() => onForgetLink(origin)} data-forget-link={origin}>
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
       {open ? (
         <div className="settings-subrows">
           {changed.length ? (

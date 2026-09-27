@@ -6,7 +6,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, inTauri } from "../api/client";
-import type { ServerSettings } from "../api/types";
+import type { LinkPermission, ServerSettings } from "../api/types";
 import { DEFAULT_GLOBAL_SHORTCUT } from "../lib/shortcuts";
 import { cacheAppearance, setThemePreference, type ThemePreference } from "../lib/theme";
 import { useLive } from "./live";
@@ -22,6 +22,8 @@ export type Settings = {
   shortcut: { global: string; global_opens: "oldest" | "inbox" };
   /** each plugin's own settings, only the values someone changed */
   plugins: Record<string, Record<string, unknown>>;
+  /** each plugin's permission to open links without asking */
+  links: Record<string, LinkPermission>;
   /** the loopback server's port; applies at the next start */
   port: number;
   /** how long ended reviews are kept, in days; null keeps them forever */
@@ -43,6 +45,8 @@ type Patch = {
   shortcut?: Partial<Settings["shortcut"]>;
   /** a change to one or more plugins' settings, merged key by key */
   plugins?: Record<string, Record<string, unknown>>;
+  /** a plugin's link permission replaced, or null to forget it */
+  links?: Record<string, LinkPermission | null>;
   port?: number;
   history?: Partial<Settings["history"]>;
   updates?: Partial<Settings["updates"]>;
@@ -61,7 +65,7 @@ export function applyTextSize(size: TextSize) {
   if (root) (root.style as CSSStyleDeclaration & { zoom: string }).zoom = ZOOM[size];
 }
 
-type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins" | "port" | "history" | "updates" | "welcome">;
+type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins" | "links" | "port" | "history" | "updates" | "welcome">;
 const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
   sidebar: { open: s.sidebar.open },
@@ -70,11 +74,22 @@ const fromServer = (s: ServerSettings): Served => ({
   notifications: { enabled: s.notifications.enabled, paused_until: s.notifications.paused_until, sound: s.notifications.sound, muted_plugins: s.notifications.muted_plugins },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   plugins: s.plugins ?? {},
+  links: s.links ?? {},
   port: s.port,
   history: { keep_days: s.history?.keep_days ?? null },
   updates: { check: s.updates?.check ?? true },
   welcome: { seen: s.welcome?.seen ?? false },
 });
+
+const mergeLinks = (current: Settings["links"], patch?: Patch["links"]): Settings["links"] => {
+  if (!patch) return current;
+  const out = { ...current };
+  for (const [name, entry] of Object.entries(patch)) {
+    if (entry) out[name] = entry;
+    else delete out[name];
+  }
+  return out;
+};
 
 const mergePlugins = (current: Settings["plugins"], patch?: Settings["plugins"]): Settings["plugins"] => {
   if (!patch) return current;
@@ -94,6 +109,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     notifications: { enabled: true, paused_until: null, sound: true, muted_plugins: [] },
     shortcut: { global: DEFAULT_GLOBAL_SHORTCUT, global_opens: "oldest" },
     plugins: {},
+    links: {},
     port: 4747,
     history: { keep_days: null },
     updates: { check: true },
@@ -156,7 +172,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback(
     async (patch: Patch) => {
       // the core's settings go to the core; applied at once, confirmed by the response
-      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins || patch.port !== undefined || patch.history || patch.updates || patch.welcome) {
+      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins || patch.links || patch.port !== undefined || patch.history || patch.updates || patch.welcome) {
         const base = current.current;
         const next: Served = {
           appearance: { ...base.appearance, ...patch.appearance },
@@ -166,6 +182,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           notifications: { ...base.notifications, ...patch.notifications },
           shortcut: { ...base.shortcut, ...patch.shortcut },
           plugins: mergePlugins(base.plugins, patch.plugins),
+          links: mergeLinks(base.links, patch.links),
           port: patch.port ?? base.port,
           history: { ...base.history, ...patch.history },
           updates: { ...base.updates, ...patch.updates },
@@ -182,6 +199,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.notifications) body.notifications = patch.notifications;
         if (patch.shortcut) body.shortcut = patch.shortcut;
         if (patch.plugins) body.plugins = patch.plugins;
+        if (patch.links) body.links = patch.links;
         if (patch.port !== undefined) body.port = patch.port;
         if (patch.history) body.history = patch.history;
         if (patch.updates) body.updates = patch.updates;

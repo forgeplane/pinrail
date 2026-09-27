@@ -208,8 +208,12 @@ test("a view cannot have the shell open the app's own server", async ({ page }) 
   await ask(frame.url());
   await ask(`${core}/api/v1/info`);
   await ask(`http://localhost:${corePort}/api/v1/info`);
-  // the control: a link out still opens, so the refusals above are the rule's
+  // the control: a link out is asked about and opens, so the refusals above
+  // are the rule's; the app's own addresses never reach the question
   await ask("https://example.invalid/");
+  const dialog = page.locator("[data-link-dialog]");
+  await expect(dialog.locator("[data-link-target]")).toHaveText("example.invalid");
+  await dialog.locator("[data-link-once]").click();
 
   await expect.poll(async () => (await opened()).length, { message: "the link out never opened" }).toBeGreaterThanOrEqual(1);
   expect(await opened(), "the shell opened the app's own server").toEqual(["https://example.invalid/"]);

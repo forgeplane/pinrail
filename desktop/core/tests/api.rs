@@ -950,6 +950,25 @@ async fn info_and_viewed() {
 }
 
 /// A request as a browser or another program would send it, header by header.
+/// A removed plugin's permission to open links goes with it, so a plugin
+/// installed later under the same name starts without it.
+#[tokio::test]
+async fn removing_a_plugin_forgets_the_links_it_was_allowed_to_open() {
+    let app = app();
+    let root = tempfile::tempdir().unwrap();
+    let hello = plugin_copy(root.path(), "hello", "1.0.0");
+    let (status, row) = install(&app, &hello, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let links = json!({"links": {"hello": {"source": row["install"]["source"], "origins": ["https://github.com"]}}});
+    let (status, body) = call(&app, "PATCH", "/api/v1/settings", Some(links)).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, body) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let (_, settings) = call(&app, "GET", "/api/v1/settings", None).await;
+    assert_eq!(settings["links"], json!({}), "{settings}");
+}
+
 /// A plugin name is looked up, never joined into a path: a plugin folder
 /// beside the store is not reached through `..`.
 #[tokio::test]

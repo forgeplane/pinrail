@@ -146,7 +146,18 @@ async fn remove(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    Ok(Json(state.plugins().remove(&name)?))
+    let answer = state.plugins().remove(&name)?;
+    // the links it was allowed to open go with it
+    if state
+        .settings()
+        .value(&format!("/links/{name}"))
+        .is_object()
+    {
+        state
+            .settings()
+            .change(&serde_json::json!({ "links": { name: null } }))?;
+    }
+    Ok(Json(answer))
 }
 
 /// An install job as it stands: its step, its log so far, and how it ended.

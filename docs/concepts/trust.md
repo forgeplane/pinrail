@@ -29,7 +29,7 @@ flowchart LR
 A plugin's view is a page the app shows inside a sandboxed frame. However the plugin was installed, the view:
 
 - **can** draw, and exchange [messages](/docs/building/protocol/) with the app;
-- **can** ask the app to open a link in your browser, when you click one;
+- **can** ask the app to open a link in your browser or mail client. The app asks you first, showing the site, unless you allowed that site for this plugin. It never opens an address on your own computer, and it always asks about an email or a very long address;
 - **cannot** use the network: no requests, no web fonts, no scripts or styles from elsewhere;
 - **cannot** store anything, or read anything the app does not hand it: the files its review carries come from the app when the view asks for one by name, and those of no other review;
 - **cannot** see other reviews, other plugins, or your files.

@@ -14,3 +14,7 @@ pub use store::reference;
 /// object of the values someone changed; the shape of the values is the
 /// plugin's schema, checked by the settings service.
 pub const PLUGINS: &str = "/plugins";
+/// Where each plugin's permission to open links lives: the origins it may
+/// open without asking, and the source it was installed from when they
+/// were allowed. The app writes it; a plugin's view cannot.
+pub const LINKS: &str = "/links";

@@ -242,7 +242,7 @@ The view runs in a frame with an opaque origin and a strict Content Security Pol
 A view cannot fetch, load a web font, or use a CDN. Scripts, styles, images and fonts must be inline or files inside the plugin folder, and everything the view shows must arrive in the payload, or as a [file beside it](#files-beside-the-payload). Design the payload with that in mind: send the diff, not a link to it.
 :::
 
-Links still work for the person: a click on an `http`, `https` or `mailto` link opens in their browser, and `plugin.open(url)` does the same from code.
+Links still work for the person. A click on an `http`, `https` or `mailto` link asks the app to open it in their browser, and `plugin.open(url)` does the same from code. The app shows the person where the link goes and opens it when they agree. They can allow a site for your plugin, so that its links open without asking from then on.
 
 ## Files beside the payload
 

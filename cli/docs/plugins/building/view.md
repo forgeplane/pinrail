@@ -35,7 +35,8 @@ plugin.status({ label: "Hand over: yes" });       // the hand-over button's word
 - Files: declare `attachments` in the manifest, name them in the payload
   as `{ "$attachment": "<name>" }`, and show them with
   `await plugin.attachmentUrl(name)`.
-- Links: `plugin.open(url)`. Rendering: `Pinrail.markdown(text)`,
+- Links: `plugin.open(url)`. The app asks the person before it opens a
+  link, unless they allowed that site for the plugin. Rendering: `Pinrail.markdown(text)`,
   `Pinrail.escape(text)`, `Pinrail.icon(name)`.
 - A view that scrolls itself: `Pinrail.connect({ resize: "fill", … })`.
 - Every call with its arguments is in `pinrail-plugin.d.ts`.

@@ -9,7 +9,7 @@ use std::time::SystemTime;
 
 use serde_json::{Map, Value, json};
 
-use super::PLUGINS;
+use super::{LINKS, PLUGINS};
 use crate::error::{Error, Violation};
 
 const FILE: &str = "settings.json";
@@ -184,6 +184,7 @@ fn defaults() -> Value {
         set_at(&mut out, path, default());
     }
     set_at(&mut out, PLUGINS, Value::Object(Map::new()));
+    set_at(&mut out, LINKS, Value::Object(Map::new()));
     out
 }
 
@@ -273,6 +274,10 @@ impl Store {
         };
         let mut file = inner.file.clone();
         merge(&mut file, patch);
+        // a plugin's links set to null are forgotten, not kept as null
+        if let Some(Value::Object(links)) = file.pointer_mut(LINKS) {
+            links.retain(|_, v| !v.is_null());
+        }
         if inner.broken {
             let aside = self.path.with_extension("json.bad");
             std::fs::rename(&self.path, &aside)?;
@@ -422,6 +427,19 @@ fn changed(before: &Value, after: &Value) -> Vec<String> {
             .cloned()
             .unwrap_or_default()
     };
+    let links = |v: &Value| {
+        v.pointer(LINKS)
+            .and_then(Value::as_object)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let (a, b) = (links(before), links(after));
+    for name in a.keys().chain(b.keys()) {
+        let pointer = format!("{LINKS}/{name}");
+        if a.get(name) != b.get(name) && !out.contains(&pointer) {
+            out.push(pointer);
+        }
+    }
     let (a, b) = (plugins(before), plugins(after));
     for name in a.keys().chain(b.keys()) {
         let (x, y) = (
@@ -443,6 +461,10 @@ fn changed(before: &Value, after: &Value) -> Vec<String> {
 fn validate(value: &Value, pointer: &str, out: &mut Vec<Violation>) {
     if pointer == PLUGINS {
         validate_plugins(value, out);
+        return;
+    }
+    if pointer == LINKS {
+        validate_links(value, out);
         return;
     }
     if let Some((_, kind, _, _)) = LEAVES.iter().find(|(p, _, _, _)| *p == pointer) {
@@ -491,6 +513,69 @@ fn validate_plugins(value: &Value, out: &mut Vec<Violation>) {
             }
         }
     }
+}
+
+/// Links are one entry per plugin, or null to forget it: the source the
+/// plugin was installed from, and the web origins it may open.
+fn validate_links(value: &Value, out: &mut Vec<Violation>) {
+    let Value::Object(plugins) = value else {
+        out.push(Violation::new(LINKS, "must be a JSON object"));
+        return;
+    };
+    for (name, entry) in plugins {
+        let pointer = format!("{LINKS}/{name}");
+        let Value::Object(map) = entry else {
+            if !entry.is_null() {
+                out.push(Violation::new(pointer, "must be a JSON object, or null"));
+            }
+            continue;
+        };
+        if let Some(key) = map
+            .keys()
+            .find(|k| !["source", "origins"].contains(&k.as_str()))
+        {
+            out.push(Violation::new(
+                format!("{pointer}/{key}"),
+                "unknown setting",
+            ));
+        }
+        if !map
+            .get("source")
+            .and_then(Value::as_str)
+            .is_some_and(|s| !s.trim().is_empty())
+        {
+            out.push(Violation::new(
+                format!("{pointer}/source"),
+                "must be a non-empty string",
+            ));
+        }
+        match map.get("origins").and_then(Value::as_array) {
+            Some(origins)
+                if origins
+                    .iter()
+                    .all(|o| o.as_str().is_some_and(is_web_origin)) => {}
+            _ => out.push(Violation::new(
+                format!("{pointer}/origins"),
+                "must be a list of origins such as https://github.com",
+            )),
+        }
+    }
+}
+
+/// `http://` or `https://`, then a host and an optional port, in lowercase,
+/// with no path: the form a browser gives as a URL's origin.
+fn is_web_origin(text: &str) -> bool {
+    let Some(host) = text
+        .strip_prefix("https://")
+        .or_else(|| text.strip_prefix("http://"))
+    else {
+        return false;
+    };
+    !host.is_empty()
+        && text == text.to_ascii_lowercase()
+        && host
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"-.:[]".contains(&b))
 }
 
 fn check(kind: Kind, value: &Value) -> Option<String> {
@@ -621,6 +706,42 @@ mod tests {
         assert_eq!(v[0].message, "must be one of system, dark, light");
         assert_eq!(v[1].message, "unknown setting");
         assert!(store.get()["port"] == 4747, "nothing was applied");
+    }
+
+    #[test]
+    fn links_are_web_origins_per_plugin_and_null_removes_them() {
+        let (_dir, store) = store();
+        let (_, keys) = store
+            .patch(&json!({"links": {"review": {"source": "github.com/acme/review", "origins": ["https://github.com", "http://localhost:8080"]}}}))
+            .unwrap();
+        assert_eq!(keys, vec!["/links/review"]);
+        assert_eq!(
+            store.get()["links"]["review"]["origins"],
+            json!(["https://github.com", "http://localhost:8080"])
+        );
+
+        let entry =
+            |origins: Value| json!({"links": {"review": {"source": "s", "origins": origins}}});
+        for bad in [
+            entry(json!(["https://github.com/acme"])),
+            entry(json!(["javascript:alert(1)"])),
+            entry(json!(["github.com"])),
+            entry(json!(["mailto:someone@example.com"])),
+            entry(json!("https://github.com")),
+            json!({"links": {"review": {"origins": ["https://github.com"]}}}),
+            json!({"links": {"review": {"source": "s", "origins": [], "extra": 1}}}),
+            json!({"links": []}),
+        ] {
+            let err = store.patch(&bad).unwrap_err();
+            let Error::Invalid(v) = err else {
+                panic!("{err:?}")
+            };
+            assert!(v[0].path.starts_with("/links"), "{bad}: {v:?}");
+        }
+
+        let (_, keys) = store.patch(&json!({"links": {"review": null}})).unwrap();
+        assert_eq!(keys, vec!["/links/review"]);
+        assert_eq!(store.get()["links"], json!({}));
     }
 
     #[test]
