@@ -26,8 +26,10 @@ export type Message = PluginMessage;
 export type MountedPlugin = {
   frame: FrameLocator;
   messages(): Promise<Message[]>;
-  /** the latest `submit`, once more than `after` submits have been posted */
-  nextSubmit(after?: number): Promise<any>;
+  /** the latest `submit`, once more than `after` submits have been posted;
+   *  throws when it does not pass the plugin's decision_schema, as the app
+   *  would refuse it, unless `{ valid: false }` */
+  nextSubmit(after?: number, options?: { valid?: boolean }): Promise<any>;
   lastDraft(): Promise<any>;
   /** the label the view last asked the shell's hand-over button to show */
   lastStatus(): Promise<string | null>;

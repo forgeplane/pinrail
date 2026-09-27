@@ -9,6 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { packageRoot, sdkScript } = require("../lib/paths.cjs");
 const { resolveAttachments } = require("./attachments.cjs");
+const Ajv2020 = require("ajv/dist/2020").default;
 
 const ORIGIN = "http://plugin.test";
 const root = packageRoot(__filename);
@@ -75,6 +76,19 @@ function fixture(file) {
   return gate;
 }
 
+/** Checks a decision against the plugin's decision_schema, inline or a
+ *  file by `$ref`, as the core does: the first problem, or null. */
+function decisionChecker(pluginDir, schema) {
+  if (!schema) return () => null;
+  let doc = schema;
+  if (typeof schema.$ref === "string") doc = JSON.parse(fs.readFileSync(path.join(pluginDir, schema.$ref), "utf8"));
+  doc = { ...doc };
+  delete doc.$schema;
+  delete doc.$id;
+  const validate = new Ajv2020({ allErrors: false, strict: false, validateFormats: false }).compile(doc);
+  return (data) => (validate(data) ? null : `${validate.errors[0].instancePath || "/"}: ${validate.errors[0].message}`);
+}
+
 async function mountPlugin(page, pluginDir, opts) {
   const sdk = sdkScript(root);
   const sdkCss = fs.readFileSync(path.join(root, "src", "pinrail-plugin.css"), "utf8");
@@ -116,6 +130,7 @@ async function mountPlugin(page, pluginDir, opts) {
   });
 
   const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
+  const checkDecision = decisionChecker(pluginDir, manifest.decision_schema);
   // a view a build writes is not there until it runs: say so, rather than
   // time out on a frame that got a 404
   const entryFile = path.join(pluginDir, manifest.entry ?? "index.html");
@@ -139,10 +154,16 @@ async function mountPlugin(page, pluginDir, opts) {
   return {
     frame: page.frameLocator("#plugin-frame"),
     messages,
-    async nextSubmit(after = 0) {
+    async nextSubmit(after = 0, { valid = true } = {}) {
       await page.waitForFunction((n) => window.__shell.messages().filter((m) => m.type === "submit").length > n, after);
       const all = await messages();
-      return all.filter((m) => m.type === "submit").pop().data;
+      const data = all.filter((m) => m.type === "submit").pop().data;
+      // what the app would refuse, as the core checks every hand-over
+      if (valid) {
+        const wrong = checkDecision(data);
+        if (wrong) throw new Error(`the decision does not pass decision_schema: ${wrong}\n${JSON.stringify(data)}`);
+      }
+      return data;
     },
     lastDraft: () => page.evaluate(() => window.__shell.lastDraft()),
     lastStatus: () => page.evaluate(() => window.__shell.lastStatus()),
