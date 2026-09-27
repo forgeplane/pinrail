@@ -209,21 +209,27 @@ pub(super) struct Store {
 struct Inner {
     /// the file's contents, unknown keys included; never the defaults
     file: Value,
+    /// the file on disk does not parse: moved aside before the next write
+    broken: bool,
     /// what the file looked like when we last read or wrote it
     seen: Option<(SystemTime, u64)>,
 }
 
 impl Store {
     /// Opens `settings.json` under `data_dir`, reading it if it exists. A
-    /// file that is not valid JSON is left alone and treated as empty, so
-    /// a bad edit never loses the file; a value the app would refuse reads
-    /// as its default.
+    /// file that is not valid JSON reads as empty, and is moved aside to
+    /// `settings.json.bad` before the app next writes, so a bad edit never
+    /// loses the file; a value the app would refuse reads as its default.
     pub(super) fn open(data_dir: &Path) -> Self {
         let path = data_dir.join(FILE);
         let (file, seen) = read(&path);
         Store {
             path,
-            inner: Mutex::new(Inner { file, seen }),
+            inner: Mutex::new(Inner {
+                broken: file.is_none(),
+                file: file.unwrap_or_else(|| Value::Object(Map::new())),
+                seen,
+            }),
         }
     }
 
@@ -261,6 +267,16 @@ impl Store {
         };
         let mut file = inner.file.clone();
         merge(&mut file, patch);
+        if inner.broken {
+            let aside = self.path.with_extension("json.bad");
+            std::fs::rename(&self.path, &aside)?;
+            eprintln!(
+                "pinrail: {} is not valid JSON; kept as {}",
+                self.path.display(),
+                aside.display()
+            );
+            inner.broken = false;
+        }
         write(&self.path, &file)?;
         inner.file = file;
         inner.seen = stat(&self.path);
@@ -278,25 +294,37 @@ impl Store {
             return None;
         }
         let (file, seen) = read(&self.path);
+        inner.seen = seen;
+        // a file that does not parse, often an edit half made, changes
+        // nothing: the settings stay as they were until it does
+        let Some(file) = file else {
+            inner.broken = true;
+            return None;
+        };
+        inner.broken = false;
         let mut before = defaults();
         merge(&mut before, &inner.file);
         let mut after = defaults();
         merge(&mut after, &file);
         inner.file = file;
-        inner.seen = seen;
         let keys = changed(&before, &after);
         (!keys.is_empty()).then_some(keys)
     }
 }
 
-fn read(path: &Path) -> (Value, Option<(SystemTime, u64)>) {
+/// The file's settings, empty when there is no file, and `None` when
+/// there is one that is not a JSON object.
+fn read(path: &Path) -> (Option<Value>, Option<(SystemTime, u64)>) {
     let seen = stat(path);
-    let mut file = std::fs::read_to_string(path)
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return (Some(Value::Object(Map::new())), seen);
+    };
+    let mut file = serde_json::from_str::<Value>(&text)
         .ok()
-        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
-        .filter(Value::is_object)
-        .unwrap_or_else(|| Value::Object(Map::new()));
-    drop_refused(&mut file, path);
+        .filter(Value::is_object);
+    if let Some(file) = &mut file {
+        drop_refused(file, path);
+    }
     (file, seen)
 }
 
@@ -703,5 +731,49 @@ mod tests {
         std::fs::write(dir.path().join(FILE), r#"{"history": {"keep_days": -3}}"#).unwrap();
         store.reload_if_changed();
         assert_eq!(store.value("/history/keep_days"), d["history"]["keep_days"]);
+    }
+
+    #[test]
+    fn a_file_that_does_not_parse_is_kept_when_the_app_next_writes() {
+        let dir = tempfile::tempdir().unwrap();
+        let broken = "{\"appearance\": {\"theme\": \"light\"},, \"port\": 4800}";
+        std::fs::write(dir.path().join(FILE), broken).unwrap();
+        let store = Store::open(dir.path());
+        assert_eq!(
+            store.value("/appearance/theme"),
+            "system",
+            "unreadable, so the defaults"
+        );
+
+        // the app writes a change of its own: the person's text must survive
+        store.patch(&json!({"sidebar": {"open": false}})).unwrap();
+        let kept = dir.path().join(format!("{FILE}.bad"));
+        assert_eq!(
+            std::fs::read_to_string(&kept).ok().as_deref(),
+            Some(broken),
+            "the broken file is kept beside"
+        );
+        let on_disk: Value =
+            serde_json::from_str(&std::fs::read_to_string(dir.path().join(FILE)).unwrap()).unwrap();
+        assert_eq!(on_disk, json!({"sidebar": {"open": false}}));
+    }
+
+    #[test]
+    fn a_half_finished_edit_under_a_running_app_changes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(FILE),
+            r#"{"appearance": {"theme": "light"}}"#,
+        )
+        .unwrap();
+        let store = Store::open(dir.path());
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(dir.path().join(FILE), r#"{"appearance": {"theme": "li"#).unwrap();
+        assert_eq!(
+            store.reload_if_changed(),
+            None,
+            "nothing changed that the app can read"
+        );
+        assert_eq!(store.value("/appearance/theme"), "light");
     }
 }
