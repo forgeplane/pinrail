@@ -482,6 +482,45 @@ fn a_refused_payload_reads_as_markdown_and_points_at_the_plugins_shape() {
 }
 
 #[test]
+fn a_plugin_that_is_not_installed_points_at_the_list_of_those_that_are() {
+    // a guessed or misspelled name: the next step is to see what there is
+    let server = MockServer::start(Box::new(|_, path, _| {
+        match path {
+        "/api/v1/reviews" => (422, r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/plugin","message":"unknown plugin code_review"}]}"#.into()),
+        "/api/v1/plugins/code_review/describe" => (404, r#"{"error":"not_found","message":"plugin code_review not found","violations":[]}"#.into()),
+        "/api/v1/plugins" => (200, r#"{"plugins":[]}"#.into()),
+        other => panic!("unexpected {other}"),
+    }
+    }));
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "code_review",
+            "--title",
+            "t",
+            "--no-start",
+            "--markdown",
+        ],
+    );
+    assert_eq!(code, 2);
+    assert!(
+        stderr.ends_with("Installed plugins: pinrail plugins\n"),
+        "{stderr}"
+    );
+
+    let (code, _, stderr) = run(
+        &server,
+        &["plugins", "describe", "code_review", "--markdown"],
+    );
+    assert_eq!(code, 2);
+    assert!(
+        stderr.ends_with("Installed plugins: pinrail plugins\n"),
+        "{stderr}"
+    );
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
@@ -772,7 +811,10 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
 
     let (code, _, stderr) = run(&server, &["plugins", "describe", "nope", "--markdown"]);
     assert_eq!(code, 2);
-    assert_eq!(stderr, "pinrail: refused: plugin nope not found\n");
+    assert_eq!(
+        stderr,
+        "pinrail: refused: plugin nope not found\nInstalled plugins: pinrail plugins\n"
+    );
 
     // installed but broken: said so, with where to look
     let (code, _, stderr) = run(&server, &["plugins", "describe", "hello", "--markdown"]);

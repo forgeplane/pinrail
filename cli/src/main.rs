@@ -239,7 +239,7 @@ enum Command {
 
 #[derive(Args)]
 struct SubmitArgs {
-    /// The plugin that defines this sort of review, e.g. code_review
+    /// The plugin that defines this sort of review, e.g. review
     #[arg(required_unless_present = "request")]
     plugin: Option<String>,
     /// What the review is about, as the inbox shows it
@@ -1043,7 +1043,7 @@ fn unusable(client: &Client, name: &str, err: anyhow::Error) -> anyhow::Error {
                 .find(|p| p["name"] == name && p["error"].is_string())
         })
     else {
-        return err;
+        return not_installed(err);
     };
     ApiError {
         status: 409,
@@ -1059,6 +1059,17 @@ fn unusable(client: &Client, name: &str, err: anyhow::Error) -> anyhow::Error {
     .into()
 }
 
+/// A plugin that is not installed: the next step is the list of those that are.
+fn not_installed(err: anyhow::Error) -> anyhow::Error {
+    match err.downcast::<ApiError>() {
+        Ok(mut api) => {
+            api.hint = Some("Installed plugins: pinrail plugins".into());
+            api.into()
+        }
+        Err(err) => err,
+    }
+}
+
 /// A payload the plugin refused, with where to read the shape it takes.
 fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
     let Some(plugin) = body["plugin"].as_str() else {
@@ -1068,16 +1079,18 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
         Ok(api) => api,
         Err(err) => return err,
     };
-    let about_payload = api.body["violations"]
+    let violations = api.body["violations"]
         .as_array()
-        .into_iter()
-        .flatten()
-        .any(|v| {
-            v["path"]
-                .as_str()
-                .is_some_and(|p| p.starts_with("/payload"))
-        });
-    if about_payload {
+        .cloned()
+        .unwrap_or_default();
+    let at = |prefix: &str| {
+        violations
+            .iter()
+            .any(|v| v["path"].as_str().is_some_and(|p| p.starts_with(prefix)))
+    };
+    if at("/plugin") {
+        api.hint = Some("Installed plugins: pinrail plugins".into());
+    } else if at("/payload") {
         api.hint = Some(format!(
             "The payload it takes: pinrail plugins describe {plugin}"
         ));
