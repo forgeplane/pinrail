@@ -74,7 +74,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
     if (!open || (filter !== "all" && filter !== "history")) return;
     const timer = window.setTimeout(() => {
       api
-        .listReviews({ status: "decided,withdrawn,expired", q: q || undefined, include_revised: "true", limit: all ? "5" : "20" })
+        .listReviews({ status: "decided,discarded,withdrawn,expired", q: q || undefined, include_revised: "true", limit: all ? "5" : "20" })
         .then((listing) => setHistory(listing.reviews))
         .catch(() => setHistory([]));
     }, q ? 150 : 0);
