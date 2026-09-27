@@ -114,7 +114,14 @@ fn is_json(value: &str) -> bool {
 fn is_loopback(value: &str) -> bool {
     let name = match value.rsplit_once(':') {
         // `[::1]` alone has colons inside the brackets and no port
-        Some((name, port)) if !name.is_empty() && !port.contains(']') => name,
+        Some((name, port)) if !name.is_empty() && !port.contains(']') => {
+            // a port is digits and nothing else, since a bundle's CSP
+            // repeats the Host it was asked with
+            if port.is_empty() || !port.bytes().all(|b| b.is_ascii_digit()) {
+                return false;
+            }
+            name
+        }
         _ => value,
     };
     LOOPBACK.iter().any(|l| name.eq_ignore_ascii_case(l))
@@ -179,6 +186,11 @@ mod tests {
             "0.0.0.0:4747",
             "[::2]:4747",
             "",
+            // the port is digits: the Host is copied into a bundle's CSP
+            "127.0.0.1:1 * 'unsafe-eval'",
+            "127.0.0.1:",
+            "localhost:47x",
+            "[::1]:",
         ] {
             assert!(!is_loopback(bad), "{bad}");
         }
