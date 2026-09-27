@@ -228,7 +228,7 @@ impl Source {
 
     fn release(owner: &str, repo: &str, segments: &[&str]) -> Option<Source> {
         match segments {
-            ["releases"] => Some(Source::Release {
+            ["releases"] | ["releases", "latest"] => Some(Source::Release {
                 owner: owner.to_string(),
                 repo: repo.to_string(),
                 tag: None,
@@ -1597,14 +1597,21 @@ mod source_tests {
                 tag: Some("v1.2.0".into())
             }
         );
-        assert_eq!(
-            Source::parse("https://github.com/acme/plugins/releases", None, None).unwrap(),
-            Source::Release {
-                owner: "acme".into(),
-                repo: "plugins".into(),
-                tag: None
-            }
-        );
+        // the latest release, by the address GitHub gives it
+        for url in [
+            "https://github.com/acme/plugins/releases",
+            "https://github.com/acme/plugins/releases/latest",
+        ] {
+            assert_eq!(
+                Source::parse(url, None, None).unwrap(),
+                Source::Release {
+                    owner: "acme".into(),
+                    repo: "plugins".into(),
+                    tag: None
+                },
+                "{url}"
+            );
+        }
     }
 
     #[test]
