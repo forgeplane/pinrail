@@ -666,7 +666,13 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     // a source that is not there is refused, naming the field
     let (status, body) = install(&app, Path::new("/nope/nowhere"), Value::Null).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(violations(&body)[0].0, "/source");
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("/source: /nope/nowhere is not a directory"),
+        "{body}"
+    );
 
     let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
     assert_eq!(status, StatusCode::OK);
@@ -1701,7 +1707,7 @@ async fn a_plugin_whose_attachments_block_is_broken_is_not_installed() {
         let (status, refused) = install(&app, &dir, json!({ "link": true })).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{block}");
         assert!(
-            refused["message"].as_str().unwrap().contains(said),
+            refused["error"].as_str().unwrap().contains(said),
             "{block}: {refused}"
         );
     }
@@ -2033,13 +2039,12 @@ async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCo
     assert_eq!(status, StatusCode::ACCEPTED, "{started}");
     let id = started["job"].as_str().unwrap().to_string();
     let job = follow(app, &id).await;
+    // the install answers 202 with a job either way: here a job that ended
+    // failed reads as 422, with the job itself as the body
     if job["status"] == "done" {
         (StatusCode::OK, job["plugin"].clone())
     } else {
-        (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            json!({ "error": "install_failed", "message": job["error"], "violations": [{"path": "/source", "message": job["error"]}] }),
-        )
+        (StatusCode::UNPROCESSABLE_ENTITY, job)
     }
 }
 
@@ -2122,7 +2127,7 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     let (status, body) = install(&app, &older, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
-        body["message"]
+        body["error"]
             .as_str()
             .unwrap()
             .contains("older than the installed 1.0.4"),
@@ -2176,7 +2181,13 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     );
     let (status, body) = install(&app, scratch.path(), json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(violations(&body)[0].0, "/source");
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("/source: not a plugin: cannot read manifest.json"),
+        "{body}"
+    );
 }
 
 /// A plugin whose bundle only exists after its build runs.
@@ -2556,7 +2567,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     let broken = buildable_plugin(scratch.path(), "broken", "echo nope && exit 3");
     let (status, body) = install(&app, &broken, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    let message = body["message"].as_str().unwrap();
+    let message = body["error"].as_str().unwrap();
     assert!(
         message.contains("the build failed") && message.contains("nope"),
         "{message}"
@@ -2580,7 +2591,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     let (status, body) = install(&app, &bare, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(
-        body["message"]
+        body["error"]
             .as_str()
             .unwrap()
             .contains("declares its build"),
@@ -2599,7 +2610,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     .unwrap();
     let (status, body) = install(&app, &typo, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    let message = body["message"].as_str().unwrap();
+    let message = body["error"].as_str().unwrap();
     assert!(
         message.contains("title: value is not of type string") && !message.contains("build"),
         "{body}"
@@ -2808,17 +2819,14 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("git clone failed"),
+        body["error"].as_str().unwrap().contains("git clone failed"),
         "{body}"
     );
     // a link needs a folder
     let (status, body) = install(&app, Path::new(&url), json!({"link": true})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(
-        body["message"]
+        body["error"]
             .as_str()
             .unwrap()
             .contains("a link needs a folder"),
@@ -3060,7 +3068,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     )
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    let message = body["message"].as_str().unwrap();
+    let message = body["error"].as_str().unwrap();
     assert!(
         message.contains("tagged v2.0.0") && message.contains("1.0.0"),
         "{message}"
@@ -3073,7 +3081,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
         json!({}),
     )
     .await;
-    let message = body["message"].as_str().unwrap();
+    let message = body["error"].as_str().unwrap();
     assert!(
         message.contains("one .zip asset") && message.contains("thing.tar.gz"),
         "{message}"
@@ -3084,7 +3092,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
         json!({}),
     )
     .await;
-    let message = body["message"].as_str().unwrap();
+    let message = body["error"].as_str().unwrap();
     assert!(message.contains("404"), "{message}");
 
     // inspecting a release names the tag and the asset, and runs no build
@@ -3110,10 +3118,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
         json!({"link": true}),
     )
     .await;
-    assert!(
-        body["message"].as_str().unwrap().contains("bundle"),
-        "{body}"
-    );
+    assert!(body["error"].as_str().unwrap().contains("bundle"), "{body}");
 
     // the fetch folder is left clean
     let fetch = app
