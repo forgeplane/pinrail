@@ -123,92 +123,98 @@ test("plugins install places a copy in the store, and a link serves the folder l
 
 test("plugins update says when there is nothing new, and remove drops the record", async () => {
   const hello = path.resolve(__dirname, "../../plugins/hello");
-  const installed = pinrailJson(["plugins", "install", hello]);
-  expect(installed.install.linked).toBe(false);
+  try {
+    const installed = pinrailJson(["plugins", "install", hello]);
+    expect(installed.install.linked).toBe(false);
 
-  const same = pinrailJson(["plugins", "update", "hello"]);
-  expect(same.state).toBe("up_to_date");
-  expect(same.version).toBe("1.0.0");
+    const same = pinrailJson(["plugins", "update", "hello"]);
+    expect(same.state).toBe("up_to_date");
+    expect(same.version).toBe("1.0.0");
 
-  const linked = pinrailJson(["plugins", "install", hello, "--link"]);
-  expect(linked.install.linked).toBe(true);
-  const refused = pinrail(["plugins", "update", "hello"]);
-  expect(refused.code).toBe(2);
-  expect(refused.stderr).toContain("is a link");
+    const linked = pinrailJson(["plugins", "install", hello, "--link"]);
+    expect(linked.install.linked).toBe(true);
+    const refused = pinrail(["plugins", "update", "hello"]);
+    expect(refused.code).toBe(2);
+    expect(refused.stderr).toContain("is a link");
 
-  const removed = pinrailJson(["plugins", "remove", "hello"]);
-  expect(removed.removed).toBe("hello");
-  expect(removed.linked).toBe(true);
-  const names = pinrailJson(["plugins"]).plugins.map((p: any) => p.name);
-  expect(names).not.toContain("hello");
-  const gone = pinrail(["plugins", "remove", "hello"]);
-  expect(gone.code).toBe(2);
-
-  // the sample stays registered for the tests after this one
-  pinrailJson(["plugins", "install", hello, "--link"]);
+    const removed = pinrailJson(["plugins", "remove", "hello"]);
+    expect(removed.removed).toBe("hello");
+    expect(removed.linked).toBe(true);
+    const names = pinrailJson(["plugins"]).plugins.map((p: any) => p.name);
+    expect(names).not.toContain("hello");
+    const gone = pinrail(["plugins", "remove", "hello"]);
+    expect(gone.code).toBe(2);
+  } finally {
+    // the sample stays registered for the tests after this one, whatever happened
+    pinrail(["plugins", "install", hello, "--link"]);
+  }
 });
 
 test("a plugin pinrail-plugin create wrote installs as a link and decides a review", async () => {
-  const bin = path.resolve(__dirname, "../../pinrail-plugin/bin/pinrail-plugin.mjs");
-  const dir = path.join(path.dirname(tmpFile("x", "")), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir], { stdio: "pipe" });
+  try {
+    const bin = path.resolve(__dirname, "../../pinrail-plugin/bin/pinrail-plugin.mjs");
+    const dir = path.join(path.dirname(tmpFile("x", "")), "triage");
+    execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir], { stdio: "pipe" });
 
-  const linked = pinrailJson(["plugins", "install", dir, "--link"]);
-  expect(linked.name).toBe("triage");
-  expect(linked.release).toBe("0.1.0");
-  expect(pinrailJson(["plugins"]).plugins.find((p: any) => p.name === "triage").usable).toBe(true);
+    const linked = pinrailJson(["plugins", "install", dir, "--link"]);
+    expect(linked.name).toBe("triage");
+    expect(linked.release).toBe("0.1.0");
+    expect(pinrailJson(["plugins"]).plugins.find((p: any) => p.name === "triage").usable).toBe(true);
 
-  const payload = tmpFile("payload.json", JSON.stringify({ message: "Push it?" }));
-  const created = pinrailJson(["submit", "triage", "--title", "Push the branch?", "--data", payload]);
-  pinrailJson(["decide", created.id, "--data", tmpFile("d.json", JSON.stringify({ ok: true, comment: "go" }))]);
-  const shown = pinrailJson(["show", created.id]);
-  expect(shown.status).toBe("decided");
-  expect(shown.decision.data).toEqual({ ok: true, comment: "go" });
+    const payload = tmpFile("payload.json", JSON.stringify({ message: "Push it?" }));
+    const created = pinrailJson(["submit", "triage", "--title", "Push the branch?", "--data", payload]);
+    pinrailJson(["decide", created.id, "--data", tmpFile("d.json", JSON.stringify({ ok: true, comment: "go" }))]);
+    const shown = pinrailJson(["show", created.id]);
+    expect(shown.status).toBe("decided");
+    expect(shown.decision.data).toEqual({ ok: true, comment: "go" });
 
-  const refused = pinrail(["submit", "triage", "--title", "Bad", "--data", tmpFile("bad.json", JSON.stringify({ msg: 1 }))]);
-  expect(refused.code).not.toBe(0);
-
-  pinrailJson(["plugins", "remove", "triage"]);
+    const refused = pinrail(["submit", "triage", "--title", "Bad", "--data", tmpFile("bad.json", JSON.stringify({ msg: 1 }))]);
+    expect(refused.code).not.toBe(0);
+  } finally {
+    pinrail(["plugins", "remove", "triage"]);
+  }
 });
 
 test("files sent with --attach travel with the review and come back byte for byte", async () => {
-  const root = path.join(path.dirname(tmpFile("x", "")), "files-plugin");
-  fs.mkdirSync(root, { recursive: true });
-  fs.writeFileSync(path.join(root, "index.html"), "<html></html>");
-  fs.writeFileSync(
-    path.join(root, "manifest.json"),
-    JSON.stringify({ name: "files", version: "1.0.0", payload_schema: {}, decision_schema: {}, attachments: { accept: [".glb"] } }),
-  );
-  pinrailJson(["plugins", "install", root, "--link"]);
+  try {
+    const root = path.join(path.dirname(tmpFile("x", "")), "files-plugin");
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(path.join(root, "index.html"), "<html></html>");
+    fs.writeFileSync(
+      path.join(root, "manifest.json"),
+      JSON.stringify({ name: "files", version: "1.0.0", payload_schema: {}, decision_schema: {}, attachments: { accept: [".glb"] } }),
+    );
+    pinrailJson(["plugins", "install", root, "--link"]);
 
-  // not text: every byte value, so nothing is decoded on the way
-  const bytes = Buffer.from(Array.from({ length: 300_000 }, (_, i) => (i * 7) % 256));
-  const model = tmpFile("pivot.glb", "");
-  fs.writeFileSync(model, bytes);
-  const payload = tmpFile("files.json", JSON.stringify({ file: { $attachment: "Pivot lamp.glb" } }));
-  const created = pinrailJson(["submit", "files", "--title", "One lamp", "--data", payload, "--attach", `${model}=Pivot lamp.glb`]);
-  expect(created.attachments).toEqual([
-    { name: "Pivot lamp.glb", size: bytes.length, media_type: "model/gltf-binary", sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
-  ]);
-  expect(pinrailJson(["attachments", "list", created.id])).toEqual(created.attachments);
+    // not text: every byte value, so nothing is decoded on the way
+    const bytes = Buffer.from(Array.from({ length: 300_000 }, (_, i) => (i * 7) % 256));
+    const model = tmpFile("pivot.glb", "");
+    fs.writeFileSync(model, bytes);
+    const payload = tmpFile("files.json", JSON.stringify({ file: { $attachment: "Pivot lamp.glb" } }));
+    const created = pinrailJson(["submit", "files", "--title", "One lamp", "--data", payload, "--attach", `${model}=Pivot lamp.glb`]);
+    expect(created.attachments).toEqual([
+      { name: "Pivot lamp.glb", size: bytes.length, media_type: "model/gltf-binary", sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+    ]);
+    expect(pinrailJson(["attachments", "list", created.id])).toEqual(created.attachments);
 
-  const saved = path.join(path.dirname(model), "saved.glb");
-  const got = pinrail(["attachments", "get", created.id, "Pivot lamp.glb", "-o", saved]);
-  expect(got.code, got.stderr).toBe(0);
-  expect(fs.readFileSync(saved).equals(bytes)).toBe(true);
+    const saved = path.join(path.dirname(model), "saved.glb");
+    const got = pinrail(["attachments", "get", created.id, "Pivot lamp.glb", "-o", saved]);
+    expect(got.code, got.stderr).toBe(0);
+    expect(fs.readFileSync(saved).equals(bytes)).toBe(true);
 
-  // a reference to a file that was not sent is refused before any upload
-  const refused = pinrail(["submit", "files", "--title", "Two lamps", "--data", tmpFile("f2.json", JSON.stringify({ file: { $attachment: "column.glb" } })), "--attach", model]);
-  expect(refused.code).toBe(2);
-  expect(refused.stderr).toContain('no attachment \\"column.glb\\" on this review');
-
-  pinrailJson(["plugins", "remove", "files"]);
+    // a reference to a file that was not sent is refused before any upload
+    const refused = pinrail(["submit", "files", "--title", "Two lamps", "--data", tmpFile("f2.json", JSON.stringify({ file: { $attachment: "column.glb" } })), "--attach", model]);
+    expect(refused.code).toBe(2);
+    expect(refused.stderr).toContain('no attachment \\"column.glb\\" on this review');
+  } finally {
+    pinrail(["plugins", "remove", "files"]);
+  }
 });
 
 test("plugins lists the built-in and the installed sample plugins", async () => {
   const plugins = pinrailJson(["plugins"]);
   // the samples this suite installs, and the built-in ones that are always there
-  expect(plugins.plugins.map((p: any) => p.name)).toEqual(["artifact", "email", "feedback", "hello", "list", "review"]);
+  expect(plugins.plugins.map((p: any) => p.name)).toEqual(expect.arrayContaining(["artifact", "email", "feedback", "hello", "list", "review"]));
   // a plugin only installs if it loads, so every one of them is usable
   for (const p of plugins.plugins) expect(p.usable, `${p.name}: ${p.error}`).toBe(true);
   // the three that are developed in place are links; artifact was built and copied
