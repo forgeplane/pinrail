@@ -213,9 +213,12 @@ svg.lucide { flex: none; width: var(--wi-size, 1em); height: var(--wi-size, 1em)
 .field, .note {
   background: var(--bg); color: var(--text);
   border: 1px solid var(--border-strong); border-radius: 6px;
-  padding: 6px 9px; font-size: 12.5px; outline: none;
+  padding: 6px 9px; font-size: 12.5px;
 }
+/* the accent border for any focus; the ring as well from the keyboard,
+   from :focus-visible above */
 .field:focus, .note:focus { border-color: var(--accent); }
+.field:focus:not(:focus-visible), .note:focus:not(:focus-visible) { outline: none; }
 textarea.note { resize: vertical; }
 
 /* The unit of a decision: one thing the human says yes or no to. */
