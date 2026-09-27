@@ -1,10 +1,10 @@
-# A tag sdk-v<version> (sdk-v1.8.0) releases the pinrail-plugin package from
+# A tag sdk-v<version> (sdk-v1.0.0) releases the pinrail-plugin package from
 # pinrail-plugin/: its tests and the samples' check run, the tag has to name the
 # package's version, and the tarball npm pack writes is attached to a GitHub
 # release of the same tag. That tarball is what a scaffolded plugin depends
 # on until the package is on npm:
 #
-#   https://github.com/forgeplane/pinrail/releases/download/sdk-v1.8.0/pinrail-plugin-1.8.0.tgz
+#   https://github.com/forgeplane/pinrail/releases/download/sdk-v1.0.0/pinrail-plugin-1.0.0.tgz
 #
 # Publishing to npm is the last job, and runs only once the repository
 # variable PUBLISH_PINRAIL_PLUGIN is "npm" (Settings › Variables) and the

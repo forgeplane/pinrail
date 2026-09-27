@@ -55,7 +55,7 @@ change to the protocol is a new major and a new path.
 - The stylesheet styles what markdown renders — headings, tables,
   blockquotes, rules and code — so a view styles the box, not the prose.
 
-## 1.8.0
+## 1.0.0
 
 The first release as a package, `pinrail-plugin`. The SDK the app serves
 is unchanged; around it:

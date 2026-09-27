@@ -45,7 +45,7 @@
   "use strict";
 
   const PROTOCOL = 1;
-  const VERSION = "1.8.0";
+  const VERSION = "1.0.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
 

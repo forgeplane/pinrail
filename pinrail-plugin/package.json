@@ -1,6 +1,6 @@
 {
   "name": "@forgeplane/pinrail-plugin",
-  "version": "1.8.0",
+  "version": "1.0.0",
   "description": "Write and test a pinrail plugin: the SDK the app serves, a shell to develop a view in the browser, and a Playwright harness to test it alone",
   "license": "Apache-2.0",
   "repository": {
