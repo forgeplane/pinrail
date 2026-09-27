@@ -16,8 +16,11 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
 ```
 
 It prints the review's id at once, `review <id> submitted`, then waits for the
-person's decision and prints it; keep the id for `--revises` and
-`pinrail wait <id>`. A payload the plugin does not accept fails at once
+person's decision and prints it. Keep the id for `--revises` and
+`pinrail wait <id>`. If your commands are stopped after a time limit, add
+`--timeout <seconds>` with a value below that limit. When the command exits
+with 4 because the time ran out, run `pinrail wait <id>` again until the
+review ends. A payload the plugin does not accept fails at once
 (exit 2) with what is wrong: fix it and submit again. With the decision:
 
 - Carry on with your task, doing what the person approved, as they

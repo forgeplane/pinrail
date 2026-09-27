@@ -5,7 +5,7 @@
 
 use serde_json::Value;
 
-const SUBMIT: &str = "pinrail submit <plugin> --title \"<what it is about>\" --origin repo=<owner/name>,ref=<branch or PR> --data payload.json --wait";
+const SUBMIT: &str = "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
 
 /// As markdown: the plugin as a document, its heading the title, then how
 /// to send it; the rest, exit codes included, is `pinrail docs asking`. The
@@ -20,7 +20,7 @@ pub fn markdown(plugin: &Value) -> String {
         .replace("\n### ", "\n## ");
     let name = plugin["name"].as_str().unwrap_or("<plugin>");
     out.push_str(&format!(
-        "\n## Submitting\n\n```sh\n{}\n```\n\nExit codes, rounds and the rest: `pinrail docs asking`.\n",
+        "\n## Submitting\n\n```sh\n{}\n```\n\nInside a git checkout, the command fills in the project from git. Outside one, add `--origin repo=<project>`.\n\nExit codes, rounds and the rest: `pinrail docs asking`.\n",
         SUBMIT.replace("<plugin>", name)
     ));
     out
