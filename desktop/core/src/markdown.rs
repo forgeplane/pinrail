@@ -682,6 +682,13 @@ Undecided: #19, #20
             let template = manifest["decision_template"]
                 .as_str()
                 .map(|f| std::fs::read_to_string(dir.join(f)).unwrap());
+            // a fixture shows what the plugin sends and gets back, so both
+            // must be what its own schemas accept
+            let schema = |key: &str| {
+                crate::schema::Schema::compile(&dir, "fixture", 1, key, &manifest[key])
+                    .unwrap_or_else(|e| panic!("{}: {key}: {e}", dir.display()))
+            };
+            let (payload_schema, decision_schema) = (schema("payload_schema"), schema("decision_schema"));
             let Ok(fixtures) = std::fs::read_dir(dir.join("fixtures")) else {
                 continue;
             };
@@ -693,6 +700,18 @@ Undecided: #19, #20
                 };
                 let fixture: Value =
                     serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                for (what, schema, value) in [
+                    ("payload", &payload_schema, &fixture["payload"]),
+                    ("decision", &decision_schema, &fixture["decision"]["data"]),
+                ] {
+                    let wrong = schema.validate(value);
+                    assert!(
+                        wrong.is_empty(),
+                        "{}: the {what} is not what the plugin's schema accepts: {:?}",
+                        path.display(),
+                        wrong.iter().map(|v| format!("{}: {}", v.path, v.message)).collect::<Vec<_>>()
+                    );
+                }
                 let review = json!({
                     "id": "r_fixture", "plugin": manifest["name"], "plugin_version": 1,
                     "title": fixture["title"],

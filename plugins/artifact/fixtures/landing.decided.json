@@ -15,28 +15,36 @@
     "decided_by": "alice",
     "decided_at": "2026-09-10T10:15:00Z",
     "data": {
-      "verdict": "request_changes",
+      "verdict": "revise",
       "comments": [
         {
           "id": "c1",
-          "kind": "element",
+          "kind": "change",
           "selector": "main > section:nth-of-type(1) > h1",
           "tag": "h1",
           "text": "Say what it does before the pun: the headline reads as a slogan.",
-          "snippet": "<h1>Bookkeeping that closes itself</h1>",
+          "snippet": "Bookkeeping that closes itself",
           "html": "<h1>Bookkeeping that closes itself</h1>"
         },
         {
           "id": "c2",
-          "kind": "element",
+          "kind": "question",
           "selector": "#features > div:nth-of-type(2) > h3",
           "tag": "h3",
-          "text": "Too small on mobile; match the other cards.",
-          "snippet": "<h3>Draft close</h3>",
+          "text": "Is this too small on mobile next to the other cards?",
+          "snippet": "Draft close",
           "html": "<h3>Draft close</h3>"
+        },
+        {
+          "id": "c3",
+          "kind": "praise",
+          "selector": "#pricing > p",
+          "tag": "p",
+          "text": "Keep this line as it is.",
+          "snippet": "One plan. Everything included."
         }
       ]
     }
   },
-  "agent_note": "Two changes, then it is good to ship."
+  "agent_note": "One change and a question, then it is good to ship."
 }

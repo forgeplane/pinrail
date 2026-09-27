@@ -1,0 +1,34 @@
+{#- The decision as an agent reads it back: the verdict, then each comment
+    on the element it hangs on, by kind: what to change, what was asked,
+    what to keep. A selector finds the element in the document as it was
+    reviewed, and its text finds it again if the selector has moved. The
+    head (title, origin, who decided, the note to the agent) is printed by
+    the app before this. -#}
+{%- macro comment(c) -%}
+- `{{ c.selector }}`{% if c.snippet %} “{{ c.snippet }}”{% endif %}: {{ c.text }}
+{%- endmacro -%}
+{%- set changes = items | selectattr("kind", "equalto", "change") | list -%}
+{%- set questions = items | selectattr("kind", "equalto", "question") | list -%}
+{%- set keep = items | selectattr("kind", "equalto", "praise") | list -%}
+Verdict: {{ "approved" if data.verdict == "approve" else "revise" }}
+{%- if changes %}
+
+## Change
+{% for c in changes %}
+{{ comment(c) }}
+{%- endfor %}
+{%- endif %}
+{%- if questions %}
+
+## Questions
+{% for c in questions %}
+{{ comment(c) }}
+{%- endfor %}
+{%- endif %}
+{%- if keep %}
+
+## Keep
+{% for c in keep %}
+{{ comment(c) }}
+{%- endfor %}
+{%- endif %}
