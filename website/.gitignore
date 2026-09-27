@@ -4,3 +4,4 @@ dist/
 
 # earlier landing-page drafts, kept locally
 archive/
+.wrangler/

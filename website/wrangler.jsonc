@@ -1,0 +1,11 @@
+// The site on Cloudflare: a Worker with only static assets, the build's
+// dist/, and no script. `npx wrangler deploy` here publishes it.
+{
+  "name": "pinrail",
+  "compatibility_date": "2026-09-27",
+  "assets": {
+    "directory": "./dist",
+    // Starlight writes a 404.html
+    "not_found_handling": "404-page"
+  }
+}

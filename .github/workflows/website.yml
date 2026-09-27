@@ -1,0 +1,69 @@
+# The website: built on a pull request that touches it, and deployed to the
+# `pinrail` Cloudflare Worker on a push to main that touches website/ or
+# docs/. The site also reads the official plugins' manifests and schemas,
+# and the reference pages the CLI and the core generate before every build;
+# a change there reaches the site when it is deployed by hand, from the
+# Actions tab.
+name: website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - website/**
+      - docs/**
+      - .github/workflows/website.yml
+  pull_request:
+    paths:
+      - website/**
+      - docs/**
+      - .github/workflows/website.yml
+  workflow_dispatch:
+
+# one deploy at a time, whatever started it, and a newer one waits rather
+# than cancelling one halfway through; a pull request's builds queue apart
+concurrency:
+  group: website-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      # the version mise.toml pins; the build runs the CLI and the core to
+      # write docs/reference/
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.98.1"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: website
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: |
+            desktop
+            cli
+      - name: Install
+        working-directory: website
+        run: |
+          npm ci
+          # the mermaid diagrams are drawn in a headless browser
+          npx playwright install --with-deps chromium
+      - name: Build
+        working-directory: website
+        run: npm run build
+      - name: Deploy
+        if: github.event_name != 'pull_request'
+        working-directory: website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 deploy
