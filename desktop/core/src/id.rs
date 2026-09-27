@@ -38,14 +38,6 @@ fn next_at(ms: u64) -> String {
     format!("{PREFIX}{}", encode(bits))
 }
 
-/// True if the string is shaped like a review id.
-pub fn is_valid(s: &str) -> bool {
-    let Some(rest) = s.strip_prefix(PREFIX) else {
-        return false;
-    };
-    rest.len() == 26 && rest.as_bytes()[0] <= b'7' && rest.bytes().all(|b| ALPHABET.contains(&b))
-}
-
 fn seed() -> u32 {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -78,20 +70,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ids_are_valid_and_ordered() {
+    fn ids_are_ulids_in_order() {
         let a = next();
         let b = next();
-        assert!(is_valid(&a), "{a}");
-        assert!(is_valid(&b), "{b}");
+        assert!(
+            a.starts_with(PREFIX) && a[2..].bytes().all(|b| ALPHABET.contains(&b)),
+            "{a}"
+        );
         assert!(a < b);
         assert_eq!(a.len(), 28);
-    }
-
-    #[test]
-    fn validity_is_strict() {
-        assert!(!is_valid("g_01ARZ3NDEKTSV4RRFFQ69G5FAV"));
-        assert!(!is_valid("r_short"));
-        assert!(!is_valid("r_8ZZZZZZZZZZZZZZZZZZZZZZZZZ"));
-        assert!(is_valid("r_01ARZ3NDEKTSV4RRFFQ69G5FAV"));
     }
 }

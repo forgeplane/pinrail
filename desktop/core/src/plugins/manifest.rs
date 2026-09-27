@@ -568,8 +568,6 @@ pub fn icon_markup(dir: &Path, file: &str) -> Result<String, String> {
     Ok(svg[start..].to_string())
 }
 
-/// The keys a plugin's view answers: a list of `{keys, does, group?}`,
-/// `keys` in the app's shortcut form (`cmd+shift+m`, `j`, `shift+/`).
 /// The manifest held to its JSON Schema, `manifest.schema.json` in the
 /// pinrail-plugin package, which build.rs copies in: the one description of a
 /// manifest, shared with authors' editors and the docs.
@@ -640,6 +638,8 @@ mod shape {
     }
 }
 
+/// The keys a plugin's view answers: a list of `{keys, does, group?}`,
+/// `keys` in the app's shortcut form (`cmd+shift+m`, `j`, `shift+/`).
 mod shortcuts {
     use serde_json::{Map, Value};
 

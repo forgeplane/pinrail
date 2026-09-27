@@ -367,9 +367,8 @@ impl Db {
 
     /// Deletes reviews with their events, outcomes and the record of the
     /// files they carried (the blobs themselves go in the attachments sweep),
-    /// all or nothing. A
-    /// round among them that revises another among them lets go of it
-    /// first, so the order they go in does not matter.
+    /// all or nothing. A round among them that revises another among them
+    /// lets go of it first, so the order they go in does not matter.
     pub fn delete_reviews(&self, ids: &[&str]) -> rusqlite::Result<usize> {
         let mut conn = self.conn.lock().unwrap();
         let tx = conn.transaction()?;

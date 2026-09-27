@@ -74,10 +74,10 @@ pub fn find(path: Option<&str>) -> Option<Brief> {
     all().into_iter().find(|b| b.path == wanted)
 }
 
-/// The brief as it prints: its text, then the menu of what is under it.
 /// The manifest's JSON Schema, as the SDK ships it and the core checks it.
 const MANIFEST_SCHEMA: &str = include_str!("../../pinrail-plugin/schemas/manifest.schema.json");
 
+/// The brief as it prints: its text, then the menu of what is under it.
 pub fn render(brief: &Brief) -> String {
     let mut out = brief
         .body

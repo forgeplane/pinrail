@@ -50,7 +50,7 @@ const ENVIRONMENT: &[(&str, &str)] = &[
     ),
     (
         "PINRAIL_SERVER_CMD",
-        "How to start a server when none is running, run through `sh -c`. `submit` and `serve` use it.",
+        "How to start a server when none is running, run through `sh -c`. `submit`, `serve`, `plugins describe` and `plugins check` use it.",
     ),
 ];
 
@@ -281,8 +281,6 @@ fn value_name(arg: &Arg) -> String {
         .unwrap_or_else(|| arg.get_id().as_str().to_uppercase())
 }
 
-/// Help text as one sentence: joined lines, a capital, a full stop, and
-/// the flags it mentions set as code, as the rest of the page sets them.
 /// A command's help as markdown: each paragraph a sentence, and a
 /// paragraph indented four spaces, as `--help` shows an example, a code block,
 /// highlighted as JSON when it is JSON.
@@ -310,6 +308,8 @@ fn description(text: &str) -> String {
         .join("\n\n")
 }
 
+/// Help text as one sentence: joined lines, a capital, a full stop, and
+/// the flags it mentions set as code, as the rest of the page sets them.
 fn sentence(text: &str) -> String {
     let joined = text
         .split_whitespace()

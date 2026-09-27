@@ -283,7 +283,7 @@ fn a_file_from_before_the_last_numbered_step_is_refused() {
     drop(conn);
     let error = Db::open(&path).unwrap_err().to_string();
     assert!(
-        error.contains("from before 2026-09-23 (schema step 2)"),
+        error.contains("unsupported development build (schema step 2)"),
         "{error}"
     );
 }

@@ -298,7 +298,7 @@ struct SubmitArgs {
     /// Who is asking, shown on the review as its requester, with the
     /// agent's icon when the app knows it [default: the coding agent this
     /// runs under, from the variables it sets (claude-code, codex, cursor,
-    /// gemini-cli, opencode), else pinrail-cli]
+    /// gemini-cli, opencode, kimi), else pinrail-cli]
     #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
     /// Send the plugin's sample, a review it ships to show what it looks

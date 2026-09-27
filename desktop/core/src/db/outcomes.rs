@@ -1,5 +1,5 @@
 //! How a review ends: a decision, a withdrawal, or a discard. Each is
-//! written once, guarded by the primary key on `decisions`, and each
+//! written once, guarded by the primary key on `outcomes`, and each
 //! appends the event that announces it.
 
 use chrono::{DateTime, Utc};

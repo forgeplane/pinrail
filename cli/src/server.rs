@@ -46,7 +46,8 @@ pub fn advertised() -> Option<Value> {
 }
 
 /// The base URL to talk to. With `auto_start`, a server that is not
-/// answering is started first (create does this; nothing else).
+/// answering is started first, when PINRAIL_SERVER_CMD says how: submit,
+/// plugins describe and plugins check ask for it.
 pub fn resolve_url(explicit: Option<&str>, auto_start: bool) -> Result<String> {
     if let Some(url) = explicit {
         return Ok(url.trim_end_matches('/').to_string());

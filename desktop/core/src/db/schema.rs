@@ -125,7 +125,7 @@ fn adopt(conn: &Connection) -> rusqlite::Result<()> {
             Ok(())
         }
         other => Err(refused(format!(
-            "the database is from before 2026-09-23 (schema step {other}), older than any Pinrail release can read"
+            "this database was written by an unsupported development build (schema step {other}); move it aside to start fresh"
         ))),
     }
 }

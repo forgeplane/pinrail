@@ -12,7 +12,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use serde_json::{Map, Value};
 
-use super::model::{Decision, Review, Status, parse_datetime};
+use super::model::{Decision, Review, parse_datetime};
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{Db, Event, Filters};
 use crate::error::{Error, Violation};
@@ -211,14 +211,6 @@ impl Reviews {
             },
             reviews,
         })
-    }
-
-    pub fn pending_count(&self) -> Result<usize, Error> {
-        let filters = Filters {
-            statuses: vec![Status::Pending],
-            ..Filters::default()
-        };
-        Ok(self.db.count(&filters, Utc::now())?)
     }
 
     pub fn rounds(&self, id: &str) -> Result<Vec<Review>, Error> {
@@ -435,7 +427,7 @@ impl Reviews {
         }
     }
 
-    pub fn publish_plain(&self, event_id: i64, kind: &str) {
+    fn publish_plain(&self, event_id: i64, kind: &str) {
         self.bus.publish(Notice {
             event_id,
             kind: kind.to_string(),

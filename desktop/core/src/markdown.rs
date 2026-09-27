@@ -21,10 +21,6 @@ pub fn compile(source: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Renders a review, as `Review::to_json` shapes it. `round` is `(n, of)`
-/// when the review is one of a chain; `template` is the plugin's own
-/// rendering of the body, when it declares one. Times read in the local
-/// zone.
 /// How a review's markdown opens.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Head {
@@ -36,6 +32,10 @@ pub enum Head {
     Command,
 }
 
+/// Renders a review, as `Review::to_json` shapes it. `round` is `(n, of)`
+/// when the review is one of a chain; `template` is the plugin's own
+/// rendering of the body, when it declares one. Times read in the local
+/// zone.
 pub fn render(review: &Value, round: Option<(usize, usize)>, template: Option<&str>) -> String {
     render_in(review, round, template, None, Head::Document)
 }

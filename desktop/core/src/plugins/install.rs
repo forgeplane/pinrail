@@ -12,8 +12,8 @@
 //! so a dialog or a terminal can follow a build that takes a minute.
 //!
 //! A source is one string: a folder, or a git URL with `#path=` and
-//! `#ref=` in its fragment, or a GitHub release URL (fetched in a later
-//! step). It is parsed before anything is touched, so a bad one fails at
+//! `#ref=` in its fragment, or a GitHub release URL. It is parsed before
+//! anything is touched, so a bad one fails at
 //! once and offline.
 
 use std::io::{BufRead, BufReader};
@@ -937,7 +937,7 @@ fn fetch_dir(registry: &Registry) -> PathBuf {
 /// What is new for an installed plugin, asked of its source: `up_to_date`,
 /// `available` with the newer commit, `pinned` for a tag or a commit that
 /// never moves, or `unknown` when the source cannot be asked.
-pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_json::Value {
+pub fn check_updates(record: &InstalledRecord) -> serde_json::Value {
     if record.linked {
         return serde_json::json!({ "state": "linked" });
     }
@@ -946,7 +946,10 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             let resolved: Value = serde_json::from_str(&record.resolved).unwrap_or(Value::Null);
             let url = resolved["url"].as_str().unwrap_or_default().to_string();
             let reference = resolved["ref"].as_str().map(str::to_string);
-            if reference.as_deref().is_some_and(|r| r.len() >= 7 && r.chars().all(|c| c.is_ascii_hexdigit())) {
+            if reference
+                .as_deref()
+                .is_some_and(|r| r.len() >= 7 && r.chars().all(|c| c.is_ascii_hexdigit()))
+            {
                 return serde_json::json!({ "state": "pinned", "ref": reference });
             }
             let output = Command::new("git")
@@ -964,7 +967,9 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             let mut head = None;
             for line in listing.lines() {
                 let mut parts = line.split_whitespace();
-                let (Some(sha), Some(name)) = (parts.next(), parts.next()) else { continue };
+                let (Some(sha), Some(name)) = (parts.next(), parts.next()) else {
+                    continue;
+                };
                 if name.starts_with("refs/tags/") {
                     tag = Some(sha.to_string());
                 } else if head.is_none() {
@@ -975,9 +980,15 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
                 return serde_json::json!({ "state": "pinned", "ref": reference });
             }
             match head {
-                Some(sha) if Some(sha.as_str()) == record.commit.as_deref() => serde_json::json!({ "state": "up_to_date", "commit": sha }),
-                Some(sha) => serde_json::json!({ "state": "available", "commit": sha, "installed": record.commit }),
-                None => serde_json::json!({ "state": "unknown", "message": format!("{} has no such ref", reference.unwrap_or_else(|| "HEAD".into())) }),
+                Some(sha) if Some(sha.as_str()) == record.commit.as_deref() => {
+                    serde_json::json!({ "state": "up_to_date", "commit": sha })
+                }
+                Some(sha) => {
+                    serde_json::json!({ "state": "available", "commit": sha, "installed": record.commit })
+                }
+                None => {
+                    serde_json::json!({ "state": "unknown", "message": format!("{} has no such ref", reference.unwrap_or_else(|| "HEAD".into())) })
+                }
             }
         }
         "release" => {
@@ -1017,23 +1028,20 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
                 super::registry::hash_dir_where(source, &in_the_bundle),
                 &record.hash,
             ) {
-                (Ok(now), Some(then)) if &now == then => serde_json::json!({ "state": "up_to_date" }),
-                (Ok(_), Some(_)) => serde_json::json!({ "state": "available", "message": "the folder changed since it was installed" }),
-                _ => serde_json::json!({ "state": "unknown", "message": "the folder cannot be read" }),
+                (Ok(now), Some(then)) if &now == then => {
+                    serde_json::json!({ "state": "up_to_date" })
+                }
+                (Ok(_), Some(_)) => {
+                    serde_json::json!({ "state": "available", "message": "the folder changed since it was installed" })
+                }
+                _ => {
+                    serde_json::json!({ "state": "unknown", "message": "the folder cannot be read" })
+                }
             }
         }
         _ => serde_json::json!({ "state": "unknown" }),
     }
-    .tap(|_| { let _ = registry; })
 }
-
-trait Tap: Sized {
-    fn tap(self, f: impl FnOnce(&Self)) -> Self {
-        f(&self);
-        self
-    }
-}
-impl Tap for Value {}
 
 /// Installs the plugin in `dir`, wherever it was fetched from.
 fn install_dir(
