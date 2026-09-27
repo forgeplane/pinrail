@@ -45,6 +45,54 @@ The repository contains:
 - `docs/`: the documentation
 - `website/`: the website
 
+## Running the tests
+
+`mise run test` runs every suite below, one after the other. While you work,
+run the suite for the part you changed. The browser suites use
+[Playwright](https://playwright.dev) with Chromium, which you install once
+with `npx playwright install chromium` from `e2e/`.
+
+- **Desktop core and UI:** `mise run test:desktop`. The Rust tests of the
+  server (storage, plugins, validation, the HTTP API) and of the app, then a
+  type check of the UI. The core's check test compares the Rust plugin check
+  with the SDK's, so it needs Node; set `PINRAIL_SKIP_NODE=1` to skip it. One
+  test builds a plugin with `npm ci` and needs the network, so it only runs
+  when asked: `cargo test -p pinrail-core -- --ignored` from `desktop/`.
+- **CLI:** `mise run test:cli`. The `pinrail` command against a scripted
+  HTTP server, with no app running.
+- **Plugin SDK:** `mise run test:sdk`. Unit tests of `pinrail-plugin` under
+  Node, then browser tests of its harness, its `dev` server and the plugins
+  its `create` command writes.
+- **Official plugins:** `mise run test:plugins`. Each plugin in `plugins/`
+  on its own, in the SDK's test harness. The plugins that have a build are
+  built first.
+- **Docs examples:** `mise run test:examples`. The example plugins in
+  `docs/examples/ship-it`, each built and tested, plus a check that the four
+  framework versions share everything except the view's code.
+- **End to end, CLI:** `mise run e2e`. The real `pinrail` command against the
+  app's server running headless on a scratch data folder and a free port.
+  Both are built first if needed.
+- **End to end, app:** `mise run e2e:shell`. The app's UI in a browser
+  against a headless server: the inbox, reviews, deciding in a plugin's
+  view, settings and installing plugins. It uses ports 4799 and 5199, which
+  must be free.
+
+To run one test, go to the suite's folder and name it:
+
+```sh
+cargo test deciding_validates               # Rust: tests whose name contains this
+npx playwright test shell/decide.spec.ts    # Playwright: one file
+npx playwright test -g "survives a reload"  # Playwright: tests whose title contains this
+```
+
+In `e2e/`, add `-c shell.config.ts` to run the app suite. Add `--headed` to
+watch the browser. When a Playwright test fails, its trace is saved under
+`test-results/`; open it with `npx playwright show-trace`.
+
+Some tests compare output with recorded files. When a change is meant to
+alter that output, run the tests with `UPDATE_FIXTURES=1` to rewrite the
+files, and check the difference before you commit it.
+
 ## Before opening a pull request
 
 Run the linters and the tests:
