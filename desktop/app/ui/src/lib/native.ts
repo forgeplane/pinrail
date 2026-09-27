@@ -2,7 +2,7 @@
 // link or a notification. A route sent before the shell was listening is
 // picked up at start. Outside the app this does nothing.
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { inTauri } from "../api/client";
 
@@ -56,7 +56,12 @@ export function useExternalLinks() {
 }
 
 export function useNativeRoutes() {
+  // react-router hands out a new navigate on every change of page: read it
+  // through a ref, so the listener and the saved route are taken once per
+  // mount, not again after every navigation
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   useEffect(() => {
     if (!inTauri()) return;
     let cancelled = false;
@@ -64,9 +69,14 @@ export function useNativeRoutes() {
     (async () => {
       const [{ listen }, { invoke }] = await Promise.all([import("@tauri-apps/api/event"), import("@tauri-apps/api/core")]);
       const go = (route: string) => {
-        if (route) navigate(route);
+        if (route) navigateRef.current(route);
       };
-      const stopOpen = await listen<string>(OPEN_EVENT, (event) => go(event.payload));
+      // the app also saves each route for a shell not listening yet; one
+      // that arrived here is taken, so it cannot come back later
+      const stopOpen = await listen<string>(OPEN_EVENT, (event) => {
+        go(event.payload);
+        void invoke("take_pending_route").catch(() => {});
+      });
       // menu accelerators arrive as commands and are re-issued as a DOM
       // event, so the shell handles them like its own shortcuts
       const stopCommand = await listen<string>(COMMAND_EVENT, (event) => {
@@ -88,5 +98,5 @@ export function useNativeRoutes() {
       cancelled = true;
       unlisten?.();
     };
-  }, [navigate]);
+  }, []);
 }
