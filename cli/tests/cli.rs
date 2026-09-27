@@ -646,6 +646,20 @@ fn a_decision_that_cannot_be_rendered_still_exits_as_decided() {
 }
 
 #[test]
+fn an_install_answer_with_no_job_says_so() {
+    let server = MockServer::start(Box::new(|_, path, _| match path {
+        "/api/v1/plugins/install" => (202, "{}".into()),
+        other => (
+            404,
+            format!(r#"{{"error":"not_found","message":"{other} not found","violations":[]}}"#),
+        ),
+    }));
+    let (code, _, stderr) = run(&server, &["plugins", "install", "github.com/acme/triage"]);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("started no install job"), "{stderr}");
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {

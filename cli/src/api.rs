@@ -176,7 +176,10 @@ impl Client {
     ) -> Result<Value> {
         let body = serde_json::json!({ "source": source, "link": link, "force": force, "ref": reference, "path": path });
         let started = self.post("/api/v1/plugins/install", Some(&body))?;
-        self.follow_job(started["job"].as_str().unwrap_or_default())
+        match started["job"].as_str() {
+            Some(id) => self.follow_job(id),
+            None => anyhow::bail!("the server started no install job: {started}"),
+        }
     }
 
     /// Installs a plugin again from where it came; the core says at once
@@ -208,6 +211,9 @@ impl Client {
     fn follow_job(&self, id: &str) -> Result<Value> {
         let mut shown = 0;
         let mut step = String::new();
+        // a build that says nothing for a while may be stuck: say so, and
+        // keep following it
+        let mut quiet_since = std::time::Instant::now();
         loop {
             let job = self.get(&format!("/api/v1/plugins/jobs/{}", segment(id)), &[])?;
             let status = job["status"].as_str().unwrap_or("");
@@ -221,6 +227,10 @@ impl Client {
             if log.len() > shown {
                 eprint!("{}", &log[shown..]);
                 shown = log.len();
+                quiet_since = std::time::Instant::now();
+            } else if quiet_since.elapsed() >= std::time::Duration::from_secs(60) {
+                eprintln!("pinrail: still {status}, with no new output for a minute");
+                quiet_since = std::time::Instant::now();
             }
             match status {
                 "done" => return Ok(job["plugin"].clone()),
