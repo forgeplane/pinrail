@@ -345,7 +345,7 @@ pub fn run() {
             native::build_tray(app.handle())?;
             native::apply_menu_bar_icon(app.handle(), &state);
             native::apply_shortcut(app.handle(), &state);
-            native::refresh_tray_at_pause_end(app.handle(), &state);
+            native::watch_pause_end(app.handle(), state.clone());
             native::watch(app.handle().clone());
             let settings = state.clone();
             updater::start(app.handle(), move || {

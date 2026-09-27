@@ -156,18 +156,25 @@ fn pause_notifications(state: &Pinrail, until: Option<DateTime<Utc>>) {
     }
 }
 
-/// Refreshes the tray once the current pause runs out, so "Resume" gives
-/// way to "Pause" without anyone touching a setting.
-pub fn refresh_tray_at_pause_end(app: &AppHandle, state: &Pinrail) {
-    let Some(until) = notification_settings(state).paused_until else {
-        return;
-    };
-    let wait = (until - Utc::now()).to_std().unwrap_or_default();
+/// Refreshes the tray when a pause runs out, so "Resume" gives way to
+/// "Pause" without anyone touching a setting. One task for the app's life,
+/// checking the wall clock: a timer stops while a Mac sleeps, and a task
+/// per change of pause would pile up.
+pub fn watch_pause_end(app: &AppHandle, state: Arc<Pinrail>) {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(wait + std::time::Duration::from_secs(1)).await;
-        let again = handle.clone();
-        let _ = handle.run_on_main_thread(move || refresh_tray(&again));
+        // a pause the tray may still be showing
+        let mut shown = false;
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+            let until = notification_settings(&state).paused_until;
+            if until.is_some_and(|until| until > Utc::now()) {
+                shown = true;
+            } else if std::mem::take(&mut shown) {
+                let again = handle.clone();
+                let _ = handle.run_on_main_thread(move || refresh_tray(&again));
+            }
+        }
     });
 }
 
@@ -550,9 +557,6 @@ pub fn watch(app: AppHandle) {
                             let _ = app.run_on_main_thread(move || {
                                 if menu_bar {
                                     apply_menu_bar_icon(&handle, &state);
-                                }
-                                if notifications {
-                                    refresh_tray_at_pause_end(&handle, &state);
                                 }
                                 if shortcut {
                                     apply_shortcut(&handle, &state);
