@@ -273,7 +273,16 @@ export function ReviewScreen() {
   }, [previous, revisedBy, navigate, maximized, plugin]);
 
   // the view leaves with the review
-  useEffect(() => setMaximized(false), [id]);
+  // what was said and opened for the last review stays with it: the screen
+  // outlives a change of review
+  useEffect(() => {
+    setMaximized(false);
+    setFlash(null);
+    setViolations([]);
+    setDiscarding(false);
+    setCopied(null);
+    setCopiedId(null);
+  }, [id]);
 
   // the bar: where this came from, the title, its origin link; what can be
   // done with the review at the right. Its outcome leads the page's own strip.
@@ -420,7 +429,7 @@ export function ReviewScreen() {
       </div>
 
       {flash ? (
-        <p className="notice" onAnimationEnd={() => setFlash(null)}>
+        <p className="notice">
           {flash}
         </p>
       ) : null}

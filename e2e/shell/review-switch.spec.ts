@@ -118,3 +118,20 @@ test("Copy as markdown copies the review on screen, after moving from another", 
   await page.locator("[data-copy-markdown]").click();
   expect(new URL((await asked).url()).pathname, "the markdown asked for is the review on screen").toBe(`/api/v1/reviews/${second.id}`);
 });
+
+test("what the last review said stays with it: the next one opens without its notice", async ({ page }) => {
+  await clearInbox(page.request);
+  const payload = (intro: string) => ({ intro, groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }] });
+  const first = await createReview(page.request, "list", "Notice: the first", payload("The first review."));
+  await createReview(page.request, "list", "Notice: the second", payload("The second review."));
+
+  await page.goto(`/#/reviews/${first.id}`);
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The first review.");
+  await page.locator("[data-discard]").click();
+  await page.locator("[data-discard-confirm]").click();
+  await expect(page.getByText("Discarded. The agent was told to stop.")).toBeVisible();
+
+  await page.locator("[data-waiting-review]").filter({ hasText: "Notice: the second" }).click();
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The second review.");
+  await expect(page.getByText("Discarded. The agent was told to stop."), "the notice belongs to the review that was discarded").toHaveCount(0);
+});
