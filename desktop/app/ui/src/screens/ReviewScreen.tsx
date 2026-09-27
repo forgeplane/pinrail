@@ -244,8 +244,11 @@ export function ReviewScreen() {
       }
       const el = event.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
-      if (event.key === "[" && previous) navigate(`/reviews/${previous.id}`);
-      if (event.key === "]" && revisedBy) navigate(`/reviews/${revisedBy.id}`);
+      // [ and ] alone move between rounds; with ⌘ or Ctrl they are Back and
+      // Forward, which the layout handles
+      const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
+      if (plain && event.key === "[" && previous) navigate(`/reviews/${previous.id}`);
+      if (plain && event.key === "]" && revisedBy) navigate(`/reviews/${revisedBy.id}`);
       // one of the plugin's declared keys, pressed with the shell in focus:
       // it goes to the view as if typed there
       const combo = comboFromEvent(event);

@@ -51,3 +51,39 @@ test("a new round of the open review shows in the switcher and says it is waitin
   await expect(page.locator("[data-new-round]")).toHaveCount(0);
   await expect(pills.nth(2)).not.toHaveClass(/is-waiting/);
 });
+
+test("⌘[ goes back, even on a round that has an earlier one", async ({ page }) => {
+  // [ alone moves between rounds; with ⌘ it is Back, and only Back
+  const submit = async (title: string, revises?: string) => {
+    const response = await page.request.post(`${core}/api/v1/reviews`, {
+      data: { plugin: "list", title, origin: { repo: "acme/api" }, revises, payload: payload(title) },
+    });
+    expect(response.status(), await response.text()).toBe(201);
+    return ((await response.json()) as { id: string }).id;
+  };
+  const first = await submit("Back: one");
+  await page.request.post(`${core}/api/v1/reviews/${first}/decision`, {
+    data: { data: { decisions: [{ id: 1, action: "accept" }], undecided: [] } },
+  });
+  const second = await submit("Back: two", first);
+
+  await page.goto("/#/history");
+  await page.goto(`/#/reviews/${second}`);
+  await expect(page.locator(".rounds .round-pill")).toHaveCount(2);
+  await page.locator("body").click({ position: { x: 5, y: 5 } });
+  const seen: string[] = [];
+  page.on("framenavigated", (f) => f === page.mainFrame() && seen.push(new URL(f.url()).hash));
+  await page.keyboard.press("ControlOrMeta+BracketLeft");
+  // where it ends up, once both navigations had their chance: the round
+  // switch and Back used to race, stepping through round 1 on the way
+  await page.waitForTimeout(500);
+  expect(page.url(), "⌘[ went somewhere other than back").toMatch(/#\/history$/);
+  expect(seen, "⌘[ stepped through round 1").not.toContain(`#/reviews/${first}`);
+  // and Forward comes back to where Back left
+  await page.keyboard.press("ControlOrMeta+BracketRight");
+  await page.waitForTimeout(500);
+  expect(page.url(), "⌘] did not come back").toMatch(new RegExp(`#/reviews/${second}$`));
+  // [ alone still moves to the earlier round
+  await page.keyboard.press("BracketLeft");
+  await expect(page).toHaveURL(new RegExp(`#/reviews/${first}$`));
+});
