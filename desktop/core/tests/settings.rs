@@ -195,13 +195,11 @@ async fn an_edit_to_the_file_is_picked_up_with_its_keys() {
 }
 
 #[test]
-fn the_port_in_the_file_is_used_unless_the_environment_says_otherwise() {
+fn the_port_is_read_from_the_file_when_it_names_one() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("settings.json"), r#"{"port": 4900}"#).unwrap();
     assert_eq!(pinrail_core::settings::port_in(dir.path()), Some(4900));
-    // Config::from_env reads the environment; the file wins only when
-    // PINRAIL_PORT is unset, which the unit test in config covers through
-    // port_in. Here: an absent or invalid file yields nothing.
+    // which wins over the environment is config's resolve_port, tested there
     std::fs::write(dir.path().join("settings.json"), r#"{"port": "a"}"#).unwrap();
     assert_eq!(pinrail_core::settings::port_in(dir.path()), None);
 }

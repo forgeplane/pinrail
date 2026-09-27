@@ -38,12 +38,10 @@ impl Config {
             env::var_os("HOME").map(PathBuf::from),
             env::var("PINRAIL_PORT").ok(),
         );
-        // the file's port, unless the environment says otherwise
-        if env::var_os("PINRAIL_PORT").is_none()
-            && let Some(port) = crate::settings::port_in(&config.data_dir)
-        {
-            config.port = port;
-        }
+        config.port = resolve_port(
+            env::var("PINRAIL_PORT").ok().as_deref(),
+            crate::settings::port_in(&config.data_dir),
+        );
         config.user = env::var("PINRAIL_USER")
             .or_else(|_| env::var("USER"))
             .ok()
@@ -107,9 +105,28 @@ impl Config {
     }
 }
 
+/// The port to serve on: `PINRAIL_PORT` when it is a port, else the one
+/// settings.json names, else the default.
+fn resolve_port(env: Option<&str>, file: Option<u16>) -> u16 {
+    env.and_then(|p| p.trim().parse().ok())
+        .filter(|p| *p != 0)
+        .or(file)
+        .unwrap_or(DEFAULT_PORT)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_environment_port_wins_over_the_file_and_the_file_over_the_default() {
+        assert_eq!(resolve_port(Some("4800"), Some(4900)), 4800);
+        assert_eq!(resolve_port(None, Some(4900)), 4900);
+        assert_eq!(resolve_port(None, None), DEFAULT_PORT);
+        // a value that is not a port counts as not set
+        assert_eq!(resolve_port(Some("nope"), Some(4900)), 4900);
+        assert_eq!(resolve_port(Some("0"), None), DEFAULT_PORT);
+    }
 
     #[test]
     fn explicit_data_dir_wins() {
