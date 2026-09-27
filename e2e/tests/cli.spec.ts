@@ -93,7 +93,7 @@ test("markdown, the default, prints the decision as prose, and the decision file
   pinrailJson(["decide", id, "--data", tmpFile("d.json", JSON.stringify({ decisions: [{ id: 1, action: "accept" }, { id: 2, action: "reject", note: "typo is fine" }], undecided: [] })), "--note", "ship it"]);
   const result = await waiter.done;
   expect(result.code).toBe(0);
-  expect(result.stdout).toMatch(/^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\n\n> ship it\n\n## Decisions\n\n- \*\*#1\*\* \*\*accepted\*\*\n- \*\*#2\*\* \*\*rejected\*\*\n  > typo is fine\n$/);
+  expect(result.stdout).toMatch(/^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n  > typo is fine\n$/);
 
   const shown = pinrail(["show", id, "--markdown"]);
   expect(shown.code).toBe(0);

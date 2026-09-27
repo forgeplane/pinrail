@@ -833,10 +833,10 @@ Pending since "
 
 > ship it
 
-## Decisions
+## lib/acme/tickets.ex
 
-- **#1** **accepted**
-- **#2** **rejected**
+- **#1 accepted** — do_save dedups without reversing (major)
+- **#2 rejected** — moduledoc typo (minor)
   > typo is fine
 "
         ),
@@ -3255,6 +3255,7 @@ async fn a_plugin_folder_is_checked_as_the_app_would_load_it() {
         "manifest.json",
         "schemas/payload.schema.json",
         "schemas/decision.schema.json",
+        "templates/decision.md.j2",
         "example.json",
         "icon.svg",
     ] {

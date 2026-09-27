@@ -1,0 +1,15 @@
+{#- The decision as an agent reads it back: every item under its group's
+    heading, with its verdict and the person's note. A note on an accepted
+    item is an instruction to follow; on a rejected item, the reason. An
+    item without a verdict is not approved. The app prints the head (title,
+    origin, who decided, the note to the agent) before this. -#}
+{%- for group in review.payload.groups %}
+## {{ group.title }}
+{% for item in group["items"] %}
+{%- set verdict = data.decisions | selectattr("id", "equalto", item.id) | first %}
+- **#{{ item.id }} {% if verdict %}{{ verdict.action | verb }}{% else %}undecided, not approved{% endif %}** — {{ item.title }}{% if item.severity %} ({{ item.severity }}){% endif %}
+{%- if verdict and verdict.note %}
+  > {{ verdict.note }}
+{%- endif %}
+{%- endfor %}
+{% endfor -%}

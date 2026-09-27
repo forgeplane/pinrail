@@ -104,7 +104,7 @@ See [Instructing an agent](/docs/agents/instructing/) for where these instructio
 - `decisions` has one entry per item with a verdict. `note` is a revision instruction on `accept` and the reason on `reject`.
 - `undecided` lists every item left without a verdict. Treat those as not approved.
 
-In markdown, the default, the agent reads the same decision as prose, with the verdicts and notes under each group's heading.
+In Markdown, which is the default, the agent reads the same decision under each group's heading: every item with its verdict and title, the person's note below it, and the items without a verdict marked as not approved.
 
 ## Reference
 

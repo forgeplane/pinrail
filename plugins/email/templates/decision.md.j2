@@ -1,0 +1,32 @@
+{#- The decision as an agent reads it back: each draft with what to do with
+    it, its recipients, and the final text to send or to rewrite from, then
+    what the person changed and why. A draft without a decision is not
+    sent. The app prints the head (title, origin, who decided, the note to
+    the agent) before this. -#}
+{%- if data.drafts %}
+## Drafts
+{% for d in data.drafts %}
+{%- set draft = review.payload.drafts | selectattr("id", "equalto", d.id) | first %}
+- **`{{ d.id }}` {{ d.action | verb }}** — {{ d.subject }}
+{%- if draft %}
+  To: {{ draft.to | join(", ") }}{% if draft.cc %}; Cc: {{ draft.cc | join(", ") }}{% endif %}{% if draft.bcc %}; Bcc: {{ draft.bcc | join(", ") }}{% endif %}
+{%- endif %}
+{%- if d.action != "discard" %}
+  Body:
+
+    {{ d.body | indent(4) }}
+{%- endif %}
+{%- for e in d.edits or [] %}
+  - {% if not e.from %}added “{{ e.to }}”{% elif not e.to %}removed “{{ e.from }}”{% else %}“{{ e.from }}” → “{{ e.to }}”{% endif %}
+{%- endfor %}
+{%- for c in d.comments or [] %}
+  - on “{{ c.quote }}”: {{ c.note }}
+{%- endfor %}
+{%- if d.note %}
+  > {{ d.note }}
+{%- endif %}
+{%- endfor %}
+{% endif -%}
+{%- if data.undecided %}
+Not decided, so not to be sent: {% for id in data.undecided %}`{{ id }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif -%}

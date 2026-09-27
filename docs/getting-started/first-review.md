@@ -54,7 +54,7 @@ Every review belongs to a plugin. The built-in [List](/docs/plugins/list/) plugi
 pinrail submit list --title "Sentry triage" --data triage.json --wait
 ```
 
-The command prints the review's address and waits. This is exactly what an agent's command does when it asks you something.
+The command reports that the review was submitted, then waits for your decision. An agent's command does exactly this when it asks you something.
 
 ## 3. Decide
 
@@ -74,7 +74,7 @@ Back in your terminal, the command has returned:
 
 ```md
 r_01K5… · decided · Sentry triage
-list · decided by you at 2026-09-23 10:14
+list · decided by alice at 2026-09-23 10:14
 
 ## acme-api
 

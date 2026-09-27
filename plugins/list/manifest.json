@@ -7,6 +7,7 @@
   "icon": "icon.svg",
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
+  "decision_template": "templates/decision.md.j2",
   "example": "example.json",
   "sample": "sample.json",
   "entry": "view/index.html",
