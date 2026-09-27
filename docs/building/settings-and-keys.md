@@ -45,7 +45,7 @@ Each property becomes one row, in the order you declare them:
 The schema is one level deep: every property is a `boolean`, `string`, `integer` or `number`, and every property has a `default`. Like the payload and decision schemas, it can be inline or a `$ref` to a file in the plugin folder.
 
 :::note[A broken schema never breaks the plugin]
-When `settings_schema` breaks these rules, the plugin still loads, without settings, and its row in *Settings › Plugins* says why. `npx pinrail-plugin check` reports the same before you install.
+When `settings_schema` breaks these rules, the plugin still loads, without settings, and its row in *Settings › Plugins* says why. `pinrail plugins check <folder>` reports the same before you install.
 :::
 
 ### Reading settings in the view

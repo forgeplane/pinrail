@@ -77,5 +77,5 @@ with `--revises <id>`: each mark shows the verdict it had last time.
 
 `mise run dev:plugin plugins/logo` opens the view in a browser on the
 fixtures, without the app. Its tests run with the other samples':
-`mise run test:plugins`. `npx pinrail-plugin check plugins/logo` says what the
+`mise run test:plugins`. `pinrail plugins check plugins/logo` says what the
 app would make of the folder.

@@ -602,7 +602,6 @@ fn run(cli: Cli) -> Result<u8> {
             "linked": link,
             "next": next,
             "docs": "pinrail docs plugins/building",
-            "frameworks": "npx @forgeplane/pinrail-plugin create",
         });
         output.data(&written, md::scaffolded);
         return Ok(0);

@@ -80,9 +80,6 @@ pinrail docs plugins/building       # how a plugin works, and how to build one
 ```
 
 `AGENTS.md` explains the plugin to an agent helping you build it.
-
-For a view in React, Vue or Svelte, or tests that run without the app, start
-from the npm package instead: `npx @forgeplane/pinrail-plugin create`.
 "#;
 
 /// A plugin's name, as the manifest takes it.

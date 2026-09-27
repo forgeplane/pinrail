@@ -126,5 +126,5 @@ not modeled by this version.
 fixtures, without the app. The scheduling rules in `view/calendar-core.js` are
 tested on their own in `tests/core.test.cjs`, and the view in
 `tests/calendar.spec.ts`; both run with the other samples' tests,
-`mise run test:plugins`. `npx pinrail-plugin check plugins/calendar` says what the
+`mise run test:plugins`. `pinrail plugins check plugins/calendar` says what the
 app would make of the folder.

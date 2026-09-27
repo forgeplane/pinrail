@@ -51,14 +51,8 @@ ticket_triage/
 
 `AGENTS.md` (with a `CLAUDE.md` that points to it) tells a coding agent what each file is for, how the view talks to the app, and how to try it, so you can hand the folder to your agent and describe the plugin you want.
 
-:::tip[With a framework, or tests]
-For a view in React, Vue or Svelte, or tests that run without the app, start from the npm package instead. It writes the same plugin, plus a `package.json`, a Playwright test and a release workflow, and needs [Node.js](https://nodejs.org) 22 or later:
-
-```sh
-npx @forgeplane/pinrail-plugin create ticket_triage --template react
-```
-
-See [Building with a framework](/docs/building/frameworks/).
+:::note[With a framework, or tests]
+A view in React, Vue or Svelte, with a browser shell and a test harness that run without the app, comes with the SDK package in a later release: see [Building with a framework](/docs/building/frameworks/).
 :::
 
 Only the manifest, the schemas, the view and the sample reach the app. `fixtures/`, `tests/`, `src/` and `node_modules/` stay in your repository.
@@ -101,7 +95,7 @@ Write `use_when` for an agent deciding between plugins: name the moment, not the
 The manifest can also declare [settings and keyboard shortcuts](/docs/building/settings-and-keys/), a template that [renders decisions as markdown](#decisions-as-markdown), a `build` command for a view that compiles (see [Building with a framework](/docs/building/frameworks/)), and the [files](#files-beside-the-payload) the plugin takes.
 
 :::tip[Check before you install]
-`npx pinrail-plugin check` reads the folder the way the app will and reports what it would refuse, without the app running.
+`pinrail plugins check ./ticket_triage` reads the folder the way the app will and reports what it would refuse, installing nothing.
 :::
 
 ## The two schemas
@@ -344,15 +338,7 @@ The preview is the review as the app shows it: your view, fed the review, with t
 
 `pinrail docs plugins/building` gives the same to an agent, briefly, from the Pinrail you have installed.
 
-With the npm package, `pinrail-plugin dev` opens your view in a browser under a stand-in for the app, without the app.
-
-```sh
-npx pinrail-plugin dev .
-```
-
-Pick a fixture to initialise the view with, toggle read-only and the theme, send `collect` as the app's hand-over button does, and answer a submit with `submitted` or with violations you type. Everything the view posts appears in a log beside it, and a change to any file reloads the view with its draft intact.
-
-To see it in the app at the same time, link the folder and send a fixture:
+To see it with a payload of your own, link the folder and send a fixture:
 
 ```sh
 pinrail plugins install ./ticket_triage --link
@@ -376,7 +362,7 @@ A fixture is a partial review: a `title`, a `payload`, and optionally a `decisio
 }
 ```
 
-A fixture can carry files too, by path relative to the fixture: `"attachments": { "pivot.glb": { "path": "pivot.glb" } }`. The test harness and `pinrail-plugin dev` hand them to the view as the app does.
+A fixture can carry files too, by path relative to the fixture: `"attachments": { "pivot.glb": { "path": "pivot.glb" } }`.
 
 A fixture is also a request the app takes as it is, files and all, so the same round can be sent to the app to see it there:
 
@@ -384,26 +370,7 @@ A fixture is also a request the app takes as it is, files and all, so the same r
 pinrail submit model --request fixtures/halden.json
 ```
 
-`pinrail-plugin/testing` mounts the view alone in a sandboxed frame under the app's CSP, so a test drives it the way a person would and reads back exactly what it submits:
-
-```ts title="tests/ticket_triage.spec.ts"
-import { expect, test } from "@playwright/test";
-import path from "node:path";
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
-
-const dir = path.resolve(__dirname, "..");
-
-test("hands back a verdict per ticket", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: fixture(path.join(dir, "fixtures", "basic.json")) });
-  await plugin.frame.getByRole("button", { name: "Close" }).first().click();
-  await plugin.collect();
-  expect(await plugin.nextSubmit()).toEqual({ decisions: [{ id: 101, action: "close" }] });
-});
-```
-
-```sh
-npx pinrail-plugin test
-```
+Tests that mount the view alone, drive it the way a person would and read back exactly what it submits come with the SDK package's test harness, in a later release.
 
 ## Versions
 
