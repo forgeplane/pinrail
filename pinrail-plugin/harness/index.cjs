@@ -116,6 +116,12 @@ async function mountPlugin(page, pluginDir, opts) {
   });
 
   const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
+  // a view a build writes is not there until it runs: say so, rather than
+  // time out on a frame that got a 404
+  const entryFile = path.join(pluginDir, manifest.entry ?? "index.html");
+  if (!fs.existsSync(entryFile)) {
+    throw new Error(`${entryFile} does not exist${manifest.build ? `: build the plugin first (${manifest.build.command})` : ""}`);
+  }
   await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(manifest.entry ?? "index.html")}`);
   const init = {
     gate,

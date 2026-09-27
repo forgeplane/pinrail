@@ -17,9 +17,12 @@ description = "One plugin in a browser shell, without the app: mise run dev:plug
 run = "node {{config_root}}/pinrail-plugin/bin/pinrail-plugin.mjs dev {{arg(name='plugin')}}"
 
 [tasks."test:plugins"]
-description = "Each shipped plugin alone, under the pinrail-plugin harness"
+description = "Each shipped plugin alone, under the pinrail-plugin harness, the ones with a build built first"
 dir = "{{config_root}}/plugins"
-run = "npm test"
+run = [
+  "for dir in artifact model; do (cd $dir && npm ci && npm run build) || exit 1; done",
+  "npm test",
+]
 
 [tasks."test:examples"]
 description = "The docs' example plugins, each built and tested under the harness, and the same but for their views"
