@@ -11,6 +11,7 @@
   body { margin: 0; overflow: hidden; }
   .shell { display: grid; grid-template-rows: auto 1fr; height: 100%; }
   .top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-panel); }
+  .top .top-notice { flex-basis: 100%; }
   .top h1 { margin: 0; font-size: 15px; font-weight: 600; }
   .top .brand-line { color: var(--dim); font-size: 12.5px; }
   .tally { margin-left: auto; display: flex; gap: 12px; font-size: 12px; color: var(--dim); }
@@ -144,7 +145,7 @@
 const esc = Pinrail.escape;
 const ACTIONS = { favorite: "Favourite", keep: "Keep", drop: "Drop" };
 const KEYS = { favorite: "f", keep: "s", drop: "x" };
-const S = { sel: 0, verdicts: {}, armed: false, keepScroll: false, picking: null };
+const S = { sel: 0, verdicts: {}, armed: false, errors: null, keepScroll: false, picking: null };
 let P = null;          // the payload
 let clean = {};        // mark id -> sanitized svg markup
 
@@ -240,7 +241,21 @@ function renderTop() {
       <div class="tally" aria-live="polite">
         <span><b>${count("favorite")}</b> favourite</span><span><b>${count("keep")}</b> kept</span><span><b>${count("drop")}</b> dropped</span><span><b>${d.undecided.length}</b> undecided</span>
       </div>
+      ${notice()}
     </div>`;
+}
+
+// what the app refused, every refusal, or why a first hand-over waits: the
+// shell's button label is easy to miss and holds one message
+function notice() {
+  if (S.errors && S.errors.length) {
+    return `<div class="notice danger top-notice" role="alert">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("<br>")}</div>`;
+  }
+  if (S.armed) {
+    const n = decisionData().undecided.length;
+    return `<div class="notice warn top-notice" role="status" data-armed>${n} undecided. Hand over again to send ${n === 1 ? "it" : "them"} back undecided.</div>`;
+  }
+  return "";
 }
 
 function renderRail() {
@@ -403,6 +418,7 @@ function addPart() {
   S.verdicts[id] = { ...v, comments: [...(v.comments || []), { target: S.picking.target, tag: S.picking.tag, markup: S.picking.markup, note }] };
   S.picking = null;
   S.armed = false;
+  S.errors = null;
   S.keepScroll = true;
   plugin.draft(S.verdicts, { flush: true });
   render();
@@ -426,6 +442,7 @@ function setVerdict(action) {
     S.verdicts[id] = { ...(current || {}), action };
   }
   S.armed = false;
+  S.errors = null;
   S.keepScroll = true;
   plugin.draft(S.verdicts, { flush: true });
   render();
@@ -433,7 +450,8 @@ function setVerdict(action) {
 
 function handOver() {
   const data = decisionData();
-  if (data.undecided.length && !S.armed) { S.armed = true; status(); return; }
+  if (data.undecided.length && !S.armed) { S.armed = true; status(); S.keepScroll = true; render(); return; }
+  S.errors = null;
   plugin.submit(data);
 }
 
@@ -452,7 +470,13 @@ const plugin = Pinrail.connect({
     render();
   },
   onSubmitted() { render(); },
-  onViolations(errors) { plugin.status({ label: `Check: ${errors[0]?.message ?? "the decision"}` }); },
+  onViolations(errors) {
+    S.errors = errors;
+    S.armed = false;
+    S.keepScroll = true;
+    render();
+    plugin.status({ label: `Check: ${errors[0]?.message ?? "the decision"}` });
+  },
   onCollect() { handOver(); },
 });
 
@@ -495,6 +519,7 @@ document.addEventListener("input", (e) => {
   const id = P.marks[S.sel].id;
   S.verdicts[id] = { ...(verdictOf(id) || { action: null }), note: e.target.value };
   S.armed = false;
+  S.errors = null;
   plugin.draft(S.verdicts);
 });
 document.addEventListener("keydown", (e) => {

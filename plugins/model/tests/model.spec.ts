@@ -128,3 +128,18 @@ test("a decided round is read-only and shows what was decided", async ({ page })
   await expect(f.locator(".comments li")).toHaveCount(2);
   await expect(f.locator("#note")).toHaveValue(/Warmer overall/);
 });
+
+test("says in the view what the app refused, and why a first hand-over waits", async ({ page }) => {
+  // the shell's button label is easy to miss, and holds one message
+  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const f = plugin.frame;
+  await plugin.collect();
+  await expect(f.locator("[data-armed]")).toContainText("undecided");
+
+  await plugin.sendViolations([
+    { path: "/decisions/0/action", message: "must be keep, drop or favorite" },
+    { path: "/undecided", message: "must list every item" },
+  ]);
+  await expect(f.getByRole("alert")).toContainText("/decisions/0/action: must be keep, drop or favorite");
+  await expect(f.getByRole("alert")).toContainText("/undecided: must list every item");
+});
