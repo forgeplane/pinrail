@@ -2060,8 +2060,12 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
 
-    // the sample as it is: 1.0.0, placed, hashed, recorded
-    let hello = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/hello");
+    // the sample as it is: 1.0.0, placed, hashed, recorded; with a secret
+    // and a dependency folder beside it, which a copy must leave behind
+    let hello = plugin_copy(scratch.path(), "hello", "1.0.0");
+    std::fs::write(hello.join(".env"), "TOKEN=secret").unwrap();
+    std::fs::create_dir_all(hello.join("node_modules/x")).unwrap();
+    std::fs::write(hello.join("node_modules/x/index.js"), "").unwrap();
     let (status, row) = install(&app, &hello, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["name"], "hello");
@@ -2077,8 +2081,12 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
         .join("1");
     assert!(entry.join("manifest.json").is_file());
     assert!(
-        !entry.join("README.md").exists() || true,
-        "the copy keeps files, never node_modules or dot-entries"
+        !entry.join(".env").exists(),
+        "a dot-entry reached the store"
+    );
+    assert!(
+        !entry.join("node_modules").exists(),
+        "node_modules reached the store"
     );
     assert_eq!(row["path"], entry.display().to_string());
 
