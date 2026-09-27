@@ -5,9 +5,8 @@
 //   pinrail-plugin dev [dir] [--port N] [--no-open]        the fake shell in a browser, reloading on change
 //   pinrail-plugin test [dir] [playwright arguments]       the plugin's tests/ under the harness
 //   pinrail-plugin check [dir] [--json]                    what the app's inspect would say
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const [command, ...rest] = process.argv.slice(2);

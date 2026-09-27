@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>list gate</title>
+<title>list review</title>
 <link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <style>
   /* Tokens, base and the shared pieces (.item, .sev, .btn, .note, .meta,
@@ -156,7 +156,6 @@ function counts() {
     return span;
   };
   view.meta([pill("accept", t.accept, "accepted"), pill("reject", t.reject, "rejected"), pill("left", t.undecided, "undecided")]);
-  return view;
 }
 
 /* Drafts: a click posts at once, so a reload right after it loses nothing;
@@ -166,7 +165,7 @@ const postDraft = () => plugin.draft(draftData(), { flush: true });
 const draft = () => plugin.draft(draftData());
 
 /* ---------- state ---------- */
-const items = () => (gate.payload.groups || []).flatMap((g) => g.items.map((i) => ({ ...i, group: g.title })));
+const items = () => (gate.payload.groups || []).flatMap((g) => g.items);
 const itemIds = () => items().map((i) => i.id);
 
 function loadDecision(data) {
@@ -187,8 +186,7 @@ function decisionData() {
       undecided.push(id);
     }
   }
-  const data = { decisions, undecided };
-  return data;
+  return { decisions, undecided };
 }
 
 function tally() {
@@ -197,7 +195,7 @@ function tally() {
     const d = S.decisions[id];
     if (d && d.action === "accept") accept++; else if (d && d.action === "reject") reject++; else undecided++;
   }
-  return { accept, reject, undecided, total: accept + reject + undecided };
+  return { accept, reject, undecided };
 }
 
 function setAction(id, action) {
@@ -280,7 +278,7 @@ function render() {
   if (!groups.length) html += `<div class="empty">Nothing to decide.</div>`;
   for (const g of groups) {
     html += `<h2 class="group plugin-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
-    for (const item of g.items) html += renderItem({ ...item, group: g.title });
+    for (const item of g.items) html += renderItem(item);
   }
   if (S.errors && S.errors.length) {
     html += `<div class="errors notice danger" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;

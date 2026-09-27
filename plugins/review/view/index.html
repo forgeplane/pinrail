@@ -596,7 +596,7 @@ function jumpToFile(path) {
 /* ---------- decision ---------- */
 function buildDecision() {
   const ids = orderedIds();
-  const data = {
+  return {
     decisions: ids.filter(decided).map((id) => {
       const dec = S.decisions[id];
       const o = { id, action: dec.action };
@@ -606,7 +606,6 @@ function buildDecision() {
     comments: S.manualComments.map((m) => ({ file: m.file, line: m.line, side: m.side, body: m.body })),
     undecided: ids.filter((id) => !decided(id)),
   };
-  return data;
 }
 
 /* ---------- render: proposal card ---------- */
