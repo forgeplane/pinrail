@@ -5,7 +5,8 @@
 
 use serde_json::Value;
 
-const SUBMIT: &str = "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
+const SUBMIT: &str =
+    "pinrail submit <plugin> --title \"<what it is about>\" --data payload.json --wait";
 
 /// As markdown: the plugin as a document, its heading the title, then how
 /// to send it; the rest, exit codes included, is `pinrail docs asking`. The
