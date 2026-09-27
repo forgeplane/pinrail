@@ -1,50 +1,11 @@
 //! `/api/v1/settings` against a fresh data directory: defaults, a change,
 //! a refusal, an edit to the file, and the port read at start.
 
-use std::sync::Arc;
-
-use axum::Router;
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use http_body_util::BodyExt;
-use pinrail_core::Config;
-use pinrail_core::{Pinrail, api};
+use axum::http::StatusCode;
 use serde_json::{Value, json};
-use tower::ServiceExt;
 
-struct App {
-    dir: tempfile::TempDir,
-    state: Arc<Pinrail>,
-    router: Router,
-}
-
-fn app() -> App {
-    let dir = tempfile::tempdir().unwrap();
-    let state = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
-    let router = api::router(state.clone());
-    App { dir, state, router }
-}
-
-async fn call(app: &App, method: &str, path: &str, body: Option<Value>) -> (StatusCode, Value) {
-    let request = Request::builder()
-        .method(method)
-        .uri(path)
-        .header("content-type", "application/json")
-        .body(match body {
-            Some(b) => Body::from(b.to_string()),
-            None => Body::empty(),
-        })
-        .unwrap();
-    let response = app.router.clone().oneshot(request).await.unwrap();
-    let status = response.status();
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let value = if bytes.is_empty() {
-        Value::Null
-    } else {
-        serde_json::from_slice(&bytes).unwrap()
-    };
-    (status, value)
-}
+mod common;
+use common::{App, app, call};
 
 #[tokio::test]
 async fn every_setting_is_listed_at_its_default() {

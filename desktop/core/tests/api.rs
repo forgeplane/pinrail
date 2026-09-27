@@ -16,57 +16,8 @@ use pinrail_core::api::router;
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
-struct App {
-    _dir: tempfile::TempDir,
-    state: Arc<Pinrail>,
-    router: Router,
-}
-
-fn app() -> App {
-    app_with(|_| {})
-}
-
-fn app_with(adjust: impl FnOnce(&mut Config)) -> App {
-    let dir = tempfile::tempdir().unwrap();
-    let mut config = Config::new(dir.path(), 0);
-    config.user = "tester".into();
-    adjust(&mut config);
-    let state = Arc::new(Pinrail::open(config).unwrap());
-    App {
-        router: router(state.clone()),
-        state,
-        _dir: dir,
-    }
-}
-
-// Inspect or seed persistence explicitly; the application does not expose
-// its database connection to callers.
-fn db(app: &App) -> pinrail_core::db::Db {
-    pinrail_core::db::Db::open(&app.state.config().db_path()).unwrap()
-}
-
-async fn call(app: &App, method: &str, path: &str, body: Option<Value>) -> (StatusCode, Value) {
-    let request = Request::builder()
-        .method(method)
-        .uri(path)
-        .header("host", "127.0.0.1:4747")
-        .header("content-type", "application/json")
-        .body(
-            body.map(|b| Body::from(b.to_string()))
-                .unwrap_or_else(Body::empty),
-        )
-        .unwrap();
-    let response = app.router.clone().oneshot(request).await.unwrap();
-    let status = response.status();
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let value = if bytes.is_empty() {
-        Value::Null
-    } else {
-        serde_json::from_slice(&bytes)
-            .unwrap_or(Value::String(String::from_utf8_lossy(&bytes).into()))
-    };
-    (status, value)
-}
+mod common;
+use common::{App, app, app_with, call, db};
 
 fn fixture(name: &str) -> (u16, Value) {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("tests/fixtures/api/{name}.txt"));
@@ -780,7 +731,7 @@ async fn the_sdk_is_served_only_when_configured() {
 
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("pinrail-plugin.js"), "export const ok = 1;").unwrap();
-    let mut config = Config::new(app._dir.path(), 0);
+    let mut config = Config::new(app.dir.path(), 0);
     config.sdk_dir = Some(dir.path().to_path_buf());
     let state = Arc::new(Pinrail::open(config).unwrap());
     let router = router(state);
@@ -2487,7 +2438,7 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
     let app = App {
         router: router(state.clone()),
         state,
-        _dir: dir,
+        dir,
     };
     let scratch = tempfile::tempdir().unwrap();
     let built = buildable_plugin(
@@ -2664,42 +2615,29 @@ fn git_repo(root: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) 
     let hello = plugin_copy(&root.join("stage"), "hello", "1.0.0");
     std::fs::create_dir_all(work.join("tools")).unwrap();
     std::fs::rename(&hello, work.join("tools/hello")).unwrap();
-    let git = |args: &[&str]| {
-        let out = std::process::Command::new("git")
-            .args(args)
-            .current_dir(&work)
-            .env("GIT_AUTHOR_NAME", "t")
-            .env("GIT_AUTHOR_EMAIL", "t@t")
-            .env("GIT_COMMITTER_NAME", "t")
-            .env("GIT_COMMITTER_EMAIL", "t@t")
-            .output()
-            .unwrap();
-        assert!(
-            out.status.success(),
-            "git {args:?}: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        String::from_utf8_lossy(&out.stdout).trim().to_string()
-    };
-    git(&["init", "-q", "-b", "main"]);
-    git(&["add", "."]);
-    git(&["commit", "-q", "-m", "hello 1.0.0"]);
-    git(&["tag", "v1"]);
+    for args in [
+        &["init", "-q", "-b", "main"][..],
+        &["add", "."],
+        &["commit", "-q", "-m", "hello 1.0.0"],
+        &["tag", "v1"],
+    ] {
+        git_in(&work, args);
+    }
     let bare = root.join("plugins.git");
-    let out = std::process::Command::new("git")
-        .args([
+    git_in(
+        root,
+        &[
             "clone",
             "-q",
             "--bare",
             work.to_str().unwrap(),
             bare.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(out.status.success());
+        ],
+    );
     (work, bare)
 }
 
+/// Runs git in `dir` as a fixed author, and returns what it printed.
 fn git_in(dir: &std::path::Path, args: &[&str]) -> String {
     let out = std::process::Command::new("git")
         .args(args)
