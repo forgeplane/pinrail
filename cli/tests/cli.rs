@@ -544,6 +544,35 @@ fn waiting_flags_on_a_submit_that_does_not_wait_are_refused() {
 }
 
 #[test]
+fn wait_with_no_server_says_so_instead_of_calling_the_review_pending() {
+    // nothing listens on this port: the app is closed, or the URL is wrong
+    let port = TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let out = pinrail()
+        .args([
+            "--url",
+            &format!("http://127.0.0.1:{port}"),
+            "wait",
+            "r_1",
+            "--timeout",
+            "5",
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(
+        out.status.code(),
+        Some(1),
+        "not a timeout on a review: {stderr}"
+    );
+    assert!(stderr.contains("open the Pinrail app"), "{stderr}");
+    assert!(!stderr.contains("still pending"), "{stderr}");
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {

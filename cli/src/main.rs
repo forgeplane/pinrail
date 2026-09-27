@@ -642,7 +642,7 @@ fn run(cli: Cli) -> Result<u8> {
 
     match cli.command {
         Command::Submit(args) => submit(&client, args, output),
-        Command::Wait(args) => wait(&client, &args.id, &args.opts, output),
+        Command::Wait(args) => wait(&client, &args.id, &args.opts, false, output),
         Command::Show { id } => {
             output.review(&client, &client.get_review(&id)?)?;
             Ok(0)
@@ -1138,7 +1138,8 @@ fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) 
             timeout: args.timeout,
             decision_out: args.decision_out.clone(),
         };
-        wait(client, &id, &opts, output)
+        // the server just took the review: keep waiting through a restart
+        wait(client, &id, &opts, true, output)
     } else {
         output.review(client, &review)?;
         Ok(0)
@@ -1148,7 +1149,15 @@ fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) 
 /// Long-polls until the review settles. Each poll asks the server for at
 /// most `Client::POLL_SECS`; a 204 or a dropped connection (the server
 /// restarting) just loops, so a wait survives the app coming and going.
-fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8> {
+/// Blocks until the review ends. A server that goes away is waited for
+/// once it has answered (`answered`); one that never did is not running.
+fn wait(
+    client: &Client,
+    id: &str,
+    opts: &WaitOpts,
+    mut answered: bool,
+    output: Output,
+) -> Result<u8> {
     let deadline = (opts.timeout > 0).then(|| Instant::now() + Duration::from_secs(opts.timeout));
     let mut last_error = String::new();
 
@@ -1168,7 +1177,9 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8
             None => Client::POLL_SECS,
         };
 
-        match client.wait(id, remaining) {
+        let polled = client.wait(id, remaining);
+        answered |= polled.is_ok();
+        match polled {
             Ok(Some(review)) => {
                 let status = review["status"].as_str().unwrap_or("");
                 if status == "pending" {
@@ -1207,6 +1218,11 @@ fn wait(client: &Client, id: &str, opts: &WaitOpts, output: Output) -> Result<u8
             }
             Ok(None) => continue,
             Err(err) if err.downcast_ref::<ApiError>().is_some() => return Err(err),
+            Err(err) if !answered => {
+                return Err(err.context(
+                    "the server is not answering; open the Pinrail app, or check --url, and retry",
+                ));
+            }
             Err(err) => {
                 let message = format!("{err:#}");
                 if message != last_error {
