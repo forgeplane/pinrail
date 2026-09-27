@@ -86,7 +86,7 @@ window.addEventListener("message", (event) => {
 });
 // the view is whatever the manifest names as its entry; index.html by default
 const entry = new URLSearchParams(location.search).get("entry") || "index.html";
-frame.src = "/" + entry + "#pinrail-theme=" + theme;
+frame.src = entry + "#pinrail-theme=" + theme;
 </script>
 </body>
 </html>

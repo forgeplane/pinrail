@@ -36,3 +36,20 @@ test("a decision that fails the plugin's decision_schema fails nextSubmit", asyn
   // a test about a refusal can still read it
   expect(await plugin.nextSubmit(0, { valid: false })).toEqual({ ok: "yes" });
 });
+
+test("a view that loads its script by an absolute path fails here as in the app", async ({ page }) => {
+  // the app serves a plugin under /plugins/<name>/<major>/ and allows scripts
+  // from there alone: /view.js is another server path, which it refuses
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-harness-"));
+  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "absolute", version: 1, entry: "index.html" }));
+  fs.writeFileSync(path.join(dir, "view.js"), "document.documentElement.dataset.ran = 'yes';");
+  fs.writeFileSync(
+    path.join(dir, "index.html"),
+    `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
+<script>Pinrail.connect({});</script><script src="/view.js"></script><p>view</p>`,
+  );
+  const plugin = await mountPlugin(page, dir, { gate: gateFrom({ title: "Absolute", payload: {} }) });
+  await expect(plugin.frame.locator("p")).toHaveText("view");
+  await page.waitForTimeout(300);
+  expect(await plugin.frame.locator("html").getAttribute("data-ran"), "the absolute script ran").toBeNull();
+});

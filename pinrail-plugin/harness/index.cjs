@@ -27,14 +27,19 @@ const mime = {
   ".woff2": "font/woff2",
 };
 
-function csp() {
+/** The policy the app serves a plugin's files with (desktop/core/src/api/files.rs):
+ *  the bundle's own path and the SDK's, and nothing else. */
+function csp(bundle) {
+  const own = `${ORIGIN}${bundle}`;
+  const sdk = `${ORIGIN}/sdk/`;
   return [
+    "sandbox allow-scripts",
     "default-src 'none'",
-    `script-src 'unsafe-inline' ${ORIGIN}/`,
-    `style-src 'unsafe-inline' ${ORIGIN}/`,
-    `img-src data: blob: ${ORIGIN}/ ${ORIGIN}/sdk/`,
-    `font-src data: ${ORIGIN}/`,
-    `media-src data: blob: ${ORIGIN}/`,
+    `script-src 'unsafe-inline' ${own} ${sdk}`,
+    `style-src 'unsafe-inline' ${own} ${sdk}`,
+    `img-src data: blob: ${own} ${sdk}`,
+    `font-src data: ${own} ${sdk}`,
+    `media-src data: blob: ${own}`,
     "connect-src 'none'",
     "form-action 'none'",
     "base-uri 'none'",
@@ -103,6 +108,10 @@ async function mountPlugin(page, pluginDir, opts) {
     previous: (opts.previous && attachmentFiles.get(opts.previous)) || {},
   };
 
+  const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
+  const checkDecision = decisionChecker(pluginDir, manifest.decision_schema);
+  // where the app serves it: /plugins/<name>/<major>/, a major of 1 here
+  const bundle = `/plugins/${manifest.name}/1/`;
   await page.route(`${ORIGIN}/**`, async (route) => {
     const url = new URL(route.request().url());
     const p = url.pathname;
@@ -118,26 +127,25 @@ async function mountPlugin(page, pluginDir, opts) {
     if (p === "/sdk/v1/pinrail-plugin.css") return route.fulfill({ contentType: mime[".css"], body: sdkCss });
     // the stylesheet imports a typeface; tests run offline and in the system font
     if (p === "/sdk/v1/fonts.css") return route.fulfill({ contentType: mime[".css"], body: "" });
-    const file = path.join(pluginDir, decodeURIComponent(p.replace(/^\//, "")));
+    if (!p.startsWith(bundle)) return route.fulfill({ status: 404, body: "not found" });
+    const file = path.join(pluginDir, decodeURIComponent(p.slice(bundle.length)));
     if (!file.startsWith(path.resolve(pluginDir)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return route.fulfill({ status: 404, body: "not found" });
     }
     return route.fulfill({
       body: fs.readFileSync(file),
       contentType: mime[path.extname(file)] ?? "application/octet-stream",
-      headers: { "content-security-policy": csp(), "x-content-type-options": "nosniff" },
+      headers: { "content-security-policy": csp(bundle), "x-content-type-options": "nosniff" },
     });
   });
 
-  const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
-  const checkDecision = decisionChecker(pluginDir, manifest.decision_schema);
   // a view a build writes is not there until it runs: say so, rather than
   // time out on a frame that got a 404
   const entryFile = path.join(pluginDir, manifest.entry ?? "index.html");
   if (!fs.existsSync(entryFile)) {
     throw new Error(`${entryFile} does not exist${manifest.build ? `: build the plugin first (${manifest.build.command})` : ""}`);
   }
-  await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(manifest.entry ?? "index.html")}`);
+  await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + (manifest.entry ?? "index.html"))}`);
   const init = {
     gate,
     previous,
