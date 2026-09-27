@@ -250,7 +250,7 @@ fn is_pinrail_cli(path: &Path) -> bool {
     let Some(stdout) = child.stdout.take() else {
         return false;
     };
-    let text = read_with_timeout(stdout, VERSION_TIMEOUT);
+    let text = read_with_timeout(stdout, VERSION_TIMEOUT, None);
     if text.is_none() {
         let _ = child.kill();
     }
@@ -258,11 +258,27 @@ fn is_pinrail_cli(path: &Path) -> bool {
     text.is_some_and(|t| t.starts_with(&format!("{COMMAND} ")))
 }
 
-fn read_with_timeout(mut out: impl Read + Send + 'static, timeout: Duration) -> Option<String> {
+/// What `out` says within `timeout`: up to its end, or up to and
+/// including the first line that starts with `until`. A process that has
+/// said what was asked but keeps its output open still counts, and the
+/// reader stops there rather than blocking on it.
+fn read_with_timeout(
+    out: impl Read + Send + 'static,
+    timeout: Duration,
+    until: Option<&'static str>,
+) -> Option<String> {
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         let mut text = String::new();
-        let _ = out.read_to_string(&mut text);
+        for line in BufReader::new(out).lines() {
+            let Ok(line) = line else { break };
+            let last = until.is_some_and(|mark| line.starts_with(mark));
+            text.push_str(&line);
+            text.push('\n');
+            if last {
+                break;
+            }
+        }
         let _ = tx.send(text);
     });
     rx.recv_timeout(timeout).ok()
@@ -304,10 +320,14 @@ const COMMAND_MARK: &str = "__pinrail_command__=";
 /// in time.
 pub fn ask_login_shell() -> Option<ShellView> {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    ask_shell(&shell)
+}
+
+fn ask_shell(shell: &str) -> Option<ShellView> {
     let script = format!(
         r#"printf '\n{PATH_MARK}%s\n' "$PATH"; printf '{COMMAND_MARK}%s\n' "$(command -v {COMMAND} 2>/dev/null)""#
     );
-    let mut child = Command::new(&shell)
+    let mut child = Command::new(shell)
         .args(["-ilc", &script])
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -315,12 +335,11 @@ pub fn ask_login_shell() -> Option<ShellView> {
         .spawn()
         .ok()?;
     let stdout = child.stdout.take()?;
-    let Some(text) = read_with_timeout(stdout, SHELL_TIMEOUT) else {
-        let _ = child.kill();
-        let _ = child.wait();
-        return None;
-    };
+    let text = read_with_timeout(stdout, SHELL_TIMEOUT, Some(COMMAND_MARK));
+    // the answer is in, or the time is up: the shell has no more to say
+    let _ = child.kill();
     let _ = child.wait();
+    let text = text?;
     parse_shell(&text)
 }
 
@@ -345,6 +364,30 @@ fn parse_shell(text: &str) -> Option<ShellView> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn a_shell_that_answers_then_keeps_running_still_counts() {
+        // a start-up file that leaves something running holds the shell's
+        // output open: the answer is in by the command line, not at its end
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let shell = dir.path().join("slow-shell");
+        std::fs::write(
+            &shell,
+            format!("#!/bin/sh\nprintf '\\n{PATH_MARK}/usr/bin\\n{COMMAND_MARK}/usr/local/bin/pinrail\\n'\nexec sleep 10\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&shell, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let started = std::time::Instant::now();
+        let view = ask_shell(shell.to_str().unwrap()).expect("the shell answered");
+        assert_eq!(view.command, Some(PathBuf::from("/usr/local/bin/pinrail")));
+        assert!(
+            started.elapsed() < SHELL_TIMEOUT,
+            "it waited for the shell to exit"
+        );
+    }
 
     fn bundle(dir: &Path) -> PathBuf {
         let cli = dir.join("Pinrail.app/Contents/MacOS").join(SIDECAR);
