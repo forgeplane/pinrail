@@ -99,3 +99,22 @@ test("a review clicked past does not come back when its fetch lands late", async
   await expect(page.locator("#plugin-frame")).toHaveAttribute("title", "Quick: third");
   await expect(frame.locator("p").first()).toHaveText("The third question.");
 });
+
+test("Copy as markdown copies the review on screen, after moving from another", async ({ page }) => {
+  // The screen stays mounted from one review to the next, so an action that
+  // kept the id of the first would quietly copy the wrong review into a
+  // merge request or a thread.
+  await clearInbox(page.request);
+  const payload = (intro: string) => ({ intro, groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }] });
+  const first = await createReview(page.request, "list", "Copy: the first", payload("The first review."));
+  const second = await createReview(page.request, "list", "Copy: the second", payload("The second review."));
+
+  await page.goto(`/#/reviews/${first.id}`);
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The first review.");
+  await page.locator("[data-waiting-review]").filter({ hasText: "Copy: the second" }).click();
+  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The second review.");
+
+  const asked = page.waitForRequest((r) => new URL(r.url()).searchParams.get("format") === "markdown");
+  await page.locator("[data-copy-markdown]").click();
+  expect(new URL((await asked).url()).pathname, "the markdown asked for is the review on screen").toBe(`/api/v1/reviews/${second.id}`);
+});

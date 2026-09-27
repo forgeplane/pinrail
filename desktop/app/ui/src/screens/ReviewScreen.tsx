@@ -325,7 +325,8 @@ export function ReviewScreen() {
           ) : null}
         </>
       ) : null,
-    [review?.status, plugin, copied], // eslint-disable-line react-hooks/exhaustive-deps
+    // the id too: the screen outlives a change of review, and Copy acts on it
+    [id, review?.status, plugin, copied], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const forPlugin = useMemo(
     () => (plugin ? { name: plugin.name, title: plugin.title || plugin.name, icon: plugin.icon, shortcuts: plugin.shortcuts ?? [] } : undefined),
