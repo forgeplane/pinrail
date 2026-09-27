@@ -53,3 +53,25 @@ test("a view that loads its script by an absolute path fails here as in the app"
   await page.waitForTimeout(300);
   expect(await plugin.frame.locator("html").getAttribute("data-ran"), "the absolute script ran").toBeNull();
 });
+
+test("sendKey sends only what the app would forward to the view", async ({ page }) => {
+  // the app forwards a declared key, and not one it keeps for itself
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-harness-"));
+  fs.writeFileSync(
+    path.join(dir, "manifest.json"),
+    JSON.stringify({
+      name: "keys",
+      version: 1,
+      entry: "index.html",
+      shortcuts: [
+        { keys: "j", does: "Next" },
+        { keys: "cmd+enter", does: "Hand over" },
+      ],
+    }),
+  );
+  fs.writeFileSync(path.join(dir, "index.html"), `<!doctype html><script src="/sdk/v1/pinrail-plugin.js"></script><script>Pinrail.connect({});</script><p>keys</p>`);
+  const plugin = await mountPlugin(page, dir, { gate: gateFrom({ title: "Keys", payload: {} }) });
+  await plugin.sendKey("j");
+  await expect(plugin.sendKey("x")).rejects.toThrow("not declared");
+  await expect(plugin.sendKey("cmd+enter")).rejects.toThrow("the app keeps");
+});

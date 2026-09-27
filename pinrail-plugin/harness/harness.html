@@ -19,7 +19,7 @@ let lastSettingsSet = null;
 let pinnedHeight = null;
 
 function send(msg) { frame.contentWindow.postMessage(Object.assign({ pinrail: 1 }, msg), "*"); }
-// "cmd+shift+m" -> the fields of the key message the app sends
+// "shift+a" -> the fields of the key message the app sends
 function keyMessage(combo) {
   const parts = String(combo).toLowerCase().split("+").map((p) => p.trim());
   const name = parts.pop();
@@ -52,7 +52,7 @@ window.__shell = {
   lastSettingsSet: () => lastSettingsSet,
   /* the plugin's settings changed in the app: the values as they stand */
   settings(values) { send({ type: "settings", settings: values }); },
-  /* a declared shortcut pressed while the shell had focus, as "cmd+shift+m" or "j" */
+  /* a declared shortcut pressed while the shell had focus, as "shift+a" or "j" */
   sendKey(combo) { send(Object.assign({ type: "key" }, keyMessage(combo))); },
   // Hold the frame at a height so a test can make the view scroll; the real
   // shell caps it against the page, the harness otherwise grows to fit.

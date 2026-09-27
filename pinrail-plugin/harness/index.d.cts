@@ -39,7 +39,10 @@ export type MountedPlugin = {
   lastSettingsSet(): Promise<Settings | null>;
   /** the plugin's settings changed in the app: sends them as they stand */
   settings(values: Settings): Promise<void>;
-  /** a declared shortcut pressed while the shell had focus: "j", "cmd+shift+m" */
+  /** a declared shortcut pressed while the shell had focus: "j", "shift+a";
+   *  throws for a key the manifest does not declare, or one the app keeps
+   *  for itself (cmd+ and ctrl+ ones, [, ], escape, ?), as the app would
+   *  never forward it */
   sendKey(combo: string): Promise<void>;
   send(msg: Record<string, any>): Promise<void>;
   sendViolations(errors: { path: string; message: string }[]): Promise<void>;

@@ -12,6 +12,11 @@ const { resolveAttachments } = require("./attachments.cjs");
 const Ajv2020 = require("ajv/dist/2020").default;
 
 const ORIGIN = "http://plugin.test";
+
+/** The keys the app's review screen keeps for itself, and so never forwards to
+ *  a view; the same as REVIEW_SCREEN_KEYS in desktop/app/ui/src/lib/shortcuts.ts. */
+const APP_KEYS = new Set(["shift+/", "[", "]", "escape", "cmd+shift+m", "cmd+enter", "ctrl+enter"]);
+const appKeeps = (combo) => APP_KEYS.has(combo) || combo.startsWith("cmd+") || combo.startsWith("ctrl+");
 const root = packageRoot(__filename);
 
 const mime = {
@@ -178,7 +183,15 @@ async function mountPlugin(page, pluginDir, opts) {
     lastOpen: () => page.evaluate(() => window.__shell.lastOpen()),
     lastSettingsSet: () => page.evaluate(() => window.__shell.lastSettingsSet()),
     settings: (values) => page.evaluate((v) => window.__shell.settings(v), values),
-    sendKey: (combo) => page.evaluate((c) => window.__shell.sendKey(c), combo),
+    // what the app does with a key pressed while the shell has focus: it
+    // forwards a combination the manifest declares, and not one it keeps
+    sendKey: async (combo) => {
+      if (!(manifest.shortcuts || []).some((s) => s.keys === combo)) {
+        throw new Error(`${combo} is not declared in the manifest's shortcuts, so the app never forwards it`);
+      }
+      if (appKeeps(combo)) throw new Error(`${combo}: the app keeps this key for itself and never forwards it`);
+      return page.evaluate((c) => window.__shell.sendKey(c), combo);
+    },
     send,
     sendViolations: (errors) => send({ type: "violations", errors }),
     sendSubmitted: (decision) => send({ type: "submitted", decision }),
