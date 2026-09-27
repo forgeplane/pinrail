@@ -1,11 +1,14 @@
 # review
 
-The official code-review gate: a change's diff with the comments a reviewer
-agent proposes to post, anchored on lines. The human accepts or rejects each
-proposal, adds a note that becomes a revision instruction or a rejection
-reason, leaves line comments of their own, and submits. Forge-agnostic: the
-requester maps its merge or pull request into the payload and the decision
-back out; nothing here knows what a merge request is.
+The code review plugin shows a change's diff with the comments a reviewing
+agent proposes to post, each attached to a line. The person accepts or
+rejects each proposal, optionally with a note, which is an instruction to
+revise on an accepted proposal and the reason on a rejected one. The person
+can also add line comments of their own before handing the review over.
+
+The plugin works with any code host. The agent converts its pull request or
+merge request into the payload, and converts the decision back into
+comments on the host.
 
 ## Payload
 
@@ -65,7 +68,7 @@ accept / reject / note, reply threads, suggestion blocks, the reviewer's
 own comments from any diff line, keyboard navigation
 (`?` lists the keys), a submit summary that shows exactly what goes back,
 drafts across reloads, read-only rendering with verdicts overlaid, and the
-previous round's verdict on each proposal when the gate supersedes another.
+previous round's verdict on each proposal when the review supersedes another.
 
 The view asks the shell for a viewport-height frame and scrolls inside it.
 

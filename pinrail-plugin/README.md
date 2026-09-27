@@ -46,7 +46,7 @@ or from the tarball attached to its GitHub release.
 ```
 
 The shell owns the hand-over. A view renders no submit button: the shell puts
-one next to the note box for every gate, and pressing it sends `collect`. Your
+one next to the note box for every review, and pressing it sends `collect`. Your
 view may submit at once or confirm first and submit on the next `collect`;
 `status` keeps the button's label honest.
 
@@ -262,7 +262,7 @@ await plugin.frame.getByRole("button", { name: "Yes" }).click();
 expect(await plugin.nextSubmit()).toEqual({ ok: true });
 ```
 
-A fixture is a partial gate envelope, usually `{ "title", "payload" }`, or
+A fixture is part of a review, in the form the SDK passes a view as `gate`, usually `{ "title", "payload" }`, or
 with a `decision` for a read-only or previous-round case. Tests live in
 `<plugin>/tests/*.spec.ts`; `pinrail-plugin test [dir]` runs them, with
 Playwright from the plugin's own dependencies and the plugin's

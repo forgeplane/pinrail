@@ -98,7 +98,7 @@ No submission occurs on slot clicks. Choices are drafts until the shell sends
 
 - `approve`: every item has a selected time or was declined.
 - `revise`: at least one item needs another time (`deferred`). Selected entries
-  remain the human's chosen times; deferred IDs authorize no booking. The
+  remain the person's chosen times; deferred IDs authorize no booking. The
   consuming workflow decides whether to book selected entries now or return a
   complete revised plan first. Do not interpret `revise` as approving deferred
   entries.

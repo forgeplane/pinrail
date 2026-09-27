@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "list gate decision",
+  "title": "list decision",
   "type": "object",
   "required": [
     "decisions",
@@ -39,7 +39,7 @@
       "items": {
         "type": "integer"
       },
-      "description": "item ids the human left without a decision; the view computes this, the requester must treat it as not approved"
+      "description": "item ids the person left without a decision; the view computes this, the requester must treat it as not approved"
     }
   }
 }

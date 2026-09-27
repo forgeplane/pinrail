@@ -254,4 +254,5 @@ export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --he
 | `PINRAIL_PORT` | The port to try when nothing is advertised. |
 | `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
 | `PINRAIL_JSON` | `1` for JSON output from every command, as `--json` gives. |
+| `PINRAIL_VERBOSE` | `1` for the notes that `--verbose` prints, from every command. |
 | `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review, ahead of the agent the command finds itself running under. |

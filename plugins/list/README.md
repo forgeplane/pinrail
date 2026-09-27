@@ -1,11 +1,14 @@
 # list
 
-The built-in gate type: items grouped under headings, accept or reject each
-with an optional note, and an honest `undecided` list. Anything else the
-person wants to say goes in the review's own note to the agent.
-Ships inside the app; every workflow can use it before it has a view of its
-own. It is also the fullest reference client of the plugin protocol: drafts,
-read-only rendering, the previous round's verdicts.
+The list plugin shows items grouped under headings. The person accepts or
+rejects each item, optionally with a note, and any item left without a
+verdict is reported in `undecided`. Anything else the person wants to say
+goes in the review's note to the agent.
+
+The plugin is built into the app, so every agent can use it without
+installing anything. It is also the most complete example of the plugin
+protocol, with drafts, read-only rendering and the previous round's
+verdicts.
 
 ## Payload
 
@@ -41,7 +44,7 @@ as key: value chips.
 }
 ```
 
-`undecided` is required and lists every item the human left without a
+`undecided` is required and lists every item the person left without a
 verdict. Submitting with undecided items asks for confirmation first. A
 requester must treat those as not approved. On accept, `note` is a revision
 instruction; on reject, the reason.
@@ -51,6 +54,6 @@ instruction; on reject, the reason.
 - Clicks post a draft at once and typing is debounced, so a reload restores
   the work in progress.
 - ⌘/Ctrl+Enter in the shell submits.
-- Read-only after the decision, or when the gate is withdrawn or expired.
-- On a gate that supersedes another, each item shows the previous round's
+- Read-only after the decision, or when the review is withdrawn or expired.
+- On a review that supersedes another, each item shows the previous round's
   verdict for the same id.

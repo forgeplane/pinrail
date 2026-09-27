@@ -17,7 +17,7 @@ pinrail plugins install https://github.com/acme/ticket-triage/releases
 
 ## Publish with GitHub Actions
 
-`pinrail-plugin create` writes `.github/workflows/release.yml` into every new plugin. Push a tag and it publishes the release:
+The workflow below publishes a release when you push a tag. The SDK's `create` command writes it into every plugin it creates, as `.github/workflows/release.yml`. `pinrail plugins new` does not, so copy it into that file yourself. Then push a tag:
 
 ```sh
 git tag v0.2.0

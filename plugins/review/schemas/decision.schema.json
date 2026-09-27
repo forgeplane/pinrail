@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "review gate decision",
+  "title": "review decision",
   "type": "object",
   "required": ["decisions", "comments", "undecided"],
   "additionalProperties": false,

@@ -3,7 +3,7 @@ title: Plugins
 description: "The plugins that come with Pinrail, what each is for, and how to pick one for the decision your agent needs."
 ---
 
-Every review uses a plugin, and the plugin decides what the person sees and what the agent gets back. Pinrail comes with two built-in plugins that are always available, and three optional ones you install when your agents need them.
+Every review uses a plugin, and the plugin decides what the person sees and what the agent gets back. Pinrail comes with two built-in plugins that are always available, and six optional ones that you install when your agents need them.
 
 ## Which plugin to use
 

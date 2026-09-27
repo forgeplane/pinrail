@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "email gate payload",
+  "title": "email payload",
   "description": "One or more emails an agent has drafted and wants to send. Provider-agnostic: the requester maps its mailbox into the payload and the decision back out.",
   "type": "object",
   "required": ["drafts"],
@@ -8,7 +8,7 @@
   "properties": {
     "intro": {
       "type": "string",
-      "description": "markdown; why these drafts exist and what the human is being asked to weigh"
+      "description": "markdown; why these drafts exist and what the person is being asked to weigh"
     },
     "from": { "type": "string", "description": "the address they would be sent from" },
     "drafts": {

@@ -1,18 +1,15 @@
 # Pinrail
 
-A pinrail is the small gate in a larger door: a person waits at it, looks at
-what is being carried through, and lets it pass or not.
-
 Pinrail is a desktop app that puts a person in the loop of an agent's work.
 Before an agent does something that matters, like posting review comments,
 sending emails or shipping a page, it asks through Pinrail and waits. You see
-the request in the app, rendered for what it is, decide, and the agent carries
-on with your decision.
+the review in the app, shown in a view made for its content. You decide, and
+the agent continues with your decision.
 
 Two ideas shape it. **The agent decides when to ask**: its own instructions
 say which steps need a person and what to send, so Pinrail fits any agent that
 can run a command. **You decide what asking looks like**: every kind of
-request is a plugin, and anyone can write one specialised for their own work.
+review is a plugin, and anyone can write one for their own work.
 
 Status: early development.
 
@@ -55,15 +52,19 @@ and decision is kept, so history can be reopened and rendered again.
 
 ## Plugins
 
-A plugin defines one kind of request: the payload an agent sends, the
-decision you give back, and the view you decide in. The plugins below are
-samples bundled with Pinrail. Anyone can create their own for whatever their
-agents do, like triaging alerts, approving a deploy, picking between designs
-or answering an agent's questions, and share it for others to install.
+A plugin defines one kind of review: the payload an agent sends, the
+decision you give back, and the view you decide in. Two plugins are built
+into the app, `list` and `feedback`. The other official plugins are optional,
+and you install the ones you need with
+`pinrail plugins install github.com/forgeplane/pinrail/plugins/<name>`.
+Anyone can write a plugin for what their agents do, such as triaging alerts,
+approving a deploy or choosing between designs, and share it for others to
+install.
 
 | Plugin | For |
 |---|---|
 | `list` (built in) | items grouped under headings, each accepted or rejected with a note |
+| `feedback` (built in) | questions answered in one pass: choices, yes or no, and free text |
 | [`review`](plugins/review/README.md) | a code review: the diff and the agent's proposed comments |
 | [`email`](plugins/email/README.md) | draft emails to edit, send, revise or discard |
 | [`artifact`](plugins/artifact/README.md) | an HTML page to comment on, element by element |
@@ -71,12 +72,13 @@ or answering an agent's questions, and share it for others to install.
 | [`logo`](plugins/logo/README.md) | candidate logo marks and icons, seen at every size, with a favourite picked |
 | [`model`](plugins/model/README.md) | candidate 3D models to orbit under studio light, with changes asked for on their parts |
 
-A plugin is a manifest, two JSON schemas and an HTML view. The
-[`pinrail-plugin`](pinrail-plugin/README.md) package scaffolds one
-(`pinrail-plugin create`), runs it in a browser without the app, and tests it.
-To share a plugin, publish its repository or a GitHub release; the app
-installs it from either, or from a folder, and serves a linked folder live
-while you work on it.
+A plugin is a manifest, two JSON schemas and an HTML view.
+`pinrail plugins new <name>` creates one. The
+[`pinrail-plugin`](pinrail-plugin/README.md) SDK runs a plugin in a browser
+without the app, tests it, and creates plugins whose views are built with a
+framework. To share a plugin, publish its repository or a GitHub release. The
+app installs a plugin from either, or from a folder, and serves a linked
+folder directly while you work on it.
 
 ## Repository
 
@@ -84,24 +86,24 @@ while you work on it.
 |---|---|
 | [`desktop/`](desktop/) | the app: a Rust core (API, storage, plugins), a Tauri shell and a React UI |
 | [`cli/`](cli/README.md) | the `pinrail` CLI agents call |
-| [`plugins/`](plugins/README.md) | the official plugins and the plugin protocol |
-| [`pinrail-plugin/`](pinrail-plugin/README.md) | the plugin SDK, dev shell and test harness |
+| [`plugins/`](plugins/README.md) | the official plugins |
+| [`pinrail-plugin/`](pinrail-plugin/README.md) | the plugin SDK, development shell and test harness |
 | [`e2e/`](e2e/README.md) | end-to-end tests: the CLI and the app's UI against the headless core |
+| [`docs/`](docs/) | the documentation, published on the website |
+| [`website/`](website/) | the website |
 
 ## Development
 
-Tool versions are pinned in `mise.toml`; `mise install` sets them up.
+Tool versions are pinned in `mise.toml`, and `mise install` sets them up.
 
 ```sh
 mise run dev:desktop        # the app with live reload
-mise run test:desktop       # the core's tests and the UI's type check
-mise run e2e                # the CLI against the headless core
-mise run e2e:shell          # the app's UI in a browser against the headless core
-mise run test:plugins       # every plugin under the harness
-mise run lint               # rustfmt, clippy and the type check, as CI runs them
+mise run test               # every test suite
+mise run lint               # rustfmt, clippy, the type check and the licences, as CI runs them
 ```
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. To
+[CONTRIBUTING.md](CONTRIBUTING.md) describes each test suite and how to run
+it. Read it before opening a pull request. To
 report a vulnerability, follow [SECURITY.md](SECURITY.md).
 
 ## License

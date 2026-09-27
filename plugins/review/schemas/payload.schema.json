@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "review gate payload",
+  "title": "review payload",
   "description": "A change under review: its diff, the reviewer agent's overview, and the comments it proposes to post. Forge-agnostic: the requester maps its merge/pull request in, and maps the decision back out.",
   "type": "object",
   "required": ["change", "files", "proposals"],
@@ -11,7 +11,7 @@
       "required": ["ref", "title"],
       "additionalProperties": false,
       "properties": {
-        "ref": { "type": "string", "description": "the change's identifier as humans say it: 42, !42, #42" },
+        "ref": { "type": "string", "description": "the change's identifier as people write it: 42, !42, #42" },
         "title": { "type": "string" },
         "url": { "type": "string" },
         "description": { "type": "string", "description": "markdown" },

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "email gate decision",
-  "description": "What to do with each draft. `subject` and `body` are the final text: send them as they stand, or rewrite from them. `edits` and `comments` say what the human changed and why, which is the part worth learning from.",
+  "title": "email decision",
+  "description": "What to do with each draft. `subject` and `body` are the final text: send them as they stand, or rewrite from them. `edits` and `comments` say what the person changed and why, which is the part worth learning from.",
   "type": "object",
   "required": ["drafts", "undecided"],
   "additionalProperties": false,
@@ -22,7 +22,7 @@
           "body": { "type": "string" },
           "edits": {
             "type": "array",
-            "description": "what the human changed, in order; `from` empty means they added it, `to` empty means they cut it",
+            "description": "what the person changed, in order; `from` empty means they added it, `to` empty means they cut it",
             "items": {
               "type": "object",
               "required": ["from", "to"],
@@ -35,7 +35,7 @@
           },
           "comments": {
             "type": "array",
-            "description": "an instruction against a passage the human highlighted",
+            "description": "an instruction against a passage the person highlighted",
             "items": {
               "type": "object",
               "required": ["quote", "note"],
@@ -52,7 +52,7 @@
     },
     "undecided": {
       "type": "array",
-      "description": "drafts the human did not rule on; nothing is sent for these",
+      "description": "drafts the person did not rule on; nothing is sent for these",
       "items": { "type": "string" }
     }
   }

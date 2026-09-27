@@ -1,6 +1,6 @@
 # email
 
-Emails an agent has written and wants to send. The human reads each one, edits
+Emails an agent has written and wants to send. The person reads each one, edits
 it the way they would edit anyone's writing, hangs instructions on the passages
 that need them, and says send, revise or discard. Provider-agnostic: the
 requester maps its mailbox into the payload and the decision back out; nothing
@@ -23,7 +23,7 @@ here knows what a mail server is.
 }
 ```
 
-## What the human does
+## What the person does
 
 The drafts sit down a rail, like an inbox, each with its verdict so far; the
 open one reads as the message it would be, with the verdict at the foot.
@@ -68,6 +68,6 @@ Keys: `j` / `k` next and previous draft, `s` send, `r` revise, `x` discard,
 
 `subject` and `body` are the final text. On `send`, send them as they stand.
 On `revise`, write the draft again from `comments` and `note`, then open a new
-round that supersedes this gate. `edits` says what the human changed and is
+round that supersedes this review. `edits` says what the person changed and is
 the part worth learning from: it is how you find out that this person never
 says "reach out".
