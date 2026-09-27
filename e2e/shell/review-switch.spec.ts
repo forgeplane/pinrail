@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import path from "node:path";
-import { clearInbox, core, createReview } from "./helpers";
+import { clearInbox, core, createReview, linkPlugin } from "./helpers";
 
 const hello = path.resolve(__dirname, "..", "..", "plugins", "hello");
 
@@ -21,11 +21,7 @@ function bundlesLoaded(page: Page) {
 
 test("switching to a review of another plugin loads that plugin's view, and only that one", async ({ page }) => {
   await clearInbox(page.request);
-  const installed = await page.request.post(`${core}/api/v1/plugins/install`, { data: { source: hello, link: true } });
-  expect(installed.status(), await installed.text()).toBe(202);
-  await expect
-    .poll(async () => ((await (await page.request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string; usable: boolean }[]).some((p) => p.name === "hello" && p.usable))
-    .toBe(true);
+  await linkPlugin(page.request, hello, "hello");
 
   const list = await createReview(page.request, { plugin: "list", title: "Switch: a list", payload: {
     intro: "Two proposals from the list plugin.",

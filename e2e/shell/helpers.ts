@@ -47,3 +47,12 @@ export async function clearInbox(request: APIRequestContext) {
     expect(response.status(), `discarding ${r.id}: ${await response.text()}`).toBe(200);
   }
 }
+
+/** Installs a plugin folder as a link and waits until reviews can use it. */
+export async function linkPlugin(request: APIRequestContext, source: string, name: string) {
+  const installed = await request.post(`${core}/api/v1/plugins/install`, { data: { source, link: true } });
+  expect(installed.status(), await installed.text()).toBe(202);
+  await expect
+    .poll(async () => ((await (await request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string; usable: boolean }[]).some((p) => p.name === name && p.usable))
+    .toBe(true);
+}

@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { core } from "./helpers";
+import { core, linkPlugin } from "./helpers";
 
 
 /** A plugin whose view asks for the file its payload names and reports what came. */
@@ -38,11 +38,7 @@ function reader(): string {
 }
 
 test("a view gets the bytes of a file its review carries from the app, and only those", async ({ page }) => {
-  const installed = await page.request.post(`${core}/api/v1/plugins/install`, { data: { source: reader(), link: true } });
-  expect(installed.status(), await installed.text()).toBe(202);
-  await expect
-    .poll(async () => ((await (await page.request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string; usable: boolean }[]).some((p) => p.name === "reader" && p.usable))
-    .toBe(true);
+  await linkPlugin(page.request, reader(), "reader");
 
   const bytes = Buffer.concat([Buffer.from([0xca, 0xfe, 0xba, 0xbe]), crypto.randomBytes(500_000)]);
   const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
@@ -98,11 +94,7 @@ test("a view gets the bytes of a file its review carries from the app, and only 
 });
 
 test("a plugin that takes files says so on its row, and Settings › Data totals the files kept", async ({ page }) => {
-  const installed = await page.request.post(`${core}/api/v1/plugins/install`, { data: { source: reader(), link: true } });
-  expect(installed.status()).toBe(202);
-  await expect
-    .poll(async () => ((await (await page.request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string }[]).some((p) => p.name === "reader"))
-    .toBe(true);
+  await linkPlugin(page.request, reader(), "reader");
   const info = await (await page.request.get(`${core}/api/v1/info`)).json();
 
   await page.goto("/#/");

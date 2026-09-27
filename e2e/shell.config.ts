@@ -3,8 +3,9 @@ import path from "node:path";
 import { corePort } from "./shell/helpers";
 
 // The desktop shell in a browser: the app's UI from vite against the
-// desktop core running headless on a scratch data directory. No CLI. The
-// core is built first when it is out of date, which takes a while once.
+// desktop core running headless on a scratch data directory. The
+// core is built first when it is out of date, which takes a while once, and
+// the CLI with it, for the one test where an agent waits on a person.
 // The data starts as a returning person's: the setup already seen, so its
 // dialog does not cover what the tests click.
 const root = path.resolve(__dirname, "..");
@@ -25,7 +26,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `cargo build -q -p pinrail-desktop && rm -rf "${data}" && mkdir -p "${data}" && echo '{"welcome":{"seen":true}}' > "${data}/settings.json" && ./target/debug/Pinrail --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}"`,
+      command: `cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && rm -rf "${data}" && mkdir -p "${data}" && echo '{"welcome":{"seen":true}}' > "${data}/settings.json" && ./target/debug/Pinrail --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}"`,
       cwd: path.join(root, "desktop"),
       env: { PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
       url: `http://127.0.0.1:${corePort}/api/v1/info`,
