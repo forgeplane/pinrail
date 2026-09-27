@@ -245,12 +245,17 @@ impl Registry {
                 (Some(expected), false) => hash_dir(&dir).map(|h| &h != expected).unwrap_or(true),
                 _ => false,
             };
+            // Listed under the record's name, whatever the folder holds:
+            // records are unique by name, so a broken or renamed plugin
+            // costs only itself. A failed load names it after its folder,
+            // which for a store entry is only its major.
             if plugin.error.is_none() && plugin.name != record.name {
                 plugin.error = Some(format!(
                     "the manifest names {}, the record {}",
                     plugin.name, record.name
                 ));
             }
+            plugin.name = record.name.clone();
             plugin.install = Some(Install {
                 kind: record.kind.clone(),
                 source: record.source.clone(),
@@ -395,6 +400,31 @@ mod tests {
             broken.error
         );
         assert!(r.fetch("broken").is_err());
+    }
+
+    #[test]
+    fn broken_store_entries_cost_only_themselves() {
+        // two installed plugins at the same major whose store folders are
+        // gone: a bad upgrade, a hand deletion, an interrupted install
+        let tmp = tempfile::tempdir().unwrap();
+        let builtin = install_builtin(&tmp.path().join("builtin")).unwrap();
+        let store = tmp.path().join("store");
+        let installed = |name: &str| InstalledRecord {
+            kind: "git".into(),
+            linked: false,
+            path: store.join(name).join("1").display().to_string(),
+            ..linked(name, &store.join(name).join("1"))
+        };
+        let r = Registry::open(builtin, vec![installed("alpha"), installed("beta")], store)
+            .expect("one bad plugin must not stop the app from starting");
+        for name in ["alpha", "beta"] {
+            let plugin = r
+                .get(name)
+                .unwrap_or_else(|| panic!("{name} is listed under its own name"));
+            assert!(plugin.error.is_some(), "{name} carries its error");
+            assert!(r.fetch(name).is_err());
+        }
+        assert!(r.fetch("list").is_ok(), "the rest still work");
     }
 
     #[test]
