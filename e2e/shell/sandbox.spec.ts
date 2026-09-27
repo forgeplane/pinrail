@@ -131,8 +131,8 @@ test("a plugin view loads images and fonts from the app, and from nowhere else",
       };
       const out = {
         imageOff: await image(`${urls.refused}?leak=secret`),
-        // the plugin's own icon, beside its view
-        imageFromPlugin: await image(new URL("icon.svg", document.baseURI).href),
+        // the plugin's own icon, in its folder above the view
+        imageFromPlugin: await image(new URL("../icon.svg", document.baseURI).href),
         fontOff: await font(urls.refused),
         fontFromSdk: await font(urls.sdkFont),
         rules: [] as string[],

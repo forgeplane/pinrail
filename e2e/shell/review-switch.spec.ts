@@ -48,7 +48,7 @@ test("switching to a review of another plugin loads that plugin's view, and only
     await rows.filter({ hasText: "Switch: a list" }).click();
     await expect(page).toHaveURL(new RegExp(`/reviews/${list.id}$`));
     await expect(frame.locator("body")).toContainText("Two proposals from the list plugin.");
-    expect(loads.take()).toEqual(["/plugins/list/1/index.html"]);
+    expect(loads.take()).toEqual(["/plugins/list/1/view/index.html"]);
   }
 });
 

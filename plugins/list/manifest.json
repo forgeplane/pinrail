@@ -5,10 +5,10 @@
   "description": "Items grouped under headings, each accepted or rejected with an optional note.",
   "use_when": "You have a list of findings, proposed changes or tasks and need a person to accept or reject each one before you act on them.",
   "icon": "icon.svg",
-  "payload_schema": { "$ref": "payload.schema.json" },
-  "decision_schema": { "$ref": "decision.schema.json" },
+  "payload_schema": { "$ref": "schemas/payload.schema.json" },
+  "decision_schema": { "$ref": "schemas/decision.schema.json" },
   "example": "example.json",
   "sample": "sample.json",
-  "entry": "index.html",
+  "entry": "view/index.html",
   "min_height": 400
 }

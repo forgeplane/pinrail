@@ -170,12 +170,14 @@ mod tests {
         let list = plugins_dir().join("list");
         for f in [
             "manifest.json",
-            "payload.schema.json",
-            "decision.schema.json",
+            "schemas/payload.schema.json",
+            "schemas/decision.schema.json",
             "example.json",
-            "index.html",
+            "view/index.html",
         ] {
-            std::fs::copy(list.join(f), dir.path().join(f)).unwrap();
+            let to = dir.path().join(f);
+            std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+            std::fs::copy(list.join(f), to).unwrap();
         }
         std::fs::write(dir.path().join("sample.json"), sample.to_string()).unwrap();
         for (name, body) in files {

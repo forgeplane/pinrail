@@ -673,7 +673,7 @@ async fn bundles_are_served_with_the_sandbox_csp() {
     let response = app
         .router
         .clone()
-        .oneshot(request("/plugins/list/1/index.html"))
+        .oneshot(request("/plugins/list/1/view/index.html"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -682,7 +682,7 @@ async fn bundles_are_served_with_the_sandbox_csp() {
     let response = app
         .router
         .clone()
-        .oneshot(request("/plugins/list/1/index.html"))
+        .oneshot(request("/plugins/list/1/view/index.html"))
         .await
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
@@ -949,7 +949,7 @@ async fn a_page_that_rebound_its_name_to_loopback_is_refused() {
     for path in [
         "/api/v1/info",
         "/api/v1/reviews",
-        "/plugins/list/1/index.html",
+        "/plugins/list/1/view/index.html",
         "/api/v1/events",
     ] {
         let (status, body) = raw(&app, "GET", path, &[("host", "evil.example:4747")], "").await;
@@ -1908,10 +1908,7 @@ async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
     let app = app();
     let source = tempfile::tempdir().unwrap();
     let builtin = app.state.config().builtin_plugins_dir().join("list");
-    for file in std::fs::read_dir(&builtin).unwrap() {
-        let file = file.unwrap();
-        std::fs::copy(file.path(), source.path().join(file.file_name())).unwrap();
-    }
+    copy_tree(&builtin, source.path());
     let manifest_path = source.path().join("manifest.json");
     let mut manifest: Value =
         serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
@@ -1964,26 +1961,27 @@ async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
 }
 
 /// A copy of a sample plugin with its manifest's version rewritten.
+/// Copies a plugin folder as a bundle: without its tests and fixtures.
+fn copy_tree(from: &Path, to: &Path) {
+    std::fs::create_dir_all(to).unwrap();
+    for file in std::fs::read_dir(from).unwrap().flatten() {
+        let name = file.file_name();
+        if name == "tests" || name == "fixtures" || name == "node_modules" {
+            continue;
+        }
+        if file.file_type().unwrap().is_dir() {
+            copy_tree(&file.path(), &to.join(&name));
+        } else {
+            std::fs::copy(file.path(), to.join(&name)).unwrap();
+        }
+    }
+}
+
 fn plugin_copy(root: &std::path::Path, name: &str, version: &str) -> std::path::PathBuf {
     let from = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../plugins")
         .join(name);
     let to = root.join(format!("{name}-{}", version.replace('.', "_")));
-    fn copy_tree(from: &Path, to: &Path) {
-        std::fs::create_dir_all(to).unwrap();
-        for file in std::fs::read_dir(from).unwrap().flatten() {
-            let name = file.file_name();
-            // the plugin as a bundle: without its tests and fixtures
-            if name == "tests" || name == "fixtures" || name == "node_modules" {
-                continue;
-            }
-            if file.file_type().unwrap().is_dir() {
-                copy_tree(&file.path(), &to.join(&name));
-            } else {
-                std::fs::copy(file.path(), to.join(&name)).unwrap();
-            }
-        }
-    }
     copy_tree(&from, &to);
     let manifest = std::fs::read_to_string(to.join("manifest.json")).unwrap();
     let mut manifest: Value = serde_json::from_str(&manifest).unwrap();
@@ -3192,12 +3190,14 @@ async fn a_plugin_folder_is_checked_as_the_app_would_load_it() {
     let dir = tempfile::tempdir().unwrap();
     for f in [
         "manifest.json",
-        "payload.schema.json",
-        "decision.schema.json",
+        "schemas/payload.schema.json",
+        "schemas/decision.schema.json",
         "example.json",
         "icon.svg",
     ] {
-        std::fs::copy(list.join(f), dir.path().join(f)).unwrap();
+        let to = dir.path().join(f);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::copy(list.join(f), to).unwrap();
     }
     std::fs::write(dir.path().join("sample.json"), r#"{"payload": {}}"#).unwrap();
     let (_, body) = call(
@@ -3208,8 +3208,12 @@ async fn a_plugin_folder_is_checked_as_the_app_would_load_it() {
     )
     .await;
     assert_eq!(body["usable"], false);
-    assert_eq!(body["problems"][0]["message"], "entry index.html not found");
-    std::fs::write(dir.path().join("index.html"), "").unwrap();
+    assert_eq!(
+        body["problems"][0]["message"],
+        "entry view/index.html not found"
+    );
+    std::fs::create_dir_all(dir.path().join("view")).unwrap();
+    std::fs::write(dir.path().join("view/index.html"), "").unwrap();
     let (_, body) = call(
         &app,
         "POST",

@@ -195,7 +195,7 @@ mod tests {
     }
 
     fn payload_schema() -> Schema {
-        let schema = json!({ "$ref": "payload.schema.json" });
+        let schema = json!({ "$ref": "schemas/payload.schema.json" });
         Schema::compile(&list_dir(), "list", 1, "payload_schema", &schema).unwrap()
     }
 
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn enum_violations_list_the_options() {
-        let schema = json!({ "$ref": "decision.schema.json" });
+        let schema = json!({ "$ref": "schemas/decision.schema.json" });
         let s = Schema::compile(&list_dir(), "list", 1, "decision_schema", &schema).unwrap();
         assert_eq!(
             s.validate(&json!({ "decisions": [{ "id": 1, "action": "maybe" }] })),

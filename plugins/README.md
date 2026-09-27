@@ -49,7 +49,7 @@ scaffolds. The bundle the app installs is the folder without `src/`,
 ```json
 {
   "name": "hello",
-  "version": 1,
+  "version": "1.0.0",
   "title": "Hello",
   "description": "One yes-or-no question with an optional comment.",
   "use_when": "You need a single yes or no from the person, such as whether to push.",
@@ -65,8 +65,8 @@ scaffolds. The bundle the app installs is the folder without `src/`,
 - `name` is `[a-z][a-z0-9_-]*`, unique across the installed plugins.
 - Schemas are JSON Schema 2020-12, inline or by relative `$ref` to files in
   the plugin's folder. A `$ref` cannot leave the folder.
-- `version` is semantic (`"1.2.0"`; a bare integer reads as `N.0.0`; a
-  plugin still finding its shape starts at `"0.1.0"`). Bump the major when
+- `version` is a semantic version, such as `"1.2.0"`; a plugin still
+  finding its shape starts at `"0.1.0"`. Bump the major when
   a schema or the view changes in a way an old review would not survive: the app keeps one copy per major, and a review keeps
   rendering and validating from the major it was created under, even
   after the plugin moves on or is removed.
@@ -128,8 +128,8 @@ same with `pinrail plugins update [name]` and `pinrail plugins remove
 
 A copy lands in the app's store under the plugin's name and major
 version, hashed and recorded with where it came from; a review renders
-from it from then on. Versions are semantic (`"version": "1.2.0"`; a bare
-integer reads as `N.0.0`): installing an equal or higher version replaces
+from it from then on. Versions are semantic (`"version": "1.2.0"`):
+installing an equal or higher version replaces
 the line in place, an older one is refused unless `--force`, and a new
 major is a new line beside the old, which stays while a review still
 renders from it. A major is the compatibility promise: every review
@@ -517,6 +517,6 @@ Plugin → shell:
 
 The decision schema is the whole contract. What the fields mean is between
 the plugin and the workflow that reads the decision. `hello/index.html` is
-the smallest complete client; `plugins/list/index.html` is a
+the smallest complete client; `plugins/list/view/index.html` is a
 full one with drafts, read-only rendering and a previous-round overlay;
 `review/index.html` is a workbench-style one that fills the viewport.

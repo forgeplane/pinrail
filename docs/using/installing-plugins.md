@@ -64,7 +64,7 @@ flowchart TB
 
 ## Versions and updates
 
-Plugin versions are semantic: `"1.2.0"`, or a bare integer that reads as `1.0.0`. The major version is a compatibility promise, and Pinrail keeps one line per major.
+Plugin versions are semantic, such as `"1.2.0"`. The major version is a compatibility promise, and Pinrail keeps one line per major.
 
 ```mermaid title="One line per major version"
 flowchart LR
