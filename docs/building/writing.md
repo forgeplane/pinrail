@@ -401,7 +401,7 @@ An agent reads your decision as prose: markdown is what the command prints. With
 }
 ```
 
-Templates are [MiniJinja](https://docs.rs/minijinja). Each item in `items` carries the `payload` object with the same `id`, and the app keeps the heading, so every plugin's output starts the same way.
+Templates are written in [MiniJinja](https://docs.rs/minijinja). Each object in `items` has a `payload` field that holds the object with the same `id` from the review's payload, wherever the payload nests it. The template also receives `review`, `decision`, `data` and `note`. The app writes the heading itself, so every plugin's output starts the same way.
 
 ## Next
 

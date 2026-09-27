@@ -169,7 +169,8 @@ pub fn render_in(
 /// The body through the plugin's template. The context: `review` (the
 /// envelope with its payload), `decision`, `data` (the decision's data),
 /// `note`, and `items`: every object in the decision's arrays, each with
-/// `payload` set to the payload object of the same id, when there is one.
+/// `payload` set to the payload object of the same id, found at any depth,
+/// when there is one.
 fn render_template(source: &str, review: &Value) -> Result<String, String> {
     let mut env = minijinja::Environment::new();
     // `{{ item.action | verb }}`: accept → accepted, the way the generic body says it
@@ -177,16 +178,8 @@ fn render_template(source: &str, review: &Value) -> Result<String, String> {
     env.add_template("decision", source)
         .map_err(|e| e.to_string())?;
     let data = review["decision"]["data"].clone();
-    let payload_items: Vec<&Value> = review["payload"]
-        .as_object()
-        .map(|p| {
-            p.values()
-                .filter_map(Value::as_array)
-                .flatten()
-                .filter(|v| v.is_object() && v.get("id").is_some())
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut payload_items: Vec<&Value> = Vec::new();
+    with_ids(&review["payload"], &mut payload_items);
     let mut items: Vec<Value> = Vec::new();
     if let Some(map) = data.as_object() {
         for value in map.values() {
@@ -216,6 +209,23 @@ fn render_template(source: &str, review: &Value) -> Result<String, String> {
         .map_err(|e| e.to_string())?
         .render(minijinja::Value::from_serialize(&context))
         .map_err(|e| e.to_string())
+}
+
+/// Every object with an `id` in the arrays of `value`, at any depth, in
+/// document order, so the first of two with one id is the one found.
+fn with_ids<'a>(value: &'a Value, out: &mut Vec<&'a Value>) {
+    match value {
+        Value::Object(map) => map.values().for_each(|v| with_ids(v, out)),
+        Value::Array(list) => {
+            for item in list {
+                if item.get("id").is_some() {
+                    out.push(item);
+                }
+                with_ids(item, out);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// The decision data, by the shared vocabulary. Scalars first, then one
@@ -635,6 +645,23 @@ Undecided: #19, #20
             ),
             "{md}"
         );
+    }
+
+    #[test]
+    fn an_item_finds_its_payload_object_however_deep_the_payload_nests_it() {
+        let review = json!({
+            "id": "r_1", "plugin": "p", "plugin_version": 1, "title": "Nested", "origin": {},
+            "status": "decided",
+            "payload": {"groups": [{"title": "g", "items": [{"id": 7, "title": "deep"}]}]},
+            "decision": {"decided_by": "alice", "decided_at": "2026-09-10T09:00:00Z",
+                         "data": {"decisions": [{"id": 7, "action": "accept"}]}}
+        });
+        let md = render(
+            &review,
+            None,
+            Some("{% for item in items %}- {{ item.id }} {{ item.payload.title }}\n{% endfor %}"),
+        );
+        assert!(md.contains("- 7 deep\n"), "{md}");
     }
 
     #[test]
