@@ -1,15 +1,37 @@
-# Every push to main and every pull request: formatting, the dependencies'
-# licences and the shell's type check once, then on Linux and macOS clippy,
-# the Rust tests, and the CLI and the shell driven end to end against the
-# headless desktop core; the plugins and the SDK package tested on their
-# own. No release artifacts: that is a workflow of its own.
+# Every push to main and every pull request that touches more than the site
+# and the prose: formatting, the dependencies' licences and the shell's type
+# check once, then on Linux and macOS clippy, the Rust tests, and the CLI
+# and the shell driven end to end against the headless desktop core; the
+# plugins and the SDK package tested on their own. No release artifacts:
+# that is a workflow of its own.
 name: ci
 
 on:
+  # Everything but the site and the prose, which the website workflow builds:
+  # a later pattern overrides an earlier one, so the docs' example plugins,
+  # which this workflow builds and tests, still count
   push:
     branches: [main]
+    paths:
+      - "**"
+      - "!website/**"
+      - "!docs/**"
+      - "docs/examples/**"
+      - "!README.md"
+      - "!CONTRIBUTING.md"
+      - "!SECURITY.md"
+      - "!CHANGELOG.md"
   pull_request:
-  # the release workflow runs all of this before it builds
+    paths:
+      - "**"
+      - "!website/**"
+      - "!docs/**"
+      - "docs/examples/**"
+      - "!README.md"
+      - "!CONTRIBUTING.md"
+      - "!SECURITY.md"
+      - "!CHANGELOG.md"
+  # the release workflow runs all of this before it builds, whatever changed
   workflow_call:
 
 concurrency:
