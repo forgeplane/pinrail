@@ -33,6 +33,11 @@ const FILES: &[(&str, &str)] = &[
         "view/icons/x.svg",
         include_str!("../../pinrail-plugin/templates/plain/view/icons/x.svg"),
     ),
+    // Lucide's icons carry their licence with them
+    (
+        "view/icons/LICENSE",
+        include_str!("../../pinrail-plugin/licenses/lucide-icons.txt"),
+    ),
     (
         "schemas/payload.schema.json",
         include_str!("../../pinrail-plugin/templates/common/schemas/payload.schema.json"),
@@ -156,6 +161,12 @@ mod tests {
         assert_eq!(manifest["name"], "ticket_triage");
         assert_eq!(manifest["title"], "Ticket triage");
         assert_eq!(manifest["sample"], "sample.json");
+        // the icons are Lucide's, whose licence travels with them
+        assert!(
+            std::fs::read_to_string(dir.join("view/icons/LICENSE"))
+                .unwrap()
+                .starts_with("ISC License")
+        );
         assert!(
             std::fs::read_to_string(dir.join("view/index.html"))
                 .unwrap()

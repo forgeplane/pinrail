@@ -42,12 +42,15 @@ test("the plain template is a whole plugin, named throughout", async () => {
     "schemas/decision.schema.json",
     "schemas/payload.schema.json",
     "tests/ticket_triage.spec.ts",
+    "view/icons/LICENSE",
     "view/icons/check.svg",
     "view/icons/x.svg",
     "view/index.html",
     "view/view.js",
   ]);
   assert.deepEqual([...written].sort(), filesUnder(dir));
+  // the icons are Lucide's, whose licence travels with them
+  assert.match(fs.readFileSync(path.join(dir, "view/icons/LICENSE"), "utf8"), /^ISC License/);
 
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
   assert.equal(manifest.name, "ticket_triage");

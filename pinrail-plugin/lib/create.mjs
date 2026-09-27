@@ -71,6 +71,11 @@ export function scaffold(name, opts = {}) {
     fs.writeFileSync(target, fill(fs.readFileSync(from, "utf8")));
     written.push(path.relative(dir, target));
   }
+  // Lucide's icons carry their licence with them
+  if (written.some((f) => f.startsWith(path.join("view", "icons") + path.sep))) {
+    fs.copyFileSync(path.join(root, "licenses", "lucide-icons.txt"), path.join(dir, "view", "icons", "LICENSE"));
+    written.push(path.join("view", "icons", "LICENSE"));
+  }
   // a view without a build gets the SDK's types beside it, for its editor
   if (template === "plain") {
     fs.copyFileSync(path.join(root, "types.d.ts"), path.join(dir, "pinrail-plugin.d.ts"));

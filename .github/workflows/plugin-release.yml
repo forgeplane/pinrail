@@ -38,6 +38,8 @@ jobs:
       - name: The bundle, and nothing else
         working-directory: plugins/${{ steps.tag.outputs.name }}
         run: |
+          # Lucide's icons carry their licence with them
+          if [ -d view/icons ]; then cp ../../pinrail-plugin/licenses/lucide-icons.txt view/icons/LICENSE; fi
           zip -r "../../${{ steps.tag.outputs.name }}-${{ steps.tag.outputs.version }}.zip" . \
             -x "node_modules/*" "src/*" "tests/*" "test/*" "fixtures/*" ".*" "*/.*" \
                "package.json" "package-lock.json" "pnpm-lock.yaml" "yarn.lock" "bun.lockb" \
