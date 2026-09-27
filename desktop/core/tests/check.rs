@@ -106,8 +106,12 @@ fn folder(root: &Path, name: &str, manifest: Value, files: Files) -> PathBuf {
 fn the_script_and_the_loader_give_the_same_verdicts() {
     let samples = repo().join("plugins");
     let first = samples.join("hello");
+    // without node the parity goes unchecked: fail, unless told that is fine
     let Some(js) = js_check(&first) else {
-        eprintln!("skipping: node is not on the path");
+        assert!(
+            std::env::var_os("PINRAIL_SKIP_NODE").is_some(),
+            "node is not on the path; install it, or set PINRAIL_SKIP_NODE=1 to skip this test"
+        );
         return;
     };
     agree(&first, &js);
