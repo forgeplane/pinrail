@@ -3313,3 +3313,20 @@ async fn a_decision_is_checked_without_deciding_on_a_dry_run() {
     let (_, after) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
     assert_eq!(after["status"], "pending", "a dry run decides nothing");
 }
+
+#[test]
+fn a_port_in_use_is_refused_at_bind_with_its_address() {
+    // taken before anything else starts, so the app can say why it cannot
+    let held = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = held.local_addr().unwrap().port();
+    let dir = tempfile::tempdir().unwrap();
+    let error = pinrail_core::api::bind(&Config::new(dir.path(), port)).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::AddrInUse);
+    assert!(
+        error.to_string().contains(&format!("127.0.0.1:{port}")),
+        "{error}"
+    );
+
+    drop(held);
+    assert!(pinrail_core::api::bind(&Config::new(dir.path(), port)).is_ok());
+}

@@ -106,12 +106,24 @@ async fn info(State(state): State<ApiState>) -> Json<Info> {
 /// `server.json` while it runs; every 30 seconds it sweeps expired reviews,
 /// the reviews past the days the history keeps (when it keeps a limited
 /// number), and blobs no review names that are more than an hour old.
+/// Takes the server's port, before anything else starts, so a caller can
+/// tell the person why it cannot: the error names the address.
+pub fn bind(config: &crate::Config) -> std::io::Result<std::net::TcpListener> {
+    let addr = config.bind_addr();
+    let listener = std::net::TcpListener::bind(addr)
+        .map_err(|error| std::io::Error::new(error.kind(), format!("{addr}: {error}")))?;
+    listener.set_nonblocking(true)?;
+    Ok(listener)
+}
+
+/// Serves on a listener from `bind` until `shutdown`.
 pub async fn serve(
     app: Arc<Pinrail>,
+    listener: std::net::TcpListener,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
     let state = ApiState::new(app);
-    let listener = tokio::net::TcpListener::bind(state.app.config().bind_addr()).await?;
+    let listener = tokio::net::TcpListener::from_std(listener)?;
     server_info::write(state.app.config(), state.started_at)?;
 
     let sweeper = {

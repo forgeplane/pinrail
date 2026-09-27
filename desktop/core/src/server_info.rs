@@ -27,6 +27,12 @@ pub fn write(config: &Config, started_at: DateTime<Utc>) -> std::io::Result<()> 
     std::fs::write(path(config), body)
 }
 
+/// What the file says of the server it advertises, if there is one.
+pub fn read(config: &Config) -> Option<serde_json::Value> {
+    let body = std::fs::read_to_string(path(config)).ok()?;
+    serde_json::from_str(&body).ok()
+}
+
 /// Removes the file if it still advertises this process.
 pub fn remove(config: &Config) {
     let file = path(config);

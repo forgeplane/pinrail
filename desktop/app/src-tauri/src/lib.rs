@@ -6,6 +6,7 @@ mod headless;
 mod native;
 #[cfg(target_os = "macos")]
 mod notify_mac;
+mod startup;
 mod updater;
 
 use std::path::{Path, PathBuf};
@@ -324,15 +325,34 @@ pub fn run() {
             if config.sdk_dir.is_none() {
                 config.sdk_dir = std::env::current_exe().ok().and_then(|exe| sdk_dir(&exe));
             }
-            let state: Arc<Pinrail> = Arc::new(Pinrail::open(config).map_err(|error| {
-                eprintln!("pinrail: cannot open the data directory: {error}");
-                std::io::Error::other(error.to_string())
-            })?);
+            // What the app cannot do without, the port first: a server
+            // already running on it keeps its data directory to itself.
+            // Either failing is said in a dialog before the app quits.
+            let listener = match api::bind(&config) {
+                Ok(listener) => listener,
+                Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                    let running = pinrail_core::server_info::read(&config);
+                    cannot_start(app, startup::port_in_use(config.port, running.as_ref()));
+                    return Ok(());
+                }
+                Err(error) => {
+                    cannot_start(app, format!("Pinrail cannot start its server: {error}."));
+                    return Ok(());
+                }
+            };
+            let data_dir = config.data_dir.clone();
+            let state: Arc<Pinrail> = match Pinrail::open(config) {
+                Ok(state) => Arc::new(state),
+                Err(error) => {
+                    cannot_start(app, startup::data_dir(&data_dir, &error.to_string()));
+                    return Ok(());
+                }
+            };
             let handle = app.handle().clone();
             let server = state.clone();
             tauri::async_runtime::spawn(async move {
-                if let Err(error) = api::serve(server, std::future::pending()).await {
-                    eprintln!("pinrail: the server could not start: {error}");
+                if let Err(error) = api::serve(server, listener, std::future::pending()).await {
+                    eprintln!("pinrail: the server stopped: {error}");
                     handle.exit(1);
                 }
             });
@@ -341,8 +361,14 @@ pub fn run() {
             if notify_mac::available() {
                 notify_mac::setup(app.handle());
             }
-            app.set_menu(app_menu(app.handle())?)?;
-            native::build_tray(app.handle())?;
+            // the menu and the tray are conveniences: without them the app
+            // still does its work, so a failure is logged, not fatal
+            if let Err(error) = app_menu(app.handle()).and_then(|menu| app.set_menu(menu)) {
+                eprintln!("pinrail: the menu could not be set up: {error}");
+            }
+            if let Err(error) = native::build_tray(app.handle()) {
+                eprintln!("pinrail: the menu bar icon could not be set up: {error}");
+            }
             native::apply_menu_bar_icon(app.handle(), &state);
             native::apply_shortcut(app.handle(), &state);
             native::watch_pause_end(app.handle(), state.clone());
@@ -357,9 +383,14 @@ pub fn run() {
             });
 
             // pinrail:// links; a packaged app registers the scheme through
-            // its bundle, a development build registers it here.
+            // its bundle or package, a development build or an AppImage
+            // here. Links not working is no reason not to start.
             #[cfg(any(windows, target_os = "linux"))]
-            app.deep_link().register_all()?;
+            if (cfg!(debug_assertions) || std::env::var_os("APPIMAGE").is_some())
+                && let Err(error) = app.deep_link().register_all()
+            {
+                eprintln!("pinrail: pinrail:// links could not be registered: {error}");
+            }
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
                 open_urls(&handle, event.urls().iter().map(|url| url.as_str()));
@@ -505,6 +536,23 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .unwrap_or(0);
     menu.insert(&navigate, at)?;
     Ok(menu)
+}
+
+/// Hides the window, tells the person why the app cannot start, and quits
+/// once they have read it. Opened from the Dock or a launcher, stderr is
+/// never seen.
+fn cannot_start(app: &tauri::App, message: String) {
+    use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+    eprintln!("pinrail: {message}");
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+    let handle = app.handle().clone();
+    app.dialog()
+        .message(message)
+        .title("Pinrail cannot start")
+        .kind(MessageDialogKind::Error)
+        .show(move |_| handle.exit(1));
 }
 
 /// Opens the first URL that leads somewhere in the shell; with none, just

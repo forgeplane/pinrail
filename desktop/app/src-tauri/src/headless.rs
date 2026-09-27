@@ -66,6 +66,15 @@ fn config(options: Options, exe: &std::path::Path) -> Config {
 pub fn run(options: Options) -> i32 {
     let exe = std::env::current_exe().unwrap_or_default();
     let config = config(options, &exe);
+    // the port first: a server already running on it keeps its data
+    // directory to itself
+    let listener = match api::bind(&config) {
+        Ok(listener) => listener,
+        Err(error) => {
+            eprintln!("pinrail: cannot start the server: {error}");
+            return 1;
+        }
+    };
 
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
@@ -92,7 +101,7 @@ pub fn run(options: Options) -> i32 {
                 .as_deref()
                 .map_or_else(|| "nowhere".into(), |d| d.display().to_string())
         );
-        match api::serve(state, shutdown_signal()).await {
+        match api::serve(state, listener, shutdown_signal()).await {
             Ok(()) => 0,
             Err(error) => {
                 eprintln!("pinrail: the server stopped: {error}");
