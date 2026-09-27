@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
 import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
+import { followJob } from "../../lib/jobs";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
 import { Select } from "../Select";
@@ -156,6 +157,14 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
   const [updates, setUpdates] = useState<Line | "checking" | null>(null);
   /** an update under way: the job's step */
   const [updating, setUpdating] = useState<string | null>(null);
+  // an update followed after the row went away would poll for nothing
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [removing, setRemoving] = useState<"asking" | "busy" | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
@@ -190,22 +199,16 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
         setUpdates({ text: "Up to date", tone: "ok" });
         return;
       }
-      const follow = async () => {
-        const job = await api.pluginJob(started.job!);
-        if (job.status === "done") {
-          setUpdating(null);
-          const version = job.plugin?.install?.version ?? "";
-          setUpdates({ text: `Updated to ${version}`.trim(), tone: "ok" });
-          onMessage(`${p.title || p.name} plugin was updated to ${version}`.trim());
-        } else if (job.status === "failed") {
-          setUpdating(null);
-          setUpdates({ text: `Update failed: ${job.error ?? "unknown"}`, tone: "danger" });
-        } else {
-          setUpdating(job.status);
-          window.setTimeout(follow, 300);
-        }
-      };
-      follow();
+      const job = await followJob(started.job, (step) => setUpdating(step.status), () => !mounted.current);
+      if (!job) return;
+      setUpdating(null);
+      if (job.status === "done") {
+        const version = job.plugin?.install?.version ?? "";
+        setUpdates({ text: `Updated to ${version}`.trim(), tone: "ok" });
+        onMessage(`${p.title || p.name} plugin was updated to ${version}`.trim());
+      } else {
+        setUpdates({ text: `Update failed: ${job.error ?? "unknown"}`, tone: "danger" });
+      }
     } catch (e) {
       setUpdating(null);
       setUpdates({ text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Update failed", tone: "danger" });

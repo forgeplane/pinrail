@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri, type InstallRequest } from "../../api/client";
 import type { InstallJob, Inspection } from "../../api/types";
 import { takes } from "../../lib/format";
+import { followJob } from "../../lib/jobs";
 import { PluginIcon } from "../PluginIcon";
 import { Tooltip } from "../Tooltip";
 import { Toggle } from "./controls";
@@ -141,6 +142,14 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
   const [path, setPath] = useState("");
   const [link, setLink] = useState(false);
   const [stage, setStage] = useState<Stage>({ at: "source" });
+  // a job followed after the panel closed would poll for nothing
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const logBox = useRef<HTMLPreElement>(null);
@@ -195,16 +204,10 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
     setStage({ at: "installing", seen, job: null });
     try {
       const { job } = await api.installPlugin({ ...request(), force: seen.older });
-      const follow = async () => {
-        const state = await api.pluginJob(job);
-        if (state.status === "done") setStage({ at: "done", job: state });
-        else if (state.status === "failed") setStage({ at: "failed", seen, job: state });
-        else {
-          setStage({ at: "installing", seen, job: state });
-          window.setTimeout(follow, 300);
-        }
-      };
-      follow();
+      const state = await followJob(job, (step) => setStage({ at: "installing", seen, job: step }), () => !mounted.current);
+      if (!state) return;
+      if (state.status === "done") setStage({ at: "done", job: state });
+      else setStage({ at: "failed", seen, job: state });
     } catch (e) {
       setError(failure(e));
       setStage({ at: "seen", seen });

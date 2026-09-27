@@ -178,3 +178,23 @@ test("the buttons in a plugin's note do not fold its settings", async ({ page })
   await expect(row.locator("[data-plugin-remove-ask]")).toHaveCount(0);
   await expect(row, "Keep folded the settings open").not.toHaveClass(/is-open/);
 });
+
+test("an install whose progress stops answering ends as failed, not stuck", async ({ page }) => {
+  // a restart during a long build: the job's progress stops answering
+  const source = pluginCopy("hello", "wobbly", "1.0.0");
+  let polls = 0;
+  await page.route(`${core}/api/v1/plugins/jobs/*`, (route) => {
+    polls++;
+    if (polls === 1) {
+      return route.fulfill({ json: { id: "job", source, status: "building", steps: [], log: "", plugin: null, error: null } });
+    }
+    return route.fulfill({ status: 500, contentType: "text/plain", body: "the server is restarting" });
+  });
+  const dialog = await openInstall(page);
+  await dialog.getByLabel("Source").fill(source);
+  await dialog.locator("[data-install-look]").click();
+  await dialog.locator("[data-install-confirm]").click();
+
+  await expect(dialog.locator(".install-error"), "the panel kept waiting").toBeVisible({ timeout: 15000 });
+  await expect(page.locator('[aria-label="Close the install"]')).toBeEnabled();
+});
