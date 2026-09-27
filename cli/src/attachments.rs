@@ -33,7 +33,9 @@ pub struct Source {
 /// `PATH` or `PATH=NAME`, as `--attach` takes it; the name defaults to
 /// the file's own.
 pub fn parse_flag(spec: &str) -> Result<(String, PathBuf), String> {
-    let (path, name) = match spec.rsplit_once('=') {
+    // a file that exists is the whole spec, = in its name and all
+    let whole = std::path::Path::new(spec).is_file();
+    let (path, name) = match spec.rsplit_once('=').filter(|_| !whole) {
         Some((path, name)) if !path.is_empty() && !name.is_empty() => {
             (PathBuf::from(path), name.to_string())
         }
@@ -258,6 +260,25 @@ pub fn media_type(name: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_file_with_an_equals_sign_in_its_name_is_sent_as_it_is() {
+        let dir = std::env::temp_dir().join(format!("pinrail-attach-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a=b.png");
+        std::fs::write(&file, b"png").unwrap();
+        let spec = file.to_str().unwrap();
+        assert_eq!(
+            parse_flag(spec).unwrap(),
+            ("a=b.png".to_string(), file.clone())
+        );
+        // a rename after a path that has one too
+        assert_eq!(
+            parse_flag(&format!("{spec}=chart.png")).unwrap(),
+            ("chart.png".to_string(), file)
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn a_flag_is_a_path_with_an_optional_name() {

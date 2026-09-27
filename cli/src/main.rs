@@ -272,9 +272,9 @@ struct SubmitArgs {
     request: Option<String>,
     /// Where the review comes from, as key=value pairs: repo (the project,
     /// owner/name), ref (a branch or pull request), workflow and run_id
-    /// (what asked), url (a link back). In a git checkout, repo and ref
+    /// (what asked), url (a link back, which may contain commas). In a git checkout, repo and ref
     /// default to the remote and the branch. E.g. repo=acme/api,ref=42,url=…
-    #[arg(long, value_parser = parse_origin)]
+    #[arg(long, value_parser = origin::parse)]
     origin: Option<BTreeMap<String, String>>,
     /// Payload JSON: a file path, or - for stdin
     #[arg(long, value_name = "FILE|-")]
@@ -1283,18 +1283,4 @@ fn read_json_arg(spec: &str) -> Result<Value> {
 
 fn parse_json(s: &str) -> Result<Value, String> {
     serde_json::from_str(s).map_err(|e| e.to_string())
-}
-
-fn parse_origin(s: &str) -> Result<BTreeMap<String, String>, String> {
-    let mut map = BTreeMap::new();
-    for pair in s.split(',').filter(|p| !p.trim().is_empty()) {
-        let (k, v) = pair
-            .split_once('=')
-            .ok_or_else(|| format!("expected key=value, got {pair:?}"))?;
-        map.insert(k.trim().to_string(), v.trim().to_string());
-    }
-    if map.is_empty() {
-        return Err("origin needs at least one key=value".into());
-    }
-    Ok(map)
 }

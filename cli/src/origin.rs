@@ -3,6 +3,7 @@
 //! it: `repo` from the remote, `ref` from the branch. What the request or
 //! `--origin` gives wins; only what is missing is filled.
 
+use std::collections::BTreeMap;
 use std::process::{Command, Stdio};
 
 use serde_json::{Map, Value, json};
@@ -125,9 +126,49 @@ fn project_of(url: &str) -> Option<String> {
     (!path.is_empty()).then(|| path.to_string())
 }
 
+/// `--origin repo=acme/api,url=https://…`: comma-separated pairs. A url
+/// may hold commas of its own: inside one, only a comma followed by a
+/// known key starts the next pair.
+pub fn parse(s: &str) -> Result<BTreeMap<String, String>, String> {
+    let mut pairs: Vec<(String, String)> = Vec::new();
+    for part in s.split(',') {
+        let key = part.split_once('=').map(|(k, _)| k.trim());
+        let in_url = pairs.last().is_some_and(|(k, _)| k == "url");
+        match key {
+            Some(k) if !in_url || KEYS.contains(&k) => {
+                let (k, v) = part.split_once('=').unwrap_or_default();
+                pairs.push((k.trim().to_string(), v.trim().to_string()));
+            }
+            _ if in_url => {
+                let (_, url) = pairs.last_mut().unwrap();
+                url.push(',');
+                url.push_str(part.trim());
+            }
+            _ if part.trim().is_empty() => {}
+            _ => return Err(format!("expected key=value, got {part:?}")),
+        }
+    }
+    let map: BTreeMap<String, String> = pairs.into_iter().collect();
+    if map.is_empty() {
+        return Err("origin needs at least one key=value".into());
+    }
+    Ok(map)
+}
+
 #[cfg(test)]
 mod tests {
     use super::project_of;
+
+    #[test]
+    fn a_link_with_commas_stays_one_value() {
+        // CI links carry commas: only a comma that starts a known key splits
+        let origin =
+            super::parse("repo=acme/api,url=https://ci.example/run?ids=1,2,workflow=deploy")
+                .unwrap();
+        assert_eq!(origin["url"], "https://ci.example/run?ids=1,2");
+        assert_eq!(origin["repo"], "acme/api");
+        assert_eq!(origin["workflow"], "deploy");
+    }
 
     #[test]
     fn a_remote_names_its_project_by_its_path() {
