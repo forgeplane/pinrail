@@ -11,8 +11,9 @@ The inbox is where your agents' reviews wait. Open one, decide it in the view it
 
 The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what is inside. A paperclip marks a review that came with files, with how many; hover it for their size.
 
-- **Filter by project.** The sidebar lists the projects your reviews come from. Pick one to see only its reviews.
-- **Search.** Press <kbd>/</kbd> and type. Every word must appear somewhere in the title, the payload, the plugin, the requester, the project or who decided.
+- **Filter by project or plugin.** The sidebar lists the projects your reviews come from. Pick one, or choose a project or a plugin from the menus above the list, to see only those reviews.
+- **Show new rounds.** *New rounds* shows only the reviews that revise an earlier one.
+- **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester or project contains the text you typed. The content of a review is not searched.
 - **Jump to the oldest.** The sidebar keeps the oldest waiting reviews one click away on every screen, and <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> step through what is waiting.
 
 ## Deciding a review
@@ -43,7 +44,7 @@ Every review that has ended is in your **history**: decided, discarded, withdraw
 
 ![History: ended reviews with their outcome, project and when they were recorded.](screenshot:history "Decided, changes requested, discarded and withdrawn, newest first.")
 
-Search it the same way as the inbox, and filter by project, plugin or outcome. Open it with <kbd>⌘⇧H</kbd>.
+To search your history, press <kbd>/</kbd> and type one or more words. A review matches when each word appears in its title, its plugin, its requester, its project or the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, plugin or outcome. Open it with <kbd>⌘⇧H</kbd>.
 
 How long history is kept is up to you: see *Keep reviews for* in [Settings](/docs/using/settings/#data).
 

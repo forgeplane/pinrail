@@ -214,9 +214,10 @@ impl Db {
                 sql.push_str(&format!(" AND {column} = ?{n}"));
             }
         }
-        // Every word somewhere among what a list shows or holds: the title,
-        // the payload, the plugin, who asked, where it came from, who
-        // decided. Case-insensitive, as LIKE is for ASCII.
+        // Every word somewhere among what a list shows: the title, the
+        // plugin, who asked, where it came from, who decided. Not the
+        // payload, which can be large and would match almost anything.
+        // Case-insensitive, as LIKE is for ASCII.
         if let Some(v) = &filters.text {
             for word in v.split_whitespace() {
                 let escaped = word
@@ -226,7 +227,6 @@ impl Db {
                 let n = push(&format!("%{escaped}%"));
                 let columns = [
                     "r.title",
-                    "r.payload",
                     "r.plugin",
                     "r.requested_by",
                     "json_extract(r.origin, '$.repo')",

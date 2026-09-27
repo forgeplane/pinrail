@@ -528,6 +528,9 @@ async fn a_listing_pages_by_cursor_or_offset_searches_every_field_and_offers_its
     assert_eq!(titles(&decided_by), vec!["second"]);
     let (_, nothing) = call(&app, "GET", "/api/v1/reviews?q=nightly%20fifth", None).await;
     assert_eq!(nothing["total"], 0);
+    // not the payload, which can be large and would match on anything
+    let (_, payload) = call(&app, "GET", "/api/v1/reviews?q=dedups", None).await;
+    assert_eq!(payload["total"], 0, "{payload}");
 
     // decided only: the menus narrow to what that status holds
     let (_, decided) = call(
