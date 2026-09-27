@@ -203,3 +203,24 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     assert!(!dir.path().join("settings.json").exists());
     assert!(notices.try_recv().is_err());
 }
+
+/// The data directory holds every review, decision and file, so only its
+/// owner can read it: a new one is made that way, and an existing one open
+/// to others is closed.
+#[cfg(unix)]
+#[test]
+fn the_data_directory_is_readable_by_its_owner_only() {
+    use std::os::unix::fs::PermissionsExt;
+    let mode = |dir: &std::path::Path| std::fs::metadata(dir).unwrap().permissions().mode() & 0o777;
+    let root = tempfile::tempdir().unwrap();
+
+    let fresh = root.path().join("fresh");
+    Pinrail::open(Config::new(&fresh, 0)).unwrap();
+    assert_eq!(mode(&fresh), 0o700);
+
+    let open = root.path().join("open");
+    std::fs::create_dir(&open).unwrap();
+    std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
+    Pinrail::open(Config::new(&open, 0)).unwrap();
+    assert_eq!(mode(&open), 0o700);
+}

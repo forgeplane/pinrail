@@ -21,7 +21,7 @@ flowchart LR
 ```
 
 - **The server** listens on your machine's loopback address, `127.0.0.1`, port `4747` by default. Programs on your computer can reach it, but nothing on the network can. Web pages you visit cannot reach it either. It answers only requests addressed to `127.0.0.1` or `localhost`. It changes nothing unless the request is JSON, and browsers do not let another site send JSON to it.
-- **Reviews and decisions** are stored in your data directory, `~/.local/share/pinrail` by default, with the files sent beside reviews. There is no account and no cloud service.
+- **Reviews and decisions** are stored in your data directory, `~/.local/share/pinrail` by default, with the files sent beside reviews. Pinrail makes that directory readable only by your user account, so other users of the computer cannot read your reviews. There is no account and no cloud service.
 - **The app** shows reviews and sends your decisions. Nothing leaves your machine unless an agent, acting on your decision, sends it.
 
 ## What a plugin's view can do

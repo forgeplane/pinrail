@@ -105,7 +105,7 @@ impl Pinrail {
     /// application is held: serving it over HTTP wants an `Arc`, a one-off
     /// operation does not.
     pub fn open(config: Config) -> Result<Self, Error> {
-        std::fs::create_dir_all(&config.data_dir)?;
+        private_dir(&config.data_dir)?;
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
         let records = db.installed_plugins()?;
@@ -142,4 +142,19 @@ impl Pinrail {
             attachments,
         })
     }
+}
+
+/// Creates the data directory readable by its owner only, and closes an
+/// existing one that others can read: it holds every review, decision and
+/// file, and everything in it is created beneath it.
+fn private_dir(dir: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if std::fs::metadata(dir)?.permissions().mode() & 0o077 != 0 {
+            std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+        }
+    }
+    Ok(())
 }
