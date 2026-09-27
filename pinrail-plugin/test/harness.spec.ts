@@ -66,6 +66,8 @@ test("sendKey sends only what the app would forward to the view", async ({ page 
       shortcuts: [
         { keys: "j", does: "Next" },
         { keys: "cmd+enter", does: "Hand over" },
+        { keys: "command+shift+f", does: "Fold" },
+        { keys: "cmdorctrl+k", does: "Search" },
       ],
     }),
   );
@@ -74,4 +76,8 @@ test("sendKey sends only what the app would forward to the view", async ({ page 
   await plugin.sendKey("j");
   await expect(plugin.sendKey("x")).rejects.toThrow("not declared");
   await expect(plugin.sendKey("cmd+enter")).rejects.toThrow("the app keeps");
+  // modifiers in any order or spelling are the same combination
+  await plugin.sendKey("shift+cmd+f");
+  // the app's own menu keys are never forwarded
+  await expect(plugin.sendKey("cmdorctrl+k")).rejects.toThrow("the app keeps");
 });

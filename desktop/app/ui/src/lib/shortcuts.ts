@@ -120,12 +120,29 @@ export function comboFromEvent(event: KeyboardEvent): string | null {
   return parts.join("+");
 }
 
+/** A combination as `comboFromEvent` writes it: ctrl, alt, shift, cmd, then the key. */
+const combo = (key: string, ...modifiers: string[]) => [...["ctrl", "alt", "shift", "cmd"].filter((m) => modifiers.includes(m)), key].join("+");
+const PRIMARY = isMac ? "cmd" : "ctrl";
+
 /**
- * The keys the app itself answers on the review screen. A plugin that
- * declares one of these is told so, and never receives it.
+ * The keys the app itself answers: its menus (desktop/app/src-tauri/src/lib.rs
+ * and the standard Edit, Window and application menus) and the review
+ * screen. A plugin that declares one of these is told so, and never
+ * receives it; every other declared key is forwarded to its view.
  */
-export const REVIEW_SCREEN_KEYS = new Set(["shift+/", "[", "]", "escape", "cmd+shift+m", "cmd+enter", "ctrl+enter"]);
-export const isShadowed = (combo: string) => REVIEW_SCREEN_KEYS.has(combo) || combo.startsWith("cmd+") || combo.startsWith("ctrl+");
+export const APP_KEYS = new Set([
+  ...["k", ",", "i", "b", "[", "]", "q", "w", "m", "z", "x", "c", "v", "a"].map((k) => combo(k, PRIMARY)),
+  ...["h", "p", "m", "l", "z"].map((k) => combo(k, PRIMARY, "shift")),
+  ...(isMac ? [combo("h", "cmd"), combo("h", "alt", "cmd"), combo("f", "ctrl", "cmd")] : []),
+  // the review screen: help, rounds, closing, and handing over
+  "shift+/",
+  "[",
+  "]",
+  "escape",
+  "cmd+enter",
+  "ctrl+enter",
+]);
+export const isShadowed = (keys: string) => APP_KEYS.has(keys);
 
 /**
  * The shortcut a key press asks for, in the form the app registers, or

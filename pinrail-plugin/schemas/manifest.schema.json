@@ -87,7 +87,7 @@
         "type": "object",
         "required": ["keys", "does"],
         "properties": {
-          "keys": { "type": "string", "minLength": 1, "description": "Modifiers (`cmd`, `ctrl`, `alt`, `shift`) joined by `+`, then one key: `j`, `cmd+shift+f`, `escape`." },
+          "keys": { "type": "string", "minLength": 1, "description": "Modifiers (`cmd`, `ctrl`, `alt`, `shift`, or `cmdorctrl` for cmd on macOS and ctrl on Linux) joined by `+` in any order, then one key: `j`, `cmd+shift+f`, `escape`." },
           "does": { "type": "string", "minLength": 1, "description": "The one-line label the keyboard help shows." },
           "group": { "type": ["string", "null"], "description": "Lists the entry under this caption." }
         }

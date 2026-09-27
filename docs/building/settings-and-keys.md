@@ -113,7 +113,7 @@ Declaring a key does two things for you:
 
 | Field | Meaning |
 |---|---|
-| `keys` | Modifiers (`cmd`, `ctrl`, `alt`, `shift`) joined by `+`, then one key. Name the key the way `KeyboardEvent.code` does, without `Key` or `Digit`: `j`, `1`, `/`, `enter`, `escape`, `arrowdown`. |
+| `keys` | Modifiers joined by `+`, in any order, then one key. The modifiers are `cmd`, `ctrl`, `alt` and `shift`; `command`, `control` and `option` also work, and `cmdorctrl` means <kbd>⌘</kbd> on macOS and <kbd>Ctrl</kbd> on Linux. Name the key the way `KeyboardEvent.code` does, without `Key` or `Digit`: `j`, `1`, `/`, `enter`, `escape`, `arrowdown`. |
 | `does` | The one-line label shown in the keyboard help. |
 | `group` | Optional. Lists the entry under this caption. |
 
@@ -132,7 +132,14 @@ document.addEventListener("keydown", (e) => {
 Only declared keys are forwarded. A view that declares none receives none.
 
 :::caution[Keys the app keeps]
-Some keys belong to the review screen and are never forwarded: <kbd>?</kbd>, <kbd>[</kbd>, <kbd>]</kbd>, <kbd>esc</kbd>, <kbd>⌘⇧M</kbd>, <kbd>⌘↵</kbd> and the <kbd>⌘</kbd> shortcuts of the app's menus. If you declare one, the keyboard help marks it as taken by the app.
+Some keys belong to the app and are never forwarded:
+
+- on the review screen: <kbd>?</kbd>, <kbd>[</kbd>, <kbd>]</kbd>, <kbd>esc</kbd> and <kbd>⌘↵</kbd>;
+- in the app's menus: <kbd>⌘K</kbd>, <kbd>⌘,</kbd>, <kbd>⌘I</kbd>, <kbd>⌘B</kbd>, <kbd>⌘[</kbd>, <kbd>⌘]</kbd>, <kbd>⌘⇧H</kbd>, <kbd>⌘⇧P</kbd>, <kbd>⌘⇧M</kbd>, <kbd>⌘⇧L</kbd>, <kbd>⌘W</kbd>, <kbd>⌘M</kbd> and <kbd>⌘Q</kbd>;
+- the standard editing keys: <kbd>⌘Z</kbd>, <kbd>⌘⇧Z</kbd>, <kbd>⌘X</kbd>, <kbd>⌘C</kbd>, <kbd>⌘V</kbd> and <kbd>⌘A</kbd>;
+- on macOS only: <kbd>⌘H</kbd>, <kbd>⌥⌘H</kbd> and <kbd>⌃⌘F</kbd>.
+
+On Linux, read <kbd>Ctrl</kbd> for <kbd>⌘</kbd>. Every other combination you declare, including other <kbd>⌘</kbd> combinations, is forwarded. If you declare one of the app's keys, the keyboard help marks it as taken by the app.
 
 They work while your view has the keyboard too: pressed outside a text field, <kbd>?</kbd>, <kbd>[</kbd> and <kbd>]</kbd> go up to the app, unless your view handled them first and called `preventDefault()`.
 :::

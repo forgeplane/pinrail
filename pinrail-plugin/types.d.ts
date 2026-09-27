@@ -21,7 +21,7 @@ export type Settings = Record<string, string | number | boolean>;
 export type SchemaRef = { $ref: string } | Record<string, unknown>;
 
 export type Shortcut = {
-  /** modifiers (`cmd`, `ctrl`, `alt`, `shift`) joined by `+` and one key: `j`, `cmd+shift+f`, `escape` */
+  /** modifiers (`cmd`, `ctrl`, `alt`, `shift`, or `cmdorctrl`) joined by `+` in any order, then one key: `j`, `cmd+shift+f`, `escape` */
   keys: string;
   /** the one-line label the app's shortcuts dialog shows */
   does: string;

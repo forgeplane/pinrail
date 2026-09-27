@@ -28,16 +28,26 @@ function probe(): string {
       entry: "index.html",
       payload_schema: {},
       decision_schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } },
-      shortcuts: [{ keys: "j", does: "Count" }],
+      shortcuts: [
+        { keys: "j", does: "Count" },
+        { keys: "cmdorctrl+shift+f", does: "Fold" },
+        { keys: "cmdorctrl+e", does: "Expand" },
+      ],
     }),
   );
   fs.writeFileSync(
     path.join(dir, "index.html"),
     `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
-<p id="keys">0</p><pre id="errors"></pre>
+<p id="keys">0</p><p id="folds">0</p><p id="expands">0</p><pre id="errors"></pre>
 <script>
   let keys = 0;
-  document.addEventListener("keydown", (e) => { if (e.key === "j") document.getElementById("keys").textContent = String(++keys); });
+  let folds = 0;
+  let expands = 0;
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "j") document.getElementById("keys").textContent = String(++keys);
+    if (e.code === "KeyF" && e.shiftKey && (e.metaKey || e.ctrlKey)) document.getElementById("folds").textContent = String(++folds);
+    if (e.code === "KeyE" && !e.shiftKey && (e.metaKey || e.ctrlKey)) document.getElementById("expands").textContent = String(++expands);
+  });
   const plugin = Pinrail.connect({
     onInit() {},
     onViolations(errors) { document.getElementById("errors").textContent = errors.map((e) => (e.path || "/") + ": " + e.message).join("\\n"); },
@@ -119,6 +129,13 @@ test("a declared key pressed with the shell in focus reaches the view", async ({
 
   await page.keyboard.press("j");
   await expect(view.locator("#keys")).toHaveText("1");
+
+  // with modifiers, written in any order and spelling in the manifest
+  await page.keyboard.press("ControlOrMeta+Shift+F");
+  await expect(view.locator("#folds")).toHaveText("1");
+  // ⌘ or Ctrl alone is forwarded too, unless the app uses the combination
+  await page.keyboard.press("ControlOrMeta+E");
+  await expect(view.locator("#expands")).toHaveText("1");
 });
 
 test("a choice survives a reload of the app", async ({ page }) => {

@@ -13,10 +13,33 @@ const Ajv2020 = require("ajv/dist/2020").default;
 
 const ORIGIN = "http://plugin.test";
 
-/** The keys the app's review screen keeps for itself, and so never forwards to
- *  a view; the same as REVIEW_SCREEN_KEYS in desktop/app/ui/src/lib/shortcuts.ts. */
-const APP_KEYS = new Set(["shift+/", "[", "]", "escape", "cmd+shift+m", "cmd+enter", "ctrl+enter"]);
-const appKeeps = (combo) => APP_KEYS.has(combo) || combo.startsWith("cmd+") || combo.startsWith("ctrl+");
+const MAC = process.platform === "darwin";
+const MODIFIER = { cmd: "cmd", command: "cmd", meta: "cmd", super: "cmd", ctrl: "ctrl", control: "ctrl", alt: "alt", option: "alt", shift: "shift", cmdorctrl: MAC ? "cmd" : "ctrl", commandorcontrol: MAC ? "cmd" : "ctrl" };
+
+/** A combination as the app compares it: modifiers by one name, in the
+ *  order ctrl, alt, shift, cmd, then the key. The same as the core's. */
+function normalizeKeys(keys) {
+  const parts = String(keys).split("+").map((p) => p.trim().toLowerCase());
+  const key = parts.pop();
+  const named = parts.map((m) => MODIFIER[m] || m);
+  return [...["ctrl", "alt", "shift", "cmd"].filter((m) => named.includes(m)), key].join("+");
+}
+
+/** The keys the app keeps for itself, and so never forwards to a view; the
+ *  same as APP_KEYS in desktop/app/ui/src/lib/shortcuts.ts. */
+const PRIMARY = MAC ? "cmd" : "ctrl";
+const APP_KEYS = new Set([
+  ...["k", ",", "i", "b", "[", "]", "q", "w", "m", "z", "x", "c", "v", "a"].map((k) => normalizeKeys(`${PRIMARY}+${k}`)),
+  ...["h", "p", "m", "l", "z"].map((k) => normalizeKeys(`${PRIMARY}+shift+${k}`)),
+  ...(MAC ? ["cmd+h", "alt+cmd+h", "ctrl+cmd+f"] : []),
+  "shift+/",
+  "[",
+  "]",
+  "escape",
+  "cmd+enter",
+  "ctrl+enter",
+]);
+const appKeeps = (combo) => APP_KEYS.has(combo);
 const root = packageRoot(__filename);
 
 const mime = {
@@ -185,8 +208,9 @@ async function mountPlugin(page, pluginDir, opts) {
     settings: (values) => page.evaluate((v) => window.__shell.settings(v), values),
     // what the app does with a key pressed while the shell has focus: it
     // forwards a combination the manifest declares, and not one it keeps
-    sendKey: async (combo) => {
-      if (!(manifest.shortcuts || []).some((s) => s.keys === combo)) {
+    sendKey: async (keys) => {
+      const combo = normalizeKeys(keys);
+      if (!(manifest.shortcuts || []).some((s) => normalizeKeys(s.keys) === combo)) {
         throw new Error(`${combo} is not declared in the manifest's shortcuts, so the app never forwards it`);
       }
       if (appKeeps(combo)) throw new Error(`${combo}: the app keeps this key for itself and never forwards it`);

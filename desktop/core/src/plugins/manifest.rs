@@ -635,20 +635,6 @@ mod shape {
 mod shortcuts {
     use serde_json::{Map, Value};
 
-    const MODIFIERS: &[&str] = &[
-        "cmd",
-        "command",
-        "super",
-        "meta",
-        "ctrl",
-        "control",
-        "alt",
-        "option",
-        "shift",
-        "cmdorctrl",
-        "commandorcontrol",
-    ];
-
     pub fn load(raw: &Value) -> Result<Vec<Value>, String> {
         let Value::Array(items) = raw else {
             return Err("shortcuts must be a list of {keys, does}".into());
@@ -685,17 +671,44 @@ mod shortcuts {
         Ok(out)
     }
 
-    /// Modifiers in any order and case, then one key; back in lowercase.
+    /// The order the shell writes a key press in, so a declared combination
+    /// and a pressed one compare as text.
+    const ORDER: &[&str] = &["ctrl", "alt", "shift", "cmd"];
+
+    /// A modifier by its one name: `command`, `meta` and `super` are `cmd`,
+    /// `option` is `alt`, `control` is `ctrl`, and `cmdorctrl` is the
+    /// platform's own.
+    fn modifier(name: &str) -> Option<&'static str> {
+        Some(match name {
+            "cmd" | "command" | "meta" | "super" => "cmd",
+            "ctrl" | "control" => "ctrl",
+            "alt" | "option" => "alt",
+            "shift" => "shift",
+            "cmdorctrl" | "commandorcontrol" if cfg!(target_os = "macos") => "cmd",
+            "cmdorctrl" | "commandorcontrol" => "ctrl",
+            _ => return None,
+        })
+    }
+
+    /// Modifiers in any order, case and spelling, then one key; back in
+    /// lowercase, with the modifiers in `ORDER`.
     fn normalize(keys: &str) -> Option<String> {
         let parts: Vec<String> = keys.split('+').map(|p| p.trim().to_lowercase()).collect();
         let (key, modifiers) = parts.split_last()?;
         if key.is_empty() || key.chars().any(char::is_whitespace) {
             return None;
         }
-        if modifiers.iter().any(|m| !MODIFIERS.contains(&m.as_str())) {
-            return None;
-        }
-        Some(parts.join("+"))
+        let named = modifiers
+            .iter()
+            .map(|m| modifier(m))
+            .collect::<Option<Vec<_>>>()?;
+        let mut out: Vec<&str> = ORDER
+            .iter()
+            .copied()
+            .filter(|m| named.contains(m))
+            .collect();
+        out.push(key);
+        Some(out.join("+"))
     }
 }
 
@@ -1251,19 +1264,22 @@ mod tests {
     #[test]
     fn shortcuts_are_checked_and_normalized() {
         let tmp = tempfile::tempdir().unwrap();
-        let good = r#","shortcuts":[{"keys":"j","does":"Next"},{"keys":" Cmd + Shift+M ","does":"Maximize","group":"View"},{"keys":"shift+/","does":"Help"}]"#;
+        let good = r#","shortcuts":[{"keys":"j","does":"Next"},{"keys":" Cmd + Shift+M ","does":"Maximize","group":"View"},{"keys":"shift+/","does":"Help"},{"keys":"Option+Command+Control+x","does":"Synonyms"},{"keys":"cmdorctrl+k","does":"Platform"}]"#;
         let p = Plugin::load(&plugin_dir(tmp.path(), "keys", good));
         assert!(p.usable(), "{:?}", p.error);
         assert_eq!(p.shortcuts_error, None);
         assert_eq!(
             p.shortcuts,
             vec![
+                // modifiers in the order a key press is read: ctrl, alt, shift, cmd
                 serde_json::json!({"keys": "j", "does": "Next"}),
-                serde_json::json!({"keys": "cmd+shift+m", "does": "Maximize", "group": "View"}),
+                serde_json::json!({"keys": "shift+cmd+m", "does": "Maximize", "group": "View"}),
                 serde_json::json!({"keys": "shift+/", "does": "Help"}),
+                serde_json::json!({"keys": "ctrl+alt+cmd+x", "does": "Synonyms"}),
+                serde_json::json!({"keys": if cfg!(target_os = "macos") { "cmd+k" } else { "ctrl+k" }, "does": "Platform"}),
             ]
         );
-        assert_eq!(p.to_json()["shortcuts"][1]["keys"], "cmd+shift+m");
+        assert_eq!(p.to_json()["shortcuts"][1]["keys"], "shift+cmd+m");
 
         let cases = [
             (r#","shortcuts":{"keys":"j"}"#, "not of type null or array"),

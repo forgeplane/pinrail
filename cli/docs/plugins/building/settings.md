@@ -26,10 +26,15 @@ Keys: list them in the manifest's `shortcuts`:
 ]
 ```
 
-- `keys`: modifiers (`cmd`, `ctrl`, `alt`, `shift`) joined by `+`, then
-  one key named as `KeyboardEvent.code` names it, without `Key` or
-  `Digit`: `j`, `1`, `enter`, `arrowdown`.
+- `keys`: modifiers (`cmd`, `ctrl`, `alt`, `shift`) joined by `+` in any
+  order, then one key named as `KeyboardEvent.code` names it, without
+  `Key` or `Digit`: `j`, `1`, `enter`, `arrowdown`. `cmdorctrl` means cmd
+  on macOS and ctrl on Linux.
 - The app lists them in its keyboard help, and forwards them to the view
   as `keydown` when the app, not the frame, has the focus.
-- The app keeps `?`, `[`, `]`, `escape`, `cmd+shift+m` (⌘⇧M),
-  `cmd+enter` (⌘↵) and its menus' keys.
+- The app keeps `?`, `[`, `]`, `escape` and `cmd+enter` on the review
+  screen, the keys of its menus (`cmd+k`, `cmd+,`, `cmd+i`, `cmd+b`,
+  `cmd+[`, `cmd+]`, `cmd+shift+h`, `cmd+shift+p`, `cmd+shift+m`,
+  `cmd+shift+l`, `cmd+w`, `cmd+m`, `cmd+q`), and the editing keys (`cmd+z`,
+  `cmd+shift+z`, `cmd+x`, `cmd+c`, `cmd+v`, `cmd+a`). On Linux, ctrl takes
+  the place of cmd. Every other declared key is forwarded.
