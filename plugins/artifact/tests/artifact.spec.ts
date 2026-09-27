@@ -161,3 +161,16 @@ test("markup in the artifact runs nothing, so it cannot decide the review", asyn
   const submits = (await plugin.messages()).filter((m) => m.type === "submit");
   expect(submits, "the artifact handed over a decision").toEqual([]);
 });
+
+test("a refused hand-over says why and keeps every comment", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: landing() });
+  const f = plugin.frame;
+  await commentOn(plugin, "[data-artifact] h1", "Say what it does, not a slogan");
+  await plugin.collect();
+  await plugin.nextSubmit();
+
+  await plugin.sendViolations([{ path: "/comments/0/selector", message: "must name an element" }]);
+  await expect(f.locator("body")).toContainText("/comments/0/selector: must name an element");
+  await expect(f.locator("[data-comment]")).toHaveCount(1);
+  await expect(f.locator("[data-pin]")).toHaveCount(1);
+});

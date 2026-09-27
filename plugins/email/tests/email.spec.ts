@@ -351,3 +351,19 @@ test("a sentence rewritten is one change, and puts back as one", async ({ page }
   await expect(first.locator("[data-body]")).toContainText("at your earliest convenience");
   await expect(first.locator(".body ins")).toHaveCount(0);
 });
+
+test("a refused hand-over says why and keeps every edit", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const first = plugin.frame.locator('[data-draft="northwind"]');
+  await rewrite(page, first, "at your earliest convenience", "this week");
+  await first.getByRole("button", { name: "Send" }).click();
+  await handOverPastTheWarning(plugin);
+  await plugin.nextSubmit();
+
+  await plugin.sendViolations([{ path: "/drafts/0/body", message: "must not be empty" }]);
+  const view = plugin.frame.locator("body");
+  await expect(view).toContainText("/drafts/0/body: must not be empty");
+  // the draft, marked to send, still carries its edit: collapsed, "edited"
+  await expect(view).toContainText("edited");
+  await expect(view).toContainText("1 to send");
+});
