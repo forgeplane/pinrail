@@ -155,6 +155,9 @@ jobs:
         run: |
           cargo test --manifest-path cli/Cargo.toml
           cargo test --manifest-path desktop/Cargo.toml --workspace
+      # what needs the network: a plugin built from its sources with npm ci
+      - name: Rust tests that need the network
+        run: cargo test --manifest-path desktop/Cargo.toml -p pinrail-core -- --ignored
       - name: Install Playwright
         working-directory: e2e
         run: |

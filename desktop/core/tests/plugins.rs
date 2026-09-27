@@ -325,7 +325,7 @@ async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unc
 }
 
 #[test]
-fn every_shipped_plugin_says_when_to_use_it_and_gives_an_example_that_passes() {
+fn every_shipped_plugin_says_when_to_use_it_and_ships_an_example_and_a_sample() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
     for entry in std::fs::read_dir(&root).unwrap().flatten() {
         if !entry.path().join("manifest.json").is_file() {
@@ -358,6 +358,12 @@ fn every_shipped_plugin_says_when_to_use_it_and_gives_an_example_that_passes() {
             plugin.name,
             plugin.example_error
         );
+        assert_eq!(plugin.sample_error, None, "{}", plugin.name);
+        let sample = plugin
+            .sample
+            .as_ref()
+            .unwrap_or_else(|| panic!("{} has no sample", plugin.name));
+        assert!(!sample.title.is_empty(), "{}", plugin.name);
     }
 }
 

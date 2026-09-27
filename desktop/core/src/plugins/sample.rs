@@ -140,19 +140,8 @@ mod tests {
     }
 
     #[test]
-    fn every_official_plugin_ships_a_sample_that_loads() {
-        for name in [
-            "list", "feedback", "review", "email", "artifact", "calendar", "logo", "model", "hello",
-        ] {
-            let plugin = Plugin::load(&plugins_dir().join(name));
-            assert!(plugin.usable(), "{name}: {:?}", plugin.error);
-            assert_eq!(plugin.sample_error, None, "{name}");
-            let sample = plugin
-                .sample
-                .as_ref()
-                .unwrap_or_else(|| panic!("{name} has no sample"));
-            assert!(!sample.title.is_empty());
-        }
+    fn a_sample_names_the_files_it_sends() {
+        // every plugin's sample loads: tests/plugins.rs goes through them all
         let model = Plugin::load(&plugins_dir().join("model"));
         let files: Vec<&str> = model
             .sample

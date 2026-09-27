@@ -2618,6 +2618,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
 }
 
 #[tokio::test]
+#[ignore = "runs npm ci, which needs the network; CI runs it with --ignored"]
 async fn the_artifact_plugin_installs_from_its_sources() {
     let app = app();
     let artifact = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/artifact");
