@@ -8,6 +8,7 @@ import { ApiError, api, inTauri } from "../../api/client";
 import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
 import { followJob } from "../../lib/jobs";
+import { REVEAL } from "../../lib/keys";
 import { PluginBadge } from "../Badges";
 import { PluginIcon } from "../PluginIcon";
 import { Select } from "../Select";
@@ -324,7 +325,7 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           </Tooltip>
         ) : null}
         {native ? (
-          <Tooltip label="Show in Finder">
+          <Tooltip label={REVEAL}>
             <button type="button" className="bar-button" onClick={onReveal} aria-label={`Reveal ${p.name}`}>
               <FolderOpen size={15} />
             </button>

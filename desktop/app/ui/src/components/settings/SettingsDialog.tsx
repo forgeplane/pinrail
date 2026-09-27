@@ -9,6 +9,7 @@ import { api, inTauri } from "../../api/client";
 import { copyText } from "../../lib/clipboard";
 import { size } from "../../lib/format";
 import type { Info as ServerInfo } from "../../api/types";
+import { REVEAL, TRAY } from "../../lib/keys";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
@@ -188,19 +189,19 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                 <SettingsRow label="Launch at login" description="Open Pinrail when you sign in, in the menu bar" note={native ? undefined : "Only in the app"}>
                   <Toggle label="Launch at login" checked={settings.autostart === true} disabled={!native || settings.autostart === null} onChange={(v) => update({ autostart: v })} />
                 </SettingsRow>
-                <SettingsRow label="Closing the window" description={settings.close_window === "quit" ? "Quits Pinrail; the tray goes with it" : "Hides it; Pinrail stays in the menu bar until you quit"}>
+                <SettingsRow label="Closing the window" description={settings.close_window === "quit" ? "Quits Pinrail and removes its icon." : `Hides the window. Pinrail stays in ${TRAY} until you quit it.`}>
                   <Segmented
                     label="Closing the window"
                     value={settings.close_window}
                     onChange={(v) => update({ close_window: v })}
                     options={[
-                      { value: "hide", label: "Hide to tray" },
+                      { value: "hide", label: `Hide to ${TRAY}` },
                       { value: "quit", label: "Quit" },
                     ]}
                   />
                 </SettingsRow>
-                <SettingsRow label="Show in the menu bar" description="The tray icon with the pending count and its menu; off leaves the Dock icon, the shortcut and notifications" note={native ? undefined : "Only in the app"}>
-                  <Toggle label="Show in the menu bar" checked={settings.menu_bar_icon} disabled={!native} onChange={(v) => update({ menu_bar_icon: v })} />
+                <SettingsRow label={`Show in ${TRAY}`} description="An icon with the number of waiting reviews and a menu to open them. When it is off, Pinrail still opens with its shortcut and from notifications." note={native ? undefined : "Only in the app"}>
+                  <Toggle label={`Show in ${TRAY}`} checked={settings.menu_bar_icon} disabled={!native} onChange={(v) => update({ menu_bar_icon: v })} />
                 </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="Notifications">
@@ -279,7 +280,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
 
           {section === "shortcuts" ? (
             <SettingsPage title="Shortcuts">
-              <SettingsGroup caption="Anywhere on the Mac">
+              <SettingsGroup caption="Anywhere on your computer">
                 <SettingsRow label="Open Pinrail" description="Click the keys and press a new combination; it needs ⌘, ⌃ or ⌥" note={describeShortcut(shortcut, settings.shortcut.global)}>
                   <ShortcutRecorder label="Global shortcut" value={settings.shortcut.global} onChange={(v) => update({ shortcut: { global: v } })} />
                   {settings.shortcut.global !== DEFAULT_GLOBAL_SHORTCUT ? (
@@ -317,7 +318,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
               <SettingsGroup caption="Where things are">
                 <SettingsRow label="Data directory" description={<span className="mono">{info?.data_dir ?? "…"}</span>} note="The database, the settings file, and under plugins/ the installed copies, build logs and scratch">
                   {native ? (
-                    <Tooltip label="Show in Finder">
+                    <Tooltip label={REVEAL}>
                       <button type="button" className="bar-button" aria-label="Reveal the data directory" disabled={!info} onClick={() => info && import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => revealItemInDir(info.data_dir).catch(() => {}))}>
                         <FolderOpen size={15} />
                       </button>
@@ -373,7 +374,7 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
               <SettingsGroup>
                 <SettingsRow label="Pinrail" description={info ? `Version ${info.version} · server started ${new Date(info.started_at).toLocaleString()}` : "…"} />
                 <UpdatesRows />
-                <SettingsRow label="Plugins" description="How to write one: plugins/README.md in the repository" />
+                <SettingsRow label="Plugins" description="To write your own, see pinrail.dev/docs/building/writing" />
                 <SettingsRow label="License" description="Apache License 2.0" note={noticesError ?? undefined}>
                   {native ? (
                     <button type="button" className="chrome-button" onClick={openNotices} data-open-notices>

@@ -12,7 +12,9 @@ The menu bar icon shows how many reviews are waiting, and its menu lists them, o
 - open a waiting review, the oldest one, or the inbox;
 - pause notifications for 15 minutes, an hour, or until tomorrow.
 
-Closing Pinrail's window keeps it in the menu bar, so reviews keep arriving. You can hide the icon in *Settings › General*; Pinrail still runs.
+Closing Pinrail's window keeps it in the menu bar, so reviews keep arriving. You can hide the icon in *Settings › General*, and Pinrail still runs.
+
+On Linux, the icon appears in the system tray. Some desktops, such as GNOME, show tray icons only with an extension, for example *AppIndicator and KStatusNotifierItem Support*. Without one, set *Closing the window* to *Quit*, or keep the window open.
 
 ## Quieting notifications
 
@@ -27,7 +29,7 @@ The menu bar count always shows what is waiting, whatever you have paused or mut
 
 ## When notifications don't appear
 
-Pinrail asks your system for permission to notify the first time a review arrives.
+Pinrail asks your system for permission to show notifications during its first-run setup. If you skip that step, it asks when the first review arrives.
 
 **On macOS**, open *System Settings › Notifications › Pinrail* and check that notifications are allowed, with the alert style you want. A Focus mode also holds notifications back until it ends. *Settings › General* in Pinrail shows what macOS reports, with a link to its settings when notifications are blocked.
 

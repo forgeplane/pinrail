@@ -19,20 +19,24 @@ Download it from [the download page](/download/), which has every system and for
 | Linux, x86-64 | [AppImage](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.AppImage) for any distribution (`chmod +x` it, then run it), [.deb](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.deb) (`sudo apt install ./pinrail-app-amd64.deb`) or [.rpm](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-x86_64.rpm) (`sudo dnf install ./pinrail-app-x86_64.rpm`). |
 | Windows | Coming soon. |
 
-Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, so agents can still ask while the window is closed.
+Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, or in the system tray on Linux, so agents can still ask while the window is closed.
 
 The macOS app and the AppImage update themselves: they download new versions in the background and install them when you restart Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is out, and you install it as you did the first one. On macOS the `pinrail` command links into the app, so it updates too; from an AppImage, choose **Install the CLI** again after an update. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
 
 ## The command
 
-In the app, open **Settings › Data** and choose **Install the CLI**. It puts `pinrail` into `~/.local/bin`. Make sure that folder is on your `PATH`:
+The first time you open Pinrail, it shows a short setup that installs the `pinrail` command, asks for permission to send notifications, and sends you a first review. To open the setup again, press <kbd>⌘K</kbd> and choose *Set up Pinrail*.
+
+You can also install the command from **Settings › Data** with **Install the CLI**. It puts `pinrail` into `~/.local/bin`, so make sure that folder is on your `PATH`. With the `.deb` or `.rpm`, the command is already installed as `/usr/bin/pinrail`.
+
+Check that the command works:
 
 ```sh
 pinrail --version
 ```
 
 :::tip[Building from source]
-Before the first release, or to follow the latest changes, build the command from a checkout with a Rust toolchain:
+To follow the latest changes, build the command from a checkout with a Rust toolchain:
 
 ```sh
 cargo install --path cli

@@ -3,7 +3,7 @@ title: Settings
 description: "Every section of Pinrail's settings, what each option does, and where the settings are stored."
 ---
 
-Open settings with <kbd>⌘,</kbd>, the gear at the bottom of the sidebar, or *Pinrail › Settings…*. Every change applies at once; there is nothing to save.
+Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, or from *Navigate › Settings…* in the menu. Every change applies at once; there is nothing to save.
 
 ## General
 
@@ -14,8 +14,8 @@ Open settings with <kbd>⌘,</kbd>, the gear at the bottom of the sidebar, or *P
 | Setting | What it does |
 |---|---|
 | **Launch at login** | Start Pinrail when you log in, so agents can always ask. |
-| **Closing the window** | *Hide to the menu bar* keeps Pinrail running, so reviews still arrive. *Quit* stops it. |
-| **Show in the menu bar** | The menu bar icon, with the number of waiting reviews and a menu to open them. |
+| **Closing the window** | *Hide to the menu bar* keeps Pinrail running, so reviews still arrive. *Quit* stops it. On Linux, the option is *Hide to the tray*. |
+| **Show in the menu bar** | The menu bar icon, with the number of waiting reviews and a menu to open them. On Linux, the setting is *Show in the tray*. |
 
 ### Notifications
 
@@ -38,7 +38,7 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 | Setting | What it does |
 |---|---|
-| **Global shortcut** | Brings Pinrail forward from any app. <kbd>⌥⇧W</kbd> by default. Click it and press new keys to change it. |
+| **Open Pinrail** | Under *Anywhere on your computer*: the keys that bring Pinrail forward from any app, <kbd>⌥⇧W</kbd> by default. Click the keys and press a new combination to change them. |
 | **It opens** | The oldest pending review, or the inbox. |
 
 Below, the section lists the app's own keys. See [The inbox](/docs/using/inbox/#keys).
@@ -60,7 +60,7 @@ Every installed plugin has a row: its icon and title, its version, where it came
 
 | Setting | What it does |
 |---|---|
-| **Data directory** | Where reviews, decisions and settings are stored. *Show in Finder* opens it. |
+| **Data directory** | Where reviews, decisions and settings are stored. *Show in Finder*, or *Show in the file manager* on Linux, opens it. |
 | **Port** | The port Pinrail's server listens on, `4747` by default. Takes effect after a restart; the `pinrail` command follows it on its own. |
 | **Keep reviews for** | *Forever*, or a number of days. Ended reviews older than this are deleted from your history, with the files they carried. |
 | **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take. |

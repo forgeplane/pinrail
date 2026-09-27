@@ -5,6 +5,10 @@ export const isMac = /Mac/i.test(typeof navigator === "undefined" ? "" : navigat
 
 /** "⌘" on macOS, "Ctrl" elsewhere. */
 export const MOD = isMac ? "⌘" : "Ctrl";
+/** What showing a file in the system's file browser is called here. */
+export const REVEAL = isMac ? "Show in Finder" : "Show in the file manager";
+/** Where the app's icon lives while its window is closed. */
+export const TRAY = isMac ? "the menu bar" : "the tray";
 
 /** True while a modal dialog is open: the screens behind it keep their
  *  keys to themselves until it closes. */

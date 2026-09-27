@@ -56,7 +56,7 @@ How long history is kept is up to you: see *Keep reviews for* in [Settings](/doc
 
 ## Keys
 
-Press <kbd>?</kbd> anywhere in the app to see these. On Windows and Linux, <kbd>⌘</kbd> is <kbd>Ctrl</kbd>.
+Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kbd> for <kbd>⌘</kbd> and <kbd>Alt</kbd> for <kbd>⌥</kbd>.
 
 ![The keyboard shortcuts dialog.](screenshot:shortcuts)
 
