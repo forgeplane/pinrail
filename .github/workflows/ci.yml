@@ -84,6 +84,7 @@ jobs:
             desktop/app/package-lock.json
             e2e/package-lock.json
             pinrail-plugin/package-lock.json
+            plugins/artifact/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.98.1"
@@ -117,6 +118,13 @@ jobs:
       - name: Install pinrail-plugin
         working-directory: pinrail-plugin
         run: npm ci --omit=dev
+      # the core's tests load every official plugin, and the artifact
+      # plugin's view is what its build writes
+      - name: Build the artifact plugin
+        working-directory: plugins/artifact
+        run: |
+          npm ci
+          npm run build
       - name: Rust tests
         run: |
           cargo test --manifest-path cli/Cargo.toml
