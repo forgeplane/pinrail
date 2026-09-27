@@ -209,10 +209,9 @@ impl Registry {
     }
 
     /// Loads everything again with a new set of records. On a duplicate
-    /// name the old state is kept.
+    /// name the old state is kept, records and plugins alike.
     pub fn reload_with(&self, records: Vec<InstalledRecord>) -> Result<usize, String> {
-        self.state.write().unwrap().records = records;
-        self.reload()
+        self.load(records)
     }
 
     /// Reads every plugin again: the built-in ones, the linked folders, the
@@ -222,12 +221,16 @@ impl Registry {
     /// state is kept.
     pub fn reload(&self) -> Result<usize, String> {
         let records = self.state.read().unwrap().records.clone();
-        let mut loaded: Vec<Plugin> = Vec::new();
-        for dir in [&self.builtin_dir] {
-            for sub in subdirs(dir) {
-                loaded.push(Plugin::load(&sub));
-            }
-        }
+        self.load(records)
+    }
+
+    /// Builds the state from `records` and, only when it is sound, puts the
+    /// records and the plugins in place together.
+    fn load(&self, records: Vec<InstalledRecord>) -> Result<usize, String> {
+        let mut loaded: Vec<Plugin> = subdirs(&self.builtin_dir)
+            .into_iter()
+            .map(|sub| Plugin::load(&sub))
+            .collect();
         for record in &records {
             // A plugin that has since become built-in: the copy in the binary
             // is the one served, and the record is left where it is rather
@@ -294,6 +297,7 @@ impl Registry {
             return Err(duplicates.join("; "));
         }
         let mut state = self.state.write().unwrap();
+        state.records = records;
         state.plugins = loaded
             .into_iter()
             .map(|p| (p.name.clone(), Arc::new(p)))
@@ -447,5 +451,9 @@ mod tests {
         let error = r.reload_with(records).unwrap_err();
         assert!(error.contains("plugin twin is defined at"), "{error}");
         assert!(r.fetch("list").is_ok(), "the old state stands");
+        assert!(
+            r.records().is_empty(),
+            "and so do the old records, which the history sweep reads"
+        );
     }
 }
