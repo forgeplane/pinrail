@@ -1229,11 +1229,7 @@ fn wait(
             }
             Ok(None) => continue,
             Err(err) if err.downcast_ref::<ApiError>().is_some() => return Err(err),
-            Err(err) if !answered => {
-                return Err(err.context(
-                    "the server is not answering; open the Pinrail app, or check --url, and retry",
-                ));
-            }
+            Err(err) if !answered => return Err(err.context(client.unreachable())),
             Err(err) => {
                 let message = format!("{err:#}");
                 if message != last_error {

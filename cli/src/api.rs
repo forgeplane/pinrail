@@ -31,6 +31,15 @@ pub struct Client {
 }
 
 impl Client {
+    /// What a request that reached no server says: where it looked, and
+    /// what to do about it.
+    pub fn unreachable(&self) -> String {
+        format!(
+            "the server is not answering at {}; open the Pinrail app, or check --url, and retry",
+            self.base
+        )
+    }
+
     /// The longest a single wait poll asks the server to hold the request.
     /// Short on purpose: a poll that lands on a server draining connections
     /// after a restart is abandoned within `POLL_SECS + 5`, not minutes.
@@ -244,7 +253,7 @@ impl Client {
             .query("format", "markdown")
             .query("head", "command")
             .call()
-            .context("connecting to the server")?;
+            .with_context(|| self.unreachable())?;
         let status = resp.status().as_u16();
         if !(200..300).contains(&status) {
             return Self::body(status, &mut resp).map(|_| String::new());
@@ -260,7 +269,7 @@ impl Client {
             .agent
             .head(format!("{}/api/v1/attachments/{sha256}", self.base))
             .call()
-            .context("connecting to the server")?;
+            .with_context(|| self.unreachable())?;
         match resp.status().as_u16() {
             200 => Ok(true),
             404 => Ok(false),
@@ -283,7 +292,7 @@ impl Client {
             .header("content-type", "application/octet-stream")
             .header("content-length", size.to_string())
             .send(ureq::SendBody::from_reader(&mut body))
-            .context("connecting to the server")?;
+            .with_context(|| self.unreachable())?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
@@ -309,7 +318,7 @@ impl Client {
                 self.base
             ))
             .call()
-            .context("connecting to the server")?;
+            .with_context(|| self.unreachable())?;
         let status = resp.status().as_u16();
         if !(200..300).contains(&status) {
             return Self::body(status, &mut resp).map(|_| 0);
@@ -322,7 +331,7 @@ impl Client {
         for (k, v) in query {
             req = req.query(*k, v);
         }
-        let mut resp = req.call().context("connecting to the server")?;
+        let mut resp = req.call().with_context(|| self.unreachable())?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
@@ -337,7 +346,7 @@ impl Client {
                 .header("content-type", "application/json")
                 .send_empty(),
         }
-        .context("connecting to the server")?;
+        .with_context(|| self.unreachable())?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
@@ -346,7 +355,7 @@ impl Client {
             .agent
             .delete(format!("{}{path}", self.base))
             .call()
-            .context("connecting to the server")?;
+            .with_context(|| self.unreachable())?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
