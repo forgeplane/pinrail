@@ -89,9 +89,18 @@ In `e2e/`, add `-c shell.config.ts` to run the app suite. Add `--headed` to
 watch the browser. When a Playwright test fails, its trace is saved under
 `test-results/`; open it with `npx playwright show-trace`.
 
-Some tests compare output with recorded files. When a change is meant to
-alter that output, run the tests with `UPDATE_FIXTURES=1` to rewrite the
-files, and check the difference before you commit it.
+Two desktop core tests compare their output with recorded files, and can
+rewrite them:
+
+- the Markdown an agent gets for a decided review: each
+  `plugins/*/fixtures/*.decided.json` against the `.decided.md` beside it;
+- the server's answer to a new review, against
+  `desktop/core/tests/fixtures/api/create-ok.txt`.
+
+When a change is meant to alter that output, run `UPDATE_FIXTURES=1 cargo
+test` from `desktop/`, and check the difference before you commit it. The
+other recorded answers in `tests/fixtures/api`, the wording of refusals, are
+edited by hand.
 
 ## Before opening a pull request
 
