@@ -46,3 +46,12 @@ test("a review that ended without a decision does not read as a no", async ({ pa
   await expect(plugin.frame.locator("body")).toContainText("Closed without a decision (withdrawn)");
   await expect(plugin.frame.locator("body")).not.toContainText("Decided");
 });
+
+test("an answer pressed from the keyboard keeps the focus on its button", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { gate: basic() });
+  const yes = plugin.frame.getByRole("button", { name: "Yes" });
+  await yes.focus();
+  await plugin.frame.locator("body").press("Enter");
+  await expect(yes).toHaveAttribute("aria-pressed", "true");
+  await expect(yes, "focus fell off the button").toBeFocused();
+});

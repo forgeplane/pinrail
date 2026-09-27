@@ -48,6 +48,8 @@ function render(draft) {
   const gate = plugin.gate;
   const decided = gate.decision && gate.decision.data;
   view.content.className = "plugin-content";
+  // the redraw replaces the buttons: the one that had focus gets it back
+  const focused = document.activeElement && document.activeElement.id;
   view.content.innerHTML = Pinrail.markdown(gate.payload.message) + (plugin.readonly
     ? (decided
       ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b>${decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
@@ -58,7 +60,8 @@ function render(draft) {
          <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${Pinrail.icon("x")} No</button>
        </div>
        <input class="field" id="comment" placeholder="comment (optional)" aria-label="comment" value="${Pinrail.escape((draft && draft.comment) || "")}">
-       <div id="errors" class="errors"></div>`);
+       <div id="errors" class="errors" role="alert"></div>`);
+  if (focused) document.getElementById(focused)?.focus();
   if (plugin.readonly) return;
   document.getElementById("comment").oninput = () => plugin.draft({ ok: choice, comment: comment() });
   document.getElementById("yes").onclick = () => pick(true);

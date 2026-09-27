@@ -281,7 +281,7 @@ function render() {
     for (const item of g.items) html += renderItem(item);
   }
   if (S.errors && S.errors.length) {
-    html += `<div class="errors notice danger" id="errors">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
+    html += `<div class="errors notice danger" id="errors" role="alert">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
   }
   if (!readonly) {
     if (S.armed) {
@@ -293,7 +293,11 @@ function render() {
     }
   }
   view.content.className = "plugin-content";
+  // the redraw replaces every button: the one that had focus gets it back
+  const had = document.activeElement?.closest?.("button[data-act]");
+  const again = had ? `button[data-act="${had.dataset.act}"][data-id="${had.dataset.id}"]` : null;
   view.content.innerHTML = html;
+  if (again) view.content.querySelector(again)?.focus();
   bind();
   counts();
   if (!readonly) syncStatus();

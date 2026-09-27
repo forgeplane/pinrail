@@ -140,3 +140,15 @@ test("an item's body is markdown, whatever the agent wrote in it", async ({ page
   // a link keeps its text and goes nowhere the frame can follow
   await expect(f.locator('[data-id="2"] .body a')).toHaveAttribute("rel", "noreferrer");
 });
+
+test("a verdict pressed from the keyboard keeps the focus on its button", async ({ page }) => {
+  // the view redraws on every verdict: focus must not fall back to the top
+  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const f = plugin.frame;
+  const accept = f.locator('button[data-act="accept"]').first();
+  const id = await accept.getAttribute("data-id");
+  await accept.focus();
+  await f.locator("body").press("Enter");
+  await expect(f.locator(`button[data-act="accept"][data-id="${id}"]`)).toHaveAttribute("aria-pressed", "true");
+  await expect(f.locator(`button[data-act="accept"][data-id="${id}"]`), "focus fell off the button").toBeFocused();
+});
