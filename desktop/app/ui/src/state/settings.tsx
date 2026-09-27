@@ -101,6 +101,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     autostart: null,
   }));
   const [loaded, setLoaded] = useState(false);
+  // the settings as last applied, ahead of the next render: a change made
+  // before React renders the previous one builds on it, not on a stale copy
+  const current = useRef(settings);
+  current.current = settings;
+  // the latest change sent: an older answer that lands after it is dropped
+  const sent = useRef(0);
   const applied = useRef<Pick<Settings, "appearance"> | null>(null);
 
   const apply = useCallback((s: Pick<Settings, "appearance">) => {
@@ -151,20 +157,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     async (patch: Patch) => {
       // the core's settings go to the core; applied at once, confirmed by the response
       if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins || patch.port !== undefined || patch.history || patch.updates || patch.welcome) {
+        const base = current.current;
         const next: Served = {
-          appearance: { ...settings.appearance, ...patch.appearance },
-          sidebar: { ...settings.sidebar, ...patch.sidebar },
-          close_window: patch.close_window ?? settings.close_window,
-          menu_bar_icon: patch.menu_bar_icon ?? settings.menu_bar_icon,
-          notifications: { ...settings.notifications, ...patch.notifications },
-          shortcut: { ...settings.shortcut, ...patch.shortcut },
-          plugins: mergePlugins(settings.plugins, patch.plugins),
-          port: patch.port ?? settings.port,
-          history: { ...settings.history, ...patch.history },
-          updates: { ...settings.updates, ...patch.updates },
-          welcome: { ...settings.welcome, ...patch.welcome },
+          appearance: { ...base.appearance, ...patch.appearance },
+          sidebar: { ...base.sidebar, ...patch.sidebar },
+          close_window: patch.close_window ?? base.close_window,
+          menu_bar_icon: patch.menu_bar_icon ?? base.menu_bar_icon,
+          notifications: { ...base.notifications, ...patch.notifications },
+          shortcut: { ...base.shortcut, ...patch.shortcut },
+          plugins: mergePlugins(base.plugins, patch.plugins),
+          port: patch.port ?? base.port,
+          history: { ...base.history, ...patch.history },
+          updates: { ...base.updates, ...patch.updates },
+          welcome: { ...base.welcome, ...patch.welcome },
         };
         apply(next);
+        current.current = { ...base, ...next };
         setSettings((s) => ({ ...s, ...next }));
         const body: Record<string, unknown> = {};
         if (patch.appearance) body.appearance = patch.appearance;
@@ -178,9 +186,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.history) body.history = patch.history;
         if (patch.updates) body.updates = patch.updates;
         if (patch.welcome) body.welcome = patch.welcome;
+        const mine = ++sent.current;
         try {
           const s = fromServer(await api.patchSettings(body));
+          if (mine !== sent.current) return;
           apply(s);
+          current.current = { ...current.current, ...s };
           setSettings((prev) => ({ ...prev, ...s }));
         } catch {
           // refused or the server is away: what was applied stays for this session
@@ -188,11 +199,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       }
       if (native && patch.autostart !== undefined) {
         const { invoke } = await import("@tauri-apps/api/core");
-        await invoke("set_autostart", { enabled: patch.autostart });
-        setSettings((s) => ({ ...s, autostart: patch.autostart ?? s.autostart }));
+        try {
+          await invoke("set_autostart", { enabled: patch.autostart });
+          setSettings((s) => ({ ...s, autostart: patch.autostart ?? s.autostart }));
+        } catch (error) {
+          // the toggle stays as the system has it
+          console.error("launch at login could not be changed", error);
+        }
       }
     },
-    [native, settings.appearance, settings.sidebar, settings.close_window, settings.menu_bar_icon, settings.notifications, settings.shortcut, settings.plugins, settings.port, settings.history, settings.updates, settings.welcome, apply],
+    [native, apply],
   );
 
   const value = useMemo(() => ({ settings, update, native, loaded }), [settings, update, native, loaded]);

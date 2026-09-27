@@ -47,3 +47,32 @@ test("the port is stored for the next start and the row says the server has not 
   await field.press("Enter");
   await expect.poll(async () => (await served(page.request)).port).toBe(stored);
 });
+
+test("an older settings answer that arrives last does not undo a newer change", async ({ page }) => {
+  // two changes in a row: the answer to the first, held up, must not put
+  // back the second's setting when it finally lands
+  await page.request.patch(`${core}/api/v1/settings`, { data: { notifications: { enabled: true, sound: true } } });
+  let held = false;
+  await page.route(`${core}/api/v1/settings`, async (route) => {
+    if (route.request().method() === "PATCH" && !held) {
+      held = true;
+      const response = await route.fetch();
+      await new Promise((r) => setTimeout(r, 1000));
+      return route.fulfill({ response });
+    }
+    return route.continue();
+  });
+  await page.goto("/#/");
+  await page.keyboard.press("ControlOrMeta+,");
+  await expect(page.locator("[data-settings]")).toBeVisible();
+
+  const sound = page.getByRole("switch", { name: "Sound" });
+  const notifications = page.getByRole("switch", { name: "System notifications" });
+  await sound.click();
+  await notifications.click();
+  await page.waitForTimeout(1500);
+  await expect(notifications, "the older answer turned notifications back on").toHaveAttribute("aria-checked", "false");
+  expect((await served(page.request)).notifications.enabled).toBe(false);
+
+  await page.request.patch(`${core}/api/v1/settings`, { data: { notifications: { enabled: true, sound: true } } });
+});
