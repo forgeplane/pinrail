@@ -104,8 +104,12 @@ impl Db {
     ) -> rusqlite::Result<Option<i64>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
+        // An expired review has no outcome row, so the insert itself checks
+        // the time: an ending that arrives as the review expires loses.
         let inserted = tx.execute(
-            "INSERT OR IGNORE INTO outcomes (review_id, kind, at, by, reason, data, agent_note) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT OR IGNORE INTO outcomes (review_id, kind, at, by, reason, data, agent_note) \
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7 FROM reviews \
+             WHERE id = ?1 AND (expires_at IS NULL OR expires_at > ?8)",
             params![
                 id,
                 outcome.kind,
@@ -113,7 +117,8 @@ impl Db {
                 outcome.by,
                 outcome.reason,
                 outcome.data.map(Value::to_string),
-                outcome.agent_note
+                outcome.agent_note,
+                crate::reviews::iso(chrono::Utc::now())
             ],
         )?;
         if inserted == 0 {

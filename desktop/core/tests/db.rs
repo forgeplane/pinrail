@@ -56,6 +56,31 @@ fn by_status(db: &Db, status: Status) -> Vec<String> {
         .collect()
 }
 
+/// Expiry has no row of its own, so the insert itself refuses an ending
+/// once the review's time is up, whatever the caller checked before.
+#[test]
+fn nothing_ends_a_review_after_it_expired() {
+    let db = Db::in_memory().unwrap();
+    db.insert_review(&review("r_1", Some(Duration::seconds(-1))), None)
+        .unwrap();
+    assert!(
+        db.insert_decision("r_1", &decision(), None)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        db.insert_withdrawal("r_1", Utc::now(), None)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        db.insert_discard("r_1", Utc::now(), "pat", None)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(by_status(&db, Status::Expired), vec!["r_1".to_string()]);
+}
+
 #[test]
 fn a_review_ends_once_whichever_way() {
     let db = Db::in_memory().unwrap();
