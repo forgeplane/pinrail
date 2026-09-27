@@ -97,14 +97,13 @@ test("a view gets the bytes of a file its review carries from the app, and only 
   await page.request.delete(`${core}/api/v1/plugins/reader`);
 });
 
-test("a plugin that takes files says so on its row, and History counts the files kept", async ({ page }) => {
+test("a plugin that takes files says so on its row, and Settings › Data totals the files kept", async ({ page }) => {
   const installed = await page.request.post(`${core}/api/v1/plugins/install`, { data: { source: reader(), link: true } });
   expect(installed.status()).toBe(202);
   await expect
     .poll(async () => ((await (await page.request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string }[]).some((p) => p.name === "reader"))
     .toBe(true);
   const info = await (await page.request.get(`${core}/api/v1/info`)).json();
-  expect(info.attachments.count).toBeGreaterThanOrEqual(0);
 
   await page.goto("/#/");
   await page.keyboard.press("ControlOrMeta+,");

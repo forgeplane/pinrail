@@ -50,7 +50,7 @@ test('draft reload, themes, hand-over, accepted decision, and read-only state', 
   await p.sendSubmitted({data});
   await expect(slot(p,'doctor-mon')).toBeDisabled();
   await expect(p.frame.locator('.event.suggestion')).toHaveCount(3);
-  await p.collect();
+  await p.collect(); await page.waitForTimeout(300);
   expect((await p.messages()).filter(m => m.type === 'submit')).toHaveLength(1);
 });
 test('incomplete decisions are held, explicit deferrals return to agent, violations are visible', async ({ page }) => {
@@ -72,7 +72,8 @@ test('read-only fixtures restore the decided choices and do not emit a new decis
   const p = await mount(page,{gate:fixture(path.join(root,'fixtures/03-personal.decided.json')),readonly:true});
   await expect(p.frame.locator('.event.selected')).toHaveCount(3);
   await expect(slot(p,'dinner-wed')).toBeDisabled();
-  await p.collect(); expect((await p.messages()).some(m => m.type === 'submit')).toBe(false);
+  // the view has time to answer the collect before the log is read
+  await p.collect(); await page.waitForTimeout(300); expect((await p.messages()).some(m => m.type === 'submit')).toBe(false);
 });
 test('same calendar handles interview scheduling', async ({ page }) => {
   const p = await mount(page,{gate:fixture(path.join(root,'fixtures/02-interviews.json'))});
@@ -102,7 +103,8 @@ test('list is keyboard-operable and responsive; payload markup stays text', asyn
 test('invalid payload fails closed and hostile drafts cannot bypass conflicts', async ({ page }) => {
   const gate = personal(); gate.payload.timezone = 'Invalid/Zone';
   const p = await mount(page,{gate}); await expect(p.frame.getByRole('alert')).toContainText('timezone');
-  await p.collect(); expect((await p.messages()).some(m => m.type === 'submit')).toBe(false);
+  // the view has time to answer the collect before the log is read
+  await p.collect(); await page.waitForTimeout(300); expect((await p.messages()).some(m => m.type === 'submit')).toBe(false);
 });
 test('capture desktop layouts under the SDK shell', async ({ page }) => {
   const p = await mount(page);
