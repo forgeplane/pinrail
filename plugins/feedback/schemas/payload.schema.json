@@ -9,7 +9,8 @@
   "properties": {
     "description": {
       "type": "string",
-      "maxLength": 10000
+      "maxLength": 10000,
+      "description": "Markdown shown above the questions: why the agent is asking."
     },
     "groups": {
       "type": "array",
@@ -26,19 +27,23 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$",
+            "description": "An ID unique across the groups: a letter, then up to 79 letters, digits, _ or -."
           },
           "title": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 1000
+            "maxLength": 1000,
+            "description": "The group's heading."
           },
           "description": {
             "type": "string",
-            "maxLength": 10000
+            "maxLength": 10000,
+            "description": "Markdown shown under the group's heading."
           },
           "when": {
-            "$ref": "#/$defs/condition"
+            "$ref": "#/$defs/condition",
+            "description": "Show the group only when this condition holds. A condition can refer only to questions in earlier groups."
           },
           "questions": {
             "type": "array",
@@ -46,10 +51,12 @@
             "maxItems": 100,
             "items": {
               "$ref": "#/$defs/question"
-            }
+            },
+            "description": "The group's questions, in order."
           }
         }
-      }
+      },
+      "description": "The questions, in groups shown one after another. At most 100 questions in all."
     }
   },
   "$defs": {
@@ -134,7 +141,8 @@
             }
           }
         }
-      ]
+      ],
+      "description": "A condition on an earlier question's answer. It may refer only to a question that comes before the question or group it controls. Use equals or not_equals with a choice ID for single_choice, true or false for boolean and checkbox, and text for text. Use contains with an option ID for multiple_choice. answered takes no value. all and any combine up to 20 conditions, nested at most 8 levels deep."
     },
     "question": {
       "type": "object",
@@ -147,7 +155,8 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$"
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,79}$",
+          "description": "An ID unique across every question in the review: a letter, then up to 79 letters, digits, _ or -."
         },
         "type": {
           "enum": [
@@ -156,23 +165,28 @@
             "text",
             "boolean",
             "checkbox"
-          ]
+          ],
+          "description": "single_choice and multiple_choice questions need options. Questions of the other types must not have them."
         },
         "prompt": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 1000
+          "maxLength": 1000,
+          "description": "The question, as the person reads it."
         },
         "description": {
           "type": "string",
-          "maxLength": 10000
+          "maxLength": 10000,
+          "description": "Markdown shown under the prompt."
         },
         "required": {
           "type": "boolean",
-          "default": false
+          "default": false,
+          "description": "Whether the person must answer before handing over. A required checkbox must be checked."
         },
         "when": {
-          "$ref": "#/$defs/condition"
+          "$ref": "#/$defs/condition",
+          "description": "Show the question only when this condition holds. The condition can refer only to earlier questions."
         },
         "options": {
           "type": "array",
@@ -200,7 +214,8 @@
                 "maxLength": 10000
               }
             }
-          }
+          },
+          "description": "The choices, for single_choice and multiple_choice. Option IDs must be unique within the question."
         },
         "recommendation": {
           "type": "object",
@@ -235,35 +250,42 @@
               "type": "string",
               "maxLength": 10000
             }
-          }
+          },
+          "description": "The answer the agent recommends, shown to the person. It must be a valid answer to the question: an option ID for single_choice, a list of option IDs for multiple_choice, true or false for boolean and checkbox, and text within the length limits for text."
         },
         "placeholder": {
           "type": "string",
-          "maxLength": 10000
+          "maxLength": 10000,
+          "description": "Placeholder text for a text question."
         },
         "checkbox_label": {
           "type": "string",
-          "maxLength": 10000
+          "maxLength": 10000,
+          "description": "The label beside a checkbox."
         },
         "min_selections": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 50
+          "maximum": 50,
+          "description": "For multiple_choice only: the fewest options the person must choose. It must not exceed max_selections, and it must be at least 1 for a required question."
         },
         "max_selections": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 50
+          "maximum": 50,
+          "description": "For multiple_choice only: the most options the person may choose. It must not exceed the number of options."
         },
         "min_length": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 10000
+          "maximum": 10000,
+          "description": "For text only: the shortest answer allowed. It must not exceed max_length."
         },
         "max_length": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 10000
+          "maximum": 10000,
+          "description": "For text only: the longest answer allowed."
         }
       },
       "allOf": [
