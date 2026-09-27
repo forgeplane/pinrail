@@ -34,8 +34,9 @@ export type Manifest = {
   name: string;
   /** semantic (`"1.2.0"`); a bare integer reads as `N.0.0` */
   version: string | number;
-  title: string;
-  /** a Lucide icon name, shown beside the plugin's reviews */
+  /** what the app calls the plugin; the name when absent */
+  title?: string;
+  /** an SVG file beside the manifest, shown beside the plugin's reviews: `icon.svg` */
   icon?: string;
   description?: string;
   payload_schema: SchemaRef;
@@ -57,6 +58,9 @@ export type Manifest = {
   use_when?: string;
   /** a payload that passes payload_schema, a JSON file beside the manifest */
   example?: string;
+  /** a whole request (`title`, `payload`, `attachments`), a JSON file beside the
+   *  manifest, sent by `pinrail submit <plugin> --sample` and Settings */
+  sample?: string;
   /** the files the plugin takes beside a payload; without it, none */
   attachments?: AttachmentRules;
 };
