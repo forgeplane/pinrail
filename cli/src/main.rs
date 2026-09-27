@@ -1,6 +1,6 @@
 //! `pinrail`: the CLI agents call. It talks HTTP to the running server and
-//! does nothing itself. JSON on stdout, diagnostics on stderr, meaningful
-//! exit codes:
+//! does nothing itself. Markdown on stdout by default and JSON with --json,
+//! diagnostics on stderr, meaningful exit codes:
 //!
 //! | code | meaning |
 //! |---|---|
@@ -214,7 +214,7 @@ enum Command {
     Docs {
         /// the brief to print, as its menu names it; the root when omitted
         path: Option<String>,
-        /// every brief's path and what it covers, as a tree
+        /// Every brief's path and what it covers, as a tree
         #[arg(long, conflicts_with = "path")]
         tree: bool,
     },
@@ -286,7 +286,7 @@ struct SubmitArgs {
     /// like, in place of a payload; --title and --origin still apply
     #[arg(long, conflicts_with_all = ["request", "data", "attachments", "summary", "revises", "expires_at", "dry_run"])]
     sample: bool,
-    /// Block until decided (see wait)
+    /// Block until the review ends, decided or not (see wait)
     #[arg(long)]
     wait: bool,
     /// Run every check a submission gets and create no review: exit 0 when
@@ -326,8 +326,8 @@ struct WaitOpts {
 
 #[derive(Args)]
 struct ListArgs {
-    /// pending, decided, withdrawn, discarded, expired; comma-separated for
-    /// several [default: pending, unless --all]
+    /// One of pending, decided, withdrawn, discarded, expired; comma-separated
+    /// for several [default: pending, unless --all]
     #[arg(long)]
     status: Option<String>,
     /// The project (origin repo); "-" for reviews that name none [default:
@@ -411,31 +411,31 @@ enum PluginsCommand {
     /// (github.com/acme/plugins/review@v3, or the folder's URL in the
     /// browser), or a GitHub release
     Install {
-        /// the plugin's folder, repository or release
+        /// The plugin's folder, repository or release
         source: String,
-        /// serve a folder live instead of copying it, for development
+        /// Serve a folder live instead of copying it, for development
         #[arg(long)]
         link: bool,
-        /// replace a newer version that is already installed
+        /// Replace a newer version that is already installed
         #[arg(long)]
         force: bool,
-        /// a branch, tag or commit, for a git source that does not say
+        /// A branch, tag or commit, for a git source that does not say
         #[arg(long = "ref")]
         reference: Option<String>,
-        /// the plugin's folder inside the repository, likewise
+        /// The plugin's folder inside the repository, likewise
         #[arg(long)]
         path: Option<String>,
     },
     /// Install a plugin again from where it came, whatever is new there;
     /// every installed plugin when no name is given
     Update {
-        /// the plugin's name, as `pinrail plugins` lists it
+        /// The plugin's name, as `pinrail plugins` lists it
         name: Option<String>,
     },
     /// Remove an installed plugin; store entries a review still renders
     /// from are kept
     Remove {
-        /// the plugin's name
+        /// The plugin's name
         name: String,
     },
     /// What an agent needs to ask with a plugin: its payload schema, an
@@ -443,16 +443,16 @@ enum PluginsCommand {
     /// decision schema included. `pinrail plugins` lists them, with when to
     /// use each
     Describe {
-        /// the plugin's name
+        /// The plugin's name
         name: String,
-        /// only the payload's JSON schema, for a tool that checks or builds
+        /// Only the payload's JSON schema, for a tool that checks or builds
         /// payloads
         #[arg(long, group = "part")]
         payload_schema: bool,
-        /// only the example payload, a start for your own
+        /// Only the example payload, a start for your own
         #[arg(long, group = "part")]
         example: bool,
-        /// only the decision's JSON schema, the shape of decision.data, for
+        /// Only the decision's JSON schema, the shape of decision.data, for
         /// processing the decision with --json; it otherwise reads as markdown
         #[arg(long, group = "part")]
         decision_schema: bool,
@@ -464,12 +464,12 @@ enum PluginsCommand {
     /// A new plugin that needs no build: manifest, schemas, a sample, a view,
     /// the SDK's types and an AGENTS.md; --link installs it right away
     New {
-        /// the plugin's name: a lowercase letter, then letters, digits, _ or -
+        /// The plugin's name: a lowercase letter, then letters, digits, _ or -
         name: String,
-        /// where to write it; ./<name> by default
+        /// Where to write it; ./<name> by default
         #[arg(long)]
         dir: Option<PathBuf>,
-        /// install it as a link once written, so the app serves it live
+        /// Install it as a link once written, so the app serves it live
         #[arg(long)]
         link: bool,
     },
@@ -483,7 +483,7 @@ enum PluginsCommand {
     },
     /// The versions of a plugin that reviews can still render with
     Versions {
-        /// the plugin's name
+        /// The plugin's name
         name: String,
     },
 }
