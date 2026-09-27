@@ -17,7 +17,7 @@ function wrongDecision(): string {
   );
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "wrong", version: 1, entry: "index.html", payload_schema: {}, decision_schema: { $ref: "schemas/decision.schema.json" } }),
+    JSON.stringify({ name: "wrong", version: "1.0.0", entry: "index.html", payload_schema: {}, decision_schema: { $ref: "schemas/decision.schema.json" } }),
   );
   fs.writeFileSync(
     path.join(dir, "index.html"),
@@ -41,7 +41,7 @@ test("a view that loads its script by an absolute path fails here as in the app"
   // the app serves a plugin under /plugins/<name>/<major>/ and allows scripts
   // from there alone: /view.js is another server path, which it refuses
   const dir = scratch("pinrail-harness-");
-  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "absolute", version: 1, entry: "index.html" }));
+  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "absolute", version: "1.0.0", entry: "index.html" }));
   fs.writeFileSync(path.join(dir, "view.js"), "document.documentElement.dataset.ran = 'yes';");
   fs.writeFileSync(
     path.join(dir, "index.html"),
@@ -61,7 +61,7 @@ test("sendKey sends only what the app would forward to the view", async ({ page 
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "keys",
-      version: 1,
+      version: "1.0.0",
       entry: "index.html",
       shortcuts: [
         { keys: "j", does: "Next" },

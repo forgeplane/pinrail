@@ -2550,7 +2550,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     std::fs::create_dir_all(&bare).unwrap();
     std::fs::write(
         bare.join("manifest.json"),
-        json!({"name": "bare", "version": 1, "payload_schema": {}, "decision_schema": {}})
+        json!({"name": "bare", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}})
             .to_string(),
     )
     .unwrap();
@@ -2570,7 +2570,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     std::fs::write(typo.join("index.html"), "<html></html>").unwrap();
     std::fs::write(
         typo.join("manifest.json"),
-        json!({"name": "typo", "version": 1, "title": 3, "payload_schema": {}, "decision_schema": {}})
+        json!({"name": "typo", "version": "1.0.0", "title": 3, "payload_schema": {}, "decision_schema": {}})
             .to_string(),
     )
     .unwrap();

@@ -13,7 +13,7 @@ function renderer(): string {
   const dir = scratch("pinrail-markdown-");
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "markdown", version: 1, title: "Markdown", entry: "index.html" }),
+    JSON.stringify({ name: "markdown", version: "1.0.0", title: "Markdown", entry: "index.html" }),
   );
   fs.writeFileSync(
     path.join(dir, "index.html"),

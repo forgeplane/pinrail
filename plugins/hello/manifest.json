@@ -1,6 +1,6 @@
 {
   "name": "hello",
-  "version": 1,
+  "version": "1.0.0",
   "title": "Hello",
   "description": "One yes-or-no question with an optional comment: the smallest complete plugin.",
   "use_when": "You need a single yes or no from the person, such as whether to push, deploy or go on.",

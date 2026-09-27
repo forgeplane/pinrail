@@ -187,7 +187,7 @@ async fn with_knobs(app: &App) -> tempfile::TempDir {
     std::fs::write(plugin.join("index.html"), "<html></html>").unwrap();
     std::fs::write(
         plugin.join("manifest.json"),
-        r#"{"name":"knobs","version":1,"title":"Knobs","payload_schema":{},"decision_schema":{},
+        r#"{"name":"knobs","version":"1.0.0","title":"Knobs","payload_schema":{},"decision_schema":{},
             "settings_schema":{"type":"object","properties":{
               "diff":{"type":"string","title":"Diff","enum":["inline","split"],"default":"inline"},
               "wrap":{"type":"boolean","title":"Wrap","default":true}}}}"#,

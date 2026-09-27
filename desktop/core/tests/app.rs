@@ -150,7 +150,7 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     std::fs::write(
         plugin.join("manifest.json"),
         json!({
-            "name": "knobs", "version": 1, "title": "Knobs",
+            "name": "knobs", "version": "1.0.0", "title": "Knobs",
             "payload_schema": {}, "decision_schema": {},
             "settings_schema": {
                 "type": "object",

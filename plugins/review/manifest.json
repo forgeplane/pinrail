@@ -1,6 +1,6 @@
 {
   "name": "review",
-  "version": 1,
+  "version": "1.0.0",
   "title": "Code review",
   "description": "A change's diff with the comments a reviewer agent proposes to post, each accepted or rejected before anything is posted.",
   "use_when": "You reviewed a merge or pull request and want a person to approve each comment before it is posted to the forge.",

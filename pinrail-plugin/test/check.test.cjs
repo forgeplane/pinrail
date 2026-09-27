@@ -38,10 +38,9 @@ test("the sample plugins pass, and the review plugin's template is noted", async
 
 test("versions read as the app reads them", async () => {
   const { versionOf } = await load();
-  assert.deepEqual(versionOf(3), { release: "3.0.0", major: 3 });
   assert.deepEqual(versionOf("0.1.0"), { release: "0.1.0", major: 0 });
   assert.deepEqual(versionOf(" 2.3.4 "), { release: "2.3.4", major: 2 });
-  for (const bad of [0, -1, 1.5, "1.2", "v1.2.0", "1.2.x", true, null, undefined]) assert.equal(versionOf(bad), null, String(bad));
+  for (const bad of [0, -1, 1.5, 3, "1.2", "v1.2.0", "1.2.x", true, null, undefined]) assert.equal(versionOf(bad), null, String(bad));
 });
 
 test("what refuses a plugin: manifest, name, version, entry, schemas, build", async () => {
@@ -55,6 +54,7 @@ test("what refuses a plugin: manifest, name, version, entry, schemas, build", as
   assert.deepEqual(refused({ name: "Bad" }), ["name"]);
   assert.deepEqual(refused({ name: undefined }), ["name"]);
   assert.deepEqual(refused({ version: "0.0.0" }), ["version"]);
+  assert.deepEqual(refused({ version: 1 }), ["version"]);
   assert.deepEqual(refused({ version: undefined }), ["version"]);
   assert.deepEqual(refused({ entry: "/abs.html" }), ["entry"]);
   assert.deepEqual(refused({ entry: "view/index.html" }), ["entry"]);

@@ -1,6 +1,6 @@
 {
   "name": "artifact",
-  "version": 1,
+  "version": "1.0.0",
   "title": "HTML artifact",
   "description": "An HTML page reviewed element by element: each comment comes back with the element's CSS selector.",
   "use_when": "You designed an HTML page, such as a mockup, a landing page, an email template or a dashboard, and want comments pinned to its elements before you publish it.",

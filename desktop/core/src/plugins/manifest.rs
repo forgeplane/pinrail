@@ -104,28 +104,20 @@ impl Install {
     }
 }
 
-/// A manifest's version as text and its major: an integer is `N.0.0`,
-/// a semantic version keeps its text. None for anything else.
+/// A manifest's semantic version as text and its major. None for anything
+/// else, a bare number included.
 pub fn version_of(value: &Value) -> Option<(String, i64)> {
-    match value {
-        Value::Number(n) => {
-            let v = n.as_u64().filter(|v| *v > 0)?;
-            Some((format!("{v}.0.0"), v as i64))
-        }
-        Value::String(s) => {
-            let parts: Vec<&str> = s.trim().split('.').collect();
-            if parts.len() != 3
-                || parts
-                    .iter()
-                    .any(|p| p.is_empty() || !p.chars().all(|c| c.is_ascii_digit()))
-            {
-                return None;
-            }
-            let major: i64 = parts[0].parse().ok()?;
-            Some((s.trim().to_string(), major))
-        }
-        _ => None,
+    let text = value.as_str()?.trim();
+    let parts: Vec<&str> = text.split('.').collect();
+    if parts.len() != 3
+        || parts
+            .iter()
+            .any(|p| p.is_empty() || !p.chars().all(|c| c.is_ascii_digit()))
+    {
+        return None;
     }
+    let major: i64 = parts[0].parse().ok()?;
+    Some((text.to_string(), major))
 }
 
 impl Plugin {
@@ -189,7 +181,7 @@ impl Plugin {
         // say, such as whether the files named are there
         let name = manifest["name"].as_str().unwrap_or_default().to_string();
         let (release, major) = version_of(&manifest["version"])
-            .ok_or("version is not a positive integer or a semantic version")?;
+            .ok_or("version is not a semantic version like \"1.2.0\"")?;
         let version = major as u32;
         let entry = manifest
             .get("entry")
@@ -866,7 +858,7 @@ mod tests {
         std::fs::write(
             dir.join("manifest.json"),
             format!(
-                "{{\"name\":\"{name}\",\"version\":1,\"payload_schema\":{{}},\"decision_schema\":{{}}{extra}}}"
+                "{{\"name\":\"{name}\",\"version\":\"1.0.0\",\"payload_schema\":{{}},\"decision_schema\":{{}}{extra}}}"
             ),
         )
         .unwrap();
@@ -1135,7 +1127,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let cases = [
             json!({}),
-            json!({"version": 3}),
+            json!({"version": "3.0.0"}),
             json!({"version": "0.1.0"}),
             json!({"$schema": "https://pinrail.dev/schemas/manifest.schema.json"}),
             json!({"a_key_from_a_newer_app": {"anything": true}}),
@@ -1179,7 +1171,7 @@ mod tests {
     }
 
     #[test]
-    fn a_version_reads_as_its_release_and_major_and_zero_point_x_is_a_plugin_too() {
+    fn a_semantic_version_reads_as_its_release_and_major_and_zero_point_x_is_a_plugin_too() {
         let tmp = tempfile::tempdir().unwrap();
         let dir = plugin_dir(tmp.path(), "young", "");
         let manifest = dir.join("manifest.json");
@@ -1194,9 +1186,8 @@ mod tests {
         assert_eq!((p.version, p.release.as_str()), (0, "0.1.0"));
         let p = with("\"2.3.4\"");
         assert_eq!((p.version, p.release.as_str()), (2, "2.3.4"));
-        let p = with("3");
-        assert_eq!((p.version, p.release.as_str()), (3, "3.0.0"));
-        for bad in ["\"0.0.0\"", "0", "\"1.2\"", "\"v1.2.0\"", "true"] {
+        // a bare number is not a semantic version
+        for bad in ["\"0.0.0\"", "0", "3", "\"1.2\"", "\"v1.2.0\"", "true"] {
             let p = with(bad);
             assert!(
                 p.error

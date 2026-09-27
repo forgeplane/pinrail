@@ -12,7 +12,7 @@ function reader(): string {
   const dir = scratch("pinrail-attachments-");
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "reader", version: 1, title: "Reader", entry: "index.html", attachments: { accept: [".bin", "image/*"] } }),
+    JSON.stringify({ name: "reader", version: "1.0.0", title: "Reader", entry: "index.html", attachments: { accept: [".bin", "image/*"] } }),
   );
   fs.writeFileSync(
     path.join(dir, "index.html"),

@@ -1,6 +1,6 @@
 {
   "name": "calendar",
-  "version": 1,
+  "version": "1.0.0",
   "title": "Calendar",
   "description": "Times to arrange on a calendar around what is already booked: pick one suggested slot per item, or leave it for the agent.",
   "use_when": "You found candidate times for appointments, meetings or interviews and need the person to choose one for each, around their existing calendar, before you book anything.",

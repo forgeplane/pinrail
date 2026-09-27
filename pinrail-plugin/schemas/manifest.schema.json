@@ -16,11 +16,10 @@
       "description": "The plugin's identifier: agents submit to it, and it is unique among installed plugins. Lowercase letters, digits, `_` and `-`, starting with a letter."
     },
     "version": {
-      "description": "A semantic version such as `\"1.2.0\"`, or a positive integer that reads as `N.0.0`. The major version is a promise to every review created under it.",
-      "oneOf": [
-        { "type": "integer", "minimum": 1 },
-        { "type": "string", "pattern": "^\\s*[0-9]+\\.[0-9]+\\.[0-9]+\\s*$", "not": { "pattern": "^\\s*0+\\.0+\\.0+\\s*$" } }
-      ]
+      "description": "A semantic version such as `\"1.2.0\"`. The major version is a promise to every review created under it.",
+      "type": "string",
+      "pattern": "^\\s*[0-9]+\\.[0-9]+\\.[0-9]+\\s*$",
+      "not": { "pattern": "^\\s*0+\\.0+\\.0+\\s*$" }
     },
     "title": {
       "type": "string",

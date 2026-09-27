@@ -9,7 +9,7 @@ import { scratch } from "./scratch.cjs";
 /** A plugin whose view is a button and the SDK's text fields. */
 function fields(): string {
   const dir = scratch("pinrail-styles-");
-  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "styles", version: 1, entry: "index.html" }));
+  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "styles", version: "1.0.0", entry: "index.html" }));
   fs.writeFileSync(
     path.join(dir, "index.html"),
     `<!doctype html>

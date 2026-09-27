@@ -1,6 +1,6 @@
 {
   "name": "email",
-  "version": 1,
+  "version": "1.0.0",
   "title": "Draft emails",
   "description": "Email drafts read, edited and sent, revised or discarded one by one.",
   "use_when": "You drafted emails on the person's behalf and need them read, edited or approved before anything is sent.",

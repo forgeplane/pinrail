@@ -407,7 +407,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
         .ok_or_else(|| {
             Error::invalid(
                 "/source",
-                "not a plugin: version is required: a positive integer, or a semantic version like \"1.2.0\"",
+                "not a plugin: version is required: a semantic version like \"1.2.0\"",
             )
         })?;
     let name = manifest

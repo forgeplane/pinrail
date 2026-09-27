@@ -32,8 +32,8 @@ export type Shortcut = {
 export type Manifest = {
   /** `[a-z][a-z0-9_-]*`, unique across the installed plugins */
   name: string;
-  /** semantic (`"1.2.0"`); a bare integer reads as `N.0.0` */
-  version: string | number;
+  /** a semantic version, such as `"1.2.0"` */
+  version: string;
   /** what the app calls the plugin; the name when absent */
   title?: string;
   /** an SVG file beside the manifest, shown beside the plugin's reviews: `icon.svg` */

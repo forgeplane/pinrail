@@ -1,6 +1,6 @@
 {
   "name": "list",
-  "version": 1,
+  "version": "1.0.0",
   "title": "Action list",
   "description": "Items grouped under headings, each accepted or rejected with an optional note.",
   "use_when": "You have a list of findings, proposed changes or tasks and need a person to accept or reject each one before you act on them.",

@@ -24,18 +24,12 @@ const SCALARS = ["boolean", "string", "integer", "number"];
 const MODIFIERS = ["cmd", "command", "super", "meta", "ctrl", "control", "alt", "option", "shift", "cmdorctrl", "commandorcontrol"];
 const JSON_TYPES = ["null", "boolean", "object", "array", "number", "string", "integer"];
 
-/** A manifest's version as text and its major, or null. Mirrors `version_of`. */
+/** A manifest's semantic version as text and its major, or null. Mirrors `version_of`. */
 export function versionOf(value) {
-  if (typeof value === "number") {
-    if (!Number.isInteger(value) || value <= 0) return null;
-    return { release: `${value}.0.0`, major: value };
-  }
-  if (typeof value === "string") {
-    const parts = value.trim().split(".");
-    if (parts.length !== 3 || parts.some((p) => !/^[0-9]+$/.test(p))) return null;
-    return { release: value.trim(), major: Number(parts[0]) };
-  }
-  return null;
+  if (typeof value !== "string") return null;
+  const parts = value.trim().split(".");
+  if (parts.length !== 3 || parts.some((p) => !/^[0-9]+$/.test(p))) return null;
+  return { release: value.trim(), major: Number(parts[0]) };
 }
 
 /** `dir/relative` when the path stays inside `dir`, else null. Mirrors `safe_join`. */
