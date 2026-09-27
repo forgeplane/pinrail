@@ -34,9 +34,11 @@ on:
   # the release workflow runs all of this before it builds, whatever changed
   workflow_call:
 
+# a pull request's newer push cancels its older run; every push to main
+# keeps its own, since main's runs save the cache everyone restores
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
