@@ -118,6 +118,26 @@ struct NotificationSettings {
     paused_until: Option<DateTime<Utc>>,
     sound: bool,
     muted_plugins: Vec<String>,
+    /// from and to, local time; to may be earlier, across midnight
+    quiet_hours: Option<(chrono::NaiveTime, chrono::NaiveTime)>,
+}
+
+/// Whether a review of `plugin` arriving at `now` is announced. One that is
+/// not is still counted in the tray.
+fn announces(settings: &NotificationSettings, plugin: &str, now: DateTime<chrono::Local>) -> bool {
+    let quiet = settings.quiet_hours.is_some_and(|(from, to)| {
+        let t = now.time();
+        // a range across midnight, 22:00 to 07:30, is quiet on both sides of it
+        if from <= to {
+            from <= t && t < to
+        } else {
+            t >= from || t < to
+        }
+    });
+    settings.enabled
+        && settings.paused_until.is_none()
+        && !quiet
+        && !settings.muted_plugins.iter().any(|m| m == plugin)
 }
 
 fn notification_settings(state: &Pinrail) -> NotificationSettings {
@@ -140,6 +160,14 @@ fn notification_settings(state: &Pinrail) -> NotificationSettings {
                     .collect()
             })
             .unwrap_or_default(),
+        quiet_hours: {
+            let clock = |key: &str| {
+                n["quiet_hours"][key]
+                    .as_str()
+                    .and_then(|t| chrono::NaiveTime::parse_from_str(t, "%H:%M").ok())
+            };
+            clock("from").zip(clock("to"))
+        },
     }
 }
 
@@ -609,16 +637,12 @@ fn notify(app: &AppHandle, notice: &Notice) {
         return;
     };
     let settings = notification_settings(&native.state);
-    if !settings.enabled || settings.paused_until.is_some() {
-        return;
-    }
     let Some(review) = &notice.review else {
         return;
     };
     let title = review["title"].as_str().unwrap_or("A review is waiting");
     let plugin = review["plugin"].as_str().unwrap_or("");
-    // muted: still counted in the tray, never announced
-    if settings.muted_plugins.iter().any(|m| m == plugin) {
+    if !announces(&settings, plugin, chrono::Local::now()) {
         return;
     }
     let mut lines = Vec::new();
@@ -652,6 +676,67 @@ fn notify(app: &AppHandle, notice: &Notice) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn settings(quiet: Option<(&str, &str)>) -> NotificationSettings {
+        NotificationSettings {
+            enabled: true,
+            paused_until: None,
+            sound: true,
+            muted_plugins: vec!["logo".into()],
+            quiet_hours: quiet.map(|(from, to)| {
+                (
+                    chrono::NaiveTime::parse_from_str(from, "%H:%M").unwrap(),
+                    chrono::NaiveTime::parse_from_str(to, "%H:%M").unwrap(),
+                )
+            }),
+        }
+    }
+
+    fn at(time: &str) -> DateTime<chrono::Local> {
+        use chrono::TimeZone;
+        let t =
+            chrono::NaiveDateTime::parse_from_str(&format!("2026-09-27 {time}"), "%Y-%m-%d %H:%M")
+                .unwrap();
+        chrono::Local.from_local_datetime(&t).single().unwrap()
+    }
+
+    #[test]
+    fn a_review_is_announced_unless_off_paused_or_muted() {
+        let on = settings(None);
+        assert!(announces(&on, "list", at("12:00")));
+        assert!(!announces(&on, "logo", at("12:00")), "muted");
+        assert!(!announces(
+            &NotificationSettings {
+                enabled: false,
+                ..settings(None)
+            },
+            "list",
+            at("12:00")
+        ));
+        assert!(!announces(
+            &NotificationSettings {
+                paused_until: Some(Utc::now() + chrono::Duration::hours(1)),
+                ..settings(None)
+            },
+            "list",
+            at("12:00")
+        ));
+    }
+
+    #[test]
+    fn quiet_hours_hold_back_announcements_across_midnight_too() {
+        let night = settings(Some(("22:00", "07:30")));
+        assert!(!announces(&night, "list", at("23:15")));
+        assert!(!announces(&night, "list", at("03:00")));
+        assert!(
+            announces(&night, "list", at("07:30")),
+            "the end is not quiet"
+        );
+        assert!(announces(&night, "list", at("12:00")));
+        let lunch = settings(Some(("12:00", "13:00")));
+        assert!(!announces(&lunch, "list", at("12:30")));
+        assert!(announces(&lunch, "list", at("18:00")));
+    }
 
     #[test]
     fn routes_for_urls() {
