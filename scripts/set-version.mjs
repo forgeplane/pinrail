@@ -5,7 +5,7 @@
 //
 // Pushing is yours: `git push --follow-tags origin main` starts the release.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,22 +45,25 @@ if (alsoTag) {
   }
 }
 
-const write = (file, change) => {
+// Sets the version in one file. A file that already has this version stays
+// as it is, which is the case for the first release. A file whose version
+// line cannot be found stops the script.
+const write = (file, pattern, replacement) => {
   const full = path.join(root, file);
   const before = fs.readFileSync(full, "utf8");
-  const after = change(before);
-  if (after === before) {
-    console.error(`set-version: nothing to change in ${file}; has it moved?`);
+  const found = before.match(pattern);
+  if (!found) {
+    console.error(`set-version: no version found in ${file}; has it moved?`);
     process.exit(1);
   }
-  fs.writeFileSync(full, after);
+  fs.writeFileSync(full, before.replace(pattern, replacement));
 };
 
 // the first `version = "…"` in a manifest is the package's own
-write("desktop/Cargo.toml", (t) => t.replace(/^version = "[^"]*"$/m, `version = "${version}"`));
-write("cli/Cargo.toml", (t) => t.replace(/^version = "[^"]*"$/m, `version = "${version}"`));
-write("desktop/app/src-tauri/tauri.conf.json", (t) => t.replace(/("version":\s*)"[^"]*"/, `$1"${version}"`));
-write("desktop/app/package.json", (t) => t.replace(/("version":\s*)"[^"]*"/, `$1"${version}"`));
+write("desktop/Cargo.toml", /^version = "[^"]*"$/m, `version = "${version}"`);
+write("cli/Cargo.toml", /^version = "[^"]*"$/m, `version = "${version}"`);
+write("desktop/app/src-tauri/tauri.conf.json", /("version":\s*)"[^"]*"/, `$1"${version}"`);
+write("desktop/app/package.json", /("version":\s*)"[^"]*"/, `$1"${version}"`);
 
 // cargo writes the lock files, so a release still builds --locked
 run("cargo", ["update", "--workspace", "--offline", "--quiet"], path.join(root, "desktop"));
@@ -70,7 +73,9 @@ console.log(`version ${version}`);
 if (alsoTag) {
   // a release with nothing to say about itself is a mistake, not a release
   run("node", [path.join(root, "scripts", "release-notes.mjs"), version]);
-  run("git", ["commit", "-m", `Release v${version}`, "--", ...released]);
+  // the first release changes no version, so there may be nothing to commit
+  const changed = spawnSync("git", ["diff", "--quiet", "HEAD", "--", ...released], { cwd: root }).status !== 0;
+  if (changed) run("git", ["commit", "-m", `Release v${version}`, "--", ...released]);
   run("git", ["tag", "-a", `v${version}`, "-m", `Pinrail ${version}`]);
   console.log(`tagged v${version}; push with: git push --follow-tags origin main`);
 }
