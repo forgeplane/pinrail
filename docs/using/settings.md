@@ -81,7 +81,7 @@ Checking downloads a small file from GitHub, where Pinrail's releases are publis
 
 ## Where settings are stored
 
-Settings live in `settings.json` in your data directory. You can read it, back it up, and edit it by hand while Pinrail is closed. A script can read and change settings through the local API, which checks every change the same way the app does:
+Settings live in `settings.json` in your data directory. You can read it, back it up, and edit it by hand while Pinrail is closed. Pinrail checks the file when it reads it: a value it would not accept in the app, such as `0` for the days to keep history, is ignored and the setting keeps its default. A script can read and change settings through the local API, which checks every change the same way the app does:
 
 ```sh
 curl http://127.0.0.1:4747/api/v1/settings

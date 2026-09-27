@@ -216,7 +216,8 @@ struct Inner {
 impl Store {
     /// Opens `settings.json` under `data_dir`, reading it if it exists. A
     /// file that is not valid JSON is left alone and treated as empty, so
-    /// a bad edit never loses the file.
+    /// a bad edit never loses the file; a value the app would refuse reads
+    /// as its default.
     pub(super) fn open(data_dir: &Path) -> Self {
         let path = data_dir.join(FILE);
         let (file, seen) = read(&path);
@@ -290,12 +291,33 @@ impl Store {
 
 fn read(path: &Path) -> (Value, Option<(SystemTime, u64)>) {
     let seen = stat(path);
-    let file = std::fs::read_to_string(path)
+    let mut file = std::fs::read_to_string(path)
         .ok()
         .and_then(|text| serde_json::from_str::<Value>(&text).ok())
         .filter(Value::is_object)
         .unwrap_or_else(|| Value::Object(Map::new()));
+    drop_refused(&mut file, path);
     (file, seen)
+}
+
+/// A hand edit is held to what a change through the API is: a value the
+/// app would refuse is left out, so it reads as its default. The file
+/// itself is not touched. Unknown keys stay, as they do on a write.
+fn drop_refused(file: &mut Value, path: &Path) {
+    let mut violations = Vec::new();
+    validate(file, "", &mut violations);
+    for v in violations.iter().filter(|v| v.message != "unknown setting") {
+        let (parent, key) = v.path.rsplit_once('/').unwrap_or(("", &v.path));
+        if let Some(Value::Object(map)) = file.pointer_mut(parent) {
+            map.remove(key);
+            eprintln!(
+                "pinrail: {}: {} {}; using the default",
+                path.display(),
+                v.path,
+                v.message
+            );
+        }
+    }
 }
 
 fn stat(path: &Path) -> Option<(SystemTime, u64)> {
@@ -648,5 +670,38 @@ mod tests {
         assert_eq!(port_in(dir.path()), Some(4800));
         std::fs::write(dir.path().join(FILE), r#"{"port": 0}"#).unwrap();
         assert_eq!(port_in(dir.path()), None);
+    }
+
+    #[test]
+    fn a_hand_edited_value_the_app_would_refuse_reads_as_its_default() {
+        // A person edits the file by hand; the sweep deletes the history it
+        // is told to at start, so 0 ("keep for ever"?) must not reach it
+        let dir = tempfile::tempdir().unwrap();
+        let text = r#"{"history": {"keep_days": 0}, "port": "4800", "notifications": false, "appearance": {"theme": "light"}}"#;
+        std::fs::write(dir.path().join(FILE), text).unwrap();
+        let store = Store::open(dir.path());
+        let d = defaults();
+        assert_eq!(store.value("/history/keep_days"), d["history"]["keep_days"]);
+        assert_eq!(store.value("/port"), d["port"]);
+        assert_eq!(
+            store.value("/notifications/sound"),
+            d["notifications"]["sound"]
+        );
+        assert_eq!(
+            store.value("/appearance/theme"),
+            "light",
+            "a good value next to them stays"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join(FILE)).unwrap(),
+            text,
+            "the file is left as the person wrote it"
+        );
+
+        // the same when the file changes under a running app
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(dir.path().join(FILE), r#"{"history": {"keep_days": -3}}"#).unwrap();
+        store.reload_if_changed();
+        assert_eq!(store.value("/history/keep_days"), d["history"]["keep_days"]);
     }
 }

@@ -350,13 +350,14 @@ impl Reviews {
 
     /// Deletes the reviews that ended more than `keep_days` ago, with their
     /// events and outcomes, and the store entries nothing renders from
-    /// any more. `None` keeps everything. Returns how many reviews went.
+    /// any more. `None` keeps everything, and so does 0, which the settings
+    /// refuse. Returns how many reviews went.
     pub fn sweep_history(&self, keep_days: Option<u32>) -> Result<usize, Error> {
         match keep_days {
-            Some(days) => {
+            Some(days) if days > 0 => {
                 self.sweep_history_before(Utc::now() - chrono::Duration::days(days as i64))
             }
-            None => Ok(0),
+            _ => Ok(0),
         }
     }
 
