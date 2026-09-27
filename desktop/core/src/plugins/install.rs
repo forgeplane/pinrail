@@ -1605,3 +1605,67 @@ mod source_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod bundle_tests {
+    use super::{Path, in_the_bundle, unzip};
+
+    fn zipped(entries: &[&str]) -> Vec<u8> {
+        use std::io::Write;
+        let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        for name in entries {
+            out.start_file(*name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            out.write_all(b"x").unwrap();
+        }
+        out.finish().unwrap().into_inner()
+    }
+
+    #[test]
+    fn an_archive_entry_that_leaves_the_folder_is_refused() {
+        // a release is someone else's zip: nothing in it may land outside
+        // the folder it is unpacked into
+        for evil in ["../evil.txt", "view/../../evil.txt", "/abs/evil.txt"] {
+            let root = tempfile::tempdir().unwrap();
+            let into = root.path().join("fetch");
+            std::fs::create_dir_all(&into).unwrap();
+            let error = unzip(&zipped(&["manifest.json", evil]), &into).unwrap_err();
+            assert!(
+                error.to_string().contains("leaves the archive"),
+                "{evil}: {error}"
+            );
+            assert!(!root.path().join("evil.txt").exists(), "{evil} escaped");
+            assert!(!Path::new("/abs/evil.txt").exists(), "{evil} escaped");
+        }
+    }
+
+    #[test]
+    fn an_archive_unpacks_whole_inside_its_folder() {
+        let into = tempfile::tempdir().unwrap();
+        unzip(&zipped(&["manifest.json", "view/index.html"]), into.path()).unwrap();
+        assert!(into.path().join("manifest.json").is_file());
+        assert!(into.path().join("view/index.html").is_file());
+    }
+
+    #[test]
+    fn the_bundle_is_what_the_view_needs_and_not_the_tooling() {
+        for kept in ["manifest.json", "index.html", "view", "schemas", "icon.svg"] {
+            assert!(in_the_bundle(kept), "{kept} left out");
+        }
+        for dropped in [
+            ".git",
+            ".env",
+            "node_modules",
+            "src",
+            "tests",
+            "fixtures",
+            "package.json",
+            "tsconfig.json",
+            "vite.config.ts",
+            "vitest.config.ts",
+            "playwright.config.ts",
+        ] {
+            assert!(!in_the_bundle(dropped), "{dropped} kept");
+        }
+    }
+}
