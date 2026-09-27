@@ -281,10 +281,14 @@ fn on_menu(app: &AppHandle, id: &str) {
             }
         }
         "quit" => app.exit(0),
+        // off the main thread, as the window's Restart to update is
         "update-restart" => {
-            if let Err(error) = crate::updater::restart(app) {
-                eprintln!("pinrail: the update could not be installed: {error}");
-            }
+            let app = app.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                if let Err(error) = crate::updater::restart(&app) {
+                    eprintln!("pinrail: the update could not be installed: {error}");
+                }
+            });
         }
         "update-download" => {
             use tauri_plugin_opener::OpenerExt;
