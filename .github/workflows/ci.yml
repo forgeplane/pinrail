@@ -53,6 +53,7 @@ jobs:
   # compiles for its target, and the app crate has branches per system.
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       # the version mise.toml pins: a new stable release does not invalidate the cache
@@ -91,6 +92,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       # cached across runs instead of downloaded each time; bump version to refresh
@@ -175,6 +177,7 @@ jobs:
   # its unit tests, what create writes, and check over the samples.
   plugins:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
