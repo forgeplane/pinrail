@@ -45,7 +45,8 @@ pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
     Ok(Some(options))
 }
 
-pub fn run(options: Options) -> i32 {
+/// The core's configuration: the environment's, with the flags over it.
+fn config(options: Options, exe: &std::path::Path) -> Config {
     let mut config = Config::from_env();
     if let Some(port) = options.port {
         config.port = port;
@@ -56,6 +57,15 @@ pub fn run(options: Options) -> i32 {
     if let Some(dir) = options.sdk_dir {
         config.sdk_dir = Some(dir);
     }
+    if config.sdk_dir.is_none() {
+        config.sdk_dir = crate::sdk_dir(exe);
+    }
+    config
+}
+
+pub fn run(options: Options) -> i32 {
+    let exe = std::env::current_exe().unwrap_or_default();
+    let config = config(options, &exe);
 
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
@@ -73,9 +83,14 @@ pub fn run(options: Options) -> i32 {
             }
         };
         eprintln!(
-            "pinrail: serving on {} (data in {})",
+            "pinrail: serving on {} (data in {}, SDK from {})",
             state.config().url(),
-            state.config().data_dir.display()
+            state.config().data_dir.display(),
+            state
+                .config()
+                .sdk_dir
+                .as_deref()
+                .map_or_else(|| "nowhere".into(), |d| d.display().to_string())
         );
         match api::serve(state, shutdown_signal()).await {
             Ok(()) => 0,
@@ -100,5 +115,40 @@ async fn shutdown_signal() {
     #[cfg(not(unix))]
     {
         let _ = tokio::signal::ctrl_c().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_headless_server_serves_the_sdk_its_bundle_ships() {
+        // the packaged app run with --headless, as CI and PINRAIL_SERVER_CMD
+        // do: no --sdk-dir, and plugin views still need the SDK
+        let root = tempfile::tempdir().unwrap();
+        let (exe, sdk) = if cfg!(target_os = "macos") {
+            let contents = root.path().join("Pinrail.app/Contents");
+            (
+                contents.join("MacOS/Pinrail"),
+                contents.join("Resources/sdk/v1"),
+            )
+        } else {
+            let usr = root.path().join("usr");
+            (
+                usr.join("bin/pinrail-desktop"),
+                usr.join("lib/Pinrail/sdk/v1"),
+            )
+        };
+        std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+        std::fs::write(&exe, "").unwrap();
+        std::fs::create_dir_all(&sdk).unwrap();
+        std::fs::write(sdk.join("pinrail-plugin.js"), "").unwrap();
+
+        let config = config(Options::default(), &exe);
+        assert_eq!(
+            config.sdk_dir.map(|d| d.canonicalize().unwrap()),
+            Some(sdk.canonicalize().unwrap())
+        );
     }
 }

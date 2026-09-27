@@ -8,7 +8,7 @@ mod native;
 mod notify_mac;
 mod updater;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use pinrail_core::Config;
@@ -310,7 +310,7 @@ pub fn run() {
         .setup(move |app| {
             let mut config = config;
             if config.sdk_dir.is_none() {
-                config.sdk_dir = sdk_dir(app);
+                config.sdk_dir = std::env::current_exe().ok().and_then(|exe| sdk_dir(&exe));
             }
             let state: Arc<Pinrail> = Arc::new(Pinrail::open(config).map_err(|error| {
                 eprintln!("pinrail: cannot open the data directory: {error}");
@@ -496,17 +496,26 @@ fn open_urls<'a>(app: &AppHandle, urls: impl Iterator<Item = &'a str>) {
     native::open(app, route.as_deref().unwrap_or(""));
 }
 
-/// The SDK bundled with the app, or the one the UI build produced next to
-/// the sources during development.
-fn sdk_dir(app: &tauri::App) -> Option<PathBuf> {
-    let bundled = app
-        .path()
-        .resource_dir()
-        .ok()
-        .map(|dir| dir.join("sdk").join("v1"))
-        .filter(|dir| dir.join("pinrail-plugin.js").is_file());
-    bundled.or_else(|| {
-        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/v1");
-        dev.join("pinrail-plugin.js").is_file().then_some(dev)
-    })
+/// The SDK bundled with the app, found from the executable where Tauri
+/// puts resources, or the one the UI build produced next to the sources
+/// during development. The windowed app and `--headless` both use it.
+pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
+    // tauri.conf.json's productName: the Linux packages' resource folder
+    const PRODUCT: &str = "Pinrail";
+    let dir = exe.parent()?;
+    let mut resources = Vec::new();
+    if cfg!(target_os = "macos") {
+        resources.push(dir.join("../Resources"));
+    } else {
+        resources.push(dir.join("../lib").join(PRODUCT));
+        if let Some(appdir) = std::env::var_os("APPDIR") {
+            resources.push(PathBuf::from(appdir).join("usr/lib").join(PRODUCT));
+        }
+        resources.push(PathBuf::from("/usr/lib").join(PRODUCT));
+    }
+    resources
+        .into_iter()
+        .map(|r| r.join("sdk/v1"))
+        .chain([PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/v1")])
+        .find(|dir| dir.join("pinrail-plugin.js").is_file())
 }
