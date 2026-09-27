@@ -101,6 +101,9 @@ mise run test:plugins       # every plugin under the harness
 mise run lint               # rustfmt, clippy and the type check, as CI runs them
 ```
 
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. To
+report a vulnerability, follow [SECURITY.md](SECURITY.md).
+
 ## License
 
 Pinrail is licensed under the [Apache License 2.0](LICENSE). See
