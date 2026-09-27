@@ -74,6 +74,7 @@ depends = ["test:desktop", "test:cli", "test:sdk", "test:plugins", "test:example
 description = "The docs' generated reference pages: the CLI's from its own definition, the settings and the manifest from the core's tables"
 dir = "{{config_root}}"
 run = [
+  "mkdir -p docs/reference",
   "cargo run -q --manifest-path cli/Cargo.toml --features docs -- --markdown-help > docs/reference/cli.md",
   "cargo run -q --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- settings > docs/reference/settings.md",
   "cargo run -q --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- manifest > docs/reference/manifest.md",

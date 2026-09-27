@@ -7,7 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "docs:generate": "cargo run -q --manifest-path ../cli/Cargo.toml --features docs -- --markdown-help > ../docs/reference/cli.md && cargo run -q --manifest-path ../desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- settings > ../docs/reference/settings.md && cargo run -q --manifest-path ../desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- manifest > ../docs/reference/manifest.md",
+    "docs:generate": "mkdir -p ../docs/reference && cargo run -q --manifest-path ../cli/Cargo.toml --features docs -- --markdown-help > ../docs/reference/cli.md && cargo run -q --manifest-path ../desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- settings > ../docs/reference/settings.md && cargo run -q --manifest-path ../desktop/Cargo.toml -p pinrail-core --features docs --bin pinrail-docs -- manifest > ../docs/reference/manifest.md",
     "predev": "npm run docs:generate",
     "prebuild": "npm run docs:generate"
   },
