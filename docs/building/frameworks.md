@@ -3,10 +3,6 @@ title: Building with a framework
 description: "A plugin's view in React, Vue, Svelte or plain TypeScript: any toolchain works, as long as its build ends in an HTML page in the plugin folder. A tutorial, in each of them."
 ---
 
-:::note[Coming with the SDK package]
-This page describes the SDK package, which comes in a later release. Until then, a plugin starts from `pinrail plugins new`: a view with no build. See [Writing a plugin](/docs/building/writing/).
-:::
-
 A view is an HTML page the app loads. It does not matter how that page is made: by hand, or by React, Vue, Svelte or any other framework and its build tool. As long as the build writes an HTML page and its scripts into the plugin folder, the app serves it like any other.
 
 This page builds one plugin, **Ship it?**, in four ways. An agent is about to deploy; the person sees what goes out and how the checks went, and ships or holds it with a note.
@@ -45,7 +41,7 @@ This page builds Ship it? instead. Choose a framework, and every example on this
 ![Vue](example:ship-it/vue/package.json) ![Vue](example:ship-it/vue/vite.config.ts)
 ![Svelte](example:ship-it/svelte/package.json) ![Svelte](example:ship-it/svelte/vite.config.ts)
 
-In your own plugin the SDK comes from npm, as `"@forgeplane/pinrail-plugin": "^1"`; the examples take it from the Pinrail repository.
+A plugin written by `create` takes the SDK from the SDK's GitHub release. The examples on this page take it from the Pinrail repository instead. The SDK is not published to npm.
 
 The manifest is the same for every framework. Its `entry` is the built page, and `build` is the command an install runs:
 

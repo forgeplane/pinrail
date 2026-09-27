@@ -23,5 +23,6 @@ npx pinrail-plugin dev                    # the view in a browser, on the fixtur
 pinrail plugins install . --link          # in the app
 ```
 
-Here the SDK comes from this repository (`file:../../../../pinrail-plugin`);
-in a plugin of your own it is `"@forgeplane/pinrail-plugin": "^1"`.
+Here the SDK comes from this repository (`file:../../../../pinrail-plugin`).
+A plugin written by the SDK's `create` command takes it from the SDK's
+GitHub release instead.

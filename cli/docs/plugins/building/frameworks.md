@@ -1,11 +1,33 @@
 ---
 title: Frameworks
-summary: "Views built with a framework such as React, Vue or Svelte. Not available yet."
+summary: "Views built with React, Vue, Svelte or TypeScript, created with the plugin SDK from a checkout of the Pinrail repository."
 menu: []
 ---
 # Frameworks
 
-Views built with React, Vue, Svelte or TypeScript will be supported in a
-later release, through the templates of the plugin SDK package. Until
-then, create a plugin with `pinrail plugins new`. It writes a view in plain
-HTML and JavaScript that needs no build step and no other tools.
+A view can be built with React, Vue, Svelte or TypeScript, as long as the
+build writes an HTML page and its files into the plugin folder. The plugin
+SDK's `create` command writes a working plugin for each of these, with a
+Vite build, a test and a release workflow. The SDK is not published to npm,
+so run it from a checkout of the Pinrail repository:
+
+```sh
+git clone https://github.com/forgeplane/pinrail
+node pinrail/pinrail-plugin/bin/pinrail-plugin.mjs create <name> --template react   # or vite, vue, svelte
+```
+
+The new plugin's `package.json` takes the SDK from its GitHub release. To
+use your checkout instead, add `--sdk file:<path to pinrail/pinrail-plugin>`.
+
+What the app needs from a built view:
+
+- `entry` in the manifest names the built page, such as `view/index.html`.
+- `build` in the manifest is the command an installation runs, such as
+  `npm ci && npm run build`. A plugin installed with `--link` is served as
+  it is, so build it yourself first.
+- The build refers to its files with relative paths. With Vite, set
+  `base: "./"`.
+- The page loads `/sdk/v1/pinrail-plugin.js` and its stylesheet with tags
+  instead of bundling them.
+- Everything else, including the framework, fonts and images, is bundled,
+  because the view cannot load anything from the network.
