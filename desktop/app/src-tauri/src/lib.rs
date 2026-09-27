@@ -414,12 +414,18 @@ pub fn run() {
         .expect("pinrail could not start its window");
 
     app.run(|app, event| {
-        // A downloaded update is installed on the way out, so quitting
-        // updates as well as restarting does.
-        if let tauri::RunEvent::Exit = event
-            && let Err(error) = updater::install(app)
-        {
-            eprintln!("pinrail: the update could not be installed: {error}");
+        if let tauri::RunEvent::Exit = event {
+            // the server goes with the app: server.json must not advertise
+            // it once it has. Shutting the server down gracefully would wait
+            // on every open long poll, so the file is removed directly.
+            if let Some(native) = app.try_state::<Native>() {
+                pinrail_core::server_info::remove(native.state.config());
+            }
+            // A downloaded update is installed on the way out, so quitting
+            // updates as well as restarting does.
+            if let Err(error) = updater::install(app) {
+                eprintln!("pinrail: the update could not be installed: {error}");
+            }
         }
         // The Dock icon brings the hidden window back.
         #[cfg(target_os = "macos")]
