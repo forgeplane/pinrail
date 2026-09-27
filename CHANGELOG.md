@@ -12,22 +12,32 @@ The `pinrail` command ships inside the app and carries the app's version.
 The [`pinrail-plugin`](pinrail-plugin/CHANGELOG.md) package is versioned on
 its own, and its major is the plugin protocol's.
 
-## [Unreleased]
+## [0.1.0]
 
-### Changed
+The first release of Pinrail.
+
+### Added
 
 #### Desktop app
 
-- The theme switches with <kbd>⌘⇧L</kbd> (<kbd>Ctrl+Shift+L</kbd> on Windows and Linux), and from the Navigate menu, so it works while a plugin has the keyboard. <kbd>T</kbd> now reaches plugins, which use it themselves.
-- <kbd>?</kbd>, <kbd>[</kbd> and <kbd>]</kbd> work while a plugin view has the keyboard: the help opens and the rounds change without clicking outside the view first.
+- An inbox of the reviews that agents submit, grouped by project, and a history of every review that has ended.
+- Each review is shown in its plugin's view, where you decide and hand the decision back to the agent.
+- Rounds: an agent can submit a new version of a review, which is shown beside your earlier verdicts.
+- System notifications, and an icon in the menu bar or the tray with the number of waiting reviews.
+- Plugins installed from a folder, a Git repository or a GitHub release, and updated from the same source.
+- Automatic updates for the macOS app and the AppImage.
+- Packages for macOS 13 or later, and for Linux as an AppImage, a `.deb` or an `.rpm`.
 
 #### CLI
 
-- `pinrail submit --request` takes a plugin's fixture as it is: an entry under `attachments` can be `{"path": …, "media_type": …}` as well as a plain path, and a `media_type` given there is sent instead of the one the extension suggests.
-- `pinrail submit --attach` knows `.m4a`, `.aac`, `.flac`, `.opus` and `.oga` audio by their extension, beside `.mp3`, `.wav` and `.ogg`.
+- `pinrail submit` sends a review and waits for the decision. It prints the decision as Markdown for an agent or as JSON for a script, and ends with an exit code for each outcome.
+- `pinrail plugins` and `pinrail plugins describe` show which plugins are installed and what each one expects.
+- `pinrail docs` prints the briefs that explain Pinrail to an agent.
+- `pinrail submit --attach` sends files with a review.
 
-## [0.1.0] - 2026-09-21
+#### Plugins
 
-Initial release. Pinrail is the inbox where an agent asks before it acts.
+- Built into the app: `list` and `feedback`.
+- Optional, installed from this repository: `review`, `email`, `artifact`, `calendar`, `logo` and `model`.
 
 [0.1.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.1.0
