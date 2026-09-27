@@ -546,17 +546,22 @@ const ICON_MAX_BYTES: u64 = 32 * 1024;
 /// The app draws it as a mask, in the text's colour, so its shapes count and
 /// its colours do not; nothing in it runs.
 pub fn icon_markup(dir: &Path, file: &str) -> Result<String, String> {
-    let path = crate::schema::safe_join(dir, file).ok_or_else(|| format!("{file}: outside the plugin's folder"))?;
+    let path = crate::schema::safe_join(dir, file)
+        .ok_or_else(|| format!("{file}: outside the plugin's folder"))?;
     let size = std::fs::metadata(&path)
         .map_err(|e| format!("{file}: cannot read ({e})"))?
         .len();
     if size > ICON_MAX_BYTES {
-        return Err(format!("{file}: {size} bytes; an icon is at most {ICON_MAX_BYTES}"));
+        return Err(format!(
+            "{file}: {size} bytes; an icon is at most {ICON_MAX_BYTES}"
+        ));
     }
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{file}: cannot read ({e})"))?;
     let svg = text.trim();
     // an XML declaration or a comment may come first; the root is <svg>
-    let start = svg.find("<svg").ok_or_else(|| format!("{file}: not an SVG"))?;
+    let start = svg
+        .find("<svg")
+        .ok_or_else(|| format!("{file}: not an SVG"))?;
     if !svg.ends_with("</svg>") && !svg.ends_with("/>") {
         return Err(format!("{file}: not an SVG"));
     }
@@ -895,7 +900,11 @@ mod tests {
     fn an_icon_is_the_markup_of_its_svg_file_and_a_bad_one_costs_only_the_icon() {
         use serde_json::json;
         let tmp = tempfile::tempdir().unwrap();
-        let ok = with_manifest(tmp.path(), "ok", manifest(json!({"icon": "icons/mark.svg"})));
+        let ok = with_manifest(
+            tmp.path(),
+            "ok",
+            manifest(json!({"icon": "icons/mark.svg"})),
+        );
         std::fs::create_dir_all(ok.join("icons")).unwrap();
         std::fs::write(
             ok.join("icons/mark.svg"),
@@ -903,7 +912,14 @@ mod tests {
         )
         .unwrap();
         let p = Plugin::load(&ok);
-        assert!(p.icon.as_deref().unwrap_or_default().starts_with("<svg xmlns"), "{:?}", p.icon);
+        assert!(
+            p.icon
+                .as_deref()
+                .unwrap_or_default()
+                .starts_with("<svg xmlns"),
+            "{:?}",
+            p.icon
+        );
         assert!(p.icon_error.is_none());
 
         for (i, (changes, why)) in [

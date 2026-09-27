@@ -398,7 +398,6 @@ fn a_review_is_requested_by_the_agent_the_cli_runs_under_unless_told() {
 }
 
 #[test]
-#[test]
 fn unknown_origin_keys_are_dropped_with_a_warning() {
     let server = MockServer::start(Box::new(|method, path, body| {
         assert_eq!((method, path), ("POST", "/api/v1/reviews"));
@@ -1461,7 +1460,9 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
         "{stdout}"
     );
     assert!(
-        stdout.contains("  2. pinrail plugins check triage\n  3. pinrail plugins install triage --link"),
+        stdout.contains(
+            "  2. pinrail plugins check triage\n  3. pinrail plugins install triage --link"
+        ),
         "{stdout}"
     );
     assert!(stdout.contains("How a plugin works: pinrail docs plugins/building\n"));

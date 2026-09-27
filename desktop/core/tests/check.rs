@@ -135,7 +135,10 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
             base(json!({"title": "Sample", "icon": "icon.svg", "min_height": 300})),
             &[
                 ("index.html", "<html></html>"),
-                ("icon.svg", r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 4h16"/></svg>"#),
+                (
+                    "icon.svg",
+                    r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 4h16"/></svg>"#,
+                ),
             ],
         ),
         ("icon_missing", base(json!({"icon": "missing.svg"})), entry),

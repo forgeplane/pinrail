@@ -322,8 +322,9 @@ fn render_item(item: &Value, depth: usize) -> String {
             line.push_str(&format!(" — {body}"));
         }
     }
-    if line.is_empty() {
-        // an object with none of the known keys: say what it holds
+    // an object with none of the known keys: say what it holds
+    let raw = line.is_empty();
+    if raw {
         line = item.to_string();
     }
     let mut out = format!("{indent}- {line}\n");
@@ -339,7 +340,7 @@ fn render_item(item: &Value, depth: usize) -> String {
         "id", "action", "verdict", "file", "path", "line", "selector", "quote", "note", "edits",
         "comments",
     ];
-    if let Some(map) = item.as_object().filter(|_| line != item.to_string()) {
+    if let Some(map) = item.as_object().filter(|_| !raw) {
         for (key, value) in map {
             if shown.contains(&key.as_str()) || Some(key.as_str()) == body_key || value.is_null() {
                 continue;
@@ -688,7 +689,8 @@ Undecided: #19, #20
                 crate::schema::Schema::compile(&dir, "fixture", 1, key, &manifest[key])
                     .unwrap_or_else(|e| panic!("{}: {key}: {e}", dir.display()))
             };
-            let (payload_schema, decision_schema) = (schema("payload_schema"), schema("decision_schema"));
+            let (payload_schema, decision_schema) =
+                (schema("payload_schema"), schema("decision_schema"));
             let Ok(fixtures) = std::fs::read_dir(dir.join("fixtures")) else {
                 continue;
             };
@@ -709,7 +711,10 @@ Undecided: #19, #20
                         wrong.is_empty(),
                         "{}: the {what} is not what the plugin's schema accepts: {:?}",
                         path.display(),
-                        wrong.iter().map(|v| format!("{}: {}", v.path, v.message)).collect::<Vec<_>>()
+                        wrong
+                            .iter()
+                            .map(|v| format!("{}: {}", v.path, v.message))
+                            .collect::<Vec<_>>()
                     );
                 }
                 let review = json!({

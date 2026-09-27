@@ -235,7 +235,10 @@ pub fn scaffolded(written: &Value) -> String {
     for (i, step) in written["next"].as_array().into_iter().flatten().enumerate() {
         out.push_str(&format!("  {}. {}\n", i + 1, text(step)));
     }
-    out.push_str(&format!("\nHow a plugin works: {}\n", text(&written["docs"])));
+    out.push_str(&format!(
+        "\nHow a plugin works: {}\n",
+        text(&written["docs"])
+    ));
     out
 }
 
