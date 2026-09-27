@@ -235,7 +235,10 @@ impl Store {
 
     /// Every setting: the defaults with the file's values over them.
     pub(super) fn get(&self) -> Value {
-        let inner = self.inner.lock().unwrap();
+        let inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut out = defaults();
         merge(&mut out, &inner.file);
         out
@@ -259,7 +262,10 @@ impl Store {
             violations.sort_by(|a, b| a.path.cmp(&b.path));
             return Err(Error::Invalid(violations));
         }
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let before = {
             let mut v = defaults();
             merge(&mut v, &inner.file);
@@ -288,7 +294,10 @@ impl Store {
     /// Reads the file again when something else wrote it; the pointers
     /// that changed, or `None` when nothing did.
     pub(super) fn reload_if_changed(&self) -> Option<Vec<String>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let now = stat(&self.path);
         if now == inner.seen {
             return None;

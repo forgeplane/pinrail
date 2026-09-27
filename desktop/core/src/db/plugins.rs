@@ -29,7 +29,7 @@ pub struct InstalledRecord {
 
 impl Db {
     pub fn installed_plugins(&self) -> rusqlite::Result<Vec<InstalledRecord>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT name, version, major, kind, source, resolved, commit_id, asset_hash, hash, build_log, installed_at, linked, path
              FROM installed_plugins ORDER BY name",
@@ -56,7 +56,7 @@ impl Db {
 
     /// Writes the record, replacing the plugin's previous one.
     pub fn upsert_installed(&self, record: &InstalledRecord) -> rusqlite::Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT OR REPLACE INTO installed_plugins
              (name, version, major, kind, source, resolved, commit_id, asset_hash, hash, build_log, installed_at, linked, path)
@@ -82,7 +82,7 @@ impl Db {
 
     /// Whether any review renders from this plugin's line.
     pub fn reviews_use(&self, plugin: &str, major: u32) -> rusqlite::Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.query_row(
             "SELECT 1 FROM reviews WHERE plugin = ?1 AND plugin_version = ?2 LIMIT 1",
             params![plugin, major],
@@ -93,7 +93,7 @@ impl Db {
     }
 
     pub fn remove_installed(&self, name: &str) -> rusqlite::Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         Ok(conn.execute(
             "DELETE FROM installed_plugins WHERE name = ?1",
             params![name],

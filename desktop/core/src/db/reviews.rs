@@ -41,7 +41,7 @@ pub const NO_PROJECT: &str = "-";
 
 impl Db {
     pub fn insert_review(&self, review: &Review, actor: Option<&str>) -> rusqlite::Result<i64> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn();
         let tx = conn.transaction()?;
         tx.execute(
             "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, payload, summary, revises, expires_at, created_at)
@@ -79,7 +79,7 @@ impl Db {
     }
 
     pub fn get_review(&self, id: &str) -> rusqlite::Result<Option<Review>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let review = conn
             .query_row(&format!("{SELECT} WHERE r.id = ?1"), params![id], |row| {
                 row_to_review(row, true)
@@ -103,7 +103,7 @@ impl Db {
     }
 
     pub fn exists(&self, id: &str) -> rusqlite::Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.query_row("SELECT 1 FROM reviews WHERE id = ?1", params![id], |_| {
             Ok(())
         })
@@ -123,7 +123,7 @@ impl Db {
                 sql.push_str(&format!(" OFFSET ?{}", args.len()));
             }
         }
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(&sql)?;
         let params: Vec<&dyn rusqlite::ToSql> =
             args.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
@@ -136,7 +136,7 @@ impl Db {
         let mut filters = filters.clone();
         filters.cursor = None;
         let (sql, args) = self.where_clause(&filters, now);
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let params: Vec<&dyn rusqlite::ToSql> =
             args.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
         conn.query_row(
@@ -159,7 +159,7 @@ impl Db {
             ..Filters::default()
         };
         let (sql, args) = self.where_clause(&scope, now);
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let params: Vec<&dyn rusqlite::ToSql> =
             args.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
         let from = format!("FROM reviews r LEFT JOIN outcomes o ON o.review_id = r.id{sql}");
@@ -268,7 +268,7 @@ impl Db {
 
     /// Every round of a review's chain, oldest first, without payloads.
     pub fn rounds(&self, id: &str) -> rusqlite::Result<Vec<Review>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut root = id.to_string();
         loop {
             let prev: Option<Option<String>> = conn
@@ -307,7 +307,7 @@ impl Db {
     /// Reviews whose expiry has passed with no decision or withdrawal and no
     /// `expired` event yet.
     pub fn newly_expired(&self, now: DateTime<Utc>) -> rusqlite::Result<Vec<Review>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(&format!(
             "{SELECT} WHERE r.expires_at IS NOT NULL AND r.expires_at <= ?1
                AND o.review_id IS NULL
@@ -328,7 +328,7 @@ impl Db {
         &self,
         before: DateTime<Utc>,
     ) -> rusqlite::Result<Vec<(String, String, u32)>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT r.id, r.plugin, r.plugin_version FROM reviews r
                LEFT JOIN outcomes o ON o.review_id = r.id
@@ -370,7 +370,7 @@ impl Db {
     /// all or nothing. A round among them that revises another among them
     /// lets go of it first, so the order they go in does not matter.
     pub fn delete_reviews(&self, ids: &[&str]) -> rusqlite::Result<usize> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn();
         let tx = conn.transaction()?;
         let mut count = 0;
         for id in ids {

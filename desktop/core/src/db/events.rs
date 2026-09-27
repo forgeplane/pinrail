@@ -39,12 +39,12 @@ impl Db {
         actor: Option<&str>,
         attrs: &Value,
     ) -> rusqlite::Result<i64> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         insert_event(&conn, review_id, kind, actor, attrs)
     }
 
     pub fn has_event(&self, review_id: &str, kind: &str) -> rusqlite::Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.query_row(
             "SELECT 1 FROM events WHERE review_id = ?1 AND kind = ?2 LIMIT 1",
             params![review_id, kind],
@@ -55,7 +55,7 @@ impl Db {
     }
 
     pub fn events_for(&self, review_id: &str) -> rusqlite::Result<Vec<Event>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, review_id, kind, actor, at, attrs FROM events WHERE review_id = ?1 ORDER BY id",
         )?;
@@ -64,7 +64,7 @@ impl Db {
     }
 
     pub fn events_after(&self, after: i64, limit: usize) -> rusqlite::Result<Vec<Event>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, review_id, kind, actor, at, attrs FROM events WHERE id > ?1 ORDER BY id LIMIT ?2",
         )?;

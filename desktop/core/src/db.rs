@@ -20,7 +20,7 @@ pub use reviews::{Facets, Filters, NO_PROJECT};
 pub use schema::LATEST_MIGRATION;
 
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use rusqlite::Connection;
 
@@ -32,6 +32,13 @@ pub struct Db {
 }
 
 impl Db {
+    /// The connection. A panic while it was held leaves the lock poisoned;
+    /// it is taken anyway, since SQLite rolls back the transaction that was
+    /// open, so one failed request does not fail every one after it.
+    fn conn(&self) -> MutexGuard<'_, Connection> {
+        self.conn.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     pub fn open(path: &Path) -> rusqlite::Result<Db> {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
@@ -54,5 +61,23 @@ impl Db {
         Ok(Db {
             conn: Mutex::new(conn),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_panic_while_the_database_is_in_use_does_not_take_it_down() {
+        // one request that panics mid-query must not make every later one
+        // panic until the app restarts
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(&dir.path().join("pinrail.db")).unwrap();
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _held = db.conn.lock().unwrap();
+            panic!("a request fails while it holds the connection");
+        }));
+        assert!(db.installed_plugins().is_ok());
     }
 }

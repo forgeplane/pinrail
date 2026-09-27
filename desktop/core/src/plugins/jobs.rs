@@ -47,26 +47,36 @@ pub(super) struct Jobs(Mutex<HashMap<String, Job>>);
 impl Jobs {
     pub fn start(&self, source: &str) -> String {
         let id = crate::id::next().replace("r_", "j_");
-        self.0.lock().unwrap().insert(
-            id.clone(),
-            Job {
-                id: id.clone(),
-                source: source.to_string(),
-                status: "fetching".into(),
-                log: String::new(),
-                error: None,
-                plugin: None,
-            },
-        );
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(
+                id.clone(),
+                Job {
+                    id: id.clone(),
+                    source: source.to_string(),
+                    status: "fetching".into(),
+                    log: String::new(),
+                    error: None,
+                    plugin: None,
+                },
+            );
         id
     }
 
     pub fn get(&self, id: &str) -> Option<Job> {
-        self.0.lock().unwrap().get(id).cloned()
+        self.0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(id)
+            .cloned()
     }
 
     pub fn note(&self, id: &str, progress: Progress) {
-        let mut jobs = self.0.lock().unwrap();
+        let mut jobs = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(job) = jobs.get_mut(id) else { return };
         match progress {
             Progress::Step(step) => job.status = step.to_string(),
@@ -78,7 +88,10 @@ impl Jobs {
     }
 
     pub fn finish(&self, id: &str, outcome: Result<Value, Error>) {
-        let mut jobs = self.0.lock().unwrap();
+        let mut jobs = self
+            .0
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(job) = jobs.get_mut(id) else { return };
         match outcome {
             Ok(plugin) => {

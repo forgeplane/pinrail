@@ -102,7 +102,7 @@ impl Db {
         actor: Option<&str>,
         attrs: Value,
     ) -> rusqlite::Result<Option<i64>> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn();
         let tx = conn.transaction()?;
         let inserted = tx.execute(
             "INSERT OR IGNORE INTO outcomes (review_id, kind, at, by, reason, data, agent_note) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
