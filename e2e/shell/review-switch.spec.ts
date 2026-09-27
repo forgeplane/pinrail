@@ -135,3 +135,27 @@ test("what the last review said stays with it: the next one opens without its no
   await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The second review.");
   await expect(page.getByText("Discarded. The agent was told to stop."), "the notice belongs to the review that was discarded").toHaveCount(0);
 });
+
+test("a view that posts its hand-over twice decides the review once", async ({ page }) => {
+  // a click and a key press on one button, say: the second must not reach
+  // the server, which would refuse it and flash an error after a success
+  await clearInbox(page.request);
+  const review = await createReview(page.request, "list", "Twice: one review", {
+    intro: "Hand over twice.",
+    groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
+  });
+  const decisions: string[] = [];
+  page.on("request", (r) => r.url().endsWith(`/reviews/${review.id}/decision`) && decisions.push(r.method()));
+
+  await page.goto(`/#/reviews/${review.id}`);
+  const frame = page.frameLocator("#plugin-frame");
+  await expect(frame.locator("body")).toContainText("Hand over twice.");
+  await frame.locator("body").evaluate(() => {
+    const data = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
+    parent.postMessage({ pinrail: 1, type: "submit", data }, "*");
+    parent.postMessage({ pinrail: 1, type: "submit", data }, "*");
+  });
+  await expect(page.getByText("Decision recorded")).toBeVisible();
+  await page.waitForTimeout(500);
+  expect(decisions, "the hand-over was sent twice").toHaveLength(1);
+});

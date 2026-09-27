@@ -72,6 +72,9 @@ export function usePluginBridge(options: Options): Bridge {
   const [submitting, setSubmitting] = useState(false);
   const [handoverLabel, setHandoverLabel] = useState("Hand over");
   const ready = useRef(false);
+  // set before the request goes out: state would only say so after a
+  // render, too late for a second submit posted in the same moment
+  const inFlight = useRef(false);
   const fallback = useRef<number | undefined>(undefined);
   const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit, settings, onSetSetting, minHeight });
   latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting, minHeight };
@@ -230,8 +233,8 @@ export function usePluginBridge(options: Options): Bridge {
           break;
         }
         case "submit": {
-          const { readonly, submitting, connected, onSubmit } = latest.current;
-          if (readonly || submitting) return;
+          const { readonly, connected, onSubmit } = latest.current;
+          if (readonly || inFlight.current) return;
           if (!connected) {
             post({
               type: "violations",
@@ -239,6 +242,7 @@ export function usePluginBridge(options: Options): Bridge {
             });
             return;
           }
+          inFlight.current = true;
           setSubmitting(true);
           try {
             const result = await onSubmit(msg.data);
@@ -249,6 +253,7 @@ export function usePluginBridge(options: Options): Bridge {
               post({ type: "violations", errors: result.violations });
             }
           } finally {
+            inFlight.current = false;
             setSubmitting(false);
           }
           break;
