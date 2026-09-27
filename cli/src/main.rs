@@ -142,9 +142,11 @@ enum Command {
     /// sent as it is. The submission is checked before anything is
     /// uploaded, and a file the app already has is not sent again.
     #[command(verbatim_doc_comment)]
+    #[command(after_help = EXIT_CODES)]
     Submit(SubmitArgs),
     /// Block until a review leaves pending, then print it: the decision as
     /// markdown, or with --json the whole review as JSON
+    #[command(after_help = EXIT_CODES)]
     Wait(WaitArgs),
     /// Print a review: as markdown, or with --json the whole review as JSON,
     /// its payload and decision
@@ -486,6 +488,15 @@ enum PluginsCommand {
     },
 }
 
+/// What a submit or a wait exits with: what an agent acts on.
+const EXIT_CODES: &str = "Exit codes:
+  0  decided
+  1  bad arguments, or the app could not be reached
+  2  refused by the app; stderr says why
+  3  withdrawn, or expired undecided
+  4  --timeout ran out; the review is still pending
+  5  discarded: stop the work, and don't ask again";
+
 /// The CLI as clap parses it. The flags every command takes are hidden
 /// where they are defined, so no command's help repeats them, as git's
 /// don't; the root's help lists them once, from their definitions.
@@ -510,7 +521,7 @@ fn command() -> clap::Command {
         listed.push_str(&format!("  {name}{value}\n          {help}\n"));
     }
     root.after_help(format!(
-        "{listed}\nHow to use Pinrail as an agent: pinrail docs"
+        "{listed}\n{EXIT_CODES}\n\nHow to use Pinrail as an agent: pinrail docs"
     ))
 }
 
