@@ -16,7 +16,7 @@ type Draft = { ok: boolean | null; comment: string };
 
 const { Pinrail } = window;
 
-/** An icon from the app's set; the SDK writes its markup. */
+/** One of the plugin's own icons, icons/<name>.svg; the SDK writes its markup. */
 function Icon({ name }: { name: string }) {
   return <span style={{ display: "contents" }} dangerouslySetInnerHTML={{ __html: Pinrail.icon(name) }} />;
 }
