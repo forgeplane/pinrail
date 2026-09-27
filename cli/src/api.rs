@@ -279,7 +279,10 @@ impl Client {
             .with_context(|| self.unreachable())?;
         let status = resp.status().as_u16();
         if !(200..300).contains(&status) {
-            return Self::body(status, &mut resp).map(|_| String::new());
+            // body() turns every status outside 2xx into the server's error
+            return Err(Self::body(status, &mut resp)
+                .err()
+                .unwrap_or_else(|| anyhow::anyhow!("the server answered {status}")));
         }
         resp.body_mut()
             .read_to_string()
