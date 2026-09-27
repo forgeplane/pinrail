@@ -1,6 +1,6 @@
 // The artifact lives in a shadow root of the plugin's own document, so the
 // view can point at its elements. Its styles come along and stay scoped;
-// its scripts do not run; its links and forms go nowhere.
+// nothing in it runs; its links and forms go nowhere.
 
 export type Box = { x: number; y: number; w: number; h: number };
 
@@ -34,8 +34,7 @@ export function mount(host: HTMLElement, html: string): { root: ShadowRoot; body
     const value = doc.documentElement.getAttribute(attr);
     if (value && attr === "style") body.setAttribute("style", `${value};${body.getAttribute("style") ?? ""}`);
   }
-  for (const script of doc.querySelectorAll("script")) script.remove();
-  for (const link of doc.querySelectorAll("link")) link.remove();
+  inert(doc);
   body.append(...Array.from(doc.body.childNodes).map((node) => document.adoptNode(node)));
   root.append(body);
 
@@ -46,6 +45,36 @@ export function mount(host: HTMLElement, html: string): { root: ShadowRoot; body
   });
   root.addEventListener("submit", (event) => event.preventDefault());
   return { root, body };
+}
+
+// what runs code, loads a document or reaches out: none of it belongs in a
+// mockup the person looks at
+const DROPPED = "script, link, meta, base, iframe, frame, frameset, object, embed, applet, portal";
+// attributes whose value is an address a click or a load would follow
+const ADDRESSES = new Set(["href", "xlink:href", "src", "action", "formaction", "data", "poster", "background"]);
+// the addresses a link or a form may never lead to; images may still be data:
+const NAVIGATIONS = new Set(["href", "xlink:href", "action", "formaction"]);
+
+/**
+ * Takes out everything in the artifact that could run: scripts and frames,
+ * inline handlers, and `javascript:` addresses. The view allows inline
+ * script for its own code, so the artifact must bring none of its own.
+ */
+function inert(doc: Document) {
+  for (const el of doc.querySelectorAll(DROPPED)) el.remove();
+  // an SVG animation can rewrite a link's address after the fact
+  for (const el of doc.querySelectorAll("animate, set")) {
+    if (/href/i.test(el.getAttribute("attributeName") ?? "")) el.remove();
+  }
+  for (const el of doc.querySelectorAll("*")) {
+    for (const { name, value } of Array.from(el.attributes)) {
+      const key = name.toLowerCase();
+      // browsers ignore whitespace and control characters in a scheme
+      const scheme = value.replace(/[\u0000-\u0020]/g, "").toLowerCase();
+      const runs = /^(javascript|vbscript):/.test(scheme) || (NAVIGATIONS.has(key) && scheme.startsWith("data:"));
+      if (key.startsWith("on") || key === "srcdoc" || (ADDRESSES.has(key) && runs)) el.removeAttribute(name);
+    }
+  }
 }
 
 /**

@@ -128,3 +128,36 @@ test("custom properties on :root, html and body reach the artifact's elements", 
   await expect(btn).toHaveCSS("border-top-color", "rgb(1, 2, 3)");
   await expect(plugin.frame.locator("[data-artifact] .artifact-body")).toHaveCSS("background-color", "rgb(250, 240, 230)");
 });
+
+test("markup in the artifact runs nothing, so it cannot decide the review", async ({ page }) => {
+  // The artifact is the agent's HTML, often pasted from somewhere else. A
+  // handler in it would run inside the view the person trusts, where it
+  // could hand over a decision the person never made.
+  const submit = "parent.postMessage({pinrail:1,type:'submit',data:{comments:[]}},'*');window.ran=(window.ran||0)+1";
+  const gate = landing();
+  gate.payload = {
+    ...(gate.payload as object),
+    html: `<!doctype html><html><body>
+      <h1>Bookkeeping that closes itself</h1>
+      <img src="x" onerror="${submit}">
+      <svg><image href="x" onerror="${submit}"></image></svg>
+      <details open ontoggle="${submit}"><summary>more</summary></details>
+      <a href="javascript:${submit}" class="js">a link</a>
+      <a href="java&#9;script:${submit}" class="hidden-js">a link with a tab in its scheme</a>
+      <form action="javascript:${submit}"><button>send</button></form>
+      <iframe srcdoc="<script>${submit.replace("parent.", "parent.parent.")}</script>"></iframe>
+      <object data="data:text/html,<script>${submit}</script>"></object>
+    </body></html>`,
+  };
+  const plugin = await mountPlugin(page, dir, { gate });
+  const f = plugin.frame;
+  await expect(f.locator("[data-artifact] h1")).toHaveText("Bookkeeping that closes itself");
+  await f.locator("[data-artifact] a.js").click();
+  await f.locator("[data-artifact] a.hidden-js").click();
+  await f.locator("[data-artifact] form button").click();
+  await page.waitForTimeout(500);
+
+  expect(await f.locator("body").evaluate(() => (window as unknown as { ran?: number }).ran ?? 0), "a handler in the artifact ran").toBe(0);
+  const submits = (await plugin.messages()).filter((m) => m.type === "submit");
+  expect(submits, "the artifact handed over a decision").toEqual([]);
+});
