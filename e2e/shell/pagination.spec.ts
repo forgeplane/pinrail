@@ -23,36 +23,38 @@ async function clearInbox(request: APIRequestContext) {
 
 test("history shows 50 a page, pages through the rest, and starts again at page 1 when filtered", async ({ page }) => {
   await clearInbox(page.request);
-  // 60 decided reviews under a word no other spec uses, oldest first
+  // 60 decided reviews under a word of this run's own, oldest first: history
+  // keeps every earlier run's, and a repeat must not count them
+  const tag = `paging${Date.now()}`;
   for (let i = 1; i <= 60; i++) {
-    const { id } = await createReview(page.request, `Paging history ${String(i).padStart(2, "0")}`, i % 2 ? "acme/odd" : "acme/even");
+    const { id } = await createReview(page.request, `${tag} history ${String(i).padStart(2, "0")}`, i % 2 ? "acme/odd" : "acme/even");
     const decided = await page.request.post(`${core}/api/v1/reviews/${id}/decision`, { data: { data: { decisions: [], undecided: [1] } } });
     expect(decided.status()).toBe(200);
   }
 
-  await page.goto("/#/history?q=paging");
+  await page.goto(`/#/history?q=${tag}`);
   const rows = page.locator("[data-history-row]");
   const range = page.locator("[data-pager-range]");
   await expect(rows).toHaveCount(50);
   await expect(range).toHaveText("1–50 of 60");
-  await expect(rows.first()).toContainText("Paging history 60");
+  await expect(rows.first()).toContainText(`${tag} history 60`);
   await expect(page.locator("[data-pager-previous]")).toBeDisabled();
 
   await page.locator("[data-pager-next]").click();
   await expect(page).toHaveURL(/page=2/);
   await expect(rows).toHaveCount(10);
   await expect(range).toHaveText("51–60 of 60");
-  await expect(rows.last()).toContainText("Paging history 01");
+  await expect(rows.last()).toContainText(`${tag} history 01`);
   await expect(page.locator("[data-pager-next]")).toBeDisabled();
 
   // a filter narrows on the server and goes back to the first page
-  await page.getByRole("searchbox", { name: "Search history" }).fill("paging acme/odd");
+  await page.getByRole("searchbox", { name: "Search history" }).fill(`${tag} acme/odd`);
   await expect(page).not.toHaveURL(/page=/);
   await expect(rows).toHaveCount(30);
   await expect(range).toHaveText("1–30 of 30");
 
   // the page size: 25 splits the 30 in two
-  await page.goto("/#/history?q=paging%20acme/odd&per=25");
+  await page.goto(`/#/history?q=${tag}%20acme/odd&per=25`);
   await expect(rows).toHaveCount(25);
   await expect(range).toHaveText("1–25 of 30");
   await page.locator("[data-pager-next]").click();
@@ -60,9 +62,9 @@ test("history shows 50 a page, pages through the rest, and starts again at page 
   await expect(range).toHaveText("26–30 of 30");
 
   // two clicks in one frame step two pages, here against the server's paging
-  await page.goto("/#/history?q=paging&per=25");
+  await page.goto(`/#/history?q=${tag}&per=25`);
   await expect(range).toHaveText("1–25 of 60");
-  await page.goto("/#/history?q=paging&per=25&page=3");
+  await page.goto(`/#/history?q=${tag}&per=25&page=3`);
   await expect(range).toHaveText("51–60 of 60");
   await page.evaluate(() => {
     const previous = document.querySelector<HTMLButtonElement>("[data-pager-previous]");
@@ -72,7 +74,7 @@ test("history shows 50 a page, pages through the rest, and starts again at page 
   await expect(range).toHaveText("1–25 of 60");
 
   // the search reads the requester and the project as well as the title
-  await page.goto("/#/history?q=acme/even%20spec");
+  await page.goto(`/#/history?q=${tag}%20acme/even%20spec`);
   await expect(rows).toHaveCount(30);
 });
 
