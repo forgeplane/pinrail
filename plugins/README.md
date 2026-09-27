@@ -158,15 +158,11 @@ without `build` whose `entry` is missing is refused with that said.
 
 ### What runs on your machine
 
-A view runs in the app in a sandbox: an opaque origin, no network, no
-storage. It can draw and talk to the shell, and nothing else, whichever
-way it was installed. A build is different: `npm ci` runs the dependency
-tree's scripts and `npm run build` runs whatever the package says, on your
-machine with your rights. That is what you are trusting when you install a
-source that builds, which is why the app shows the exact command before
-anything runs, and why a release, whose bundle needs no build, runs
-nothing at all. Releases are not signed and publishers are not vetted:
-install from people and repositories you would run code from.
+A plugin's view always runs in a sandbox, however the plugin was
+installed. Installing from a source that needs a build runs the build
+command on the person's computer with their permissions, while installing
+a release runs nothing. See [What runs where](../docs/concepts/trust.md)
+for details.
 
 ### Publishing a release
 
@@ -450,11 +446,12 @@ speak it directly instead.
 
 ## Starting a plugin
 
-`npx @forgeplane/pinrail-plugin create <name>` (`--template vite`, `react`, `vue` or `svelte` for a build) writes a
-folder in the layout above with a working view, a fixture, a test and a
-release workflow; `pinrail-plugin dev`, `test` and `check` take it from
-there. See [`pinrail-plugin/`](../pinrail-plugin/README.md). The samples here are
-what to read once it runs.
+`pinrail plugins new <name>` writes a folder in the layout above with a
+working view, schemas, a sample and the SDK's types, and `--link` installs
+it at once. For a view built with Vite, React, Vue or Svelte, the SDK's
+`create` writes the same with a build, a test and a release workflow; see
+[`pinrail-plugin/`](../pinrail-plugin/README.md). The samples here are what
+to read once it runs.
 
 ## Testing a plugin
 

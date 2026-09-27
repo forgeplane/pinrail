@@ -6,10 +6,11 @@ menu: []
 # The manifest
 
 `manifest.json` is checked against this schema when the plugin is
-installed or checked. A broken `settings_schema`, `shortcuts`,
-`decision_template`, `example` or `sample` costs the plugin that feature,
-not its place; anything else refuses it. `pinrail plugins check <dir>` says
-which.
+installed or checked. If `settings_schema`, `shortcuts`,
+`decision_template`, `example`, `sample` or `icon` is invalid, the plugin
+loses only that feature and can still be used. Any other invalid key means
+the plugin cannot be used. `pinrail plugins check <dir>` reports which
+problems a folder has.
 
 ```json
 {{manifest_schema}}

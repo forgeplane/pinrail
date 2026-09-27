@@ -564,7 +564,7 @@ pub fn icon_markup(dir: &Path, file: &str) -> Result<String, String> {
 /// pinrail-plugin package, which build.rs copies in: the one description of a
 /// manifest, shared with authors' editors and the docs.
 #[cfg(feature = "docs")]
-pub use shape::SCHEMA;
+pub use shape::{FEATURES, SCHEMA};
 
 mod shape {
     use std::collections::BTreeMap;
@@ -578,7 +578,7 @@ mod shape {
     pub const SCHEMA: &str = include_str!(concat!(env!("OUT_DIR"), "/manifest.schema.json"));
 
     /// Keys whose violation costs the plugin that feature, not its place.
-    const FEATURES: &[&str] = &[
+    pub const FEATURES: &[&str] = &[
         "settings_schema",
         "shortcuts",
         "decision_template",

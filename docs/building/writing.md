@@ -257,7 +257,7 @@ Declare the kinds the plugin takes in the manifest:
 }
 ```
 
-`accept` lists extensions and media types; a file matches by either. `max_size` (bytes) and `max_count` are optional and can only be lower than the app's own limits of 100 MB a file and 32 files a review. A plugin without `attachments` takes no files.
+`accept` lists extensions and media types; a file matches by either. `max_size` (bytes) and `max_count` are optional and can be at most the app's own limits of 100 MiB a file and 32 files a review. A review's files may add up to 512 MiB in all, whatever the plugin says. A plugin without `attachments` takes no files.
 
 The payload names each file by an object with one key, `$attachment`:
 
@@ -379,7 +379,7 @@ The major version is a promise to every review already created. The app keeps on
 - Fix the view or add an optional field: raise the minor or patch. Existing reviews pick it up.
 - Change a schema or the view in a way an old review would not survive: raise the major. Old reviews keep the old major; new ones get the new.
 
-A plugin still finding its shape starts at `0.1.0`.
+A plugin still finding its shape starts at `0.1.0`. Pinrail treats all `0.x` releases as the same major version, `0`, so a breaking change between two `0.x` releases also breaks the reviews created with the earlier one. Move to `1.0.0` once you have reviews that must keep working.
 
 ## Decisions as markdown
 

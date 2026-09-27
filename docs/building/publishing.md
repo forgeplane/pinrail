@@ -95,7 +95,7 @@ The major version is a promise to every review already created with your plugin:
 | A fix in the view, or a new optional field | A minor or patch: `1.2.0` → `1.3.0`. Existing reviews pick it up. |
 | A schema, or the view, in a way an old review would not survive | A new major: `1.3.0` → `2.0.0`. Old reviews keep `1.x`. |
 
-A plugin that is still finding its shape starts at `0.1.0`.
+A plugin that is still finding its shape starts at `0.1.0`. Pinrail treats all `0.x` releases as the same major version, `0`, so a breaking change between two `0.x` releases also breaks the reviews created with the earlier one. Move to `1.0.0` once you have reviews that must keep working.
 
 ## How people install and update it
 

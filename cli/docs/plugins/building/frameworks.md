@@ -1,12 +1,11 @@
 ---
 title: Frameworks
-summary: A view in React, Vue, Svelte or TypeScript, built into view/.
+summary: "Views built with a framework such as React, Vue or Svelte. Not available yet."
 menu: []
 ---
 # Frameworks
 
-A view built with React, Vue, Svelte or TypeScript starts from the SDK
-package's templates, which come in a later release, with a browser shell
-and a test harness that run without the app. Until then, start from
-`pinrail plugins new`: a view with no build, plain HTML and a script,
-that needs nothing installed.
+Views built with React, Vue, Svelte or TypeScript will be supported in a
+later release, through the templates of the plugin SDK package. Until
+then, create a plugin with `pinrail plugins new`. It writes a view in plain
+HTML and JavaScript that needs no build step and no other tools.

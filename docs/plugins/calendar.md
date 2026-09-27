@@ -82,6 +82,8 @@ Submit them to Pinrail as a `calendar` review and wait:
 ```
 
 - **Times carry their offset**, and everything is shown in the payload's `timezone`, whatever the reader's own.
+- **`blocked`** is required. Send an empty list, `[]`, when nothing is booked.
+- **`icon`** must be one of the icon names listed in the plugin's payload schema. Use `calendar` when none of them fits.
 - **`days`** is 1 to 14. A single day opens in the day view; anything longer opens in the week.
 - **Conflicts are exact**: overlapping intervals clash, touching ones do not. Travel time belongs in the suggested intervals or in `blocked`.
 

@@ -19,9 +19,9 @@ The package is authoring-time only: a shipped plugin loads the SDK from the
 app, never from `node_modules`. A plugin without a build needs none of it:
 `pinrail plugins new`, in the app's own command, writes the plain template
 with the SDK's types beside it, and `pinrail plugins check` and the
-browser preview stand in for `check` and `dev`. Until the first release it is installed
-from this repository (`"@forgeplane/pinrail-plugin": "file:../../pinrail-plugin"`, or the
-tarball `npm pack` writes here); it goes to npm with the app's release.
+browser preview stand in for `check` and `dev`. The package is not on npm:
+install it from this repository (`"@forgeplane/pinrail-plugin": "file:../../pinrail-plugin"`)
+or from the tarball attached to its GitHub release.
 
 ```html
 <script src="/sdk/v1/pinrail-plugin.js"></script>
@@ -194,12 +194,16 @@ npm test            # the unit tests, against a fake shell environment; then
 own tests and installs with `--link` before a line of it is changed:
 
 ```sh
-npx @forgeplane/pinrail-plugin create ticket_triage                    # view/index.html and view/view.js, no build
-npx @forgeplane/pinrail-plugin create ticket_triage --template vite    # src/ in TypeScript, built by Vite into view/
-npx @forgeplane/pinrail-plugin create ticket_triage --template react   # the view in React, built by Vite
-npx @forgeplane/pinrail-plugin create ticket_triage --template vue     # the view in Vue, built by Vite
-npx @forgeplane/pinrail-plugin create ticket_triage --template svelte  # the view in Svelte, built by Vite
+node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage                    # view/index.html and view/view.js, no build
+node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template vite    # src/ in TypeScript, built by Vite into view/
+node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template react   # the view in React, built by Vite
+node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template vue     # the view in Vue, built by Vite
+node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template svelte  # the view in Svelte, built by Vite
 ```
+
+Run these commands from a checkout of this repository. For a plugin
+without a build step, `pinrail plugins new` creates the same folder
+without a checkout.
 
 What it writes: `manifest.json` at `0.1.0` with the schemas by `$ref` and
 the entry, a `description` and a `use_when` to replace; `example.json`, a
@@ -220,7 +224,7 @@ GitHub release on a `v<version>` tag, for `pinrail plugins install
 
 `--dir` puts it somewhere other than `./<name>`. `--sdk` sets where
 `package.json` gets this package from; the default is the tarball of the
-SDK's own release, until it is on npm.
+SDK's own GitHub release.
 
 ## Running a plugin in the browser
 

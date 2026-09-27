@@ -118,11 +118,7 @@ Removing a plugin stops new reviews from using it. Stored copies that existing r
 ## What runs on your machine
 
 :::caution[A build runs code with your rights]
-A plugin's view runs in a sandbox: an opaque origin, no network and no storage. It can draw and talk to the app, and nothing else, however it was installed.
-
-A build is different. `npm ci` runs the scripts of every package in the dependency tree, and `npm run build` runs whatever the package says, on your machine, as you. That is what you trust when you install a source that builds, which is why Pinrail shows the exact command before anything runs. A release needs no build and runs nothing.
-
-Releases are not signed and publishers are not vetted. Install plugins from people and repositories you would run code from.
+When you install a plugin from a source that needs a build, Pinrail runs the build command on your computer with your user's permissions. Installing a release does not run anything. Only install plugins from people and repositories whose code you would be willing to run. [What runs where](/docs/concepts/trust/#what-installing-a-plugin-runs) explains what each kind of installation runs.
 :::
 
 ## Where plugins live

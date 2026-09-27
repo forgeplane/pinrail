@@ -84,11 +84,20 @@ pub fn manifest_page() -> String {
             cell(property["description"].as_str().unwrap_or_default())
         );
     }
-    page.push_str(
-        "\nA violation in `settings_schema`, `shortcuts` or `decision_template` costs the plugin that feature and is shown on its row in Settings; \
-         any other refuses the plugin. The shapes of `settings_schema` and `shortcuts` are in \
+    let features: Vec<String> = plugins::MANIFEST_FEATURES
+        .iter()
+        .map(|k| format!("`{k}`"))
+        .collect();
+    let (last, rest) = features
+        .split_last()
+        .expect("some keys cost only a feature");
+    let _ = write!(
+        page,
+        "\nIf {} or {last} is invalid, the plugin loses only that feature, and the problem is shown on its row in Settings. \
+         Any other invalid key means the plugin cannot be used. The formats of `settings_schema` and `shortcuts` are described in \
          [Settings and keys of a plugin](/docs/building/settings-and-keys/). \
-         `npx pinrail-plugin check` checks a folder against the same schema, and the files it names, without the app.\n",
+         `pinrail plugins check <folder>` checks a plugin folder against the same schema, together with the files the manifest names.\n",
+        rest.join(", ")
     );
     page
 }

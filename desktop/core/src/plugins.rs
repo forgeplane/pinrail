@@ -16,7 +16,7 @@ pub use install::Options as InstallOptions;
 pub use jobs::Job as InstallJob;
 /// The manifest's JSON Schema, for the docs' manifest reference.
 #[cfg(feature = "docs")]
-pub use manifest::SCHEMA as MANIFEST_SCHEMA;
+pub use manifest::{FEATURES as MANIFEST_FEATURES, SCHEMA as MANIFEST_SCHEMA};
 pub use manifest::{Install, Plugin};
 pub use sample::Sample;
 pub use service::{PluginService, UpdateOutcome};
