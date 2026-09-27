@@ -151,9 +151,10 @@ test('day and week views: a day at full width, a strip of days, paging by week, 
   await f.locator('body').press('l');
   await expect(f.locator('.list-scroll')).toBeVisible();
 
-  // the view is remembered for the next calendar
-  const kept = (await p.messages()).filter((m: any) => m.type === 'settings_set').map((m: any) => m.patch.view);
-  expect(kept[kept.length - 1]).toBe('list');
+  // the view is remembered for the next calendar; the view posts the
+  // setting after it redraws, so wait for it rather than read the log at once
+  const lastView = async () => (await p.messages()).filter((m: any) => m.type === 'settings_set').map((m: any) => m.patch.view).pop();
+  await expect.poll(lastView).toBe('list');
 });
 
 test('a single day opens in the day view', async ({ page }) => {

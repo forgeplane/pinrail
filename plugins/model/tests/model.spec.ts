@@ -83,7 +83,10 @@ test("a click on the model itself opens a comment on the part under it", async (
   const f = plugin.frame;
   // the Column, front on: its drum shade fills the upper middle of the stage
   await f.locator(".pick").nth(2).click();
+  // the model loads after the pick: a view chosen before it lands is reset
+  await expect(f.locator("[data-part]", { hasText: "Drum shade" })).toBeVisible();
   await f.locator('[data-view="1"]').click();
+  await expect(f.locator('[data-view="1"]')).toHaveAttribute("aria-pressed", "true");
   const box = (await f.locator("#viewer canvas").boundingBox())!;
   await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.3);
   await expect(f.locator("#pop")).toContainText("Drum shade");
