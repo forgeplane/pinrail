@@ -1,28 +1,19 @@
-import { expect, test } from "@playwright/test";
-
-const core = "http://127.0.0.1:4799";
+import { expect, test, type APIRequestContext } from "@playwright/test";
+import { createReview, decide } from "./helpers";
 
 const payload = (title: string) => ({ groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, title }] }] });
 
-test("a new round of the open review shows in the switcher and says it is waiting", async ({ page }) => {
-  const submit = async (title: string, revises?: string) => {
-    const response = await page.request.post(`${core}/api/v1/reviews`, {
-      data: { plugin: "list", title, origin: { repo: "acme/api" }, revises, payload: payload(title) },
-    });
-    expect(response.status(), await response.text()).toBe(201);
-    return ((await response.json()) as { id: string }).id;
-  };
-  const decide = async (id: string) => {
-    const response = await page.request.post(`${core}/api/v1/reviews/${id}/decision`, {
-      data: { data: { decisions: [{ id: 1, action: "accept" }], undecided: [] } },
-    });
-    expect(response.status(), await response.text()).toBe(200);
-  };
+/** Submits a round of a list review, revising `revises` when given. */
+const submit = async (request: APIRequestContext, title: string, revises?: string) =>
+  (await createReview(request, { title, revises, payload: payload(title) })).id;
 
-  const first = await submit("Rounds: one");
-  await decide(first);
-  const second = await submit("Rounds: two", first);
-  await decide(second);
+const accept = (request: APIRequestContext, id: string) => decide(request, id, { decisions: [{ id: 1, action: "accept" }], undecided: [] });
+
+test("a new round of the open review shows in the switcher and says it is waiting", async ({ page }) => {
+  const first = await submit(page.request, "Rounds: one");
+  await accept(page.request, first);
+  const second = await submit(page.request, "Rounds: two", first);
+  await accept(page.request, second);
 
   // round 1 is open when round 3 arrives: it revises round 2, not the open one
   await page.goto(`/#/reviews/${first}`);
@@ -30,7 +21,7 @@ test("a new round of the open review shows in the switcher and says it is waitin
   await expect(pills).toHaveCount(2);
   await expect(page.locator("[data-new-round]")).toHaveCount(0);
 
-  const third = await submit("Rounds: three", second);
+  const third = await submit(page.request, "Rounds: three", second);
   await expect(pills).toHaveCount(3);
   await expect(pills.nth(2)).toHaveClass(/is-waiting/);
   // each round in the colour of its outcome
@@ -54,18 +45,9 @@ test("a new round of the open review shows in the switcher and says it is waitin
 
 test("⌘[ goes back, even on a round that has an earlier one", async ({ page }) => {
   // [ alone moves between rounds; with ⌘ it is Back, and only Back
-  const submit = async (title: string, revises?: string) => {
-    const response = await page.request.post(`${core}/api/v1/reviews`, {
-      data: { plugin: "list", title, origin: { repo: "acme/api" }, revises, payload: payload(title) },
-    });
-    expect(response.status(), await response.text()).toBe(201);
-    return ((await response.json()) as { id: string }).id;
-  };
-  const first = await submit("Back: one");
-  await page.request.post(`${core}/api/v1/reviews/${first}/decision`, {
-    data: { data: { decisions: [{ id: 1, action: "accept" }], undecided: [] } },
-  });
-  const second = await submit("Back: two", first);
+  const first = await submit(page.request, "Back: one");
+  await accept(page.request, first);
+  const second = await submit(page.request, "Back: two", first);
 
   await page.goto("/#/history");
   await page.goto(`/#/reviews/${second}`);

@@ -2,9 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { core } from "./helpers";
 
 const root = path.resolve(__dirname, "..", "..");
-const core = "http://127.0.0.1:4799";
 
 /** A copy of a sample plugin under a name and version of its own. */
 function pluginCopy(sample: string, name: string, version: string, extra: Record<string, unknown> = {}): string {

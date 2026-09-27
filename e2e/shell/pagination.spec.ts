@@ -1,25 +1,6 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { clearInbox, createReview, decide } from "./helpers";
 
-const core = "http://127.0.0.1:4799";
-
-const payload = {
-  intro: "One proposal.",
-  groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
-};
-
-async function createReview(request: APIRequestContext, title: string, repo: string) {
-  const response = await request.post(`${core}/api/v1/reviews`, {
-    data: { plugin: "list", title, origin: { repo, workflow: "paging" }, requested_by: "spec", payload },
-  });
-  expect(response.status(), await response.text()).toBe(201);
-  return (await response.json()) as { id: string };
-}
-
-/** Discards whatever is pending, so a test starts from an empty inbox. */
-async function clearInbox(request: APIRequestContext) {
-  const pending = (await (await request.get(`${core}/api/v1/reviews?status=pending&limit=500`)).json()).reviews as { id: string }[];
-  for (const r of pending) await request.post(`${core}/api/v1/reviews/${r.id}/discard`, { data: { reason: "spec cleanup" } });
-}
 
 test("history shows 50 a page, pages through the rest, and starts again at page 1 when filtered", async ({ page }) => {
   await clearInbox(page.request);
@@ -27,9 +8,11 @@ test("history shows 50 a page, pages through the rest, and starts again at page 
   // keeps every earlier run's, and a repeat must not count them
   const tag = `paging${Date.now()}`;
   for (let i = 1; i <= 60; i++) {
-    const { id } = await createReview(page.request, `${tag} history ${String(i).padStart(2, "0")}`, i % 2 ? "acme/odd" : "acme/even");
-    const decided = await page.request.post(`${core}/api/v1/reviews/${id}/decision`, { data: { data: { decisions: [], undecided: [1] } } });
-    expect(decided.status()).toBe(200);
+    const { id } = await createReview(page.request, {
+      title: `${tag} history ${String(i).padStart(2, "0")}`,
+      origin: { repo: i % 2 ? "acme/odd" : "acme/even", workflow: "paging" },
+    });
+    await decide(page.request, id, { decisions: [], undecided: [1] });
   }
 
   await page.goto(`/#/history?q=${tag}`);
@@ -82,7 +65,10 @@ test("the inbox holds every pending review, 50 a page, and Enter opens the row t
   await clearInbox(page.request);
   // 105: past the 100 the inbox used to stop at, across two projects
   for (let i = 1; i <= 105; i++) {
-    await createReview(page.request, `Paging inbox ${String(i).padStart(3, "0")}`, i % 3 ? "acme/api" : "acme/web");
+    await createReview(page.request, {
+      title: `Paging inbox ${String(i).padStart(3, "0")}`,
+      origin: { repo: i % 3 ? "acme/api" : "acme/web", workflow: "paging" },
+    });
   }
 
   await page.goto("/#/");

@@ -12,8 +12,8 @@
 // violation report and checks which rule fired.
 
 import { expect, test, type Frame } from "@playwright/test";
+import { core, corePort, createReview } from "./helpers";
 
-const core = "http://127.0.0.1:4799";
 /** Live, reachable, and outside every source the frame's policy allows. */
 const refused = `${core}/api/v1/info`;
 /** A font the app serves to plugin views, which the policy does allow. */
@@ -21,17 +21,7 @@ const sdkFont = `${core}/sdk/v1/files/inter-latin-wght-normal.woff2`;
 
 /** Opens a review and hands back the plugin's frame. */
 async function pluginFrame(page: import("@playwright/test").Page): Promise<Frame> {
-  const made = await page.request.post(`${core}/api/v1/reviews`, {
-    data: {
-      plugin: "list",
-      title: "sandbox",
-      origin: { repo: "acme/api", workflow: "sandbox" },
-      requested_by: "spec",
-      payload: { intro: "One proposal.", groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }] },
-    },
-  });
-  expect(made.status(), await made.text()).toBe(201);
-  const { id } = (await made.json()) as { id: string };
+  const { id } = await createReview(page.request, { title: "sandbox", origin: { repo: "acme/api", workflow: "sandbox" } });
   await page.goto(`/#/reviews/${id}`);
   await expect(page.frameLocator("#plugin-frame").locator("body")).toBeVisible();
   // The frame is there before it is the plugin's: it starts blank and is
@@ -217,7 +207,7 @@ test("a view cannot have the shell open the app's own server", async ({ page }) 
   const ask = (url: string) => frame.evaluate((u) => parent.postMessage({ pinrail: 1, type: "open", url: u }, "*"), url);
   await ask(frame.url());
   await ask(`${core}/api/v1/info`);
-  await ask("http://localhost:4799/api/v1/info");
+  await ask(`http://localhost:${corePort}/api/v1/info`);
   // the control: a link out still opens, so the refusals above are the rule's
   await ask("https://example.invalid/");
 

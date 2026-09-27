@@ -1,5 +1,6 @@
 import { defineConfig } from "@playwright/test";
 import path from "node:path";
+import { corePort } from "./shell/helpers";
 
 // The desktop shell in a browser: the app's UI from vite against the
 // desktop core running headless on a scratch data directory. No CLI. The
@@ -7,7 +8,6 @@ import path from "node:path";
 // The data starts as a returning person's: the setup already seen, so its
 // dialog does not cover what the tests click.
 const root = path.resolve(__dirname, "..");
-const corePort = 4799;
 const uiPort = 5199;
 const data = path.join(__dirname, ".state", "shell-data");
 

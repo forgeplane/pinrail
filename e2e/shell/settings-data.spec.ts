@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { core, corePort } from "./helpers";
 
-const core = "http://127.0.0.1:4799";
 
 const served = async (request: import("@playwright/test").APIRequestContext) => (await request.get(`${core}/api/v1/settings`)).json();
 
@@ -35,7 +35,7 @@ test("the port is stored for the next start and the row says the server has not 
   await field.fill("4811");
   await field.press("Enter");
   await expect.poll(async () => (await served(page.request)).port).toBe(4811);
-  await expect(page.locator(".settings-row", { has: field })).toContainText("Takes effect when Pinrail starts next; until then the server stays on 4799");
+  await expect(page.locator(".settings-row", { has: field })).toContainText(`Takes effect when Pinrail starts next; until then the server stays on ${corePort}`);
 
   // out of range is not sent, and the field goes back to what is stored
   await field.fill("80");

@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { core } from "./helpers";
 
-const core = "http://127.0.0.1:4799";
 
 /** A plugin whose view asks for the file its payload names and reports what came. */
 function reader(): string {
