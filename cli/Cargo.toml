@@ -21,7 +21,7 @@ clap = { version = "4", features = ["derive", "env"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"
-ureq = { version = "3", features = ["json"] }
+ureq = { version = "3", default-features = false, features = ["json"] }
 
 [profile.release]
 strip = true
