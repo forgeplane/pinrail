@@ -49,7 +49,10 @@ function render(draft) {
   const decided = gate.decision && gate.decision.data;
   view.content.className = "plugin-content";
   view.content.innerHTML = Pinrail.markdown(gate.payload.message) + (plugin.readonly
-    ? `<p class="dim">Decided: <b>${decided && decided.ok ? "yes" : "no"}</b>${decided && decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
+    ? (decided
+      ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b>${decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
+      // withdrawn or expired: nobody answered
+      : `<p class="dim">Closed without a decision (${Pinrail.escape(gate.status)})</p>`)
     : `<div class="choice">
          <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${Pinrail.icon("check")} Yes</button>
          <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${Pinrail.icon("x")} No</button>

@@ -76,9 +76,11 @@ const markdown = (source: string) => Pinrail.markdown(source);
   <p v-if="!gate" class="plugin-content dim">waiting for the shell…</p>
   <main v-else class="plugin-content">
     <div v-html="markdown(gate.payload.message)"></div>
-    <p v-if="readonly" class="dim">
-      Decided: <b>{{ gate.decision?.data?.ok ? "yes" : "no" }}</b><template v-if="gate.decision?.data?.comment"> — {{ gate.decision.data.comment }}</template>
+    <p v-if="readonly && gate.decision" class="dim">
+      Decided: <b>{{ gate.decision.data?.ok ? "yes" : "no" }}</b><template v-if="gate.decision.data?.comment"> — {{ gate.decision.data.comment }}</template>
     </p>
+    <!-- withdrawn or expired: nobody answered -->
+    <p v-else-if="readonly" class="dim">Closed without a decision ({{ gate.status }})</p>
     <template v-else>
       <div class="choice">
         <button type="button" class="btn" id="yes" :aria-pressed="draft.ok === true" @click="pick(true)">

@@ -74,11 +74,14 @@ export function App() {
   return (
     <main className="plugin-content">
       <div dangerouslySetInnerHTML={{ __html: Pinrail.markdown(gate.payload.message) }} />
-      {readonly ? (
+      {readonly && decided ? (
         <p className="dim">
-          Decided: <b>{decided?.ok ? "yes" : "no"}</b>
-          {decided?.comment ? ` — ${decided.comment}` : null}
+          Decided: <b>{decided.ok ? "yes" : "no"}</b>
+          {decided.comment ? ` — ${decided.comment}` : null}
         </p>
+      ) : readonly ? (
+        // withdrawn or expired: nobody answered
+        <p className="dim">Closed without a decision ({gate.status})</p>
       ) : (
         <>
           <div className="choice">

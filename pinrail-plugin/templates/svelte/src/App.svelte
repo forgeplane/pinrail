@@ -76,8 +76,11 @@
 {:else}
   <main class="plugin-content">
     <div>{@html Pinrail.markdown(gate.payload.message)}</div>
-    {#if readonly}
-      <p class="dim">Decided: <b>{decided?.ok ? "yes" : "no"}</b>{#if decided?.comment} — {decided.comment}{/if}</p>
+    {#if readonly && decided}
+      <p class="dim">Decided: <b>{decided.ok ? "yes" : "no"}</b>{#if decided.comment} — {decided.comment}{/if}</p>
+    {:else if readonly}
+      <!-- withdrawn or expired: nobody answered -->
+      <p class="dim">Closed without a decision ({gate.status})</p>
     {:else}
       <div class="choice">
         <button type="button" class="btn" id="yes" aria-pressed={draft.ok === true} onclick={() => pick(true)}>

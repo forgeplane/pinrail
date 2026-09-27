@@ -38,3 +38,11 @@ test("a decided review renders read-only", async ({ page }) => {
   await expect(plugin.frame.locator("body")).toContainText("Decided: yes");
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveCount(0);
 });
+
+test("a review that ended without a decision does not read as a no", async ({ page }) => {
+  // withdrawn or expired: read-only, and nobody answered
+  const withdrawn = { ...basic(), status: "withdrawn", decision: null };
+  const plugin = await mountPlugin(page, dir, { gate: withdrawn, readonly: true });
+  await expect(plugin.frame.locator("body")).toContainText("Closed without a decision (withdrawn)");
+  await expect(plugin.frame.locator("body")).not.toContainText("Decided");
+});
