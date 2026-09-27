@@ -3339,6 +3339,8 @@ fn a_port_in_use_is_refused_at_bind_with_its_address() {
         "{error}"
     );
 
+    // a free port binds: the operating system's pick, since another test
+    // may take the one just held as soon as it is let go
+    assert!(pinrail_core::api::bind(&Config::new(dir.path(), 0)).is_ok());
     drop(held);
-    assert!(pinrail_core::api::bind(&Config::new(dir.path(), port)).is_ok());
 }
