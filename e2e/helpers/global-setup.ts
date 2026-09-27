@@ -36,10 +36,22 @@ function buildDesktop(): string {
   return bin;
 }
 
+/** Keeps the latest few runs, a failed one's data among them to look at,
+ *  and removes the rest. */
+function pruneRuns(keep = 3) {
+  if (!fs.existsSync(stateDir)) return;
+  const runs = fs
+    .readdirSync(stateDir)
+    .filter((name) => /^run-\d+$/.test(name))
+    .sort((a, b) => Number(b.slice(4)) - Number(a.slice(4)));
+  for (const name of runs.slice(keep)) fs.rmSync(path.join(stateDir, name), { recursive: true, force: true });
+}
+
 export default async function globalSetup() {
   const cli = buildCli();
   const desktopBin = buildDesktop();
   const port = await freePort();
+  pruneRuns();
   const run = path.join(stateDir, `run-${Date.now()}`);
   const state: State = {
     url: `http://127.0.0.1:${port}`,
