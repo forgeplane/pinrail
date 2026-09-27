@@ -165,6 +165,36 @@ async fn envelope_violations_keep_their_recorded_wording() {
     let (status, response) = call(&app, "POST", "/api/v1/reviews", Some(json!("nope"))).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(violations(&response)[0].1, "must be a JSON object");
+
+    // the app shows origin.url as a link, so it must be a web address
+    let with_url = |url: &str| {
+        let mut body = submission();
+        body["origin"]["url"] = json!(url);
+        body
+    };
+    let (status, response) = call(
+        &app,
+        "POST",
+        "/api/v1/reviews",
+        Some(with_url("javascript:alert(1)")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{response}");
+    assert_eq!(
+        violations(&response),
+        vec![(
+            "/origin/url".to_string(),
+            "must be an http or https URL".to_string()
+        )]
+    );
+    let (status, response) = call(
+        &app,
+        "POST",
+        "/api/v1/reviews",
+        Some(with_url("https://github.com/acme/api/pull/42")),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{response}");
 }
 
 #[tokio::test]

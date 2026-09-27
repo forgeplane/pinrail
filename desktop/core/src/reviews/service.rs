@@ -481,6 +481,17 @@ impl Reviews {
                 violations.push(Violation::new(format!("/{key}"), "must be an object"));
             }
         }
+        // the app shows origin.url as a link, so it must be a web address
+        if let Some(Value::String(url)) = attrs.get("origin").and_then(|o| o.get("url")) {
+            let lower = url.trim().to_ascii_lowercase();
+            if !lower.is_empty() && !lower.starts_with("http://") && !lower.starts_with("https://")
+            {
+                violations.push(Violation::new(
+                    "/origin/url",
+                    "must be an http or https URL",
+                ));
+            }
+        }
         if violations.is_empty() {
             Ok(())
         } else {
