@@ -80,7 +80,8 @@ export function ReviewScreen() {
   // and is dropped, so the screen never settles on a review nobody picked
   const wanted = useRef(id);
   wanted.current = id;
-  const load = useCallback(async () => {
+  /** Loads the review and its rounds; true when the review exists. */
+  const load = useCallback(async (): Promise<boolean> => {
     try {
       const [r, rs] = await Promise.all([api.getReview(id), api.rounds(id).catch(() => [] as Review[])]);
       const waiting = rs.filter((round) => round.id !== id && round.status === "pending");
@@ -92,20 +93,24 @@ export function ReviewScreen() {
             .catch(() => true),
         ),
       );
-      if (wanted.current !== id) return;
+      if (wanted.current !== id) return false;
       setReview(r);
       setRounds(rs);
       setUnopened(new Set(waiting.filter((_, i) => !opened[i]).map((round) => round.id)));
       setError(null);
+      return true;
     } catch (e) {
-      if (wanted.current !== id) return;
+      if (wanted.current !== id) return false;
       setError(e instanceof ApiError ? e.message : "The server did not answer.");
+      return false;
     }
   }, [id]);
 
   useEffect(() => {
-    load();
-    api.markViewed(id).catch(() => {});
+    // marked viewed only once the server knows the review
+    load().then((found) => {
+      if (found) api.markViewed(id).catch(() => {});
+    });
     try {
       setNote(sessionStorage.getItem(NOTE_PREFIX + id + ":note") ?? "");
     } catch {

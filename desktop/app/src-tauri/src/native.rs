@@ -256,7 +256,15 @@ pub fn route_for_url(url: &str) -> Option<String> {
     let path = path.split(['?', '#']).next().unwrap_or("");
     let mut parts = path.trim_matches('/').split('/');
     match (parts.next(), parts.next()) {
-        (Some("reviews"), Some(id)) if !id.is_empty() => Some(format!("/reviews/{id}")),
+        // the core's id alphabet only, since the shell puts the id into API paths
+        (Some("reviews"), Some(id))
+            if !id.is_empty()
+                && id
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-') =>
+        {
+            Some(format!("/reviews/{id}"))
+        }
         (Some("") | Some("inbox") | None, _) => Some("/".to_string()),
         (Some("history"), _) => Some("/history".to_string()),
         (Some("plugins"), _) => Some("/plugins".to_string()),
@@ -755,6 +763,15 @@ mod tests {
             Some("/history".to_string())
         );
         assert_eq!(route_for_url("pinrail://reviews/"), None);
+        // an id is the core's alphabet only: it goes into API paths
+        for bad in [
+            "pinrail://reviews/..",
+            "pinrail://reviews/%2e%2e",
+            "pinrail://reviews/r_1%2Fviewed",
+            "pinrail://reviews/a.b",
+        ] {
+            assert_eq!(route_for_url(bad), None, "{bad}");
+        }
         assert_eq!(route_for_url("pinrail://settings"), None);
         assert_eq!(route_for_url("not a url"), None);
     }

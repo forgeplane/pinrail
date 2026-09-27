@@ -156,3 +156,13 @@ test("an error that is not JSON still says what the server answered", async ({ p
   await page.goto(`/#/reviews/${review.id}`);
   await expect(page.getByText("request failed (502)")).toBeVisible();
 });
+
+test("an unknown review is not marked viewed", async ({ page }) => {
+  const posts: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "POST") posts.push(new URL(r.url()).pathname);
+  });
+  await page.goto("/#/reviews/r_nope");
+  await expect(page.getByText(/not found|no review|unknown/i).first()).toBeVisible();
+  expect(posts.filter((p) => p.endsWith("/viewed"))).toEqual([]);
+});
