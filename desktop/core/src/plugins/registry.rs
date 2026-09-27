@@ -187,6 +187,16 @@ impl Registry {
     /// one when the version matches, else the store entry kept for the
     /// reviews that still render from it.
     pub fn fetch_version(&self, name: &str, version: u32) -> Result<Arc<Plugin>, Error> {
+        let missing = || {
+            Error::invalid(
+                "/plugin",
+                format!("plugin {name} version {version} is not installed"),
+            )
+        };
+        // the name is joined into a store path below, and comes from a URL
+        if !super::manifest::valid_name(name) {
+            return Err(missing());
+        }
         if let Some(p) = self.get(name)
             && p.version == version
             && p.usable()
@@ -205,7 +215,7 @@ impl Registry {
         let dir = self.store_entry(name, version as i64);
         if dir.join(MANIFEST).is_file() {
             let plugin = Plugin::load(&dir);
-            if plugin.version == version && plugin.usable() {
+            if plugin.name == name && plugin.version == version && plugin.usable() {
                 let plugin = Arc::new(plugin);
                 self.state
                     .write()
@@ -215,10 +225,7 @@ impl Registry {
                 return Ok(plugin);
             }
         }
-        Err(Error::invalid(
-            "/plugin",
-            format!("plugin {name} version {version} is not installed"),
-        ))
+        Err(missing())
     }
 
     /// Loads everything again with a new set of records. On a duplicate

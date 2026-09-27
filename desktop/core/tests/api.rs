@@ -950,6 +950,32 @@ async fn info_and_viewed() {
 }
 
 /// A request as a browser or another program would send it, header by header.
+/// A plugin name is looked up, never joined into a path: a plugin folder
+/// beside the store is not reached through `..`.
+#[tokio::test]
+async fn a_bundle_is_served_only_for_a_plugins_own_name() {
+    let app = app();
+    let store = app.state.config().plugin_store_dir();
+    // as in a running app, where installs have made the store
+    std::fs::create_dir_all(&store).unwrap();
+    let outside = store.parent().unwrap().join("outside/1");
+    std::fs::create_dir_all(&outside).unwrap();
+    std::fs::write(
+        outside.join("manifest.json"),
+        json!({"name": "outside", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "entry": "index.html"}).to_string(),
+    )
+    .unwrap();
+    std::fs::write(outside.join("index.html"), "<html>outside</html>").unwrap();
+
+    for path in [
+        "/plugins/..%2Foutside/1/index.html",
+        "/plugins/..%2F..%2Fplugins%2Foutside/1/index.html",
+    ] {
+        let (status, body) = raw(&app, "GET", path, &[("host", "127.0.0.1:4747")], "").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}: {body}");
+    }
+}
+
 async fn raw(
     app: &App,
     method: &str,
