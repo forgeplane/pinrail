@@ -31,6 +31,8 @@ pub enum Error {
     NotPending(String),
     Invalid(Vec<Violation>),
     Internal(String),
+    /// Another Pinrail holds the data directory, as the message says
+    InUse(String),
 }
 
 impl Error {
@@ -51,6 +53,7 @@ impl Error {
                 lines.join("\n")
             }
             Error::Internal(message) => message.clone(),
+            Error::InUse(message) => message.clone(),
         }
     }
 
@@ -60,6 +63,7 @@ impl Error {
             Error::NotPending(_) => ("not_pending", Vec::new()),
             Error::Invalid(v) => ("invalid", v.clone()),
             Error::Internal(_) => ("internal", Vec::new()),
+            Error::InUse(_) => ("in_use", Vec::new()),
         };
         json!({ "error": kind, "message": self.message(), "violations": violations })
     }

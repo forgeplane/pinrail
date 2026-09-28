@@ -343,6 +343,11 @@ pub fn run() {
             let data_dir = config.data_dir.clone();
             let state: Arc<Pinrail> = match Pinrail::open(config) {
                 Ok(state) => Arc::new(state),
+                Err(pinrail_core::Error::InUse(_)) => {
+                    let holder = pinrail_core::app::locked_by(&data_dir);
+                    cannot_start(app, startup::data_dir_in_use(&data_dir, holder));
+                    return Ok(());
+                }
                 Err(error) => {
                     cannot_start(app, startup::data_dir(&data_dir, &error.to_string()));
                     return Ok(());

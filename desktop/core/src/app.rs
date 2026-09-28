@@ -1,5 +1,8 @@
 //! Application construction and operations shared by every interface.
 
+use std::fs::{File, OpenOptions, TryLockError};
+use std::io::{Read, Write};
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::Config;
@@ -25,6 +28,8 @@ pub struct Pinrail {
     plugins: PluginService,
     reviews: Reviews,
     attachments: Attachments,
+    /// The data directory's lock, held until the application is dropped
+    _lock: File,
 }
 
 impl Pinrail {
@@ -100,12 +105,16 @@ impl Pinrail {
         self.reviews.submit(&body, None)
     }
 
-    /// Opens the database, writes out the built-in plugin, scans the plugin
-    /// directories and wires the services together. The caller decides how the
-    /// application is held: serving it over HTTP wants an `Arc`, a one-off
-    /// operation does not.
+    /// Locks the data directory, opens the database, writes out the
+    /// built-in plugin, scans the plugin directories and wires the services
+    /// together. The caller decides how the application is held: serving it
+    /// over HTTP wants an `Arc`, a one-off operation does not.
+    ///
+    /// A directory another Pinrail has open is refused with
+    /// [`Error::InUse`] before anything in it is touched.
     pub fn open(config: Config) -> Result<Self, Error> {
         private_dir(&config.data_dir)?;
+        let lock = lock_data_dir(&config.data_dir)?;
         let db = Arc::new(Db::open(&config.db_path())?);
         let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
         let records = db.installed_plugins()?;
@@ -141,8 +150,50 @@ impl Pinrail {
             plugins,
             reviews,
             attachments,
+            _lock: lock,
         })
     }
+}
+
+/// Takes `pinrail.lock` in the data directory, and writes this process's id
+/// into it for the message another open shows. Opening cleans up what a
+/// stopped server left behind, which for a running one is its uploads and
+/// installs in progress, so only one application may have the directory
+/// open. The operating system releases the lock when the process ends,
+/// however it ends.
+fn lock_data_dir(dir: &Path) -> Result<File, Error> {
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(dir.join("pinrail.lock"))?;
+    match file.try_lock() {
+        Ok(()) => {}
+        Err(TryLockError::WouldBlock) => {
+            let who = match locked_by(dir) {
+                Some(pid) => format!("Another Pinrail (process {pid})"),
+                None => "Another Pinrail".to_string(),
+            };
+            return Err(Error::InUse(format!("{who} is using {}", dir.display())));
+        }
+        Err(TryLockError::Error(error)) => return Err(error.into()),
+    }
+    file.set_len(0)?;
+    file.write_all(std::process::id().to_string().as_bytes())?;
+    Ok(file)
+}
+
+/// The process that holds the data directory's lock, as it wrote itself
+/// into the lock file: the one to stop when [`Pinrail::open`] answers
+/// [`Error::InUse`]. `None` when the file is missing or names no process.
+pub fn locked_by(dir: &Path) -> Option<u32> {
+    let mut holder = String::new();
+    File::open(dir.join("pinrail.lock"))
+        .ok()?
+        .read_to_string(&mut holder)
+        .ok()?;
+    holder.trim().parse().ok()
 }
 
 /// Creates the data directory readable by its owner only, and closes an

@@ -245,6 +245,8 @@ When nothing answers, `submit`, `serve`, `plugins describe` and `plugins check` 
 export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --headless'
 ```
 
+A server started this way uses the same data directory as the app, and only one of them can have it open at a time. While the headless server runs, opening the app shows which process to stop first.
+
 `submit --no-start` fails instead of starting one.
 
 ## Environment

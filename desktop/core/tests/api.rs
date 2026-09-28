@@ -764,7 +764,8 @@ async fn the_sdk_is_served_only_when_configured() {
 
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("pinrail-plugin.js"), "export const ok = 1;").unwrap();
-    let mut config = Config::new(app.dir.path(), 0);
+    let data = tempfile::tempdir().unwrap();
+    let mut config = Config::new(data.path(), 0);
     config.sdk_dir = Some(dir.path().to_path_buf());
     let state = Arc::new(Pinrail::open(config).unwrap());
     let router = router(state);

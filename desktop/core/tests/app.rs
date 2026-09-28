@@ -112,6 +112,7 @@ fn settings_changes_are_persisted_and_announced_without_http() {
     assert!(notices.try_recv().is_err());
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 
+    drop(app);
     let reopened = Pinrail::open(config).unwrap();
     assert_eq!(reopened.settings().get()["notifications"]["enabled"], false);
     assert!(!dir.path().join("server.json").exists());
@@ -223,4 +224,29 @@ fn the_data_directory_is_readable_by_its_owner_only() {
     std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o755)).unwrap();
     Pinrail::open(Config::new(&open, 0)).unwrap();
     assert_eq!(mode(&open), 0o700);
+}
+
+#[test]
+fn a_second_open_of_a_data_directory_in_use_is_refused_and_touches_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::new(dir.path(), 0);
+    let first = Pinrail::open(config.clone()).unwrap();
+    // an upload the first is still receiving
+    let upload = config.attachments_dir().join("tmp").join("upload-1");
+    std::fs::write(&upload, b"half a file").unwrap();
+
+    let second = Pinrail::open(config.clone());
+    assert!(
+        upload.exists(),
+        "the second open removed the first's upload"
+    );
+    assert!(
+        matches!(second, Err(Error::InUse(ref message)) if message.contains(&std::process::id().to_string())),
+        "{:?}",
+        second.as_ref().err()
+    );
+
+    // once the first is gone, the directory opens again
+    drop(first);
+    Pinrail::open(config).unwrap();
 }

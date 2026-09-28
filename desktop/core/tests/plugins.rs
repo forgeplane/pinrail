@@ -316,6 +316,7 @@ async fn a_plugin_that_takes_a_builtin_name_leaves_the_registry_and_database_unc
     );
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 
+    drop(app);
     let reopened = Pinrail::open(config).unwrap();
     assert_eq!(reopened.plugins().versions("hello").unwrap()["current"], 1);
     assert!(matches!(

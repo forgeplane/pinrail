@@ -31,6 +31,7 @@ fn status(error: &Error) -> StatusCode {
         Error::NotPending(_) => StatusCode::CONFLICT,
         Error::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
         Error::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        Error::InUse(_) => StatusCode::CONFLICT,
     }
 }
 

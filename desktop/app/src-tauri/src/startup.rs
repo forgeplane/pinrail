@@ -26,6 +26,24 @@ pub fn port_in_use(port: u16, running: Option<&Value>) -> String {
     }
 }
 
+/// Another Pinrail has the data directory open, serving on another port.
+/// `holder` is the process the directory's lock names.
+pub fn data_dir_in_use(dir: &Path, holder: Option<u32>) -> String {
+    match holder {
+        Some(pid) => format!(
+            "Another Pinrail (process {pid}) is using the data directory, {}, \
+             probably a server the pinrail command started. Stop it with kill {pid}, \
+             then open Pinrail again.",
+            dir.display()
+        ),
+        None => format!(
+            "Another Pinrail is using the data directory, {}. \
+             Stop it, then open Pinrail again.",
+            dir.display()
+        ),
+    }
+}
+
 /// The data directory cannot be opened.
 pub fn data_dir(dir: &Path, error: &str) -> String {
     format!(
@@ -40,6 +58,14 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn a_data_directory_in_use_names_the_process_to_stop() {
+        let message = data_dir_in_use(Path::new("/tmp/data"), Some(4242));
+        assert!(message.contains("/tmp/data"), "{message}");
+        assert!(message.contains("kill 4242"), "{message}");
+        assert!(!data_dir_in_use(Path::new("/tmp/data"), None).contains("kill"));
+    }
 
     #[test]
     fn a_pinrail_server_on_the_port_is_named_with_how_to_stop_it() {
