@@ -31,6 +31,10 @@ pub enum Error {
     NotPending(String),
     Invalid(Vec<Violation>),
     Internal(String),
+    /// The database failed, with the error it gave
+    Database(rusqlite::Error),
+    /// Reading or writing a file failed, with the error it gave
+    Io(std::io::Error),
     /// Another Pinrail holds the data directory, as the message says
     InUse(String),
 }
@@ -53,6 +57,8 @@ impl Error {
                 lines.join("\n")
             }
             Error::Internal(message) => message.clone(),
+            Error::Database(error) => format!("database: {error}"),
+            Error::Io(error) => format!("io: {error}"),
             Error::InUse(message) => message.clone(),
         }
     }
@@ -62,7 +68,7 @@ impl Error {
             Error::NotFound(_) => ("not_found", Vec::new()),
             Error::NotPending(_) => ("not_pending", Vec::new()),
             Error::Invalid(v) => ("invalid", v.clone()),
-            Error::Internal(_) => ("internal", Vec::new()),
+            Error::Internal(_) | Error::Database(_) | Error::Io(_) => ("internal", Vec::new()),
             Error::InUse(_) => ("in_use", Vec::new()),
         };
         json!({ "error": kind, "message": self.message(), "violations": violations })
@@ -75,17 +81,25 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Database(error) => Some(error),
+            Error::Io(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 impl From<rusqlite::Error> for Error {
     fn from(error: rusqlite::Error) -> Self {
-        Error::Internal(format!("database: {error}"))
+        Error::Database(error)
     }
 }
 
 impl From<std::io::Error> for Error {
     fn from(error: std::io::Error) -> Self {
-        Error::Internal(format!("io: {error}"))
+        Error::Io(error)
     }
 }
 

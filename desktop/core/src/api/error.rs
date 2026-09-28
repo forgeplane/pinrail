@@ -30,15 +30,15 @@ fn status(error: &Error) -> StatusCode {
         Error::NotFound(_) => StatusCode::NOT_FOUND,
         Error::NotPending(_) => StatusCode::CONFLICT,
         Error::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
-        Error::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        Error::Internal(_) | Error::Database(_) | Error::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
         Error::InUse(_) => StatusCode::CONFLICT,
     }
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        if let Error::Internal(message) = &self.0 {
-            eprintln!("pinrail: {message}");
+        if status(&self.0) == StatusCode::INTERNAL_SERVER_ERROR {
+            eprintln!("pinrail: {}", self.0);
         }
         (status(&self.0), Json(self.0.to_json())).into_response()
     }
@@ -68,6 +68,14 @@ mod tests {
         );
         assert_eq!(
             status(&Error::Internal("disk on fire".into())),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(
+            status(&Error::Io(std::io::Error::other("disk on fire"))),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(
+            status(&Error::Database(rusqlite::Error::InvalidQuery)),
             StatusCode::INTERNAL_SERVER_ERROR
         );
     }

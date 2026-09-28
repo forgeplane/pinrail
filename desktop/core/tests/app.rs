@@ -80,7 +80,10 @@ fn event_history_returns_storage_failures_to_the_caller() {
     let app = Pinrail::open(config.clone()).unwrap();
     let connection = rusqlite::Connection::open(config.db_path()).unwrap();
     connection.execute_batch("DROP TABLE events").unwrap();
-    assert!(matches!(app.events().after(0, 10), Err(Error::Internal(_))));
+    let error = app.events().after(0, 10).unwrap_err();
+    assert!(matches!(error, Error::Database(_)), "{error:?}");
+    // the database's own error comes along, for whoever reports it
+    assert!(std::error::Error::source(&error).is_some());
 }
 
 #[test]
