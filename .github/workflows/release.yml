@@ -260,7 +260,7 @@ jobs:
           # a flaky upload or a notarization hiccup costs a retry, not a release
           retryAttempts: 3
           # without the updater key, the build goes without update bundles
-          args: ${{ matrix.args }}${{ env.UPDATER != 'true' && ' --config src-tauri/tauri.no-updater.conf.json' || '' }}
+          args: ${{ matrix.args }}${{ env.UPDATER != 'true' && ' --config src-tauri/tauri.no-updater.conf.json' || '' }} -- --locked
           releaseId: ${{ needs.draft.outputs.id }}
           releaseBody: ${{ steps.notes.outputs.body }}
           # each build adds its platforms to the release's latest.json
