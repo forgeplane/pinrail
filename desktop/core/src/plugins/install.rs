@@ -1241,8 +1241,19 @@ fn install_dir(
         ));
     }
     let manifest = read_manifest(&dir)?;
-    if let Some(name) = manifest.get("name").and_then(Value::as_str) {
-        builtin_name(name)?;
+    // the name goes into the paths of the build's copy and log, so it is
+    // checked before anything uses it
+    match manifest.get("name").and_then(Value::as_str) {
+        Some(name) if super::manifest::valid_name(name) => builtin_name(name)?,
+        Some(name) => {
+            return Err(Error::invalid(
+                "/source",
+                format!(
+                    "not a plugin: name {name:?} must start with a lowercase letter, followed by letters, digits, _ or -"
+                ),
+            ));
+        }
+        None => return Err(Error::invalid("/source", "not a plugin: name is required")),
     }
     // an update brings a new version of the same plugin, never another one
     // that happens to share its source
@@ -1291,8 +1302,19 @@ fn install_dir(
     let (staged, log_path) = match &build {
         Some(command) => {
             progress(Progress::Step("building"));
+            // a link would bring in the file it points to as a copy, where
+            // the check on the bundle could no longer see it
+            if let Some(link) = first_link_to_copy(&dir, BUILD_SKIPS)? {
+                return Err(Error::invalid(
+                    "/source",
+                    format!(
+                        "the plugin contains a symbolic link, which Pinrail does not install: {}",
+                        link.strip_prefix(&dir).unwrap_or(&link).display()
+                    ),
+                ));
+            }
             let scratch = scratch_dir(registry, &manifest);
-            copy_tree(&dir, &scratch, &[".git", "node_modules"])?;
+            copy_tree(&dir, &scratch, BUILD_SKIPS)?;
             let log_path = run_build(registry, &manifest, &scratch, command, progress)?;
             (scratch, Some(log_path))
         }
@@ -1820,6 +1842,29 @@ fn copy_bundle(from: &Path, to: &Path) -> std::io::Result<()> {
 }
 
 /// A copy of a source tree for building in, without the names given.
+/// What a build's copy of the source leaves out.
+const BUILD_SKIPS: &[&str] = &[".git", "node_modules"];
+
+/// The first symbolic link among what `copy_tree` would copy.
+fn first_link_to_copy(dir: &Path, skip: &[&str]) -> std::io::Result<Option<PathBuf>> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        if skip.contains(&entry.file_name().to_string_lossy().as_ref()) {
+            continue;
+        }
+        let kind = entry.file_type()?;
+        if kind.is_symlink() {
+            return Ok(Some(entry.path()));
+        }
+        if kind.is_dir()
+            && let Some(link) = first_link_to_copy(&entry.path(), skip)?
+        {
+            return Ok(Some(link));
+        }
+    }
+    Ok(None)
+}
+
 fn copy_tree(from: &Path, to: &Path, skip: &[&str]) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {

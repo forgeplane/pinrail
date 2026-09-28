@@ -3001,6 +3001,53 @@ async fn a_remote_that_never_answers_is_given_up_on() {
     drop(silent);
 }
 
+/// A name that is not a plugin name is refused before anything runs: it
+/// would place the build's copy and log outside the plugins folder.
+#[tokio::test]
+async fn a_manifest_name_that_is_not_a_name_is_refused_before_the_build() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let ran = scratch.path().join("ran");
+    let command = format!("touch {} && echo hi > index.html", ran.display());
+    let dir = buildable_plugin(scratch.path(), "escaping", &command);
+    let mut manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+    manifest["name"] = json!("../../escaped");
+    std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
+    let (status, job) = install_as_sent(
+        &app,
+        json!({ "source": dir.display().to_string(), "expect": { "build": command } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+    assert!(job["error"].as_str().unwrap().contains("name"), "{job}");
+    assert!(!ran.exists(), "the build ran");
+}
+
+/// A link in a plugin that builds is refused as it is in one that does
+/// not: copied for the build, it would bring in the file it points to.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_link_in_a_plugin_that_builds_is_refused() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let secret = scratch.path().join("secret.txt");
+    std::fs::write(&secret, "not for the store").unwrap();
+    let command = "echo hi > index.html";
+    let dir = buildable_plugin(scratch.path(), "linking", command);
+    std::os::unix::fs::symlink(&secret, dir.join("data.txt")).unwrap();
+    let (status, job) = install_as_sent(
+        &app,
+        json!({ "source": dir.display().to_string(), "expect": { "build": command } }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+    assert!(
+        job["error"].as_str().unwrap().contains("symbolic link"),
+        "{job}"
+    );
+}
+
 /// What every step of a build writes to stderr is in its log and in the
 /// failure the person reads, as `npm ci && npm run build` needs.
 #[tokio::test]
