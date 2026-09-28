@@ -264,7 +264,11 @@ export function History() {
                   className={i === focused ? "is-focused" : ""}
                   data-history-row={i}
                   onMouseEnter={() => !keyboard.current && setFocused(i)}
-                  onClick={() => navigate(`/reviews/${r.id}`, { state: { from: "history" } })}
+                  onClick={(event) => {
+                    // the title is a link of its own, which has already gone there
+                    if (event.defaultPrevented || (event.target as Element).closest("a")) return;
+                    navigate(`/reviews/${r.id}`, { state: { from: "history" } });
+                  }}
                 >
                   <td>
                     <Link to={`/reviews/${r.id}`} state={{ from: "history" }} className="history-title">
