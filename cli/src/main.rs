@@ -65,6 +65,11 @@ pub const EXITS: &[(u8, &str)] = &[
 
 /// The exit codes as the help lists them: plain text, without the
 /// markdown code marks the docs keep.
+/// The limit on waiting that PINRAIL_TIMEOUT sets, in seconds, when set.
+fn timeout_from_env() -> Option<u64> {
+    std::env::var("PINRAIL_TIMEOUT").ok()?.trim().parse().ok()
+}
+
 fn exit_codes() -> String {
     let mut text = String::from("Exit codes:");
     for (code, meaning) in EXITS {
@@ -223,7 +228,8 @@ enum Command {
     /// the pending reviews of every project. --status and --repo choose
     /// other subsets; --all lists every review.
     List(ListArgs),
-    /// Record a decision from a script (the app is the usual way)
+    /// Record a decision for the person, from a test or a tool acting for
+    /// them. An agent never decides a review it submitted: the person does
     Decide(DecideArgs),
     /// Withdraw a pending review; its waiter exits 3
     Withdraw {
@@ -233,8 +239,9 @@ enum Command {
         #[arg(long)]
         reason: Option<String>,
     },
-    /// Discard a pending review as the person would in the app; its waiter
-    /// exits 5 and is told to stop
+    /// Discard a pending review for the person, as they would in the app;
+    /// its waiter exits 5 and is told to stop. An agent never discards a
+    /// review it submitted
     Discard {
         /// The review's id
         id: String,
@@ -343,9 +350,10 @@ struct SubmitArgs {
     /// it would be accepted, 2 with the violations
     #[arg(long, conflicts_with = "wait")]
     dry_run: bool,
-    /// With --wait: give up after this many seconds (exit 4); 0 waits forever
-    #[arg(long, default_value_t = 0, requires = "wait")]
-    timeout: u64,
+    /// With --wait: give up after this many seconds (exit 4); 0 waits
+    /// forever. PINRAIL_TIMEOUT sets it for every wait
+    #[arg(long, requires = "wait")]
+    timeout: Option<u64>,
     /// With --wait: also write decision.data to this file, as JSON, once
     /// decided; pinrail show <id> shows the decision any time
     #[arg(long, value_name = "FILE", requires = "wait")]
@@ -365,9 +373,10 @@ struct WaitArgs {
 
 #[derive(Args, Clone)]
 struct WaitOpts {
-    /// Give up after this many seconds (exit 4); 0 waits forever
-    #[arg(long, default_value_t = 0)]
-    timeout: u64,
+    /// Give up after this many seconds (exit 4); 0 waits forever.
+    /// PINRAIL_TIMEOUT sets it for every wait
+    #[arg(long)]
+    timeout: Option<u64>,
     /// Also write decision.data to this file, as JSON, once decided;
     /// pinrail show <id> shows the decision any time
     #[arg(long, value_name = "FILE")]
@@ -1241,7 +1250,9 @@ fn wait(
     mut answered: bool,
     output: Output,
 ) -> Result<u8> {
-    let deadline = (opts.timeout > 0).then(|| Instant::now() + Duration::from_secs(opts.timeout));
+    // --timeout, else PINRAIL_TIMEOUT, else no limit
+    let timeout = opts.timeout.or_else(timeout_from_env).unwrap_or(0);
+    let deadline = (timeout > 0).then(|| Instant::now() + Duration::from_secs(timeout));
     let mut last_error = String::new();
 
     loop {
@@ -1250,8 +1261,8 @@ fn wait(
                 let left = d.saturating_duration_since(Instant::now());
                 if left.is_zero() {
                     eprintln!(
-                        "pinrail: timed out after {}s, review {id} is still pending",
-                        opts.timeout
+                        "pinrail: timed out after {timeout}s, review {id} is still pending. \
+                         To keep waiting, run: pinrail wait {id} --timeout {timeout}"
                     );
                     return Ok(EXIT_TIMEOUT);
                 }

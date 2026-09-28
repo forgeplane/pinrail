@@ -24,6 +24,8 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
 - `--dry-run`: every check a submission gets, and nothing created: exit 0
   or 2.
 - `--timeout <seconds>`: with `--wait`, stop waiting after this long, exit 4.
+  If your commands have a time limit, keep it below that. `PINRAIL_TIMEOUT`
+  sets it once for every wait.
 - `--summary '<json>'`: the counts the inbox shows beside the title.
 - `--request <file>`: the whole request as one JSON file; flags override
   its keys.
@@ -61,8 +63,8 @@ before anything is uploaded.
   review no longer pending, a plugin not installed. stderr says which;
   fix it and submit again.
 - `3`: withdrawn, or expired undecided. Stop, and say nobody decided.
-- `4`: still pending, `--timeout` ran out. Go on with other work;
-  `pinrail wait <id>` later.
+- `4`: still pending, `--timeout` ran out. Go on with other work, and run
+  the command it prints later.
 - `5`: discarded, the person said no, and stop. Stop the work, report their
   reason, and don't ask again.
 

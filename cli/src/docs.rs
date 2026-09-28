@@ -22,7 +22,11 @@ const ENVIRONMENT: &[(&str, &str)] = &[
     ),
     (
         "PINRAIL_SERVER_CMD",
-        "How to start a server when none is running, run through `sh -c`. `submit`, `serve`, `plugins describe` and `plugins check` use it.",
+        "How to start a server when none is running, run through `sh -c`. `submit`, `serve`, `plugins describe`, `plugins check` and `plugins new --link` use it.",
+    ),
+    (
+        "PINRAIL_TIMEOUT",
+        "How many seconds `wait` and `submit --wait` wait before they give up with exit 4, when `--timeout` is not given. Unset or 0 waits without a limit.",
     ),
 ];
 

@@ -736,6 +736,30 @@ fn a_slow_answer_is_not_reported_as_an_app_that_is_not_running() {
 }
 
 #[test]
+fn a_wait_that_runs_out_gives_the_command_to_keep_waiting() {
+    let server = MockServer::start(Box::new(|_, path, _| {
+        assert!(path.starts_with("/api/v1/reviews/r_1/wait"), "{path}");
+        (204, String::new())
+    }));
+    let (code, _, stderr) = run(&server, &["wait", "r_1", "--timeout", "1"]);
+    assert_eq!(code, 4, "{stderr}");
+    assert!(stderr.contains("pinrail wait r_1 --timeout 1"), "{stderr}");
+
+    // the limit set once, in the environment
+    let out = pinrail()
+        .args(["--url", &server.url, "wait", "r_1"])
+        .env("PINRAIL_TIMEOUT", "1")
+        .output()
+        .unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(4),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+}
+
+#[test]
 fn plugin_versions_say_when_no_version_is_usable() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/hello/versions" => (

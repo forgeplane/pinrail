@@ -15,12 +15,12 @@ instructions name, not in chat, and don't go ahead without the answer.
 pinrail submit <plugin> --title "<title>" --data payload.json --wait
 ```
 
-It prints the review's id at once, `review <id> submitted`, then waits for the
-person's decision and prints it. Keep the id for `--revises` and
-`pinrail wait <id>`. If your commands are stopped after a time limit, add
-`--timeout <seconds>` with a value below that limit. When the command exits
-with 4 because the time ran out, run `pinrail wait <id>` again until the
-review ends. A payload the plugin does not accept fails at once
+It prints the review's id at once, then waits for the person's decision
+and prints it. Keep the id for `--revises` and `pinrail wait <id>`. If your
+commands are stopped after a time limit, give every `submit --wait` and
+`wait` a `--timeout <seconds>` below that limit. When one exits with 4
+because the time ran out, run `pinrail wait <id> --timeout <seconds>` again
+until the review ends. A payload the plugin does not accept fails at once
 (exit 2) with what is wrong: fix it and submit again. With the decision:
 
 - Carry on with your task, doing what the person approved, as they
@@ -32,8 +32,8 @@ review ends. A payload the plugin does not accept fails at once
 
 ## Discovering plugins
 
-Your instructions or skill usually name the plugin for a task. Only when
-they don't, or you don't know what is installed:
+Your instructions usually name the plugin for a task. When they don't,
+see what is installed:
 
 ```sh
 pinrail plugins                      # every plugin, a line each: when to use it
@@ -49,9 +49,9 @@ Two come with every install:
 
 ## Rules
 
-- Give a title the person will recognise in an inbox of reviews.
+- Give a title the person will recognise in their inbox.
 - Say which project it is for. Inside a git checkout the command fills in
   the repository and branch; elsewhere add `--origin repo=<project name>`.
 - Every command explains itself: `pinrail <command> --help`.
-- Output is markdown, to read. Add `--json` only when you process the
-  result rather than read it.
+- Output is markdown. Add `--json` only to process the result by program.
+- Never decide or discard a review you submitted. The person does.

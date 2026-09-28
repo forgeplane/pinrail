@@ -259,6 +259,7 @@ A server started this way uses the same data directory as the app, and only one 
 | `PINRAIL_DATA_DIR` | Where the running server's `server.json` and `server.log` are. |
 | `PINRAIL_PORT` | The port to try when nothing is advertised. |
 | `PINRAIL_SERVER_CMD` | How to start a server when none is running. |
+| `PINRAIL_TIMEOUT` | How many seconds `wait` and `submit --wait` wait, when `--timeout` is not given. Set it once below your command time limit. |
 | `PINRAIL_JSON` | `1` for JSON output from every command, as `--json` gives. |
 | `PINRAIL_VERBOSE` | `1` for the notes that `--verbose` prints, from every command. |
 | `PINRAIL_REQUESTED_BY` | Who is asking, shown on every review, ahead of the agent the command finds itself running under. |
