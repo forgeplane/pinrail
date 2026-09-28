@@ -10,6 +10,7 @@
 # reviewed and, if it fits, added here. All of these are permissive, or copyleft only
 # for the files they cover (MPL-2.0), so the app stays Apache-2.0 as a whole.
 # A crate offering a choice ("MIT OR LGPL") passes on any allowed option.
+# The release's third-party notices (cargo-about) accept the same list.
 
 [licenses]
 allow = [

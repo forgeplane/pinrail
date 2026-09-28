@@ -11,6 +11,7 @@
 // Needs cargo-about on the PATH. The release build runs it before bundling.
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,11 +20,27 @@ const root = path.resolve(app, "..", "..");
 const out = path.join(app, "notices");
 const npmFile = path.join(out, "npm.json");
 
+/**
+ * about.toml with deny.toml's allowed licences as its accepted list, written
+ * to a temporary file: one list, which CI's licence check already enforces.
+ */
+function aboutConfig() {
+  const deny = fs.readFileSync(path.join(root, "deny.toml"), "utf8");
+  const allow = deny.match(/^\[licenses\][^[]*?^allow = \[([^\]]*)\]/m);
+  if (!allow) throw new Error("notices: no allow list under [licenses] in deny.toml");
+  const ids = [...allow[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const config = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-notices-")), "about.toml");
+  fs.writeFileSync(config, `${fs.readFileSync(path.join(root, "about.toml"), "utf8")}\naccepted = ${JSON.stringify(ids)}\n`);
+  return config;
+}
+
+const config = aboutConfig();
+
 /** cargo-about's licences for one workspace's dependencies, as {text, name, packages}. */
 function rust(manifest) {
   const json = execFileSync(
     "cargo",
-    ["about", "generate", "--format", "json", "--config", path.join(root, "about.toml"), "--manifest-path", manifest, "--fail"],
+    ["about", "generate", "--format", "json", "--config", config, "--manifest-path", manifest, "--fail"],
     { encoding: "utf8", maxBuffer: 256 * 1024 * 1024, stdio: ["ignore", "pipe", "inherit"] },
   );
   return JSON.parse(json)
