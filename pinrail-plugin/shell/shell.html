@@ -190,7 +190,7 @@ function drawSettings() {
 }
 
 // which fixture each round came from, for the files it carries
-let gateFixture = "", previousFixture = "";
+let reviewFixture = "", previousFixture = "";
 
 async function answerAttachment(msg) {
   const previousRound = msg.round === "previous";
@@ -198,7 +198,7 @@ async function answerAttachment(msg) {
   const listed = from && (from.attachments || []).find((a) => a.name === msg.name);
   const fail = (error) => post({ type: "attachment", req: msg.req, ok: false, name: msg.name, error });
   if (!listed) return fail(`no attachment "${msg.name}" on this ${previousRound ? "previous round" : "review"}`);
-  const fixture = previousRound ? previousFixture : gateFixture;
+  const fixture = previousRound ? previousFixture : reviewFixture;
   const response = await fetch("/dev/attachments/" + encodeURIComponent(fixture) + "/" + encodeURIComponent(msg.name));
   if (!response.ok) return fail(`could not fetch ${msg.name}`);
   const bytes = await response.arrayBuffer();
@@ -208,7 +208,7 @@ async function answerAttachment(msg) {
 
 // A draft is kept per fixture for the browser session, as the app keeps one
 // per review: reloading the page brings it back, a hand-over clears it.
-const DRAFT_KEY = () => `pinrail-shell:draft:${manifest.name}:${gateFixture}`;
+const DRAFT_KEY = () => `pinrail-shell:draft:${manifest.name}:${reviewFixture}`;
 function keepDraft(data) {
   try {
     if (data == null) sessionStorage.removeItem(DRAFT_KEY());
@@ -226,7 +226,7 @@ function keptDraft() {
 }
 
 async function loadFixture(name) {
-  gateFixture = name || "";
+  reviewFixture = name || "";
   draft = keptDraft(); lastSubmit = null; show("s-draft", draft); show("s-submit", null); show("s-status", null);
   const partial = name ? await (await fetch("/dev/fixtures/" + encodeURIComponent(name))).json() : { title: "empty", payload: {} };
   review = reviewFrom(partial, manifest.name);
