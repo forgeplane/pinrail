@@ -325,62 +325,69 @@ function PluginEntry({
 
   const linked = p.install?.linked ?? false;
   const origin = originOf(p);
-  const note = p.error ? (
-    <span className="danger">{p.error}</span>
-  ) : p.settings_error ? (
-    <span className="danger">settings dropped: {p.settings_error}</span>
-  ) : p.sample_error ? (
-    <span className="danger">sample dropped: {p.sample_error}</span>
-  ) : (
-    <span className="settings-plugin-origin">
-      <span className="mono">{origin ?? p.path}</span>
-      {p.install?.modified ? (
-        <span className="danger with-icon">
-          <TriangleAlert size={11} /> modified since install
-        </span>
-      ) : null}
-      {removing ? (
-        <span className="settings-plugin-ask" data-plugin-remove-ask>
-          Remove {p.title || p.name}?
-          {linked ? " The folder stays where it is." : " Reviews that rendered from it keep doing so."}
-          <button
-            type="button"
-            className="settings-reset-link danger"
-            onClick={remove}
-            disabled={removing === "busy"}
-            data-plugin-remove-confirm
-          >
-            {removing === "busy" ? "Removing…" : "Remove"}
-          </button>
-          <button
-            type="button"
-            className="settings-reset-link"
-            onClick={() => setRemoving(null)}
-            disabled={removing === "busy"}
-          >
-            Keep
-          </button>
-        </span>
-      ) : updating ? (
-        <span className="faint" data-plugin-updating>
-          Updating: {updating}…
-        </span>
-      ) : updates === "checking" ? (
-        <span className="faint">Checking…</span>
-      ) : updates ? (
-        <span className="settings-plugin-ask">
-          <span className={updates.tone} data-plugin-updates>
-            {updates.text}
-          </span>
-          {updates.updatable ? (
-            <button type="button" className="settings-reset-link" onClick={updateNow} data-plugin-update>
-              Update
-            </button>
-          ) : null}
-        </span>
-      ) : null}
+  // asked before a removal, in place of whatever the line says, a broken
+  // plugin's error included
+  const ask = removing ? (
+    <span className="settings-plugin-ask" data-plugin-remove-ask>
+      Remove {p.title || p.name}?
+      {linked ? " The folder stays where it is." : " Reviews that rendered from it keep doing so."}
+      <button
+        type="button"
+        className="settings-reset-link danger"
+        onClick={remove}
+        disabled={removing === "busy"}
+        data-plugin-remove-confirm
+      >
+        {removing === "busy" ? "Removing…" : "Remove"}
+      </button>
+      <button
+        type="button"
+        className="settings-reset-link"
+        onClick={() => setRemoving(null)}
+        disabled={removing === "busy"}
+      >
+        Keep
+      </button>
     </span>
-  );
+  ) : null;
+  const note =
+    ask && (p.error || p.settings_error || p.sample_error) ? (
+      ask
+    ) : p.error ? (
+      <span className="danger">{p.error}</span>
+    ) : p.settings_error ? (
+      <span className="danger">settings dropped: {p.settings_error}</span>
+    ) : p.sample_error ? (
+      <span className="danger">sample dropped: {p.sample_error}</span>
+    ) : (
+      <span className="settings-plugin-origin">
+        <span className="mono">{origin ?? p.path}</span>
+        {p.install?.modified ? (
+          <span className="danger with-icon">
+            <TriangleAlert size={11} /> modified since install
+          </span>
+        ) : null}
+        {ask ??
+          (updating ? (
+            <span className="faint" data-plugin-updating>
+              Updating: {updating}…
+            </span>
+          ) : updates === "checking" ? (
+            <span className="faint">Checking…</span>
+          ) : updates ? (
+            <span className="settings-plugin-ask">
+              <span className={updates.tone} data-plugin-updates>
+                {updates.text}
+              </span>
+              {updates.updatable ? (
+                <button type="button" className="settings-reset-link" onClick={updateNow} data-plugin-update>
+                  Update
+                </button>
+              ) : null}
+            </span>
+          ) : null)}
+      </span>
+    );
 
   return (
     <div

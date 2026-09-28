@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { core } from "./helpers";
+import { core, linkPlugin } from "./helpers";
 import { scratch } from "../helpers/scratch";
 
 const root = path.resolve(__dirname, "..", "..");
@@ -153,6 +153,23 @@ test("a link serves the folder live and offers to install a copy", async ({ page
   await expect(copy.locator("[data-install-done]")).toBeVisible();
   await copy.locator("[data-install-close]").click();
   await expect(row).toContainText(`copied from ${source}`);
+});
+
+test("a broken plugin can still be removed from its row", async ({ page }) => {
+  const source = pluginCopy("hello", "broken", "1.0.0");
+  await linkPlugin(page.request, source, "broken");
+  // the folder changes under it into a manifest Pinrail no longer takes
+  const manifest = JSON.parse(fs.readFileSync(path.join(source, "manifest.json"), "utf8"));
+  fs.writeFileSync(path.join(source, "manifest.json"), JSON.stringify({ ...manifest, version: 1 }));
+  const reloaded = await page.request.post(`${core}/api/v1/plugins/reload`, { data: {} });
+  expect(reloaded.status(), await reloaded.text()).toBe(200);
+
+  await page.goto("/#/plugins");
+  const row = page.locator('[data-plugin-row="broken"]');
+  await expect(row).toContainText("version: value is not of type string");
+  await row.getByRole("button", { name: "Remove broken" }).click();
+  await row.locator("[data-plugin-remove-confirm]").click();
+  await expect(row).toHaveCount(0);
 });
 
 test("what is not a plugin is refused before anything runs", async ({ page }) => {
