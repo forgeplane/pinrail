@@ -2,11 +2,13 @@
 // in ../docs. Starlight renders the docs; the landing page is its own.
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLinksValidator from "starlight-links-validator";
 import tailwindcss from "@tailwindcss/vite";
 import { unified } from "@astrojs/markdown-remark";
 import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
 import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
+import remarkPageSlug from "./src/plugins/remark-page-slug.mjs";
 import remarkContract from "./src/plugins/remark-contract.mjs";
 import remarkTokens from "./src/plugins/remark-tokens.mjs";
 import remarkExamples from "./src/plugins/remark-examples.mjs";
@@ -18,11 +20,15 @@ export default defineConfig({
   // images the app in the reader's theme, and contract: images a plugin's
   // manifest and schemas; Starlight adds its
   // own plugins (asides, heading links) to the same processor
-  markdown: { processor: unified({ remarkPlugins: [remarkMermaid, remarkScreenshots, remarkKbd, remarkContract, remarkTokens, remarkExamples] }) },
+  markdown: { processor: unified({ remarkPlugins: [remarkPageSlug, remarkMermaid, remarkScreenshots, remarkKbd, remarkContract, remarkTokens, remarkExamples] }) },
   integrations: [
     starlight({
       title: "Pinrail",
       description: "The inbox where your agents ask before they act.",
+      // a link to a page or heading that does not exist fails the build;
+      // the download page is the site's own, and the docs name the local
+      // server's address on purpose
+      plugins: [starlightLinksValidator({ exclude: ["/download/"], errorOnLocalLinks: false })],
       customCss: ["./src/styles/docs.css"],
       // the docs live beside the code, so Starlight's asides and heading links must reach them there
       markdown: { processedDirs: ["../docs"] },

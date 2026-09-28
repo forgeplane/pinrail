@@ -26,5 +26,8 @@
     "mermaid-isomorphic": {
       "mermaid": "^12.0.0"
     }
+  },
+  "devDependencies": {
+    "starlight-links-validator": "^0.26.0"
   }
 }
