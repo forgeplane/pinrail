@@ -183,6 +183,7 @@ export function subscribe(handlers: {
       "viewed",
       "plugins_reloaded",
       "settings_changed",
+      "history_swept",
     ]) {
       source.addEventListener(kind, (event) => {
         try {
