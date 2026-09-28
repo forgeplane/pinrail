@@ -6,7 +6,13 @@ import { loadState } from "../helpers/state";
 // decision and stores nothing; deciding is the app's.
 test("a review's preview shows its view and checks its hand-over, deciding nothing", async ({ page }) => {
   const { url } = loadState();
-  const sample = await (await fetch(`${url}/api/v1/plugins/list/sample`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
+  const sample = await (
+    await fetch(`${url}/api/v1/plugins/list/sample`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    })
+  ).json();
 
   await page.goto(`${url}/preview/reviews/${sample.id}`);
   await expect(page.locator("#title")).toHaveText(sample.title);

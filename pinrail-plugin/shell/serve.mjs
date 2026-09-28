@@ -52,9 +52,18 @@ const FONT_SUBSETS = [
   ["cyrillic", "U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116"],
   ["greek-ext", "U+1F00-1FFF"],
   ["greek", "U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF"],
-  ["vietnamese", "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB"],
-  ["latin-ext", "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF"],
-  ["latin", "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD"],
+  [
+    "vietnamese",
+    "U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB",
+  ],
+  [
+    "latin-ext",
+    "U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF",
+  ],
+  [
+    "latin",
+    "U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD",
+  ],
 ];
 
 const fontsCss = () =>
@@ -97,7 +106,10 @@ function under(root, rel) {
  */
 function violations(pluginDir, kind, data) {
   const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
-  const load = (schema) => (schema && typeof schema.$ref === "string" ? JSON.parse(fs.readFileSync(path.join(pluginDir, schema.$ref), "utf8")) : schema);
+  const load = (schema) =>
+    schema && typeof schema.$ref === "string"
+      ? JSON.parse(fs.readFileSync(path.join(pluginDir, schema.$ref), "utf8"))
+      : schema;
   const prefix = kind === "settings" ? `/plugins/${manifest.name}` : "";
   let schema = load(kind === "settings" ? manifest.settings_schema : manifest.decision_schema);
   if (!schema) return kind === "settings" ? [{ path: prefix, message: "the plugin has no settings" }] : [];
@@ -109,7 +121,8 @@ function violations(pluginDir, kind, data) {
   const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(schema);
   if (validate(data)) return [];
   return validate.errors.map((e) => {
-    const at = e.keyword === "additionalProperties" ? `${e.instancePath}/${e.params.additionalProperty}` : e.instancePath;
+    const at =
+      e.keyword === "additionalProperties" ? `${e.instancePath}/${e.params.additionalProperty}` : e.instancePath;
     // a property with choices names them, as the app does
     const message = e.keyword === "enum" ? `must be one of ${e.params.allowedValues.join(", ")}` : e.message;
     return { path: prefix + at, message };
@@ -181,7 +194,9 @@ export function serve(argv) {
   const open = !args.includes("--no-open");
 
   if (!fs.existsSync(path.join(pluginDir, "manifest.json"))) {
-    console.error(`no manifest.json in ${pluginDir}\nusage: pinrail-plugin dev <plugin directory> [--port N] [--no-open]`);
+    console.error(
+      `no manifest.json in ${pluginDir}\nusage: pinrail-plugin dev <plugin directory> [--port N] [--no-open]`,
+    );
     process.exit(2);
   }
 
@@ -193,22 +208,28 @@ export function serve(argv) {
     if (p === "/") return sendFile(res, path.join(here, "shell.html"));
     if (p === "/dev/manifest") {
       try {
-        return send(res, 200, fs.readFileSync(path.join(pluginDir, "manifest.json")), { "content-type": "application/json" });
+        return send(res, 200, fs.readFileSync(path.join(pluginDir, "manifest.json")), {
+          "content-type": "application/json",
+        });
       } catch (e) {
         return send(res, 500, JSON.stringify({ error: String(e) }), { "content-type": "application/json" });
       }
     }
-    if (p === "/dev/fixtures") return send(res, 200, JSON.stringify(fixtures(pluginDir)), { "content-type": "application/json" });
+    if (p === "/dev/fixtures")
+      return send(res, 200, JSON.stringify(fixtures(pluginDir)), { "content-type": "application/json" });
     if (p.startsWith("/dev/fixtures/")) {
       const file = under(path.join(pluginDir, "fixtures"), p.slice("/dev/fixtures/".length));
       if (!file) return send(res, 404, "no such fixture");
       // the files a fixture lists by path, as the app lists them: name, size, type, hash
       try {
         const fixture = JSON.parse(fs.readFileSync(file, "utf8"));
-        if (fixture.attachments && !Array.isArray(fixture.attachments)) fixture.attachments = resolveAttachments(fixture.attachments, path.dirname(file)).list;
+        if (fixture.attachments && !Array.isArray(fixture.attachments))
+          fixture.attachments = resolveAttachments(fixture.attachments, path.dirname(file)).list;
         return send(res, 200, JSON.stringify(fixture), { "content-type": "application/json" });
       } catch (e) {
-        return send(res, 422, JSON.stringify({ error: String(e.message || e) }), { "content-type": "application/json" });
+        return send(res, 422, JSON.stringify({ error: String(e.message || e) }), {
+          "content-type": "application/json",
+        });
       }
     }
     // a file a fixture carries, fetched by the shell for the view that asked
@@ -218,7 +239,9 @@ export function serve(argv) {
       try {
         const fixture = file && JSON.parse(fs.readFileSync(file, "utf8"));
         const entry = fixture && resolveAttachments(fixture.attachments, path.dirname(file)).files[rest.join("/")];
-        return entry ? sendFile(res, entry.path, { "content-type": "application/octet-stream" }) : send(res, 404, "no such attachment");
+        return entry
+          ? sendFile(res, entry.path, { "content-type": "application/octet-stream" })
+          : send(res, 404, "no such attachment");
       } catch {
         return send(res, 404, "no such attachment");
       }
@@ -230,14 +253,19 @@ export function serve(argv) {
       req.on("end", () => {
         try {
           const { kind, data } = JSON.parse(body);
-          send(res, 200, JSON.stringify({ errors: violations(pluginDir, kind, data) }), { "content-type": "application/json" });
+          send(res, 200, JSON.stringify({ errors: violations(pluginDir, kind, data) }), {
+            "content-type": "application/json",
+          });
         } catch (e) {
           send(res, 400, JSON.stringify({ error: String(e.message || e) }), { "content-type": "application/json" });
         }
       });
       return;
     }
-    if (p === "/dev/stamp") return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir }), { "content-type": "application/json" });
+    if (p === "/dev/stamp")
+      return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir }), {
+        "content-type": "application/json",
+      });
     if (p === "/sdk/v1/fonts.css") {
       return send(res, 200, fontsCss(), { "content-type": "text/css", "access-control-allow-origin": "*" });
     }
@@ -245,10 +273,13 @@ export function serve(argv) {
     if (p === "/sdk/v1/pinrail-plugin.js") {
       return send(res, 200, sdkScript(root), { "content-type": mime[".js"], "access-control-allow-origin": "*" });
     }
-    if (p === "/sdk/v1/pinrail-plugin.css") return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
+    if (p === "/sdk/v1/pinrail-plugin.css")
+      return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
     if (p.startsWith("/plugin/")) {
       const file = under(pluginDir, p.slice("/plugin/".length));
-      return file ? sendFile(res, file, { "content-security-policy": csp(origin), "access-control-allow-origin": "*" }) : send(res, 404, "not found");
+      return file
+        ? sendFile(res, file, { "content-security-policy": csp(origin), "access-control-allow-origin": "*" })
+        : send(res, 404, "not found");
     }
     return send(res, 404, "not found");
   });

@@ -24,7 +24,7 @@ const AGENTS: Record<string, { label: string; svg: string }> = {
 
 /** The agent a requester names, when the app knows it. */
 export function agentOf(requestedBy?: string | null) {
-  return requestedBy ? AGENTS[requestedBy.trim().toLowerCase()] ?? null : null;
+  return requestedBy ? (AGENTS[requestedBy.trim().toLowerCase()] ?? null) : null;
 }
 
 export function AgentIcon({ requestedBy, size = 13 }: { requestedBy?: string | null; size?: number }) {

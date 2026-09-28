@@ -34,6 +34,9 @@ export function size(bytes: number): string {
 
 /** "Takes .glb, .gltf, up to 50 MB each": what a plugin takes beside a payload. */
 export function takes(rules: { accept: string[]; max_size?: number; max_count?: number }): string {
-  const limits = [rules.max_size ? `up to ${size(rules.max_size)} each` : null, rules.max_count ? `${rules.max_count} at most` : null].filter(Boolean);
+  const limits = [
+    rules.max_size ? `up to ${size(rules.max_size)} each` : null,
+    rules.max_count ? `${rules.max_count} at most` : null,
+  ].filter(Boolean);
   return `Takes files: ${rules.accept.join(", ")}${limits.length ? `, ${limits.join(", ")}` : ""}`;
 }

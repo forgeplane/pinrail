@@ -9,7 +9,8 @@ const landing = () => fixture(path.join(dir, "fixtures", "landing.json"));
    locators pierce it, so the headline is a normal target. */
 async function commentOn(plugin: Awaited<ReturnType<typeof mountPlugin>>, target: string, text: string) {
   const f = plugin.frame;
-  if ((await f.locator("[data-select]").getAttribute("class"))?.includes("is-on") === false) await f.locator("[data-select]").click();
+  if ((await f.locator("[data-select]").getAttribute("class"))?.includes("is-on") === false)
+    await f.locator("[data-select]").click();
   await f.locator(target).click();
   await expect(f.locator("[data-popover]")).toBeVisible();
   await f.locator("[data-comment-text]").fill(text);
@@ -35,7 +36,10 @@ test("the document can come as a file beside the payload, and one that cannot be
   const review = landing();
   const { html, ...rest } = review.payload as { html: string };
   review.payload = { ...rest, file: { $attachment: "landing.html" } };
-  const plugin = await mountPlugin(page, dir, { review, attachments: { "landing.html": path.join(dir, "fixtures", "landing.html") } });
+  const plugin = await mountPlugin(page, dir, {
+    review,
+    attachments: { "landing.html": path.join(dir, "fixtures", "landing.html") },
+  });
   await expect(plugin.frame.locator("[data-artifact] h1")).toHaveText("Bookkeeping that closes itself");
   await expect(plugin.frame.locator("[data-load-error]")).toHaveCount(0);
 
@@ -62,7 +66,13 @@ test("a comment hangs on the element by a selector and travels in the decision",
   const data = await plugin.nextSubmit();
   expect(data.verdict).toBe("revise");
   expect(data.comments).toHaveLength(2);
-  expect(data.comments[0]).toMatchObject({ selector: "#hero > h1", tag: "h1", kind: "change", text: "Say what it does, not a slogan", snippet: "Bookkeeping that closes itself" });
+  expect(data.comments[0]).toMatchObject({
+    selector: "#hero > h1",
+    tag: "h1",
+    kind: "change",
+    text: "Say what it does, not a slogan",
+    snippet: "Bookkeeping that closes itself",
+  });
   expect(data.comments[1].selector).toBe("#features > div:nth-of-type(2) > h3");
 });
 
@@ -90,7 +100,9 @@ test("a draft comes back with the next init", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
   await commentOn(plugin, "[data-artifact] h1", "Shorter");
-  await expect.poll(() => plugin.lastDraft()).toMatchObject({ comments: [{ selector: "#hero > h1", text: "Shorter" }] });
+  await expect
+    .poll(() => plugin.lastDraft())
+    .toMatchObject({ comments: [{ selector: "#hero > h1", text: "Shorter" }] });
   await plugin.reinit();
   await expect(f.locator("[data-comment]")).toHaveCount(1);
   await expect(f.locator("[data-pin]")).toHaveCount(1);
@@ -99,7 +111,12 @@ test("a draft comes back with the next init", async ({ page }) => {
 test("a decided review is read-only with its pins", async ({ page }) => {
   const review = landing();
   review.status = "decided";
-  review.decision = { data: { verdict: "revise", comments: [{ id: "c1", selector: "#hero > h1", tag: "h1", kind: "change", text: "Shorter" }] } };
+  review.decision = {
+    data: {
+      verdict: "revise",
+      comments: [{ id: "c1", selector: "#hero > h1", tag: "h1", kind: "change", text: "Shorter" }],
+    },
+  };
   const plugin = await mountPlugin(page, dir, { review, readonly: true });
   const f = plugin.frame;
   await expect(f.locator("[data-pin]")).toHaveCount(1);
@@ -126,7 +143,10 @@ test("custom properties on :root, html and body reach the artifact's elements", 
   const btn = plugin.frame.locator("[data-artifact] #go");
   await expect(btn).toHaveCSS("color", "rgb(10, 20, 30)");
   await expect(btn).toHaveCSS("border-top-color", "rgb(1, 2, 3)");
-  await expect(plugin.frame.locator("[data-artifact] .artifact-body")).toHaveCSS("background-color", "rgb(250, 240, 230)");
+  await expect(plugin.frame.locator("[data-artifact] .artifact-body")).toHaveCSS(
+    "background-color",
+    "rgb(250, 240, 230)",
+  );
 });
 
 test("markup in the artifact runs nothing, so it cannot decide the review", async ({ page }) => {
@@ -157,7 +177,10 @@ test("markup in the artifact runs nothing, so it cannot decide the review", asyn
   await f.locator("[data-artifact] form button").click();
   await page.waitForTimeout(500);
 
-  expect(await f.locator("body").evaluate(() => (window as unknown as { ran?: number }).ran ?? 0), "a handler in the artifact ran").toBe(0);
+  expect(
+    await f.locator("body").evaluate(() => (window as unknown as { ran?: number }).ran ?? 0),
+    "a handler in the artifact ran",
+  ).toBe(0);
   const submits = (await plugin.messages()).filter((m) => m.type === "submit");
   expect(submits, "the artifact handed over a decision").toEqual([]);
 });

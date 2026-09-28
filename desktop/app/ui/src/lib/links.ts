@@ -41,8 +41,19 @@ export function linkRequest(url: string): LinkRequest | null {
 export const sourceOf = (plugin: Plugin): string => plugin.install?.source ?? "built in";
 
 /** Whether the request can open without asking. */
-export function allowedWithoutAsking(request: LinkRequest, permission: LinkPermission | undefined, source: string): boolean {
-  return request.kind === "web" && !request.long && !!request.origin && !!permission && permission.source === source && permission.origins.includes(request.origin);
+export function allowedWithoutAsking(
+  request: LinkRequest,
+  permission: LinkPermission | undefined,
+  source: string,
+): boolean {
+  return (
+    request.kind === "web" &&
+    !request.long &&
+    !!request.origin &&
+    !!permission &&
+    permission.source === source &&
+    permission.origins.includes(request.origin)
+  );
 }
 
 /** The permission after allowing one more origin; one from another source starts over. */

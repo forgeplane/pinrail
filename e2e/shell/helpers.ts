@@ -41,7 +41,9 @@ export async function decide(request: APIRequestContext, id: string, data: unkno
 
 /** Discards whatever is pending, so a test starts from an empty inbox. */
 export async function clearInbox(request: APIRequestContext) {
-  const pending = (await (await request.get(`${core}/api/v1/reviews?status=pending&limit=500`)).json()).reviews as { id: string }[];
+  const pending = (await (await request.get(`${core}/api/v1/reviews?status=pending&limit=500`)).json()).reviews as {
+    id: string;
+  }[];
   for (const r of pending) {
     const response = await request.post(`${core}/api/v1/reviews/${r.id}/discard`, { data: { reason: "spec cleanup" } });
     expect(response.status(), `discarding ${r.id}: ${await response.text()}`).toBe(200);
@@ -53,6 +55,10 @@ export async function linkPlugin(request: APIRequestContext, source: string, nam
   const installed = await request.post(`${core}/api/v1/plugins/install`, { data: { source, link: true } });
   expect(installed.status(), await installed.text()).toBe(202);
   await expect
-    .poll(async () => ((await (await request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string; usable: boolean }[]).some((p) => p.name === name && p.usable))
+    .poll(async () =>
+      (
+        (await (await request.get(`${core}/api/v1/plugins`)).json()).plugins as { name: string; usable: boolean }[]
+      ).some((p) => p.name === name && p.usable),
+    )
     .toBe(true);
 }

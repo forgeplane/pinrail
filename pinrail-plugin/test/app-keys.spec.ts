@@ -7,7 +7,10 @@ import { scratch } from "./scratch.cjs";
 // A view with a text field, and a key of its own it keeps from the app.
 function view(): string {
   const dir = scratch("pinrail-app-keys-");
-  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "keys", version: "1.0.0", title: "Keys", entry: "index.html" }));
+  fs.writeFileSync(
+    path.join(dir, "manifest.json"),
+    JSON.stringify({ name: "keys", version: "1.0.0", title: "Keys", entry: "index.html" }),
+  );
   fs.writeFileSync(
     path.join(dir, "index.html"),
     `<!doctype html>
@@ -33,12 +36,12 @@ test("the app's keys go up from a view, unless typed in a field or kept by the v
   await f.locator("#ready").click();
   await page.keyboard.press("?");
   await page.keyboard.press("[");
-  await page.keyboard.press("]");   // the view keeps this one
-  await page.keyboard.press("j");   // not the app's
+  await page.keyboard.press("]"); // the view keeps this one
+  await page.keyboard.press("j"); // not the app's
   await expect.poll(keys).toEqual(["?", "["]);
 
   await f.locator("#field").click();
-  await page.keyboard.press("?");   // typed into the field
+  await page.keyboard.press("?"); // typed into the field
   await page.waitForTimeout(100);
   expect(await keys()).toEqual(["?", "["]);
 });

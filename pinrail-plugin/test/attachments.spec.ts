@@ -12,7 +12,13 @@ function reader(): string {
   const dir = scratch("pinrail-attachments-");
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "reader", version: "1.0.0", title: "Reader", entry: "index.html", attachments: { accept: [".bin", "image/*"] } }),
+    JSON.stringify({
+      name: "reader",
+      version: "1.0.0",
+      title: "Reader",
+      entry: "index.html",
+      attachments: { accept: [".bin", "image/*"] },
+    }),
   );
   fs.writeFileSync(
     path.join(dir, "index.html"),
@@ -43,7 +49,13 @@ function reader(): string {
   const bytes = Buffer.from(Array.from({ length: 200_000 }, (_, i) => (i * 13) % 256));
   fs.writeFileSync(path.join(dir, "data.bin"), bytes);
   // a one-pixel PNG
-  fs.writeFileSync(path.join(dir, "dot.png"), Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+  fs.writeFileSync(
+    path.join(dir, "dot.png"),
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    ),
+  );
   return dir;
 }
 
@@ -56,7 +68,9 @@ test("a view gets a file's bytes from the shell, and an image as a blob: URL", a
     attachments: { "data.bin": "data.bin", "dot.png": "dot.png" },
   });
   const expected = sum(fs.readFileSync(path.join(dir, "data.bin")));
-  await expect(plugin.frame.locator("#out")).toHaveText(`data.bin 200000 bytes, sum ${expected}, listed data.bin,dot.png`);
+  await expect(plugin.frame.locator("#out")).toHaveText(
+    `data.bin 200000 bytes, sum ${expected}, listed data.bin,dot.png`,
+  );
   await expect(plugin.frame.locator("#img")).toHaveAttribute("src", /^blob:/);
   await expect.poll(() => plugin.frame.locator("#img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1);
 });
@@ -76,7 +90,9 @@ test("under an app too old to hand files over, the view is told so", async ({ pa
     attachments: { "data.bin": "data.bin" },
     capabilities: [],
   });
-  await expect(plugin.frame.locator("#out")).toHaveText("refused: this version of Pinrail cannot hand files to a view; update the app");
+  await expect(plugin.frame.locator("#out")).toHaveText(
+    "refused: this version of Pinrail cannot hand files to a view; update the app",
+  );
 });
 
 test("a fixture lists its files by path, beside it", async ({ page }) => {
@@ -84,9 +100,23 @@ test("a fixture lists its files by path, beside it", async ({ page }) => {
   fs.mkdirSync(path.join(dir, "fixtures"));
   fs.copyFileSync(path.join(dir, "data.bin"), path.join(dir, "fixtures", "data.bin"));
   const file = path.join(dir, "fixtures", "files.json");
-  fs.writeFileSync(file, JSON.stringify({ title: "files", payload: { file: { $attachment: "data.bin" } }, attachments: { "data.bin": { path: "data.bin" } } }));
+  fs.writeFileSync(
+    file,
+    JSON.stringify({
+      title: "files",
+      payload: { file: { $attachment: "data.bin" } },
+      attachments: { "data.bin": { path: "data.bin" } },
+    }),
+  );
   const review = fixture(file);
-  expect(review.attachments).toEqual([{ name: "data.bin", size: 200000, media_type: "application/octet-stream", sha256: expect.stringMatching(/^[0-9a-f]{64}$/) }]);
+  expect(review.attachments).toEqual([
+    {
+      name: "data.bin",
+      size: 200000,
+      media_type: "application/octet-stream",
+      sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+    },
+  ]);
   const plugin = await mountPlugin(page, dir, { review });
   await expect(plugin.frame.locator("#out")).toContainText("data.bin 200000 bytes");
 });

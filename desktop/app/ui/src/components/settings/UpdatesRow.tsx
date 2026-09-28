@@ -53,18 +53,36 @@ export function UpdatesRows() {
         Download
       </button>
     ) : (
-      <button type="button" className="chrome-button" disabled={unavailable || status.state === "checking" || status.state === "downloading"} onClick={() => run(check)} data-update-check>
+      <button
+        type="button"
+        className="chrome-button"
+        disabled={unavailable || status.state === "checking" || status.state === "downloading"}
+        onClick={() => run(check)}
+        data-update-check
+      >
         Check for updates
       </button>
     );
 
   return (
     <>
-      <SettingsRow label="Updates" description={describe(status)} note={error ?? (status.state === "failed" ? status.message : undefined)}>
+      <SettingsRow
+        label="Updates"
+        description={describe(status)}
+        note={error ?? (status.state === "failed" ? status.message : undefined)}
+      >
         {action}
       </SettingsRow>
-      <SettingsRow label="Check automatically" description="Looks for a new version at start and every few hours, and downloads it in the background">
-        <Toggle label="Check for updates automatically" checked={settings.updates.check} disabled={!native} onChange={(v) => update({ updates: { check: v } })} />
+      <SettingsRow
+        label="Check automatically"
+        description="Looks for a new version at start and every few hours, and downloads it in the background"
+      >
+        <Toggle
+          label="Check for updates automatically"
+          checked={settings.updates.check}
+          disabled={!native}
+          onChange={(v) => update({ updates: { check: v } })}
+        />
       </SettingsRow>
     </>
   );

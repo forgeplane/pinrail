@@ -39,7 +39,9 @@ function renderer(): string {
 }
 
 async function render(page: any, source: string) {
-  const plugin = await mountPlugin(page, renderer(), { review: reviewFrom({ title: "Markdown", payload: { source } }) });
+  const plugin = await mountPlugin(page, renderer(), {
+    review: reviewFrom({ title: "Markdown", payload: { source } }),
+  });
   return plugin.frame;
 }
 
@@ -109,7 +111,10 @@ test("comes with the SDK, in one script and no second request", async ({ page })
 
 test("a link in rendered markdown asks the shell to open it", async ({ page }) => {
   const plugin = await mountPlugin(page, renderer(), {
-    review: reviewFrom({ title: "Markdown", payload: { source: "[docs](https://example.com/docs) [d](ftp://example.com/f)" } }),
+    review: reviewFrom({
+      title: "Markdown",
+      payload: { source: "[docs](https://example.com/docs) [d](ftp://example.com/f)" },
+    }),
   });
 
   // the frame is sandboxed without allow-popups, so target="_blank" opens

@@ -68,7 +68,12 @@ export function App() {
   // what the app's hand-over button says follows the choice
   useEffect(() => {
     if (!review || readonly) return;
-    const label = draft.verdict === "ship" ? `Ship ${review.payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
+    const label =
+      draft.verdict === "ship"
+        ? `Ship ${review.payload.version}`
+        : draft.verdict === "hold"
+          ? "Hold the deploy"
+          : "Choose ship or hold";
     plugin.current!.status({ label });
   }, [review, readonly, draft.verdict]);
 
@@ -100,7 +105,12 @@ export function App() {
           {payload.changes.map((c) => (
             <li key={c.title}>
               {c.title}
-              {c.risky ? <> <span className="sev sev-major">risky</span></> : null}
+              {c.risky ? (
+                <>
+                  {" "}
+                  <span className="sev sev-major">risky</span>
+                </>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -111,7 +121,12 @@ export function App() {
           {payload.checks.map((c) => (
             <li key={c.name} data-passed={String(c.passed)}>
               {c.passed ? <CircleCheck /> : <CircleX />} {c.name}
-              {c.detail ? <> <span className="detail">{c.detail}</span></> : null}
+              {c.detail ? (
+                <>
+                  {" "}
+                  <span className="detail">{c.detail}</span>
+                </>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -124,10 +139,20 @@ export function App() {
       ) : (
         <>
           <div className="choice" role="group" aria-label="Verdict">
-            <button type="button" className="btn" aria-pressed={draft.verdict === "ship"} onClick={() => choose("ship")}>
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={draft.verdict === "ship"}
+              onClick={() => choose("ship")}
+            >
               <Rocket /> Ship <kbd>s</kbd>
             </button>
-            <button type="button" className="btn" aria-pressed={draft.verdict === "hold"} onClick={() => choose("hold")}>
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={draft.verdict === "hold"}
+              onClick={() => choose("hold")}
+            >
               <Hand /> Hold <kbd>h</kbd>
             </button>
           </div>

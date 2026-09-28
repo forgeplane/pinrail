@@ -2,7 +2,22 @@
 // from, a Notify toggle and its own settings folded under it; and the way
 // in, the install dialog.
 
-import { Bell, BellOff, ChevronRight, Send, CircleCheck, CloudDownload, FolderOpen, Link2, PackagePlus, RefreshCw, Trash2, TriangleAlert, Wrench, X } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  ChevronRight,
+  Send,
+  CircleCheck,
+  CloudDownload,
+  FolderOpen,
+  Link2,
+  PackagePlus,
+  RefreshCw,
+  Trash2,
+  TriangleAlert,
+  Wrench,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
 import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
@@ -79,7 +94,10 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
         {installing ? (
           <InstallPanel key={installing.source ?? ""} initial={installing.source} onClose={() => setInstalling(null)} />
         ) : (
-          <SettingsRow label="Install a plugin" description="From a folder on this machine, a repository, or a GitHub release">
+          <SettingsRow
+            label="Install a plugin"
+            description="From a folder on this machine, a repository, or a GitHub release"
+          >
             <button type="button" className="chrome-button" onClick={() => setInstalling({})} data-install-open>
               <PackagePlus size={14} /> Install…
             </button>
@@ -97,7 +115,12 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
           </Tooltip>
         }
       >
-        {plugins.length === 0 ? <SettingsRow label="No plugins yet" description="Install one above to give your agents a view to ask through" /> : null}
+        {plugins.length === 0 ? (
+          <SettingsRow
+            label="No plugins yet"
+            description="Install one above to give your agents a view to ask through"
+          />
+        ) : null}
         {plugins.map((p) => (
           <PluginEntry
             key={p.name}
@@ -117,13 +140,13 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
           />
         ))}
       </SettingsGroup>
-
     </SettingsPage>
   );
 }
 
 /** What a property's value is right now: stored, else its default. */
-const valueOf = (property: SettingProperty, stored: Record<string, unknown>, key: string) => (key in stored ? stored[key] : property.default);
+const valueOf = (property: SettingProperty, stored: Record<string, unknown>, key: string) =>
+  key in stored ? stored[key] : property.default;
 
 /** The choices a string property offers, when it offers any. */
 const choicesOf = (property: SettingProperty): { value: string; label: string }[] | null => {
@@ -151,7 +174,8 @@ function updatesLine(u: PluginUpdates): Line {
       return { text: "Up to date", tone: "ok" };
     case "available":
       if (u.version) return { text: `${u.version} is available`, tone: "ok", updatable: true };
-      if (u.commit) return { text: `A newer commit is available: ${u.commit.slice(0, 7)}`, tone: "ok", updatable: true };
+      if (u.commit)
+        return { text: `A newer commit is available: ${u.commit.slice(0, 7)}`, tone: "ok", updatable: true };
       return { text: "The folder changed since it was copied", tone: "ok", updatable: true };
     case "pinned":
       return { text: `Pinned to ${u.tag ?? u.ref ?? "this version"}`, tone: "dim" };
@@ -163,7 +187,35 @@ function updatesLine(u: PluginUpdates): Line {
 }
 
 /** One installed plugin: its row, and its settings folded under it when it declares any. */
-function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onReveal, onNotify, links, onForgetLink, onChange, onCopy, onMessage, onOpenReview }: { plugin: Plugin; native: boolean; muted: boolean; stored: Record<string, unknown>; open: boolean; onReveal: () => void; onNotify: (on: boolean) => void; links: string[]; onForgetLink: (origin: string) => void; onChange: (values: Record<string, unknown>) => void; onCopy: () => void; onMessage: (text: string, tone?: "ok" | "danger") => void; onOpenReview: (id: string) => void }) {
+function PluginEntry({
+  plugin: p,
+  native,
+  muted,
+  stored,
+  open: openAtStart,
+  onReveal,
+  onNotify,
+  links,
+  onForgetLink,
+  onChange,
+  onCopy,
+  onMessage,
+  onOpenReview,
+}: {
+  plugin: Plugin;
+  native: boolean;
+  muted: boolean;
+  stored: Record<string, unknown>;
+  open: boolean;
+  onReveal: () => void;
+  onNotify: (on: boolean) => void;
+  links: string[];
+  onForgetLink: (origin: string) => void;
+  onChange: (values: Record<string, unknown>) => void;
+  onCopy: () => void;
+  onMessage: (text: string, tone?: "ok" | "danger") => void;
+  onOpenReview: (id: string) => void;
+}) {
   const schema = p.usable ? p.settings_schema : null;
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
@@ -213,7 +265,11 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
         setUpdates({ text: "Up to date", tone: "ok" });
         return;
       }
-      const job = await followJob(started.job, (step) => setUpdating(step.status), () => !mounted.current);
+      const job = await followJob(
+        started.job,
+        (step) => setUpdating(step.status),
+        () => !mounted.current,
+      );
       if (!job) return;
       setUpdating(null);
       if (job.status === "done") {
@@ -225,7 +281,10 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
       }
     } catch (e) {
       setUpdating(null);
-      setUpdates({ text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Update failed", tone: "danger" });
+      setUpdates({
+        text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Update failed",
+        tone: "danger",
+      });
     }
   };
 
@@ -238,7 +297,12 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
       onOpenReview(review.id);
     } catch (e) {
       setSending(false);
-      onMessage(e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : `The ${p.title || p.name} sample could not be sent`, "danger");
+      onMessage(
+        e instanceof ApiError
+          ? (e.violations[0]?.message ?? e.message)
+          : `The ${p.title || p.name} sample could not be sent`,
+        "danger",
+      );
     }
   };
 
@@ -250,7 +314,12 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
       onMessage(`${p.title || p.name} plugin was removed`);
     } catch (e) {
       setRemoving(null);
-      onMessage(e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : `The ${p.title || p.name} plugin could not be removed`, "danger");
+      onMessage(
+        e instanceof ApiError
+          ? (e.violations[0]?.message ?? e.message)
+          : `The ${p.title || p.name} plugin could not be removed`,
+        "danger",
+      );
     }
   };
 
@@ -272,11 +341,23 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
       ) : null}
       {removing ? (
         <span className="settings-plugin-ask" data-plugin-remove-ask>
-          Remove {p.title || p.name}?{linked ? " The folder stays where it is." : " Reviews that rendered from it keep doing so."}
-          <button type="button" className="settings-reset-link danger" onClick={remove} disabled={removing === "busy"} data-plugin-remove-confirm>
+          Remove {p.title || p.name}?
+          {linked ? " The folder stays where it is." : " Reviews that rendered from it keep doing so."}
+          <button
+            type="button"
+            className="settings-reset-link danger"
+            onClick={remove}
+            disabled={removing === "busy"}
+            data-plugin-remove-confirm
+          >
             {removing === "busy" ? "Removing…" : "Remove"}
           </button>
-          <button type="button" className="settings-reset-link" onClick={() => setRemoving(null)} disabled={removing === "busy"}>
+          <button
+            type="button"
+            className="settings-reset-link"
+            onClick={() => setRemoving(null)}
+            disabled={removing === "busy"}
+          >
             Keep
           </button>
         </span>
@@ -302,7 +383,12 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
   );
 
   return (
-    <div ref={box} className={`settings-plugin ${entries.length ? "has-settings" : ""} ${open ? "is-open" : ""}`} data-plugin-settings={p.name} data-plugin-row={p.name}>
+    <div
+      ref={box}
+      className={`settings-plugin ${entries.length ? "has-settings" : ""} ${open ? "is-open" : ""}`}
+      data-plugin-settings={p.name}
+      data-plugin-row={p.name}
+    >
       <SettingsRow
         icon={<PluginIcon icon={p.icon} size={16} strokeWidth={1.75} />}
         label={p.title || p.name}
@@ -310,7 +396,15 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           <span className="settings-plugin-line">
             <PluginBadge name={p.name} version={p.version} icon={p.icon} />
             <span className={`with-icon ${p.error ? "danger" : "ok"}`}>
-              {p.error ? <TriangleAlert size={12} /> : linked ? <Link2 size={12} /> : p.dev ? <Wrench size={12} /> : <CircleCheck size={12} />}
+              {p.error ? (
+                <TriangleAlert size={12} />
+              ) : linked ? (
+                <Link2 size={12} />
+              ) : p.dev ? (
+                <Wrench size={12} />
+              ) : (
+                <CircleCheck size={12} />
+              )}
               {p.error ? "broken" : linked ? "linked" : p.dev ? "development" : "ready"}
             </span>
             {p.install && !linked ? <span className="faint">{p.install.version}</span> : null}
@@ -332,7 +426,14 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
       >
         {p.usable && p.sample ? (
           <Tooltip label="Send a sample review, to see how it looks">
-            <button type="button" className="bar-button" onClick={sendSample} aria-label={`Send a sample of ${p.name}`} disabled={sending} data-plugin-sample>
+            <button
+              type="button"
+              className="bar-button"
+              onClick={sendSample}
+              aria-label={`Send a sample of ${p.name}`}
+              disabled={sending}
+              data-plugin-sample
+            >
               <Send size={15} />
             </button>
           </Tooltip>
@@ -352,26 +453,57 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           </Tooltip>
         ) : p.install ? (
           <Tooltip label="Check for updates">
-            <button type="button" className="bar-button" onClick={check} aria-label={`Check for updates of ${p.name}`} disabled={updates === "checking"}>
+            <button
+              type="button"
+              className="bar-button"
+              onClick={check}
+              aria-label={`Check for updates of ${p.name}`}
+              disabled={updates === "checking"}
+            >
               <CloudDownload size={15} />
             </button>
           </Tooltip>
         ) : null}
         {p.install ? (
           <Tooltip label="Remove">
-            <button type="button" className="bar-button" onClick={() => setRemoving("asking")} aria-label={`Remove ${p.name}`} disabled={removing !== null || updating !== null}>
+            <button
+              type="button"
+              className="bar-button"
+              onClick={() => setRemoving("asking")}
+              aria-label={`Remove ${p.name}`}
+              disabled={removing !== null || updating !== null}
+            >
               <Trash2 size={15} />
             </button>
           </Tooltip>
         ) : null}
-        <Tooltip label={muted ? "Muted: its reviews arrive without a notification. Click to notify again" : "Notifies when one of its reviews arrives. Click to mute"}>
-          <button type="button" role="switch" aria-checked={!muted} aria-label={`Notify for ${p.name}`} className={`bar-button settings-notify ${muted ? "is-muted" : ""}`} onClick={() => onNotify(muted)}>
+        <Tooltip
+          label={
+            muted
+              ? "Muted: its reviews arrive without a notification. Click to notify again"
+              : "Notifies when one of its reviews arrives. Click to mute"
+          }
+        >
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!muted}
+            aria-label={`Notify for ${p.name}`}
+            className={`bar-button settings-notify ${muted ? "is-muted" : ""}`}
+            onClick={() => onNotify(muted)}
+          >
             {muted ? <BellOff size={15} /> : <Bell size={15} />}
           </button>
         </Tooltip>
         {entries.length ? (
           <Tooltip label={open ? "Hide its settings" : "Show its settings"}>
-            <button type="button" className="bar-button settings-plugin-toggle" aria-expanded={open} aria-label={`Settings of ${p.name}`} onClick={toggle}>
+            <button
+              type="button"
+              className="bar-button settings-plugin-toggle"
+              aria-expanded={open}
+              aria-label={`Settings of ${p.name}`}
+              onClick={toggle}
+            >
               <ChevronRight size={15} className={open ? "is-open" : ""} />
             </button>
           </Tooltip>
@@ -383,7 +515,13 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
           {links.map((origin) => (
             <span key={origin} className="settings-link-chip mono">
               {origin}
-              <button type="button" className="settings-link-forget" aria-label={`Ask again before opening ${origin}`} onClick={() => onForgetLink(origin)} data-forget-link={origin}>
+              <button
+                type="button"
+                className="settings-link-forget"
+                aria-label={`Ask again before opening ${origin}`}
+                onClick={() => onForgetLink(origin)}
+                data-forget-link={origin}
+              >
                 <X size={12} />
               </button>
             </span>
@@ -400,7 +538,14 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
             </div>
           ) : null}
           {entries.map(([key, property]) => (
-            <SettingRow key={key} plugin={p.name} name={key} property={property} value={valueOf(property, stored, key)} onChange={(v) => onChange({ [key]: v })} />
+            <SettingRow
+              key={key}
+              plugin={p.name}
+              name={key}
+              property={property}
+              value={valueOf(property, stored, key)}
+              onChange={(v) => onChange({ [key]: v })}
+            />
           ))}
         </div>
       ) : null}
@@ -409,7 +554,19 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
 }
 
 /** A row for one property, its control from the property's type. */
-function SettingRow({ plugin, name, property, value, onChange }: { plugin: string; name: string; property: SettingProperty; value: unknown; onChange: (value: unknown) => void }) {
+function SettingRow({
+  plugin,
+  name,
+  property,
+  value,
+  onChange,
+}: {
+  plugin: string;
+  name: string;
+  property: SettingProperty;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
   const label = property.title ?? name;
   const id = `plugin-setting-${plugin}-${name}`;
   const isDefault = value === property.default;
@@ -458,7 +615,17 @@ function SettingRow({ plugin, name, property, value, onChange }: { plugin: strin
   }
 
   return (
-    <SettingsRow label={label} description={property.description} note={isDefault ? undefined : <button type="button" className="settings-reset-link" onClick={() => onChange(property.default)}>{property.default === "" ? "Reset to empty" : `Reset to ${String(property.default)}`}</button>}>
+    <SettingsRow
+      label={label}
+      description={property.description}
+      note={
+        isDefault ? undefined : (
+          <button type="button" className="settings-reset-link" onClick={() => onChange(property.default)}>
+            {property.default === "" ? "Reset to empty" : `Reset to ${String(property.default)}`}
+          </button>
+        )
+      }
+    >
       {control}
     </SettingsRow>
   );

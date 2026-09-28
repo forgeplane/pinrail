@@ -4,7 +4,21 @@ import license from "rollup-plugin-license";
 import path from "node:path";
 
 /** The licences a bundled npm package may carry: deny.toml's list, for the UI. */
-const ALLOWED = ["0BSD", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "BlueOak-1.0.0", "CC0-1.0", "ISC", "MIT", "MIT-0", "MPL-2.0", "Unicode-3.0", "Unlicense", "Zlib"];
+const ALLOWED = [
+  "0BSD",
+  "Apache-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "BlueOak-1.0.0",
+  "CC0-1.0",
+  "ISC",
+  "MIT",
+  "MIT-0",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Unlicense",
+  "Zlib",
+];
 
 // The UI lives in ui/; Tauri loads the built files from dist/. A production
 // build also records every npm package that ends up in the bundle, with its
@@ -22,7 +36,13 @@ export default defineConfig({
             file: path.resolve(__dirname, "notices", "npm.json"),
             template: (dependencies) =>
               JSON.stringify(
-                dependencies.map((d) => ({ name: d.name, version: d.version, license: d.license, text: d.licenseText, notice: d.noticeText })),
+                dependencies.map((d) => ({
+                  name: d.name,
+                  version: d.version,
+                  license: d.license,
+                  text: d.licenseText,
+                  notice: d.noticeText,
+                })),
                 null,
                 2,
               ),

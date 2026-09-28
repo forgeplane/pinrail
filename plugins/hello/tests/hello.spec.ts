@@ -27,7 +27,9 @@ test("no without a comment hands over only ok", async ({ page }) => {
   expect(await plugin.nextSubmit()).toEqual({ ok: false });
 });
 
-test("handing over without an answer asks for one; violations are shown; submitted renders read-only", async ({ page }) => {
+test("handing over without an answer asks for one; violations are shown; submitted renders read-only", async ({
+  page,
+}) => {
   const plugin = await mountPlugin(page, dir, { review: push() });
   await plugin.collect();
   await expect(plugin.frame.locator("#errors")).toHaveText("Choose yes or no first.");
@@ -40,7 +42,11 @@ test("handing over without an answer asks for one; violations are shown; submitt
   await plugin.sendViolations([{ path: "/ok", message: "value is not of type boolean" }]);
   await expect(plugin.frame.locator("#errors")).toHaveText("/ok: value is not of type boolean");
 
-  await plugin.sendSubmitted({ decided_by: "alice", decided_at: "2026-09-11T10:00:00Z", data: { ok: true, comment: "go" } });
+  await plugin.sendSubmitted({
+    decided_by: "alice",
+    decided_at: "2026-09-11T10:00:00Z",
+    data: { ok: true, comment: "go" },
+  });
   await expect(plugin.frame.locator("p").last()).toContainText("Decided: yes — go");
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveCount(0);
 });
@@ -71,7 +77,10 @@ test("follows the shell's theme without losing what was typed", async ({ page })
 });
 
 test("renders a decided review read-only", async ({ page }) => {
-  const review = { ...push(), decision: { decided_by: "alice", decided_at: "2026-09-11T10:00:00Z", data: { ok: false } } };
+  const review = {
+    ...push(),
+    decision: { decided_by: "alice", decided_at: "2026-09-11T10:00:00Z", data: { ok: false } },
+  };
   const plugin = await mountPlugin(page, dir, { review, readonly: true });
   await expect(plugin.frame.locator("p").last()).toContainText("Decided: no");
   await expect(plugin.frame.locator("button")).toHaveCount(0);
@@ -85,9 +94,7 @@ test("the view is in the shell's theme with no message from it at all", async ({
   await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "light");
   expect((await plugin.messages()).some((m) => m.type === "appearance")).toBe(false);
 
-  const background = await plugin.frame
-    .locator("body")
-    .evaluate((body) => getComputedStyle(body).backgroundColor);
+  const background = await plugin.frame.locator("body").evaluate((body) => getComputedStyle(body).backgroundColor);
   expect(background).toBe("rgb(255, 255, 255)");
 });
 

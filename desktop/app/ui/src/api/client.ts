@@ -2,7 +2,19 @@
 // server's URL; in a browser (development, tests) it uses VITE_PINRAIL_URL or
 // the default port.
 
-import type { Info, InstallJob, Inspection, Notice, Plugin, PluginUpdates, Review, ReviewEvent, ReviewListing, ServerSettings, Violation } from "./types";
+import type {
+  Info,
+  InstallJob,
+  Inspection,
+  Notice,
+  Plugin,
+  PluginUpdates,
+  Review,
+  ReviewEvent,
+  ReviewListing,
+  ServerSettings,
+  Violation,
+} from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -72,7 +84,8 @@ export const api = {
   listReviews: (params: Record<string, string | undefined> = {}) =>
     request<ReviewListing>("GET", `/api/v1/reviews${query(params)}`),
   /** a plugin's sample, sent as a new review: what `pinrail submit <plugin> --sample` does */
-  sendSample: (plugin: string, body: { title?: string } = {}) => request<Review>("POST", `/api/v1/plugins/${seg(plugin)}/sample`, body),
+  sendSample: (plugin: string, body: { title?: string } = {}) =>
+    request<Review>("POST", `/api/v1/plugins/${seg(plugin)}/sample`, body),
   getReview: (id: string) => request<Review>("GET", `/api/v1/reviews/${seg(id)}`),
   rounds: (id: string) => request<Review[]>("GET", `/api/v1/reviews/${seg(id)}/rounds`),
   decide: (id: string, data: unknown, agentNote: string) =>
@@ -93,11 +106,17 @@ export const api = {
   pluginJob: (id: string) => request<InstallJob>("GET", `/api/v1/plugins/jobs/${seg(id)}`),
   pluginUpdates: (name: string) => request<PluginUpdates>("GET", `/api/v1/plugins/${seg(name)}/updates`),
   /** the majors of a plugin that reviews can still render with; 404 for an unknown plugin */
-  pluginVersions: (name: string) => request<{ name: string; current: number | null; versions: number[] }>("GET", `/api/v1/plugins/${seg(name)}/versions`),
+  pluginVersions: (name: string) =>
+    request<{ name: string; current: number | null; versions: number[] }>(
+      "GET",
+      `/api/v1/plugins/${seg(name)}/versions`,
+    ),
   /** installs again from where it came: a job to follow, or up_to_date at once */
-  updatePlugin: (name: string) => request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${seg(name)}/update`),
+  updatePlugin: (name: string) =>
+    request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${seg(name)}/update`),
   /** drops the record and the store entries no review renders from */
-  removePlugin: (name: string) => request<{ removed: string; linked: boolean; entries_kept: number[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),
+  removePlugin: (name: string) =>
+    request<{ removed: string; linked: boolean; entries_kept: number[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** The URL a plugin's bundle is loaded from; the iframe adds the theme. */
@@ -137,7 +156,16 @@ export function subscribe(handlers: {
         // a malformed event is dropped; the next refresh catches up
       }
     };
-    for (const kind of ["created", "decided", "withdrawn", "discarded", "expired", "viewed", "plugins_reloaded", "settings_changed"]) {
+    for (const kind of [
+      "created",
+      "decided",
+      "withdrawn",
+      "discarded",
+      "expired",
+      "viewed",
+      "plugins_reloaded",
+      "settings_changed",
+    ]) {
       source.addEventListener(kind, (event) => {
         try {
           handlers.onNotice(JSON.parse((event as MessageEvent).data));

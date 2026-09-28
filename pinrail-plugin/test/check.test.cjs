@@ -40,7 +40,8 @@ test("versions read as the app reads them", async () => {
   const { versionOf } = await load();
   assert.deepEqual(versionOf("0.1.0"), { release: "0.1.0", major: 0 });
   assert.deepEqual(versionOf(" 2.3.4 "), { release: "2.3.4", major: 2 });
-  for (const bad of [0, -1, 1.5, 3, "1.2", "v1.2.0", "1.2.x", true, null, undefined]) assert.equal(versionOf(bad), null, String(bad));
+  for (const bad of [0, -1, 1.5, 3, "1.2", "v1.2.0", "1.2.x", true, null, undefined])
+    assert.equal(versionOf(bad), null, String(bad));
 });
 
 test("what refuses a plugin: manifest, name, version, entry, schemas, build", async () => {
@@ -63,7 +64,9 @@ test("what refuses a plugin: manifest, name, version, entry, schemas, build", as
   assert.deepEqual(refused({ payload_schema: [] }), ["payload_schema"]);
   assert.deepEqual(refused({ payload_schema: { $ref: "../out.json" } }), ["payload_schema"]);
   assert.deepEqual(refused({ payload_schema: { $ref: "missing.json" } }), ["payload_schema"]);
-  assert.deepEqual(refused({ payload_schema: { $ref: "p.json" } }, { "index.html": "", "p.json": "{" }), ["payload_schema"]);
+  assert.deepEqual(refused({ payload_schema: { $ref: "p.json" } }, { "index.html": "", "p.json": "{" }), [
+    "payload_schema",
+  ]);
   assert.deepEqual(refused({ payload_schema: { type: "thing" } }), ["payload_schema"]);
   assert.deepEqual(refused({ build: { command: "" } }), ["build"]);
   assert.deepEqual(refused({ build: "npm run build" }), ["build"]);
@@ -108,28 +111,65 @@ test("what costs a feature: settings, shortcuts, the template, the icon; a missi
   assert.deepEqual(warned({ icon: "mail" }), ["icon"]);
   assert.deepEqual(warned({ icon: "missing.svg" }), ["icon"]);
   assert.deepEqual(warned({ icon: "icon.svg" }, { "index.html": "", "icon.svg": "hello" }), ["icon"]);
-  assert.deepEqual(warned({ icon: "icon.svg" }, { "index.html": "", "icon.svg": '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1"/></svg>' }), []);
+  assert.deepEqual(
+    warned(
+      { icon: "icon.svg" },
+      { "index.html": "", "icon.svg": '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1"/></svg>' },
+    ),
+    [],
+  );
   assert.deepEqual(warned({ settings_schema: [] }), ["settings_schema"]);
   assert.deepEqual(warned({ settings_schema: { type: "array" } }), ["settings_schema"]);
-  assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "object", default: {} } } } }), ["settings_schema"]);
+  assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "object", default: {} } } } }), [
+    "settings_schema",
+  ]);
   assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "integer" } } } }), ["settings_schema"]);
-  assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "integer", default: "3" } } } }), ["settings_schema"]);
-  assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "string", default: "x", enum: [] } } } }), ["settings_schema"]);
-  assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "string", default: "x", oneOf: [{ title: "no const" }] } } } }), ["settings_schema"]);
+  assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "integer", default: "3" } } } }), [
+    "settings_schema",
+  ]);
+  assert.deepEqual(warned({ settings_schema: { properties: { a: { type: "string", default: "x", enum: [] } } } }), [
+    "settings_schema",
+  ]);
+  assert.deepEqual(
+    warned({
+      settings_schema: { properties: { a: { type: "string", default: "x", oneOf: [{ title: "no const" }] } } },
+    }),
+    ["settings_schema"],
+  );
   assert.deepEqual(warned({ settings_schema: { $ref: "../s.json" } }), ["settings_schema"]);
   assert.deepEqual(
-    warned({ settings_schema: { properties: {
-      diff: { type: "string", title: "Diff", oneOf: [{ const: "inline", title: "Inline" }, { const: "split", title: "Split" }], default: "inline" },
-      wrap: { type: "boolean", default: true },
-      context: { type: "integer", minimum: 0, maximum: 20, default: 3 },
-    } } }),
+    warned({
+      settings_schema: {
+        properties: {
+          diff: {
+            type: "string",
+            title: "Diff",
+            oneOf: [
+              { const: "inline", title: "Inline" },
+              { const: "split", title: "Split" },
+            ],
+            default: "inline",
+          },
+          wrap: { type: "boolean", default: true },
+          context: { type: "integer", minimum: 0, maximum: 20, default: 3 },
+        },
+      },
+    }),
     [],
   );
   assert.deepEqual(warned({ shortcuts: {} }), ["shortcuts"]);
   assert.deepEqual(warned({ shortcuts: [{ keys: "j" }] }), ["shortcuts"]);
   assert.deepEqual(warned({ shortcuts: [{ keys: "hyper+j", does: "x" }] }), ["shortcuts"]);
   assert.deepEqual(warned({ shortcuts: [{ keys: "j", does: "x", group: 1 }] }), ["shortcuts"]);
-  assert.deepEqual(warned({ shortcuts: [{ keys: "Cmd+Shift+F", does: "Fold", group: "View" }, { keys: "escape", does: "Close" }] }), []);
+  assert.deepEqual(
+    warned({
+      shortcuts: [
+        { keys: "Cmd+Shift+F", does: "Fold", group: "View" },
+        { keys: "escape", does: "Close" },
+      ],
+    }),
+    [],
+  );
   assert.deepEqual(warned({ decision_template: "../t.j2" }), ["decision_template"]);
   assert.deepEqual(warned({ decision_template: "templates/decision.md.j2" }), ["decision_template"]);
   assert.deepEqual(warned({ decision_template: "t.j2" }, { "index.html": "", "t.j2": "{{ note }}" }), []);
@@ -140,13 +180,21 @@ test("files: a kind the core cannot read refuses the plugin; a schema that never
   const attachment = { type: "object", required: ["$attachment"], properties: { $attachment: { type: "string" } } };
   const takes = { accept: [".glb", "image/*"] };
 
-  const good = checkPlugin(plugin({ attachments: takes, payload_schema: { type: "object", properties: { file: attachment } } }));
+  const good = checkPlugin(
+    plugin({ attachments: takes, payload_schema: { type: "object", properties: { file: attachment } } }),
+  );
   assert.equal(good.ok, true, JSON.stringify(good.problems));
-  assert.deepEqual(keys(good.warnings).filter((k) => k !== "title"), []);
+  assert.deepEqual(
+    keys(good.warnings).filter((k) => k !== "title"),
+    [],
+  );
 
   const kind = checkPlugin(plugin({ attachments: { accept: ["glb"] } }));
   assert.equal(kind.ok, false);
-  assert.match(kind.problems.find((p) => p.key === "attachments").message, /"glb" is neither an extension like \.glb nor a media type/);
+  assert.match(
+    kind.problems.find((p) => p.key === "attachments").message,
+    /"glb" is neither an extension like \.glb nor a media type/,
+  );
 
   for (const block of [{ accepts: [".glb"] }, { accept: [] }, { accept: [".glb"], max_size: 200 * 1024 * 1024 }]) {
     assert.equal(checkPlugin(plugin({ attachments: block })).ok, false, JSON.stringify(block));

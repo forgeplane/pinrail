@@ -37,7 +37,17 @@ function Mark() {
   return (
     <svg className="welcome-logo" viewBox="0 0 824 824" aria-hidden="true">
       <rect width="824" height="824" rx="185" fill="#221f1c" />
-      <rect x="6" y="6" width="812" height="812" rx="180" fill="none" stroke="#f1ebdf" strokeOpacity="0.12" strokeWidth="12" />
+      <rect
+        x="6"
+        y="6"
+        width="812"
+        height="812"
+        rx="180"
+        fill="none"
+        stroke="#f1ebdf"
+        strokeOpacity="0.12"
+        strokeWidth="12"
+      />
       <g transform="translate(412 412) scale(24) translate(-12 -12.2)">
         <rect x="1.5" y="13" width="21" height="3.4" rx="1.4" fill="#f1ebdf" />
         <rect x="4.8" y="5" width="2.4" height="16" rx="1.2" fill="#f1ebdf" />
@@ -50,7 +60,17 @@ function Mark() {
   );
 }
 
-function CopyButton({ text, label = "Copy", onCopied, dark }: { text: string; label?: string; onCopied?: () => void; dark?: boolean }) {
+function CopyButton({
+  text,
+  label = "Copy",
+  onCopied,
+  dark,
+}: {
+  text: string;
+  label?: string;
+  onCopied?: () => void;
+  dark?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -93,7 +113,8 @@ function Terminal({ status, state }: { status: CliStatus | null; state: Found })
       </div>
       {state === "checking" ? (
         <div className="welcome-term-dim">
-          looking in a new terminal<span className="welcome-term-cursor" />
+          looking in a new terminal
+          <span className="welcome-term-cursor" />
         </div>
       ) : state === "missing" ? (
         <div className="welcome-term-dim">nothing: pinrail is not on your PATH yet</div>
@@ -102,7 +123,9 @@ function Terminal({ status, state }: { status: CliStatus | null; state: Found })
       ) : (
         <div>
           {status?.runs}
-          <span className={state === "ours" ? "welcome-term-ok" : "welcome-term-warn"}>{state === "ours" ? "  ✓" : "  !"}</span>
+          <span className={state === "ours" ? "welcome-term-ok" : "welcome-term-warn"}>
+            {state === "ours" ? "  ✓" : "  !"}
+          </span>
         </div>
       )}
     </div>
@@ -119,7 +142,9 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
     return (
       <>
         <h2>The pinrail command</h2>
-        <p>Agents ask through a command, <code>pinrail</code>. The app checks here whether a terminal can run it.</p>
+        <p>
+          Agents ask through a command, <code>pinrail</code>. The app checks here whether a terminal can run it.
+        </p>
       </>
     );
   }
@@ -127,12 +152,17 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
   let body: ReactNode = null;
   let action: ReactNode = null;
   if (state === "ours") {
-    body = cli.status?.bundled ? <p>A terminal runs this Pinrail's command, so any agent that can run commands can ask.</p> : <p>A terminal finds it, so any agent that can run commands can ask.</p>;
+    body = cli.status?.bundled ? (
+      <p>A terminal runs this Pinrail's command, so any agent that can run commands can ask.</p>
+    ) : (
+      <p>A terminal finds it, so any agent that can run commands can ask.</p>
+    );
   } else if (state === "missing" && status?.installed && status.dir_on_path === false) {
     body = (
       <>
         <p>
-          It's installed in <code>~/.local/bin</code>, but that folder isn't on your PATH. Add this line to your shell profile, <code>~/.zshrc</code> for zsh, then check again:
+          It's installed in <code>~/.local/bin</code>, but that folder isn't on your PATH. Add this line to your shell
+          profile, <code>~/.zshrc</code> for zsh, then check again:
         </p>
         <div className="welcome-line">
           <code>{PATH_LINE}</code>
@@ -150,11 +180,13 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
       body =
         state === "other" ? (
           <p>
-            A terminal finds another <code>pinrail</code> first. Install this Pinrail's command into <code>~/.local/bin</code>, and put that folder before the other one on your PATH.
+            A terminal finds another <code>pinrail</code> first. Install this Pinrail's command into{" "}
+            <code>~/.local/bin</code>, and put that folder before the other one on your PATH.
           </p>
         ) : (
           <p>
-            Pinrail carries the command. Installing {status.mode === "copy" ? "copies" : "links"} it into <code>~/.local/bin</code>, where your terminal and your agents find it.
+            Pinrail carries the command. Installing {status.mode === "copy" ? "copies" : "links"} it into{" "}
+            <code>~/.local/bin</code>, where your terminal and your agents find it.
           </p>
         );
       action = (
@@ -165,7 +197,8 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
     } else {
       body = (
         <p>
-          This build of Pinrail doesn't carry the command. Build it from a checkout with <code>cargo install --path cli</code>, then check again.
+          This build of Pinrail doesn't carry the command. Build it from a checkout with{" "}
+          <code>cargo install --path cli</code>, then check again.
         </p>
       );
       action = (
@@ -177,7 +210,8 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
   } else if (state === "other") {
     body = (
       <p>
-        This Pinrail's command is installed at <code>{status?.link}</code>, but a terminal finds the one above first. Put <code>~/.local/bin</code> earlier on your PATH, then check again.
+        This Pinrail's command is installed at <code>{status?.link}</code>, but a terminal finds the one above first.
+        Put <code>~/.local/bin</code> earlier on your PATH, then check again.
       </p>
     );
     action = (
@@ -190,7 +224,9 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
   return (
     <>
       <h2>The pinrail command</h2>
-      <p>Agents ask through a command, <code>pinrail</code>. Here is what a new terminal finds:</p>
+      <p>
+        Agents ask through a command, <code>pinrail</code>. Here is what a new terminal finds:
+      </p>
       <Terminal status={status} state={state} />
       {body}
       {cli.error ? <p className="welcome-error">{cli.error}</p> : null}
@@ -212,13 +248,20 @@ function NotificationsStep({ system, request, openSystemSettings }: ReturnType<t
   return (
     <>
       <h2>Turn on notifications</h2>
-      <p>So you know when an agent is waiting, even with the window closed. The menu bar counts what waits either way.</p>
+      <p>
+        So you know when an agent is waiting, even with the window closed. The menu bar counts what waits either way.
+      </p>
       <div className="settings-card">
         <SettingsRow label="Notify me when a review arrives" description="A system notification for each new review">
           <Toggle label="Notify me when a review arrives" checked={on} onChange={turn} />
         </SettingsRow>
         <SettingsRow label="Play a sound" description="The system's notification sound with each one">
-          <Toggle label="Play a sound" checked={on && settings.notifications.sound} disabled={!on} onChange={(sound) => update({ notifications: { sound } })} />
+          <Toggle
+            label="Play a sound"
+            checked={on && settings.notifications.sound}
+            disabled={!on}
+            onChange={(sound) => update({ notifications: { sound } })}
+          />
         </SettingsRow>
         {native && status ? (
           <SettingsRow label="macOS" description={describeSystem(system)}>
@@ -243,7 +286,9 @@ function AgentStep({ onCopied, onPlugins }: { onCopied: () => void; onPlugins: (
   return (
     <>
       <h2>Put your agent to work</h2>
-      <p>Paste one of these into your agent. It works out the rest itself: <code>pinrail docs</code> tells it how.</p>
+      <p>
+        Paste one of these into your agent. It works out the rest itself: <code>pinrail docs</code> tells it how.
+      </p>
       <p className="welcome-caption">Try it now</p>
       <div className="welcome-term welcome-term-copy welcome-term-prose">
         <div>{TRY_NOW}</div>
@@ -272,7 +317,17 @@ function AgentStep({ onCopied, onPlugins }: { onCopied: () => void; onPlugins: (
 /** Where the setup picks up: the step, and the first review once it came. */
 export type WelcomeAt = { step: number; sample?: string; decided?: boolean };
 
-export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: WelcomeAt; onClose: () => void; onOpenReview: (id: string) => void; onPlugins: () => void }) {
+export function WelcomeDialog({
+  at,
+  onClose,
+  onOpenReview,
+  onPlugins,
+}: {
+  at: WelcomeAt;
+  onClose: () => void;
+  onOpenReview: (id: string) => void;
+  onPlugins: () => void;
+}) {
   const live = useLive();
   const cli = useCli(true);
   const { system, request, openSystemSettings } = useNotificationStatus(true);
@@ -321,8 +376,15 @@ export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: We
           <ol>
             {STEPS.map((label, i) => (
               <li key={label}>
-                <button type="button" className={i === step ? "is-current" : ""} aria-current={i === step ? "step" : undefined} onClick={() => setStep(i)}>
-                  <span className={`welcome-dot ${done[i] ? "is-done" : ""}`}>{done[i] ? <Check size={11} strokeWidth={3} /> : i + 1}</span>
+                <button
+                  type="button"
+                  className={i === step ? "is-current" : ""}
+                  aria-current={i === step ? "step" : undefined}
+                  onClick={() => setStep(i)}
+                >
+                  <span className={`welcome-dot ${done[i] ? "is-done" : ""}`}>
+                    {done[i] ? <Check size={11} strokeWidth={3} /> : i + 1}
+                  </span>
                   {label}
                 </button>
               </li>
@@ -337,7 +399,10 @@ export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: We
             {step === 1 ? (
               <>
                 <h2>Send yourself a review</h2>
-                <p>Be the agent for a minute. Run this in a terminal: it sends the list plugin's sample review, and waits for your decision.</p>
+                <p>
+                  Be the agent for a minute. Run this in a terminal: it sends the list plugin's sample review, and waits
+                  for your decision.
+                </p>
                 <div className="welcome-term welcome-term-copy">
                   <div>
                     <span className="welcome-term-prompt">$</span> {TRY}
@@ -361,9 +426,16 @@ export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: We
                         Arrived: <b>{arrived?.title ?? "your first review"}</b>
                       </span>
                     </div>
-                    <p>Open it, accept or reject its items, and hand it over. Then look at your terminal: it prints your decision. Setup picks up here once you've decided.</p>
+                    <p>
+                      Open it, accept or reject its items, and hand it over. Then look at your terminal: it prints your
+                      decision. Setup picks up here once you've decided.
+                    </p>
                     <div className="welcome-actions">
-                      <button type="button" className="chrome-button button-primary" onClick={() => onOpenReview(sample)}>
+                      <button
+                        type="button"
+                        className="chrome-button button-primary"
+                        onClick={() => onOpenReview(sample)}
+                      >
                         Open the review
                       </button>
                     </div>
@@ -377,7 +449,9 @@ export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: We
               </>
             ) : null}
 
-            {step === 2 ? <NotificationsStep system={system} request={request} openSystemSettings={openSystemSettings} /> : null}
+            {step === 2 ? (
+              <NotificationsStep system={system} request={request} openSystemSettings={openSystemSettings} />
+            ) : null}
 
             {step === 3 ? <AgentStep onCopied={() => setTold(true)} onPlugins={onPlugins} /> : null}
           </div>
@@ -395,7 +469,12 @@ export function WelcomeDialog({ at, onClose, onOpenReview, onPlugins }: { at: We
                   Back
                 </button>
               ) : null}
-              <button type="button" className="chrome-button button-primary" onClick={() => (last ? onClose() : setStep(step + 1))} data-welcome-next>
+              <button
+                type="button"
+                className="chrome-button button-primary"
+                onClick={() => (last ? onClose() : setStep(step + 1))}
+                data-welcome-next
+              >
                 {last ? "Done" : "Next"}
               </button>
             </div>

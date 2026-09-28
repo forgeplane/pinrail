@@ -83,7 +83,18 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   const pluginIcon = useCallback((name: string) => plugins.get(name)?.icon ?? null, [plugins]);
   const value = useMemo<Live>(
-    () => ({ connected, pending, pendingCount: pending.length, projects, unassigned, tick, lastNotice, plugins, pluginIcon, refresh }),
+    () => ({
+      connected,
+      pending,
+      pendingCount: pending.length,
+      projects,
+      unassigned,
+      tick,
+      lastNotice,
+      plugins,
+      pluginIcon,
+      refresh,
+    }),
     [connected, pending, projects, unassigned, tick, lastNotice, plugins, pluginIcon, refresh],
   );
   return <LiveContext.Provider value={value}>{children}</LiveContext.Provider>;

@@ -10,11 +10,14 @@ import { clearInbox, core, linkPlugin } from "./helpers";
 
 const dir = path.resolve(__dirname, "..", "..", "pinrail-plugin", "test", "conformance");
 const received = (frame: Frame) => frame.evaluate(() => (window as unknown as { received: any[] }).received);
-const send = (frame: Frame, message: object) => frame.evaluate((m) => (window as unknown as { send: (m: object) => void }).send(m), message);
+const send = (frame: Frame, message: object) =>
+  frame.evaluate((m) => (window as unknown as { send: (m: object) => void }).send(m), message);
 
 async function viewFrame(page: Page): Promise<Frame> {
   let frame: Frame | undefined;
-  await expect.poll(() => (frame = page.frames().find((f) => f.url().includes("/plugins/conformance/"))) !== undefined).toBe(true);
+  await expect
+    .poll(() => (frame = page.frames().find((f) => f.url().includes("/plugins/conformance/"))) !== undefined)
+    .toBe(true);
   await expect.poll(async () => (await received(frame!)).some((m) => m.type === "init")).toBe(true);
   return frame!;
 }
@@ -25,7 +28,10 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   await page.request.patch(`${core}/api/v1/settings`, { data: { plugins: { conformance: { mode: "a" } } } });
   const bytes = fs.readFileSync(path.join(dir, "fixtures", "note.txt"));
   const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
-  const put = await page.request.put(`${core}/api/v1/attachments/${sha256}`, { headers: { "content-type": "application/octet-stream" }, data: bytes });
+  const put = await page.request.put(`${core}/api/v1/attachments/${sha256}`, {
+    headers: { "content-type": "application/octet-stream" },
+    data: bytes,
+  });
   expect([200, 201]).toContain(put.status());
   const created = await page.request.post(`${core}/api/v1/reviews`, {
     data: {
@@ -51,13 +57,17 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
 
   // a setting the schema allows comes back as settings; one it refuses, as violations
   await send(frame, { type: "settings_set", patch: { mode: "b" } });
-  await expect.poll(async () => (await received(frame)).find((m) => m.type === "settings")?.settings).toEqual({ mode: "b" });
+  await expect
+    .poll(async () => (await received(frame)).find((m) => m.type === "settings")?.settings)
+    .toEqual({ mode: "b" });
   await send(frame, { type: "settings_set", patch: { mode: "z" } });
   await expect.poll(async () => (await received(frame)).some((m) => m.type === "violations")).toBe(true);
 
   // a draft comes back in init after a reload
   await send(frame, { type: "draft", data: { step: 2 } });
-  await expect.poll(() => page.evaluate((key) => sessionStorage.getItem(key), `pinrail:draft:${id}`)).toBe(JSON.stringify({ step: 2 }));
+  await expect
+    .poll(() => page.evaluate((key) => sessionStorage.getItem(key), `pinrail:draft:${id}`))
+    .toBe(JSON.stringify({ step: 2 }));
   await page.reload();
   frame = await viewFrame(page);
   expect((await received(frame)).find((m) => m.type === "init")?.draft).toEqual({ step: 2 });
@@ -66,7 +76,9 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   await send(frame, { type: "submit", data: { ok: "yes" } });
   await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
   await send(frame, { type: "submit", data: { ok: true } });
-  await expect.poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data).toEqual({ ok: true });
+  await expect
+    .poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data)
+    .toEqual({ ok: true });
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.status).toBe("decided");
 });
@@ -77,7 +89,10 @@ test("the preview hosts a view as the protocol says, and decides nothing", async
   await linkPlugin(page.request, dir, "conformance");
   const bytes = fs.readFileSync(path.join(dir, "fixtures", "note.txt"));
   const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
-  const put = await page.request.put(`${core}/api/v1/attachments/${sha256}`, { headers: { "content-type": "application/octet-stream" }, data: bytes });
+  const put = await page.request.put(`${core}/api/v1/attachments/${sha256}`, {
+    headers: { "content-type": "application/octet-stream" },
+    data: bytes,
+  });
   expect([200, 201]).toContain(put.status());
   const created = await page.request.post(`${core}/api/v1/reviews`, {
     data: {

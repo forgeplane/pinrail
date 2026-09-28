@@ -3,7 +3,17 @@
 // goes away on Escape, scroll or a click. Rendered at the end of the body so
 // no container can clip it.
 
-import { cloneElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import {
+  cloneElement,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { createPortal } from "react-dom";
 
 const HOVER_DELAY_MS = 350;
@@ -98,7 +108,13 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, child
       {anchored}
       {open
         ? createPortal(
-            <div ref={tip} id={id} role="tooltip" className={`tooltip ${pos ? "is-placed" : ""}`} style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}>
+            <div
+              ref={tip}
+              id={id}
+              role="tooltip"
+              className={`tooltip ${pos ? "is-placed" : ""}`}
+              style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
+            >
               <span className="tooltip-label">{label}</span>
               {keys && keys.length > 0 ? (
                 <span className="tooltip-keys">

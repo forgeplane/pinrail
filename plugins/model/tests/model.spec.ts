@@ -33,13 +33,13 @@ test("one favourite, keys to decide, and a warning before undecided models go ba
   await expect(f.locator("#viewer canvas")).toBeVisible();
   await f.locator("body").click({ position: { x: 600, y: 5 } });
 
-  await f.locator("body").press("f");                               // L1 favourite
+  await f.locator("body").press("f"); // L1 favourite
   await f.locator("body").press("j");
-  await f.locator("body").press("x");                               // L2 dropped
+  await f.locator("body").press("x"); // L2 dropped
   await f.locator("#note").fill("Cannot be aimed");
   await f.locator("body").click({ position: { x: 600, y: 5 } });
   await f.locator("body").press("j");
-  await f.locator('.choice[data-action="favorite"]').click();      // L3 favourite: L1 steps down
+  await f.locator('.choice[data-action="favorite"]').click(); // L3 favourite: L1 steps down
   await expect(f.locator(".pick").nth(0).locator(".verdict-chip")).toHaveText("Keep");
   await expect(f.locator(".pick").nth(2).locator(".verdict-chip")).toHaveText("★ Favourite");
 
@@ -47,7 +47,11 @@ test("one favourite, keys to decide, and a warning before undecided models go ba
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over with 1 undecided");
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({
-    decisions: [{ id: "L1", action: "keep" }, { id: "L2", action: "drop", note: "Cannot be aimed" }, { id: "L3", action: "favorite" }],
+    decisions: [
+      { id: "L1", action: "keep" },
+      { id: "L2", action: "drop", note: "Cannot be aimed" },
+      { id: "L3", action: "favorite" },
+    ],
     undecided: ["L4"],
   });
 });
@@ -66,15 +70,22 @@ test("a part picked in the list is commented on, pinned, and the model counts as
   await plugin.collect();
   await plugin.collect();
   const decision = await plugin.nextSubmit();
-  expect(decision.decisions).toEqual([{
-    id: "L1", action: "keep",
-    comments: [{
-      target: "Lamp > Lower arm > Upper arm > Head > Shade", name: "Shade", material: "Powder coat",
-      point: [expect.any(Number), expect.any(Number), expect.any(Number)],
-      view: { position: expect.any(Array), target: expect.any(Array) },
-      note: "Wider and shallower",
-    }],
-  }]);
+  expect(decision.decisions).toEqual([
+    {
+      id: "L1",
+      action: "keep",
+      comments: [
+        {
+          target: "Lamp > Lower arm > Upper arm > Head > Shade",
+          name: "Shade",
+          material: "Powder coat",
+          point: [expect.any(Number), expect.any(Number), expect.any(Number)],
+          view: { position: expect.any(Array), target: expect.any(Array) },
+          note: "Wider and shallower",
+        },
+      ],
+    },
+  ]);
 });
 
 test("a click on the model itself opens a comment on the part under it", async ({ page }) => {
@@ -118,7 +129,10 @@ test("a model that cannot be read says so, and the others still show", async ({ 
 test("the models come from files the shell hands over, not from the payload", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: round() });
   await expect(plugin.frame.locator(".pick .still img")).toHaveCount(4);
-  const asked = (await plugin.messages()).filter((m: any) => m.type === "attachment").map((m: any) => m.name).sort();
+  const asked = (await plugin.messages())
+    .filter((m: any) => m.type === "attachment")
+    .map((m: any) => m.name)
+    .sort();
   expect(asked).toEqual(["arc.glb", "column.glb", "pivot.glb", "tripod.glb"]);
 });
 

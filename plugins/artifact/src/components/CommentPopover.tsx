@@ -99,7 +99,13 @@ export function CommentPopover({ box, selector, tag, text, kind, isNew, onSave, 
       />
       <div className="kind-pills" role="group" aria-label="Kind">
         {KINDS.map((k) => (
-          <button key={k.key} type="button" className={`kind-pill kind-${k.key} ${chosen === k.key ? "is-on" : ""}`} onClick={() => setChosen(k.key)} aria-pressed={chosen === k.key}>
+          <button
+            key={k.key}
+            type="button"
+            className={`kind-pill kind-${k.key} ${chosen === k.key ? "is-on" : ""}`}
+            onClick={() => setChosen(k.key)}
+            aria-pressed={chosen === k.key}
+          >
             <span className="kind-dot" />
             {k.label}
           </button>
@@ -112,7 +118,14 @@ export function CommentPopover({ box, selector, tag, text, kind, isNew, onSave, 
         </span>
         <span className="spacer" />
         {onRemove ? (
-          <button type="button" className="btn ghost danger" onClick={onRemove} title="Remove comment" aria-label="Remove comment" data-remove>
+          <button
+            type="button"
+            className="btn ghost danger"
+            onClick={onRemove}
+            title="Remove comment"
+            aria-label="Remove comment"
+            data-remove
+          >
             <Trash2 size={14} />
           </button>
         ) : null}

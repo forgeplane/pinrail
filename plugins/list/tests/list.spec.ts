@@ -93,7 +93,9 @@ test("a click drafts at once, typing is debounced, and a reload restores both", 
   const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
-  await expect.poll(() => plugin.lastDraft().then((d) => d && d.decisions["101"] && d.decisions["101"].action)).toBe("accept");
+  await expect
+    .poll(() => plugin.lastDraft().then((d) => d && d.decisions["101"] && d.decisions["101"].action))
+    .toBe("accept");
   await f.getByLabel("note for item 101").fill("mention the importer");
   await expect.poll(() => plugin.lastDraft().then((d) => d.decisions["101"].note)).toBe("mention the importer");
 
@@ -109,7 +111,11 @@ test("violations show in the frame; submitted flips to read-only with verdicts",
   await plugin.sendViolations([{ path: "/decisions/0/action", message: "value must be one of the enum values" }]);
   await expect(f.locator("#errors")).toContainText("/decisions/0/action: value must be one of");
 
-  await plugin.sendSubmitted({ decided_by: "alice", decided_at: "2026-09-11T10:00:00Z", data: { decisions: [{ id: 101, action: "reject", note: "nope" }], undecided: [102, 104, 105] } });
+  await plugin.sendSubmitted({
+    decided_by: "alice",
+    decided_at: "2026-09-11T10:00:00Z",
+    data: { decisions: [{ id: 101, action: "reject", note: "nope" }], undecided: [102, 104, 105] },
+  });
   await expect(f.locator(".done")).toContainText("Decided by alice: 0 accepted, 1 rejected, 3 undecided.");
   await expect(f.locator('[data-id="101"] .verdict')).toHaveText("reject");
   await expect(f.locator('[data-id="101"] .note-ro')).toContainText("nope");
@@ -119,7 +125,9 @@ test("violations show in the frame; submitted flips to read-only with verdicts",
 test("a superseding review shows the previous round's verdicts; a withdrawn one reads as closed", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: triage(), previous: round1() });
   const f = plugin.frame;
-  await expect(f.locator('[data-id="101"] .previous')).toHaveText("previous round: reject: not ours, it is the importer");
+  await expect(f.locator('[data-id="101"] .previous')).toHaveText(
+    "previous round: reject: not ours, it is the importer",
+  );
   await expect(f.locator('[data-id="102"] .previous')).toHaveText("previous round: undecided");
   await expect(f.locator('[data-id="104"] .previous')).toHaveCount(0);
 

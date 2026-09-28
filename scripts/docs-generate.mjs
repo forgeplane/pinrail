@@ -15,12 +15,38 @@ const out = path.join(root, "docs", "reference");
 
 const pages = {
   "cli.md": ["--manifest-path", "cli/Cargo.toml", "--features", "docs", "--", "--markdown-help"],
-  "settings.md": ["--manifest-path", "desktop/Cargo.toml", "-p", "pinrail-core", "--features", "docs", "--bin", "pinrail-docs", "--", "settings"],
-  "manifest.md": ["--manifest-path", "desktop/Cargo.toml", "-p", "pinrail-core", "--features", "docs", "--bin", "pinrail-docs", "--", "manifest"],
+  "settings.md": [
+    "--manifest-path",
+    "desktop/Cargo.toml",
+    "-p",
+    "pinrail-core",
+    "--features",
+    "docs",
+    "--bin",
+    "pinrail-docs",
+    "--",
+    "settings",
+  ],
+  "manifest.md": [
+    "--manifest-path",
+    "desktop/Cargo.toml",
+    "-p",
+    "pinrail-core",
+    "--features",
+    "docs",
+    "--bin",
+    "pinrail-docs",
+    "--",
+    "manifest",
+  ],
 };
 
 fs.mkdirSync(out, { recursive: true });
 for (const [page, args] of Object.entries(pages)) {
-  const text = execFileSync("cargo", ["run", "-q", ...args], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+  const text = execFileSync("cargo", ["run", "-q", ...args], {
+    cwd: root,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
+  });
   fs.writeFileSync(path.join(out, page), text);
 }

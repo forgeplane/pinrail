@@ -46,12 +46,15 @@ test("asks for a verdict first, and shows what the app refuses", async ({ page }
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({ verdict: "hold" });
 
-  await plugin.sendViolations([{ path: "/verdict", message: "\"later\" is not one of [\"ship\",\"hold\"]" }]);
+  await plugin.sendViolations([{ path: "/verdict", message: '"later" is not one of ["ship","hold"]' }]);
   await expect(f.getByRole("alert")).toContainText("/verdict:");
 });
 
 test("a draft comes back as it was left", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { review: deploy(), draft: { verdict: "hold", note: "Wait for the canary" } });
+  const plugin = await mountPlugin(page, dir, {
+    review: deploy(),
+    draft: { verdict: "hold", note: "Wait for the canary" },
+  });
   const f = plugin.frame;
   await expect(f.getByRole("button", { name: /^Hold/ })).toHaveAttribute("aria-pressed", "true");
   await expect(f.getByLabel("Note to the agent")).toHaveValue("Wait for the canary");
@@ -60,7 +63,10 @@ test("a draft comes back as it was left", async ({ page }) => {
 });
 
 test("a decided deploy renders read-only", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { review: fixture(path.join(dir, "fixtures", "deploy.decided.json")), readonly: true });
+  const plugin = await mountPlugin(page, dir, {
+    review: fixture(path.join(dir, "fixtures", "deploy.decided.json")),
+    readonly: true,
+  });
   const f = plugin.frame;
   await expect(f.getByText("Held: Wait for the canary to settle")).toBeVisible();
   await expect(f.getByRole("button", { name: /^Ship/ })).toHaveCount(0);

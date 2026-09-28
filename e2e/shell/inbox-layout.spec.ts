@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { clearInbox, createReview } from "./helpers";
 
-
 test("the inbox is grouped by project or one list, newest first, and remembers which", async ({ page }) => {
   await clearInbox(page.request);
   // oldest first: zeta gets the oldest and the newest, acme the one between

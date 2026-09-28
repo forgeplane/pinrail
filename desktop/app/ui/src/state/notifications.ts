@@ -6,10 +6,17 @@ import { useCallback, useEffect, useState } from "react";
 import { inTauri } from "../api/client";
 
 /** What macOS reports for the app's notifications; null outside the app bundle. */
-export type NotificationStatus = { authorization: "authorized" | "denied" | "not_determined" | "provisional"; alert_style: "none" | "banner" | "alert"; alerts: boolean; sound: boolean; badge: boolean; shows: boolean };
+export type NotificationStatus = {
+  authorization: "authorized" | "denied" | "not_determined" | "provisional";
+  alert_style: "none" | "banner" | "alert";
+  alerts: boolean;
+  sound: boolean;
+  badge: boolean;
+  shows: boolean;
+};
 export type SystemState = { known: boolean; status: NotificationStatus | null };
 
-const invoke = <T,>(command: string) => import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command));
+const invoke = <T>(command: string) => import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command));
 
 export function useNotificationStatus(open: boolean) {
   const [state, setState] = useState<SystemState>({ known: false, status: null });
@@ -46,9 +53,15 @@ export const describeSystem = ({ known, status }: SystemState) => {
   if (!known) return "…";
   if (!status) return "Through the notification plugin in this development build; macOS reports nothing for it";
   if (status.authorization === "denied") return "Not allowed in System Settings";
-  if (status.authorization === "not_determined") return "Not yet allowed; macOS asks when you turn them on, or with the first one";
-  if (status.alert_style === "none") return "Allowed, but the alert style is None in System Settings, so nothing appears";
+  if (status.authorization === "not_determined")
+    return "Not yet allowed; macOS asks when you turn them on, or with the first one";
+  if (status.alert_style === "none")
+    return "Allowed, but the alert style is None in System Settings, so nothing appears";
   if (!status.alerts) return "Allowed, but alerts are off in System Settings";
-  const parts = [status.alert_style === "alert" ? "Alerts" : "Banners", status.sound ? "sound on" : "sound off in System Settings", status.badge ? "badge" : "no badge"];
+  const parts = [
+    status.alert_style === "alert" ? "Alerts" : "Banners",
+    status.sound ? "sound on" : "sound off in System Settings",
+    status.badge ? "badge" : "no badge",
+  ];
   return `Allowed: ${parts.join(", ")}`;
 };

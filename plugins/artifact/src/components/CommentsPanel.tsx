@@ -26,13 +26,20 @@ export function CommentsPanel({ comments, pins, focused, readonly, previous, onF
         <span className="faint">{comments.length}</span>
       </div>
       {comments.length === 0 ? (
-        <p className="panel-empty">{readonly ? "No comments were made." : "Turn on Select and click an element to comment on it."}</p>
+        <p className="panel-empty">
+          {readonly ? "No comments were made." : "Turn on Select and click an element to comment on it."}
+        </p>
       ) : (
         <ol className="comment-list">
           {comments.map((c, i) => {
             const detached = !pins.has(c.id);
             return (
-              <li key={c.id} className={`comment ${focused === c.id ? "is-focused" : ""} kind-${c.kind}`} data-comment={c.id} onClick={() => onFocus(c.id)}>
+              <li
+                key={c.id}
+                className={`comment ${focused === c.id ? "is-focused" : ""} kind-${c.kind}`}
+                data-comment={c.id}
+                onClick={() => onFocus(c.id)}
+              >
                 <span className="comment-n">{i + 1}</span>
                 <div className="comment-body">
                   <div className="comment-target">
@@ -49,10 +56,23 @@ export function CommentsPanel({ comments, pins, focused, readonly, previous, onF
                 </div>
                 {!readonly ? (
                   <span className="comment-actions">
-                    <button type="button" className="icon-btn" title="Edit" onClick={(e) => (e.stopPropagation(), onEdit(c.id))} disabled={detached} data-edit>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      title="Edit"
+                      onClick={(e) => (e.stopPropagation(), onEdit(c.id))}
+                      disabled={detached}
+                      data-edit
+                    >
                       <Pencil size={13} />
                     </button>
-                    <button type="button" className="icon-btn danger" title="Remove" onClick={(e) => (e.stopPropagation(), onRemove(c.id))} data-remove>
+                    <button
+                      type="button"
+                      className="icon-btn danger"
+                      title="Remove"
+                      onClick={(e) => (e.stopPropagation(), onRemove(c.id))}
+                      data-remove
+                    >
                       <Trash2 size={13} />
                     </button>
                   </span>
@@ -64,7 +84,12 @@ export function CommentsPanel({ comments, pins, focused, readonly, previous, onF
       )}
       {previous.length > 0 ? (
         <div className="previous">
-          <button type="button" className="previous-toggle" onClick={() => setShowPrevious((s) => !s)} aria-expanded={showPrevious}>
+          <button
+            type="button"
+            className="previous-toggle"
+            onClick={() => setShowPrevious((s) => !s)}
+            aria-expanded={showPrevious}
+          >
             <span className="eyebrow">Previous round</span>
             <span className="faint">{previous.length}</span>
           </button>

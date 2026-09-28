@@ -17,7 +17,9 @@ const q = (frame: any, id: string) => frame.locator(`[data-question="${id}"]`);
 
 /** The answers the incident fixture needs before it will hand over. */
 async function rollback(frame: any) {
-  await q(frame, "approach").getByRole("radio", { name: /Roll back to release/ }).check();
+  await q(frame, "approach")
+    .getByRole("radio", { name: /Roll back to release/ })
+    .check();
   await q(frame, "preserve_logs").getByRole("checkbox").check();
   await q(frame, "notify").getByRole("radio", { name: "No", exact: true }).check();
 }
@@ -32,18 +34,26 @@ test("nothing is preselected, and a choice opens the questions that follow from 
   await expect(f.locator("input:checked")).toHaveCount(0);
   await expect(q(f, "checks")).toHaveCount(0);
 
-  await q(f, "approach").getByRole("radio", { name: /Apply the proposed patch/ }).check();
+  await q(f, "approach")
+    .getByRole("radio", { name: /Apply the proposed patch/ })
+    .check();
   await expect(q(f, "checks")).toBeVisible();
-  await q(f, "checks").getByRole("checkbox", { name: /Replay failed requests/ }).check();
+  await q(f, "checks")
+    .getByRole("checkbox", { name: /Replay failed requests/ })
+    .check();
   await expect(q(f, "replay_details")).toBeVisible();
 
   // what was typed into a follow-up survives the answer above it changing and changing back
   await q(f, "replay_details").getByRole("textbox").fill("Use anonymized requests only.");
   await q(f, "checks").getByRole("button", { name: "Add a comment" }).click();
   await q(f, "checks").getByLabel("Comment on this question").fill("No raw customer data.");
-  await q(f, "approach").getByRole("radio", { name: /Roll back to release/ }).check();
+  await q(f, "approach")
+    .getByRole("radio", { name: /Roll back to release/ })
+    .check();
   await expect(q(f, "checks")).toHaveCount(0);
-  await q(f, "approach").getByRole("radio", { name: /Apply the proposed patch/ }).check();
+  await q(f, "approach")
+    .getByRole("radio", { name: /Apply the proposed patch/ })
+    .check();
   await expect(q(f, "replay_details").getByRole("textbox")).toHaveValue("Use anonymized requests only.");
   await expect(q(f, "checks").getByLabel("Comment on this question")).toHaveValue("No raw customer data.");
 
@@ -74,7 +84,7 @@ test("a required answer stops the hand-over; what goes over is exactly what was 
   });
   expect((await plugin.nextSubmit()).excluded).toContain("checks");
 
-  await plugin.sendSubmitted({ data: (await plugin.nextSubmit()) });
+  await plugin.sendSubmitted({ data: await plugin.nextSubmit() });
   await expect(q(f, "approach").getByRole("radio").first()).toBeDisabled();
   await expect(f.locator(".header-count")).toContainText("Read-only");
 });
@@ -83,8 +93,12 @@ test("an answer a condition hid never reaches the decision, and a draft comes ba
   const plugin = await mount(page);
   const f = plugin.frame;
 
-  await q(f, "approach").getByRole("radio", { name: /Apply the proposed patch/ }).check();
-  await q(f, "checks").getByRole("checkbox", { name: /Replay failed requests/ }).check();
+  await q(f, "approach")
+    .getByRole("radio", { name: /Apply the proposed patch/ })
+    .check();
+  await q(f, "checks")
+    .getByRole("checkbox", { name: /Replay failed requests/ })
+    .check();
   await q(f, "replay_details").getByRole("textbox").fill("HIDDEN ANSWER");
   await q(f, "checks").getByRole("button", { name: "Add a comment" }).click();
   await q(f, "checks").getByLabel("Comment on this question").fill("HIDDEN COMMENT");
@@ -121,9 +135,13 @@ test("a group hidden by its own condition takes its questions with it", async ({
   const plugin = await mount(page, "02-launch.json");
   const f = plugin.frame;
 
-  await q(f, "audience").getByRole("radio", { name: /Public launch/ }).check();
+  await q(f, "audience")
+    .getByRole("radio", { name: /Public launch/ })
+    .check();
   await expect(q(f, "timing")).toBeVisible();
-  await q(f, "audience").getByRole("radio", { name: /Everyone on the waitlist/ }).check();
+  await q(f, "audience")
+    .getByRole("radio", { name: /Everyone on the waitlist/ })
+    .check();
   await expect(q(f, "timing")).toHaveCount(0);
 });
 
@@ -144,13 +162,19 @@ test("a comment alone is an answer's context, not an answer", async ({ page }) =
   await plugin.collect();
 
   const decision = await plugin.nextSubmit();
-  expect(decision.answers.at(-1)).toEqual({ question_id: "extra", answer: null, comment: "Check recipient names again." });
+  expect(decision.answers.at(-1)).toEqual({
+    question_id: "extra",
+    answer: null,
+    comment: "Check recipient names again.",
+  });
   expect(decision.unanswered).toContain("extra");
   // a free-text question carries its own words; a second box for them would be noise
   await expect(q(f, "note").getByRole("button", { name: "Add a comment" })).toHaveCount(0);
 });
 
-test("a decided review is read-only, and a new round starts empty with the last one for reference", async ({ page }) => {
+test("a decided review is read-only, and a new round starts empty with the last one for reference", async ({
+  page,
+}) => {
   const decided = await mount(page, "04-incident.decided.json", { readonly: true });
   await expect(q(decided.frame, "notify").getByRole("radio", { name: "No", exact: true })).toBeChecked();
   await expect(q(decided.frame, "notify").getByRole("radio", { name: "No", exact: true })).toBeDisabled();
@@ -212,7 +236,9 @@ for (const narrow of [false, true]) {
     const plugin = await mount(page);
     const f = plugin.frame;
     await plugin.setFrameHeight(narrow ? 700 : 900);
-    await q(f, "approach").getByRole("radio", { name: /Apply the proposed patch/ }).check();
+    await q(f, "approach")
+      .getByRole("radio", { name: /Apply the proposed patch/ })
+      .check();
 
     // The view re-renders on every answer. Scroll each control into the middle
     // of the scroller, act on it, and watch two dozen frames: the scroll
@@ -242,7 +268,9 @@ for (const narrow of [false, true]) {
 
     for (const result of results) {
       expect(result.start).toBeGreaterThan(100);
-      expect(Math.max(...result.samples.map((y: number) => Math.abs(y - result.start))), result.id).toBeLessThanOrEqual(1);
+      expect(Math.max(...result.samples.map((y: number) => Math.abs(y - result.start))), result.id).toBeLessThanOrEqual(
+        1,
+      );
     }
     await expect(f.locator("#answer-checks-0")).toBeChecked();
   });
@@ -260,7 +288,9 @@ test("the rail can be folded away, and the shell is asked to remember it", async
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ rail_open: false });
 
   // and it survives the re-render every answer causes
-  await q(f, "approach").getByRole("radio", { name: /Roll back to release/ }).check();
+  await q(f, "approach")
+    .getByRole("radio", { name: /Roll back to release/ })
+    .check();
   await expect(rail).toBeHidden();
 
   await f.getByRole("button", { name: "Show the group list" }).click();
@@ -298,7 +328,9 @@ test("a comment folds away, and each thing on a question clears on its own", asy
   await approach.getByRole("button", { name: "Remove comment" }).click();
   await expect(comment).toBeHidden();
   await expect(approach.getByRole("button", { name: "Add a comment" })).toBeFocused();
-  await expect.poll(async () => JSON.stringify(await plugin.lastDraft())).toBe(JSON.stringify({ values: {}, comments: {} }));
+  await expect
+    .poll(async () => JSON.stringify(await plugin.lastDraft()))
+    .toBe(JSON.stringify({ values: {}, comments: {} }));
 });
 
 test("the agent's recommendation is one click away, and says so once it is the answer", async ({ page }) => {

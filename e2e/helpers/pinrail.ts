@@ -81,7 +81,13 @@ export const listPayload = {
     {
       title: "lib/acme/tickets.ex",
       items: [
-        { id: 1, severity: "major", title: "do_save dedups without reversing", body: "Reverse after dedup.", meta: { line: 149 } },
+        {
+          id: 1,
+          severity: "major",
+          title: "do_save dedups without reversing",
+          body: "Reverse after dedup.",
+          meta: { line: 149 },
+        },
         { id: 2, severity: "minor", title: "moduledoc typo" },
       ],
     },
@@ -90,7 +96,18 @@ export const listPayload = {
 
 export function submitListReview(title: string, extra: string[] = []): Waiter {
   const payload = tmpFile("payload.json", JSON.stringify(listPayload));
-  return startWaiter(["submit", "list", "--title", title, "--origin", "repo=acme,workflow=review,ref=42", "--data", payload, "--wait", ...extra]);
+  return startWaiter([
+    "submit",
+    "list",
+    "--title",
+    title,
+    "--origin",
+    "repo=acme,workflow=review,ref=42",
+    "--data",
+    payload,
+    "--wait",
+    ...extra,
+  ]);
 }
 
 export function reviewUrl(id: string): string {

@@ -13,7 +13,11 @@ const root = packageRoot(fileURLToPath(import.meta.url));
 
 /** The Playwright CLI script, looked up from the plugin, this folder, then the package. */
 function playwrightCli(dir) {
-  for (const from of [path.join(dir, "package.json"), path.join(process.cwd(), "package.json"), path.join(root, "package.json")]) {
+  for (const from of [
+    path.join(dir, "package.json"),
+    path.join(process.cwd(), "package.json"),
+    path.join(root, "package.json"),
+  ]) {
     const req = createRequire(from);
     for (const id of ["@playwright/test/cli.js", "@playwright/test/package.json"]) {
       try {
@@ -44,11 +48,20 @@ export function runTests(argv) {
   }
   const cli = playwrightCli(dir);
   if (!cli) {
-    console.error("@playwright/test is not installed: npm install --save-dev @playwright/test && npx playwright install chromium");
+    console.error(
+      "@playwright/test is not installed: npm install --save-dev @playwright/test && npx playwright install chromium",
+    );
     process.exit(2);
   }
 
-  const own = ["playwright.config.ts", "playwright.config.mts", "playwright.config.cts", "playwright.config.js", "playwright.config.mjs", "playwright.config.cjs"]
+  const own = [
+    "playwright.config.ts",
+    "playwright.config.mts",
+    "playwright.config.cts",
+    "playwright.config.js",
+    "playwright.config.mjs",
+    "playwright.config.cjs",
+  ]
     .map((f) => path.join(dir, f))
     .find((f) => fs.existsSync(f));
   const config = own ?? path.join(root, "harness", "playwright.config.cjs");

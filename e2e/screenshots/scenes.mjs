@@ -22,7 +22,8 @@ const settle = (page, ms = 350) => page.waitForTimeout(ms);
 
 /** Writes a note on a code review proposal, opening the field when a verdict did not. */
 async function note(f, id, text) {
-  if (!(await f.locator(`[data-note-ta="${id}"]`).count())) await f.locator(`[data-act="open-note"][data-id="${id}"]`).click();
+  if (!(await f.locator(`[data-note-ta="${id}"]`).count()))
+    await f.locator(`[data-act="open-note"][data-id="${id}"]`).click();
   await f.locator(`[data-note-ta="${id}"]`).fill(text);
 }
 
@@ -55,8 +56,11 @@ export const scenes = [
       await note(f, 4, "Fine as it is; the log already has the delivery id.");
       await f.locator('[data-act="save-note"][data-id="4"]').click();
       await f.locator("#card-1 button", { hasText: "Accept" }).click();
-      if (!(await f.locator('[data-note-ta="1"]').count())) await f.locator('[data-act="open-note"][data-id="1"]').click();
-      await f.locator('[data-note-ta="1"]').fill("Agreed. Re-enqueue with runAt = now + backoff(attempt), and keep MAX_ATTEMPTS on the job");
+      if (!(await f.locator('[data-note-ta="1"]').count()))
+        await f.locator('[data-act="open-note"][data-id="1"]').click();
+      await f
+        .locator('[data-note-ta="1"]')
+        .fill("Agreed. Re-enqueue with runAt = now + backoff(attempt), and keep MAX_ATTEMPTS on the job");
       await f.locator("#card-1").scrollIntoViewIfNeeded();
       await f.locator("#card-1").evaluate((el) => el.scrollIntoView({ block: "center" }));
       await settle(page);
@@ -141,7 +145,9 @@ export const scenes = [
       await f.locator("[data-part]").filter({ hasText: "Shade" }).click();
       await f.locator("#part-note").fill("Wider and shallower, so the bulb is hidden from the chair");
       // back to the top: the model's name and reasoning above the stage
-      await f.locator("#sheet").evaluate((el) => { el.scrollTop = 0; });
+      await f.locator("#sheet").evaluate((el) => {
+        el.scrollTop = 0;
+      });
       await settle(page, 600);
       await shot("model");
       await shot("model-view", page.locator("#plugin-frame"), { site: true });
@@ -153,14 +159,21 @@ export const scenes = [
     async run({ page, app, reviews, shot }) {
       const f = await openReview(page, app, reviews["12-artifact-landing"]);
       const comment = async (selector, text, save = true) => {
-        if (!(await f.locator("[data-select]").getAttribute("class"))?.includes("is-on")) await f.locator("[data-select]").click();
+        if (!(await f.locator("[data-select]").getAttribute("class"))?.includes("is-on"))
+          await f.locator("[data-select]").click();
         await f.locator(`[data-artifact] ${selector}`).first().click();
         await f.locator("[data-comment-text]").fill(text);
         if (save) await f.locator("[data-save]").click();
         await settle(page, 200);
       };
-      await comment("#hero h1", "Lead with the outcome: “Show the right shipping price at checkout.” Keep the carrier count as the subline.");
-      await comment("#pricing .price", "Add a second column for volume pricing past 1M requests; enterprise buyers ask first.");
+      await comment(
+        "#hero h1",
+        "Lead with the outcome: “Show the right shipping price at checkout.” Keep the carrier count as the subline.",
+      );
+      await comment(
+        "#pricing .price",
+        "Add a second column for volume pricing past 1M requests; enterprise buyers ask first.",
+      );
       await comment("#features .card h3", "Rename to “One schema for every carrier”", false);
       // clicks scroll the page wherever timing leaves it; set it: the cards
       // at the top, the comment being written and the second pin below
@@ -184,26 +197,31 @@ export const scenes = [
       await f.locator('[data-pick-id="quarry"]').click();
       const quarry = f.locator('[data-draft="quarry"]');
       // select a passage of the message the way a reader would
-      const select = (wanted) => quarry.locator("[data-body]").evaluate((body, wanted) => {
-        const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          if (node.parentElement.closest("del")) continue;
-          const at = node.textContent.indexOf(wanted);
-          if (at < 0) continue;
-          body.focus();
-          const range = document.createRange();
-          range.setStart(node, at);
-          range.setEnd(node, at + wanted.length);
-          const selection = document.getSelection();
-          selection.removeAllRanges();
-          selection.addRange(range);
-          document.dispatchEvent(new Event("selectionchange"));
-          return;
-        }
-      }, wanted);
+      const select = (wanted) =>
+        quarry.locator("[data-body]").evaluate((body, wanted) => {
+          const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (node.parentElement.closest("del")) continue;
+            const at = node.textContent.indexOf(wanted);
+            if (at < 0) continue;
+            body.focus();
+            const range = document.createRange();
+            range.setStart(node, at);
+            range.setEnd(node, at + wanted.length);
+            const selection = document.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            document.dispatchEvent(new Event("selectionchange"));
+            return;
+          }
+        }, wanted);
       // an edit in place, tracked against the agent's words
-      await select("I wanted to reach out and let you know that we have been working hard on a brand new analytics experience, and we think it could be a great fit for Quarry.");
-      await page.keyboard.insertText("You upvoted per-endpoint reporting on our roadmap board. It's built, and it opens as a beta on 6 October.");
+      await select(
+        "I wanted to reach out and let you know that we have been working hard on a brand new analytics experience, and we think it could be a great fit for Quarry.",
+      );
+      await page.keyboard.insertText(
+        "You upvoted per-endpoint reporting on our roadmap board. It's built, and it opens as a beta on 6 October.",
+      );
       // an instruction on a passage, being written in its popover, with the
       // edit above it still in view
       await f.locator(".sheet").evaluate((el) => el.scrollTo({ top: 300, behavior: "instant" }));
@@ -244,7 +262,10 @@ export const scenes = [
       await style.getByRole("button", { name: "Add a comment" }).click();
       await style.getByLabel("Comment on this question").fill("Keep `page` working as an alias for one release");
       // the group's heading at the top, and its first question under it
-      await f.locator(".question-group").first().evaluate((el) => el.scrollIntoView({ block: "start" }));
+      await f
+        .locator(".question-group")
+        .first()
+        .evaluate((el) => el.scrollIntoView({ block: "start" }));
       await settle(page);
       await shot("feedback");
       await shot("feedback-view", page.locator("#plugin-frame"), { site: true });
@@ -254,8 +275,15 @@ export const scenes = [
     name: "discard",
     async run({ page, app, reviews, shot }) {
       await openReview(page, app, reviews["16-list-cloud"]);
-      await page.getByRole("button", { name: /Discard/ }).first().click();
-      await page.getByRole("dialog").locator("textarea, input").first().fill("Staging-2 is the load-test cluster for the Q4 launch; keep it until November");
+      await page
+        .getByRole("button", { name: /Discard/ })
+        .first()
+        .click();
+      await page
+        .getByRole("dialog")
+        .locator("textarea, input")
+        .first()
+        .fill("Staging-2 is the load-test cluster for the Q4 launch; keep it until November");
       await settle(page);
       await shot("discard");
     },
@@ -299,7 +327,11 @@ export const scenes = [
       const dir = path.join(app.code, "ticket_triage");
       fs.rmSync(dir, { recursive: true, force: true });
       fs.mkdirSync(app.code, { recursive: true });
-      execFileSync("node", [path.join(app.root, "pinrail-plugin", "bin", "pinrail-plugin.mjs"), "create", "ticket_triage", "--dir", dir], { stdio: "ignore" });
+      execFileSync(
+        "node",
+        [path.join(app.root, "pinrail-plugin", "bin", "pinrail-plugin.mjs"), "create", "ticket_triage", "--dir", dir],
+        { stdio: "ignore" },
+      );
       const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
       fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ ...manifest, icon: "ticket" }, null, 2));
       await page.goto(`${app.ui}/#/`);

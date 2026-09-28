@@ -6,7 +6,15 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { Review } from "../api/types";
 
-export function DiscardDialog({ review, onClose, onDone }: { review: Review; onClose: () => void; onDone: (review: Review) => void }) {
+export function DiscardDialog({
+  review,
+  onClose,
+  onDone,
+}: {
+  review: Review;
+  onClose: () => void;
+  onDone: (review: Review) => void;
+}) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,14 +46,22 @@ export function DiscardDialog({ review, onClose, onDone }: { review: Review; onC
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div className="app-dialog discard-dialog" role="dialog" aria-modal="true" aria-labelledby="discard-title" onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="app-dialog discard-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="discard-title"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="dialog-head">
           <h2 id="discard-title">Discard this review?</h2>
         </div>
         <p className="dim discard-what" title={review.title}>
           {review.title}
         </p>
-        <p className="dim">The agent is told to stop the work it was asking about. Nothing is decided and nothing is posted.</p>
+        <p className="dim">
+          The agent is told to stop the work it was asking about. Nothing is decided and nothing is posted.
+        </p>
         <textarea
           ref={field}
           className="discard-reason"
@@ -66,7 +82,13 @@ export function DiscardDialog({ review, onClose, onDone }: { review: Review; onC
           <button type="button" className="chrome-button" onClick={onClose} disabled={busy}>
             Keep it
           </button>
-          <button type="button" className="chrome-button button-danger" onClick={confirm} disabled={busy} data-discard-confirm>
+          <button
+            type="button"
+            className="chrome-button button-danger"
+            onClick={confirm}
+            disabled={busy}
+            data-discard-confirm
+          >
             {busy ? "Discarding…" : "Discard"}
           </button>
         </div>

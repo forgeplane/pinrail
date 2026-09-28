@@ -61,8 +61,16 @@ test("the plain template is a whole plugin, named throughout", async () => {
   assert.equal(manifest.build, undefined);
   assert.equal(manifest.sample, "sample.json");
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "sample.json"), "utf8")).title.length > 0, true);
-  assert.equal(fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8").trim(), "@AGENTS.md", "Claude Code reads the same brief");
-  assert.match(fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8"), /pinrail docs plugins\/building/, "points the agent at the briefs");
+  assert.equal(
+    fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8").trim(),
+    "@AGENTS.md",
+    "Claude Code reads the same brief",
+  );
+  assert.match(
+    fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8"),
+    /pinrail docs plugins\/building/,
+    "points the agent at the briefs",
+  );
   for (const ref of [manifest.payload_schema.$ref, manifest.decision_schema.$ref]) {
     assert.ok(fs.existsSync(path.join(dir, ref)), `${ref} exists`);
   }
@@ -98,15 +106,28 @@ test("the react template writes the view in React, with its build", async () => 
   scaffold("fancy", { dir, template: "react", sdk: "file:../sdk" });
 
   const files = filesUnder(dir);
-  for (const f of ["src/index.html", "src/main.tsx", "src/App.tsx", "vite.config.ts", "tsconfig.json", "tests/fancy.spec.ts"]) {
+  for (const f of [
+    "src/index.html",
+    "src/main.tsx",
+    "src/App.tsx",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tests/fancy.spec.ts",
+  ]) {
     assert.ok(files.includes(f), `${f} written`);
   }
   assert.ok(!files.includes("src/main.ts"), "no TypeScript entry of the vite template");
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
   assert.ok(pkg.dependencies.react && pkg.devDependencies["@vitejs/plugin-react"], "React and its Vite plugin");
-  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).build.command, "npm ci && npm run build");
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).build.command,
+    "npm ci && npm run build",
+  );
   for (const file of files) {
-    assert.ok(!/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")), `${file} has no placeholder`);
+    assert.ok(
+      !/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")),
+      `${file} has no placeholder`,
+    );
   }
 });
 
@@ -116,13 +137,26 @@ test("the vue template writes the view as a Vue component, with its build", asyn
   scaffold("fancy", { dir, template: "vue", sdk: "file:../sdk" });
 
   const files = filesUnder(dir);
-  for (const f of ["src/index.html", "src/main.ts", "src/App.vue", "vite.config.ts", "tsconfig.json", "tests/fancy.spec.ts"]) {
+  for (const f of [
+    "src/index.html",
+    "src/main.ts",
+    "src/App.vue",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tests/fancy.spec.ts",
+  ]) {
     assert.ok(files.includes(f), `${f} written`);
   }
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
-  assert.ok(pkg.dependencies.vue && pkg.devDependencies["@vitejs/plugin-vue"] && pkg.devDependencies["vue-tsc"], "Vue, its Vite plugin and its type checker");
+  assert.ok(
+    pkg.dependencies.vue && pkg.devDependencies["@vitejs/plugin-vue"] && pkg.devDependencies["vue-tsc"],
+    "Vue, its Vite plugin and its type checker",
+  );
   for (const file of files) {
-    assert.ok(!/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")), `${file} has no placeholder`);
+    assert.ok(
+      !/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")),
+      `${file} has no placeholder`,
+    );
   }
 });
 
@@ -132,20 +166,38 @@ test("the svelte template writes the view as a Svelte component, with its build"
   scaffold("fancy", { dir, template: "svelte", sdk: "file:../sdk" });
 
   const files = filesUnder(dir);
-  for (const f of ["src/index.html", "src/main.ts", "src/App.svelte", "vite.config.ts", "tsconfig.json", "tests/fancy.spec.ts"]) {
+  for (const f of [
+    "src/index.html",
+    "src/main.ts",
+    "src/App.svelte",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tests/fancy.spec.ts",
+  ]) {
     assert.ok(files.includes(f), `${f} written`);
   }
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
-  assert.ok(pkg.devDependencies.svelte && pkg.devDependencies["@sveltejs/vite-plugin-svelte"] && pkg.devDependencies["svelte-check"], "Svelte, its Vite plugin and its checker");
+  assert.ok(
+    pkg.devDependencies.svelte &&
+      pkg.devDependencies["@sveltejs/vite-plugin-svelte"] &&
+      pkg.devDependencies["svelte-check"],
+    "Svelte, its Vite plugin and its checker",
+  );
   for (const file of files) {
-    assert.ok(!/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")), `${file} has no placeholder`);
+    assert.ok(
+      !/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")),
+      `${file} has no placeholder`,
+    );
   }
 });
 
 test("without --sdk the dependency is the release tarball of this version", async () => {
   const { defaultSdkDep } = await load();
   const { version } = require("../package.json");
-  assert.equal(defaultSdkDep(), `https://github.com/forgeplane/pinrail/releases/download/sdk-v${version}/pinrail-plugin-${version}.tgz`);
+  assert.equal(
+    defaultSdkDep(),
+    `https://github.com/forgeplane/pinrail/releases/download/sdk-v${version}/pinrail-plugin-${version}.tgz`,
+  );
 });
 
 test("a bad name, an unknown template and a folder in use are refused", async () => {

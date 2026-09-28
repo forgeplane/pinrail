@@ -136,7 +136,19 @@ export type Inspection = {
   attachments?: AttachmentRules | null;
   origin: {
     kind: "path" | "git" | "release";
-    resolved: string | { url?: string; path?: string | null; ref?: string | null; owner?: string; repo?: string; tag?: string; asset?: string; asset_size?: number; pinned?: boolean };
+    resolved:
+      | string
+      | {
+          url?: string;
+          path?: string | null;
+          ref?: string | null;
+          owner?: string;
+          repo?: string;
+          tag?: string;
+          asset?: string;
+          asset_size?: number;
+          pinned?: boolean;
+        };
     commit: string | null;
   };
   /** what is installed under the name already */

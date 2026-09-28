@@ -65,13 +65,32 @@ export function applyTextSize(size: TextSize) {
   if (root) (root.style as CSSStyleDeclaration & { zoom: string }).zoom = ZOOM[size];
 }
 
-type Served = Pick<Settings, "appearance" | "sidebar" | "close_window" | "menu_bar_icon" | "notifications" | "shortcut" | "plugins" | "links" | "port" | "history" | "updates" | "welcome">;
+type Served = Pick<
+  Settings,
+  | "appearance"
+  | "sidebar"
+  | "close_window"
+  | "menu_bar_icon"
+  | "notifications"
+  | "shortcut"
+  | "plugins"
+  | "links"
+  | "port"
+  | "history"
+  | "updates"
+  | "welcome"
+>;
 const fromServer = (s: ServerSettings): Served => ({
   appearance: { theme: s.appearance.theme, text_size: s.appearance.text_size },
   sidebar: { open: s.sidebar.open },
   close_window: s.close_window,
   menu_bar_icon: s.menu_bar_icon,
-  notifications: { enabled: s.notifications.enabled, paused_until: s.notifications.paused_until, sound: s.notifications.sound, muted_plugins: s.notifications.muted_plugins },
+  notifications: {
+    enabled: s.notifications.enabled,
+    paused_until: s.notifications.paused_until,
+    sound: s.notifications.sound,
+    muted_plugins: s.notifications.muted_plugins,
+  },
   shortcut: { global: s.shortcut.global, global_opens: s.shortcut.global_opens },
   plugins: s.plugins ?? {},
   links: s.links ?? {},
@@ -172,7 +191,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const update = useCallback(
     async (patch: Patch) => {
       // the core's settings go to the core; applied at once, confirmed by the response
-      if (patch.appearance || patch.sidebar || patch.close_window !== undefined || patch.menu_bar_icon !== undefined || patch.notifications || patch.shortcut || patch.plugins || patch.links || patch.port !== undefined || patch.history || patch.updates || patch.welcome) {
+      if (
+        patch.appearance ||
+        patch.sidebar ||
+        patch.close_window !== undefined ||
+        patch.menu_bar_icon !== undefined ||
+        patch.notifications ||
+        patch.shortcut ||
+        patch.plugins ||
+        patch.links ||
+        patch.port !== undefined ||
+        patch.history ||
+        patch.updates ||
+        patch.welcome
+      ) {
         const base = current.current;
         const next: Served = {
           appearance: { ...base.appearance, ...patch.appearance },

@@ -5,21 +5,40 @@ import { MOD, isMac } from "./keys";
 export const NO_PROJECT = "-";
 
 /** Whether a review passes the project filter: none, a project, or `NO_PROJECT`. */
-export const inProject = (repo: string | null | undefined, filter: string) => !filter || (filter === NO_PROJECT ? !repo : repo === filter);
+export const inProject = (repo: string | null | undefined, filter: string) =>
+  !filter || (filter === NO_PROJECT ? !repo : repo === filter);
 
 export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Next / previous review", keys: [["J"], ["K"]] },
   { what: "Open the focused review", keys: [["Enter"]] },
-  { what: "Next / previous waiting review", keys: [["⌥", "↓"], ["⌥", "↑"]] },
+  {
+    what: "Next / previous waiting review",
+    keys: [
+      ["⌥", "↓"],
+      ["⌥", "↑"],
+    ],
+  },
   { what: "Discard the focused review", keys: [["D"]] },
   { what: "Search the inbox or the history", keys: [["/"]] },
   { what: "Search everything", keys: [[MOD, "K"]] },
   { what: "Inbox", keys: [[MOD, "I"]] },
-  { what: "History / Plugins", keys: [[MOD, "⇧", "H"], [MOD, "⇧", "P"]] },
+  {
+    what: "History / Plugins",
+    keys: [
+      [MOD, "⇧", "H"],
+      [MOD, "⇧", "P"],
+    ],
+  },
   { what: "Settings", keys: [[MOD, ","]] },
   { what: "Switch theme", keys: [[MOD, "⇧", "L"]] },
   { what: "Show or hide the sidebar", keys: [[MOD, "B"]] },
-  { what: "Back / forward", keys: [[MOD, "["], [MOD, "]"]] },
+  {
+    what: "Back / forward",
+    keys: [
+      [MOD, "["],
+      [MOD, "]"],
+    ],
+  },
   { what: "Hand over to the agent", keys: [[MOD, "Enter"]] },
   { what: "Maximize / restore the view", keys: [[MOD, "⇧", "M"]] },
   { what: "Previous / next round", keys: [["["], ["]"]] },
@@ -74,7 +93,10 @@ const KEY_GLYPHS: Record<string, string> = {
 
 /** A shortcut string ("alt+shift+w") as the glyphs a row shows. */
 export function shortcutGlyphs(shortcut: string): string[] {
-  const parts = shortcut.split("+").map((p) => p.trim()).filter(Boolean);
+  const parts = shortcut
+    .split("+")
+    .map((p) => p.trim())
+    .filter(Boolean);
   return parts.map((part) => {
     const lower = part.toLowerCase();
     const modifier = MODIFIER_GLYPHS[lower];
@@ -121,7 +143,8 @@ export function comboFromEvent(event: KeyboardEvent): string | null {
 }
 
 /** A combination as `comboFromEvent` writes it: ctrl, alt, shift, cmd, then the key. */
-const combo = (key: string, ...modifiers: string[]) => [...["ctrl", "alt", "shift", "cmd"].filter((m) => modifiers.includes(m)), key].join("+");
+const combo = (key: string, ...modifiers: string[]) =>
+  [...["ctrl", "alt", "shift", "cmd"].filter((m) => modifiers.includes(m)), key].join("+");
 const PRIMARY = isMac ? "cmd" : "ctrl";
 
 /**

@@ -71,14 +71,20 @@ export function useCli(open: boolean) {
 export function CliRow({ open }: { open: boolean }) {
   const { status, busy, error, install: installCli } = useCli(open);
 
-  if (!inTauri()) return <SettingsRow label="Install the CLI" description="Puts pinrail into ~/.local/bin; the app does this" />;
+  if (!inTauri())
+    return <SettingsRow label="Install the CLI" description="Puts pinrail into ~/.local/bin; the app does this" />;
   if (!status) return <SettingsRow label="Install the CLI" description={error ?? "Checking…"} />;
 
   const short = tilde(status.link);
   const link = short(status.link);
 
   if (!status.bundled) {
-    return <SettingsRow label="Install the CLI" description="The packaged app carries the CLI and installs it from here; this development build does not" />;
+    return (
+      <SettingsRow
+        label="Install the CLI"
+        description="The packaged app carries the CLI and installs it from here; this development build does not"
+      />
+    );
   }
 
   const verb = status.mode === "copy" ? "Copies" : "Links";
@@ -89,7 +95,8 @@ export function CliRow({ open }: { open: boolean }) {
     </span>
   ) : (
     <span>
-      {verb} <span className="mono">pinrail</span> into <span className="mono">{folder(link)}</span>, so agents and scripts can run it
+      {verb} <span className="mono">pinrail</span> into <span className="mono">{folder(link)}</span>, so agents and
+      scripts can run it
     </span>
   );
 
@@ -101,7 +108,8 @@ export function CliRow({ open }: { open: boolean }) {
   else if (status.installed && status.dir_on_path === false)
     note = (
       <span>
-        {folder(link)} is not on your PATH. Add <span className="mono">export PATH="$HOME/.local/bin:$PATH"</span> to your shell profile
+        {folder(link)} is not on your PATH. Add <span className="mono">export PATH="$HOME/.local/bin:$PATH"</span> to
+        your shell profile
       </span>
     );
   else if (status.installed && status.runs && status.runs !== status.link)
@@ -110,7 +118,8 @@ export function CliRow({ open }: { open: boolean }) {
         A new terminal runs <span className="mono">{short(status.runs)}</span> first, which is not this one
       </span>
     );
-  else if (status.installed && status.mode === "copy") note = "A copy does not follow the AppImage: after updating Pinrail, install again";
+  else if (status.installed && status.mode === "copy")
+    note = "A copy does not follow the AppImage: after updating Pinrail, install again";
 
   if (status.mode === "package") return <SettingsRow label="Install the CLI" description={description} note={note} />;
 

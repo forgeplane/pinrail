@@ -61,10 +61,22 @@ export async function startApp({ build = true } = {}) {
 
   let server = null;
   const startCore = async () => {
-    server = spawn(bin, ["--headless", "--port", String(corePort), "--data-dir", data, "--sdk-dir", path.join(desktop, "app", "sdk", "v1")], {
-      env: { ...process.env, PINRAIL_SHELL_ORIGIN: ui },
-      stdio: ["ignore", "ignore", "inherit"],
-    });
+    server = spawn(
+      bin,
+      [
+        "--headless",
+        "--port",
+        String(corePort),
+        "--data-dir",
+        data,
+        "--sdk-dir",
+        path.join(desktop, "app", "sdk", "v1"),
+      ],
+      {
+        env: { ...process.env, PINRAIL_SHELL_ORIGIN: ui },
+        stdio: ["ignore", "ignore", "inherit"],
+      },
+    );
     await waitFor(`${core}/api/v1/info`, "the core");
   };
   const stopCore = async () => {
@@ -156,11 +168,15 @@ function pinDatabase(file, plan) {
     db.prepare("UPDATE outcomes SET review_id = ? WHERE review_id = ?").run(id, old);
     db.prepare("UPDATE events SET review_id = ? WHERE review_id = ?").run(id, old);
     db.prepare("UPDATE review_attachments SET review_id = ? WHERE review_id = ?").run(id, old);
-    if (times.outcome !== undefined) db.prepare("UPDATE outcomes SET at = ? WHERE review_id = ?").run(iso(NOW - times.outcome), id);
+    if (times.outcome !== undefined)
+      db.prepare("UPDATE outcomes SET at = ? WHERE review_id = ?").run(iso(NOW - times.outcome), id);
     const events = db.prepare("SELECT id FROM events WHERE review_id = ? ORDER BY id").all(id);
     events.forEach((e, i) => {
       const last = i === events.length - 1 && times.outcome !== undefined;
-      db.prepare("UPDATE events SET at = ? WHERE id = ?").run(iso(last ? NOW - times.outcome : created + i * 1000), e.id);
+      db.prepare("UPDATE events SET at = ? WHERE id = ?").run(
+        iso(last ? NOW - times.outcome : created + i * 1000),
+        e.id,
+      );
     });
   });
   const oldest = Math.max(0, ...entries.map(([, t]) => t.created));
@@ -169,7 +185,12 @@ function pinDatabase(file, plan) {
   // reader's would be, not copied from this checkout
   for (const { name } of db.prepare("SELECT name FROM installed_plugins").all()) {
     const commit = createHash("sha256").update(`pinrail-screenshots-${name}`).digest("hex").slice(0, 40);
-    db.prepare("UPDATE installed_plugins SET kind = 'git', source = ?, resolved = ?, commit_id = ? WHERE name = ?").run(`github.com/forgeplane/pinrail/plugins/${name}`, `https://github.com/forgeplane/pinrail`, commit, name);
+    db.prepare("UPDATE installed_plugins SET kind = 'git', source = ?, resolved = ?, commit_id = ? WHERE name = ?").run(
+      `github.com/forgeplane/pinrail/plugins/${name}`,
+      `https://github.com/forgeplane/pinrail`,
+      commit,
+      name,
+    );
   }
   // the person deciding is the fixtures' person, not whoever runs this
   db.prepare("UPDATE outcomes SET by = ? WHERE kind IN ('decided', 'discarded')").run(PERSON);

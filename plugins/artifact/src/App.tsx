@@ -8,10 +8,28 @@ import { boxIn, commentable, markupOf, mount, selectorFor, snippetOf, type Box }
 import { CommentPopover } from "./components/CommentPopover";
 import { CommentsPanel } from "./components/CommentsPanel";
 import { Toolbar } from "./components/Toolbar";
-import { VIEWPORTS, newId, type Comment, type Decision, type Kind, type Payload, type Verdict, type Viewport } from "./types";
+import {
+  VIEWPORTS,
+  newId,
+  type Comment,
+  type Decision,
+  type Kind,
+  type Payload,
+  type Verdict,
+  type Viewport,
+} from "./types";
 import type { Init, Plugin, Violation } from "./pinrail";
 
-type Editing = { id: string | null; selector: string; tag: string; snippet: string; html: string; text: string; kind: Kind; box: Box };
+type Editing = {
+  id: string | null;
+  selector: string;
+  tag: string;
+  snippet: string;
+  html: string;
+  text: string;
+  kind: Kind;
+  box: Box;
+};
 
 let connected: Plugin | null = null;
 
@@ -98,7 +116,10 @@ export function App() {
     plugin.current
       .attachment(name)
       .then((bytes) => !gone && setHtml(new TextDecoder().decode(bytes)))
-      .catch((e: unknown) => !gone && setLoadError(`${name} could not be read: ${e instanceof Error ? e.message : String(e)}`));
+      .catch(
+        (e: unknown) =>
+          !gone && setLoadError(`${name} could not be read: ${e instanceof Error ? e.message : String(e)}`),
+      );
     return () => {
       gone = true;
     };
@@ -118,7 +139,9 @@ export function App() {
   useEffect(() => {
     if (!plugin.current || !init || readonly) return;
     const n = comments.length;
-    plugin.current.status({ label: effectiveVerdict === "approve" ? "Approve" : `Request changes${n ? ` (${n})` : ""}` });
+    plugin.current.status({
+      label: effectiveVerdict === "approve" ? "Approve" : `Request changes${n ? ` (${n})` : ""}`,
+    });
     plugin.current.draft({ comments, verdict });
   }, [comments, verdict, effectiveVerdict, init, readonly]);
 
@@ -187,7 +210,16 @@ export function App() {
     const c = comments.find((x) => x.id === id);
     const box = pins.get(id);
     if (!c || !box || readonly) return;
-    setEditing({ id, selector: c.selector, tag: c.tag, snippet: c.snippet ?? "", html: c.html ?? "", text: c.text, kind: c.kind, box });
+    setEditing({
+      id,
+      selector: c.selector,
+      tag: c.tag,
+      snippet: c.snippet ?? "",
+      html: c.html ?? "",
+      text: c.text,
+      kind: c.kind,
+      box,
+    });
     setFocused(id);
   };
 
@@ -196,7 +228,15 @@ export function App() {
     const body = text.trim();
     if (!body) return;
     setComments((list) => {
-      const entry: Comment = { id: editing.id ?? newId(), selector: editing.selector, tag: editing.tag, kind, text: body, snippet: editing.snippet || undefined, html: editing.html || undefined };
+      const entry: Comment = {
+        id: editing.id ?? newId(),
+        selector: editing.selector,
+        tag: editing.tag,
+        kind,
+        text: body,
+        snippet: editing.snippet || undefined,
+        html: editing.html || undefined,
+      };
       return editing.id ? list.map((c) => (c.id === editing.id ? entry : c)) : [...list, entry];
     });
     setEditing(null);
@@ -248,7 +288,9 @@ export function App() {
         readonly={readonly}
         decided={decision}
       />
-      {payload.notes ? <div className="notes" dangerouslySetInnerHTML={{ __html: window.Pinrail.markdown(payload.notes) }} /> : null}
+      {payload.notes ? (
+        <div className="notes" dangerouslySetInnerHTML={{ __html: window.Pinrail.markdown(payload.notes) }} />
+      ) : null}
       {loadError ? (
         <div className="errors" data-load-error>
           {loadError}
@@ -264,12 +306,21 @@ export function App() {
         </div>
       ) : null}
       <div className="main">
-        <div className="stage" onMouseMove={onStageMove} onMouseLeave={() => setHover(null)} onClickCapture={onStageClick} data-stage>
+        <div
+          className="stage"
+          onMouseMove={onStageMove}
+          onMouseLeave={() => setHover(null)}
+          onClickCapture={onStageClick}
+          data-stage
+        >
           <div className="frame" style={{ width: width ? `${width}px` : "100%" }} data-viewport={viewport}>
             <div ref={host} className="host" data-artifact />
             <div ref={layer} className="layer" aria-hidden={!editing}>
               {hover ? (
-                <div className="hover-box" style={{ left: hover.box.x, top: hover.box.y, width: hover.box.w, height: hover.box.h }}>
+                <div
+                  className="hover-box"
+                  style={{ left: hover.box.x, top: hover.box.y, width: hover.box.w, height: hover.box.h }}
+                >
                   <span className="hover-label">{hover.label}</span>
                 </div>
               ) : null}
@@ -278,7 +329,11 @@ export function App() {
                 if (!box) return null;
                 const active = focused === c.id || editing?.id === c.id;
                 return (
-                  <div key={c.id} className={`pin-box ${active ? "is-active" : ""} kind-${c.kind}`} style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
+                  <div
+                    key={c.id}
+                    className={`pin-box ${active ? "is-active" : ""} kind-${c.kind}`}
+                    style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+                  >
                     <button
                       type="button"
                       className="pin"
@@ -297,7 +352,10 @@ export function App() {
               })}
               {editing && editing.id === null ? (
                 // the element a new comment is about, held while it is written
-                <div className="target-box" style={{ left: editing.box.x, top: editing.box.y, width: editing.box.w, height: editing.box.h }} />
+                <div
+                  className="target-box"
+                  style={{ left: editing.box.x, top: editing.box.y, width: editing.box.w, height: editing.box.h }}
+                />
               ) : null}
               {editing ? (
                 <CommentPopover
@@ -345,5 +403,7 @@ function describe(el: Element): string {
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+  return (
+    !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
+  );
 }

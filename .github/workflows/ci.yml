@@ -85,11 +85,13 @@ jobs:
         run: |
           npm ci
           npm test
-      # ESLint over the JavaScript and TypeScript git tracks, from the root
-      - name: ESLint
+      # ESLint and Prettier over the JavaScript and TypeScript git tracks,
+      # from the root
+      - name: ESLint and Prettier
         run: |
           npm ci
           npm run lint
+          npm run format:check
 
   # The core, the app crate and the CLI on each system: clippy, cargo test,
   # then the end-to-end suites, which need the built desktop binary and the CLI.

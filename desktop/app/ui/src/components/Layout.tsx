@@ -1,4 +1,21 @@
-import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, Hand, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Ban,
+  Blocks,
+  FolderGit2,
+  Hand,
+  History,
+  Inbox,
+  Keyboard,
+  Moon,
+  PanelLeft,
+  RefreshCw,
+  Search,
+  Settings,
+  Sun,
+  SunMoon,
+} from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api } from "../api/client";
@@ -36,7 +53,9 @@ const pageTitle = (path: string) => (path === "/" ? "Inbox" : path.startsWith("/
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
+  return (
+    !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
+  );
 }
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -54,7 +73,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const toggleSidebar = useCallback(() => update({ sidebar: { open: !sidebar } }), [update, sidebar]);
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
-      <button type="button" className="bar-button" onClick={toggleSidebar} aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}>
+      <button
+        type="button"
+        className="bar-button"
+        onClick={toggleSidebar}
+        aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}
+      >
         <PanelLeft size={16} />
       </button>
     </Tooltip>
@@ -62,19 +86,50 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const actions: PaletteAction[] = [
     { id: "inbox", label: "Go to inbox", keys: NAV[0].keys, icon: Inbox, run: () => navigate("/") },
-    { id: "oldest", label: "Open the oldest pending review", icon: Inbox, run: () => {
-      const oldest = live.pending[live.pending.length - 1];
-      navigate(oldest ? `/reviews/${oldest.id}` : "/");
-    } },
+    {
+      id: "oldest",
+      label: "Open the oldest pending review",
+      icon: Inbox,
+      run: () => {
+        const oldest = live.pending[live.pending.length - 1];
+        navigate(oldest ? `/reviews/${oldest.id}` : "/");
+      },
+    },
     { id: "history", label: "Go to history", keys: NAV[1].keys, icon: History, run: () => navigate("/history") },
     { id: "plugins", label: "Plugins", keys: PLUGINS_KEYS, icon: Blocks, run: () => setSettings("plugins") },
-    { id: "reload-plugins", label: "Reload plugins", icon: RefreshCw, run: () => void api.reloadPlugins().catch(() => {}) },
-    { id: "theme", label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme", keys: [MOD, "⇧", "L"], icon: SunMoon, run: toggleTheme },
-    { id: "sidebar", label: sidebar ? "Hide the sidebar" : "Show the sidebar", keys: [MOD, "B"], icon: PanelLeft, run: toggleSidebar },
+    {
+      id: "reload-plugins",
+      label: "Reload plugins",
+      icon: RefreshCw,
+      run: () => void api.reloadPlugins().catch(() => {}),
+    },
+    {
+      id: "theme",
+      label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme",
+      keys: [MOD, "⇧", "L"],
+      icon: SunMoon,
+      run: toggleTheme,
+    },
+    {
+      id: "sidebar",
+      label: sidebar ? "Hide the sidebar" : "Show the sidebar",
+      keys: [MOD, "B"],
+      icon: PanelLeft,
+      run: toggleSidebar,
+    },
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
     { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
     { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome({ step: 0 }) },
-    ...(location.pathname.startsWith("/reviews/") ? [{ id: "discard", label: "Discard this review", icon: Ban, run: () => window.dispatchEvent(new Event("pinrail:discard")) }] : []),
+    ...(location.pathname.startsWith("/reviews/")
+      ? [
+          {
+            id: "discard",
+            label: "Discard this review",
+            icon: Ban,
+            run: () => window.dispatchEvent(new Event("pinrail:discard")),
+          },
+        ]
+      : []),
   ];
 
   // Pinrail opens the setup until it is finished or skipped; asked once,
@@ -117,7 +172,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
   // The reviews waiting, oldest first, the order the global shortcut uses;
   // kept in a ref so the key handler below sees the current list.
-  const waiting = useMemo(() => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [live.pending]);
+  const waiting = useMemo(
+    () => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)),
+    [live.pending],
+  );
   // how many wait per project, beside the inbox's quick filters
   const perProject = useMemo(() => {
     const counts = new Map<string, number>();
@@ -138,7 +196,12 @@ export function Layout({ children }: { children: ReactNode }) {
         event.preventDefault();
         const current = pathRef.current.match(/^\/reviews\/([^/]+)/)?.[1];
         const at = list.findIndex((r) => r.id === current);
-        const next = at < 0 ? (event.key === "ArrowDown" ? 0 : list.length - 1) : (at + (event.key === "ArrowDown" ? 1 : list.length - 1)) % list.length;
+        const next =
+          at < 0
+            ? event.key === "ArrowDown"
+              ? 0
+              : list.length - 1
+            : (at + (event.key === "ArrowDown" ? 1 : list.length - 1)) % list.length;
         navigate(`/reviews/${list[next].id}`);
         return;
       }
@@ -222,7 +285,8 @@ export function Layout({ children }: { children: ReactNode }) {
           break;
       }
     };
-    const onThemeToggle = (event: Event) => update({ appearance: { theme: (event as CustomEvent<"dark" | "light">).detail } });
+    const onThemeToggle = (event: Event) =>
+      update({ appearance: { theme: (event as CustomEvent<"dark" | "light">).detail } });
     window.addEventListener("keydown", onKey);
     window.addEventListener("pinrail:command", onCommand);
     window.addEventListener("pinrail:theme-toggle", onThemeToggle);
@@ -271,7 +335,11 @@ export function Layout({ children }: { children: ReactNode }) {
             <section className="sidebar-waiting" aria-label="Waiting" data-waiting>
               <h2>Waiting</h2>
               {waiting.slice(0, WAITING_SHOWN).map((r) => (
-                <Tooltip key={r.id} label={[r.origin.repo, r.origin.workflow].filter(Boolean).join(" · ") || r.plugin} side="top">
+                <Tooltip
+                  key={r.id}
+                  label={[r.origin.repo, r.origin.workflow].filter(Boolean).join(" · ") || r.plugin}
+                  side="top"
+                >
                   <NavLink to={`/reviews/${r.id}`} className="sidebar-review" data-waiting-review={r.id}>
                     <PluginIcon icon={live.pluginIcon(r.plugin)} size={14} strokeWidth={1.75} />
                     <span className="sidebar-review-title">{r.title}</span>
@@ -289,7 +357,12 @@ export function Layout({ children }: { children: ReactNode }) {
             <section className="sidebar-repositories" aria-label="Projects" data-projects>
               <h2>Projects</h2>
               {live.projects.map((project) => (
-                <NavLink key={project} to={`/?repo=${encodeURIComponent(project)}`} className="sidebar-repo" data-project={project}>
+                <NavLink
+                  key={project}
+                  to={`/?repo=${encodeURIComponent(project)}`}
+                  className="sidebar-repo"
+                  data-project={project}
+                >
                   <FolderGit2 size={14} strokeWidth={1.75} />
                   <span className="sidebar-review-title">{project}</span>
                   <span className="nav-count">{perProject.get(project) ?? 0}</span>
@@ -309,7 +382,12 @@ export function Layout({ children }: { children: ReactNode }) {
             <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
             <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
             <Tooltip label="Settings" keys={[MOD, ","]} side="top">
-              <button type="button" className="bar-button sidebar-gear" onClick={() => setSettings("general")} aria-label="Settings">
+              <button
+                type="button"
+                className="bar-button sidebar-gear"
+                onClick={() => setSettings("general")}
+                aria-label="Settings"
+              >
                 <Settings size={15} />
               </button>
             </Tooltip>
@@ -349,7 +427,8 @@ export function Layout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <CommandPalette open={palette} onClose={() => setPalette(false)} actions={actions} />
-      {welcome ? <WelcomeDialog
+      {welcome ? (
+        <WelcomeDialog
           at={welcome}
           onClose={closeWelcome}
           onOpenReview={openFromWelcome}
@@ -357,7 +436,8 @@ export function Layout({ children }: { children: ReactNode }) {
             closeWelcome();
             setSettings("plugins");
           }}
-        /> : null}
+        />
+      ) : null}
       <SettingsDialog
         open={settings !== null}
         section={settings ?? "general"}

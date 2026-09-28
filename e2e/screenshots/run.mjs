@@ -32,10 +32,12 @@ async function scrub(page, paths) {
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const text = clean(node.textContent);
       if (text !== node.textContent) node.textContent = text;
-      if (node.textContent === "What macOS allows shows here in the app") node.textContent = "Allowed: Banners, sound on, badge";
+      if (node.textContent === "What macOS allows shows here in the app")
+        node.textContent = "Allowed: Banners, sound on, badge";
     }
     for (const input of document.querySelectorAll("input")) input.value = clean(input.value);
-    for (const note of document.querySelectorAll(".settings-note")) if (note.textContent === "Only in the app") note.remove();
+    for (const note of document.querySelectorAll(".settings-note"))
+      if (note.textContent === "Only in the app") note.remove();
   };
   for (const frame of page.frames()) await frame.evaluate(fix, { paths }).catch(() => {});
 }
@@ -61,7 +63,9 @@ try {
   fs.mkdirSync(out, { recursive: true });
   // a full run leaves exactly what the scenes make: earlier shots go first
   fs.mkdirSync(siteAssets, { recursive: true });
-  if (!only) for (const dir of [out, siteAssets]) for (const file of fs.readdirSync(dir)) if (file.endsWith(".png")) fs.rmSync(path.join(dir, file));
+  if (!only)
+    for (const dir of [out, siteAssets])
+      for (const file of fs.readdirSync(dir)) if (file.endsWith(".png")) fs.rmSync(path.join(dir, file));
 
   for (const theme of ["light", "dark"]) {
     const context = await browser.newContext({
@@ -78,7 +82,10 @@ try {
       // `site: true` copies the shot into the website's assets as well
       const shot = async (name, target = page, { site = false, ...options } = {}) => {
         await page.evaluate(() => document.fonts.ready);
-        await scrub(page, [[app.data, "~/.local/share/pinrail"], [app.code, "~/code"]]);
+        await scrub(page, [
+          [app.data, "~/.local/share/pinrail"],
+          [app.code, "~/code"],
+        ]);
         const file = path.join(out, `${name}-${theme}.png`);
         await target.screenshot({ path: file, animations: "disabled", caret: "hide", ...options });
         if (site) fs.copyFileSync(file, path.join(siteAssets, path.basename(file)));

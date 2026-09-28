@@ -166,7 +166,16 @@ export type Key = {
 /** Shell → plugin, over `postMessage`. */
 export type ShellMessage =
   | ({ pinrail: Protocol; type: "init"; shell_origin: string; capabilities?: Capability[] } & Init)
-  | { pinrail: Protocol; type: "attachment"; req: number; ok: true; name: string; media_type: string; size: number; bytes: ArrayBuffer }
+  | {
+      pinrail: Protocol;
+      type: "attachment";
+      req: number;
+      ok: true;
+      name: string;
+      media_type: string;
+      size: number;
+      bytes: ArrayBuffer;
+    }
   | { pinrail: Protocol; type: "attachment"; req: number; ok: false; name?: string; error: string }
   | { pinrail: Protocol; type: "violations"; errors: Violation[] }
   | { pinrail: Protocol; type: "submitted"; decision: Decision }
@@ -183,7 +192,16 @@ export type PluginMessage =
   | { pinrail: Protocol; type: "status"; label?: string }
   | { pinrail: Protocol; type: "submit"; data: any }
   | { pinrail: Protocol; type: "settings_set"; patch: Settings }
-  | { pinrail: Protocol; type: "key"; key: "?" | "[" | "]"; code: string; metaKey: false; ctrlKey: false; altKey: false; shiftKey: boolean }
+  | {
+      pinrail: Protocol;
+      type: "key";
+      key: "?" | "[" | "]";
+      code: string;
+      metaKey: false;
+      ctrlKey: false;
+      altKey: false;
+      shiftKey: boolean;
+    }
   /** open this link outside the app: http, https or mailto */
   | { pinrail: Protocol; type: "open"; url: string }
   /** the bytes of a file the review (or the round it revises) carries */

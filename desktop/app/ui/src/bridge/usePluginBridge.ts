@@ -76,7 +76,20 @@ export type Bridge = {
 };
 
 export function usePluginBridge(options: Options): Bridge {
-  const { frame, reviewId, review, previous, readonly, minHeight, src, connected, onSubmit, settings, onSetSetting, onOpen } = options;
+  const {
+    frame,
+    reviewId,
+    review,
+    previous,
+    readonly,
+    minHeight,
+    src,
+    connected,
+    onSubmit,
+    settings,
+    onSetSetting,
+    onOpen,
+  } = options;
   const [loaded, setLoaded] = useState(false);
   const [fill, setFill] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -93,8 +106,30 @@ export function usePluginBridge(options: Options): Bridge {
   // render, too late for a second submit posted in the same moment
   const inFlight = useRef(false);
   const fallback = useRef<number | undefined>(undefined);
-  const latest = useRef({ review, previous, readonly, connected, submitting: false, onSubmit, settings, onSetSetting, onOpen, minHeight });
-  latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting, onOpen, minHeight };
+  const latest = useRef({
+    review,
+    previous,
+    readonly,
+    connected,
+    submitting: false,
+    onSubmit,
+    settings,
+    onSetSetting,
+    onOpen,
+    minHeight,
+  });
+  latest.current = {
+    review,
+    previous,
+    readonly,
+    connected,
+    submitting,
+    onSubmit,
+    settings,
+    onSetSetting,
+    onOpen,
+    minHeight,
+  };
 
   const post = useCallback(
     (msg: Record<string, unknown>) => {
@@ -112,7 +147,8 @@ export function usePluginBridge(options: Options): Bridge {
     const from = round === "previous" ? previous : review;
     const listed = from?.attachments?.find((a) => a.name === name);
     const fail = (error: string) => post({ type: "attachment", req, ok: false, name, error });
-    if (!from || !listed) return fail(`no attachment "${name}" on this ${round === "previous" ? "previous round" : "review"}`);
+    if (!from || !listed)
+      return fail(`no attachment "${name}" on this ${round === "previous" ? "previous round" : "review"}`);
     const key = `${from.id}\u0000${name}`;
     let bytes = files.current.get(key);
     if (!bytes) {
@@ -123,7 +159,16 @@ export function usePluginBridge(options: Options): Bridge {
     try {
       const copy = (await bytes).slice(0);
       frame.current?.contentWindow?.postMessage(
-        { pinrail: PROTOCOL, type: "attachment", req, ok: true, name, media_type: listed.media_type, size: listed.size, bytes: copy },
+        {
+          pinrail: PROTOCOL,
+          type: "attachment",
+          req,
+          ok: true,
+          name,
+          media_type: listed.media_type,
+          size: listed.size,
+          bytes: copy,
+        },
         "*",
         [copy],
       );
@@ -259,7 +304,15 @@ export function usePluginBridge(options: Options): Bridge {
           // one of the app's own keys, pressed inside the view: the app acts
           // on it as if pressed in its window; nothing else is accepted
           if (typeof msg.key !== "string" || !VIEW_APP_KEYS.includes(msg.key)) return;
-          window.dispatchEvent(new KeyboardEvent("keydown", { key: msg.key, code: typeof msg.code === "string" ? msg.code : "", shiftKey: !!msg.shiftKey, bubbles: true, cancelable: true }));
+          window.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: msg.key,
+              code: typeof msg.code === "string" ? msg.code : "",
+              shiftKey: !!msg.shiftKey,
+              bubbles: true,
+              cancelable: true,
+            }),
+          );
           break;
         }
         case "settings_set": {

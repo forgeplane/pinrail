@@ -30,7 +30,10 @@ function buildDesktop(): string {
   const bin = process.env.PINRAIL_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "Pinrail");
   if (!process.env.PINRAIL_DESKTOP_BIN) {
     console.log("e2e: building the desktop app");
-    execFileSync("cargo", ["build", "--quiet", "-p", "pinrail-desktop"], { cwd: path.join(root, "desktop"), stdio: "inherit" });
+    execFileSync("cargo", ["build", "--quiet", "-p", "pinrail-desktop"], {
+      cwd: path.join(root, "desktop"),
+      stdio: "inherit",
+    });
   }
   if (!fs.existsSync(bin)) throw new Error(`desktop binary not found at ${bin}`);
   return bin;
@@ -78,7 +81,11 @@ export default async function globalSetup() {
   // exercised end to end. Its build fetches packages, so it gets longer.
   const install = (name: string, args: string[], timeout: number) => {
     const dir = path.join(root, "plugins", name);
-    const done = spawnSync(cli, ["plugins", "install", dir, ...args], { env: cliEnv(state), encoding: "utf8", timeout });
+    const done = spawnSync(cli, ["plugins", "install", dir, ...args], {
+      env: cliEnv(state),
+      encoding: "utf8",
+      timeout,
+    });
     if (done.status !== 0) throw new Error(`pinrail plugins install ${name} failed:\n${done.stdout}\n${done.stderr}`);
   };
   for (const name of ["email", "hello", "review"]) install(name, ["--link"], 120_000);

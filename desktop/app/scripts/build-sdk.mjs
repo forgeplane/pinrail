@@ -37,4 +37,6 @@ fs.copyFileSync(path.join(font, "wght.css"), path.join(out, "fonts.css"));
 // no others.
 fs.writeFileSync(path.join(out, "pinrail-plugin.js"), sdkScript(app, sdkSrc));
 
-console.log(`sdk: ${fs.readdirSync(sdkSrc).length} SDK files and ${faces.length} font files in ${path.relative(app, out)}`);
+console.log(
+  `sdk: ${fs.readdirSync(sdkSrc).length} SDK files and ${faces.length} font files in ${path.relative(app, out)}`,
+);

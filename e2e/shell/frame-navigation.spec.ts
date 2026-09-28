@@ -13,7 +13,14 @@ function wanderer(): string {
   fs.mkdirSync(path.join(dir, "view"));
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "wanderer", version: "1.0.0", title: "Wanderer", entry: "view/index.html", payload_schema: {}, decision_schema: {} }),
+    JSON.stringify({
+      name: "wanderer",
+      version: "1.0.0",
+      title: "Wanderer",
+      entry: "view/index.html",
+      payload_schema: {},
+      decision_schema: {},
+    }),
   );
   fs.writeFileSync(
     path.join(dir, "view", "index.html"),
@@ -63,7 +70,14 @@ function traveller(localUrl: string): string {
   fs.mkdirSync(path.join(dir, "view"));
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "traveller", version: "1.0.0", title: "Traveller", entry: "view/index.html", payload_schema: {}, decision_schema: {} }),
+    JSON.stringify({
+      name: "traveller",
+      version: "1.0.0",
+      title: "Traveller",
+      entry: "view/index.html",
+      payload_schema: {},
+      decision_schema: {},
+    }),
   );
   fs.writeFileSync(
     path.join(dir, "view", "index.html"),
@@ -100,7 +114,10 @@ test("the frame can show only Pinrail's own server", async ({ page }) => {
       await page.waitForTimeout(1000);
     }
     expect(hits, "the other program was asked for a page").toEqual([]);
-    expect(requested.filter((u) => u.startsWith("https://example.com")), "the external site was requested").toEqual([]);
+    expect(
+      requested.filter((u) => u.startsWith("https://example.com")),
+      "the external site was requested",
+    ).toEqual([]);
   } finally {
     server.close();
   }
@@ -112,7 +129,14 @@ function leaver(): string {
   fs.mkdirSync(path.join(dir, "view"));
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "leaver", version: "1.0.0", title: "Leaver", entry: "view/index.html", payload_schema: {}, decision_schema: {} }),
+    JSON.stringify({
+      name: "leaver",
+      version: "1.0.0",
+      title: "Leaver",
+      entry: "view/index.html",
+      payload_schema: {},
+      decision_schema: {},
+    }),
   );
   fs.writeFileSync(
     path.join(dir, "view", "index.html"),
@@ -128,7 +152,10 @@ function leaver(): string {
   return dir;
 }
 
-for (const [button, where] of [["#leave", "another of its pages"], ["#blocked", "a page the app blocks"]]) {
+for (const [button, where] of [
+  ["#leave", "another of its pages"],
+  ["#blocked", "a page the app blocks"],
+]) {
   test(`Reload the view brings the view's own page back after it went to ${where}`, async ({ page }) => {
     await linkPlugin(page.request, leaver(), "leaver");
     await clearInbox(page.request);

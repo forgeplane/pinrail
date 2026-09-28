@@ -13,7 +13,13 @@ import { PluginIcon } from "../PluginIcon";
 import { Tooltip } from "../Tooltip";
 import { Toggle } from "./controls";
 
-type Stage = { at: "source" } | { at: "looking" } | { at: "seen"; seen: Inspection } | { at: "installing"; seen: Inspection; job: InstallJob | null } | { at: "done"; job: InstallJob } | { at: "failed"; seen: Inspection; job: InstallJob };
+type Stage =
+  | { at: "source" }
+  | { at: "looking" }
+  | { at: "seen"; seen: Inspection }
+  | { at: "installing"; seen: Inspection; job: InstallJob | null }
+  | { at: "done"; job: InstallJob }
+  | { at: "failed"; seen: Inspection; job: InstallJob };
 
 const STEPS: InstallJob["status"][] = ["fetching", "inspecting", "building", "placing"];
 
@@ -30,7 +36,12 @@ const size = (bytes: number | undefined) => {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
-const failure = (e: unknown) => (e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : e instanceof Error ? e.message : "Something went wrong");
+const failure = (e: unknown) =>
+  e instanceof ApiError
+    ? (e.violations[0]?.message ?? e.message)
+    : e instanceof Error
+      ? e.message
+      : "Something went wrong";
 
 /** Where the plugin comes from, in one line. */
 function Origin({ seen }: { seen: Inspection }) {
@@ -100,8 +111,10 @@ function Consequences({ seen }: { seen: Inspection }) {
             <b>Builds with</b> <code className="mono">{seen.build}</code>
           </p>
           <p>
-            {local ? "It runs here, with your rights, through the shell." : "It runs on this machine with your rights, outside any sandbox, along with whatever the dependencies run when they install."}
-            {" "}Whatever the command needs must be on the PATH. Install is the yes.
+            {local
+              ? "It runs here, with your rights, through the shell."
+              : "It runs on this machine with your rights, outside any sandbox, along with whatever the dependencies run when they install."}{" "}
+            Whatever the command needs must be on the PATH. Install is the yes.
           </p>
         </div>
       ) : (
@@ -111,11 +124,25 @@ function Consequences({ seen }: { seen: Inspection }) {
       )}
       {seen.attachments ? (
         <p className="install-runs" data-takes>
-          <b>{takes(seen.attachments)}.</b> An agent can send them beside a review; they are kept with it, shown on it, and handed to this view only.
+          <b>{takes(seen.attachments)}.</b> An agent can send them beside a review; they are kept with it, shown on it,
+          and handed to this view only.
         </p>
       ) : null}
       {installed ? (
-        <p className="install-replaces" data-replaces={installed.linked ? "link" : installed.unchanged ? "unchanged" : installed.major === seen.major ? (seen.older ? "older" : "same") : "beside"}>
+        <p
+          className="install-replaces"
+          data-replaces={
+            installed.linked
+              ? "link"
+              : installed.unchanged
+                ? "unchanged"
+                : installed.major === seen.major
+                  ? seen.older
+                    ? "older"
+                    : "same"
+                  : "beside"
+          }
+        >
           <b>
             {seen.name} {installed.version} is installed already
           </b>
@@ -204,7 +231,11 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
     setStage({ at: "installing", seen, job: null });
     try {
       const { job } = await api.installPlugin({ ...request(), force: seen.older });
-      const state = await followJob(job, (step) => setStage({ at: "installing", seen, job: step }), () => !mounted.current);
+      const state = await followJob(
+        job,
+        (step) => setStage({ at: "installing", seen, job: step }),
+        () => !mounted.current,
+      );
       if (!state) return;
       if (state.status === "done") setStage({ at: "done", job: state });
       else setStage({ at: "failed", seen, job: state });
@@ -243,128 +274,173 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
         </Tooltip>
       </div>
 
-        {stage.at === "source" || stage.at === "looking" || stage.at === "seen" ? (
-          <>
-            <div className="install-source">
+      {stage.at === "source" || stage.at === "looking" || stage.at === "seen" ? (
+        <>
+          <div className="install-source">
+            <input
+              ref={field}
+              className="settings-input install-source-field"
+              type="text"
+              aria-label="Source"
+              placeholder="/path/to/plugin, github.com/owner/repo/folder@ref, or a releases page"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              value={source}
+              disabled={busy}
+              onChange={(e) => {
+                setSource(e.target.value);
+                if (stage.at === "seen") setStage({ at: "source" });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") look();
+                if (e.key === "Escape" && !busy) {
+                  e.stopPropagation();
+                  onClose();
+                }
+              }}
+            />
+            {native ? (
+              <Tooltip label="Choose a folder">
+                <button
+                  type="button"
+                  className="bar-button"
+                  onClick={choose}
+                  aria-label="Choose a folder"
+                  disabled={busy}
+                >
+                  <FolderOpen size={15} />
+                </button>
+              </Tooltip>
+            ) : null}
+            <button
+              type="button"
+              className="chrome-button"
+              onClick={look}
+              disabled={busy || !source.trim()}
+              data-install-look
+            >
+              {stage.at === "looking" ? "Looking…" : "Look"}
+            </button>
+          </div>
+          {!isLocal(source) && !isRelease(source) && source.trim() ? (
+            <div className="install-beside">
               <input
-                ref={field}
-                className="settings-input install-source-field"
+                className="settings-input"
                 type="text"
-                aria-label="Source"
-                placeholder="/path/to/plugin, github.com/owner/repo/folder@ref, or a releases page"
+                aria-label="Ref"
+                placeholder="ref: a branch, tag or commit"
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                value={source}
+                value={ref}
                 disabled={busy}
-                onChange={(e) => {
-                  setSource(e.target.value);
-                  if (stage.at === "seen") setStage({ at: "source" });
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") look();
-                  if (e.key === "Escape" && !busy) {
-                    e.stopPropagation();
-                    onClose();
-                  }
-                }}
+                onChange={(e) => setRef(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && look()}
               />
-              {native ? (
-                <Tooltip label="Choose a folder">
-                  <button type="button" className="bar-button" onClick={choose} aria-label="Choose a folder" disabled={busy}>
-                    <FolderOpen size={15} />
-                  </button>
-                </Tooltip>
-              ) : null}
-              <button type="button" className="chrome-button" onClick={look} disabled={busy || !source.trim()} data-install-look>
-                {stage.at === "looking" ? "Looking…" : "Look"}
-              </button>
+              <input
+                className="settings-input"
+                type="text"
+                aria-label="Folder"
+                placeholder="folder in the repository"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                value={path}
+                disabled={busy}
+                onChange={(e) => setPath(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && look()}
+              />
             </div>
-            {!isLocal(source) && !isRelease(source) && source.trim() ? (
-              <div className="install-beside">
-                <input className="settings-input" type="text" aria-label="Ref" placeholder="ref: a branch, tag or commit" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} value={ref} disabled={busy} onChange={(e) => setRef(e.target.value)} onKeyDown={(e) => e.key === "Enter" && look()} />
-                <input className="settings-input" type="text" aria-label="Folder" placeholder="folder in the repository" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} value={path} disabled={busy} onChange={(e) => setPath(e.target.value)} onKeyDown={(e) => e.key === "Enter" && look()} />
-              </div>
-            ) : null}
-            {isLocal(source) ? (
-              <div className="install-link">
-                <Toggle label="Link instead of copying" checked={link} disabled={busy} onChange={setLinked} />
-                <span onClick={() => !busy && setLinked(!link)}>
-                  Link instead of copying
-                  <span className="faint"> · served live while you work on it</span>
-                </span>
-              </div>
-            ) : null}
-            {error ? <p className="notice notice-danger install-error">{error}</p> : null}
-          </>
-        ) : null}
-
-        {seen && stage.at !== "done" ? (
-          <div className="install-seen" data-install-seen>
-            <div className="install-seen-head">
-              <span className="settings-row-icon">
-                <PluginIcon icon={seen.icon} size={16} strokeWidth={1.75} />
-              </span>
-              <div>
-                <div className="install-seen-title">{seen.title}</div>
-                <div className="faint mono">
-                  {seen.name} · {seen.version}
-                </div>
-              </div>
-            </div>
-            <Origin seen={seen} />
-            <Consequences seen={seen} />
-          </div>
-        ) : null}
-
-        {stage.at === "installing" || stage.at === "failed" ? (
-          <div className="install-progress" data-install-progress={job?.status ?? "starting"}>
-            <ol className="install-steps">
-              {STEPS.map((step) => {
-                const current = job?.status ?? "fetching";
-                const index = STEPS.indexOf(current as InstallJob["status"]);
-                const at = STEPS.indexOf(step);
-                const state = stage.at === "failed" ? (at <= index ? "failed" : "") : at < index ? "done" : at === index ? "now" : "";
-                return (
-                  <li key={step} className={state}>
-                    {step}
-                  </li>
-                );
-              })}
-            </ol>
-            {job?.log ? (
-              <pre ref={logBox} className="install-log" data-install-log>
-                {job.log}
-              </pre>
-            ) : null}
-            {stage.at === "failed" ? <p className="notice notice-danger install-error">{stage.job.error}</p> : null}
-          </div>
-        ) : null}
-
-        {stage.at === "done" ? (
-          <p className="install-done" data-install-done>
-            <b>{stage.job.plugin?.title ?? stage.job.plugin?.name}</b> {stage.job.plugin?.install?.version} is ready. A review rendering from it opens with it from now on.
-          </p>
-        ) : null}
-
-        <div ref={actions} className="dialog-actions install-actions">
-          {stage.at === "seen" ? (
-            <button type="button" className="chrome-button button-primary" onClick={() => install(stage.seen)} data-install-confirm>
-              {stage.seen.link ? "Link" : stage.seen.installed?.unchanged ? "Install again" : "Install"}
-            </button>
-          ) : stage.at === "failed" ? (
-            <button type="button" className="chrome-button" onClick={() => setStage({ at: "seen", seen: stage.seen })}>
-              Back
-            </button>
-          ) : stage.at === "done" ? (
-            <button type="button" className="chrome-button button-primary" onClick={onClose} data-install-close>
-              Done
-            </button>
-          ) : stage.at === "installing" ? (
-            <span className="dim install-wait">{job?.status === "building" ? "Building…" : "Working…"}</span>
           ) : null}
+          {isLocal(source) ? (
+            <div className="install-link">
+              <Toggle label="Link instead of copying" checked={link} disabled={busy} onChange={setLinked} />
+              <span onClick={() => !busy && setLinked(!link)}>
+                Link instead of copying
+                <span className="faint"> · served live while you work on it</span>
+              </span>
+            </div>
+          ) : null}
+          {error ? <p className="notice notice-danger install-error">{error}</p> : null}
+        </>
+      ) : null}
+
+      {seen && stage.at !== "done" ? (
+        <div className="install-seen" data-install-seen>
+          <div className="install-seen-head">
+            <span className="settings-row-icon">
+              <PluginIcon icon={seen.icon} size={16} strokeWidth={1.75} />
+            </span>
+            <div>
+              <div className="install-seen-title">{seen.title}</div>
+              <div className="faint mono">
+                {seen.name} · {seen.version}
+              </div>
+            </div>
+          </div>
+          <Origin seen={seen} />
+          <Consequences seen={seen} />
         </div>
+      ) : null}
+
+      {stage.at === "installing" || stage.at === "failed" ? (
+        <div className="install-progress" data-install-progress={job?.status ?? "starting"}>
+          <ol className="install-steps">
+            {STEPS.map((step) => {
+              const current = job?.status ?? "fetching";
+              const index = STEPS.indexOf(current as InstallJob["status"]);
+              const at = STEPS.indexOf(step);
+              const state =
+                stage.at === "failed" ? (at <= index ? "failed" : "") : at < index ? "done" : at === index ? "now" : "";
+              return (
+                <li key={step} className={state}>
+                  {step}
+                </li>
+              );
+            })}
+          </ol>
+          {job?.log ? (
+            <pre ref={logBox} className="install-log" data-install-log>
+              {job.log}
+            </pre>
+          ) : null}
+          {stage.at === "failed" ? <p className="notice notice-danger install-error">{stage.job.error}</p> : null}
+        </div>
+      ) : null}
+
+      {stage.at === "done" ? (
+        <p className="install-done" data-install-done>
+          <b>{stage.job.plugin?.title ?? stage.job.plugin?.name}</b> {stage.job.plugin?.install?.version} is ready. A
+          review rendering from it opens with it from now on.
+        </p>
+      ) : null}
+
+      <div ref={actions} className="dialog-actions install-actions">
+        {stage.at === "seen" ? (
+          <button
+            type="button"
+            className="chrome-button button-primary"
+            onClick={() => install(stage.seen)}
+            data-install-confirm
+          >
+            {stage.seen.link ? "Link" : stage.seen.installed?.unchanged ? "Install again" : "Install"}
+          </button>
+        ) : stage.at === "failed" ? (
+          <button type="button" className="chrome-button" onClick={() => setStage({ at: "seen", seen: stage.seen })}>
+            Back
+          </button>
+        ) : stage.at === "done" ? (
+          <button type="button" className="chrome-button button-primary" onClick={onClose} data-install-close>
+            Done
+          </button>
+        ) : stage.at === "installing" ? (
+          <span className="dim install-wait">{job?.status === "building" ? "Building…" : "Working…"}</span>
+        ) : null}
+      </div>
     </div>
   );
 }

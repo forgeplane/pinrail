@@ -23,13 +23,20 @@ test("init hands the review, previous, readonly and draft to onInit and pins the
   assert.equal(plugin.initialised, true);
 
   plugin.submit({ ok: true });
-  assert.deepEqual(env.last("submit"), { msg: { pinrail: 1, type: "submit", data: { ok: true } }, target: "http://shell.test" });
+  assert.deepEqual(env.last("submit"), {
+    msg: { pinrail: 1, type: "submit", data: { ok: true } },
+    target: "http://shell.test",
+  });
 });
 
 test("messages without the protocol marker, or from another origin once pinned, are ignored", () => {
   const env = fakeEnv();
   const calls = [];
-  Pinrail.createPlugin(env, { onInit: () => calls.push("init"), onViolations: () => calls.push("violations"), resize: "manual" });
+  Pinrail.createPlugin(env, {
+    onInit: () => calls.push("init"),
+    onViolations: () => calls.push("violations"),
+    resize: "manual",
+  });
 
   env.deliver({ type: "init" });
   env.deliver("hello");
@@ -233,17 +240,22 @@ test("layout builds a body on its own, and a header when asked for one", () => {
   const plain = Pinrail.layout({ document: bare });
   assert.equal(plain.header, null, "no header unless the view wants one");
   assert.equal(bare.body.className, "plugin-layout");
-  assert.deepEqual(bare.body.children.map((n) => n.className), ["plugin-scroll"]);
+  assert.deepEqual(
+    bare.body.children.map((n) => n.className),
+    ["plugin-scroll"],
+  );
   assert.deepEqual(plain.scroll.children, [plain.content], "the body scrolls, the document does not");
 
   const doc = fakeDocument();
   const view = Pinrail.layout({ document: doc, title: "5 items" });
-  assert.deepEqual(doc.body.children.map((n) => n.className), ["plugin-header", "plugin-scroll"]);
-  assert.deepEqual(view.header.children.map((n) => n.className), [
-    "plugin-title",
-    "plugin-meta",
-    "plugin-controls",
-  ]);
+  assert.deepEqual(
+    doc.body.children.map((n) => n.className),
+    ["plugin-header", "plugin-scroll"],
+  );
+  assert.deepEqual(
+    view.header.children.map((n) => n.className),
+    ["plugin-title", "plugin-meta", "plugin-controls"],
+  );
   assert.equal(view.header.children[0].textContent, "5 items");
 });
 
@@ -253,12 +265,18 @@ test("layout takes strings or elements, and replaces rather than appends", () =>
   const view = Pinrail.layout({ document: doc, meta: ["acme-api", "7 days"], controls: button });
 
   const [, meta, controls] = view.header.children;
-  assert.deepEqual(meta.children.map((n) => n.textContent), ["acme-api", "7 days"]);
+  assert.deepEqual(
+    meta.children.map((n) => n.textContent),
+    ["acme-api", "7 days"],
+  );
   assert.deepEqual(controls.children, [button]);
 
   assert.equal(view.title("4 items").meta("acme-worker"), view, "setters chain");
   assert.equal(view.header.children[0].textContent, "4 items");
-  assert.deepEqual(meta.children.map((n) => n.textContent), ["acme-worker"]);
+  assert.deepEqual(
+    meta.children.map((n) => n.textContent),
+    ["acme-worker"],
+  );
 
   view.meta(null);
   assert.deepEqual(meta.children, []);
@@ -270,7 +288,10 @@ test("layout can be put somewhere other than the body", () => {
   const view = Pinrail.layout({ document: doc, into: host, header: true });
 
   assert.deepEqual(doc.body.children, []);
-  assert.deepEqual(host.children.map((n) => n.className), ["plugin-header", "plugin-scroll"]);
+  assert.deepEqual(
+    host.children.map((n) => n.className),
+    ["plugin-header", "plugin-scroll"],
+  );
   assert.equal(host.children[1], view.scroll);
   assert.equal(view.scroll.children[0], view.content);
 });
@@ -283,15 +304,23 @@ test("the module exposes a version and the protocol number", () => {
 test("icon markup takes the name, the colour of its text, and nothing from a payload", () => {
   const plain = Pinrail.icon("check");
   assert.match(plain, /class="wi"/);
-  assert.match(plain, /--wi:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/check\.svg&quot;\)/, "the plugin's own, beside the view");
+  assert.match(
+    plain,
+    /--wi:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/check\.svg&quot;\)/,
+    "the plugin's own, beside the view",
+  );
   assert.match(plain, /aria-hidden="true"/, "decorative unless it is given a name");
   assert.match(plain, /data-icon="check"/, "the name stays on the element, to find a typo by");
 
   // A view may take the name from a review payload, which is not ours to trust.
-  const hostile = Pinrail.icon('x.svg) url(https://evil.test/pixel.svg');
+  const hostile = Pinrail.icon("x.svg) url(https://evil.test/pixel.svg");
   assert.match(hostile, /--wi:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/[a-z0-9-]*\.svg&quot;\);/);
   assert.equal(hostile.includes("evil.test"), false, "the host is gone");
-  assert.equal(/url\(/.test(hostile.replace("url(&quot;http://plugin.invalid/view/icons/", "")), false, "no second url()");
+  assert.equal(
+    /url\(/.test(hostile.replace("url(&quot;http://plugin.invalid/view/icons/", "")),
+    false,
+    "no second url()",
+  );
 
   assert.match(Pinrail.icon("check", { size: 18 }), /--wi-size:18px/);
   assert.match(Pinrail.icon("check", { size: "1.25em" }), /--wi-size:1\.25em/);
@@ -383,18 +412,36 @@ test("attachment asks the shell for a file the review lists, and resolves with t
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
   const files = [{ name: "pivot.glb", size: 3, media_type: "model/gltf-binary", sha256: "ab" }];
-  env.deliver(init({ review: review({ attachments: files }), previous: review({ id: "g_0", attachments: [{ name: "old.glb", size: 1, media_type: "model/gltf-binary", sha256: "cd" }] }), capabilities: ["attachments"] }));
+  env.deliver(
+    init({
+      review: review({ attachments: files }),
+      previous: review({
+        id: "g_0",
+        attachments: [{ name: "old.glb", size: 1, media_type: "model/gltf-binary", sha256: "cd" }],
+      }),
+      capabilities: ["attachments"],
+    }),
+  );
   assert.deepEqual(plugin.attachments, files);
 
   const asked = plugin.attachment("pivot.glb");
-  assert.deepEqual(env.last("attachment"), { msg: { pinrail: 1, type: "attachment", req: 1, name: "pivot.glb" }, target: "http://shell.test" });
+  assert.deepEqual(env.last("attachment"), {
+    msg: { pinrail: 1, type: "attachment", req: 1, name: "pivot.glb" },
+    target: "http://shell.test",
+  });
   const bytes = new Uint8Array([1, 2, 3]).buffer;
   env.deliver(shell({ type: "attachment", req: 1, ok: true, name: "pivot.glb", bytes }));
   assert.equal(await asked, bytes);
 
   // a file of the round this one revises
   const old = plugin.attachment("old.glb", { round: "previous" });
-  assert.deepEqual(env.last("attachment").msg, { pinrail: 1, type: "attachment", req: 2, name: "old.glb", round: "previous" });
+  assert.deepEqual(env.last("attachment").msg, {
+    pinrail: 1,
+    type: "attachment",
+    req: 2,
+    name: "old.glb",
+    round: "previous",
+  });
   env.deliver(shell({ type: "attachment", req: 2, ok: false, error: "gone" }));
   await assert.rejects(old, /gone/);
 
@@ -407,7 +454,12 @@ test("attachment asks the shell for a file the review lists, and resolves with t
 test("attachment refuses a name the review does not list, and a shell that cannot hand files over", async () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
-  env.deliver(init({ review: review({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }), capabilities: ["attachments"] }));
+  env.deliver(
+    init({
+      review: review({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }),
+      capabilities: ["attachments"],
+    }),
+  );
   await assert.rejects(plugin.attachment("b.glb"), /no attachment "b.glb" on this review/);
   assert.equal(env.last("attachment"), undefined, "nothing was asked");
 
@@ -419,7 +471,8 @@ test("attachment refuses a name the review does not list, and a shell that canno
 
 test("attachmentName reads a reference, and ATTACHMENT_SCHEMA describes one", () => {
   assert.equal(Pinrail.attachmentName({ $attachment: "pivot.glb" }), "pivot.glb");
-  for (const not of [null, "attachment:pivot.glb", { $attachment: 7 }, {}]) assert.equal(Pinrail.attachmentName(not), null);
+  for (const not of [null, "attachment:pivot.glb", { $attachment: 7 }, {}])
+    assert.equal(Pinrail.attachmentName(not), null);
   assert.deepEqual(Pinrail.ATTACHMENT_SCHEMA.required, ["$attachment"]);
   assert.equal(Object.isFrozen(Pinrail.ATTACHMENT_SCHEMA), true);
 });
@@ -436,5 +489,14 @@ test("the app's own keys, pressed in the view, go up to the app", () => {
   const env = fakeEnv();
   Pinrail.createPlugin(env, {});
   env.pressAppKey({ key: "?", code: "Slash", metaKey: false, ctrlKey: false, altKey: false, shiftKey: true });
-  assert.deepEqual(env.last("key").msg, { pinrail: 1, type: "key", key: "?", code: "Slash", metaKey: false, ctrlKey: false, altKey: false, shiftKey: true });
+  assert.deepEqual(env.last("key").msg, {
+    pinrail: 1,
+    type: "key",
+    key: "?",
+    code: "Slash",
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    shiftKey: true,
+  });
 });

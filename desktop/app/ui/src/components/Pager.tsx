@@ -43,14 +43,28 @@ export function Pager({ page, size, total, onPage, onSize, label }: Props) {
         {first}–{last} of {total}
       </span>
       <span className="pager-steps">
-        <button type="button" className="chrome-button" onClick={() => onPage((p) => p - 1)} disabled={page <= 1} aria-label="Previous page" data-pager-previous>
+        <button
+          type="button"
+          className="chrome-button"
+          onClick={() => onPage((p) => p - 1)}
+          disabled={page <= 1}
+          aria-label="Previous page"
+          data-pager-previous
+        >
           <ChevronLeft size={14} />
           Previous
         </button>
         <span className="pager-page">
           Page {page} of {pages}
         </span>
-        <button type="button" className="chrome-button" onClick={() => onPage((p) => p + 1)} disabled={page >= pages} aria-label="Next page" data-pager-next>
+        <button
+          type="button"
+          className="chrome-button"
+          onClick={() => onPage((p) => p + 1)}
+          disabled={page >= pages}
+          aria-label="Next page"
+          data-pager-next
+        >
           Next
           <ChevronRight size={14} />
         </button>

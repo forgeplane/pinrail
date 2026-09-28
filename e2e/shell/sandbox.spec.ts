@@ -23,7 +23,10 @@ const sdkFont = `${core}/sdk/v1/files/inter-latin-wght-normal.woff2`;
 async function pluginFrame(page: import("@playwright/test").Page): Promise<Frame> {
   // a fresh review each time: the same one still pending would come back
   await clearInbox(page.request);
-  const { id } = await createReview(page.request, { title: "sandbox", origin: { repo: "acme/api", workflow: "sandbox" } });
+  const { id } = await createReview(page.request, {
+    title: "sandbox",
+    origin: { repo: "acme/api", workflow: "sandbox" },
+  });
   await page.goto(`/#/reviews/${id}`);
   await expect(page.frameLocator("#plugin-frame").locator("body")).toBeVisible();
   // The frame is there before it is the plugin's: it starts blank and is
@@ -44,36 +47,41 @@ async function pluginFrame(page: import("@playwright/test").Page): Promise<Frame
 test("a plugin view cannot reach the disk, the shell, or anything off its own frame", async ({ page }) => {
   const frame = await pluginFrame(page);
 
-  const reach = await frame.evaluate(async (urls) => {
-    // The policy reports every refusal it makes, naming the rule. Reading
-    // these tells a failing test whether the policy did the blocking or
-    // something else did.
-    const rules: string[] = [];
-    document.addEventListener("securitypolicyviolation", (e) => rules.push(e.violatedDirective));
-    const tried = async (fn: () => unknown | Promise<unknown>) => {
-      try {
-        await fn();
-        return "allowed";
-      } catch (e) {
-        return `refused: ${(e as Error).name}`;
-      }
-    };
-    const out = {
-      localStorage: await tried(() => localStorage.setItem("probe", "1")),
-      indexedDB: await tried(() => indexedDB.open("probe")),
-      caches: await tried(() => caches.open("probe")),
-      filePicker: await tried(() => (window as unknown as { showOpenFilePicker: () => Promise<unknown> }).showOpenFilePicker()),
-      parentDom: await tried(() => parent.document.title),
-      parentOrigin: await tried(() => parent.location.href),
-      bridge: typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__,
-      fetch: await tried(() => fetch(urls.refused)),
-      socket: await tried(() => new WebSocket(urls.refused.replace("http", "ws"))),
-      rules: [] as string[],
-    };
-    await new Promise((r) => setTimeout(r, 300));
-    out.rules = rules;
-    return out;
-  }, { refused });
+  const reach = await frame.evaluate(
+    async (urls) => {
+      // The policy reports every refusal it makes, naming the rule. Reading
+      // these tells a failing test whether the policy did the blocking or
+      // something else did.
+      const rules: string[] = [];
+      document.addEventListener("securitypolicyviolation", (e) => rules.push(e.violatedDirective));
+      const tried = async (fn: () => unknown | Promise<unknown>) => {
+        try {
+          await fn();
+          return "allowed";
+        } catch (e) {
+          return `refused: ${(e as Error).name}`;
+        }
+      };
+      const out = {
+        localStorage: await tried(() => localStorage.setItem("probe", "1")),
+        indexedDB: await tried(() => indexedDB.open("probe")),
+        caches: await tried(() => caches.open("probe")),
+        filePicker: await tried(() =>
+          (window as unknown as { showOpenFilePicker: () => Promise<unknown> }).showOpenFilePicker(),
+        ),
+        parentDom: await tried(() => parent.document.title),
+        parentOrigin: await tried(() => parent.location.href),
+        bridge: typeof (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__,
+        fetch: await tried(() => fetch(urls.refused)),
+        socket: await tried(() => new WebSocket(urls.refused.replace("http", "ws"))),
+        rules: [] as string[],
+      };
+      await new Promise((r) => setTimeout(r, 300));
+      out.rules = rules;
+      return out;
+    },
+    { refused },
+  );
 
   // Storage is where a frame would keep something between reviews: a list of
   // what it has seen, a payload saved for later, a copy of a key it found.
@@ -105,7 +113,10 @@ test("a plugin view cannot reach the disk, the shell, or anything off its own fr
   // is checked through the policy's report: a failed handshake would look
   // the same from the outside, and would prove nothing.
   expect(reach.fetch, "fetch is the obvious way to send a payload out").toContain("refused");
-  expect(reach.rules.filter((r) => r.startsWith("connect-src")).length, "the policy refused both the fetch and the socket").toBeGreaterThanOrEqual(2);
+  expect(
+    reach.rules.filter((r) => r.startsWith("connect-src")).length,
+    "the policy refused both the fetch and the socket",
+  ).toBeGreaterThanOrEqual(2);
 });
 
 test("a plugin view loads images and fonts from the app, and from nowhere else", async ({ page }) => {
@@ -153,8 +164,14 @@ test("a plugin view loads images and fonts from the app, and from nowhere else",
   // than merely to hosts a plugin declares.
   expect(load.imageOff, "an image address carries whatever is put in it").toBe("blocked");
   expect(load.fontOff, "a font address carries data the same way").toBe("blocked");
-  expect(load.rules.some((r) => r.startsWith("img-src")), "the policy refused the image, not the network").toBe(true);
-  expect(load.rules.some((r) => r.startsWith("font-src")), "the policy refused the font, not the network").toBe(true);
+  expect(
+    load.rules.some((r) => r.startsWith("img-src")),
+    "the policy refused the image, not the network",
+  ).toBe(true);
+  expect(
+    load.rules.some((r) => r.startsWith("font-src")),
+    "the policy refused the font, not the network",
+  ).toBe(true);
 
   // The other half: the app serves the icon set and the typeface it draws
   // itself in, so a view looks like the window around it without reaching
@@ -206,7 +223,8 @@ test("a view cannot have the shell open the app's own server", async ({ page }) 
   });
   const opened = () => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
 
-  const ask = (url: string) => frame.evaluate((u) => parent.postMessage({ pinrail: 1, type: "open", url: u }, "*"), url);
+  const ask = (url: string) =>
+    frame.evaluate((u) => parent.postMessage({ pinrail: 1, type: "open", url: u }, "*"), url);
   await ask(frame.url());
   await ask(`${core}/api/v1/info`);
   await ask(`http://localhost:${corePort}/api/v1/info`);
@@ -217,6 +235,8 @@ test("a view cannot have the shell open the app's own server", async ({ page }) 
   await expect(dialog.locator("[data-link-target]")).toHaveText("example.invalid");
   await dialog.locator("[data-link-once]").click();
 
-  await expect.poll(async () => (await opened()).length, { message: "the link out never opened" }).toBeGreaterThanOrEqual(1);
+  await expect
+    .poll(async () => (await opened()).length, { message: "the link out never opened" })
+    .toBeGreaterThanOrEqual(1);
   expect(await opened(), "the shell opened the app's own server").toEqual(["https://example.invalid/"]);
 });

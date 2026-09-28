@@ -14,7 +14,9 @@ test("renders the change, the tree, the diff, the anchored cards, a thread and a
   await expect(f.locator("header")).toContainText("3 undecided");
   await expect(f.locator("aside")).toContainText("FILES · 2");
   await expect(f.locator('[data-filesec="lib/acme/tickets.ex"]')).toContainText("+3 −2");
-  await expect(f.locator('[data-filesec="lib/acme/tickets.ex"] .diff-row').filter({ hasText: "Enum.reverse()" })).toHaveCount(3);
+  await expect(
+    f.locator('[data-filesec="lib/acme/tickets.ex"] .diff-row').filter({ hasText: "Enum.reverse()" }),
+  ).toHaveCount(3);
   await expect(f.locator("#card-18")).toContainText("SUGGESTED CHANGE");
   await expect(f.locator("#card-18")).toContainText("|> Enum.uniq_by(& &1.id)");
   await expect(f.locator("#card-19")).toContainText("REPLY");
@@ -79,7 +81,11 @@ test("keyboard: a / x / j decide and move, s opens the summary, collect confirms
   await plugin.collect();
   const data = await plugin.nextSubmit();
   expect(data.undecided).toEqual([]);
-  expect(data.decisions.map((d: any) => [d.id, d.action, d.note])).toEqual([[18, "accept", undefined], [19, "reject", "no"], [20, "accept", undefined]]);
+  expect(data.decisions.map((d: any) => [d.id, d.action, d.note])).toEqual([
+    [18, "accept", undefined],
+    [19, "reject", "no"],
+    [20, "accept", undefined],
+  ]);
 });
 
 test("a draft survives a reload", async ({ page }) => {
@@ -89,7 +95,9 @@ test("a draft survives a reload", async ({ page }) => {
   await f.locator("#card-19 button", { hasText: "Reject" }).click();
   await f.getByLabel("note for proposal 19").fill("later");
   await page.keyboard.press("Enter");
-  await expect.poll(() => plugin.lastDraft().then((d) => d && d.decisions && d.decisions["19"] && d.decisions["19"].note)).toBe("later");
+  await expect
+    .poll(() => plugin.lastDraft().then((d) => d && d.decisions && d.decisions["19"] && d.decisions["19"].note))
+    .toBe("later");
   await plugin.reload();
   await plugin.reinit();
   await expect(f.locator("header")).toContainText("1 undecided");
@@ -111,7 +119,11 @@ test("violations reopen the summary with the errors; submitted renders read-only
   await expect(f.locator("#submit-modal #errors")).toContainText("/comments/0/line: value is not of type integer");
   await f.getByRole("button", { name: "Keep reviewing" }).click();
 
-  await plugin.sendSubmitted({ decided_by: "alice", decided_at: "2026-09-11T10:00:00Z", data: { decisions: [{ id: 18, action: "accept" }], comments: [], undecided: [19, 20] } });
+  await plugin.sendSubmitted({
+    decided_by: "alice",
+    decided_at: "2026-09-11T10:00:00Z",
+    data: { decisions: [{ id: 18, action: "accept" }], comments: [], undecided: [19, 20] },
+  });
   await expect(f.locator("#done-banner")).toBeVisible();
   await expect(f.locator("header")).toContainText("READ-ONLY · DECIDED");
   await expect(f.locator('[data-verdict="18"]')).toHaveText("ACCEPTED");
@@ -154,15 +166,26 @@ test("the header leaves out what the shell's own header already shows", async ({
   await expect(own.locator(`a[href="${change.url}"]`)).toHaveCount(1);
 });
 
-test("the diff's bar holds how it reads and the bulk decisions; icons carry names only where there are no words", async ({ page }) => {
+test("the diff's bar holds how it reads and the bulk decisions; icons carry names only where there are no words", async ({
+  page,
+}) => {
   const plugin = await mountPlugin(page, dir, { review: round2() });
   const header = plugin.frame.locator("header").first();
   const bar = plugin.frame.locator('[role="toolbar"]');
 
   // the header: only the rail's toggle
-  expect(await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual(["panel-left-close"]);
+  expect(await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
+    "panel-left-close",
+  ]);
   // the diff's bar: how it reads, and the decisions on the findings still open below
-  expect(await bar.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual(["rows-3", "columns-2", "fold-vertical", "wrap-text", "list-check", "list-x"]);
+  expect(await bar.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
+    "rows-3",
+    "columns-2",
+    "fold-vertical",
+    "wrap-text",
+    "list-check",
+    "list-x",
+  ]);
 
   // Beside a word, an icon is decoration and the word is the name.
   await expect(bar.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
@@ -184,7 +207,9 @@ test("the diff's bar holds how it reads and the bulk decisions; icons carry name
   await expect(bar.locator('[data-act="bulk-reject"] .wi')).toHaveAttribute("data-icon", "list-x");
 });
 
-test("the file tree's controls carry icons, and the collapse in the header says which way it goes", async ({ page }) => {
+test("the file tree's controls carry icons, and the collapse in the header says which way it goes", async ({
+  page,
+}) => {
   const plugin = await mountPlugin(page, dir, { review: round2() });
   const aside = plugin.frame.locator("aside");
 
@@ -216,7 +241,10 @@ test("the file tree's controls carry icons, and the collapse in the header says 
 });
 
 test("settings lay out the view; a pill or a key asks the shell to keep the choice", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { review: round2(), settings: { diff: "split", order: "path", findings_only: true, tree_open: false } });
+  const plugin = await mountPlugin(page, dir, {
+    review: round2(),
+    settings: { diff: "split", order: "path", findings_only: true, tree_open: false },
+  });
   const f = plugin.frame;
   const splitRows = f.locator(".diff-row.split");
   await expect(f.locator("#card-18")).toBeVisible();
@@ -246,15 +274,25 @@ test("settings lay out the view; a pill or a key asks the shell to keep the choi
   await line.hover();
   const plus = f.getByLabel("comment on lib/acme/tickets.ex:150", { exact: true });
   const box = (await plus.boundingBox())!;
-  const top = await f.locator("body").evaluate((_, [x, y]) => document.elementFromPoint(x, y)?.closest("#addbtn") != null, [box.x + box.width / 2, box.y + box.height / 2]);
+  const top = await f
+    .locator("body")
+    .evaluate(
+      (_, [x, y]) => document.elementFromPoint(x, y)?.closest("#addbtn") != null,
+      [box.x + box.width / 2, box.y + box.height / 2],
+    );
   expect(top).toBe(true);
   // and on a deleted line, commented on its old number
-  const gone = f.locator('[data-filesec] .diff-row.inline.del').first();
+  const gone = f.locator("[data-filesec] .diff-row.inline.del").first();
   await gone.hover();
   const oldPlus = f.locator("#addbtn");
   await expect(oldPlus).toHaveAttribute("data-side", "old");
   const ob = (await oldPlus.boundingBox())!;
-  const onTop = await f.locator("body").evaluate((_, [x, y]) => document.elementFromPoint(x, y)?.closest("#addbtn") != null, [ob.x + ob.width / 2, ob.y + ob.height / 2]);
+  const onTop = await f
+    .locator("body")
+    .evaluate(
+      (_, [x, y]) => document.elementFromPoint(x, y)?.closest("#addbtn") != null,
+      [ob.x + ob.width / 2, ob.y + ob.height / 2],
+    );
   expect(onTop).toBe(true);
   await f.locator('[data-act="toggle-wrap"]').click();
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ wrap: true });
@@ -304,7 +342,6 @@ test("the brief opens the scroll; concerns and the description drop down in it",
   await expect(f.locator("#general-comments")).toHaveCount(0);
 });
 
-
 test("the rail lists each file's findings, where they stand, and jumps to one", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
@@ -313,7 +350,7 @@ test("the rail lists each file's findings, where they stand, and jumps to one", 
   // every finding, those on no file under a group of their own at the end
   await expect(findings).toHaveCount(await f.locator("[data-card]").count());
   await expect(rail.locator(".tree-loose")).toContainText("Not on a file");
-  await expect(rail.locator(".tree-loose ~ [data-act=\"jump-card\"][data-id=\"20\"]")).toHaveCount(1);
+  await expect(rail.locator('.tree-loose ~ [data-act="jump-card"][data-id="20"]')).toHaveCount(1);
   const first = findings.first();
   const id = await first.getAttribute("data-id");
   await first.click();
@@ -362,7 +399,9 @@ test("your comment is edited where it stands, by clicking its text", async ({ pa
   const mine = rail.locator('[data-act="jump-comment"]');
   await expect(mine).toContainText("is insert_all chunked anywhere?");
   await expect(mine).toContainText("L150");
-  const order = await rail.locator('[data-act="jump-card"], [data-act="jump-comment"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-act")));
+  const order = await rail
+    .locator('[data-act="jump-card"], [data-act="jump-comment"]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-act")));
   expect(order.indexOf("jump-comment")).toBeGreaterThan(0);
 });
 
@@ -382,7 +421,7 @@ test("expanding a finding keeps it in place, even with a note left open further 
   await plugin.setFrameHeight(800);
   const f = plugin.frame;
   await f.locator("#card-5 .accept-btn").click();
-  await f.locator("#card-1 .reject-btn").click();   // its reason left open, unsaved
+  await f.locator("#card-1 .reject-btn").click(); // its reason left open, unsaved
   const card = f.locator("#card-5");
   await card.evaluate((el) => el.scrollIntoView({ block: "center" }));
   const before = (await card.locator(".card-head").boundingBox())!.y;
@@ -437,8 +476,12 @@ test("with the findings filter on, a folder with no file left is not shown", asy
   const aside = plugin.frame.locator("aside");
   await expect(aside.locator('[data-act="toggle-dir"][data-dir="docs"]')).toHaveCount(0);
   await expect(aside.locator('[data-act="jump-file"]').first()).toBeVisible();
-  const dirs = await aside.locator('[data-act="toggle-dir"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-dir")));
-  const files = await aside.locator('[data-act="jump-file"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-file")));
+  const dirs = await aside
+    .locator('[data-act="toggle-dir"]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-dir")));
+  const files = await aside
+    .locator('[data-act="jump-file"]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute("data-file")));
   for (const d of dirs) expect(files.some((f) => f!.startsWith(d + "/"))).toBe(true);
 });
 
@@ -457,7 +500,8 @@ test("a proposal's markdown renders in full: lists, links and emphasis", async (
   // the schema tells agents these fields are markdown
   const review = round2();
   const payload = review.payload as { proposals: { body: string }[] };
-  payload.proposals[0].body = "Two things:\n\n- drop the second `reverse`\n- keep _one_ pass\n\nSee [the docs](https://hexdocs.pm/elixir/Enum.html).";
+  payload.proposals[0].body =
+    "Two things:\n\n- drop the second `reverse`\n- keep _one_ pass\n\nSee [the docs](https://hexdocs.pm/elixir/Enum.html).";
   const plugin = await mountPlugin(page, dir, { review });
   const card = plugin.frame.locator(".card-body").first();
   await expect(card.locator("ul li")).toHaveCount(2);

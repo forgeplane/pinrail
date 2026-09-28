@@ -43,7 +43,15 @@ const matches = (q: string, ...fields: (string | null | undefined)[]) =>
 
 const reviewText = (r: Review) => [r.title, r.plugin, r.requested_by, r.origin.repo, r.origin.workflow, r.origin.ref];
 
-export function CommandPalette({ open, onClose, actions }: { open: boolean; onClose: () => void; actions: PaletteAction[] }) {
+export function CommandPalette({
+  open,
+  onClose,
+  actions,
+}: {
+  open: boolean;
+  onClose: () => void;
+  actions: PaletteAction[];
+}) {
   const { pending: waiting, pluginIcon } = useLive();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
@@ -72,12 +80,20 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
   // decided reviews come from the server, a moment after typing stops
   useEffect(() => {
     if (!open || (filter !== "all" && filter !== "history")) return;
-    const timer = window.setTimeout(() => {
-      api
-        .listReviews({ status: "decided,discarded,withdrawn,expired", q: q || undefined, include_revised: "true", limit: all ? "5" : "20" })
-        .then((listing) => setHistory(listing.reviews))
-        .catch(() => setHistory([]));
-    }, q ? 150 : 0);
+    const timer = window.setTimeout(
+      () => {
+        api
+          .listReviews({
+            status: "decided,discarded,withdrawn,expired",
+            q: q || undefined,
+            include_revised: "true",
+            limit: all ? "5" : "20",
+          })
+          .then((listing) => setHistory(listing.reviews))
+          .catch(() => setHistory([]));
+      },
+      q ? 150 : 0,
+    );
     return () => window.clearTimeout(timer);
   }, [open, q, filter, all]);
 
@@ -206,7 +222,14 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
 
   return (
     <div className="app-dialog-backdrop palette-backdrop" onMouseDown={onClose}>
-      <div className="palette" role="dialog" aria-modal="true" aria-label="Search" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKeyDown}>
+      <div
+        className="palette"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search"
+        onMouseDown={(e) => e.stopPropagation()}
+        onKeyDown={onKeyDown}
+      >
         <label className="palette-field">
           <Search size={16} aria-hidden="true" />
           <input
@@ -222,17 +245,28 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
         </label>
         <div className="palette-filters" role="tablist">
           {FILTERS.map((f) => (
-            <button key={f.key} type="button" role="tab" aria-selected={filter === f.key} className={filter === f.key ? "is-active" : ""} onClick={() => setFilter(f.key)} tabIndex={-1}>
+            <button
+              key={f.key}
+              type="button"
+              role="tab"
+              aria-selected={filter === f.key}
+              className={filter === f.key ? "is-active" : ""}
+              onClick={() => setFilter(f.key)}
+              tabIndex={-1}
+            >
               {f.label}
             </button>
           ))}
         </div>
         <div className="palette-list" ref={list} role="listbox">
-          {items.length === 0 ? <p className="palette-empty">{q ? `Nothing matches “${query.trim()}”.` : "Nothing here yet."}</p> : null}
+          {items.length === 0 ? (
+            <p className="palette-empty">{q ? `Nothing matches “${query.trim()}”.` : "Nothing here yet."}</p>
+          ) : null}
           {items.map((item) => {
             index += 1;
             const here = index;
-            const header = item.group !== lastGroup ? GROUP_TITLES[item.group as Exclude<Filter, "all">][all ? 0 : 1] : null;
+            const header =
+              item.group !== lastGroup ? GROUP_TITLES[item.group as Exclude<Filter, "all">][all ? 0 : 1] : null;
             lastGroup = item.group;
             return (
               <div key={item.key}>

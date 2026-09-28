@@ -10,10 +10,14 @@ import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 import conformance from "./conformance/conformance.cjs";
 
 const dir = fileURLToPath(new URL("./conformance", import.meta.url));
-const received = (frame: import("@playwright/test").Frame) => frame.evaluate(() => (window as unknown as { received: any[] }).received);
+const received = (frame: import("@playwright/test").Frame) =>
+  frame.evaluate(() => (window as unknown as { received: any[] }).received);
 
 test("the harness hosts a view as the app does", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { review: fixture(path.join(dir, "fixtures", "basic.json")), settings: { mode: "a" } });
+  const plugin = await mountPlugin(page, dir, {
+    review: fixture(path.join(dir, "fixtures", "basic.json")),
+    settings: { mode: "a" },
+  });
   const frame = page.frames().find((f) => f.url().includes("/view/index.html"))!;
   await expect.poll(async () => (await received(frame)).some((m) => m.type === "init")).toBe(true);
   expect(conformance.handshakeProblems(await received(frame))).toEqual([]);
@@ -31,7 +35,9 @@ test("the harness hosts a view as the app does", async ({ page }) => {
   // a draft comes back in init after a reload
   await expect.poll(() => plugin.lastDraft()).toEqual({ step: 2 });
   await plugin.reinit();
-  await expect.poll(async () => (await received(frame)).filter((m) => m.type === "init").at(-1)?.draft).toEqual({ step: 2 });
+  await expect
+    .poll(async () => (await received(frame)).filter((m) => m.type === "init").at(-1)?.draft)
+    .toEqual({ step: 2 });
 });
 
 const bin = fileURLToPath(new URL("../bin/pinrail-plugin.mjs", import.meta.url));
@@ -47,7 +53,13 @@ const freePort = () =>
 async function devFrame(page: import("@playwright/test").Page) {
   const handle = await page.locator("#frame").elementHandle();
   let frame: import("@playwright/test").Frame | null = null;
-  await expect.poll(async () => (frame = await handle!.contentFrame()) !== null && (await received(frame).catch(() => [])).some((m: any) => m.type === "init")).toBe(true);
+  await expect
+    .poll(
+      async () =>
+        (frame = await handle!.contentFrame()) !== null &&
+        (await received(frame).catch(() => [])).some((m: any) => m.type === "init"),
+    )
+    .toBe(true);
   return frame!;
 }
 
@@ -55,12 +67,15 @@ test("the dev shell hosts a view as the app does", async ({ page }) => {
   const port = await freePort();
   const shell = spawn(process.execPath, [bin, "dev", dir, "--port", String(port), "--no-open"], { stdio: "pipe" });
   try {
-    await expect.poll(async () => (await fetch(`http://127.0.0.1:${port}/dev/manifest`).catch(() => null))?.status).toBe(200);
+    await expect
+      .poll(async () => (await fetch(`http://127.0.0.1:${port}/dev/manifest`).catch(() => null))?.status)
+      .toBe(200);
     await page.goto(`http://127.0.0.1:${port}/`);
     let frame = await devFrame(page);
     expect(conformance.handshakeProblems(await received(frame))).toEqual([]);
 
-    const send = (message: object) => frame.evaluate((m) => (window as unknown as { send: (m: object) => void }).send(m), message);
+    const send = (message: object) =>
+      frame.evaluate((m) => (window as unknown as { send: (m: object) => void }).send(m), message);
     await send({ type: "attachment", req: 7, name: "note.txt" });
     await send({ type: "attachment", req: 8, name: "missing.txt" });
     await expect.poll(async () => (await received(frame)).filter((m) => m.type === "attachment").length).toBe(2);
@@ -68,7 +83,9 @@ test("the dev shell hosts a view as the app does", async ({ page }) => {
     expect(conformance.refusedAttachmentProblems(await received(frame))).toEqual([]);
 
     await send({ type: "settings_set", patch: { mode: "b" } });
-    await expect.poll(async () => (await received(frame)).find((m) => m.type === "settings")?.settings).toEqual({ mode: "b" });
+    await expect
+      .poll(async () => (await received(frame)).find((m) => m.type === "settings")?.settings)
+      .toEqual({ mode: "b" });
     await send({ type: "settings_set", patch: { mode: "z" } });
     await expect.poll(async () => (await received(frame)).some((m) => m.type === "violations")).toBe(true);
 
@@ -81,7 +98,9 @@ test("the dev shell hosts a view as the app does", async ({ page }) => {
     await send({ type: "submit", data: { ok: "yes" } });
     await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
     await send({ type: "submit", data: { ok: true } });
-    await expect.poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data).toEqual({ ok: true });
+    await expect
+      .poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data)
+      .toEqual({ ok: true });
   } finally {
     shell.kill();
   }

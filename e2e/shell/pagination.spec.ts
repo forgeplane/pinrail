@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { clearInbox, createReview, decide } from "./helpers";
 
-
 test("history shows 50 a page, pages through the rest, and starts again at page 1 when filtered", async ({ page }) => {
   await clearInbox(page.request);
   // 60 decided reviews under a word of this run's own, oldest first: history

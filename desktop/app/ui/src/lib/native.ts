@@ -67,7 +67,10 @@ export function useNativeRoutes() {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
     (async () => {
-      const [{ listen }, { invoke }] = await Promise.all([import("@tauri-apps/api/event"), import("@tauri-apps/api/core")]);
+      const [{ listen }, { invoke }] = await Promise.all([
+        import("@tauri-apps/api/event"),
+        import("@tauri-apps/api/core"),
+      ]);
       const go = (route: string) => {
         if (route) navigateRef.current(route);
       };

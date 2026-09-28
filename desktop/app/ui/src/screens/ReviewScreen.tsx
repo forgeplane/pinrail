@@ -151,7 +151,25 @@ export function ReviewScreen() {
         } else {
           const kept = await api.pluginVersions(review.plugin).catch(() => null);
           if (kept?.versions.includes(review.plugin_version)) {
-            found = { name: review.plugin, version: review.plugin_version, title: installed?.title ?? review.plugin, path: "", entry: "index.html", min_height: 400, dev: false, editorial: false, icon: installed?.icon ?? null, usable: true, error: null, settings_schema: null, settings_error: null, settings: null, shortcuts: [], shortcuts_error: null, install: null };
+            found = {
+              name: review.plugin,
+              version: review.plugin_version,
+              title: installed?.title ?? review.plugin,
+              path: "",
+              entry: "index.html",
+              min_height: 400,
+              dev: false,
+              editorial: false,
+              icon: installed?.icon ?? null,
+              usable: true,
+              error: null,
+              settings_schema: null,
+              settings_error: null,
+              settings: null,
+              shortcuts: [],
+              shortcuts_error: null,
+              install: null,
+            };
           }
         }
         const url = found ? await api.bundleUrl(review, found.entry) : null;
@@ -210,7 +228,8 @@ export function ReviewScreen() {
   const pluginSettings = useMemo(() => {
     if (!plugin?.settings_schema) return null;
     const out: Record<string, unknown> = {};
-    for (const [key, property] of Object.entries(plugin.settings_schema.properties)) out[key] = stored && key in stored ? stored[key] : property.default;
+    for (const [key, property] of Object.entries(plugin.settings_schema.properties))
+      out[key] = stored && key in stored ? stored[key] : property.default;
     return out;
   }, [plugin, stored]);
   const onSetSetting = useCallback(
@@ -220,7 +239,9 @@ export function ReviewScreen() {
         await api.patchSettings({ plugins: { [plugin.name]: patch } });
         return [];
       } catch (e) {
-        return e instanceof ApiError ? e.violations : [{ path: "", message: e instanceof Error ? e.message : "The setting was not kept" }];
+        return e instanceof ApiError
+          ? e.violations
+          : [{ path: "", message: e instanceof Error ? e.message : "The setting was not kept" }];
       }
     },
     [plugin],
@@ -254,7 +275,9 @@ export function ReviewScreen() {
       setLinkAsk(null);
       if (!request || !plugin || choice === "cancel") return;
       if (choice === "always" && request.origin) {
-        updatePrefs({ links: { [plugin.name]: allowing(prefsNow.current.links[plugin.name], sourceOf(plugin), request.origin) } });
+        updatePrefs({
+          links: { [plugin.name]: allowing(prefsNow.current.links[plugin.name], sourceOf(plugin), request.origin) },
+        });
       }
       openExternal(request.url);
     },
@@ -290,7 +313,11 @@ export function ReviewScreen() {
         return;
       }
       const el = event.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+      if (
+        el &&
+        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)
+      )
+        return;
       // [ and ] alone move between rounds; with ⌘ or Ctrl they are Back and
       // Forward, which the layout handles
       const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
@@ -302,7 +329,16 @@ export function ReviewScreen() {
       if (combo && !isShadowed(combo) && plugin?.shortcuts?.some((s) => s.keys === combo)) {
         event.preventDefault();
         frame.current?.contentWindow?.postMessage(
-          { pinrail: 1, type: "key", key: event.key, code: event.code, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey },
+          {
+            pinrail: 1,
+            type: "key",
+            key: event.key,
+            code: event.code,
+            metaKey: event.metaKey,
+            ctrlKey: event.ctrlKey,
+            altKey: event.altKey,
+            shiftKey: event.shiftKey,
+          },
           "*",
         );
       }
@@ -350,7 +386,13 @@ export function ReviewScreen() {
           </span>
           {originUrl ? (
             <Tooltip label={`Open ${review.origin.ref ?? "the origin"} in the browser`}>
-              <a href={originUrl} target="_blank" rel="noreferrer" className="bar-button crumb-link" aria-label="Open the origin">
+              <a
+                href={originUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="bar-button crumb-link"
+                aria-label="Open the origin"
+              >
                 <ExternalLink size={13} />
               </a>
             </Tooltip>
@@ -365,19 +407,46 @@ export function ReviewScreen() {
         <>
           {review.status === "pending" ? (
             <Tooltip label="Discard: the agent is told to stop" side="bottom">
-              <button type="button" className="bar-button" onClick={() => setDiscarding(true)} aria-label="Discard this review" data-discard>
+              <button
+                type="button"
+                className="bar-button"
+                onClick={() => setDiscarding(true)}
+                aria-label="Discard this review"
+                data-discard
+              >
                 <Ban size={15} />
               </button>
             </Tooltip>
           ) : null}
-          <Tooltip label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy as markdown"} side="bottom">
-            <button type="button" className={`bar-button copy-button ${copied === "done" ? "ok" : copied === "failed" ? "danger" : ""}`} onClick={copyMarkdown} aria-label="Copy the review as markdown" data-copy-markdown>
-              {copied === "done" ? <ClipboardCheck size={15} className="copy-done" /> : copied === "failed" ? <ClipboardX size={15} /> : <Copy size={15} />}
+          <Tooltip
+            label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy as markdown"}
+            side="bottom"
+          >
+            <button
+              type="button"
+              className={`bar-button copy-button ${copied === "done" ? "ok" : copied === "failed" ? "danger" : ""}`}
+              onClick={copyMarkdown}
+              aria-label="Copy the review as markdown"
+              data-copy-markdown
+            >
+              {copied === "done" ? (
+                <ClipboardCheck size={15} className="copy-done" />
+              ) : copied === "failed" ? (
+                <ClipboardX size={15} />
+              ) : (
+                <Copy size={15} />
+              )}
             </button>
           </Tooltip>
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
-              <button type="button" className="bar-button" onClick={() => setMaximized(true)} aria-label="Maximize the view" data-maximize>
+              <button
+                type="button"
+                className="bar-button"
+                onClick={() => setMaximized(true)}
+                aria-label="Maximize the view"
+                data-maximize
+              >
                 <Maximize2 size={15} />
               </button>
             </Tooltip>
@@ -388,10 +457,21 @@ export function ReviewScreen() {
     [id, review?.status, plugin, copied], // eslint-disable-line react-hooks/exhaustive-deps -- copyMarkdown reads only the id
   );
   const forPlugin = useMemo(
-    () => (plugin ? { name: plugin.name, title: plugin.title || plugin.name, icon: plugin.icon, shortcuts: plugin.shortcuts ?? [] } : undefined),
+    () =>
+      plugin
+        ? {
+            name: plugin.name,
+            title: plugin.title || plugin.name,
+            icon: plugin.icon,
+            shortcuts: plugin.shortcuts ?? [],
+          }
+        : undefined,
     [plugin],
   );
-  const topbar = useMemo(() => (review ? { crumb, actions, plugin: forPlugin } : null), [review, crumb, actions, forPlugin]);
+  const topbar = useMemo(
+    () => (review ? { crumb, actions, plugin: forPlugin } : null),
+    [review, crumb, actions, forPlugin],
+  );
   useTopBar(topbar);
 
   const onNote = (value: string) => {
@@ -440,7 +520,10 @@ export function ReviewScreen() {
         ) : null}
         <span className="strip-id">
           <span className="mono faint">{review.id}</span>
-          <Tooltip label={copiedId === "done" ? "Copied" : copiedId === "failed" ? "Could not copy" : "Copy the id"} side="bottom">
+          <Tooltip
+            label={copiedId === "done" ? "Copied" : copiedId === "failed" ? "Could not copy" : "Copy the id"}
+            side="bottom"
+          >
             <button
               type="button"
               className={`id-copy ${copiedId === "done" ? "ok" : copiedId === "failed" ? "danger" : ""}`}
@@ -448,7 +531,13 @@ export function ReviewScreen() {
               aria-label="Copy the review id"
               data-copy-id
             >
-              {copiedId === "done" ? <ClipboardCheck size={14} /> : copiedId === "failed" ? <ClipboardX size={14} /> : <Copy size={14} />}
+              {copiedId === "done" ? (
+                <ClipboardCheck size={14} />
+              ) : copiedId === "failed" ? (
+                <ClipboardX size={14} />
+              ) : (
+                <Copy size={14} />
+              )}
             </button>
           </Tooltip>
         </span>
@@ -478,11 +567,7 @@ export function ReviewScreen() {
         ) : null}
       </div>
 
-      {flash ? (
-        <p className="notice">
-          {flash}
-        </p>
-      ) : null}
+      {flash ? <p className="notice">{flash}</p> : null}
       {review.status === "withdrawn" ? (
         <p className="notice">
           The requester withdrew this review {age(review.withdrawn_at)} ago
@@ -497,14 +582,19 @@ export function ReviewScreen() {
           </Link>
         </p>
       ) : null}
-      {review.status === "expired" ? <p className="notice notice-danger">This review expired at {stamp(review.expires_at)} without a decision.</p> : null}
+      {review.status === "expired" ? (
+        <p className="notice notice-danger">This review expired at {stamp(review.expires_at)} without a decision.</p>
+      ) : null}
       {review.status === "discarded" ? (
         <p className="notice">
           <span className="text">{review.discarded_by}</span> discarded this review {age(review.discarded_at)} ago
-          {review.discarded_reason ? `: ${review.discarded_reason}` : "."} The agent was told to stop; nothing was decided.
+          {review.discarded_reason ? `: ${review.discarded_reason}` : "."} The agent was told to stop; nothing was
+          decided.
         </p>
       ) : null}
-      {linkAsk && plugin ? <LinkDialog plugin={plugin.title || plugin.name} request={linkAsk} onClose={onLinkChoice} /> : null}
+      {linkAsk && plugin ? (
+        <LinkDialog plugin={plugin.title || plugin.name} request={linkAsk} onClose={onLinkChoice} />
+      ) : null}
       {discarding && review.status === "pending" ? (
         <DiscardDialog
           review={review}
@@ -537,21 +627,36 @@ export function ReviewScreen() {
       {plugin === null ? (
         <div className="notice notice-danger plugin-missing" data-plugin-missing>
           <p>
-            <b>{review.plugin} v{review.plugin_version}</b> is not installed, so this review has no view. What was decided is still on record.
+            <b>
+              {review.plugin} v{review.plugin_version}
+            </b>{" "}
+            is not installed, so this review has no view. What was decided is still on record.
           </p>
-          <button type="button" className="chrome-button" onClick={() => navigate("/", { state: { settings: "plugins" } })}>
+          <button
+            type="button"
+            className="chrome-button"
+            onClick={() => navigate("/", { state: { settings: "plugins" } })}
+          >
             Open Plugins…
           </button>
         </div>
       ) : null}
 
       {plugin ? (
-        <div className={`plugin-frame-wrap ${bridge.fill ? "is-fill" : ""} ${maximized ? "is-maximized" : ""} ${overlayTitleBar ? "has-overlay-bar" : ""}`}>
+        <div
+          className={`plugin-frame-wrap ${bridge.fill ? "is-fill" : ""} ${maximized ? "is-maximized" : ""} ${overlayTitleBar ? "has-overlay-bar" : ""}`}
+        >
           {maximized ? (
             <div className="frame-bar" data-tauri-drag-region>
               <span className="frame-bar-title">{review.title}</span>
               <Tooltip label="Restore the view" keys={[MOD, "⇧", "M"]} side="bottom">
-                <button type="button" className="bar-button" onClick={() => setMaximized(false)} aria-label="Restore the view" data-restore>
+                <button
+                  type="button"
+                  className="bar-button"
+                  onClick={() => setMaximized(false)}
+                  aria-label="Restore the view"
+                  data-restore
+                >
                   <Minimize2 size={15} />
                 </button>
               </Tooltip>
@@ -609,10 +714,22 @@ export function ReviewScreen() {
           />
           <div className="composer-bar">
             <span className="composer-hint">
-              {live.connected ? "The note travels with your decision" : "Reconnecting — hand-over resumes when the server is back"}
+              {live.connected
+                ? "The note travels with your decision"
+                : "Reconnecting — hand-over resumes when the server is back"}
             </span>
-            <Tooltip label={live.connected ? "Hand over to the agent" : "Reconnect to hand over"} keys={[MOD, "Enter"]} side="top">
-              <button type="button" className="handover-button with-icon" data-handover disabled={bridge.submitting || !live.connected} onClick={bridge.collect}>
+            <Tooltip
+              label={live.connected ? "Hand over to the agent" : "Reconnect to hand over"}
+              keys={[MOD, "Enter"]}
+              side="top"
+            >
+              <button
+                type="button"
+                className="handover-button with-icon"
+                data-handover
+                disabled={bridge.submitting || !live.connected}
+                onClick={bridge.collect}
+              >
                 {bridge.handoverLabel}
                 <Send size={13} />
                 <span className="handover-keys" aria-hidden="true">

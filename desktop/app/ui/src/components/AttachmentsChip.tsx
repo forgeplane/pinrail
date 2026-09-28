@@ -117,10 +117,18 @@ export function AttachmentsChip({ reviewId, attachments }: Props) {
                     <div className="attachment-text">
                       <span className="attachment-name">{a.name}</span>
                       <span className="attachment-meta">
-                        {size(a.size)} · {a.media_type} · <span className="mono" title={a.sha256}>{a.sha256.slice(0, 12)}</span>
+                        {size(a.size)} · {a.media_type} ·{" "}
+                        <span className="mono" title={a.sha256}>
+                          {a.sha256.slice(0, 12)}
+                        </span>
                       </span>
                     </div>
-                    <button type="button" className="chrome-button attachment-save" onClick={() => void save(a.name)} data-attachment-save={a.name}>
+                    <button
+                      type="button"
+                      className="chrome-button attachment-save"
+                      onClick={() => void save(a.name)}
+                      data-attachment-save={a.name}
+                    >
                       <Download size={13} /> Save…
                     </button>
                   </li>

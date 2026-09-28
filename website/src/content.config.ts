@@ -12,7 +12,8 @@ export const collections = {
       pattern: ["**/[^_]*.{md,mdx}", "!examples/**"],
       base: "../docs",
       // docs/index.md is the /docs page itself, so its id has no trailing slash
-      generateId: ({ entry }) => ["docs", entry.replace(/\.mdx?$/, "").replace(/(^|\/)index$/, "")].filter(Boolean).join("/"),
+      generateId: ({ entry }) =>
+        ["docs", entry.replace(/\.mdx?$/, "").replace(/(^|\/)index$/, "")].filter(Boolean).join("/"),
     }),
     schema: docsSchema(),
   }),

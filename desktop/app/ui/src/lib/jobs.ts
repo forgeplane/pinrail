@@ -15,7 +15,11 @@ const TRIES = 4;
  * reported failed with what went wrong. `stopped` ends the following, as
  * when the panel closes, and then null comes back.
  */
-export async function followJob(id: string, onStep: (job: InstallJob) => void, stopped: () => boolean): Promise<InstallJob | null> {
+export async function followJob(
+  id: string,
+  onStep: (job: InstallJob) => void,
+  stopped: () => boolean,
+): Promise<InstallJob | null> {
   let failures = 0;
   while (!stopped()) {
     try {
@@ -27,7 +31,14 @@ export async function followJob(id: string, onStep: (job: InstallJob) => void, s
       failures++;
       if (failures >= TRIES) {
         const why = error instanceof Error ? error.message : String(error);
-        return { id, source: "", status: "failed", log: "", plugin: null, error: `Its progress could not be read: ${why}` };
+        return {
+          id,
+          source: "",
+          status: "failed",
+          log: "",
+          plugin: null,
+          error: `Its progress could not be read: ${why}`,
+        };
       }
     }
     await new Promise((resolve) => window.setTimeout(resolve, EVERY_MS * 2 ** failures));

@@ -4,7 +4,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { listPayload, startWaiter, submitListReview, tmpFile, pinrail, pinrailJson } from "../helpers/pinrail";
 
-const decision = { decisions: [{ id: 1, action: "accept" }, { id: 2, action: "reject", note: "no" }], undecided: [] };
+const decision = {
+  decisions: [
+    { id: 1, action: "accept" },
+    { id: 2, action: "reject", note: "no" },
+  ],
+  undecided: [],
+};
 
 test("submit --wait blocks until a decision and writes the decision file", async () => {
   const out = path.join(path.dirname(tmpFile("x", "")), "mr-42.decisions.json");
@@ -67,7 +73,14 @@ test("discard unblocks a waiter with exit 5 and the reason", async () => {
 });
 
 test("wait times out with exit 4 and the review stays pending", async () => {
-  const review = pinrailJson(["submit", "list", "--title", "review D", "--data", tmpFile("p.json", JSON.stringify(listPayload))]);
+  const review = pinrailJson([
+    "submit",
+    "list",
+    "--title",
+    "review D",
+    "--data",
+    tmpFile("p.json", JSON.stringify(listPayload)),
+  ]);
   const result = await startWaiter(["wait", review.id, "--timeout", "1"]).done;
   expect(result.code).toBe(4);
   expect(result.stdout).toBe("");
@@ -90,10 +103,28 @@ test("a refused request exits 2 with the violations on stderr", async () => {
 test("markdown, the default, prints the decision as prose, and the decision file stays JSON", async () => {
   const waiter = submitListReview("markdown please", ["--markdown", "--decision-out", tmpFile("d.json", "")]);
   const id = await waiter.reviewId;
-  pinrailJson(["decide", id, "--data", tmpFile("d.json", JSON.stringify({ decisions: [{ id: 1, action: "accept" }, { id: 2, action: "reject", note: "typo is fine" }], undecided: [] })), "--note", "ship it"]);
+  pinrailJson([
+    "decide",
+    id,
+    "--data",
+    tmpFile(
+      "d.json",
+      JSON.stringify({
+        decisions: [
+          { id: 1, action: "accept" },
+          { id: 2, action: "reject", note: "typo is fine" },
+        ],
+        undecided: [],
+      }),
+    ),
+    "--note",
+    "ship it",
+  ]);
   const result = await waiter.done;
   expect(result.code).toBe(0);
-  expect(result.stdout).toMatch(/^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/);
+  expect(result.stdout).toMatch(
+    /^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/,
+  );
 
   const shown = pinrail(["show", id, "--markdown"]);
   expect(shown.code).toBe(0);
@@ -168,7 +199,14 @@ test("a plugin pinrail-plugin create wrote installs as a link and decides a revi
     expect(shown.status).toBe("decided");
     expect(shown.decision.data).toEqual({ ok: true, comment: "go" });
 
-    const refused = pinrail(["submit", "triage", "--title", "Bad", "--data", tmpFile("bad.json", JSON.stringify({ msg: 1 }))]);
+    const refused = pinrail([
+      "submit",
+      "triage",
+      "--title",
+      "Bad",
+      "--data",
+      tmpFile("bad.json", JSON.stringify({ msg: 1 })),
+    ]);
     expect(refused.code).not.toBe(0);
   } finally {
     pinrail(["plugins", "remove", "triage"]);
@@ -182,7 +220,13 @@ test("files sent with --attach travel with the review and come back byte for byt
     fs.writeFileSync(path.join(root, "index.html"), "<html></html>");
     fs.writeFileSync(
       path.join(root, "manifest.json"),
-      JSON.stringify({ name: "files", version: "1.0.0", payload_schema: {}, decision_schema: {}, attachments: { accept: [".glb"] } }),
+      JSON.stringify({
+        name: "files",
+        version: "1.0.0",
+        payload_schema: {},
+        decision_schema: {},
+        attachments: { accept: [".glb"] },
+      }),
     );
     pinrailJson(["plugins", "install", root, "--link"]);
 
@@ -191,9 +235,23 @@ test("files sent with --attach travel with the review and come back byte for byt
     const model = tmpFile("pivot.glb", "");
     fs.writeFileSync(model, bytes);
     const payload = tmpFile("files.json", JSON.stringify({ file: { $attachment: "Pivot lamp.glb" } }));
-    const created = pinrailJson(["submit", "files", "--title", "One lamp", "--data", payload, "--attach", `${model}=Pivot lamp.glb`]);
+    const created = pinrailJson([
+      "submit",
+      "files",
+      "--title",
+      "One lamp",
+      "--data",
+      payload,
+      "--attach",
+      `${model}=Pivot lamp.glb`,
+    ]);
     expect(created.attachments).toEqual([
-      { name: "Pivot lamp.glb", size: bytes.length, media_type: "model/gltf-binary", sha256: expect.stringMatching(/^[0-9a-f]{64}$/) },
+      {
+        name: "Pivot lamp.glb",
+        size: bytes.length,
+        media_type: "model/gltf-binary",
+        sha256: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
     ]);
     expect(pinrailJson(["attachments", "list", created.id])).toEqual(created.attachments);
 
@@ -203,7 +261,16 @@ test("files sent with --attach travel with the review and come back byte for byt
     expect(fs.readFileSync(saved).equals(bytes)).toBe(true);
 
     // a reference to a file that was not sent is refused before any upload
-    const refused = pinrail(["submit", "files", "--title", "Two lamps", "--data", tmpFile("f2.json", JSON.stringify({ file: { $attachment: "column.glb" } })), "--attach", model]);
+    const refused = pinrail([
+      "submit",
+      "files",
+      "--title",
+      "Two lamps",
+      "--data",
+      tmpFile("f2.json", JSON.stringify({ file: { $attachment: "column.glb" } })),
+      "--attach",
+      model,
+    ]);
     expect(refused.code).toBe(2);
     expect(refused.stderr).toContain('no attachment \\"column.glb\\" on this review');
   } finally {
@@ -214,7 +281,9 @@ test("files sent with --attach travel with the review and come back byte for byt
 test("plugins lists the built-in and the installed sample plugins", async () => {
   const plugins = pinrailJson(["plugins"]);
   // the samples this suite installs, and the built-in ones that are always there
-  expect(plugins.plugins.map((p: any) => p.name)).toEqual(expect.arrayContaining(["artifact", "email", "feedback", "hello", "list", "review"]));
+  expect(plugins.plugins.map((p: any) => p.name)).toEqual(
+    expect.arrayContaining(["artifact", "email", "feedback", "hello", "list", "review"]),
+  );
   // a plugin only installs if it loads, so every one of them is usable
   for (const p of plugins.plugins) expect(p.usable, `${p.name}: ${p.error}`).toBe(true);
   // the three that are developed in place are links; artifact was built and copied

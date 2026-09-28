@@ -54,7 +54,8 @@ export function targetOf(rel, name) {
 export function scaffold(name, opts = {}) {
   if (!NAME.test(name)) throw new Error(`a plugin's name is [a-z][a-z0-9_-]*: ${JSON.stringify(name)}`);
   const template = opts.template ?? "plain";
-  if (!TEMPLATES.includes(template)) throw new Error(`no template ${JSON.stringify(template)}; one of ${TEMPLATES.join(", ")}`);
+  if (!TEMPLATES.includes(template))
+    throw new Error(`no template ${JSON.stringify(template)}; one of ${TEMPLATES.join(", ")}`);
   const dir = path.resolve(opts.dir ?? name);
   if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) throw new Error(`${dir} exists and is not empty`);
 
@@ -99,7 +100,9 @@ export function create(argv) {
   const sdk = flag("--sdk");
   const name = args.find((a) => !a.startsWith("--"));
   if (!name) {
-    console.error("usage: pinrail-plugin create <name> [--template plain|vite|react|vue|svelte] [--dir path] [--sdk spec]");
+    console.error(
+      "usage: pinrail-plugin create <name> [--template plain|vite|react|vue|svelte] [--dir path] [--sdk spec]",
+    );
     process.exit(2);
   }
 

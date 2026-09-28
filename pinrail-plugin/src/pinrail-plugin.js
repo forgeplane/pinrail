@@ -50,7 +50,10 @@
   const DRAFT_DEBOUNCE_MS = 150;
 
   function escape(s) {
-    return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    return String(s ?? "").replace(
+      /[&<>"']/g,
+      (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+    );
   }
 
   /* Markdown is rendered by markdown-it, which the app prepends to this file:
@@ -183,7 +186,14 @@
           state.settings = settingsOf(data.settings);
           state.capabilities = Array.isArray(data.capabilities) ? data.capabilities : [];
           state.initialised = true;
-          if (handlers.onInit) handlers.onInit({ review: state.review, previous: state.previous, readonly: state.readonly, draft: data.draft || null, settings: state.settings });
+          if (handlers.onInit)
+            handlers.onInit({
+              review: state.review,
+              previous: state.previous,
+              readonly: state.readonly,
+              draft: data.draft || null,
+              settings: state.settings,
+            });
           startResize();
           break;
         case "settings":
@@ -197,7 +207,10 @@
           break;
         case "submitted":
           state.readonly = true;
-          if (state.review) { state.review.decision = data.decision || null; state.review.status = "decided"; }
+          if (state.review) {
+            state.review.decision = data.decision || null;
+            state.review.status = "decided";
+          }
           if (handlers.onSubmitted) handlers.onSubmitted(data.decision || null);
           break;
         case "appearance":
@@ -218,7 +231,10 @@
           if (!waiting) break;
           asked.delete(data.req);
           if (data.ok && data.bytes instanceof ArrayBuffer) waiting.resolve(data.bytes);
-          else waiting.reject(new Error(typeof data.error === "string" ? data.error : `the shell could not hand over ${waiting.name}`));
+          else
+            waiting.reject(
+              new Error(typeof data.error === "string" ? data.error : `the shell could not hand over ${waiting.name}`),
+            );
           break;
         }
         case "key":
@@ -227,8 +243,12 @@
           // so a view that already listens for its keys needs no change.
           if (typeof data.key === "string") {
             const key = {
-              key: data.key, code: typeof data.code === "string" ? data.code : "",
-              metaKey: !!data.metaKey, ctrlKey: !!data.ctrlKey, altKey: !!data.altKey, shiftKey: !!data.shiftKey,
+              key: data.key,
+              code: typeof data.code === "string" ? data.code : "",
+              metaKey: !!data.metaKey,
+              ctrlKey: !!data.ctrlKey,
+              altKey: !!data.altKey,
+              shiftKey: !!data.shiftKey,
             };
             if (env.dispatchKey) env.dispatchKey(key);
             if (handlers.onKey) handlers.onKey(key);
@@ -256,7 +276,9 @@
       }
       const listed = review && Array.isArray(review.attachments) ? review.attachments : [];
       if (!listed.some((a) => a && a.name === name)) {
-        return Promise.reject(new Error(`no attachment "${name}" on this ${round === "previous" ? "previous round" : "review"}`));
+        return Promise.reject(
+          new Error(`no attachment "${name}" on this ${round === "previous" ? "previous round" : "review"}`),
+        );
       }
       return new Promise((resolve, reject) => {
         const req = nextAsk++;
@@ -278,22 +300,42 @@
     }
 
     return {
-      get review() { return state.review; },
+      get review() {
+        return state.review;
+      },
       /** the files the review carries: { name, size, media_type, sha256 } each */
-      get attachments() { return (state.review && state.review.attachments) || []; },
+      get attachments() {
+        return (state.review && state.review.attachments) || [];
+      },
       attachment,
       attachmentUrl,
-      get previous() { return state.previous; },
-      get readonly() { return state.readonly; },
-      get shellOrigin() { return state.shellOrigin; },
-      get initialised() { return state.initialised; },
-      get theme() { return state.theme; },
-      get settings() { return state.settings; },
-      submit(data) { post({ type: "submit", data }); },
+      get previous() {
+        return state.previous;
+      },
+      get readonly() {
+        return state.readonly;
+      },
+      get shellOrigin() {
+        return state.shellOrigin;
+      },
+      get initialised() {
+        return state.initialised;
+      },
+      get theme() {
+        return state.theme;
+      },
+      get settings() {
+        return state.settings;
+      },
+      submit(data) {
+        post({ type: "submit", data });
+      },
       /* Asks the shell to keep a setting of this plugin's; the shell checks
          it against the manifest and answers with `settings` (or with
          `violations` when it will not have it). */
-      setSetting(key, value) { post({ type: "settings_set", patch: { [key]: value } }); },
+      setSetting(key, value) {
+        post({ type: "settings_set", patch: { [key]: value } });
+      },
       draft(data, opts) {
         if (state.readonly) return;
         env.clearTimeout(draftTimer);
@@ -303,8 +345,12 @@
       },
       /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */
       open,
-      resize(height) { post({ type: "resize", height }); },
-      status(status) { post({ type: "status", label: (status || {}).label }); },
+      resize(height) {
+        post({ type: "resize", height });
+      },
+      status(status) {
+        post({ type: "status", label: (status || {}).label });
+      },
       collect,
     };
   }
@@ -415,16 +461,19 @@
      Decorative by default; pass a label and it becomes an image with a name. */
   function icon(name, options) {
     options = options || {};
-    const safe = String(name == null ? "" : name).toLowerCase().replace(/[^a-z0-9-]/g, "");
+    const safe = String(name == null ? "" : name)
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "");
     // a number of pixels, or a length such as "1.25em"; anything else is ignored
-    const length = typeof options.size === "number" && Number.isFinite(options.size) ? options.size + "px"
-      : typeof options.size === "string" && /^[0-9.]+(px|em|rem|%)$/.test(options.size) ? options.size
-      : null;
+    const length =
+      typeof options.size === "number" && Number.isFinite(options.size)
+        ? options.size + "px"
+        : typeof options.size === "string" && /^[0-9.]+(px|em|rem|%)$/.test(options.size)
+          ? options.size
+          : null;
     const size = length ? `--wi-size:${length};` : "";
     const extra = options.class ? " " + escape(options.class) : "";
-    const described = options.label
-      ? ` role="img" aria-label="${escape(options.label)}"`
-      : ' aria-hidden="true"';
+    const described = options.label ? ` role="img" aria-label="${escape(options.label)}"` : ' aria-hidden="true"';
     const base = typeof document === "undefined" ? "http://plugin.invalid/view/" : document.baseURI;
     const url = new URL(`icons/${safe}.svg`, base).href;
     return `<span class="wi${extra}" data-icon="${safe}" style="--wi:url(&quot;${escape(url)}&quot;);${size}"${described}></span>`;
@@ -445,14 +494,16 @@
           cb(
             skeleton
               ? (skeleton.header ? skeleton.header.offsetHeight : 0) + skeleton.content.scrollHeight
-              : doc.documentElement.scrollHeight
+              : doc.documentElement.scrollHeight,
           );
         const ro = new win.ResizeObserver(emit);
         ro.observe(skeleton ? skeleton.content : doc.body);
         emit();
         return () => ro.disconnect();
       },
-      applyTheme: (theme) => { doc.documentElement.dataset.theme = theme; },
+      applyTheme: (theme) => {
+        doc.documentElement.dataset.theme = theme;
+      },
       dispatchKey: (key) => {
         const event = new win.KeyboardEvent("keydown", Object.assign({ bubbles: true, cancelable: true }, key));
         // so a handler can tell a forwarded key from one typed in the frame
@@ -462,35 +513,41 @@
       // A view's frame is sandboxed without allow-popups, so a link in it
       // opens nothing on its own and navigating the frame away from the view
       // is not what a click means either. The shell opens it instead.
-      onLink: (fn) => doc.addEventListener("click", (e) => {
-        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        const anchor = e.target && e.target.closest ? e.target.closest("a[href]") : null;
-        if (!anchor) return;
-        // the address as written: the resolved one of "#" or a relative
-        // link is the view's own, which is not a page to open
-        const href = anchor.getAttribute("href");
-        if (SAFE_HREF.test(href)) {
-          e.preventDefault();
-          fn(anchor.href);
-        } else if (href === "#") {
-          // a link the renderer emptied, or a control written as one: it
-          // goes nowhere, so it should not jump the view to the top either
-          e.preventDefault();
-        }
-        // anything else, a fragment into the view among it, behaves as written
-      }),
+      onLink: (fn) =>
+        doc.addEventListener("click", (e) => {
+          if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+          const anchor = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+          if (!anchor) return;
+          // the address as written: the resolved one of "#" or a relative
+          // link is the view's own, which is not a page to open
+          const href = anchor.getAttribute("href");
+          if (SAFE_HREF.test(href)) {
+            e.preventDefault();
+            fn(anchor.href);
+          } else if (href === "#") {
+            // a link the renderer emptied, or a control written as one: it
+            // goes nowhere, so it should not jump the view to the top either
+            e.preventDefault();
+          }
+          // anything else, a fragment into the view among it, behaves as written
+        }),
       // ? for the keys, [ and ] for the rounds: the app's, so a press the
       // view left alone, outside a text field, goes up to it
-      onAppKey: (fn) => win.addEventListener("keydown", (e) => {
-        if (e.defaultPrevented || e.pinrailForwarded || e.metaKey || e.ctrlKey || e.altKey) return;
-        if (!APP_KEYS.includes(e.key)) return;
-        const el = e.target;
-        if (el && el.closest && el.closest("input, textarea, select, [contenteditable]")) return;
-        fn({ key: e.key, code: e.code || "", metaKey: false, ctrlKey: false, altKey: false, shiftKey: !!e.shiftKey });
-      }),
-      onShortcut: (fn) => win.addEventListener("keydown", (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); fn(); }
-      }),
+      onAppKey: (fn) =>
+        win.addEventListener("keydown", (e) => {
+          if (e.defaultPrevented || e.pinrailForwarded || e.metaKey || e.ctrlKey || e.altKey) return;
+          if (!APP_KEYS.includes(e.key)) return;
+          const el = e.target;
+          if (el && el.closest && el.closest("input, textarea, select, [contenteditable]")) return;
+          fn({ key: e.key, code: e.code || "", metaKey: false, ctrlKey: false, altKey: false, shiftKey: !!e.shiftKey });
+        }),
+      onShortcut: (fn) =>
+        win.addEventListener("keydown", (e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+            e.preventDefault();
+            fn();
+          }
+        }),
       objectUrl: (bytes, type) => win.URL.createObjectURL(new win.Blob([bytes], { type })),
     };
   }

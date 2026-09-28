@@ -27,7 +27,10 @@ export function fixtures() {
     .readdirSync(dir)
     .filter((f) => f.endsWith(".json"))
     .sort()
-    .map((file) => ({ key: file.replace(/\.json$/, ""), ...JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) }));
+    .map((file) => ({
+      key: file.replace(/\.json$/, ""),
+      ...JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")),
+    }));
 }
 
 /** The plugins the fixtures use beyond the built-in ones. */
@@ -55,7 +58,11 @@ async function upload(app, spec) {
       body: bytes,
     });
     if (!res.ok) throw new Error(`uploading ${name}: ${res.status} ${await res.text()}`);
-    carried[name] = { sha256, size: bytes.length, media_type: entry.media_type ?? (name.endsWith(".glb") ? "model/gltf-binary" : "application/octet-stream") };
+    carried[name] = {
+      sha256,
+      size: bytes.length,
+      media_type: entry.media_type ?? (name.endsWith(".glb") ? "model/gltf-binary" : "application/octet-stream"),
+    };
   }
   return carried;
 }
@@ -79,7 +86,11 @@ export async function seed(app) {
       ...(f.revises ? { revises: created[f.revises] } : {}),
     });
     created[f.key] = review.id;
-    if (f.decision) await app.api("POST", `/api/v1/reviews/${review.id}/decision`, { data: f.decision, ...(f.note ? { agent_note: f.note } : {}) });
+    if (f.decision)
+      await app.api("POST", `/api/v1/reviews/${review.id}/decision`, {
+        data: f.decision,
+        ...(f.note ? { agent_note: f.note } : {}),
+      });
     if (f.discard) await app.api("POST", `/api/v1/reviews/${review.id}/discard`, { reason: f.discard });
     if (f.withdraw) await app.api("POST", `/api/v1/reviews/${review.id}/withdraw`, { reason: f.withdraw });
     plan[review.id] = { created: ms(f.age), ...(f.decided ? { outcome: ms(f.decided) } : {}) };

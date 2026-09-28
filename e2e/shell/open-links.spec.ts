@@ -17,7 +17,14 @@ function opener(): string {
   fs.mkdirSync(path.join(dir, "view"));
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "opener", version: "1.0.0", title: "Opener", entry: "view/index.html", payload_schema: {}, decision_schema: {} }),
+    JSON.stringify({
+      name: "opener",
+      version: "1.0.0",
+      title: "Opener",
+      entry: "view/index.html",
+      payload_schema: {},
+      decision_schema: {},
+    }),
   );
   fs.writeFileSync(
     path.join(dir, "view", "index.html"),
@@ -51,7 +58,11 @@ async function recordOpens(page: Page) {
 }
 const opened = (page: Page) => page.evaluate(() => (window as unknown as { opened: string[] }).opened);
 
-const links = async (page: Page) => ((await (await page.request.get(`${core}/api/v1/settings`)).json()).links ?? {}) as Record<string, { source: string; origins: string[] }>;
+const links = async (page: Page) =>
+  ((await (await page.request.get(`${core}/api/v1/settings`)).json()).links ?? {}) as Record<
+    string,
+    { source: string; origins: string[] }
+  >;
 
 let dir: string;
 test.beforeAll(async ({ request }) => {
@@ -148,7 +159,9 @@ test("Settings lists the origins a plugin opens without asking, and one can be r
 
 test("a permission given to the plugin from another source does not apply", async ({ page }) => {
   // as after the plugin was removed and installed again from somewhere else
-  const saved = await page.request.patch(`${core}/api/v1/settings`, { data: { links: { opener: { source: "https://github.com/someone/else", origins: ["https://example.com"] } } } });
+  const saved = await page.request.patch(`${core}/api/v1/settings`, {
+    data: { links: { opener: { source: "https://github.com/someone/else", origins: ["https://example.com"] } } },
+  });
   expect(saved.status(), await saved.text()).toBe(200);
   await page.reload();
   await expect(view(page).locator("#web")).toBeVisible();

@@ -33,7 +33,10 @@ test("asks for an answer before handing over, and shows what the app refuses", a
 });
 
 test("a decided review renders read-only", async ({ page }) => {
-  const decided = { ...basic(), decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: true, comment: "go" } } };
+  const decided = {
+    ...basic(),
+    decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: true, comment: "go" } },
+  };
   const plugin = await mountPlugin(page, dir, { review: decided, readonly: true });
   await expect(plugin.frame.locator("body")).toContainText("Decided: yes");
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveCount(0);

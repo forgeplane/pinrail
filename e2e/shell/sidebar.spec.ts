@@ -3,7 +3,15 @@ import { clearInbox, createReview, decide } from "./helpers";
 
 const payload = {
   intro: "Two proposals.",
-  groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "major", title: "do_save dedups without reversing" }, { id: 2, severity: "minor", title: "moduledoc typo" }] }],
+  groups: [
+    {
+      title: "lib/acme/tickets.ex",
+      items: [
+        { id: 1, severity: "major", title: "do_save dedups without reversing" },
+        { id: 2, severity: "minor", title: "moduledoc typo" },
+      ],
+    },
+  ],
 };
 
 /** A list review from `workflow`, in acme/api unless told otherwise. */
@@ -12,7 +20,8 @@ function review(request: APIRequestContext, title: string, workflow: string, rep
 }
 
 /** Leaves both proposals undecided, which decides the review. */
-const decideNothing = (request: APIRequestContext, id: string) => decide(request, id, { decisions: [], undecided: [1, 2] });
+const decideNothing = (request: APIRequestContext, id: string) =>
+  decide(request, id, { decisions: [], undecided: [1, 2] });
 
 test("the sidebar lists what is waiting on every page, oldest first, and ⌥↓ walks it", async ({ page }) => {
   await clearInbox(page.request);

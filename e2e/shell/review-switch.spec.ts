@@ -23,11 +23,24 @@ test("switching to a review of another plugin loads that plugin's view, and only
   await clearInbox(page.request);
   await linkPlugin(page.request, hello, "hello");
 
-  const list = await createReview(page.request, { plugin: "list", title: "Switch: a list", payload: {
-    intro: "Two proposals from the list plugin.",
-    groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "major", title: "do_save dedups without reversing" }] }],
-  } });
-  const question = await createReview(page.request, { plugin: "hello", title: "Switch: a question", payload: { message: "Push the branch to origin?" } });
+  const list = await createReview(page.request, {
+    plugin: "list",
+    title: "Switch: a list",
+    payload: {
+      intro: "Two proposals from the list plugin.",
+      groups: [
+        {
+          title: "lib/acme/tickets.ex",
+          items: [{ id: 1, severity: "major", title: "do_save dedups without reversing" }],
+        },
+      ],
+    },
+  });
+  const question = await createReview(page.request, {
+    plugin: "hello",
+    title: "Switch: a question",
+    payload: { message: "Push the branch to origin?" },
+  });
 
   const loads = bundlesLoaded(page);
   await page.goto(`/#/reviews/${list.id}`);
@@ -54,12 +67,24 @@ test("switching to a review of another plugin loads that plugin's view, and only
 
 test("a review clicked past does not come back when its fetch lands late", async ({ page }) => {
   await clearInbox(page.request);
-  const first = await createReview(page.request, { plugin: "hello", title: "Quick: first", payload: { message: "The first question." } });
-  const second = await createReview(page.request, { plugin: "list", title: "Quick: second", payload: {
-    intro: "The second review, a list.",
-    groups: [{ title: "a.ex", items: [{ id: 1, severity: "minor", title: "one" }] }],
-  } });
-  const third = await createReview(page.request, { plugin: "hello", title: "Quick: third", payload: { message: "The third question." } });
+  const first = await createReview(page.request, {
+    plugin: "hello",
+    title: "Quick: first",
+    payload: { message: "The first question." },
+  });
+  const second = await createReview(page.request, {
+    plugin: "list",
+    title: "Quick: second",
+    payload: {
+      intro: "The second review, a list.",
+      groups: [{ title: "a.ex", items: [{ id: 1, severity: "minor", title: "one" }] }],
+    },
+  });
+  const third = await createReview(page.request, {
+    plugin: "hello",
+    title: "Quick: third",
+    payload: { message: "The third question." },
+  });
 
   await page.goto(`/#/reviews/${first.id}`);
   const frame = page.frameLocator("#plugin-frame");
@@ -88,9 +113,20 @@ test("Copy as markdown copies the review on screen, after moving from another", 
   // kept the id of the first would quietly copy the wrong review into a
   // merge request or a thread.
   await clearInbox(page.request);
-  const payload = (intro: string) => ({ intro, groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }] });
-  const first = await createReview(page.request, { plugin: "list", title: "Copy: the first", payload: payload("The first review.") });
-  const second = await createReview(page.request, { plugin: "list", title: "Copy: the second", payload: payload("The second review.") });
+  const payload = (intro: string) => ({
+    intro,
+    groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
+  });
+  const first = await createReview(page.request, {
+    plugin: "list",
+    title: "Copy: the first",
+    payload: payload("The first review."),
+  });
+  const second = await createReview(page.request, {
+    plugin: "list",
+    title: "Copy: the second",
+    payload: payload("The second review."),
+  });
 
   await page.goto(`/#/reviews/${first.id}`);
   await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The first review.");
@@ -99,14 +135,27 @@ test("Copy as markdown copies the review on screen, after moving from another", 
 
   const asked = page.waitForRequest((r) => new URL(r.url()).searchParams.get("format") === "markdown");
   await page.locator("[data-copy-markdown]").click();
-  expect(new URL((await asked).url()).pathname, "the markdown asked for is the review on screen").toBe(`/api/v1/reviews/${second.id}`);
+  expect(new URL((await asked).url()).pathname, "the markdown asked for is the review on screen").toBe(
+    `/api/v1/reviews/${second.id}`,
+  );
 });
 
 test("what the last review said stays with it: the next one opens without its notice", async ({ page }) => {
   await clearInbox(page.request);
-  const payload = (intro: string) => ({ intro, groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }] });
-  const first = await createReview(page.request, { plugin: "list", title: "Notice: the first", payload: payload("The first review.") });
-  await createReview(page.request, { plugin: "list", title: "Notice: the second", payload: payload("The second review.") });
+  const payload = (intro: string) => ({
+    intro,
+    groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
+  });
+  const first = await createReview(page.request, {
+    plugin: "list",
+    title: "Notice: the first",
+    payload: payload("The first review."),
+  });
+  await createReview(page.request, {
+    plugin: "list",
+    title: "Notice: the second",
+    payload: payload("The second review."),
+  });
 
   await page.goto(`/#/reviews/${first.id}`);
   await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The first review.");
@@ -116,17 +165,24 @@ test("what the last review said stays with it: the next one opens without its no
 
   await page.locator("[data-waiting-review]").filter({ hasText: "Notice: the second" }).click();
   await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The second review.");
-  await expect(page.getByText("Discarded. The agent was told to stop."), "the notice belongs to the review that was discarded").toHaveCount(0);
+  await expect(
+    page.getByText("Discarded. The agent was told to stop."),
+    "the notice belongs to the review that was discarded",
+  ).toHaveCount(0);
 });
 
 test("a view that posts its hand-over twice decides the review once", async ({ page }) => {
   // a click and a key press on one button, say: the second must not reach
   // the server, which would refuse it and flash an error after a success
   await clearInbox(page.request);
-  const review = await createReview(page.request, { plugin: "list", title: "Twice: one review", payload: {
-    intro: "Hand over twice.",
-    groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
-  } });
+  const review = await createReview(page.request, {
+    plugin: "list",
+    title: "Twice: one review",
+    payload: {
+      intro: "Hand over twice.",
+      groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
+    },
+  });
   const decisions: string[] = [];
   page.on("request", (r) => r.url().endsWith(`/reviews/${review.id}/decision`) && decisions.push(r.method()));
 
@@ -146,10 +202,14 @@ test("a view that posts its hand-over twice decides the review once", async ({ p
 test("an error that is not JSON still says what the server answered", async ({ page }) => {
   // a proxy's HTML page, or a body cut short: the status is still news
   await clearInbox(page.request);
-  const review = await createReview(page.request, { plugin: "list", title: "Not JSON: one review", payload: {
-    intro: "Never shown.",
-    groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
-  } });
+  const review = await createReview(page.request, {
+    plugin: "list",
+    title: "Not JSON: one review",
+    payload: {
+      intro: "Never shown.",
+      groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
+    },
+  });
   await page.route(`${core}/api/v1/reviews/${review.id}`, (route) =>
     route.fulfill({ status: 502, contentType: "text/html", body: "<html><body>Bad gateway</body></html>" }),
   );

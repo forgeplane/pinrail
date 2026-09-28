@@ -22,25 +22,67 @@ function fakeEnv() {
     themes: [],
     keys: [],
     appKeys: [],
-    post(msg, target) { env.posted.push({ msg, target }); },
-    listen(fn) { env.listeners.push(fn); },
-    setTimeout(fn, ms) { const id = env.nextTimer++; env.timers.push({ id, fn, ms }); return id; },
-    clearTimeout(id) { env.timers = env.timers.filter((t) => t.id !== id); },
-    observeSize(cb) { env.observers.push(cb); cb(321); return () => {}; },
-    applyTheme(theme) { env.themes.push(theme); },
-    dispatchKey(key) { env.keys.push(key); },
-    onShortcut(fn) { env.shortcuts.push(fn); },
-    onAppKey(fn) { env.appKeys.push(fn); },
-    onLink(fn) { env.links.push(fn); },
-    objectUrl(bytes, type) { return `blob:test/${type}/${bytes.byteLength}`; },
+    post(msg, target) {
+      env.posted.push({ msg, target });
+    },
+    listen(fn) {
+      env.listeners.push(fn);
+    },
+    setTimeout(fn, ms) {
+      const id = env.nextTimer++;
+      env.timers.push({ id, fn, ms });
+      return id;
+    },
+    clearTimeout(id) {
+      env.timers = env.timers.filter((t) => t.id !== id);
+    },
+    observeSize(cb) {
+      env.observers.push(cb);
+      cb(321);
+      return () => {};
+    },
+    applyTheme(theme) {
+      env.themes.push(theme);
+    },
+    dispatchKey(key) {
+      env.keys.push(key);
+    },
+    onShortcut(fn) {
+      env.shortcuts.push(fn);
+    },
+    onAppKey(fn) {
+      env.appKeys.push(fn);
+    },
+    onLink(fn) {
+      env.links.push(fn);
+    },
+    objectUrl(bytes, type) {
+      return `blob:test/${type}/${bytes.byteLength}`;
+    },
     // helpers
-    deliver(data, origin = "http://shell.test") { env.listeners.forEach((fn) => fn(data, origin)); },
-    tick() { const due = env.timers; env.timers = []; due.forEach((t) => t.fn()); },
-    types() { return env.posted.map((p) => p.msg.type); },
-    last(type) { return [...env.posted].reverse().find((p) => p.msg.type === type); },
-    pressShortcut() { env.shortcuts.forEach((fn) => fn()); },
-    pressAppKey(key) { env.appKeys.forEach((fn) => fn(key)); },
-    clickLink(url) { env.links.forEach((fn) => fn(url)); },
+    deliver(data, origin = "http://shell.test") {
+      env.listeners.forEach((fn) => fn(data, origin));
+    },
+    tick() {
+      const due = env.timers;
+      env.timers = [];
+      due.forEach((t) => t.fn());
+    },
+    types() {
+      return env.posted.map((p) => p.msg.type);
+    },
+    last(type) {
+      return [...env.posted].reverse().find((p) => p.msg.type === type);
+    },
+    pressShortcut() {
+      env.shortcuts.forEach((fn) => fn());
+    },
+    pressAppKey(key) {
+      env.appKeys.forEach((fn) => fn(key));
+    },
+    clickLink(url) {
+      env.links.forEach((fn) => fn(url));
+    },
   };
   return env;
 }
@@ -53,14 +95,35 @@ function fakeDocument() {
     className: "",
     textContent: "",
     children: [],
-    append(...nodes) { this.children.push(...nodes); },
-    replaceChildren(...nodes) { this.children = nodes; },
+    append(...nodes) {
+      this.children.push(...nodes);
+    },
+    replaceChildren(...nodes) {
+      this.children = nodes;
+    },
   });
   return { body: make("body"), createElement: make };
 }
 
 const shell = (msg) => Object.assign({ pinrail: 1 }, msg);
-const review = (extra = {}) => Object.assign({ id: "g_1", type: "t", type_version: 1, title: "t", status: "pending", payload: {}, decision: null }, extra);
-const init = (extra = {}) => shell(Object.assign({ type: "init", review: review(), previous: null, readonly: false, draft: null, shell_origin: "http://shell.test" }, extra));
+const review = (extra = {}) =>
+  Object.assign(
+    { id: "g_1", type: "t", type_version: 1, title: "t", status: "pending", payload: {}, decision: null },
+    extra,
+  );
+const init = (extra = {}) =>
+  shell(
+    Object.assign(
+      {
+        type: "init",
+        review: review(),
+        previous: null,
+        readonly: false,
+        draft: null,
+        shell_origin: "http://shell.test",
+      },
+      extra,
+    ),
+  );
 
 module.exports = { Pinrail, fakeEnv, fakeDocument, shell, review, init };

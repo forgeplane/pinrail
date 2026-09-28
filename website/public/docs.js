@@ -6,12 +6,16 @@ const slidesOf = (figure) => (figure ? [...figure.querySelectorAll(".pr-slide")]
 
 /* the figure's picture `n`: its slide shown, its dot current */
 function show(figure, n) {
-  slidesOf(figure).forEach((slide, i) => { slide.hidden = i !== n; });
+  slidesOf(figure).forEach((slide, i) => {
+    slide.hidden = i !== n;
+  });
   figure.querySelectorAll(".pr-dot").forEach((dot, i) => dot.setAttribute("aria-current", String(i === n)));
 }
 
 // the picture in the reader's theme, of the ones a button holds
-const shown = (button) => [...button.querySelectorAll("img")].find((img) => getComputedStyle(img).display !== "none") || button.querySelector("img");
+const shown = (button) =>
+  [...button.querySelectorAll("img")].find((img) => getComputedStyle(img).display !== "none") ||
+  button.querySelector("img");
 
 function openZoom(button) {
   const figure = button.closest(".pr-shots");
@@ -27,7 +31,10 @@ function openZoom(button) {
   counter.className = "pr-zoom-count";
   const control = (cls, label, text) => {
     const b = document.createElement("button");
-    b.type = "button"; b.className = cls; b.setAttribute("aria-label", label); b.textContent = text;
+    b.type = "button";
+    b.className = cls;
+    b.setAttribute("aria-label", label);
+    b.textContent = text;
     return b;
   };
   const close = control("pr-zoom-close", "Close", "×");
@@ -40,24 +47,44 @@ function openZoom(button) {
     img.src = pic.currentSrc || pic.src;
     img.alt = pic.alt || source.querySelector("img").alt || "";
     dialog.setAttribute("aria-label", img.alt || "Screenshot");
-    const title = figure ? slides[at].querySelector("figcaption") : button.closest("figure")?.querySelector("figcaption");
+    const title = figure
+      ? slides[at].querySelector("figcaption")
+      : button.closest("figure")?.querySelector("figcaption");
     caption.textContent = title ? title.textContent : "";
     caption.hidden = !title;
     counter.textContent = figure ? `${at + 1} / ${slides.length}` : "";
     if (figure) show(figure, at);
   };
-  const go = (by) => { if (!figure) return; at = (at + by + slides.length) % slides.length; paint(); };
+  const go = (by) => {
+    if (!figure) return;
+    at = (at + by + slides.length) % slides.length;
+    paint();
+  };
 
   dialog.append(close, img, caption);
   if (figure && slides.length > 1) dialog.append(prev, next, counter);
   dialog.addEventListener("click", (event) => {
-    if (event.target === prev) { event.stopPropagation(); go(-1); return; }
-    if (event.target === next) { event.stopPropagation(); go(1); return; }
+    if (event.target === prev) {
+      event.stopPropagation();
+      go(-1);
+      return;
+    }
+    if (event.target === next) {
+      event.stopPropagation();
+      go(1);
+      return;
+    }
     dialog.close();
   });
   dialog.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") { event.preventDefault(); go(-1); }
-    if (event.key === "ArrowRight") { event.preventDefault(); go(1); }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      go(-1);
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      go(1);
+    }
   });
   dialog.addEventListener("close", () => {
     dialog.remove();
@@ -82,7 +109,10 @@ function openDiagram(canvas) {
   panel.className = "pr-mermaid pr-zoom-diagram";
   panel.append(svg.cloneNode(true));
   const close = document.createElement("button");
-  close.type = "button"; close.className = "pr-zoom-close"; close.setAttribute("aria-label", "Close"); close.textContent = "×";
+  close.type = "button";
+  close.className = "pr-zoom-close";
+  close.setAttribute("aria-label", "Close");
+  close.textContent = "×";
   const title = figure.querySelector("figcaption");
   const caption = document.createElement("p");
   caption.className = "pr-zoom-caption";
@@ -90,7 +120,10 @@ function openDiagram(canvas) {
   caption.hidden = !title;
   dialog.append(close, panel, caption);
   dialog.addEventListener("click", () => dialog.close());
-  dialog.addEventListener("close", () => { dialog.remove(); canvas.focus(); });
+  dialog.addEventListener("close", () => {
+    dialog.remove();
+    canvas.focus();
+  });
   document.body.append(dialog);
   dialog.showModal();
   close.focus();
@@ -98,14 +131,23 @@ function openDiagram(canvas) {
 
 document.addEventListener("keydown", (event) => {
   const canvas = event.target.closest && event.target.closest(".pr-mermaid-canvas");
-  if (canvas && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openDiagram(canvas); }
+  if (canvas && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    openDiagram(canvas);
+  }
 });
 
 document.addEventListener("click", (event) => {
   const canvas = event.target.closest(".pr-mermaid-canvas");
-  if (canvas && !canvas.closest(".pr-zoom")) { openDiagram(canvas); return; }
+  if (canvas && !canvas.closest(".pr-zoom")) {
+    openDiagram(canvas);
+    return;
+  }
   const dot = event.target.closest(".pr-dot");
-  if (dot) { show(dot.closest(".pr-shots"), Number(dot.dataset.dot)); return; }
+  if (dot) {
+    show(dot.closest(".pr-shots"), Number(dot.dataset.dot));
+    return;
+  }
   const button = event.target.closest(".pr-shot-open");
   if (button) openZoom(button);
 });
@@ -126,10 +168,18 @@ document.addEventListener("keydown", (event) => {
 // plugin page opens on the one the reader last looked at.
 const CONTRACT_KEY = "pr-contract";
 const remembered = () => {
-  try { return JSON.parse(localStorage.getItem(CONTRACT_KEY) || "{}"); } catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(CONTRACT_KEY) || "{}");
+  } catch {
+    return {};
+  }
 };
 function remember(patch) {
-  try { localStorage.setItem(CONTRACT_KEY, JSON.stringify({ ...remembered(), ...patch })); } catch { /* storage off: nothing to keep */ }
+  try {
+    localStorage.setItem(CONTRACT_KEY, JSON.stringify({ ...remembered(), ...patch }));
+  } catch {
+    /* storage off: nothing to keep */
+  }
 }
 
 function showTab(figure, key, focus) {
@@ -139,12 +189,18 @@ function showTab(figure, key, focus) {
     tab.tabIndex = on ? 0 : -1;
     if (on && focus) tab.focus();
   });
-  figure.querySelectorAll("[data-contract-panel]").forEach((panel) => { panel.hidden = panel.dataset.contractPanel !== key; });
+  figure.querySelectorAll("[data-contract-panel]").forEach((panel) => {
+    panel.hidden = panel.dataset.contractPanel !== key;
+  });
 }
 
 function showView(figure, view) {
-  figure.querySelectorAll("[data-contract-show]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.contractShow === view)));
-  figure.querySelectorAll("[data-contract-view]").forEach((v) => { v.hidden = v.dataset.contractView !== view; });
+  figure
+    .querySelectorAll("[data-contract-show]")
+    .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.contractShow === view)));
+  figure.querySelectorAll("[data-contract-view]").forEach((v) => {
+    v.hidden = v.dataset.contractView !== view;
+  });
 }
 
 for (const figure of document.querySelectorAll("[data-contract]")) {
@@ -173,7 +229,12 @@ document.addEventListener("keydown", (event) => {
   if (!tab || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
   const tabs = [...tab.parentElement.querySelectorAll("[data-contract-tab]")];
   const at = tabs.indexOf(tab);
-  const n = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (at + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  const n =
+    event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? tabs.length - 1
+        : (at + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
   event.preventDefault();
   showTab(tab.closest("[data-contract]"), tabs[n].dataset.contractTab, true);
   remember({ tab: tabs[n].dataset.contractTab });
@@ -190,13 +251,17 @@ function pickFramework(key) {
       tab.setAttribute("aria-selected", String(on));
       tab.tabIndex = on ? 0 : -1;
     });
-    group.querySelectorAll("[data-framework-panel]").forEach((panel) => { panel.hidden = panel.dataset.frameworkPanel !== key; });
+    group.querySelectorAll("[data-framework-panel]").forEach((panel) => {
+      panel.hidden = panel.dataset.frameworkPanel !== key;
+    });
   }
 }
 try {
   const kept = localStorage.getItem(FRAMEWORK_KEY);
   if (kept) pickFramework(kept);
-} catch { /* storage off: the first tab */ }
+} catch {
+  /* storage off: the first tab */
+}
 document.addEventListener("click", (event) => {
   const tab = event.target.closest && event.target.closest("[data-framework-tab]");
   if (!tab) return;
@@ -204,5 +269,9 @@ document.addEventListener("click", (event) => {
   const before = tab.getBoundingClientRect().top;
   pickFramework(tab.dataset.frameworkTab);
   window.scrollBy(0, tab.getBoundingClientRect().top - before);
-  try { localStorage.setItem(FRAMEWORK_KEY, tab.dataset.frameworkTab); } catch { /* nothing to keep */ }
+  try {
+    localStorage.setItem(FRAMEWORK_KEY, tab.dataset.frameworkTab);
+  } catch {
+    /* nothing to keep */
+  }
 });

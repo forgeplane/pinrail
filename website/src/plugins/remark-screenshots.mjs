@@ -10,9 +10,12 @@ import { visit } from "unist-util-visit";
 const escape = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 const shotImages = (name, alt) =>
-  ["light", "dark"].map((theme) =>
-    `<img class="pr-shot-${theme}" src="/screenshots/${name}-${theme}.png" alt="${theme === "light" ? alt : ""}" width="1440" height="900" loading="lazy" decoding="async" />`,
-  ).join("");
+  ["light", "dark"]
+    .map(
+      (theme) =>
+        `<img class="pr-shot-${theme}" src="/screenshots/${name}-${theme}.png" alt="${theme === "light" ? alt : ""}" width="1440" height="900" loading="lazy" decoding="async" />`,
+    )
+    .join("");
 
 // the picture is a button: the app is shown whole, so it opens full size to be read
 const shotButton = (name, alt) =>
@@ -38,8 +41,18 @@ export default function remarkScreenshots() {
       }
       // several in one paragraph: one figure showing one at a time, each with
       // its own caption, and a dot for each to move between them
-      const slides = shots.map((image, i) => `<div class="pr-slide" data-slide="${i}" ${i === 0 ? "" : "hidden"}>${shotButton(image.url.slice("screenshot:".length), escape(image.alt ?? ""))}${image.title ? `<figcaption>${escape(image.title)}</figcaption>` : ""}</div>`).join("");
-      const dots = shots.map((image, i) => `<button type="button" class="pr-dot" data-dot="${i}" aria-label="${escape(`Picture ${i + 1} of ${shots.length}${image.title ? `: ${image.title}` : ""}`)}" aria-current="${i === 0}"></button>`).join("");
+      const slides = shots
+        .map(
+          (image, i) =>
+            `<div class="pr-slide" data-slide="${i}" ${i === 0 ? "" : "hidden"}>${shotButton(image.url.slice("screenshot:".length), escape(image.alt ?? ""))}${image.title ? `<figcaption>${escape(image.title)}</figcaption>` : ""}</div>`,
+        )
+        .join("");
+      const dots = shots
+        .map(
+          (image, i) =>
+            `<button type="button" class="pr-dot" data-dot="${i}" aria-label="${escape(`Picture ${i + 1} of ${shots.length}${image.title ? `: ${image.title}` : ""}`)}" aria-current="${i === 0}"></button>`,
+        )
+        .join("");
       parent.children[index] = {
         type: "html",
         value: `<figure class="pr-shot pr-shots">${slides}<div class="pr-dots not-content" role="group" aria-label="Pictures">${dots}</div></figure>`,

@@ -209,7 +209,10 @@ test("undecided drafts need a confirmation and are reported as undecided", async
   await plugin.collect();
   const data = await plugin.nextSubmit();
   expect(data.undecided).toEqual(["brightside"]);
-  expect(data.drafts.map((d: any) => [d.id, d.action])).toEqual([["northwind", "send"], ["kestrel", "discard"]]);
+  expect(data.drafts.map((d: any) => [d.id, d.action])).toEqual([
+    ["northwind", "send"],
+    ["kestrel", "discard"],
+  ]);
   expect(data.drafts.find((d: any) => d.id === "kestrel").note).toBe("finance should send this, not us");
 });
 
@@ -249,9 +252,14 @@ test("a decided review is read-only and shows what was sent and why", async ({ p
       decided_by: "sam",
       data: {
         drafts: [
-          { id: "northwind", action: "send", subject: "Your Acme renewal on 12 October",
+          {
+            id: "northwind",
+            action: "send",
+            subject: "Your Acme renewal on 12 October",
             body: northwind().body.replace("at your earliest convenience", "this week"),
-            comments: [{ quote: "reach out", note: "we never say reach out" }], note: "fine otherwise" },
+            comments: [{ quote: "reach out", note: "we never say reach out" }],
+            note: "fine otherwise",
+          },
         ],
         undecided: ["brightside", "kestrel"],
       },

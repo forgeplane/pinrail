@@ -78,11 +78,15 @@ test("a folder is looked at before it is installed, and its row says where it ca
   const again = await openInstall(page);
   await again.getByLabel("Source").fill(source);
   await again.locator("[data-install-look]").click();
-  await expect(again.locator('[data-replaces="unchanged"]')).toContainText("greeter 1.2.0 is installed already, from this source, and nothing has changed");
+  await expect(again.locator('[data-replaces="unchanged"]')).toContainText(
+    "greeter 1.2.0 is installed already, from this source, and nothing has changed",
+  );
   // once the folder changes, the same version replaces what is there
   fs.appendFileSync(path.join(source, "view/index.html"), "<!-- edited -->");
   await again.locator("[data-install-look]").click();
-  await expect(again.locator('[data-replaces="same"]')).toContainText("greeter 1.2.0 is installed already. Installing replaces it.");
+  await expect(again.locator('[data-replaces="same"]')).toContainText(
+    "greeter 1.2.0 is installed already. Installing replaces it.",
+  );
   await again.getByLabel("Source").press("Escape");
 
   // removing asks once, in the row, then the row goes
@@ -109,7 +113,9 @@ test("a source that builds shows the exact command as the consent, then runs it"
   await dialog.locator("[data-install-look]").click();
 
   const runs = dialog.locator('[data-runs="build"]');
-  await expect(runs).toContainText("echo building the view && mkdir -p view && printf '<html>built</html>' > view/index.html");
+  await expect(runs).toContainText(
+    "echo building the view && mkdir -p view && printf '<html>built</html>' > view/index.html",
+  );
   await expect(runs).toContainText("with your rights");
 
   await dialog.locator("[data-install-confirm]").click();
@@ -140,7 +146,9 @@ test("a link serves the folder live and offers to install a copy", async ({ page
   // a copy from the row: the dialog opens looked at already, and says it replaces the link
   await row.getByRole("button", { name: "Install a copy of wip" }).click();
   const copy = page.locator("[data-install-panel]");
-  await expect(copy.locator('[data-replaces="link"]')).toContainText("wip 1.0.0 is installed already, as a link to this very folder");
+  await expect(copy.locator('[data-replaces="link"]')).toContainText(
+    "wip 1.0.0 is installed already, as a link to this very folder",
+  );
   await copy.locator("[data-install-confirm]").click();
   await expect(copy.locator("[data-install-done]")).toBeVisible();
   await copy.locator("[data-install-close]").click();
@@ -186,7 +194,9 @@ test("an install whose progress stops answering ends as failed, not stuck", asyn
   await page.route(`${core}/api/v1/plugins/jobs/*`, (route) => {
     polls++;
     if (polls === 1) {
-      return route.fulfill({ json: { id: "job", source, status: "building", steps: [], log: "", plugin: null, error: null } });
+      return route.fulfill({
+        json: { id: "job", source, status: "building", steps: [], log: "", plugin: null, error: null },
+      });
     }
     return route.fulfill({ status: 500, contentType: "text/plain", body: "the server is restarting" });
   });

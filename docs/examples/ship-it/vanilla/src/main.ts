@@ -58,7 +58,12 @@ function choose(verdict: Verdict) {
 
 function render() {
   const { payload, decision } = plugin.review!;
-  const status = draft.verdict === "ship" ? `Ship ${payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
+  const status =
+    draft.verdict === "ship"
+      ? `Ship ${payload.version}`
+      : draft.verdict === "hold"
+        ? "Hold the deploy"
+        : "Choose ship or hold";
   if (!plugin.readonly) plugin.status({ label: status });
 
   const decided = decision?.data;
@@ -78,14 +83,16 @@ function render() {
           ${payload.checks.map((c) => `<li data-passed="${c.passed}">${svg(c.passed ? CircleCheck : CircleX)} ${esc(c.name)}${c.detail ? ` <span class="detail">${esc(c.detail)}</span>` : ""}</li>`).join("")}
         </ul>
       </section>
-      ${plugin.readonly
-        ? `<p class="decided"><b>${decided?.verdict === "ship" ? "Shipped" : "Held"}</b>${decided?.note ? `: ${esc(decided.note)}` : ""}</p>`
-        : `<div class="choice" role="group" aria-label="Verdict">
+      ${
+        plugin.readonly
+          ? `<p class="decided"><b>${decided?.verdict === "ship" ? "Shipped" : "Held"}</b>${decided?.note ? `: ${esc(decided.note)}` : ""}</p>`
+          : `<div class="choice" role="group" aria-label="Verdict">
             <button type="button" class="btn" data-verdict="ship" aria-pressed="${draft.verdict === "ship"}">${svg(Rocket)} Ship <kbd>s</kbd></button>
             <button type="button" class="btn" data-verdict="hold" aria-pressed="${draft.verdict === "hold"}">${svg(Hand)} Hold <kbd>h</kbd></button>
           </div>
           <textarea class="note" aria-label="Note to the agent" placeholder="A note for the agent (optional)">${esc(draft.note)}</textarea>
-          <div class="errors" role="alert">${esc(error)}</div>`}
+          <div class="errors" role="alert">${esc(error)}</div>`
+      }
     </main>`;
 }
 

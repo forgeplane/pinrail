@@ -16,8 +16,20 @@ import { visit } from "unist-util-visit";
 
 const examples = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../docs/examples");
 
-const escape = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const LANGS = { ts: "ts", tsx: "tsx", js: "js", mjs: "js", vue: "vue", svelte: "svelte", json: "json", html: "html", css: "css", md: "md" };
+const escape = (s) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const LANGS = {
+  ts: "ts",
+  tsx: "tsx",
+  js: "js",
+  mjs: "js",
+  vue: "vue",
+  svelte: "svelte",
+  json: "json",
+  html: "html",
+  css: "css",
+  md: "md",
+};
 const slug = (label) => label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
 function code(file) {
@@ -53,11 +65,22 @@ export default function remarkExamples() {
       } else {
         const labels = [...groups.keys()];
         const tabs = labels
-          .map((label, i) => `<button type="button" role="tab" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-framework-tab="${slug(label)}">${escape(label)}</button>`)
+          .map(
+            (label, i) =>
+              `<button type="button" role="tab" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-framework-tab="${slug(label)}">${escape(label)}</button>`,
+          )
           .join("");
-        nodes.push(html(`<div class="pr-frameworks" data-frameworks><div class="pr-frameworks-tabs not-content" role="tablist" aria-label="Framework">${tabs}</div>`));
+        nodes.push(
+          html(
+            `<div class="pr-frameworks" data-frameworks><div class="pr-frameworks-tabs not-content" role="tablist" aria-label="Framework">${tabs}</div>`,
+          ),
+        );
         labels.forEach((label, i) => {
-          nodes.push(html(`<div class="pr-frameworks-panel" role="tabpanel" data-framework-panel="${slug(label)}"${i === 0 ? "" : " hidden"}>`));
+          nodes.push(
+            html(
+              `<div class="pr-frameworks-panel" role="tabpanel" data-framework-panel="${slug(label)}"${i === 0 ? "" : " hidden"}>`,
+            ),
+          );
           for (const file of groups.get(label)) nodes.push(code(file));
           nodes.push(html(`</div>`));
         });

@@ -30,7 +30,10 @@ function aboutConfig() {
   if (!allow) throw new Error("notices: no allow list under [licenses] in deny.toml");
   const ids = [...allow[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
   const config = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pinrail-notices-")), "about.toml");
-  fs.writeFileSync(config, `${fs.readFileSync(path.join(root, "about.toml"), "utf8")}\naccepted = ${JSON.stringify(ids)}\n`);
+  fs.writeFileSync(
+    config,
+    `${fs.readFileSync(path.join(root, "about.toml"), "utf8")}\naccepted = ${JSON.stringify(ids)}\n`,
+  );
   return config;
 }
 
@@ -49,7 +52,9 @@ function rust(manifest) {
       id: l.id,
       text: l.text,
       // Pinrail's own crates live in this repository and are not third-party
-      packages: l.used_by.filter((u) => !u.crate.manifest_path.startsWith(root + path.sep)).map((u) => `${u.crate.name} ${u.crate.version}`),
+      packages: l.used_by
+        .filter((u) => !u.crate.manifest_path.startsWith(root + path.sep))
+        .map((u) => `${u.crate.name} ${u.crate.version}`),
     }))
     .filter((l) => l.packages.length > 0);
 }
@@ -104,7 +109,9 @@ for (const e of entries) {
   for (const p of e.packages) section.packages.add(p);
   byText.set(key, section);
 }
-const sections = [...byText.values()].sort((a, b) => a.id.localeCompare(b.id) || [...a.packages][0].localeCompare([...b.packages][0]));
+const sections = [...byText.values()].sort(
+  (a, b) => a.id.localeCompare(b.id) || [...a.packages][0].localeCompare([...b.packages][0]),
+);
 
 const rule = "=".repeat(78);
 const lines = [

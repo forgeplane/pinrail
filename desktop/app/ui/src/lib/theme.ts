@@ -10,7 +10,8 @@ export type ThemePreference = Theme | "system";
 // the last appearance the core reported, for the first paint before the
 // server answers; the server's value wins as soon as it arrives
 const CACHE = "pinrail:appearance";
-const media = typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+const media =
+  typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
 let following = false;
 
 export function currentTheme(): Theme {
@@ -64,7 +65,9 @@ export function setThemePreference(pref: ThemePreference) {
 
 /** ⌘⇧L asks for an explicit flip; the settings store records it. */
 export function toggleTheme() {
-  window.dispatchEvent(new CustomEvent("pinrail:theme-toggle", { detail: currentTheme() === "dark" ? "light" : "dark" }));
+  window.dispatchEvent(
+    new CustomEvent("pinrail:theme-toggle", { detail: currentTheme() === "dark" ? "light" : "dark" }),
+  );
 }
 
 /** The resolved theme as it changes, for controls that show it. */

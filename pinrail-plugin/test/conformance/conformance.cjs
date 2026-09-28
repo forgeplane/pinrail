@@ -14,20 +14,24 @@ function handshakeProblems(received) {
   if (!init) return ["no init"];
   const appearance = types.indexOf("appearance");
   if (appearance !== -1 && appearance > types.indexOf("init")) problems.push("appearance came after init");
-  if (appearance !== -1 && !["dark", "light"].includes(received[appearance].theme)) problems.push(`appearance.theme is ${JSON.stringify(received[appearance].theme)}`);
+  if (appearance !== -1 && !["dark", "light"].includes(received[appearance].theme))
+    problems.push(`appearance.theme is ${JSON.stringify(received[appearance].theme)}`);
   const review = init.review;
   if (!isObject(review)) problems.push("init.review is not an object");
   else {
-    for (const key of ["id", "title", "status"]) if (typeof review[key] !== "string") problems.push(`init.review.${key} is not a string`);
+    for (const key of ["id", "title", "status"])
+      if (typeof review[key] !== "string") problems.push(`init.review.${key} is not a string`);
     if (!("payload" in review)) problems.push("init.review has no payload");
     if (!Array.isArray(review.attachments)) problems.push("init.review.attachments is not a list");
   }
-  if (!(init.previous === null || isObject(init.previous))) problems.push("init.previous is neither null nor an object");
+  if (!(init.previous === null || isObject(init.previous)))
+    problems.push("init.previous is neither null nor an object");
   if (typeof init.readonly !== "boolean") problems.push("init.readonly is not a boolean");
   if (!("draft" in init)) problems.push("init has no draft");
   if (!isObject(init.settings)) problems.push("init.settings is not an object");
   if (typeof init.shell_origin !== "string") problems.push("init.shell_origin is not a string");
-  if (!Array.isArray(init.capabilities) || !init.capabilities.includes("attachments")) problems.push("init.capabilities does not list attachments");
+  if (!Array.isArray(init.capabilities) || !init.capabilities.includes("attachments"))
+    problems.push("init.capabilities does not list attachments");
   return problems;
 }
 
@@ -58,7 +62,11 @@ function refusedAttachmentProblems(received) {
 function violationsProblems(received) {
   const answer = received.find((m) => m.type === "violations");
   if (!answer) return ["no violations for a decision that fails the schema"];
-  if (!Array.isArray(answer.errors) || !answer.errors.every((e) => typeof e.path === "string" && typeof e.message === "string")) return ["violations.errors is not a list of { path, message }"];
+  if (
+    !Array.isArray(answer.errors) ||
+    !answer.errors.every((e) => typeof e.path === "string" && typeof e.message === "string")
+  )
+    return ["violations.errors is not a list of { path, message }"];
   return [];
 }
 

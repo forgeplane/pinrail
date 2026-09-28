@@ -59,7 +59,10 @@ function probe(): string {
 }
 
 async function review(request: APIRequestContext, id: string) {
-  return (await (await request.get(`${core}/api/v1/reviews/${id}`)).json()) as { status: string; decision?: { data: unknown } };
+  return (await (await request.get(`${core}/api/v1/reviews/${id}`)).json()) as {
+    status: string;
+    decision?: { data: unknown };
+  };
 }
 
 /** Opens a review in the app and waits for its view to be drawn. */
@@ -86,7 +89,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("the answer chosen in the view is handed over and becomes the decision", async ({ page }) => {
-  const { id } = await createReview(page.request, { plugin: "hello", title: "Decide: push", payload: { message: "Push the branch?" } });
+  const { id } = await createReview(page.request, {
+    plugin: "hello",
+    title: "Decide: push",
+    payload: { message: "Push the branch?" },
+  });
   const view = await open(page, id, "#yes");
 
   await view.locator("#comment").fill("after the rebase");
@@ -103,7 +110,11 @@ test("the answer chosen in the view is handed over and becomes the decision", as
 });
 
 test("⌘Enter hands over from the shell", async ({ page }) => {
-  const { id } = await createReview(page.request, { plugin: "hello", title: "Decide: keys", payload: { message: "Deploy?" } });
+  const { id } = await createReview(page.request, {
+    plugin: "hello",
+    title: "Decide: keys",
+    payload: { message: "Deploy?" },
+  });
   const view = await open(page, id, "#no");
   await view.locator("#no").click();
   await shellFocus(page);
@@ -139,7 +150,11 @@ test("a declared key pressed with the shell in focus reaches the view", async ({
 });
 
 test("a choice survives a reload of the app", async ({ page }) => {
-  const { id } = await createReview(page.request, { plugin: "hello", title: "Decide: reload", payload: { message: "Merge?" } });
+  const { id } = await createReview(page.request, {
+    plugin: "hello",
+    title: "Decide: reload",
+    payload: { message: "Merge?" },
+  });
   const view = await open(page, id, "#no");
   await view.locator("#no").click();
   await view.locator("#comment").fill("not yet");
@@ -154,10 +169,16 @@ test("a choice survives a reload of the app", async ({ page }) => {
 });
 
 test("a review withdrawn elsewhere turns the open view read-only", async ({ page }) => {
-  const { id } = await createReview(page.request, { plugin: "hello", title: "Decide: withdrawn", payload: { message: "Release?" } });
+  const { id } = await createReview(page.request, {
+    plugin: "hello",
+    title: "Decide: withdrawn",
+    payload: { message: "Release?" },
+  });
   const view = await open(page, id, "#yes");
 
-  const withdrawn = await page.request.post(`${core}/api/v1/reviews/${id}/withdraw`, { data: { reason: "superseded" } });
+  const withdrawn = await page.request.post(`${core}/api/v1/reviews/${id}/withdraw`, {
+    data: { reason: "superseded" },
+  });
   expect(withdrawn.status(), await withdrawn.text()).toBe(200);
   await expect(view.locator("p").last()).toContainText("Closed without a decision (withdrawn)");
   await expect(view.locator("#yes")).toHaveCount(0);

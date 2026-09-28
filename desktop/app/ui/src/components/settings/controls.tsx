@@ -4,7 +4,17 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { shortcutFromEvent, shortcutGlyphs } from "../../lib/shortcuts";
 
-export function Toggle({ checked, onChange, disabled, label }: { checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean; label: string }) {
+export function Toggle({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  label: string;
+}) {
   return (
     <button
       type="button"
@@ -26,7 +36,19 @@ export function Toggle({ checked, onChange, disabled, label }: { checked: boolea
 
 export type SegmentedOption<T extends string> = { value: T; label: ReactNode; title?: string };
 
-export function Segmented<T extends string>({ value, options, onChange, label, disabled }: { value: T; options: SegmentedOption<T>[]; onChange: (value: T) => void; label: string; disabled?: boolean }) {
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+  disabled,
+}: {
+  value: T;
+  options: SegmentedOption<T>[];
+  onChange: (value: T) => void;
+  label: string;
+  disabled?: boolean;
+}) {
   return (
     <span className="segmented" role="radiogroup" aria-label={label}>
       {options.map((o) => (
@@ -51,7 +73,15 @@ export function Segmented<T extends string>({ value, options, onChange, label, d
  * Shows a shortcut as keys; a click listens for the next combination.
  * Esc leaves it as it was. The value is the string the app registers.
  */
-export function ShortcutRecorder({ value, onChange, label }: { value: string; onChange: (shortcut: string) => void; label: string }) {
+export function ShortcutRecorder({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (shortcut: string) => void;
+  label: string;
+}) {
   const [recording, setRecording] = useState(false);
 
   useEffect(() => {
@@ -78,7 +108,13 @@ export function ShortcutRecorder({ value, onChange, label }: { value: string; on
   }, [recording, value, onChange]);
 
   return (
-    <button type="button" className={`shortcut-recorder ${recording ? "is-recording" : ""}`} aria-label={label} onClick={() => setRecording(true)} onBlur={() => setRecording(false)}>
+    <button
+      type="button"
+      className={`shortcut-recorder ${recording ? "is-recording" : ""}`}
+      aria-label={label}
+      onClick={() => setRecording(true)}
+      onBlur={() => setRecording(false)}
+    >
       {recording ? (
         <span className="shortcut-recorder-hint">Press keys…</span>
       ) : (

@@ -26,13 +26,18 @@ test("the fixture menu marks a decided fixture, and choosing one loads it", asyn
   // the decided round sorts first, and has the pending one's title
   fs.writeFileSync(
     path.join(dir, "fixtures", "a-decided.json"),
-    JSON.stringify({ ...basic, decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: false } } }),
+    JSON.stringify({
+      ...basic,
+      decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: false } },
+    }),
   );
 
   const port = await freePort();
   const shell = spawn(process.execPath, [bin, "dev", dir, "--port", String(port), "--no-open"], { stdio: "pipe" });
   try {
-    await expect.poll(async () => (await fetch(`http://127.0.0.1:${port}/dev/manifest`).catch(() => null))?.status).toBe(200);
+    await expect
+      .poll(async () => (await fetch(`http://127.0.0.1:${port}/dev/manifest`).catch(() => null))?.status)
+      .toBe(200);
     await page.goto(`http://127.0.0.1:${port}/`);
     const menu = page.locator("#fixture");
     await expect(menu.locator("option")).toHaveText([`${basic.title} (decided)`, basic.title]);

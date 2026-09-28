@@ -13,7 +13,9 @@ import path from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 
 /** The manifest's JSON Schema, as the core reads it too. */
-export const MANIFEST_SCHEMA = JSON.parse(fs.readFileSync(new URL("../schemas/manifest.schema.json", import.meta.url), "utf8"));
+export const MANIFEST_SCHEMA = JSON.parse(
+  fs.readFileSync(new URL("../schemas/manifest.schema.json", import.meta.url), "utf8"),
+);
 const validateManifest = new Ajv2020({ allErrors: true, strict: false }).compile(MANIFEST_SCHEMA);
 
 /** Keys whose violation costs the plugin that feature, not its place. */
@@ -21,7 +23,19 @@ const FEATURES = ["settings_schema", "shortcuts", "decision_template", "example"
 /** The largest icon file the app takes. Mirrors `ICON_MAX_BYTES`. */
 const ICON_MAX_BYTES = 32 * 1024;
 const SCALARS = ["boolean", "string", "integer", "number"];
-const MODIFIERS = ["cmd", "command", "super", "meta", "ctrl", "control", "alt", "option", "shift", "cmdorctrl", "commandorcontrol"];
+const MODIFIERS = [
+  "cmd",
+  "command",
+  "super",
+  "meta",
+  "ctrl",
+  "control",
+  "alt",
+  "option",
+  "shift",
+  "cmdorctrl",
+  "commandorcontrol",
+];
 const JSON_TYPES = ["null", "boolean", "object", "array", "number", "string", "integer"];
 
 /** A manifest's semantic version as text and its major, or null. Mirrors `version_of`. */
@@ -41,11 +55,15 @@ export function safeJoin(dir, relative) {
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const fits = (kind, value) =>
-  kind === "boolean" ? typeof value === "boolean"
-  : kind === "string" ? typeof value === "string"
-  : kind === "integer" ? Number.isInteger(value)
-  : kind === "number" ? typeof value === "number"
-  : false;
+  kind === "boolean"
+    ? typeof value === "boolean"
+    : kind === "string"
+      ? typeof value === "string"
+      : kind === "integer"
+        ? Number.isInteger(value)
+        : kind === "number"
+          ? typeof value === "number"
+          : false;
 
 /**
  * Checks the plugin at `dir`. Returns `{ ok, usable, name, release, major,
@@ -64,10 +82,19 @@ export function checkPlugin(dir) {
     dir,
     ok: problems.length === 0,
     usable: problems.length === 0 && !notes.some((n) => n.key === "entry"),
-    name, release, major, entry, problems, warnings, notes,
+    name,
+    release,
+    major,
+    entry,
+    problems,
+    warnings,
+    notes,
   });
 
-  let name = null, release = null, major = null, entry = null;
+  let name = null,
+    release = null,
+    major = null,
+    entry = null;
   let manifest;
   try {
     manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
@@ -99,7 +126,8 @@ export function checkPlugin(dir) {
   }
   const refused = (key) => problems.some((p) => p.key === key);
   for (const key of Object.keys(manifest)) {
-    if (!(key in MANIFEST_SCHEMA.properties)) warn(key, "not a manifest key: a typo, or a key for a newer Pinrail; the app ignores it");
+    if (!(key in MANIFEST_SCHEMA.properties))
+      warn(key, "not a manifest key: a typo, or a key for a newer Pinrail; the app ignores it");
   }
 
   if (!refused("name")) name = manifest.name;
@@ -113,7 +141,11 @@ export function checkPlugin(dir) {
   if (entry !== null) {
     const file = safeJoin(dir, entry);
     if (!file || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
-      if (buildCommand) notes.push({ key: "entry", message: `entry ${entry} not found yet: the build (${buildCommand}) has to write it` });
+      if (buildCommand)
+        notes.push({
+          key: "entry",
+          message: `entry ${entry} not found yet: the build (${buildCommand}) has to write it`,
+        });
       else problem("entry", `entry ${entry} not found`);
     }
   }
@@ -157,7 +189,11 @@ export function checkPlugin(dir) {
   const takesFiles = isObject(manifest.attachments) && !refused("attachments");
   if (takesFiles) {
     const bad = manifest.attachments.accept.find((k) => !isKind(k));
-    if (bad !== undefined) problem("attachments", `attachments.accept: ${JSON.stringify(bad)} is neither an extension like .glb nor a media type like image/png`);
+    if (bad !== undefined)
+      problem(
+        "attachments",
+        `attachments.accept: ${JSON.stringify(bad)} is neither an extension like .glb nor a media type like image/png`,
+      );
   }
   if (!refused("payload_schema") && "payload_schema" in manifest) {
     let names = false;
@@ -166,16 +202,31 @@ export function checkPlugin(dir) {
     } catch {
       // an unreadable schema is reported above
     }
-    if (takesFiles && !names) warn("attachments", 'payload_schema never names {"$attachment": …}: say where a file goes, or an agent cannot tell (Pinrail.ATTACHMENT_SCHEMA is the $defs entry)');
-    if (!takesFiles && names) warn("attachments", 'payload_schema names {"$attachment": …} but the manifest declares no attachments: the app refuses every file for this plugin');
+    if (takesFiles && !names)
+      warn(
+        "attachments",
+        'payload_schema never names {"$attachment": …}: say where a file goes, or an agent cannot tell (Pinrail.ATTACHMENT_SCHEMA is the $defs entry)',
+      );
+    if (!takesFiles && names)
+      warn(
+        "attachments",
+        'payload_schema names {"$attachment": …} but the manifest declares no attachments: the app refuses every file for this plugin',
+      );
   }
 
-  if (manifest.decision_template !== undefined && manifest.decision_template !== null && !dropped.has("decision_template")) {
+  if (
+    manifest.decision_template !== undefined &&
+    manifest.decision_template !== null &&
+    !dropped.has("decision_template")
+  ) {
     const t = manifest.decision_template;
     if (!fs.existsSync(path.join(dir, t)) || !fs.statSync(path.join(dir, t)).isFile()) {
       warn("decision_template", `${t}: cannot read`);
     } else {
-      notes.push({ key: "decision_template", message: `${t}: the app compiles it on install; render a decided fixture to see it` });
+      notes.push({
+        key: "decision_template",
+        message: `${t}: the app compiles it on install; render a decided fixture to see it`,
+      });
     }
   }
 
@@ -269,7 +320,8 @@ function sampleProblem(dir, file, payloadSchema) {
     if (typeof relative !== "string") return `${file}: attachments.${name} must be a path or {path, media_type}`;
     const where = safeJoin(base, relative);
     if (!where) return `${file}: attachments.${name} must stay inside the plugin's folder`;
-    if (!fs.existsSync(where) || !fs.statSync(where).isFile()) return `${file}: attachments.${name}: ${relative} not found`;
+    if (!fs.existsSync(where) || !fs.statSync(where).isFile())
+      return `${file}: attachments.${name}: ${relative} not found`;
   }
   return null;
 }
@@ -340,7 +392,10 @@ function settingsProblem(dir, raw) {
       if (!ok) return `settings_schema property ${key}: enum must list ${kind} values`;
     }
     if ("oneOf" in p) {
-      const ok = Array.isArray(p.oneOf) && p.oneOf.length > 0 && p.oneOf.every((i) => isObject(i) && "const" in i && fits(kind, i.const));
+      const ok =
+        Array.isArray(p.oneOf) &&
+        p.oneOf.length > 0 &&
+        p.oneOf.every((i) => isObject(i) && "const" in i && fits(kind, i.const));
       if (!ok) return `settings_schema property ${key}: oneOf must list {"const": …} ${kind} values`;
     }
   }
@@ -384,7 +439,8 @@ export function check(argv) {
     for (const p of r.problems) console.log(`  problem  ${p.message}`);
     for (const w of r.warnings) console.log(`  warning  ${w.message}`);
     for (const n of r.notes) console.log(`  note     ${n.message}`);
-    if (r.ok) console.log(r.usable ? "  ok: the app would install and serve it" : "  ok: the app would build, then install it");
+    if (r.ok)
+      console.log(r.usable ? "  ok: the app would install and serve it" : "  ok: the app would build, then install it");
     else console.log("  the app would refuse it");
   }
   process.exit(r.ok ? 0 : 1);

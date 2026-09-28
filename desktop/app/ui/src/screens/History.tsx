@@ -60,7 +60,16 @@ export function History() {
   useEffect(() => {
     let cancelled = false;
     api
-      .listReviews({ status: status || ENDED, include_revised: "true", q: debounced, plugin, repo, offset: String((page - 1) * size), limit: String(size), include: "facets" })
+      .listReviews({
+        status: status || ENDED,
+        include_revised: "true",
+        q: debounced,
+        plugin,
+        repo,
+        offset: String((page - 1) * size),
+        limit: String(size),
+        include: "facets",
+      })
       .then((p) => !cancelled && setData(p))
       .catch(() => !cancelled && setData(null));
     return () => {
@@ -141,7 +150,8 @@ export function History() {
       if (event.key === "j" || event.key === "k") keyboard.current = true;
       if (event.key === "j") setFocused((f) => Math.min(f + 1, reviews.length - 1));
       if (event.key === "k") setFocused((f) => Math.max(f - 1, 0));
-      if (event.key === "Enter" && reviews[focused]) navigate(`/reviews/${reviews[focused].id}`, { state: { from: "history" } });
+      if (event.key === "Enter" && reviews[focused])
+        navigate(`/reviews/${reviews[focused].id}`, { state: { from: "history" } });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -198,7 +208,9 @@ export function History() {
             options={[
               { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
               ...repos.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-              ...(data?.facets?.unassigned || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
+              ...(data?.facets?.unassigned || repo === NO_PROJECT
+                ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }]
+                : []),
             ]}
           />
           <Select
@@ -206,7 +218,10 @@ export function History() {
             icon={<Blocks size={14} />}
             value={plugin}
             onChange={(v) => setFilter("plugin", v)}
-            options={[{ value: "", label: "All plugins", icon: <Blocks size={14} /> }, ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> }))]}
+            options={[
+              { value: "", label: "All plugins", icon: <Blocks size={14} /> },
+              ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> })),
+            ]}
           />
           {filtered ? (
             <button
@@ -227,7 +242,9 @@ export function History() {
           title={filtered ? "No matching decisions" : "Your decisions belong here"}
           icon={filtered ? <SearchX size={28} strokeWidth={1.5} /> : <Archive size={28} strokeWidth={1.5} />}
         >
-          {filtered ? "Nothing matches these filters." : "Decided, withdrawn, discarded and expired reviews appear here, with the view they were decided in."}
+          {filtered
+            ? "Nothing matches these filters."
+            : "Decided, withdrawn, discarded and expired reviews appear here, with the view they were decided in."}
         </EmptyState>
       ) : (
         <div className="history-table-wrap">
@@ -242,7 +259,13 @@ export function History() {
             </thead>
             <tbody>
               {reviews.map((r, i) => (
-                <tr key={r.id} className={i === focused ? "is-focused" : ""} data-history-row={i} onMouseEnter={() => !keyboard.current && setFocused(i)} onClick={() => navigate(`/reviews/${r.id}`, { state: { from: "history" } })}>
+                <tr
+                  key={r.id}
+                  className={i === focused ? "is-focused" : ""}
+                  data-history-row={i}
+                  onMouseEnter={() => !keyboard.current && setFocused(i)}
+                  onClick={() => navigate(`/reviews/${r.id}`, { state: { from: "history" } })}
+                >
                   <td>
                     <Link to={`/reviews/${r.id}`} state={{ from: "history" }} className="history-title">
                       {r.title}

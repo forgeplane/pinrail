@@ -14,7 +14,8 @@ export function StatusBadge({ status }: { status: Status }) {
  * shown as such; a plugin whose decision has no verdict stays "decided".
  */
 export function outcomeOf(review: Pick<Review, "status" | "decision">): { label: string; tone: string } {
-  const verdict = review.status === "decided" ? (review.decision?.data as { verdict?: unknown } | null)?.verdict : undefined;
+  const verdict =
+    review.status === "decided" ? (review.decision?.data as { verdict?: unknown } | null)?.verdict : undefined;
   if (verdict === "approve") return { label: "approved", tone: "approved" };
   if (verdict === "revise") return { label: "changes requested", tone: "revise" };
   if (typeof verdict === "string" && verdict.length <= 24) return { label: verdict, tone: "decided" };

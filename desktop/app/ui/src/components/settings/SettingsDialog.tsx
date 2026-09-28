@@ -43,7 +43,21 @@ function PortField({ value, onChange }: { value: number; onChange: (port: number
     }
     if (port !== value) onChange(port);
   };
-  return <input className="settings-input" type="number" aria-label="Port" min={1024} max={65535} step={1} value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()} data-setting-port />;
+  return (
+    <input
+      className="settings-input"
+      type="number"
+      aria-label="Port"
+      min={1024}
+      max={65535}
+      step={1}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+      data-setting-port
+    />
+  );
 }
 
 /** The pause as a moment still to come, or null. */
@@ -60,10 +74,10 @@ const pauseUntil = (choice: string): string | null => {
   const now = new Date();
   if (choice === "15") return new Date(now.getTime() + 15 * 60_000).toISOString();
   if (choice === "60") return new Date(now.getTime() + 60 * 60_000).toISOString();
-  if (choice === "tomorrow") return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).toISOString();
+  if (choice === "tomorrow")
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0).toISOString();
   return null;
 };
-
 
 /** The shortcut as the app registered it; null in a browser. */
 type ShortcutState = { shortcut: string; error: string | null };
@@ -75,7 +89,10 @@ function useShortcutState(open: boolean): ShortcutState | null {
     let cancelled = false;
     let stop: (() => void) | undefined;
     (async () => {
-      const [{ invoke }, { listen }] = await Promise.all([import("@tauri-apps/api/core"), import("@tauri-apps/api/event")]);
+      const [{ invoke }, { listen }] = await Promise.all([
+        import("@tauri-apps/api/core"),
+        import("@tauri-apps/api/event"),
+      ]);
       invoke<ShortcutState>("shortcut_state")
         .then((s) => !cancelled && setState(s))
         .catch(() => {});
@@ -97,7 +114,6 @@ const describeShortcut = (state: ShortcutState | null, wanted: string) => {
   return state.error ? `Not registered: ${state.error}` : undefined;
 };
 
-
 const Keys = ({ keys }: { keys: string[][] }) => (
   <span className="settings-keys">
     {keys.map((combo, i) => (
@@ -110,7 +126,19 @@ const Keys = ({ keys }: { keys: string[][] }) => (
   </span>
 );
 
-export function SettingsDialog({ open, section, plugin, onSection, onClose }: { open: boolean; section: SettingsSection; plugin?: string | null; onSection: (s: SettingsSection) => void; onClose: () => void }) {
+export function SettingsDialog({
+  open,
+  section,
+  plugin,
+  onSection,
+  onClose,
+}: {
+  open: boolean;
+  section: SettingsSection;
+  plugin?: string | null;
+  onSection: (s: SettingsSection) => void;
+  onClose: () => void;
+}) {
   const navigate = useNavigate();
   const { settings, update, native } = useSettings();
   const [info, setInfo] = useState<ServerInfo | null>(null);
@@ -136,11 +164,18 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
 
   useEffect(() => {
     if (!open) return;
-    api.info().then(setInfo).catch(() => setInfo(null));
+    api
+      .info()
+      .then(setInfo)
+      .catch(() => setInfo(null));
     const onKey = (e: KeyboardEvent) => {
       // Esc while recording a shortcut is the recorder's, and in the
       // install panel's field it closes the panel, not the dialog
-      if (e.key === "Escape" && !document.querySelector(".shortcut-recorder.is-recording") && !document.activeElement?.closest("[data-install-panel]")) {
+      if (
+        e.key === "Escape" &&
+        !document.querySelector(".shortcut-recorder.is-recording") &&
+        !document.activeElement?.closest("[data-install-panel]")
+      ) {
         e.stopPropagation();
         onClose();
       }
@@ -164,11 +199,24 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={onClose}>
-      <div className="settings" role="dialog" aria-modal="true" aria-label="Settings" onMouseDown={(e) => e.stopPropagation()} data-settings>
+      <div
+        className="settings"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Settings"
+        onMouseDown={(e) => e.stopPropagation()}
+        data-settings
+      >
         <nav className="settings-rail" aria-label="Settings sections">
           <div className="settings-rail-title">Settings</div>
           {SECTIONS.map((s) => (
-            <button key={s.key} type="button" className={section === s.key ? "is-active" : ""} onClick={() => onSection(s.key)} data-section={s.key}>
+            <button
+              key={s.key}
+              type="button"
+              className={section === s.key ? "is-active" : ""}
+              onClick={() => onSection(s.key)}
+              data-section={s.key}
+            >
               {s.icon}
               {s.label}
             </button>
@@ -184,10 +232,26 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "general" ? (
             <SettingsPage title="General">
               <SettingsGroup caption="Startup">
-                <SettingsRow label="Launch at login" description="Open Pinrail when you sign in, in the menu bar" note={native ? undefined : "Only in the app"}>
-                  <Toggle label="Launch at login" checked={settings.autostart === true} disabled={!native || settings.autostart === null} onChange={(v) => update({ autostart: v })} />
+                <SettingsRow
+                  label="Launch at login"
+                  description="Open Pinrail when you sign in, in the menu bar"
+                  note={native ? undefined : "Only in the app"}
+                >
+                  <Toggle
+                    label="Launch at login"
+                    checked={settings.autostart === true}
+                    disabled={!native || settings.autostart === null}
+                    onChange={(v) => update({ autostart: v })}
+                  />
                 </SettingsRow>
-                <SettingsRow label="Closing the window" description={settings.close_window === "quit" ? "Quits Pinrail and removes its icon." : `Hides the window. Pinrail stays in ${TRAY} until you quit it.`}>
+                <SettingsRow
+                  label="Closing the window"
+                  description={
+                    settings.close_window === "quit"
+                      ? "Quits Pinrail and removes its icon."
+                      : `Hides the window. Pinrail stays in ${TRAY} until you quit it.`
+                  }
+                >
                   <Segmented
                     label="Closing the window"
                     value={settings.close_window}
@@ -198,15 +262,38 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                     ]}
                   />
                 </SettingsRow>
-                <SettingsRow label={`Show in ${TRAY}`} description="An icon with the number of waiting reviews and a menu to open them. When it is off, Pinrail still opens with its shortcut and from notifications." note={native ? undefined : "Only in the app"}>
-                  <Toggle label={`Show in ${TRAY}`} checked={settings.menu_bar_icon} disabled={!native} onChange={(v) => update({ menu_bar_icon: v })} />
+                <SettingsRow
+                  label={`Show in ${TRAY}`}
+                  description="An icon with the number of waiting reviews and a menu to open them. When it is off, Pinrail still opens with its shortcut and from notifications."
+                  note={native ? undefined : "Only in the app"}
+                >
+                  <Toggle
+                    label={`Show in ${TRAY}`}
+                    checked={settings.menu_bar_icon}
+                    disabled={!native}
+                    onChange={(v) => update({ menu_bar_icon: v })}
+                  />
                 </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="Notifications">
-                <SettingsRow label="System notifications" description="A notification when a review arrives; the tray keeps its count either way">
-                  <Toggle label="System notifications" checked={settings.notifications.enabled} onChange={(v) => update({ notifications: { enabled: v } })} />
+                <SettingsRow
+                  label="System notifications"
+                  description="A notification when a review arrives; the tray keeps its count either way"
+                >
+                  <Toggle
+                    label="System notifications"
+                    checked={settings.notifications.enabled}
+                    onChange={(v) => update({ notifications: { enabled: v } })}
+                  />
                 </SettingsRow>
-                <SettingsRow label="Pause" description={paused ? `Nothing is announced until ${clock(paused)}; the tray's menu says so too` : "Nothing is announced while paused; the tray's menu offers the same"}>
+                <SettingsRow
+                  label="Pause"
+                  description={
+                    paused
+                      ? `Nothing is announced until ${clock(paused)}; the tray's menu says so too`
+                      : "Nothing is announced while paused; the tray's menu offers the same"
+                  }
+                >
                   <Select
                     label="Pause notifications"
                     icon={<Bell size={14} />}
@@ -228,7 +315,11 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
                   />
                 </SettingsRow>
                 <SettingsRow label="Sound" description="The system's notification sound with each one">
-                  <Toggle label="Sound" checked={settings.notifications.sound} onChange={(v) => update({ notifications: { sound: v } })} />
+                  <Toggle
+                    label="Sound"
+                    checked={settings.notifications.sound}
+                    onChange={(v) => update({ notifications: { sound: v } })}
+                  />
                 </SettingsRow>
                 <SettingsRow label="System" description={describeSystem(system)}>
                   {system.status?.authorization === "not_determined" ? (
@@ -248,7 +339,10 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "appearance" ? (
             <SettingsPage title="Appearance">
               <SettingsGroup>
-                <SettingsRow label="Theme" description="System follows your computer's setting. ⌘⇧L switches between dark and light.">
+                <SettingsRow
+                  label="Theme"
+                  description="System follows your computer's setting. ⌘⇧L switches between dark and light."
+                >
                   <Segmented
                     label="Theme"
                     value={settings.appearance.theme}
@@ -279,15 +373,34 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "shortcuts" ? (
             <SettingsPage title="Shortcuts">
               <SettingsGroup caption="Anywhere on your computer">
-                <SettingsRow label="Open Pinrail" description="Click the keys and press a new combination; it needs ⌘, ⌃ or ⌥" note={describeShortcut(shortcut, settings.shortcut.global)}>
-                  <ShortcutRecorder label="Global shortcut" value={settings.shortcut.global} onChange={(v) => update({ shortcut: { global: v } })} />
+                <SettingsRow
+                  label="Open Pinrail"
+                  description="Click the keys and press a new combination; it needs ⌘, ⌃ or ⌥"
+                  note={describeShortcut(shortcut, settings.shortcut.global)}
+                >
+                  <ShortcutRecorder
+                    label="Global shortcut"
+                    value={settings.shortcut.global}
+                    onChange={(v) => update({ shortcut: { global: v } })}
+                  />
                   {settings.shortcut.global !== DEFAULT_GLOBAL_SHORTCUT ? (
-                    <button type="button" className="chrome-button settings-reset" onClick={() => update({ shortcut: { global: DEFAULT_GLOBAL_SHORTCUT } })}>
+                    <button
+                      type="button"
+                      className="chrome-button settings-reset"
+                      onClick={() => update({ shortcut: { global: DEFAULT_GLOBAL_SHORTCUT } })}
+                    >
                       Reset
                     </button>
                   ) : null}
                 </SettingsRow>
-                <SettingsRow label="It opens" description={settings.shortcut.global_opens === "inbox" ? "The inbox, whatever is pending" : "The oldest pending review, or the inbox when nothing is pending"}>
+                <SettingsRow
+                  label="It opens"
+                  description={
+                    settings.shortcut.global_opens === "inbox"
+                      ? "The inbox, whatever is pending"
+                      : "The oldest pending review, or the inbox when nothing is pending"
+                  }
+                >
                   <Segmented
                     label="The shortcut opens"
                     value={settings.shortcut.global_opens}
@@ -309,31 +422,71 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
             </SettingsPage>
           ) : null}
 
-          {section === "plugins" ? <PluginsSection focus={plugin ?? null} onOpenReview={(id) => { onClose(); navigate(`/reviews/${id}`); }} /> : null}
+          {section === "plugins" ? (
+            <PluginsSection
+              focus={plugin ?? null}
+              onOpenReview={(id) => {
+                onClose();
+                navigate(`/reviews/${id}`);
+              }}
+            />
+          ) : null}
 
           {section === "data" ? (
             <SettingsPage title="Data">
               <SettingsGroup caption="Where things are">
-                <SettingsRow label="Data directory" description={<span className="mono">{info?.data_dir ?? "…"}</span>} note="The database, the settings file, and under plugins/ the installed copies, build logs and scratch">
+                <SettingsRow
+                  label="Data directory"
+                  description={<span className="mono">{info?.data_dir ?? "…"}</span>}
+                  note="The database, the settings file, and under plugins/ the installed copies, build logs and scratch"
+                >
                   {native ? (
                     <Tooltip label={REVEAL}>
-                      <button type="button" className="bar-button" aria-label="Reveal the data directory" disabled={!info} onClick={() => info && import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => revealItemInDir(info.data_dir).catch(() => {}))}>
+                      <button
+                        type="button"
+                        className="bar-button"
+                        aria-label="Reveal the data directory"
+                        disabled={!info}
+                        onClick={() =>
+                          info &&
+                          import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) =>
+                            revealItemInDir(info.data_dir).catch(() => {}),
+                          )
+                        }
+                      >
                         <FolderOpen size={15} />
                       </button>
                     </Tooltip>
                   ) : null}
                 </SettingsRow>
-                <SettingsRow label="Server" description={info ? <span className="mono">http://127.0.0.1:{info.port}</span> : "…"}>
+                <SettingsRow
+                  label="Server"
+                  description={info ? <span className="mono">http://127.0.0.1:{info.port}</span> : "…"}
+                >
                   <button type="button" className="chrome-button" onClick={copyUrl} disabled={!info}>
                     {copied ? "Copied" : "Copy URL"}
                   </button>
                 </SettingsRow>
-                <SettingsRow label="Port" description="Where the server listens for the CLI and the agents" note={info && settings.port !== info.port ? <span>Takes effect when Pinrail starts next; until then the server stays on {info.port}. The CLI follows either.</span> : undefined}>
+                <SettingsRow
+                  label="Port"
+                  description="Where the server listens for the CLI and the agents"
+                  note={
+                    info && settings.port !== info.port ? (
+                      <span>
+                        Takes effect when Pinrail starts next; until then the server stays on {info.port}. The CLI
+                        follows either.
+                      </span>
+                    ) : undefined
+                  }
+                >
                   <PortField value={settings.port} onChange={(port) => update({ port })} />
                 </SettingsRow>
               </SettingsGroup>
               <SettingsGroup caption="History">
-                <SettingsRow label="Keep reviews for" description="Decided, withdrawn, discarded and expired reviews older than this are removed; pending ones stay">
+                <SettingsRow
+                  label="Keep reviews for"
+                  description="Decided, withdrawn, discarded and expired reviews older than this are removed; pending ones stay"
+                >
                   <Select
                     label="Keep reviews for"
                     value={settings.history.keep_days === null ? "forever" : String(settings.history.keep_days)}
@@ -370,7 +523,14 @@ export function SettingsDialog({ open, section, plugin, onSection, onClose }: { 
           {section === "about" ? (
             <SettingsPage title="About">
               <SettingsGroup>
-                <SettingsRow label="Pinrail" description={info ? `Version ${info.version} · server started ${new Date(info.started_at).toLocaleString()}` : "…"} />
+                <SettingsRow
+                  label="Pinrail"
+                  description={
+                    info
+                      ? `Version ${info.version} · server started ${new Date(info.started_at).toLocaleString()}`
+                      : "…"
+                  }
+                />
                 <UpdatesRows />
                 <SettingsRow label="Plugins" description="To write your own, see pinrail.dev/docs/building/writing" />
                 <SettingsRow label="License" description="Apache License 2.0" note={noticesError ?? undefined}>

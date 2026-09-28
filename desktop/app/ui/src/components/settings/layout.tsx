@@ -12,7 +12,15 @@ export function SettingsPage({ title, children }: { title: string; children: Rea
   );
 }
 
-export function SettingsGroup({ caption, action, children }: { caption?: string; action?: ReactNode; children: ReactNode }) {
+export function SettingsGroup({
+  caption,
+  action,
+  children,
+}: {
+  caption?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="settings-group">
       {caption || action ? (
@@ -26,7 +34,21 @@ export function SettingsGroup({ caption, action, children }: { caption?: string;
   );
 }
 
-export function SettingsRow({ label, description, children, note, icon, onClick }: { label: string; description?: ReactNode; children?: ReactNode; note?: ReactNode; icon?: ReactNode; onClick?: () => void }) {
+export function SettingsRow({
+  label,
+  description,
+  children,
+  note,
+  icon,
+  onClick,
+}: {
+  label: string;
+  description?: ReactNode;
+  children?: ReactNode;
+  note?: ReactNode;
+  icon?: ReactNode;
+  onClick?: () => void;
+}) {
   return (
     <div className={`settings-row ${onClick ? "is-clickable" : ""}`}>
       {icon ? (

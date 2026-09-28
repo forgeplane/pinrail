@@ -7,7 +7,15 @@ import type { LinkRequest } from "../lib/links";
 
 export type LinkChoice = "cancel" | "once" | "always";
 
-export function LinkDialog({ plugin, request, onClose }: { plugin: string; request: LinkRequest; onClose: (choice: LinkChoice) => void }) {
+export function LinkDialog({
+  plugin,
+  request,
+  onClose,
+}: {
+  plugin: string;
+  request: LinkRequest;
+  onClose: (choice: LinkChoice) => void;
+}) {
   const cancel = useRef<HTMLButtonElement>(null);
   const canAlways = request.kind === "web" && !request.long;
 
@@ -25,12 +33,20 @@ export function LinkDialog({ plugin, request, onClose }: { plugin: string; reque
 
   return (
     <div className="app-dialog-backdrop" onMouseDown={() => onClose("cancel")}>
-      <div className="app-dialog link-dialog" role="dialog" aria-modal="true" aria-labelledby="link-title" onMouseDown={(e) => e.stopPropagation()} data-link-dialog>
+      <div
+        className="app-dialog link-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="link-title"
+        onMouseDown={(e) => e.stopPropagation()}
+        data-link-dialog
+      >
         <div className="dialog-head">
           <h2 id="link-title">{request.kind === "mail" ? "Write an email?" : "Open a link?"}</h2>
         </div>
         <p className="dim">
-          <span className="text">{plugin}</span> wants to {request.kind === "mail" ? "start an email to" : "open a page on"}
+          <span className="text">{plugin}</span> wants to{" "}
+          {request.kind === "mail" ? "start an email to" : "open a page on"}
         </p>
         <p className="link-target" data-link-target>
           {request.target}
@@ -38,9 +54,20 @@ export function LinkDialog({ plugin, request, onClose }: { plugin: string; reque
         <pre className="link-url mono" data-link-url>
           {request.url}
         </pre>
-        {request.long ? <p className="notice">This address is unusually long, so it can carry a lot of information to the site. Open it only if you expected it.</p> : null}
+        {request.long ? (
+          <p className="notice">
+            This address is unusually long, so it can carry a lot of information to the site. Open it only if you
+            expected it.
+          </p>
+        ) : null}
         <div className="dialog-actions">
-          <button ref={cancel} type="button" className="chrome-button" onClick={() => onClose("cancel")} data-link-cancel>
+          <button
+            ref={cancel}
+            type="button"
+            className="chrome-button"
+            onClick={() => onClose("cancel")}
+            data-link-cancel
+          >
             Don't open
           </button>
           <button type="button" className="chrome-button" onClick={() => onClose("once")} data-link-once>

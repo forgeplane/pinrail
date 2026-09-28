@@ -16,7 +16,10 @@ type OpenPlugin = { name: string; title: string; icon: string | null; shortcuts:
 const matches = (query: string, label: string, keys: string[][]) => {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return true;
-  const labelWords = label.toLowerCase().split(/[\s/]+/).filter(Boolean);
+  const labelWords = label
+    .toLowerCase()
+    .split(/[\s/]+/)
+    .filter(Boolean);
   const glyphs = keys.flat().map((k) => k.toLowerCase());
   return words.every((w) => labelWords.some((lw) => lw.startsWith(w)) || glyphs.includes(w));
 };
@@ -31,13 +34,22 @@ export function ShortcutsDialog({ plugin, onClose }: { plugin?: OpenPlugin; onCl
 
   const app = useMemo(() => SHORTCUTS.filter((s) => matches(query, s.what, s.keys)), [query]);
   const own = useMemo(
-    () => (plugin?.shortcuts ?? []).map((s) => ({ ...s, glyphs: shortcutGlyphs(s.keys), shadowed: isShadowed(s.keys) })).filter((s) => matches(query, s.does, [s.glyphs])),
+    () =>
+      (plugin?.shortcuts ?? [])
+        .map((s) => ({ ...s, glyphs: shortcutGlyphs(s.keys), shadowed: isShadowed(s.keys) }))
+        .filter((s) => matches(query, s.does, [s.glyphs])),
     [plugin, query],
   );
 
   return (
     <div className="app-dialog-backdrop shortcuts-backdrop" onClick={onClose}>
-      <div className="app-dialog shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="keyboard-title" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="app-dialog shortcuts-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="keyboard-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="dialog-head">
           <h2 id="keyboard-title">Keyboard shortcuts</h2>
           <Tooltip label="Close" keys={["Esc"]}>

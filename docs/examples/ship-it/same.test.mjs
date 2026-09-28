@@ -24,7 +24,8 @@ const read = (framework, file) => fs.readFileSync(path.join(here, framework, fil
 
 for (const file of SHARED) {
   test(`${file} is the same in every framework`, () => {
-    for (const framework of FRAMEWORKS.slice(1)) assert.equal(read(framework, file), read("vanilla", file), `${framework}/${file}`);
+    for (const framework of FRAMEWORKS.slice(1))
+      assert.equal(read(framework, file), read("vanilla", file), `${framework}/${file}`);
   });
 }
 

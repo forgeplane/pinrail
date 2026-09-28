@@ -17,7 +17,7 @@ export type UpdateStatus =
   | { state: "available"; version: string; url: string }
   | { state: "failed"; message: string; checked_at: string };
 
-const invoke = <T,>(command: string) => import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command));
+const invoke = <T>(command: string) => import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command));
 
 export function useUpdates() {
   const [status, setStatus] = useState<UpdateStatus>({ state: "unavailable" });

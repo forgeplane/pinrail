@@ -27,11 +27,15 @@ const plugin = Pinrail.connect<Payload, Decision>({
     choice = draft && typeof draft.ok === "boolean" ? draft.ok : null;
     render(draft as Draft | null);
   },
-  onSubmitted() { render(); },
+  onSubmitted() {
+    render();
+  },
   onViolations(errors) {
     errorsEl().textContent = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
   },
-  onCollect() { handOver(); },
+  onCollect() {
+    handOver();
+  },
 });
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -59,12 +63,14 @@ function render(draft?: Draft | null) {
   view.content.className = "plugin-content";
   // the redraw replaces the buttons: the one that had focus gets it back
   const focused = document.activeElement && document.activeElement.id;
-  view.content.innerHTML = Pinrail.markdown(review.payload.message) + (plugin.readonly
-    ? (decided
-      ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b>${decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
-      // withdrawn or expired: nobody answered
-      : `<p class="dim">Closed without a decision (${Pinrail.escape(review.status)})</p>`)
-    : `<div class="choice">
+  view.content.innerHTML =
+    Pinrail.markdown(review.payload.message) +
+    (plugin.readonly
+      ? decided
+        ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b>${decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
+        : // withdrawn or expired: nobody answered
+          `<p class="dim">Closed without a decision (${Pinrail.escape(review.status)})</p>`
+      : `<div class="choice">
          <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${svg(Check)} Yes</button>
          <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${svg(X)} No</button>
        </div>

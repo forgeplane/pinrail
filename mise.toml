@@ -58,7 +58,7 @@ dir = "{{config_root}}/desktop/app"
 run = "npx tauri dev"
 
 [tasks.lint]
-description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, ESLint, dependency licences and sources"
+description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, ESLint and Prettier, dependency licences and sources"
 run = [
   "cargo fmt --check --manifest-path {{config_root}}/cli/Cargo.toml",
   "cargo fmt --all --check --manifest-path {{config_root}}/desktop/Cargo.toml",
@@ -66,9 +66,14 @@ run = [
   "cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
   "npm --prefix {{config_root}}/desktop/app test",
   "npm --prefix {{config_root}} run lint",
+  "npm --prefix {{config_root}} run format:check",
   "cargo deny --manifest-path {{config_root}}/desktop/Cargo.toml --config {{config_root}}/deny.toml check licenses bans sources",
   "cargo deny --manifest-path {{config_root}}/cli/Cargo.toml --config {{config_root}}/deny.toml check licenses bans sources",
 ]
+
+[tasks.format]
+description = "Format the JavaScript, TypeScript and CSS with Prettier"
+run = "npm --prefix {{config_root}} run format"
 
 [tasks.audit]
 description = "Known vulnerabilities in the dependencies: RustSec advisories for both Rust workspaces, and npm audit for the packages that ship"

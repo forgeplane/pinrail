@@ -20,7 +20,19 @@ export default defineConfig({
   // images the app in the reader's theme, and contract: images a plugin's
   // manifest and schemas; Starlight adds its
   // own plugins (asides, heading links) to the same processor
-  markdown: { processor: unified({ remarkPlugins: [remarkPageSlug, remarkMermaid, remarkScreenshots, remarkKbd, remarkContract, remarkTokens, remarkExamples] }) },
+  markdown: {
+    processor: unified({
+      remarkPlugins: [
+        remarkPageSlug,
+        remarkMermaid,
+        remarkScreenshots,
+        remarkKbd,
+        remarkContract,
+        remarkTokens,
+        remarkExamples,
+      ],
+    }),
+  },
   integrations: [
     starlight({
       title: "Pinrail",
@@ -37,7 +49,16 @@ export default defineConfig({
         ThemeSelect: "./src/components/docs/ThemeToggle.astro",
         Pagination: "./src/components/docs/Pagination.astro",
       },
-      head: [{ tag: "script", attrs: { src: "/docs.js", defer: true } }, { tag: "link", attrs: { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400..600&family=Caveat:wght@500;700&display=swap" } }],
+      head: [
+        { tag: "script", attrs: { src: "/docs.js", defer: true } },
+        {
+          tag: "link",
+          attrs: {
+            rel: "stylesheet",
+            href: "https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400..600&family=Caveat:wght@500;700&display=swap",
+          },
+        },
+      ],
       // code in the site's colours: the terminal's warm dark, and the paper
       expressiveCode: {
         themes: ["vitesse-dark", "vitesse-light"],
@@ -72,9 +93,24 @@ export default defineConfig({
       },
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/forgeplane/pinrail" }],
       sidebar: [
-        { label: "Getting started", items: [{ label: "Introduction", slug: "docs" }, "docs/getting-started/install", "docs/getting-started/first-review"] },
+        {
+          label: "Getting started",
+          items: [
+            { label: "Introduction", slug: "docs" },
+            "docs/getting-started/install",
+            "docs/getting-started/first-review",
+          ],
+        },
         { label: "Concepts", items: ["docs/concepts/reviews", "docs/concepts/plugins", "docs/concepts/trust"] },
-        { label: "Using Pinrail", items: ["docs/using/inbox", "docs/using/installing-plugins", "docs/using/settings", "docs/using/notifications"] },
+        {
+          label: "Using Pinrail",
+          items: [
+            "docs/using/inbox",
+            "docs/using/installing-plugins",
+            "docs/using/settings",
+            "docs/using/notifications",
+          ],
+        },
         { label: "For agents", items: ["docs/agents/instructing", "docs/agents/cli", "docs/agents/workflows"] },
         {
           label: "Plugins",
@@ -90,7 +126,17 @@ export default defineConfig({
             "docs/plugins/model",
           ],
         },
-        { label: "Building plugins", items: ["docs/building/writing", "docs/building/design", "docs/building/settings-and-keys", "docs/building/frameworks", "docs/building/protocol", "docs/building/publishing"] },
+        {
+          label: "Building plugins",
+          items: [
+            "docs/building/writing",
+            "docs/building/design",
+            "docs/building/settings-and-keys",
+            "docs/building/frameworks",
+            "docs/building/protocol",
+            "docs/building/publishing",
+          ],
+        },
         { label: "Reference", items: ["docs/reference/cli", "docs/reference/settings", "docs/reference/manifest"] },
       ],
     }),

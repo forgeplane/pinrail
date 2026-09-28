@@ -33,7 +33,12 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
   const current = options.find((o) => o.value === value);
 
   const openList = () => {
-    setActive(Math.max(0, options.findIndex((o) => o.value === value)));
+    setActive(
+      Math.max(
+        0,
+        options.findIndex((o) => o.value === value),
+      ),
+    );
     setOpen(true);
   };
   const close = () => {
@@ -124,7 +129,10 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
       default:
         if (event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey) {
           const now = Date.now();
-          typed.current = { text: (now - typed.current.at < 700 ? typed.current.text : "") + event.key.toLowerCase(), at: now };
+          typed.current = {
+            text: (now - typed.current.at < 700 ? typed.current.text : "") + event.key.toLowerCase(),
+            at: now,
+          };
           const hit = options.findIndex((o) => o.label.toLowerCase().startsWith(typed.current.text));
           if (hit >= 0) setActive(hit);
         }
@@ -145,7 +153,7 @@ export function Select({ value, options, onChange, label, icon, id }: Props) {
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
       >
-        {current?.icon ?? icon ? <span className="select-icon">{current?.icon ?? icon}</span> : null}
+        {(current?.icon ?? icon) ? <span className="select-icon">{current?.icon ?? icon}</span> : null}
         <span className="select-value">{current?.label ?? label}</span>
         <ChevronDown size={14} className="select-chevron" aria-hidden="true" />
       </button>

@@ -29,7 +29,14 @@ function savedLayout(): Layout {
 
 function matches(review: Review, q: string) {
   if (!q) return true;
-  const text = [review.title, review.plugin, review.requested_by, review.origin.repo, review.origin.workflow, review.origin.ref]
+  const text = [
+    review.title,
+    review.plugin,
+    review.requested_by,
+    review.origin.repo,
+    review.origin.workflow,
+    review.origin.ref,
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -281,7 +288,9 @@ export function Inbox() {
             options={[
               { value: "", label: "All projects", icon: <FolderGit2 size={14} /> },
               ...live.projects.map((r) => ({ value: r, label: r, icon: <FolderGit2 size={14} /> })),
-              ...(live.unassigned > 0 || repo === NO_PROJECT ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }] : []),
+              ...(live.unassigned > 0 || repo === NO_PROJECT
+                ? [{ value: NO_PROJECT, label: "No project", icon: <FolderGit2 size={14} /> }]
+                : []),
             ]}
           />
           <Select
@@ -290,7 +299,10 @@ export function Inbox() {
             icon={<Blocks size={14} />}
             value={plugin}
             onChange={(v) => setParam("plugin", v)}
-            options={[{ value: "", label: "All plugins", icon: <Blocks size={14} /> }, ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> }))]}
+            options={[
+              { value: "", label: "All plugins", icon: <Blocks size={14} /> },
+              ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> })),
+            ]}
           />
         </div>
       </header>
@@ -304,12 +316,26 @@ export function Inbox() {
         <span className="list-sort">Newest first</span>
         <span className="segmented inbox-layout" role="radiogroup" aria-label="Inbox layout">
           <Tooltip label="Grouped by project" side="top">
-            <button type="button" role="radio" aria-checked={layout === "projects"} aria-label="Grouped by project" className={layout === "projects" ? "is-on" : ""} onClick={() => setLayout("projects")}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={layout === "projects"}
+              aria-label="Grouped by project"
+              className={layout === "projects" ? "is-on" : ""}
+              onClick={() => setLayout("projects")}
+            >
               <FolderGit2 size={13} />
             </button>
           </Tooltip>
           <Tooltip label="One list, newest first" side="top">
-            <button type="button" role="radio" aria-checked={layout === "list"} aria-label="One list" className={layout === "list" ? "is-on" : ""} onClick={() => setLayout("list")}>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={layout === "list"}
+              aria-label="One list"
+              className={layout === "list" ? "is-on" : ""}
+              onClick={() => setLayout("list")}
+            >
               <List size={13} />
             </button>
           </Tooltip>
@@ -338,7 +364,9 @@ export function Inbox() {
             )
           }
         >
-          {filtered ? "Try a different search or clear the filters." : "New reviews appear here when an agent needs you."}
+          {filtered
+            ? "Try a different search or clear the filters."
+            : "New reviews appear here when an agent needs you."}
         </EmptyState>
       ) : layout === "list" ? (
         <div className="inbox-list">{shown.map((review, i) => row(review, i))}</div>
@@ -359,7 +387,9 @@ export function Inbox() {
         </div>
       )}
       <Pager label="Inbox" page={current} size={size} total={ordered.length} onPage={setPage} onSize={setSize} />
-      {discarding ? <DiscardDialog review={discarding} onClose={() => setDiscarding(null)} onDone={() => setDiscarding(null)} /> : null}
+      {discarding ? (
+        <DiscardDialog review={discarding} onClose={() => setDiscarding(null)} onDone={() => setDiscarding(null)} />
+      ) : null}
       <footer className="inbox-footer">
         <kbd>J</kbd> <kbd>K</kbd> move · <kbd>↵</kbd> open · <kbd>/</kbd> search
       </footer>

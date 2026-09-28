@@ -24,10 +24,14 @@ test("shows every mark in the rail, and the chosen one in every place it will li
 
 test("an agent's svg is drawn without scripts, handlers or outside links", async ({ page }) => {
   const review = round();
-  review.payload.marks = [{
-    id: "evil", name: "Evil", reasoning: "",
-    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onload="window.pwned=1"><script>window.pwned=2</script><style>body{display:none}</style><a href="https://example.com"><rect width="4" height="4"/></a><rect width="24" height="24" fill="url(https://example.com/x)"/><circle cx="12" cy="12" r="6" onclick="window.pwned=3"/></svg>',
-  }];
+  review.payload.marks = [
+    {
+      id: "evil",
+      name: "Evil",
+      reasoning: "",
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onload="window.pwned=1"><script>window.pwned=2</script><style>body{display:none}</style><a href="https://example.com"><rect width="4" height="4"/></a><rect width="24" height="24" fill="url(https://example.com/x)"/><circle cx="12" cy="12" r="6" onclick="window.pwned=3"/></svg>',
+    },
+  ];
   const plugin = await mountPlugin(page, dir, { review });
   const f = plugin.frame;
   await expect(f.locator(".stage svg").first()).toBeVisible();
@@ -41,14 +45,14 @@ test("one favourite, keys to decide, and a warning before undecided marks go bac
   const f = plugin.frame;
   await f.locator("body").click({ position: { x: 600, y: 5 } });
 
-  await f.locator("body").press("f");                               // M1 favourite
+  await f.locator("body").press("f"); // M1 favourite
   await f.locator("body").press("j");
-  await f.locator("body").press("x");                               // M2 dropped
+  await f.locator("body").press("x"); // M2 dropped
   await f.locator("#note").fill("Too much like a ring");
   await f.locator("body").click({ position: { x: 600, y: 5 } });
   await f.locator("body").press("j");
   await f.locator("body").press("j");
-  await f.locator('.choice[data-action="favorite"]').click();  // M4 favourite: M1 steps down
+  await f.locator('.choice[data-action="favorite"]').click(); // M4 favourite: M1 steps down
   await expect(f.locator(".pick").nth(0).locator(".verdict-chip")).toHaveText("Keep");
   await expect(f.locator(".pick").nth(3).locator(".verdict-chip")).toHaveText("★ Favourite");
 
@@ -57,7 +61,11 @@ test("one favourite, keys to decide, and a warning before undecided marks go bac
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over with 3 undecided");
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({
-    decisions: [{ id: "M1", action: "keep" }, { id: "M2", action: "drop", note: "Too much like a ring" }, { id: "M4", action: "favorite" }],
+    decisions: [
+      { id: "M1", action: "keep" },
+      { id: "M2", action: "drop", note: "Too much like a ring" },
+      { id: "M4", action: "favorite" },
+    ],
     undecided: ["M3", "M5", "M6"],
   });
 });
@@ -65,23 +73,33 @@ test("one favourite, keys to decide, and a warning before undecided marks go bac
 test("a part of the mark can be picked and commented on, and the mark counts as kept", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
-  await f.locator(".pick").nth(3).click();                               // M4: two posts and the line
+  await f.locator(".pick").nth(3).click(); // M4: two posts and the line
   // the second rect is the right post; click it on the light stage
   await f.locator('.stage[data-stage="light"] svg rect').nth(1).click({ force: true });
   await expect(f.locator("#composer")).toContainText("rect 2");
   await f.locator("#part-note").fill("A little thinner");
   await f.locator("#part-note").press("Enter");
   await expect(f.locator(".part-list li")).toHaveCount(1);
-  await expect(f.locator(".stage .part-pin")).toHaveCount(2);            // pinned on both palettes
+  await expect(f.locator(".stage .part-pin")).toHaveCount(2); // pinned on both palettes
   await expect(f.locator(".pick").nth(3).locator(".verdict-chip")).toHaveText("Keep");
 
   await plugin.collect();
   await plugin.collect();
   const decision = await plugin.nextSubmit();
-  expect(decision.decisions).toEqual([{
-    id: "M4", action: "keep",
-    comments: [{ target: "svg > rect:nth-of-type(2)", tag: "rect", markup: expect.stringContaining("<rect"), note: "A little thinner" }],
-  }]);
+  expect(decision.decisions).toEqual([
+    {
+      id: "M4",
+      action: "keep",
+      comments: [
+        {
+          target: "svg > rect:nth-of-type(2)",
+          tag: "rect",
+          markup: expect.stringContaining("<rect"),
+          note: "A little thinner",
+        },
+      ],
+    },
+  ]);
 });
 
 test("a decided round is read-only and shows what was decided", async ({ page }) => {

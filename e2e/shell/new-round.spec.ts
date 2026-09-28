@@ -7,7 +7,8 @@ const payload = (title: string) => ({ groups: [{ title: "lib/acme/tickets.ex", i
 const submit = async (request: APIRequestContext, title: string, revises?: string) =>
   (await createReview(request, { title, revises, payload: payload(title) })).id;
 
-const accept = (request: APIRequestContext, id: string) => decide(request, id, { decisions: [{ id: 1, action: "accept" }], undecided: [] });
+const accept = (request: APIRequestContext, id: string) =>
+  decide(request, id, { decisions: [{ id: 1, action: "accept" }], undecided: [] });
 
 test("a new round of the open review shows in the switcher and says it is waiting", async ({ page }) => {
   const first = await submit(page.request, "Rounds: one");

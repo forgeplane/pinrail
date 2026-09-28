@@ -13,10 +13,16 @@ import { kbdHtml } from "./remark-kbd.mjs";
 
 const plugins = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../plugins");
 
-const escape = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const escape = (s) =>
+  String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 /** `code` in a description, as the docs write it elsewhere */
 const prose = (s) => escape(s).replace(/`([^`]+)`/g, "<code>$1</code>");
-const size = (bytes) => (bytes >= 1024 * 1024 ? `${Math.round(bytes / (1024 * 1024))} MB` : bytes >= 1024 ? `${Math.round(bytes / 1024)} KB` : `${bytes} bytes`);
+const size = (bytes) =>
+  bytes >= 1024 * 1024
+    ? `${Math.round(bytes / (1024 * 1024))} MB`
+    : bytes >= 1024
+      ? `${Math.round(bytes / 1024)} KB`
+      : `${bytes} bytes`;
 
 function read(dir, file) {
   return JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"));
@@ -24,14 +30,19 @@ function read(dir, file) {
 
 /** The schema a manifest key names: inline, or the file its `$ref` points at. */
 function document(dir, value) {
-  return value && typeof value === "object" && typeof value.$ref === "string" && Object.keys(value).length === 1 ? read(dir, value.$ref) : value ?? {};
+  return value && typeof value === "object" && typeof value.$ref === "string" && Object.keys(value).length === 1
+    ? read(dir, value.$ref)
+    : (value ?? {});
 }
 
 /** A local `#/$defs/x` reference resolved against the document; anything else as it is. */
 function resolve(root, schema) {
   let s = schema;
   for (let hops = 0; s && typeof s.$ref === "string" && s.$ref.startsWith("#/") && hops < 8; hops++) {
-    const target = s.$ref.slice(2).split("/").reduce((node, key) => node?.[key], root);
+    const target = s.$ref
+      .slice(2)
+      .split("/")
+      .reduce((node, key) => node?.[key], root);
     const { $ref, ...rest } = s;
     s = { ...target, ...rest };
   }
@@ -41,7 +52,8 @@ function resolve(root, schema) {
 const isFile = (s) => s?.type === "object" && s.properties && "$attachment" in s.properties;
 
 /** The name of a local definition a schema refers to: `condition` for `#/$defs/condition`. */
-const defName = (raw) => (typeof raw?.$ref === "string" && raw.$ref.startsWith("#/") ? raw.$ref.split("/").pop() : null);
+const defName = (raw) =>
+  typeof raw?.$ref === "string" && raw.$ref.startsWith("#/") ? raw.$ref.split("/").pop() : null;
 const SCALARS = ["string", "number", "integer", "boolean", "null"];
 
 /** A field's type as a reader would say it. A definition that is an object
@@ -64,7 +76,8 @@ function typeOf(root, s, raw) {
     return alts.map((alt) => typeOf(root, resolve(root, alt), alt)).join(" | ");
   }
   const name = SCALARS.includes(s.type) ? null : defName(raw);
-  if (alts) return `${name ?? (alts.every((alt) => resolve(root, alt).type === "object") ? "object" : "")}${name || alts.every((alt) => resolve(root, alt).type === "object") ? ", " : ""}one of ${alts.length}`;
+  if (alts)
+    return `${name ?? (alts.every((alt) => resolve(root, alt).type === "object") ? "object" : "")}${name || alts.every((alt) => resolve(root, alt).type === "object") ? ", " : ""}one of ${alts.length}`;
   if (name) return name;
   if (s.type) return s.type;
   return "any";
@@ -77,7 +90,11 @@ function constraints(s) {
   // choices written as oneOf consts, each with the label the app shows
   const consts = (s.oneOf ?? s.anyOf)?.filter((alt) => alt && alt.const !== undefined);
   if (consts?.length && consts.length === (s.oneOf ?? s.anyOf).length) {
-    out.push(consts.map((alt) => `<code>${escape(JSON.stringify(alt.const))}</code>${alt.title ? ` ${escape(alt.title)}` : ""}`).join(" · "));
+    out.push(
+      consts
+        .map((alt) => `<code>${escape(JSON.stringify(alt.const))}</code>${alt.title ? ` ${escape(alt.title)}` : ""}`)
+        .join(" · "),
+    );
   }
   if (s.const !== undefined) out.push(`<code>${escape(JSON.stringify(s.const))}</code>`);
   if (s.minLength !== undefined || s.maxLength !== undefined) out.push(range("chars", s.minLength, s.maxLength));
@@ -102,7 +119,8 @@ function range(unit, min, max) {
  *  made of conditions), so it is named rather than drawn again. */
 function recursion(raw, s, trail) {
   if (raw?.$ref && trail.includes(raw.$ref)) return `a <code>${escape(defName(raw))}</code>, as above`;
-  if (s.type === "array" && s.items?.$ref && trail.includes(s.items.$ref)) return `each a <code>${escape(defName(s.items))}</code>, as above`;
+  if (s.type === "array" && s.items?.$ref && trail.includes(s.items.$ref))
+    return `each a <code>${escape(defName(s.items))}</code>, as above`;
   return null;
 }
 
@@ -137,9 +155,13 @@ function children(root, s, depth, trail) {
   }
   if (!obj.properties) return "";
   const required = new Set(obj.required ?? []);
-  const rows = Object.entries(obj.properties).map(([name, raw]) => field(root, name, raw, required.has(name), depth + 1, trail)).join("");
+  const rows = Object.entries(obj.properties)
+    .map(([name, raw]) => field(root, name, raw, required.has(name), depth + 1, trail))
+    .join("");
   // an object that takes one of several shapes says which keys choose between them
-  const choice = (obj.oneOf ?? obj.anyOf)?.map((alt) => (alt.required ?? []).map((k) => `<code>${escape(k)}</code>`).join(" + ")).filter(Boolean);
+  const choice = (obj.oneOf ?? obj.anyOf)
+    ?.map((alt) => (alt.required ?? []).map((k) => `<code>${escape(k)}</code>`).join(" + "))
+    .filter(Boolean);
   const note = choice?.length ? `<li class="pr-field-note">One of: ${choice.join(" or ")}</li>` : "";
   return `<ul class="pr-fields">${note}${rows}</ul>`;
 }
@@ -167,7 +189,11 @@ function schemaPanel(schema) {
 
 function manifestPanel(m) {
   const rows = [];
-  const row = (key, value) => value !== undefined && value !== null && value !== "" && rows.push(`<tr><th><code>${escape(key)}</code></th><td>${value}</td></tr>`);
+  const row = (key, value) =>
+    value !== undefined &&
+    value !== null &&
+    value !== "" &&
+    rows.push(`<tr><th><code>${escape(key)}</code></th><td>${value}</td></tr>`);
   row("name", `<code>${escape(m.name)}</code>`);
   row("version", escape(m.version));
   row("title", escape(m.title ?? ""));
@@ -175,12 +201,21 @@ function manifestPanel(m) {
   row("use_when", m.use_when ? prose(m.use_when) : "");
   if (m.attachments) {
     const a = m.attachments;
-    const limits = [a.max_size ? `up to ${size(a.max_size)} each` : null, a.max_count ? `${a.max_count} a review` : null].filter(Boolean).join(", ");
+    const limits = [
+      a.max_size ? `up to ${size(a.max_size)} each` : null,
+      a.max_count ? `${a.max_count} a review` : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
     row("attachments", `${a.accept.map((k) => `<code>${escape(k)}</code>`).join(" ")}${limits ? ` · ${limits}` : ""}`);
   }
   row("entry", m.entry ? `<code>${escape(m.entry)}</code>` : "");
   // the keys as keycaps, the way the docs write them everywhere else
-  if (m.shortcuts?.length) row("shortcuts", `<ul class="pr-shortcuts">${m.shortcuts.map((s) => `<li>${kbdHtml(s.keys)}<span>${escape(s.does)}</span></li>`).join("")}</ul>`);
+  if (m.shortcuts?.length)
+    row(
+      "shortcuts",
+      `<ul class="pr-shortcuts">${m.shortcuts.map((s) => `<li>${kbdHtml(s.keys)}<span>${escape(s.does)}</span></li>`).join("")}</ul>`,
+    );
   return `<table class="pr-manifest"><tbody>${rows.join("")}</tbody></table>`;
 }
 
@@ -205,14 +240,25 @@ function contract(name, alt) {
   }
   const id = `pr-contract-${name.replace(/[^a-z0-9]+/gi, "-")}`;
   const buttons = tabs
-    .map(([key, label, hint], i) => `<button type="button" role="tab" id="${id}-${key}-tab" aria-controls="${id}-${key}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-contract-tab="${key}">${label}<span class="pr-contract-hint">${escape(hint)}</span></button>`)
+    .map(
+      ([key, label, hint], i) =>
+        `<button type="button" role="tab" id="${id}-${key}-tab" aria-controls="${id}-${key}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-contract-tab="${key}">${label}<span class="pr-contract-hint">${escape(hint)}</span></button>`,
+    )
     .join("");
   const views = `<div class="pr-contract-views" role="group" aria-label="Show as"><button type="button" data-contract-show="fields" aria-pressed="true">Fields</button><button type="button" data-contract-show="json" aria-pressed="false">JSON</button></div>`;
   const html = (value) => ({ type: "html", value });
   // one wrapper that opts out of the article's spacing, bar and panels inside it
-  const nodes = [html(`<figure class="pr-contract" data-contract aria-label="${escape(alt)}"><div class="not-content"><div class="pr-contract-bar"><div class="pr-contract-tabs" role="tablist" aria-label="${escape(alt)}">${buttons}</div>${views}</div>`)];
+  const nodes = [
+    html(
+      `<figure class="pr-contract" data-contract aria-label="${escape(alt)}"><div class="not-content"><div class="pr-contract-bar"><div class="pr-contract-tabs" role="tablist" aria-label="${escape(alt)}">${buttons}</div>${views}</div>`,
+    ),
+  ];
   tabs.forEach(([key, , , fields, raw], i) => {
-    nodes.push(html(`<div role="tabpanel" id="${id}-${key}" aria-labelledby="${id}-${key}-tab" data-contract-panel="${key}"${i === 0 ? "" : " hidden"}><div data-contract-view="fields">${fields}`));
+    nodes.push(
+      html(
+        `<div role="tabpanel" id="${id}-${key}" aria-labelledby="${id}-${key}-tab" data-contract-panel="${key}"${i === 0 ? "" : " hidden"}><div data-contract-view="fields">${fields}`,
+      ),
+    );
     // the build is a command to run, so it is a shell block with its copy button
     if (key === "manifest" && manifest.build?.command) {
       nodes.push(html(`<div class="pr-manifest-build"><code class="pr-manifest-key">build</code>`));

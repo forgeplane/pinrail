@@ -12,7 +12,9 @@ const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
 
 function scaffold(name: string, template: "plain" | "vite" | "react" | "vue" | "svelte"): string {
   const dir = path.join(scratch("pinrail-scaffold-"), name);
-  execFileSync(process.execPath, [bin, "create", name, "--template", template, "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  execFileSync(process.execPath, [bin, "create", name, "--template", template, "--dir", dir, "--sdk", `file:${sdk}`], {
+    stdio: "pipe",
+  });
   return dir;
 }
 

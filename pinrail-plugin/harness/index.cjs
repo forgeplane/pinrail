@@ -14,12 +14,26 @@ const Ajv2020 = require("ajv/dist/2020").default;
 const ORIGIN = "http://plugin.test";
 
 const MAC = process.platform === "darwin";
-const MODIFIER = { cmd: "cmd", command: "cmd", meta: "cmd", super: "cmd", ctrl: "ctrl", control: "ctrl", alt: "alt", option: "alt", shift: "shift", cmdorctrl: MAC ? "cmd" : "ctrl", commandorcontrol: MAC ? "cmd" : "ctrl" };
+const MODIFIER = {
+  cmd: "cmd",
+  command: "cmd",
+  meta: "cmd",
+  super: "cmd",
+  ctrl: "ctrl",
+  control: "ctrl",
+  alt: "alt",
+  option: "alt",
+  shift: "shift",
+  cmdorctrl: MAC ? "cmd" : "ctrl",
+  commandorcontrol: MAC ? "cmd" : "ctrl",
+};
 
 /** A combination as the app compares it: modifiers by one name, in the
  *  order ctrl, alt, shift, cmd, then the key. The same as the core's. */
 function normalizeKeys(keys) {
-  const parts = String(keys).split("+").map((p) => p.trim().toLowerCase());
+  const parts = String(keys)
+    .split("+")
+    .map((p) => p.trim().toLowerCase());
   const key = parts.pop();
   const named = parts.map((m) => MODIFIER[m] || m);
   return [...["ctrl", "alt", "shift", "cmd"].filter((m) => named.includes(m)), key].join("+");
@@ -29,7 +43,9 @@ function normalizeKeys(keys) {
  *  same as APP_KEYS in desktop/app/ui/src/lib/shortcuts.ts. */
 const PRIMARY = MAC ? "cmd" : "ctrl";
 const APP_KEYS = new Set([
-  ...["k", ",", "i", "b", "[", "]", "q", "w", "m", "z", "x", "c", "v", "a"].map((k) => normalizeKeys(`${PRIMARY}+${k}`)),
+  ...["k", ",", "i", "b", "[", "]", "q", "w", "m", "z", "x", "c", "v", "a"].map((k) =>
+    normalizeKeys(`${PRIMARY}+${k}`),
+  ),
   ...["h", "p", "m", "l", "z"].map((k) => normalizeKeys(`${PRIMARY}+shift+${k}`)),
   ...(MAC ? ["cmd+h", "alt+cmd+h", "ctrl+cmd+f"] : []),
   "shift+/",
@@ -171,9 +187,13 @@ async function mountPlugin(page, pluginDir, opts) {
   // time out on a frame that got a 404
   const entryFile = path.join(pluginDir, manifest.entry ?? "index.html");
   if (!fs.existsSync(entryFile)) {
-    throw new Error(`${entryFile} does not exist${manifest.build ? `: build the plugin first (${manifest.build.command})` : ""}`);
+    throw new Error(
+      `${entryFile} does not exist${manifest.build ? `: build the plugin first (${manifest.build.command})` : ""}`,
+    );
   }
-  await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + (manifest.entry ?? "index.html"))}`);
+  await page.goto(
+    `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + (manifest.entry ?? "index.html"))}`,
+  );
   const init = {
     review,
     previous,
