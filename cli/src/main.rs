@@ -575,7 +575,7 @@ fn main() -> ExitCode {
                 if json {
                     out::error_json(&api.body);
                 } else {
-                    eprint!("{}", md::refusal(&api.body));
+                    eprint!("{}", out::terminal_safe(&md::refusal(&api.body)));
                     if let Some(hint) = &api.hint {
                         eprintln!("{hint}");
                     }
@@ -587,7 +587,7 @@ fn main() -> ExitCode {
                     EXIT_REFUSED
                 })
             } else {
-                eprintln!("pinrail: {err:#}");
+                eprintln!("pinrail: {}", out::terminal_safe(&format!("{err:#}")));
                 ExitCode::from(EXIT_ERROR)
             }
         }
@@ -834,21 +834,21 @@ fn run(cli: Cli) -> Result<u8> {
             if output.markdown {
                 print!(
                     "{}",
-                    describe::verdict(&verdict, &dir.display().to_string())
+                    out::terminal_safe(&describe::verdict(&verdict, &dir.display().to_string()))
                 );
             } else {
                 out::print_json(&verdict, pretty);
                 for w in verdict["warnings"].as_array().into_iter().flatten() {
                     eprintln!(
                         "pinrail: {} dropped: {}",
-                        w["key"].as_str().unwrap_or_default(),
-                        w["message"].as_str().unwrap_or_default()
+                        out::terminal_safe(w["key"].as_str().unwrap_or_default()),
+                        out::terminal_safe(w["message"].as_str().unwrap_or_default())
                     );
                 }
                 for p in verdict["problems"].as_array().into_iter().flatten() {
                     eprintln!(
                         "pinrail: refused: {}",
-                        p["message"].as_str().unwrap_or_default()
+                        out::terminal_safe(p["message"].as_str().unwrap_or_default())
                     );
                 }
             }
@@ -894,7 +894,10 @@ fn run(cli: Cli) -> Result<u8> {
             let mut failed = false;
             let value = match args.command {
                 None if output.markdown => {
-                    print!("{}", describe::listing(&client.plugins()?));
+                    print!(
+                        "{}",
+                        out::terminal_safe(&describe::listing(&client.plugins()?))
+                    );
                     return Ok(0);
                 }
                 None => client.plugins()?,
@@ -1251,8 +1254,10 @@ fn wait(
                     "decided" => 0,
                     "discarded" => {
                         // the person's "no, and stop": say so, with their reason
-                        let by = review["discarded_by"].as_str().unwrap_or("the reviewer");
-                        match review["discarded_reason"].as_str() {
+                        let by = out::terminal_safe(
+                            review["discarded_by"].as_str().unwrap_or("the reviewer"),
+                        );
+                        match review["discarded_reason"].as_str().map(out::terminal_safe) {
                             Some(reason) => eprintln!(
                                 "pinrail: review {id} was discarded by {by}: {reason}. Stop the work it was gating."
                             ),
@@ -1279,7 +1284,10 @@ fn wait(
             Err(err) => {
                 let message = format!("{err:#}");
                 if message != last_error {
-                    eprintln!("pinrail: {message}; retrying until the server is back");
+                    eprintln!(
+                        "pinrail: {}; retrying until the server is back",
+                        out::terminal_safe(&message)
+                    );
                     last_error = message;
                 }
                 std::thread::sleep(Duration::from_secs(2));

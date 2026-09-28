@@ -24,14 +24,64 @@ pub fn note(message: impl std::fmt::Display) {
     }
 }
 
-/// Text for a terminal: control characters removed, except newlines and
-/// tabs, so text from a review cannot move the cursor, clear the screen,
-/// plant links or write the clipboard. JSON needs none of this, since its
-/// encoder escapes them.
+/// Text for a terminal, from a review, a plugin, the server or a build:
+/// escape sequences are removed whole, and so are the other control
+/// characters, except newlines and tabs, and the invisible characters that
+/// reorder or hide text. Such text then cannot move the cursor, clear the
+/// screen, plant links, write the clipboard or disguise what it says. JSON
+/// needs none of this, since its encoder escapes them.
 pub fn terminal_safe(text: &str) -> String {
-    text.chars()
-        .filter(|c| *c == '\n' || *c == '\t' || !c.is_control())
-        .collect()
+    let mut safe = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' {
+            match chars.next() {
+                // CSI (colours, cursor moves): parameters up to a final byte
+                Some('[') => {
+                    for n in chars.by_ref() {
+                        if ('@'..='~').contains(&n) {
+                            break;
+                        }
+                    }
+                }
+                // OSC, DCS, APC and PM (links, the clipboard): up to BEL or ESC \
+                Some(']' | 'P' | '_' | '^') => {
+                    while let Some(n) = chars.next() {
+                        if n == '\u{7}' {
+                            break;
+                        }
+                        if n == '\u{1b}' {
+                            chars.next_if_eq(&'\\');
+                            break;
+                        }
+                    }
+                }
+                // any other escape is two characters long
+                _ => {}
+            }
+        } else if c == '\n' || c == '\t' || !(c.is_control() || reorders_or_hides(c)) {
+            safe.push(c);
+        }
+    }
+    safe
+}
+
+/// Invisible characters that change how the text around them reads: the
+/// bidirectional overrides, isolates and marks, and zero-width spaces. The
+/// zero-width joiner and non-joiner stay, since emoji and some scripts need
+/// them.
+fn reorders_or_hides(c: char) -> bool {
+    matches!(
+        c,
+        '\u{061c}'
+            | '\u{200b}'
+            | '\u{200e}'
+            | '\u{200f}'
+            | '\u{202a}'..='\u{202e}'
+            | '\u{2060}'..='\u{2064}'
+            | '\u{2066}'..='\u{2069}'
+            | '\u{feff}'
+    )
 }
 
 pub fn print_json(value: &Value, pretty: bool) {
@@ -132,4 +182,23 @@ pub fn export(client: &Client, dir: &Path) -> Result<usize> {
         }
     }
     Ok(count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn colour_codes_go_whole_and_text_stays() {
+        assert_eq!(
+            terminal_safe("\u{1b}[32m✓\u{1b}[0m built in \u{1b}[1m2s\u{1b}[22m\n"),
+            "✓ built in 2s\n"
+        );
+        // a link: the text stays, the target goes
+        assert_eq!(
+            terminal_safe("\u{1b}]8;;https://x.example\u{1b}\\docs\u{1b}]8;;\u{1b}\\"),
+            "docs"
+        );
+        assert_eq!(terminal_safe("a\u{202e}b\u{200d}c"), "ab\u{200d}c");
+    }
 }

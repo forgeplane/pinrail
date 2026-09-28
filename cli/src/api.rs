@@ -242,7 +242,8 @@ impl Client {
                 .get(shown.saturating_sub(offset).min(log.len())..)
                 .unwrap_or(log);
             if !new.is_empty() {
-                eprint!("{new}");
+                // build output, from the plugin's own tools
+                eprint!("{}", crate::out::terminal_safe(new));
                 shown = offset + log.len();
                 quiet_since = std::time::Instant::now();
             } else if quiet_since.elapsed() >= std::time::Duration::from_secs(60) {

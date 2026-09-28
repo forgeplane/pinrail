@@ -643,6 +643,58 @@ fn a_decision_that_cannot_be_rendered_still_exits_as_decided() {
     assert!(stderr.contains("markdown"), "{stderr}");
 }
 
+/// Escape sequences, and a right-to-left override that reorders what follows it.
+const HOSTILE: &str = "\u{1b}[2J\u{1b}]52;c;cm0gLXJm\u{7}\u{202e}";
+
+fn assert_harmless(text: &str) {
+    assert!(
+        !text.contains('\u{1b}') && !text.contains('\u{7}'),
+        "{text:?}"
+    );
+    assert!(!text.contains('\u{202e}'), "{text:?}");
+}
+
+#[test]
+fn a_plugin_description_cannot_drive_the_terminal() {
+    let listing = serde_json::json!({ "plugins": [{
+        "name": "hello", "title": "Hello", "version": 1, "release": "1.0.0", "usable": true,
+        "description": format!("Greets{HOSTILE} people"), "use_when": format!("always{HOSTILE}"),
+    }]});
+    let server = MockServer::start(Box::new(move |_, path, _| match path {
+        "/api/v1/plugins" => (200, listing.to_string()),
+        other => panic!("unexpected {other}"),
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stdout.contains("Greets"), "{stdout}");
+    assert_harmless(&stdout);
+}
+
+#[test]
+fn a_refusal_cannot_drive_the_terminal() {
+    let body = serde_json::json!({ "error": "invalid", "message": "validation failed",
+        "violations": [{ "path": "/payload", "message": format!("bad{HOSTILE} value") }] });
+    let server = MockServer::start(Box::new(move |_, _, _| (422, body.to_string())));
+    let (code, _, stderr) = run(
+        &server,
+        &["submit", "list", "--title", "t", "--no-start", "--markdown"],
+    );
+    assert_eq!(code, 2, "{stderr}");
+    assert!(stderr.contains("bad"), "{stderr}");
+    assert_harmless(&stderr);
+}
+
+#[test]
+fn a_discard_reason_cannot_drive_the_terminal() {
+    let review = serde_json::json!({ "id": "r_1", "plugin": "list", "title": "t", "status": "discarded",
+        "decision": null, "payload": {}, "discarded_by": "pat", "discarded_reason": format!("no{HOSTILE} thanks") });
+    let server = MockServer::start(Box::new(move |_, _, _| (200, review.to_string())));
+    let (code, _, stderr) = run(&server, &["wait", "r_1", "--json"]);
+    assert_eq!(code, 5, "{stderr}");
+    assert!(stderr.contains("discarded by pat"), "{stderr}");
+    assert_harmless(&stderr);
+}
+
 #[test]
 fn text_from_a_review_cannot_drive_the_terminal() {
     // a title with escape sequences: clear the screen, set the clipboard
@@ -664,7 +716,7 @@ fn text_from_a_review_cannot_drive_the_terminal() {
         "{stdout:?}"
     );
     assert!(
-        stdout.contains("Ship[2J it]52;c;cm0gLXJm\nlist\n\n\t- a tab stays"),
+        stdout.contains("Ship it\nlist\n\n\t- a tab stays"),
         "{stdout:?}"
     );
 }
