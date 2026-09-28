@@ -17,7 +17,7 @@ mod scaffold;
 mod server;
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
@@ -815,6 +815,16 @@ fn run(cli: Cli) -> Result<u8> {
             force,
         }) => {
             let to = to.unwrap_or_else(|| name.clone());
+            // a folder takes the file under its own name
+            let to = if to != "-" && Path::new(&to).is_dir() {
+                let own = Path::new(&name)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| name.clone());
+                Path::new(&to).join(own).display().to_string()
+            } else {
+                to
+            };
             let size = if to == "-" {
                 client.download_attachment(&id, &name, &mut std::io::stdout().lock())?
             } else {
@@ -836,8 +846,18 @@ fn run(cli: Cli) -> Result<u8> {
                 drop(file);
                 match result {
                     Ok(size) => {
-                        std::fs::rename(&partial, &path)
-                            .with_context(|| format!("writing {to}"))?;
+                        // without --force, a file that appeared meanwhile
+                        // is kept: a link fails where one is there already
+                        let placed = if force {
+                            std::fs::rename(&partial, &path)
+                        } else {
+                            std::fs::hard_link(&partial, &path)
+                                .and_then(|()| std::fs::remove_file(&partial))
+                        };
+                        if let Err(error) = placed {
+                            let _ = std::fs::remove_file(&partial);
+                            return Err(anyhow::Error::new(error).context(format!("writing {to}")));
+                        }
                         size
                     }
                     Err(e) => {

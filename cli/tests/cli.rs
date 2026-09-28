@@ -1932,6 +1932,25 @@ fn attachments_lists_a_review_s_files_and_saves_one() {
     );
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(std::fs::read_to_string(&to).unwrap(), "pivot glb");
+    // into a folder, under the file's own name
+    let folder = dir.join("downloads");
+    std::fs::create_dir(&folder).unwrap();
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "attachments",
+            "get",
+            "r_1",
+            "Pivot lamp.glb",
+            "-o",
+            folder.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        std::fs::read_to_string(folder.join("Pivot lamp.glb")).unwrap(),
+        "pivot glb"
+    );
     // not over a file that is there, unless asked
     let (code, _, stderr) = run(
         &server,
@@ -1975,7 +1994,8 @@ fn attachments_lists_a_review_s_files_and_saves_one() {
     assert_eq!(code, 2);
     assert!(stderr.contains("carries no attachment"), "{stderr}");
     assert!(!missing.exists());
-    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no .part left");
+    // lamp.glb and the downloads folder, and no .part left
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2, "no .part left");
 }
 
 #[test]
