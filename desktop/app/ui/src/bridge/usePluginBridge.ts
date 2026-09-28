@@ -65,6 +65,10 @@ export type Bridge = {
   handoverLabel: string;
   /** asks the view to assemble and submit its decision */
   collect: () => void;
+  /** the frame went to another page, which the bridge no longer answers */
+  left: boolean;
+  /** loads the view's own page again */
+  reload: () => void;
 };
 
 export function usePluginBridge(options: Options): Bridge {
@@ -74,6 +78,13 @@ export function usePluginBridge(options: Options): Bridge {
   const [submitting, setSubmitting] = useState(false);
   const [handoverLabel, setHandoverLabel] = useState("Hand over");
   const ready = useRef(false);
+  // The frame loads the view's page once. A later load means the view
+  // navigated its frame to another page, which gets nothing from here on:
+  // the frame's window is the same, so its messages still look like the view's.
+  const [left, setLeft] = useState(false);
+  const gone = useRef(false);
+  const [reloads, setReloads] = useState(0);
+  const reload = useCallback(() => setReloads((n) => n + 1), []);
   // set before the request goes out: state would only say so after a
   // render, too late for a second submit posted in the same moment
   const inFlight = useRef(false);
@@ -82,7 +93,9 @@ export function usePluginBridge(options: Options): Bridge {
   latest.current = { review, previous, readonly, connected, submitting, onSubmit, settings, onSetSetting, onOpen, minHeight };
 
   const post = useCallback(
-    (msg: Record<string, unknown>) => frame.current?.contentWindow?.postMessage({ pinrail: PROTOCOL, ...msg }, "*"),
+    (msg: Record<string, unknown>) => {
+      if (!gone.current) frame.current?.contentWindow?.postMessage({ pinrail: PROTOCOL, ...msg }, "*");
+    },
     [frame],
   );
 
@@ -176,17 +189,37 @@ export function usePluginBridge(options: Options): Bridge {
     const el = frame.current;
     if (!el || !src) return;
     ready.current = false;
+    gone.current = false;
+    setLeft(false);
     files.current = new Map();
     setLoaded(false);
     setFill(false);
     setHandoverLabel("Hand over");
 
+    const leave = () => {
+      gone.current = true;
+      ready.current = false;
+      setLeft(true);
+    };
+    let loads = 0;
+    const onLoad = () => {
+      loads += 1;
+      if (loads > 1) leave();
+    };
+    el.addEventListener("load", onLoad);
+
     const onMessage = async (event: MessageEvent) => {
-      if (event.source !== el.contentWindow) return;
+      if (event.source !== el.contentWindow || gone.current) return;
       const msg = event.data;
       if (!msg || msg.pinrail !== PROTOCOL) return;
       switch (msg.type) {
         case "ready":
+          // A page says ready once: a second one is another page, which
+          // speaks before its load event would give it away
+          if (ready.current) {
+            leave();
+            return;
+          }
           ready.current = true;
           sendInit();
           // A view that never reports a size would otherwise sit behind the
@@ -281,13 +314,14 @@ export function usePluginBridge(options: Options): Bridge {
     el.src = `${src}#pinrail-theme=${currentTheme()}`;
 
     return () => {
+      el.removeEventListener("load", onLoad);
       window.removeEventListener("message", onMessage);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:appearance", onAppearance);
       window.clearTimeout(fallback.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [frame, reviewId, src, sendInit, markLoaded, collect, post]);
+  }, [frame, reviewId, src, reloads, sendInit, markLoaded, collect, post]);
 
   // The plugin's settings changed, in Settings or through the view itself:
   // the view hears the values as they stand now.
@@ -309,5 +343,5 @@ export function usePluginBridge(options: Options): Bridge {
     wasReadonly.current = readonly;
   }, [readonly, sendInit]);
 
-  return { loaded, fill, submitting, handoverLabel, collect };
+  return { loaded, fill, submitting, handoverLabel, collect, left, reload };
 }

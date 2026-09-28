@@ -556,7 +556,14 @@ export function ReviewScreen() {
               </Tooltip>
             </div>
           ) : null}
-          {!bridge.loaded ? (
+          {bridge.left ? (
+            <div className="notice notice-danger view-left" role="alert" data-view-left>
+              <span>This plugin's view went to another page, so Pinrail stopped exchanging messages with it.</span>
+              <button type="button" className="chrome-button" onClick={bridge.reload}>
+                Reload the view
+              </button>
+            </div>
+          ) : !bridge.loaded ? (
             <div className="plugin-loading" role="status">
               <span className="spinner" aria-hidden="true" />
               <span>Loading the view…</span>
@@ -570,7 +577,7 @@ export function ReviewScreen() {
             referrerPolicy="no-referrer"
             title={review.title}
             className="plugin-frame"
-            style={{ height: `${plugin.min_height}px` }}
+            style={{ height: `${plugin.min_height}px`, visibility: bridge.left ? "hidden" : undefined }}
           />
         </div>
       ) : null}
