@@ -29,6 +29,7 @@ const released = [
   "cli/Cargo.lock",
   "desktop/app/src-tauri/tauri.conf.json",
   "desktop/app/package.json",
+  "desktop/app/package-lock.json",
   "CHANGELOG.md",
 ];
 
@@ -63,7 +64,8 @@ const write = (file, pattern, replacement) => {
 write("desktop/Cargo.toml", /^version = "[^"]*"$/m, `version = "${version}"`);
 write("cli/Cargo.toml", /^version = "[^"]*"$/m, `version = "${version}"`);
 write("desktop/app/src-tauri/tauri.conf.json", /("version":\s*)"[^"]*"/, `$1"${version}"`);
-write("desktop/app/package.json", /("version":\s*)"[^"]*"/, `$1"${version}"`);
+// npm writes the package's version and its lock file's two copies of it
+run("npm", ["version", version, "--no-git-tag-version", "--allow-same-version"], path.join(root, "desktop", "app"));
 
 // cargo writes the lock files, so a release still builds --locked
 run("cargo", ["update", "--workspace", "--offline", "--quiet"], path.join(root, "desktop"));
