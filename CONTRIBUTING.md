@@ -55,7 +55,9 @@ with `npx playwright install chromium` from `e2e/`.
 
 - **Desktop core and UI:** `mise run test:desktop`. The Rust tests of the
   server (storage, plugins, validation, the HTTP API) and of the app, then a
-  type check of the UI. The core's check test compares the Rust plugin check
+  type check of the UI and its unit tests (Vitest, for the UI's pure logic:
+  formatting, key handling, how events change the pending list). The UI's
+  screens are tested end to end, by `mise run e2e:shell`. The core's check test compares the Rust plugin check
   with the SDK's, so it needs Node; set `PINRAIL_SKIP_NODE=1` to skip it. One
   test builds a plugin with `npm ci` and needs the network, so it only runs
   when asked: `cargo test -p pinrail-core -- --ignored` from `desktop/`.

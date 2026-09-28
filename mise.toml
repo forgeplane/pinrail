@@ -38,7 +38,7 @@ dir = "{{config_root}}/e2e"
 run = "npm test"
 
 [tasks."test:desktop"]
-description = "Desktop app: core crate tests and a UI typecheck"
+description = "Desktop app: core crate tests, and the UI's type check and unit tests"
 dir = "{{config_root}}/desktop"
 run = ["cargo test", "npm --prefix app test"]
 

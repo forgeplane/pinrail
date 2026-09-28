@@ -86,7 +86,8 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             desktop/app/package-lock.json
-      - name: Type check the shell
+      # the UI's type check, then its unit tests
+      - name: Type check and unit-test the shell
         working-directory: desktop/app
         run: |
           npm ci
