@@ -106,9 +106,9 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
       </SettingsGroup>
 
       <SettingsGroup
-        caption={plugins.length ? `Installed · ${plugins.length}${broken ? `, ${broken} broken` : ""}` : "Installed"}
+        caption={plugins.length ? `Installed (${plugins.length}${broken ? `, ${broken} broken` : ""})` : "Installed"}
         action={
-          <Tooltip label="Read the store and the links again">
+          <Tooltip label="Reload plugins from disk">
             <button type="button" className="chrome-button settings-caption-action" onClick={reload}>
               <RefreshCw size={13} /> Reload
             </button>
@@ -117,8 +117,8 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
       >
         {plugins.length === 0 ? (
           <SettingsRow
-            label="No plugins yet"
-            description="Install one above to give your agents a view to ask through"
+            label="No plugins installed"
+            description="Install a plugin to let agents submit reviews of that kind"
           />
         ) : null}
         {plugins.map((p) => (
@@ -182,7 +182,7 @@ function updatesLine(u: PluginUpdates): Line {
     case "pinned":
       return { text: `Pinned to ${u.tag ?? u.ref ?? "this version"}`, tone: "dim" };
     case "linked":
-      return { text: "A link is always what the folder holds", tone: "dim" };
+      return { text: "A linked plugin always uses the current contents of its folder", tone: "dim" };
     default:
       return { text: `Could not check: ${u.message ?? "unknown"}`, tone: "danger" };
   }
@@ -418,9 +418,9 @@ function PluginEntry({
         ) : null}
       </span>
     ) : p.settings_error ? (
-      <span className="danger">settings dropped: {p.settings_error}</span>
+      <span className="danger">Settings ignored: {p.settings_error}</span>
     ) : p.sample_error ? (
-      <span className="danger">sample dropped: {p.sample_error}</span>
+      <span className="danger">Sample ignored: {p.sample_error}</span>
     ) : null);
 
   return (
@@ -463,7 +463,7 @@ function PluginEntry({
           </Tooltip>
         ) : null}
         {p.install && linked ? (
-          <Tooltip label="Install a copy: done iterating, put it in the store">
+          <Tooltip label="Install a copy of this linked plugin">
             <button type="button" className="bar-button" onClick={onCopy} aria-label={`Install a copy of ${p.name}`}>
               <PackagePlus size={15} />
             </button>
@@ -497,8 +497,8 @@ function PluginEntry({
         <Tooltip
           label={
             muted
-              ? "Muted: its reviews arrive without a notification. Click to notify again"
-              : "Notifies when one of its reviews arrives. Click to mute"
+              ? "Notifications are off for this plugin. Click to turn them on"
+              : "Notifies you when a review for this plugin arrives. Click to turn notifications off"
           }
         >
           <button
@@ -541,14 +541,14 @@ function PluginEntry({
               </span>
               {p.install?.modified ? (
                 <span className="danger with-icon">
-                  <TriangleAlert size={11} /> modified since install
+                  <TriangleAlert size={11} /> Modified since installation
                 </span>
               ) : null}
             </dd>
             {p.attachments ? (
               <>
                 <dt>Files</dt>
-                <dd data-plugin-takes>{takes(p.attachments).replace("Takes files: ", "")}</dd>
+                <dd data-plugin-takes>{takes(p.attachments)}</dd>
               </>
             ) : null}
             {links.length ? (

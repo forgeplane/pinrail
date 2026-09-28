@@ -80,13 +80,13 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await again.getByLabel("Source").fill(source);
   await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="unchanged"]')).toContainText(
-    "greeter 1.2.0 is installed already, from this source, and nothing has changed",
+    "greeter 1.2.0 is already installed, from this source, and the source has not changed",
   );
   // once the folder changes, the same version replaces what is there
   fs.appendFileSync(path.join(source, "view/index.html"), "<!-- edited -->");
   await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="same"]')).toContainText(
-    "greeter 1.2.0 is installed already. Installing replaces it.",
+    "greeter 1.2.0 is already installed. Installing replaces it.",
   );
   await again.getByLabel("Source").press("Escape");
 
@@ -117,7 +117,7 @@ test("a source that builds shows the exact command as the consent, then runs it"
   await expect(runs).toContainText(
     "echo building the view && mkdir -p view && printf '<html>built</html>' > view/index.html",
   );
-  await expect(runs).toContainText("with your rights");
+  await expect(runs).toContainText("with your user permissions");
 
   await dialog.locator("[data-install-confirm]").click();
   await expect(dialog.locator("[data-install-done]")).toContainText("1.0.0 is ready");
@@ -185,7 +185,7 @@ test("a link serves the folder live and offers to install a copy", async ({ page
   await row.getByRole("button", { name: "Install a copy of wip" }).click();
   const copy = page.locator("[data-install-panel]");
   await expect(copy.locator('[data-replaces="link"]')).toContainText(
-    "wip 1.0.0 is installed already, as a link to this very folder",
+    "wip 1.0.0 is already installed, as a link to this folder",
   );
   await copy.locator("[data-install-confirm]").click();
   await expect(copy.locator("[data-install-done]")).toBeVisible();

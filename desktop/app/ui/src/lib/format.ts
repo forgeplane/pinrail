@@ -33,13 +33,13 @@ export function size(bytes: number): string {
   return `${bytes} ${bytes === 1 ? "byte" : "bytes"}`;
 }
 
-/** "Takes .glb, .gltf, up to 50 MB each": what a plugin takes beside a payload. */
+/** ".glb, .gltf, up to 50 MB each, at most 3 files": the files a plugin accepts beside a payload. */
 export function takes(rules: { accept: string[]; max_size?: number; max_count?: number }): string {
   const limits = [
     rules.max_size ? `up to ${size(rules.max_size)} each` : null,
-    rules.max_count ? `${rules.max_count} at most` : null,
+    rules.max_count ? `at most ${rules.max_count} ${rules.max_count === 1 ? "file" : "files"}` : null,
   ].filter(Boolean);
-  return `Takes files: ${rules.accept.join(", ")}${limits.length ? `, ${limits.join(", ")}` : ""}`;
+  return `${rules.accept.join(", ")}${limits.length ? `, ${limits.join(", ")}` : ""}`;
 }
 
 /** When an ended review ended: decided, withdrawn, discarded or expired. */

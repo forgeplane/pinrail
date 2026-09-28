@@ -84,14 +84,14 @@ function Origin({ seen }: { seen: Inspection }) {
       <span className="mono">
         {r.owner}/{r.repo}
       </span>
-      : the asset <span className="mono">{r.asset}</span>
+      , asset <span className="mono">{r.asset}</span>
       {r.asset_size !== undefined ? ` (${size(r.asset_size)})` : ""}
-      {r.pinned ? ", pinned to this tag" : ", the latest"}
+      {r.pinned ? ", pinned to this tag" : ", the latest release"}
     </p>
   );
 }
 
-/** What runs on this machine, and what happens to what is installed already. */
+/** What runs on this computer, and what happens to what is already installed. */
 function Consequences({ seen }: { seen: Inspection }) {
   const local = seen.origin.kind === "path";
   const installed = seen.installed;
@@ -99,11 +99,11 @@ function Consequences({ seen }: { seen: Inspection }) {
     <>
       {seen.origin.kind === "release" ? (
         <p className="install-runs" data-runs="nothing">
-          <b>Nothing runs on your machine.</b> The bundle is unpacked, checked and served as it is.
+          <b>Nothing runs on your computer.</b> The bundle is unpacked, checked and used as it is.
         </p>
       ) : seen.link ? (
         <p className="install-runs" data-runs="nothing">
-          <b>Nothing is copied.</b> The folder is served live: a change to a file shows on the next open.
+          <b>Nothing is copied.</b> Pinrail serves the folder directly, so changes appear the next time the view opens.
         </p>
       ) : seen.build ? (
         <div className={`install-runs ${local ? "" : "is-warning"}`} data-runs="build">
@@ -112,20 +112,20 @@ function Consequences({ seen }: { seen: Inspection }) {
           </p>
           <p>
             {local
-              ? "It runs here, with your rights, through the shell."
-              : "It runs on this machine with your rights, outside any sandbox, along with whatever the dependencies run when they install."}{" "}
-            Whatever the command needs must be on the PATH. Install is the yes.
+              ? "The command runs on this computer with your user permissions, through the shell."
+              : "The command runs on this computer with your user permissions, outside any sandbox, together with any scripts the dependencies run when they install."}{" "}
+            Any tools it needs must be on your PATH. Choose Install to run it.
           </p>
         </div>
       ) : (
         <p className="install-runs" data-runs="nothing">
-          <b>No build.</b> The folder is copied as it is, without sources, tests and dot-entries.
+          <b>No build.</b> The folder is copied without source files, tests and hidden files.
         </p>
       )}
       {seen.attachments ? (
         <p className="install-runs" data-takes>
-          <b>{takes(seen.attachments)}.</b> An agent can send them beside a review; they are kept with it, shown on it,
-          and handed to this view only.
+          <b>Accepts files:</b> {takes(seen.attachments)}. Agents can attach these files to a review. The files are
+          stored with the review and are available only to this plugin's view.
         </p>
       ) : null}
       {installed ? (
@@ -144,18 +144,18 @@ function Consequences({ seen }: { seen: Inspection }) {
           }
         >
           <b>
-            {seen.name} {installed.version} is installed already
+            {seen.name} {installed.version} is already installed
           </b>
           {installed.linked
             ? installed.path === String(seen.origin.resolved)
-              ? `, as a link to this very folder. Installing makes a copy in the store and drops the link.`
-              : `, as a link to ${installed.path}. Installing makes a copy of this folder and drops the link.`
+              ? `, as a link to this folder. Installing makes a copy and removes the link.`
+              : `, as a link to ${installed.path}. Installing copies this folder and removes the link.`
             : installed.unchanged
-              ? `, from this source, and nothing has changed. Installing again puts the same files back.`
+              ? `, from this source, and the source has not changed. Installing again replaces it with the same files.`
               : installed.major !== seen.major
-                ? `. This is a new line beside it, and the old one stays while a review still renders from it.`
+                ? `. This major version is installed beside it, and the old one stays while reviews still use it.`
                 : seen.older
-                  ? `, and it is newer than this. Installing replaces it anyway.`
+                  ? `, and it is newer than this version. Installing replaces it with this older version.`
                   : `. Installing replaces it.`}
         </p>
       ) : null}
@@ -252,7 +252,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
 
   const choose = async () => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ directory: true, multiple: false, title: "The plugin's folder" });
+    const picked = await open({ directory: true, multiple: false, title: "Choose the plugin folder" });
     if (typeof picked === "string") {
       setSource(picked);
       setStage({ at: "source" });
@@ -321,7 +321,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
               disabled={busy || !source.trim()}
               data-install-look
             >
-              {stage.at === "looking" ? "Looking…" : "Look"}
+              {stage.at === "looking" ? "Inspecting…" : "Inspect"}
             </button>
           </div>
           {!isLocal(source) && !isRelease(source) && source.trim() ? (
@@ -330,7 +330,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
                 className="settings-input"
                 type="text"
                 aria-label="Ref"
-                placeholder="ref: a branch, tag or commit"
+                placeholder="Branch, tag or commit"
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -344,7 +344,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
                 className="settings-input"
                 type="text"
                 aria-label="Folder"
-                placeholder="folder in the repository"
+                placeholder="Folder in the repository"
                 autoComplete="off"
                 autoCorrect="off"
                 autoCapitalize="off"
@@ -361,7 +361,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
               <Toggle label="Link instead of copying" checked={link} disabled={busy} onChange={setLinked} />
               <span onClick={() => !busy && setLinked(!link)}>
                 Link instead of copying
-                <span className="faint"> · served live while you work on it</span>
+                <span className="faint"> (changes to the folder appear immediately)</span>
               </span>
             </div>
           ) : null}
@@ -414,8 +414,8 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
 
       {stage.at === "done" ? (
         <p className="install-done" data-install-done>
-          <b>{stage.job.plugin?.title ?? stage.job.plugin?.name}</b> {stage.job.plugin?.install?.version} is ready. A
-          review rendering from it opens with it from now on.
+          <b>{stage.job.plugin?.title ?? stage.job.plugin?.name}</b> {stage.job.plugin?.install?.version} is ready.
+          Reviews for this plugin now open with this version.
         </p>
       ) : null}
 

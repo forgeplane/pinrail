@@ -7,7 +7,7 @@ Pinrail installs one plugin at a time, from the app or from the command line. Yo
 
 ## From the app
 
-Open *Settings › Plugins* and choose *Install…*. Paste a source, or choose a folder, then choose *Look*. Pinrail fetches the source and shows you:
+Open *Settings › Plugins* and choose *Install…*. Paste a source, or choose a folder, then choose *Inspect*. Pinrail fetches the source and shows you:
 
 - the plugin the manifest describes, and its version;
 - where it comes from;
@@ -29,7 +29,7 @@ The form of the source tells Pinrail where to fetch the plugin from:
 | Source | Installs |
 |---|---|
 | `./plugins/review` | A folder on this machine, copied into the app. |
-| `./plugins/review --link` | The same folder, served live while you work on it. |
+| `./plugins/review --link` | The same folder, served directly while you work on it. |
 | `github.com/acme/plugins/review@v3` | A folder inside a repository, at a tag. |
 | `https://github.com/acme/plugins/tree/v3/review` | The same, as your browser shows it. |
 | `github.com/acme/pinrail-review` | A repository's root, on its default branch. |
@@ -123,7 +123,7 @@ Removing a plugin stops new reviews from using it. Stored copies that existing r
 
 ## What runs on your machine
 
-:::caution[A build runs code with your rights]
+:::caution[A build runs code with your user permissions]
 When you install a plugin from a source that needs a build, Pinrail runs the build command on your computer with your user's permissions. Installing a release does not run anything. Only install plugins from people and repositories whose code you would be willing to run. [What runs where](/docs/concepts/trust/#what-installing-a-plugin-runs) explains what each kind of installation runs.
 :::
 

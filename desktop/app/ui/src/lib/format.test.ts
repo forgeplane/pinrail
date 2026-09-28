@@ -37,11 +37,11 @@ describe("size", () => {
 
 describe("takes", () => {
   test("lists the kinds, then the limits that are set", () => {
-    expect(takes({ accept: [".glb", ".gltf"] })).toBe("Takes files: .glb, .gltf");
+    expect(takes({ accept: [".glb", ".gltf"] })).toBe(".glb, .gltf");
     expect(takes({ accept: [".pdf"], max_size: 50 * 1024 * 1024, max_count: 3 })).toBe(
-      "Takes files: .pdf, up to 50.0 MB each, 3 at most",
+      ".pdf, up to 50.0 MB each, at most 3 files",
     );
-    expect(takes({ accept: [".html"], max_count: 1 })).toBe("Takes files: .html, 1 at most");
+    expect(takes({ accept: [".html"], max_count: 1 })).toBe(".html, at most 1 file");
   });
 });
 
