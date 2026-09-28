@@ -88,6 +88,8 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--expires-at` | Close the review if nobody decides by then. |
 | `--requested-by` | Who is asking, shown on the review, with the agent's icon when the app knows it. Defaults to `PINRAIL_REQUESTED_BY`, then the coding agent the command runs under, found from the variables it sets (`claude-code`, `codex`, `cursor`, `gemini-cli`, `opencode`), then `pinrail-cli`. Name the job or role with `--origin workflow=…`. |
 
+Submitting the same review again while the first is still pending does not create a second one: the command answers the review already waiting, with its id. An agent that runs the command a second time, for example after its first attempt was stopped, waits on the same review, and the person decides it once.
+
 ### The whole request in one file
 
 Instead of flags, the agent can write the whole request as one JSON file and pass it with `--request` (or `--request -` to read stdin):

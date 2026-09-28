@@ -78,6 +78,8 @@ together. Otherwise submit each without `--wait`, then
   `--revises <id>`; `pinrail rounds <id>` prints every round. Revise the
   latest round, with the same plugin. A round still pending when you revise
   it is withdrawn, and its waiter exits 3.
+- Sending the same review again while it is still pending answers the one
+  already waiting, so running the command twice asks the person once.
 - `pinrail show <id>`: where a review stands, and its decision.
 - `pinrail withdraw <id> --reason "<why>"`: you no longer need the answer.
 - `pinrail list`: what is waiting on the person in this project; `--all`

@@ -1133,6 +1133,24 @@ async fn a_new_round_revises_the_latest_round_with_the_same_plugin() {
     );
 }
 
+/// An agent that sends the same review again while the first is still
+/// waiting, as one that gives up on its command and runs it again does, gets
+/// the review it already has, not a second copy for the person to decide.
+#[tokio::test]
+async fn the_same_submission_while_the_first_is_pending_is_one_review() {
+    let app = app();
+    let (status, first) = call(&app, "POST", "/api/v1/reviews", Some(submission())).await;
+    assert_eq!(status, StatusCode::CREATED, "{first}");
+    let (status, again) = call(&app, "POST", "/api/v1/reviews", Some(submission())).await;
+    assert_eq!(
+        again["id"], first["id"],
+        "a second review was created: {again}"
+    );
+    assert_eq!(status, StatusCode::OK);
+    let (_, pending) = call(&app, "GET", "/api/v1/reviews?status=pending", None).await;
+    assert_eq!(pending["total"], 1, "{pending}");
+}
+
 /// A plugin name is looked up, never joined into a path: a plugin folder
 /// beside the store is not reached through `..`.
 #[tokio::test]

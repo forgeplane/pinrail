@@ -12,7 +12,7 @@
 // violation report and checks which rule fired.
 
 import { expect, test, type Frame } from "@playwright/test";
-import { core, corePort, createReview } from "./helpers";
+import { clearInbox, core, corePort, createReview } from "./helpers";
 
 /** Live, reachable, and outside every source the frame's policy allows. */
 const refused = `${core}/api/v1/info`;
@@ -21,6 +21,8 @@ const sdkFont = `${core}/sdk/v1/files/inter-latin-wght-normal.woff2`;
 
 /** Opens a review and hands back the plugin's frame. */
 async function pluginFrame(page: import("@playwright/test").Page): Promise<Frame> {
+  // a fresh review each time: the same one still pending would come back
+  await clearInbox(page.request);
   const { id } = await createReview(page.request, { title: "sandbox", origin: { repo: "acme/api", workflow: "sandbox" } });
   await page.goto(`/#/reviews/${id}`);
   await expect(page.frameLocator("#plugin-frame").locator("body")).toBeVisible();

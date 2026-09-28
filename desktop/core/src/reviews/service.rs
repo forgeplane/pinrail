@@ -79,6 +79,13 @@ impl Reviews {
     /// `requested_by` are optional. Every failure is `invalid` with
     /// violations pointing into the body.
     pub fn submit(&self, body: &Value, actor: Option<&str>) -> Result<Review, Error> {
+        self.submit_once(body, actor).map(|(review, _)| review)
+    }
+
+    /// As `submit`, and whether the review is new: a submission the same as
+    /// a review still pending, as an agent that runs its command again
+    /// sends, answers that review instead of creating a second one.
+    pub fn submit_once(&self, body: &Value, actor: Option<&str>) -> Result<(Review, bool), Error> {
         let Checked {
             attrs,
             plugin,
@@ -120,8 +127,9 @@ impl Reviews {
             ),
             attachments,
         };
-        let event_id = match self.db.insert_review(&review, actor) {
-            Ok(event_id) => event_id,
+        let event_id = match self.db.insert_review_once(&review, actor) {
+            Ok(Ok(event_id)) => event_id,
+            Ok(Err(existing)) => return Ok((self.get(&existing)?, false)),
             // another submission revised the same round a moment earlier
             Err(e) if e.to_string().contains("reviews.revises") => {
                 let revised = review.revises.clone().unwrap_or_default();
@@ -143,7 +151,7 @@ impl Reviews {
                 Err(e) => return Err(e),
             }
         }
-        Ok(review)
+        Ok((review, true))
     }
 
     /// Runs every check a submission gets and stores nothing: the plugin

@@ -43,6 +43,79 @@ impl Db {
     pub fn insert_review(&self, review: &Review, actor: Option<&str>) -> rusqlite::Result<i64> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
+        let event_id = insert_in(&tx, review, actor)?;
+        tx.commit()?;
+        Ok(event_id)
+    }
+
+    /// Stores the review, unless a pending review is the same submission:
+    /// the same plugin, title, payload, origin, round and files. Then it
+    /// stores nothing and answers that review's id. Looking and storing
+    /// happen under one lock, so two copies sent at once make one review.
+    pub fn insert_review_once(
+        &self,
+        review: &Review,
+        actor: Option<&str>,
+    ) -> rusqlite::Result<Result<i64, String>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let payload = review
+            .payload
+            .clone()
+            .unwrap_or(Value::Object(Map::new()))
+            .to_string();
+        let origin = Value::Object(review.origin.clone()).to_string();
+        let twins: Vec<String> = tx
+            .prepare(
+                "SELECT r.id FROM reviews r
+                 WHERE r.plugin = ?1 AND r.title = ?2 AND r.payload = ?3 AND r.origin = ?4
+                   AND r.revises IS ?5
+                   AND NOT EXISTS (SELECT 1 FROM outcomes o WHERE o.review_id = r.id)
+                   AND (r.expires_at IS NULL OR r.expires_at > ?6)
+                 ORDER BY r.id",
+            )?
+            .query_map(
+                params![
+                    review.plugin,
+                    review.title,
+                    payload,
+                    origin,
+                    review.revises,
+                    crate::reviews::iso(chrono::Utc::now())
+                ],
+                |row| row.get(0),
+            )?
+            .collect::<Result<_, _>>()?;
+        let mut files: Vec<(String, String)> = review
+            .attachments
+            .iter()
+            .map(|a| (a.name.clone(), a.sha256.clone()))
+            .collect();
+        files.sort();
+        for id in twins {
+            let theirs: Vec<(String, String)> = tx
+                .prepare(
+                    "SELECT name, sha256 FROM review_attachments WHERE review_id = ?1 ORDER BY name, sha256",
+                )?
+                .query_map(params![id], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .collect::<Result<_, _>>()?;
+            if theirs == files {
+                return Ok(Err(id));
+            }
+        }
+        let event_id = insert_in(&tx, review, actor)?;
+        tx.commit()?;
+        Ok(Ok(event_id))
+    }
+}
+
+/// The review, its created event and its files, in the caller's transaction.
+fn insert_in(
+    tx: &rusqlite::Transaction<'_>,
+    review: &Review,
+    actor: Option<&str>,
+) -> rusqlite::Result<i64> {
+    {
         tx.execute(
             "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, payload, summary, revises, expires_at, created_at)
              VALUES (?1, ?2, ?3, ?12, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
@@ -62,7 +135,7 @@ impl Db {
             ],
         )?;
         let event_id = insert_event(
-            &tx,
+            tx,
             Some(&review.id),
             crate::events::CREATED,
             actor,
@@ -74,10 +147,11 @@ impl Db {
                 params![review.id, attachment.name, attachment.sha256, attachment.size as i64, attachment.media_type],
             )?;
         }
-        tx.commit()?;
         Ok(event_id)
     }
+}
 
+impl Db {
     pub fn get_review(&self, id: &str) -> rusqlite::Result<Option<Review>> {
         let conn = self.conn();
         let review = conn

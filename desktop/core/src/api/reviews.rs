@@ -41,8 +41,14 @@ pub fn routes() -> Router<ApiState> {
 
 async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
     let body = parse_body(&body)?;
-    let review = state.reviews().submit(&body, None)?;
-    Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
+    // the same submission as a review still pending answers that review
+    let (review, created) = state.reviews().submit_once(&body, None)?;
+    let status = if created {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+    Ok((status, Json(review.to_json(true))).into_response())
 }
 
 /// The checks a submission gets, with nothing stored: 200 naming the plugin
