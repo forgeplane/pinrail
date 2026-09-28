@@ -126,6 +126,11 @@ request can be merged.
 - **Docs:** if your change affects what users see, update the relevant page
   in `docs/`. The pages in `docs/reference/` are generated, so change their
   source and run `mise run docs:generate`.
+- **SDK:** every review in a person's history renders with the SDK the app
+  serves at `/sdk/v1/`. Treat the public JavaScript API of
+  `pinrail-plugin.js` and the classes in `pinrail-plugin.css` as a
+  compatibility surface: add to them, but do not rename, remove or change
+  what exists.
 - **Commits:** keep each commit to one change. Write the title as a sentence
   that says what the commit does, without an `area:` prefix. For example:
   *Let the artifact plugin take its page as an HTML file*.

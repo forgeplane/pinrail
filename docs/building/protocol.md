@@ -198,4 +198,4 @@ Without the SDK, your view must also do the following: size the frame on every c
 
 ## Versions
 
-`v1` in `/sdk/v1/` is the protocol's major version, and it only ever receives fixes. A review decided months ago still loads the same SDK and renders as it did on the day it was decided.
+`v1` in `/sdk/v1/` is the protocol's major version. The app serves the SDK itself, so every review, including one decided months ago, loads the SDK of the installed app. Within `v1`, the SDK changes only in ways that keep existing views working.

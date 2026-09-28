@@ -44,7 +44,7 @@ When an agent revises a review you asked it to change, the new round opens with 
 
 ## History
 
-Every review that has ended is in your **history**: decided, discarded, withdrawn or expired. Open one and it renders exactly as it was, in the view it was decided in, read-only.
+Every review that has ended is in your **history**: decided, discarded, withdrawn or expired. Open one and it renders read-only, with the latest installed release of the plugin's major version it was created under.
 
 ![History: ended reviews with their outcome, project and when they were recorded.](screenshot:history "Reviews that were decided, discarded or withdrawn, newest first.")
 
