@@ -30,10 +30,14 @@ export type Shortcut = {
 };
 
 export type Manifest = {
+  /** the manifest schema's address, for an editor that validates the file */
+  $schema?: string;
   /** `[a-z][a-z0-9_-]*`, unique across the installed plugins */
   name: string;
   /** a semantic version, such as `"1.2.0"` */
   version: string;
+  /** the oldest Pinrail the plugin works with, as a version range: `">=0.1"` */
+  pinrail?: string;
   /** what the app calls the plugin; the name when absent */
   title?: string;
   /** an SVG file beside the manifest, shown beside the plugin's reviews: `icon.svg` */
