@@ -12,7 +12,7 @@ test.use({ launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-s
 const expect = base.configure({ timeout: 20_000 });
 
 test("shows every model in the rail, and the chosen one on the stage with its views and size", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await expect(f.locator(".pick")).toHaveCount(4);
   await expect(f.locator(".pick .still img")).toHaveCount(4);
@@ -28,7 +28,7 @@ test("shows every model in the rail, and the chosen one on the stage with its vi
 });
 
 test("one favourite, keys to decide, and a warning before undecided models go back", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await expect(f.locator("#viewer canvas")).toBeVisible();
   await f.locator("body").click({ position: { x: 600, y: 5 } });
@@ -53,7 +53,7 @@ test("one favourite, keys to decide, and a warning before undecided models go ba
 });
 
 test("a part picked in the list is commented on, pinned, and the model counts as kept", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await f.locator("[data-part]").filter({ hasText: "Shade" }).click();
   await expect(f.locator("#pop")).toContainText("Lamp > Lower arm > Upper arm > Head > Shade");
@@ -78,7 +78,7 @@ test("a part picked in the list is commented on, pinned, and the model counts as
 });
 
 test("a click on the model itself opens a comment on the part under it", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   // the Column, front on: its drum shade fills the upper middle of the stage
   await f.locator(".pick").nth(2).click();
@@ -94,37 +94,37 @@ test("a click on the model itself opens a comment on the part under it", async (
 });
 
 test("three.js JSON is read as well as GLB", async ({ page }) => {
-  const gate = round();
-  gate.payload = JSON.parse(fs.readFileSync(path.join(dir, "fixtures/inline-object.json"), "utf8"));
-  const plugin = await mountPlugin(page, dir, { gate });
+  const review = round();
+  review.payload = JSON.parse(fs.readFileSync(path.join(dir, "fixtures/inline-object.json"), "utf8"));
+  const plugin = await mountPlugin(page, dir, { review });
   const f = plugin.frame;
   await expect(f.locator("#model-name")).toHaveText("Column");
   await expect(f.locator("[data-part]")).toHaveText([/Base/, /Stem/, /Drum shade/]);
 });
 
 test("a model that cannot be read says so, and the others still show", async ({ page }) => {
-  const gate = round();
-  gate.payload.models[0].file = { $attachment: "broken.glb" };
+  const review = round();
+  review.payload.models[0].file = { $attachment: "broken.glb" };
   const broken = test.info().outputPath("broken.glb");
   fs.mkdirSync(path.dirname(broken), { recursive: true });
   fs.writeFileSync(broken, "not a model");
   const files = Object.fromEntries(["arc", "column", "tripod"].map((n) => [`${n}.glb`, `fixtures/halden/${n}.glb`]));
-  const plugin = await mountPlugin(page, dir, { gate, attachments: { ...files, "broken.glb": broken } });
+  const plugin = await mountPlugin(page, dir, { review, attachments: { ...files, "broken.glb": broken } });
   const f = plugin.frame;
   await expect(f.locator(".broken")).toContainText("could not be read");
   await expect(f.locator(".pick .still img")).toHaveCount(3);
 });
 
 test("the models come from files the shell hands over, not from the payload", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   await expect(plugin.frame.locator(".pick .still img")).toHaveCount(4);
   const asked = (await plugin.messages()).filter((m: any) => m.type === "attachment").map((m: any) => m.name).sort();
   expect(asked).toEqual(["arc.glb", "column.glb", "pivot.glb", "tripod.glb"]);
 });
 
 test("a decided round is read-only and shows what was decided", async ({ page }) => {
-  const gate = fixture(path.join(dir, "fixtures", "halden.decided.json"));
-  const plugin = await mountPlugin(page, dir, { gate, readonly: true });
+  const review = fixture(path.join(dir, "fixtures", "halden.decided.json"));
+  const plugin = await mountPlugin(page, dir, { review, readonly: true });
   const f = plugin.frame;
   await expect(f.locator(".pick").nth(0).locator(".verdict-chip")).toHaveText("★ Favourite");
   await expect(f.locator('.choice[data-action="keep"]')).toBeDisabled();
@@ -134,7 +134,7 @@ test("a decided round is read-only and shows what was decided", async ({ page })
 
 test("says in the view what the app refused, and why a first hand-over waits", async ({ page }) => {
   // the shell's button label is easy to miss, and holds one message
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await plugin.collect();
   await expect(f.locator("[data-armed]")).toContainText("undecided");

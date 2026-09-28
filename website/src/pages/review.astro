@@ -37,14 +37,14 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
 
     <header class="gatebar" aria-label="Review">
       <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
-      <div class="gate-title">
-        <span class="gate-plugin">list</span>
-        <span class="gate-name">Landing page, draft 1</span>
-        <span class="gate-wait"><span class="pulse" aria-hidden="true"></span><span data-waiting>An agent is waiting on you</span></span>
+      <div class="review-title">
+        <span class="review-plugin">list</span>
+        <span class="review-name">Landing page, draft 1</span>
+        <span class="review-wait"><span class="pulse" aria-hidden="true"></span><span data-waiting>An agent is waiting on you</span></span>
       </div>
       <ModeSwitch current="review" />
-      <div class="gate-progress" aria-live="polite"><span data-count>0 of 6</span> decided<span class="track" aria-hidden="true"><span data-bar></span></span></div>
-      <div class="gate-actions">
+      <div class="review-progress" aria-live="polite"><span data-count>0 of 6</span> decided<span class="track" aria-hidden="true"><span data-bar></span></span></div>
+      <div class="review-actions">
         <button type="button" class="ghost" data-discard>Discard</button>
         <button type="button" class="primary" data-handback>Hand back <kbd>⌘↵</kbd></button>
       </div>
@@ -279,7 +279,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
     <Lightbox />
 
     <footer class="colophon">
-      <span>Pinrail · a small gate in a larger door.<small>No cookies: Cloudflare counts visits anonymously.</small></span>
+      <span>Pinrail · a person in the loop of your agents.<small>No cookies: Cloudflare counts visits anonymously.</small></span>
       <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/">Classic version</a></nav>
     </footer>
 

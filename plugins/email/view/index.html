@@ -215,7 +215,7 @@
 <div class="shell" id="app"><div class="top"><h1>Loading…</h1></div></div>
 <script>
 "use strict";
-/* The email gate: drafts an agent wants to send, marked up the way you would
+/* The email review: drafts an agent wants to send, marked up the way you would
    mark up anyone's writing. Edit the text and the change shows against what
    the agent wrote; highlight a passage and hang an instruction on it. Both
    travel back, so the agent can send what you approved and learn from what
@@ -226,7 +226,7 @@ const app = document.getElementById("app");
 const LABELS = { send: "Send", revise: "Revise", discard: "Discard" };
 const KEYS = { send: "s", revise: "r", discard: "x" };
 
-let gate = null, readonly = false;
+let review = null, readonly = false;
 /* Per draft: the verdict, the working subject and body, the marks against
    passages, and a note for the whole thing. `sel` and `history` are the
    screen's and are not kept. */
@@ -235,10 +235,10 @@ const S = { sel: 0, verdict: {}, subject: {}, body: {}, marks: {}, note: {}, his
 const plugin = Pinrail.connect({
   resize: "fill",
   onInit(init) {
-    gate = init.gate; readonly = init.readonly;
+    review = init.review; readonly = init.readonly;
     S.errors = null; S.armed = false; S.history = {}; S.future = {}; S.active = null; S.sel = 0;
     reset();
-    if (readonly) loadDecision(gate.decision && gate.decision.data);
+    if (readonly) loadDecision(review.decision && review.decision.data);
     else if (init.draft) loadDraft(init.draft);
     render();
   },
@@ -249,7 +249,7 @@ const plugin = Pinrail.connect({
 
 /* ---------- state ---------- */
 
-const drafts = () => gate.payload.drafts || [];
+const drafts = () => review.payload.drafts || [];
 const byId = (id) => drafts().find((d) => d.id === id);
 const current = () => drafts()[S.sel];
 
@@ -494,7 +494,7 @@ function draftHtml(d) {
 
     <section class="message">
       <div class="envelope addresses-block">
-        ${gate.payload.from ? `<span class="who">from</span><span class="from-line">${esc(gate.payload.from)}</span>` : ""}
+        ${review.payload.from ? `<span class="who">from</span><span class="from-line">${esc(review.payload.from)}</span>` : ""}
         ${rows.map(([who, v]) => `<span class="who">${who}</span><span class="addresses">${v.map(addr).join("")}</span>`).join("")}
       </div>
       <div class="subject ${changedSubject ? "changed" : ""}">
@@ -596,7 +596,7 @@ function decideHtml(d) {
 }
 
 function render() {
-  if (!gate) return;
+  if (!review) return;
   const sheet = app.querySelector(".sheet");
   const same = sheet && Number(sheet.dataset.sel) === S.sel;
   const keep = same ? sheet.scrollTop : 0;
@@ -608,15 +608,15 @@ function render() {
   app.innerHTML = `
     <div class="top">
       <h1>${n === 1 ? "1 draft" : `${n} drafts`}</h1>
-      ${gate.payload.from ? `<span class="from">from ${esc(gate.payload.from)}</span>` : ""}
+      ${review.payload.from ? `<span class="from">from ${esc(review.payload.from)}</span>` : ""}
       <span class="tally" id="tally"><span class="t-send"><b>${t.send}</b> to send</span><span class="t-revise"><b>${t.revise}</b> to revise</span><span class="t-discard"><b>${t.discard}</b> discarded</span>${t.undecided ? `<span><b>${t.undecided}</b> undecided</span>` : ""}</span>
       ${readonly ? "" : `<span class="top-actions"><button type="button" class="ghost-btn" data-act="send-rest" title="Mark every undecided draft to send">${icon("check-check", { size: 13 })}Send the rest <kbd>⇧S</kbd></button><button type="button" class="ghost-btn" data-act="clear" title="Clear every verdict">${icon("eraser", { size: 13 })}Clear</button></span>`}
     </div>
     <div class="work">
       <nav class="rail" aria-label="Drafts">${railHtml()}</nav>
       <div class="sheet" data-sel="${S.sel}"><div class="sheet-inner">
-        ${readonly && gate.decision && gate.decision.data ? `<div class="notice ok done">Handed over: ${t.send} to send, ${t.revise} to revise, ${t.discard} discarded${t.undecided ? `, ${t.undecided} left undecided` : ""}.</div>` : ""}
-        ${gate.payload.intro ? `<div class="intro">${markdown(gate.payload.intro)}</div>` : ""}
+        ${readonly && review.decision && review.decision.data ? `<div class="notice ok done">Handed over: ${t.send} to send, ${t.revise} to revise, ${t.discard} discarded${t.undecided ? `, ${t.undecided} left undecided` : ""}.</div>` : ""}
+        ${review.payload.intro ? `<div class="intro">${markdown(review.payload.intro)}</div>` : ""}
         ${d ? draftHtml(d) : `<p class="hint">No drafts.</p>`}
       </div></div>
       ${d ? `<aside class="aside" aria-label="Changes and instructions" data-aside="${esc(d.id)}">${asideHtml(d)}</aside>` : ""}
@@ -1009,12 +1009,12 @@ document.addEventListener("keydown", (event) => {
   }
   const own = !event.target.closest || event.target === document.body
     || event.target.closest("[data-body]") || event.target.matches('input[data-act="subject"]');
-  if (own && gate && !readonly && current() && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+  if (own && review && !readonly && current() && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
     event.preventDefault();
     undo(current().id, event.shiftKey);
     return;
   }
-  if (!gate || event.metaKey || event.ctrlKey || event.altKey) return;
+  if (!review || event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.target.closest && event.target.closest("textarea, input, [contenteditable]")) {
     if (event.key === "Escape") event.target.blur();
     return;

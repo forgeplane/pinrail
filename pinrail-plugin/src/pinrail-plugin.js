@@ -8,7 +8,7 @@
  *
  *   const plugin = Pinrail.connect({
  *     resize: "auto",                 // "auto" (content height), "fill" (viewport), or "manual"
- *     onInit({ gate, previous, readonly, draft, settings }) { … },
+ *     onInit({ review, previous, readonly, draft, settings }) { … },
  *     onViolations(errors) { … },     // [{ path, message }]
  *     onSubmitted(decision) { … },    // the decision was accepted; render read-only
  *     onCollect() { … },              // the shell's hand-over button, or Cmd/Ctrl+Enter
@@ -131,7 +131,7 @@
     const resizeMode = handlers.resize || "auto";
     const state = {
       shellOrigin: null,
-      gate: null,
+      review: null,
       previous: null,
       readonly: false,
       initialised: false,
@@ -177,13 +177,13 @@
       switch (data.type) {
         case "init":
           if (data.shell_origin) state.shellOrigin = data.shell_origin;
-          state.gate = data.gate;
+          state.review = data.review;
           state.previous = data.previous || null;
           state.readonly = !!data.readonly;
           state.settings = settingsOf(data.settings);
           state.capabilities = Array.isArray(data.capabilities) ? data.capabilities : [];
           state.initialised = true;
-          if (handlers.onInit) handlers.onInit({ gate: state.gate, previous: state.previous, readonly: state.readonly, draft: data.draft || null, settings: state.settings });
+          if (handlers.onInit) handlers.onInit({ review: state.review, previous: state.previous, readonly: state.readonly, draft: data.draft || null, settings: state.settings });
           startResize();
           break;
         case "settings":
@@ -197,7 +197,7 @@
           break;
         case "submitted":
           state.readonly = true;
-          if (state.gate) { state.gate.decision = data.decision || null; state.gate.status = "decided"; }
+          if (state.review) { state.review.decision = data.decision || null; state.review.status = "decided"; }
           if (handlers.onSubmitted) handlers.onSubmitted(data.decision || null);
           break;
         case "appearance":
@@ -250,11 +250,11 @@
        round this one revises. */
     function attachment(name, opts) {
       const round = opts && opts.round === "previous" ? "previous" : "current";
-      const gate = round === "previous" ? state.previous : state.gate;
+      const review = round === "previous" ? state.previous : state.review;
       if (!state.capabilities.includes("attachments")) {
         return Promise.reject(new Error("this version of Pinrail cannot hand files to a view; update the app"));
       }
-      const listed = gate && Array.isArray(gate.attachments) ? gate.attachments : [];
+      const listed = review && Array.isArray(review.attachments) ? review.attachments : [];
       if (!listed.some((a) => a && a.name === name)) {
         return Promise.reject(new Error(`no attachment "${name}" on this ${round === "previous" ? "previous round" : "review"}`));
       }
@@ -270,17 +270,17 @@
        one the review lists unless given; revoke the URL when done. */
     async function attachmentUrl(name, opts) {
       const bytes = await attachment(name, opts);
-      const gate = opts && opts.round === "previous" ? state.previous : state.gate;
-      const listed = (gate.attachments || []).find((a) => a.name === name);
+      const review = opts && opts.round === "previous" ? state.previous : state.review;
+      const listed = (review.attachments || []).find((a) => a.name === name);
       const type = (opts && opts.type) || (listed && listed.media_type) || "application/octet-stream";
       if (!env.objectUrl) throw new Error("Pinrail: attachmentUrl needs a browser");
       return env.objectUrl(bytes, type);
     }
 
     return {
-      get gate() { return state.gate; },
+      get review() { return state.review; },
       /** the files the review carries: { name, size, media_type, sha256 } each */
-      get attachments() { return (state.gate && state.gate.attachments) || []; },
+      get attachments() { return (state.review && state.review.attachments) || []; },
       attachment,
       attachmentUrl,
       get previous() { return state.previous; },
@@ -408,7 +408,7 @@
      markup, so a view that builds HTML strings can drop one in. The address is
      made whole here: a relative one inside a custom property may be read
      against the SDK's stylesheet instead. The name is reduced to the
-     characters an icon file can have: a view may take it from a gate payload,
+     characters an icon file can have: a view may take it from a review payload,
      and a payload is not ours to trust. A name with no file behind it renders
      as nothing, with the name left on the element to find it by.
 

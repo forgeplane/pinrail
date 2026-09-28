@@ -40,7 +40,7 @@ export function App() {
   const latest = useRef({ comments, verdict, readonly });
   latest.current = { comments, verdict, readonly };
 
-  const payload = (init?.gate.payload ?? null) as Payload | null;
+  const payload = (init?.review.payload ?? null) as Payload | null;
   const effectiveVerdict: Verdict = verdict ?? (comments.length > 0 ? "revise" : "approve");
 
   // one connection for the page, whatever React does with this component
@@ -54,7 +54,7 @@ export function App() {
       onInit(init) {
         setInit(init);
         setReadonly(init.readonly);
-        const data = init.gate.decision?.data as Decision | undefined;
+        const data = init.review.decision?.data as Decision | undefined;
         if (init.readonly && data) {
           setDecision(data);
           setComments(data.comments ?? []);
@@ -63,7 +63,7 @@ export function App() {
           setComments(init.draft.comments as Comment[]);
           setVerdict((init.draft.verdict as Verdict | undefined) ?? null);
         }
-        const wanted = (init.gate.payload as Payload).viewport;
+        const wanted = (init.review.payload as Payload).viewport;
         if (wanted && VIEWPORTS.some((v) => v.key === wanted)) setViewport(wanted);
       },
       onViolations(errors) {
@@ -234,7 +234,7 @@ export function App() {
   return (
     <div className={`app ${selecting ? "is-selecting" : ""} ${readonly ? "is-readonly" : ""}`}>
       <Toolbar
-        title={payload.title ?? init.gate.title}
+        title={payload.title ?? init.review.title}
         selecting={selecting}
         onSelecting={() => setSelecting((s) => !s)}
         viewport={viewport}

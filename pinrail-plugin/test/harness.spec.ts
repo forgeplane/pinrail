@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { reviewFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 import { scratch } from "./scratch.cjs";
 
 // The harness holds a plugin to what the app would: a decision that does not
@@ -30,7 +30,7 @@ function wrongDecision(): string {
 }
 
 test("a decision that fails the plugin's decision_schema fails nextSubmit", async ({ page }) => {
-  const plugin = await mountPlugin(page, wrongDecision(), { gate: gateFrom({ title: "Wrong", payload: {} }) });
+  const plugin = await mountPlugin(page, wrongDecision(), { review: reviewFrom({ title: "Wrong", payload: {} }) });
   await plugin.collect();
   await expect(plugin.nextSubmit()).rejects.toThrow("does not pass decision_schema: /ok: must be boolean");
   // a test about a refusal can still read it
@@ -48,7 +48,7 @@ test("a view that loads its script by an absolute path fails here as in the app"
     `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>Pinrail.connect({});</script><script src="/view.js"></script><p>view</p>`,
   );
-  const plugin = await mountPlugin(page, dir, { gate: gateFrom({ title: "Absolute", payload: {} }) });
+  const plugin = await mountPlugin(page, dir, { review: reviewFrom({ title: "Absolute", payload: {} }) });
   await expect(plugin.frame.locator("p")).toHaveText("view");
   await page.waitForTimeout(300);
   expect(await plugin.frame.locator("html").getAttribute("data-ran"), "the absolute script ran").toBeNull();
@@ -72,7 +72,7 @@ test("sendKey sends only what the app would forward to the view", async ({ page 
     }),
   );
   fs.writeFileSync(path.join(dir, "index.html"), `<!doctype html><script src="/sdk/v1/pinrail-plugin.js"></script><script>Pinrail.connect({});</script><p>keys</p>`);
-  const plugin = await mountPlugin(page, dir, { gate: gateFrom({ title: "Keys", payload: {} }) });
+  const plugin = await mountPlugin(page, dir, { review: reviewFrom({ title: "Keys", payload: {} }) });
   await plugin.sendKey("j");
   await expect(plugin.sendKey("x")).rejects.toThrow("not declared");
   await expect(plugin.sendKey("cmd+enter")).rejects.toThrow("the app keeps");

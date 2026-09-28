@@ -461,7 +461,7 @@ function renderTop() {
   const d = decisionData();
   const count = (a) => d.decisions.filter((x) => x.action === a).length;
   return `<div class="top">
-      <h1>${esc(plugin.gate.title || "3D model review")}</h1>
+      <h1>${esc(plugin.review.title || "3D model review")}</h1>
       <span class="subject">${esc(P.subject.name)}</span>
       <div class="tally" aria-live="polite">
         <span><b>${count("favorite")}</b> favourite</span><span><b>${count("keep")}</b> kept</span><span><b>${count("drop")}</b> dropped</span><span><b>${d.undecided.length}</b> undecided</span>
@@ -719,11 +719,11 @@ renderer.domElement.addEventListener("pointerleave", () => {
 
 const plugin = Pinrail.connect({
   resize: "fill",
-  async onInit({ gate, draft }) {
-    P = gate.payload;
+  async onInit({ review, draft }) {
+    P = review.payload;
     S.verdicts = {};
     S.sel = 0; S.picking = null; staged = -1;
-    const decided = gate.decision?.data;
+    const decided = review.decision?.data;
     if (decided) for (const d of decided.decisions || []) S.verdicts[d.id] = { action: d.action, note: d.note || "", comments: d.comments || [] };
     else if (draft && typeof draft === "object") S.verdicts = draft;
     models.length = 0;

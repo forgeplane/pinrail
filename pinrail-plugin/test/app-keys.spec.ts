@@ -25,7 +25,7 @@ function view(): string {
 }
 
 test("the app's keys go up from a view, unless typed in a field or kept by the view", async ({ page }) => {
-  const plugin = await mountPlugin(page, view(), { gate: { payload: {} } });
+  const plugin = await mountPlugin(page, view(), { review: { payload: {} } });
   const f = plugin.frame;
   await expect(f.locator("#ready")).toHaveText("ready");
   const keys = async () => (await plugin.messages()).filter((m: any) => m.type === "key").map((m: any) => m.key);

@@ -18,12 +18,12 @@ function reader(): string {
     `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script><pre id="out">waiting</pre>
 <script>
   const plugin = Pinrail.connect({
-    async onInit({ gate }) {
+    async onInit({ review }) {
       const out = document.getElementById("out");
       try {
-        const first = new Uint8Array(await plugin.attachment(Pinrail.attachmentName(gate.payload.file)));
+        const first = new Uint8Array(await plugin.attachment(Pinrail.attachmentName(review.payload.file)));
         // asked again: a fresh copy, since the first was transferred
-        const again = new Uint8Array(await plugin.attachment(Pinrail.attachmentName(gate.payload.file)));
+        const again = new Uint8Array(await plugin.attachment(Pinrail.attachmentName(review.payload.file)));
         const hex = (b) => Array.from(b.slice(0, 4), (x) => x.toString(16).padStart(2, "0")).join("");
         out.textContent = first.length + " bytes " + hex(first) + ", again " + again.length;
       } catch (e) {

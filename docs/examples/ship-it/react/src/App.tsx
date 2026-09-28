@@ -4,7 +4,7 @@
 // in index.html; the types come from the package.
 import { CircleCheck, CircleX, Hand, Rocket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
+import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 type Payload = {
   service: string;
@@ -21,7 +21,7 @@ type Draft = { verdict: Verdict | null; note: string };
 const { Pinrail } = window;
 
 export function App() {
-  const [gate, setGate] = useState<Gate<Payload, Decision> | null>(null);
+  const [review, setGate] = useState<Review<Payload, Decision> | null>(null);
   const [readonly, setReadonly] = useState(false);
   const [draft, setDraft] = useState<Draft>({ verdict: null, note: "" });
   const [error, setError] = useState("");
@@ -32,8 +32,8 @@ export function App() {
 
   useEffect(() => {
     plugin.current = Pinrail.connect<Payload, Decision>({
-      onInit({ gate, readonly, draft }) {
-        setGate(gate);
+      onInit({ review, readonly, draft }) {
+        setGate(review);
         setReadonly(readonly);
         if (draft) setDraft(draft as Draft);
       },
@@ -46,7 +46,7 @@ export function App() {
         setError(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
       },
       onSubmitted() {
-        setGate({ ...plugin.current!.gate! });
+        setGate({ ...plugin.current!.review! });
         setReadonly(true);
       },
     });
@@ -67,10 +67,10 @@ export function App() {
 
   // what the app's hand-over button says follows the choice
   useEffect(() => {
-    if (!gate || readonly) return;
-    const label = draft.verdict === "ship" ? `Ship ${gate.payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
+    if (!review || readonly) return;
+    const label = draft.verdict === "ship" ? `Ship ${review.payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
     plugin.current!.status({ label });
-  }, [gate, readonly, draft.verdict]);
+  }, [review, readonly, draft.verdict]);
 
   // s and h decide. The app forwards them too when it has the focus, as a
   // keydown on the document itself, so the target is not always an element.
@@ -85,9 +85,9 @@ export function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, [readonly]);
 
-  if (!gate) return null;
-  const { payload } = gate;
-  const decided = gate.decision?.data;
+  if (!review) return null;
+  const { payload } = review;
+  const decided = review.decision?.data;
   return (
     <main className="plugin-content ship">
       <p className="eyebrow">Deploy to {payload.environment}</p>

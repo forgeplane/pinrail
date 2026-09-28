@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, reviewFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
 const dir = path.resolve(__dirname, "..");
 const landing = () => fixture(path.join(dir, "fixtures", "landing.json"));
@@ -18,7 +18,7 @@ async function commentOn(plugin: Awaited<ReturnType<typeof mountPlugin>>, target
 }
 
 test("renders the artifact with its own styles, inert", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: landing() });
+  const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
   await expect(f.locator("[data-artifact] h1")).toHaveText("Bookkeeping that closes itself");
   // the artifact's stylesheet reached its elements
@@ -32,22 +32,22 @@ test("renders the artifact with its own styles, inert", async ({ page }) => {
 });
 
 test("the document can come as a file beside the payload, and one that cannot be read says so", async ({ page }) => {
-  const gate = landing();
-  const { html, ...rest } = gate.payload as { html: string };
-  gate.payload = { ...rest, file: { $attachment: "landing.html" } };
-  const plugin = await mountPlugin(page, dir, { gate, attachments: { "landing.html": path.join(dir, "fixtures", "landing.html") } });
+  const review = landing();
+  const { html, ...rest } = review.payload as { html: string };
+  review.payload = { ...rest, file: { $attachment: "landing.html" } };
+  const plugin = await mountPlugin(page, dir, { review, attachments: { "landing.html": path.join(dir, "fixtures", "landing.html") } });
   await expect(plugin.frame.locator("[data-artifact] h1")).toHaveText("Bookkeeping that closes itself");
   await expect(plugin.frame.locator("[data-load-error]")).toHaveCount(0);
 
   const missing = landing();
   const { html: _, ...others } = missing.payload as { html: string };
   missing.payload = { ...others, file: { $attachment: "gone.html" } };
-  const broken = await mountPlugin(page, dir, { gate: missing });
+  const broken = await mountPlugin(page, dir, { review: missing });
   await expect(broken.frame.locator("[data-load-error]")).toContainText("gone.html could not be read");
 });
 
 test("a comment hangs on the element by a selector and travels in the decision", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: landing() });
+  const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
   await commentOn(plugin, "[data-artifact] h1", "Say what it does, not a slogan");
   await expect(f.locator("[data-pin]")).toHaveCount(1);
@@ -67,7 +67,7 @@ test("a comment hangs on the element by a selector and travels in the decision",
 });
 
 test("comments can be edited and removed, and the verdict overridden", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: landing() });
+  const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
   await commentOn(plugin, "[data-artifact] #pricing h2", "Two plans at least");
   await f.locator("[data-comment]").hover();
@@ -87,7 +87,7 @@ test("comments can be edited and removed, and the verdict overridden", async ({ 
 });
 
 test("a draft comes back with the next init", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: landing() });
+  const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
   await commentOn(plugin, "[data-artifact] h1", "Shorter");
   await expect.poll(() => plugin.lastDraft()).toMatchObject({ comments: [{ selector: "#hero > h1", text: "Shorter" }] });
@@ -97,10 +97,10 @@ test("a draft comes back with the next init", async ({ page }) => {
 });
 
 test("a decided review is read-only with its pins", async ({ page }) => {
-  const gate = landing();
-  gate.status = "decided";
-  gate.decision = { data: { verdict: "revise", comments: [{ id: "c1", selector: "#hero > h1", tag: "h1", kind: "change", text: "Shorter" }] } };
-  const plugin = await mountPlugin(page, dir, { gate, readonly: true });
+  const review = landing();
+  review.status = "decided";
+  review.decision = { data: { verdict: "revise", comments: [{ id: "c1", selector: "#hero > h1", tag: "h1", kind: "change", text: "Shorter" }] } };
+  const plugin = await mountPlugin(page, dir, { review, readonly: true });
   const f = plugin.frame;
   await expect(f.locator("[data-pin]")).toHaveCount(1);
   await expect(f.locator("[data-select]")).toHaveCount(0);
@@ -109,7 +109,7 @@ test("a decided review is read-only with its pins", async ({ page }) => {
 });
 
 test("the viewport presets resize the artifact", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: landing() });
+  const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
   await f.getByRole("button", { name: /Phone/ }).click();
   await expect.poll(() => f.locator(".frame").evaluate((el) => el.getBoundingClientRect().width)).toBe(390);
@@ -122,7 +122,7 @@ test("custom properties on :root, html and body reach the artifact's elements", 
     body { background: var(--paper); }
     .btn { color: var(--ink); border: 1px solid var(--edge); }
   </style></head><body><a class="btn" id="go">Go</a></body></html>`;
-  const plugin = await mountPlugin(page, dir, { gate: gateFrom({ title: "tokens", payload: { html } }) });
+  const plugin = await mountPlugin(page, dir, { review: reviewFrom({ title: "tokens", payload: { html } }) });
   const btn = plugin.frame.locator("[data-artifact] #go");
   await expect(btn).toHaveCSS("color", "rgb(10, 20, 30)");
   await expect(btn).toHaveCSS("border-top-color", "rgb(1, 2, 3)");
@@ -134,9 +134,9 @@ test("markup in the artifact runs nothing, so it cannot decide the review", asyn
   // handler in it would run inside the view the person trusts, where it
   // could hand over a decision the person never made.
   const submit = "parent.postMessage({pinrail:1,type:'submit',data:{comments:[]}},'*');window.ran=(window.ran||0)+1";
-  const gate = landing();
-  gate.payload = {
-    ...(gate.payload as object),
+  const review = landing();
+  review.payload = {
+    ...(review.payload as object),
     html: `<!doctype html><html><body>
       <h1>Bookkeeping that closes itself</h1>
       <img src="x" onerror="${submit}">
@@ -149,7 +149,7 @@ test("markup in the artifact runs nothing, so it cannot decide the review", asyn
       <object data="data:text/html,<script>${submit}</script>"></object>
     </body></html>`,
   };
-  const plugin = await mountPlugin(page, dir, { gate });
+  const plugin = await mountPlugin(page, dir, { review });
   const f = plugin.frame;
   await expect(f.locator("[data-artifact] h1")).toHaveText("Bookkeeping that closes itself");
   await f.locator("[data-artifact] a.js").click();
@@ -163,7 +163,7 @@ test("markup in the artifact runs nothing, so it cannot decide the review", asyn
 });
 
 test("a refused hand-over says why and keeps every comment", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: landing() });
+  const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
   await commentOn(plugin, "[data-artifact] h1", "Say what it does, not a slogan");
   await plugin.collect();

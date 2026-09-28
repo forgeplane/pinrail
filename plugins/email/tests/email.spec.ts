@@ -49,7 +49,7 @@ async function handOverPastTheWarning(plugin: Awaited<ReturnType<typeof mountPlu
 }
 
 test("renders every draft with its addresses, subject and body", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
 
   await expect(f.locator("[data-pick]")).toHaveCount(3);
@@ -69,7 +69,7 @@ test("renders every draft with its addresses, subject and body", async ({ page }
 });
 
 test("an edit shows against the agent's words and travels as a replacement", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const first = plugin.frame.locator('[data-draft="northwind"]');
 
   await rewrite(page, first, "at your earliest convenience", "this week");
@@ -89,7 +89,7 @@ test("an edit shows against the agent's words and travels as a replacement", asy
 });
 
 test("the subject keeps what it was under it, and revert all puts the draft back", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
   const first = f.locator('[data-draft="northwind"]');
   const subject = first.locator('input[data-act="subject"]');
@@ -120,7 +120,7 @@ test("the subject keeps what it was under it, and revert all puts the draft back
 });
 
 test("every change is listed beside the draft and can be put back on its own", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
   const first = f.locator('[data-draft="northwind"]');
   const changes = f.locator(".aside .change");
@@ -150,7 +150,7 @@ test("every change is listed beside the draft and can be put back on its own", a
 });
 
 test("undo in the subject takes back the subject, then the body, in the order they changed", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const first = plugin.frame.locator('[data-draft="northwind"]');
   const subject = first.locator('input[data-act="subject"]');
 
@@ -169,7 +169,7 @@ test("undo in the subject takes back the subject, then the body, in the order th
 });
 
 test("highlighting a passage hangs an instruction on it, shown apart from the draft", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
   const first = f.locator('[data-draft="northwind"]');
 
@@ -194,7 +194,7 @@ test("highlighting a passage hangs an instruction on it, shown apart from the dr
 });
 
 test("undecided drafts need a confirmation and are reported as undecided", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
 
   await f.locator('[data-draft="northwind"]').getByRole("button", { name: "Send" }).click();
@@ -214,7 +214,7 @@ test("undecided drafts need a confirmation and are reported as undecided", async
 });
 
 test("the hand-over label says what it would do", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over");
 
@@ -226,7 +226,7 @@ test("the hand-over label says what it would do", async ({ page }) => {
 });
 
 test("edits, marks and verdicts survive a reload", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const first = plugin.frame.locator('[data-draft="northwind"]');
 
   await first.getByRole("button", { name: "Send" }).click();
@@ -241,8 +241,8 @@ test("edits, marks and verdicts survive a reload", async ({ page }) => {
   await expect(back.locator(".body del")).toHaveText("Best regards,");
 });
 
-test("a decided gate is read-only and shows what was sent and why", async ({ page }) => {
-  const gate = {
+test("a decided review is read-only and shows what was sent and why", async ({ page }) => {
+  const review = {
     ...renewals(),
     status: "decided",
     decision: {
@@ -257,7 +257,7 @@ test("a decided gate is read-only and shows what was sent and why", async ({ pag
       },
     },
   };
-  const plugin = await mountPlugin(page, dir, { gate, readonly: true });
+  const plugin = await mountPlugin(page, dir, { review, readonly: true });
   const f = plugin.frame;
 
   await expect(f.locator(".done")).toContainText("1 to send");
@@ -269,13 +269,13 @@ test("a decided gate is read-only and shows what was sent and why", async ({ pag
   await expect(f.locator("#pick")).toBeHidden();
   await expect(f.locator("button[data-act=verdict]")).toHaveCount(0);
 
-  // A decided gate still shows what the human changed, against what was drafted.
+  // A decided review still shows what the human changed, against what was drafted.
   await expect(f.locator('[data-draft="northwind"] del')).toHaveText("at your earliest convenience,");
   await expect(f.locator('[data-draft="northwind"] ins')).toHaveText("this week,");
 });
 
 test("the rail opens each draft, the keys move and decide, and the verdict shows on the rail", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
   await expect(f.locator('[data-pick-id="northwind"]')).toHaveAttribute("aria-current", "true");
 
@@ -305,7 +305,7 @@ test("the rail opens each draft, the keys move and decide, and the verdict shows
 });
 
 test("editing in place tracks every change, and undo takes them back", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const first = plugin.frame.locator('[data-draft="northwind"]');
 
   // type over a phrase, then delete a word with backspace
@@ -329,7 +329,7 @@ test("editing in place tracks every change, and undo takes them back", async ({ 
 });
 
 test("redo puts an undone edit back", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const first = plugin.frame.locator('[data-draft="northwind"]');
   await rewrite(page, first, "Best regards", "Thanks");
   for (let i = 0; i < 6; i++) await page.keyboard.press("ControlOrMeta+z");
@@ -339,7 +339,7 @@ test("redo puts an undone edit back", async ({ page }) => {
 });
 
 test("a sentence rewritten is one change, and puts back as one", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const f = plugin.frame;
   const first = f.locator('[data-draft="northwind"]');
   // a few words of the old sentence survive between the new ones
@@ -353,7 +353,7 @@ test("a sentence rewritten is one change, and puts back as one", async ({ page }
 });
 
 test("a refused hand-over says why and keeps every edit", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: renewals() });
+  const plugin = await mountPlugin(page, dir, { review: renewals() });
   const first = plugin.frame.locator('[data-draft="northwind"]');
   await rewrite(page, first, "at your earliest convenience", "this week");
   await first.getByRole("button", { name: "Send" }).click();

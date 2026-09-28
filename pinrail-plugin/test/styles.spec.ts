@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { reviewFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 import { scratch } from "./scratch.cjs";
 
 // What the SDK's stylesheet gives every view, checked in a view's frame.
@@ -26,7 +26,7 @@ function fields(): string {
 
 test("a text field reached from the keyboard shows the focus ring", async ({ page }) => {
   // the ring is how a keyboard user sees where they are
-  const plugin = await mountPlugin(page, fields(), { gate: gateFrom({ title: "Styles", payload: {} }) });
+  const plugin = await mountPlugin(page, fields(), { review: reviewFrom({ title: "Styles", payload: {} }) });
   const f = plugin.frame;
   await f.locator("#start").focus();
   for (const id of ["field", "note"]) {

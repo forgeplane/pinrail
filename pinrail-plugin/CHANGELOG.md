@@ -20,6 +20,6 @@ provides:
 - `pinrail-plugin check`, which reports what the app would refuse in a
   plugin folder.
 - `@forgeplane/pinrail-plugin/testing`, the test harness: `mountPlugin`,
-  `fixture` and `gateFrom`.
+  `fixture` and `reviewFrom`.
 - `@forgeplane/pinrail-plugin/types`, the manifest, the review, the
   messages and `window.Pinrail` as TypeScript types.

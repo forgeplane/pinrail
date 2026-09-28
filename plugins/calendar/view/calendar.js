@@ -10,12 +10,12 @@
   let payload, state, error = "", mode = "week", cursor = 0, preferred = "auto", expanded = null, previous = null;
   const plugin = Pinrail.connect({
     resize: "fill",
-    onInit({ gate, draft, previous: old, settings }) {
+    onInit({ review, draft, previous: old, settings }) {
       error = ""; previous = old; expanded = null;
       if (typeof settings?.view === "string") preferred = settings.view;
       try {
-        payload = C.validate(gate.payload);
-        state = C.restore(payload, gate.decision?.data || draft);
+        payload = C.validate(review.payload);
+        state = C.restore(payload, review.decision?.data || draft);
         // a draft keeps its view; "calendar" is what drafts called the week
         const saved = draft?.mode === "calendar" ? "week" : draft?.mode;
         mode = VIEWS.includes(saved) ? saved : VIEWS.includes(preferred) ? preferred : payload.days === 1 ? "day" : "week";
@@ -24,7 +24,7 @@
       render();
     },
     onSettings(settings) { if (typeof settings?.view === "string") preferred = settings.view; },
-    onSubmitted() { error = ""; state = C.restore(payload, plugin.gate.decision?.data); render(); },
+    onSubmitted() { error = ""; state = C.restore(payload, plugin.review.decision?.data); render(); },
     onCollect() {
       if (!payload || plugin.readonly) return;
       try { plugin.submit(C.decision(payload, state)); }
@@ -183,7 +183,7 @@
         const i = weekFrom + k, day = dayAt(i), n = suggestionsOn(day);
         return `<button data-action="goto" data-day="${i}" class="${i === cursor ? "is-current" : ""}" aria-pressed="${i === cursor}" aria-label="${esc(new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(day + "T12:00Z")))}${n ? `, ${n} ${n === 1 ? "suggestion" : "suggestions"}` : ""}"><span>${esc(new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" }).format(new Date(day + "T12:00Z")))}</span><strong>${Number(day.slice(-2))}</strong>${n ? `<i>${n}</i>` : ""}</button>`;
       }).join("")}</div>` : "";
-    app.innerHTML = `<header class="plugin-header calendar-header"><h1 class="plugin-title">${esc(plugin.gate.title || "Calendar")}</h1><span class="header-progress">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || "closed")}` : `<b>${selected.length}</b> of ${total} selected${handedBack ? ` · ${handedBack}` : ""}`}</span></header>
+    app.innerHTML = `<header class="plugin-header calendar-header"><h1 class="plugin-title">${esc(plugin.review.title || "Calendar")}</h1><span class="header-progress">${plugin.readonly ? `Read-only · ${esc(plugin.review.status || "closed")}` : `<b>${selected.length}</b> of ${total} selected${handedBack ? ` · ${handedBack}` : ""}`}</span></header>
       <div class="workbench"><aside class="sidebar" aria-label="Activities to arrange"><div class="sidebar-heading"><h2>The plan</h2><span>${total} ${total === 1 ? "item" : "items"}</span></div>
         ${payload.items.map(card).join("")}
         ${!total ? '<div class="empty">Nothing to schedule in this review.</div>' : ""}

@@ -7,7 +7,7 @@ const dir = path.resolve(__dirname, "..");
 const round = () => fixture(path.join(dir, "fixtures", "tidemark.json"));
 
 test("shows every mark in the rail, and the chosen one in every place it will live", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await expect(f.locator(".pick")).toHaveCount(6);
   await expect(f.locator("#mark-name")).toHaveText("Three waves");
@@ -23,12 +23,12 @@ test("shows every mark in the rail, and the chosen one in every place it will li
 });
 
 test("an agent's svg is drawn without scripts, handlers or outside links", async ({ page }) => {
-  const gate = round();
-  gate.payload.marks = [{
+  const review = round();
+  review.payload.marks = [{
     id: "evil", name: "Evil", reasoning: "",
     svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" onload="window.pwned=1"><script>window.pwned=2</script><style>body{display:none}</style><a href="https://example.com"><rect width="4" height="4"/></a><rect width="24" height="24" fill="url(https://example.com/x)"/><circle cx="12" cy="12" r="6" onclick="window.pwned=3"/></svg>',
   }];
-  const plugin = await mountPlugin(page, dir, { gate });
+  const plugin = await mountPlugin(page, dir, { review });
   const f = plugin.frame;
   await expect(f.locator(".stage svg").first()).toBeVisible();
   const html = await f.locator(".stage").first().innerHTML();
@@ -37,7 +37,7 @@ test("an agent's svg is drawn without scripts, handlers or outside links", async
 });
 
 test("one favourite, keys to decide, and a warning before undecided marks go back", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await f.locator("body").click({ position: { x: 600, y: 5 } });
 
@@ -63,7 +63,7 @@ test("one favourite, keys to decide, and a warning before undecided marks go bac
 });
 
 test("a part of the mark can be picked and commented on, and the mark counts as kept", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await f.locator(".pick").nth(3).click();                               // M4: two posts and the line
   // the second rect is the right post; click it on the light stage
@@ -85,8 +85,8 @@ test("a part of the mark can be picked and commented on, and the mark counts as 
 });
 
 test("a decided round is read-only and shows what was decided", async ({ page }) => {
-  const gate = fixture(path.join(dir, "fixtures", "tidemark.decided.json"));
-  const plugin = await mountPlugin(page, dir, { gate, readonly: true });
+  const review = fixture(path.join(dir, "fixtures", "tidemark.decided.json"));
+  const plugin = await mountPlugin(page, dir, { review, readonly: true });
   const f = plugin.frame;
   await expect(f.locator(".pick").nth(3).locator(".verdict-chip")).toHaveText("★ Favourite");
   await expect(f.locator('.choice[data-action="keep"]')).toBeDisabled();
@@ -96,7 +96,7 @@ test("a decided round is read-only and shows what was decided", async ({ page })
 
 test("says in the view what the app refused, and why a first hand-over waits", async ({ page }) => {
   // the shell's button label is easy to miss, and holds one message
-  const plugin = await mountPlugin(page, dir, { gate: round() });
+  const plugin = await mountPlugin(page, dir, { review: round() });
   const f = plugin.frame;
   await plugin.collect();
   await expect(f.locator("[data-armed]")).toContainText("undecided");

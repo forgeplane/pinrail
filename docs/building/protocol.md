@@ -25,7 +25,7 @@ sequenceDiagram
   participant V as your view
   V->>S: ready
   S->>V: appearance { theme }
-  S->>V: init { gate, previous, readonly, draft, settings }
+  S->>V: init { review, previous, readonly, draft, settings }
   V->>S: resize { height }
   V->>S: draft { data }
   V->>S: status { label }
@@ -40,7 +40,7 @@ sequenceDiagram
 
 | Type | Fields | When |
 |---|---|---|
-| `init` | `gate`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | Once, in answer to `ready`. |
+| `init` | `review`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | Once, in answer to `ready`. |
 | `attachment` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `attachment`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
 | `collect` | | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. |
 | `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema, or a `settings_set` failed the plugin's settings schema. Settings errors have paths under `/plugins/<name>`, so a view can tell them apart. |
@@ -55,7 +55,7 @@ sequenceDiagram
 
 | Field | Type | Meaning |
 |---|---|---|
-| `gate` | object | The review: its `id`, `title`, `status`, `origin`, `payload`, and `decision` once there is one. |
+| `review` | object | The review: its `id`, `title`, `status`, `origin`, `payload`, and `decision` once there is one. |
 | `previous` | object or `null` | The round this review revises, with its decision, so you can show earlier verdicts beside the new ones. |
 | `readonly` | boolean | `true` whenever the review is not pending. |
 | `draft` | any or `null` | What the view last posted as a draft for this review. |
@@ -63,15 +63,15 @@ sequenceDiagram
 | `shell_origin` | string | The app's origin. Accept messages from it alone. |
 | `capabilities` | string array | What the app can do beyond the messages above: `"attachments"` when it hands a view the files a review carries. |
 
-`gate.attachments` lists those files, each with its `name`, `size`, `media_type` and `sha256`.
+`review.attachments` lists those files, each with its `name`, `size`, `media_type` and `sha256`.
 
-A review is read-only for one of four reasons, and `gate.status` says which:
+A review is read-only for one of four reasons, and `review.status` says which:
 
-| `gate.status` | Meaning |
+| `review.status` | Meaning |
 |---|---|
-| `decided` | A decision was handed over. It is in `gate.decision`. |
+| `decided` | A decision was handed over. It is in `review.decision`. |
 | `withdrawn` | The agent took the review back before anyone decided. |
-| `discarded` | The person said no and told the agent to stop. `gate.discarded_by` and `gate.discarded_reason` say who and why. |
+| `discarded` | The person said no and told the agent to stop. `review.discarded_by` and `review.discarded_reason` say who and why. |
 | `expired` | The review passed its expiry without a decision. |
 
 Render all four the same way: what was there, and nothing to submit.
@@ -149,7 +149,7 @@ The answer carries the same number, and the bytes as an `ArrayBuffer`:
 }
 ```
 
-The app answers only for names in `gate.attachments` (or in `previous.attachments`, with `round: "previous"`), and says why otherwise, with `ok: false` and `error`. Ask again for another copy: each answer transfers its buffer. An app without `"attachments"` in `capabilities` does not answer; the SDK's `plugin.attachment` rejects at once there, saying the app needs updating.
+The app answers only for names in `review.attachments` (or in `previous.attachments`, with `round: "previous"`), and says why otherwise, with `ok: false` and `error`. Ask again for another copy: each answer transfers its buffer. An app without `"attachments"` in `capabilities` does not answer; the SDK's `plugin.attachment` rejects at once there, saying the app needs updating.
 
 `resize` with `"fill"` suits a workbench, such as a diff with its own scrolling panes. The code review plugin works this way.
 
@@ -180,7 +180,7 @@ addEventListener("message", (event) => {
   if (event.origin !== shell) return;              // trust the app's origin alone
 
   switch (msg.type) {
-    case "init": render(msg.gate, msg.readonly, msg.draft); break;
+    case "init": render(msg.review, msg.readonly, msg.draft); break;
     case "collect": post({ type: "submit", data: decision() }); break;
     case "violations": showErrors(msg.errors); break;
     case "submitted": showDecided(msg.decision); break;

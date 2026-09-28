@@ -5,11 +5,11 @@
      submits. Replace the markup and handOver with your own.
 
      The SDK is on the window from the script tag in index.html; the types
-     come from the package, so `gate.payload` is your payload. -->
+     come from the package, so `review.payload` is your payload. -->
 <script lang="ts">
   import { Check, X } from "@lucide/svelte";
   import { onMount } from "svelte";
-  import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
+  import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
 
   type Payload = { message: string };
   type Decision = { ok: boolean; comment?: string };
@@ -17,7 +17,7 @@
   type Draft = { ok: boolean | null; comment: string };
 
   const { Pinrail } = window;
-  let gate = $state<Gate<Payload, Decision> | null>(null);
+  let review = $state<Review<Payload, Decision> | null>(null);
   let readonly = $state(false);
   let draft = $state<Draft>({ ok: null, comment: "" });
   let errors = $state("");
@@ -26,7 +26,7 @@
   onMount(() => {
     plugin = Pinrail.connect<Payload, Decision>({
       onInit(init) {
-        gate = init.gate;
+        review = init.review;
         readonly = init.readonly;
         const kept = init.draft as Draft | null;
         if (kept) draft = { ok: typeof kept.ok === "boolean" ? kept.ok : null, comment: kept.comment ?? "" };
@@ -43,7 +43,7 @@
         errors = list.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
       },
       onSubmitted() {
-        gate = { ...plugin.gate! };
+        review = { ...plugin.review! };
         readonly = true;
       },
     });
@@ -64,23 +64,23 @@
 
   // what the app's hand-over button says follows the answer
   $effect(() => {
-    if (!gate || readonly) return;
+    if (!review || readonly) return;
     plugin.status({ label: draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}` });
   });
 
-  const decided = $derived(gate?.decision?.data);
+  const decided = $derived(review?.decision?.data);
 </script>
 
-{#if !gate}
+{#if !review}
   <p class="plugin-content dim">waiting for the shell…</p>
 {:else}
   <main class="plugin-content">
-    <div>{@html Pinrail.markdown(gate.payload.message)}</div>
+    <div>{@html Pinrail.markdown(review.payload.message)}</div>
     {#if readonly && decided}
       <p class="dim">Decided: <b>{decided.ok ? "yes" : "no"}</b>{#if decided.comment} — {decided.comment}{/if}</p>
     {:else if readonly}
       <!-- withdrawn or expired: nobody answered -->
-      <p class="dim">Closed without a decision ({gate.status})</p>
+      <p class="dim">Closed without a decision ({review.status})</p>
     {:else}
       <div class="choice">
         <button type="button" class="btn" id="yes" aria-pressed={draft.ok === true} onclick={() => pick(true)}>

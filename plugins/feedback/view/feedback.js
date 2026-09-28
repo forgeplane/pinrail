@@ -10,10 +10,10 @@
   let current = null;
   const plugin = Pinrail.connect({
     resize: 'fill',
-    onInit({gate, draft, previous: old, settings}) {
+    onInit({review, draft, previous: old, settings}) {
       applySettings(settings);
       showErrors = false; shellErrors = []; previous = old;
-      try { payload = C.validate(gate.payload); state = C.restore(payload, gate.decision?.data || draft); opened = withComments(); }
+      try { payload = C.validate(review.payload); state = C.restore(payload, review.decision?.data || draft); opened = withComments(); }
       catch (e) { payload = null; app.innerHTML = `<div class="fatal" role="alert"><h1>Unable to show these questions</h1><p>${esc(e.message)}</p></div>`; plugin.status({label:'Questions need correction'}); return; }
       render();
     },
@@ -23,7 +23,7 @@
       catch { showErrors = true; render(); const first = app.querySelector('[aria-invalid="true"]'); first?.focus(); first?.scrollIntoView({block:'center'}); }
     },
     onViolations(errors) { shellErrors = errors; render(); app.querySelector('[role="alert"]')?.focus(); },
-    onSubmitted() { if (!payload) return; state = C.restore(payload, plugin.gate.decision?.data); opened = withComments(); shellErrors = []; showErrors = false; render(); },
+    onSubmitted() { if (!payload) return; state = C.restore(payload, plugin.review.decision?.data); opened = withComments(); shellErrors = []; showErrors = false; render(); },
     onSettings(settings) { applySettings(settings); render(); },
   });
   // a comment already written starts open; after that, open is the person's call
@@ -91,7 +91,7 @@
     const count = visible.size;
     const comments = all.filter(q => visible.has(q.id) && q.type !== 'text' && (state.comments[q.id] || '').trim()).length;
     let index = 0;
-    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Pinrail.icon(railOpen ? 'panel-left-close' : 'panel-left-open', {size:15, label: railOpen ? 'Hide the group list' : 'Show the group list'})}</button><h1 class="plugin-title">${esc(plugin.gate.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.gate.status || 'closed')}` : `<span><b>${answered}</b> of ${count} answered</span>${required ? `<span class="tally-required"><b>${required}</b> required left</span>` : ''}${comments ? `<span><b>${comments}</b> ${comments === 1 ? 'comment' : 'comments'}</span>` : ''}`}</span><div class="header-progress" aria-hidden="true"><span style="width:${count ? answered/count*100 : 100}%"></span></div></header>
+    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Pinrail.icon(railOpen ? 'panel-left-close' : 'panel-left-open', {size:15, label: railOpen ? 'Hide the group list' : 'Show the group list'})}</button><h1 class="plugin-title">${esc(plugin.review.title || 'Feedback')}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.review.status || 'closed')}` : `<span><b>${answered}</b> of ${count} answered</span>${required ? `<span class="tally-required"><b>${required}</b> required left</span>` : ''}${comments ? `<span><b>${comments}</b> ${comments === 1 ? 'comment' : 'comments'}</span>` : ''}`}</span><div class="header-progress" aria-hidden="true"><span style="width:${count ? answered/count*100 : 100}%"></span></div></header>
       <div class="workspace"><aside class="sidebar" ${railOpen ? '' : 'hidden'}><div class="sidebar-label">Questions <span>${count}</span></div><nav aria-label="Question groups">${shownGroups.map((g,i) => {
         const qs = g.questions.filter(q => visible.has(q.id)), done = qs.filter(q => C.answered(q,state.values[q.id])).length;
         // the group, then each of its questions with where it stands

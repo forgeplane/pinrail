@@ -236,7 +236,7 @@ function renderTop() {
   const d = decisionData();
   const count = (a) => d.decisions.filter((x) => x.action === a).length;
   return `<div class="top">
-      <h1>${esc(plugin.gate.title || "Logo review")}</h1>
+      <h1>${esc(plugin.review.title || "Logo review")}</h1>
       <span class="brand-line">${esc(P.brand.name)}${P.brand.tagline ? " · " + esc(P.brand.tagline) : ""}</span>
       <div class="tally" aria-live="polite">
         <span><b>${count("favorite")}</b> favourite</span><span><b>${count("keep")}</b> kept</span><span><b>${count("drop")}</b> dropped</span><span><b>${d.undecided.length}</b> undecided</span>
@@ -457,14 +457,14 @@ function handOver() {
 
 const plugin = Pinrail.connect({
   resize: "fill",
-  onInit({ gate, draft }) {
-    P = gate.payload;
+  onInit({ review, draft }) {
+    P = review.payload;
     clean = {};
     for (const m of P.marks) clean[m.id] = sanitize(m.svg);
     S.verdicts = {};
     S.sel = 0;
     S.picking = null;
-    const decided = gate.decision?.data;
+    const decided = review.decision?.data;
     if (decided) for (const d of decided.decisions || []) S.verdicts[d.id] = { action: d.action, note: d.note || "", comments: d.comments || [] };
     else if (draft && typeof draft === "object") S.verdicts = draft;
     render();

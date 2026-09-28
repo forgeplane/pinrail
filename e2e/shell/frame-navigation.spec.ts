@@ -25,7 +25,7 @@ function wanderer(): string {
     `<!doctype html><meta charset="utf-8"><p id="got">nothing</p>
 <script>
   window.addEventListener("message", (e) => {
-    if (e.data && e.data.type === "init") document.getElementById("got").textContent = "the review: " + e.data.gate.title;
+    if (e.data && e.data.type === "init") document.getElementById("got").textContent = "the review: " + e.data.review.title;
   });
   parent.postMessage({ pinrail: 1, type: "ready" }, "*");
   parent.postMessage({ pinrail: 1, type: "submit", data: {} }, "*");

@@ -7,7 +7,7 @@ const round2 = () => fixture(path.join(dir, "fixtures", "dedup-round-2.json"));
 const round1 = () => fixture(path.join(dir, "fixtures", "dedup-round-1.decided.json"));
 
 test("renders the change, the tree, the diff, the anchored cards, a thread and a suggestion", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await expect(f.locator("header")).toContainText("Dedup tickets on save");
   await expect(f.locator("header")).toContainText("!42");
@@ -27,7 +27,7 @@ test("renders the change, the tree, the diff, the anchored cards, a thread and a
 });
 
 test("verdicts, notes and own comments become exactly the decision", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await f.locator("#card-18 button", { hasText: "Accept" }).click();
   await f.locator("#card-19 button", { hasText: "Reject" }).click();
@@ -59,7 +59,7 @@ test("verdicts, notes and own comments become exactly the decision", async ({ pa
 });
 
 test("keyboard: a / x / j decide and move, s opens the summary, collect confirms", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toBeVisible();
   await expect.poll(() => plugin.lastStatus()).toBe("Review and hand over");
@@ -83,7 +83,7 @@ test("keyboard: a / x / j decide and move, s opens the summary, collect confirms
 });
 
 test("a draft survives a reload", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await f.locator("#card-18 button", { hasText: "Accept" }).click();
   await f.locator("#card-19 button", { hasText: "Reject" }).click();
@@ -98,7 +98,7 @@ test("a draft survives a reload", async ({ page }) => {
 });
 
 test("violations reopen the summary with the errors; submitted renders read-only with verdicts", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toBeVisible();
   // hand over: the summary, then the confirmation with undecided left, then the submit
@@ -119,13 +119,13 @@ test("violations reopen the summary with the errors; submitted renders read-only
   await expect(f.getByRole("button", { name: "Accept" })).toHaveCount(0);
 });
 
-test("a superseding gate shows the previous round's verdicts; withdrawn reads as read-only", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2(), previous: round1() });
+test("a superseding review shows the previous round's verdicts; withdrawn reads as read-only", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: round2(), previous: round1() });
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toContainText("PREVIOUS ROUND reject — dont nitpick");
   await expect(f.locator("#card-19")).toContainText("PREVIOUS ROUND undecided");
 
-  const withdrawn = await mountPlugin(page, dir, { gate: { ...round2(), status: "withdrawn" }, readonly: true });
+  const withdrawn = await mountPlugin(page, dir, { review: { ...round2(), status: "withdrawn" }, readonly: true });
   await expect(withdrawn.frame.locator("header")).toContainText("READ-ONLY · WITHDRAWN");
   await expect(withdrawn.frame.locator("#submit-modal")).toHaveCount(0);
 });
@@ -133,10 +133,10 @@ test("a superseding gate shows the previous round's verdicts; withdrawn reads as
 test("the header leaves out what the shell's own header already shows", async ({ page }) => {
   const change = round2().payload.change;
 
-  // A gate whose origin names the same change: the shell puts the ref and a
+  // A review whose origin names the same change: the shell puts the ref and a
   // link to it above the frame, so the view's header carries neither.
   const shared = await mountPlugin(page, dir, {
-    gate: { ...round2(), origin: { repo: "acme", workflow: "mr-review", ref: "42", url: change.url } },
+    review: { ...round2(), origin: { repo: "acme", workflow: "mr-review", ref: "42", url: change.url } },
   });
   const header = shared.frame.locator("header").first();
   await expect(header).toContainText("Dedup tickets on save");
@@ -144,10 +144,10 @@ test("the header leaves out what the shell's own header already shows", async ({
   await expect(header).not.toContainText("!42");
   await expect(header.locator(`a[href="${change.url}"]`)).toHaveCount(0);
 
-  // A gate whose origin says nothing about it: the view keeps both, because
+  // A review whose origin says nothing about it: the view keeps both, because
   // nothing else on the page is showing them.
   const alone = await mountPlugin(page, dir, {
-    gate: { ...round2(), origin: { repo: "acme", workflow: "nightly" } },
+    review: { ...round2(), origin: { repo: "acme", workflow: "nightly" } },
   });
   const own = alone.frame.locator("header").first();
   await expect(own).toContainText("!42");
@@ -155,7 +155,7 @@ test("the header leaves out what the shell's own header already shows", async ({
 });
 
 test("the diff's bar holds how it reads and the bulk decisions; icons carry names only where there are no words", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const header = plugin.frame.locator("header").first();
   const bar = plugin.frame.locator('[role="toolbar"]');
 
@@ -185,7 +185,7 @@ test("the diff's bar holds how it reads and the bulk decisions; icons carry name
 });
 
 test("the file tree's controls carry icons, and the collapse in the header says which way it goes", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const aside = plugin.frame.locator("aside");
 
   await expect(aside.locator(".rail-head .wi")).toHaveCount(2);
@@ -216,7 +216,7 @@ test("the file tree's controls carry icons, and the collapse in the header says 
 });
 
 test("settings lay out the view; a pill or a key asks the shell to keep the choice", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2(), settings: { diff: "split", order: "path", findings_only: true, tree_open: false } });
+  const plugin = await mountPlugin(page, dir, { review: round2(), settings: { diff: "split", order: "path", findings_only: true, tree_open: false } });
   const f = plugin.frame;
   const splitRows = f.locator(".diff-row.split");
   await expect(f.locator("#card-18")).toBeVisible();
@@ -269,7 +269,7 @@ test("settings lay out the view; a pill or a key asks the shell to keep the choi
 });
 
 test("a declared key forwarded by the shell works like one typed in the frame", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toBeVisible();
   await plugin.sendKey("j");
@@ -283,7 +283,7 @@ test("a declared key forwarded by the shell works like one typed in the frame", 
 });
 
 test("the brief opens the scroll; concerns and the description drop down in it", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   const brief = f.locator("#brief");
   await expect(brief).toContainText("Dedups tickets before the bulk insert");
@@ -306,7 +306,7 @@ test("the brief opens the scroll; concerns and the description drop down in it",
 
 
 test("the rail lists each file's findings, where they stand, and jumps to one", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   const rail = f.locator("aside");
   const findings = rail.locator('[data-act="jump-card"]');
@@ -323,7 +323,7 @@ test("the rail lists each file's findings, where they stand, and jumps to one", 
 });
 
 test("a note folds with its finding, writing one opens it, and the rail marks it", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   const card = f.locator("#card-18");
   await card.locator("button", { hasText: "Reject" }).click();
@@ -343,7 +343,7 @@ test("a note folds with its finding, writing one opens it, and the rail marks it
 });
 
 test("your comment is edited where it stands, by clicking its text", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await f.locator('[data-filesec="lib/acme/tickets.ex"] .diff-row').filter({ hasText: "Repo.insert_all" }).hover();
   await f.getByLabel("comment on lib/acme/tickets.ex:150", { exact: true }).click();
@@ -367,7 +367,7 @@ test("your comment is edited where it stands, by clicking its text", async ({ pa
 });
 
 test("violations that answer no hand-over, such as a refused setting, open nothing", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await expect(f.locator("#card-18")).toBeVisible();
   await plugin.sendViolations([{ path: "/wrap", message: "not a setting of this plugin" }]);
@@ -378,7 +378,7 @@ test("violations that answer no hand-over, such as a refused setting, open nothi
 test("expanding a finding keeps it in place, even with a note left open further up", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const webhooks = fixture(path.join(dir, "fixtures", "webhooks.json"));
-  const plugin = await mountPlugin(page, dir, { gate: webhooks });
+  const plugin = await mountPlugin(page, dir, { review: webhooks });
   await plugin.setFrameHeight(800);
   const f = plugin.frame;
   await f.locator("#card-5 .accept-btn").click();
@@ -392,7 +392,7 @@ test("expanding a finding keeps it in place, even with a note left open further 
 });
 
 test("a clicked verdict stays on its finding, so c writes its note", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round2() });
+  const plugin = await mountPlugin(page, dir, { review: round2() });
   const f = plugin.frame;
   await f.locator("#card-18 .accept-btn").click();
   await expect(f.locator("#card-18")).toHaveClass(/\bfocused\b/);
@@ -410,7 +410,7 @@ test("a clicked verdict stays on its finding, so c writes its note", async ({ pa
 test("clicking a verdict, c and Esc keep the finding where it is on screen", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const webhooks = fixture(path.join(dir, "fixtures", "webhooks.json"));
-  const plugin = await mountPlugin(page, dir, { gate: webhooks });
+  const plugin = await mountPlugin(page, dir, { review: webhooks });
   await plugin.setFrameHeight(800);
   const f = plugin.frame;
   // the last finding below, the rest undecided above it
@@ -431,9 +431,9 @@ test("clicking a verdict, c and Esc keep the finding where it is on screen", asy
 
 test("with the findings filter on, a folder with no file left is not shown", async ({ page }) => {
   // a file with nothing to decide, alone in its folder
-  const gate = round2();
-  gate.payload.files.push({ path: "docs/notes.md", status: "modified", diff: "@@ -1 +1 @@\n-old\n+new\n" });
-  const plugin = await mountPlugin(page, dir, { gate, settings: { findings_only: true } });
+  const review = round2();
+  review.payload.files.push({ path: "docs/notes.md", status: "modified", diff: "@@ -1 +1 @@\n-old\n+new\n" });
+  const plugin = await mountPlugin(page, dir, { review, settings: { findings_only: true } });
   const aside = plugin.frame.locator("aside");
   await expect(aside.locator('[data-act="toggle-dir"][data-dir="docs"]')).toHaveCount(0);
   await expect(aside.locator('[data-act="jump-file"]').first()).toBeVisible();
@@ -443,7 +443,7 @@ test("with the findings filter on, a folder with no file left is not shown", asy
 });
 
 test("in a decided review, c does nothing: no note, and the diff keeps its layout", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: round1(), readonly: true });
+  const plugin = await mountPlugin(page, dir, { review: round1(), readonly: true });
   const f = plugin.frame;
   await expect(f.locator(".diff-row.inline").first()).toBeVisible();
   await f.locator("body").click({ position: { x: 5, y: 5 } });
@@ -455,10 +455,10 @@ test("in a decided review, c does nothing: no note, and the diff keeps its layou
 
 test("a proposal's markdown renders in full: lists, links and emphasis", async ({ page }) => {
   // the schema tells agents these fields are markdown
-  const gate = round2();
-  const payload = gate.payload as { proposals: { body: string }[] };
+  const review = round2();
+  const payload = review.payload as { proposals: { body: string }[] };
   payload.proposals[0].body = "Two things:\n\n- drop the second `reverse`\n- keep _one_ pass\n\nSee [the docs](https://hexdocs.pm/elixir/Enum.html).";
-  const plugin = await mountPlugin(page, dir, { gate });
+  const plugin = await mountPlugin(page, dir, { review });
   const card = plugin.frame.locator(".card-body").first();
   await expect(card.locator("ul li")).toHaveCount(2);
   await expect(card.locator("em")).toHaveText("one");

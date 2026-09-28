@@ -3,7 +3,7 @@
 // and this view submits. Replace render() and handOver() with your own.
 //
 // The SDK is on the window from the script tag in index.html; the types
-// come from the package, so `plugin.gate.payload` is your payload.
+// come from the package, so `plugin.review.payload` is your payload.
 import type { Init } from "@forgeplane/pinrail-plugin/types";
 import { createElement, Check, X, type IconNode } from "lucide";
 
@@ -54,16 +54,16 @@ function pick(value: boolean) {
 }
 
 function render(draft?: Draft | null) {
-  const gate = plugin.gate!;
-  const decided = gate.decision?.data;
+  const review = plugin.review!;
+  const decided = review.decision?.data;
   view.content.className = "plugin-content";
   // the redraw replaces the buttons: the one that had focus gets it back
   const focused = document.activeElement && document.activeElement.id;
-  view.content.innerHTML = Pinrail.markdown(gate.payload.message) + (plugin.readonly
+  view.content.innerHTML = Pinrail.markdown(review.payload.message) + (plugin.readonly
     ? (decided
       ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b>${decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
       // withdrawn or expired: nobody answered
-      : `<p class="dim">Closed without a decision (${Pinrail.escape(gate.status)})</p>`)
+      : `<p class="dim">Closed without a decision (${Pinrail.escape(review.status)})</p>`)
     : `<div class="choice">
          <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${svg(Check)} Yes</button>
          <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${svg(X)} No</button>

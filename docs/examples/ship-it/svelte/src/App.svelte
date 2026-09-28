@@ -5,7 +5,7 @@
 <script lang="ts">
   import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/svelte";
   import { onMount } from "svelte";
-  import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
+  import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
 
   type Payload = {
     service: string;
@@ -20,7 +20,7 @@
   type Draft = { verdict: Verdict | null; note: string };
 
   const { Pinrail } = window;
-  let gate = $state<Gate<Payload, Decision> | null>(null);
+  let review = $state<Review<Payload, Decision> | null>(null);
   let readonly = $state(false);
   let draft = $state<Draft>({ verdict: null, note: "" });
   let error = $state("");
@@ -29,7 +29,7 @@
   onMount(() => {
     plugin = Pinrail.connect<Payload, Decision>({
       onInit(init) {
-        gate = init.gate;
+        review = init.review;
         readonly = init.readonly;
         if (init.draft) draft = init.draft as Draft;
       },
@@ -45,7 +45,7 @@
         error = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
       },
       onSubmitted() {
-        gate = { ...plugin.gate! };
+        review = { ...plugin.review! };
         readonly = true;
       },
     });
@@ -75,24 +75,24 @@
 
   // what the app's hand-over button says follows the choice
   $effect(() => {
-    if (!gate || readonly) return;
-    const label = draft.verdict === "ship" ? `Ship ${gate.payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
+    if (!review || readonly) return;
+    const label = draft.verdict === "ship" ? `Ship ${review.payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
     plugin.status({ label });
   });
 
-  const decided = $derived(gate?.decision?.data);
+  const decided = $derived(review?.decision?.data);
 </script>
 
 <svelte:document onkeydown={onKey} />
 
-{#if gate}
+{#if review}
   <main class="plugin-content ship">
-    <p class="eyebrow">Deploy to {gate.payload.environment}</p>
-    <h1>{gate.payload.service} <span class="meta">{gate.payload.version}</span></h1>
+    <p class="eyebrow">Deploy to {review.payload.environment}</p>
+    <h1>{review.payload.service} <span class="meta">{review.payload.version}</span></h1>
     <section>
       <h2 class="eyebrow">Changes</h2>
       <ul aria-label="Changes">
-        {#each gate.payload.changes as c (c.title)}
+        {#each review.payload.changes as c (c.title)}
           <li>{c.title}{#if c.risky}{" "}<span class="sev sev-major">risky</span>{/if}</li>
         {/each}
       </ul>
@@ -100,7 +100,7 @@
     <section>
       <h2 class="eyebrow">Checks</h2>
       <ul aria-label="Checks">
-        {#each gate.payload.checks as c (c.name)}
+        {#each review.payload.checks as c (c.name)}
           <li data-passed={String(c.passed)}>
             {#if c.passed}<CircleCheck />{:else}<CircleX />{/if} {c.name}{#if c.detail}{" "}<span class="detail">{c.detail}</span>{/if}
           </li>

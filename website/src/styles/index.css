@@ -50,7 +50,7 @@ a { color: inherit; }
 .skip:focus { left: 16px; top: 12px; z-index: 50; background: var(--sheet); padding: 8px 12px; }
 .hand { font-family: var(--hand); color: var(--pen); }
 
-/* The review's header, as the app shows a gate */
+/* The review's header, as the app shows it */
 
 .gatebar {
   position: sticky; top: 0; z-index: 20;
@@ -60,21 +60,21 @@ a { color: inherit; }
   font: 500 13px/1.3 var(--mono);
 }
 .brand { display: inline-flex; align-items: center; color: var(--ink); text-decoration: none; }
-.gate-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.gate-plugin { padding: 2px 7px; border: 1px solid var(--rule-strong); border-radius: 4px; color: var(--faint); font-size: 11px; }
-.gate-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.gate-wait { display: inline-flex; align-items: center; gap: 7px; color: var(--agent); white-space: nowrap; }
+.review-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.review-plugin { padding: 2px 7px; border: 1px solid var(--rule-strong); border-radius: 4px; color: var(--faint); font-size: 11px; }
+.review-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.review-wait { display: inline-flex; align-items: center; gap: 7px; color: var(--agent); white-space: nowrap; }
 .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--agent); animation: pulse 1.6s ease-in-out infinite; }
 [data-phase="handed"] .pulse { background: var(--ok); animation: none; }
-[data-phase="handed"] .gate-wait { color: var(--ok); }
+[data-phase="handed"] .review-wait { color: var(--ok); }
 [data-phase="discarded"] .pulse { background: var(--pen); animation: none; }
-[data-phase="discarded"] .gate-wait { color: var(--pen); }
+[data-phase="discarded"] .review-wait { color: var(--pen); }
 @keyframes pulse { 50% { box-shadow: 0 0 0 5px color-mix(in oklab, var(--agent) 18%, transparent); } }
-.gate-progress { display: flex; align-items: center; gap: 8px; color: var(--faint); white-space: nowrap; }
-.gate-progress [data-count] { color: var(--ink); }
+.review-progress { display: flex; align-items: center; gap: 8px; color: var(--faint); white-space: nowrap; }
+.review-progress [data-count] { color: var(--ink); }
 .track { width: 90px; height: 4px; border-radius: 2px; background: var(--rule); overflow: hidden; }
 .track span { display: block; height: 100%; width: 0; background: var(--pen); transition: width 0.4s ease; }
-.gate-actions { display: flex; gap: 8px; }
+.review-actions { display: flex; gap: 8px; }
 
 .primary, .ghost {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -88,7 +88,7 @@ a { color: inherit; }
 .ghost:hover { background: var(--sheet); color: var(--ink); }
 .primary:active, .ghost:active { transform: translateY(1px); }
 .big { padding: 13px 20px; font-size: 14px; }
-[data-phase="handed"] .gate-actions button, [data-phase="discarded"] .gate-actions button { opacity: 0.35; pointer-events: none; }
+[data-phase="handed"] .review-actions button, [data-phase="discarded"] .review-actions button { opacity: 0.35; pointer-events: none; }
 
 .discarded {
   position: sticky; top: 57px; z-index: 19;
@@ -375,7 +375,7 @@ h3 { margin: 6px 0 6px; font-size: 19px; font-weight: 600; }
 /* Narrower: notes go inline, the decision becomes a sheet at the bottom */
 
 @media (max-width: 1080px) {
-  .gate-wait { display: none; }
+  .review-wait { display: none; }
 }
 
 @media (max-width: 1180px) {
@@ -399,10 +399,10 @@ h3 { margin: 6px 0 6px; font-size: 19px; font-weight: 600; }
 
 /* narrower, the review bar keeps the draft's title and the hand-back, and lets the rest go */
 @media (max-width: 1100px) {
-  .gate-wait, .gate-progress .track { display: none; }
+  .review-wait, .review-progress .track { display: none; }
 }
 @media (max-width: 980px) {
-  .gate-plugin, .gate-progress { display: none; }
+  .review-plugin, .review-progress { display: none; }
 }
 
 @media (max-width: 760px) {
@@ -410,15 +410,15 @@ h3 { margin: 6px 0 6px; font-size: 19px; font-weight: 600; }
   :root { --switch-room: 104px; }
   .mode-switch { top: 10px; right: 16px; }
   .gatebar { grid-template-columns: auto 1fr auto; gap: 10px 10px; padding: 10px var(--switch-room) 10px 16px; }
-  .gate-progress { display: none; }
+  .review-progress { display: none; }
   .mode-switch span { display: none; }
   .mode-switch a { padding: 6px 9px; }
-  .gate-title { grid-column: 1 / -1; grid-row: 2; }
-  .gate-plugin, .gate-wait { display: none; }
-  .gate-progress .track { width: 44px; }
-  .gate-actions .ghost { display: none; }
-  .gate-actions .primary { white-space: nowrap; }
-  .gate-actions kbd { display: none; }
+  .review-title { grid-column: 1 / -1; grid-row: 2; }
+  .review-plugin, .review-wait { display: none; }
+  .review-progress .track { width: 44px; }
+  .review-actions .ghost { display: none; }
+  .review-actions .primary { white-space: nowrap; }
+  .review-actions kbd { display: none; }
   .discarded { top: 88px; }
   .layout { padding: 20px 16px 120px; }
   .manuscript { padding-top: 36px; }

@@ -57,7 +57,7 @@ function choose(verdict: Verdict) {
 }
 
 function render() {
-  const { payload, decision } = plugin.gate!;
+  const { payload, decision } = plugin.review!;
   const status = draft.verdict === "ship" ? `Ship ${payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
   if (!plugin.readonly) plugin.status({ label: status });
 

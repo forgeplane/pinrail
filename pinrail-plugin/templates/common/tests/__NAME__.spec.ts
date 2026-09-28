@@ -8,7 +8,7 @@ const dir = path.resolve(__dirname, "..");
 const basic = () => fixture(path.join(dir, "fixtures", "basic.json"));
 
 test("renders the payload, and hands over the answer when the shell collects", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: basic() });
+  const plugin = await mountPlugin(page, dir, { review: basic() });
   await expect(plugin.frame.locator("p").first()).toContainText("3 commits");
 
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
@@ -20,7 +20,7 @@ test("renders the payload, and hands over the answer when the shell collects", a
 });
 
 test("asks for an answer before handing over, and shows what the app refuses", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: basic() });
+  const plugin = await mountPlugin(page, dir, { review: basic() });
   await plugin.collect();
   await expect(plugin.frame.locator("#errors")).toHaveText("Choose yes or no first.");
 
@@ -34,7 +34,7 @@ test("asks for an answer before handing over, and shows what the app refuses", a
 
 test("a decided review renders read-only", async ({ page }) => {
   const decided = { ...basic(), decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: true, comment: "go" } } };
-  const plugin = await mountPlugin(page, dir, { gate: decided, readonly: true });
+  const plugin = await mountPlugin(page, dir, { review: decided, readonly: true });
   await expect(plugin.frame.locator("body")).toContainText("Decided: yes");
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveCount(0);
 });
@@ -42,13 +42,13 @@ test("a decided review renders read-only", async ({ page }) => {
 test("a review that ended without a decision does not read as a no", async ({ page }) => {
   // withdrawn or expired: read-only, and nobody answered
   const withdrawn = { ...basic(), status: "withdrawn", decision: null };
-  const plugin = await mountPlugin(page, dir, { gate: withdrawn, readonly: true });
+  const plugin = await mountPlugin(page, dir, { review: withdrawn, readonly: true });
   await expect(plugin.frame.locator("body")).toContainText("Closed without a decision (withdrawn)");
   await expect(plugin.frame.locator("body")).not.toContainText("Decided");
 });
 
 test("an answer pressed from the keyboard keeps the focus on its button", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: basic() });
+  const plugin = await mountPlugin(page, dir, { review: basic() });
   const yes = plugin.frame.getByRole("button", { name: "Yes" });
   await yes.focus();
   await plugin.frame.locator("body").press("Enter");

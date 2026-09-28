@@ -31,8 +31,8 @@ function keyMessage(combo) {
 }
 async function answerAttachment(msg) {
   const round = msg.round === "previous" ? "previous" : "current";
-  const gate = pending && (round === "previous" ? pending.previous : pending.gate);
-  const listed = gate && (gate.attachments || []).find((a) => a.name === msg.name);
+  const review = pending && (round === "previous" ? pending.previous : pending.review);
+  const listed = review && (review.attachments || []).find((a) => a.name === msg.name);
   if (!listed) return send({ type: "attachment", req: msg.req, ok: false, name: msg.name, error: `no attachment "${msg.name}" on this ${round === "previous" ? "previous round" : "review"}` });
   const response = await fetch(`/_attachments/${round}/${encodeURIComponent(msg.name)}`);
   if (!response.ok) return send({ type: "attachment", req: msg.req, ok: false, name: msg.name, error: `could not fetch ${msg.name}` });
@@ -80,7 +80,7 @@ window.addEventListener("message", (event) => {
     case "status": lastStatus = msg.label; break;
     // the shell opens it; here it is only recorded
     case "open": lastOpen = msg.url; break;
-    // as the app: only a name the gate lists, fetched and transferred
+    // as the app: only a name the review lists, fetched and transferred
     case "attachment": answerAttachment(msg); break;
   }
 });

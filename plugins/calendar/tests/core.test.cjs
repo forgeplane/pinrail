@@ -8,9 +8,9 @@ const fresh = () => C.restore(payload, null);
 
 test('every supplied fixture is semantically valid', () => {
   for (const name of fs.readdirSync(path.join(__dirname, '../fixtures')).filter((n) => n.endsWith('.json'))) {
-    const gate = require('../fixtures/' + name);
-    assert.equal(C.validate(gate.payload), gate.payload);
-    if (gate.decision) assert.deepEqual(C.decision(gate.payload, C.restore(gate.payload, gate.decision.data)), gate.decision.data);
+    const review = require('../fixtures/' + name);
+    assert.equal(C.validate(review.payload), review.payload);
+    if (review.decision) assert.deepEqual(C.decision(review.payload, C.restore(review.payload, review.decision.data)), review.decision.data);
   }
 });
 test('blocked calendar time is excluded before any choices', () => {

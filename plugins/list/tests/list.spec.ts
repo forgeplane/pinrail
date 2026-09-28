@@ -8,7 +8,7 @@ const round1 = () => fixture(path.join(dir, "fixtures", "triage-round-1.decided.
 const issues = () => fixture(path.join(dir, "fixtures", "issues.json"));
 
 test("renders groups, items, markdown and meta chips", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
   await expect(f.locator(".intro")).toContainText("Sentry triage for acme-api");
   await expect(f.locator(".intro strong")).toHaveText(["acme-api", "acme-worker"]);
@@ -20,7 +20,7 @@ test("renders groups, items, markdown and meta chips", async ({ page }) => {
 });
 
 test("accept, reject with a note, accept the rest; the decision is exactly that", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
   await f.locator('[data-id="102"] button', { hasText: "Reject" }).click();
@@ -40,7 +40,7 @@ test("accept, reject with a note, accept the rest; the decision is exactly that"
 });
 
 test("undecided items need a confirmation and are reported as undecided", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
   await plugin.collect();
@@ -53,7 +53,7 @@ test("undecided items need a confirmation and are reported as undecided", async 
 });
 
 test("the header and the group heading stay while the body scrolls under them", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   await expect(plugin.frame.locator(".item").first()).toBeVisible();
   await plugin.setFrameHeight(360);
 
@@ -78,7 +78,7 @@ test("the header and the group heading stay while the body scrolls under them", 
 });
 
 test("keeping deciding takes the warning back", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   await plugin.collect();
   await expect(plugin.frame.locator(".footer")).toContainText("4 left undecided");
   await plugin.frame.getByRole("button", { name: "keep deciding" }).click();
@@ -90,7 +90,7 @@ test("keeping deciding takes the warning back", async ({ page }) => {
 });
 
 test("a click drafts at once, typing is debounced, and a reload restores both", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
   await expect.poll(() => plugin.lastDraft().then((d) => d && d.decisions["101"] && d.decisions["101"].action)).toBe("accept");
@@ -104,7 +104,7 @@ test("a click drafts at once, typing is debounced, and a reload restores both", 
 });
 
 test("violations show in the frame; submitted flips to read-only with verdicts", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
   await plugin.sendViolations([{ path: "/decisions/0/action", message: "value must be one of the enum values" }]);
   await expect(f.locator("#errors")).toContainText("/decisions/0/action: value must be one of");
@@ -116,19 +116,19 @@ test("violations show in the frame; submitted flips to read-only with verdicts",
   await expect(f.locator("button")).toHaveCount(0);
 });
 
-test("a superseding gate shows the previous round's verdicts; a withdrawn one reads as closed", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: triage(), previous: round1() });
+test("a superseding review shows the previous round's verdicts; a withdrawn one reads as closed", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: triage(), previous: round1() });
   const f = plugin.frame;
   await expect(f.locator('[data-id="101"] .previous')).toHaveText("previous round: reject: not ours, it is the importer");
   await expect(f.locator('[data-id="102"] .previous')).toHaveText("previous round: undecided");
   await expect(f.locator('[data-id="104"] .previous')).toHaveCount(0);
 
-  const withdrawn = await mountPlugin(page, dir, { gate: { ...triage(), status: "withdrawn" }, readonly: true });
+  const withdrawn = await mountPlugin(page, dir, { review: { ...triage(), status: "withdrawn" }, readonly: true });
   await expect(withdrawn.frame.locator(".done")).toHaveText("Closed without a decision (withdrawn). Read-only.");
 });
 
 test("an item's body is markdown, whatever the agent wrote in it", async ({ page }) => {
-  const plugin = await mountPlugin(page, dir, { gate: issues() });
+  const plugin = await mountPlugin(page, dir, { review: issues() });
   const f = plugin.frame;
 
   // the SDK renders all of it, and this view styles the box rather than the
@@ -143,7 +143,7 @@ test("an item's body is markdown, whatever the agent wrote in it", async ({ page
 
 test("a verdict pressed from the keyboard keeps the focus on its button", async ({ page }) => {
   // the view redraws on every verdict: focus must not fall back to the top
-  const plugin = await mountPlugin(page, dir, { gate: triage() });
+  const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
   const accept = f.locator('button[data-act="accept"]').first();
   const id = await accept.getAttribute("data-id");

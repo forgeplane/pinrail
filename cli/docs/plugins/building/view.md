@@ -18,7 +18,7 @@ shaped by your decision schema, and `value` whatever state you keep.
 
 ```js
 const plugin = Pinrail.connect({
-  onInit({ gate, readonly, draft, settings }) {}, // gate.payload is what the agent sent
+  onInit({ review, readonly, draft, settings }) {}, // review.payload is what the agent sent
   onCollect() { plugin.submit(decision); },       // the app's hand-over button, or ⌘/Ctrl+Enter
   onViolations(errors) {},                        // [{ path, message }]: the decision failed its schema
   onSubmitted() {},                               // accepted: show it read-only
@@ -29,7 +29,7 @@ plugin.status({ label: "Hand over: yes" });       // the hand-over button's word
 
 - The app draws the hand-over button; the view never draws its own.
 - `plugin.readonly` is true for a review that is no longer pending: show
-  `gate.decision.data` and offer no editing.
+  `review.decision.data` and offer no editing.
 - The frame loads nothing from outside the plugin folder: the payload
   carries everything the view shows.
 - Files: declare `attachments` in the manifest, name them in the payload

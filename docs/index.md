@@ -14,7 +14,7 @@ Pinrail is the inbox where your agents ask before they act. An agent about to do
 | Install Pinrail and see your first review | [Getting started](/docs/getting-started/install/) |
 | Choose a plugin for what your agent does | [Plugins](/docs/plugins/) |
 | Tell your agent when to ask | [Instructing an agent](/docs/agents/instructing/) |
-| Gate a step in a script or a CI job | [Scripts and CI](/docs/agents/workflows/) |
+| Ask a person before a step in a script or a CI job | [Scripts and CI](/docs/agents/workflows/) |
 | Build a plugin for your own kind of review | [Writing a plugin](/docs/building/writing/) |
 
 ## How it works

@@ -5,7 +5,7 @@ const root = path.resolve(__dirname, '..');
 const personal = () => fixture(path.join(root, 'fixtures/01-personal-assistant.json'));
 // the calendar, or why it cannot be shown, is drawn before anything is done to it
 const mount = async (page, overrides = {}) => {
-  const p = await mountPlugin(page, root, { gate: personal(), theme: 'light', ...overrides });
+  const p = await mountPlugin(page, root, { review: personal(), theme: 'light', ...overrides });
   await expect(p.frame.locator('.calendar-header, .fatal').first()).toBeVisible();
   return p;
 };
@@ -67,29 +67,29 @@ test('incomplete decisions are held, explicit deferrals return to agent, violati
   await expect(slot(p,'doctor-mon')).toBeEnabled();
 });
 test('read-only fixtures restore the decided choices and do not emit a new decision', async ({ page }) => {
-  const p = await mount(page,{gate:fixture(path.join(root,'fixtures/03-personal.decided.json')),readonly:true});
+  const p = await mount(page,{review:fixture(path.join(root,'fixtures/03-personal.decided.json')),readonly:true});
   await expect(p.frame.locator('.event.selected')).toHaveCount(3);
   await expect(slot(p,'dinner-wed')).toBeDisabled();
   // the view has time to answer the collect before the log is read
   await p.collect(); await page.waitForTimeout(300); expect((await p.messages()).some(m => m.type === 'submit')).toBe(false);
 });
 test('same calendar handles interview scheduling', async ({ page }) => {
-  const p = await mount(page,{gate:fixture(path.join(root,'fixtures/02-interviews.json'))});
+  const p = await mount(page,{review:fixture(path.join(root,'fixtures/02-interviews.json'))});
   await slot(p,'maya-mon').click(); await expect(slot(p,'james-mon')).toHaveCount(0);
   await slot(p,'elena-thu').click(); await expect(slot(p,'maya-thu')).toHaveCount(0);
   await slot(p,'james-fri').click(); await slot(p,'omar-tue').click();
   await p.collect(); expect((await p.nextSubmit()).selections).toHaveLength(4);
 });
 test('no availability is recoverable through an explicit deferral', async ({ page }) => {
-  const p = await mount(page,{gate:fixture(path.join(root,'fixtures/04-no-availability.json'))});
+  const p = await mount(page,{review:fixture(path.join(root,'fixtures/04-no-availability.json'))});
   await expect(p.frame.getByText('No compatible times.',{exact:false})).toBeVisible();
   await p.frame.getByRole('button',{name:'Another time'}).click(); await p.collect();
   expect((await p.nextSubmit()).deferred).toEqual(['dentist']);
 });
 test('list is keyboard-operable and responsive; payload markup stays text', async ({ page }) => {
   await page.setViewportSize({width:390,height:844});
-  const gate = personal(); gate.payload.items[0].title = '<img src=x onerror=alert(1)> doctor';
-  const p = await mount(page,{gate});
+  const review = personal(); review.payload.items[0].title = '<img src=x onerror=alert(1)> doctor';
+  const p = await mount(page,{review});
   await p.frame.getByRole('button',{name:'List',exact:true}).click();
   const option = p.frame.locator('.list-group .option').first();
   await option.focus(); await option.press('Enter');
@@ -98,17 +98,17 @@ test('list is keyboard-operable and responsive; payload markup stays text', asyn
   expect(await p.frame.locator('body').evaluate(el => el.scrollWidth <= window.innerWidth)).toBe(true);
 });
 test('invalid payload fails closed and hostile drafts cannot bypass conflicts', async ({ page }) => {
-  const gate = personal(); gate.payload.timezone = 'Invalid/Zone';
-  const p = await mount(page,{gate}); await expect(p.frame.getByRole('alert')).toContainText('timezone');
+  const review = personal(); review.payload.timezone = 'Invalid/Zone';
+  const p = await mount(page,{review}); await expect(p.frame.getByRole('alert')).toContainText('timezone');
   // the view has time to answer the collect before the log is read
   await p.collect(); await page.waitForTimeout(300); expect((await p.messages()).some(m => m.type === 'submit')).toBe(false);
 });
 test('day and week views: a day at full width, a strip of days, paging by week, and keys', async ({ page }) => {
   // two weeks, with a suggestion in the second
-  const gate = personal();
-  gate.payload.days = 10;
-  gate.payload.items[1].options.push({ id: 'tennis-next', start: '2026-09-29T17:00:00+03:00', end: '2026-09-29T18:30:00+03:00', location: 'Athens Tennis Club · Court 1' });
-  const p = await mountPlugin(page, root, { gate, theme: 'light' });
+  const review = personal();
+  review.payload.days = 10;
+  review.payload.items[1].options.push({ id: 'tennis-next', start: '2026-09-29T17:00:00+03:00', end: '2026-09-29T18:30:00+03:00', location: 'Athens Tennis Club · Court 1' });
+  const p = await mountPlugin(page, root, { review, theme: 'light' });
   const f = p.frame;
   const columns = f.locator('.day-column');
 
@@ -158,11 +158,11 @@ test('day and week views: a day at full width, a strip of days, paging by week, 
 });
 
 test('a single day opens in the day view', async ({ page }) => {
-  const gate = personal();
-  gate.payload.days = 1;
-  gate.payload.items = gate.payload.items.map((item: any) => ({ ...item, options: item.options.filter((o: any) => o.start.startsWith('2026-09-21')) })).filter((item: any) => item.options.length);
-  gate.payload.blocked = gate.payload.blocked.filter((b: any) => b.start.startsWith('2026-09-21'));
-  const p = await mountPlugin(page, root, { gate, theme: 'light' });
+  const review = personal();
+  review.payload.days = 1;
+  review.payload.items = review.payload.items.map((item: any) => ({ ...item, options: item.options.filter((o: any) => o.start.startsWith('2026-09-21')) })).filter((item: any) => item.options.length);
+  review.payload.blocked = review.payload.blocked.filter((b: any) => b.start.startsWith('2026-09-21'));
+  const p = await mountPlugin(page, root, { review, theme: 'light' });
   await expect(p.frame.getByRole('button', { name: 'Day', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(p.frame.locator('.day-column')).toHaveCount(1);
   await expect(p.frame.locator('.day-strip')).toHaveCount(0);

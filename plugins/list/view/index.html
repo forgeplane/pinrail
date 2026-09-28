@@ -84,7 +84,7 @@
 <script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>
 "use strict";
-/* The built-in list gate: items grouped under headings, accept / reject /
+/* The built-in list review: items grouped under headings, accept / reject /
    note per item, and an honest `undecided` list. Anything else the person
    wants to say goes in the review's own note to the agent. The SDK handles
    the protocol; this file renders and keeps the decision state. */
@@ -119,15 +119,15 @@ const clearAll = control("eraser", "clear", () => {
   postDraft();
   render();
 });
-let gate = null, previous = null, readonly = false;
+let review = null, previous = null, readonly = false;
 const S = { decisions: {}, armed: false, errors: null };
 
 const plugin = Pinrail.connect({
   resize: "auto",
   onInit(init) {
-    gate = init.gate; previous = init.previous; readonly = init.readonly;
+    review = init.review; previous = init.previous; readonly = init.readonly;
     S.errors = null; S.armed = false;
-    if (readonly) loadDecision(gate.decision && gate.decision.data);
+    if (readonly) loadDecision(review.decision && review.decision.data);
     else if (init.draft && init.draft.decisions) S.decisions = init.draft.decisions;
     else S.decisions = {};
     syncHeader();
@@ -139,7 +139,7 @@ const plugin = Pinrail.connect({
 });
 
 /* The header says how much there is and offers the bulk actions, until the
-   gate is decided and there is nothing left to act on. */
+   review is decided and there is nothing left to act on. */
 function syncHeader() {
   view.title(`${itemIds().length} items`).controls(readonly ? [] : [acceptRest, clearAll]);
   counts();
@@ -165,7 +165,7 @@ const postDraft = () => plugin.draft(draftData(), { flush: true });
 const draft = () => plugin.draft(draftData());
 
 /* ---------- state ---------- */
-const items = () => (gate.payload.groups || []).flatMap((g) => g.items);
+const items = () => (review.payload.groups || []).flatMap((g) => g.items);
 const itemIds = () => items().map((i) => i.id);
 
 function loadDecision(data) {
@@ -265,16 +265,16 @@ function renderItem(item) {
 
 
 function render() {
-  const groups = gate.payload.groups || [];
+  const groups = review.payload.groups || [];
   const t = tally();
   let html = "";
   if (readonly) {
-    const dec = gate.decision;
+    const dec = review.decision;
     html += dec
       ? `<div class="done notice ok">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
-      : `<div class="done notice ok">Closed without a decision (${esc(gate.status)}). Read-only.</div>`;
+      : `<div class="done notice ok">Closed without a decision (${esc(review.status)}). Read-only.</div>`;
   }
-  if (gate.payload.intro) html += `<div class="intro">${markdown(gate.payload.intro)}</div>`;
+  if (review.payload.intro) html += `<div class="intro">${markdown(review.payload.intro)}</div>`;
   if (!groups.length) html += `<div class="empty">Nothing to decide.</div>`;
   for (const g of groups) {
     html += `<h2 class="group plugin-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;

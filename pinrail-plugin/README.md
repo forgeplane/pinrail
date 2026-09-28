@@ -28,7 +28,7 @@ or from the tarball attached to its GitHub release.
 <script>
   const plugin = Pinrail.connect({
     resize: "auto",                     // "auto" (content height), "fill" (viewport), "manual"
-    onInit({ gate, previous, readonly, draft }) { render(); },
+    onInit({ review, previous, readonly, draft }) { render(); },
     onViolations(errors) { showErrors(errors); },   // [{ path, message }]
     onSubmitted(decision) { render(); },           // now read-only
     onCollect() { submit(); },                     // the shell's hand-over button, or ⌘/Ctrl+Enter
@@ -39,7 +39,7 @@ or from the tarball attached to its GitHub release.
   plugin.submit(data);
   plugin.draft(data);                   // debounced 150ms; { flush: true } posts at once
   plugin.status({label: "Hand over anyway"});   // what the shell's button should read
-  plugin.readonly; plugin.gate; plugin.previous;
+  plugin.readonly; plugin.review; plugin.previous;
   plugin.settings;                      // the plugin's own settings, every key the manifest declares
   plugin.setSetting("diff", "split");   // asks the shell to keep one; it comes back as `settings`
 </script>
@@ -129,7 +129,7 @@ A view renders markdown with no ceremony:
 
 ```js
 const plugin = Pinrail.connect({
-  onInit({ gate }) { view.content.innerHTML = Pinrail.markdown(gate.payload.notes); },
+  onInit({ review }) { view.content.innerHTML = Pinrail.markdown(review.payload.notes); },
 });
 ```
 
@@ -259,12 +259,12 @@ view is tested alone, without the app or the CLI:
 ```ts
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
-const plugin = await mountPlugin(page, pluginDir, { gate: fixture("fixtures/basic.json") });
+const plugin = await mountPlugin(page, pluginDir, { review: fixture("fixtures/basic.json") });
 await plugin.frame.getByRole("button", { name: "Yes" }).click();
 expect(await plugin.nextSubmit()).toEqual({ ok: true });
 ```
 
-A fixture is part of a review, in the form the SDK passes a view as `gate`, usually `{ "title", "payload" }`, or
+A fixture is part of a review, in the form the SDK passes a view as `review`, usually `{ "title", "payload" }`, or
 with a `decision` for a read-only or previous-round case. Tests live in
 `<plugin>/tests/*.spec.ts`; `pinrail-plugin test [dir]` runs them, with
 Playwright from the plugin's own dependencies and the plugin's
@@ -292,7 +292,7 @@ decided fixture shows the result.
 ## Types
 
 ```ts
-import type { Manifest, Init, Gate, ShellMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
+import type { Manifest, Init, Review, ShellMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
 ```
 
 `types.d.ts` is the protocol written down: the manifest with every key the

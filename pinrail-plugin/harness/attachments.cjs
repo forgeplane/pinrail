@@ -5,7 +5,7 @@
  *
  *   "attachments": { "pivot.glb": { "path": "pivot.glb" } }
  *
- * and the gate gets what the app would put there: name, size, media type
+ * and the review gets what the app would put there: name, size, media type
  * and hash for each, in name order.
  */
 const crypto = require("node:crypto");

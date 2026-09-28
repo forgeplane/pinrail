@@ -168,7 +168,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
   const view = Pinrail.layout({ title: "Tickets" });
   const choices = new Map();
   const plugin = Pinrail.connect({
-    onInit({ gate, draft }) {
+    onInit({ review, draft }) {
       for (const d of draft?.decisions ?? []) choices.set(d.id, d.action);
       render();
     },
@@ -178,7 +178,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
   });
 
   function render() {
-    view.content.innerHTML = plugin.gate.payload.tickets.map((t) => `
+    view.content.innerHTML = plugin.review.payload.tickets.map((t) => `
       <div class="item">
         <div class="head"><span class="id">#${t.id}</span><span class="title">${Pinrail.escape(t.title)}</span></div>
         <div class="controls">
@@ -200,7 +200,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
 
 `Pinrail.connect` does the protocol for you: it announces the view, receives the review, sizes the frame to your content and keeps drafts. You write two callbacks and a renderer.
 
-- **`onInit`** runs once with the review (`gate`, payload included), whether it is `readonly`, the `previous` round when this one revises another, and the `draft` the person left.
+- **`onInit`** runs once with the review (`review`, payload included), whether it is `readonly`, the `previous` round when this one revises another, and the `draft` the person left.
 - **`onCollect`** runs when the person hands over. Assemble the decision and call `plugin.submit`.
 - **`plugin.draft`** keeps work in progress, so closing the review or restarting the app loses nothing.
 
@@ -209,7 +209,7 @@ sequenceDiagram
   participant S as the app
   participant V as your view
   V->>S: ready
-  S->>V: init { gate, draft, readonly }
+  S->>V: init { review, draft, readonly }
   V->>S: draft { … }
   Note over S,V: the person presses Hand over, or ⌘↵
   S->>V: collect
@@ -227,12 +227,12 @@ Your view does not draw a submit button. The app puts one below every review, in
 Tell the button what it will do with `plugin.status`:
 
 ```js
-plugin.status({ label: `Hand over ${choices.size} of ${plugin.gate.payload.tickets.length}` });
+plugin.status({ label: `Hand over ${choices.size} of ${plugin.review.payload.tickets.length}` });
 ```
 
 ### When the review is read-only
 
-After a decision, and when the agent withdraws the review, the view opens read-only: `plugin.readonly` is `true` and `plugin.gate.decision` holds what was decided. Render what was there, without controls. A decided review stays open to anyone reading the history, months later.
+After a decision, and when the agent withdraws the review, the view opens read-only: `plugin.readonly` is `true` and `plugin.review.decision` holds what was decided. Render what was there, without controls. A decided review stays open to anyone reading the history, months later.
 
 ## The sandbox
 

@@ -58,7 +58,7 @@
 <body>
 <div class="bar">
   <b id="name">plugin</b><span class="v" id="version"></span>
-  <select id="fixture" title="The gate the view is initialised with"></select>
+  <select id="fixture" title="The review the view is initialised with"></select>
   <select id="previous" title="A decided fixture handed over as the previous round"><option value="">no previous round</option></select>
   <label class="check"><input type="checkbox" id="readonly"> read-only</label>
   <button id="reinit" title="Send init again, with the last draft">Re-init</button>
@@ -98,15 +98,15 @@
 // posts goes into the log and the state panel.
 const $ = (id) => document.getElementById(id);
 const frame = $("frame"), stage = $("stage"), log = $("log");
-let manifest = {}, fixtures = [], gate = null, previous = null, draft = null, lastSubmit = null, ready = false, stamp = null;
+let manifest = {}, fixtures = [], review = null, previous = null, draft = null, lastSubmit = null, ready = false, stamp = null;
 const THEME_KEY = "pinrail-shell:theme";
 let theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
 document.documentElement.dataset.theme = theme;
 
 // The envelope as the app hands it to a view, around the fixture's fields.
-const gateFrom = (partial, name) => ({
+const reviewFrom = (partial, name) => ({
   id: "g_dev", plugin: name, plugin_version: Number(String(manifest.version ?? 1).split(".")[0]) || 1,
-  title: "dev gate", origin: { repo: "dev", workflow: "shell" },
+  title: "dev review", origin: { repo: "dev", workflow: "shell" },
   requested_by: "dev", created_at: new Date().toISOString(), expires_at: null, revises: null,
   summary: null, status: partial.decision ? "decided" : "pending", decision: null, agent_note: null, payload: {}, ...partial,
 });
@@ -126,9 +126,9 @@ const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;
 const show = (id, v) => { $(id).textContent = v == null ? "—" : typeof v === "string" ? v : JSON.stringify(v); };
 
 function sendInit() {
-  if (!ready || !gate) return;
+  if (!ready || !review) return;
   post({ type: "appearance", theme });
-  post({ type: "init", gate, previous, readonly: $("readonly").checked || gate.status !== "pending", draft, settings: settingsNow(), shell_origin: location.origin, capabilities: ["attachments"] });
+  post({ type: "init", review, previous, readonly: $("readonly").checked || review.status !== "pending", draft, settings: settingsNow(), shell_origin: location.origin, capabilities: ["attachments"] });
 }
 
 // The plugin's own settings, from the manifest's settings_schema: the
@@ -194,7 +194,7 @@ let gateFixture = "", previousFixture = "";
 
 async function answerAttachment(msg) {
   const previousRound = msg.round === "previous";
-  const from = previousRound ? previous : gate;
+  const from = previousRound ? previous : review;
   const listed = from && (from.attachments || []).find((a) => a.name === msg.name);
   const fail = (error) => post({ type: "attachment", req: msg.req, ok: false, name: msg.name, error });
   if (!listed) return fail(`no attachment "${msg.name}" on this ${previousRound ? "previous round" : "review"}`);
@@ -210,14 +210,14 @@ async function loadFixture(name) {
   gateFixture = name || "";
   draft = null; lastSubmit = null; show("s-draft", null); show("s-submit", null); show("s-status", null);
   const partial = name ? await (await fetch("/dev/fixtures/" + encodeURIComponent(name))).json() : { title: "empty", payload: {} };
-  gate = gateFrom(partial, manifest.name);
+  review = reviewFrom(partial, manifest.name);
   localStorage.setItem("pinrail-shell:fixture:" + manifest.name, name);
   reload();
 }
 
 async function loadPrevious(name) {
   previousFixture = name || "";
-  previous = name ? gateFrom(await (await fetch("/dev/fixtures/" + encodeURIComponent(name))).json(), manifest.name) : null;
+  previous = name ? reviewFrom(await (await fetch("/dev/fixtures/" + encodeURIComponent(name))).json(), manifest.name) : null;
   sendInit();
 }
 
@@ -267,8 +267,8 @@ $("send-violations").addEventListener("click", () => {
 });
 $("send-submitted").addEventListener("click", () => {
   if (lastSubmit == null) { alert("nothing was submitted yet: press Collect first"); return; }
-  gate = { ...gate, status: "decided", decision: { decided_by: "dev", decided_at: new Date().toISOString(), data: lastSubmit } };
-  post({ type: "submitted", decision: gate.decision });
+  review = { ...review, status: "decided", decision: { decided_by: "dev", decided_at: new Date().toISOString(), data: lastSubmit } };
+  post({ type: "submitted", decision: review.decision });
 });
 $("theme").addEventListener("click", () => {
   theme = theme === "dark" ? "light" : "dark";

@@ -45,16 +45,16 @@ function pick(value) {
 }
 
 function render(draft) {
-  const gate = plugin.gate;
-  const decided = gate.decision && gate.decision.data;
+  const review = plugin.review;
+  const decided = review.decision && review.decision.data;
   view.content.className = "plugin-content";
   // the redraw replaces the buttons: the one that had focus gets it back
   const focused = document.activeElement && document.activeElement.id;
-  view.content.innerHTML = Pinrail.markdown(gate.payload.message) + (plugin.readonly
+  view.content.innerHTML = Pinrail.markdown(review.payload.message) + (plugin.readonly
     ? (decided
       ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b>${decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
       // withdrawn or expired: nobody answered
-      : `<p class="dim">Closed without a decision (${Pinrail.escape(gate.status)})</p>`)
+      : `<p class="dim">Closed without a decision (${Pinrail.escape(review.status)})</p>`)
     : `<div class="choice">
          <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${Pinrail.icon("check")} Yes</button>
          <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${Pinrail.icon("x")} No</button>

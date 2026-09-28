@@ -5,7 +5,7 @@
 <script setup lang="ts">
 import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/vue";
 import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
-import type { Gate, Plugin } from "@forgeplane/pinrail-plugin/types";
+import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 type Payload = {
   service: string;
@@ -20,7 +20,7 @@ type Decision = { verdict: Verdict; note?: string };
 type Draft = { verdict: Verdict | null; note: string };
 
 const { Pinrail } = window;
-const gate = ref<Gate<Payload, Decision> | null>(null);
+const review = ref<Review<Payload, Decision> | null>(null);
 const readonly = ref(false);
 const draft = ref<Draft>({ verdict: null, note: "" });
 const error = ref("");
@@ -29,7 +29,7 @@ let plugin: Plugin<Payload, Decision>;
 onMounted(() => {
   plugin = Pinrail.connect<Payload, Decision>({
     onInit(init) {
-      gate.value = init.gate;
+      review.value = init.review;
       readonly.value = init.readonly;
       if (init.draft) draft.value = init.draft as Draft;
     },
@@ -45,7 +45,7 @@ onMounted(() => {
       error.value = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
     },
     onSubmitted() {
-      gate.value = { ...plugin.gate! };
+      review.value = { ...plugin.review! };
       readonly.value = true;
     },
   });
@@ -77,23 +77,23 @@ function onKey(e: KeyboardEvent) {
 
 // what the app's hand-over button says follows the choice
 watchEffect(() => {
-  if (!gate.value || readonly.value) return;
+  if (!review.value || readonly.value) return;
   const verdict = draft.value.verdict;
-  const label = verdict === "ship" ? `Ship ${gate.value.payload.version}` : verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
+  const label = verdict === "ship" ? `Ship ${review.value.payload.version}` : verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
   plugin.status({ label });
 });
 
-const decided = computed(() => gate.value?.decision?.data);
+const decided = computed(() => review.value?.decision?.data);
 </script>
 
 <template>
-  <main v-if="gate" class="plugin-content ship">
-    <p class="eyebrow">Deploy to {{ gate.payload.environment }}</p>
-    <h1>{{ gate.payload.service }} <span class="meta">{{ gate.payload.version }}</span></h1>
+  <main v-if="review" class="plugin-content ship">
+    <p class="eyebrow">Deploy to {{ review.payload.environment }}</p>
+    <h1>{{ review.payload.service }} <span class="meta">{{ review.payload.version }}</span></h1>
     <section>
       <h2 class="eyebrow">Changes</h2>
       <ul aria-label="Changes">
-        <li v-for="c in gate.payload.changes" :key="c.title">
+        <li v-for="c in review.payload.changes" :key="c.title">
           {{ c.title }}<template v-if="c.risky">&#32;<span class="sev sev-major">risky</span></template>
         </li>
       </ul>
@@ -101,7 +101,7 @@ const decided = computed(() => gate.value?.decision?.data);
     <section>
       <h2 class="eyebrow">Checks</h2>
       <ul aria-label="Checks">
-        <li v-for="c in gate.payload.checks" :key="c.name" :data-passed="String(c.passed)">
+        <li v-for="c in review.payload.checks" :key="c.name" :data-passed="String(c.passed)">
           <CircleCheck v-if="c.passed" /><CircleX v-else /> {{ c.name }}<template v-if="c.detail">&#32;<span class="detail">{{ c.detail }}</span></template>
         </li>
       </ul>

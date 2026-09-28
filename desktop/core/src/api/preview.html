@@ -132,7 +132,7 @@ window.addEventListener("message", (event) => {
   if (!msg || msg.pinrail !== PROTOCOL) return;
   switch (msg.type) {
     case "ready":
-      post({ type: "init", gate: review, previous, readonly: readonly(), draft: null, settings, shell_origin: location.origin, capabilities: ["attachments"] });
+      post({ type: "init", review, previous, readonly: readonly(), draft: null, settings, shell_origin: location.origin, capabilities: ["attachments"] });
       post({ type: "appearance", theme: theme() });
       break;
     case "resize":

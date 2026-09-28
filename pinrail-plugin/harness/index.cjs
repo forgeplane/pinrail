@@ -74,13 +74,13 @@ function csp(bundle) {
   ].join("; ");
 }
 
-/** A gate envelope with defaults, from a fixture's partial gate: what the app hands a view. */
-function gateFrom(partial) {
+/** A review envelope with defaults, from a fixture's partial review: what the app hands a view. */
+function reviewFrom(partial) {
   return {
     id: "g_test",
     plugin: "test",
     plugin_version: 1,
-    title: "test gate",
+    title: "test review",
     origin: { repo: "acme", workflow: "test" },
     requested_by: "test",
     created_at: "2026-09-11T10:00:00Z",
@@ -95,18 +95,18 @@ function gateFrom(partial) {
   };
 }
 
-/* The files behind a gate that fixture() read, for mountPlugin to serve:
-   kept beside the gate rather than on it, since the gate goes to the view. */
+/* The files behind a review that fixture() read, for mountPlugin to serve:
+   kept beside the review rather than on it, since the review goes to the view. */
 const attachmentFiles = new WeakMap();
 
 /** A fixture file (`{ title, payload }`, or with a `decision`, and with
- *  `attachments` by path) as a gate. */
+ *  `attachments` by path) as a review. */
 function fixture(file) {
   const partial = JSON.parse(fs.readFileSync(file, "utf8"));
   const { list, files } = resolveAttachments(partial.attachments, path.dirname(file));
-  const gate = gateFrom({ ...partial, attachments: list });
-  attachmentFiles.set(gate, files);
-  return gate;
+  const review = reviewFrom({ ...partial, attachments: list });
+  attachmentFiles.set(review, files);
+  return review;
 }
 
 /** Checks a decision against the plugin's decision_schema, inline or a
@@ -129,10 +129,10 @@ async function mountPlugin(page, pluginDir, opts) {
 
   // the files the view may ask for: from fixture(), or given as { name: path }
   const given = opts.attachments ? resolveAttachments(opts.attachments, pluginDir) : null;
-  const gate = gateFrom({ ...opts.gate, ...(given ? { attachments: given.list } : {}) });
-  const previous = opts.previous ? gateFrom(opts.previous) : null;
+  const review = reviewFrom({ ...opts.review, ...(given ? { attachments: given.list } : {}) });
+  const previous = opts.previous ? reviewFrom(opts.previous) : null;
   const served = {
-    current: (given && given.files) || attachmentFiles.get(opts.gate) || {},
+    current: (given && given.files) || attachmentFiles.get(opts.review) || {},
     previous: (opts.previous && attachmentFiles.get(opts.previous)) || {},
   };
 
@@ -175,7 +175,7 @@ async function mountPlugin(page, pluginDir, opts) {
   }
   await page.goto(`${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + (manifest.entry ?? "index.html"))}`);
   const init = {
-    gate,
+    review,
     previous,
     readonly: !!opts.readonly,
     draft: opts.draft ?? null,
@@ -226,4 +226,4 @@ async function mountPlugin(page, pluginDir, opts) {
   };
 }
 
-module.exports = { gateFrom, fixture, mountPlugin };
+module.exports = { reviewFrom, fixture, mountPlugin };

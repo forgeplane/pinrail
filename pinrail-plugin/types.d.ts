@@ -73,7 +73,7 @@ export type AttachmentRules = {
   max_count?: number;
 };
 
-/** A file a review carries, as the gate lists it; the payload names it
+/** A file a review carries, as the review lists it; the payload names it
  *  `{ "$attachment": name }`. */
 export type Attachment = {
   name: string;
@@ -109,7 +109,7 @@ export type Summary = {
 };
 
 /** A review as the app hands it to a view: the envelope with its payload. */
-export type Gate<Payload = unknown, Data = unknown> = {
+export type Review<Payload = unknown, Data = unknown> = {
   id: string;
   plugin: string;
   plugin_version: number;
@@ -139,10 +139,10 @@ export type Gate<Payload = unknown, Data = unknown> = {
 
 /** What `onInit` receives. */
 export type Init<Payload = unknown, Data = unknown> = {
-  gate: Gate<Payload, Data>;
+  review: Review<Payload, Data>;
   /** the review this one revises, decided, or null */
-  previous: Gate<Payload, Data> | null;
-  /** true whenever the review is not pending; `gate.status` says why */
+  previous: Review<Payload, Data> | null;
+  /** true whenever the review is not pending; `review.status` says why */
   readonly: boolean;
   /** what the view last posted as a draft, or null */
   draft: any;
@@ -211,8 +211,8 @@ export type Handlers<Payload = unknown, Data = unknown> = {
 };
 
 export type Plugin<Payload = unknown, Data = unknown> = {
-  readonly gate: Gate<Payload, Data> | null;
-  readonly previous: Gate<Payload, Data> | null;
+  readonly review: Review<Payload, Data> | null;
+  readonly previous: Review<Payload, Data> | null;
   readonly readonly: boolean;
   readonly shellOrigin: string | null;
   readonly initialised: boolean;
@@ -275,7 +275,7 @@ export type PinrailSdk = {
   /** the same, for one line: no paragraph around it */
   markdownInline(source: string): string;
   /** what the previous round decided for an item id, for `decisions: [{id, action, note}]` shapes */
-  previousVerdict(previous: Gate | null, id: string | number): { action: string; note: string } | null;
+  previousVerdict(previous: Review | null, id: string | number): { action: string; note: string } | null;
   /** the name in `{ "$attachment": name }`, or null for anything else */
   attachmentName(ref: unknown): string | null;
   /** `{ "$attachment": name }` as JSON Schema, for a payload schema's $defs */

@@ -1,12 +1,12 @@
 import type { FrameLocator, Page } from "@playwright/test";
-import type { Gate, PluginMessage, Settings } from "../types.js";
+import type { Review, PluginMessage, Settings } from "../types.js";
 
-export type { Gate };
+export type { Review };
 
 export type MountOptions = {
-  /** a partial gate, usually a fixture's `{ title, payload }`; defaults fill the rest */
-  gate: Partial<Gate> & Record<string, any>;
-  previous?: Gate | null;
+  /** a partial review, usually a fixture's `{ title, payload }`; defaults fill the rest */
+  review: Partial<Review> & Record<string, any>;
+  previous?: Review | null;
   readonly?: boolean;
   draft?: any;
   /** the theme the fake shell is in; the frame URL carries it, as in the app */
@@ -46,7 +46,7 @@ export type MountedPlugin = {
   sendKey(combo: string): Promise<void>;
   send(msg: Record<string, any>): Promise<void>;
   sendViolations(errors: { path: string; message: string }[]): Promise<void>;
-  sendSubmitted(decision: Gate["decision"]): Promise<void>;
+  sendSubmitted(decision: Review["decision"]): Promise<void>;
   /** asks the view to hand over, as the shell's button does */
   collect(): Promise<void>;
   /** holds the frame at a height, so a view taller than that has to scroll */
@@ -56,11 +56,11 @@ export type MountedPlugin = {
   reload(): Promise<void>;
 };
 
-/** A gate envelope with defaults, from a fixture's partial gate. */
-export function gateFrom(partial: Partial<Gate> & Record<string, any>): Gate;
+/** A review envelope with defaults, from a fixture's partial review. */
+export function reviewFrom(partial: Partial<Review> & Record<string, any>): Review;
 
-/** A fixture file (`{ title, payload }`, or with a `decision`) as a gate. */
-export function fixture(file: string): Gate;
+/** A fixture file (`{ title, payload }`, or with a `decision`) as a review. */
+export function fixture(file: string): Review;
 
 /**
  * Mounts the plugin in `pluginDir` under the fake shell on `page`, sends

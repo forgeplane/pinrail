@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { Pinrail, fakeEnv, fakeDocument, shell, gate, init } = require("./helpers.cjs");
+const { Pinrail, fakeEnv, fakeDocument, shell, review, init } = require("./helpers.cjs");
 
 test("connect posts ready at once, to any origin", () => {
   const env = fakeEnv();
@@ -8,14 +8,14 @@ test("connect posts ready at once, to any origin", () => {
   assert.deepEqual(env.posted, [{ msg: { pinrail: 1, type: "ready" }, target: "*" }]);
 });
 
-test("init hands the gate, previous, readonly and draft to onInit and pins the shell origin", () => {
+test("init hands the review, previous, readonly and draft to onInit and pins the shell origin", () => {
   const env = fakeEnv();
   const seen = [];
   const plugin = Pinrail.createPlugin(env, { onInit: (i) => seen.push(i), resize: "manual" });
-  env.deliver(init({ previous: gate({ id: "g_0" }), draft: { a: 1 } }));
+  env.deliver(init({ previous: review({ id: "g_0" }), draft: { a: 1 } }));
 
   assert.equal(seen.length, 1);
-  assert.equal(seen[0].gate.id, "g_1");
+  assert.equal(seen[0].review.id, "g_1");
   assert.equal(seen[0].previous.id, "g_0");
   assert.equal(seen[0].readonly, false);
   assert.deepEqual(seen[0].draft, { a: 1 });
@@ -63,8 +63,8 @@ test("violations, submitted and collect dispatch; submitted flips read-only and 
     ["submitted", { decided_by: "a", data: { ok: true } }],
   ]);
   assert.equal(plugin.readonly, true);
-  assert.equal(plugin.gate.status, "decided");
-  assert.deepEqual(plugin.gate.decision.data, { ok: true });
+  assert.equal(plugin.review.status, "decided");
+  assert.deepEqual(plugin.review.decision.data, { ok: true });
 });
 
 test("the keyboard shortcut collects unless read-only or disabled", () => {
@@ -149,7 +149,7 @@ test("collect is what the hand-over asks for, from the shell or the shortcut", (
   env.deliver(shell({ type: "submitted", decision: null }));
   env.deliver(shell({ type: "collect" }));
   env.pressShortcut();
-  assert.equal(asked, 2, "and neither reaches a decided gate");
+  assert.equal(asked, 2, "and neither reaches a decided review");
 });
 
 test("the theme comes from the environment first, and the shell can still change it", () => {
@@ -287,7 +287,7 @@ test("icon markup takes the name, the colour of its text, and nothing from a pay
   assert.match(plain, /aria-hidden="true"/, "decorative unless it is given a name");
   assert.match(plain, /data-icon="check"/, "the name stays on the element, to find a typo by");
 
-  // A view may take the name from a gate payload, which is not ours to trust.
+  // A view may take the name from a review payload, which is not ours to trust.
   const hostile = Pinrail.icon('x.svg) url(https://evil.test/pixel.svg');
   assert.match(hostile, /--wi:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/[a-z0-9-]*\.svg&quot;\);/);
   assert.equal(hostile.includes("evil.test"), false, "the host is gone");
@@ -383,7 +383,7 @@ test("attachment asks the shell for a file the review lists, and resolves with t
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
   const files = [{ name: "pivot.glb", size: 3, media_type: "model/gltf-binary", sha256: "ab" }];
-  env.deliver(init({ gate: gate({ attachments: files }), previous: gate({ id: "g_0", attachments: [{ name: "old.glb", size: 1, media_type: "model/gltf-binary", sha256: "cd" }] }), capabilities: ["attachments"] }));
+  env.deliver(init({ review: review({ attachments: files }), previous: review({ id: "g_0", attachments: [{ name: "old.glb", size: 1, media_type: "model/gltf-binary", sha256: "cd" }] }), capabilities: ["attachments"] }));
   assert.deepEqual(plugin.attachments, files);
 
   const asked = plugin.attachment("pivot.glb");
@@ -407,13 +407,13 @@ test("attachment asks the shell for a file the review lists, and resolves with t
 test("attachment refuses a name the review does not list, and a shell that cannot hand files over", async () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
-  env.deliver(init({ gate: gate({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }), capabilities: ["attachments"] }));
+  env.deliver(init({ review: review({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }), capabilities: ["attachments"] }));
   await assert.rejects(plugin.attachment("b.glb"), /no attachment "b.glb" on this review/);
   assert.equal(env.last("attachment"), undefined, "nothing was asked");
 
   const old = fakeEnv();
   const older = Pinrail.createPlugin(old, { resize: "manual" });
-  old.deliver(init({ gate: gate({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }) }));
+  old.deliver(init({ review: review({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }) }));
   await assert.rejects(older.attachment("a.glb"), /cannot hand files to a view; update the app/);
 });
 

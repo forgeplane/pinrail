@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { gateFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { reviewFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 import { scratch } from "./scratch.cjs";
 
 // Markdown, in the place it runs: a view's frame, which has an opaque origin,
@@ -24,10 +24,10 @@ function renderer(): string {
 <div id="inline"></div>
 <script>
   Pinrail.connect({
-    onInit({ gate }) {
+    onInit({ review }) {
       try {
-        document.getElementById("out").innerHTML = Pinrail.markdown(gate.payload.source);
-        document.getElementById("inline").innerHTML = Pinrail.markdownInline(gate.payload.source);
+        document.getElementById("out").innerHTML = Pinrail.markdown(review.payload.source);
+        document.getElementById("inline").innerHTML = Pinrail.markdownInline(review.payload.source);
       } catch (e) {
         document.getElementById("out").textContent = "threw: " + e.message;
       }
@@ -39,7 +39,7 @@ function renderer(): string {
 }
 
 async function render(page: any, source: string) {
-  const plugin = await mountPlugin(page, renderer(), { gate: gateFrom({ title: "Markdown", payload: { source } }) });
+  const plugin = await mountPlugin(page, renderer(), { review: reviewFrom({ title: "Markdown", payload: { source } }) });
   return plugin.frame;
 }
 
@@ -109,7 +109,7 @@ test("comes with the SDK, in one script and no second request", async ({ page })
 
 test("a link in rendered markdown asks the shell to open it", async ({ page }) => {
   const plugin = await mountPlugin(page, renderer(), {
-    gate: gateFrom({ title: "Markdown", payload: { source: "[docs](https://example.com/docs) [d](ftp://example.com/f)" } }),
+    review: reviewFrom({ title: "Markdown", payload: { source: "[docs](https://example.com/docs) [d](ftp://example.com/f)" } }),
   });
 
   // the frame is sandboxed without allow-popups, so target="_blank" opens

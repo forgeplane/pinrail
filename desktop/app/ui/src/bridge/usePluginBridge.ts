@@ -6,7 +6,7 @@
 //   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
 //                    status {label} | settings_set {patch} | key {key, code, shiftKey} |
 //                    attachment {req, name, round?: "previous"}
-//   shell -> plugin: init {gate, previous, readonly, draft, settings, shell_origin,
+//   shell -> plugin: init {review, previous, readonly, draft, settings, shell_origin,
 //                          capabilities} |
 //                    violations {errors} | submitted {decision} | collect |
 //                    appearance {theme} | settings {settings} |
@@ -164,7 +164,7 @@ export function usePluginBridge(options: Options): Bridge {
     post({ type: "appearance", theme: currentTheme() });
     post({
       type: "init",
-      gate: review,
+      review,
       previous,
       readonly,
       draft: readonly ? null : loadDraft(),

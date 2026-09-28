@@ -3,11 +3,11 @@ import path from "node:path";
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
 const dir = path.resolve(__dirname, "..");
-const gate = (name: string) => fixture(path.join(dir, "fixtures", name));
+const review = (name: string) => fixture(path.join(dir, "fixtures", name));
 
 /** The view alone, on a fixture; `opts` takes `previous` and `readonly` as the app sends them. */
 async function mount(page: any, name = "01-incident.json", opts: Record<string, unknown> = {}) {
-  const plugin = await mountPlugin(page, dir, { gate: gate(name), ...opts });
+  const plugin = await mountPlugin(page, dir, { review: review(name), ...opts });
   await expect(plugin.frame.getByRole("heading", { level: 1 })).toBeVisible();
   return plugin;
 }
@@ -150,12 +150,12 @@ test("a comment alone is an answer's context, not an answer", async ({ page }) =
   await expect(q(f, "note").getByRole("button", { name: "Add a comment" })).toHaveCount(0);
 });
 
-test("a decided gate is read-only, and a new round starts empty with the last one for reference", async ({ page }) => {
+test("a decided review is read-only, and a new round starts empty with the last one for reference", async ({ page }) => {
   const decided = await mount(page, "04-incident.decided.json", { readonly: true });
   await expect(q(decided.frame, "notify").getByRole("radio", { name: "No", exact: true })).toBeChecked();
   await expect(q(decided.frame, "notify").getByRole("radio", { name: "No", exact: true })).toBeDisabled();
 
-  const round2 = await mount(page, "01-incident.json", { previous: gate("04-incident.decided.json") });
+  const round2 = await mount(page, "01-incident.json", { previous: review("04-incident.decided.json") });
   const f = round2.frame;
   // the previous round is shown where it is asked for, and nowhere else
   await expect(f.locator("input:checked")).toHaveCount(0);
@@ -188,18 +188,18 @@ test("typing survives a theme change, and the shell's own objections keep the dr
 test("a condition that cannot be evaluated fails closed, and agent text is escaped", async ({ page }) => {
   const plugin = await mount(page);
   const f = plugin.frame;
-  const broken = gate("01-incident.json");
+  const broken = review("01-incident.json");
   broken.title = "<img src=x onerror=alert(1)>";
 
   broken.payload.groups[0].questions[0].prompt = "<script>alert(1)</script>";
-  await plugin.send({ type: "init", gate: broken, draft: null, readonly: false });
+  await plugin.send({ type: "init", review: broken, draft: null, readonly: false });
   await expect(f.getByRole("heading", { level: 1 })).toHaveText(broken.title);
   await expect(f.locator("img")).toHaveCount(0);
 
   // a question whose condition reads an answer given later cannot be ordered:
   // the view refuses the whole payload rather than guessing what to show
   broken.payload.groups[0].questions[0].when = { question_id: "notify", operator: "answered" };
-  await plugin.send({ type: "init", gate: broken, draft: null, readonly: false });
+  await plugin.send({ type: "init", review: broken, draft: null, readonly: false });
   await expect(f.getByRole("alert")).toContainText("earlier questions");
   await plugin.collect();
   expect((await plugin.messages()).filter((m: any) => m.type === "submit")).toHaveLength(0);

@@ -61,7 +61,7 @@ function fakeDocument() {
 }
 
 const shell = (msg) => Object.assign({ pinrail: 1 }, msg);
-const gate = (extra = {}) => Object.assign({ id: "g_1", type: "t", type_version: 1, title: "t", status: "pending", payload: {}, decision: null }, extra);
-const init = (extra = {}) => shell(Object.assign({ type: "init", gate: gate(), previous: null, readonly: false, draft: null, shell_origin: "http://shell.test" }, extra));
+const review = (extra = {}) => Object.assign({ id: "g_1", type: "t", type_version: 1, title: "t", status: "pending", payload: {}, decision: null }, extra);
+const init = (extra = {}) => shell(Object.assign({ type: "init", review: review(), previous: null, readonly: false, draft: null, shell_origin: "http://shell.test" }, extra));
 
-module.exports = { Pinrail, fakeEnv, fakeDocument, shell, gate, init };
+module.exports = { Pinrail, fakeEnv, fakeDocument, shell, review, init };

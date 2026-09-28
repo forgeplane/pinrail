@@ -1,6 +1,6 @@
 // The SDK is a script the app serves; this is the part of it the plugin uses.
 
-export type Gate = {
+export type Review = {
   id: string;
   title: string;
   status: string;
@@ -9,8 +9,8 @@ export type Gate = {
 };
 
 export type Init = {
-  gate: Gate;
-  previous: Gate | null;
+  review: Review;
+  previous: Review | null;
   readonly: boolean;
   draft: Record<string, unknown> | null;
 };
