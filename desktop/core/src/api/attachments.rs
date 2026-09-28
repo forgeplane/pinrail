@@ -30,7 +30,7 @@ async fn stored(
     State(state): State<Arc<Pinrail>>,
     Path(sha256): Path<String>,
 ) -> Result<Response, ApiError> {
-    Ok(match state.attachments().stored(&sha256)? {
+    Ok(match state.attachments().confirm(&sha256)? {
         Some(blob) => (
             StatusCode::OK,
             [(header::CONTENT_LENGTH, blob.size.to_string())],
@@ -60,7 +60,7 @@ async fn upload(
         ));
     }
     let attachments = state.attachments();
-    if let Some(blob) = attachments.stored(&sha256)? {
+    if let Some(blob) = attachments.confirm(&sha256)? {
         return Ok((
             StatusCode::OK,
             axum::Json(json!({ "sha256": blob.sha256, "size": blob.size })),

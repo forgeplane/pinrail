@@ -1713,6 +1713,48 @@ async fn a_dry_run_checks_the_files_before_they_are_uploaded() {
 }
 
 #[tokio::test]
+async fn a_file_confirmed_as_stored_outlasts_the_next_sweep() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    files_plugin(&app, scratch.path(), json!({ "accept": [".glb"] })).await;
+    let bytes = b"uploaded long ago".to_vec();
+    let hash = upload(&app, &bytes).await;
+    // an upload nothing was submitted with, older than the sweep's hour
+    let age = || {
+        rusqlite::Connection::open(app.state.config().db_path())
+            .unwrap()
+            .execute("UPDATE blobs SET created_at = '2000-01-01T00:00:00Z'", [])
+            .unwrap();
+    };
+    let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
+    let path = format!("/api/v1/attachments/{hash}");
+
+    // an agent uploads it again, is told it is already stored, and submits
+    age();
+    let (status, _) = put_bytes(&app, &path, "application/octet-stream", bytes, true).await;
+    assert_eq!(status, StatusCode::OK);
+    app.state.attachments().sweep(hour_ago).unwrap();
+    assert_eq!(head(&app, &path).await.0, StatusCode::OK, "swept after PUT");
+
+    // or asks whether it is there
+    age();
+    assert_eq!(head(&app, &path).await.0, StatusCode::OK);
+    app.state.attachments().sweep(hour_ago).unwrap();
+    assert_eq!(
+        head(&app, &path).await.0,
+        StatusCode::OK,
+        "swept after HEAD"
+    );
+
+    let body = with_files(
+        json!({ "files": [{ "$attachment": "a.glb" }] }),
+        json!({ "a.glb": { "sha256": hash, "size": 17 } }),
+    );
+    let (status, created) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+}
+
+#[tokio::test]
 async fn a_file_swept_while_its_review_is_saved_is_reported_as_not_uploaded() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();

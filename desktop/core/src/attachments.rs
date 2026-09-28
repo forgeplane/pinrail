@@ -10,7 +10,7 @@
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde_json::{Map, Value};
 use sha2::{Digest, Sha256};
@@ -181,6 +181,10 @@ pub struct Attachments {
     dir: PathBuf,
     db: Arc<Db>,
     max_bytes: u64,
+    /// Held while a blob's row and file change together: an upload
+    /// finishing, a blob confirmed as stored, and the sweep. None of them
+    /// can then land between another's two steps.
+    files: Arc<Mutex<()>>,
 }
 
 /// Why an upload stopped.
@@ -215,6 +219,7 @@ pub struct Upload {
     max_bytes: u64,
     stored: Option<PathBuf>,
     db: Arc<Db>,
+    files: Arc<Mutex<()>>,
 }
 
 /// A stored blob.
@@ -280,6 +285,7 @@ impl Attachments {
             dir: dir.to_path_buf(),
             db,
             max_bytes,
+            files: Arc::default(),
         })
     }
 
@@ -449,13 +455,13 @@ impl Attachments {
     }
 
     /// Deletes blobs no review names that were stored before `before`: what
-    /// a swept review left, and uploads nothing was submitted with. The row
-    /// goes before the file, so a stop between them leaves a file for the
-    /// next upload of it to replace. Returns how many went.
+    /// a swept review left, and uploads nothing was submitted with. The rows
+    /// go before the files, so a stop between them leaves files for the
+    /// next upload of each to replace. Returns how many went.
     pub fn sweep(&self, before: chrono::DateTime<chrono::Utc>) -> Result<usize, Error> {
-        let orphans = self.db.orphan_blobs(before)?;
+        let _files = self.files.lock().unwrap_or_else(|e| e.into_inner());
+        let orphans = self.db.delete_orphan_blobs(before)?;
         for sha256 in &orphans {
-            self.db.delete_blob(sha256)?;
             let path = self.path(sha256);
             if let Ok(meta) = fs::metadata(&path) {
                 let mut permissions = meta.permissions();
@@ -487,6 +493,17 @@ impl Attachments {
         }))
     }
 
+    /// The blob, if it is stored, made new again so the sweep leaves it for
+    /// another hour: what an agent is told before it submits, by an upload
+    /// of content already there or by asking.
+    pub fn confirm(&self, sha256: &str) -> Result<Option<Blob>, Error> {
+        let _files = self.files.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(blob) = self.stored(sha256)? else {
+            return Ok(None);
+        };
+        Ok(self.db.touch_blob(sha256)?.then_some(blob))
+    }
+
     /// Starts an upload of content that should hash to `sha256`.
     pub fn begin(&self, sha256: &str) -> Result<Upload, Error> {
         if !is_sha256(sha256) {
@@ -502,6 +519,7 @@ impl Attachments {
             max_bytes: self.max_bytes,
             stored: Some(self.path(sha256)),
             db: self.db.clone(),
+            files: self.files.clone(),
         })
     }
 }
@@ -536,6 +554,8 @@ impl Upload {
             });
         }
         let target = self.stored.take().expect("finished twice");
+        let files = self.files.clone();
+        let _files = files.lock().unwrap_or_else(|e| e.into_inner());
         fs::create_dir_all(target.parent().unwrap())?;
         let mut permissions = fs::metadata(&self.tmp)?.permissions();
         permissions.set_readonly(true);

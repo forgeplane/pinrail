@@ -20,11 +20,12 @@ impl Db {
     }
 
     /// Records a blob whose file is in place; a second record of the same
-    /// content changes nothing.
+    /// content only makes it new again, for the sweep.
     pub fn insert_blob(&self, sha256: &str, size: u64) -> rusqlite::Result<()> {
         let conn = self.conn();
         conn.execute(
-            "INSERT OR IGNORE INTO blobs (sha256, size, created_at) VALUES (?1, ?2, ?3)",
+            "INSERT INTO blobs (sha256, size, created_at) VALUES (?1, ?2, ?3)
+             ON CONFLICT(sha256) DO UPDATE SET created_at = excluded.created_at",
             params![
                 sha256,
                 size as i64,
@@ -34,25 +35,38 @@ impl Db {
         Ok(())
     }
 
-    /// Blobs no review names, stored before `before`.
-    pub fn orphan_blobs(&self, before: chrono::DateTime<Utc>) -> rusqlite::Result<Vec<String>> {
+    /// Makes a stored blob new again, for the sweep. Returns whether it
+    /// was there.
+    pub fn touch_blob(&self, sha256: &str) -> rusqlite::Result<bool> {
+        let conn = self.conn();
+        let touched = conn.execute(
+            "UPDATE blobs SET created_at = ?2 WHERE sha256 = ?1",
+            params![
+                sha256,
+                Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
+            ],
+        )?;
+        Ok(touched > 0)
+    }
+
+    /// Deletes the blobs no review names that were stored before `before`,
+    /// in one statement, and returns the ones it deleted.
+    pub fn delete_orphan_blobs(
+        &self,
+        before: chrono::DateTime<Utc>,
+    ) -> rusqlite::Result<Vec<String>> {
         let conn = self.conn();
         conn.prepare(
-            "SELECT b.sha256 FROM blobs b
-             WHERE b.created_at < ?1
-               AND NOT EXISTS (SELECT 1 FROM review_attachments a WHERE a.sha256 = b.sha256)",
+            "DELETE FROM blobs
+             WHERE created_at < ?1
+               AND NOT EXISTS (SELECT 1 FROM review_attachments a WHERE a.sha256 = blobs.sha256)
+             RETURNING sha256",
         )?
         .query_map(
             params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
             |r| r.get(0),
         )?
         .collect()
-    }
-
-    pub fn delete_blob(&self, sha256: &str) -> rusqlite::Result<()> {
-        let conn = self.conn();
-        conn.execute("DELETE FROM blobs WHERE sha256 = ?1", params![sha256])?;
-        Ok(())
     }
 
     /// How many blobs are stored, and how many bytes they add up to.
