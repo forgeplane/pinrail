@@ -1318,14 +1318,40 @@ fn run_build(
     writeln!(log, "$ {command}")?;
     progress(Progress::Log(format!("$ {command}")));
 
-    let mut child = Command::new("sh")
+    // stderr joins stdout for the whole command, every step of it, and on a
+    // line of its own, so nothing the command says can undo it; nothing is
+    // there to answer a prompt, so one fails at once rather than waiting
+    let mut shell = Command::new("sh");
+    shell
         .arg("-c")
-        .arg(format!("{command} 2>&1"))
+        .arg(format!("exec 2>&1\n{command}"))
         .current_dir(scratch)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::null());
+    // its own process group, so a stop reaches everything it started
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut shell, 0);
+    let mut child = shell
         .spawn()
         .map_err(|e| Error::invalid("/source", format!("the build could not start: {e}")))?;
+    let timeout = registry.build_timeout();
+    let finished = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stopped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let watchdog = {
+        let (finished, stopped, pid) = (finished.clone(), stopped.clone(), child.id());
+        std::thread::spawn(move || {
+            let start = std::time::Instant::now();
+            while !finished.load(std::sync::atomic::Ordering::SeqCst) {
+                if start.elapsed() >= timeout {
+                    stopped.store(true, std::sync::atomic::Ordering::SeqCst);
+                    stop_group(pid);
+                    return;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+        })
+    };
     let mut tail: Vec<String> = Vec::new();
     if let Some(out) = child.stdout.take() {
         for line in BufReader::new(out).lines() {
@@ -1338,7 +1364,21 @@ fn run_build(
             progress(Progress::Log(line));
         }
     }
-    let status = child.wait()?;
+    let status = child.wait();
+    finished.store(true, std::sync::atomic::Ordering::SeqCst);
+    let _ = watchdog.join();
+    let status = status?;
+    if stopped.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err(Error::invalid(
+            "/source",
+            format!(
+                "the build did not finish within {} and was stopped; the log is at {}\n{}",
+                minutes(timeout),
+                log_path.display(),
+                tail.join("\n")
+            ),
+        ));
+    }
     if !status.success() {
         return Err(Error::invalid(
             "/source",
@@ -1350,6 +1390,27 @@ fn run_build(
         ));
     }
     Ok(log_path)
+}
+
+/// Ends a build and everything it started: the build runs in a process
+/// group of its own, led by the shell.
+fn stop_group(pid: u32) {
+    #[cfg(unix)]
+    let _ = Command::new("kill")
+        .args(["-KILL", &format!("-{pid}")])
+        .status();
+    #[cfg(not(unix))]
+    let _ = Command::new("taskkill")
+        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .status();
+}
+
+/// A duration as the person reads it: minutes, or seconds when shorter.
+fn minutes(duration: std::time::Duration) -> String {
+    match duration.as_secs() {
+        s if s >= 60 && s % 60 == 0 => format!("{} minutes", s / 60),
+        s => format!("{s} seconds"),
+    }
 }
 
 /// Whether the same line already holds a newer version.

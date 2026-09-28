@@ -40,6 +40,11 @@ impl Job {
     }
 }
 
+/// How many finished jobs are kept for the dialog and the CLI to read back.
+const FINISHED_KEPT: usize = 50;
+/// The most of a job's log kept in memory; the whole log is on disk.
+const LOG_KEPT: usize = 256 * 1024;
+
 /// The jobs the app has run, by id, for the dialog and the CLI to follow.
 #[derive(Debug, Default)]
 pub(super) struct Jobs(Mutex<HashMap<String, Job>>);
@@ -47,20 +52,33 @@ pub(super) struct Jobs(Mutex<HashMap<String, Job>>);
 impl Jobs {
     pub fn start(&self, source: &str) -> String {
         let id = crate::id::next().replace("r_", "j_");
-        self.0
+        let mut jobs = self
+            .0
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(
-                id.clone(),
-                Job {
-                    id: id.clone(),
-                    source: source.to_string(),
-                    status: "fetching".into(),
-                    log: String::new(),
-                    error: None,
-                    plugin: None,
-                },
-            );
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        // ids sort by time: the oldest finished jobs go first
+        let mut finished: Vec<String> = jobs
+            .values()
+            .filter(|j| j.status == "done" || j.status == "failed")
+            .map(|j| j.id.clone())
+            .collect();
+        if finished.len() > FINISHED_KEPT {
+            finished.sort();
+            for old in &finished[..finished.len() - FINISHED_KEPT] {
+                jobs.remove(old);
+            }
+        }
+        jobs.insert(
+            id.clone(),
+            Job {
+                id: id.clone(),
+                source: source.to_string(),
+                status: "fetching".into(),
+                log: String::new(),
+                error: None,
+                plugin: None,
+            },
+        );
         id
     }
 
@@ -83,6 +101,12 @@ impl Jobs {
             Progress::Log(line) => {
                 job.log.push_str(&line);
                 job.log.push('\n');
+                if job.log.len() > LOG_KEPT {
+                    // the start goes, from the first whole line that fits
+                    let from = job.log.len() - LOG_KEPT;
+                    let cut = job.log[from..].find('\n').map_or(from, |i| from + i + 1);
+                    job.log.drain(..cut);
+                }
             }
         }
     }
@@ -103,5 +127,36 @@ impl Jobs {
                 job.error = Some(error.to_string());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_recent_finished_jobs_are_kept_and_logs_are_capped() {
+        let jobs = Jobs::default();
+        let first = jobs.start("first");
+        jobs.finish(&first, Ok(Value::Null));
+        for i in 0..(FINISHED_KEPT + 5) {
+            let id = jobs.start(&format!("job {i}"));
+            jobs.finish(&id, Ok(Value::Null));
+        }
+        let running = jobs.start("running");
+        assert!(
+            jobs.get(&first).is_none(),
+            "the oldest finished job was kept"
+        );
+        assert!(jobs.get(&running).is_some());
+        assert!(jobs.0.lock().unwrap().len() <= FINISHED_KEPT + 1);
+
+        let line = "x".repeat(1000);
+        for _ in 0..1000 {
+            jobs.note(&running, Progress::Log(line.clone()));
+        }
+        let log = jobs.get(&running).unwrap().log;
+        assert!(log.len() <= LOG_KEPT, "{} bytes", log.len());
+        assert!(log.ends_with(&format!("{line}\n")));
     }
 }

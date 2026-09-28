@@ -2672,6 +2672,56 @@ fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::p
     dir
 }
 
+/// What every step of a build writes to stderr is in its log and in the
+/// failure the person reads, as `npm ci && npm run build` needs.
+#[tokio::test]
+async fn a_failed_build_shows_what_each_step_wrote_to_stderr() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let failing = buildable_plugin(
+        scratch.path(),
+        "failing",
+        "echo first-step-error 1>&2 && echo second-step && false # a comment",
+    );
+    let (status, job) = install(&app, &failing, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+    let error = job["error"].as_str().unwrap_or_default();
+    assert!(error.contains("first-step-error"), "{error}");
+    assert!(error.contains("second-step"), "{error}");
+}
+
+/// A build that does not finish in time is stopped, with everything it
+/// started, and fails with what it wrote.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_build_that_runs_too_long_is_stopped() {
+    let app = app_with(|c| c.build_timeout = Duration::from_secs(1));
+    let scratch = tempfile::tempdir().unwrap();
+    let marker = scratch.path().join("still-running");
+    let slow = buildable_plugin(
+        scratch.path(),
+        "slow",
+        &format!(
+            "echo started; (sleep 3; touch {}) & sleep 60",
+            marker.display()
+        ),
+    );
+    let started = std::time::Instant::now();
+    let (status, job) = install(&app, &slow, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+    assert!(
+        started.elapsed() < Duration::from_secs(20),
+        "{:?}",
+        started.elapsed()
+    );
+    let error = job["error"].as_str().unwrap_or_default();
+    assert!(error.contains("did not finish"), "{error}");
+    assert!(error.contains("started"), "{error}");
+    // what the build started in the background went with it
+    tokio::time::sleep(Duration::from_secs(4)).await;
+    assert!(!marker.exists(), "a process the build started kept running");
+}
+
 #[tokio::test]
 async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bundle_is_placed() {
     let app = app();

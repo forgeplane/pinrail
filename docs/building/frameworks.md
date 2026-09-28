@@ -17,6 +17,7 @@ A plugin with a view of a screen or two needs no framework and no build: an HTML
 
 - **An HTML page in the folder.** The manifest's `entry` names the built page, such as `view/index.html`, and the page's scripts and styles sit beside it.
 - **A `build` command in the manifest**, such as `npm ci && npm run build`. Installing from a folder or a repository runs it, after showing it to the person. A plugin linked for development (`--link`) is served as it is, so build it yourself first.
+- **A build that finishes by itself.** Pinrail gives the build no input, so a step that asks a question fails at once, and stops a build that runs longer than 15 minutes. Everything the build writes, to stdout or stderr, goes to its log.
 - **Relative paths.** The app serves the plugin under a path of its own, so the build must refer to its files relatively: with Vite, `base: "./"`.
 - **The SDK from the app.** Load `/sdk/v1/pinrail-plugin.js` and its stylesheet with tags in the page; don't bundle them. The package gives your code the types: `@forgeplane/pinrail-plugin/types`.
 - **Everything else bundled.** The frame loads nothing from the network, so the framework itself, fonts and images go into the build.

@@ -115,7 +115,8 @@ impl Pinrail {
         let registry = Arc::new(
             Registry::open(builtin, records, config.plugin_store_dir())
                 .map_err(Error::Internal)?
-                .with_github_api(&config.github_api),
+                .with_github_api(&config.github_api)
+                .with_build_timeout(config.build_timeout),
         );
         let events = Events::new(db.clone());
         let settings =

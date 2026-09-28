@@ -105,6 +105,8 @@ pub struct Registry {
     store_dir: PathBuf,
     /// Where release installs and update checks ask GitHub.
     github_api: String,
+    /// How long a plugin's build may run.
+    build_timeout: std::time::Duration,
     state: RwLock<RegistryState>,
 }
 
@@ -120,6 +122,7 @@ impl Registry {
             builtin_dir,
             store_dir,
             github_api: "https://api.github.com".to_string(),
+            build_timeout: crate::config::BUILD_TIMEOUT,
             state: RwLock::new(RegistryState {
                 plugins: BTreeMap::new(),
                 kept: HashMap::new(),
@@ -138,6 +141,16 @@ impl Registry {
 
     pub fn github_api(&self) -> &str {
         &self.github_api
+    }
+
+    /// Stops builds after `timeout` rather than the default.
+    pub fn with_build_timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.build_timeout = timeout;
+        self
+    }
+
+    pub fn build_timeout(&self) -> std::time::Duration {
+        self.build_timeout
     }
 
     pub fn store_dir(&self) -> &Path {

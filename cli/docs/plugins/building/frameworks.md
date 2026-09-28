@@ -25,6 +25,8 @@ What the app needs from a built view:
 - `build` in the manifest is the command an installation runs, such as
   `npm ci && npm run build`. A plugin installed with `--link` is served as
   it is, so build it yourself first.
+- The build gets no input and is stopped after 15 minutes, so every step
+  must finish by itself.
 - The build refers to its files with relative paths. With Vite, set
   `base: "./"`.
 - The page loads `/sdk/v1/pinrail-plugin.js` and its stylesheet with tags

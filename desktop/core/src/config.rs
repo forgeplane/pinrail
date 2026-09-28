@@ -21,7 +21,12 @@ pub struct Config {
     /// The GitHub API's root, which release installs and update checks
     /// ask; a test points it at a server of its own.
     pub github_api: String,
+    /// How long a plugin's build may run before it is stopped.
+    pub build_timeout: std::time::Duration,
 }
+
+/// 15 minutes: a clean `npm ci` and a build on a slow connection.
+pub const BUILD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 
 /// 100 MiB: a model, a recording, a document with its images.
 pub const MAX_ATTACHMENT_BYTES: u64 = 100 * 1024 * 1024;
@@ -59,6 +64,7 @@ impl Config {
             sdk_dir: None,
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
             github_api: "https://api.github.com".to_string(),
+            build_timeout: BUILD_TIMEOUT,
         }
     }
 
