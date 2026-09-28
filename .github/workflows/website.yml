@@ -66,9 +66,14 @@ jobs:
           # the mermaid diagrams are drawn in a headless browser; the shell
           # is all that takes, not the full Chrome
           npx playwright install --with-deps --only-shell chromium
+      # the build fails on a broken link between the docs pages
       - name: Build
         working-directory: website
         run: npm run build
+      # the site's pages and components, type-checked
+      - name: Type check
+        working-directory: website
+        run: npm run check
       - name: Deploy
         if: github.event_name != 'pull_request'
         working-directory: website
