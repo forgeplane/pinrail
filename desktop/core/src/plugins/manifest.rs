@@ -58,6 +58,9 @@ pub struct Plugin {
     /// declared one was dropped.
     pub sample: Option<super::sample::Sample>,
     pub sample_error: Option<String>,
+    /// Top-level manifest keys the schema does not define: a typo, or a key
+    /// a newer Pinrail reads. Kept, and warned about by a check.
+    pub unknown_keys: Vec<String>,
     /// The files the plugin takes beside a payload (the manifest's
     /// `attachments`); none takes none. A malformed block makes the plugin
     /// unusable, as a broken schema does.
@@ -120,6 +123,10 @@ pub fn version_of(value: &Value) -> Option<(String, i64)> {
     Some((text.to_string(), major))
 }
 
+/// What a check says of a manifest key the schema does not define.
+const UNKNOWN_KEY: &str =
+    "not a manifest key: a typo, or a key for a newer Pinrail; the app ignores it";
+
 impl Plugin {
     /// Loads the plugin at `dir`. Never fails: a bad plugin comes back with `error`.
     pub fn load(dir: &Path) -> Plugin {
@@ -155,6 +162,7 @@ impl Plugin {
                 example_error: None,
                 sample: None,
                 sample_error: None,
+                unknown_keys: Vec::new(),
                 attachments: None,
                 install: None,
                 error: Some(message),
@@ -176,6 +184,7 @@ impl Plugin {
         let Value::Object(manifest) = manifest else {
             return Err(format!("{MANIFEST} must be a JSON object"));
         };
+        let unknown_keys = shape::unknown_keys(&manifest);
 
         // the schema has checked the shapes; what is left is what it cannot
         // say, such as whether the files named are there
@@ -183,6 +192,16 @@ impl Plugin {
         let (release, major) = version_of(&manifest["version"])
             .ok_or("version is not a semantic version like \"1.2.0\"")?;
         let version = major as u32;
+        // the oldest Pinrail the plugin says it works with
+        if let Some(needed) = manifest.get("pinrail").and_then(Value::as_str) {
+            let needed = needed.trim_start_matches(">=").trim();
+            let this = env!("CARGO_PKG_VERSION");
+            if super::install::semver(this) < super::install::semver(needed) {
+                return Err(format!(
+                    "the plugin needs Pinrail {needed} or later; this is Pinrail {this}"
+                ));
+            }
+        }
         let entry = manifest
             .get("entry")
             .and_then(Value::as_str)
@@ -337,6 +356,7 @@ impl Plugin {
             example_error,
             sample,
             sample_error,
+            unknown_keys,
             attachments,
             install: None,
             error: None,
@@ -487,6 +507,11 @@ impl Plugin {
                 .as_ref()
                 .map(|message| serde_json::json!({ "key": key, "message": message }))
         })
+        .chain(
+            self.unknown_keys
+                .iter()
+                .map(|key| serde_json::json!({ "key": key, "message": UNKNOWN_KEY })),
+        )
         .collect();
         serde_json::json!({
             "usable": self.usable(),
@@ -601,6 +626,24 @@ mod shape {
                 serde_json::from_str(SCHEMA).expect("manifest.schema.json is JSON");
             Schema::standalone(&document).expect("manifest.schema.json compiles")
         })
+    }
+
+    /// The manifest's top-level keys that the schema does not define.
+    pub fn unknown_keys(manifest: &serde_json::Map<String, Value>) -> Vec<String> {
+        static KNOWN: OnceLock<Vec<String>> = OnceLock::new();
+        let known = KNOWN.get_or_init(|| {
+            let document: Value =
+                serde_json::from_str(SCHEMA).expect("manifest.schema.json is JSON");
+            document["properties"]
+                .as_object()
+                .map(|p| p.keys().cloned().collect())
+                .unwrap_or_default()
+        });
+        manifest
+            .keys()
+            .filter(|k| !known.contains(k))
+            .cloned()
+            .collect()
     }
 
     pub fn check(manifest: &Value) -> Shape {
@@ -1131,6 +1174,51 @@ mod tests {
                     .as_deref()
                     .unwrap()
                     .contains("cannot read")
+        );
+    }
+
+    /// A plugin can say which Pinrail it needs; an app older than that
+    /// refuses it and says which version to install.
+    #[test]
+    fn a_plugin_that_needs_a_newer_pinrail_is_refused() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = Plugin::load(&plugin_dir(tmp.path(), "future", r#","pinrail":">=99.1""#));
+        let why = p.error.clone().unwrap_or_default();
+        assert!(why.contains("needs Pinrail 99.1 or later"), "{why}");
+        assert!(why.contains(env!("CARGO_PKG_VERSION")), "{why}");
+
+        let p = Plugin::load(&plugin_dir(tmp.path(), "present", r#","pinrail":">=0.1""#));
+        assert_eq!(p.error, None);
+
+        for bad in [
+            r#","pinrail":"0.1""#,
+            r#","pinrail":"latest""#,
+            r#","pinrail":2"#,
+        ] {
+            let p = Plugin::load(&plugin_dir(tmp.path(), "bad", bad));
+            assert!(
+                p.error.as_deref().is_some_and(|e| e.contains("pinrail")),
+                "{bad}: {:?}",
+                p.error
+            );
+        }
+    }
+
+    /// A key the manifest schema does not define is kept, and warned about:
+    /// a typo, or a key a newer Pinrail reads.
+    #[test]
+    fn an_unknown_manifest_key_is_warned_about() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = Plugin::load(&plugin_dir(tmp.path(), "typo", r#","colour":"red""#));
+        assert_eq!(p.error, None);
+        let warnings = p.verdict()["warnings"].clone();
+        assert!(
+            warnings
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|w| w["key"] == "colour"),
+            "{warnings}"
         );
     }
 

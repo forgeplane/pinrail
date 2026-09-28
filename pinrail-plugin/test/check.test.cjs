@@ -56,6 +56,7 @@ test("what refuses a plugin: manifest, name, version, entry, schemas, build", as
   assert.deepEqual(refused({ version: "0.0.0" }), ["version"]);
   assert.deepEqual(refused({ version: 1 }), ["version"]);
   assert.deepEqual(refused({ version: undefined }), ["version"]);
+  assert.deepEqual(refused({ pinrail: "latest" }), ["pinrail"]);
   assert.deepEqual(refused({ entry: "/abs.html" }), ["entry"]);
   assert.deepEqual(refused({ entry: "view/index.html" }), ["entry"]);
   assert.deepEqual(refused({ decision_schema: undefined }), ["decision_schema"]);
@@ -100,6 +101,9 @@ test("what costs a feature: settings, shortcuts, the template, the icon; a missi
     return keys(r.warnings);
   };
   assert.deepEqual(keys(checkPlugin(plugin()).warnings), ["title"]);
+  // a key the schema does not define: a typo, or one a newer Pinrail reads
+  assert.deepEqual(warned({ colour: "red" }), ["colour"]);
+  assert.deepEqual(warned({ pinrail: ">=0.1" }), []);
   // the icon: an SVG file in the folder, or the plugin shows the generic one
   assert.deepEqual(warned({ icon: "mail" }), ["icon"]);
   assert.deepEqual(warned({ icon: "missing.svg" }), ["icon"]);

@@ -98,6 +98,9 @@ export function checkPlugin(dir) {
     }
   }
   const refused = (key) => problems.some((p) => p.key === key);
+  for (const key of Object.keys(manifest)) {
+    if (!(key in MANIFEST_SCHEMA.properties)) warn(key, "not a manifest key: a typo, or a key for a newer Pinrail; the app ignores it");
+  }
 
   if (!refused("name")) name = manifest.name;
   const v = versionOf(manifest.version);
