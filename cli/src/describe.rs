@@ -70,7 +70,7 @@ pub fn listing(listed: &Value) -> String {
         .unwrap_or_default();
     let noun = if rows.len() == 1 { "plugin" } else { "plugins" };
     let mut out = format!(
-        "{} {noun} installed; pinrail plugins describe <name> gives one's payload, an example and its decision.\n\n",
+        "{} {noun} installed. pinrail plugins describe <name> shows a plugin's payload schema and an example, and --decision-schema shows what it returns.\n\n",
         rows.len()
     );
     for plugin in rows {

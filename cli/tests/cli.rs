@@ -2232,7 +2232,7 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(
         stdout,
-        "3 plugins installed; pinrail plugins describe <name> gives one's payload, an example and its decision.\n\n\
+        "3 plugins installed. pinrail plugins describe <name> shows a plugin's payload schema and an example, and --decision-schema shows what it returns.\n\n\
          - list · 1.0.0 · built in · ready\n\
          \x20 Proposed actions to accept or reject.\n\
          \x20 Use when: You have changes to propose.\n\
