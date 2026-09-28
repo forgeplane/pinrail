@@ -70,6 +70,7 @@ function inert(doc: Document) {
     for (const { name, value } of Array.from(el.attributes)) {
       const key = name.toLowerCase();
       // browsers ignore whitespace and control characters in a scheme
+      // eslint-disable-next-line no-control-regex -- those are what it strips
       const scheme = value.replace(/[\u0000-\u0020]/g, "").toLowerCase();
       const runs = /^(javascript|vbscript):/.test(scheme) || (NAVIGATIONS.has(key) && scheme.startsWith("data:"));
       if (key.startsWith("on") || key === "srcdoc" || (ADDRESSES.has(key) && runs)) el.removeAttribute(name);

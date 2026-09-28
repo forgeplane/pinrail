@@ -6,3 +6,5 @@ agent-docs/
 docs/reference/cli.md
 docs/reference/settings.md
 docs/reference/manifest.md
+
+node_modules/

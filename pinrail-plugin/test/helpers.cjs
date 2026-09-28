@@ -2,7 +2,6 @@
 // delivers messages as if from a shell, and drives timers by hand.
 // The SDK is a script for a <script> tag, not a module: run it as one, as a
 // browser would, and take Pinrail off the global it leaves it on.
-const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { sdkScript } = require("../lib/paths.cjs");

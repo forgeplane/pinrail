@@ -35,7 +35,9 @@ async function waitFor(url, what, timeout = 120_000) {
   while (Date.now() < end) {
     try {
       if ((await fetch(url)).ok) return;
-    } catch {}
+    } catch {
+      // not up yet
+    }
     await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error(`${what} did not come up at ${url}`);

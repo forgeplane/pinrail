@@ -187,7 +187,7 @@ function PluginEntry({ plugin: p, native, muted, stored, open: openAtStart, onRe
       setOpen(true);
       box.current?.scrollIntoView({ block: "start" });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- when Settings opens here, not whenever the list changes
   }, [openAtStart]);
 
   const resetAll = () => onChange(Object.fromEntries(entries.map(([key, property]) => [key, property.default])));

@@ -1,5 +1,4 @@
 import { defineConfig } from "@playwright/test";
-import path from "node:path";
 
 // Each plugin's tests/*.spec.ts, mounted under the pinrail-plugin harness.
 // No server, no CLI.

@@ -77,12 +77,19 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: desktop/app/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            desktop/app/package-lock.json
       - name: Type check the shell
         working-directory: desktop/app
         run: |
           npm ci
           npm test
+      # ESLint over the JavaScript and TypeScript git tracks, from the root
+      - name: ESLint
+        run: |
+          npm ci
+          npm run lint
 
   # The core, the app crate and the CLI on each system: clippy, cargo test,
   # then the end-to-end suites, which need the built desktop binary and the CLI.

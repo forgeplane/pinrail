@@ -164,7 +164,7 @@ export function ReviewScreen() {
     return () => {
       cancelled = true;
     };
-  }, [pluginKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pluginKey]); // eslint-disable-line react-hooks/exhaustive-deps -- the key names the plugin and version; the review changes on every event
 
   const previous = useMemo(() => {
     if (!review?.revises) return null;
@@ -357,7 +357,7 @@ export function ReviewScreen() {
           ) : null}
         </span>
       ) : null,
-    [review?.title, review?.origin.ref, originUrl, back.to, back.label, location.state], // eslint-disable-line react-hooks/exhaustive-deps
+    [review?.title, review?.origin.ref, originUrl, back.to, back.label, location.state], // eslint-disable-line react-hooks/exhaustive-deps -- the fields the crumb shows, not the whole review
   );
   const actions = useMemo(
     () =>
@@ -385,7 +385,7 @@ export function ReviewScreen() {
         </>
       ) : null,
     // the id too: the screen outlives a change of review, and Copy acts on it
-    [id, review?.status, plugin, copied], // eslint-disable-line react-hooks/exhaustive-deps
+    [id, review?.status, plugin, copied], // eslint-disable-line react-hooks/exhaustive-deps -- copyMarkdown reads only the id
   );
   const forPlugin = useMemo(
     () => (plugin ? { name: plugin.name, title: plugin.title || plugin.name, icon: plugin.icon, shortcuts: plugin.shortcuts ?? [] } : undefined),

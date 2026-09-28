@@ -11,7 +11,6 @@ import { size } from "../../lib/format";
 import type { Info as ServerInfo } from "../../api/types";
 import { REVEAL, TRAY } from "../../lib/keys";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
-import { useLive } from "../../state/live";
 import { useSettings } from "../../state/settings";
 import { describeSystem, useNotificationStatus } from "../../state/notifications";
 import { Tooltip } from "../Tooltip";
@@ -114,7 +113,6 @@ const Keys = ({ keys }: { keys: string[][] }) => (
 export function SettingsDialog({ open, section, plugin, onSection, onClose }: { open: boolean; section: SettingsSection; plugin?: string | null; onSection: (s: SettingsSection) => void; onClose: () => void }) {
   const navigate = useNavigate();
   const { settings, update, native } = useSettings();
-  const live = useLive();
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [copied, setCopied] = useState(false);
   const paused = pausedUntil(settings.notifications.paused_until);

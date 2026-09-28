@@ -196,7 +196,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
   // the source given from a row is looked at right away
   useEffect(() => {
     if (initial) look();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the source the panel opened with
   }, []);
 
   const install = async (seen: Inspection) => {

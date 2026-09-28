@@ -44,7 +44,7 @@ const matches = (q: string, ...fields: (string | null | undefined)[]) =>
 const reviewText = (r: Review) => [r.title, r.plugin, r.requested_by, r.origin.repo, r.origin.workflow, r.origin.ref];
 
 export function CommandPalette({ open, onClose, actions }: { open: boolean; onClose: () => void; actions: PaletteAction[] }) {
-  const live = useLive();
+  const { pending: waiting, pluginIcon } = useLive();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -85,12 +85,12 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
     const out: Item[] = [];
     const want = (g: Filter) => all || filter === g;
     if (want("inbox")) {
-      const pending = live.pending.filter((r) => matches(q, ...reviewText(r)));
+      const pending = waiting.filter((r) => matches(q, ...reviewText(r)));
       for (const r of all ? pending.slice(0, 5) : pending) {
         out.push({
           key: `inbox:${r.id}`,
           group: "inbox",
-          icon: <PluginIcon icon={live.pluginIcon(r.plugin)} />,
+          icon: <PluginIcon icon={pluginIcon(r.plugin)} />,
           title: r.title,
           meta: (
             <>
@@ -107,7 +107,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
         out.push({
           key: `history:${r.id}`,
           group: "history",
-          icon: <PluginIcon icon={live.pluginIcon(r.plugin)} />,
+          icon: <PluginIcon icon={pluginIcon(r.plugin)} />,
           title: r.title,
           meta: (
             <>
@@ -158,7 +158,7 @@ export function CommandPalette({ open, onClose, actions }: { open: boolean; onCl
       }
     }
     return out;
-  }, [all, filter, q, live.pending, history, plugins, actions, navigate]);
+  }, [all, filter, q, waiting, pluginIcon, history, plugins, actions, navigate]);
 
   useEffect(() => setActive(0), [q, filter]);
   useEffect(() => {

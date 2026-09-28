@@ -8,11 +8,12 @@ export class ApiError extends Error {
   status: number;
   kind: string;
   violations: Violation[];
-  constructor(status: number, body: any) {
-    super(body?.message ?? `request failed (${status})`);
+  constructor(status: number, body: unknown) {
+    const said = (body ?? {}) as { message?: string; error?: string; violations?: unknown };
+    super(said.message ?? `request failed (${status})`);
     this.status = status;
-    this.kind = body?.error ?? "error";
-    this.violations = Array.isArray(body?.violations) ? body.violations : [];
+    this.kind = said.error ?? "error";
+    this.violations = Array.isArray(said.violations) ? said.violations : [];
   }
 }
 

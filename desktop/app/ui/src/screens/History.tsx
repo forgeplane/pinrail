@@ -1,5 +1,5 @@
 import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { Review, ReviewListing } from "../api/types";
@@ -68,14 +68,14 @@ export function History() {
     };
   }, [status, debounced, plugin, repo, page, size, live.tick]);
 
-  const reviews = data?.reviews ?? [];
+  const reviews = useMemo(() => data?.reviews ?? [], [data]);
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / size));
 
   // a page past the end, after a filter or a sweep shrank the list: the last page
   useEffect(() => {
     if (data && total > 0 && reviews.length === 0 && page > 1) setPage(Math.ceil(total / size));
-  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps -- only when a page arrives, not when the page number changes
 
   /** Changing a filter starts again from the first page. */
   const setFilter = (key: string, value: string) => {

@@ -1,3 +1,4 @@
+/* global CalendarCore -- calendar-core.js, loaded before this file */
 (function () {
   "use strict";
   const C = CalendarCore, esc = Pinrail.escape, icon = name => Pinrail.icon(name, { size: 17 });

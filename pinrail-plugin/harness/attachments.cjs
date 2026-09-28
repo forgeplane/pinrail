@@ -8,7 +8,7 @@
  * and the review gets what the app would put there: name, size, media type
  * and hash for each, in name order.
  */
-const crypto = require("node:crypto");
+const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -34,7 +34,7 @@ function resolveAttachments(spec, baseDir) {
     .sort()
     .map((name) => {
       const bytes = fs.readFileSync(files[name].path);
-      return { name, size: bytes.length, media_type: files[name].media_type, sha256: crypto.createHash("sha256").update(bytes).digest("hex") };
+      return { name, size: bytes.length, media_type: files[name].media_type, sha256: createHash("sha256").update(bytes).digest("hex") };
     });
   return { list, files };
 }

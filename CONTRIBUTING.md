@@ -105,10 +105,11 @@ edited by hand.
 
 ## Before opening a pull request
 
-Run the linters and the tests:
+Run the linters and the tests. ESLint comes from the package at the root
+of the repository, so run `npm ci` there first:
 
 ```sh
-mise run lint               # rustfmt, clippy, the type check, licences and sources
+mise run lint               # rustfmt, clippy, the type check, ESLint, licences and sources
 mise run audit              # known vulnerabilities in the dependencies
 mise run links              # the links between the Markdown files
 mise run test               # all the test suites

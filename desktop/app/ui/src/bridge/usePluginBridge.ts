@@ -172,7 +172,7 @@ export function usePluginBridge(options: Options): Bridge {
       shell_origin: window.location.origin,
       capabilities: CAPABILITIES,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadDraft reads the review from latest, so it is never stale
   }, [post]);
 
   const markLoaded = useCallback(() => {
@@ -324,7 +324,7 @@ export function usePluginBridge(options: Options): Bridge {
       window.removeEventListener("pinrail:appearance", onAppearance);
       window.clearTimeout(fallback.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the draft and attachment helpers read the review from latest
   }, [frame, reviewId, src, reloads, sendInit, markLoaded, collect, post]);
 
   // The plugin's settings changed, in Settings or through the view itself:

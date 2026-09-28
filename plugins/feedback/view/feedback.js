@@ -1,3 +1,4 @@
+/* global FeedbackCore -- feedback-core.js, loaded before this file */
 (function () {
   'use strict';
   const C = FeedbackCore, esc = Pinrail.escape, md = Pinrail.markdown, ico = name => Pinrail.icon(name, {size: 14});
@@ -139,7 +140,7 @@
     const before = C.visible(payload,state);
     if (q.type === 'text') state.values[qid] = el.value;
     else if (q.type === 'multiple_choice') {
-      const selected = new Set(state.values[qid] || []); el.checked ? selected.add(el.value) : selected.delete(el.value);
+      const selected = new Set(state.values[qid] || []); if (el.checked) selected.add(el.value); else selected.delete(el.value);
       state.values[qid] = q.options.filter(o => selected.has(o.id)).map(o => o.id);
     } else if (q.type === 'boolean') state.values[qid] = el.value === 'true';
     else if (q.type === 'checkbox') state.values[qid] = el.checked;
@@ -183,7 +184,7 @@
     if (button.dataset.jump) { document.getElementById('group-'+button.dataset.jump)?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
     if (button.dataset.jumpQuestion) { document.getElementById('question-'+button.dataset.jumpQuestion)?.scrollIntoView({behavior:'smooth',block:'start'}); return; }
     const id = button.dataset.commentToggle;
-    if (id) { opened.has(id) ? opened.delete(id) : opened.add(id); render(); if (opened.has(id)) document.getElementById('comment-'+id)?.focus({preventScroll:true}); return; }
+    if (id) { if (opened.has(id)) opened.delete(id); else opened.add(id); render(); if (opened.has(id)) document.getElementById('comment-'+id)?.focus({preventScroll:true}); return; }
     if (plugin.readonly) return;
     if (button.dataset.removeComment) {
       const id = button.dataset.removeComment;

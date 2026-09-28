@@ -1,0 +1,21 @@
+{
+  "name": "pinrail-repo",
+  "private": true,
+  "description": "The linter and formatter for the JavaScript and TypeScript across the repository",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "lint": "git ls-files -z '*.js' '*.mjs' '*.cjs' '*.ts' '*.cts' '*.mts' '*.tsx' | xargs -0 eslint",
+    "format": "git ls-files -z '*.js' '*.mjs' '*.cjs' '*.ts' '*.cts' '*.mts' '*.tsx' '*.css' | xargs -0 prettier --write",
+    "format:check": "git ls-files -z '*.js' '*.mjs' '*.cjs' '*.ts' '*.cts' '*.mts' '*.tsx' '*.css' | xargs -0 prettier --check"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}

@@ -129,7 +129,7 @@ export function App() {
     if (!m || !l) return;
     const next = new Map<string, Box>();
     for (const c of comments) {
-      let el: Element | null = null;
+      let el: Element | null;
       try {
         el = m.root.querySelector(c.selector);
       } catch {
