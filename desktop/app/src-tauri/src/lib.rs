@@ -596,7 +596,7 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     #[test]
-    fn a_saved_attachment_is_the_persons_to_write_and_no_one_elses() {
+    fn a_saved_attachment_is_a_new_file_of_the_persons() {
         let dir = tempfile::tempdir().unwrap();
         let (stored, saved) = (dir.path().join("blob"), dir.path().join("pivot.glb"));
         std::fs::write(&stored, b"glTF").unwrap();
@@ -604,9 +604,19 @@ mod tests {
         std::fs::set_permissions(&stored, std::fs::Permissions::from_mode(0o444)).unwrap();
 
         super::save_copy(&stored, &saved).unwrap();
-        let mode = std::fs::metadata(&saved).unwrap().permissions().mode() & 0o777;
+        let mode =
+            |path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
         assert_eq!(std::fs::read(&saved).unwrap(), b"glTF");
-        assert_ne!(mode & 0o200, 0, "the person can write it: {mode:o}");
-        assert_eq!(mode & 0o022, 0, "nobody else can: {mode:o}");
+        assert_ne!(
+            mode(&saved) & 0o200,
+            0,
+            "the person can write it: {:o}",
+            mode(&saved)
+        );
+        // not the store's read-only mode: the one any file they make gets,
+        // which their umask decides
+        let fresh = dir.path().join("fresh");
+        std::fs::File::create(&fresh).unwrap();
+        assert_eq!(mode(&saved), mode(&fresh));
     }
 }
