@@ -196,7 +196,10 @@
       if (state.shellOrigin && origin !== state.shellOrigin) return;
       switch (data.type) {
         case "init":
-          if (data.shell_origin) state.shellOrigin = data.shell_origin;
+          // the origin the browser vouches for; the one the message names
+          // must agree with it
+          if (data.shell_origin && origin && data.shell_origin !== origin) return;
+          if (!state.shellOrigin) state.shellOrigin = origin || data.shell_origin || null;
           state.review = data.review;
           state.previous = data.previous || null;
           state.readonly = !!data.readonly;
@@ -508,7 +511,12 @@
     return {
       initialTheme: () => themeFromUrl(win),
       post: (msg, targetOrigin) => win.parent.postMessage(msg, targetOrigin),
-      listen: (fn) => win.addEventListener("message", (e) => fn(e.data, e.origin)),
+      // only the frame's parent is the shell: another frame on the page
+      // may post to this one too
+      listen: (fn) =>
+        win.addEventListener("message", (e) => {
+          if (e.source === win.parent) fn(e.data, e.origin);
+        }),
       setTimeout: (fn, ms) => win.setTimeout(fn, ms),
       clearTimeout: (t) => win.clearTimeout(t),
       observeSize: (cb) => {

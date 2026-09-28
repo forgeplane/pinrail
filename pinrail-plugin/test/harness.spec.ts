@@ -93,3 +93,34 @@ test("sendKey sends only what the app would forward to the view", async ({ page 
   // the app's own menu keys are never forwarded
   await expect(plugin.sendKey("cmdorctrl+k")).rejects.toThrow("the app keeps");
 });
+
+test("a view takes init only from the shell that holds its frame", async ({ page }) => {
+  const dir = scratch("pinrail-harness-");
+  fs.writeFileSync(
+    path.join(dir, "manifest.json"),
+    JSON.stringify({ name: "titled", version: "1.0.0", entry: "index.html", payload_schema: {}, decision_schema: {} }),
+  );
+  fs.writeFileSync(
+    path.join(dir, "index.html"),
+    `<!doctype html>
+<meta charset="utf-8">
+<script src="/sdk/v1/pinrail-plugin.js"></script>
+<script>Pinrail.connect({ onInit({ review }) { document.body.dataset.title = review.title; } });</script>`,
+  );
+  const plugin = await mountPlugin(page, dir, { review: reviewFrom({ title: "Real", payload: {} }) });
+  await expect(plugin.frame.locator("body")).toHaveAttribute("data-title", "Real");
+
+  // another frame on the same page, claiming to be the shell
+  await page.evaluate(() => {
+    const sibling = document.createElement("iframe");
+    sibling.srcdoc = `<script>
+      parent.document.querySelector("iframe").contentWindow.postMessage(
+        { pinrail: 1, type: "init", review: { title: "Forged", payload: {} }, shell_origin: parent.location.origin },
+        "*",
+      );
+    </script>`;
+    document.body.append(sibling);
+  });
+  await page.waitForTimeout(500);
+  await expect(plugin.frame.locator("body")).toHaveAttribute("data-title", "Real");
+});
