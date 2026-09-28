@@ -38,7 +38,7 @@ ones. To write your own, start with these guides:
 - [The protocol](../docs/building/protocol.md): the messages between the app
   and a plugin's view.
 - [Publishing a plugin](../docs/building/publishing.md)
-- [The manifest reference](../docs/reference/manifest.md), generated from the
+- [The manifest reference](https://pinrail.dev/docs/reference/manifest/), generated from the
   app's own schema.
 
 ## Layout

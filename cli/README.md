@@ -22,7 +22,7 @@ how the review ended.
   in an agent's instructions.
 - [Scripts and CI](../docs/agents/workflows.md) covers using the command from
   scripts.
-- [The CLI reference](../docs/reference/cli.md) lists every command and
+- [The CLI reference](https://pinrail.dev/docs/reference/cli/) lists every command and
   option. It is generated from the code with `mise run docs:generate`.
 
 Agents can also read the same guidance from the command itself with
