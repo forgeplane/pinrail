@@ -32,7 +32,9 @@ jobs:
     timeout-minutes: 15
     continue-on-error: ${{ github.event_name == 'pull_request' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
         with:
           tool: cargo-deny
@@ -40,7 +42,7 @@ jobs:
         run: |
           cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check advisories
           cargo deny --manifest-path cli/Cargo.toml --config deny.toml check advisories
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       # the lock files are enough: npm audit needs no install

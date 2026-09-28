@@ -16,6 +16,10 @@ on:
   push:
     tags: ["sdk-v*"]
 
+# read-only, unless a job asks for more
+permissions:
+  contents: read
+
 jobs:
   tarball:
     runs-on: ubuntu-latest
@@ -25,10 +29,14 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          # a release builds from nothing a cache could have changed
+          package-manager-cache: false
       - name: The version, from the tag and the package
         id: version
         working-directory: pinrail-plugin
@@ -52,14 +60,16 @@ jobs:
       # scaffolds depend on the name without it
       - name: Pack
         working-directory: pinrail-plugin
-        run: mv "$(npm pack --json | jq -r '.[0].filename')" "pinrail-plugin-${{ steps.version.outputs.version }}.tgz"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: mv "$(npm pack --json | jq -r '.[0].filename')" "pinrail-plugin-$VERSION.tgz"
       # the app's updater and the download links read this repository's
       # latest release, which must stay the app's
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: pinrail-plugin/pinrail-plugin-${{ steps.version.outputs.version }}.tgz
-          fail_on_unmatched_files: true
-          make_latest: "false"
+      - name: Release the tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: gh release create "$GITHUB_REF_NAME" "pinrail-plugin/pinrail-plugin-$VERSION.tgz" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "" --latest=false
 
   npm:
     needs: tarball
@@ -70,10 +80,13 @@ jobs:
       id-token: write
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
       - working-directory: pinrail-plugin
         run: |

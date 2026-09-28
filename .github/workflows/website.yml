@@ -26,6 +26,10 @@ concurrency:
   group: website-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
   cancel-in-progress: false
 
+# read-only, unless a job asks for more
+permissions:
+  contents: read
+
 # CI's settings, so the cache it saves on Linux serves this build too: the
 # cache's key and cargo's fingerprints both depend on them
 env:
@@ -39,8 +43,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -51,7 +57,7 @@ jobs:
         run: rustup toolchain install
       # CI's Linux cache, read only: the dependencies come built, and only
       # CI's own builds are saved under its name
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: pinrail-ubuntu-latest
           save-if: false
@@ -79,4 +85,5 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@4 deploy
+        # the wrangler website/package-lock.json pins
+        run: npx wrangler deploy

@@ -35,7 +35,8 @@ concurrency:
 
 jobs:
   test:
-    uses: ./.github/workflows/ci.yml
+    # zizmor prefers $/, which actionlint cannot read yet
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository]
 
   draft:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -49,6 +50,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # scripts/set-version.mjs writes these before a release is tagged
       - name: Check the version
         id: version
@@ -65,9 +68,10 @@ jobs:
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           # what the changelog says about this version, and how to check a download
-          node scripts/release-notes.mjs "${{ steps.version.outputs.version }}" > notes.md
+          node scripts/release-notes.mjs "$VERSION" > notes.md
           cat >> notes.md <<'EOF'
 
           ---
@@ -83,7 +87,7 @@ jobs:
           # an empty id makes every build skip its upload without a word.
           id=$(gh api "repos/${{ github.repository }}/releases" \
             -f tag_name="$GITHUB_REF_NAME" \
-            -f name="Pinrail ${{ steps.version.outputs.version }}" \
+            -f name="Pinrail $VERSION" \
             -f body="$(cat notes.md)" \
             -F draft=true \
             --jq .id)
@@ -131,6 +135,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Plain apt, refreshed first: a release is worth the half minute. The
       # caching action installs against whatever index the image shipped
       # with, and a superseded version there fails the whole build on a 404.
@@ -143,8 +149,11 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
             librsvg2-dev libxdo-dev libssl-dev patchelf
+      # Both caches are restored on purpose, from what CI saved on main:
+      # only a push to main writes them, and npm checks every package
+      # against the lock file's hashes.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
+        with: # zizmor: ignore[cache-poisoning]
           node-version: 24
           cache: npm
           cache-dependency-path: desktop/app/package-lock.json
@@ -152,11 +161,14 @@ jobs:
       - name: Rust toolchain
         run: |
           rustup toolchain install
-          if [ -n "$TARGETS" ]; then rustup target add ${TARGETS//,/ }; fi
+          if [ -n "$TARGETS" ]; then
+            IFS=, read -ra targets <<< "$TARGETS"
+            rustup target add "${targets[@]}"
+          fi
         env:
           TARGETS: ${{ matrix.targets }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
+        with: # zizmor: ignore[cache-poisoning]
           # The name the CI workflow saves under, keyed by the runner image
           # so a tag starts from what a push to main already compiled. macOS
           # matches and shares; Linux does not, because CI runs on the
@@ -213,10 +225,12 @@ jobs:
       - name: Read the release notes
         id: notes
         if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          VERSION: ${{ needs.draft.outputs.version }}
         run: |
           {
             echo 'body<<NOTES_END'
-            node scripts/release-notes.mjs "${{ needs.draft.outputs.version }}"
+            node scripts/release-notes.mjs "$VERSION"
             echo 'NOTES_END'
           } >> "$GITHUB_OUTPUT"
       - name: Build and upload the bundles

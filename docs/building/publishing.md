@@ -44,22 +44,29 @@ on:
   push:
     tags: ["v*"]
 
+# read-only, unless a job asks for more
+permissions:
+  contents: read
+
 jobs:
   bundle:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: 22
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          # a release builds from nothing a cache could have changed
+          package-manager-cache: false
       - name: Name and version
-        id: plugin
         run: |
-          echo "name=$(node -e 'process.stdout.write(require("./manifest.json").name)')" >> "$GITHUB_OUTPUT"
-          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          declared=$(node -e 'const v=require("./manifest.json").version; process.stdout.write(typeof v==="number" ? v+".0.0" : v)')
+          echo "PLUGIN=$(node -e 'process.stdout.write(require("./manifest.json").name)')" >> "$GITHUB_ENV"
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          declared=$(node -e 'process.stdout.write(require("./manifest.json").version)')
           test "$declared" = "${GITHUB_REF_NAME#v}" || { echo "manifest says $declared, tag says ${GITHUB_REF_NAME#v}"; exit 1; }
       - name: Build when the manifest declares a build
         run: |
@@ -67,13 +74,14 @@ jobs:
           if [ -n "$command" ]; then sh -c "$command"; fi
       - name: The bundle, and nothing else
         run: |
-          zip -r "${{ steps.plugin.outputs.name }}-${{ steps.plugin.outputs.version }}.zip" . \
+          zip -r "$PLUGIN-$VERSION.zip" . \
             -x "node_modules/*" "src/*" "tests/*" "test/*" "fixtures/*" ".*" "*/.*" "*.zip" \
                "package.json" "package-lock.json" "pnpm-lock.yaml" "yarn.lock" "bun.lockb" \
                "tsconfig*.json" "vite.config.*" "vitest.config.*" "playwright.config.*"
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.plugin.outputs.name }}-${{ steps.plugin.outputs.version }}.zip
+      - name: Release the bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$PLUGIN-$VERSION.zip" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes ""
 ```
 
 :::tip[Bump the version first]

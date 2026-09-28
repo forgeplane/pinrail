@@ -40,6 +40,10 @@ concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# read-only, unless a job asks for more
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
@@ -55,7 +59,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # the version rust-toolchain.toml pins, with rustfmt and clippy
       - name: Rust toolchain
         run: rustup toolchain install
@@ -73,7 +79,7 @@ jobs:
         run: |
           cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check licenses bans sources
           cargo deny --manifest-path cli/Cargo.toml --config deny.toml check licenses bans sources
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -103,7 +109,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # cached across runs instead of downloaded each time; bump version to refresh
       - name: Linux dependencies
         if: runner.os == 'Linux'
@@ -111,7 +119,7 @@ jobs:
         with:
           packages: libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
           version: "1"
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -123,7 +131,7 @@ jobs:
       # the version rust-toolchain.toml pins, with rustfmt and clippy
       - name: Rust toolchain
         run: rustup toolchain install
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           # One name for every job that builds this workspace, here and in
           # the release, so a tag restores what a push to main saved. A
@@ -177,7 +185,7 @@ jobs:
       - name: Shell end to end
         working-directory: e2e
         run: npx playwright test -c shell.config.ts
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: e2e-traces-${{ matrix.os }}
@@ -190,8 +198,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -238,7 +248,7 @@ jobs:
             (cd "$dir" && npm ci && npm test)
           done
           node --test same.test.mjs
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: plugin-traces

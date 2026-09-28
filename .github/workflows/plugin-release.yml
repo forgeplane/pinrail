@@ -11,6 +11,10 @@ on:
   push:
     tags: ["plugin-*-v*"]
 
+# read-only, unless a job asks for more
+permissions:
+  contents: read
+
 jobs:
   bundle:
     runs-on: ubuntu-latest
@@ -18,35 +22,41 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          # a release builds from nothing a cache could have changed
+          package-manager-cache: false
+      # the name becomes a path: a plugin's name, and a folder under plugins/
       - name: Name and version from the tag
-        id: tag
         run: |
           ref="${GITHUB_REF_NAME#plugin-}"
-          echo "name=${ref%-v*}" >> "$GITHUB_OUTPUT"
-          echo "version=${ref##*-v}" >> "$GITHUB_OUTPUT"
+          name="${ref%-v*}"
+          [[ "$name" =~ ^[a-z][a-z0-9_-]*$ && -d "plugins/$name" ]] || { echo "the tag names no plugin: $name"; exit 1; }
+          echo "PLUGIN=$name" >> "$GITHUB_ENV"
+          echo "VERSION=${ref##*-v}" >> "$GITHUB_ENV"
       - name: Build when the manifest declares a build
-        working-directory: plugins/${{ steps.tag.outputs.name }}
+        working-directory: plugins/${{ env.PLUGIN }}
         run: |
           command=$(node -e 'const m=require("./manifest.json"); process.stdout.write(m.build?.command ?? "")')
           if [ -n "$command" ]; then sh -c "$command"; fi
           declared=$(node -e 'process.stdout.write(require("./manifest.json").version.trim())')
-          test "$declared" = "${{ steps.tag.outputs.version }}" || { echo "manifest says $declared, tag says ${{ steps.tag.outputs.version }}"; exit 1; }
+          test "$declared" = "$VERSION" || { echo "manifest says $declared, tag says $VERSION"; exit 1; }
       - name: The bundle, and nothing else
-        working-directory: plugins/${{ steps.tag.outputs.name }}
+        working-directory: plugins/${{ env.PLUGIN }}
         run: |
           # Lucide's icons carry their licence with them
           if [ -d view/icons ]; then cp ../../pinrail-plugin/licenses/lucide-icons.txt view/icons/LICENSE; fi
-          zip -r "../../${{ steps.tag.outputs.name }}-${{ steps.tag.outputs.version }}.zip" . \
+          zip -r "../../$PLUGIN-$VERSION.zip" . \
             -x "node_modules/*" "src/*" "tests/*" "test/*" "fixtures/*" ".*" "*/.*" \
                "package.json" "package-lock.json" "pnpm-lock.yaml" "yarn.lock" "bun.lockb" \
                "tsconfig*.json" "vite.config.*" "vitest.config.*" "playwright.config.*"
       # the app's updater and the download links read this repository's
       # latest release, which must stay the app's
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.tag.outputs.name }}-${{ steps.tag.outputs.version }}.zip
-          make_latest: "false"
+      - name: Release the bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$PLUGIN-$VERSION.zip" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "" --latest=false
