@@ -15,6 +15,7 @@ import { useSettings } from "../../state/settings";
 import { Toggle } from "../settings/controls";
 import { SettingsRow } from "../settings/layout";
 import { useCli, type CliStatus } from "../settings/CliRow";
+import { WaitMark } from "../WaitMark";
 
 // the list plugin is built in, so its sample is there on every install
 const TRY = "pinrail submit list --sample --wait";
@@ -45,18 +46,6 @@ function Mark() {
           <rect x="10.8" y="4.2" width="2.4" height="16.8" rx="1.2" fill="#e5694f" />
         </g>
       </g>
-    </svg>
-  );
-}
-
-/** The mark while waiting: the slash swings on the rail, between the pins. */
-function WaitMark() {
-  return (
-    <svg className="welcome-wait-logo" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="1.5" y="13" width="21" height="3.4" rx="1.4" fill="currentColor" />
-      <rect x="4.8" y="5" width="2.4" height="16" rx="1.2" fill="currentColor" />
-      <rect x="16.8" y="5" width="2.4" height="16" rx="1.2" fill="currentColor" />
-      <rect className="welcome-wait-slash" x="10.8" y="4.2" width="2.4" height="16.8" rx="1.2" fill="#e5694f" />
     </svg>
   );
 }

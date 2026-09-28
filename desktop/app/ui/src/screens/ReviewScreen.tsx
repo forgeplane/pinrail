@@ -9,6 +9,7 @@ import { AgentIcon } from "../components/AgentIcon";
 import { AttachmentsChip } from "../components/AttachmentsChip";
 import { OutcomeBadge, PluginBadge, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
+import { WaitMark } from "../components/WaitMark";
 import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
 import { allowedWithoutAsking, allowing, linkRequest, sourceOf, type LinkRequest } from "../lib/links";
 import { openExternal } from "../lib/native";
@@ -565,7 +566,7 @@ export function ReviewScreen() {
             </div>
           ) : !bridge.loaded ? (
             <div className="plugin-loading" role="status">
-              <span className="spinner" aria-hidden="true" />
+              <WaitMark />
               <span>Loading the view…</span>
             </div>
           ) : null}
