@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { clearInbox, core, createReview, linkPlugin } from "./helpers";
 import { scratch } from "../helpers/scratch";
@@ -52,4 +54,54 @@ test("a view that leaves its page is no longer answered", async ({ page }) => {
   await page.locator("[data-view-left] button").click();
   await expect(page.locator("[data-view-left]")).toBeVisible();
   await expect(other).toHaveText("nothing");
+});
+
+/** A view whose buttons send its frame elsewhere: another program's port on
+ *  this computer, or a site on the internet. */
+function traveller(localUrl: string): string {
+  const dir = scratch("pinrail-traveller-");
+  fs.mkdirSync(path.join(dir, "view"));
+  fs.writeFileSync(
+    path.join(dir, "manifest.json"),
+    JSON.stringify({ name: "traveller", version: "1.0.0", title: "Traveller", entry: "view/index.html", payload_schema: {}, decision_schema: {} }),
+  );
+  fs.writeFileSync(
+    path.join(dir, "view", "index.html"),
+    `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
+<button id="local">local</button><button id="external">external</button>
+<script>
+  Pinrail.connect({});
+  document.getElementById("local").onclick = () => { location.href = ${JSON.stringify(localUrl)}; };
+  document.getElementById("external").onclick = () => { location.href = "https://example.com/"; };
+</script>`,
+  );
+  return dir;
+}
+
+test("the frame can show only Pinrail's own server", async ({ page }) => {
+  // another program on this computer, which counts the requests it gets
+  const hits: string[] = [];
+  const server = http.createServer((req, res) => {
+    hits.push(req.url ?? "");
+    res.end("<p>another program</p>");
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = (server.address() as AddressInfo).port;
+  try {
+    await linkPlugin(page.request, traveller(`http://127.0.0.1:${port}/`), "traveller");
+    await clearInbox(page.request);
+    const requested: string[] = [];
+    page.on("request", (r) => requested.push(r.url()));
+
+    for (const button of ["#local", "#external"]) {
+      const { id } = await createReview(page.request, { plugin: "traveller", title: `Travel ${button}`, payload: {} });
+      await page.goto(`/#/reviews/${id}`);
+      await page.frameLocator("#plugin-frame").locator(button).click();
+      await page.waitForTimeout(1000);
+    }
+    expect(hits, "the other program was asked for a page").toEqual([]);
+    expect(requested.filter((u) => u.startsWith("https://example.com")), "the external site was requested").toEqual([]);
+  } finally {
+    server.close();
+  }
 });
