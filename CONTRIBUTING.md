@@ -27,8 +27,9 @@ the official plugins that ship with the app. To write your own, see
 
 ## Setting up
 
-The tool versions are pinned in `mise.toml`. With [mise](https://mise.jdx.dev)
-installed, run:
+Node is pinned in `mise.toml`, and Rust in `rust-toolchain.toml`, which
+[rustup](https://rustup.rs) reads on its own. With rustup and
+[mise](https://mise.jdx.dev) installed, run:
 
 ```sh
 mise install

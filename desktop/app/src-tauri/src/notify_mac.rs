@@ -4,6 +4,9 @@
 //! in front, and a click opens the review. Only an app bundle can use the framework;
 //! the bare development binary keeps the plugin's notification.
 
+// the framework is Objective-C, reached only through objc2's unsafe calls
+#![allow(unsafe_code)]
+
 use std::sync::OnceLock;
 
 use block2::RcBlock;

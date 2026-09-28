@@ -56,11 +56,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-      # the version mise.toml pins: a new stable release does not invalidate the cache
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.98.1"
-          components: rustfmt
+      # the version rust-toolchain.toml pins, with rustfmt and clippy
+      - name: Rust toolchain
+        run: rustup toolchain install
       - name: rustfmt
         run: |
           cargo fmt --check --manifest-path cli/Cargo.toml
@@ -113,10 +111,9 @@ jobs:
             e2e/package-lock.json
             pinrail-plugin/package-lock.json
             plugins/artifact/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.98.1"
-          components: clippy
+      # the version rust-toolchain.toml pins, with rustfmt and clippy
+      - name: Rust toolchain
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@v2
         with:
           # One name for every job that builds this workspace, here and in

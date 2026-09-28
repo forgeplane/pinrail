@@ -1,5 +1,5 @@
+# Rust comes from rust-toolchain.toml, which rustup reads on its own
 [tools]
-rust = "1.98.1"
 node = "24"
 
 [tasks."test:cli"]

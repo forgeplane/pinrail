@@ -4,6 +4,7 @@ description = "The pinrail desktop app: the review server with a menu-bar shell"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 publish = false
 
 [lib]
@@ -46,3 +47,6 @@ objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCen
 
 [dev-dependencies]
 tempfile = "3"
+
+[lints]
+workspace = true

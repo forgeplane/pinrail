@@ -2,12 +2,19 @@
 name = "pinrail"
 version = "0.1.0"
 edition = "2024"
-# the toolchain mise.toml pins and CI builds with
 rust-version = "1.98"
 description = "The command that agents use to ask a person through the Pinrail app before they act"
 license = "Apache-2.0"
 # it embeds files from elsewhere in the repository, so it is built from here only
 publish = false
+
+# CI turns warnings into errors
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
 
 [[bin]]
 name = "pinrail"

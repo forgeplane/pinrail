@@ -1,0 +1,7 @@
+# The Rust toolchain for both workspaces, desktop/ and cli/. rustup reads
+# this file in every directory below it, and CI installs the same version
+# from it, so a new stable release changes nothing until this line does.
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["rustfmt", "clippy"]

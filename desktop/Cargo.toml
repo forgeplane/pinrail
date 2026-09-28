@@ -6,6 +6,16 @@ members = ["core", "app/src-tauri"]
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
+rust-version = "1.98"
+
+# CI turns warnings into errors. Unsafe code is refused, except where a
+# file allows it and says why.
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
 
 # dependencies build without debug info; our own crates keep it
 [profile.dev.package."*"]

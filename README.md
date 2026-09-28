@@ -94,7 +94,8 @@ folder directly while you work on it.
 
 ## Development
 
-Tool versions are pinned in `mise.toml`, and `mise install` sets them up.
+Node is pinned in `mise.toml`, which `mise install` sets up, and Rust in
+`rust-toolchain.toml`, which rustup reads on its own.
 
 ```sh
 mise run dev:desktop        # the app with live reload

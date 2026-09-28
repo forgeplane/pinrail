@@ -4,6 +4,7 @@ description = "The pinrail review server as a library: storage, plugins, validat
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+rust-version.workspace = true
 publish = false
 
 [features]
@@ -40,3 +41,6 @@ zip = { version = "4", default-features = false, features = ["deflate"] }
 http-body-util = "0.1"
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
+
+[lints]
+workspace = true
