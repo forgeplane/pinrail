@@ -75,7 +75,7 @@ export function History() {
     return () => {
       cancelled = true;
     };
-  }, [status, debounced, plugin, repo, page, size, live.tick]);
+  }, [status, debounced, plugin, repo, page, size, live.historyVersion]);
 
   const reviews = useMemo(() => data?.reviews ?? [], [data]);
   const total = data?.total ?? 0;

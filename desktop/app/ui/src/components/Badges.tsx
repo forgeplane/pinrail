@@ -1,7 +1,7 @@
 import { ExternalLink, Paperclip } from "lucide-react";
 import type { Origin, Review, Status, Summary } from "../api/types";
 import { size } from "../lib/format";
-import { useLive } from "../state/live";
+import { usePlugins } from "../state/live";
 import { PluginIcon } from "./PluginIcon";
 import { Tooltip } from "./Tooltip";
 
@@ -28,10 +28,10 @@ export function OutcomeBadge({ review }: { review: Pick<Review, "status" | "deci
 }
 
 export function PluginBadge({ name, version, icon }: { name: string; version?: number; icon?: string | null }) {
-  const live = useLive();
+  const { pluginIcon } = usePlugins();
   return (
     <span className="plugin-badge">
-      <PluginIcon icon={icon === undefined ? live.pluginIcon(name) : icon} size={12} strokeWidth={2} />
+      <PluginIcon icon={icon === undefined ? pluginIcon(name) : icon} size={12} strokeWidth={2} />
       {name}
       {version ? <span className="faint">v{version}</span> : null}
     </span>

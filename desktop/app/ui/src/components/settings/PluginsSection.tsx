@@ -54,7 +54,7 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
 
   useEffect(() => {
     load().catch(() => {});
-  }, [load, live.tick]);
+  }, [load, live.plugins]);
 
   const reload = async () => {
     try {
