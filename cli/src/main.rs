@@ -86,22 +86,21 @@ fn exit_codes() -> String {
     long_about = None
 )]
 struct Cli {
-    /// Server URL; default: PINRAIL_URL, then the running server's server.json, then http://127.0.0.1:4747
+    /// The server's URL [default: PINRAIL_URL, then the address in the running server's server.json, then http://127.0.0.1:4747]
     #[arg(long, global = true, env = "PINRAIL_URL", hide = true)]
     url: Option<String>,
 
-    /// Indent the JSON; with --json
+    /// Indent the JSON output. Requires --json
     #[arg(long, global = true, requires = "json", hide = true)]
     pretty: bool,
 
-    /// Print JSON instead of markdown, for a script or a tool that processes
-    /// the result rather than reads it; PINRAIL_JSON=1 sets it for a session
+    /// Print JSON instead of Markdown, for a script or tool that processes
+    /// the result. PINRAIL_JSON=1 sets this for a whole session
     #[arg(long, global = true, env = "PINRAIL_JSON", value_parser = clap::builder::BoolishValueParser::new(), hide = true)]
     json: bool,
 
-    /// Also say on stderr what happened along the way: the origin read
-    /// from git, the server started, the files uploaded, where things
-    /// were written
+    /// Also report each step on stderr, such as the origin read from git,
+    /// the server started, the files uploaded and where files were written
     #[arg(short, long, global = true, env = "PINRAIL_VERBOSE", value_parser = clap::builder::BoolishValueParser::new(), hide = true)]
     verbose: bool,
 
@@ -164,11 +163,11 @@ impl Output {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Submit a review; with --wait, block until it is decided and print the decision
+    /// Submit a review, and with --wait, wait for the decision and print it
     ///
-    /// The review is built from the flags: the plugin, --title, and the
-    /// payload from --data. Or give the whole request as one JSON file with
-    /// --request, the body the API takes:
+    /// The options build the review: the plugin, --title, and the payload
+    /// from --data. Alternatively, give the whole request as one JSON file
+    /// with --request, in the form the API takes:
     ///
     ///     {
     ///       "plugin": "list",
@@ -177,120 +176,131 @@ enum Command {
     ///       "payload": {"groups": []}
     ///     }
     ///
-    /// Its keys are plugin, title, payload, origin, summary, revises,
-    /// expires_at and requested_by. Flags given as well override the file's
-    /// keys, and --data replaces its payload, so a new round is the same
-    /// file with --revises and the earlier round's id. The plugin argument
-    /// can be left out when the file names one.
+    /// The keys are plugin, title, payload, origin, summary, revises,
+    /// expires_at and requested_by. Options override the file's keys, and
+    /// --data replaces its payload, so you can send a new round with the
+    /// same file, --revises and the id of the earlier round. You can leave
+    /// out the plugin argument when the file names one.
     ///
-    /// Files go beside the payload with --attach, for a plugin that
-    /// takes them (pinrail plugins says which). The payload names
-    /// each one as {"$attachment": "<name>"}; the name is the file's own, or
-    /// the one after =:
+    /// To send files with the payload, use --attach, for a plugin that
+    /// accepts files (pinrail plugins shows which plugins do). The payload
+    /// refers to each file as {"$attachment": "<name>"}. The name is the
+    /// file's own name, or the name given after =:
     ///
     ///     pinrail submit model --data models.json \
     ///       --attach out/pivot.glb --attach out/v2.glb=column.glb
     ///
-    /// In a --request file they are "attachments": {"pivot.glb":
-    /// "out/pivot.glb"}, paths relative to the file, or {"path": …,
-    /// "media_type": …} as a plugin's fixture has them, so a fixture is
-    /// sent as it is. The submission is checked before anything is
-    /// uploaded, and a file the app already has is not sent again.
+    /// In a --request file, list the files under "attachments", such as
+    /// {"pivot.glb": "out/pivot.glb"}, with paths relative to the file. An
+    /// entry can also be {"path": …, "media_type": …}, as in a plugin's
+    /// fixtures, so you can send a fixture unchanged. Pinrail checks the
+    /// submission before it uploads anything, and it does not upload a file
+    /// that the app already has.
     #[command(verbatim_doc_comment)]
     #[command(after_help = exit_codes())]
     Submit(SubmitArgs),
-    /// Block until a review leaves pending, then print it: the decision as
-    /// markdown, or with --json the whole review as JSON
+    /// Wait until a review ends, then print its decision as Markdown, or the
+    /// whole review as JSON with --json
     #[command(after_help = exit_codes())]
     Wait(WaitArgs),
-    /// Print a review: as markdown, or with --json the whole review as JSON,
-    /// its payload and decision
+    /// Print a review as Markdown, or the whole review as JSON with --json,
+    /// including its payload and decision
     Show {
         /// The review's id
         id: String,
     },
-    /// Every round of a review, oldest first, without payloads
+    /// List every round of a review, oldest first, without payloads
     Rounds {
         /// The review's id
         id: String,
     },
-    /// A review's event log
+    /// Print a review's event log
     Events {
         /// The review's id
         id: String,
     },
-    /// List reviews, newest first, without payloads: by default the pending
-    /// ones of this project
+    /// List reviews, newest first, without payloads
     ///
-    /// By default only pending reviews, and in a git checkout only those of
-    /// its project, named as submit names it: the remote's owner/name, or
-    /// the folder's name when there is no remote. Outside a git checkout,
-    /// the pending reviews of every project. --status and --repo choose
-    /// other subsets; --all lists every review.
+    /// By default, the command lists only pending reviews and, in a git
+    /// checkout, only those of its project. The project is named the way
+    /// submit names it: the remote's owner/name, or the folder's name when
+    /// there is no remote. Outside a git checkout, the command lists the
+    /// pending reviews of every project. Use --status and --repo to choose
+    /// other reviews, and --all to list every review.
     List(ListArgs),
-    /// Record a decision for the person, from a test or a tool acting for
-    /// them. An agent never decides a review it submitted: the person does
+    /// Record a decision on behalf of the person, from a test or a tool
+    ///
+    /// An agent never decides a review that it submitted. Only the person
+    /// does.
     Decide(DecideArgs),
-    /// Withdraw a pending review; its waiter exits 3
+    /// Withdraw a pending review. A command that is waiting on it exits with 3
     Withdraw {
         /// The review's id
         id: String,
-        /// Why the requester gave up
+        /// Why the review is no longer needed
         #[arg(long)]
         reason: Option<String>,
     },
-    /// Discard a pending review for the person, as they would in the app;
-    /// its waiter exits 5 and is told to stop. An agent never discards a
-    /// review it submitted
+    /// Discard a pending review on behalf of the person
+    ///
+    /// This does what discarding does in the app. A command that is waiting
+    /// on the review exits with 5 and tells the agent to stop. An agent never
+    /// discards a review that it submitted.
     Discard {
         /// The review's id
         id: String,
-        /// Why, for the agent
+        /// The reason, which the agent receives
         #[arg(long)]
         reason: Option<String>,
-        /// Who discards it; the server's user when omitted
+        /// Who discards the review [default: the server's user]
         #[arg(long)]
         by: Option<String>,
     },
-    /// The installed plugins as the app lists them, with their install
-    /// records and settings, and when to use each; `plugins describe <name>`
-    /// gives one in full
+    /// List the installed plugins and when to use each one
+    ///
+    /// The listing includes each plugin's install record and settings.
+    /// `pinrail plugins describe <name>` shows one plugin in full.
     Plugins(PluginsArgs),
-    /// The files a review carries: list them, or save one
+    /// List the files a review carries, or save one of them
     #[command(subcommand)]
     Attachments(AttachmentsCommand),
-    /// Write every review as JSON files under a directory
+    /// Write every review as a JSON file in a directory
     Export {
-        /// Where to write them; created when missing
+        /// The directory to write to. It is created if it does not exist
         dir: PathBuf,
     },
-    /// Start the server if it is not running; print its URL
+    /// Start the server if it is not running, and print its URL
     Serve,
-    /// How to use Pinrail as an agent: a short brief, and a menu of the
-    /// briefs under it; a path opens one, as `pinrail docs plugins`
+    /// Print the briefs on using Pinrail as an agent
+    ///
+    /// Without a path, the command prints the main brief and a menu of the
+    /// other briefs. With a path, such as `pinrail docs plugins`, it prints
+    /// that brief.
     Docs {
-        /// the brief to print, as its menu names it; the root when omitted
+        /// The brief to print, as the menu names it [default: the main brief]
         path: Option<String>,
-        /// Every brief's path and what it covers, as a tree
+        /// Print the path and subject of every brief, as a tree
         #[arg(long, conflicts_with = "path")]
         tree: bool,
     },
-    /// Open a review in the app; --browser opens its preview, for building a plugin
+    /// Open a review in the app, or its preview in a browser with --browser
     ///
-    /// Opens the deep link pinrail://reviews/<id> with the system's opener,
-    /// which hands it to the Pinrail app and brings the review up there.
-    /// Prints the address it opened; an id the app does not have is
-    /// refused (exit 2) and nothing opens.
+    /// The command opens the link pinrail://reviews/<id> with the system's
+    /// default handler, which passes it to the Pinrail app, and the app
+    /// shows the review. The command prints the address it opened. An id
+    /// that the app does not have is refused with exit code 2, and nothing
+    /// opens.
     ///
-    /// --browser opens <server>/preview/reviews/<id> instead: the review
-    /// with the plugin's view, served by the running app to this machine
-    /// only. It is for trying a view while building a plugin: its hand-over
-    /// checks the decision against the plugin's schema and shows it, and
-    /// decides nothing. The person decides in the app.
+    /// --browser opens <server>/preview/reviews/<id> instead. The preview
+    /// shows the review in the plugin's view, served by the running app to
+    /// this computer only. Use it to try a view while you build a plugin.
+    /// Its hand-over button checks the decision against the plugin's schema
+    /// and shows it, but decides nothing. Only the person decides, in the
+    /// app.
     Open {
         /// The review's id
         id: String,
-        /// The preview in the default browser, for building a plugin
+        /// Open the preview in the default browser, to try a view while building a plugin
         #[arg(long)]
         browser: bool,
     },
@@ -298,65 +308,69 @@ enum Command {
 
 #[derive(Args)]
 struct SubmitArgs {
-    /// The plugin that defines this sort of review, e.g. review
+    /// The plugin that defines this kind of review, such as review
     #[arg(required_unless_present = "request")]
     plugin: Option<String>,
-    /// What the review is about, as the inbox shows it
+    /// The title the inbox shows for the review
     #[arg(long, required_unless_present_any = ["request", "sample"])]
     title: Option<String>,
-    /// The whole request as JSON: inline, a file path, or - for stdin;
-    /// flags override its keys
+    /// The whole request as JSON, given inline, as a file path, or as - for
+    /// stdin. Other options override its keys
     #[arg(long, value_name = "JSON|FILE|-")]
     request: Option<String>,
-    /// Where the review comes from, as key=value pairs: repo (the project,
-    /// owner/name), ref (a branch or pull request), workflow and run_id
-    /// (what asked), url (a link back, which may contain commas). In a git checkout, repo and ref
-    /// default to the remote and the branch; the branch only when the repo
-    /// is the checkout's own. E.g. repo=acme/api,ref=42,url=…
+    /// Where the review comes from, as comma-separated key=value pairs. The
+    /// keys are repo (the project, as owner/name), ref (a branch or pull
+    /// request), workflow and run_id (what asked for the review), and url (a
+    /// link back, which may contain commas). In a git checkout, repo defaults
+    /// to the remote, and ref defaults to the branch when the repo is the
+    /// checkout's own. For example: repo=acme/api,ref=42,url=…
     #[arg(long, value_parser = origin::parse)]
     origin: Option<BTreeMap<String, String>>,
-    /// Payload JSON: inline, a file path, or - for stdin
+    /// The payload as JSON, given inline, as a file path, or as - for stdin
     #[arg(long, value_name = "JSON|FILE|-")]
     data: Option<String>,
-    /// A file to send beside the payload, which names it {"$attachment":
-    /// "<name>"}; the name is the file's own unless given after =.
-    /// Repeat for more
+    /// A file to send with the payload. The payload refers to it as
+    /// {"$attachment": "<name>"}, where the name is the file's own name
+    /// unless another name follows =. Repeat the option for more files
     #[arg(long = "attach", value_name = "PATH[=NAME]", value_parser = attachments::parse_flag)]
     attachments: Vec<(String, PathBuf)>,
-    /// What the inbox row shows beside the title, as JSON: counts, a list
-    /// of [label, number] pairs (blocker, major, minor and nit in their
-    /// colours), and a subtitle. E.g. '{"counts":[["major",2]],"subtitle":"3 new"}'
+    /// What the inbox row shows beside the title, as JSON. It can hold
+    /// counts, a list of [label, number] pairs (blocker, major, minor and nit
+    /// are shown in their colours), and a subtitle. For example:
+    /// '{"counts":[["major",2]],"subtitle":"3 new"}'
     #[arg(long, value_parser = parse_json)]
     summary: Option<Value>,
-    /// The review this one is a new round of
+    /// The id of the review that this one is a new round of
     #[arg(long)]
     revises: Option<String>,
-    /// ISO 8601 timestamp after which the review expires
+    /// The time after which the review expires, as an ISO 8601 timestamp
     #[arg(long)]
     expires_at: Option<String>,
     /// Who is asking, shown on the review as its requester, with the
-    /// agent's icon when the app knows it [default: the coding agent this
-    /// runs under, from the variables it sets (claude-code, codex, cursor,
-    /// gemini-cli, opencode, kimi), else pinrail-cli]
+    /// agent's icon when the app knows the agent [default: the coding agent
+    /// the command runs under, detected from the variables it sets
+    /// (claude-code, codex, cursor, gemini-cli, opencode, kimi), or else
+    /// pinrail-cli]
     #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
-    /// Send the plugin's sample, a review it ships to show what it looks
-    /// like, in place of a payload; --title and --origin still apply
+    /// Send the plugin's sample review, which shows what the plugin looks
+    /// like, instead of a payload. --title and --origin still apply
     #[arg(long, conflicts_with_all = ["request", "data", "attachments", "summary", "revises", "expires_at", "dry_run"])]
     sample: bool,
-    /// Block until the review ends, decided or not (see wait)
+    /// Wait until the review ends, whether or not it is decided (see wait)
     #[arg(long)]
     wait: bool,
-    /// Run every check a submission gets and create no review: exit 0 when
-    /// it would be accepted, 2 with the violations
+    /// Run every check on the submission without creating a review. The
+    /// command exits with 0 if the review would be accepted, and with 2 and
+    /// the violations if not
     #[arg(long, conflicts_with = "wait")]
     dry_run: bool,
-    /// With --wait: give up after this many seconds (exit 4); 0 waits
-    /// forever. PINRAIL_TIMEOUT sets it for every wait
+    /// With --wait, stop waiting after this many seconds and exit with 4. 0
+    /// waits indefinitely. PINRAIL_TIMEOUT sets this for every wait
     #[arg(long, requires = "wait")]
     timeout: Option<u64>,
-    /// With --wait: also write decision.data to this file, as JSON, once
-    /// decided; pinrail show <id> shows the decision any time
+    /// With --wait, also write decision.data to this file as JSON once the
+    /// review is decided. pinrail show <id> shows the decision at any time
     #[arg(long, value_name = "FILE", requires = "wait")]
     decision_out: Option<PathBuf>,
     /// Do not start the server when it is not running
@@ -374,49 +388,50 @@ struct WaitArgs {
 
 #[derive(Args, Clone)]
 struct WaitOpts {
-    /// Give up after this many seconds (exit 4); 0 waits forever.
-    /// PINRAIL_TIMEOUT sets it for every wait
+    /// Stop waiting after this many seconds and exit with 4. 0 waits
+    /// indefinitely. PINRAIL_TIMEOUT sets this for every wait
     #[arg(long)]
     timeout: Option<u64>,
-    /// Also write decision.data to this file, as JSON, once decided;
-    /// pinrail show <id> shows the decision any time
+    /// Also write decision.data to this file as JSON once the review is
+    /// decided. pinrail show <id> shows the decision at any time
     #[arg(long, value_name = "FILE")]
     decision_out: Option<PathBuf>,
 }
 
 #[derive(Args)]
 struct ListArgs {
-    /// One of pending, decided, withdrawn, discarded, expired; comma-separated
-    /// for several [default: pending, unless --all]
+    /// The status to list: pending, decided, withdrawn, discarded or expired.
+    /// Separate several with commas [default: pending, unless --all]
     #[arg(long)]
     status: Option<String>,
-    /// The project (origin repo); "-" for reviews that name none [default:
-    /// the git checkout's, unless --all]
+    /// The project, as the origin's repo. Use - for reviews that name no
+    /// project [default: the git checkout's project, unless --all]
     #[arg(long)]
     repo: Option<String>,
-    /// The workflow that asked (origin workflow)
+    /// The workflow that asked for the review, as the origin's workflow
     #[arg(long)]
     workflow: Option<String>,
-    /// The branch, pull request or other ref (origin ref)
+    /// The branch, pull request or other ref, as the origin's ref
     #[arg(long = "ref")]
     reference: Option<String>,
-    /// The run that asked (origin run_id)
+    /// The run that asked for the review, as the origin's run_id
     #[arg(long)]
     run_id: Option<String>,
-    /// Only reviews of this plugin
+    /// List only reviews of this plugin
     #[arg(long)]
     plugin: Option<String>,
-    /// Words to look for, all of them, in titles, payloads, plugins, requesters, origins and who decided
+    /// Words that must all appear in the title, payload, plugin, requester,
+    /// origin or the name of the person who decided
     #[arg(long = "search", value_name = "WORDS")]
     q: Option<String>,
-    /// Only reviews older than this id
+    /// List only reviews older than this id
     #[arg(long)]
     cursor: Option<String>,
-    /// How many reviews at most; the rest are a --cursor away
+    /// The most reviews to list. Use --cursor to list the next page
     #[arg(long)]
     limit: Option<u32>,
-    /// Every review, whatever its status or project unless --status or
-    /// --repo say, and every page unless --limit caps them
+    /// List every review, of any status and project unless --status or
+    /// --repo limits them, and every page unless --limit caps the number
     #[arg(long)]
     all: bool,
     /// Include rounds that a later round revises
@@ -428,32 +443,33 @@ struct ListArgs {
 struct DecideArgs {
     /// The review's id
     id: String,
-    /// Decision JSON: inline, a file path, or - for stdin
+    /// The decision as JSON, given inline, as a file path, or as - for stdin
     #[arg(long, value_name = "JSON|FILE|-")]
     data: String,
-    /// Free-text note to the requesting agent
+    /// A note to the agent that requested the review
     #[arg(long)]
     note: Option<String>,
 }
 
 #[derive(Subcommand)]
 enum AttachmentsCommand {
-    /// The files a review carries: name, size, media type and hash
+    /// List the files a review carries, with their names, sizes, media types
+    /// and hashes
     List {
         /// The review's id
         id: String,
     },
-    /// Save a file a review carries
+    /// Save a file that a review carries
     Get {
         /// The review's id
         id: String,
         /// The file's name on the review
         name: String,
-        /// Where to write it: a path, or - for stdout [default: the name,
-        /// in the current directory]
+        /// The path to write the file to, or - for stdout [default: the
+        /// file's name, in the current directory]
         #[arg(short, long, value_name = "PATH|-")]
         output: Option<String>,
-        /// Replace a file that is already there
+        /// Replace an existing file
         #[arg(long)]
         force: bool,
     },
@@ -467,89 +483,105 @@ struct PluginsArgs {
 
 #[derive(Subcommand)]
 enum PluginsCommand {
-    /// Install one plugin into the app's store: a folder, a repository
-    /// (github.com/acme/plugins/review@v3, or the folder's URL in the
-    /// browser), or a GitHub release
+    /// Install a plugin from a folder, a repository or a GitHub release
+    ///
+    /// Give a repository as github.com/acme/plugins/review@v3, or as the
+    /// folder's URL in the browser.
     Install {
         /// The plugin's folder, repository or release
         source: String,
-        /// Serve a folder live instead of copying it, for development
+        /// Serve the folder directly instead of copying it, while you develop
+        /// the plugin
         #[arg(long)]
         link: bool,
         /// Replace a newer version that is already installed
         #[arg(long)]
         force: bool,
-        /// A branch, tag or commit, for a git source that does not say
+        /// A branch, tag or commit, for a git source that does not include one
         #[arg(long = "ref")]
         reference: Option<String>,
-        /// The plugin's folder inside the repository, likewise
+        /// The plugin's folder inside the repository, for a git source that
+        /// does not include one
         #[arg(long)]
         path: Option<String>,
-        /// Run the build the plugin declares without asking. Without it, a
-        /// build is shown and runs only once confirmed at the terminal
+        /// Run the build the plugin declares without asking. Without this
+        /// option, the build command is shown and runs only after you confirm
+        /// it at the terminal
         #[arg(long, short = 'y')]
         yes: bool,
     },
-    /// Install a plugin again from where it came, whatever is new there;
-    /// every installed plugin when no name is given
+    /// Update a plugin from its source, or every installed plugin when no
+    /// name is given
     Update {
         /// The plugin's name, as `pinrail plugins` lists it
         name: Option<String>,
-        /// Run the build an update declares without asking. Without it, a
-        /// build is shown and runs only once confirmed at the terminal
+        /// Run the build an update declares without asking. Without this
+        /// option, the build command is shown and runs only after you confirm
+        /// it at the terminal
         #[arg(long, short = 'y')]
         yes: bool,
     },
-    /// Remove an installed plugin; store entries a review still renders
-    /// from are kept
+    /// Remove an installed plugin. Versions that existing reviews still render
+    /// with are kept
     Remove {
         /// The plugin's name
         name: String,
     },
-    /// What an agent needs to ask with a plugin: its payload schema, an
-    /// example payload and the files it takes; JSON with --json, the
-    /// decision schema included. `pinrail plugins` lists them, with when to
-    /// use each
+    /// Show what an agent needs to submit a review with a plugin
+    ///
+    /// The description includes the payload schema, an example payload and
+    /// the files the plugin accepts. With --json, it also includes the
+    /// decision schema. `pinrail plugins` lists the plugins and says when to
+    /// use each one.
     Describe {
         /// The plugin's name
         name: String,
-        /// Only the payload's JSON schema, for a tool that checks or builds
-        /// payloads
+        /// Print only the payload's JSON schema, for a tool that checks or
+        /// builds payloads
         #[arg(long, group = "part")]
         payload_schema: bool,
-        /// Only the example payload, a start for your own
+        /// Print only the example payload, as a starting point for your own
         #[arg(long, group = "part")]
         example: bool,
-        /// Only the decision's JSON schema, the shape of decision.data, for
-        /// processing the decision with --json; it otherwise reads as markdown
+        /// Print only the decision's JSON schema, which describes
+        /// decision.data, for processing the decision with --json. Without
+        /// --json, the decision is printed as Markdown
         #[arg(long, group = "part")]
         decision_schema: bool,
     },
-    /// Read the installed plugins from disk again: after changing a linked
-    /// plugin's manifest or schemas, which the app reads when it loads the
-    /// plugin; its view is served live and needs no reload
+    /// Read the installed plugins from disk again
+    ///
+    /// Run this after you change the manifest or schemas of a linked plugin.
+    /// Changes to a linked plugin's view take effect without a reload.
     Reload,
-    /// A new plugin that needs no build: manifest, schemas, a sample, a view,
-    /// the SDK's types and an AGENTS.md; --link installs it right away
+    /// Create a new plugin that needs no build step
+    ///
+    /// The new folder contains a manifest, schemas, a sample review, a view,
+    /// the SDK's types and an AGENTS.md file. --link installs the plugin as
+    /// a link right away.
     New {
-        /// The plugin's name: a lowercase letter, then letters, digits, _ or -
+        /// The plugin's name, which starts with a lowercase letter followed by
+        /// letters, digits, _ or -
         name: String,
-        /// Where to write it; ./<name> by default
+        /// The folder to write the plugin to [default: ./<name>]
         #[arg(long)]
         dir: Option<PathBuf>,
-        /// Install it as a link once written, so the app serves it live
+        /// Install the plugin as a link after writing it, so the app serves the
+        /// folder directly
         #[arg(long)]
         link: bool,
     },
-    /// What the app would make of a plugin folder, installing nothing: why
-    /// it would refuse it, and each feature it would drop; exit 0 when it
-    /// would take it, 2 when not
+    /// Check a plugin folder without installing it
+    ///
+    /// The command reports why the app would refuse the folder, and each
+    /// feature the app would drop. It exits with 0 if the app would accept
+    /// the plugin, and with 2 if not.
     Check {
-        /// the plugin's folder
+        /// The plugin's folder
         #[arg(default_value = ".")]
         dir: PathBuf,
     },
-    /// The versions of a plugin that reviews can still render with
+    /// List the versions of a plugin that reviews can still render with
     Versions {
         /// The plugin's name
         name: String,

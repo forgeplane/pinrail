@@ -21,8 +21,8 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
   process the result; read the default markdown otherwise.
 - `--decision-out <file>`: with `--wait`, write only `decision.data` to a
   file as well.
-- `--dry-run`: every check a submission gets, and nothing created: exit 0
-  or 2.
+- `--dry-run`: run every check without creating a review. It exits with 0
+  if the review would be accepted, and with 2 if not.
 - `--timeout <seconds>`: with `--wait`, stop waiting after this long, exit 4.
   If your commands have a time limit, keep it below that. `PINRAIL_TIMEOUT`
   sets it once for every wait.
@@ -63,13 +63,14 @@ before anything is uploaded.
 - `0`: decided. Act on the decision.
 - `1`: bad arguments, the request could not be sent, or the app failed on
   its side. Report the error. A wait keeps waiting through an app error.
-- `2`: refused by the app: a field that fails the plugin's schema, a
-  review no longer pending, a plugin not installed. stderr says which;
-  fix it and submit again.
-- `3`: withdrawn, or expired undecided. Stop, and say nobody decided.
-- `4`: still pending, `--timeout` ran out. Go on with other work, and run
-  the command it prints later.
-- `5`: discarded, the person said no, and stop. Stop the work, report their
+- `2`: the app refused the request, for example because a field fails the
+  plugin's schema, the review is no longer pending, or the plugin is not
+  installed. stderr says which. Fix it and submit again.
+- `3`: the review was withdrawn, or it expired before anyone decided.
+  Stop, and say that nobody decided.
+- `4`: the review is still pending, and `--timeout` ran out. Go on with
+  other work, and run the command it prints later.
+- `5`: the person discarded the review. Stop the work, report their
   reason, and don't ask again.
 
 ## Several questions

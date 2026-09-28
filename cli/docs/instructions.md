@@ -16,20 +16,21 @@ the command, and what to do with the answer.
 Pick the plugin first. One fits when it both shows what the person needs
 to see and returns the decision you need:
 
-- `pinrail plugins` lists the installed ones with when to use each: your
-  candidates. `pinrail plugins describe <plugin> --decision-schema` shows
-  what one returns: the test.
+- `pinrail plugins` lists the installed plugins and says when to use each
+  one. Choose among them. `pinrail plugins describe <plugin>
+  --decision-schema` shows what a plugin returns. Use it to check that the
+  plugin returns the decision you need.
 - Showing the right material is not enough: a diff view does not make a
   plugin fit for approving a commit if it does not return an approval.
-- Don't bend the task to a schema: no made-up item or comment just to
-  have something to decide on.
-- If none represents the decision, build one, then write the rule for it:
-  `pinrail docs plugins/building`. That is a normal step, not a last
-  resort.
+- Don't bend the task to fit a schema. Don't make up an item or a comment
+  just to have something to decide on.
+- If no plugin represents the decision, build one (see
+  `pinrail docs plugins/building`), then write the rule for it. That is a
+  normal step, not a last resort.
 
-Name the plugin and the payload's shape in the rule itself: run
-`pinrail plugins describe <plugin>` once, as you write it, so you never
-have to rediscover them.
+Name the plugin and the payload's shape in the rule itself. Run
+`pinrail plugins describe <plugin>` once while you write the rule, so you
+never have to look them up again.
 
 ```md
 ## Ask before <the moment>
