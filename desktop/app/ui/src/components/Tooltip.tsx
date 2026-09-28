@@ -78,7 +78,7 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone,
   const anchored = cloneElement(children, {
     ref: (node: HTMLElement | null) => {
       trigger.current = node;
-      const ref = (children as unknown as { ref?: unknown }).ref;
+      const ref = (child as { ref?: unknown }).ref;
       if (typeof ref === "function") ref(node);
       else if (ref && typeof ref === "object") (ref as { current: HTMLElement | null }).current = node;
     },

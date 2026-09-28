@@ -13,7 +13,7 @@ import { Tooltip } from "../components/Tooltip";
 import { settledAt, stamp } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
-import { NO_PROJECT } from "../lib/shortcuts";
+import { NO_PROJECT } from "../lib/url";
 import { modalOpen } from "../lib/keys";
 
 const ENDED = "decided,withdrawn,discarded,expired";

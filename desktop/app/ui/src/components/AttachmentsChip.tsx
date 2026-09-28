@@ -72,7 +72,7 @@ export function AttachmentsChip({ reviewId, attachments }: Props) {
       }
       // outside the app: the core answers with an attachment, so this downloads
       const link = document.createElement("a");
-      link.href = `${await serverUrl()}/api/v1/reviews/${reviewId}/attachments/${encodeURIComponent(name)}`;
+      link.href = `${await serverUrl()}/api/v1/reviews/${encodeURIComponent(reviewId)}/attachments/${encodeURIComponent(name)}`;
       link.download = name;
       link.rel = "noreferrer";
       document.body.append(link);

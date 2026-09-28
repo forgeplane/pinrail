@@ -13,7 +13,7 @@ import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
-import { NO_PROJECT, inProject } from "../lib/shortcuts";
+import { NO_PROJECT, inProject } from "../lib/url";
 import { modalOpen } from "../lib/keys";
 
 /** How the inbox is laid out, remembered on this machine. */

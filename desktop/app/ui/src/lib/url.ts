@@ -42,3 +42,10 @@ export function useUrlParams() {
 export function clearAll(next: URLSearchParams) {
   for (const key of [...next.keys()]) next.delete(key);
 }
+
+/** The `repo` filter's value for the reviews that name no project. */
+export const NO_PROJECT = "-";
+
+/** Whether a review passes the project filter: none, a project, or `NO_PROJECT`. */
+export const inProject = (repo: string | null | undefined, filter: string) =>
+  !filter || (filter === NO_PROJECT ? !repo : repo === filter);

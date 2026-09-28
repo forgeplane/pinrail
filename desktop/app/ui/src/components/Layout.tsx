@@ -25,7 +25,7 @@ import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog"
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { MOD, SHIFT, hasMod } from "../lib/keys";
-import { NO_PROJECT } from "../lib/shortcuts";
+import { NO_PROJECT } from "../lib/url";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";

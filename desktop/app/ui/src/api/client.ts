@@ -137,7 +137,6 @@ export const api = {
     request<{ removed: string; linked: boolean; entries_kept: number[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
-  /** The URL a plugin's bundle is loaded from; the iframe adds the theme. */
   /** the review rendered as markdown by the core, for the clipboard */
   reviewMarkdown: async (id: string) => {
     const response = await fetch(`${await serverUrl()}/api/v1/reviews/${seg(id)}?format=markdown`);

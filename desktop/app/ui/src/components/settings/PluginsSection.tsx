@@ -155,7 +155,6 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
   return null;
 };
 
-/** Where an installed plugin came from, in a few words. */
 /** Where a plugin came from: how, in words, and from where. */
 function originOf(p: Plugin): { how: string; where: string | null } {
   const i = p.install;

@@ -215,11 +215,11 @@ export type Notice = {
   keys?: string[];
 };
 
-/** What /api/v1/settings returns; the shell reads the keys it applies. */
 /** The web origins a plugin may open without asking, while it stays
  *  installed from the source it had when they were allowed. */
 export type LinkPermission = { source: string; origins: string[] };
 
+/** What /api/v1/settings returns; the shell reads the keys it applies. */
 export type ServerSettings = {
   appearance: { theme: "system" | "dark" | "light"; text_size: "small" | "default" | "large" };
   sidebar: { open: boolean };

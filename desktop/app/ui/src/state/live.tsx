@@ -29,7 +29,6 @@ type Live = {
   plugins: Map<string, Plugin>;
   /** the icon a plugin declares, if any */
   pluginIcon: (name: string) => string | null;
-  refresh: () => Promise<void>;
 };
 
 type Plugins = Pick<Live, "plugins" | "pluginIcon">;
@@ -112,9 +111,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       lastNotice,
       plugins,
       pluginIcon,
-      refresh,
     }),
-    [connected, pending, unloaded, projects, unassigned, historyVersion, lastNotice, plugins, pluginIcon, refresh],
+    [connected, pending, unloaded, projects, unassigned, historyVersion, lastNotice, plugins, pluginIcon],
   );
   const pluginsValue = useMemo<Plugins>(() => ({ plugins, pluginIcon }), [plugins, pluginIcon]);
   return (

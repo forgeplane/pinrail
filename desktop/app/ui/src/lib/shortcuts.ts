@@ -1,13 +1,6 @@
 import { ALT, MOD, SHIFT, isMac } from "./keys";
 
 /** The in-app shortcuts, for the ? dialog and the settings. */
-/** The `repo` filter's value for the reviews that name no project. */
-export const NO_PROJECT = "-";
-
-/** Whether a review passes the project filter: none, a project, or `NO_PROJECT`. */
-export const inProject = (repo: string | null | undefined, filter: string) =>
-  !filter || (filter === NO_PROJECT ? !repo : repo === filter);
-
 export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Next / previous review", keys: [["J"], ["K"]] },
   { what: "Open the focused review", keys: [["Enter"]] },
