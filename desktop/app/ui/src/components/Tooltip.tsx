@@ -27,10 +27,12 @@ type Props = {
   side?: "top" | "bottom";
   /** show on hover only, not on focus (text fields) */
   hoverOnly?: boolean;
+  /** "danger" for a tooltip that says what went wrong */
+  tone?: "danger";
   children: ReactElement<Record<string, unknown>>;
 };
 
-export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, children }: Props) {
+export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, tone, children }: Props) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -112,7 +114,7 @@ export function Tooltip({ label, keys, side = "bottom", hoverOnly = false, child
               ref={tip}
               id={id}
               role="tooltip"
-              className={`tooltip ${pos ? "is-placed" : ""}`}
+              className={`tooltip ${tone === "danger" ? "is-danger" : ""} ${pos ? "is-placed" : ""}`}
               style={pos ? { top: pos.top, left: pos.left } : { top: -9999, left: -9999 }}
             >
               <span className="tooltip-label">{label}</span>

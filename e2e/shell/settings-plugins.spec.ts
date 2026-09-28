@@ -166,7 +166,12 @@ test("a broken plugin can still be removed from its row", async ({ page }) => {
 
   await page.goto("/#/plugins");
   const row = page.locator('[data-plugin-row="broken"]');
-  await expect(row).toContainText("version: value is not of type string");
+  // the badge says why, on hover, and the line says where it came from
+  await expect(row).toContainText(`linked · ${source}`);
+  await expect(row).not.toContainText("version: value is not of type string");
+  await row.locator("[data-plugin-broken]").hover();
+  await expect(page.getByRole("tooltip")).toHaveText("version: value is not of type string");
+  await expect(page.getByRole("tooltip")).toHaveClass(/is-danger/);
   await row.getByRole("button", { name: "Remove broken" }).click();
   await row.locator("[data-plugin-remove-confirm]").click();
   await expect(row).toHaveCount(0);

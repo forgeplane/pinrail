@@ -325,8 +325,7 @@ function PluginEntry({
 
   const linked = p.install?.linked ?? false;
   const origin = originOf(p);
-  // asked before a removal, in place of whatever the line says, a broken
-  // plugin's error included
+  // asked before a removal, in place of whatever the line says
   const ask = removing ? (
     <span className="settings-plugin-ask" data-plugin-remove-ask>
       Remove {p.title || p.name}?
@@ -350,11 +349,11 @@ function PluginEntry({
       </button>
     </span>
   ) : null;
+  // a broken plugin says why in its badge's tooltip, so its line is the
+  // same as any other's
   const note =
-    ask && (p.error || p.settings_error || p.sample_error) ? (
+    ask && (p.settings_error || p.sample_error) ? (
       ask
-    ) : p.error ? (
-      <span className="danger">{p.error}</span>
     ) : p.settings_error ? (
       <span className="danger">settings dropped: {p.settings_error}</span>
     ) : p.sample_error ? (
@@ -402,18 +401,20 @@ function PluginEntry({
         description={
           <span className="settings-plugin-line">
             <PluginBadge name={p.name} version={p.version} icon={p.icon} />
-            <span className={`with-icon ${p.error ? "danger" : "ok"}`}>
-              {p.error ? (
-                <TriangleAlert size={12} />
-              ) : linked ? (
-                <Link2 size={12} />
-              ) : p.dev ? (
-                <Wrench size={12} />
-              ) : (
-                <CircleCheck size={12} />
-              )}
-              {p.error ? "broken" : linked ? "linked" : p.dev ? "development" : "ready"}
-            </span>
+            {p.error ? (
+              // why it is broken, on hover or keyboard focus
+              <Tooltip label={p.error} tone="danger">
+                <span className="with-icon danger" tabIndex={0} data-plugin-broken>
+                  <TriangleAlert size={12} />
+                  broken
+                </span>
+              </Tooltip>
+            ) : (
+              <span className="with-icon ok">
+                {linked ? <Link2 size={12} /> : p.dev ? <Wrench size={12} /> : <CircleCheck size={12} />}
+                {linked ? "linked" : p.dev ? "development" : "ready"}
+              </span>
+            )}
             {p.install && !linked ? <span className="faint">{p.install.version}</span> : null}
             {p.attachments ? (
               <span className="faint" data-plugin-takes>
