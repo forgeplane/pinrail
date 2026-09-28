@@ -13,17 +13,23 @@ const received = (frame: Frame) => frame.evaluate(() => (window as unknown as { 
 const send = (frame: Frame, message: object) =>
   frame.evaluate((m) => (window as unknown as { send: (m: object) => void }).send(m), message);
 
-async function viewFrame(page: Page): Promise<Frame> {
+/** The conformance view's frame once it has its init; `after` is a frame it must not be. */
+async function viewFrame(page: Page, after?: Frame): Promise<Frame> {
   let frame: Frame | undefined;
   await expect
-    .poll(() => (frame = page.frames().find((f) => f.url().includes("/plugins/conformance/"))) !== undefined)
+    .poll(
+      () =>
+        (frame = page
+          .frames()
+          .find((f) => f !== after && !f.isDetached() && f.url().includes("/plugins/conformance/"))) !== undefined,
+    )
     .toBe(true);
   await expect.poll(async () => (await received(frame!)).some((m) => m.type === "init")).toBe(true);
   return frame!;
 }
 
 /** A review for the conformance view, with the file its payload names. */
-async function conformanceReview(page: Page): Promise<string> {
+async function conformanceReview(page: Page, title = "Conformance"): Promise<string> {
   const bytes = fs.readFileSync(path.join(dir, "fixtures", "note.txt"));
   const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
   const put = await page.request.put(`${core}/api/v1/attachments/${sha256}`, {
@@ -34,7 +40,7 @@ async function conformanceReview(page: Page): Promise<string> {
   const created = await page.request.post(`${core}/api/v1/reviews`, {
     data: {
       plugin: "conformance",
-      title: "Conformance",
+      title,
       payload: { note: { $attachment: "note.txt" } },
       attachments: { "note.txt": { sha256, size: bytes.length, media_type: "text/plain" } },
     },
@@ -96,6 +102,58 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   await send(frame, { type: "attachment", req: 9, name: "note.txt" });
   await expect.poll(async () => (await received(frame)).some((m) => m.type === "attachment" && m.req === 9)).toBe(true);
   expect(await inits()).toBe(before);
+});
+
+test("a decision that lands after moving to another review stays with its own", async ({ page }) => {
+  await linkPlugin(page.request, dir, "conformance");
+  await clearInbox(page.request);
+  const first = await conformanceReview(page, "Conformance: first");
+  const second = await conformanceReview(page, "Conformance: second");
+  const draftOf = (id: string) => page.evaluate((key) => sessionStorage.getItem(key), `pinrail:draft:${id}`);
+
+  // the second review has a draft of the person's
+  await page.goto(`/#/reviews/${second}`);
+  let frame = await viewFrame(page);
+  await send(frame, { type: "draft", data: { step: 5 } });
+  await expect.poll(() => draftOf(second)).not.toBeNull();
+
+  // the first review's decision is held back while the person moves on
+  await page.goto(`/#/reviews/${first}`);
+  frame = await viewFrame(page, frame);
+  let released!: () => void;
+  const held = new Promise<void>((resolve) => (released = resolve));
+  let asked!: () => void;
+  const sent = new Promise<void>((resolve) => (asked = resolve));
+  await page.route(`${core}/api/v1/reviews/${first}/decision`, async (route) => {
+    asked();
+    await held;
+    await route.continue();
+  });
+  await send(frame, { type: "submit", data: { ok: true } });
+  await sent;
+  await page.evaluate((id) => (location.hash = `#/reviews/${id}`), second);
+  await expect(page.locator(".crumb-title")).toHaveText("Conformance: second");
+  frame = await viewFrame(page, frame);
+  const answered = page.waitForResponse(`${core}/api/v1/reviews/${first}/decision`);
+  released();
+  await answered;
+  await expect
+    .poll(async () => (await (await page.request.get(`${core}/api/v1/reviews/${first}`)).json()).status)
+    .toBe("decided");
+
+  // anything the app sent the second view about it has arrived by the time
+  // a later request is answered
+  await send(frame, { type: "attachment", req: 11, name: "note.txt" });
+  await expect
+    .poll(async () => (await received(frame)).some((m) => m.type === "attachment" && m.req === 11))
+    .toBe(true);
+  // the screen still shows the second review, and its view was told nothing
+  await expect(page.locator(".crumb-title")).toHaveText("Conformance: second");
+  expect((await received(frame)).filter((m) => m.type === "submitted")).toEqual([]);
+  expect(await draftOf(second)).not.toBeNull();
+  await expect(page).toHaveURL(new RegExp(`/reviews/${second}$`));
+  await expect(page.locator(".review-strip .status-badge")).toHaveText(/pending/i);
+  await expect(page.getByText("Decision recorded")).toHaveCount(0);
 });
 
 test("a view whose review ends elsewhere is sent init again, read-only", async ({ page }) => {

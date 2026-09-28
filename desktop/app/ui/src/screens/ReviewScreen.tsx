@@ -201,16 +201,20 @@ export function ReviewScreen() {
     async (data: unknown): Promise<SubmitResult> => {
       try {
         const decided = await api.decide(id, data, noteRef.current);
-        setReview(decided);
-        setViolations([]);
-        setFlash("Decision recorded");
         try {
           sessionStorage.removeItem(NOTE_PREFIX + id + ":note");
         } catch {
           // ignore
         }
+        // the person moved on while it was on its way: the screen is
+        // another review's now, and the decision stays with its own
+        if (wanted.current !== id) return { ok: true, decision: decided.decision! };
+        setReview(decided);
+        setViolations([]);
+        setFlash("Decision recorded");
         return { ok: true, decision: decided.decision! };
       } catch (e) {
+        if (wanted.current !== id) return { ok: false, violations: [] };
         if (e instanceof ApiError && e.kind === "invalid") {
           setViolations(e.violations);
           return { ok: false, violations: e.violations };

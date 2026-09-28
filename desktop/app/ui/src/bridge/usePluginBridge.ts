@@ -196,10 +196,11 @@ export function usePluginBridge(options: Options): Bridge {
       // storage unavailable: drafts are a convenience
     }
   };
-  const clearDraft = () => {
+  /** Forgets the draft of the review open now, or of the one `key` names. */
+  const clearDraft = (key = draftKey()) => {
     try {
-      sessionStorage.removeItem(draftKey());
-      sessionStorage.removeItem(draftKey() + ":note");
+      sessionStorage.removeItem(key);
+      sessionStorage.removeItem(key + ":note");
     } catch {
       // ignore
     }
@@ -260,6 +261,9 @@ export function usePluginBridge(options: Options): Bridge {
     };
     el.addEventListener("load", onLoad);
 
+    // cleared when this frame goes: a reply that comes back after that
+    // belongs to a view that is no longer on screen
+    let active = true;
     const onMessage = async (event: MessageEvent) => {
       if (event.source !== el.contentWindow || gone.current) return;
       const msg = event.data;
@@ -339,10 +343,13 @@ export function usePluginBridge(options: Options): Bridge {
           }
           inFlight.current = true;
           setSubmitting(true);
+          // the review this decision is for, whatever is open when it lands
+          const drafted = draftKey();
           try {
             const result = await onSubmit(msg.data);
+            if (result.ok) clearDraft(drafted);
+            if (!active) return;
             if (result.ok) {
-              clearDraft();
               handedOver.current = true;
               post({ type: "submitted", decision: result.decision });
             } else {
@@ -375,6 +382,7 @@ export function usePluginBridge(options: Options): Bridge {
     el.src = `${src}#pinrail-theme=${currentTheme()}`;
 
     return () => {
+      active = false;
       el.removeEventListener("load", onLoad);
       window.removeEventListener("message", onMessage);
       window.removeEventListener("keydown", onKey);
