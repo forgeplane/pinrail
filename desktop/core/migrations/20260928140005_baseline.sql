@@ -9,7 +9,7 @@ CREATE TABLE reviews (
   origin         TEXT NOT NULL,
   requested_by   TEXT,
   summary        TEXT,
-  revises        TEXT REFERENCES reviews(id),
+  revises        TEXT REFERENCES reviews(id) ON DELETE SET NULL,
   expires_at     TEXT,
   created_at     TEXT NOT NULL,
   -- the exact release it was submitted to; the major above is what renders it
@@ -21,8 +21,7 @@ CREATE INDEX reviews_created ON reviews(created_at DESC);
 CREATE UNIQUE INDEX reviews_revises ON reviews(revises);
 
 -- A review's payload, kept apart from its row: a payload can run to
--- megabytes, and listing reviews never reads it. It goes when its review
--- is deleted.
+-- megabytes, and listing reviews never reads it.
 CREATE TABLE review_payloads (
   review_id TEXT PRIMARY KEY REFERENCES reviews(id) ON DELETE CASCADE,
   payload   TEXT NOT NULL
@@ -30,7 +29,7 @@ CREATE TABLE review_payloads (
 
 CREATE TABLE events (
   id        INTEGER PRIMARY KEY,
-  review_id TEXT REFERENCES reviews(id),
+  review_id TEXT REFERENCES reviews(id) ON DELETE CASCADE,
   kind      TEXT NOT NULL,
   actor     TEXT,
   at        TEXT NOT NULL,
@@ -40,7 +39,7 @@ CREATE INDEX events_review ON events(review_id, id);
 
 -- how a review ended: once, whichever way
 CREATE TABLE outcomes (
-  review_id  TEXT PRIMARY KEY REFERENCES reviews(id),
+  review_id  TEXT PRIMARY KEY REFERENCES reviews(id) ON DELETE CASCADE,
   kind       TEXT NOT NULL CHECK (kind IN ('decided', 'withdrawn', 'discarded')),
   at         TEXT NOT NULL,
   by         TEXT,
@@ -77,7 +76,7 @@ CREATE TABLE blobs (
 -- Which files a review carries, by the names its payload refers to them by.
 -- A blob no row names any more is swept once it is an hour old.
 CREATE TABLE review_attachments (
-  review_id  TEXT NOT NULL REFERENCES reviews(id),
+  review_id  TEXT NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
   name       TEXT NOT NULL,
   sha256     TEXT NOT NULL REFERENCES blobs(sha256),
   size       INTEGER NOT NULL,

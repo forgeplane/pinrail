@@ -5,6 +5,7 @@
 use std::path::Path;
 
 use chrono::{Duration, Utc};
+use pinrail_core::attachments::ReviewAttachment;
 use pinrail_core::db::{Db, Filters, LATEST_MIGRATION};
 use pinrail_core::reviews::{Decision, Review, Status};
 use serde_json::{Map, json};
@@ -58,21 +59,39 @@ fn by_status(db: &Db, status: Status) -> Vec<String> {
 /// Expiry has no row of its own, so the insert itself refuses an ending
 /// once the review's time is up, whatever the caller checked before.
 #[test]
-fn a_review_is_read_with_its_payload_and_deleted_with_it() {
+fn deleting_a_review_takes_what_hangs_off_it() {
     let db = Db::in_memory().unwrap();
+    let sha = "ab".repeat(32);
+    db.insert_blob(&sha, 3).unwrap();
     let mut first = review("r_1", None);
     first.payload = Some(json!({"items": [{"id": 1}]}));
+    first.attachments = vec![ReviewAttachment {
+        name: "a.png".into(),
+        sha256: sha.clone(),
+        size: 3,
+        media_type: "image/png".into(),
+    }];
     db.insert_review(&first, None).unwrap().unwrap();
-    db.insert_review(&review("r_2", None), None)
+    db.insert_decision("r_1", &decision(), None)
         .unwrap()
         .unwrap();
+    let mut second = review("r_2", None);
+    second.revises = Some("r_1".into());
+    second.attachments = first.attachments.clone();
+    db.insert_review(&second, None).unwrap().unwrap();
 
     let read = db.get_review("r_1").unwrap().unwrap();
     assert_eq!(read.payload, Some(json!({"items": [{"id": 1}]})));
 
+    // the older round goes, the newer one stays and revises nothing
     assert_eq!(db.delete_reviews(&["r_1"]).unwrap(), 1);
     assert!(db.get_review("r_1").unwrap().is_none());
-    assert!(db.get_review("r_2").unwrap().is_some());
+    assert_eq!(db.get_review("r_2").unwrap().unwrap().revises, None);
+    // the file both carried stays while one of them names it
+    let later = Utc::now() + Duration::hours(1);
+    assert!(db.delete_orphan_blobs(later).unwrap().is_empty());
+    db.delete_reviews(&["r_2"]).unwrap();
+    assert_eq!(db.delete_orphan_blobs(later).unwrap(), vec![sha]);
 }
 
 #[test]

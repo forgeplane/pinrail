@@ -513,27 +513,15 @@ impl Db {
             .collect())
     }
 
-    /// Deletes reviews with their events, outcomes and the record of the
-    /// files they carried (the blobs themselves go in the attachments sweep),
-    /// all or nothing. A round among them that revises another among them
-    /// lets go of it first, so the order they go in does not matter.
+    /// Deletes reviews, all or nothing. Their payloads, events, outcomes
+    /// and the record of the files they carried go with them through the
+    /// schema's cascades (the blobs themselves go in the attachments sweep),
+    /// and a newer round of a deleted review no longer revises it.
     pub fn delete_reviews(&self, ids: &[&str]) -> rusqlite::Result<usize> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let mut count = 0;
         for id in ids {
-            tx.execute(
-                "UPDATE reviews SET revises = NULL WHERE id = ?1",
-                params![id],
-            )?;
-        }
-        for id in ids {
-            tx.execute("DELETE FROM events WHERE review_id = ?1", params![id])?;
-            tx.execute("DELETE FROM outcomes WHERE review_id = ?1", params![id])?;
-            tx.execute(
-                "DELETE FROM review_attachments WHERE review_id = ?1",
-                params![id],
-            )?;
             count += tx.execute("DELETE FROM reviews WHERE id = ?1", params![id])?;
         }
         tx.commit()?;
