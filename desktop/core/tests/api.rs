@@ -3322,6 +3322,77 @@ async fn a_release_tagged_with_the_plugins_name_installs_and_follows_its_own_rel
     assert_eq!(updates["state"], "available", "{updates}");
     assert_eq!(updates["tag"], "plugin-review-v1.1.0", "{updates}");
     assert_eq!(updates["version"], "1.1.0", "{updates}");
+
+    // and the update installs that release: not the repository's latest,
+    // which is the app's, nor another plugin's
+    let (status, started) = call(&app, "POST", "/api/v1/plugins/review/update", None).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let job = follow(&app, started["job"].as_str().unwrap()).await;
+    assert_eq!(job["status"], "done", "{job}");
+    assert_eq!(job["plugin"]["name"], "review", "{job}");
+    assert_eq!(job["plugin"]["release"], "1.1.0", "{job}");
+    // and it keeps following its own releases
+    let (_, updates) = call(&app, "GET", "/api/v1/plugins/review/updates", None).await;
+    assert_eq!(updates["state"], "up_to_date", "{updates}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn an_update_never_installs_another_plugin_in_its_place() {
+    let mut assets = std::collections::HashMap::new();
+    assets.insert(
+        "thing.zip".to_string(),
+        zipped(&[
+            ("manifest.json", &bundle_manifest("thing", "1.0.0")),
+            ("index.html", "<html>thing</html>"),
+        ]),
+    );
+    assets.insert(
+        "other.zip".to_string(),
+        zipped(&[
+            ("manifest.json", &bundle_manifest("other", "2.0.0")),
+            ("index.html", "<html>other</html>"),
+        ]),
+    );
+    let fake = Arc::new(Releases {
+        latest: Default::default(),
+        releases: Default::default(),
+        assets,
+        base: Default::default(),
+    });
+    let base = releases_server(fake.clone()).await;
+    let app = app_with(|c| c.github_api = base.clone());
+    fake.release("acme/things", "v1.0.0", &["thing.zip"]);
+    fake.latest("acme/things", "v1.0.0");
+    let (status, row) = install(
+        &app,
+        Path::new("https://github.com/acme/things/releases"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+
+    // the repository's latest release is now another plugin's bundle
+    fake.release("acme/things", "v2.0.0", &["other.zip"]);
+    fake.latest("acme/things", "v2.0.0");
+    let (status, started) = call(&app, "POST", "/api/v1/plugins/thing/update", None).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let job = follow(&app, started["job"].as_str().unwrap()).await;
+    assert_eq!(job["status"], "failed", "{job}");
+    assert!(
+        job["error"].as_str().unwrap().contains("another plugin"),
+        "{job}"
+    );
+    let (_, plugins) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let names: Vec<&str> = plugins["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|p| p["name"].as_str())
+        .collect();
+    assert!(
+        names.contains(&"thing") && !names.contains(&"other"),
+        "{names:?}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]

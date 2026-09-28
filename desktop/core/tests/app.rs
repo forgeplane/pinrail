@@ -172,6 +172,7 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
             force: false,
             reference: None,
             path: None,
+            updates: None,
         },
     );
     let installed = tokio::time::timeout(std::time::Duration::from_secs(10), async {

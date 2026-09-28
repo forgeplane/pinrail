@@ -85,6 +85,7 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
         force: body.get("force").and_then(Value::as_bool).unwrap_or(false),
         reference: body.get("ref").and_then(Value::as_str).map(str::to_string),
         path: body.get("path").and_then(Value::as_str).map(str::to_string),
+        updates: None,
     };
     Ok((source.to_string(), options))
 }

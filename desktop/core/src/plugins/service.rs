@@ -229,7 +229,17 @@ impl PluginService {
             }
             _ => {}
         }
-        let (source, options) = install::source_of(&record);
+        let (mut source, mut options) = install::source_of(&record);
+        // the release the check found, by its tag: a plugin whose tag names
+        // it shares its repository's latest release with the app and with
+        // the other plugins released there
+        if record.kind == "release"
+            && let Some(tag) = answer["tag"].as_str()
+            && let Some(page) = source.strip_suffix("/releases")
+        {
+            source = format!("{page}/releases/tag/{tag}");
+        }
+        options.updates = Some(record.name.clone());
         Ok(UpdateOutcome::Started {
             job_id: self.start_install(&source, options),
         })

@@ -39,6 +39,8 @@ pub struct Options {
     pub reference: Option<String>,
     /// the plugin's folder inside the repository, given beside a git source
     pub path: Option<String>,
+    /// the plugin an update is for: a bundle that names another is refused
+    pub updates: Option<String>,
 }
 
 /// Where a plugin comes from, as the source string says.
@@ -1112,6 +1114,22 @@ fn install_dir(
     let manifest = read_manifest(&dir)?;
     if let Some(name) = manifest.get("name").and_then(Value::as_str) {
         builtin_name(name)?;
+    }
+    // an update brings a new version of the same plugin, never another one
+    // that happens to share its source
+    if let Some(updating) = &options.updates {
+        let named = manifest
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if named != updating {
+            return Err(Error::invalid(
+                "/source",
+                format!(
+                    "the update for {updating} found a bundle of {named}, which is another plugin"
+                ),
+            ));
+        }
     }
     let build = if origin.build {
         build_command(&manifest)?

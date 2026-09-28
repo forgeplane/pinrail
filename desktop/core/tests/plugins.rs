@@ -53,6 +53,7 @@ async fn link(app: &Pinrail, dir: &Path) -> InstallJob {
             force: false,
             reference: None,
             path: None,
+            updates: None,
         },
     );
     finished(app.plugins(), &id).await
@@ -67,6 +68,7 @@ async fn copy(app: &Pinrail, dir: &Path) -> InstallJob {
             force: false,
             reference: None,
             path: None,
+            updates: None,
         },
     );
     finished(app.plugins(), &id).await
