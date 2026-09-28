@@ -1,6 +1,9 @@
 //! `/api/v1/events`: server-sent events for the shell and the tray. Each
-//! event carries its database id, so a client that reconnects passes
-//! `after=<id>` and misses nothing.
+//! event carries its database id, so a client that reconnects catches up
+//! from the last one it saw: by `after=<id>`, or by the Last-Event-ID
+//! header a browser's EventSource sends. A client that falls so far behind
+//! that notices are lost is disconnected, so that it reconnects and
+//! catches up rather than going on with a gap.
 
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -8,6 +11,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::{Query, State};
+use axum::http::HeaderMap;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::get;
 use futures_util::StreamExt;
@@ -28,10 +32,15 @@ pub fn routes() -> Router<ApiState> {
 async fn events(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
+    headers: HeaderMap,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     // Subscribe before reading the backlog, so nothing between the two is lost.
     let rx = state.events().subscribe();
-    let after = params.get("after").and_then(|a| a.parse::<i64>().ok());
+    let after = params
+        .get("after")
+        .map(String::as_str)
+        .or_else(|| headers.get("last-event-id").and_then(|v| v.to_str().ok()))
+        .and_then(|a| a.trim().parse::<i64>().ok());
     let backlog: Vec<Notice> = match after {
         Some(after) => state
             .events()
@@ -42,6 +51,9 @@ async fn events(
     let last_backlog_id = backlog.last().map(|n| n.event_id).or(after).unwrap_or(0);
 
     let live = BroadcastStream::new(rx)
+        // lagged: notices were dropped for this subscriber, so the stream
+        // ends and the client reconnects from its last id
+        .take_while(|item| futures_util::future::ready(item.is_ok()))
         .filter_map(|item| async move { item.ok() })
         .filter(move |n| {
             let fresh = n.event_id > last_backlog_id;

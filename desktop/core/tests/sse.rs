@@ -80,3 +80,56 @@ async fn catch_up_precedes_live_events_and_suppresses_replayed_ids() {
         );
     }
 }
+
+/// A subscriber that falls behind by more than the channel holds has its
+/// stream ended, so its EventSource reconnects and catches up, rather than
+/// going on with a gap it cannot see.
+#[tokio::test]
+async fn a_subscriber_that_falls_behind_is_disconnected_not_skipped() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
+    let response = api::router(app.clone())
+        .oneshot(Request::get("/api/v1/events").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    for n in 0..300 {
+        app.settings()
+            .change(&json!({"notifications": {"sound": n % 2 == 0}}))
+            .unwrap();
+    }
+    let mut body = response.into_body();
+    let ended = tokio::time::timeout(Duration::from_secs(5), async {
+        while let Some(frame) = body.frame().await {
+            frame.unwrap();
+        }
+    })
+    .await;
+    assert!(ended.is_ok(), "the stream went on past the notices it lost");
+}
+
+/// A browser's EventSource reconnects with the last id it saw in the
+/// Last-Event-ID header, and the stream catches up from there.
+#[tokio::test]
+async fn a_reconnect_catches_up_from_last_event_id() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Arc::new(Pinrail::open(Config::new(dir.path(), 0)).unwrap());
+    app.settings().change(&json!({"autostart": true})).unwrap();
+    let seen = app.events().after(0, 1).unwrap()[0].event_id;
+    app.settings()
+        .change(&json!({"appearance": {"theme": "dark"}}))
+        .unwrap();
+    let missed = app.events().after(seen, 1).unwrap().remove(0);
+    let response = api::router(app.clone())
+        .oneshot(
+            Request::get("/api/v1/events")
+                .header("last-event-id", seen.to_string())
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let mut body = response.into_body();
+    let mut buffered = String::new();
+    let (id, _) = next_event(&mut body, &mut buffered).await;
+    assert_eq!(id, missed.event_id);
+}
