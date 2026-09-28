@@ -19,8 +19,10 @@ pub struct Filters {
     pub run_id: Option<String>,
     pub text: Option<String>,
     pub include_revised: bool,
-    /// Only reviews with an id below this one, for paging newest first.
+    /// Only reviews past this one in the listing's order, for paging.
     pub cursor: Option<String>,
+    /// Oldest first, rather than newest first.
+    pub oldest_first: bool,
     pub limit: usize,
     /// Rows to skip before the limit, for numbered pages.
     pub offset: usize,
@@ -240,10 +242,12 @@ impl Db {
         .map(|r| r.is_some())
     }
 
-    /// Reviews matching the filters, newest first, without payloads.
+    /// Reviews matching the filters, newest first unless the filters ask
+    /// for the oldest, without payloads.
     pub fn list(&self, filters: &Filters, now: DateTime<Utc>) -> rusqlite::Result<Vec<Review>> {
         let (mut sql, mut args) = self.where_clause(filters, now);
-        sql = format!("{SELECT}{sql} ORDER BY r.id DESC");
+        let order = if filters.oldest_first { "ASC" } else { "DESC" };
+        sql = format!("{SELECT}{sql} ORDER BY r.id {order}");
         if filters.limit > 0 {
             args.push(filters.limit.to_string());
             sql.push_str(&format!(" LIMIT ?{}", args.len()));
@@ -372,7 +376,8 @@ impl Db {
         }
         if let Some(c) = &filters.cursor {
             let n = push(c);
-            sql.push_str(&format!(" AND r.id < ?{n}"));
+            let past = if filters.oldest_first { ">" } else { "<" };
+            sql.push_str(&format!(" AND r.id {past} ?{n}"));
         }
         if !filters.include_revised {
             sql.push_str(" AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)");

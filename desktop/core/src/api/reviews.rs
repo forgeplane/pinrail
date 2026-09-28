@@ -298,6 +298,7 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
         text: text("q"),
         include_revised: params.get("include_revised").is_some_and(|v| v == "true"),
         cursor: text("cursor"),
+        oldest_first: false,
         limit: params
             .get("limit")
             .and_then(|l| l.parse().ok())

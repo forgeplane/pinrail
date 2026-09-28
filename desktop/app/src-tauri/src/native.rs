@@ -30,6 +30,8 @@ pub struct Native {
     pending_route: Mutex<Option<String>>,
     /// The global shortcut as last registered.
     shortcut: Mutex<ShortcutState>,
+    /// Wakes the task that rebuilds the tray; see `refresh_tray`.
+    tray: Arc<tokio::sync::Notify>,
 }
 
 impl Native {
@@ -41,6 +43,7 @@ impl Native {
                 shortcut: DEFAULT_SHORTCUT.to_string(),
                 error: None,
             }),
+            tray: Arc::default(),
         }
     }
 
@@ -199,8 +202,7 @@ pub fn watch_pause_end(app: &AppHandle, state: Arc<Pinrail>) {
             if until.is_some_and(|until| until > Utc::now()) {
                 shown = true;
             } else if std::mem::take(&mut shown) {
-                let again = handle.clone();
-                let _ = handle.run_on_main_thread(move || refresh_tray(&again));
+                refresh_tray(&handle);
             }
         }
     });
@@ -234,15 +236,30 @@ pub fn open_review(app: &AppHandle, id: &str) {
     open(app, &format!("/reviews/{id}"));
 }
 
-/// The oldest pending review, or the inbox when nothing is waiting.
+/// The oldest pending review, or the inbox when nothing is waiting. It is
+/// looked up off the main thread, where the menu and the shortcut call it.
 pub fn open_next(app: &AppHandle) {
-    let oldest = app
-        .try_state::<Native>()
-        .and_then(|native| pending(&native.state).pop());
-    match oldest {
-        Some(review) => open_review(app, &review.id),
-        None => open(app, "/"),
-    }
+    let Some(state) = app.try_state::<Native>().map(|native| native.state.clone()) else {
+        return open(app, "/");
+    };
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let filters = Filters {
+            statuses: vec![Status::Pending],
+            limit: 1,
+            oldest_first: true,
+            ..Filters::default()
+        };
+        match state
+            .reviews()
+            .list(&filters)
+            .ok()
+            .and_then(|r| r.into_iter().next())
+        {
+            Some(review) => open_review(&app, &review.id),
+            None => open(&app, "/"),
+        }
+    });
 }
 
 /// Where `pinrail://reviews/<id>` and the HTTP URL the CLI prints lead.
@@ -285,14 +302,31 @@ pub fn apply_menu_bar_icon(app: &AppHandle, state: &Pinrail) {
     }
 }
 
-/// Pending reviews, newest first, as the API lists them.
-fn pending(state: &Pinrail) -> Vec<Review> {
+/// What the tray shows: how many reviews are pending, and the oldest of
+/// them, oldest first, for its rows.
+#[derive(Debug, Default)]
+struct TrayContents {
+    count: usize,
+    oldest: Vec<Review>,
+}
+
+fn tray_contents(state: &Pinrail) -> TrayContents {
     let filters = Filters {
         statuses: vec![Status::Pending],
-        limit: 500,
+        limit: TRAY_ROWS,
+        oldest_first: true,
         ..Filters::default()
     };
-    state.reviews().list(&filters).unwrap_or_default()
+    match state.reviews().listing(&filters, false) {
+        Ok(listing) => TrayContents {
+            count: listing.total,
+            oldest: listing.reviews,
+        },
+        Err(error) => {
+            eprintln!("pinrail: the menu bar icon could not read the pending reviews: {error}");
+            TrayContents::default()
+        }
+    }
 }
 
 /// The menu bar icon, and the same at 45% opacity while notifications are
@@ -309,6 +343,7 @@ pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| on_menu(app, event.id().as_ref()))
         .build(app)?;
+    watch_tray(app);
     refresh_tray(app);
     Ok(tray)
 }
@@ -325,7 +360,10 @@ fn on_menu(app: &AppHandle, id: &str) {
                     "pause:tomorrow" => Some(tomorrow()),
                     _ => None,
                 };
-                pause_notifications(&native.state, until);
+                // saving the setting writes a file and records an event,
+                // which is not the main thread's to wait for
+                let state = native.state.clone();
+                tauri::async_runtime::spawn_blocking(move || pause_notifications(&state, until));
             }
         }
         "quit" => app.exit(0),
@@ -354,19 +392,51 @@ fn on_menu(app: &AppHandle, id: &str) {
     }
 }
 
-/// Rebuilds the tray's title, tooltip and menu, and the Dock badge, from the
-/// pending reviews.
-/// Menus are main-thread objects on macOS; call this there.
+/// Asks for the tray to be rebuilt: its title, tooltip and menu, and the
+/// Dock badge. Any thread may ask. Requests that arrive together make one
+/// rebuild, done by the task `build_tray` starts.
 pub fn refresh_tray(app: &AppHandle) {
-    let Some(tray) = app.tray_by_id(TRAY_ID) else {
-        return;
-    };
+    if let Some(native) = app.try_state::<Native>() {
+        native.tray.notify_one();
+    }
+}
+
+/// Rebuilds the tray each time `refresh_tray` asks, for the app's life. It
+/// waits a moment, so a burst of events makes one rebuild, reads the pending
+/// reviews and the settings on a blocking thread, where waiting for the
+/// database holds nothing up, and hands only the finished data to the main
+/// thread, where menus live on macOS.
+fn watch_tray(app: &AppHandle) {
     let Some(native) = app.try_state::<Native>() else {
         return;
     };
-    let pending = pending(&native.state);
-    let count = pending.len();
-    let notifications = notification_settings(&native.state);
+    let wake = native.tray.clone();
+    let state = native.state.clone();
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            wake.notified().await;
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+            let state = state.clone();
+            let read = tauri::async_runtime::spawn_blocking(move || {
+                (tray_contents(&state), notification_settings(&state))
+            });
+            let Ok((contents, notifications)) = read.await else {
+                continue;
+            };
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || show_tray(&handle, &contents, &notifications));
+        }
+    });
+}
+
+/// Puts what `watch_tray` read into the tray and the Dock badge. Menus are
+/// main-thread objects on macOS; call this there.
+fn show_tray(app: &AppHandle, contents: &TrayContents, notifications: &NotificationSettings) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let count = contents.count;
     // dimmed while nothing will notify: paused, or off in Settings
     let quiet = if !notifications.enabled {
         Some(" · notifications off".to_string())
@@ -400,7 +470,7 @@ pub fn refresh_tray(app: &AppHandle) {
         },
         quiet.unwrap_or_default()
     )));
-    if let Ok(menu) = menu(app, &pending, &notifications) {
+    if let Ok(menu) = menu(app, contents, notifications) {
         let _ = tray.set_menu(Some(menu));
     }
     // The Dock icon carries the count too, for a menu bar that hides the tray.
@@ -411,11 +481,11 @@ pub fn refresh_tray(app: &AppHandle) {
 
 fn menu(
     app: &AppHandle,
-    pending: &[Review],
+    contents: &TrayContents,
     notifications: &NotificationSettings,
 ) -> tauri::Result<Menu<Wry>> {
     let menu = Menu::new(app)?;
-    if pending.is_empty() {
+    if contents.oldest.is_empty() {
         menu.append(&MenuItem::with_id(
             app,
             "none",
@@ -425,7 +495,7 @@ fn menu(
         )?)?;
     } else {
         let now = Utc::now();
-        for review in pending.iter().rev().take(TRAY_ROWS) {
+        for review in &contents.oldest {
             menu.append(&MenuItem::with_id(
                 app,
                 format!("review:{}", review.id),
@@ -434,11 +504,14 @@ fn menu(
                 None::<&str>,
             )?)?;
         }
-        if pending.len() > TRAY_ROWS {
+        if contents.count > contents.oldest.len() {
             menu.append(&MenuItem::with_id(
                 app,
                 "more",
-                format!("{} more in the inbox", pending.len() - TRAY_ROWS),
+                format!(
+                    "{} more in the inbox",
+                    contents.count - contents.oldest.len()
+                ),
                 false,
                 None::<&str>,
             )?)?;
@@ -601,8 +674,7 @@ pub fn watch(app: AppHandle) {
                             | events::DISCARDED
                             | events::EXPIRED
                     ) {
-                        let handle = app.clone();
-                        let _ = app.run_on_main_thread(move || refresh_tray(&handle));
+                        refresh_tray(&app);
                     }
                     if notice.kind == events::CREATED {
                         notify(&app, &notice);
@@ -630,10 +702,7 @@ pub fn watch(app: AppHandle) {
                         }
                     }
                 }
-                Err(RecvError::Lagged(_)) => {
-                    let handle = app.clone();
-                    let _ = app.run_on_main_thread(move || refresh_tray(&handle));
-                }
+                Err(RecvError::Lagged(_)) => refresh_tray(&app),
                 Err(RecvError::Closed) => break,
             }
         }
@@ -684,6 +753,27 @@ fn notify(app: &AppHandle, notice: &Notice) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_tray_counts_every_pending_review_and_lists_the_oldest() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = Pinrail::open(pinrail_core::Config::new(dir.path(), 0)).unwrap();
+        for n in 0..502 {
+            let body = serde_json::json!({
+                "plugin": "list", "title": format!("review {n}"), "payload": {"groups": []}
+            });
+            state.reviews().submit(&body, None).unwrap();
+        }
+        let tray = tray_contents(&state);
+        assert_eq!(tray.count, 502);
+        let titles: Vec<&str> = tray.oldest.iter().map(|r| r.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            (0..TRAY_ROWS)
+                .map(|n| format!("review {n}"))
+                .collect::<Vec<_>>()
+        );
+    }
 
     fn settings(quiet: Option<(&str, &str)>) -> NotificationSettings {
         NotificationSettings {

@@ -221,7 +221,8 @@ impl Reviews {
         Ok(self.db.list(&filters, Utc::now())?)
     }
 
-    /// One page of a listing, newest first: the reviews, how many match in
+    /// One page of a listing, newest first unless the filters ask for the
+    /// oldest: the reviews, how many match in
     /// all, whether there is more and the cursor to it, and, when asked, the
     /// values the filter menus can offer. A page follows from `cursor` (the
     /// way to walk everything) or from `offset` (numbered pages).

@@ -97,8 +97,7 @@ impl Updates {
         let _ = app.emit(EVENT, status);
         // the tray's menu offers the restart, or the download
         if offers {
-            let handle = app.clone();
-            let _ = app.run_on_main_thread(move || crate::native::refresh_tray(&handle));
+            crate::native::refresh_tray(app);
         }
     }
 }
