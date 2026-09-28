@@ -133,9 +133,11 @@ export function usePluginBridge(options: Options): Bridge {
     minHeight,
   };
 
+  // nothing once the view has left its frame: whatever took its place is
+  // not the view the message was for
   const post = useCallback(
-    (msg: Record<string, unknown>) => {
-      if (!gone.current) frame.current?.contentWindow?.postMessage({ pinrail: PROTOCOL, ...msg }, "*");
+    (msg: Record<string, unknown>, transfer: Transferable[] = []) => {
+      if (!gone.current) frame.current?.contentWindow?.postMessage({ pinrail: PROTOCOL, ...msg }, "*", transfer);
     },
     [frame],
   );
@@ -160,20 +162,12 @@ export function usePluginBridge(options: Options): Bridge {
     }
     try {
       const copy = (await bytes).slice(0);
-      frame.current?.contentWindow?.postMessage(
-        {
-          pinrail: PROTOCOL,
-          type: "attachment",
-          req,
-          ok: true,
-          name,
-          media_type: listed.media_type,
-          size: listed.size,
-          bytes: copy,
-        },
-        "*",
-        [copy],
-      );
+      // the fetch took time: the frame may show another review by now
+      const now = round === "previous" ? latest.current.previous : latest.current.review;
+      if (now?.id !== from.id) return;
+      post({ type: "attachment", req, ok: true, name, media_type: listed.media_type, size: listed.size, bytes: copy }, [
+        copy,
+      ]);
     } catch (error) {
       fail(error instanceof Error ? error.message : `could not fetch ${name}`);
     }
