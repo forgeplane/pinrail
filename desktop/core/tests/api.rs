@@ -2976,6 +2976,31 @@ async fn a_source_that_cannot_be_reached_is_unavailable_not_invalid() {
     assert_eq!(job["error_kind"], "invalid", "{job}");
 }
 
+/// A remote that takes the connection and never answers stops the fetch
+/// after the fetch timeout, as unavailable, rather than holding the job
+/// at fetching for ever.
+#[tokio::test]
+async fn a_remote_that_never_answers_is_given_up_on() {
+    // the kernel accepts the connections; nothing ever answers them
+    let silent = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let at = silent.local_addr().unwrap();
+    let app = app_with(|c| {
+        c.github_api = format!("http://{at}");
+        c.fetch_timeout = Duration::from_secs(1);
+    });
+    for source in [
+        format!("https://{at}/acme/plugins"),
+        "https://github.com/acme/plugins/releases".to_string(),
+    ] {
+        let started = std::time::Instant::now();
+        let (_, job) = install_as_sent(&app, json!({ "source": source })).await;
+        assert_eq!(job["status"], "failed", "{source}: {job}");
+        assert_eq!(job["error_kind"], "unavailable", "{source}: {job}");
+        assert!(started.elapsed() < Duration::from_secs(20), "{source}");
+    }
+    drop(silent);
+}
+
 /// What every step of a build writes to stderr is in its log and in the
 /// failure the person reads, as `npm ci && npm run build` needs.
 #[tokio::test]

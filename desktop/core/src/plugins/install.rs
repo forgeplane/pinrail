@@ -663,7 +663,7 @@ fn fetch_release(
         }
     );
     progress(Progress::Log(format!("GET {api}")));
-    let release: Value = github_get(&api)?
+    let release: Value = github_get(registry, &api)?
         .body_mut()
         .read_json()
         .map_err(|e| Error::invalid("/source", format!("GitHub's answer is not a release: {e}")))?;
@@ -717,7 +717,7 @@ fn fetch_release(
     progress(Progress::Log(format!(
         "downloading {asset_name} ({size} bytes)"
     )));
-    let bytes = github_get(&asset_url)?
+    let bytes = github_get(registry, &asset_url)?
         .body_mut()
         .with_config()
         .limit(ASSET_LIMIT)
@@ -851,8 +851,21 @@ fn unzip_within(bytes: &[u8], into: &Path, limits: Unpacking) -> Result<(), Erro
     Ok(())
 }
 
-fn github_get(url: &str) -> Result<ureq::http::Response<ureq::Body>, Error> {
-    ureq::get(url)
+/// One GET to GitHub. Connecting and each answer may take the registry's
+/// fetch timeout, and a body, such as a release's asset, twenty times that.
+fn github_get(registry: &Registry, url: &str) -> Result<ureq::http::Response<ureq::Body>, Error> {
+    let timeout = registry.fetch_timeout();
+    let agent = ureq::Agent::new_with_config(
+        ureq::Agent::config_builder()
+            .timeout_resolve(Some(timeout))
+            .timeout_connect(Some(timeout))
+            .timeout_send_request(Some(timeout))
+            .timeout_recv_response(Some(timeout))
+            .timeout_recv_body(Some(timeout * 20))
+            .build(),
+    );
+    agent
+        .get(url)
         .header("accept", "application/vnd.github+json")
         .header("user-agent", "pinrail")
         .call()
@@ -911,12 +924,7 @@ fn fetch_git(
     };
     for args in steps {
         progress(Progress::Log(format!("$ git {}", args.join(" "))));
-        let output = Command::new("git")
-            .args(&args)
-            .current_dir(&root)
-            .env("GIT_TERMINAL_PROMPT", "0")
-            .output()
-            .map_err(|e| Error::invalid("/source", format!("git could not run: {e}")))?;
+        let output = run_git(&args, &root, registry.fetch_timeout())?;
         for line in String::from_utf8_lossy(&output.stderr)
             .lines()
             .chain(String::from_utf8_lossy(&output.stdout).lines())
@@ -951,6 +959,56 @@ fn fetch_git(
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .ok_or_else(|| Error::invalid("/source", "the clone has no commit"))?;
     Ok(Fetched { root, commit })
+}
+
+/// Runs git in `dir` against a remote, with nothing to answer a prompt:
+/// a transfer that stalls for `timeout` fails, an SSH host that does not
+/// answer within it fails, and the whole command is stopped, with every
+/// process it started, after ten times `timeout`.
+fn run_git(
+    args: &[String],
+    dir: &Path,
+    timeout: std::time::Duration,
+) -> Result<std::process::Output, Error> {
+    let secs = timeout.as_secs().max(1).to_string();
+    let mut git = Command::new("git");
+    git.args(args)
+        .current_dir(dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env(
+            "GIT_SSH_COMMAND",
+            format!("ssh -o BatchMode=yes -o ConnectTimeout={secs}"),
+        )
+        // below 1 KB a second for `timeout`: the remote has stopped
+        .env("GIT_HTTP_LOW_SPEED_LIMIT", "1000")
+        .env("GIT_HTTP_LOW_SPEED_TIME", &secs);
+    // its own process group, so a stop reaches git's helpers too
+    #[cfg(unix)]
+    std::os::unix::process::CommandExt::process_group(&mut git, 0);
+    let child = git
+        .spawn()
+        .map_err(|e| Error::invalid("/source", format!("git could not run: {e}")))?;
+    let pid = child.id();
+    let (done, finished) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = done.send(child.wait_with_output());
+    });
+    let limit = timeout * 10;
+    match finished.recv_timeout(limit) {
+        Ok(output) => Ok(output?),
+        Err(_) => {
+            stop_group(pid);
+            let _ = finished.recv();
+            Err(Error::Unavailable(format!(
+                "git {} did not finish within {}: the remote stopped answering",
+                args.first().map(String::as_str).unwrap_or_default(),
+                minutes(limit)
+            )))
+        }
+    }
 }
 
 /// Whether git's message says the remote could not be reached, as opposed
@@ -1039,12 +1097,16 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             {
                 return serde_json::json!({ "state": "pinned", "ref": reference });
             }
-            let output = Command::new("git")
-                .args(["ls-remote", &url, reference.as_deref().unwrap_or("HEAD")])
-                .env("GIT_TERMINAL_PROMPT", "0")
-                .output();
-            let Ok(output) = output else {
-                return serde_json::json!({ "state": "unknown", "message": "git could not run" });
+            let args = [
+                "ls-remote".to_string(),
+                url.clone(),
+                reference.as_deref().unwrap_or("HEAD").to_string(),
+            ];
+            let output = match run_git(&args, &std::env::temp_dir(), registry.fetch_timeout()) {
+                Ok(output) => output,
+                Err(error) => {
+                    return serde_json::json!({ "state": "unknown", "message": error.to_string() });
+                }
             };
             if !output.status.success() {
                 return serde_json::json!({ "state": "unknown", "message": String::from_utf8_lossy(&output.stderr).trim() });
@@ -1086,7 +1148,7 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             let owner = resolved["owner"].as_str().unwrap_or_default();
             let repo = resolved["repo"].as_str().unwrap_or_default();
             let read = |url: String| {
-                github_get(&url).and_then(|mut r| {
+                github_get(registry, &url).and_then(|mut r| {
                     r.body_mut()
                         .read_json::<Value>()
                         .map_err(|e| Error::Internal(e.to_string()))

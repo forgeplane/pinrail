@@ -99,7 +99,9 @@ fn deleting_a_review_takes_what_hangs_off_it() {
 #[test]
 fn a_second_round_of_the_same_review_is_refused_as_a_unique_violation() {
     let db = Db::in_memory().unwrap();
-    db.insert_review(&review("r_1", None), None).unwrap().unwrap();
+    db.insert_review(&review("r_1", None), None)
+        .unwrap()
+        .unwrap();
     let mut first = review("r_2", None);
     first.revises = Some("r_1".into());
     db.insert_review(&first, None).unwrap().unwrap();

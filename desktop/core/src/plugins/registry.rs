@@ -107,6 +107,7 @@ pub struct Registry {
     github_api: String,
     /// How long a plugin's build may run.
     build_timeout: std::time::Duration,
+    fetch_timeout: std::time::Duration,
     state: RwLock<RegistryState>,
     /// Held while the store and the install records change, so two installs
     /// or removals of a plugin cannot interleave.
@@ -126,6 +127,7 @@ impl Registry {
             store_dir,
             github_api: "https://api.github.com".to_string(),
             build_timeout: crate::config::BUILD_TIMEOUT,
+            fetch_timeout: crate::config::FETCH_TIMEOUT,
             state: RwLock::new(RegistryState {
                 plugins: BTreeMap::new(),
                 kept: HashMap::new(),
@@ -155,6 +157,15 @@ impl Registry {
 
     pub fn build_timeout(&self) -> std::time::Duration {
         self.build_timeout
+    }
+
+    pub fn with_fetch_timeout(mut self, timeout: std::time::Duration) -> Self {
+        self.fetch_timeout = timeout;
+        self
+    }
+
+    pub fn fetch_timeout(&self) -> std::time::Duration {
+        self.fetch_timeout
     }
 
     pub fn store_dir(&self) -> &Path {

@@ -23,7 +23,15 @@ pub struct Config {
     pub github_api: String,
     /// How long a plugin's build may run before it is stopped.
     pub build_timeout: std::time::Duration,
+    /// How long a fetch may wait on a remote that has stopped answering:
+    /// connecting, and each answer from GitHub. A git fetch may take this
+    /// long to start transferring, and ten times as long in all.
+    pub fetch_timeout: std::time::Duration,
 }
+
+/// 30 seconds: long enough for a slow remote to answer, short enough that
+/// one that never will does not hold an install.
+pub const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// 15 minutes: a clean `npm ci` and a build on a slow connection.
 pub const BUILD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
@@ -65,6 +73,7 @@ impl Config {
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
             github_api: "https://api.github.com".to_string(),
             build_timeout: BUILD_TIMEOUT,
+            fetch_timeout: FETCH_TIMEOUT,
         }
     }
 

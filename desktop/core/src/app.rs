@@ -125,7 +125,8 @@ impl Pinrail {
             Registry::open(builtin, records, config.plugin_store_dir())
                 .map_err(Error::Internal)?
                 .with_github_api(&config.github_api)
-                .with_build_timeout(config.build_timeout),
+                .with_build_timeout(config.build_timeout)
+                .with_fetch_timeout(config.fetch_timeout),
         );
         let events = Events::new(db.clone());
         let settings =
