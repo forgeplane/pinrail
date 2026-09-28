@@ -5,7 +5,9 @@ use std::time::Duration;
 
 use pinrail_core::db::Db;
 use pinrail_core::events;
-use pinrail_core::plugins::{InstallJob, InstallOptions, PluginService, UpdateOutcome};
+use pinrail_core::plugins::{
+    InstallExpect, InstallJob, InstallOptions, PluginService, UpdateOutcome,
+};
 use pinrail_core::{Config, Error, Pinrail};
 use serde_json::{Value, json};
 
@@ -50,10 +52,7 @@ async fn link(app: &Pinrail, dir: &Path) -> InstallJob {
         &dir.display().to_string(),
         InstallOptions {
             link: true,
-            force: false,
-            reference: None,
-            path: None,
-            updates: None,
+            ..InstallOptions::default()
         },
     );
     finished(app.plugins(), &id).await
@@ -61,16 +60,9 @@ async fn link(app: &Pinrail, dir: &Path) -> InstallJob {
 
 /// Installs a copy of one plugin folder into the store, and waits for the job.
 async fn copy(app: &Pinrail, dir: &Path) -> InstallJob {
-    let id = app.plugins().start_install(
-        &dir.display().to_string(),
-        InstallOptions {
-            link: false,
-            force: false,
-            reference: None,
-            path: None,
-            updates: None,
-        },
-    );
+    let id = app
+        .plugins()
+        .start_install(&dir.display().to_string(), InstallOptions::default());
     finished(app.plugins(), &id).await
 }
 
@@ -148,7 +140,7 @@ async fn inspection_and_update_jobs_work_without_http() {
         "up_to_date"
     );
     assert_eq!(
-        app.plugins().start_update("hello").await.unwrap(),
+        app.plugins().start_update("hello", None).await.unwrap(),
         UpdateOutcome::UpToDate {
             version: "1.0.0".into()
         }
@@ -161,7 +153,8 @@ async fn inspection_and_update_jobs_work_without_http() {
         app.plugins().check_updates("hello").await.unwrap()["state"],
         "available"
     );
-    let UpdateOutcome::Started { job_id } = app.plugins().start_update("hello").await.unwrap()
+    let UpdateOutcome::Started { job_id } =
+        app.plugins().start_update("hello", None).await.unwrap()
     else {
         panic!("the changed source should start an update job");
     };
@@ -186,9 +179,16 @@ async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plug
     std::fs::write(manifest_path, manifest.to_string()).unwrap();
     let mut notices = app.events().subscribe();
 
-    let id = app
-        .plugins()
-        .start_install(source.to_str().unwrap(), InstallOptions::default());
+    let id = app.plugins().start_install(
+        source.to_str().unwrap(),
+        InstallOptions {
+            expect: Some(InstallExpect {
+                build: Some("echo build-failed; exit 1".into()),
+                ..InstallExpect::default()
+            }),
+            ..InstallOptions::default()
+        },
+    );
     let failed = finished(app.plugins(), &id).await;
     assert_eq!(failed.status, "failed");
     assert!(failed.log.contains("build-failed"), "{failed:?}");
@@ -234,7 +234,8 @@ async fn removal_keeps_the_version_an_existing_review_needs() {
         .unwrap();
 
     plugin(&sources, "hello", "2.0.0");
-    let UpdateOutcome::Started { job_id } = app.plugins().start_update("hello").await.unwrap()
+    let UpdateOutcome::Started { job_id } =
+        app.plugins().start_update("hello", None).await.unwrap()
     else {
         panic!("a newer major version should start an update job");
     };
@@ -272,10 +273,10 @@ async fn a_link_refuses_update_without_starting_work_or_announcing_a_change() {
         app.plugins().check_updates("hello").await.unwrap()["state"],
         "linked"
     );
-    let error = app.plugins().start_update("hello").await.unwrap_err();
+    let error = app.plugins().start_update("hello", None).await.unwrap_err();
     assert!(error.to_string().contains("is a link"), "{error}");
     assert!(matches!(
-        app.plugins().start_update("missing").await,
+        app.plugins().start_update("missing", None).await,
         Err(Error::NotFound(_))
     ));
     assert!(notices.try_recv().is_err());

@@ -4,6 +4,7 @@
 
 import type {
   Info,
+  InstallExpect,
   InstallJob,
   Inspection,
   Notice,
@@ -70,7 +71,15 @@ async function errorBody(response: Response): Promise<unknown> {
 /** An id or a name as one path segment. */
 const seg = encodeURIComponent;
 
-export type InstallRequest = { source: string; link?: boolean; force?: boolean; ref?: string; path?: string };
+export type InstallRequest = {
+  source: string;
+  link?: boolean;
+  force?: boolean;
+  ref?: string;
+  path?: string;
+  /** what the inspection found and the person confirmed; a build runs only with it */
+  expect?: InstallExpect;
+};
 
 const query = (params: Record<string, string | undefined>) => {
   const q = new URLSearchParams();
@@ -111,9 +120,18 @@ export const api = {
       "GET",
       `/api/v1/plugins/${seg(name)}/versions`,
     ),
-  /** installs again from where it came: a job to follow, or up_to_date at once */
-  updatePlugin: (name: string) =>
-    request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${seg(name)}/update`),
+  /** what an update would install: the newer version's inspection, or up_to_date */
+  inspectUpdate: (name: string) =>
+    request<({ state: "available" } & Inspection) | { state: "up_to_date"; version: string }>(
+      "POST",
+      `/api/v1/plugins/${seg(name)}/update/inspect`,
+    ),
+  /** installs again from where it came, as the update's inspection found it:
+   * a job to follow, or up_to_date at once */
+  updatePlugin: (name: string, expect: InstallExpect) =>
+    request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${seg(name)}/update`, {
+      expect,
+    }),
   /** drops the record and the store entries no review renders from */
   removePlugin: (name: string) =>
     request<{ removed: string; linked: boolean; entries_kept: number[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),

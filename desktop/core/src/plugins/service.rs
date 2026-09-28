@@ -200,9 +200,46 @@ impl PluginService {
         self.check_record(self.installed(name)?).await
     }
 
-    /// Updates from the installation's original source. Links and pinned versions
-    /// are refused; unchanged sources do not start a job or announce a change.
-    pub async fn start_update(&self, name: &str) -> Result<UpdateOutcome, Error> {
+    /// What updating would install, without installing it: the inspection
+    /// of the newer version, with `"state": "available"`, or
+    /// `{"state": "up_to_date", "version"}`. An update that runs a build
+    /// needs the `expect` this answers with.
+    pub async fn inspect_update(&self, name: &str) -> Result<Value, Error> {
+        match self.update_source(name).await? {
+            Err(version) => Ok(serde_json::json!({ "state": "up_to_date", "version": version })),
+            Ok((source, options)) => {
+                let mut seen = self.inspect(&source, options).await?;
+                seen["state"] = Value::String("available".into());
+                Ok(seen)
+            }
+        }
+    }
+
+    /// Updates from the installation's original source, running a build
+    /// only as `expect` confirms it. Links and pinned versions are refused;
+    /// unchanged sources do not start a job or announce a change.
+    pub async fn start_update(
+        &self,
+        name: &str,
+        expect: Option<install::Expect>,
+    ) -> Result<UpdateOutcome, Error> {
+        match self.update_source(name).await? {
+            Err(version) => Ok(UpdateOutcome::UpToDate { version }),
+            Ok((source, mut options)) => {
+                options.expect = expect;
+                Ok(UpdateOutcome::Started {
+                    job_id: self.start_install(&source, options),
+                })
+            }
+        }
+    }
+
+    /// The source and options that update the plugin, or its version when
+    /// it is up to date.
+    async fn update_source(
+        &self,
+        name: &str,
+    ) -> Result<Result<(String, InstallOptions), String>, Error> {
         let record = self.installed(name)?;
         let answer = self.check_record(record.clone()).await?;
         match answer["state"].as_str().unwrap_or("unknown") {
@@ -222,11 +259,7 @@ impl PluginService {
                     format!("{name} is pinned to {at}; install another ref to move it"),
                 ));
             }
-            "up_to_date" => {
-                return Ok(UpdateOutcome::UpToDate {
-                    version: record.version,
-                });
-            }
+            "up_to_date" => return Ok(Err(record.version)),
             _ => {}
         }
         let (mut source, mut options) = install::source_of(&record);
@@ -240,9 +273,7 @@ impl PluginService {
             source = format!("{page}/releases/tag/{tag}");
         }
         options.updates = Some(record.name.clone());
-        Ok(UpdateOutcome::Started {
-            job_id: self.start_install(&source, options),
-        })
+        Ok(Ok((source, options)))
     }
 
     fn installed(&self, name: &str) -> Result<InstalledRecord, Error> {

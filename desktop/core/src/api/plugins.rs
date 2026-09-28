@@ -15,7 +15,7 @@ use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
 use crate::error::Error;
-use crate::plugins::{InstallOptions, UpdateOutcome};
+use crate::plugins::{InstallExpect, InstallOptions, UpdateOutcome};
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
@@ -28,6 +28,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/plugins/jobs/{id}", get(job))
         .route("/api/v1/plugins/{name}/updates", get(updates))
         .route("/api/v1/plugins/{name}/update", post(update))
+        .route(
+            "/api/v1/plugins/{name}/update/inspect",
+            post(inspect_update),
+        )
         .route("/api/v1/plugins/{name}", delete(remove))
         .route("/api/v1/plugins/{name}/versions", get(versions))
         .route("/api/v1/plugins/{name}/describe", get(describe))
@@ -74,7 +78,7 @@ async fn versions(
 }
 
 /// The source and the options an install or an inspect takes:
-/// `{source, link?, force?, ref?, path?}`.
+/// `{source, link?, force?, ref?, path?, expect?}`.
 fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     let body = parse_body(body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
@@ -86,8 +90,32 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
         reference: body.get("ref").and_then(Value::as_str).map(str::to_string),
         path: body.get("path").and_then(Value::as_str).map(str::to_string),
         updates: None,
+        expect: expect_of(&body)?,
     };
     Ok((source.to_string(), options))
+}
+
+/// The `expect` an inspection answered with and the person confirmed:
+/// `{build, commit?, asset_hash?}`, each a string or null.
+fn expect_of(body: &Value) -> Result<Option<InstallExpect>, Error> {
+    let expect = match body.get("expect") {
+        None | Some(Value::Null) => return Ok(None),
+        Some(Value::Object(expect)) => expect,
+        Some(_) => return Err(Error::invalid("/expect", "must be an object")),
+    };
+    let field = |key: &str| match expect.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(text)) => Ok(Some(text.clone())),
+        Some(_) => Err(Error::invalid(
+            format!("/expect/{key}"),
+            "must be a string or null",
+        )),
+    };
+    Ok(Some(InstallExpect {
+        build: field("build")?,
+        commit: field("commit")?,
+        asset_hash: field("asset_hash")?,
+    }))
 }
 
 async fn inspect(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
@@ -124,11 +152,32 @@ async fn updates(
     Ok(Json(state.plugins().check_updates(&name).await?))
 }
 
+/// What updating would install: the inspection of the newer version, or
+/// that there is nothing newer.
+async fn inspect_update(
+    State(state): State<Arc<Pinrail>>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(state.plugins().inspect_update(&name).await?))
+}
+
+/// Updates the plugin; the body may carry `{expect}` from the update's
+/// inspection, which an update that runs a build needs.
 async fn update(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
+    body: Bytes,
 ) -> Result<Response, ApiError> {
-    match state.plugins().start_update(&name).await? {
+    let body = if body.is_empty() {
+        Value::Null
+    } else {
+        parse_body(&body)?
+    };
+    match state
+        .plugins()
+        .start_update(&name, expect_of(&body)?)
+        .await?
+    {
         UpdateOutcome::UpToDate { version } => {
             Ok(Json(json!({ "state": "up_to_date", "version": version })).into_response())
         }

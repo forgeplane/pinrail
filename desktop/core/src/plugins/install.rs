@@ -41,6 +41,32 @@ pub struct Options {
     pub path: Option<String>,
     /// the plugin an update is for: a bundle that names another is refused
     pub updates: Option<String>,
+    /// what the person confirmed, as the inspection answered it: a build
+    /// runs only when this matches what was fetched
+    pub expect: Option<Expect>,
+}
+
+/// What an inspection found and the person confirmed: the build command,
+/// and the commit or release asset it was found in.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Expect {
+    pub build: Option<String>,
+    pub commit: Option<String>,
+    pub asset_hash: Option<String>,
+}
+
+impl Expect {
+    /// The `expect` an inspection answers with, for the install to send back.
+    fn to_json(&self) -> Value {
+        let mut out = serde_json::json!({ "build": self.build });
+        if let Some(commit) = &self.commit {
+            out["commit"] = Value::String(commit.clone());
+        }
+        if let Some(hash) = &self.asset_hash {
+            out["asset_hash"] = Value::String(hash.clone());
+        }
+        out
+    }
 }
 
 /// Where a plugin comes from, as the source string says.
@@ -465,6 +491,13 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
             .and_then(|file| super::manifest::icon_markup(&prepared.dir, file).ok()),
         "entry": manifest.get("entry").and_then(Value::as_str).unwrap_or("index.html"),
         "build": build,
+        // what an install sends back to run exactly what was shown
+        "expect": Expect {
+            build: build.clone(),
+            commit: prepared.origin.commit.clone(),
+            asset_hash: prepared.origin.asset_hash.clone(),
+        }
+        .to_json(),
         // the files it takes beside a payload, for the dialog to say before the yes
         "attachments": manifest.get("attachments"),
         "origin": { "kind": prepared.origin.kind, "resolved": resolved, "commit": prepared.origin.commit },
@@ -1156,6 +1189,8 @@ fn install_dir(
         return commit(db, registry, record, None);
     }
 
+    confirmed(options.expect.as_ref(), build.as_deref(), &origin)?;
+
     // build in a scratch copy, so the source is never written to
     let (staged, log_path) = match &build {
         Some(command) => {
@@ -1218,6 +1253,56 @@ fn install_dir(
         placed.entry.display().to_string(),
     );
     commit(db, registry, record, Some(placed))
+}
+
+/// Refuses an install whose build the person did not confirm, or whose
+/// source is no longer what they confirmed: another commit or release
+/// asset, or another build command. A source without a build needs no
+/// confirmation.
+fn confirmed(expect: Option<&Expect>, build: Option<&str>, origin: &Origin) -> Result<(), Error> {
+    let Some(expect) = expect else {
+        return match build {
+            Some(command) => Err(Error::invalid(
+                "/expect",
+                format!(
+                    "the plugin runs a build that was not confirmed: {command}. Inspect the source and send the expect it answers with"
+                ),
+            )),
+            None => Ok(()),
+        };
+    };
+    let again = "Inspect it again";
+    if origin.commit.is_some() && expect.commit != origin.commit {
+        return Err(Error::invalid(
+            "/expect",
+            format!(
+                "the source changed after it was inspected: it is now at commit {}. {again}",
+                origin.commit.as_deref().unwrap_or_default()
+            ),
+        ));
+    }
+    if origin.asset_hash.is_some() && expect.asset_hash != origin.asset_hash {
+        return Err(Error::invalid(
+            "/expect",
+            format!("the release changed after it was inspected. {again}"),
+        ));
+    }
+    if expect.build.as_deref() != build {
+        return Err(Error::invalid(
+            "/expect",
+            match build {
+                Some(command) => {
+                    format!(
+                        "the build changed after it was inspected: it now runs {command}. {again}"
+                    )
+                }
+                None => format!(
+                    "the build changed after it was inspected: it no longer runs one. {again}"
+                ),
+            },
+        ));
+    }
+    Ok(())
 }
 
 /// A built-in ships in the binary and is written out at every start, so an

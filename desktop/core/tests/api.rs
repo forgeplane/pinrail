@@ -2323,8 +2323,9 @@ fn plugin_copy(root: &std::path::Path, name: &str, version: &str) -> std::path::
     to
 }
 
-/// Starts an install and follows its job to the end: the plugin's row
-/// with 200, or the failure as a 422 body, the way a caller sees them.
+/// Installs as a person does: inspects the source, confirms what the
+/// inspection found, and follows the install's job to the end. The
+/// plugin's row with 200, or the failure as a 422 body.
 async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCode, Value) {
     let mut body = json!({ "source": source.display().to_string() });
     if let Value::Object(map) = extra {
@@ -2332,6 +2333,16 @@ async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCo
             body[k] = v;
         }
     }
+    // a source the inspection refuses fails the install the same way
+    let (status, seen) = call(app, "POST", "/api/v1/plugins/inspect", Some(body.clone())).await;
+    if status == StatusCode::OK && body.get("expect").is_none() {
+        body["expect"] = seen["expect"].clone();
+    }
+    install_as_sent(app, body).await
+}
+
+/// Starts an install with the body as given and follows its job.
+async fn install_as_sent(app: &App, body: Value) -> (StatusCode, Value) {
     let (status, started) = call(app, "POST", "/api/v1/plugins/install", Some(body)).await;
     assert_eq!(status, StatusCode::ACCEPTED, "{started}");
     let id = started["job"].as_str().unwrap().to_string();
@@ -2793,6 +2804,148 @@ fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::p
     dir
 }
 
+/// A build runs only as the person confirmed it: an install that does not
+/// send what the inspection found, or whose source changed since, is
+/// refused before anything runs.
+#[tokio::test]
+async fn a_build_runs_only_as_it_was_confirmed() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let ran = scratch.path().join("ran");
+    let command = format!("touch {} && echo hi > index.html", ran.display());
+    let built = buildable_plugin(scratch.path(), "built", &command);
+    let source = json!({ "source": built.display().to_string() });
+
+    // unconfirmed
+    let (status, job) = install_as_sent(&app, source.clone()).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+    assert!(
+        job["error"].as_str().unwrap().contains("not confirmed"),
+        "{job}"
+    );
+    assert!(!ran.exists(), "an unconfirmed build ran");
+
+    // confirmed, and then the command changed before the install
+    let (status, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(source.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["expect"], json!({ "build": command }));
+    let other = format!("touch {}.other && {command}", ran.display());
+    buildable_plugin(scratch.path(), "built", &other);
+    let mut body = source.clone();
+    body["expect"] = seen["expect"].clone();
+    let (status, job) = install_as_sent(&app, body).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+    assert!(job["error"].as_str().unwrap().contains("changed"), "{job}");
+    assert!(!ran.exists(), "a changed build ran");
+
+    // as confirmed
+    let (status, row) = install(&app, &built, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert!(ran.exists());
+}
+
+/// A repository that moves between the inspection and the install is
+/// refused, and an update that brings a build runs it only once the
+/// person has seen it.
+#[tokio::test]
+async fn a_repository_installs_and_updates_at_the_commit_that_was_confirmed() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let (work, bare) = git_repo(scratch.path());
+    let url = format!("file://{}", bare.display());
+    let source = json!({ "source": url, "ref": "main", "path": "tools/hello" });
+    let (status, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(source.clone()),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    let inspected = git_in(&work, &["rev-parse", "main"]);
+    assert_eq!(
+        seen["expect"],
+        json!({ "build": null, "commit": inspected })
+    );
+
+    // a build pushed after the inspection
+    let ran = scratch.path().join("ran");
+    let manifest_path = work.join("tools/hello/manifest.json");
+    let mut manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+    manifest["build"] = json!({ "command": format!("touch {}", ran.display()) });
+    manifest["version"] = json!("1.0.1");
+    std::fs::write(&manifest_path, manifest.to_string()).unwrap();
+    git_in(&work, &["commit", "-q", "-am", "a build"]);
+    git_in(&work, &["push", "-q", bare.to_str().unwrap(), "main"]);
+    let mut body = source.clone();
+    body["expect"] = seen["expect"].clone();
+    let (status, job) = install_as_sent(&app, body).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+    assert!(job["error"].as_str().unwrap().contains("changed"), "{job}");
+    assert!(!ran.exists(), "a build pushed after the inspection ran");
+
+    // installed at the tag, without a build; then updated on the branch
+    let (status, row) = install(
+        &app,
+        Path::new(&url),
+        json!({"ref": "v1", "path": "tools/hello"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let (status, row) = install(
+        &app,
+        Path::new(&url),
+        json!({"ref": "main", "path": "tools/hello"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert!(ran.exists());
+    std::fs::remove_file(&ran).unwrap();
+    manifest["version"] = json!("1.0.2");
+    std::fs::write(&manifest_path, manifest.to_string()).unwrap();
+    git_in(&work, &["commit", "-q", "-am", "1.0.2"]);
+    git_in(&work, &["push", "-q", bare.to_str().unwrap(), "main"]);
+
+    // an update that runs a build needs it confirmed
+    let (status, started) = call(&app, "POST", "/api/v1/plugins/hello/update", None).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let job = follow(&app, started["job"].as_str().unwrap()).await;
+    assert_eq!(job["status"], "failed", "{job}");
+    assert!(
+        job["error"].as_str().unwrap().contains("not confirmed"),
+        "{job}"
+    );
+    assert!(!ran.exists(), "an unconfirmed update ran its build");
+    let (status, seen) = call(&app, "POST", "/api/v1/plugins/hello/update/inspect", None).await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["state"], "available");
+    assert_eq!(seen["version"], "1.0.2");
+    assert_eq!(seen["build"], format!("touch {}", ran.display()));
+    let (status, started) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/hello/update",
+        Some(json!({ "expect": seen["expect"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
+    let job = follow(&app, started["job"].as_str().unwrap()).await;
+    assert_eq!(job["status"], "done", "{job}");
+    assert!(ran.exists());
+
+    // nothing new: the inspection says so
+    let (status, seen) = call(&app, "POST", "/api/v1/plugins/hello/update/inspect", None).await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["state"], "up_to_date");
+}
+
 /// What every step of a build writes to stderr is in its log and in the
 /// failure the person reads, as `npm ci && npm run build` needs.
 #[tokio::test]
@@ -2847,16 +3000,13 @@ async fn a_build_that_runs_too_long_is_stopped() {
 async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bundle_is_placed() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
-    let built = buildable_plugin(
-        scratch.path(),
-        "built",
-        "echo building && mkdir -p assets && printf '<html>ok</html>' > index.html && printf 'x' > assets/a.js",
-    );
+    let command = "echo building && mkdir -p assets && printf '<html>ok</html>' > index.html && printf 'x' > assets/a.js";
+    let built = buildable_plugin(scratch.path(), "built", command);
     let (status, started) = call(
         &app,
         "POST",
         "/api/v1/plugins/install",
-        Some(json!({"source": built.display().to_string()})),
+        Some(json!({"source": built.display().to_string(), "expect": {"build": command}})),
     )
     .await;
     assert_eq!(status, StatusCode::ACCEPTED, "{started}");

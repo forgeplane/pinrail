@@ -46,9 +46,11 @@ The following behaviour is intentional. It is explained in
 [What runs where](https://pinrail.dev/docs/concepts/trust/).
 
 - **Installing a plugin that has a build step runs that build on your
-  machine, with your permissions.** The app shows the exact command and only
-  runs it after you confirm. Plugin releases are not signed, and plugin
-  authors are not vetted.
+  machine, with your permissions.** Pinrail shows the exact command, in the
+  app or at the terminal, and runs it only after you confirm, for an install
+  and for an update. The `--yes` option of the `pinrail` command confirms a
+  build in advance. Plugin releases are not signed, and plugin authors are
+  not vetted.
 - **Any program on your machine can use the server.** Programs running under
   your user account can submit and read reviews, just as the `pinrail`
   command does.

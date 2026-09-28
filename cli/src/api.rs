@@ -195,8 +195,24 @@ impl Client {
         self.get("/api/v1/plugins", &[])
     }
 
+    /// What installing the source would do: the plugin, the build it runs,
+    /// and the `expect` an install sends back to run exactly that.
+    pub fn plugins_inspect(
+        &self,
+        source: &str,
+        link: bool,
+        reference: Option<&str>,
+        path: Option<&str>,
+    ) -> Result<Value> {
+        let body =
+            serde_json::json!({ "source": source, "link": link, "ref": reference, "path": path });
+        // the app fetches the source before it answers
+        self.post_with(&self.slow, "/api/v1/plugins/inspect", Some(&body))
+    }
+
     /// Starts the install and follows its job, printing the build's output
-    /// as it comes; the plugin's row when done.
+    /// as it comes; the plugin's row when done. `expect` is what the
+    /// inspection found, without which the app runs no build.
     pub fn plugins_install(
         &self,
         source: &str,
@@ -204,8 +220,9 @@ impl Client {
         force: bool,
         reference: Option<&str>,
         path: Option<&str>,
+        expect: Option<&Value>,
     ) -> Result<Value> {
-        let body = serde_json::json!({ "source": source, "link": link, "force": force, "ref": reference, "path": path });
+        let body = serde_json::json!({ "source": source, "link": link, "force": force, "ref": reference, "path": path, "expect": expect });
         let started = self.post("/api/v1/plugins/install", Some(&body))?;
         match started["job"].as_str() {
             Some(id) => self.follow_job(id),
@@ -213,15 +230,25 @@ impl Client {
         }
     }
 
-    /// Installs a plugin again from where it came; the core says at once
-    /// when there is nothing new, and otherwise the job is followed like
-    /// an install's.
-    pub fn plugins_update(&self, name: &str) -> Result<Value> {
+    /// What updating the plugin would install: the newer version's
+    /// inspection, or `up_to_date`.
+    pub fn plugins_inspect_update(&self, name: &str) -> Result<Value> {
         // the app asks the plugin's source what is new before it answers
+        self.post_with(
+            &self.slow,
+            &format!("/api/v1/plugins/{}/update/inspect", segment(name)),
+            None,
+        )
+    }
+
+    /// Installs a plugin again from where it came, as its update's
+    /// inspection found it; the core says at once when there is nothing
+    /// new, and otherwise the job is followed like an install's.
+    pub fn plugins_update(&self, name: &str, expect: &Value) -> Result<Value> {
         let started = self.post_with(
             &self.slow,
             &format!("/api/v1/plugins/{}/update", segment(name)),
-            None,
+            Some(&serde_json::json!({ "expect": expect })),
         )?;
         match started["job"].as_str() {
             Some(id) => {

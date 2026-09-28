@@ -90,5 +90,6 @@ export default async function globalSetup() {
   };
   for (const name of ["email", "hello", "review"]) install(name, ["--link"], 120_000);
   console.log("e2e: building and installing the artifact plugin");
-  install("artifact", [], 900_000);
+  // nobody is at a terminal to confirm its build
+  install("artifact", ["--yes"], 900_000);
 }

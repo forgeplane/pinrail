@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
-import type { Plugin, PluginUpdates, SettingProperty } from "../../api/types";
+import type { InstallExpect, Plugin, PluginUpdates, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
 import { followJob } from "../../lib/jobs";
 import { REVEAL } from "../../lib/keys";
@@ -255,12 +255,41 @@ function PluginEntry({
     }
   };
 
-  // installs again from where it came; the row follows the job's steps
+  /** an update whose build waits for a yes: the command it runs */
+  const [confirming, setConfirming] = useState<{ build: string; expect: InstallExpect } | null>(null);
+
+  // looks at what the update brings first: a build it runs is shown and
+  // waits for a yes
   const updateNow = async () => {
-    setUpdating("starting");
+    setUpdating("checking");
     setUpdates(null);
     try {
-      const started = await api.updatePlugin(p.name);
+      const seen = await api.inspectUpdate(p.name);
+      if (seen.state === "up_to_date") {
+        setUpdating(null);
+        setUpdates({ text: "Up to date", tone: "ok" });
+      } else if (seen.build) {
+        setUpdating(null);
+        setConfirming({ build: seen.build, expect: seen.expect });
+      } else {
+        await runUpdate(seen.expect);
+      }
+    } catch (e) {
+      setUpdating(null);
+      setUpdates({
+        text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Update failed",
+        tone: "danger",
+      });
+    }
+  };
+
+  // installs again from where it came, as the inspection found it; the
+  // row follows the job's steps
+  const runUpdate = async (expect: InstallExpect) => {
+    setConfirming(null);
+    setUpdating("starting");
+    try {
+      const started = await api.updatePlugin(p.name, expect);
       if (!started.job) {
         setUpdating(null);
         setUpdates({ text: "Up to date", tone: "ok" });
@@ -352,8 +381,25 @@ function PluginEntry({
   ) : null;
   // Under the badge, only what answers a click and what was dropped; where
   // the plugin came from and what it takes are in its details.
+  const confirm = confirming ? (
+    <span className="settings-plugin-ask" data-plugin-update-ask>
+      The update builds with <code className="mono">{confirming.build}</code>
+      <button
+        type="button"
+        className="settings-reset-link"
+        onClick={() => runUpdate(confirming.expect)}
+        data-plugin-update-confirm
+      >
+        Build and update
+      </button>
+      <button type="button" className="settings-reset-link" onClick={() => setConfirming(null)}>
+        Cancel
+      </button>
+    </span>
+  ) : null;
   const note =
     ask ??
+    confirm ??
     (updating ? (
       <span className="faint" data-plugin-updating>
         Updating: {updating}…

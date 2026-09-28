@@ -12,6 +12,7 @@ mod registry;
 mod sample;
 mod service;
 
+pub use install::Expect as InstallExpect;
 pub use install::Options as InstallOptions;
 pub use jobs::Job as InstallJob;
 /// The manifest's JSON Schema, for the docs' manifest reference.

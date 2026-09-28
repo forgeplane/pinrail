@@ -704,11 +704,11 @@ fn updating_every_plugin_exits_1_when_the_app_fails_and_2_when_it_refuses() {
     let failing = |second: u16| {
         MockServer::start(Box::new(move |method, path, _| match (method, path) {
             ("GET", "/api/v1/plugins") => (200, listing.into()),
-            ("POST", "/api/v1/plugins/one/update") => (
+            ("POST", "/api/v1/plugins/one/update/inspect") => (
                 422,
                 r#"{"error":"invalid","message":"pinned","violations":[]}"#.into(),
             ),
-            ("POST", "/api/v1/plugins/two/update") => (
+            ("POST", "/api/v1/plugins/two/update/inspect") => (
                 second,
                 r#"{"error":"internal","message":"git failed","violations":[]}"#.into(),
             ),
@@ -967,9 +967,92 @@ fn a_server_error_is_not_a_refusal_and_a_wait_rides_it_out() {
     assert!(*polls.lock().unwrap() >= 2);
 }
 
+const INSPECTED_WITHOUT_BUILD: &str = r#"{"name":"triage","version":"1.0.0","build":null,"expect":{"build":null,"commit":"abc1234"}}"#;
+const INSPECTED_WITH_BUILD: &str = r#"{"state":"available","name":"triage","version":"1.1.0","build":"npm ci && npm run build","expect":{"build":"npm ci && npm run build","commit":"def5678"}}"#;
+const JOB_DONE: &str =
+    r#"{"status":"done","log":"","log_offset":0,"plugin":{"name":"triage","release":"1.1.0"}}"#;
+
+/// A server that answers inspections with `inspected`, and records the
+/// body of every install or update it is asked to start.
+fn plugin_server(inspected: &'static str) -> (MockServer, Arc<Mutex<Vec<String>>>) {
+    let started = Arc::new(Mutex::new(Vec::new()));
+    let seen = started.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
+        ("GET", "/api/v1/plugins") => (
+            200,
+            r#"{"plugins":[{"name":"triage","install":{"linked":false}}]}"#.into(),
+        ),
+        ("POST", "/api/v1/plugins/inspect" | "/api/v1/plugins/triage/update/inspect") => {
+            (200, inspected.into())
+        }
+        ("POST", "/api/v1/plugins/install" | "/api/v1/plugins/triage/update") => {
+            seen.lock().unwrap().push(body.to_string());
+            (202, r#"{"job":"j_1"}"#.into())
+        }
+        ("GET", "/api/v1/plugins/jobs/j_1") => (200, JOB_DONE.into()),
+        other => panic!("unexpected {other:?}"),
+    }));
+    (server, started)
+}
+
+#[test]
+fn a_build_runs_only_with_yes_when_nobody_is_at_a_terminal_to_confirm_it() {
+    for args in [
+        &["plugins", "install", "github.com/acme/triage"][..],
+        &["plugins", "update", "triage"],
+    ] {
+        let (server, started) = plugin_server(INSPECTED_WITH_BUILD);
+        let (code, _, stderr) = run(&server, args);
+        assert_eq!(code, 2, "{args:?}: {stderr}");
+        assert!(stderr.contains("npm ci && npm run build"), "{stderr}");
+        assert!(stderr.contains("--yes"), "{stderr}");
+        assert!(
+            started.lock().unwrap().is_empty(),
+            "{args:?} started without a yes"
+        );
+
+        let with_yes = [args, &["--yes"]].concat();
+        let (code, _, stderr) = run(&server, &with_yes);
+        assert_eq!(code, 0, "{with_yes:?}: {stderr}");
+        let body: serde_json::Value = serde_json::from_str(&started.lock().unwrap()[0]).unwrap();
+        assert_eq!(
+            body["expect"],
+            serde_json::json!({"build": "npm ci && npm run build", "commit": "def5678"}),
+            "{with_yes:?}"
+        );
+    }
+}
+
+#[test]
+fn a_plugin_without_a_build_installs_as_it_was_inspected() {
+    let (server, started) = plugin_server(INSPECTED_WITHOUT_BUILD);
+    let (code, _, stderr) = run(&server, &["plugins", "install", "github.com/acme/triage"]);
+    assert_eq!(code, 0, "{stderr}");
+    let body: serde_json::Value = serde_json::from_str(&started.lock().unwrap()[0]).unwrap();
+    assert_eq!(
+        body["expect"],
+        serde_json::json!({"build": null, "commit": "abc1234"})
+    );
+}
+
+#[test]
+fn updating_every_plugin_leaves_out_a_build_nobody_confirmed() {
+    let (server, started) = plugin_server(INSPECTED_WITH_BUILD);
+    let (code, stdout, stderr) = run(&server, &["plugins", "update"]);
+    assert_eq!(code, 2, "{stderr}");
+    assert!(started.lock().unwrap().is_empty());
+    let answers: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(answers[0]["state"], "failed", "{answers}");
+    assert!(
+        answers[0]["error"].as_str().unwrap().contains("--yes"),
+        "{answers}"
+    );
+}
+
 #[test]
 fn an_install_answer_with_no_job_says_so() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
+        "/api/v1/plugins/inspect" => (200, INSPECTED_WITHOUT_BUILD.into()),
         "/api/v1/plugins/install" => (202, "{}".into()),
         other => (
             404,
@@ -2088,6 +2171,7 @@ fn an_install_log_the_app_trims_is_followed_line_by_line() {
             "plugin": { "name": "hello", "release": "1.0.0", "entry": "view/index.html" } }),
     ]));
     let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
+        ("POST", "/api/v1/plugins/inspect") => (200, INSPECTED_WITHOUT_BUILD.into()),
         ("POST", "/api/v1/plugins/install") => (202, r#"{"job":"j1"}"#.into()),
         ("GET", "/api/v1/plugins/jobs/j1") => {
             let mut polls = polls.lock().unwrap();
@@ -2148,7 +2232,7 @@ fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
             {"name":"list","release":"1.0.0","install":null},
             {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"}},
             {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"}}]}"#.into()),
-        ("POST", "/api/v1/plugins/odd/update") => (200, r#"{"state":"up_to_date","version":"0.1.0"}"#.into()),
+        ("POST", "/api/v1/plugins/odd/update/inspect") => (200, r#"{"state":"up_to_date","version":"0.1.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));
@@ -2173,9 +2257,9 @@ fn plugins_update_without_a_name_reports_every_plugin_when_one_fails() {
             {"name":"first","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/first"}},
             {"name":"broken","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/broken"}},
             {"name":"last","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/last"}}]}"#.into()),
-        ("POST", "/api/v1/plugins/first/update") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
-        ("POST", "/api/v1/plugins/broken/update") => (422, r#"{"error":"invalid","message":"github.com/acme/broken could not be fetched","violations":[]}"#.into()),
-        ("POST", "/api/v1/plugins/last/update") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
+        ("POST", "/api/v1/plugins/first/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
+        ("POST", "/api/v1/plugins/broken/update/inspect") => (422, r#"{"error":"invalid","message":"github.com/acme/broken could not be fetched","violations":[]}"#.into()),
+        ("POST", "/api/v1/plugins/last/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));

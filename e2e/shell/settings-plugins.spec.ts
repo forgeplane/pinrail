@@ -128,6 +128,42 @@ test("a source that builds shows the exact command as the consent, then runs it"
   expect(bundle).toBe("<html>built</html>");
 });
 
+test("an update that brings a build shows the command and runs it only once confirmed", async ({ page }) => {
+  const source = pluginCopy("hello", "rebuilt", "1.0.0");
+  const dialog = await openInstall(page);
+  await dialog.getByLabel("Source").fill(source);
+  await dialog.locator("[data-install-look]").click();
+  await dialog.locator("[data-install-confirm]").click();
+  await expect(dialog.locator("[data-install-done]")).toContainText("1.0.0 is ready");
+  await dialog.locator("[data-install-close]").click();
+
+  // the next version builds its view
+  const command = "mkdir -p view && printf '<html>rebuilt</html>' > view/index.html";
+  const manifest = JSON.parse(fs.readFileSync(path.join(source, "manifest.json"), "utf8"));
+  fs.writeFileSync(
+    path.join(source, "manifest.json"),
+    JSON.stringify({ ...manifest, version: "1.1.0", build: { command } }),
+  );
+  const row = page.locator('[data-plugin-row="rebuilt"]');
+  await row.getByRole("button", { name: "Check for updates of rebuilt" }).click();
+  await row.locator("[data-plugin-update]").click();
+  const ask = row.locator("[data-plugin-update-ask]");
+  await expect(ask).toContainText(command);
+
+  // turned down, nothing runs
+  await ask.getByRole("button", { name: "Cancel" }).click();
+  await expect(ask).toHaveCount(0);
+  const before = await (await page.request.get(`${core}/api/v1/plugins`)).json();
+  expect(before.plugins.find((p: { name: string }) => p.name === "rebuilt").install.version).toBe("1.0.0");
+
+  await row.getByRole("button", { name: "Check for updates of rebuilt" }).click();
+  await row.locator("[data-plugin-update]").click();
+  await row.locator("[data-plugin-update-confirm]").click();
+  await expect(row.locator("[data-plugin-updates]")).toHaveText("Updated to 1.1.0");
+  const served = await (await page.request.get(`${core}/plugins/rebuilt/1/view/index.html`)).text();
+  expect(served).toBe("<html>rebuilt</html>");
+});
+
 test("a link serves the folder live and offers to install a copy", async ({ page }) => {
   const source = pluginCopy("hello", "wip", "1.0.0");
   const dialog = await openInstall(page);

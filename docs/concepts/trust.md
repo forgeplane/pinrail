@@ -49,7 +49,7 @@ Installing is where code from someone else can run on your machine, and it depen
 | A **folder or repository** that declares a build | The build command, such as `npm ci && npm run build`, on your machine, as you. |
 
 :::caution[A build is code you run]
-`npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Pinrail shows you the exact command before anything runs, and runs it only when you confirm. Releases are not signed and publishers are not vetted, so install plugins only from people and repositories whose code you would run.
+`npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Pinrail shows you the exact command before anything runs, for an install and for an update, and runs it only when you confirm. It installs exactly the commit or release it showed you. On the command line, the `--yes` option confirms a build in advance. Releases are not signed and publishers are not vetted, so install plugins only from people and repositories whose code you would run.
 :::
 
 After installation, a built plugin consists only of static files, and its view runs in the same sandbox as any other.

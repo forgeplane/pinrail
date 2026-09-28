@@ -39,6 +39,10 @@ The form of the source tells Pinrail where to fetch the plugin from:
 
 A ref is a branch, a tag or a commit. Without one, Pinrail uses the default branch. GitLab's `/-/tree/<ref>/<folder>` URLs work the same way as GitHub's.
 
+When the plugin declares a build, the command prints the exact build command and asks you to confirm it before anything runs. The `--yes` option confirms the build in advance, for a script or an agent's session where nobody can answer the question. Without `--yes`, and with nobody at a terminal to answer, the install is refused and nothing runs.
+
+Pinrail installs exactly what it showed you: the same commit of a repository, the same release asset, and the same build command. If the source changes between the check and the install, the install is refused before anything runs, and you install again to see the new version.
+
 :::tip[Prefer releases]
 A release carries a prebuilt bundle, so installing it needs no toolchain and runs nothing on your machine. See [Publishing a plugin](/docs/building/publishing/).
 :::
@@ -88,6 +92,8 @@ Check for updates from the plugin's row in *Settings › Plugins*, or from the c
 pinrail plugins update            # every installed plugin
 pinrail plugins update review     # one plugin
 ```
+
+An update that runs a build shows the build command first, in the app and on the command line, and runs it only when you confirm. On the command line, `--yes` confirms it in advance. When nobody can confirm, a plugin whose update runs a build is not updated, and the command reports it as failed.
 
 A plugin installed from a repository at a tag or a commit, or from a release whose tag is only a version such as `v1.2.0`, is pinned. The update check reports that it is pinned and does not move it. A release whose tag names the plugin, such as `review-v1.2.0`, is not pinned: the update check follows newer releases of the same plugin. `pinrail plugins versions review` lists the versions reviews can still render with.
 

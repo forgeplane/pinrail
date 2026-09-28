@@ -37,7 +37,10 @@ export function fixtures() {
 const OPTIONAL = ["review", "email", "artifact", "logo", "calendar", "model"];
 
 async function install(app, name) {
-  const { job } = await app.api("POST", "/api/v1/plugins/install", { source: path.join(app.root, "plugins", name) });
+  const source = path.join(app.root, "plugins", name);
+  // confirms the build the inspection shows, as a person does in the app
+  const { expect } = await app.api("POST", "/api/v1/plugins/inspect", { source });
+  const { job } = await app.api("POST", "/api/v1/plugins/install", { source, expect });
   for (;;) {
     const state = await app.api("GET", `/api/v1/plugins/jobs/${job}`);
     if (state.status === "done") return;

@@ -135,6 +135,8 @@ export type Inspection = {
   entry: string;
   /** the exact command a build runs; null when nothing runs */
   build: string | null;
+  /** sent back with the install, which runs a build only as it was shown */
+  expect: InstallExpect;
   /** the files it would take beside a payload; null for none */
   attachments?: AttachmentRules | null;
   origin: {
@@ -159,6 +161,8 @@ export type Inspection = {
   /** the source is older than what is installed on the same line */
   older: boolean;
 };
+
+export type InstallExpect = { build: string | null; commit?: string; asset_hash?: string };
 
 export type InstallJob = {
   id: string;

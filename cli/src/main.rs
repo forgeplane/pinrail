@@ -485,12 +485,20 @@ enum PluginsCommand {
         /// The plugin's folder inside the repository, likewise
         #[arg(long)]
         path: Option<String>,
+        /// Run the build the plugin declares without asking. Without it, a
+        /// build is shown and runs only once confirmed at the terminal
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Install a plugin again from where it came, whatever is new there;
     /// every installed plugin when no name is given
     Update {
         /// The plugin's name, as `pinrail plugins` lists it
         name: Option<String>,
+        /// Run the build an update declares without asking. Without it, a
+        /// build is shown and runs only once confirmed at the terminal
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Remove an installed plugin; store entries a review still renders
     /// from are kept
@@ -693,7 +701,14 @@ fn run(cli: Cli) -> Result<u8> {
         let dir = dir.canonicalize()?;
         if *link {
             let base = server::resolve_url(cli.url.as_deref(), true)?;
-            Client::new(&base).plugins_install(&dir.to_string_lossy(), true, false, None, None)?;
+            Client::new(&base).plugins_install(
+                &dir.to_string_lossy(),
+                true,
+                false,
+                None,
+                None,
+                None,
+            )?;
         }
         // what comes next, for whoever ran it, most often an agent
         let mut next = vec![
@@ -981,6 +996,7 @@ fn run(cli: Cli) -> Result<u8> {
                     force,
                     reference,
                     path,
+                    yes,
                 }) => {
                     // a folder that exists is sent as its full path, `..`
                     // resolved, the way the app records and shows it
@@ -988,20 +1004,36 @@ fn run(cli: Cli) -> Result<u8> {
                         Ok(p) if p.is_dir() => p.to_string_lossy().into_owned(),
                         _ => source,
                     };
+                    // a link serves the folder as it is and builds nothing;
+                    // anything else installs as it was inspected
+                    let seen = if link {
+                        None
+                    } else {
+                        let seen = client.plugins_inspect(
+                            &source,
+                            false,
+                            reference.as_deref(),
+                            path.as_deref(),
+                        )?;
+                        confirm_build(&seen, yes)?;
+                        Some(seen)
+                    };
                     client.plugins_install(
                         &source,
                         link,
                         force,
                         reference.as_deref(),
                         path.as_deref(),
+                        seen.as_ref().map(|s| &s["expect"]),
                     )?
                 }
-                Some(PluginsCommand::Update { name: Some(name) }) => {
-                    client.plugins_update(&name)?
-                }
+                Some(PluginsCommand::Update {
+                    name: Some(name),
+                    yes,
+                }) => update_plugin(&client, &name, yes)?,
                 // every installed plugin, each with what became of it: the
                 // built-in ones come with the app, a linked one is its folder
-                Some(PluginsCommand::Update { name: None }) => {
+                Some(PluginsCommand::Update { name: None, yes }) => {
                     let listed = client.plugins()?;
                     let mut answers = Vec::new();
                     for plugin in listed["plugins"].as_array().into_iter().flatten() {
@@ -1013,7 +1045,7 @@ fn run(cli: Cli) -> Result<u8> {
                             json!({ "name": name, "state": "linked", "source": install["source"] })
                         } else {
                             // one that fails is said, and the rest still go
-                            client.plugins_update(name).unwrap_or_else(|err| {
+                            update_plugin(&client, name, yes).unwrap_or_else(|err| {
                                 // the worst of the failures sets the exit code:
                                 // a refusal is 2, anything the app or the
                                 // network got wrong is 1
@@ -1387,6 +1419,60 @@ fn wait(
 fn is_inline_json(spec: &str) -> bool {
     let start = spec.trim_start();
     (start.starts_with('{') || start.starts_with('[')) && !std::path::Path::new(spec).exists()
+}
+
+/// Updates one plugin as its update's inspection found it, once any build
+/// it runs is confirmed.
+fn update_plugin(client: &Client, name: &str, yes: bool) -> Result<Value> {
+    let seen = client.plugins_inspect_update(name)?;
+    if seen["state"] == "up_to_date" {
+        return Ok(json!({ "state": "up_to_date", "version": seen["version"], "name": name }));
+    }
+    confirm_build(&seen, yes)?;
+    client.plugins_update(name, &seen["expect"])
+}
+
+/// Lets a build the inspection found run: at once with `--yes`, after a
+/// yes at the terminal, and otherwise not at all, which is a refusal.
+fn confirm_build(seen: &Value, yes: bool) -> Result<()> {
+    let Some(command) = seen["build"].as_str() else {
+        return Ok(());
+    };
+    // the command comes from the plugin's manifest
+    let what = out::terminal_safe(&format!(
+        "{} {}",
+        seen["name"].as_str().unwrap_or("the plugin"),
+        seen["version"].as_str().unwrap_or_default()
+    ));
+    let command = out::terminal_safe(command);
+    if yes {
+        eprintln!("pinrail: {} builds with: {command}", what.trim_end());
+        return Ok(());
+    }
+    use std::io::IsTerminal;
+    if std::io::stdin().is_terminal() && std::io::stderr().is_terminal() {
+        eprint!(
+            "pinrail: {} builds with:\n  {command}\nRun this command? [y/N] ",
+            what.trim_end()
+        );
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer)?;
+        if matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
+            return Ok(());
+        }
+    }
+    Err(ApiError {
+        status: 409,
+        body: json!({
+            "error": "not_confirmed",
+            "message": format!(
+                "{} runs a build that was not confirmed: {command}. Confirm it at a terminal, or add --yes to run it without asking",
+                what.trim_end()
+            ),
+        }),
+        hint: None,
+    }
+    .into())
 }
 
 /// The JSON a flag gives: inline, from a file, or from stdin with `-`.

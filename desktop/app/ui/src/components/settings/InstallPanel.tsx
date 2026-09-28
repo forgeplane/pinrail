@@ -230,7 +230,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
     setError(null);
     setStage({ at: "installing", seen, job: null });
     try {
-      const { job } = await api.installPlugin({ ...request(), force: seen.older });
+      const { job } = await api.installPlugin({ ...request(), force: seen.older, expect: seen.expect });
       const state = await followJob(
         job,
         (step) => setStage({ at: "installing", seen, job: step }),
