@@ -743,8 +743,36 @@ fn fetch_release(
 /// The archive's entries under `into`; an entry that would leave the folder
 /// fails the whole thing.
 fn unzip(bytes: &[u8], into: &Path) -> Result<(), Error> {
+    unzip_within(bytes, into, UNPACKING)
+}
+
+/// How much a release may unpack to. A small archive can expand to far more
+/// than its download, enough to fill the disk that holds the person's data.
+#[derive(Debug, Clone, Copy)]
+struct Unpacking {
+    bytes: u64,
+    entries: usize,
+}
+
+const UNPACKING: Unpacking = Unpacking {
+    bytes: 500 * 1024 * 1024,
+    entries: 20_000,
+};
+
+fn unzip_within(bytes: &[u8], into: &Path, limits: Unpacking) -> Result<(), Error> {
     let mut archive = zip::ZipArchive::new(std::io::Cursor::new(bytes))
         .map_err(|e| Error::invalid("/source", format!("not a zip archive: {e}")))?;
+    if archive.len() > limits.entries {
+        return Err(Error::invalid(
+            "/source",
+            format!(
+                "the archive has {} entries, more than the {} allowed",
+                archive.len(),
+                limits.entries
+            ),
+        ));
+    }
+    let mut left = limits.bytes;
     for i in 0..archive.len() {
         let mut file = archive
             .by_index(i)
@@ -764,7 +792,18 @@ fn unzip(bytes: &[u8], into: &Path) -> Result<(), Error> {
             std::fs::create_dir_all(parent)?;
         }
         let mut out = std::fs::File::create(&target)?;
-        std::io::copy(&mut file, &mut out)?;
+        // counted as written, not as the entry's header says
+        let written = std::io::copy(&mut std::io::Read::take(&mut file, left + 1), &mut out)?;
+        if written > left {
+            return Err(Error::invalid(
+                "/source",
+                format!(
+                    "the archive unpacks to more than the {} MB allowed",
+                    limits.bytes / (1024 * 1024)
+                ),
+            ));
+        }
+        left -= written;
     }
     Ok(())
 }
@@ -1704,7 +1743,7 @@ mod source_tests {
 
 #[cfg(test)]
 mod bundle_tests {
-    use super::{Path, in_the_bundle, unzip};
+    use super::{Path, Unpacking, in_the_bundle, unzip, unzip_within};
 
     fn zipped(entries: &[&str]) -> Vec<u8> {
         use std::io::Write;
@@ -1733,6 +1772,35 @@ mod bundle_tests {
             assert!(!root.path().join("evil.txt").exists(), "{evil} escaped");
             assert!(!Path::new("/abs/evil.txt").exists(), "{evil} escaped");
         }
+    }
+
+    /// A small archive can hold a great deal once unpacked: unpacking stops
+    /// at a total size and a number of entries, whatever the entries claim.
+    #[test]
+    fn an_archive_that_unpacks_too_large_or_into_too_many_files_is_refused() {
+        use std::io::Write;
+        let limits = Unpacking {
+            bytes: 1024 * 1024,
+            entries: 10,
+        };
+
+        // 4 MB of zeros, which deflate squeezes into a few kilobytes
+        let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let deflated = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        out.start_file("manifest.json", deflated).unwrap();
+        out.write_all(&vec![0u8; 4 * 1024 * 1024]).unwrap();
+        let bomb = out.finish().unwrap().into_inner();
+        assert!(bomb.len() < 64 * 1024, "{} bytes", bomb.len());
+        let into = tempfile::tempdir().unwrap();
+        let error = unzip_within(&bomb, into.path(), limits).unwrap_err();
+        assert!(error.to_string().contains("more than"), "{error}");
+
+        let names: Vec<String> = (0..20).map(|i| format!("view/{i}.txt")).collect();
+        let many = zipped(&names.iter().map(String::as_str).collect::<Vec<_>>());
+        let into = tempfile::tempdir().unwrap();
+        let error = unzip_within(&many, into.path(), limits).unwrap_err();
+        assert!(error.to_string().contains("entries"), "{error}");
     }
 
     #[test]
