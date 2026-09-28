@@ -16,8 +16,9 @@ The CLI suites run the `pinrail` command against the server
 | `tests/zz-restart.spec.ts` | a wait that continues when the server is stopped and started again |
 
 The global setup builds the CLI and the desktop app if needed, starts the
-server with `pinrail serve` on a scratch data directory and a free port, and
-links the plugins in `plugins/`. The teardown stops the server.
+server with `pinrail serve` on a scratch data directory and a free port,
+links the email, hello and review plugins from `plugins/`, and builds and
+installs a copy of the artifact plugin. The teardown stops the server.
 
 ## The app suites
 
@@ -38,6 +39,13 @@ The app suites run the app's UI from Vite against a headless server
 | `shell/settings-data.spec.ts` | the data settings: how long history is kept, and the port |
 | `shell/settings-plugins.spec.ts` | the plugins settings: installing from a folder, with the build command shown for consent |
 | `shell/theme.spec.ts` | ⌘⇧L switches the theme, and T is left to plugins |
+| `shell/conformance.spec.ts` | the app and the preview host a view as the protocol describes, and a decision that arrives after moving on stays with its review |
+| `shell/frame-navigation.spec.ts` | a view that leaves its page is no longer answered, and the frame shows only Pinrail's own server |
+| `shell/open-links.spec.ts` | a link from a view opens only when the person agrees, or for an origin they allowed for that plugin |
+| `shell/live-updates.spec.ts` | the inbox, the history and the Plugins section update from events, fetching only what they show |
+| `shell/history-navigation.spec.ts` | a review opened from the history is one step back from it |
+| `shell/inbox-cap.spec.ts` | an inbox with more pending reviews than it loads says how many there are |
+| `shell/linux-keys.spec.ts` | on Linux, Settings names keys as a Linux keyboard does |
 
 Each plugin's behaviour on its own is tested in the plugin's `tests/`
 folder, under the `pinrail-plugin` harness. Run those with

@@ -5,10 +5,11 @@ menu: []
 ---
 # Settings and keys
 
-Settings: a JSON Schema in the manifest's `settings_schema`, one level
-deep, every property a `boolean`, `string` (with `enum` or `oneOf` of
-`const` values), `integer` or `number`, each with a `title` and a
-`default`. The app draws a row for each in *Settings › Plugins*.
+Settings are a JSON Schema in the manifest's `settings_schema`, one level
+deep. Each property is a `boolean`, a `string` (with `enum` or `oneOf` of
+`const` values), an `integer` or a `number`, and needs a `default`. A
+`title` gives its label. The app draws a row for each in *Settings ›
+Plugins*.
 
 ```js
 plugin.settings.diff;                  // the current value, from init and every change

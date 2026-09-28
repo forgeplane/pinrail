@@ -33,7 +33,7 @@ tests/              the Playwright spec the harness runs
 ```
 
 The frame can load nothing from outside the folder: no fetch, no CDN. The
-payload carries everything the view shows, and the build inlines the rest.
+payload carries everything the view shows, and the build bundles the rest into `view/`.
 
 ## Releasing
 
