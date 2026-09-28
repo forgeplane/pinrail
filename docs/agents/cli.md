@@ -154,7 +154,7 @@ pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
 }
 ```
 
-A file keeps its own name unless another follows `=`. The CLI checks the whole submission before it uploads anything, so a refused one moves nothing. It then uploads only the files the app does not have yet, which makes a new round cheap: only the files that changed are sent again. A file may be up to 100 MiB, and a review may carry 32 files adding up to 512 MiB, unless the plugin sets lower limits.
+A file keeps its own name unless another follows `=`. The CLI checks the whole submission before it uploads anything, so a refused one moves nothing. It then uploads only the files the app does not have yet, which makes a new round cheap: only the files that changed are sent again. A file may be up to 100 MB, and a review may carry 32 files adding up to 512 MB, unless the plugin sets lower limits.
 
 The files come back with `pinrail attachments`:
 

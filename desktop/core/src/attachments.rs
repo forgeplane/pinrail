@@ -20,7 +20,7 @@ use crate::error::{Error, Violation};
 
 /// The most files one review may carry.
 pub const MAX_COUNT: usize = 32;
-/// The most one review's files may add up to: 512 MiB.
+/// The most one review's files may add up to: 512 MB.
 pub const MAX_TOTAL_BYTES: u64 = 512 * 1024 * 1024;
 /// How a payload names a file the review carries: an object with this one
 /// key, `{ "$attachment": "pivot.glb" }`, which no text can be mistaken for.

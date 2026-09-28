@@ -71,7 +71,7 @@ to Pinrail as an `artifact` and wait:
 }
 ```
 
-A page that is already in a file goes beside the payload instead of inside it. Name it as `file` and send it with `--attach`. The review takes one `.html` file of up to 10 MiB.
+A page that is already in a file goes beside the payload instead of inside it. Name it as `file` and send it with `--attach`. The review takes one `.html` file of up to 10 MB.
 
 ```sh
 pinrail submit artifact --title "Ledgerly landing page" --data page.json --attach landing.html --wait

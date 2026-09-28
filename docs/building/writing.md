@@ -263,7 +263,7 @@ Declare the kinds the plugin takes in the manifest:
 }
 ```
 
-`accept` lists extensions and media types; a file matches by either. `max_size` (bytes) and `max_count` are optional and can be at most the app's own limits of 100 MiB a file and 32 files a review. A review's files may add up to 512 MiB in all, whatever the plugin says. A plugin without `attachments` takes no files.
+`accept` lists extensions and media types; a file matches by either. `max_size` (bytes) and `max_count` are optional and can be at most the app's own limits of 100 MB a file and 32 files a review. A review's files may add up to 512 MB in all, whatever the plugin says. A plugin without `attachments` takes no files.
 
 The payload names each file by an object with one key, `$attachment`:
 

@@ -66,7 +66,7 @@ export type Manifest = {
 };
 
 /** What a plugin takes: kinds as `.ext` or media types (`image/*` too), and
- *  limits no looser than the app's 100 MiB a file and 32 a review. */
+ *  limits no looser than the app's 100 MB a file and 32 a review. */
 export type AttachmentRules = {
   accept: string[];
   max_size?: number;

@@ -28,7 +28,7 @@ pub struct Config {
 /// 15 minutes: a clean `npm ci` and a build on a slow connection.
 pub const BUILD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 
-/// 100 MiB: a model, a recording, a document with its images.
+/// 100 MB: a model, a recording, a document with its images.
 pub const MAX_ATTACHMENT_BYTES: u64 = 100 * 1024 * 1024;
 
 impl Config {
