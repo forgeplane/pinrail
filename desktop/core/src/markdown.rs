@@ -171,8 +171,16 @@ pub fn render_in(
 /// `note`, and `items`: every object in the decision's arrays, each with
 /// `payload` set to the payload object of the same id, found at any depth,
 /// when there is one.
+/// How much work one render of a plugin's template may do, in the engine's
+/// units: far more than any decision needs, and a limit on a template that
+/// would otherwise run for ever and hold up the server.
+const TEMPLATE_FUEL: u64 = 10_000_000;
+/// The most text a template may render.
+const TEMPLATE_OUTPUT: usize = 1024 * 1024;
+
 fn render_template(source: &str, review: &Value) -> Result<String, String> {
     let mut env = minijinja::Environment::new();
+    env.set_fuel(Some(TEMPLATE_FUEL));
     // `{{ item.action | verb }}`: accept → accepted, the way the generic body says it
     env.add_filter("verb", |v: String| verb(&v).unwrap_or(v));
     env.add_template("decision", source)
@@ -205,10 +213,17 @@ fn render_template(source: &str, review: &Value) -> Result<String, String> {
         "note": review["agent_note"],
         "items": items,
     });
-    env.get_template("decision")
+    let text = env
+        .get_template("decision")
         .map_err(|e| e.to_string())?
         .render(minijinja::Value::from_serialize(&context))
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    if text.len() > TEMPLATE_OUTPUT {
+        return Err(format!(
+            "the template rendered more than {TEMPLATE_OUTPUT} bytes"
+        ));
+    }
+    Ok(text)
 }
 
 /// Every object with an `id` in the arrays of `value`, at any depth, in
@@ -662,6 +677,27 @@ Undecided: #19, #20
             Some("{% for item in items %}- {{ item.id }} {{ item.payload.title }}\n{% endfor %}"),
         );
         assert!(md.contains("- 7 deep\n"), "{md}");
+    }
+
+    #[test]
+    fn a_template_that_would_run_for_ever_gives_way_to_the_generic_body() {
+        // loops in loops: each range is within the engine's own cap, and
+        // together they would never finish
+        let endless = "{% for a in range(100000) %}{% for b in range(100000) %}\
+                       {% for c in range(100000) %}x{% endfor %}{% endfor %}{% endfor %}";
+        let review = decided(
+            "list",
+            json!({"decisions": [{"id": 1, "action": "accept"}]}),
+        );
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(render(&review, None, Some(endless)));
+        });
+        let text = rx
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("the template was still running after 10 seconds");
+        assert!(text.contains("- **#1** **accepted**"), "{text}");
+        assert!(!text.contains("xxx"), "{text}");
     }
 
     #[test]

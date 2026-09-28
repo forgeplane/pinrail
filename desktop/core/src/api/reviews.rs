@@ -125,8 +125,10 @@ fn wants_markdown(headers: &HeaderMap, params: &HashMap<String, String>) -> Opti
 }
 
 /// A review as the caller asked for it: markdown with its round placed
-/// in the chain, or the JSON everything else reads.
-fn review_response(
+/// in the chain, or the JSON everything else reads. The markdown may run the
+/// plugin's template, so it is rendered where slow work belongs, off the
+/// threads that answer requests.
+async fn review_response(
     state: &Pinrail,
     review: &crate::reviews::Review,
     markdown: Option<Head>,
@@ -148,13 +150,12 @@ fn review_response(
         .fetch_version(&review.plugin, review.plugin_version)
         .ok()
         .and_then(|p| p.decision_template.clone());
-    let text = crate::markdown::render_in(
-        &review.to_json(true),
-        round,
-        template.as_deref(),
-        None,
-        head,
-    );
+    let json = review.to_json(true);
+    let text = tokio::task::spawn_blocking(move || {
+        crate::markdown::render_in(&json, round, template.as_deref(), None, head)
+    })
+    .await
+    .map_err(|e| Error::Internal(format!("rendering the review: {e}")))?;
     Ok((
         [(header::CONTENT_TYPE, "text/markdown; charset=utf-8")],
         text,
@@ -169,7 +170,7 @@ async fn show(
     headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let review = state.reviews().get(&id)?;
-    review_response(&state, &review, wants_markdown(&headers, &params))
+    review_response(&state, &review, wants_markdown(&headers, &params)).await
 }
 
 async fn rounds(
@@ -198,7 +199,7 @@ async fn wait(
         .wait(&id, Duration::from_secs(timeout))
         .await?
     {
-        Some(review) => review_response(&state, &review, wants_markdown(&headers, &params)),
+        Some(review) => review_response(&state, &review, wants_markdown(&headers, &params)).await,
         None => Ok(StatusCode::NO_CONTENT.into_response()),
     }
 }
@@ -221,7 +222,7 @@ async fn decide(
     }
     let note = body.get("agent_note").and_then(Value::as_str);
     let review = state.reviews().decide(&id, data, note)?;
-    review_response(&state, &review, wants_markdown(&headers, &params))
+    review_response(&state, &review, wants_markdown(&headers, &params)).await
 }
 
 async fn withdraw(
