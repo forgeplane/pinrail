@@ -251,3 +251,29 @@ fn a_second_open_of_a_data_directory_in_use_is_refused_and_touches_nothing() {
     drop(first);
     Pinrail::open(config).unwrap();
 }
+
+/// A stored file that no database row names, left by a stop between
+/// storing an upload and recording it, is removed at the next start once
+/// it is old enough that no upload can still be recording it.
+#[test]
+fn a_stored_file_nothing_names_is_removed_at_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::new(dir.path(), 0);
+    let blobs = config.attachments_dir().join("sha256");
+    drop(Pinrail::open(config.clone()).unwrap());
+    let place = |sha: &str, age: std::time::Duration| {
+        let path = blobs.join(&sha[..2]).join(sha);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, b"left over").unwrap();
+        let file = std::fs::File::options().write(true).open(&path).unwrap();
+        file.set_modified(std::time::SystemTime::now() - age)
+            .unwrap();
+        path
+    };
+    let old = place(&"a".repeat(64), std::time::Duration::from_secs(2 * 3600));
+    let fresh = place(&"b".repeat(64), std::time::Duration::from_secs(60));
+
+    drop(Pinrail::open(config).unwrap());
+    assert!(!old.exists(), "an old file nothing names was kept");
+    assert!(fresh.exists(), "a fresh one may still be being recorded");
+}

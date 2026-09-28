@@ -281,12 +281,48 @@ impl Attachments {
         let _ = fs::remove_dir_all(dir.join("tmp"));
         fs::create_dir_all(dir.join("tmp"))?;
         fs::create_dir_all(dir.join("sha256"))?;
-        Ok(Attachments {
+        let attachments = Attachments {
             dir: dir.to_path_buf(),
             db,
             max_bytes,
             files: Arc::default(),
-        })
+        };
+        attachments.remove_unrecorded()?;
+        Ok(attachments)
+    }
+
+    /// Removes stored files that no row names: an upload is stored before it
+    /// is recorded, so a stop between the two, or a removal the sweep could
+    /// not finish, leaves one behind that nothing would find again. A file
+    /// younger than an hour is kept, as the sweep keeps an upload that long.
+    fn remove_unrecorded(&self) -> Result<(), Error> {
+        let hour_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+        let Ok(prefixes) = fs::read_dir(self.dir.join("sha256")) else {
+            return Ok(());
+        };
+        for prefix in prefixes.flatten() {
+            let Ok(files) = fs::read_dir(prefix.path()) else {
+                continue;
+            };
+            for file in files.flatten() {
+                let name = file.file_name().to_string_lossy().into_owned();
+                let old = file
+                    .metadata()
+                    .and_then(|m| m.modified())
+                    .is_ok_and(|at| at < hour_ago);
+                if old && self.db.blob_size(&name)?.is_none() {
+                    let path = file.path();
+                    if let Ok(meta) = fs::metadata(&path) {
+                        let mut permissions = meta.permissions();
+                        #[allow(clippy::permissions_set_readonly_false)]
+                        permissions.set_readonly(false);
+                        let _ = fs::set_permissions(&path, permissions);
+                    }
+                    let _ = fs::remove_file(&path);
+                }
+            }
+        }
+        Ok(())
     }
 
     /// How many files are stored, and their bytes: what Settings › History
