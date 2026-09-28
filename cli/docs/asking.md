@@ -10,8 +10,8 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
 ```
 
 - `--title`: what the person sees in the inbox. Required.
-- `--data <file>`: the payload, JSON the plugin's schema accepts; `-` reads
-  stdin.
+- `--data <json>`: the payload, JSON the plugin's schema accepts: inline,
+  a file, or `-` for stdin.
 - `--origin repo=…,ref=…,url=…`: the project, branch or pull request, and a
   link back. `repo` and `ref` come from git when you are in a checkout.
 - `--wait`: block until the review ends, then print it.
@@ -27,8 +27,8 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
   If your commands have a time limit, keep it below that. `PINRAIL_TIMEOUT`
   sets it once for every wait.
 - `--summary '<json>'`: the counts the inbox shows beside the title.
-- `--request <file>`: the whole request as one JSON file; flags override
-  its keys.
+- `--request <json>`: the whole request as JSON, inline or in a file;
+  flags override its keys.
 
 Without `--wait`, `submit` prints the new review and returns: wait on it
 later with `pinrail wait <id>`.

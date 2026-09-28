@@ -304,9 +304,9 @@ struct SubmitArgs {
     /// What the review is about, as the inbox shows it
     #[arg(long, required_unless_present_any = ["request", "sample"])]
     title: Option<String>,
-    /// The whole request as JSON: a file path, or - for stdin; flags
-    /// override its keys
-    #[arg(long, value_name = "FILE|-")]
+    /// The whole request as JSON: inline, a file path, or - for stdin;
+    /// flags override its keys
+    #[arg(long, value_name = "JSON|FILE|-")]
     request: Option<String>,
     /// Where the review comes from, as key=value pairs: repo (the project,
     /// owner/name), ref (a branch or pull request), workflow and run_id
@@ -314,8 +314,8 @@ struct SubmitArgs {
     /// default to the remote and the branch. E.g. repo=acme/api,ref=42,url=…
     #[arg(long, value_parser = origin::parse)]
     origin: Option<BTreeMap<String, String>>,
-    /// Payload JSON: a file path, or - for stdin
-    #[arg(long, value_name = "FILE|-")]
+    /// Payload JSON: inline, a file path, or - for stdin
+    #[arg(long, value_name = "JSON|FILE|-")]
     data: Option<String>,
     /// A file to send beside the payload, which names it {"$attachment":
     /// "<name>"}; the name is the file's own unless given after =.
@@ -427,8 +427,8 @@ struct ListArgs {
 struct DecideArgs {
     /// The review's id
     id: String,
-    /// Decision JSON: a file path, or - for stdin
-    #[arg(long, value_name = "FILE|-")]
+    /// Decision JSON: inline, a file path, or - for stdin
+    #[arg(long, value_name = "JSON|FILE|-")]
     data: String,
     /// Free-text note to the requesting agent
     #[arg(long)]
@@ -1091,7 +1091,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
 
     // the files: the request's map of name to path, then the flags
     let request_dir = match args.request.as_deref() {
-        Some(spec) if spec != "-" => std::path::Path::new(spec)
+        Some(spec) if spec != "-" && !is_inline_json(spec) => std::path::Path::new(spec)
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_default(),
@@ -1341,7 +1341,18 @@ fn wait(
     }
 }
 
+/// JSON given on the command line itself: what starts as an object or an
+/// array and names no file that exists.
+fn is_inline_json(spec: &str) -> bool {
+    let start = spec.trim_start();
+    (start.starts_with('{') || start.starts_with('[')) && !std::path::Path::new(spec).exists()
+}
+
+/// The JSON a flag gives: inline, from a file, or from stdin with `-`.
 fn read_json_arg(spec: &str) -> Result<Value> {
+    if is_inline_json(spec) {
+        return serde_json::from_str(spec).context("the JSON given inline is not valid JSON");
+    }
     let text = if spec == "-" {
         std::io::read_to_string(std::io::stdin()).context("reading stdin")?
     } else {

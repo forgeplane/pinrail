@@ -760,6 +760,73 @@ fn a_wait_that_runs_out_gives_the_command_to_keep_waiting() {
 }
 
 #[test]
+fn json_can_be_given_inline_as_well_as_in_a_file() {
+    let bodies = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let seen = bodies.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        if method == "POST" {
+            seen.lock()
+                .unwrap()
+                .push(serde_json::from_str(body).unwrap());
+        }
+        match path {
+            "/api/v1/reviews" => (201, review("pending")),
+            "/api/v1/reviews/r_1/decision" => (200, review("decided")),
+            other => panic!("unexpected {other}"),
+        }
+    }));
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "list",
+            "--title",
+            "t",
+            "--data",
+            r#"{"groups": []}"#,
+            "--no-start",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "--request",
+            r#"{"plugin": "list", "title": "whole", "payload": {"groups": []}}"#,
+            "--no-start",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let (code, _, stderr) = run(
+        &server,
+        &["decide", "r_1", "--data", r#"{"decisions": []}"#],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let bodies = bodies.lock().unwrap();
+    assert_eq!(bodies[0]["payload"], serde_json::json!({ "groups": [] }));
+    assert_eq!(bodies[1]["title"], "whole");
+    assert_eq!(bodies[2]["data"], serde_json::json!({ "decisions": [] }));
+
+    // JSON that does not parse says so, rather than naming a missing file
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "submit",
+            "list",
+            "--title",
+            "t",
+            "--data",
+            "{groups: []}",
+            "--no-start",
+        ],
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("not valid JSON"), "{stderr}");
+    assert!(!stderr.contains("No such file"), "{stderr}");
+}
+
+#[test]
 fn plugin_versions_say_when_no_version_is_usable() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/hello/versions" => (

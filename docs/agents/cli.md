@@ -75,11 +75,11 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | Flag | Meaning |
 |---|---|
 | `--title` | Required. What the review is about, as it will appear in your inbox. |
-| `--data <file>` | The payload, as JSON. `--data -` reads it from stdin. |
+| `--data <json>` | The payload, as JSON: inline, such as `--data '{"groups": []}'`, in a file, or `-` for stdin. |
 | `--attach <path>[=<name>]` | A file to send beside the payload. Only a plugin that declares files accepts them. Repeat for more. See [Sending files](#sending-files). |
 | `--wait` | Block until the review is decided or ends, then print it. Without it, `submit` prints the new review and returns at once. |
 | `--dry-run` | Run every check a submission gets and create no review. Exits 0 when it would be accepted, 2 with the violations. |
-| `--request <file>` | The whole request as one JSON file. See [The whole request in one file](#the-whole-request-in-one-file). |
+| `--request <json>` | The whole request as JSON, inline or in a file. See [The whole request in one file](#the-whole-request-in-one-file). |
 | `--sample` | Send the plugin's sample, a review it ships to show what it looks like, in place of a payload. `--title` and `--origin` still apply. See [A plugin's sample](#a-plugins-sample). |
 | `--json` | Print the review as JSON instead of markdown, for a script. |
 | `--origin` | Where the review comes from: `repo=…,workflow=…,run_id=…,ref=…,url=…`. The app groups reviews by project and links back to `url`, which must be an `http` or `https` address. Inside a git checkout, `repo` and `ref` default to the remote's `owner/name` and the current branch; outside one, give `repo` a short name for the project. Any other key is dropped, with a warning on stderr. |
