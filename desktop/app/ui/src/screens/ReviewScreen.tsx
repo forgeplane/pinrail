@@ -571,7 +571,7 @@ export function ReviewScreen() {
             </div>
           ) : null}
           <iframe
-            key={review.id}
+            key={`${review.id}:${bridge.reloads}`}
             ref={frame}
             id="plugin-frame"
             sandbox="allow-scripts"

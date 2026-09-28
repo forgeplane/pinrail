@@ -69,6 +69,10 @@ export type Bridge = {
   left: boolean;
   /** loads the view's own page again */
   reload: () => void;
+  /** how many times the view was reloaded: part of the frame's key, so a
+   *  reload gets a new frame. Setting a frame's src to the address it already
+   *  has does not always load it again, in WebKit after a blocked navigation. */
+  reloads: number;
 };
 
 export function usePluginBridge(options: Options): Bridge {
@@ -343,5 +347,5 @@ export function usePluginBridge(options: Options): Bridge {
     wasReadonly.current = readonly;
   }, [readonly, sendInit]);
 
-  return { loaded, fill, submitting, handoverLabel, collect, left, reload };
+  return { loaded, fill, submitting, handoverLabel, collect, left, reload, reloads };
 }

@@ -105,3 +105,42 @@ test("the frame can show only Pinrail's own server", async ({ page }) => {
     server.close();
   }
 });
+
+/** A view that leaves its page only when asked, for another page of its own. */
+function leaver(): string {
+  const dir = scratch("pinrail-leaver-");
+  fs.mkdirSync(path.join(dir, "view"));
+  fs.writeFileSync(
+    path.join(dir, "manifest.json"),
+    JSON.stringify({ name: "leaver", version: "1.0.0", title: "Leaver", entry: "view/index.html", payload_schema: {}, decision_schema: {} }),
+  );
+  fs.writeFileSync(
+    path.join(dir, "view", "index.html"),
+    `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
+<button id="leave">leave</button><button id="blocked">blocked</button>
+<script>
+  Pinrail.connect({});
+  document.getElementById("leave").onclick = () => { location.href = "other.html"; };
+  document.getElementById("blocked").onclick = () => { location.href = "https://example.com/"; };
+</script>`,
+  );
+  fs.writeFileSync(path.join(dir, "view", "other.html"), `<!doctype html><p>another page</p>`);
+  return dir;
+}
+
+for (const [button, where] of [["#leave", "another of its pages"], ["#blocked", "a page the app blocks"]]) {
+  test(`Reload the view brings the view's own page back after it went to ${where}`, async ({ page }) => {
+    await linkPlugin(page.request, leaver(), "leaver");
+    await clearInbox(page.request);
+    const { id } = await createReview(page.request, { plugin: "leaver", title: "Come back", payload: {} });
+    await page.goto(`/#/reviews/${id}`);
+    const view = page.frameLocator("#plugin-frame");
+    await view.locator(button).click();
+    await expect(page.locator("[data-view-left]")).toBeVisible();
+
+    await page.locator("[data-view-left] button").click();
+    await expect(page.locator("[data-view-left]")).toHaveCount(0);
+    await expect(page.locator(".plugin-loading")).toHaveCount(0);
+    await expect(view.locator("#leave")).toBeVisible();
+  });
+}
