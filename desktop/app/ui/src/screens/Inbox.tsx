@@ -341,6 +341,12 @@ export function Inbox() {
           </Tooltip>
         </span>
       </nav>
+      {live.pendingUnloaded > 0 ? (
+        <p className="notice" data-inbox-capped>
+          The inbox shows the newest {live.pending.length} of {live.pendingCount} pending reviews. Decide or withdraw
+          some to see the rest.
+        </p>
+      ) : null}
       {groups.length === 0 ? (
         <EmptyState
           title={filtered ? "No matching reviews" : "All caught up"}

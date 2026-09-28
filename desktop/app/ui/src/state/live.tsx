@@ -7,10 +7,16 @@ import { api, subscribe } from "../api/client";
 import type { Notice, Plugin, Review } from "../api/types";
 import { ENDINGS, applyNotice } from "./pending";
 
+/** The most pending reviews the app loads; the server has the rest. */
+const PENDING_LOADED = 500;
+
 type Live = {
   connected: boolean;
   pending: Review[];
+  /** every pending review, including those beyond the ones loaded */
   pendingCount: number;
+  /** pending reviews the server has beyond the newest ones loaded */
+  pendingUnloaded: number;
   /** the projects (`origin.repo`) of what is pending, sorted */
   projects: string[];
   /** how many pending reviews name no project */
@@ -36,6 +42,7 @@ const PluginsContext = createContext<Plugins | null>(null);
 export function LiveProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [pending, setPending] = useState<Review[]>([]);
+  const [unloaded, setUnloaded] = useState(0);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [lastNotice, setLastNotice] = useState<Notice | null>(null);
   const [plugins, setPlugins] = useState<Map<string, Plugin>>(new Map());
@@ -53,7 +60,9 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     try {
       // every pending review, up to the server's maximum: the sidebar, the
       // project counts and the inbox's pages are all drawn from this list
-      setPending((await api.listReviews({ status: "pending", limit: "500" })).reviews);
+      const listing = await api.listReviews({ status: "pending", limit: String(PENDING_LOADED) });
+      setPending(listing.reviews);
+      setUnloaded(Math.max(0, (listing.total ?? listing.reviews.length) - listing.reviews.length));
     } catch {
       // the connection indicator reports the outage; the next event retries
     }
@@ -85,16 +94,18 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const unassigned = useMemo(() => pending.filter((r) => !r.origin.repo).length, [pending]);
 
   useEffect(() => {
-    const badge = pending.length > 0 ? `(${pending.length}) ` : "";
+    const count = pending.length + unloaded;
+    const badge = count > 0 ? `(${count}) ` : "";
     document.title = `${badge}Pinrail`;
-  }, [pending.length]);
+  }, [pending.length, unloaded]);
 
   const pluginIcon = useCallback((name: string) => plugins.get(name)?.icon ?? null, [plugins]);
   const value = useMemo<Live>(
     () => ({
       connected,
       pending,
-      pendingCount: pending.length,
+      pendingCount: pending.length + unloaded,
+      pendingUnloaded: unloaded,
       projects,
       unassigned,
       historyVersion,
@@ -103,7 +114,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       pluginIcon,
       refresh,
     }),
-    [connected, pending, projects, unassigned, historyVersion, lastNotice, plugins, pluginIcon, refresh],
+    [connected, pending, unloaded, projects, unassigned, historyVersion, lastNotice, plugins, pluginIcon, refresh],
   );
   const pluginsValue = useMemo<Plugins>(() => ({ plugins, pluginIcon }), [plugins, pluginIcon]);
   return (
