@@ -14,6 +14,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import Ajv2020 from "ajv/dist/2020.js";
 import { resolveAttachments } from "../harness/attachments.cjs";
 import { packageRoot, sdkScript } from "../lib/paths.cjs";
@@ -184,19 +185,24 @@ function stamp(pluginDir) {
  * a directory (default "."), --port N, --no-open (or --open, the default).
  */
 export function serve(argv) {
-  const args = [...argv];
-  const flag = (name) => {
-    const i = args.indexOf(name);
-    return i >= 0 ? args[i + 1] : undefined;
-  };
-  const pluginDir = path.resolve(args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--port") ?? ".");
-  const port = Number(flag("--port") ?? 4790);
-  const open = !args.includes("--no-open");
+  const usage = "usage: pinrail-plugin dev <plugin directory> [--port N] [--no-open]";
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      allowPositionals: true,
+      options: { port: { type: "string" }, "no-open": { type: "boolean" } },
+    });
+  } catch (error) {
+    console.error(`pinrail-plugin dev: ${error.message}\n${usage}`);
+    process.exit(2);
+  }
+  const pluginDir = path.resolve(parsed.positionals[0] ?? ".");
+  const port = Number(parsed.values.port ?? 4790);
+  const open = !parsed.values["no-open"];
 
   if (!fs.existsSync(path.join(pluginDir, "manifest.json"))) {
-    console.error(
-      `no manifest.json in ${pluginDir}\nusage: pinrail-plugin dev <plugin directory> [--port N] [--no-open]`,
-    );
+    console.error(`no manifest.json in ${pluginDir}\n${usage}`);
     process.exit(2);
   }
 

@@ -208,3 +208,21 @@ test("a bad name, an unknown template and a folder in use are refused", async ()
   fs.writeFileSync(path.join(used, "keep.txt"), "");
   assert.throws(() => scaffold("ok", { dir: used }), /is not empty/);
 });
+
+test("the command line takes --template=react as well as --template react, and refuses what it does not know", () => {
+  const { spawnSync } = require("node:child_process");
+  const bin = path.join(__dirname, "..", "bin", "pinrail-plugin.mjs");
+  const run = (...args) => spawnSync(process.execPath, [bin, "create", ...args], { encoding: "utf8" });
+  for (const form of [["--template=react"], ["--template", "react"]]) {
+    const dir = path.join(tmp(), "greeter");
+    const made = run("greeter", ...form, "--dir", dir, "--sdk", "file:../sdk");
+    assert.equal(made.status, 0, made.stderr);
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+    assert.ok(pkg.dependencies?.react, `${form.join(" ")}: ${JSON.stringify(pkg)}`);
+  }
+  const misspelled = run("greeter", "--tempalte", "react", "--dir", path.join(tmp(), "plugins"));
+  assert.equal(misspelled.status, 2);
+  assert.match(misspelled.stderr, /--tempalte/);
+  const empty = run("greeter", "--template");
+  assert.equal(empty.status, 2);
+});

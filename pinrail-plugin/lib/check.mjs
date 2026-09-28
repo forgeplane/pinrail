@@ -10,6 +10,7 @@
 // was dropped (settings, shortcuts, the markdown template).
 import fs from "node:fs";
 import path from "node:path";
+import { parseArgs } from "node:util";
 import Ajv2020 from "ajv/dist/2020.js";
 
 /** The manifest's JSON Schema, as the core reads it too. */
@@ -427,9 +428,15 @@ function normalizeKeys(keys) {
 
 /** The command line: `check [dir] [--json]`. Exits 1 when the app would refuse the folder. */
 export function check(argv) {
-  const args = [...argv];
-  const json = args.includes("--json");
-  const dir = args.find((a) => !a.startsWith("--")) ?? ".";
+  let parsed;
+  try {
+    parsed = parseArgs({ args: argv, allowPositionals: true, options: { json: { type: "boolean" } } });
+  } catch (error) {
+    console.error(`pinrail-plugin check: ${error.message}\nusage: pinrail-plugin check [dir] [--json]`);
+    process.exit(2);
+  }
+  const json = parsed.values.json ?? false;
+  const dir = parsed.positionals[0] ?? ".";
   const r = checkPlugin(dir);
   if (json) {
     console.log(JSON.stringify(r, null, 2));

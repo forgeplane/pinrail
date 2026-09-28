@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { packageRoot } from "./paths.cjs";
+import { parseArgs } from "node:util";
 
 const root = packageRoot(fileURLToPath(import.meta.url));
 const templates = path.join(root, "templates");
@@ -87,22 +88,25 @@ export function scaffold(name, opts = {}) {
 
 /** The command line: `create <name> [--template plain|vite|react|vue|svelte] [--dir path] [--sdk spec]`. */
 export function create(argv) {
-  const args = [...argv];
-  const flag = (key) => {
-    const i = args.indexOf(key);
-    if (i < 0) return undefined;
-    const value = args[i + 1];
-    args.splice(i, 2);
-    return value;
-  };
-  const template = flag("--template");
-  const dir = flag("--dir");
-  const sdk = flag("--sdk");
-  const name = args.find((a) => !a.startsWith("--"));
-  if (!name) {
-    console.error(
-      "usage: pinrail-plugin create <name> [--template plain|vite|react|vue|svelte] [--dir path] [--sdk spec]",
-    );
+  const usage =
+    "usage: pinrail-plugin create <name> [--template plain|vite|react|vue|svelte] [--dir path] [--sdk spec]";
+  // --template react and --template=react alike; an unknown flag, or one
+  // without its value, is refused rather than quietly ignored
+  let parsed;
+  try {
+    parsed = parseArgs({
+      args: argv,
+      allowPositionals: true,
+      options: { template: { type: "string" }, dir: { type: "string" }, sdk: { type: "string" } },
+    });
+  } catch (error) {
+    console.error(`pinrail-plugin create: ${error.message}\n${usage}`);
+    process.exit(2);
+  }
+  const { template, dir, sdk } = parsed.values;
+  const name = parsed.positionals[0];
+  if (!name || parsed.positionals.length > 1) {
+    console.error(usage);
     process.exit(2);
   }
 
