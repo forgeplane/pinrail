@@ -70,3 +70,41 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.status).toBe("decided");
 });
+
+// The preview checks a hand-over and decides nothing: it keeps no drafts
+// or settings, and never says submitted.
+test("the preview hosts a view as the protocol says, and decides nothing", async ({ page }) => {
+  await linkPlugin(page.request, dir, "conformance");
+  const bytes = fs.readFileSync(path.join(dir, "fixtures", "note.txt"));
+  const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
+  const put = await page.request.put(`${core}/api/v1/attachments/${sha256}`, { headers: { "content-type": "application/octet-stream" }, data: bytes });
+  expect([200, 201]).toContain(put.status());
+  const created = await page.request.post(`${core}/api/v1/reviews`, {
+    data: {
+      plugin: "conformance",
+      title: "Preview",
+      payload: { note: { $attachment: "note.txt" } },
+      attachments: { "note.txt": { sha256, size: bytes.length, media_type: "text/plain" } },
+    },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  const { id } = await created.json();
+
+  await page.goto(`${core}/preview/reviews/${id}`);
+  const frame = await viewFrame(page);
+  expect(conformance.handshakeProblems(await received(frame))).toEqual([]);
+
+  await send(frame, { type: "attachment", req: 7, name: "note.txt" });
+  await send(frame, { type: "attachment", req: 8, name: "missing.txt" });
+  await expect.poll(async () => (await received(frame)).filter((m) => m.type === "attachment").length).toBe(2);
+  expect(conformance.attachmentProblems(await received(frame))).toEqual([]);
+  expect(conformance.refusedAttachmentProblems(await received(frame))).toEqual([]);
+
+  await send(frame, { type: "submit", data: { ok: "yes" } });
+  await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
+  await send(frame, { type: "submit", data: { ok: true } });
+  await expect(page.locator("body")).toContainText("The decision passes");
+  expect((await received(frame)).some((m) => m.type === "submitted")).toBe(false);
+  const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
+  expect(review.status).toBe("pending");
+});
