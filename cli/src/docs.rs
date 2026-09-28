@@ -8,35 +8,7 @@ use std::fmt::Write;
 
 use clap::{Arg, Command};
 
-use crate::{EXIT_CLOSED, EXIT_DISCARDED, EXIT_ERROR, EXIT_REFUSED, EXIT_TIMEOUT};
-
-/// Every way a command ends, in the order a reader looks them up.
-const EXITS: &[(u8, &str)] = &[
-    (
-        0,
-        "Done. For `wait` and `submit --wait`: the review was decided.",
-    ),
-    (
-        EXIT_ERROR,
-        "Error: bad arguments, the server unreachable, a file that could not be read or written.",
-    ),
-    (
-        EXIT_REFUSED,
-        "The server refused the request, for example a payload the plugin's schema rejects. Its answer is on stderr.",
-    ),
-    (
-        EXIT_CLOSED,
-        "The review was withdrawn by the agent, or expired, before anyone decided.",
-    ),
-    (
-        EXIT_TIMEOUT,
-        "`--timeout` ran out. The review is still pending.",
-    ),
-    (
-        EXIT_DISCARDED,
-        "The person discarded the review: stop the work it was gating.",
-    ),
-];
+use crate::EXITS;
 
 /// The variables the CLI reads outside clap, beside the ones flags declare.
 const ENVIRONMENT: &[(&str, &str)] = &[

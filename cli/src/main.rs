@@ -1,15 +1,7 @@
 //! `pinrail`: the CLI agents call. It talks HTTP to the running server and
 //! does nothing itself. Markdown on stdout by default and JSON with --json,
-//! diagnostics on stderr, meaningful exit codes:
-//!
-//! | code | meaning |
-//! |---|---|
-//! | 0 | done |
-//! | 1 | error: bad arguments, server unreachable, I/O |
-//! | 2 | the server refused the request (404, 409, 422); the body is on stderr |
-//! | 3 | the review was withdrawn or expired instead of decided |
-//! | 4 | `wait` timed out; the review is still pending |
-//! | 5 | the person discarded the review: stop the work it was gating |
+//! diagnostics on stderr, and meaningful exit codes, which [`EXITS`] lists
+//! for the help and the docs alike.
 
 mod agent;
 mod api;
@@ -41,6 +33,45 @@ pub const EXIT_CLOSED: u8 = 3;
 pub const EXIT_TIMEOUT: u8 = 4;
 /// The person said no, and stop; the reason, if any, is in the envelope.
 pub const EXIT_DISCARDED: u8 = 5;
+
+/// Every way a command ends, in the order a reader looks them up: the one
+/// list the help and the docs' CLI reference print.
+pub const EXITS: &[(u8, &str)] = &[
+    (
+        0,
+        "Done. For `wait` and `submit --wait`, the review was decided.",
+    ),
+    (
+        EXIT_ERROR,
+        "Error: bad arguments, the app could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again.",
+    ),
+    (
+        EXIT_REFUSED,
+        "The app refused the request, for example a payload the plugin's schema rejects, or a folder that `plugins check` would not install. Why is on stderr.",
+    ),
+    (
+        EXIT_CLOSED,
+        "The review was withdrawn by the agent, or expired, before anyone decided.",
+    ),
+    (
+        EXIT_TIMEOUT,
+        "`--timeout` ran out. The review is still pending.",
+    ),
+    (
+        EXIT_DISCARDED,
+        "The person discarded the review: stop the work it was gating, and do not ask again.",
+    ),
+];
+
+/// The exit codes as the help lists them: plain text, without the
+/// markdown code marks the docs keep.
+fn exit_codes() -> String {
+    let mut text = String::from("Exit codes:");
+    for (code, meaning) in EXITS {
+        text.push_str(&format!("\n  {code}  {}", meaning.replace('`', "")));
+    }
+    text
+}
 
 #[derive(Parser)]
 #[command(
@@ -161,11 +192,11 @@ enum Command {
     /// sent as it is. The submission is checked before anything is
     /// uploaded, and a file the app already has is not sent again.
     #[command(verbatim_doc_comment)]
-    #[command(after_help = EXIT_CODES)]
+    #[command(after_help = exit_codes())]
     Submit(SubmitArgs),
     /// Block until a review leaves pending, then print it: the decision as
     /// markdown, or with --json the whole review as JSON
-    #[command(after_help = EXIT_CODES)]
+    #[command(after_help = exit_codes())]
     Wait(WaitArgs),
     /// Print a review: as markdown, or with --json the whole review as JSON,
     /// its payload and decision
@@ -508,14 +539,6 @@ enum PluginsCommand {
 }
 
 /// What a submit or a wait exits with: what an agent acts on.
-const EXIT_CODES: &str = "Exit codes:
-  0  decided
-  1  bad arguments, the app could not be reached, or it failed on its side
-  2  refused by the app; stderr says why
-  3  withdrawn, or expired undecided
-  4  --timeout ran out; the review is still pending
-  5  discarded: stop the work, and don't ask again";
-
 /// The CLI as clap parses it. The flags every command takes are hidden
 /// where they are defined, so no command's help repeats them, as git's
 /// don't; the root's help lists them once, from their definitions.
@@ -540,7 +563,8 @@ fn command() -> clap::Command {
         listed.push_str(&format!("  {name}{value}\n          {help}\n"));
     }
     root.after_help(format!(
-        "{listed}\n{EXIT_CODES}\n\nHow to use Pinrail as an agent: pinrail docs"
+        "{listed}\n{}\n\nHow to use Pinrail as an agent: pinrail docs",
+        exit_codes()
     ))
 }
 
