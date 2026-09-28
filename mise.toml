@@ -58,15 +58,24 @@ dir = "{{config_root}}/desktop/app"
 run = "npx tauri dev"
 
 [tasks.lint]
-description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, dependency licences"
+description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, dependency licences and sources"
 run = [
   "cargo fmt --check --manifest-path {{config_root}}/cli/Cargo.toml",
   "cargo fmt --all --check --manifest-path {{config_root}}/desktop/Cargo.toml",
   "cargo clippy --manifest-path {{config_root}}/cli/Cargo.toml --all-targets -- -D warnings",
   "cargo clippy --manifest-path {{config_root}}/desktop/Cargo.toml --workspace --all-targets -- -D warnings",
   "npm --prefix {{config_root}}/desktop/app test",
-  "cargo deny --manifest-path {{config_root}}/desktop/Cargo.toml --config {{config_root}}/deny.toml check licenses",
-  "cargo deny --manifest-path {{config_root}}/cli/Cargo.toml --config {{config_root}}/deny.toml check licenses",
+  "cargo deny --manifest-path {{config_root}}/desktop/Cargo.toml --config {{config_root}}/deny.toml check licenses bans sources",
+  "cargo deny --manifest-path {{config_root}}/cli/Cargo.toml --config {{config_root}}/deny.toml check licenses bans sources",
+]
+
+[tasks.audit]
+description = "Known vulnerabilities in the dependencies: RustSec advisories for both Rust workspaces, and npm audit for the packages that ship"
+dir = "{{config_root}}"
+run = [
+  "cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check advisories",
+  "cargo deny --manifest-path cli/Cargo.toml --config deny.toml check advisories",
+  "for d in desktop/app pinrail-plugin plugins/artifact plugins/model; do (cd $d && npm audit --omit=dev --audit-level=high) || exit 1; done",
 ]
 
 [tasks.test]

@@ -1,11 +1,13 @@
-# The licences Pinrail's Rust dependencies may carry: the desktop workspace
-# and the CLI, which ships inside the app. CI runs
+# What Pinrail's Rust dependencies must meet: the desktop workspace and the
+# CLI, which ships inside the app. CI runs, for each of the two,
 #
-#   cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check licenses
-#   cargo deny --manifest-path cli/Cargo.toml --config deny.toml check licenses
+#   cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check licenses bans sources
 #
-# and a dependency under anything else fails the build until it is reviewed
-# and, if it fits, added here. All of these are permissive, or copyleft only
+# in its lint job, and `check advisories` in the advisories workflow, weekly
+# and when a lock file changes, since a new advisory needs no change here.
+#
+# A dependency under a licence not listed below fails the build until it is
+# reviewed and, if it fits, added here. All of these are permissive, or copyleft only
 # for the files they cover (MPL-2.0), so the app stays Apache-2.0 as a whole.
 # A crate offering a choice ("MIT OR LGPL") passes on any allowed option.
 
@@ -34,3 +36,29 @@ unused-allowed-license = "allow"
 # Pinrail's own crates are not published; their licence is ours to set
 [licenses.private]
 ignore = true
+
+# the systems Pinrail ships for: macOS on Apple silicon and Intel, and Linux
+[graph]
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
+
+# A known vulnerability fails, wherever it is, and so does a yanked crate.
+# An unmaintained crate fails only when Pinrail depends on it directly:
+# the ones Tauri brings in (the unic crates, proc-macro-error) are Tauri's
+# to replace, and failing on them would only teach everyone to ignore this.
+[advisories]
+version = 2
+yanked = "deny"
+unmaintained = "workspace"
+
+# Several versions of one crate are allowed: they come from Tauri's tree,
+# and Pinrail cannot pick one. A version wildcard is refused, except the
+# path dependencies between Pinrail's own unpublished crates.
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+# crates.io only: no other registry, and no crate straight from git
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

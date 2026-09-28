@@ -1,0 +1,54 @@
+# Known vulnerabilities in the dependencies: RustSec advisories for both Rust
+# workspaces, and npm audit for the packages whose code ships (the app's UI,
+# the SDK, and the plugins with a build). A new advisory needs no change in
+# the repository, so this runs every week as well as when a lock file
+# changes. On a pull request it reports without blocking the merge.
+name: advisories
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - "**/Cargo.lock"
+      - "**/package-lock.json"
+      - "deny.toml"
+      - ".github/workflows/advisories.yml"
+  pull_request:
+    paths:
+      - "**/Cargo.lock"
+      - "**/package-lock.json"
+      - "deny.toml"
+      - ".github/workflows/advisories.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  advisories:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
+        with:
+          tool: cargo-deny
+      - name: Rust advisories
+        run: |
+          cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check advisories
+          cargo deny --manifest-path cli/Cargo.toml --config deny.toml check advisories
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      # the lock files are enough: npm audit needs no install
+      - name: npm advisories
+        run: |
+          for dir in desktop/app pinrail-plugin plugins/artifact plugins/model; do
+            echo "::group::$dir"
+            (cd "$dir" && npm audit --omit=dev --audit-level=high) || failed=1
+            echo "::endgroup::"
+          done
+          exit "${failed:-0}"

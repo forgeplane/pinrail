@@ -107,7 +107,8 @@ edited by hand.
 Run the linters and the tests:
 
 ```sh
-mise run lint               # rustfmt, clippy, the type check, licences
+mise run lint               # rustfmt, clippy, the type check, licences and sources
+mise run audit              # known vulnerabilities in the dependencies
 mise run test               # all the test suites
 ```
 
