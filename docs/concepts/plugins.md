@@ -3,7 +3,7 @@ title: Plugins
 description: "What a plugin is, how it shapes a review, and the ones that come with Pinrail."
 ---
 
-Every review in Pinrail belongs to a plugin. The plugin decides three things: what an agent may send, what the person sees, and what goes back. Pinrail supplies everything around them, the inbox, notifications, history, and the command the agent waits on.
+Every review in Pinrail belongs to a plugin. The plugin decides three things: what an agent may send, what the person sees, and what goes back. Pinrail supplies everything else: the inbox, notifications, history, and the command that the agent waits on.
 
 ## What a plugin is
 
@@ -22,19 +22,19 @@ flowchart TB
 
 - **The payload schema** is what the agent must send. Pinrail rejects anything else before it reaches your inbox.
 - **The view** is what you decide in: a diff with proposed comments, a draft email to edit, a page to comment on.
-- **The decision schema** is what goes back. The agent reads it as markdown, a script reads it as JSON, and both can rely on its shape.
+- **The decision schema** is what goes back. The agent reads it as Markdown, a script reads it as JSON, and both can rely on its shape.
 
-JSON is the transport and HTML is the view. The agent never sees the view, and the view never talks to the agent.
+Data passes between the agent and Pinrail as JSON, and you see it in an HTML view. The agent never sees the view, and the view never talks to the agent.
 
 ## Why plugins
 
-A yes-or-no button tells an agent nothing. A code review needs verdicts on each comment, with reasons. An email needs edits to the draft itself. A page needs comments pinned to elements. Each kind of work deserves a view made for deciding it, and a decision shaped for acting on it.
+A plain approve-or-reject button gives an agent little to act on. A code review needs a verdict and a reason for each comment. An email needs edits to the draft itself. A page needs comments attached to its elements. Each kind of work needs a view designed for deciding it, and a decision that the agent can act on.
 
-The agent decides *when* to ask: its own instructions say which steps need a person. You decide *what asking looks like*: that is the plugin.
+The agent's instructions decide when it asks, by naming the steps that need a person. The plugin decides what the question looks like and what the answer contains.
 
 ## How an agent finds the right plugin
 
-A plugin describes itself, so an agent doesn't need you to explain it. Its manifest says what it is for and when to use it, and ships an example payload next to its schemas. An agent sees everything installed, a line each, with one command, then reads the one it picks in full with `pinrail plugins describe <name>`:
+A plugin describes itself, so an agent doesn't need you to explain it. Its manifest says what it is for and when to use it, and ships an example payload next to its schemas. The command `pinrail plugins` lists every installed plugin, one per line. The agent then reads the plugin it picks in full with `pinrail plugins describe <name>`:
 
 ```sh
 pinrail plugins
@@ -55,7 +55,7 @@ flowchart LR
 - **Checking before asking.** `pinrail submit … --dry-run` runs every check a real submission gets and creates nothing, so a malformed payload is fixed before it reaches you.
 - **Reading the answer.** The decision schema says in advance what comes back, so the agent knows what to act on.
 
-A plugin you install is ready for agents as soon as it is installed. Your instructions still say *when* to ask; the plugins explain *how*. See [Learning what to ask](/docs/agents/cli/#learning-what-to-ask) for the full output.
+A plugin you install is ready for agents as soon as it is installed. Your instructions say when to ask, and the plugins describe how. See [Learning what to ask](/docs/agents/cli/#learning-what-to-ask) for the full output.
 
 ## The plugins that come with Pinrail
 
@@ -77,9 +77,9 @@ Six more official plugins are optional. Install the ones you need with `pinrail 
 | `logo` | Candidate logo marks, seen at every size, as app icons and in a menu bar: pick a favourite, keep or drop the rest, and ask for changes to parts of a mark. |
 | `model` | Candidate 3D models on a stage to orbit, under studio light, daylight or at night: pick a favourite, keep or drop the rest, and ask for changes to parts of a model. |
 
-## Your own
+## Writing your own plugin
 
-Anything your agents do that needs a person can have a plugin of its own: approving a deploy, triaging alerts, choosing between three designs. A plugin is a few files, and an agent can write one as well as you can.
+Any work of your agents that needs a person can have a plugin of its own, for example approving a deploy, triaging alerts or choosing between three designs. A plugin is a few files, and an agent can write one as well as you can.
 
 - [Writing a plugin](/docs/building/writing/) takes you from the first scaffold to a tested view.
 - [Installing plugins](/docs/using/installing-plugins/) covers every source Pinrail installs from.

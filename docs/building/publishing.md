@@ -35,7 +35,7 @@ flowchart LR
   R --> I(["pinrail plugins install"]):::you
 ```
 
-The workflow checks the version, runs the manifest's `build` command when there is one, zips the bundle as `<name>-<version>.zip`, and attaches it to a release of the same tag:
+The workflow checks the version, runs the manifest's `build` command when there is one, zips the bundle as `<name>-<version>.zip`, and attaches it to a release of the same tag. It handles tags of the form `v<version>` only. A repository that puts the plugin's name before the version needs to change the tag pattern and the way the version is read from the tag.
 
 ```yaml title=".github/workflows/release.yml"
 name: release
@@ -111,7 +111,10 @@ A plugin that is still finding its shape starts at `0.1.0`. Pinrail treats all `
 
 | They install from | They get |
 |---|---|
-| `https://github.com/<owner>/<repo>/releases` | The latest release. *Check for updates* compares its tag with what is installed. |
-| `https://github.com/<owner>/<repo>/releases/tag/v1.2.0` | That release, pinned. Update checks leave it where it is. |
+| `https://github.com/<owner>/<repo>/releases` | The repository's latest release. *Check for updates* compares its tag with what is installed. |
+| `https://github.com/<owner>/<repo>/releases/tag/v1.2.0` | That release, pinned. A tag that is only a version is pinned, and update checks leave it where it is. |
+| `https://github.com/<owner>/<repo>/releases/tag/review-v1.2.0` | That release, followed. A tag with the plugin's name before the version installs that release, and update checks then offer newer releases of the same plugin. |
+
+A repository that releases several plugins has one latest release for all of them, so people should install each plugin from a tag URL rather than from `/releases`.
 
 Publish the install command in your README, next to a screenshot of the view. That is usually all someone needs to decide whether to try it.

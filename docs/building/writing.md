@@ -3,7 +3,7 @@ title: Writing a plugin
 description: "Build a plugin for the decision your agent needs a person for, from the first scaffold to a tested view."
 ---
 
-A plugin teaches Pinrail one kind of review. It says what an agent sends, what comes back, and what the person sees in between. Everything else, the inbox, notifications, history and the command the agent waits on, is the app's.
+A plugin teaches Pinrail one kind of review. It says what an agent sends, what comes back, and what the person sees in between. The app provides everything else: the inbox, notifications, the history, and the command the agent waits on.
 
 A plugin is a folder with three things in it:
 
@@ -11,7 +11,7 @@ A plugin is a folder with three things in it:
 - two **JSON Schemas**: the payload the agent sends, and the decision that goes back;
 - a **view**, an HTML page the app shows in a sandboxed frame.
 
-JSON is the transport and HTML is the view. The agent never sees your HTML, and your view never talks to the agent: the app sits between them and checks both sides against your schemas.
+The agent and the app exchange JSON, and the person sees your HTML view. The agent never sees your HTML, and your view never talks to the agent. The app sits between them and checks both sides against your schemas.
 
 ```mermaid title="One review, end to end"
 flowchart TB
@@ -41,16 +41,17 @@ ticket_triage/
 ├── view/
 │   ├── index.html           what the person sees
 │   ├── view.js              its script, checked against the SDK's types
-│   └── icons/               the icons the view draws, check.svg and x.svg
+│   └── icons/               the icons the view draws, check.svg and x.svg, with their LICENSE
 ├── icon.svg                 the plugin's icon, in the app
 ├── example.json             the smallest payload, for agents
 ├── sample.json              a review to look at
 ├── pinrail-plugin.d.ts      the SDK's types, for your editor
-├── AGENTS.md                the plugin explained to an agent that helps you build it
+├── README.md                what the plugin is, and how to try it
+├── AGENTS.md                directs a coding agent to the building guide
 └── CLAUDE.md                points Claude Code to AGENTS.md
 ```
 
-`AGENTS.md` (with a `CLAUDE.md` that points to it) tells a coding agent what each file is for, how the view talks to the app, and how to try it, so you can hand the folder to your agent and describe the plugin you want.
+`AGENTS.md`, with a `CLAUDE.md` that points to it, directs a coding agent to `pinrail docs plugins/building`. That guide explains each file, how the view talks to the app, and how to try the plugin, so you can hand the folder to your agent and describe the plugin you want.
 
 :::note[With a framework, or tests]
 To build the view with React, Vue or Svelte, or to test it in a browser without the app, use the plugin SDK from a checkout of the Pinrail repository. See [Building with a framework](/docs/building/frameworks/).
@@ -169,7 +170,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
   const choices = new Map();
   const plugin = Pinrail.connect({
     onInit({ review, draft }) {
-      for (const d of draft?.decisions ?? []) choices.set(d.id, d.action);
+      for (const d of review.decision?.data.decisions ?? draft?.decisions ?? []) choices.set(d.id, d.action);
       render();
     },
     onCollect() {
@@ -226,7 +227,7 @@ The full list of messages is in [The protocol](/docs/building/protocol/).
 
 ### The hand-over belongs to the app
 
-Your view does not draw a submit button. The app puts one below every review, in the same place for every plugin, and sends `collect` when the person presses it or hits <kbd>⌘↵</kbd>. That keeps "nothing leaves on a single click" true across plugins: the person makes their choices, then hands over.
+Your view does not draw a submit button. The app puts one below every review, in the same place for every plugin, and sends `collect` when the person presses it or presses <kbd>⌘↵</kbd>. Because the button always belongs to the app, no plugin can send a decision on a single click. The person makes their choices first, and then hands them over.
 
 Tell the button what it will do with `plugin.status`:
 
@@ -319,7 +320,7 @@ The person sees every file a review carries, whatever the plugin draws: the inbo
 }
 ```
 
-It has the shape `pinrail submit --request` reads: `title` and `payload` are required, `summary` is optional, and `attachments` maps each name the payload refers to onto a file, relative to the sample and inside the folder. Keep the sample and its files out of `fixtures/`: installs leave that folder behind. A good fixture usually makes a good sample. A sample that doesn't load costs the plugin its sample, not its place, and the plugin's row says why.
+It has the shape `pinrail submit --request` reads: `title` and `payload` are required, `summary` is optional, and `attachments` maps each name the payload refers to onto a file, relative to the sample and inside the folder. Keep the sample and its files out of `fixtures/`: installs leave that folder behind. A good fixture usually makes a good sample. If the sample cannot be loaded, the plugin works without one, and its row in *Settings › Plugins* shows the reason.
 
 ## Look like the app
 
@@ -339,14 +340,13 @@ pinrail plugins check ticket_triage     # what the app would refuse, and why
 
 Every review has a preview at `<server>/preview/reviews/<id>`, by default `http://127.0.0.1:4747/preview/reviews/r_…`. `pinrail open <id> --browser` opens it and prints the address.
 
-The preview is the review as the app shows it: your view, fed the review, with the hand-over button. It is for building a plugin, most of all for an agent with a browser tool that is building one: it sees the view it made and tries the hand-over. Handing over there checks the decision against the plugin's decision schema and decides nothing: a decision that passes is shown as the agent would get it, and one that fails comes back to the view. Deciding is the person's, in the app.
+The preview shows the review as the app does: your view, given the review, with the hand-over button. It is meant for plugin development, especially for an agent with a browser tool, which can see the view it built and try the hand-over. In the preview, the hand-over checks the decision against the decision schema but does not decide the review. A valid decision is shown as the agent would receive it, and an invalid one is returned to the view. Only the person can decide a review, in the app.
 
 `pinrail docs plugins/building` gives the same to an agent, briefly, from the Pinrail you have installed.
 
-To see it with a payload of your own, link the folder and send a fixture:
+To see it with a payload of your own, send a fixture. `pinrail plugins new` does not create a `fixtures/` folder, so first create `fixtures/basic.json` with the content shown under [Test it](#test-it). Then run:
 
 ```sh
-pinrail plugins install ./ticket_triage --link
 pinrail submit ticket_triage --request fixtures/basic.json --wait
 ```
 
@@ -388,11 +388,11 @@ A plugin still finding its shape starts at `0.1.0`. Pinrail treats all `0.x` rel
 
 ## Decisions as markdown
 
-An agent reads your decision as prose: markdown is what the command prints. Without help, the app renders it by its shape: an `id` and an `action` lead each bullet, a `note` becomes a quote, and nothing is dropped. When a decision only reads well beside its payload, such as "closed: *Export times out*" rather than "closed: 101", ship a template:
+The `pinrail` command prints a decision as markdown for the agent. Without a template, the app renders the decision from its structure: each bullet starts with the item's `id` and `action`, a `note` becomes a quotation, and no field is omitted. When a decision reads well only beside its payload, such as "**closed** #101 Export times out past 50k rows" rather than "close: 101", ship a template:
 
 ```jinja title="templates/decision.md.j2"
 {% for item in items -%}
-- **{{ item.action | verb }}** #{{ item.id }} {{ item.payload.title }}
+- **{{ "closed" if item.action == "close" else "kept" }}** #{{ item.id }} {{ item.payload.title }}
   {%- if item.note %}
   > {{ item.note }}
   {%- endif %}
@@ -407,6 +407,8 @@ An agent reads your decision as prose: markdown is what the command prints. With
 ```
 
 Templates are written in [MiniJinja](https://docs.rs/minijinja). Each object in `items` has a `payload` field that holds the object with the same `id` from the review's payload, wherever the payload nests it. The template also receives `review`, `decision`, `data` and `note`. The app writes the heading itself, so every plugin's output starts the same way.
+
+The `verb` filter turns common actions into past participles: `accept` and `keep` become "accepted", `reject` and `decline` become "rejected", and `send`, `revise`, `discard`, `approve`, `edit` and `skip` become "sent", "revised", "discarded", "approved", "edited" and "skipped". `request_changes` becomes "changes requested". It leaves any other word unchanged, so `{{ item.action | verb }}` suits a plugin whose actions are among these, and a plugin with other actions spells its own words, as the example above does.
 
 ## Next
 

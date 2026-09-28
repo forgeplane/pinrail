@@ -17,7 +17,7 @@ Every message is a JSON object with the protocol version and a type:
 }
 ```
 
-The view announces itself with `ready`; the app answers with `init`, and from then on either side can send. The app only accepts messages from the view's own frame, and the view should only accept messages from the origin `init` came from, which `init` gives as `shell_origin`.
+The view announces itself with `ready`, and the app answers with `init`. From then on, either side can send. The app accepts messages only from the view's own frame. The view should accept messages only from the app: it checks that `event.source` is `window.parent`, and after `init`, that `event.origin` equals the `shell_origin` that `init` gives.
 
 ```mermaid title="A review's life, from the view's side"
 sequenceDiagram
@@ -78,7 +78,7 @@ Render all four the same way: what was there, and nothing to submit.
 
 ### `collect`
 
-`collect` means the person asked to hand over. Assemble the decision and send `submit`. You can also stop short: show what would go back, or warn about something, change the button's label with `status`, and submit on the next `collect`.
+`collect` means the person asked to hand over. Assemble the decision and send `submit`. The view does not have to submit at once. It can show what would be sent or display a warning, update the button's label with `status`, and submit on the next `collect`.
 
 :::note
 A view never draws its own submit button. The app puts one below every review, in the same place for every plugin, so nothing leaves on a single click and the person always knows where to look.
@@ -121,6 +121,10 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | `open` | `url` | Asks the app to open a link in the person's browser. Only `http`, `https` and `mailto` addresses are considered. The app asks the person first, unless they allowed the address's origin for this plugin. It always asks about a `mailto` address and an address longer than 2,000 characters, and it ignores `open` messages that arrive while it is asking. |
 | `attachment` | `req`, `name`, and `round: "previous"` for a file of the round this one revises | Asks for the bytes of a file the review carries. The app answers with `attachment` and the same `req`. |
 
+### `resize`
+
+`resize` with `"fill"` suits a workbench, such as a diff with its own scrolling panes. The code review plugin works this way.
+
 ### `attachment`
 
 A view's frame can fetch nothing, so a file the review carries arrives this way. Number each request:
@@ -151,8 +155,6 @@ The answer carries the same number, and the bytes as an `ArrayBuffer`:
 
 The app answers only for names in `review.attachments` (or in `previous.attachments`, with `round: "previous"`), and says why otherwise, with `ok: false` and `error`. Ask again for another copy: each answer transfers its buffer. An app without `"attachments"` in `capabilities` does not answer; the SDK's `plugin.attachment` rejects at once there, saying the app needs updating.
 
-`resize` with `"fill"` suits a workbench, such as a diff with its own scrolling panes. The code review plugin works this way.
-
 ## The first frame
 
 A message cannot reach your view before it paints, so the theme travels on the frame's URL too: it ends in `#pinrail-theme=dark` or `#pinrail-theme=light`. The SDK reads it as it loads and sets `data-theme` on your root element, so the first frame is already in the app's theme.
@@ -175,9 +177,10 @@ let shell = null;
 
 addEventListener("message", (event) => {
   const msg = event.data;
+  if (event.source !== parent) return;              // only the app's window
   if (!msg || msg.pinrail !== 1) return;
   if (msg.type === "init") shell = msg.shell_origin;
-  if (event.origin !== shell) return;              // trust the app's origin alone
+  if (event.origin !== shell) return;              // and only the app's origin
 
   switch (msg.type) {
     case "init": render(msg.review, msg.readonly, msg.draft); break;
@@ -191,7 +194,7 @@ const post = (msg) => parent.postMessage({ pinrail: 1, ...msg }, shell ?? "*");
 post({ type: "ready" });
 ```
 
-You then own what the SDK does quietly: sizing the frame on every change, debouncing drafts, applying the theme before first paint, forwarding links with `open`, and handling <kbd>⌘↵</kbd>.
+Without the SDK, your view must also do the following: size the frame on every change, debounce drafts, apply the theme before the first paint, forward links with `open`, and handle <kbd>⌘↵</kbd>.
 
 ## Versions
 

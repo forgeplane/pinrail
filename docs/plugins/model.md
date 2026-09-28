@@ -92,7 +92,7 @@ The payload only names each model's file. The file itself goes with the submissi
 - **Views** are cameras in the model's own coordinates; `target` defaults to the model's centre.
 
 :::note[Size]
-A file may be up to 50 MB, and a round may carry 12. The app stores each file once, so a new round only uploads the models that changed.
+A file may be up to 50 MiB, and a round may carry 12. The app stores each file once, so a new round only uploads the models that changed.
 :::
 
 ## What comes back

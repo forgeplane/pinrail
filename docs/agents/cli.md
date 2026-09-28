@@ -20,16 +20,16 @@ Decided by alice at 2026-09-10 09:00 · 1 rejected
 ## Proposals
 
 - **#18 rejected** `lib/acme/tickets.ex:149` — reversing twice is a no-op with a cost (major)
-  > dont nitpick
+  > don't nitpick
 
 Undecided: #19, #20
 ```
 
 The CLI holds no state and makes no decisions of its own. The answer goes to stdout, errors and warnings to stderr, and every outcome has an exit code, so it is safe to call from any shell, CI job or agent harness.
 
-## An agent teaches itself
+## Built-in guidance for agents
 
-Pinrail doesn't need you to explain it to your agent. The command explains itself, and it does so a step at a time: each answer is short, and ends with where to look next. An agent reads only what its task needs, so its context stays small and nothing is out of date, because the text comes from the Pinrail you have installed.
+You do not have to explain Pinrail to your agent. The `pinrail docs` command provides short, focused briefs, and each one ends with pointers to related briefs. An agent reads only what its task needs, so its context stays small. The briefs come from the Pinrail you have installed, so they always match it.
 
 ```sh
 pinrail docs                          # what Pinrail is, the loop, the rules, and a menu
@@ -39,7 +39,7 @@ pinrail docs --tree                   # the whole map
 
 `pinrail docs` starts with a screen: what Pinrail is, the one command an agent runs to ask, what to do with the answer, and the rules that apply every time. Its menu leads to short briefs, written for an agent at work rather than a person reading: asking and its exit codes, finding a plugin, writing a standing rule for itself, and building a plugin, down to the view's contract, the design language and the manifest's schema. `pinrail --help` points there, and so does everything else an agent meets first: a new plugin's `AGENTS.md`, the prompts in the app's setup.
 
-The same idea runs through the rest of the command. `pinrail plugins` lists the plugins a line each before `describe` gives one in full; `pinrail plugins new` ends with the next commands to run; `submit` says where the review is. An agent starts from `pinrail docs`, or from the plugin its instructions name, and finds the rest as it goes.
+The other commands follow the same approach. `pinrail plugins` lists the plugins a line each before `describe` gives one in full; `pinrail plugins new` ends with the next commands to run; `submit` says where the review is. An agent starts from `pinrail docs`, or from the plugin its instructions name, and finds the rest as it goes.
 
 ## Learning what to ask
 
@@ -56,7 +56,9 @@ pinrail plugins describe review       # one plugin, in full
 
 - what the plugin is for, and when to use it;
 - the **payload schema**, and an **example payload** that passes it;
-- where to get the **decision schema**, the shape of `decision.data` in the review that comes back: `--decision-schema` prints it alone, as `--payload-schema` and `--example` print theirs: JSON, for a tool, or to start a payload with `--example > payload.json`. An agent reading the decision as markdown doesn't need it; one processing it with `--json` does. The JSON output always carries it.
+- the **decision schema**, which describes `decision.data` in the review that comes back.
+
+`--payload-schema`, `--example` and `--decision-schema` each print one of these parts alone, as JSON, for a tool or to start a payload with `--example > payload.json`. An agent that reads the decision as markdown does not need the decision schema. One that processes the decision with `--json` does, and the JSON output always includes it.
 
 Like `submit`, `describe` can start a server when none is running, if `PINRAIL_SERVER_CMD` says how (see [Finding the app](#finding-the-app)). For a plugin that is installed but broken, it says what is wrong and how to check it.
 
@@ -86,7 +88,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--decision-out <file>` | Also write the decision's data, as JSON, to a file. |
 | `--summary` | The counts the inbox shows beside the title. |
 | `--expires-at` | Close the review if nobody decides by then. |
-| `--requested-by` | Who is asking, shown on the review, with the agent's icon when the app knows it. Defaults to `PINRAIL_REQUESTED_BY`, then the coding agent the command runs under, found from the variables it sets (`claude-code`, `codex`, `cursor`, `gemini-cli`, `opencode`), then `pinrail-cli`. Name the job or role with `--origin workflow=…`. |
+| `--requested-by` | Who is asking, shown on the review, with the agent's icon when the app knows it. Defaults to `PINRAIL_REQUESTED_BY`. Otherwise it is the coding agent the command runs under, as `AI_AGENT` or `AGENT` names it when either is set, or as found from the variables that `claude-code`, `codex`, `cursor`, `gemini-cli` and `opencode` set. `AGENT` counts only when it names an agent Pinrail knows, which also includes `kimi`. Without any of these, it is `pinrail-cli`. Name the job or role with `--origin workflow=…`. |
 
 Submitting the same review again while the first is still pending does not create a second one: the command answers the review already waiting, with its id. An agent that runs the command a second time, for example after its first attempt was stopped, waits on the same review, and the person decides it once.
 
@@ -121,7 +123,7 @@ A plugin can ship a sample review. Send it to see what the plugin looks like, or
 pinrail submit list --sample --wait
 ```
 
-The review arrives like any other; decide it and the command prints your decision, as an agent would read it. `pinrail plugins describe <plugin>` says `"sample": true` for a plugin that has one, and a plugin without one is an error that says so. The same sample is a button on the plugin's row in *Settings › Plugins*.
+The review arrives like any other; decide it and the command prints your decision, as an agent would read it. `pinrail plugins describe <plugin>` says `"sample": true` for a plugin that has one, and a plugin without one is an error that says so. The same sample can be sent with **Send a sample** in the plugin's details in *Settings › Plugins*.
 
 ### Checking a payload first
 
@@ -171,20 +173,20 @@ id=$(pinrail submit list --title "Nightly cleanup" --data items.json --json | jq
 pinrail wait "$id"
 ```
 
-Waiting survives the app restarting. `wait` polls the app and retries when the connection drops, so a restart costs a few seconds, not the review.
+Waiting survives the app restarting. `wait` polls the app and retries when the connection drops, so if the app restarts, the wait resumes a few seconds later and the review is not lost.
 
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
 | `0` | Done. For `wait` and `submit --wait`: the review was decided. |
-| `1` | Error: bad arguments, the app unreachable, a file that could not be read or written, or an error inside the app. `wait` and `submit --wait` do not stop for an error inside the app: they keep waiting until it answers again. |
-| `2` | The app refused the request, for example a payload the plugin's schema rejects. Why is on stderr: each refused field and the reason, or the JSON answer with `--json`. |
+| `1` | Error: bad arguments, the app could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again. |
+| `2` | The app refused the request, for example a payload the plugin's schema rejects, or a folder that `plugins check` would not install. Why is on stderr. It lists each refused field with its reason, or, with `--json`, gives the app's JSON answer. |
 | `3` | The review was withdrawn by the agent, or expired, before anyone decided. |
 | `4` | `--timeout` ran out. The review is still pending. |
-| `5` | The person discarded the review: stop the work it was gating. |
+| `5` | The person discarded the review: stop the work it was gating, and do not ask again. |
 
-:::caution[Exit 5 is "no, and stop"]
+:::caution[Exit code 5 means stop]
 A discarded review has no decision, so `--decision-out` writes nothing. The printed review says who discarded it and why. Stop the work, report the reason, and do not retry or submit a new round.
 :::
 
@@ -223,7 +225,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail serve` | Start the app's server if it is not running, and print its URL. |
 | `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install, update or remove](/docs/using/installing-plugins/) them. |
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
-| `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. |
+| `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. A plugin whose build writes its view is checked before that build runs, with a warning that the build has to write the entry. |
 | `pinrail plugins describe <name>` | What an agent needs to ask with a plugin; `--payload-schema`, `--example` or `--decision-schema` for one part alone. See [Learning what to ask](#learning-what-to-ask). |
 | `pinrail plugins versions <name>` | The versions of a plugin that reviews can still render with, one per major. |
 | `pinrail plugins reload` | Read every plugin again from disk, after changing a linked plugin's manifest or schemas. |
@@ -239,7 +241,7 @@ The CLI talks to the server the Pinrail app runs on your machine, and finds it o
 2. The `server.json` the running app writes into its data directory: `PINRAIL_DATA_DIR`, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 3. `http://127.0.0.1:4747`, or the port in `PINRAIL_PORT`.
 
-When nothing answers, `submit`, `serve`, `plugins describe` and `plugins check` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
+When nothing answers, `submit`, `serve`, `plugins describe`, `plugins check` and `plugins new --link` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
 
 ```sh
 export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --headless'

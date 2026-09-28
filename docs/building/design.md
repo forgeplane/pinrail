@@ -5,7 +5,7 @@ description: "How a view looks like part of Pinrail: the design language, the SD
 
 A view sits inside the app, between the review's header and the hand-over button, so the person reads it as part of Pinrail. This page is how to make it look that way with little effort: the conventions the built-in plugins follow, and what the SDK stylesheet gives you.
 
-:::tip[Your view, your style]
+:::tip[All of this is optional]
 None of this is required. The stylesheet is a set of defaults, and your own styles come after it and win. Use its tokens and ignore its classes, restyle everything, or bring a design system of your own, as long as it ships inside the plugin folder (see [Your own fonts, styles and scripts](#your-own-fonts-styles-and-scripts)).
 :::
 
@@ -13,7 +13,7 @@ None of this is required. The stylesheet is a set of defaults, and your own styl
 
 What makes a view feel native, whatever it draws:
 
-- **The app owns the hand-over.** Draw no submit button and no title bar: the app puts the review's title above the view and the hand-over button below it, in the same place for every plugin. Tell that button what it will do with `plugin.status`, such as *Hand over 3 of 5*.
+- **The app owns the hand-over.** Do not draw a submit button, and do not repeat the review's title. The app shows the title above the view and the hand-over button below it, in the same place for every plugin. A header of your own, such as the one `Pinrail.layout()` draws, can name what the view lists and show counts. Tell the hand-over button what it will do with `plugin.status`, such as *Hand over 3 of 5*.
 - **Dense and quiet.** Text at 13px, one accent colour, lines rather than boxes. What matters is the work being reviewed, not the frame around it.
 - **Keys for the common path.** Most plugins move with <kbd>j</kbd> and <kbd>k</kbd> and give a verdict with one key each. Declare them in the manifest so the app lists them in its keyboard help (see [Settings and keys](/docs/building/settings-and-keys/)).
 - **Read-only is a full view.** A decided review is read months later: render what was there and what was decided, without the controls.
@@ -124,7 +124,7 @@ The app draws with [Lucide](https://lucide.dev/icons), so its icons fit best: co
 
 A view with a build imports its icons from its framework's Lucide package instead, as the React, Vue, Svelte and Vite templates do: `lucide-react`, `@lucide/vue`, `@lucide/svelte`, or `lucide` for plain TypeScript. The build keeps only the icons the view imports, and the SDK stylesheet sizes each `svg.lucide` to the text.
 
-The manifest's `icon` is an SVG file in the folder too, `icon.svg` in the scaffold, which the app shows wherever it names the plugin, drawn the same way. It is at most 32 KB; one that does not load costs the plugin its icon, not its place.
+The manifest's `icon` is an SVG file in the folder too, `icon.svg` in the scaffold, which the app shows wherever it names the plugin, drawn the same way. It is at most 32 KB. If the icon cannot be loaded, the app shows the plugin without an icon.
 
 ## Size
 

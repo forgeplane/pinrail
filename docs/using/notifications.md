@@ -3,7 +3,7 @@ title: Notifications
 description: "When Pinrail tells you a review is waiting, and how to pause, quiet or narrow it."
 ---
 
-An agent that asks is waiting on you, so Pinrail tells you when a review arrives: a system notification, and a count in the menu bar. Click the notification to open the review.
+While an agent waits for your decision, Pinrail tells you that a review has arrived. It shows a system notification and updates the count in the menu bar. Click the notification to open the review.
 
 ## The menu bar
 
@@ -24,6 +24,9 @@ On Linux, the icon appears in the system tray. Some desktops, such as GNOME, sho
 | Stop them for one plugin | Turn off **Notify** on the plugin's row in *Settings › Plugins*. Its reviews are still counted. |
 | Keep them silent | Turn off **Sound** in *Settings › General*. |
 | Stop them entirely | Turn off **System notifications** in *Settings › General*. |
+| Stop them at night | Set quiet hours in `settings.json`, for example `"quiet_hours": {"from": "22:00", "to": "07:30"}` under `notifications`. The times are local, and the range may span midnight. Settings has no control for it; set it in the file. |
+
+A review that arrives during quiet hours is counted but never announced, not even when the quiet hours end. The [Settings reference](/docs/reference/settings/) describes every key in `settings.json`.
 
 The menu bar count always shows what is waiting, whatever you have paused or muted.
 

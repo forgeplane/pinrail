@@ -93,11 +93,10 @@ See [Instructing an agent](/docs/agents/instructing/) for where these instructio
 ```json
 {
   "decisions": [
-    { "id": 101, "action": "accept" },
-    { "id": 103, "action": "accept", "note": "tag it for the data team" },
-    { "id": 104, "action": "reject", "note": "known, already scheduled" }
+    { "id": 101, "action": "accept", "note": "mute it for 3 days, not 7" },
+    { "id": 103, "action": "reject", "note": "known, already scheduled" }
   ],
-  "undecided": [102]
+  "undecided": []
 }
 ```
 

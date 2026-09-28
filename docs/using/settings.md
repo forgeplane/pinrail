@@ -3,7 +3,7 @@ title: Settings
 description: "Every section of Pinrail's settings, what each option does, and where the settings are stored."
 ---
 
-Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, or from *Navigate › Settings…* in the menu. Every change applies at once; there is nothing to save.
+Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, or from *Navigate › Settings…* in the menu. Changes take effect immediately. There is no Save button.
 
 ## General
 
@@ -41,16 +41,20 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 | **Open Pinrail** | Under *Anywhere on your computer*: the keys that bring Pinrail forward from any app, <kbd>⌥⇧W</kbd> by default. Click the keys and press a new combination to change them. |
 | **It opens** | The oldest pending review, or the inbox. |
 
-Below, the section lists the app's own keys. See [The inbox](/docs/using/inbox/#keys).
+The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using/inbox/#keys).
 
 ## Plugins
 
 ![Settings, Plugins: the installed plugins with where each came from.](screenshot:settings-plugins "Five plugins: two built in, three installed from GitHub.")
 
-Every installed plugin has a row with its icon, its title and whether it is ready. When a plugin is broken, hover **broken** to see why. The buttons on the row are:
+Every installed plugin has a row with its icon, its title and whether it is ready. When a plugin is broken, hover over **broken** to see why. Every row has a **Notify** button, which turns notifications for that plugin's reviews on or off. The other buttons on a row depend on how the plugin was installed:
 
-- **Notify**, which turns notifications for that plugin's reviews on or off.
-- **Check for updates**, **Remove** and **Install a copy**, which manage the plugin. See [Installing plugins](/docs/using/installing-plugins/).
+- An installed copy has **Check for updates** and **Remove**.
+- A linked folder has **Install a copy** and **Remove**.
+- A built-in plugin has neither.
+- In the app, every row also has **Show in Finder**, or **Show in the file manager** on Linux.
+
+See [Installing plugins](/docs/using/installing-plugins/) for what each of them does.
 
 Click a row to open its details:
 
@@ -67,27 +71,28 @@ Click a row to open its details:
 | Setting | What it does |
 |---|---|
 | **Data directory** | Where reviews, decisions and settings are stored. *Show in Finder*, or *Show in the file manager* on Linux, opens it. |
-| **Port** | The port Pinrail's server listens on, `4747` by default. Takes effect after a restart; the `pinrail` command follows it on its own. |
-| **Keep reviews for** | *Forever*, or a number of days. Ended reviews older than this are deleted from your history, with the files they carried. |
+| **Server** | The address of Pinrail's server. *Copy URL* copies it. |
+| **Port** | The port Pinrail's server listens on, `4747` by default, from 1024 to 65535. The change takes effect after a restart, and the `pinrail` command follows it on its own. |
+| **Keep reviews for** | *Forever*, 30 days, 90 days or a year. Ended reviews older than this are deleted from your history, with the files they carried. |
 | **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take. |
 | **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`. |
 
 ## About
 
-The version, updates, where to start writing a plugin, and the licence with its third-party notices.
+This section shows the version, the update status, where to start writing a plugin, and the license with its third-party notices.
 
 | Setting | What it does |
 |---|---|
-| **Updates** | Where updating stands. *Check for updates* looks now; *Restart to update* installs a version that is ready. |
+| **Updates** | Shows the update status. *Check for updates* checks now, and *Restart to update* installs a downloaded version. |
 | **Check automatically** | Look for a new version when Pinrail starts and every few hours, and download it in the background. On by default. |
 
-A downloaded version is installed when you restart Pinrail, or the next time you quit it. Pinrail never restarts on its own: the sidebar and the menu bar menu say when a version is ready, and you choose when. An agent waiting on a review keeps waiting through the restart and gets its answer once Pinrail is back.
+A downloaded version is installed when you restart Pinrail, or the next time you quit it. Pinrail never restarts by itself. When a version is ready, the sidebar and the menu bar menu say so, and you choose when to restart. An agent waiting on a review keeps waiting through the restart and gets its answer once Pinrail is back.
 
-Checking downloads a small file from GitHub, where Pinrail's releases are published; nothing about your reviews is sent. Every download is checked against a signature before it is installed. If you installed the `.deb` or `.rpm`, Pinrail tells you when a new version is out and links to it; download it and install it the way you installed the first one.
+Checking downloads a small file from GitHub, where Pinrail's releases are published. Nothing about your reviews is sent. Every download is checked against a signature before it is installed. If you installed the `.deb` or `.rpm`, Pinrail tells you when a new version is available and links to it. Download it and install it in the same way as the first version.
 
 ## Where settings are stored
 
-Settings live in `settings.json` in your data directory. You can read it, back it up, and edit it by hand while Pinrail is closed. Pinrail checks the file when it reads it: a value it would not accept in the app, such as `0` for the days to keep history, is ignored and the setting keeps its default. If the file is not valid JSON, Pinrail uses the defaults, and before it next saves a setting it moves your file to `settings.json.bad`, so your edit is never lost. A script can read and change settings through the local API, which checks every change the same way the app does:
+Settings are stored in `settings.json` in your data directory. You can read the file, back it up and edit it by hand, even while Pinrail is running. Pinrail applies an edit as soon as the file is saved. A value that the app would not accept, such as `0` for the days to keep history, is ignored, and the setting keeps its default. If the file is not valid JSON, Pinrail keeps its current settings, or uses the defaults when it is starting. Before it next saves a setting, it moves the invalid file to `settings.json.bad`, so your edit is not lost. A script can read and change settings through the local API, which checks every change the same way the app does:
 
 ```sh
 curl http://127.0.0.1:4747/api/v1/settings

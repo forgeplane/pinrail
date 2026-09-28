@@ -21,11 +21,11 @@ Download it from [the download page](/download/), which has every system and for
 
 Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, or in the system tray on Linux, so agents can still ask while the window is closed.
 
-The macOS app and the AppImage update themselves: they download new versions in the background and install them when you restart Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is out, and you install it as you did the first one. On macOS the `pinrail` command links into the app, so it updates too; from an AppImage, choose **Install the CLI** again after an update. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
+The macOS app and the AppImage update themselves. They download new versions in the background and install them when you restart or quit Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is available, and you install it in the same way as the first one. On macOS, the `pinrail` command is a link into the app, so it updates with the app. If you use the AppImage, choose **Install the CLI** in *Settings › Data* again after each update. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
 
 ## The command
 
-The first time you open Pinrail, it shows a short setup that installs the `pinrail` command, asks for permission to send notifications, and sends you a first review. To open the setup again, press <kbd>⌘K</kbd> and choose *Set up Pinrail*.
+The first time you open Pinrail, it shows a short setup. The setup installs the `pinrail` command, sends you a first review, asks for permission to show notifications, and gives you text to add to your agent's instructions. To open the setup again, press <kbd>⌘K</kbd> and choose *Set up Pinrail*.
 
 You can also install the command from **Settings › Data** with **Install the CLI**. It puts `pinrail` into `~/.local/bin`, so make sure that folder is on your `PATH`. With the `.deb` or `.rpm`, the command is already installed as `/usr/bin/pinrail`.
 
@@ -51,7 +51,7 @@ With the app running, list your reviews:
 pinrail list
 ```
 
-An empty list means the command found the app. If it can't reach it, see [Finding the app](/docs/agents/cli/#finding-the-app).
+An empty list means that the command found the app. If the command cannot reach the app, see [Finding the app](/docs/agents/cli/#finding-the-app).
 
 ## Next
 

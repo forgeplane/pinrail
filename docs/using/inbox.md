@@ -3,24 +3,24 @@ title: The inbox
 description: "Where reviews wait for you, how you decide them, the history of everything decided, and the keys that move you through it."
 ---
 
-The inbox is where your agents' reviews wait. Open one, decide it in the view its plugin draws, hand it over, and the agent carries on. Everything decided moves to your history.
+The inbox is where your agents' reviews wait. When you open a review, its plugin's view shows the work. You decide in the view and hand the decision over, and the agent continues. Reviews that have ended move to your history.
 
 ![The inbox: eight pending reviews grouped by project, with the waiting list and the projects in the sidebar.](screenshot:inbox "Eight reviews waiting, across six projects.")
 
 ## The inbox
 
-The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what is inside. A paperclip marks a review that came with files, with how many; hover it for their size.
+The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what is inside. A paperclip icon shows that a review includes attachments, and how many. Hover over it to see their total size.
 
 - **Filter by project or plugin.** The sidebar lists the projects your reviews come from. Pick one, or choose a project or a plugin from the menus above the list, to see only those reviews.
 - **Show new rounds.** *New rounds* shows only the reviews that revise an earlier one.
-- **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester or project contains the text you typed. The content of a review is not searched.
+- **Search.** Press <kbd>/</kbd> and type. The inbox shows the reviews whose title, plugin, requester, project, workflow or reference contains the text you typed. The content of a review is not searched.
 - **Jump to the oldest.** The sidebar keeps the oldest waiting reviews one click away on every screen, and <kbd>⌥↓</kbd> and <kbd>⌥↑</kbd> step through what is waiting.
 
 ## Deciding a review
 
-Open a review with <kbd>Enter</kbd> or a click. The plugin's view fills the screen: a list, a diff, a set of drafts, a form.
+Open a review with <kbd>Enter</kbd> or a click. The plugin's view fills the screen. Depending on the plugin, it shows a list, a diff, draft emails or a form.
 
-1. **Decide in the view.** Accept, reject, edit, comment: whatever the plugin offers. Your work is saved as a draft as you go, so you can open another review and come back to it.
+1. **Decide in the view.** Use the controls that the plugin provides, for example to accept, reject, edit or comment. Your work is saved as a draft as you go, so you can open another review and come back to it.
 2. **Add a note to the agent**, if you want to, in the box below the view.
 3. **Hand over** with the button, or <kbd>⌘↵</kbd>. The button says what will happen, such as *Hand over 3 of 5*.
 
@@ -28,14 +28,14 @@ Open a review with <kbd>Enter</kbd> or a click. The plugin's view fills the scre
 Quitting, restarting or updating Pinrail loses your drafts and any note to the agent that you have not handed over yet. Hand over a review before you quit the app.
 :::
 
-A review that came with files lists them above the view: click *N files* to see each by name, size and type, and *Save…* any of them.
+A review that includes attachments lists them above the view. Click *N files* to list each attachment with its name, size and type, and choose *Save…* to save one.
 
-If the whole review is wrong, **discard** it with the *Discard* button in the review's bar, or with <kbd>D</kbd> on it in the inbox list: the agent is told to stop, with your reason. See [Deciding and discarding](/docs/concepts/reviews/#deciding-and-discarding).
+If the whole review is wrong, **discard** it with the *Discard* button in the review's bar, or with <kbd>D</kbd> on it in the inbox list. The agent is told to stop and is given your reason. See [Deciding and discarding](/docs/concepts/reviews/#deciding-and-discarding).
 
-![The discard dialog, with a reason for the agent typed in.](screenshot:discard "Discarding: nothing is decided, and the agent is told to stop, with your reason.")
+![The discard dialog, with a reason for the agent typed in.](screenshot:discard "When you discard a review, nothing is decided, and the agent is told to stop and is given your reason.")
 
 :::tip[Focus on the view]
-<kbd>⌘⇧M</kbd> maximises the plugin's view and hides everything else. Press it again to restore.
+<kbd>⌘⇧M</kbd> maximizes the plugin's view and hides everything else. Press it again to restore.
 :::
 
 ## Rounds
@@ -46,17 +46,17 @@ When an agent revises a review you asked it to change, the new round opens with 
 
 Every review that has ended is in your **history**: decided, discarded, withdrawn or expired. Open one and it renders exactly as it was, in the view it was decided in, read-only.
 
-![History: ended reviews with their outcome, project and when they were recorded.](screenshot:history "Decided, changes requested, discarded and withdrawn, newest first.")
+![History: ended reviews with their outcome, project and when they were recorded.](screenshot:history "Reviews that were decided, discarded or withdrawn, newest first.")
 
-To search your history, press <kbd>/</kbd> and type one or more words. A review matches when each word appears in its title, its plugin, its requester, its project or the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, plugin or outcome. Open it with <kbd>⌘⇧H</kbd>.
+To search your history, press <kbd>/</kbd> and type one or more words. A review matches when each word appears in its title, plugin, requester, project, workflow or reference, or in the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, plugin or outcome. Open it with <kbd>⌘⇧H</kbd>.
 
-How long history is kept is up to you: see *Keep reviews for* in [Settings](/docs/using/settings/#data).
+To choose how long history is kept, see *Keep reviews for* in [Settings](/docs/using/settings/#data).
 
 ## Search everything
 
-<kbd>⌘K</kbd> opens a palette that searches every review, pending or decided, and every action in the app: go to a screen, open settings, switch the theme.
+<kbd>⌘K</kbd> opens a palette that searches every review, pending or decided, and every action in the app, such as going to a screen, opening settings or switching the theme.
 
-![The command palette: pending reviews, recent decisions and plugins, ready to search.](screenshot:palette "Everything in one place: what waits, what was decided, the plugins.")
+![The command palette: pending reviews, recent decisions and plugins, ready to search.](screenshot:palette "The command palette lists pending reviews, recent decisions and plugins.")
 
 ## Keys
 
@@ -64,7 +64,7 @@ Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kb
 
 ![The keyboard shortcuts dialog.](screenshot:shortcuts)
 
-| Keys | Does |
+| Keys | Action |
 |---|---|
 | <kbd>J</kbd> / <kbd>K</kbd> | Next / previous review |
 | <kbd>Enter</kbd> | Open the focused review |
@@ -79,7 +79,7 @@ Press <kbd>?</kbd> anywhere in the app to see these. On Linux, use <kbd>Ctrl</kb
 | <kbd>⌘B</kbd> | Show or hide the sidebar |
 | <kbd>⌘[</kbd> / <kbd>⌘]</kbd> | Back / forward |
 | <kbd>⌘↵</kbd> | Hand over to the agent |
-| <kbd>⌘⇧M</kbd> | Maximise / restore the view |
+| <kbd>⌘⇧M</kbd> | Maximize / restore the view |
 | <kbd>[</kbd> / <kbd>]</kbd> | Previous / next round |
 | <kbd>?</kbd> | Keyboard shortcuts |
 

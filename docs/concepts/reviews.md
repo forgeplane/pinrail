@@ -3,7 +3,7 @@ title: Reviews
 description: "What a review is, how it ends, and how rounds let an agent answer your feedback."
 ---
 
-A review is one question from an agent to you: *here is what I'm about to do, what do you say?* It carries the work to decide on, it waits in your inbox, and it ends with an outcome the agent can act on.
+A review is a single request from an agent for your decision on work that it is about to do. It carries the work to decide on, waits in your inbox, and ends with an outcome that the agent can act on.
 
 ## What a review holds
 
@@ -12,7 +12,7 @@ A review is one question from an agent to you: *here is what I'm about to do, wh
 | **Title** | What the review is about, as it appears in your inbox. |
 | **Plugin** | The kind of review: [List](/docs/plugins/list/), [Code review](/docs/plugins/review/), and so on. It decides the view and the shape of the decision. |
 | **Payload** | The work to decide on: the items, the diff, the drafts. Checked against the plugin's schema when the review is created. |
-| **Files** | For a plugin that takes them, files sent beside the payload: a model, a PDF, photos. Stored with the review, and deleted with it. |
+| **Attachments** | Files sent with the payload, for a plugin that accepts them, such as a 3D model, a PDF or photos. They are stored with the review and deleted with it. The app lists them as *files*. |
 | **Origin** | Where it comes from: a repository, a workflow, a run, a branch or pull request, a link. The inbox groups and filters by it. |
 | **Requester** | Who is asking, such as an agent's name or a CI job. |
 | **Decision** | Your answer, once you give it, and your note to the agent beside it. |
@@ -39,7 +39,7 @@ stateDiagram-v2
 |---|---|---|
 | **Decided** | You | Your decision and your note. The waiting command exits `0`. |
 | **Discarded** | You | Your reason, and an instruction to stop the work. Exit `5`. |
-| **Withdrawn** | The agent | Nothing to act on: it asked, then changed its mind. Exit `3`. |
+| **Withdrawn** | The agent | Nothing to act on. The agent withdrew the review before you decided it. Exit `3`. |
 | **Expired** | Nobody | The review had a deadline and nobody decided in time. Exit `3`. |
 
 An ended review never changes again. It moves from the inbox to your history, read-only, still showing the view it was decided in.
@@ -52,7 +52,7 @@ An ended review never changes again. It moves from the inbox to your history, re
 
 ## Rounds
 
-Often your answer is *nearly*: keep this, change that. The agent makes the changes and asks again, submitting a new review that **revises** the first. That is a new round.
+Often you want some changes before you approve. The agent makes the changes and asks again, submitting a new review that **revises** the first. That is a new round.
 
 ```mermaid title="Two rounds of one review"
 flowchart LR

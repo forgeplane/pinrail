@@ -3,20 +3,20 @@ title: Installing plugins
 description: "Install a plugin from a folder, a repository or a GitHub release, keep it up to date, and know what runs on your machine."
 ---
 
-Pinrail installs one plugin at a time, from the app or from the command line. You give it a source, a folder, a repository or a release, and it shows you what it found before anything is installed.
+Pinrail installs one plugin at a time, from the app or from the command line. You give Pinrail a source (a folder, a Git repository or a GitHub release), and it shows you what it found before it installs anything.
 
 ## From the app
 
-Open *Settings › Plugins* and choose *Install…*. Paste a source and Pinrail fetches it, then shows you:
+Open *Settings › Plugins* and choose *Install…*. Paste a source, or choose a folder, then choose *Look*. Pinrail fetches the source and shows you:
 
 - the plugin the manifest describes, and its version;
 - where it comes from;
 - whether a build runs, and the exact command;
 - what is already installed under the same name.
 
-*Install* confirms. Nothing is copied or run before that.
+To serve a folder live while you work on it, turn on *Link instead of copying*. Choose *Install*, or *Link*, to confirm. Nothing is copied or run before that.
 
-![The install dialog, previewing a plugin from a folder before it is installed: its name, version, source, and that no build runs.](screenshot:install "What the manifest says, where it comes from, and what installing it would run.")
+![The install dialog, previewing a plugin from a folder before it is installed: its name, version, source, and that no build runs.](screenshot:install "The install dialog shows what the manifest declares, where the plugin comes from, and what installing it would run.")
 
 ## From the command line
 
@@ -24,7 +24,7 @@ Open *Settings › Plugins* and choose *Install…*. Paste a source and Pinrail 
 pinrail plugins install <source>
 ```
 
-The shape of the source says where the plugin is:
+The form of the source tells Pinrail where to fetch the plugin from:
 
 | Source | Installs |
 |---|---|
@@ -89,7 +89,7 @@ pinrail plugins update            # every installed plugin
 pinrail plugins update review     # one plugin
 ```
 
-A source pinned to a tag or a commit stays where it is: the update check says it is pinned rather than moving it. `pinrail plugins versions review` lists the versions reviews can still render with.
+A plugin installed from a repository at a tag or a commit, or from a release whose tag is only a version such as `v1.2.0`, is pinned. The update check reports that it is pinned and does not move it. A release whose tag names the plugin, such as `review-v1.2.0`, is not pinned: the update check follows newer releases of the same plugin. `pinrail plugins versions review` lists the versions reviews can still render with.
 
 ## Developing with a linked folder
 
@@ -99,7 +99,7 @@ A linked plugin is served straight from your folder, so a change shows the next 
 pinrail plugins install ./ticket_triage --link
 ```
 
-Reviews of a linked plugin render from the folder as it is now. Remove the link and they show that the plugin is not installed, until it is again. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
+Reviews of a linked plugin render from the folder as it is now. If you remove the link, its reviews show that the plugin is not installed until you install it again. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
 
 After editing the manifest or a decision template, reload so the app reads them again:
 

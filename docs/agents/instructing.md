@@ -29,7 +29,7 @@ Put them wherever your agent already reads its standing instructions. The words 
 Instructions in the repository apply to everyone who runs an agent there. Instructions in your personal settings apply to you, everywhere.
 
 :::tip[Let the agent read up]
-`pinrail docs` tells an agent how to use Pinrail in a screen, and leads it to short pages on asking, plugins and writing its own rules. Point your agent at it and describe the moment you want it to ask: it can write the rule itself. See [An agent teaches itself](/docs/agents/cli/#an-agent-teaches-itself).
+`pinrail docs` tells an agent how to use Pinrail in a screen, and leads it to short pages on asking, plugins and writing its own rules. Point your agent at it and describe the moment you want it to ask: it can write the rule itself. See [Built-in guidance for agents](/docs/agents/cli/#built-in-guidance-for-agents).
 :::
 
 ## What good instructions say
@@ -56,9 +56,10 @@ Before you <the step>, ask me through Pinrail and wait for my decision.
 Don't ask in chat and don't go ahead without an answer.
 
 1. Write <what you're proposing> to a JSON file for the `<plugin>` plugin:
-   <one sentence on the payload's shape>. `pinrail plugins describe <plugin>
-   ` has the schema and an example. Check the file with
-   the command below and `--dry-run` in place of `--wait`.
+   <one sentence on the payload's shape>. Run
+   `pinrail plugins describe <plugin>` for the schema and an example, and
+   check the file by running the command below with `--dry-run` in place
+   of `--wait`.
 2. Run:
    pinrail submit <plugin> --title "<a title I'll recognise>" \
      --origin repo=<owner/repo>,ref=<branch or PR> \

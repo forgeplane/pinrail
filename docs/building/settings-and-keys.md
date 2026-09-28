@@ -44,8 +44,8 @@ Each property becomes one row, in the order you declare them:
 
 The schema is one level deep: every property is a `boolean`, `string`, `integer` or `number`, and every property has a `default`. Like the payload and decision schemas, it can be inline or a `$ref` to a file in the plugin folder.
 
-:::note[A broken schema never breaks the plugin]
-When `settings_schema` breaks these rules, the plugin still loads, without settings, and its row in *Settings › Plugins* says why. `pinrail plugins check <folder>` reports the same before you install.
+:::note[An invalid settings schema]
+If `settings_schema` breaks these rules, the app ignores it and still loads the plugin, without settings, and its row in *Settings › Plugins* shows the reason. `pinrail plugins check <folder>` reports the same before you install.
 :::
 
 ### Reading settings in the view
@@ -63,7 +63,7 @@ const layout = () => plugin.settings.diff;   // "inline" or "split"
 
 ### Writing settings from the view
 
-A control in your view can change a setting directly. The app checks the value against your schema, keeps it, and sends the new values to every open view of the plugin, so a toggle in your toolbar and the row in *Settings* are the same control.
+A control in your view can change a setting directly. The app checks the value against your schema, keeps it, and sends the new values to every open view of the plugin, so a toggle in your view and the row in *Settings* change the same setting.
 
 ```js
 splitButton.onclick = () => plugin.setSetting("diff", "split");
@@ -113,7 +113,7 @@ Declaring a key does two things for you:
 
 | Field | Meaning |
 |---|---|
-| `keys` | Modifiers joined by `+`, in any order, then one key. The modifiers are `cmd`, `ctrl`, `alt` and `shift`; `command`, `control` and `option` also work, and `cmdorctrl` means <kbd>⌘</kbd> on macOS and <kbd>Ctrl</kbd> on Linux. Name the key the way `KeyboardEvent.code` does, without `Key` or `Digit`: `j`, `1`, `/`, `enter`, `escape`, `arrowdown`. |
+| `keys` | Modifiers joined by `+`, in any order, then one key. The modifiers are `cmd`, `ctrl`, `alt` and `shift`; `command`, `control` and `option` also work, and `cmdorctrl` means <kbd>⌘</kbd> on macOS and <kbd>Ctrl</kbd> on Linux. Name the physical key. Write a letter or digit as itself (`j`, `1`), a punctuation key as the character it types without <kbd>Shift</kbd> (`/`, `[`, `,`), and any other key as its `KeyboardEvent.code` in lowercase (`enter`, `escape`, `arrowdown`). Write a shifted character with `shift`: <kbd>?</kbd> is `shift+/`. |
 | `does` | The one-line label shown in the keyboard help. |
 | `group` | Optional. Lists the entry under this caption. |
 

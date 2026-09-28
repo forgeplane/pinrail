@@ -30,13 +30,13 @@ A plugin's view is a page the app shows inside a sandboxed frame. However the pl
 
 - **can** draw, and exchange [messages](/docs/building/protocol/) with the app;
 - **can** ask the app to open a link in your browser or mail client. The app asks you first, showing the site, unless you allowed that site for this plugin. It never opens an address on your own computer, and it always asks about an email or a very long address;
-- **cannot** use the network: no requests, no web fonts, no scripts or styles from elsewhere;
-- **cannot** store anything, or read anything the app does not hand it: the files its review carries come from the app when the view asks for one by name, and those of no other review;
+- **cannot** use the network, so it cannot make requests or load web fonts, scripts or styles from elsewhere;
+- **cannot** store data, and can read only what the app sends it. When the view asks for one of its review's attachments by name, the app sends it, but the view cannot read another review's attachments;
 - **cannot** see other reviews, other plugins, or your files.
 
-Everything a view shows arrives in the review's payload, or in the files beside it. That is why a code review sends the diff rather than a link to it.
+Everything a view shows arrives in the review's payload or in its attachments. That is why a code review sends the diff rather than a link to it.
 
-Files that an agent attaches to a review are only displayed inside a view's sandbox, whatever they contain. The view asks the app for a file's contents and displays it itself; the artifact plugin, for example, displays an attached HTML page this way. The app itself never opens an attachment: it lists each one by name and size, and saving one writes its contents to disk unchanged.
+Attachments are only displayed inside a view's sandbox, whatever they contain. The view asks the app for an attachment's contents and displays it itself. The artifact plugin, for example, displays an attached HTML page this way. The app itself never opens an attachment. It lists each one by name and size, and saving one writes its contents to disk unchanged.
 
 ## What installing a plugin runs
 
@@ -49,10 +49,10 @@ Installing is where code from someone else can run on your machine, and it depen
 | A **folder or repository** that declares a build | The build command, such as `npm ci && npm run build`, on your machine, as you. |
 
 :::caution[A build is code you run]
-`npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Pinrail shows you the exact command before anything runs, and runs it only when you confirm. Releases are not signed and publishers are not vetted: install plugins from people and repositories you would run code from.
+`npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Pinrail shows you the exact command before anything runs, and runs it only when you confirm. Releases are not signed and publishers are not vetted, so install plugins only from people and repositories whose code you would run.
 :::
 
-Once installed, a built plugin is just files: its view runs in the same sandbox as any other.
+After installation, a built plugin consists only of static files, and its view runs in the same sandbox as any other.
 
 ## What the agent can do
 

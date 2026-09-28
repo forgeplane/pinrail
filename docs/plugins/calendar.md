@@ -32,8 +32,8 @@ pinrail plugins install github.com/forgeplane/pinrail/plugins/calendar
 - **The plan**: each item to arrange, how many times are still possible, and what you chose.
 - **Your calendar and the suggestions together.** What is already booked is fixed and striped; each item's suggestions are in its own colour, the agent's best fit marked.
 - **Three views.** *Day* shows one day at full width, with the week's days above it and how many suggestions each has. *Week* shows up to seven days and pages through a longer range. *List* shows every suggested time by item.
-- **Conflicts that step aside.** Choosing a time hides the suggestions that would clash with it, and clearing it brings them back.
-- **Another time, or decline.** An item none of whose times work goes back to the agent for another, with a note on when would suit. An item you do not want at all is declined, with a reason if you like.
+- **Clashing suggestions are hidden.** Choosing a time hides the suggestions that would clash with it, and clearing it brings them back.
+- **Another time, or decline.** If none of an item's suggested times suits you, send it back to the agent with a note on when would suit. An item you do not want at all can be declined, with an optional reason.
 
 Keys: <kbd>d</kbd>, <kbd>w</kbd> and <kbd>l</kbd> switch between the day, week and list views; <kbd>j</kbd> and <kbd>k</kbd> move to the next and previous day or week; <kbd>t</kbd> goes back to the first day. *Settings › Plugins › Calendar* chooses the view a calendar opens in.
 

@@ -17,7 +17,7 @@ A plugin with a view of a screen or two needs no framework and no build: an HTML
 
 - **An HTML page in the folder.** The manifest's `entry` names the built page, such as `view/index.html`, and the page's scripts and styles sit beside it.
 - **A `build` command in the manifest**, such as `npm ci && npm run build`. Installing from a folder or a repository runs it, after showing it to the person. A plugin linked for development (`--link`) is served as it is, so build it yourself first.
-- **A build that finishes by itself.** Pinrail gives the build no input, so a step that asks a question fails at once, and stops a build that runs longer than 15 minutes. Everything the build writes, to stdout or stderr, goes to its log.
+- **A build that finishes by itself.** Pinrail gives the build no input, so a step that asks a question fails at once. Pinrail also stops any build that runs longer than 15 minutes. Everything the build writes, to stdout or stderr, goes to its log.
 - **Relative paths.** The app serves the plugin under a path of its own, so the build must refer to its files relatively: with Vite, `base: "./"`.
 - **The SDK from the app.** Load `/sdk/v1/pinrail-plugin.js` and its stylesheet with tags in the page; don't bundle them. The package gives your code the types: `@forgeplane/pinrail-plugin/types`.
 - **Everything else bundled.** The frame loads nothing from the network, so the framework itself, fonts and images go into the build.
@@ -28,7 +28,7 @@ The plugin's manifest, and the schemas every framework's version shares:
 
 ## 1. Create the folder
 
-Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on, with a `sample.json` to send and an `AGENTS.md` that explains the plugin to a coding agent:
+Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on, with a `sample.json` to send and an `AGENTS.md` that directs a coding agent to `pinrail docs plugins/building`:
 
 ```sh
 # from a checkout of github.com/forgeplane/pinrail
@@ -76,14 +76,14 @@ npx pinrail-plugin check   # what the app would say of the folder
 npm test                   # build, then the tests under the harness
 ```
 
-:::tip[pinrail-plugin dev: the app, without the app]
+:::tip[pinrail-plugin dev: a stand-in for the app]
 `pinrail-plugin dev` opens the view in a browser inside a stand-in for the app, and reloads it when the build changes. The bar at the top picks a fixture, a decided one as the previous round, or read-only, and plays the app's side: *Collect* is the hand-over button, *Theme* switches light and dark. On the right: the settings and keys the manifest declares, what the view last sent as its status, draft and decision, every message in both directions, and violations or a decision to send back.
 
 ![pinrail-plugin dev with Ship it?: the view on the left with Ship chosen, and on the right the shortcuts s and h, the status Ship v2.4.1, the draft, and the draft and status messages the view sent.](screenshot:dev-shell "pinrail-plugin dev: the view, what it sent, and the app's side of the conversation to play.")
 :::
 
 :::note[pinrail-plugin check: what the app would say]
-`pinrail-plugin check` reads the folder the way the app does when you install it, without the app running. It reports **problems**, which keep the plugin from installing: a malformed manifest, schemas that are not JSON Schema, an entry that is missing (a folder with a build is given until the build has run). And **warnings**, which cost a feature: settings or shortcuts that break their rules, an example that does not pass its own schema, a template that cannot be read. `--json` prints the same for a script or CI.
+`pinrail-plugin check` reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing entry file. A missing entry is accepted while a declared build has not yet run, because the build writes it. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, an example that does not pass its own schema, or a template that cannot be read. `pinrail plugins check` gives the same verdict through the app. `--json` prints the result for a script or CI.
 :::
 
 A test mounts the built view alone and drives it the way a person would. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:

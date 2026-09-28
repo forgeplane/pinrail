@@ -3,20 +3,20 @@ title: Your first review
 description: "Send a review from the command line, decide it in the app, and read the decision the way an agent would."
 ---
 
-The quickest way to understand Pinrail is to be the agent for a minute. You will send a review from your terminal, decide it in the app, and read back what an agent would receive.
+To see how Pinrail works, you will act as the agent. You will send a review from your terminal, decide it in the app, and read back what an agent would receive.
 
-```mermaid title="What you're about to do"
+```mermaid title="The steps on this page"
 sequenceDiagram
   participant T as your terminal
   participant W as Pinrail
   T->>W: pinrail submit list … --wait
   Note over T: waits
   Note over W: you decide in the app
-  W->>T: the decision, as markdown
+  W->>T: the decision, as Markdown
 ```
 
-:::tip[Only want to see one?]
-`pinrail submit list --sample --wait` sends the list plugin's own sample and waits for your decision, all in one line. The steps below do the same with a payload you write, which is what an agent does.
+:::tip[To send a sample review instead]
+`pinrail submit list --sample --wait` sends the list plugin's own sample and waits for your decision, in one command. The steps below do the same with a payload you write, which is what an agent does.
 :::
 
 ## 1. Write a payload
@@ -86,7 +86,7 @@ list · decided by alice at 2026-09-23 10:14
 
 An agent reads this and carries on: it fixes the first item as you asked, and leaves the second. A script would ask for JSON instead and branch on it. See [Scripts and CI](/docs/agents/workflows/).
 
-The command exited with `0`, which means the review was decided. Try it again and **discard** the review instead, with the *Discard* button in its bar: the command exits with `5`, the signal for "no, and stop".
+The command exited with `0`, which means the review was decided. Try it again and **discard** the review instead, with the *Discard* button in its bar: the command exits with code `5`, which tells the agent to stop the work.
 
 ## Next
 
