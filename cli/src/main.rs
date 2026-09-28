@@ -891,7 +891,7 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Plugins(args) => {
-            let mut failed = false;
+            let mut failed: Option<u8> = None;
             let value = match args.command {
                 None if output.markdown => {
                     print!(
@@ -940,7 +940,17 @@ fn run(cli: Cli) -> Result<u8> {
                         } else {
                             // one that fails is said, and the rest still go
                             client.plugins_update(name).unwrap_or_else(|err| {
-                                failed = true;
+                                // the worst of the failures sets the exit code:
+                                // a refusal is 2, anything the app or the
+                                // network got wrong is 1
+                                let refused = err
+                                    .downcast_ref::<ApiError>()
+                                    .is_some_and(|api| api.status < 500);
+                                failed = Some(match failed {
+                                    Some(EXIT_ERROR) => EXIT_ERROR,
+                                    _ if !refused => EXIT_ERROR,
+                                    _ => EXIT_REFUSED,
+                                });
                                 let error = match err.downcast_ref::<ApiError>() {
                                     Some(api) => api.body["message"]
                                         .as_str()
@@ -965,7 +975,7 @@ fn run(cli: Cli) -> Result<u8> {
                 }
             };
             output.data(&value, md::plugins_result);
-            Ok(if failed { EXIT_REFUSED } else { 0 })
+            Ok(failed.unwrap_or(0))
         }
         Command::Export { dir } => {
             let count = out::export(&client, &dir)?;

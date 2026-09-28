@@ -696,6 +696,33 @@ fn a_discard_reason_cannot_drive_the_terminal() {
 }
 
 #[test]
+fn updating_every_plugin_exits_1_when_the_app_fails_and_2_when_it_refuses() {
+    let listing = r#"{"plugins":[{"name":"one","install":{"linked":false}},{"name":"two","install":{"linked":false}}]}"#;
+    // one refused (a 4xx), the other failing on the app's side (a 5xx)
+    let failing = |second: u16| {
+        MockServer::start(Box::new(move |method, path, _| match (method, path) {
+            ("GET", "/api/v1/plugins") => (200, listing.into()),
+            ("POST", "/api/v1/plugins/one/update") => (
+                422,
+                r#"{"error":"invalid","message":"pinned","violations":[]}"#.into(),
+            ),
+            ("POST", "/api/v1/plugins/two/update") => (
+                second,
+                r#"{"error":"internal","message":"git failed","violations":[]}"#.into(),
+            ),
+            other => panic!("unexpected {other:?}"),
+        }))
+    };
+    let (code, _, stderr) = run(&failing(500), &["plugins", "update", "--json"]);
+    assert_eq!(
+        code, 1,
+        "a failure on the app's side is not a refusal: {stderr}"
+    );
+    let (code, _, stderr) = run(&failing(409), &["plugins", "update", "--json"]);
+    assert_eq!(code, 2, "only refusals: {stderr}");
+}
+
+#[test]
 fn plugin_versions_say_when_no_version_is_usable() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/hello/versions" => (
