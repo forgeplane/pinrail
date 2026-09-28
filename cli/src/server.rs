@@ -78,8 +78,9 @@ pub fn advertised() -> Option<Value> {
 }
 
 /// The base URL to talk to. With `auto_start`, a server that is not
-/// answering is started first, when PINRAIL_SERVER_CMD says how: submit,
-/// plugins, plugins describe and plugins check ask for it.
+/// answering is started first, when PINRAIL_SERVER_CMD says how. `submit`,
+/// `plugins`, `plugins describe`, `plugins check` and `plugins new --link`
+/// ask for it.
 pub fn resolve_url(explicit: Option<&str>, auto_start: bool) -> Result<String> {
     if let Some(url) = explicit {
         let _ = SOURCE.set(Source::Given);

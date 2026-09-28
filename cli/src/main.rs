@@ -918,7 +918,7 @@ fn run(cli: Cli) -> Result<u8> {
             if args.include_revised {
                 query.push(("include_revised", "true".into()));
             }
-            // the reviews alone, as before the API wrapped them with its paging
+            // only the reviews array; md::listing shows the paging
             let mut listing = client.list(&query)?;
             if !args.all || args.limit.is_some() {
                 output.data(&listing["reviews"], |rows| {
@@ -1285,7 +1285,7 @@ fn unusable(client: &Client, name: &str, err: anyhow::Error) -> anyhow::Error {
 fn not_installed(err: anyhow::Error) -> anyhow::Error {
     match err.downcast::<ApiError>() {
         Ok(mut api) => {
-            api.hint = Some("Installed plugins: pinrail plugins".into());
+            api.hint = Some(INSTALLED_HINT.into());
             api.into()
         }
         Err(err) => err,
@@ -1311,7 +1311,7 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
             .any(|v| v["path"].as_str().is_some_and(|p| p.starts_with(prefix)))
     };
     if at("/plugin") {
-        api.hint = Some("Installed plugins: pinrail plugins".into());
+        api.hint = Some(INSTALLED_HINT.into());
     } else if at("/payload") {
         api.hint = Some(format!(
             "The payload it takes: pinrail plugins describe {plugin}"
@@ -1363,11 +1363,11 @@ fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) 
     }
 }
 
-/// Long-polls until the review settles. Each poll asks the server for at
-/// most `Client::POLL_SECS`; a 204 or a dropped connection (the server
-/// restarting) just loops, so a wait survives the app coming and going.
-/// Blocks until the review ends. A server that goes away is waited for
-/// once it has answered (`answered`); one that never did is not running.
+/// Blocks until the review ends, by long polls of at most
+/// `Client::POLL_SECS` each. A 204 or a dropped connection, such as the
+/// server restarting, just loops, so a wait survives the app coming and
+/// going. A server that goes away is waited for once it has answered
+/// (`answered`); one that never did is not running.
 fn wait(
     client: &Client,
     id: &str,
@@ -1526,6 +1526,9 @@ fn confirm_build(seen: &Value, yes: bool) -> Result<()> {
     }
     .into())
 }
+
+/// Where a refusal about a plugin points: the list of those installed.
+const INSTALLED_HINT: &str = "Installed plugins: pinrail plugins";
 
 /// The JSON a flag gives: inline, from a file, or from stdin with `-`.
 fn read_json_arg(spec: &str) -> Result<Value> {
