@@ -108,6 +108,9 @@ pub struct Registry {
     /// How long a plugin's build may run.
     build_timeout: std::time::Duration,
     state: RwLock<RegistryState>,
+    /// Held while the store and the install records change, so two installs
+    /// or removals of a plugin cannot interleave.
+    changes: std::sync::Mutex<()>,
 }
 
 impl Registry {
@@ -128,6 +131,7 @@ impl Registry {
                 kept: HashMap::new(),
                 records,
             }),
+            changes: std::sync::Mutex::default(),
         };
         registry.reload()?;
         Ok(registry)
@@ -155,6 +159,12 @@ impl Registry {
 
     pub fn store_dir(&self) -> &Path {
         &self.store_dir
+    }
+
+    /// Taken while the store and the install records change: an install
+    /// placing and recording a plugin, or a removal.
+    pub(crate) fn changing(&self) -> std::sync::MutexGuard<'_, ()> {
+        self.changes.lock().unwrap_or_else(|e| e.into_inner())
     }
 
     /// Where a store entry lives: one per plugin and major.

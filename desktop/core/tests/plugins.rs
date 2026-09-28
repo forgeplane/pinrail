@@ -58,6 +58,60 @@ async fn link(app: &Pinrail, dir: &Path) -> InstallJob {
     finished(app.plugins(), &id).await
 }
 
+/// Installs a copy of one plugin folder into the store, and waits for the job.
+async fn copy(app: &Pinrail, dir: &Path) -> InstallJob {
+    let id = app.plugins().start_install(
+        &dir.display().to_string(),
+        InstallOptions {
+            link: false,
+            force: false,
+            reference: None,
+            path: None,
+        },
+    );
+    finished(app.plugins(), &id).await
+}
+
+/// The listing's entry for one plugin.
+fn listed(app: &Pinrail, name: &str) -> Value {
+    app.plugins().listing(&Value::Null)["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == name)
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+#[tokio::test]
+async fn a_refused_install_leaves_the_installed_plugin_as_it_was() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::new(dir.path().join("data"), 0);
+    let app = Pinrail::open(config.clone()).unwrap();
+    let sources = dir.path().join("sources");
+    assert_eq!(
+        copy(&app, &plugin(&sources.join("1.0.0"), "hello", "1.0.0"))
+            .await
+            .status,
+        "done"
+    );
+
+    // the same line and a new one, each refused when the registry reloads:
+    // a folder among the built-in plugins claims the name too
+    for version in ["1.1.0", "2.0.0"] {
+        let stray = plugin(&config.builtin_plugins_dir(), "hello", "9.0.0");
+        let job = copy(&app, &plugin(&sources.join(version), "hello", version)).await;
+        assert_eq!(job.status, "failed", "{version}: {job:?}");
+        std::fs::remove_dir_all(stray).unwrap();
+
+        app.plugins().reload().unwrap();
+        let hello = listed(&app, "hello");
+        assert_eq!(hello["release"], "1.0.0", "{version}: {hello}");
+        assert_eq!(hello["error"], Value::Null, "{version}: {hello}");
+        assert_eq!(hello["install"]["modified"], false, "{version}: {hello}");
+    }
+}
+
 #[tokio::test]
 async fn inspection_and_update_jobs_work_without_http() {
     let dir = tempfile::tempdir().unwrap();

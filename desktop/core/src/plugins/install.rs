@@ -317,6 +317,7 @@ pub fn source_of(record: &InstalledRecord) -> (String, Options) {
 /// review renders from. An entry a review still uses stays, and the
 /// answer says which. A link loses only its record.
 pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> {
+    let _changing = registry.changing();
     let record = db
         .installed_plugins()?
         .into_iter()
@@ -1133,7 +1134,8 @@ fn install_dir(
             true,
             dir.display().to_string(),
         );
-        return commit(db, registry, record);
+        let _changing = registry.changing();
+        return commit(db, registry, record, None);
     }
 
     // build in a scratch copy, so the source is never written to
@@ -1176,20 +1178,28 @@ fn install_dir(
     }
 
     progress(Progress::Step("placing"));
-    let entry = place(registry, &plugin, &staged)?;
+    let _changing = registry.changing();
+    let placed = place(registry, &plugin, &staged);
     if build.is_some() {
         let _ = std::fs::remove_dir_all(&staged);
     }
-    let hash = hash_dir(&entry)?;
+    let placed = placed?;
+    let hash = match hash_dir(&placed.entry) {
+        Ok(hash) => hash,
+        Err(error) => {
+            placed.undo();
+            return Err(error.into());
+        }
+    };
     let record = record_for(
         &plugin,
         &origin,
         Some(hash),
         log_path.map(|p| p.display().to_string()),
         false,
-        entry.display().to_string(),
+        placed.entry.display().to_string(),
     );
-    commit(db, registry, record)
+    commit(db, registry, record, Some(placed))
 }
 
 /// A built-in ships in the binary and is written out at every start, so an
@@ -1440,20 +1450,20 @@ fn record_for(
     }
 }
 
-/// Writes the record, drops a previous line no review renders from, and
-/// reloads the registry.
-fn commit(db: &Db, registry: &Registry, record: InstalledRecord) -> Result<InstalledRecord, Error> {
+/// Writes the record and reloads the registry, then drops what the new
+/// install replaced: the files `placed` swapped out, and a previous line no
+/// review renders from. When the registry refuses the plugin, the record
+/// and the files go back to what they were, and nothing is dropped.
+fn commit(
+    db: &Db,
+    registry: &Registry,
+    record: InstalledRecord,
+    placed: Option<Placed>,
+) -> Result<InstalledRecord, Error> {
     let previous = db
         .installed_plugins()?
         .into_iter()
         .find(|r| r.name == record.name);
-    if let Some(previous) = &previous
-        && !previous.linked
-        && (previous.major != record.major || record.linked)
-        && !db.reviews_use(&previous.name, previous.major as u32)?
-    {
-        let _ = std::fs::remove_dir_all(registry.store_entry(&previous.name, previous.major));
-    }
     db.upsert_installed(&record)?;
     if let Err(message) = registry.reload_with(db.installed_plugins()?) {
         // The record is written before the registry takes it, so a plugin
@@ -1465,8 +1475,21 @@ fn commit(db: &Db, registry: &Registry, record: InstalledRecord) -> Result<Insta
                 db.remove_installed(&record.name)?;
             }
         }
+        if let Some(placed) = placed {
+            placed.undo();
+        }
         let _ = registry.reload_with(db.installed_plugins()?);
         return Err(Error::invalid("/source", message));
+    }
+    if let Some(placed) = placed {
+        placed.keep();
+    }
+    if let Some(previous) = &previous
+        && !previous.linked
+        && (previous.major != record.major || record.linked)
+        && !db.reviews_use(&previous.name, previous.major as u32)?
+    {
+        let _ = std::fs::remove_dir_all(registry.store_entry(&previous.name, previous.major));
     }
     Ok(record)
 }
@@ -1498,10 +1521,35 @@ pub(crate) fn in_the_bundle(name: &str) -> bool {
         && !name.starts_with("playwright.config.")
 }
 
+/// A bundle swapped into its store entry, with what the entry held kept
+/// beside it until the registry takes the new one.
+struct Placed {
+    entry: PathBuf,
+    old: Option<PathBuf>,
+}
+
+impl Placed {
+    /// The registry took the new bundle: what it replaced goes.
+    fn keep(self) {
+        if let Some(old) = self.old {
+            let _ = std::fs::remove_dir_all(old);
+        }
+    }
+
+    /// The registry refused it: the entry goes back to what it held, or
+    /// away if it held nothing.
+    fn undo(self) {
+        let _ = std::fs::remove_dir_all(&self.entry);
+        if let Some(old) = self.old {
+            let _ = std::fs::rename(old, &self.entry);
+        }
+    }
+}
+
 /// Copies the plugin's bundle into the store entry for its line, whole or
 /// not at all: the copy lands beside the entry and takes its place with
-/// one rename.
-fn place(registry: &Registry, plugin: &Plugin, dir: &Path) -> Result<PathBuf, Error> {
+/// one rename, and what the entry held is moved aside, not deleted.
+fn place(registry: &Registry, plugin: &Plugin, dir: &Path) -> Result<Placed, Error> {
     let entry = registry.store_entry(&plugin.name, plugin.version as i64);
     let staging = entry.with_extension("staging");
     let _ = std::fs::remove_dir_all(&staging);
@@ -1509,16 +1557,22 @@ fn place(registry: &Registry, plugin: &Plugin, dir: &Path) -> Result<PathBuf, Er
         std::fs::create_dir_all(parent)?;
     }
     copy_bundle(dir, &staging)?;
-    if entry.exists() {
-        let old = entry.with_extension("old");
-        let _ = std::fs::remove_dir_all(&old);
+    let old = entry.with_extension("old");
+    let _ = std::fs::remove_dir_all(&old);
+    let old = if entry.exists() {
         std::fs::rename(&entry, &old)?;
-        std::fs::rename(&staging, &entry)?;
-        let _ = std::fs::remove_dir_all(&old);
+        Some(old)
     } else {
-        std::fs::rename(&staging, &entry)?;
+        None
+    };
+    if let Err(error) = std::fs::rename(&staging, &entry) {
+        if let Some(old) = &old {
+            let _ = std::fs::rename(old, &entry);
+        }
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(error.into());
     }
-    Ok(entry)
+    Ok(Placed { entry, old })
 }
 
 /// The first symbolic link among the files a copy of the plugin would hold.
