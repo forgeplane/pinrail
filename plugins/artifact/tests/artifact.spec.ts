@@ -185,6 +185,25 @@ test("markup in the artifact runs nothing, so it cannot decide the review", asyn
   expect(submits, "the artifact handed over a decision").toEqual([]);
 });
 
+test("a handler that reaches the artifact past the sanitiser still does not run", async ({ page }) => {
+  // The sanitiser takes out what it knows of; the page's own policy is what
+  // guarantees the rest. Here a handler is put straight into the mounted
+  // artifact, as one the sanitiser had missed would be.
+  const plugin = await mountPlugin(page, dir, { review: landing() });
+  const f = plugin.frame;
+  await expect(f.locator("[data-artifact] h1")).toBeVisible();
+  await f.locator("body").evaluate(() => {
+    const host = Array.from(document.querySelectorAll("*")).find((el) => el.shadowRoot);
+    const body = host!.shadowRoot!.querySelector(".artifact-body")!;
+    body.insertAdjacentHTML("beforeend", `<img src="x" onerror="window.ran=(window.ran||0)+1">`);
+  });
+  await page.waitForTimeout(500);
+  expect(
+    await f.locator("body").evaluate(() => (window as unknown as { ran?: number }).ran ?? 0),
+    "a handler in the artifact ran",
+  ).toBe(0);
+});
+
 test("a refused hand-over says why and keeps every comment", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: landing() });
   const f = plugin.frame;
