@@ -636,22 +636,32 @@ fn main() -> ExitCode {
         Ok(code) => ExitCode::from(code),
         Err(err) => {
             if let Some(api) = err.downcast_ref::<ApiError>() {
+                // a refusal is the request's to fix; a server error is not
+                let code = if api.status >= 500 {
+                    EXIT_ERROR
+                } else {
+                    EXIT_REFUSED
+                };
                 if json {
-                    out::error_json(&api.body);
+                    out::error_json(&api.body, api.hint.as_deref(), code);
                 } else {
                     eprint!("{}", out::terminal_safe(&md::refusal(&api.body)));
                     if let Some(hint) = &api.hint {
                         eprintln!("{hint}");
                     }
                 }
-                // a refusal is the request's to fix; a server error is not
-                ExitCode::from(if api.status >= 500 {
-                    EXIT_ERROR
-                } else {
-                    EXIT_REFUSED
-                })
+                ExitCode::from(code)
             } else {
-                eprintln!("pinrail: {}", out::terminal_safe(&format!("{err:#}")));
+                if json {
+                    let message = format!("{err:#}");
+                    out::error_json(
+                        &json!({ "error": "cli", "message": message }),
+                        None,
+                        EXIT_ERROR,
+                    );
+                } else {
+                    eprintln!("pinrail: {}", out::terminal_safe(&format!("{err:#}")));
+                }
                 ExitCode::from(EXIT_ERROR)
             }
         }

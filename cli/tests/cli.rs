@@ -314,7 +314,7 @@ fn refused_requests_exit_2_with_the_body_on_stderr() {
     let (code, stdout, stderr) = run(&server, &["submit", "list", "--title", "", "--no-start"]);
     assert_eq!(code, 2);
     assert!(stdout.is_empty());
-    assert!(stderr.contains(r#""path": "/title""#), "{stderr}");
+    assert!(stderr.contains(r#""path":"/title""#), "{stderr}");
 
     let server = MockServer::start(Box::new(|_, _, _| {
         (
@@ -848,6 +848,34 @@ fn every_command_help_names_the_global_options() {
 }
 
 #[test]
+fn with_json_an_error_on_stderr_is_one_line_of_json() {
+    let server = MockServer::start(Box::new(|_, _, _| {
+        (422, r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/title","message":"is required"}]}"#.into())
+    }));
+    let (code, _, stderr) = run(&server, &["submit", "list", "--title", "", "--no-start"]);
+    assert_eq!(code, 2);
+    let error: serde_json::Value = serde_json::from_str(stderr.trim()).expect(&stderr);
+    assert_eq!(error["error"], "invalid");
+    assert_eq!(error["violations"][0]["path"], "/title");
+    assert_eq!(error["exit"], 2);
+
+    // an error of the CLI's own, with nothing listening
+    let out = pinrail()
+        .args(["--url", "http://127.0.0.1:1", "show", "r_1"])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1));
+    let error: serde_json::Value = serde_json::from_str(stderr.trim()).expect(&stderr);
+    assert_eq!(error["error"], "cli");
+    assert_eq!(error["exit"], 1);
+    assert!(
+        error["message"].as_str().unwrap().contains("not answering"),
+        "{error}"
+    );
+}
+
+#[test]
 fn plugin_versions_say_when_no_version_is_usable() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/hello/versions" => (
@@ -1326,7 +1354,7 @@ fn a_dry_run_checks_the_submission_and_creates_nothing() {
         &["submit", "list", "--title", "", "--dry-run", "--no-start"],
     );
     assert_eq!(code, 2);
-    assert!(stderr.contains(r#""path": "/title""#), "{stderr}");
+    assert!(stderr.contains(r#""path":"/title""#), "{stderr}");
 
     let (code, _, _) = run(
         &server,

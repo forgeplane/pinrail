@@ -93,15 +93,23 @@ pub fn print_json(value: &Value, pretty: bool) {
     println!("{text}");
 }
 
-/// A refused request: the server's error body, pretty, on stderr.
-pub fn error_json(body: &Value) {
-    match body {
-        Value::Null => eprintln!("pinrail: the server refused the request"),
-        other => eprintln!(
-            "pinrail: {}",
-            serde_json::to_string_pretty(other).unwrap_or_default()
-        ),
+/// An error under --json, as one line of JSON on stderr for a program to
+/// read: the server's error body, or the CLI's own `{"error": "cli", …}`,
+/// with the exit code and, when there is one, the hint for what to do next.
+pub fn error_json(body: &Value, hint: Option<&str>, exit: u8) {
+    let mut error = match body {
+        Value::Object(map) => map.clone(),
+        Value::Null => serde_json::Map::from_iter([("error".into(), "refused".into())]),
+        other => serde_json::Map::from_iter([
+            ("error".into(), "refused".into()),
+            ("body".into(), other.clone()),
+        ]),
+    };
+    error.insert("exit".into(), exit.into());
+    if let Some(hint) = hint {
+        error.insert("hint".into(), hint.into());
     }
+    eprintln!("{}", Value::Object(error));
 }
 
 /// `decision.data` as a 2-space-indented file with a trailing newline, the
