@@ -264,6 +264,41 @@ jobs:
           codesign -dvv "$app" 2>&1 | grep -E 'Authority|TeamIdentifier'
           spctl --assess --type execute --verbose=4 "$app"
           xcrun stapler validate "$app"
+      # What the person installing gets on the oldest Ubuntu Pinrail
+      # supports: the .deb installs with its dependencies, the command runs,
+      # and the app and the AppImage each start and serve, the SDK included.
+      # --headless needs no display; the window gets one from xvfb and must
+      # still be running when the timeout stops it.
+      - name: Install and start the Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          set -eu
+          serves() {
+            for _ in $(seq 1 50); do
+              curl -fsS "http://127.0.0.1:$1/api/v1/info" > /dev/null 2>&1 && break
+              sleep 0.2
+            done
+            curl -fsS "http://127.0.0.1:$1/api/v1/info"
+            echo
+            curl -fsS -o /dev/null "http://127.0.0.1:$1/sdk/v1/pinrail-plugin.js"
+          }
+          bundle=desktop/target/release/bundle
+          sudo apt-get install -y --no-install-recommends "./$(ls $bundle/deb/*.deb)" xvfb
+          pinrail --version
+
+          pinrail-desktop --headless --port 4790 --data-dir "$(mktemp -d)" &
+          serves 4790
+          kill $!
+
+          appimage=$(ls $bundle/appimage/*.AppImage)
+          chmod +x "$appimage"
+          APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --headless --port 4791 --data-dir "$(mktemp -d)" &
+          serves 4791
+          kill $!
+
+          status=0
+          timeout 15 xvfb-run -a pinrail-desktop || status=$?
+          test "$status" -eq 124 || { echo "the app window exited with $status before the timeout"; exit 1; }
       # Attestations are refused to a private repository on the free plan,
       # so they wait for the repository to be public rather than failing a
       # signed, notarized build over a signature nobody can check yet.
