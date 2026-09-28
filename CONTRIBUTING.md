@@ -33,8 +33,13 @@ Node is pinned in `mise.toml`, and Rust in `rust-toolchain.toml`, which
 
 ```sh
 mise install
+mise run setup              # the npm packages, the UI and plugin builds, and Playwright's browser
 mise run dev:desktop        # the app with live reload
 ```
+
+`mise run setup` performs the same preparation as CI. The tests and the
+linters need it, so run it once after cloning, and again when a
+`package.json` or `package-lock.json` changes.
 
 The repository contains:
 

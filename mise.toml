@@ -2,6 +2,18 @@
 [tools]
 node = "24"
 
+[tasks.setup]
+description = "Install and build what the tests and linters need, as CI does: run once after cloning, and again when dependencies change"
+dir = "{{config_root}}"
+run = [
+  "npm ci",
+  "cd desktop/app && npm ci && npm run build",
+  "cd pinrail-plugin && npm ci",
+  "cd plugins && npm ci",
+  "for dir in artifact model; do (cd plugins/$dir && npm ci && npm run build) || exit 1; done",
+  "cd e2e && npm ci && npx playwright install chromium",
+]
+
 [tasks."test:cli"]
 description = "CLI tests against a scripted HTTP server"
 dir = "{{config_root}}/cli"
