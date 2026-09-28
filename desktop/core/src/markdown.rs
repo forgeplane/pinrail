@@ -154,7 +154,17 @@ pub fn render_in(
     // the plugin's own body when it has one and it renders; the generic
     // one otherwise, so a template that fails at runtime costs nothing
     let body = template
-        .and_then(|t| render_template(t, review).ok())
+        .and_then(|t| match render_template(t, review) {
+            Ok(body) => Some(body),
+            Err(error) => {
+                // said in the log, for the plugin's author to find
+                eprintln!(
+                    "pinrail: the {} plugin's decision template failed, so the review was rendered without it: {error}",
+                    review["plugin"].as_str().unwrap_or("unknown")
+                );
+                None
+            }
+        })
         .unwrap_or_else(|| render_data(data));
     if !body.is_empty() {
         out.push('\n');
