@@ -1,0 +1,32 @@
+# The relative links in the Markdown outside the site: the READMEs,
+# CONTRIBUTING and the agent briefs the CLI ships. The site's own links are
+# checked when it builds. Nothing here builds anything, so it runs on every
+# push and pull request, including the ones that change only Markdown,
+# which the ci workflow skips.
+name: links
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      # offline: links between the repository's files and their headings,
+      # not the web, whose answers change without a change here
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          fail: true
+          args: >-
+            --offline --no-progress --include-fragments
+            --exclude-path "^(docs|website)/"
+            --exclude-path "/fixtures/"
+            './**/*.md'

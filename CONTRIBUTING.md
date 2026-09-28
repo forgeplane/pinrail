@@ -109,6 +109,7 @@ Run the linters and the tests:
 ```sh
 mise run lint               # rustfmt, clippy, the type check, licences and sources
 mise run audit              # known vulnerabilities in the dependencies
+mise run links              # the links between the Markdown files
 mise run test               # all the test suites
 ```
 

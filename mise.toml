@@ -78,6 +78,11 @@ run = [
   "for d in desktop/app pinrail-plugin plugins/artifact plugins/model; do (cd $d && npm audit --omit=dev --audit-level=high) || exit 1; done",
 ]
 
+[tasks.links]
+description = "The relative links in the Markdown outside the site; needs lychee"
+dir = "{{config_root}}"
+run = "git ls-files -z '*.md' ':!docs' ':!website' ':!**/fixtures/**' | xargs -0 lychee --offline --no-progress --include-fragments"
+
 [tasks.test]
 description = "Every suite: the desktop core and UI, the CLI, the SDK, the plugins, end to end"
 depends = ["test:desktop", "test:cli", "test:sdk", "test:plugins", "test:examples", "e2e", "e2e:shell"]
