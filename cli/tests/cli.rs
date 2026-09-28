@@ -16,7 +16,10 @@ struct MockServer {
 
 impl MockServer {
     fn start(handler: Handler) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        Self::start_on(TcpListener::bind("127.0.0.1:0").unwrap(), handler)
+    }
+
+    fn start_on(listener: TcpListener, handler: Handler) -> Self {
         let url = format!("http://{}", listener.local_addr().unwrap());
         let requests = Arc::new(Mutex::new(Vec::new()));
         let seen = requests.clone();
@@ -1294,6 +1297,76 @@ fn create_auto_starts_the_server_with_the_configured_command() {
     assert_eq!(out.status.code(), Some(0), "{stderr}");
     assert!(stderr.contains("starting it"), "{stderr}");
     assert!(dir.join("server.log").exists());
+}
+
+/// A server that another start brought up counts, even when it is not
+/// the one this start ran: two agents starting the app at once end up
+/// with one server, and both use it.
+#[test]
+fn a_start_uses_any_server_that_comes_up_at_the_address() {
+    let port = TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    // the other start's server, up a moment after this one began waiting
+    let other = thread::spawn(move || {
+        thread::sleep(std::time::Duration::from_millis(700));
+        MockServer::start_on(
+            TcpListener::bind(("127.0.0.1", port)).unwrap(),
+            Box::new(|method, path, _| match (method, path) {
+                ("GET", "/api/v1/info") => (200, "{}".into()),
+                ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[]}"#.into()),
+                other => panic!("unexpected {other:?}"),
+            }),
+        )
+    });
+    let dir = tempdir();
+    let started = std::time::Instant::now();
+    let out = pinrail()
+        .args(["plugins"])
+        .env("PINRAIL_DATA_DIR", &dir)
+        // this start's own server never comes up
+        .env("PINRAIL_SERVER_CMD", "sleep 30")
+        .env("PINRAIL_PORT", port.to_string())
+        .output()
+        .unwrap();
+    let _server = other.join().unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(started.elapsed() < std::time::Duration::from_secs(20));
+}
+
+/// A start command that fails is said at once, with its log, and the log
+/// another server was writing is kept.
+#[test]
+fn a_start_command_that_exits_fails_at_once_and_keeps_the_log() {
+    let dir = tempdir();
+    std::fs::write(dir.join("server.log"), "an earlier server's log\n").unwrap();
+    std::fs::write(dir.join("server.json"), r#"{"url":"http://127.0.0.1:9"}"#).unwrap();
+    let started = std::time::Instant::now();
+    let out = pinrail()
+        .args(["plugins"])
+        .env("PINRAIL_DATA_DIR", &dir)
+        .env("PINRAIL_SERVER_CMD", "echo no such app >&2; exit 127")
+        .env("PINRAIL_PORT", "9")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(10),
+        "{stderr}"
+    );
+    assert!(stderr.contains("server.log"), "{stderr}");
+    let log = std::fs::read_to_string(dir.join("server.log")).unwrap();
+    assert!(log.starts_with("an earlier server's log\n"), "{log}");
+    assert!(log.contains("no such app"), "{log}");
+    assert!(dir.join("server.json").exists());
 }
 
 #[test]

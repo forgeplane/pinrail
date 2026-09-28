@@ -120,8 +120,14 @@ fn start(url: &str) -> Result<Value> {
 
     let dir = data_dir();
     std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
-    let log = std::fs::File::create(dir.join("server.log")).context("opening server.log")?;
-    let _ = std::fs::remove_file(info_path());
+    let log_path = dir.join("server.log");
+    // appended to, and server.json left alone: another agent may have just
+    // started a server that is writing to both
+    let log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_path)
+        .context("opening server.log")?;
 
     let mut cmd = Command::new("sh");
     cmd.args(["-c", &command])
@@ -135,27 +141,39 @@ fn start(url: &str) -> Result<Value> {
         // its own process group: it outlives this CLI invocation
         cmd.process_group(0);
     }
-    let child = cmd
+    let mut child = cmd
         .spawn()
         .with_context(|| format!("starting the server with {command}"))?;
     crate::out::note(format_args!(
         "started server (pid {}), log at {}",
         child.id(),
-        dir.join("server.log").display()
+        log_path.display()
     ));
 
+    // Any server that answers counts, this one or one another start brought
+    // up at the same moment: then this start's own server, which cannot
+    // take the port, simply exits.
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
         if let Some(info) = advertised()
-            && let Some(url) = info["url"].as_str()
-            && Client::new(url).reachable()
+            && let Some(advertised) = info["url"].as_str()
+            && Client::new(advertised).reachable()
         {
             return Ok(info);
+        }
+        if Client::new(url).reachable() {
+            return Ok(json!({ "url": url }));
+        }
+        if let Ok(Some(status)) = child.try_wait() {
+            bail!(
+                "the server command exited ({status}) and no server is answering; see {}",
+                log_path.display()
+            );
         }
         if Instant::now() > deadline {
             bail!(
                 "the server did not come up within 60s; see {}",
-                dir.join("server.log").display()
+                log_path.display()
             );
         }
         std::thread::sleep(Duration::from_millis(250));
