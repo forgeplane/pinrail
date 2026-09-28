@@ -500,3 +500,40 @@ test("the app's own keys, pressed in the view, go up to the app", () => {
     shiftKey: true,
   });
 });
+
+test("a draft still pending when the decision is submitted is never sent", () => {
+  const env = fakeEnv();
+  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  env.deliver(init());
+  plugin.draft({ note: "half typed" });
+  plugin.submit({ ok: true });
+  for (const timer of env.timers.splice(0)) timer.fn();
+  const types = env.posted.map((p) => p.msg.type);
+  assert.equal(types.at(-1), "submit", types.join(", "));
+  assert.ok(!types.slice(types.indexOf("submit")).includes("draft"), types.join(", "));
+});
+
+test("a decision or draft held in reactive state is sent as the plain data it holds", () => {
+  const env = fakeEnv();
+  // what a browser does with every message: a structured clone, which
+  // refuses a Proxy such as Vue's reactive() or Svelte's $state
+  env.post = (msg, target) => env.posted.push({ msg: structuredClone(msg), target });
+  const violations = [];
+  const plugin = Pinrail.createPlugin(env, { resize: "manual", onViolations: (e) => violations.push(e) });
+  env.deliver(init());
+  const reactive = (value) => new Proxy(value, {});
+  plugin.submit(reactive({ ok: true, items: reactive([1, 2]), skipped: undefined }));
+  plugin.draft(reactive({ step: 2 }), { flush: true });
+  const sent = env.posted.map((p) => p.msg).filter((m) => m.type === "submit" || m.type === "draft");
+  assert.deepEqual(sent, [
+    { pinrail: sent[0].pinrail, type: "submit", data: { ok: true, items: [1, 2] } },
+    { pinrail: sent[0].pinrail, type: "draft", data: { step: 2 } },
+  ]);
+
+  // what JSON cannot hold is refused as the app would, not thrown
+  const loop = { a: 1 };
+  loop.self = loop;
+  plugin.submit(loop);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0][0].path, "");
+});

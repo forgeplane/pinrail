@@ -49,17 +49,15 @@ onMounted(() => {
   });
 });
 
-// A ref's value is a reactive proxy, which a message to the app cannot
-// carry: the SDK is always handed a plain copy.
 function pick(value: boolean) {
   draft.value = { ...draft.value, ok: draft.value.ok === value ? null : value };
   errors.value = "";
-  plugin.draft({ ...draft.value }, { flush: true });
+  plugin.draft(draft.value, { flush: true });
 }
 
 function writeComment(event: Event) {
   draft.value = { ...draft.value, comment: (event.target as HTMLInputElement).value };
-  plugin.draft({ ...draft.value });
+  plugin.draft(draft.value);
 }
 
 // what the app's hand-over button says follows the answer

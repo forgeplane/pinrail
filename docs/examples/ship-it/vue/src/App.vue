@@ -53,17 +53,15 @@ onMounted(() => {
 });
 onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
 
-// A ref's value is a reactive proxy, which a message to the app cannot
-// carry: the SDK is always handed a plain copy.
 function choose(verdict: Verdict) {
   draft.value = { ...draft.value, verdict };
   error.value = "";
-  plugin.draft({ ...draft.value }, { flush: true });
+  plugin.draft(draft.value, { flush: true });
 }
 
 function writeNote(event: Event) {
   draft.value = { ...draft.value, note: (event.target as HTMLTextAreaElement).value };
-  plugin.draft({ ...draft.value });
+  plugin.draft(draft.value);
 }
 
 // s and h decide. The app forwards them too when it has the focus, as a

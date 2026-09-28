@@ -49,17 +49,15 @@
     });
   });
 
-  // State is a proxy, which a message to the app cannot carry: the SDK is
-  // always handed a snapshot.
   function pick(value: boolean) {
     draft.ok = draft.ok === value ? null : value;
     errors = "";
-    plugin.draft($state.snapshot(draft), { flush: true });
+    plugin.draft(draft, { flush: true });
   }
 
   function writeComment(event: Event) {
     draft.comment = (event.target as HTMLInputElement).value;
-    plugin.draft($state.snapshot(draft));
+    plugin.draft(draft);
   }
 
   // what the app's hand-over button says follows the answer

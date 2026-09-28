@@ -51,17 +51,15 @@
     });
   });
 
-  // State is a proxy, which a message to the app cannot carry: the SDK is
-  // always handed a snapshot.
   function choose(verdict: Verdict) {
     draft.verdict = verdict;
     error = "";
-    plugin.draft($state.snapshot(draft), { flush: true });
+    plugin.draft(draft, { flush: true });
   }
 
   function writeNote(event: Event) {
     draft.note = (event.target as HTMLTextAreaElement).value;
-    plugin.draft($state.snapshot(draft));
+    plugin.draft(draft);
   }
 
   // s and h decide. The app forwards them too when it has the focus, as a

@@ -48,6 +48,8 @@
   const VERSION = "1.0.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
+  /** What `asJson` answers for data that cannot be sent. */
+  const NOT_JSON = {};
 
   function escape(s) {
     return String(s ?? "").replace(
@@ -149,6 +151,21 @@
     let stopObserving = null;
 
     const post = (msg) => env.post(Object.assign({ pinrail: PROTOCOL }, msg), state.shellOrigin || "*");
+    /* Decisions and drafts reach the app as JSON, so they are sent as the
+       plain data they hold, whatever a framework keeps them in: a Vue
+       reactive object or a Svelte $state proxy cannot be posted as it is.
+       What JSON cannot hold, such as a cycle, is refused as the app would
+       refuse it, through onViolations. */
+    const asJson = (data, what) => {
+      if (data === undefined) return undefined;
+      try {
+        return JSON.parse(JSON.stringify(data));
+      } catch (error) {
+        if (handlers.onViolations)
+          handlers.onViolations([{ path: "", message: `the ${what} is not JSON: ${error.message}` }]);
+        return NOT_JSON;
+      }
+    };
 
     function startResize() {
       if (resizeMode === "fill") {
@@ -328,7 +345,10 @@
         return state.settings;
       },
       submit(data) {
-        post({ type: "submit", data });
+        // a draft still waiting is for a decision that is now being made
+        env.clearTimeout(draftTimer);
+        const value = asJson(data, "decision");
+        if (value !== NOT_JSON) post({ type: "submit", data: value });
       },
       /* Asks the shell to keep a setting of this plugin's; the shell checks
          it against the manifest and answers with `settings` (or with
@@ -339,7 +359,11 @@
       draft(data, opts) {
         if (state.readonly) return;
         env.clearTimeout(draftTimer);
-        const send = () => post({ type: "draft", data });
+        const value = asJson(data, "draft");
+        if (value === NOT_JSON) return;
+        const send = () => {
+          if (!state.readonly) post({ type: "draft", data: value });
+        };
         if (opts && opts.flush) send();
         else draftTimer = env.setTimeout(send, DRAFT_DEBOUNCE_MS);
       },
