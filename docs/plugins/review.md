@@ -38,7 +38,7 @@ pinrail plugins install github.com/forgeplane/pinrail/plugins/review
 
 The layout choices are saved as [plugin settings](/docs/building/settings-and-keys/), so they hold for your next review. Press <kbd>?</kbd> for the keys.
 
-To see it before any agent asks with it, send its sample: `pinrail submit review --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+To see it before any agent asks with it, send its sample: `pinrail submit review --sample`, or **Send a sample** in its details in *Settings › Plugins*.
 
 ## Asking from your agent
 

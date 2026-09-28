@@ -74,7 +74,10 @@ export type ReviewListing = {
 
 export type Plugin = {
   name: string;
+  /** the major version, which reviews render with */
   version: number;
+  /** the full version the manifest declares, such as 1.2.0 */
+  release?: string;
   title: string;
   path: string;
   entry: string;

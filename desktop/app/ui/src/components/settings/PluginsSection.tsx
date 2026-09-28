@@ -156,13 +156,15 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
 };
 
 /** Where an installed plugin came from, in a few words. */
-function originOf(p: Plugin): string | null {
+/** Where a plugin came from: how, in words, and from where. */
+function originOf(p: Plugin): { how: string; where: string | null } {
   const i = p.install;
-  if (!i) return null;
-  if (i.linked) return `linked · ${p.path}`;
-  if (i.kind === "git") return `${i.source}${i.commit ? ` · ${i.commit.slice(0, 7)}` : ""}`;
-  if (i.kind === "release") return `${i.source}${i.tag ? ` · ${i.tag}` : ""}`;
-  return `copied from ${i.source}`;
+  if (!i) return { how: "Built into Pinrail", where: null };
+  if (i.linked) return { how: "Linked to", where: p.path };
+  if (i.kind === "git")
+    return { how: "Cloned from", where: `${i.source}${i.commit ? ` · ${i.commit.slice(0, 7)}` : ""}` };
+  if (i.kind === "release") return { how: "Downloaded from", where: `${i.source}${i.tag ? ` · ${i.tag}` : ""}` };
+  return { how: "Copied from", where: i.source };
 }
 
 type Line = { text: string; tone: "ok" | "dim" | "danger"; updatable?: boolean };
@@ -219,7 +221,7 @@ function PluginEntry({
   const schema = p.usable ? p.settings_schema : null;
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
-  const [open, setOpen] = useState(openAtStart && entries.length > 0);
+  const [open, setOpen] = useState(openAtStart);
   const [updates, setUpdates] = useState<Line | "checking" | null>(null);
   /** an update under way: the job's step */
   const [updating, setUpdating] = useState<string | null>(null);
@@ -235,15 +237,14 @@ function PluginEntry({
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (openAtStart && entries.length) {
+    if (openAtStart) {
       setOpen(true);
       box.current?.scrollIntoView({ block: "start" });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- when Settings opens here, not whenever the list changes
   }, [openAtStart]);
 
   const resetAll = () => onChange(Object.fromEntries(entries.map(([key, property]) => [key, property.default])));
-  const toggle = () => entries.length && setOpen((o) => !o);
+  const toggle = () => setOpen((o) => !o);
 
   const check = async () => {
     setUpdates("checking");
@@ -349,49 +350,37 @@ function PluginEntry({
       </button>
     </span>
   ) : null;
-  // a broken plugin says why in its badge's tooltip, so its line is the
-  // same as any other's
+  // Under the badge, only what answers a click and what was dropped; where
+  // the plugin came from and what it takes are in its details.
   const note =
-    ask && (p.settings_error || p.sample_error) ? (
-      ask
+    ask ??
+    (updating ? (
+      <span className="faint" data-plugin-updating>
+        Updating: {updating}…
+      </span>
+    ) : updates === "checking" ? (
+      <span className="faint">Checking…</span>
+    ) : updates ? (
+      <span className="settings-plugin-ask">
+        <span className={updates.tone} data-plugin-updates>
+          {updates.text}
+        </span>
+        {updates.updatable ? (
+          <button type="button" className="settings-reset-link" onClick={updateNow} data-plugin-update>
+            Update
+          </button>
+        ) : null}
+      </span>
     ) : p.settings_error ? (
       <span className="danger">settings dropped: {p.settings_error}</span>
     ) : p.sample_error ? (
       <span className="danger">sample dropped: {p.sample_error}</span>
-    ) : (
-      <span className="settings-plugin-origin">
-        <span className="mono">{origin ?? p.path}</span>
-        {p.install?.modified ? (
-          <span className="danger with-icon">
-            <TriangleAlert size={11} /> modified since install
-          </span>
-        ) : null}
-        {ask ??
-          (updating ? (
-            <span className="faint" data-plugin-updating>
-              Updating: {updating}…
-            </span>
-          ) : updates === "checking" ? (
-            <span className="faint">Checking…</span>
-          ) : updates ? (
-            <span className="settings-plugin-ask">
-              <span className={updates.tone} data-plugin-updates>
-                {updates.text}
-              </span>
-              {updates.updatable ? (
-                <button type="button" className="settings-reset-link" onClick={updateNow} data-plugin-update>
-                  Update
-                </button>
-              ) : null}
-            </span>
-          ) : null)}
-      </span>
-    );
+    ) : null);
 
   return (
     <div
       ref={box}
-      className={`settings-plugin ${entries.length ? "has-settings" : ""} ${open ? "is-open" : ""}`}
+      className={`settings-plugin ${open ? "is-open" : ""}`}
       data-plugin-settings={p.name}
       data-plugin-row={p.name}
     >
@@ -415,37 +404,11 @@ function PluginEntry({
                 {linked ? "linked" : p.dev ? "development" : "ready"}
               </span>
             )}
-            {p.install && !linked ? <span className="faint">{p.install.version}</span> : null}
-            {p.attachments ? (
-              <span className="faint" data-plugin-takes>
-                {takes(p.attachments).replace("Takes files", "takes files")}
-              </span>
-            ) : null}
-            {entries.length ? (
-              <span className="faint">
-                {entries.length} setting{entries.length === 1 ? "" : "s"}
-                {changed.length ? `, ${changed.length} changed` : ""}
-              </span>
-            ) : null}
           </span>
         }
         note={note}
-        onClick={entries.length ? toggle : undefined}
+        onClick={toggle}
       >
-        {p.usable && p.sample ? (
-          <Tooltip label="Send a sample review, to see how it looks">
-            <button
-              type="button"
-              className="bar-button"
-              onClick={sendSample}
-              aria-label={`Send a sample of ${p.name}`}
-              disabled={sending}
-              data-plugin-sample
-            >
-              <Send size={15} />
-            </button>
-          </Tooltip>
-        ) : null}
         {native ? (
           <Tooltip label={REVEAL}>
             <button type="button" className="bar-button" onClick={onReveal} aria-label={`Reveal ${p.name}`}>
@@ -503,46 +466,89 @@ function PluginEntry({
             {muted ? <BellOff size={15} /> : <Bell size={15} />}
           </button>
         </Tooltip>
-        {entries.length ? (
-          <Tooltip label={open ? "Hide its settings" : "Show its settings"}>
-            <button
-              type="button"
-              className="bar-button settings-plugin-toggle"
-              aria-expanded={open}
-              aria-label={`Settings of ${p.name}`}
-              onClick={toggle}
-            >
-              <ChevronRight size={15} className={open ? "is-open" : ""} />
-            </button>
-          </Tooltip>
-        ) : null}
+        <Tooltip label={open ? "Hide the details" : "Show the details and settings"}>
+          <button
+            type="button"
+            className="bar-button settings-plugin-toggle"
+            aria-expanded={open}
+            aria-label={`Details of ${p.name}`}
+            onClick={toggle}
+          >
+            <ChevronRight size={15} className={open ? "is-open" : ""} />
+          </button>
+        </Tooltip>
       </SettingsRow>
-      {links.length ? (
-        <div className="settings-plugin-links" data-plugin-links={p.name}>
-          <span className="dim">Opens links without asking on</span>
-          {links.map((origin) => (
-            <span key={origin} className="settings-link-chip mono">
-              {origin}
+      {open ? (
+        <div className="settings-subrows" data-plugin-details={p.name}>
+          {p.error ? (
+            <p className="notice notice-danger settings-plugin-error" data-plugin-error>
+              This plugin is broken: {p.error}
+            </p>
+          ) : null}
+          <dl className="settings-plugin-details">
+            <dt>Version</dt>
+            <dd>{p.install?.version ?? p.release ?? p.version}</dd>
+            <dt>Source</dt>
+            <dd className="settings-plugin-origin">
+              <span>
+                {origin.how} {origin.where ? <span className="mono">{origin.where}</span> : null}
+              </span>
+              {p.install?.modified ? (
+                <span className="danger with-icon">
+                  <TriangleAlert size={11} /> modified since install
+                </span>
+              ) : null}
+            </dd>
+            {p.attachments ? (
+              <>
+                <dt>Files</dt>
+                <dd data-plugin-takes>{takes(p.attachments).replace("Takes files: ", "")}</dd>
+              </>
+            ) : null}
+            {links.length ? (
+              <>
+                <dt>Opens without asking</dt>
+                <dd className="settings-plugin-links" data-plugin-links={p.name}>
+                  {links.map((origin) => (
+                    <span key={origin} className="settings-link-chip mono">
+                      {origin}
+                      <button
+                        type="button"
+                        className="settings-link-forget"
+                        aria-label={`Ask again before opening ${origin}`}
+                        onClick={() => onForgetLink(origin)}
+                        data-forget-link={origin}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </dd>
+              </>
+            ) : null}
+          </dl>
+          {p.usable && p.sample ? (
+            <div className="settings-plugin-actions">
               <button
                 type="button"
-                className="settings-link-forget"
-                aria-label={`Ask again before opening ${origin}`}
-                onClick={() => onForgetLink(origin)}
-                data-forget-link={origin}
+                className="chrome-button"
+                onClick={sendSample}
+                disabled={sending}
+                data-plugin-sample
               >
-                <X size={12} />
+                <Send size={13} /> Send a sample
               </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {open ? (
-        <div className="settings-subrows">
-          {changed.length ? (
+              <span className="dim">A review with made-up content, to see how it looks</span>
+            </div>
+          ) : null}
+          {entries.length ? (
             <div className="settings-subrows-head">
-              <button type="button" className="settings-reset-link" onClick={resetAll}>
-                Reset all to defaults
-              </button>
+              <span className="settings-subrows-title">Settings</span>
+              {changed.length ? (
+                <button type="button" className="settings-reset-link" onClick={resetAll}>
+                  Reset all to defaults
+                </button>
+              ) : null}
             </div>
           ) : null}
           {entries.map(([key, property]) => (

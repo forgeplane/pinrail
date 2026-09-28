@@ -150,6 +150,7 @@ test("Settings lists the origins a plugin opens without asking, and one can be r
   await expect.poll(async () => (await links(page)).opener?.origins).toEqual(["https://example.com"]);
 
   await page.goto("/#/plugins");
+  await page.getByRole("button", { name: "Details of opener" }).click();
   const row = page.locator('[data-plugin-links="opener"]');
   await expect(row).toContainText("https://example.com");
   await row.locator('[data-forget-link="https://example.com"]').click();

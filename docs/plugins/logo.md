@@ -36,7 +36,7 @@ pinrail plugins install github.com/forgeplane/pinrail/plugins/logo
 
 Keys: <kbd>j</kbd> / <kbd>k</kbd> next and previous mark, <kbd>f</kbd> favourite, <kbd>s</kbd> keep, <kbd>x</kbd> drop.
 
-To see it before any agent asks with it, send its sample: `pinrail submit logo --sample`, or **Send a sample** on its row in *Settings › Plugins*.
+To see it before any agent asks with it, send its sample: `pinrail submit logo --sample`, or **Send a sample** in its details in *Settings › Plugins*.
 
 ## Asking from your agent
 

@@ -52,7 +52,8 @@ test("a folder is looked at before it is installed, and its row says where it ca
 
   const row = page.locator('[data-plugin-row="greeter"]');
   await expect(row).toContainText("ready");
-  await expect(row).toContainText(`copied from ${source}`);
+  await row.getByRole("button", { name: "Details of greeter" }).click();
+  await expect(row.locator("[data-plugin-details]")).toContainText(`Copied from ${source}`);
 
   // the copy is what is served: a record with a hash, not a link
   const plugins = await (await page.request.get(`${core}/api/v1/plugins`)).json();
@@ -141,7 +142,8 @@ test("a link serves the folder live and offers to install a copy", async ({ page
 
   const row = page.locator('[data-plugin-row="wip"]');
   await expect(row).toContainText("linked");
-  await expect(row).toContainText(`linked · ${source}`);
+  await row.getByRole("button", { name: "Details of wip" }).click();
+  await expect(row.locator("[data-plugin-details]")).toContainText(`Linked to ${source}`);
 
   // a copy from the row: the dialog opens looked at already, and says it replaces the link
   await row.getByRole("button", { name: "Install a copy of wip" }).click();
@@ -152,7 +154,7 @@ test("a link serves the folder live and offers to install a copy", async ({ page
   await copy.locator("[data-install-confirm]").click();
   await expect(copy.locator("[data-install-done]")).toBeVisible();
   await copy.locator("[data-install-close]").click();
-  await expect(row).toContainText(`copied from ${source}`);
+  await expect(row).toContainText(`Copied from ${source}`);
 });
 
 test("a broken plugin can still be removed from its row", async ({ page }) => {
@@ -166,12 +168,16 @@ test("a broken plugin can still be removed from its row", async ({ page }) => {
 
   await page.goto("/#/plugins");
   const row = page.locator('[data-plugin-row="broken"]');
-  // the badge says why, on hover, and the line says where it came from
-  await expect(row).toContainText(`linked · ${source}`);
+  // the badge says why, on hover, and nothing else on the row repeats it
   await expect(row).not.toContainText("version: value is not of type string");
   await row.locator("[data-plugin-broken]").hover();
   await expect(page.getByRole("tooltip")).toHaveText("version: value is not of type string");
   await expect(page.getByRole("tooltip")).toHaveClass(/is-danger/);
+  // and its details open with it
+  await row.getByRole("button", { name: "Details of broken" }).click();
+  await expect(row.locator("[data-plugin-error]")).toHaveText(
+    "This plugin is broken: version: value is not of type string",
+  );
   await row.getByRole("button", { name: "Remove broken" }).click();
   await row.locator("[data-plugin-remove-confirm]").click();
   await expect(row).toHaveCount(0);

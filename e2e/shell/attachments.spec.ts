@@ -119,14 +119,18 @@ test("a view gets the bytes of a file its review carries from the app, and only 
   await page.request.delete(`${core}/api/v1/plugins/reader`);
 });
 
-test("a plugin that takes files says so on its row, and Settings › Data totals the files kept", async ({ page }) => {
+test("a plugin that takes files says so in its details, and Settings › Data totals the files kept", async ({
+  page,
+}) => {
   await linkPlugin(page.request, reader(), "reader");
   const info = await (await page.request.get(`${core}/api/v1/info`)).json();
 
   await page.goto("/#/");
   await page.keyboard.press("ControlOrMeta+,");
   await page.locator('[data-section="plugins"]').click();
-  await expect(page.locator('[data-plugin-row="reader"] [data-plugin-takes]')).toHaveText("takes files: .bin");
+  const row = page.locator('[data-plugin-row="reader"]');
+  await row.getByRole("button", { name: "Details of reader" }).click();
+  await expect(row.locator("[data-plugin-takes]")).toHaveText(".bin");
   await page.locator('[data-section="data"]').click();
   await expect(page.locator("[data-attachment-totals]")).toHaveText(
     info.attachments.count === 0 ? "None stored" : /\d+ files?, .+\. They go with their reviews/,

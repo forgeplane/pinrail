@@ -1414,8 +1414,6 @@ h1 {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  padding: 0 12px 10px 38px;
-  font-size: 12px;
 }
 .settings-link-chip {
   display: inline-flex;
@@ -2215,8 +2213,42 @@ h1 {
 }
 .settings-subrows-head {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: baseline;
   padding: 8px 12px 0;
+  border-top: 1px solid var(--border);
+}
+.settings-subrows-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--dim);
+}
+/* a plugin's details: what it is and where it came from, as label and value */
+.settings-plugin-details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.settings-plugin-error {
+  margin: 10px 12px 0;
+}
+.settings-plugin-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px 10px;
+  font-size: 12px;
+}
+.settings-plugin-details dt {
+  color: var(--dim);
+}
+.settings-plugin-details dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .settings-subrows-head + .settings-row {
   padding-top: 6px;
