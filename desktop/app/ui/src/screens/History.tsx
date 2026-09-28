@@ -2,7 +2,7 @@ import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
-import type { Review, ReviewListing } from "../api/types";
+import type { ReviewListing } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
 import { FilesCount, OutcomeBadge } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
@@ -10,13 +10,11 @@ import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
-import { stamp } from "../lib/format";
+import { settledAt, stamp } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
 import { NO_PROJECT } from "../lib/shortcuts";
 import { modalOpen } from "../lib/keys";
-
-const settledAt = (r: Review) => r.decision?.decided_at ?? r.withdrawn_at ?? r.discarded_at ?? r.expires_at;
 
 const ENDED = "decided,withdrawn,discarded,expired";
 /** How long the search waits for typing to pause before it asks the server. */

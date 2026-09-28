@@ -1,3 +1,4 @@
+import type { Review } from "../api/types";
 /** "3m", "2h", "5d": how long ago, in one unit. */
 export function age(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return "";
@@ -39,4 +40,11 @@ export function takes(rules: { accept: string[]; max_size?: number; max_count?: 
     rules.max_count ? `${rules.max_count} at most` : null,
   ].filter(Boolean);
   return `Takes files: ${rules.accept.join(", ")}${limits.length ? `, ${limits.join(", ")}` : ""}`;
+}
+
+/** When an ended review ended: decided, withdrawn, discarded or expired. */
+export function settledAt(
+  review: Pick<Review, "decision" | "withdrawn_at" | "discarded_at" | "expires_at">,
+): string | null | undefined {
+  return review.decision?.decided_at ?? review.withdrawn_at ?? review.discarded_at ?? review.expires_at;
 }

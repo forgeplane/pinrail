@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { Plugin, Review } from "../api/types";
-import { age } from "../lib/format";
+import { age, settledAt } from "../lib/format";
 import { useLive } from "../state/live";
 import { OutcomeBadge } from "./Badges";
 import { PluginIcon } from "./PluginIcon";
@@ -80,6 +80,8 @@ export function CommandPalette({
   // decided reviews come from the server, a moment after typing stops
   useEffect(() => {
     if (!open || (filter !== "all" && filter !== "history")) return;
+    // an answer for a search typed over, or a palette closed, is dropped
+    let current = true;
     const timer = window.setTimeout(
       () => {
         api
@@ -89,12 +91,15 @@ export function CommandPalette({
             include_revised: "true",
             limit: all ? "5" : "20",
           })
-          .then((listing) => setHistory(listing.reviews))
-          .catch(() => setHistory([]));
+          .then((listing) => current && setHistory(listing.reviews))
+          .catch(() => current && setHistory([]));
       },
       q ? 150 : 0,
     );
-    return () => window.clearTimeout(timer);
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
   }, [open, q, filter, all]);
 
   const items = useMemo<Item[]>(() => {
@@ -129,7 +134,7 @@ export function CommandPalette({
             <>
               <OutcomeBadge review={r} />
               <span className="mono">{r.plugin}</span>
-              <span>{age(r.decision?.decided_at ?? r.withdrawn_at ?? r.expires_at)}</span>
+              <span>{age(settledAt(r))}</span>
             </>
           ),
           run: () => navigate(`/reviews/${r.id}`),
