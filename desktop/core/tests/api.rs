@@ -70,6 +70,18 @@ fn submission() -> Value {
     })
 }
 
+/// An expiry past the year 9999 in UTC is refused: written as the store
+/// writes it, it would sort before every other time and read as expired.
+#[tokio::test]
+async fn an_expiry_past_the_year_9999_is_refused() {
+    let app = app();
+    let mut body = submission();
+    body["expires_at"] = json!("9999-12-31T23:59:59-01:00");
+    let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(violations(&refused)[0].0, "/expires_at");
+}
+
 async fn submit(app: &App, body: Value) -> Value {
     let (status, review) = call(app, "POST", "/api/v1/reviews", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{review}");

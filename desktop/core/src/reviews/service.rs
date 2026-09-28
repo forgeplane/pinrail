@@ -9,7 +9,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use serde_json::{Map, Value};
 
 use super::model::{Decision, Review, parse_datetime};
@@ -505,10 +505,13 @@ impl Reviews {
         }
         match attrs.get("expires_at") {
             None | Some(Value::Null) => {}
-            Some(Value::String(s)) if parse_datetime(s).is_some() => {}
+            // stored as text and compared as text, so only years that are
+            // written with four digits in UTC compare as the times they are
+            Some(Value::String(s))
+                if parse_datetime(s).is_some_and(|at| (1..=9999).contains(&at.year())) => {}
             Some(_) => violations.push(Violation::new(
                 "/expires_at",
-                "must be an ISO 8601 datetime",
+                "must be an ISO 8601 datetime between the years 1 and 9999 in UTC",
             )),
         }
         // the rounds of a review form one line, all with one plugin: a new
