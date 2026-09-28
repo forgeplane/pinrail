@@ -94,6 +94,25 @@ fn deleting_a_review_takes_what_hangs_off_it() {
     assert_eq!(db.delete_orphan_blobs(later).unwrap(), vec![sha]);
 }
 
+/// Two rounds that revise the same review in a race: the unique index
+/// refuses the second with the code the service reads it by.
+#[test]
+fn a_second_round_of_the_same_review_is_refused_as_a_unique_violation() {
+    let db = Db::in_memory().unwrap();
+    db.insert_review(&review("r_1", None), None).unwrap().unwrap();
+    let mut first = review("r_2", None);
+    first.revises = Some("r_1".into());
+    db.insert_review(&first, None).unwrap().unwrap();
+    let mut second = review("r_3", None);
+    second.revises = Some("r_1".into());
+    match db.insert_review(&second, None) {
+        Err(rusqlite::Error::SqliteFailure(error, _)) => {
+            assert_eq!(error.extended_code, rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE)
+        }
+        other => panic!("{other:?}"),
+    }
+}
+
 #[test]
 fn nothing_ends_a_review_after_it_expired() {
     let db = Db::in_memory().unwrap();

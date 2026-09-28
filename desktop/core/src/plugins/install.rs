@@ -371,9 +371,7 @@ pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> 
     }
     db.remove_installed(name)?;
     let records = db.installed_plugins()?;
-    registry
-        .reload_with(records)
-        .map_err(|message| Error::invalid("/name", message))?;
+    registry.reload_with(records).map_err(Error::Internal)?;
     kept.sort_unstable();
     removed.sort_unstable();
     Ok(serde_json::json!({
@@ -724,7 +722,16 @@ fn fetch_release(
         .with_config()
         .limit(ASSET_LIMIT)
         .read_to_vec()
-        .map_err(|e| Error::invalid("/source", format!("downloading {asset_name} failed: {e}")))?;
+        .map_err(|e| match e {
+            ureq::Error::BodyExceedsLimit(_) => Error::invalid(
+                "/source",
+                format!(
+                    "{asset_name} is larger than {} MB",
+                    ASSET_LIMIT / (1024 * 1024)
+                ),
+            ),
+            other => Error::Unavailable(format!("downloading {asset_name} failed: {other}")),
+        })?;
     let asset_hash = {
         use sha2::{Digest, Sha256};
         format!("{:x}", Sha256::digest(&bytes))
@@ -850,10 +857,15 @@ fn github_get(url: &str) -> Result<ureq::http::Response<ureq::Body>, Error> {
         .header("user-agent", "pinrail")
         .call()
         .map_err(|e| match e {
+            // a release or a repository that is not there is the source's
+            // to fix; a limit or a failure on GitHub's side passes
+            ureq::Error::StatusCode(code) if code == 403 || code == 429 || code >= 500 => {
+                Error::Unavailable(format!("GitHub answered {code} for {url}"))
+            }
             ureq::Error::StatusCode(code) => {
                 Error::invalid("/source", format!("GitHub answered {code} for {url}"))
             }
-            other => Error::invalid("/source", format!("{url}: {other}")),
+            other => Error::Unavailable(format!("{url}: {other}")),
         })
 }
 
@@ -916,14 +928,18 @@ fn fetch_git(
         if !output.status.success() {
             let _ = std::fs::remove_dir_all(&root);
             let said = String::from_utf8_lossy(&output.stderr).trim().to_string();
-            return Err(Error::invalid(
-                "/source",
-                format!(
-                    "git {} failed: {}",
-                    args.first().cloned().unwrap_or_default(),
-                    said
-                ),
-            ));
+            let message = format!(
+                "git {} failed: {}",
+                args.first().cloned().unwrap_or_default(),
+                said
+            );
+            // git exits 128 for any failure, so only its words tell a
+            // network that failed from a source that is wrong
+            return Err(if unreachable(&said) {
+                Error::Unavailable(message)
+            } else {
+                Error::invalid("/source", message)
+            });
         }
     }
     let commit = Command::new("git")
@@ -935,6 +951,24 @@ fn fetch_git(
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .ok_or_else(|| Error::invalid("/source", "the clone has no commit"))?;
     Ok(Fetched { root, commit })
+}
+
+/// Whether git's message says the remote could not be reached, as opposed
+/// to a remote that answered that the repository or ref is not there. An
+/// HTTP 4xx from the remote is the source's to fix.
+fn unreachable(said: &str) -> bool {
+    const NETWORK: &[&str] = &[
+        "Could not resolve host",
+        "Could not resolve hostname",
+        "Failed to connect",
+        "Connection refused",
+        "Connection timed out",
+        "Operation timed out",
+        "Network is unreachable",
+        "Connection reset",
+        "returned error: 5",
+    ];
+    NETWORK.iter().any(|marker| said.contains(marker))
 }
 
 /// How many build logs a plugin keeps; older ones go when a new one is written.

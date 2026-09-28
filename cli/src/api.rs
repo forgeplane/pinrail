@@ -308,8 +308,15 @@ impl Client {
             match status {
                 "done" => return Ok(job["plugin"].clone()),
                 "failed" => {
+                    // a source that could not be reached, or the app failing,
+                    // is not the caller's to fix: the exit code says which
+                    let status = match job["error_kind"].as_str() {
+                        Some("unavailable") => 502,
+                        Some("internal") => 500,
+                        _ => 422,
+                    };
                     return Err(ApiError {
-                        status: 422,
+                        status,
                         body: serde_json::json!({ "error": "install_failed", "message": job["error"] }),
                         hint: None,
                     }

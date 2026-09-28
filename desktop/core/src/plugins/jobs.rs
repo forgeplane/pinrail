@@ -27,6 +27,9 @@ pub struct Job {
     /// the log keeps its place by the total, which only grows.
     pub log_offset: usize,
     pub error: Option<String>,
+    /// what kind of error ended it, as the API names kinds: `invalid` is
+    /// the source's to fix, `unavailable` and `internal` are not
+    pub error_kind: Option<String>,
     /// the plugin's row, once done
     pub plugin: Option<Value>,
 }
@@ -40,6 +43,7 @@ impl Job {
             "log": self.log,
             "log_offset": self.log_offset,
             "error": self.error,
+            "error_kind": self.error_kind,
             "plugin": self.plugin,
         })
     }
@@ -82,6 +86,7 @@ impl Jobs {
                 log: String::new(),
                 log_offset: 0,
                 error: None,
+                error_kind: None,
                 plugin: None,
             },
         );
@@ -136,6 +141,7 @@ impl Jobs {
             Err(error) => {
                 job.status = "failed".into();
                 job.error = Some(error.to_string());
+                job.error_kind = error.to_json()["error"].as_str().map(str::to_string);
             }
         }
     }

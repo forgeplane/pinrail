@@ -1,8 +1,9 @@
 //! The one error value the reviews API returns.
 //!
 //! `error` is what callers match on: `not_found`, `not_pending` when the
-//! review is decided, withdrawn or expired, and `invalid` with violations
-//! saying where. A violation's path is a JSON pointer into the offending
+//! review is decided, withdrawn or expired, `invalid` with violations
+//! saying where, and `unavailable` when a source the app fetches from
+//! could not be reached. A violation's path is a JSON pointer into the offending
 //! document, the shape plugins render. The statuses these answer with over
 //! HTTP are the API's to decide; see `api::error`.
 
@@ -37,6 +38,10 @@ pub enum Error {
     Io(std::io::Error),
     /// Another Pinrail holds the data directory, as the message says
     InUse(String),
+    /// A source the app fetches from, such as a repository or GitHub,
+    /// could not be reached or failed on its side: not the caller's
+    /// mistake, and worth trying again later
+    Unavailable(String),
 }
 
 impl Error {
@@ -60,6 +65,7 @@ impl Error {
             Error::Database(error) => format!("database: {error}"),
             Error::Io(error) => format!("io: {error}"),
             Error::InUse(message) => message.clone(),
+            Error::Unavailable(message) => message.clone(),
         }
     }
 
@@ -70,6 +76,7 @@ impl Error {
             Error::Invalid(v) => ("invalid", v.clone()),
             Error::Internal(_) | Error::Database(_) | Error::Io(_) => ("internal", Vec::new()),
             Error::InUse(_) => ("in_use", Vec::new()),
+            Error::Unavailable(_) => ("unavailable", Vec::new()),
         };
         json!({ "error": kind, "message": self.message(), "violations": violations })
     }

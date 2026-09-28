@@ -137,7 +137,10 @@ impl Reviews {
                 ));
             }
             // another submission revised the same round a moment earlier
-            Err(e) if e.to_string().contains("reviews.revises") => {
+            // (the only unique index a new review can collide on)
+            Err(rusqlite::Error::SqliteFailure(error, _))
+                if error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_UNIQUE =>
+            {
                 let revised = review.revises.clone().unwrap_or_default();
                 let newer = self.db.newer_round(&revised)?.unwrap_or_default();
                 return Err(Error::invalid(
@@ -189,15 +192,12 @@ impl Reviews {
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
         }
-        let attachments = self
-            .attachments
-            .check(
-                attrs.get("attachments"),
-                plugin.attachments.as_ref(),
-                &payload,
-                presence,
-            )
-            .map_err(Error::Invalid)?;
+        let attachments = self.attachments.check(
+            attrs.get("attachments"),
+            plugin.attachments.as_ref(),
+            &payload,
+            presence,
+        )?;
         Ok(Checked {
             attrs,
             plugin,

@@ -1050,6 +1050,23 @@ fn updating_every_plugin_leaves_out_a_build_nobody_confirmed() {
 }
 
 #[test]
+fn an_install_that_cannot_reach_its_source_exits_1_and_a_wrong_source_2() {
+    for (kind, exit) in [("unavailable", 1), ("invalid", 2)] {
+        let failed = format!(
+            r#"{{"status":"failed","log":"","log_offset":0,"error":"git clone failed","error_kind":"{kind}","plugin":null}}"#
+        );
+        let server = MockServer::start(Box::new(move |_, path, _| match path {
+            "/api/v1/plugins/inspect" => (200, INSPECTED_WITHOUT_BUILD.into()),
+            "/api/v1/plugins/install" => (202, r#"{"job":"j_1"}"#.into()),
+            "/api/v1/plugins/jobs/j_1" => (200, failed.clone()),
+            other => panic!("unexpected {other}"),
+        }));
+        let (code, _, stderr) = run(&server, &["plugins", "install", "github.com/acme/triage"]);
+        assert_eq!(code, exit, "{kind}: {stderr}");
+    }
+}
+
+#[test]
 fn an_install_answer_with_no_job_says_so() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/inspect" => (200, INSPECTED_WITHOUT_BUILD.into()),

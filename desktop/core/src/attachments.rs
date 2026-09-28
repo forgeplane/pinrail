@@ -309,24 +309,24 @@ impl Attachments {
         rules: Option<&AttachmentRules>,
         payload: &Value,
         presence: Presence,
-    ) -> Result<Vec<ReviewAttachment>, Vec<Violation>> {
+    ) -> Result<Vec<ReviewAttachment>, Error> {
         let mut violations = Vec::new();
         let empty = Map::new();
         let map = match declared {
             None | Some(Value::Null) => &empty,
             Some(Value::Object(map)) => map,
             Some(_) => {
-                return Err(vec![Violation::new(
+                return Err(Error::Invalid(vec![Violation::new(
                     "/attachments",
                     "must be an object of name to {sha256, size, media_type}",
-                )]);
+                )]));
             }
         };
         if !map.is_empty() && rules.is_none() {
-            return Err(vec![Violation::new(
+            return Err(Error::Invalid(vec![Violation::new(
                 "/attachments",
                 "this plugin takes no attachments",
-            )]);
+            )]));
         }
         let max_size = rules
             .and_then(|r| r.max_size)
@@ -410,9 +410,8 @@ impl Attachments {
                         format!("{at}/sha256"),
                         "not uploaded: PUT /api/v1/attachments/{sha256} first",
                     )),
-                    Err(e) => {
-                        violations.push(Violation::new(format!("{at}/sha256"), e.to_string()))
-                    }
+                    // the store failing is not the submission's fault
+                    Err(e) => return Err(e),
                 }
             }
             attachments.push(ReviewAttachment {
@@ -450,7 +449,7 @@ impl Attachments {
         if violations.is_empty() {
             Ok(attachments)
         } else {
-            Err(violations)
+            Err(Error::Invalid(violations))
         }
     }
 

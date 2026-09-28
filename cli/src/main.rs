@@ -43,7 +43,7 @@ pub const EXITS: &[(u8, &str)] = &[
     ),
     (
         EXIT_ERROR,
-        "Error: bad arguments, the app could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again.",
+        "Error: bad arguments, the app or a plugin's source could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again.",
     ),
     (
         EXIT_REFUSED,

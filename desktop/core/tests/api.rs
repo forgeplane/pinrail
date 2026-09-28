@@ -2946,6 +2946,36 @@ async fn a_repository_installs_and_updates_at_the_commit_that_was_confirmed() {
     assert_eq!(seen["state"], "up_to_date");
 }
 
+/// A source the app cannot reach is not the caller's mistake: the install
+/// fails as unavailable, and the inspection answers 502, while a source
+/// that is simply wrong stays invalid.
+#[tokio::test]
+async fn a_source_that_cannot_be_reached_is_unavailable_not_invalid() {
+    // nothing listens on port 9 of this machine
+    let app = app_with(|c| c.github_api = "http://127.0.0.1:9".into());
+    for source in [
+        "https://127.0.0.1:9/acme/plugins",
+        "https://github.com/acme/plugins/releases",
+    ] {
+        let (status, job) = install_as_sent(&app, json!({ "source": source })).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
+        assert_eq!(job["error_kind"], "unavailable", "{source}: {job}");
+        let (status, body) = call(
+            &app,
+            "POST",
+            "/api/v1/plugins/inspect",
+            Some(json!({ "source": source })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY, "{source}: {body}");
+        assert_eq!(body["error"], "unavailable");
+    }
+    let scratch = tempfile::tempdir().unwrap();
+    let missing = format!("file://{}", scratch.path().join("no-such-repo").display());
+    let (_, job) = install_as_sent(&app, json!({ "source": missing })).await;
+    assert_eq!(job["error_kind"], "invalid", "{job}");
+}
+
 /// What every step of a build writes to stderr is in its log and in the
 /// failure the person reads, as `npm ci && npm run build` needs.
 #[tokio::test]
