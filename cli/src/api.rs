@@ -217,6 +217,8 @@ impl Client {
     /// Follows an install job to its end, printing each step and the log
     /// as it comes; the plugin's row when done.
     fn follow_job(&self, id: &str) -> Result<Value> {
+        // how much of the whole log has been printed: the app keeps only its
+        // end, and says with log_offset how much it dropped from the start
         let mut shown = 0;
         let mut step = String::new();
         // a build that says nothing for a while may be stuck: say so, and
@@ -232,9 +234,16 @@ impl Client {
                 }
             }
             let log = job["log"].as_str().unwrap_or("");
-            if log.len() > shown {
-                eprint!("{}", &log[shown..]);
-                shown = log.len();
+            let offset = job["log_offset"].as_u64().unwrap_or(0) as usize;
+            if offset > shown {
+                eprintln!("pinrail: (some earlier output was skipped)");
+            }
+            let new = log
+                .get(shown.saturating_sub(offset).min(log.len())..)
+                .unwrap_or(log);
+            if !new.is_empty() {
+                eprint!("{new}");
+                shown = offset + log.len();
                 quiet_since = std::time::Instant::now();
             } else if quiet_since.elapsed() >= std::time::Duration::from_secs(60) {
                 eprintln!("pinrail: still {status}, with no new output for a minute");

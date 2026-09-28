@@ -1749,6 +1749,45 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
 }
 
 #[test]
+fn an_install_log_the_app_trims_is_followed_line_by_line() {
+    // three polls of a build: the app keeps only the end of the log and
+    // says how much it dropped from the start; the output is not ASCII
+    let lines = ["▶ one é", "▶ two ─", "▶ three →", "▶ four ✓"];
+    let text = |from: usize, to: usize| {
+        lines[from..to]
+            .iter()
+            .map(|l| format!("{l}\n"))
+            .collect::<String>()
+    };
+    let offset = |n: usize| text(0, n).len();
+    let polls = Arc::new(Mutex::new(vec![
+        serde_json::json!({ "status": "building", "log": text(0, 2), "log_offset": 0 }),
+        serde_json::json!({ "status": "building", "log": text(1, 3), "log_offset": offset(1) }),
+        serde_json::json!({ "status": "done", "log": text(2, 4), "log_offset": offset(2),
+            "plugin": { "name": "hello", "release": "1.0.0", "entry": "view/index.html" } }),
+    ]));
+    let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
+        ("POST", "/api/v1/plugins/install") => (202, r#"{"job":"j1"}"#.into()),
+        ("GET", "/api/v1/plugins/jobs/j1") => {
+            let mut polls = polls.lock().unwrap();
+            let next = if polls.len() > 1 {
+                polls.remove(0)
+            } else {
+                polls[0].clone()
+            };
+            (200, next.to_string())
+        }
+        other => panic!("unexpected {other:?}"),
+    }));
+    let dir = tempdir();
+    std::fs::create_dir_all(dir.join("hello")).unwrap();
+    let (code, _, stderr) = run_in(&server, &dir, &["plugins", "install", "hello"]);
+    assert_eq!(code, 0, "{stderr}");
+    let printed: Vec<&str> = stderr.lines().filter(|l| l.starts_with('▶')).collect();
+    assert_eq!(printed, lines, "{stderr}");
+}
+
+#[test]
 fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     let dir = tempdir();
     let server = MockServer::start(Box::new(|_, path, _| {

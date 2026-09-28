@@ -21,7 +21,11 @@ pub struct Job {
     pub source: String,
     /// `fetching`, `inspecting`, `building`, `placing`, `done`, `failed`
     pub status: String,
+    /// The end of the log: at most `LOG_KEPT` bytes of it.
     pub log: String,
+    /// How many bytes of the log came before `log`: a reader that follows
+    /// the log keeps its place by the total, which only grows.
+    pub log_offset: usize,
     pub error: Option<String>,
     /// the plugin's row, once done
     pub plugin: Option<Value>,
@@ -34,6 +38,7 @@ impl Job {
             "source": self.source,
             "status": self.status,
             "log": self.log,
+            "log_offset": self.log_offset,
             "error": self.error,
             "plugin": self.plugin,
         })
@@ -75,6 +80,7 @@ impl Jobs {
                 source: source.to_string(),
                 status: "fetching".into(),
                 log: String::new(),
+                log_offset: 0,
                 error: None,
                 plugin: None,
             },
@@ -102,10 +108,15 @@ impl Jobs {
                 job.log.push_str(&line);
                 job.log.push('\n');
                 if job.log.len() > LOG_KEPT {
-                    // the start goes, from the first whole line that fits
+                    // the start goes, up to the first whole line that fits;
+                    // a newline is one byte, so the cut is a character boundary
                     let from = job.log.len() - LOG_KEPT;
-                    let cut = job.log[from..].find('\n').map_or(from, |i| from + i + 1);
+                    let cut = match job.log.as_bytes()[from..].iter().position(|&b| b == b'\n') {
+                        Some(i) => from + i + 1,
+                        None => job.log.len(),
+                    };
                     job.log.drain(..cut);
+                    job.log_offset += cut;
                 }
             }
         }
@@ -158,5 +169,24 @@ mod tests {
         let log = jobs.get(&running).unwrap().log;
         assert!(log.len() <= LOG_KEPT, "{} bytes", log.len());
         assert!(log.ends_with(&format!("{line}\n")));
+    }
+
+    #[test]
+    fn a_capped_log_of_multi_byte_output_keeps_whole_lines() {
+        let jobs = Jobs::default();
+        let id = jobs.start("build");
+        // what npm and vite print, box drawing and arrows: three bytes a
+        // character, in lines of varying length, so the cut lands inside
+        // characters as well as between them
+        for i in 0..3000 {
+            jobs.note(
+                &id,
+                Progress::Log(format!("{}→ {i}", "─".repeat(90 + i % 7))),
+            );
+        }
+        let log = jobs.get(&id).unwrap().log;
+        assert!(log.len() <= LOG_KEPT, "{} bytes", log.len());
+        assert!(log.starts_with('─'), "the log starts mid-line");
+        assert!(log.ends_with("→ 2999\n"));
     }
 }

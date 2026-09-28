@@ -164,21 +164,25 @@ impl PluginService {
         let source = source.to_string();
         tokio::task::spawn_blocking(move || {
             let progress = |p| worker.jobs.note(&job_id, p);
-            let outcome =
+            // a panic still ends the job, as failed: left running, it
+            // would keep everyone who follows it waiting for good
+            let installed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 install::install(&worker.db, &worker.registry, &source, options, &progress)
-                    .and_then(|record| {
-                        worker.announce()?;
-                        worker
-                            .registry
-                            .get(&record.name)
-                            .map(|p| p.to_json())
-                            .ok_or_else(|| {
-                                Error::Internal(format!(
-                                    "{} was installed and is not registered",
-                                    record.name
-                                ))
-                            })
-                    });
+            }))
+            .unwrap_or_else(|_| Err(Error::Internal("the install stopped unexpectedly".into())));
+            let outcome = installed.and_then(|record| {
+                worker.announce()?;
+                worker
+                    .registry
+                    .get(&record.name)
+                    .map(|p| p.to_json())
+                    .ok_or_else(|| {
+                        Error::Internal(format!(
+                            "{} was installed and is not registered",
+                            record.name
+                        ))
+                    })
+            });
             worker.jobs.finish(&job_id, outcome);
         });
         id
