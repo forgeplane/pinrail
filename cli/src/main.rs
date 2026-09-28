@@ -311,7 +311,8 @@ struct SubmitArgs {
     /// Where the review comes from, as key=value pairs: repo (the project,
     /// owner/name), ref (a branch or pull request), workflow and run_id
     /// (what asked), url (a link back, which may contain commas). In a git checkout, repo and ref
-    /// default to the remote and the branch. E.g. repo=acme/api,ref=42,url=…
+    /// default to the remote and the branch; the branch only when the repo
+    /// is the checkout's own. E.g. repo=acme/api,ref=42,url=…
     #[arg(long, value_parser = origin::parse)]
     origin: Option<BTreeMap<String, String>>,
     /// Payload JSON: inline, a file path, or - for stdin

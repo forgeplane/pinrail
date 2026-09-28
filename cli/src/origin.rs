@@ -46,17 +46,34 @@ pub fn fill_from_git(body: &mut Value) {
     let Some(found) = from_git() else {
         return;
     };
-    let mut said = Vec::new();
-    for (key, value) in [("repo", found.repo), ("ref", found.reference)] {
-        if let Some(value) = value.filter(|_| missing(&origin, key)) {
-            said.push(format!("{key}={value}"));
-            origin.insert(key.to_string(), json!(value));
-        }
-    }
+    let said = fill(&mut origin, found);
     if !said.is_empty() {
         crate::out::note(format_args!("origin from git: {}", said.join(", ")));
         body["origin"] = Value::Object(origin);
     }
+}
+
+/// Puts in `origin` what the checkout gives that it lacks, and answers
+/// what it put, as key=value.
+fn fill(origin: &mut Map<String, Value>, found: Found) -> Vec<String> {
+    // a branch belongs to its repository: the checkout's is taken only
+    // for the checkout's own project
+    let given = origin
+        .get("repo")
+        .and_then(Value::as_str)
+        .filter(|r| !r.is_empty());
+    let reference = match given {
+        Some(repo) if found.repo.as_deref() != Some(repo) => None,
+        _ => found.reference,
+    };
+    let mut said = Vec::new();
+    for (key, value) in [("repo", found.repo), ("ref", reference)] {
+        if let Some(value) = value.filter(|_| missing(origin, key)) {
+            said.push(format!("{key}={value}"));
+            origin.insert(key.to_string(), json!(value));
+        }
+    }
+    said
 }
 
 fn missing(origin: &Map<String, Value>, key: &str) -> bool {
@@ -158,6 +175,34 @@ pub fn parse(s: &str) -> Result<BTreeMap<String, String>, String> {
 #[cfg(test)]
 mod tests {
     use super::project_of;
+
+    #[test]
+    fn a_branch_is_taken_only_for_the_checkouts_own_project() {
+        let checkout = || super::Found {
+            repo: Some("acme/api".into()),
+            reference: Some("feature".into()),
+        };
+        // nothing given: the checkout's project and branch
+        let mut origin = serde_json::Map::new();
+        super::fill(&mut origin, checkout());
+        assert_eq!(origin["repo"], "acme/api");
+        assert_eq!(origin["ref"], "feature");
+        // this very project: its branch too
+        let mut origin = serde_json::json!({ "repo": "acme/api" })
+            .as_object()
+            .unwrap()
+            .clone();
+        super::fill(&mut origin, checkout());
+        assert_eq!(origin["ref"], "feature");
+        // another project: the checkout's branch is not its branch
+        let mut origin = serde_json::json!({ "repo": "acme/infra" })
+            .as_object()
+            .unwrap()
+            .clone();
+        super::fill(&mut origin, checkout());
+        assert_eq!(origin["repo"], "acme/infra");
+        assert!(origin.get("ref").is_none(), "{origin:?}");
+    }
 
     #[test]
     fn a_link_with_commas_stays_one_value() {

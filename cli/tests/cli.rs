@@ -1890,9 +1890,10 @@ fn submit_fills_the_origin_from_the_git_checkout_it_runs_in() {
         sent[0]["origin"],
         serde_json::json!({ "repo": "acme/api", "ref": "fix/tickets" })
     );
+    // another project than the checkout's: its branch is not this one's
     assert_eq!(
         sent[1]["origin"],
-        serde_json::json!({ "repo": "acme/web", "url": "https://x", "ref": "fix/tickets" })
+        serde_json::json!({ "repo": "acme/web", "url": "https://x" })
     );
 }
 
