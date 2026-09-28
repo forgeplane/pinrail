@@ -15,8 +15,12 @@ const COMMAND_EVENT = "pinrail:command";
 /** The scheme of a link this app will follow. */
 export const EXTERNAL = /^(https?|mailto):/i;
 
-/** This machine's own addresses, where the app's server and plugin files live. */
-const LOOPBACK = /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|0\.0\.0\.0|\[::1?\])$/i;
+/**
+ * This machine's own addresses, where the app's server and plugin files
+ * live, and any IPv6 literal: one can spell a loopback address in many
+ * ways, such as [::ffff:127.0.0.1], and a view has no need for them.
+ */
+const LOOPBACK = /^(localhost|.+\.localhost|127(\.\d{1,3}){3}|0\.0\.0\.0|\[.*\])$/i;
 
 /** A link the app opens in the outside world: not one back into this machine. */
 export function followable(url: string): boolean {
