@@ -19,7 +19,8 @@ use crate::settings::SettingsService;
 
 /// The running application, shared by the desktop and HTTP interfaces.
 /// Opening it initializes local storage and services without starting a
-/// server. It holds the services and nothing else: storage is theirs.
+/// server. It holds the configuration, the lock on the data directory and
+/// the services, and the services own the storage.
 #[derive(Debug)]
 pub struct Pinrail {
     config: Config,
@@ -106,7 +107,7 @@ impl Pinrail {
     }
 
     /// Locks the data directory, opens the database, writes out the
-    /// built-in plugin, scans the plugin directories and wires the services
+    /// built-in plugins, loads the installed ones and wires the services
     /// together. The caller decides how the application is held: serving it
     /// over HTTP wants an `Arc`, a one-off operation does not.
     ///

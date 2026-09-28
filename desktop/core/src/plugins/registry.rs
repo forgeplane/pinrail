@@ -96,11 +96,11 @@ struct RegistryState {
     records: Vec<InstalledRecord>,
 }
 
-/// The registered plugins — the built-in and configured directories, the
-/// linked folders, the store — and the store entries kept for reviews.
+/// The registered plugins, which are the built-in ones, the linked folders
+/// and the store, and the store entries kept for reviews.
 #[derive(Debug)]
 pub struct Registry {
-    /// The plugin every install starts from, shipped inside the app.
+    /// The built-in plugins, shipped inside the app and written out here.
     builtin_dir: PathBuf,
     store_dir: PathBuf,
     /// Where release installs and update checks ask GitHub.
@@ -115,7 +115,7 @@ pub struct Registry {
 }
 
 impl Registry {
-    /// Loads the built-in plugin and the installed `records`.
+    /// Loads the built-in plugins and the installed `records`.
     /// Fails when two plugins share a name.
     pub fn open(
         builtin_dir: PathBuf,

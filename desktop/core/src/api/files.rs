@@ -121,6 +121,9 @@ async fn bundle(
                 header::CONTENT_TYPE,
                 HeaderValue::from_str(mime.as_ref()).unwrap(),
             ),
+            // Views load these as scripts, styles and fonts, which ignore a
+            // policy; opened as a page, one gets an opaque origin and runs
+            // nothing
             (
                 header::CONTENT_SECURITY_POLICY,
                 HeaderValue::from_str(&csp).unwrap(),
@@ -130,9 +133,6 @@ async fn bundle(
                 header::X_CONTENT_TYPE_OPTIONS,
                 HeaderValue::from_static("nosniff"),
             ),
-            // Views load these as scripts, styles and fonts, which ignore a
-            // policy; opened as a page, one gets an opaque origin and runs
-            // nothing
             // A sandboxed view has an opaque origin, which it sends as
             // `null`, and CSS masks (the icon set) and fonts load only from a
             // server that allows it; no other website may read these files.

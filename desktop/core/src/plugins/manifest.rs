@@ -15,7 +15,7 @@ pub struct Plugin {
     pub name: String,
     /// The major version: the line a review renders from.
     pub version: u32,
-    /// The exact version, `1.2.3`; an integer in the manifest is `N.0.0`.
+    /// The exact version, such as `1.2.3`.
     pub release: String,
     pub title: String,
     pub path: PathBuf,
@@ -66,7 +66,7 @@ pub struct Plugin {
     /// unusable, as a broken schema does.
     pub attachments: Option<crate::attachments::AttachmentRules>,
     /// How the plugin got here: a link served live, or a store entry with
-    /// its record; none for the built-in and for a configured directory.
+    /// its record; none for a built-in plugin.
     pub install: Option<Install>,
     /// Set when the plugin could not be loaded; it is listed but unusable.
     pub error: Option<String>,

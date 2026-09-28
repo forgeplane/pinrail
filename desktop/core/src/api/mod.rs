@@ -110,12 +110,8 @@ async fn info(State(state): State<ApiState>) -> Json<Info> {
     })
 }
 
-/// Serves the API until `shutdown` resolves. Advertises itself in
-/// `server.json` while it runs; every 30 seconds it sweeps expired reviews,
-/// the reviews past the days the history keeps (when it keeps a limited
-/// number), and blobs no review names that are more than an hour old.
 /// Takes the server's port, before anything else starts, so a caller can
-/// tell the person why it cannot: the error names the address.
+/// tell the person why it cannot. The error names the address.
 pub fn bind(config: &crate::Config) -> std::io::Result<std::net::TcpListener> {
     let addr = config.bind_addr();
     let listener = std::net::TcpListener::bind(addr)
@@ -124,7 +120,12 @@ pub fn bind(config: &crate::Config) -> std::io::Result<std::net::TcpListener> {
     Ok(listener)
 }
 
-/// Serves on a listener from `bind` until `shutdown`.
+/// Serves the API on a listener from `bind` until `shutdown` resolves. It
+/// advertises itself in `server.json` while it runs. Every 30 seconds it
+/// sweeps expired reviews, the reviews older than the days the history
+/// keeps (when it keeps a limited number), and files that no review names
+/// and that are more than an hour old. Every second it notices an edit to
+/// settings.json made outside the app.
 pub async fn serve(
     app: Arc<Pinrail>,
     listener: std::net::TcpListener,
