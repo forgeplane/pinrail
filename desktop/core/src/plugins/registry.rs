@@ -69,9 +69,19 @@ pub(super) fn hash_dir_where(dir: &Path, keep: &dyn Fn(&str) -> bool) -> std::io
 /// Writes the embedded plugins into `dir`, one folder each, and returns `dir`.
 /// Every start rewrites them, so an upgraded binary brings its own copies.
 pub fn install_builtin(dir: &Path) -> std::io::Result<PathBuf> {
+    // each plugin is written whole beside the old copy and then takes its
+    // place, so no file an older build had stays behind
+    let fresh = dir.join(".fresh");
+    let _ = std::fs::remove_dir_all(&fresh);
     for plugin in BUILTIN.dirs() {
-        write_dir(plugin, dir)?;
+        write_dir(plugin, &fresh)?;
+        let target = dir.join(plugin.path());
+        if target.exists() {
+            std::fs::remove_dir_all(&target)?;
+        }
+        std::fs::rename(fresh.join(plugin.path()), &target)?;
     }
+    let _ = std::fs::remove_dir(&fresh);
     Ok(dir.to_path_buf())
 }
 
@@ -394,6 +404,19 @@ fn subdirs(dir: &Path) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A file a newer build dropped from a built-in plugin is gone after
+    /// the next start, rather than served from the copy on disk.
+    #[test]
+    fn writing_the_built_in_plugins_leaves_no_file_of_an_older_build() {
+        let dir = tempfile::tempdir().unwrap();
+        install_builtin(dir.path()).unwrap();
+        let stale = dir.path().join("list").join("dropped.js");
+        std::fs::write(&stale, "from an older build").unwrap();
+        install_builtin(dir.path()).unwrap();
+        assert!(!stale.exists());
+        assert!(dir.path().join("list").join(MANIFEST).is_file());
+    }
 
     /// A linked record for a plugin folder, as an install would have written.
     fn linked(name: &str, dir: &Path) -> InstalledRecord {
