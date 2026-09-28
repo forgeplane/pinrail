@@ -62,6 +62,7 @@ fn by_status(db: &Db, status: Status) -> Vec<String> {
 fn nothing_ends_a_review_after_it_expired() {
     let db = Db::in_memory().unwrap();
     db.insert_review(&review("r_1", Some(Duration::seconds(-1))), None)
+        .unwrap()
         .unwrap();
     assert!(
         db.insert_decision("r_1", &decision(), None)
@@ -84,7 +85,9 @@ fn nothing_ends_a_review_after_it_expired() {
 #[test]
 fn a_review_ends_once_whichever_way() {
     let db = Db::in_memory().unwrap();
-    db.insert_review(&review("r_1", None), None).unwrap();
+    db.insert_review(&review("r_1", None), None)
+        .unwrap()
+        .unwrap();
     assert!(
         db.insert_decision("r_1", &decision(), Some("note"))
             .unwrap()
@@ -111,7 +114,9 @@ fn a_review_ends_once_whichever_way() {
     assert_eq!(r.agent_note.as_deref(), Some("note"));
     assert!(r.discarded_at.is_none() && r.withdrawn_at.is_none());
 
-    db.insert_review(&review("r_2", None), None).unwrap();
+    db.insert_review(&review("r_2", None), None)
+        .unwrap()
+        .unwrap();
     assert!(
         db.insert_discard("r_2", Utc::now(), "pat", Some("no"))
             .unwrap()
@@ -134,11 +139,14 @@ fn status_is_answered_by_the_query_and_the_count_is_not_a_listing() {
     let db = Db::in_memory().unwrap();
     for i in 0..7 {
         db.insert_review(&review(&format!("r_{i}"), None), None)
+            .unwrap()
             .unwrap();
     }
     db.insert_review(&review("r_x", Some(Duration::seconds(-5))), None)
+        .unwrap()
         .unwrap();
     db.insert_review(&review("r_y", Some(Duration::hours(1))), None)
+        .unwrap()
         .unwrap();
     db.insert_decision("r_0", &decision(), None).unwrap();
     db.insert_withdrawal("r_1", Utc::now(), Some("gone"))

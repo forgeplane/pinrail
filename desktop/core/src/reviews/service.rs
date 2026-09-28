@@ -14,7 +14,7 @@ use serde_json::{Map, Value};
 
 use super::model::{Decision, Review, parse_datetime};
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
-use crate::db::{Db, Event, Filters};
+use crate::db::{Db, Event, Filters, NotStored};
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
 use crate::plugins::{Plugin, Registry};
@@ -129,7 +129,13 @@ impl Reviews {
         };
         let event_id = match self.db.insert_review_once(&review, actor) {
             Ok(Ok(event_id)) => event_id,
-            Ok(Err(existing)) => return Ok((self.get(&existing)?, false)),
+            Ok(Err(NotStored::Twin(existing))) => return Ok((self.get(&existing)?, false)),
+            Ok(Err(NotStored::FileGone(name))) => {
+                return Err(Error::invalid(
+                    format!("/attachments/{name}/sha256"),
+                    "not uploaded: PUT /api/v1/attachments/{sha256} first",
+                ));
+            }
             // another submission revised the same round a moment earlier
             Err(e) if e.to_string().contains("reviews.revises") => {
                 let revised = review.revises.clone().unwrap_or_default();

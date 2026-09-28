@@ -16,7 +16,7 @@ mod schema;
 
 pub use events::Event;
 pub use plugins::InstalledRecord;
-pub use reviews::{Facets, Filters, NO_PROJECT};
+pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;
 
 use std::path::Path;

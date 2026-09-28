@@ -39,24 +39,42 @@ pub struct Facets {
 /// `repo=-` asks for the reviews that name no project.
 pub const NO_PROJECT: &str = "-";
 
+/// Why a review was not stored.
+#[derive(Debug, PartialEq, Eq)]
+pub enum NotStored {
+    /// A pending review is the same submission: its id.
+    Twin(String),
+    /// A file the review names is no longer stored, removed by the sweep
+    /// after the submission was checked: the file's name in the review.
+    FileGone(String),
+}
+
 impl Db {
-    pub fn insert_review(&self, review: &Review, actor: Option<&str>) -> rusqlite::Result<i64> {
+    pub fn insert_review(
+        &self,
+        review: &Review,
+        actor: Option<&str>,
+    ) -> rusqlite::Result<Result<i64, NotStored>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        let event_id = insert_in(&tx, review, actor)?;
+        let event_id = match insert_in(&tx, review, actor)? {
+            Ok(event_id) => event_id,
+            Err(not_stored) => return Ok(Err(not_stored)),
+        };
         tx.commit()?;
-        Ok(event_id)
+        Ok(Ok(event_id))
     }
 
     /// Stores the review, unless a pending review is the same submission:
     /// the same plugin, title, payload, origin, round and files. Then it
-    /// stores nothing and answers that review's id. Looking and storing
+    /// stores nothing and answers that review's id, as it does for a file
+    /// that is no longer stored. Looking and storing
     /// happen under one lock, so two copies sent at once make one review.
     pub fn insert_review_once(
         &self,
         review: &Review,
         actor: Option<&str>,
-    ) -> rusqlite::Result<Result<i64, String>> {
+    ) -> rusqlite::Result<Result<i64, NotStored>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         let payload = review
@@ -100,10 +118,13 @@ impl Db {
                 .query_map(params![id], |row| Ok((row.get(0)?, row.get(1)?)))?
                 .collect::<Result<_, _>>()?;
             if theirs == files {
-                return Ok(Err(id));
+                return Ok(Err(NotStored::Twin(id)));
             }
         }
-        let event_id = insert_in(&tx, review, actor)?;
+        let event_id = match insert_in(&tx, review, actor)? {
+            Ok(event_id) => event_id,
+            Err(not_stored) => return Ok(Err(not_stored)),
+        };
         tx.commit()?;
         Ok(Ok(event_id))
     }
@@ -114,7 +135,7 @@ fn insert_in(
     tx: &rusqlite::Transaction<'_>,
     review: &Review,
     actor: Option<&str>,
-) -> rusqlite::Result<i64> {
+) -> rusqlite::Result<Result<i64, NotStored>> {
     {
         tx.execute(
             "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, payload, summary, revises, expires_at, created_at)
@@ -142,12 +163,24 @@ fn insert_in(
             &Value::Null,
         )?;
         for attachment in &review.attachments {
-            tx.execute(
+            let inserted = tx.execute(
                 "INSERT INTO review_attachments (review_id, name, sha256, size, media_type) VALUES (?1, ?2, ?3, ?4, ?5)",
                 params![review.id, attachment.name, attachment.sha256, attachment.size as i64, attachment.media_type],
-            )?;
+            );
+            // the only foreign key a new review's files can miss is the
+            // stored file itself
+            match inserted {
+                Err(rusqlite::Error::SqliteFailure(error, _))
+                    if error.extended_code == rusqlite::ffi::SQLITE_CONSTRAINT_FOREIGNKEY =>
+                {
+                    return Ok(Err(NotStored::FileGone(attachment.name.clone())));
+                }
+                inserted => {
+                    inserted?;
+                }
+            }
         }
-        Ok(event_id)
+        Ok(Ok(event_id))
     }
 }
 

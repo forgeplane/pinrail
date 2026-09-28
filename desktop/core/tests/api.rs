@@ -1713,6 +1713,36 @@ async fn a_dry_run_checks_the_files_before_they_are_uploaded() {
 }
 
 #[tokio::test]
+async fn a_file_swept_while_its_review_is_saved_is_reported_as_not_uploaded() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    files_plugin(&app, scratch.path(), json!({ "accept": [".glb"] })).await;
+    let hash = upload(&app, b"swept in between").await;
+    // the sweep, landing after the submission checked the file and before
+    // the review's row for it is written
+    rusqlite::Connection::open(app.state.config().db_path())
+        .unwrap()
+        .execute_batch(
+            "CREATE TRIGGER sweep BEFORE INSERT ON review_attachments
+             BEGIN DELETE FROM blobs WHERE sha256 = NEW.sha256; END;",
+        )
+        .unwrap();
+    let body = with_files(
+        json!({ "files": [{ "$attachment": "a.glb" }] }),
+        json!({ "a.glb": { "sha256": hash, "size": 16 } }),
+    );
+    let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(
+        violations(&refused),
+        [(
+            "/attachments/a.glb/sha256".to_string(),
+            "not uploaded: PUT /api/v1/attachments/{sha256} first".to_string()
+        )]
+    );
+}
+
+#[tokio::test]
 async fn files_a_plugin_does_not_take_or_a_payload_does_not_have_are_refused() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
