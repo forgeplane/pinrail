@@ -202,7 +202,11 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
 
 - **`onInit`** runs once with the review (`review`, payload included), whether it is `readonly`, the `previous` round when this one revises another, and the `draft` the person left.
 - **`onCollect`** runs when the person hands over. Assemble the decision and call `plugin.submit`.
-- **`plugin.draft`** keeps work in progress, so closing the review or restarting the app loses nothing.
+- **`plugin.draft`** keeps work in progress, so the person can open another review, or reload the view, and find their work in place.
+
+:::caution[Drafts last only while the app runs]
+The app keeps drafts only while it is running. They do not survive quitting, restarting or updating Pinrail, so a view must not rely on a draft to hold anything the person cannot enter again.
+:::
 
 ```mermaid title="The handshake, and a hand-over"
 sequenceDiagram

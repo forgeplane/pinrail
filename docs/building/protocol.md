@@ -113,7 +113,7 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 |---|---|---|
 | `ready` | | The view is listening. The app answers with `init`. |
 | `resize` | `height`: a number, or `"fill"` | Sizes the frame. A number is the content height in pixels and the page scrolls; `"fill"` gives the view the viewport's height and the view scrolls inside. |
-| `draft` | `data` | Keeps work in progress. It comes back in `init` as `draft`. |
+| `draft` | `data` | Keeps work in progress. It comes back in `init` as `draft`, for as long as the app keeps running. |
 | `status` | `label` | What the app's hand-over button should read, such as `Hand over 3 of 5`. |
 | `submit` | `data` | The decision. Validated against the decision schema. |
 | `settings_set` | `patch` | Writes the plugin's own settings. Everyone hears the result as `settings`. |
