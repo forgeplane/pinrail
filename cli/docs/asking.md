@@ -35,9 +35,10 @@ later with `pinrail wait <id>`.
 
 - stdout is the result: the review, and with `--wait` the review as it
   ended, its decision included. Read or parse the result from stdout.
-- stderr is errors, warnings, and `review <id> submitted` as soon as the
-  review exists, so you have the id while `--wait` blocks. `--verbose`
-  adds what happened along the way.
+- stderr is errors, warnings, and a line that starts with
+  `pinrail: review <id> submitted` as soon as the review exists, so you
+  have the id while `--wait` blocks. `--verbose` adds what happened along
+  the way.
 - With `--json`, an error is one line of JSON on stderr: `error`,
   `message`, any `violations`, the `exit` code and a `hint` when there is
   one.

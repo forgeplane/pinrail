@@ -24,7 +24,7 @@
     "pinrail": {
       "type": "string",
       "pattern": "^>=\\s*[0-9]+(\\.[0-9]+){0,2}$",
-      "description": "The oldest Pinrail the plugin works with, such as `\">=0.2\"`. An older app refuses the plugin and names the version it needs."
+      "description": "The oldest Pinrail the plugin works with, such as `\">=0.1\"`. An older app refuses the plugin and names the version it needs."
     },
     "title": {
       "type": "string",

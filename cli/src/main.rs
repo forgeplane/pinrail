@@ -407,7 +407,7 @@ struct ListArgs {
     #[arg(long)]
     plugin: Option<String>,
     /// Words to look for, all of them, in titles, payloads, plugins, requesters, origins and who decided
-    #[arg(long)]
+    #[arg(long = "search", value_name = "WORDS")]
     q: Option<String>,
     /// Only reviews older than this id
     #[arg(long)]

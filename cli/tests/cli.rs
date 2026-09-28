@@ -1077,6 +1077,21 @@ fn a_status_the_cli_does_not_know_is_an_error_not_an_ending() {
 }
 
 #[test]
+fn list_searches_with_search() {
+    let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
+        ("GET", p) if p.starts_with("/api/v1/reviews?") && p.contains("q=dedup") => (
+            200,
+            r#"{"reviews":[],"total":0,"has_more":false,"next_cursor":null}"#.into(),
+        ),
+        other => panic!("unexpected {other:?}"),
+    }));
+    let (code, _, stderr) = run(&server, &["list", "--search", "dedup"]);
+    assert_eq!(code, 0, "{stderr}");
+    let (_, help, _) = run(&server, &["list", "--help"]);
+    assert!(help.contains("--search <WORDS>"), "{help}");
+}
+
+#[test]
 fn list_all_follows_the_cursor_to_the_last_page() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
