@@ -200,7 +200,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
 
 `Pinrail.connect` does the protocol for you: it announces the view, receives the review, sizes the frame to your content and keeps drafts. You write two callbacks and a renderer.
 
-- **`onInit`** runs once with the review (`review`, payload included), whether it is `readonly`, the `previous` round when this one revises another, and the `draft` the person left.
+- **`onInit`** runs with the review (`review`, payload included), whether it is `readonly`, the `previous` round when this one revises another, and the `draft` the person left. It runs again, read-only, when the review ends while it is open, for example when the agent withdraws it, so it should draw the view from scratch each time rather than add to what is there.
 - **`onCollect`** runs when the person hands over. Assemble the decision and call `plugin.submit`.
 - **`plugin.draft`** keeps work in progress, so the person can open another review, or reload the view, and find their work in place.
 

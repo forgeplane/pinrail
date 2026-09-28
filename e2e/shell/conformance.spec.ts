@@ -22,10 +22,8 @@ async function viewFrame(page: Page): Promise<Frame> {
   return frame!;
 }
 
-test("the app hosts a view as the protocol says", async ({ page }) => {
-  await linkPlugin(page.request, dir, "conformance");
-  await clearInbox(page.request);
-  await page.request.patch(`${core}/api/v1/settings`, { data: { plugins: { conformance: { mode: "a" } } } });
+/** A review for the conformance view, with the file its payload names. */
+async function conformanceReview(page: Page): Promise<string> {
   const bytes = fs.readFileSync(path.join(dir, "fixtures", "note.txt"));
   const sha256 = crypto.createHash("sha256").update(bytes).digest("hex");
   const put = await page.request.put(`${core}/api/v1/attachments/${sha256}`, {
@@ -43,6 +41,14 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   });
   expect(created.status(), await created.text()).toBe(201);
   const { id } = await created.json();
+  return id;
+}
+
+test("the app hosts a view as the protocol says", async ({ page }) => {
+  await linkPlugin(page.request, dir, "conformance");
+  await clearInbox(page.request);
+  await page.request.patch(`${core}/api/v1/settings`, { data: { plugins: { conformance: { mode: "a" } } } });
+  const id = await conformanceReview(page);
 
   await page.goto(`/#/reviews/${id}`);
   let frame = await viewFrame(page);
@@ -75,12 +81,36 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   // a decision the schema refuses gets violations; one it accepts, submitted
   await send(frame, { type: "submit", data: { ok: "yes" } });
   await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
+  const inits = async () => (await received(frame)).filter((m) => m.type === "init").length;
+  const before = await inits();
   await send(frame, { type: "submit", data: { ok: true } });
   await expect
     .poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data)
     .toEqual({ ok: true });
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.status).toBe("decided");
+  // the view that handed the review over is told submitted, and not init
+  // again: once the screen shows the decision, an answer to a later request
+  // comes after anything the app sent the view before it
+  await expect(page.locator(".review-strip .status-badge")).not.toHaveText(/pending/i);
+  await send(frame, { type: "attachment", req: 9, name: "note.txt" });
+  await expect.poll(async () => (await received(frame)).some((m) => m.type === "attachment" && m.req === 9)).toBe(true);
+  expect(await inits()).toBe(before);
+});
+
+test("a view whose review ends elsewhere is sent init again, read-only", async ({ page }) => {
+  await linkPlugin(page.request, dir, "conformance");
+  await clearInbox(page.request);
+  const id = await conformanceReview(page);
+  await page.goto(`/#/reviews/${id}`);
+  const frame = await viewFrame(page);
+  const withdrawn = await page.request.post(`${core}/api/v1/reviews/${id}/withdraw`, {
+    data: { reason: "not needed" },
+  });
+  expect(withdrawn.status(), await withdrawn.text()).toBe(200);
+  await expect
+    .poll(async () => (await received(frame)).filter((m) => m.type === "init").map((m) => m.readonly))
+    .toEqual([false, true]);
 });
 
 // The preview checks a hand-over and decides nothing: it keeps no drafts

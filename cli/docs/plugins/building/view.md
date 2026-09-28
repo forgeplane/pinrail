@@ -27,6 +27,7 @@ plugin.draft(value);                              // keeps what the person enter
 plugin.status({ label: "Hand over: yes" });       // the hand-over button's words
 ```
 
+- `onInit` runs again, read-only, when the review ends while the view is open, for example when the agent withdraws it. Draw the view from scratch each time.
 - The app draws the hand-over button; the view never draws its own.
 - `plugin.readonly` is true for a review that is no longer pending: show
   `review.decision.data` and offer no editing.

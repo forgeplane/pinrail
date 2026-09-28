@@ -105,6 +105,8 @@ export function usePluginBridge(options: Options): Bridge {
   // set before the request goes out: state would only say so after a
   // render, too late for a second submit posted in the same moment
   const inFlight = useRef(false);
+  /** The view handed this review over; its settling needs no new init. */
+  const handedOver = useRef(false);
   const fallback = useRef<number | undefined>(undefined);
   const latest = useRef({
     review,
@@ -239,6 +241,7 @@ export function usePluginBridge(options: Options): Bridge {
     if (!el || !src) return;
     ready.current = false;
     gone.current = false;
+    handedOver.current = false;
     setLeft(false);
     files.current = new Map();
     setLoaded(false);
@@ -340,6 +343,7 @@ export function usePluginBridge(options: Options): Bridge {
             const result = await onSubmit(msg.data);
             if (result.ok) {
               clearDraft();
+              handedOver.current = true;
               post({ type: "submitted", decision: result.decision });
             } else {
               post({ type: "violations", errors: result.violations });
@@ -393,10 +397,12 @@ export function usePluginBridge(options: Options): Bridge {
     post({ type: "settings", settings });
   }, [settings, post]);
 
-  // When the review settles from elsewhere, the view flips to read-only.
+  // When the review settles from elsewhere, a withdrawal or an expiry, the
+  // view is sent init again, read-only. A view that handed the review over
+  // itself has been told so by submitted, and needs nothing more.
   const wasReadonly = useRef(readonly);
   useEffect(() => {
-    if (readonly && !wasReadonly.current) sendInit();
+    if (readonly && !wasReadonly.current && !handedOver.current) sendInit();
     wasReadonly.current = readonly;
   }, [readonly, sendInit]);
 
