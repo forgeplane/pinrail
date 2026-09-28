@@ -241,7 +241,7 @@ The CLI talks to the server the Pinrail app runs on your machine, and finds it o
 2. The `server.json` the running app writes into its data directory: `PINRAIL_DATA_DIR`, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 3. `http://127.0.0.1:4747`, or the port in `PINRAIL_PORT`.
 
-When nothing answers, `submit`, `serve`, `plugins describe`, `plugins check` and `plugins new --link` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
+When nothing answers, `submit`, `serve`, `plugins`, `plugins describe`, `plugins check` and `plugins new --link` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
 
 ```sh
 export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --headless'

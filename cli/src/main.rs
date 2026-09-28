@@ -742,7 +742,7 @@ fn run(cli: Cli) -> Result<u8> {
         Command::Submit(args) => !args.no_start,
         Command::Plugins(args) => matches!(
             args.command,
-            Some(PluginsCommand::Describe { .. } | PluginsCommand::Check { .. })
+            None | Some(PluginsCommand::Describe { .. } | PluginsCommand::Check { .. })
         ),
         _ => false,
     };

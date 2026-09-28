@@ -45,10 +45,7 @@ impl Client {
     /// What a request that reached no server says: where it looked, and
     /// what to do about it.
     pub fn unreachable(&self) -> String {
-        format!(
-            "the server is not answering at {}; open the Pinrail app, or check --url, and retry",
-            self.base
-        )
+        crate::server::not_answering(&self.base)
     }
 
     /// A request that failed before an answer came: nothing listening is

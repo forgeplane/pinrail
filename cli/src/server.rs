@@ -8,6 +8,7 @@
 
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
@@ -39,6 +40,37 @@ pub fn info_path() -> PathBuf {
     data_dir().join("server.json")
 }
 
+/// Where the address the CLI talks to came from, set once it is chosen.
+static SOURCE: OnceLock<Source> = OnceLock::new();
+
+#[derive(Clone, Copy, PartialEq)]
+enum Source {
+    Given,
+    Advertised,
+    Default,
+}
+
+/// What to say when nothing answers at `url`: the address, where it came
+/// from, and how to get a server there.
+pub fn not_answering(url: &str) -> String {
+    match SOURCE.get().copied().unwrap_or(Source::Default) {
+        Source::Given => format!(
+            "the server is not answering at {url} (from --url or PINRAIL_URL); \
+             open the Pinrail app there, or correct the address, and retry"
+        ),
+        source => format!(
+            "the server is not answering at {url} ({}); open the Pinrail app, or set \
+             PINRAIL_SERVER_CMD to a command that starts it (the app's binary with \
+             --headless), and retry",
+            if source == Source::Advertised {
+                format!("from {}", info_path().display())
+            } else {
+                "the default".to_string()
+            }
+        ),
+    }
+}
+
 /// What the running server advertised, if anything.
 pub fn advertised() -> Option<Value> {
     let text = std::fs::read_to_string(info_path()).ok()?;
@@ -47,18 +79,21 @@ pub fn advertised() -> Option<Value> {
 
 /// The base URL to talk to. With `auto_start`, a server that is not
 /// answering is started first, when PINRAIL_SERVER_CMD says how: submit,
-/// plugins describe and plugins check ask for it.
+/// plugins, plugins describe and plugins check ask for it.
 pub fn resolve_url(explicit: Option<&str>, auto_start: bool) -> Result<String> {
     if let Some(url) = explicit {
+        let _ = SOURCE.set(Source::Given);
         return Ok(url.trim_end_matches('/').to_string());
     }
-    let url = advertised()
-        .and_then(|v| v["url"].as_str().map(str::to_string))
-        .unwrap_or_else(default_url);
+    let (url, source) = match advertised().and_then(|v| v["url"].as_str().map(str::to_string)) {
+        Some(url) => (url, Source::Advertised),
+        None => (default_url(), Source::Default),
+    };
+    let _ = SOURCE.set(source);
 
     if auto_start && !Client::new(&url).reachable() {
         crate::out::note(format_args!("server not running at {url}, starting it"));
-        let info = start()?;
+        let info = start(&url)?;
         return Ok(info["url"].as_str().unwrap_or(&url).to_string());
     }
     Ok(url)
@@ -75,15 +110,12 @@ pub fn ensure_running(explicit: Option<&str>) -> Result<Value> {
             })
             .unwrap_or_else(|| json!({ "url": url })));
     }
-    start()
+    start(&url)
 }
 
-fn start() -> Result<Value> {
+fn start(url: &str) -> Result<Value> {
     let Ok(command) = std::env::var("PINRAIL_SERVER_CMD") else {
-        bail!(
-            "the server is not running; open the Pinrail app, or set PINRAIL_SERVER_CMD \
-             to a command that starts it (the app's binary with --headless) and retry"
-        );
+        bail!("{}", not_answering(url));
     };
 
     let dir = data_dir();

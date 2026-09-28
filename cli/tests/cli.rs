@@ -589,7 +589,9 @@ fn a_command_with_no_server_says_to_open_the_app() {
         let stderr = String::from_utf8_lossy(&out.stderr);
         assert_eq!(out.status.code(), Some(1), "{args:?}: {stderr}");
         assert!(
-            stderr.contains(&format!("not answering at {url}; open the Pinrail app")),
+            stderr.contains(&format!(
+                "not answering at {url} (from --url or PINRAIL_URL); open the Pinrail app"
+            )),
             "{args:?}: {stderr}"
         );
     }
@@ -1113,7 +1115,7 @@ fn unreachable_server_exits_1_without_auto_start_config() {
     assert_eq!(out.status.code(), Some(1));
     assert!(
         String::from_utf8_lossy(&out.stderr)
-            .contains("the server is not answering at http://127.0.0.1:9; open the Pinrail app")
+            .contains("the server is not answering at http://127.0.0.1:9 (from --url or PINRAIL_URL); open the Pinrail app")
     );
 
     let dir = tempdir();
@@ -1177,6 +1179,69 @@ fn create_auto_starts_the_server_with_the_configured_command() {
     assert_eq!(out.status.code(), Some(0), "{stderr}");
     assert!(stderr.contains("starting it"), "{stderr}");
     assert!(dir.join("server.log").exists());
+}
+
+#[test]
+fn listing_the_plugins_starts_the_server_too() {
+    let server = MockServer::start(Box::new(|method, path, _| match (method, path) {
+        ("GET", "/api/v1/info") => (200, "{}".into()),
+        ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[]}"#.into()),
+        other => panic!("unexpected {other:?}"),
+    }));
+    let dir = tempdir();
+    std::fs::write(dir.join("server.json"), r#"{"url":"http://127.0.0.1:9"}"#).unwrap();
+    let cmd = format!(
+        "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$PINRAIL_DATA_DIR/server.json\"; sleep 5",
+        server.url
+    );
+    let out = pinrail()
+        .args(["plugins", "--verbose"])
+        .env("PINRAIL_DATA_DIR", &dir)
+        .env("PINRAIL_SERVER_CMD", &cmd)
+        .env("PINRAIL_PORT", "9")
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "{stderr}");
+    assert!(stderr.contains("starting it"), "{stderr}");
+}
+
+#[test]
+fn a_server_that_does_not_answer_is_named_with_where_its_address_came_from() {
+    let message = |args: &[&str], envs: &[(&str, &str)]| {
+        let dir = tempdir();
+        let mut cmd = pinrail();
+        cmd.args(args).env("PINRAIL_DATA_DIR", &dir);
+        for (k, v) in envs {
+            cmd.env(k, v);
+        }
+        let out = cmd.output().unwrap();
+        assert_eq!(out.status.code(), Some(1));
+        let error: serde_json::Value = serde_json::from_slice(&out.stderr).unwrap();
+        error["message"].as_str().unwrap().to_string()
+    };
+    let given = message(&["show", "r_1"], &[("PINRAIL_URL", "http://127.0.0.1:9")]);
+    assert!(
+        given.contains("http://127.0.0.1:9 (from --url or PINRAIL_URL)"),
+        "{given}"
+    );
+    // the default address, and a command that would have started it: the
+    // same words, whichever path found the server missing
+    let default = message(
+        &["submit", "list", "--title", "t"],
+        &[("PINRAIL_PORT", "9")],
+    );
+    assert!(
+        default.contains("http://127.0.0.1:9 (the default)"),
+        "{default}"
+    );
+    assert!(default.contains("PINRAIL_SERVER_CMD"), "{default}");
+    let listed = message(&["show", "r_1"], &[("PINRAIL_PORT", "9")]);
+    assert_eq!(
+        listed.split(':').next(),
+        default.split(':').next(),
+        "{listed} / {default}"
+    );
 }
 
 /// A folder of the test's own, removed when the test ends.
