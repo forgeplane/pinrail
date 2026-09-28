@@ -827,6 +827,27 @@ fn json_can_be_given_inline_as_well_as_in_a_file() {
 }
 
 #[test]
+fn every_command_help_names_the_global_options() {
+    for command in [
+        &["list"][..],
+        &["show"],
+        &["wait"],
+        &["submit"],
+        &["plugins"],
+        &["plugins", "describe"],
+    ] {
+        let out = pinrail().args(command).arg("--help").output().unwrap();
+        let help = String::from_utf8_lossy(&out.stdout);
+        for option in ["--json", "--url"] {
+            assert!(
+                help.contains(option),
+                "{command:?} --help leaves out {option}:\n{help}"
+            );
+        }
+    }
+}
+
+#[test]
 fn plugin_versions_say_when_no_version_is_usable() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/hello/versions" => (

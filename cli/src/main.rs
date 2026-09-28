@@ -63,13 +63,13 @@ pub const EXITS: &[(u8, &str)] = &[
     ),
 ];
 
-/// The exit codes as the help lists them: plain text, without the
-/// markdown code marks the docs keep.
 /// The limit on waiting that PINRAIL_TIMEOUT sets, in seconds, when set.
 fn timeout_from_env() -> Option<u64> {
     std::env::var("PINRAIL_TIMEOUT").ok()?.trim().parse().ok()
 }
 
+/// The exit codes as the help lists them: plain text, without the
+/// markdown code marks the docs keep.
 fn exit_codes() -> String {
     let mut text = String::from("Exit codes:");
     for (code, meaning) in EXITS {
@@ -572,10 +572,40 @@ fn command() -> clap::Command {
         }
         listed.push_str(&format!("  {name}{value}\n          {help}\n"));
     }
-    root.after_help(format!(
+    // every command's help names them too, since an agent reads only the
+    // help of the command it runs
+    let globals: Vec<String> = root
+        .get_arguments()
+        .filter(|a| a.is_global_set())
+        .filter_map(|a| a.get_long().map(|l| format!("--{l}")))
+        .collect();
+    let footer = format!(
+        "Every command also takes {} (see pinrail --help).",
+        globals.join(", ")
+    );
+    with_footer(root, &footer).after_help(format!(
         "{listed}\n{}\n\nHow to use Pinrail as an agent: pinrail docs",
         exit_codes()
     ))
+}
+
+/// Adds `footer` to the help of every command under `command`, after any
+/// help of its own.
+fn with_footer(mut command: clap::Command, footer: &str) -> clap::Command {
+    let names: Vec<String> = command
+        .get_subcommands()
+        .map(|s| s.get_name().to_string())
+        .collect();
+    for name in names {
+        command = command.mut_subcommand(name, |sub| {
+            let text = match sub.get_after_help() {
+                Some(own) => format!("{own}\n\n{footer}"),
+                None => footer.to_string(),
+            };
+            with_footer(sub, footer).after_help(text)
+        });
+    }
+    command
 }
 
 fn main() -> ExitCode {
