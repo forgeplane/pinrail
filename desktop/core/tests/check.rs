@@ -163,6 +163,11 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
             &[],
         ),
         ("abs_entry", base(json!({"entry": "/index.html"})), entry),
+        (
+            "entry_outside",
+            base(json!({"entry": "../entry_outside/index.html"})),
+            entry,
+        ),
         ("no_schema", base(json!({"decision_schema": null})), entry),
         (
             "ref_out",

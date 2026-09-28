@@ -72,6 +72,7 @@
       "type": "string",
       "minLength": 1,
       "pattern": "^[^/\\u0000][^\\u0000]*$",
+      "not": { "type": "string", "pattern": "\\.\\." },
       "default": "index.html",
       "description": "The view's HTML file."
     },

@@ -241,7 +241,8 @@ impl Plugin {
             .get("build")
             .and_then(|build| build["command"].as_str())
             .is_some_and(|command| !command.trim().is_empty());
-        if !dir.join(&entry).is_file() && !(before_build && builds) {
+        let found = crate::schema::safe_join(dir, &entry).is_some_and(|path| path.is_file());
+        if !found && !(before_build && builds) {
             return Err(format!("entry {entry} not found"));
         }
         // an icon that does not load costs the plugin its icon, not its place
@@ -297,7 +298,7 @@ impl Plugin {
                 (None, shape.dropped.get("decision_template").cloned())
             }
             None | Some(Value::Null) => (None, None),
-            Some(Value::String(file)) => match std::fs::read_to_string(dir.join(file)) {
+            Some(Value::String(file)) => match read_inside(dir, file) {
                 Ok(source) => match crate::markdown::compile(&source) {
                     Ok(()) => (Some(source), None),
                     Err(message) => (None, Some(format!("{file}: {message}"))),
@@ -313,7 +314,7 @@ impl Plugin {
                 (None, shape.dropped.get("example").cloned())
             }
             None | Some(Value::Null) => (None, None),
-            Some(Value::String(file)) => match std::fs::read_to_string(dir.join(file))
+            Some(Value::String(file)) => match read_inside(dir, file)
                 .map_err(|e| format!("{file}: cannot read ({e})"))
                 .and_then(|text| {
                     serde_json::from_str::<Value>(&text)
@@ -914,10 +915,75 @@ pub(super) fn valid_name(name: &str) -> bool {
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
 }
 
+/// A file of the plugin's, read only when it lies inside its folder, links
+/// followed.
+fn read_inside(dir: &Path, file: &str) -> std::io::Result<String> {
+    let path = crate::schema::safe_join(dir, file).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "it is outside the plugin's folder",
+        )
+    })?;
+    std::fs::read_to_string(path)
+}
+
 #[cfg(test)]
 mod tests {
 
     use super::*;
+
+    /// A plugin reads only files inside its folder: an entry that climbs
+    /// out is refused, and a template or an example that a link carries
+    /// out of the folder is dropped.
+    #[cfg(unix)]
+    #[test]
+    fn a_plugin_reads_no_file_outside_its_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = root.path().join("other");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("index.html"), "<html></html>").unwrap();
+        std::fs::write(outside.join("t.j2"), "{{ note }}").unwrap();
+        std::fs::write(outside.join("ex.json"), "{}").unwrap();
+        let plugin = |name: &str, extra: Value| {
+            let dir = root.path().join(name);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+            let mut manifest = serde_json::json!({
+                "name": name, "version": "1.0.0", "payload_schema": {}, "decision_schema": {},
+            });
+            for (key, value) in extra.as_object().unwrap() {
+                manifest[key] = value.clone();
+            }
+            std::fs::write(dir.join(MANIFEST), manifest.to_string()).unwrap();
+            dir
+        };
+
+        let climbs = plugin(
+            "climbs",
+            serde_json::json!({"entry": "../other/index.html"}),
+        );
+        assert!(
+            Plugin::load(&climbs).error.is_some(),
+            "an entry outside the folder was accepted"
+        );
+
+        let linked = plugin(
+            "linked",
+            serde_json::json!({"decision_template": "t.j2", "example": "ex.json"}),
+        );
+        std::os::unix::fs::symlink(outside.join("t.j2"), linked.join("t.j2")).unwrap();
+        std::os::unix::fs::symlink(outside.join("ex.json"), linked.join("ex.json")).unwrap();
+        let loaded = Plugin::load(&linked);
+        assert!(loaded.error.is_none(), "{:?}", loaded.error);
+        assert!(
+            loaded.decision_template.is_none(),
+            "a template outside the folder was read"
+        );
+        assert!(
+            loaded.example.is_none(),
+            "an example outside the folder was read"
+        );
+    }
 
     #[test]
     fn a_plugin_name_is_lowercase_words_joined_by_underscores_or_dashes() {
