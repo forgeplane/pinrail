@@ -184,7 +184,11 @@ impl Registry {
     }
 
     pub fn records(&self) -> Vec<InstalledRecord> {
-        self.state.read().unwrap().records.clone()
+        self.state
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .records
+            .clone()
     }
 
     pub fn all(&self) -> Vec<Arc<Plugin>> {
@@ -199,7 +203,12 @@ impl Registry {
 
     /// The current plugin, usable or not.
     pub fn get(&self, name: &str) -> Option<Arc<Plugin>> {
-        self.state.read().unwrap().plugins.get(name).cloned()
+        self.state
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .plugins
+            .get(name)
+            .cloned()
     }
 
     /// The usable current plugin, or an `invalid` error pointing at `/plugin`.
@@ -274,7 +283,12 @@ impl Registry {
     /// name is built in is skipped; on any other duplicate name the old
     /// state is kept.
     pub fn reload(&self) -> Result<usize, String> {
-        let records = self.state.read().unwrap().records.clone();
+        let records = self
+            .state
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .records
+            .clone();
         self.load(records)
     }
 
@@ -350,7 +364,10 @@ impl Registry {
         if !duplicates.is_empty() {
             return Err(duplicates.join("; "));
         }
-        let mut state = self.state.write().unwrap();
+        let mut state = self
+            .state
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         state.records = records;
         state.plugins = loaded
             .into_iter()
