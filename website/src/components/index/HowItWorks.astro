@@ -35,13 +35,16 @@ const phases = [0, 5600, 9800];
         <div class="hw-line hw-user" data-at="1900">&gt; review PR #482 and post your comments, but ask me first</div>
         <div class="hw-line" data-at="2600"><span class="hw-bullet">⏺</span> I read the diff: 3 files, 5 findings worth a comment. I'll ask you before any of them is posted.</div>
         <div class="hw-line" data-at="3600"><span class="hw-bullet hw-tool" data-ok="9900">⏺</span> <b>Bash</b>(pinrail submit review --title "Retry failed webhook deliveries" --data findings.json --wait)</div>
-        <div class="hw-line hw-out t-dim" data-at="4200" data-until="9900">  ⎿  Waiting for a decision…</div>
-        <div class="hw-line hw-out" data-at="9900">  ⎿  <span class="hw-md"># Retry failed webhook deliveries</span></div>
-        <div class="hw-line hw-out" data-at="10150">     Decided · 2 accepted · 1 rejected · 2 undecided</div>
-        <div class="hw-line hw-out t-ok" data-at="10400">     - #1 retry with backoff: accepted, “re-enqueue with runAt”</div>
-        <div class="hw-line hw-out t-ok" data-at="10650">     - #3 add jitter: accepted</div>
-        <div class="hw-line hw-out t-no" data-at="10900">     - #4 give-up log: rejected, “the log already has the delivery id”</div>
-        <div class="hw-line" data-at="11700"><span class="hw-bullet">⏺</span> Posting #1 and #3 as you worded them. #4 stays out; #2 and #5 wait for you.</div>
+        <div class="hw-line hw-out t-dim" data-at="4200" data-until="9900">  ⎿  pinrail: review r_01K5R2 submitted; waiting for a decision</div>
+        <div class="hw-line hw-out" data-at="9900">  ⎿  <span class="hw-md">r_01K5R2 · decided · Retry failed webhook deliveries</span></div>
+        <div class="hw-line hw-out t-dim" data-at="10050">     review · northwind/api · retry-webhooks · decided by maya at 2026-09-23 10:14</div>
+        <div class="hw-line hw-out t-ok" data-at="10300">     - **#1 accepted** `src/deliver.ts:42` — retry with backoff (major)</div>
+        <div class="hw-line hw-out" data-at="10300">       &gt; re-enqueue with runAt</div>
+        <div class="hw-line hw-out t-ok" data-at="10550">     - **#3 accepted** `src/deliver.ts:57` — add jitter (minor)</div>
+        <div class="hw-line hw-out t-no" data-at="10800">     - **#4 rejected** `src/log.ts:18` — give-up log (nit)</div>
+        <div class="hw-line hw-out" data-at="10800">       &gt; the log already has the delivery id</div>
+        <div class="hw-line hw-out" data-at="11050">     Undecided: #2, #5</div>
+        <div class="hw-line" data-at="11700"><span class="hw-bullet">⏺</span> Posting #1 and #3 as you worded them. #4 stays out, and #2 and #5 were left undecided, so I will not post them.</div>
         <div class="hw-line" data-at="12400"><span class="hw-bullet hw-tool" data-ok="12900">⏺</span> <b>Bash</b>(gh pr review 482 --comment --body-file comments.md)</div>
         <div class="hw-line hw-out t-dim" data-at="12900">  ⎿  2 review comments posted</div>
         <div class="hw-line hw-status" data-at="4200" data-until="9900"><span class="hw-star" data-hw-star>✻</span><span class="hw-verb">Pinrailing…</span> <span class="t-dim">(<span data-hw-secs>0s</span> · esc to interrupt)</span></div>

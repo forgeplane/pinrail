@@ -128,7 +128,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
                   </figure>
                 ))}
                 <figure class="view own">
-                  <div class="own-body"><code>pinrail-plugin create</code><p>A manifest, two JSON schemas and an HTML page. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p></div>
+                  <div class="own-body"><code>pinrail plugins new my_plugin</code><p>A manifest, two JSON schemas and an HTML page. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p></div>
                   <figcaption><b>Your own</b>Run it in a browser without the app, then install it from a folder or a GitHub release.</figcaption>
                 </figure>
               </div>
@@ -462,14 +462,25 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         const byId = new Map(items.map((it) => [it.id, it]));
         const accepted = d.decisions.filter((r) => r.action === "accept");
         const rejected = d.decisions.filter((r) => r.action === "reject");
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const at = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        // the lines the list plugin prints, one per item in the page's order
+        const itemLines = items.flatMap((it): [string, string, number][] => {
+          const v = it.verdict;
+          if (!v) return [["dim", `- **#${it.id} undecided, not approved** — ${it.title}`, 70]];
+          const line: [string, string, number] = [v.action === "accept" ? "ok" : "no", `- **#${it.id} ${v.action === "accept" ? "accepted" : "rejected"}** — ${it.title}`, 70];
+          return v.note ? [line, ["out", `  > ${v.note}`, 40]] : [line];
+        });
         const lines: [string, string, number][] = [
           ["cmd", `pinrail submit list --title "Landing page, draft 1" \\\n    --data page.json --wait`, 420],
-          ["dim", "waiting for a decision…", 700],
-          ["out", "# Landing page, draft 1", 60],
-          ["out", `Decided · ${accepted.length} accepted · ${rejected.length} rejected · ${d.undecided.length} undecided`, 60],
+          ["dim", "pinrail: review r_01K5Q9 submitted; waiting for a decision", 700],
+          ["out", "r_01K5Q9 · decided · Landing page, draft 1", 60],
+          ["out", `list · decided by you at ${at}`, 60],
           ["out", "", 20],
-          ...d.decisions.map((r): [string, string, number] => [r.action === "accept" ? "ok" : "no", `- #${r.id} ${byId.get(r.id)!.title}: ${r.action === "accept" ? "accepted" : "rejected"}${r.note ? ` — “${r.note}”` : ""}${byId.get(r.id)!.round > 1 ? " (round 2)" : ""}`, 70]),
-          ...d.undecided.map((id): [string, string, number] => ["dim", `- #${id} ${byId.get(id)!.title}: undecided, not approved`, 70]),
+          ["out", "## Landing page", 40],
+          ["out", "", 20],
+          ...itemLines,
           ["cmd", "echo $?", 380],
           ["out", "0", 300],
           ["agent", agentReply(accepted.length, rejected.map((r) => byId.get(r.id)!.title), d.undecided.length), 500],

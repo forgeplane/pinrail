@@ -149,7 +149,7 @@ const codes = [
           </div>
         ))}
         <div class="c-own">
-          <code>pinrail-plugin create</code>
+          <code>pinrail plugins new my_plugin</code>
           <p><b>Ten views so far. The next one is yours.</b> A plugin is a manifest, two JSON schemas and a web page, built with any web framework you like, or none at all. Storyboards, floor plans, moodboards, a map with a no-go zone scribbled on it: if your agent can make it, you can put it in front of your eyes and mark it up. The only limits are your imagination and your agent's.</p>
           <a href="/docs/building/writing/">Write a plugin →</a>
         </div>
@@ -187,14 +187,18 @@ const codes = [
 <span class="t-cmd">$ pinrail submit review --title "Dedup tickets on save" \
     --origin repo=acme/api,workflow=pr-review,ref=42 \
     --data proposals.json --wait</span>
-<span class="t-dim">waiting for a decision…</span>
+<span class="t-dim">pinrail: review r_01K5Q8 submitted; waiting for a decision</span>
+r_01K5Q8 · decided · Dedup tickets on save
+review · acme/api · pr-review · 42 · decided by maya at 2026-09-23 10:14
 
-# Dedup tickets on save
-Decided · 3 accepted · 1 rejected
-<span class="t-ok">- #18 reversing twice is a no-op: accepted</span>
-<span class="t-ok">- #19 missing index on tickets.hash: accepted, “mention the COALESCE”</span>
-<span class="t-no">- #20 prefer Enum.uniq_by/2: rejected, “fine as it is”</span>
-<span class="t-ok">- #21 test for the empty list: accepted</span>
+## Proposals
+
+<span class="t-ok">- **#18 accepted** `lib/acme/tickets.ex:149` — reversing twice is a no-op (major)</span>
+<span class="t-ok">- **#19 accepted** `priv/repo/add_hash.exs:6` — missing index on tickets.hash (minor)</span>
+  > mention the COALESCE
+<span class="t-no">- **#20 rejected** `lib/acme/tickets.ex:151` — prefer Enum.uniq_by/2 (nit)</span>
+  > fine as it is
+<span class="t-ok">- **#21 accepted** `test/acme/tickets_test.exs:40` — test for the empty list (minor)</span>
 <span class="t-cmd">$ echo $?</span>
 0</pre>
         </div>
