@@ -132,8 +132,9 @@ window.addEventListener("message", (event) => {
   if (!msg || msg.pinrail !== PROTOCOL) return;
   switch (msg.type) {
     case "ready":
-      post({ type: "init", review, previous, readonly: readonly(), draft: null, settings, shell_origin: location.origin, capabilities: ["attachments"] });
+      // the theme before the review, as the app sends them
       post({ type: "appearance", theme: theme() });
+      post({ type: "init", review, previous, readonly: readonly(), draft: null, settings, shell_origin: location.origin, capabilities: ["attachments"] });
       break;
     case "resize":
       if (msg.height === "fill") frame.style.height = "100%";
