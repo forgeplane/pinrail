@@ -150,6 +150,11 @@ async fn sdk(State(state): State<Arc<Pinrail>>, Path(path): Path<String>) -> Res
     let Some(dir) = &state.config().sdk_dir else {
         return StatusCode::NOT_FOUND.into_response();
     };
+    // a developer may point the app at a working tree: its hidden files
+    // are not the SDK's to serve
+    if path.split('/').any(|part| part.starts_with('.')) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
     let Some(file) = safe_join(dir, &path).filter(|f| f.is_file()) else {
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -173,6 +178,12 @@ async fn sdk(State(state): State<Arc<Pinrail>>, Path(path): Path<String>) -> Res
             (
                 header::ACCESS_CONTROL_ALLOW_ORIGIN,
                 HeaderValue::from_static("*"),
+            ),
+            // a script, a stylesheet or a font loaded by a view ignores this;
+            // a file opened as a page runs with no origin and no rights
+            (
+                header::CONTENT_SECURITY_POLICY,
+                HeaderValue::from_static("sandbox; default-src 'none'"),
             ),
         ],
         body,

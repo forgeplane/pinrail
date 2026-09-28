@@ -782,6 +782,7 @@ async fn the_sdk_is_served_only_when_configured() {
     let state = Arc::new(Pinrail::open(config).unwrap());
     let router = router(state);
     let response = router
+        .clone()
         .oneshot(
             Request::get("/sdk/v1/pinrail-plugin.js")
                 .body(Body::empty())
@@ -795,6 +796,29 @@ async fn the_sdk_is_served_only_when_configured() {
             .to_str()
             .unwrap()
             .contains("javascript")
+    );
+
+    // a developer's SDK folder may hold anything: a page in it opened in a
+    // browser runs sandboxed, and hidden files are not served
+    std::fs::write(dir.path().join("page.html"), "<script>1</script>").unwrap();
+    std::fs::write(dir.path().join(".env"), "TOKEN=1").unwrap();
+    let get = |path: &str| {
+        router
+            .clone()
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
+    };
+    let page = get("/sdk/v1/page.html").await.unwrap();
+    assert!(
+        page.headers()
+            .get("content-security-policy")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|csp| csp.contains("sandbox")),
+        "{:?}",
+        page.headers()
+    );
+    assert_eq!(
+        get("/sdk/v1/.env").await.unwrap().status(),
+        StatusCode::NOT_FOUND
     );
 }
 
