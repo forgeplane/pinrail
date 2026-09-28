@@ -1,7 +1,6 @@
 //! The database's own promises: a review ends once whichever way, status
-//! is answered by SQL, and migrations: a new file records what it ran, a
-//! file from the numbered steps is adopted as it is, and a file from too
-//! old or too new a build is refused.
+//! is answered by SQL, and migrations: a new file records what it ran, and
+//! a file from a newer build is refused.
 
 use std::path::Path;
 
@@ -184,81 +183,14 @@ fn status_is_answered_by_the_query_and_the_count_is_not_a_listing() {
     assert_eq!(db.list(&pending, Utc::now()).unwrap().len(), 2);
 }
 
-/// The tables as the numbered steps left them, the day migrations moved
-/// to `schema_migrations`: `plugin_release` added last by `ALTER TABLE`,
-/// and `PRAGMA user_version = 4`.
-const NUMBERED_STEP_4: &str = "
-CREATE TABLE reviews (id TEXT PRIMARY KEY, plugin TEXT NOT NULL, plugin_version INTEGER NOT NULL, title TEXT NOT NULL,
-  origin TEXT NOT NULL, requested_by TEXT, payload TEXT NOT NULL, summary TEXT, revises TEXT REFERENCES reviews(id),
-  expires_at TEXT, created_at TEXT NOT NULL);
-ALTER TABLE reviews ADD COLUMN plugin_release TEXT;
-CREATE INDEX reviews_created ON reviews(created_at DESC);
-CREATE INDEX reviews_revises ON reviews(revises);
-CREATE TABLE events (id INTEGER PRIMARY KEY, review_id TEXT REFERENCES reviews(id), kind TEXT NOT NULL, actor TEXT, at TEXT NOT NULL, attrs TEXT);
-CREATE INDEX events_review ON events(review_id, id);
-CREATE TABLE outcomes (review_id TEXT PRIMARY KEY REFERENCES reviews(id), kind TEXT NOT NULL CHECK (kind IN ('decided', 'withdrawn', 'discarded')),
-  at TEXT NOT NULL, by TEXT, reason TEXT, data TEXT, agent_note TEXT);
-CREATE INDEX outcomes_kind ON outcomes(kind);
-CREATE TABLE installed_plugins (name TEXT PRIMARY KEY, version TEXT NOT NULL, major INTEGER NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('path', 'git', 'release')), source TEXT NOT NULL, resolved TEXT NOT NULL,
-  commit_id TEXT, asset_hash TEXT, hash TEXT, build_log TEXT, installed_at TEXT NOT NULL,
-  linked INTEGER NOT NULL DEFAULT 0, path TEXT NOT NULL);
-INSERT INTO reviews VALUES ('r_d', 'list', 1, 'decided', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:00:00Z', '1.0.0');
-INSERT INTO reviews VALUES ('r_p', 'list', 1, 'pending', '{}', NULL, '{}', NULL, NULL, NULL, '2026-09-01T10:03:00Z', NULL);
-INSERT INTO outcomes VALUES ('r_d', 'decided', '2026-09-01T11:00:00Z', 'pat', NULL, '{\"ok\":true}', 'a note');
-PRAGMA user_version = 4;
-";
-
-/// Every table's columns, as `name type notnull default pk`, and every
-/// index: what two files must share to be the same schema, whatever order
-/// or text made them.
-fn shape(path: &Path) -> Vec<String> {
+fn applied(path: &Path) -> Vec<i64> {
     let conn = rusqlite::Connection::open(path).unwrap();
-    let names: Vec<(String, String)> = conn
-        .prepare("SELECT type, name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name")
-        .unwrap()
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
-        .unwrap()
-        .collect::<Result<_, _>>()
-        .unwrap();
-    let mut shape = Vec::new();
-    for (kind, name) in names {
-        shape.push(format!("{kind} {name}"));
-        if kind == "table" {
-            let mut stmt = conn.prepare(&format!("PRAGMA table_info({name})")).unwrap();
-            let columns = stmt
-                .query_map([], |r| {
-                    Ok(format!(
-                        "  {} {} {} {:?} {}",
-                        r.get::<_, String>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, i64>(3)?,
-                        r.get::<_, Option<String>>(4)?,
-                        r.get::<_, i64>(5)?
-                    ))
-                })
-                .unwrap();
-            for column in columns {
-                shape.push(column.unwrap());
-            }
-        }
-    }
-    shape
-}
-
-fn applied(path: &Path) -> (Vec<i64>, i64) {
-    let conn = rusqlite::Connection::open(path).unwrap();
-    let versions = conn
-        .prepare("SELECT version FROM schema_migrations ORDER BY version")
+    conn.prepare("SELECT version FROM schema_migrations ORDER BY version")
         .unwrap()
         .query_map([], |r| r.get(0))
         .unwrap()
         .collect::<Result<_, _>>()
-        .unwrap();
-    let numbered = conn
-        .query_row("PRAGMA user_version", [], |r| r.get(0))
-        .unwrap();
-    (versions, numbered)
+        .unwrap()
 }
 
 #[test]
@@ -266,59 +198,11 @@ fn a_new_file_records_each_migration_it_ran() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("pinrail.db");
     drop(Db::open(&path).unwrap());
-    let (versions, numbered) = applied(&path);
+    let versions = applied(&path);
     assert_eq!(versions.last(), Some(&LATEST_MIGRATION));
-    assert_eq!(numbered, 0);
     // opening again runs nothing
     drop(Db::open(&path).unwrap());
-    assert_eq!(applied(&path).0, versions);
-}
-
-#[test]
-fn a_file_from_the_numbered_steps_is_adopted_as_it_is() {
-    let dir = tempfile::tempdir().unwrap();
-    let old = dir.path().join("old.db");
-    let conn = rusqlite::Connection::open(&old).unwrap();
-    conn.execute_batch(NUMBERED_STEP_4).unwrap();
-    drop(conn);
-
-    let db = Db::open(&old).unwrap();
-    let now = Utc::now();
-    let decided = db.get_review("r_d").unwrap().unwrap();
-    assert_eq!(decided.status(now), Status::Decided);
-    assert_eq!(decided.plugin_release, "1.0.0");
-    assert_eq!(
-        db.get_review("r_p").unwrap().unwrap().status(now),
-        Status::Pending
-    );
-    drop(db);
-    let (versions, numbered) = applied(&old);
-    assert_eq!(
-        versions.first(),
-        Some(&20260923193000),
-        "the baseline is recorded, not run"
-    );
-    assert_eq!(numbered, 0);
-
-    // and it is the same schema a new file gets
-    let new = dir.path().join("new.db");
-    drop(Db::open(&new).unwrap());
-    assert_eq!(shape(&old), shape(&new));
-}
-
-#[test]
-fn a_file_from_before_the_last_numbered_step_is_refused() {
-    let dir = tempfile::tempdir().unwrap();
-    let path = dir.path().join("pinrail.db");
-    let conn = rusqlite::Connection::open(&path).unwrap();
-    conn.execute_batch("CREATE TABLE reviews (id TEXT PRIMARY KEY); PRAGMA user_version = 2;")
-        .unwrap();
-    drop(conn);
-    let error = Db::open(&path).unwrap_err().to_string();
-    assert!(
-        error.contains("unsupported development build (schema step 2)"),
-        "{error}"
-    );
+    assert_eq!(applied(&path), versions);
 }
 
 #[test]

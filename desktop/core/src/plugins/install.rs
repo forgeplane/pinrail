@@ -904,37 +904,18 @@ fn fetch_git(
 /// How many build logs a plugin keeps; older ones go when a new one is written.
 const LOGS_KEPT: usize = 5;
 
-/// Tidies `<data>/plugins` at start. The folder holds `store`, `fetch`
-/// and `logs`; anything else at its top level is a snapshot from before
-/// the store existed and goes, since the store or a link has what it
-/// held. `fetch` is scratch and no install survives a restart, so it is
-/// emptied.
+/// Tidies `<data>/plugins` at start: `fetch` is scratch and no install
+/// survives a restart, so what a stop left there goes.
 pub fn tidy(plugins_dir: &Path) -> std::io::Result<()> {
-    let Ok(entries) = std::fs::read_dir(plugins_dir) else {
+    let Ok(entries) = std::fs::read_dir(plugins_dir.join("fetch")) else {
         return Ok(());
     };
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        match name.to_str() {
-            Some("store") | Some("logs") => {}
-            Some("fetch") => {
-                for leftover in std::fs::read_dir(entry.path())?.flatten() {
-                    let path = leftover.path();
-                    if path.is_dir() {
-                        std::fs::remove_dir_all(&path)?;
-                    } else {
-                        std::fs::remove_file(&path)?;
-                    }
-                }
-            }
-            _ => {
-                let path = entry.path();
-                if path.is_dir() {
-                    std::fs::remove_dir_all(&path)?;
-                } else {
-                    std::fs::remove_file(&path)?;
-                }
-            }
+    for leftover in entries.flatten() {
+        let path = leftover.path();
+        if path.is_dir() {
+            std::fs::remove_dir_all(&path)?;
+        } else {
+            std::fs::remove_file(&path)?;
         }
     }
     Ok(())

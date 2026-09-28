@@ -165,20 +165,6 @@ fn the_port_is_read_from_the_file_when_it_names_one() {
     assert_eq!(pinrail_core::settings::port_in(dir.path()), None);
 }
 
-#[tokio::test]
-async fn the_settings_table_is_gone() {
-    let app = app();
-    let conn = rusqlite::Connection::open(app.dir.path().join("pinrail.db")).unwrap();
-    let n: i64 = conn
-        .query_row(
-            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'settings'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    assert_eq!(n, 0);
-}
-
 /// An installed plugin with settings of its own, linked from its folder.
 async fn with_knobs(app: &App) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();

@@ -2725,12 +2725,9 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
 
 #[tokio::test]
 async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() {
-    // a data directory laid out the old way: snapshots at the top level,
-    // a clone left in fetch by a crash, a store entry to keep
+    // a clone left in fetch by a crash, and a store entry to keep
     let dir = tempfile::tempdir().unwrap();
     let plugins = dir.path().join("plugins");
-    std::fs::create_dir_all(plugins.join("review/1")).unwrap();
-    std::fs::write(plugins.join("review/1/manifest.json"), "{}").unwrap();
     std::fs::create_dir_all(plugins.join("fetch/git-abc")).unwrap();
     std::fs::write(plugins.join("fetch/git-abc/file"), "x").unwrap();
     std::fs::create_dir_all(plugins.join("store/hello/1")).unwrap();
@@ -2740,7 +2737,6 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
     let state = Arc::new(Pinrail::open(config).unwrap());
-    assert!(!plugins.join("review").exists(), "the old snapshot is gone");
     assert!(
         plugins.join("fetch").is_dir()
             && std::fs::read_dir(plugins.join("fetch"))
@@ -2757,13 +2753,6 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
         plugins.join("logs/old.log").is_file(),
         "logs are untouched at start"
     );
-    let mut names: Vec<String> = std::fs::read_dir(&plugins)
-        .unwrap()
-        .flatten()
-        .map(|e| e.file_name().to_string_lossy().into_owned())
-        .collect();
-    names.sort();
-    assert_eq!(names, vec!["fetch", "logs", "store"]);
 
     // six builds, five logs
     let app = App {

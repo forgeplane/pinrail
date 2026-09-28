@@ -1,5 +1,5 @@
--- The schema as it stood on 2026-09-23, when migrations moved to the
--- schema_migrations table; the numbered steps before it are squashed here.
+-- The schema Pinrail 0.1.0 shipped with. Every change after it is a
+-- migration of its own.
 
 CREATE TABLE reviews (
   id             TEXT PRIMARY KEY,
@@ -17,7 +17,9 @@ CREATE TABLE reviews (
   plugin_release TEXT
 );
 CREATE INDEX reviews_created ON reviews(created_at DESC);
-CREATE INDEX reviews_revises ON reviews(revises);
+-- A round has at most one newer round, so the rounds of a review form a
+-- single line. SQLite allows any number of NULLs in a unique index.
+CREATE UNIQUE INDEX reviews_revises ON reviews(revises);
 
 CREATE TABLE events (
   id        INTEGER PRIMARY KEY,
@@ -56,3 +58,23 @@ CREATE TABLE installed_plugins (
   linked       INTEGER NOT NULL DEFAULT 0,
   path         TEXT NOT NULL
 );
+
+-- Files uploaded beside reviews, one row per distinct content. The bytes
+-- live on disk under <data>/attachments/sha256/, named by their hash.
+CREATE TABLE blobs (
+  sha256     TEXT PRIMARY KEY,
+  size       INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+-- Which files a review carries, by the names its payload refers to them by.
+-- A blob no row names any more is swept once it is an hour old.
+CREATE TABLE review_attachments (
+  review_id  TEXT NOT NULL REFERENCES reviews(id),
+  name       TEXT NOT NULL,
+  sha256     TEXT NOT NULL REFERENCES blobs(sha256),
+  size       INTEGER NOT NULL,
+  media_type TEXT NOT NULL,
+  PRIMARY KEY (review_id, name)
+);
+CREATE INDEX review_attachments_sha256 ON review_attachments(sha256);

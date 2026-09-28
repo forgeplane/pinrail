@@ -16,7 +16,7 @@
 //! Never edit a migration once it is merged: add another.
 
 use chrono::{SecondsFormat, Utc};
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 
 /// A migration: its version, its name and its SQL.
 pub(super) type Migration = (i64, &'static str, &'static str);
@@ -27,14 +27,8 @@ pub(super) const MIGRATIONS: &[Migration] = include!(concat!(env!("OUT_DIR"), "/
 /// The newest migration this build knows.
 pub const LATEST_MIGRATION: i64 = MIGRATIONS[MIGRATIONS.len() - 1].0;
 
-/// The last `PRAGMA user_version` of the numbered steps that came before
-/// the table, which the baseline squashes: a file there has the baseline's
-/// schema already.
-const LAST_NUMBERED_STEP: i64 = 4;
-
 /// Brings the file up to this build's schema.
 pub(super) fn migrate(conn: &Connection) -> rusqlite::Result<()> {
-    adopt(conn)?;
     run(conn, MIGRATIONS)
 }
 
@@ -81,55 +75,6 @@ pub(super) fn run(conn: &Connection, migrations: &[Migration]) -> rusqlite::Resu
     Ok(())
 }
 
-/// A file from before the table: at the last numbered step it already has
-/// the baseline's schema, so the baseline is recorded rather than run, and
-/// `user_version` goes back to 0. A file at an earlier step, or with tables
-/// and no version at all, predates the baseline and is refused.
-fn adopt(conn: &Connection) -> rusqlite::Result<()> {
-    let has_table = |name: &str| -> rusqlite::Result<bool> {
-        conn.query_row(
-            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1",
-            params![name],
-            |_| Ok(()),
-        )
-        .optional()
-        .map(|r| r.is_some())
-    };
-    if has_table("schema_migrations")? {
-        return Ok(());
-    }
-    let numbered: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    match numbered {
-        0 if !has_table("reviews")? => Ok(()),
-        LAST_NUMBERED_STEP => {
-            let tx = conn.unchecked_transaction()?;
-            tx.execute_batch(
-                "CREATE TABLE schema_migrations (
-  version     INTEGER PRIMARY KEY,
-  inserted_at TEXT
-);",
-            )?;
-            tx.execute(
-                "INSERT INTO schema_migrations (version, inserted_at) VALUES (?1, ?2)",
-                params![
-                    MIGRATIONS[0].0,
-                    Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true)
-                ],
-            )?;
-            tx.execute_batch("PRAGMA user_version = 0")?;
-            tx.commit()?;
-            eprintln!(
-                "pinrail: database adopted into schema_migrations at {}_{}",
-                MIGRATIONS[0].0, MIGRATIONS[0].1
-            );
-            Ok(())
-        }
-        other => Err(refused(format!(
-            "this database was written by an unsupported development build (schema step {other}); move it aside to start fresh"
-        ))),
-    }
-}
-
 fn refused(message: String) -> rusqlite::Error {
     rusqlite::Error::SqliteFailure(
         rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_SCHEMA),
@@ -140,6 +85,7 @@ fn refused(message: String) -> rusqlite::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::OptionalExtension;
 
     fn versions(conn: &Connection) -> Vec<i64> {
         conn.prepare("SELECT version FROM schema_migrations ORDER BY version")
