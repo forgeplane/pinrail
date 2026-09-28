@@ -67,6 +67,8 @@ flowchart LR
 - <kbd>[</kbd> and <kbd>]</kbd> step between rounds of the same review.
 - Every round is kept. Each is its own review with its own outcome, linked to the one it revises.
 
+The rounds of a review form a single line. A new round revises the latest round of its review and uses the same plugin, and Pinrail refuses a round that does not. If the round it revises is still waiting for a decision, Pinrail withdraws that round, with the reason *superseded by* the new round's id, so the agent still waiting on it is told and your inbox shows only the new round.
+
 An agent submits a new round with `--revises <id>`. See [Instructing an agent](/docs/agents/instructing/#rounds).
 
 ## Your note to the agent

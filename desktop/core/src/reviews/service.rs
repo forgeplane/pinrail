@@ -52,6 +52,11 @@ struct Checked<'a> {
     attachments: Vec<ReviewAttachment>,
 }
 
+/// The refusal for a round that already has a newer round.
+fn already_revised(id: &str, newer: &str) -> String {
+    format!("review {id} already has a newer round, {newer}; revise that one")
+}
+
 impl Reviews {
     pub(crate) fn new(
         db: Arc<Db>,
@@ -115,8 +120,29 @@ impl Reviews {
             ),
             attachments,
         };
-        let event_id = self.db.insert_review(&review, actor)?;
+        let event_id = match self.db.insert_review(&review, actor) {
+            Ok(event_id) => event_id,
+            // another submission revised the same round a moment earlier
+            Err(e) if e.to_string().contains("reviews.revises") => {
+                let revised = review.revises.clone().unwrap_or_default();
+                let newer = self.db.newer_round(&revised)?.unwrap_or_default();
+                return Err(Error::invalid(
+                    "/revises",
+                    already_revised(&revised, &newer),
+                ));
+            }
+            Err(e) => return Err(e.into()),
+        };
         self.publish(event_id, events::CREATED, &review);
+        // a round still waiting when a newer one arrives is superseded: its
+        // waiting agent is told, and the inbox shows only the newer round
+        if let Some(revised) = &review.revises {
+            let reason = format!("superseded by {}", review.id);
+            match self.withdraw(revised, Some(&reason)) {
+                Ok(_) | Err(Error::NotPending(_)) => {}
+                Err(e) => return Err(e),
+            }
+        }
         Ok(review)
     }
 
@@ -464,13 +490,30 @@ impl Reviews {
                 "must be an ISO 8601 datetime",
             )),
         }
+        // the rounds of a review form one line, all with one plugin: a new
+        // round revises the latest round, never one that has a newer round
         match attrs.get("revises") {
             None | Some(Value::Null) => {}
-            Some(Value::String(id)) => {
-                if !self.db.exists(id)? {
+            Some(Value::String(id)) => match self.db.plugin_of(id)? {
+                None => {
                     violations.push(Violation::new("/revises", format!("unknown review {id}")));
                 }
-            }
+                Some(revised) => {
+                    if let Some(plugin) = attrs.get("plugin").and_then(Value::as_str)
+                        && plugin != revised
+                    {
+                        violations.push(Violation::new(
+                            "/revises",
+                            format!(
+                                "review {id} uses the {revised} plugin; a new round must use the same plugin"
+                            ),
+                        ));
+                    }
+                    if let Some(newer) = self.db.newer_round(id)? {
+                        violations.push(Violation::new("/revises", already_revised(id, &newer)));
+                    }
+                }
+            },
             Some(_) => violations.push(Violation::new("/revises", "must be a review id")),
         }
         for key in ["origin", "payload", "summary"] {

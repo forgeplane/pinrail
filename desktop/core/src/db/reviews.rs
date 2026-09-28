@@ -102,6 +102,28 @@ impl Db {
         Ok(Some(review))
     }
 
+    /// The plugin a review uses, or None when there is no such review.
+    pub fn plugin_of(&self, id: &str) -> rusqlite::Result<Option<String>> {
+        let conn = self.conn();
+        conn.query_row(
+            "SELECT plugin FROM reviews WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()
+    }
+
+    /// The round that revises this one, if any.
+    pub fn newer_round(&self, id: &str) -> rusqlite::Result<Option<String>> {
+        let conn = self.conn();
+        conn.query_row(
+            "SELECT id FROM reviews WHERE revises = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()
+    }
+
     pub fn exists(&self, id: &str) -> rusqlite::Result<bool> {
         let conn = self.conn();
         conn.query_row("SELECT 1 FROM reviews WHERE id = ?1", params![id], |_| {

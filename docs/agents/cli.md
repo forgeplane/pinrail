@@ -81,7 +81,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--sample` | Send the plugin's sample, a review it ships to show what it looks like, in place of a payload. `--title` and `--origin` still apply. See [A plugin's sample](#a-plugins-sample). |
 | `--json` | Print the review as JSON instead of markdown, for a script. |
 | `--origin` | Where the review comes from: `repo=…,workflow=…,run_id=…,ref=…,url=…`. The app groups reviews by project and links back to `url`, which must be an `http` or `https` address. Inside a git checkout, `repo` and `ref` default to the remote's `owner/name` and the current branch; outside one, give `repo` a short name for the project. Any other key is dropped, with a warning on stderr. |
-| `--revises <id>` | This review is a new round of an earlier one. |
+| `--revises <id>` | This review is a new round of an earlier one. It must revise the latest round, with the same plugin. A revised round that is still pending is withdrawn. |
 | `--timeout <seconds>` | With `--wait`: give up after this long, exit 4, and leave the review pending. |
 | `--decision-out <file>` | Also write the decision's data, as JSON, to a file. |
 | `--summary` | The counts the inbox shows beside the title. |

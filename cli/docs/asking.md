@@ -75,7 +75,9 @@ together. Otherwise submit each without `--wait`, then
 ## After asking
 
 - The person asked for changes: send the whole new version with
-  `--revises <id>`; `pinrail rounds <id>` prints every round.
+  `--revises <id>`; `pinrail rounds <id>` prints every round. Revise the
+  latest round, with the same plugin. A round still pending when you revise
+  it is withdrawn, and its waiter exits 3.
 - `pinrail show <id>`: where a review stands, and its decision.
 - `pinrail withdraw <id> --reason "<why>"`: you no longer need the answer.
 - `pinrail list`: what is waiting on the person in this project; `--all`

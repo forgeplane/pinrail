@@ -1092,6 +1092,47 @@ async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
     assert_eq!(status, StatusCode::OK);
 }
 
+/// Rounds form one line: a new round revises the latest round of its review,
+/// with the same plugin, and a round still pending when it is revised is
+/// withdrawn, so its waiting agent learns it was superseded.
+#[tokio::test]
+async fn a_new_round_revises_the_latest_round_with_the_same_plugin() {
+    let app = app();
+    let first = submit(&app, submission()).await;
+    let first_id = first["id"].as_str().unwrap().to_string();
+
+    // the first round is still pending: the second supersedes it
+    let mut body = submission();
+    body["revises"] = json!(first_id);
+    let second = submit(&app, body).await;
+    let second_id = second["id"].as_str().unwrap().to_string();
+    let (_, first) = call(&app, "GET", &format!("/api/v1/reviews/{first_id}"), None).await;
+    assert_eq!(first["status"], "withdrawn", "{first}");
+    assert_eq!(
+        first["withdrawn_reason"],
+        format!("superseded by {second_id}"),
+        "{first}"
+    );
+
+    // the first round already has a newer one: revise that instead
+    let mut body = submission();
+    body["revises"] = json!(first_id);
+    let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(violations(&refused)[0].0, "/revises");
+    assert!(violations(&refused)[0].1.contains(&second_id), "{refused}");
+
+    // another plugin's review is not an earlier round of this one
+    let hello = json!({"plugin": "feedback", "title": "Other", "revises": second_id, "payload": {"groups": [{"id": "g", "title": "G", "questions": [{"id": "q", "type": "text", "prompt": "Why?"}]}]}});
+    let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(hello)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(violations(&refused)[0].0, "/revises");
+    assert!(
+        violations(&refused)[0].1.contains("same plugin"),
+        "{refused}"
+    );
+}
+
 /// A plugin name is looked up, never joined into a path: a plugin folder
 /// beside the store is not reached through `..`.
 #[tokio::test]
