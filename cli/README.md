@@ -32,8 +32,7 @@ Agents can also read the same guidance from the command itself with
 
 The app installs the command. See
 [Installing Pinrail](../docs/getting-started/install.md). To build it from a
-checkout instead, with the Rust version pinned in the repository's
-`mise.toml`:
+checkout instead, with the Rust version pinned in `rust-toolchain.toml`:
 
 ```sh
 cargo install --path cli

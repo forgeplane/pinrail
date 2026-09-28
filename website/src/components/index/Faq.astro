@@ -19,9 +19,9 @@ const { beside = false } = Astro.props;
     </ol>
     <pre class="tree" aria-label="The list plugin's files"><span class="dir">list/</span>
 ├ manifest.json
-├ payload.schema.json   <i>in</i>
-├ decision.schema.json  <i>{beside ? "out ↑" : "out"}</i>
-└ index.html            <i>the view</i></pre>
+├ schemas/payload.schema.json   <i>in</i>
+├ schemas/decision.schema.json  <i>{beside ? "out ↑" : "out"}</i>
+└ view/index.html               <i>the view</i></pre>
   </div>
 </details>
 <details>
@@ -50,5 +50,5 @@ const { beside = false } = Astro.props;
 </details>
 <details>
   <summary>What does it cost?</summary>
-  <div class="answer"><p>Nothing. It's open source under Apache 2.0, on macOS, and in early development.</p></div>
+  <div class="answer"><p>Nothing. Pinrail is free and open source under the Apache License 2.0. It runs on macOS and Linux and is in early development.</p></div>
 </details>

@@ -13,8 +13,7 @@
 # The macOS build is signed with the Developer ID certificate and notarized
 # with an App Store Connect key, both from the repository's secrets. A build
 # without them is unsigned and still succeeds, so a fork needs nothing, and a
-# tag that cannot sign stops rather than shipping
-# (agent-docs/release-checklist.md §1 and §2). The same holds for the updater
+# tag that cannot sign stops rather than shipping. The same holds for the updater
 # key: without it a build leaves out the update bundles, and a tag stops.
 #
 # Run it by hand (Actions › release › Run workflow) to build without
