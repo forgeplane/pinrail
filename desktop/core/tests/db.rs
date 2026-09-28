@@ -6,7 +6,7 @@ use std::path::Path;
 
 use chrono::{Duration, Utc};
 use pinrail_core::attachments::ReviewAttachment;
-use pinrail_core::db::{Db, Filters, LATEST_MIGRATION};
+use pinrail_core::db::{Db, Filters, LATEST_MIGRATION, NotStored};
 use pinrail_core::reviews::{Decision, Review, Status};
 use serde_json::{Map, json};
 
@@ -113,6 +113,20 @@ fn a_second_round_of_the_same_review_is_refused_as_a_unique_violation() {
         }
         other => panic!("{other:?}"),
     }
+}
+
+/// A round whose earlier round the history sweep deleted after it was
+/// checked is not stored, and says which round is gone.
+#[test]
+fn a_round_of_a_review_that_is_gone_is_not_stored() {
+    let db = Db::in_memory().unwrap();
+    let mut round = review("r_2", None);
+    round.revises = Some("r_gone".into());
+    assert!(matches!(
+        db.insert_review_once(&round, None).unwrap(),
+        Err(NotStored::RevisesGone(id)) if id == "r_gone"
+    ));
+    assert!(db.get_review("r_2").unwrap().is_none());
 }
 
 #[test]

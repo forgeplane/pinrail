@@ -49,6 +49,9 @@ pub enum NotStored {
     /// A file the review names is no longer stored, removed by the sweep
     /// after the submission was checked: the file's name in the review.
     FileGone(String),
+    /// The round this one revises is no longer stored, removed by the
+    /// sweep after the submission was checked: its id.
+    RevisesGone(String),
 }
 
 impl Db {
@@ -139,6 +142,16 @@ fn insert_in(
     review: &Review,
     actor: Option<&str>,
 ) -> rusqlite::Result<Result<i64, NotStored>> {
+    if let Some(revised) = &review.revises {
+        let there: bool = tx.query_row(
+            "SELECT EXISTS (SELECT 1 FROM reviews WHERE id = ?1)",
+            params![revised],
+            |row| row.get(0),
+        )?;
+        if !there {
+            return Ok(Err(NotStored::RevisesGone(revised.clone())));
+        }
+    }
     {
         tx.execute(
             "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, summary, revises, expires_at, created_at)

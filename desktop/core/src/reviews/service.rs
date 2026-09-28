@@ -130,6 +130,9 @@ impl Reviews {
         let event_id = match self.db.insert_review_once(&review, actor) {
             Ok(Ok(event_id)) => event_id,
             Ok(Err(NotStored::Twin(existing))) => return Ok((self.get(&existing)?, false)),
+            Ok(Err(NotStored::RevisesGone(id))) => {
+                return Err(Error::invalid("/revises", format!("unknown review {id}")));
+            }
             Ok(Err(NotStored::FileGone(name))) => {
                 return Err(Error::invalid(
                     format!("/attachments/{name}/sha256"),
