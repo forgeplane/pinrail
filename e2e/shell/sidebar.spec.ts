@@ -79,3 +79,14 @@ test("more than five waiting points at the inbox", async ({ page }) => {
   for (const id of ids) await decideNothing(page.request, id);
   await expect(waiting).toHaveCount(0);
 });
+
+test("⌘B hides the sidebar and shows it again", async ({ page }) => {
+  await page.goto("/#/history");
+  const toggle = page.locator("button.bar-button[aria-label$='sidebar']");
+  await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect(toggle).toHaveAttribute("aria-label", "Show sidebar");
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+});

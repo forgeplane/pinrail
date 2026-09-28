@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, Ban, Blocks, FolderGit2, Hand, History, Inbox, Keyboard, Moon, PanelLeft, RefreshCw, Search, Settings, Sun, SunMoon } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
 import { api } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
@@ -51,7 +51,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
   const { settings: prefs, update, loaded } = useSettings();
   const sidebar = prefs.sidebar.open;
-  const toggleSidebar = () => update({ sidebar: { open: !sidebar } });
+  const toggleSidebar = useCallback(() => update({ sidebar: { open: !sidebar } }), [update, sidebar]);
   const sidebarButton = (
     <Tooltip label={sidebar ? "Hide sidebar" : "Show sidebar"} keys={[MOD, "B"]}>
       <button type="button" className="bar-button" onClick={toggleSidebar} aria-label={sidebar ? "Hide sidebar" : "Show sidebar"}>
@@ -231,7 +231,7 @@ export function Layout({ children }: { children: ReactNode }) {
       window.removeEventListener("pinrail:command", onCommand);
       window.removeEventListener("pinrail:theme-toggle", onThemeToggle);
     };
-  }, [navigate, update]);
+  }, [navigate, update, toggleSidebar]);
 
   return (
     <div className={`app-frame ${overlayTitleBar ? "has-overlay-bar" : ""} ${sidebar ? "" : "sidebar-closed"}`}>
