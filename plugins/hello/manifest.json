@@ -8,13 +8,19 @@
   "payload_schema": {
     "type": "object",
     "required": ["message"],
-    "properties": { "message": { "type": "string" } }
+    "additionalProperties": false,
+    "properties": {
+      "message": { "type": "string", "description": "The yes-or-no question, as the person reads it." }
+    }
   },
   "decision_schema": {
     "type": "object",
     "required": ["ok"],
     "additionalProperties": false,
-    "properties": { "ok": { "type": "boolean" }, "comment": { "type": "string" } }
+    "properties": {
+      "ok": { "type": "boolean", "description": "The person's answer: true for yes." },
+      "comment": { "type": "string", "description": "What the person added, if anything." }
+    }
   },
   "example": "example.json",
   "sample": "sample.json",
