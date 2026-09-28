@@ -723,6 +723,19 @@ fn updating_every_plugin_exits_1_when_the_app_fails_and_2_when_it_refuses() {
 }
 
 #[test]
+fn a_slow_answer_is_not_reported_as_an_app_that_is_not_running() {
+    // the app is there and takes its time: past the CLI's 15 seconds
+    let server = MockServer::start(Box::new(|_, _, _| {
+        std::thread::sleep(std::time::Duration::from_secs(17));
+        (200, review("pending"))
+    }));
+    let (code, _, stderr) = run(&server, &["show", "r_1"]);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("did not finish answering"), "{stderr}");
+    assert!(!stderr.contains("open the Pinrail app"), "{stderr}");
+}
+
+#[test]
 fn plugin_versions_say_when_no_version_is_usable() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
         "/api/v1/plugins/hello/versions" => (

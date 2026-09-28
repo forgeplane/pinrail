@@ -35,6 +35,9 @@ impl std::error::Error for ApiError {}
 
 pub struct Client {
     agent: Agent,
+    /// For a request the app answers only after remote work, such as
+    /// asking a plugin's repository what is new.
+    slow: Agent,
     base: String,
 }
 
@@ -48,6 +51,28 @@ impl Client {
         )
     }
 
+    /// A request that failed before an answer came: nothing listening is
+    /// said as `unreachable`, and an answer too slow in coming as such, since
+    /// the app is running and may still do what it was asked.
+    fn failed(&self, error: ureq::Error) -> anyhow::Error {
+        use ureq::Timeout;
+        let listening = !matches!(
+            &error,
+            ureq::Error::ConnectionFailed
+                | ureq::Error::HostNotFound
+                | ureq::Error::Timeout(Timeout::Resolve | Timeout::Connect)
+        ) && !matches!(&error, ureq::Error::Io(io) if io.kind() == std::io::ErrorKind::ConnectionRefused);
+        let context = match &error {
+            ureq::Error::Timeout(_) if listening => format!(
+                "the server at {} did not finish answering in time; it is running, so what was asked may still go ahead",
+                self.base
+            ),
+            _ if listening => format!("the connection to the server at {} failed", self.base),
+            _ => self.unreachable(),
+        };
+        anyhow::Error::new(error).context(context)
+    }
+
     /// The longest a single wait poll asks the server to hold the request.
     /// Short on purpose: a poll that lands on a server draining connections
     /// after a restart is abandoned within `POLL_SECS + 5`, not minutes.
@@ -56,6 +81,7 @@ impl Client {
     pub fn new(base: &str) -> Self {
         Client {
             agent: Self::agent(Duration::from_secs(15)),
+            slow: Self::agent(Duration::from_secs(120)),
             base: base.trim_end_matches('/').to_string(),
         }
     }
@@ -194,7 +220,12 @@ impl Client {
     /// when there is nothing new, and otherwise the job is followed like
     /// an install's.
     pub fn plugins_update(&self, name: &str) -> Result<Value> {
-        let started = self.post(&format!("/api/v1/plugins/{}/update", segment(name)), None)?;
+        // the app asks the plugin's source what is new before it answers
+        let started = self.post_with(
+            &self.slow,
+            &format!("/api/v1/plugins/{}/update", segment(name)),
+            None,
+        )?;
         match started["job"].as_str() {
             Some(id) => {
                 let plugin = self.follow_job(id)?;
@@ -294,7 +325,7 @@ impl Client {
             .query("format", "markdown")
             .query("head", "command")
             .call()
-            .with_context(|| self.unreachable())?;
+            .map_err(|e| self.failed(e))?;
         let status = resp.status().as_u16();
         if !(200..300).contains(&status) {
             // body() turns every status outside 2xx into the server's error
@@ -313,7 +344,7 @@ impl Client {
             .agent
             .head(format!("{}/api/v1/attachments/{sha256}", self.base))
             .call()
-            .with_context(|| self.unreachable())?;
+            .map_err(|e| self.failed(e))?;
         match resp.status().as_u16() {
             200 => Ok(true),
             404 => Ok(false),
@@ -336,7 +367,7 @@ impl Client {
             .header("content-type", "application/octet-stream")
             .header("content-length", size.to_string())
             .send(ureq::SendBody::from_reader(&mut body))
-            .with_context(|| self.unreachable())?;
+            .map_err(|e| self.failed(e))?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
@@ -355,7 +386,7 @@ impl Client {
                 segment(name)
             ))
             .call()
-            .with_context(|| self.unreachable())?;
+            .map_err(|e| self.failed(e))?;
         let status = resp.status().as_u16();
         if !(200..300).contains(&status) {
             return Self::body(status, &mut resp).map(|_| 0);
@@ -368,22 +399,25 @@ impl Client {
         for (k, v) in query {
             req = req.query(*k, v);
         }
-        let mut resp = req.call().with_context(|| self.unreachable())?;
+        let mut resp = req.call().map_err(|e| self.failed(e))?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
     fn post(&self, path: &str, body: Option<&Value>) -> Result<Value> {
+        self.post_with(&self.agent, path, body)
+    }
+
+    fn post_with(&self, agent: &Agent, path: &str, body: Option<&Value>) -> Result<Value> {
         let url = format!("{}{path}", self.base);
         let mut resp = match body {
-            Some(json) => self.agent.post(&url).send_json(json),
+            Some(json) => agent.post(&url).send_json(json),
             // the server refuses a write that does not say it is JSON, even an empty one
-            None => self
-                .agent
+            None => agent
                 .post(&url)
                 .header("content-type", "application/json")
                 .send_empty(),
         }
-        .with_context(|| self.unreachable())?;
+        .map_err(|e| self.failed(e))?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
@@ -392,7 +426,7 @@ impl Client {
             .agent
             .delete(format!("{}{path}", self.base))
             .call()
-            .with_context(|| self.unreachable())?;
+            .map_err(|e| self.failed(e))?;
         Self::body(resp.status().as_u16(), &mut resp)
     }
 
