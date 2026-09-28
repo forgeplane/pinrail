@@ -251,7 +251,13 @@ window.addEventListener("message", (event) => {
         check("settings", patch).then((errors) => (errors.length ? post({ type: "violations", errors }) : setStored(patch)));
       }
       break;
-    case "submit": lastSubmit = msg.data; show("s-submit", lastSubmit); break;
+    case "submit":
+      // as the app: a decision the schema refuses comes back as violations,
+      // one it accepts as submitted; the buttons below reply otherwise
+      lastSubmit = msg.data;
+      show("s-submit", lastSubmit);
+      check("decision", lastSubmit).then((errors) => (errors.length ? post({ type: "violations", errors }) : submitted()));
+      break;
     case "attachment": answerAttachment(msg); break;
   }
 });
