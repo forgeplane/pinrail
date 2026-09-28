@@ -58,6 +58,24 @@ fn by_status(db: &Db, status: Status) -> Vec<String> {
 /// Expiry has no row of its own, so the insert itself refuses an ending
 /// once the review's time is up, whatever the caller checked before.
 #[test]
+fn a_review_is_read_with_its_payload_and_deleted_with_it() {
+    let db = Db::in_memory().unwrap();
+    let mut first = review("r_1", None);
+    first.payload = Some(json!({"items": [{"id": 1}]}));
+    db.insert_review(&first, None).unwrap().unwrap();
+    db.insert_review(&review("r_2", None), None)
+        .unwrap()
+        .unwrap();
+
+    let read = db.get_review("r_1").unwrap().unwrap();
+    assert_eq!(read.payload, Some(json!({"items": [{"id": 1}]})));
+
+    assert_eq!(db.delete_reviews(&["r_1"]).unwrap(), 1);
+    assert!(db.get_review("r_1").unwrap().is_none());
+    assert!(db.get_review("r_2").unwrap().is_some());
+}
+
+#[test]
 fn nothing_ends_a_review_after_it_expired() {
     let db = Db::in_memory().unwrap();
     db.insert_review(&review("r_1", Some(Duration::seconds(-1))), None)

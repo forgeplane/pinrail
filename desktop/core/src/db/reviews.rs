@@ -88,7 +88,8 @@ impl Db {
         let twins: Vec<String> = tx
             .prepare(
                 "SELECT r.id FROM reviews r
-                 WHERE r.plugin = ?1 AND r.title = ?2 AND r.payload = ?3 AND r.origin = ?4
+                 JOIN review_payloads p ON p.review_id = r.id
+                 WHERE r.plugin = ?1 AND r.title = ?2 AND p.payload = ?3 AND r.origin = ?4
                    AND r.revises IS ?5
                    AND NOT EXISTS (SELECT 1 FROM outcomes o WHERE o.review_id = r.id)
                    AND (r.expires_at IS NULL OR r.expires_at > ?6)
@@ -140,8 +141,8 @@ fn insert_in(
 ) -> rusqlite::Result<Result<i64, NotStored>> {
     {
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, payload, summary, revises, expires_at, created_at)
-             VALUES (?1, ?2, ?3, ?12, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, summary, revises, expires_at, created_at)
+             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 review.id,
                 review.plugin,
@@ -149,12 +150,22 @@ fn insert_in(
                 review.title,
                 Value::Object(review.origin.clone()).to_string(),
                 review.requested_by,
-                review.payload.clone().unwrap_or(Value::Object(Map::new())).to_string(),
                 review.summary.as_ref().map(|s| s.to_string()),
                 review.revises,
                 review.expires_at.map(crate::reviews::iso),
                 crate::reviews::iso(review.created_at),
                 review.plugin_release,
+            ],
+        )?;
+        tx.execute(
+            "INSERT INTO review_payloads (review_id, payload) VALUES (?1, ?2)",
+            params![
+                review.id,
+                review
+                    .payload
+                    .clone()
+                    .unwrap_or(Value::Object(Map::new()))
+                    .to_string(),
             ],
         )?;
         let event_id = insert_event(
@@ -190,9 +201,11 @@ impl Db {
     pub fn get_review(&self, id: &str) -> rusqlite::Result<Option<Review>> {
         let conn = self.conn();
         let review = conn
-            .query_row(&format!("{SELECT} WHERE r.id = ?1"), params![id], |row| {
-                row_to_review(row, true)
-            })
+            .query_row(
+                &format!("{} WHERE r.id = ?1", select(true)),
+                params![id],
+                |row| row_to_review(row, true),
+            )
             .optional()?;
         let Some(mut review) = review else {
             return Ok(None);
@@ -247,7 +260,7 @@ impl Db {
     pub fn list(&self, filters: &Filters, now: DateTime<Utc>) -> rusqlite::Result<Vec<Review>> {
         let (mut sql, mut args) = self.where_clause(filters, now);
         let order = if filters.oldest_first { "ASC" } else { "DESC" };
-        sql = format!("{SELECT}{sql} ORDER BY r.id {order}");
+        sql = format!("{}{sql} ORDER BY r.id {order}", select(false));
         if filters.limit > 0 {
             args.push(filters.limit.to_string());
             sql.push_str(&format!(" LIMIT ?{}", args.len()));
@@ -422,7 +435,7 @@ impl Db {
         let mut frontier = vec![root];
         while let Some(current) = frontier.pop() {
             let review = conn.query_row(
-                &format!("{SELECT} WHERE r.id = ?1"),
+                &format!("{} WHERE r.id = ?1", select(false)),
                 params![current],
                 |row| row_to_review(row, false),
             )?;
@@ -443,10 +456,11 @@ impl Db {
     pub fn newly_expired(&self, now: DateTime<Utc>) -> rusqlite::Result<Vec<Review>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(&format!(
-            "{SELECT} WHERE r.expires_at IS NOT NULL AND r.expires_at <= ?1
+            "{} WHERE r.expires_at IS NOT NULL AND r.expires_at <= ?1
                AND o.review_id IS NULL
                AND NOT EXISTS (SELECT 1 FROM events e WHERE e.review_id = r.id AND e.kind = 'expired')
-             ORDER BY r.id"
+             ORDER BY r.id",
+            select(false)
         ))?;
         let rows = stmt.query_map(params![crate::reviews::iso(now)], |row| {
             row_to_review(row, false)
@@ -527,14 +541,28 @@ impl Db {
     }
 }
 
-const SELECT: &str = "SELECT r.id, r.plugin, r.plugin_version, r.title, r.origin, r.requested_by, r.payload, r.summary,
+/// The columns `row_to_review` reads. Only a single review joins its
+/// payload; a listing selects NULL in its place.
+fn select(with_payload: bool) -> String {
+    let (payload, join) = if with_payload {
+        (
+            "p.payload",
+            "\n  JOIN review_payloads p ON p.review_id = r.id",
+        )
+    } else {
+        ("NULL", "")
+    };
+    format!(
+        "SELECT r.id, r.plugin, r.plugin_version, r.title, r.origin, r.requested_by, {payload}, r.summary,
     r.revises, r.expires_at, r.created_at,
     o.kind, o.at, o.by, o.reason, o.data, o.agent_note,
     r.plugin_release,
     (SELECT count(*) FROM review_attachments a WHERE a.review_id = r.id),
     (SELECT coalesce(sum(a.size), 0) FROM review_attachments a WHERE a.review_id = r.id)
   FROM reviews r
-  LEFT JOIN outcomes o ON o.review_id = r.id";
+  LEFT JOIN outcomes o ON o.review_id = r.id{join}"
+    )
+}
 
 /// What `Review::status` says, as SQL over the same columns, so a listing
 /// and a count read only the rows they answer with. `?now` is the caller's
@@ -555,7 +583,7 @@ fn status_sql(status: Status, now: usize) -> String {
 
 fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Result<Review> {
     let origin: String = row.get(4)?;
-    let payload: String = row.get(6)?;
+    let payload: Option<String> = row.get(6)?;
     let summary: Option<String> = row.get(7)?;
     let expires_at: Option<String> = row.get(9)?;
     let created_at: String = row.get(10)?;
@@ -614,11 +642,9 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
             .and_then(|v| v.as_object().cloned())
             .unwrap_or_default(),
         requested_by: row.get(5)?,
-        payload: if with_payload {
-            Some(serde_json::from_str(&payload).unwrap_or(Value::Null))
-        } else {
-            None
-        },
+        payload: payload
+            .filter(|_| with_payload)
+            .map(|p| serde_json::from_str(&p).unwrap_or(Value::Null)),
         summary: summary.and_then(|s| serde_json::from_str(&s).ok()),
         revises: row.get(8)?,
         expires_at: expires_at.and_then(|s| parse_datetime(&s)),

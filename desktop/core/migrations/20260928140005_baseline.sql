@@ -8,7 +8,6 @@ CREATE TABLE reviews (
   title          TEXT NOT NULL,
   origin         TEXT NOT NULL,
   requested_by   TEXT,
-  payload        TEXT NOT NULL,
   summary        TEXT,
   revises        TEXT REFERENCES reviews(id),
   expires_at     TEXT,
@@ -20,6 +19,14 @@ CREATE INDEX reviews_created ON reviews(created_at DESC);
 -- A round has at most one newer round, so the rounds of a review form a
 -- single line. SQLite allows any number of NULLs in a unique index.
 CREATE UNIQUE INDEX reviews_revises ON reviews(revises);
+
+-- A review's payload, kept apart from its row: a payload can run to
+-- megabytes, and listing reviews never reads it. It goes when its review
+-- is deleted.
+CREATE TABLE review_payloads (
+  review_id TEXT PRIMARY KEY REFERENCES reviews(id) ON DELETE CASCADE,
+  payload   TEXT NOT NULL
+);
 
 CREATE TABLE events (
   id        INTEGER PRIMARY KEY,
