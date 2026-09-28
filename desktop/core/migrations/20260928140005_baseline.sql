@@ -15,7 +15,8 @@ CREATE TABLE reviews (
   -- the exact release it was submitted to; the major above is what renders it
   plugin_release TEXT
 );
-CREATE INDEX reviews_created ON reviews(created_at DESC);
+-- which reviews render from a plugin's major, before its entry is removed
+CREATE INDEX reviews_plugin ON reviews(plugin, plugin_version);
 -- A round has at most one newer round, so the rounds of a review form a
 -- single line. SQLite allows any number of NULLs in a unique index.
 CREATE UNIQUE INDEX reviews_revises ON reviews(revises);

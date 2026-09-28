@@ -2,7 +2,7 @@
 //! is a row here first, so a client that was away can catch up.
 
 use chrono::{DateTime, Utc};
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 use serde_json::Value;
 
 use super::Db;
@@ -41,17 +41,6 @@ impl Db {
     ) -> rusqlite::Result<i64> {
         let conn = self.conn();
         insert_event(&conn, review_id, kind, actor, attrs)
-    }
-
-    pub fn has_event(&self, review_id: &str, kind: &str) -> rusqlite::Result<bool> {
-        let conn = self.conn();
-        conn.query_row(
-            "SELECT 1 FROM events WHERE review_id = ?1 AND kind = ?2 LIMIT 1",
-            params![review_id, kind],
-            |_| Ok(()),
-        )
-        .optional()
-        .map(|r| r.is_some())
     }
 
     pub fn events_for(&self, review_id: &str) -> rusqlite::Result<Vec<Event>> {

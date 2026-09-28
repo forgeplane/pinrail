@@ -53,6 +53,15 @@ struct Checked<'a> {
 }
 
 /// The refusal for a round that already has a newer round.
+/// The page size a listing asks for, within the server's bounds: the
+/// default when none is given.
+fn clamp_limit(limit: usize) -> usize {
+    match limit {
+        0 => DEFAULT_LIMIT,
+        n => n.min(MAX_LIMIT),
+    }
+}
+
 fn already_revised(id: &str, newer: &str) -> String {
     format!("review {id} already has a newer round, {newer}; revise that one")
 }
@@ -217,10 +226,7 @@ impl Reviews {
 
     pub fn list(&self, filters: &Filters) -> Result<Vec<Review>, Error> {
         let mut filters = filters.clone();
-        filters.limit = match filters.limit {
-            0 => DEFAULT_LIMIT,
-            n => n.min(MAX_LIMIT),
-        };
+        filters.limit = clamp_limit(filters.limit);
         Ok(self.db.list(&filters, Utc::now())?)
     }
 
@@ -232,10 +238,7 @@ impl Reviews {
     pub fn listing(&self, filters: &Filters, facets: bool) -> Result<Listing, Error> {
         let now = Utc::now();
         let mut filters = filters.clone();
-        filters.limit = match filters.limit {
-            0 => DEFAULT_LIMIT,
-            n => n.min(MAX_LIMIT),
-        };
+        filters.limit = clamp_limit(filters.limit);
         let limit = filters.limit;
         // one row past the page says whether there is another
         filters.limit = limit + 1;
