@@ -24,7 +24,9 @@ on:
 # than cancelling one halfway through; a pull request's builds queue apart
 concurrency:
   group: website-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
-  cancel-in-progress: false
+  # deploys run one after another; a newer push to a pull request cancels
+  # the build it replaces
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # read-only, unless a job asks for more
 permissions:

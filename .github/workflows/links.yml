@@ -14,6 +14,11 @@ on:
 permissions:
   contents: read
 
+# a newer push to a pull request cancels the run it replaces
+concurrency:
+  group: links-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   links:
     runs-on: ubuntu-latest
