@@ -206,9 +206,28 @@ async function answerAttachment(msg) {
   note({ type: "attachment", req: msg.req, ok: true, name: msg.name, size: listed.size }, "out");
 }
 
+// A draft is kept per fixture for the browser session, as the app keeps one
+// per review: reloading the page brings it back, a hand-over clears it.
+const DRAFT_KEY = () => `pinrail-shell:draft:${manifest.name}:${gateFixture}`;
+function keepDraft(data) {
+  try {
+    if (data == null) sessionStorage.removeItem(DRAFT_KEY());
+    else sessionStorage.setItem(DRAFT_KEY(), JSON.stringify(data));
+  } catch {
+    // no storage: the draft lasts until the page reloads
+  }
+}
+function keptDraft() {
+  try {
+    return JSON.parse(sessionStorage.getItem(DRAFT_KEY()) ?? "null");
+  } catch {
+    return null;
+  }
+}
+
 async function loadFixture(name) {
   gateFixture = name || "";
-  draft = null; lastSubmit = null; show("s-draft", null); show("s-submit", null); show("s-status", null);
+  draft = keptDraft(); lastSubmit = null; show("s-draft", draft); show("s-submit", null); show("s-status", null);
   const partial = name ? await (await fetch("/dev/fixtures/" + encodeURIComponent(name))).json() : { title: "empty", payload: {} };
   review = reviewFrom(partial, manifest.name);
   localStorage.setItem("pinrail-shell:fixture:" + manifest.name, name);
@@ -239,7 +258,7 @@ window.addEventListener("message", (event) => {
       if (msg.height === "fill") { stage.classList.add("fill"); }
       else { stage.classList.remove("fill"); frame.style.height = Math.max(manifest.min_height || 200, Math.ceil(msg.height)) + "px"; }
       break;
-    case "draft": draft = msg.data; show("s-draft", draft); break;
+    case "draft": draft = msg.data; keepDraft(draft); show("s-draft", draft); break;
     case "status": show("s-status", msg.label); break;
     // in the app the system browser opens it; here, a tab
     case "open": window.open(msg.url, "_blank", "noreferrer"); break;
@@ -278,6 +297,8 @@ async function check(kind, data) {
   return answer.ok ? (await answer.json()).errors : [];
 }
 function submitted() {
+  draft = null;
+  keepDraft(null);
   review = { ...review, status: "decided", decision: { decided_by: "dev", decided_at: new Date().toISOString(), data: lastSubmit } };
   post({ type: "submitted", decision: review.decision });
 }
