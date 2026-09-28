@@ -107,7 +107,7 @@ async fn check(body: Bytes) -> Result<Json<Value>, ApiError> {
     if !dir.is_dir() {
         return Err(Error::invalid("/dir", format!("{} is not a folder", dir.display())).into());
     }
-    Ok(Json(crate::plugins::Plugin::load(&dir).verdict()))
+    Ok(Json(crate::plugins::Plugin::check(&dir)))
 }
 
 async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {

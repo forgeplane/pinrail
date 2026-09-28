@@ -130,7 +130,7 @@ const UNKNOWN_KEY: &str =
 impl Plugin {
     /// Loads the plugin at `dir`. Never fails: a bad plugin comes back with `error`.
     pub fn load(dir: &Path) -> Plugin {
-        match Self::try_load(dir) {
+        match Self::try_load(dir, false) {
             Ok(plugin) => plugin,
             Err(message) => Plugin {
                 name: dir
@@ -170,7 +170,37 @@ impl Plugin {
         }
     }
 
-    fn try_load(dir: &Path) -> Result<Plugin, String> {
+    /// What `plugins check` answers for a folder: the loader's verdict,
+    /// except that a plugin whose build writes its entry is judged before
+    /// that build, as an install takes it, with the missing entry a warning.
+    pub fn check(dir: &Path) -> Value {
+        let Ok(plugin) = Self::try_load(dir, true) else {
+            return Self::load(dir).verdict();
+        };
+        let mut verdict = plugin.verdict();
+        if !dir.join(&plugin.entry).is_file() {
+            let command = plugin
+                .manifest
+                .get("build")
+                .and_then(|build| build["command"].as_str())
+                .unwrap_or_default()
+                .trim();
+            if let Some(warnings) = verdict["warnings"].as_array_mut() {
+                warnings.insert(
+                    0,
+                    serde_json::json!({
+                        "key": "entry",
+                        "message": format!("entry {} not found yet: the build ({command}) has to write it", plugin.entry),
+                    }),
+                );
+            }
+        }
+        verdict
+    }
+
+    /// Loads the plugin in `dir`; `before_build` lets a declared build be
+    /// the one to write the entry.
+    fn try_load(dir: &Path, before_build: bool) -> Result<Plugin, String> {
         let body = std::fs::read_to_string(dir.join(MANIFEST))
             .map_err(|e| format!("cannot read {MANIFEST} ({e})"))?;
         let manifest: Value = serde_json::from_str(&body)
@@ -207,7 +237,11 @@ impl Plugin {
             .and_then(Value::as_str)
             .unwrap_or("index.html")
             .to_string();
-        if !dir.join(&entry).is_file() {
+        let builds = manifest
+            .get("build")
+            .and_then(|build| build["command"].as_str())
+            .is_some_and(|command| !command.trim().is_empty());
+        if !dir.join(&entry).is_file() && !(before_build && builds) {
             return Err(format!("entry {entry} not found"));
         }
         // an icon that does not load costs the plugin its icon, not its place

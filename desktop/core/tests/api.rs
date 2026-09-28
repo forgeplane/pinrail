@@ -3602,6 +3602,28 @@ async fn a_plugin_sample_is_sent_over_http_and_listed_as_there() {
 }
 
 #[tokio::test]
+async fn a_plugin_that_builds_its_view_is_checked_before_its_first_build() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    // a framework plugin as it is scaffolded: sources and a build, no view yet
+    let dir = buildable_plugin(scratch.path(), "fresh", "npm run build");
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/check",
+        Some(json!({ "dir": dir })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["usable"], true, "{body}");
+    assert_eq!(body["problems"], json!([]));
+    assert_eq!(
+        body["warnings"],
+        json!([{ "key": "entry", "message": "entry index.html not found yet: the build (npm run build) has to write it" }])
+    );
+}
+
+#[tokio::test]
 async fn a_plugin_folder_is_checked_as_the_app_would_load_it() {
     let app = app();
     let list = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
