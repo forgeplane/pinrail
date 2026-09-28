@@ -33,7 +33,7 @@ pub fn routes() -> Router<ApiState> {
 /// everything else from the API, so any id gets the same page.
 async fn preview() -> Response {
     const PAGE: &str = include_str!("preview.html");
-    let csp = "default-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'";
+    let csp = "default-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
     (
         [
             (

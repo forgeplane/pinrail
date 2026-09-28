@@ -13,10 +13,12 @@ mod sse;
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::http::{HeaderValue, header};
 use axum::{Json, Router, extract::FromRef, extract::State, routing::get};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::set_header::SetResponseHeaderLayer;
 
 use crate::error::Error;
 use crate::{Pinrail, server_info};
@@ -85,6 +87,12 @@ fn router_with(state: ApiState) -> Router {
         // outermost: a request from a page that rebound its name to loopback
         // is refused before anything else looks at it
         .layer(axum::middleware::from_fn(guard::loopback_host))
+        // every answer, refusals included: a browser never reads JSON or
+        // markdown as a page or a script
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
         .with_state(state)
 }
 

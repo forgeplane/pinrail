@@ -33,7 +33,7 @@ sha2 = "0.10"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "net", "sync", "time"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-util = { version = "0.7", features = ["io"] }
-tower-http = { version = "0.6", features = ["cors"] }
+tower-http = { version = "0.6", features = ["cors", "set-header"] }
 ureq = { version = "3", features = ["json"] }
 zip = { version = "4", default-features = false, features = ["deflate"] }
 

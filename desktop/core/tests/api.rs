@@ -3939,8 +3939,42 @@ async fn a_review_has_a_preview_page_for_a_browser() {
             .unwrap()
             .contains("frame-src 'self'")
     );
+    // no other site may frame it
+    assert!(
+        response.headers()[axum::http::header::CONTENT_SECURITY_POLICY]
+            .to_str()
+            .unwrap()
+            .contains("frame-ancestors 'none'")
+    );
     let body = response.into_body().collect().await.unwrap().to_bytes();
     assert!(String::from_utf8_lossy(&body).contains(r#"sandbox="allow-scripts""#));
+}
+
+/// Every answer says its content type is final, so a browser never reads
+/// JSON or markdown as a page or a script: answers, refusals and pages alike.
+#[tokio::test]
+async fn no_answer_leaves_its_content_type_to_be_sniffed() {
+    let app = app();
+    for uri in [
+        "/api/v1/info",
+        "/api/v1/reviews/r_missing",
+        "/preview/reviews/r_anything",
+    ] {
+        let request = Request::builder()
+            .uri(uri)
+            .header("host", "127.0.0.1:4747")
+            .body(Body::empty())
+            .unwrap();
+        let response = app.router.clone().oneshot(request).await.unwrap();
+        assert_eq!(
+            response
+                .headers()
+                .get(axum::http::header::X_CONTENT_TYPE_OPTIONS)
+                .map(|v| v.to_str().unwrap()),
+            Some("nosniff"),
+            "{uri}"
+        );
+    }
 }
 
 #[tokio::test]
