@@ -24,7 +24,7 @@ import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
-import { MOD, hasMod } from "../lib/keys";
+import { MOD, SHIFT, hasMod } from "../lib/keys";
 import { NO_PROJECT } from "../lib/shortcuts";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
@@ -45,9 +45,17 @@ const WAITING_SHOWN = 5;
 // Plugins live in the settings: Cmd+Shift+P opens that section.
 const NAV = [
   { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, letter: "i", shift: false, keys: [MOD, "I"] },
-  { key: "history", label: "History", to: "/history", Icon: History, letter: "h", shift: true, keys: [MOD, "⇧", "H"] },
+  {
+    key: "history",
+    label: "History",
+    to: "/history",
+    Icon: History,
+    letter: "h",
+    shift: true,
+    keys: [MOD, SHIFT, "H"],
+  },
 ];
-const PLUGINS_KEYS = [MOD, "⇧", "P"];
+const PLUGINS_KEYS = [MOD, SHIFT, "P"];
 
 const pageTitle = (path: string) => (path === "/" ? "Inbox" : path.startsWith("/history") ? "History" : "Review");
 
@@ -106,7 +114,7 @@ export function Layout({ children }: { children: ReactNode }) {
     {
       id: "theme",
       label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme",
-      keys: [MOD, "⇧", "L"],
+      keys: [MOD, SHIFT, "L"],
       icon: SunMoon,
       run: toggleTheme,
     },
@@ -416,7 +424,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <Keyboard size={16} />
             </button>
           </Tooltip>
-          <Tooltip label={theme === "dark" ? "Light theme" : "Dark theme"} keys={[MOD, "⇧", "L"]}>
+          <Tooltip label={theme === "dark" ? "Light theme" : "Dark theme"} keys={[MOD, SHIFT, "L"]}>
             <button type="button" className="bar-button" onClick={toggleTheme} aria-label="Toggle light and dark theme">
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>

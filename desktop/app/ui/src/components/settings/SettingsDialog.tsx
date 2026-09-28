@@ -9,7 +9,7 @@ import { api, inTauri } from "../../api/client";
 import { copyText } from "../../lib/clipboard";
 import { size } from "../../lib/format";
 import type { Info as ServerInfo } from "../../api/types";
-import { REVEAL, TRAY } from "../../lib/keys";
+import { GLOBAL_MODIFIERS, MOD, REVEAL, SHIFT, TRAY, combo } from "../../lib/keys";
 import { DEFAULT_GLOBAL_SHORTCUT, SHORTCUTS } from "../../lib/shortcuts";
 import { useSettings } from "../../state/settings";
 import { describeSystem, useNotificationStatus } from "../../state/notifications";
@@ -234,7 +234,7 @@ export function SettingsDialog({
               <SettingsGroup caption="Startup">
                 <SettingsRow
                   label="Launch at login"
-                  description="Open Pinrail when you sign in, in the menu bar"
+                  description={`Open Pinrail when you sign in, in ${TRAY}`}
                   note={native ? undefined : "Only in the app"}
                 >
                   <Toggle
@@ -341,7 +341,7 @@ export function SettingsDialog({
               <SettingsGroup>
                 <SettingsRow
                   label="Theme"
-                  description="System follows your computer's setting. ⌘⇧L switches between dark and light."
+                  description={`System follows your computer's setting. ${combo(MOD, SHIFT, "L")} switches between dark and light.`}
                 >
                   <Segmented
                     label="Theme"
@@ -375,7 +375,7 @@ export function SettingsDialog({
               <SettingsGroup caption="Anywhere on your computer">
                 <SettingsRow
                   label="Open Pinrail"
-                  description="Click the keys and press a new combination; it needs ⌘, ⌃ or ⌥"
+                  description={`Click the keys and press a new combination; it needs ${GLOBAL_MODIFIERS}`}
                   note={describeShortcut(shortcut, settings.shortcut.global)}
                 >
                   <ShortcutRecorder

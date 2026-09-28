@@ -1,4 +1,4 @@
-import { MOD, isMac } from "./keys";
+import { ALT, MOD, SHIFT, isMac } from "./keys";
 
 /** The in-app shortcuts, for the ? dialog and the settings. */
 /** The `repo` filter's value for the reviews that name no project. */
@@ -14,8 +14,8 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   {
     what: "Next / previous waiting review",
     keys: [
-      ["⌥", "↓"],
-      ["⌥", "↑"],
+      [ALT, "↓"],
+      [ALT, "↑"],
     ],
   },
   { what: "Discard the focused review", keys: [["D"]] },
@@ -25,12 +25,12 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   {
     what: "History / Plugins",
     keys: [
-      [MOD, "⇧", "H"],
-      [MOD, "⇧", "P"],
+      [MOD, SHIFT, "H"],
+      [MOD, SHIFT, "P"],
     ],
   },
   { what: "Settings", keys: [[MOD, ","]] },
-  { what: "Switch theme", keys: [[MOD, "⇧", "L"]] },
+  { what: "Switch theme", keys: [[MOD, SHIFT, "L"]] },
   { what: "Show or hide the sidebar", keys: [[MOD, "B"]] },
   {
     what: "Back / forward",
@@ -40,7 +40,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
     ],
   },
   { what: "Hand over to the agent", keys: [[MOD, "Enter"]] },
-  { what: "Maximize / restore the view", keys: [[MOD, "⇧", "M"]] },
+  { what: "Maximize / restore the view", keys: [[MOD, SHIFT, "M"]] },
   { what: "Previous / next round", keys: [["["], ["]"]] },
   { what: "Keyboard shortcuts", keys: [["?"]] },
 ];
@@ -170,7 +170,8 @@ export const isShadowed = (keys: string) => APP_KEYS.has(keys);
 /**
  * The shortcut a key press asks for, in the form the app registers, or
  * null when the press is a modifier alone or carries none: a global
- * shortcut needs ⌘, ⌃ or ⌥ so it does not steal plain typing elsewhere.
+ * shortcut needs a modifier (⌘, ⌃ or ⌥; Ctrl, Alt or Super on Linux) so it
+ * does not steal plain typing elsewhere.
  */
 export function shortcutFromEvent(event: KeyboardEvent): string | null {
   if (MODIFIER_CODES.test(event.code) || !event.code) return null;

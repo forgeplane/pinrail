@@ -5,6 +5,14 @@ export const isMac = /Mac/i.test(typeof navigator === "undefined" ? "" : navigat
 
 /** "⌘" on macOS, "Ctrl" elsewhere. */
 export const MOD = isMac ? "⌘" : "Ctrl";
+/** "⌥" on macOS, "Alt" elsewhere. */
+export const ALT = isMac ? "⌥" : "Alt";
+/** "⇧" on macOS, "Shift" elsewhere. */
+export const SHIFT = isMac ? "⇧" : "Shift";
+/** A combination written in running text: "⌘⇧L" on macOS, "Ctrl+Shift+L" elsewhere. */
+export const combo = (...keys: string[]) => keys.join(isMac ? "" : "+");
+/** The modifiers a global shortcut needs, as the platform names them. */
+export const GLOBAL_MODIFIERS = isMac ? "⌘, ⌃ or ⌥" : "Ctrl, Alt or Super";
 /** What showing a file in the system's file browser is called here. */
 export const REVEAL = isMac ? "Show in Finder" : "Show in the file manager";
 /** Where the app's icon lives while its window is closed. */

@@ -14,7 +14,7 @@ import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
 import { allowedWithoutAsking, allowing, linkRequest, sourceOf, type LinkRequest } from "../lib/links";
 import { openExternal } from "../lib/native";
 import { Tooltip } from "../components/Tooltip";
-import { MOD, hasMod, modalOpen } from "../lib/keys";
+import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { comboFromEvent, isShadowed } from "../lib/shortcuts";
 import { overlayTitleBar } from "../lib/native";
 import { age, stamp } from "../lib/format";
@@ -443,7 +443,7 @@ export function ReviewScreen() {
             </button>
           </Tooltip>
           {plugin ? (
-            <Tooltip label="Maximize the view" keys={[MOD, "⇧", "M"]} side="bottom">
+            <Tooltip label="Maximize the view" keys={[MOD, SHIFT, "M"]} side="bottom">
               <button
                 type="button"
                 className="bar-button"
@@ -653,7 +653,7 @@ export function ReviewScreen() {
           {maximized ? (
             <div className="frame-bar" data-tauri-drag-region>
               <span className="frame-bar-title">{review.title}</span>
-              <Tooltip label="Restore the view" keys={[MOD, "⇧", "M"]} side="bottom">
+              <Tooltip label="Restore the view" keys={[MOD, SHIFT, "M"]} side="bottom">
                 <button
                   type="button"
                   className="bar-button"

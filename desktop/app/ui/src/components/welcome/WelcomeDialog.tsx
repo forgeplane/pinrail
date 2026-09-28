@@ -16,6 +16,7 @@ import { Toggle } from "../settings/controls";
 import { SettingsRow } from "../settings/layout";
 import { useCli, type CliStatus } from "../settings/CliRow";
 import { WaitMark } from "../WaitMark";
+import { TRAY } from "../../lib/keys";
 
 // the list plugin is built in, so its sample is there on every install
 const TRY = "pinrail submit list --sample --wait";
@@ -162,7 +163,7 @@ function CommandStep({ cli }: { cli: ReturnType<typeof useCli> }) {
       <>
         <p>
           It's installed in <code>~/.local/bin</code>, but that folder isn't on your PATH. Add this line to your shell
-          profile, <code>~/.zshrc</code> for zsh, then check again:
+          profile, such as <code>~/.zshrc</code> for zsh or <code>~/.bashrc</code> for bash, then check again:
         </p>
         <div className="welcome-line">
           <code>{PATH_LINE}</code>
@@ -249,7 +250,8 @@ function NotificationsStep({ system, request, openSystemSettings }: ReturnType<t
     <>
       <h2>Turn on notifications</h2>
       <p>
-        So you know when an agent is waiting, even with the window closed. The menu bar counts what waits either way.
+        So you know when an agent is waiting, even with the window closed. The count in {TRAY} shows what is waiting
+        either way.
       </p>
       <div className="settings-card">
         <SettingsRow label="Notify me when a review arrives" description="A system notification for each new review">

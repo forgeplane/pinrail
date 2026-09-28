@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { inTauri } from "../api/client";
+import { isMac } from "../lib/keys";
 
 /** What macOS reports for the app's notifications; null outside the app bundle. */
 export type NotificationStatus = {
@@ -47,11 +48,16 @@ export function useNotificationStatus(open: boolean) {
   return { system: state, request, openSystemSettings };
 }
 
-/** What macOS will do with a notification, in a line for a settings row. */
+/** What the system will do with a notification, in a line for a settings row. */
 export const describeSystem = ({ known, status }: SystemState) => {
-  if (!inTauri()) return "What macOS allows shows here in the app";
+  if (!inTauri())
+    return isMac ? "What macOS allows shows here in the app" : "What your system allows shows here in the app";
   if (!known) return "…";
-  if (!status) return "Through the notification plugin in this development build; macOS reports nothing for it";
+  // only macOS reports how it will show a notification
+  if (!status)
+    return isMac
+      ? "Through the notification plugin in this development build; macOS reports nothing for it"
+      : "Shown by your desktop, which does not report its settings to Pinrail";
   if (status.authorization === "denied") return "Not allowed in System Settings";
   if (status.authorization === "not_determined")
     return "Not yet allowed; macOS asks when you turn them on, or with the first one";
