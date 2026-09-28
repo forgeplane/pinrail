@@ -14,6 +14,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import Ajv2020 from "ajv/dist/2020.js";
 import { resolveAttachments } from "../harness/attachments.cjs";
 import { packageRoot, sdkScript } from "../lib/paths.cjs";
 
@@ -87,6 +88,32 @@ function under(root, rel) {
   const file = path.resolve(root, decodeURIComponent(rel).replace(/^\/+/, ""));
   if (!file.startsWith(path.resolve(root) + path.sep) && file !== path.resolve(root)) return null;
   return fs.existsSync(file) && fs.statSync(file).isFile() ? file : null;
+}
+
+/**
+ * What the app would refuse in `data`, as `violations` errors: a decision
+ * against the plugin's decision schema, or a change to its settings against
+ * its settings schema, with the paths and wording the app uses.
+ */
+function violations(pluginDir, kind, data) {
+  const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
+  const load = (schema) => (schema && typeof schema.$ref === "string" ? JSON.parse(fs.readFileSync(path.join(pluginDir, schema.$ref), "utf8")) : schema);
+  const prefix = kind === "settings" ? `/plugins/${manifest.name}` : "";
+  let schema = load(kind === "settings" ? manifest.settings_schema : manifest.decision_schema);
+  if (!schema) return kind === "settings" ? [{ path: prefix, message: "the plugin has no settings" }] : [];
+  schema = { ...schema };
+  delete schema.$schema;
+  delete schema.$id;
+  // the app refuses a setting the schema does not declare
+  if (kind === "settings") schema = { ...schema, type: "object", additionalProperties: false };
+  const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(schema);
+  if (validate(data)) return [];
+  return validate.errors.map((e) => {
+    const at = e.keyword === "additionalProperties" ? `${e.instancePath}/${e.params.additionalProperty}` : e.instancePath;
+    // a property with choices names them, as the app does
+    const message = e.keyword === "enum" ? `must be one of ${e.params.allowedValues.join(", ")}` : e.message;
+    return { path: prefix + at, message };
+  });
 }
 
 function send(res, status, body, headers = {}) {
@@ -195,6 +222,20 @@ export function serve(argv) {
       } catch {
         return send(res, 404, "no such attachment");
       }
+    }
+    // what the app would refuse in a decision or a change to the settings
+    if (p === "/dev/check" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => (body += chunk));
+      req.on("end", () => {
+        try {
+          const { kind, data } = JSON.parse(body);
+          send(res, 200, JSON.stringify({ errors: violations(pluginDir, kind, data) }), { "content-type": "application/json" });
+        } catch (e) {
+          send(res, 400, JSON.stringify({ error: String(e.message || e) }), { "content-type": "application/json" });
+        }
+      });
+      return;
     }
     if (p === "/dev/stamp") return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir }), { "content-type": "application/json" });
     if (p === "/sdk/v1/fonts.css") {

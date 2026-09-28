@@ -244,10 +244,11 @@ window.addEventListener("message", (event) => {
     // in the app the system browser opens it; here, a tab
     case "open": window.open(msg.url, "_blank", "noreferrer"); break;
     case "settings_set":
-      // as the app: the core keeps what the schema allows, then everyone hears the values
-      if (msg.patch && typeof msg.patch === "object") {
-        const known = Object.fromEntries(Object.entries(msg.patch).filter(([k]) => k in schemaProps()));
-        setStored(known);
+      // as the app: a change the settings schema refuses comes back as
+      // violations; one it allows is kept, and everyone hears the values
+      if (msg.patch && typeof msg.patch === "object" && !Array.isArray(msg.patch)) {
+        const patch = msg.patch;
+        check("settings", patch).then((errors) => (errors.length ? post({ type: "violations", errors }) : setStored(patch)));
       }
       break;
     case "submit": lastSubmit = msg.data; show("s-submit", lastSubmit); break;
@@ -265,10 +266,18 @@ $("send-violations").addEventListener("click", () => {
   try { errors = JSON.parse($("violations").value || "[]"); } catch { alert("violations must be a JSON array of {path, message}"); return; }
   post({ type: "violations", errors });
 });
-$("send-submitted").addEventListener("click", () => {
-  if (lastSubmit == null) { alert("nothing was submitted yet: press Collect first"); return; }
+/** What the app would refuse in a decision or a settings change, from the dev server. */
+async function check(kind, data) {
+  const answer = await fetch("/dev/check", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, data }) });
+  return answer.ok ? (await answer.json()).errors : [];
+}
+function submitted() {
   review = { ...review, status: "decided", decision: { decided_by: "dev", decided_at: new Date().toISOString(), data: lastSubmit } };
   post({ type: "submitted", decision: review.decision });
+}
+$("send-submitted").addEventListener("click", () => {
+  if (lastSubmit == null) { alert("nothing was submitted yet: press Collect first"); return; }
+  submitted();
 });
 $("theme").addEventListener("click", () => {
   theme = theme === "dark" ? "light" : "dark";
