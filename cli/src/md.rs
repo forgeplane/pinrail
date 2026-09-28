@@ -212,9 +212,13 @@ pub fn plugins_result(value: &Value) -> String {
         (_, Some(name), ..) => format!("Removed {name}.\n"),
         (_, _, Some(count), _) => format!("Reloaded {count} plugins.\n"),
         (_, _, _, Some(versions)) => format!(
-            "{}: current v{}; reviews render with {}.\n",
+            "{}: {}; reviews render with {}.\n",
             text(&value["name"]),
-            value["current"],
+            match value["current"].as_u64() {
+                Some(major) => format!("current v{major}"),
+                // removed with its copies kept for old reviews, or broken
+                None => "no usable version installed".to_string(),
+            },
             versions
                 .iter()
                 .map(|v| format!("v{v}"))

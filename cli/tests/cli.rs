@@ -696,6 +696,29 @@ fn a_discard_reason_cannot_drive_the_terminal() {
 }
 
 #[test]
+fn plugin_versions_say_when_no_version_is_usable() {
+    let server = MockServer::start(Box::new(|_, path, _| match path {
+        "/api/v1/plugins/hello/versions" => (
+            200,
+            r#"{"name":"hello","current":null,"versions":[1,2]}"#.into(),
+        ),
+        "/api/v1/plugins/list/versions" => (
+            200,
+            r#"{"name":"list","current":2,"versions":[1,2]}"#.into(),
+        ),
+        other => panic!("unexpected {other}"),
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "versions", "hello", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        stdout,
+        "hello: no usable version installed; reviews render with v1, v2.\n"
+    );
+    let (_, stdout, _) = run(&server, &["plugins", "versions", "list", "--markdown"]);
+    assert_eq!(stdout, "list: current v2; reviews render with v1, v2.\n");
+}
+
+#[test]
 fn text_from_a_review_cannot_drive_the_terminal() {
     // a title with escape sequences: clear the screen, set the clipboard
     let server = MockServer::start(Box::new(|_, path, _| {
