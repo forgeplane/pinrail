@@ -1,0 +1,19 @@
+<!doctype html>
+<meta charset="utf-8">
+<pre id="log">[]</pre>
+<script>
+  // Speaks the protocol without the SDK, so a test sees exactly what the
+  // host sends: every message it receives is kept in window.received, and
+  // window.send posts one of its own.
+  window.received = [];
+  window.send = (message) => parent.postMessage(Object.assign({ pinrail: 1 }, message), "*");
+  window.addEventListener("message", (event) => {
+    const data = event.data;
+    if (event.source !== parent || !data || data.pinrail !== 1) return;
+    const kept = Object.assign({}, data);
+    if (data.bytes instanceof ArrayBuffer) kept.bytes = new TextDecoder().decode(data.bytes);
+    window.received.push(kept);
+    document.getElementById("log").textContent = JSON.stringify(window.received.map((m) => m.type));
+  });
+  window.send({ type: "ready" });
+</script>

@@ -1,0 +1,5 @@
+{
+  "title": "Conformance",
+  "payload": { "note": { "$attachment": "note.txt" } },
+  "attachments": { "note.txt": { "path": "note.txt", "media_type": "text/plain" } }
+}
