@@ -26,18 +26,6 @@
       "maximum": 14,
       "description": "How many days the calendar shows, from 1 to 14."
     },
-    "heading": {
-      "type": "string",
-      "maxLength": 2000,
-      "deprecated": true,
-      "description": "Accepted for compatibility; the compact header displays the review title supplied via pinrail submit --title."
-    },
-    "description": {
-      "type": "string",
-      "maxLength": 2000,
-      "deprecated": true,
-      "description": "Accepted for compatibility; the compact header displays the review title supplied via pinrail submit --title."
-    },
     "blocked": {
       "type": "array",
       "maxItems": 500,

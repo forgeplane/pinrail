@@ -39,8 +39,7 @@ The fixtures show the range of it:
 The compact toolbar displays the review title supplied by the agent with
 `pinrail submit calendar --title "Schedule four candidate interviews"`. It shows
 selection progress alongside the title, or the read-only review status. There
-is no fixed headline, slogan, or introductory copy. Legacy payload `heading`
-and `description` fields are accepted but no longer displayed.
+is no fixed headline, slogan, or introductory copy.
 
 ## Payload
 
