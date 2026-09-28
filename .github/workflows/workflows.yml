@@ -1,0 +1,45 @@
+# The workflows themselves, when one changes: actionlint checks their
+# syntax, expressions and shell scripts (with shellcheck), and zizmor
+# checks them for security problems, such as unpinned actions, broad
+# permissions and untrusted values used in scripts.
+name: workflows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/**
+      - pinrail-plugin/templates/common/.github/**
+  pull_request:
+    paths:
+      - .github/**
+      - pinrail-plugin/templates/common/.github/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # the release archive, checked against the checksum it was published with
+      - name: actionlint
+        run: |
+          curl -fsSL -o actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz" | sha256sum -c
+          tar -xzf actionlint.tar.gz actionlint
+          ./actionlint .github/workflows/*.yml pinrail-plugin/templates/common/.github/workflows/*.yml
+      - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
+        with:
+          tool: zizmor
+      # online, so it can also check that each pinned commit belongs to
+      # the action it names
+      - name: zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor .github/workflows pinrail-plugin/templates/common/.github/workflows

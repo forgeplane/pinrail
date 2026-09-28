@@ -113,6 +113,7 @@ mise run lint               # rustfmt, clippy, the type check, ESLint, Prettier,
 mise run format             # format the JavaScript, TypeScript and CSS
 mise run audit              # known vulnerabilities in the dependencies
 mise run links              # the links between the Markdown files
+mise run workflows          # the GitHub workflows, with actionlint and zizmor
 mise run test               # all the test suites
 ```
 
