@@ -510,7 +510,7 @@ enum PluginsCommand {
 /// What a submit or a wait exits with: what an agent acts on.
 const EXIT_CODES: &str = "Exit codes:
   0  decided
-  1  bad arguments, or the app could not be reached
+  1  bad arguments, the app could not be reached, or it failed on its side
   2  refused by the app; stderr says why
   3  withdrawn, or expired undecided
   4  --timeout ran out; the review is still pending
@@ -580,7 +580,12 @@ fn main() -> ExitCode {
                         eprintln!("{hint}");
                     }
                 }
-                ExitCode::from(EXIT_REFUSED)
+                // a refusal is the request's to fix; a server error is not
+                ExitCode::from(if api.status >= 500 {
+                    EXIT_ERROR
+                } else {
+                    EXIT_REFUSED
+                })
             } else {
                 eprintln!("pinrail: {err:#}");
                 ExitCode::from(EXIT_ERROR)
@@ -1219,7 +1224,13 @@ fn wait(
         };
 
         let polled = client.wait(id, remaining);
-        answered |= polled.is_ok();
+        // a server that answers with an error is running, and may recover
+        let server_error = polled
+            .as_ref()
+            .err()
+            .and_then(|e| e.downcast_ref::<ApiError>())
+            .map(|e| e.status >= 500);
+        answered |= polled.is_ok() || server_error.is_some();
         match polled {
             Ok(Some(review)) => {
                 let status = review["status"].as_str().unwrap_or("");
@@ -1263,7 +1274,7 @@ fn wait(
                 });
             }
             Ok(None) => continue,
-            Err(err) if err.downcast_ref::<ApiError>().is_some() => return Err(err),
+            Err(err) if server_error == Some(false) => return Err(err),
             Err(err) if !answered => return Err(err.context(client.unreachable())),
             Err(err) => {
                 let message = format!("{err:#}");

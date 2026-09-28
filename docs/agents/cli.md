@@ -176,7 +176,7 @@ Waiting survives the app restarting. `wait` polls the app and retries when the c
 | Code | Meaning |
 |---|---|
 | `0` | Done. For `wait` and `submit --wait`: the review was decided. |
-| `1` | Error: bad arguments, the app unreachable, a file that could not be read or written. |
+| `1` | Error: bad arguments, the app unreachable, a file that could not be read or written, or an error inside the app. `wait` and `submit --wait` do not stop for an error inside the app: they keep waiting until it answers again. |
 | `2` | The app refused the request, for example a payload the plugin's schema rejects. Why is on stderr: each refused field and the reason, or the JSON answer with `--json`. |
 | `3` | The review was withdrawn by the agent, or expired, before anyone decided. |
 | `4` | `--timeout` ran out. The review is still pending. |

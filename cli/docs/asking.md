@@ -55,7 +55,8 @@ before anything is uploaded.
 ## Exit codes
 
 - `0`: decided. Act on the decision.
-- `1`: bad arguments, or the request could not be sent. Report the error.
+- `1`: bad arguments, the request could not be sent, or the app failed on
+  its side. Report the error. A wait keeps waiting through an app error.
 - `2`: refused by the app: a field that fails the plugin's schema, a
   review no longer pending, a plugin not installed. stderr says which;
   fix it and submit again.

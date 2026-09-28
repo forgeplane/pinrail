@@ -1,6 +1,6 @@
 //! The HTTP client. Every call returns the decoded JSON body; a 4xx/5xx
-//! becomes an [`ApiError`] carrying that body, which `main` prints to stderr
-//! with exit code 2.
+//! becomes an [`ApiError`] carrying that body, which `main` prints to stderr,
+//! with exit code 2 for a refusal (4xx) and 1 for a server error (5xx).
 
 use std::fmt;
 use std::time::Duration;
@@ -19,7 +19,15 @@ pub struct ApiError {
 
 impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "server refused the request ({})", self.status)
+        let what = if self.status >= 500 {
+            "the server failed"
+        } else {
+            "the server refused the request"
+        };
+        match self.body["message"].as_str() {
+            Some(message) => write!(f, "{what} ({}): {message}", self.status),
+            None => write!(f, "{what} ({})", self.status),
+        }
     }
 }
 

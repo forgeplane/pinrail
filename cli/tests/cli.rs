@@ -669,6 +669,47 @@ fn text_from_a_review_cannot_drive_the_terminal() {
     );
 }
 
+/// A server error is not a refusal: there is nothing for the agent to fix
+/// and resubmit, so it exits 1, and a wait keeps waiting through one.
+#[test]
+fn a_server_error_is_not_a_refusal_and_a_wait_rides_it_out() {
+    let server = MockServer::start(Box::new(|_, _, _| {
+        (
+            500,
+            r#"{"error":"internal","message":"database: disk I/O error","violations":[]}"#.into(),
+        )
+    }));
+    let (code, _, stderr) = run(&server, &["show", "r_1"]);
+    assert_eq!(code, 1, "{stderr}");
+    assert!(stderr.contains("disk I/O error"), "{stderr}");
+
+    let polls = Arc::new(Mutex::new(0));
+    let seen = polls.clone();
+    let server = MockServer::start(Box::new(move |_, path, _| {
+        if !path.starts_with("/api/v1/reviews/r_1/wait") {
+            return (
+                404,
+                r#"{"error":"not_found","message":"no","violations":[]}"#.into(),
+            );
+        }
+        let mut n = seen.lock().unwrap();
+        *n += 1;
+        if *n == 1 {
+            (
+                500,
+                r#"{"error":"internal","message":"database is locked","violations":[]}"#.into(),
+            )
+        } else {
+            (200, review("decided"))
+        }
+    }));
+    let (code, stdout, stderr) = run(&server, &["wait", "r_1"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stdout.contains("\"decided\""), "{stdout}");
+    assert!(stderr.contains("database is locked"), "{stderr}");
+    assert!(*polls.lock().unwrap() >= 2);
+}
+
 #[test]
 fn an_install_answer_with_no_job_says_so() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
