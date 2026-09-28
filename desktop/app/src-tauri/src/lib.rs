@@ -251,14 +251,9 @@ async fn check_for_updates(app: AppHandle) -> updater::Status {
 /// runs off the main thread, which would otherwise freeze the window.
 #[tauri::command]
 async fn restart_to_update(app: AppHandle) -> Result<(), String> {
-    let installer = app.clone();
-    let installed = tauri::async_runtime::spawn_blocking(move || updater::install(&installer))
+    tauri::async_runtime::spawn_blocking(move || updater::restart(&app))
         .await
-        .map_err(|error| error.to_string())??;
-    if !installed {
-        return Err("no update is downloaded".into());
-    }
-    app.restart()
+        .map_err(|error| error.to_string())?
 }
 
 // async so their file I/O runs off the main thread
