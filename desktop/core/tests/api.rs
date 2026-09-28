@@ -969,6 +969,78 @@ async fn removing_a_plugin_forgets_the_links_it_was_allowed_to_open() {
     assert_eq!(settings["links"], json!({}), "{settings}");
 }
 
+/// A linked plugin is served from the developer's own folder, which holds
+/// more than a plugin: only what an installed copy would hold is served.
+#[tokio::test]
+async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
+    let app = app();
+    let root = tempfile::tempdir().unwrap();
+    let hello = plugin_copy(root.path(), "hello", "1.0.0");
+    for (file, text) in [
+        (".env", "API_KEY=secret"),
+        (".git/config", "[remote] url = https://token@example.com"),
+        ("node_modules/lib/index.js", "x"),
+        ("src/main.ts", "x"),
+        ("package.json", "{}"),
+        ("view/.secret", "x"),
+    ] {
+        let path = hello.join(file);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    let (status, row) = install(&app, &hello, json!({"link": true})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+
+    let host = [("host", "127.0.0.1:4747")];
+    let (status, _) = raw(&app, "GET", "/plugins/hello/1/view/index.html", &host, "").await;
+    assert_eq!(status, StatusCode::OK);
+    for file in [
+        ".env",
+        ".git/config",
+        "node_modules/lib/index.js",
+        "src/main.ts",
+        "package.json",
+        "view/.secret",
+    ] {
+        let (status, body) = raw(&app, "GET", &format!("/plugins/hello/1/{file}"), &host, "").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{file}: {body}");
+    }
+}
+
+/// A plugin's files are for its own view, which loads them as a page,
+/// scripts, styles, fonts and images from an opaque origin: another
+/// website cannot read them.
+#[tokio::test]
+async fn other_websites_cannot_read_a_plugins_files() {
+    let app = app();
+    let request = |dest: Option<&str>| {
+        let mut r = Request::get("/plugins/list/1/view/index.html")
+            .header("host", "127.0.0.1:4747")
+            .header("origin", "https://evil.example");
+        if let Some(dest) = dest {
+            r = r.header("sec-fetch-dest", dest);
+        }
+        r.body(Body::empty()).unwrap()
+    };
+    // a frame loading the view: served, readable only by an opaque origin
+    let response = app
+        .router
+        .clone()
+        .oneshot(request(Some("iframe")))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()["access-control-allow-origin"], "null");
+    // a script's fetch, which a view cannot make: refused
+    let response = app
+        .router
+        .clone()
+        .oneshot(request(Some("empty")))
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
 /// A plugin name is looked up, never joined into a path: a plugin folder
 /// beside the store is not reached through `..`.
 #[tokio::test]

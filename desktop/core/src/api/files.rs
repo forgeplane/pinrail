@@ -59,6 +59,24 @@ async fn bundle(
     let Ok(version) = version.parse::<u32>() else {
         return StatusCode::NOT_FOUND.into_response();
     };
+    // Only what an installed copy holds, whichever way the plugin was
+    // installed: a linked plugin is served from its developer's folder,
+    // with its hidden files, dependencies and sources beside the view.
+    if path
+        .split('/')
+        .any(|part| !crate::plugins::in_the_bundle(part))
+    {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    // A view loads its files as a page, scripts, styles, fonts and images,
+    // never with fetch, which its policy forbids: a fetch comes from
+    // another page, reading what is not its own.
+    if headers
+        .get("sec-fetch-dest")
+        .is_some_and(|dest| dest.as_bytes() == b"empty")
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
     let Ok(plugin) = state.plugins().fetch_version(&name, version) else {
         return StatusCode::NOT_FOUND.into_response();
     };
@@ -115,11 +133,12 @@ async fn bundle(
             // Views load these as scripts, styles and fonts, which ignore a
             // policy; opened as a page, one gets an opaque origin and runs
             // nothing
-            // A sandboxed view has an opaque origin, and CSS masks (the icon
-            // set) and fonts load only from a server that says so.
+            // A sandboxed view has an opaque origin, which it sends as
+            // `null`, and CSS masks (the icon set) and fonts load only from a
+            // server that allows it; no other website may read these files.
             (
                 header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                HeaderValue::from_static("*"),
+                HeaderValue::from_static("null"),
             ),
         ],
         body,

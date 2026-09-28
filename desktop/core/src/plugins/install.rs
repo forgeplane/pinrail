@@ -1394,7 +1394,9 @@ const NOT_IN_THE_BUNDLE: &[&str] = &[
     "tsconfig.json",
 ];
 
-fn in_the_bundle(name: &str) -> bool {
+/// Whether a file or folder of this name belongs to a plugin's bundle, at
+/// any depth: what an install copies, and what is served for a linked one.
+pub(crate) fn in_the_bundle(name: &str) -> bool {
     !name.starts_with('.')
         && !NOT_IN_THE_BUNDLE.contains(&name)
         && !name.starts_with("tsconfig.")
