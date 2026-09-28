@@ -408,6 +408,9 @@ impl Reviews {
             .into_iter()
             .map(|(_, plugin, version)| (plugin, version))
             .collect();
+        // under the lock installs take, so an install placing the same
+        // entry again cannot land between the check and the deletion
+        let _changing = self.registry.changing();
         let records = self.registry.records();
         for (plugin, version) in versions {
             if self.db.reviews_use(&plugin, version)? {
