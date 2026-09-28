@@ -568,8 +568,9 @@ fn open_urls<'a>(app: &AppHandle, urls: impl Iterator<Item = &'a str>) {
 }
 
 /// The SDK bundled with the app, found from the executable where Tauri
-/// puts resources, or the one the UI build produced next to the sources
-/// during development. The windowed app and `--headless` both use it.
+/// puts resources, or, in a development build, the one the UI build
+/// produced next to the sources. The windowed app and `--headless` both
+/// use it. Without one, plugin views cannot load, and the log says so.
 pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
     // tauri.conf.json's productName: the Linux packages' resource folder
     const PRODUCT: &str = "Pinrail";
@@ -584,11 +585,20 @@ pub(crate) fn sdk_dir(exe: &Path) -> Option<PathBuf> {
         }
         resources.push(PathBuf::from("/usr/lib").join(PRODUCT));
     }
-    resources
+    // a release looks only in its own bundle, so a packaging error shows
+    let sources =
+        cfg!(debug_assertions).then(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/v1"));
+    let found = resources
         .into_iter()
         .map(|r| r.join("sdk/v1"))
-        .chain([PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../sdk/v1")])
-        .find(|dir| dir.join("pinrail-plugin.js").is_file())
+        .chain(sources)
+        .find(|dir| dir.join("pinrail-plugin.js").is_file());
+    if found.is_none() {
+        eprintln!(
+            "pinrail: the plugin SDK is not in the app's bundle, so plugin views cannot load"
+        );
+    }
+    found
 }
 
 #[cfg(all(test, unix))]
