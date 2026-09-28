@@ -112,7 +112,7 @@ test("list is keyboard-operable and responsive; payload markup stays text", asyn
   await expect(p.frame.locator("img")).toHaveCount(0);
   expect(await p.frame.locator("body").evaluate((el) => el.scrollWidth <= window.innerWidth)).toBe(true);
 });
-test("invalid payload fails closed and hostile drafts cannot bypass conflicts", async ({ page }) => {
+test("an invalid payload fails closed", async ({ page }) => {
   const review = personal();
   review.payload.timezone = "Invalid/Zone";
   const p = await mount(page, { review });
