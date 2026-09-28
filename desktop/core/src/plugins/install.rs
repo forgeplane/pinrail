@@ -1142,6 +1142,18 @@ fn install_dir(
         let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
         return Err(refusal);
     }
+    // a link could point anywhere on the machine, and a copy would carry
+    // what it points to into the store
+    if let Some(link) = first_link(&staged)? {
+        let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
+        return Err(Error::invalid(
+            "/source",
+            format!(
+                "the plugin contains a symbolic link, which Pinrail does not install: {}",
+                link.strip_prefix(&staged).unwrap_or(&link).display()
+            ),
+        ));
+    }
 
     progress(Progress::Step("placing"));
     let entry = place(registry, &plugin, &staged)?;
@@ -1428,6 +1440,26 @@ fn place(registry: &Registry, plugin: &Plugin, dir: &Path) -> Result<PathBuf, Er
     Ok(entry)
 }
 
+/// The first symbolic link among the files a copy of the plugin would hold.
+fn first_link(dir: &Path) -> std::io::Result<Option<PathBuf>> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        if !in_the_bundle(&entry.file_name().to_string_lossy()) {
+            continue;
+        }
+        let kind = entry.file_type()?;
+        if kind.is_symlink() {
+            return Ok(Some(entry.path()));
+        }
+        if kind.is_dir()
+            && let Some(link) = first_link(&entry.path())?
+        {
+            return Ok(Some(link));
+        }
+    }
+    Ok(None)
+}
+
 fn copy_bundle(from: &Path, to: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
@@ -1435,6 +1467,13 @@ fn copy_bundle(from: &Path, to: &Path) -> std::io::Result<()> {
         let name = entry.file_name();
         if !in_the_bundle(&name.to_string_lossy()) {
             continue;
+        }
+        // refused before the copy; never followed here either
+        if entry.file_type()?.is_symlink() {
+            return Err(std::io::Error::other(format!(
+                "symbolic link {}",
+                entry.path().display()
+            )));
         }
         let target = to.join(&name);
         if entry.file_type()?.is_dir() {

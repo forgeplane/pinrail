@@ -172,7 +172,9 @@ impl Retrieve for Retriever {
     }
 }
 
-/// `dir/relative` when `relative` stays inside `dir`.
+/// `dir/relative` when `relative` stays inside `dir`: by its name, and,
+/// when it exists, once symbolic links are followed, so a link in a plugin
+/// folder cannot reach a file elsewhere on the machine.
 pub fn safe_join(dir: &Path, relative: &str) -> Option<PathBuf> {
     let mut out = dir.to_path_buf();
     for component in Path::new(relative).components() {
@@ -180,6 +182,13 @@ pub fn safe_join(dir: &Path, relative: &str) -> Option<PathBuf> {
             Component::Normal(part) => out.push(part),
             Component::CurDir => {}
             _ => return None,
+        }
+    }
+    if std::fs::symlink_metadata(&out).is_ok() {
+        let real = std::fs::canonicalize(&out).ok()?;
+        let base = std::fs::canonicalize(dir).ok()?;
+        if !real.starts_with(&base) {
+            return None;
         }
     }
     Some(out)

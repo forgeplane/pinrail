@@ -1041,6 +1041,57 @@ async fn other_websites_cannot_read_a_plugins_files() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
+/// A symbolic link in a plugin could point anywhere on the machine, such
+/// as a private key: an installed copy never contains one, and a linked
+/// plugin never serves a file from outside its folder.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
+    let app = app();
+    let root = tempfile::tempdir().unwrap();
+    let secret = root.path().join("secret.txt");
+    std::fs::write(&secret, "PRIVATE KEY").unwrap();
+    let outside_dir = root.path().join("outside");
+    std::fs::create_dir(&outside_dir).unwrap();
+    std::fs::write(outside_dir.join("key"), "PRIVATE KEY").unwrap();
+
+    // installing a copy: refused, whether the link is to a file or a folder
+    for (name, link, target) in [
+        ("filelink", "view/notes.txt", &secret),
+        ("dirlink", "view/assets", &outside_dir),
+    ] {
+        let plugin = plugin_copy(root.path(), "hello", "1.0.0");
+        let renamed = root.path().join(name);
+        std::fs::rename(&plugin, &renamed).unwrap();
+        std::os::unix::fs::symlink(target, renamed.join(link)).unwrap();
+        let (status, body) = install(&app, &renamed, json!({})).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{name}: {body}");
+        assert!(
+            body["error"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("symbolic link"),
+            "{name}: {body}"
+        );
+    }
+
+    // linking the folder: the file outside is not served, a link inside is
+    let linked = plugin_copy(root.path(), "hello", "1.0.0");
+    std::os::unix::fs::symlink(&secret, linked.join("view/notes.txt")).unwrap();
+    std::os::unix::fs::symlink(
+        linked.join("view/index.html"),
+        linked.join("view/alias.html"),
+    )
+    .unwrap();
+    let (status, body) = install(&app, &linked, json!({"link": true})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let host = [("host", "127.0.0.1:4747")];
+    let (status, body) = raw(&app, "GET", "/plugins/hello/1/view/notes.txt", &host, "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    let (status, _) = raw(&app, "GET", "/plugins/hello/1/view/alias.html", &host, "").await;
+    assert_eq!(status, StatusCode::OK);
+}
+
 /// A plugin name is looked up, never joined into a path: a plugin folder
 /// beside the store is not reached through `..`.
 #[tokio::test]
