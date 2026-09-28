@@ -1,27 +1,33 @@
-# pinrail-plugin
+# Pinrail plugin SDK
 
-Everything for writing a pinrail plugin, as one npm package:
+The `@forgeplane/pinrail-plugin` package contains everything you need to
+write a Pinrail plugin:
 
-- the SDK, `src/pinrail-plugin.js` and its stylesheet: the plugin side of the
-  protocol as one dependency-free file, which the app serves at
-  `/sdk/v1/pinrail-plugin.js`. A plugin loads it with a single script tag and
-  has the whole handshake done for it: `ready`, origin pinning, resize,
-  drafts, `submitted`, `violations`, `collect` and the ⌘/Ctrl+Enter shortcut;
-- `pinrail-plugin create`, a plugin folder to start from;
-- `pinrail-plugin dev`, a shell that runs a plugin in the browser without the
-  app;
-- `pinrail-plugin test`, the plugin's tests under the harness, and
-  `pinrail-plugin check`, what the app would say of the folder;
-- `pinrail-plugin/testing`, a Playwright harness that mounts a plugin alone;
-- `pinrail-plugin/types`, the protocol and the manifest as TypeScript.
+- **The SDK**, `src/pinrail-plugin.js`, and its stylesheet. The app serves
+  the SDK at `/sdk/v1/pinrail-plugin.js`, bundled with the markdown-it
+  parser. A view loads it with a single script tag, and the SDK handles the
+  protocol for it: the `ready` message, origin pinning, resizing, drafts,
+  the `submitted`, `violations` and `collect` messages, and the ⌘/Ctrl+Enter
+  shortcut.
+- **`pinrail-plugin create`** creates a new plugin folder.
+- **`pinrail-plugin dev`** runs a plugin in the browser, without the app.
+- **`pinrail-plugin test`** runs a plugin's tests in the test harness.
+- **`pinrail-plugin check`** reports what the app would report for a
+  plugin folder.
+- **`@forgeplane/pinrail-plugin/testing`** is a Playwright harness that
+  mounts a plugin on its own.
+- **`@forgeplane/pinrail-plugin/types`** describes the protocol and the
+  manifest in TypeScript.
 
-The package is authoring-time only: a shipped plugin loads the SDK from the
-app, never from `node_modules`. A plugin without a build needs none of it:
-`pinrail plugins new`, in the app's own command, writes the plain template
-with the SDK's types beside it, and `pinrail plugins check` and the
-browser preview stand in for `check` and `dev`. The package is not on npm:
-install it from this repository (`"@forgeplane/pinrail-plugin": "file:../../pinrail-plugin"`)
-or from the tarball attached to its GitHub release.
+You need the package only while you write a plugin. An installed plugin
+loads the SDK from the app, never from `node_modules`. A plugin without a
+build step does not need the package at all: `pinrail plugins new` writes
+the plain template with the SDK's types beside it, and `pinrail plugins
+check` and the browser preview replace `check` and `dev`.
+
+The package is not published on npm. Install it from this repository
+(`"@forgeplane/pinrail-plugin": "file:../../pinrail-plugin"`) or from the
+tarball attached to its GitHub release.
 
 ```html
 <script src="/sdk/v1/pinrail-plugin.js"></script>
@@ -30,102 +36,113 @@ or from the tarball attached to its GitHub release.
     resize: "auto",                     // "auto" (content height), "fill" (viewport), "manual"
     onInit({ review, previous, readonly, draft }) { render(); },
     onViolations(errors) { showErrors(errors); },   // [{ path, message }]
-    onSubmitted(decision) { render(); },           // now read-only
+    onSubmitted(decision) { render(); },           // the view is now read-only
     onCollect() { submit(); },                     // the shell's hand-over button, or ⌘/Ctrl+Enter
     onAppearance(theme) { … },                     // optional: "dark" | "light"
-    onSettings(settings) { render(); },            // optional: the plugin's own settings changed
-    onKey(key) { … },                              // optional: a declared shortcut, pressed with the app in focus
+    onSettings(settings) { render(); },            // optional: the plugin's settings changed
+    onKey(key) { … },                              // optional: a declared shortcut, pressed while the app has focus
   });
   plugin.submit(data);
-  plugin.draft(data);                   // debounced 150ms; { flush: true } posts at once
-  plugin.status({label: "Hand over anyway"});   // what the shell's button should read
+  plugin.draft(data);                   // debounced by 150 ms; { flush: true } sends it at once
+  plugin.status({label: "Hand over anyway"});   // the label of the shell's button
   plugin.readonly; plugin.review; plugin.previous;
-  plugin.settings;                      // the plugin's own settings, every key the manifest declares
-  plugin.setSetting("diff", "split");   // asks the shell to keep one; it comes back as `settings`
+  plugin.settings;                      // the plugin's settings, with every key the manifest declares
+  plugin.setSetting("diff", "split");   // asks the shell to store a value; it comes back as `settings`
 </script>
 ```
 
-The shell owns the hand-over. A view renders no submit button: the shell puts
-one next to the note box for every review, and pressing it sends `collect`. Your
-view may submit at once or confirm first and submit on the next `collect`;
-`status` keeps the button's label honest.
+The shell provides the button that hands a decision over. A view does not
+render its own submit button: the shell shows one next to the note field of
+every review, and pressing it sends `collect` to the view. The view can
+submit at once, or ask for confirmation and submit on the next `collect`.
+Call `status` to keep the button's label accurate.
 
-The shell owns the theme. It is on your frame's URL when the frame opens and
-arrives again as an `appearance` message on every change. The SDK reads the
-URL as it loads and sets `data-theme` on your root element there and then, so
-your view is in the shell's theme in the frame it first paints, never a
-default first. It also exposes `plugin.theme`. A view only has to write the
-CSS:
+The shell also sets the theme. The theme is part of the frame's URL when
+the frame opens, and every later change arrives as an `appearance` message.
+The SDK reads the URL as it loads and sets `data-theme` on the root element
+immediately, so the first frame the view paints already uses the shell's
+theme. The current theme is also available as `plugin.theme`. A view only
+needs the CSS:
 
 ```css
 :root { --bg: #18191b; --text: #ededef; color-scheme: dark; }
 [data-theme="light"] { --bg: #fff; --text: #24262c; color-scheme: light; }
 ```
 
-Load the SDK with a plain `<script src>` tag for this: a `defer` or `type=
-"module"` script runs after the document has painted, which is too late to
-choose a colour. A theme change never re-initialises the view or touches its
-draft.
+Load the SDK with a plain `<script src>` tag. A script with `defer` or
+`type="module"` runs after the document has painted, which is too late to
+set the colours. A theme change never initialises the view again and never
+changes its draft.
 
-## Settings of the plugin's own
+## Plugin settings
 
-A manifest with a `settings_schema` (see [`plugins/README.md`](../plugins/README.md))
-gets its values in `init` as `settings`, every key the schema declares with
-its default under what the person set, and again as a `settings` message
-whenever they change — in the app's Settings, or from the view itself.
-`plugin.settings` holds them; `onSettings` fires on a change and never
-re-initialises the view or touches its draft.
+When the manifest declares a `settings_schema`, the view receives the
+settings in `init` as `settings`: every key the schema declares, with the
+value the person set or else its default. The view receives them again as
+a `settings` message whenever they change, whether in the app's Settings or
+from the view itself. `plugin.settings` holds the current values, and
+`onSettings` is called on every change. A change never initialises the view
+again and never changes its draft. The manifest keys are described in
+[Settings and keys](../docs/building/settings-and-keys.md).
 
-A view writes one with `plugin.setSetting(key, value)`. The shell fills in
-the plugin's name, so a view can only ever write its own, and the app checks
-the value against the schema: what it keeps comes back as `settings`, what it
-refuses as `violations` with the path under `/plugins/<name>`. That is what
-makes a toggle in the view and the row in Settings the same control.
+A view stores a value with `plugin.setSetting(key, value)`. The shell adds
+the plugin's name, so a view can change only its own settings, and the app
+checks the value against the schema. A value the app accepts comes back as
+`settings`. A value it refuses comes back as `violations`, with the path
+under `/plugins/<name>`. As a result, a control in the view and the row in
+Settings change the same value.
 
-## Keys of the plugin's own
+## Plugin keyboard shortcuts
 
-A manifest with `shortcuts` (see [`plugins/README.md`](../plugins/README.md))
-gets those keys as `key` messages when the person presses them with the
-app rather than the frame in focus. The SDK dispatches each as a `keydown`
-on the document, marked `pinrailForwarded`, so the listener a view already
-has handles a forwarded key like a typed one; `onKey(key)` fires as well.
+When the manifest declares `shortcuts`, the view receives those keys as
+`key` messages when the person presses them while the app, rather than the
+view's frame, has focus. The SDK dispatches each key as a `keydown` event on
+the document, marked with `pinrailForwarded`, so the view's existing key
+listener handles a forwarded key like a typed one. `onKey(key)` is called as
+well. The `shortcuts` key is described in
+[Settings and keys](../docs/building/settings-and-keys.md).
 
 ## Icons
 
-A plugin brings its own icons. A view without a build keeps them as SVG
-files in `view/icons/`, and `Pinrail.icon(name)` returns the markup for
+A plugin supplies its own icons. A view without a build step keeps them as
+SVG files in `view/icons/`, and `Pinrail.icon(name)` returns the markup for
 `icons/<name>.svg`:
 
 ```js
 `<button class="btn">${Pinrail.icon("check")} Accept</button>`
 ```
 
-The app draws with [Lucide](https://lucide.dev), and its icons fit best:
-copy the ones you use from `lucide-static`, keeping the licence comment each
-file starts with (ISC). The glyph is drawn as a mask, which is what makes it
-take `currentColor`: an icon is the colour of the text it sits in, in either
-theme, with nothing to configure. Size follows the font size;
+The app uses [Lucide](https://lucide.dev) icons, so Lucide icons fit its
+style best. Copy the icons you use from the `lucide-static` package, and keep
+the licence comment (ISC) at the start of each file. The icon is drawn as a
+CSS mask, so it takes the colour of the surrounding text (`currentColor`) in
+both themes without any configuration. Its size follows the font size, and
 `{ size: 18 }` or `{ size: "1.25em" }` overrides it.
 
-An icon is decorative by default and is not announced. Pass `{ label: "delete" }`
-when the icon is the only thing saying what a control does. A name with no icon
-behind it renders as empty space, with the name left on the element.
+An icon is decorative by default and is hidden from screen readers. Pass
+`{ label: "delete" }` when the icon is the only indication of what a control
+does. A name without a matching file renders as empty space, and the name
+stays on the element.
 
-A view with a build imports its icons from its framework's Lucide package
-instead, as the templates do: `lucide-react`, `@lucide/vue`, `@lucide/svelte`,
-or `lucide` for plain TypeScript (`createElement(icon, { class: "lucide" })`).
-The build keeps only the icons the view imports, and the stylesheet sizes an
-`svg.lucide` to the text as it does `Pinrail.icon`.
+A view with a build step imports its icons from its framework's Lucide
+package instead, as the templates do: `lucide-react`, `@lucide/vue`,
+`@lucide/svelte`, or `lucide` for plain TypeScript
+(`createElement(icon, { class: "lucide" })`). The build includes only the
+icons the view imports, and the stylesheet sizes an `svg.lucide` element to
+the text, as it does for `Pinrail.icon`.
 
-The manifest's `icon` is an SVG file in the plugin's folder too, such as
-`icon.svg`: the app shows it wherever it names the plugin, drawn the same way.
+The manifest's `icon` is also an SVG file in the plugin's folder, such as
+`icon.svg`. The app shows it, drawn the same way, wherever it names the
+plugin.
 
-Helpers: `Pinrail.escape(s)` and `Pinrail.previousVerdict(previous, id)`, for
-decisions shaped as `{ decisions: [{ id, action, note }], undecided: [id] }`.
+The SDK also provides two helpers. `Pinrail.escape(s)` escapes text for use
+in HTML. `Pinrail.previousVerdict(previous, id)` returns the verdict on an
+item in the previous round, for decisions shaped as
+`{ decisions: [{ id, action, note }], undecided: [id] }`.
 
 ## Markdown
 
-A view renders markdown with no ceremony:
+A view can render Markdown directly:
 
 ```js
 const plugin = Pinrail.connect({
@@ -133,41 +150,45 @@ const plugin = Pinrail.connect({
 });
 ```
 
-`Pinrail.markdown(s)` and `Pinrail.markdownInline(s)` are there from the view's
-first line: the script the app serves carries its parser,
-[markdown-it](https://github.com/markdown-it/markdown-it), so a view loads one
-file and waits for nothing.
+`Pinrail.markdown(s)` and `Pinrail.markdownInline(s)` are available as soon
+as the SDK loads. The script that the app serves includes the
+[markdown-it](https://github.com/markdown-it/markdown-it) parser, so a view
+does not need to load another file.
 
-A view's frame is sandboxed and can open nothing itself, so a click on a link
-in what it renders becomes a message to the app. `plugin.open(url)` sends the
-same message from your own code. The app shows the person where the link goes
-and opens it in their browser when they agree, or at once when they allowed
-that site for your plugin.
+A view's frame is sandboxed and cannot open links itself. When the person
+clicks a link in rendered Markdown, the SDK sends a message to the app
+instead. `plugin.open(url)` sends the same message from your own code. The
+app shows the person where the link leads and opens it in their browser
+when they agree, or at once when they have allowed that site for your
+plugin.
 
-What comes back is CommonMark as HTML: headings, tables, blockquotes, nested
-lists, code. The HTML is the parser's own — raw HTML in the source is escaped
-rather than passed through, which matters because a view's frame runs inline
-scripts — and a link to anything but `http`, `https` or `mailto` keeps its text
-and loses its address. Styling stays yours: plain elements, no classes.
+The output is CommonMark rendered as HTML, with headings, tables, block
+quotes, nested lists and code. Raw HTML in the source is escaped rather than
+passed through, because a view's frame runs inline scripts. A link whose
+scheme is not `http`, `https` or `mailto` keeps its text but loses its
+address. The output has no classes, so you style the plain elements.
 
-`v1` is the protocol major: it only ever gets fixes. The source of truth is
-`src/pinrail-plugin.js` here; the desktop app's `sdk:build` copies it into what
-the app serves at build time, so there is exactly one copy in the repository.
+`v1` is the protocol's major version, and it changes only in ways that keep
+existing views working. The source of the SDK is `src/pinrail-plugin.js` in
+this package. The desktop app's `sdk:build` step copies it into the files the
+app serves, so the repository contains a single copy.
 
 ## The stylesheet
 
-`src/pinrail-plugin.css` is served beside the SDK at
-`/sdk/v1/pinrail-plugin.css`. It carries the app's tokens for both themes, the
-base typography and scrollbars, and a small set of classes for the furniture
-every view needs: header and content, items, severity chips, buttons, fields,
-notices. A view links it and writes only what is its own.
+The app serves `src/pinrail-plugin.css` beside the SDK, at
+`/sdk/v1/pinrail-plugin.css`. It contains the app's colour tokens for both
+themes, the base typography, scroll bars, and a small set of classes for
+common elements: a header and content area, items, severity chips, buttons,
+form fields and notices. A view links the stylesheet and adds only its own
+styles.
 
-It is optional and overridable: a view's own `<style>` comes after it. The
-list of classes is in [`plugins/README.md`](../plugins/README.md).
+The stylesheet is optional, and a view can override it, because the view's
+own `<style>` element comes after it. The classes are described in
+[Design](../docs/building/design.md).
 
-`Pinrail.layout()` builds the skeleton the stylesheet expects and returns its
-elements, so a view can rewrite its body on every change while the header and
-its controls stay put:
+`Pinrail.layout()` builds the structure the stylesheet expects and returns
+its elements. A view can then replace its content on every change while the
+header and its controls stay in place:
 
 ```js
 const view = Pinrail.layout({ title: "5 items", controls: [button] });
@@ -175,25 +196,27 @@ view.content.innerHTML = rows;
 view.title("4 items").meta(["acme-api", "7 days"]).controls([]);
 ```
 
-A header appears only if you ask for one with `title`, `meta`, `controls` or
-`header: true`. `into` puts the skeleton somewhere other than `<body>`.
+The header appears only when you pass `title`, `meta`, `controls` or
+`header: true`. The `into` option places the structure in an element other
+than `<body>`.
 
-The skeleton scrolls its body rather than the document, so a heading marked
-`.plugin-subhead` pins under the header on its own. Auto sizing still reports
-what the view needs, because it measures the header and the body instead of
-the document.
+The content area scrolls instead of the document, so a heading with the
+`.plugin-subhead` class stays pinned under the header. Automatic sizing
+still reports the height the view needs, because it measures the header and
+the content area instead of the document.
 
 ## Tests
 
 ```sh
-npm test            # the unit tests, against a fake shell environment; then
-                    # test/scaffold.spec.ts, what create writes under the harness
+npm test            # the unit tests, against a simulated shell, and then
+                    # test/scaffold.spec.ts, which tests what create writes
 ```
 
-## Starting a plugin
+## Creating a plugin
 
-`pinrail-plugin create` writes a folder that runs under `dev`, passes its
-own tests and installs with `--link` before a line of it is changed:
+`pinrail-plugin create` writes a plugin folder that already runs under
+`dev`, passes its own tests and installs with `--link`, before you change
+anything:
 
 ```sh
 node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage                    # view/index.html and view/view.js, no build
@@ -203,58 +226,73 @@ node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template vue  
 node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template svelte  # the view in Svelte, built by Vite
 ```
 
-Run these commands from a checkout of this repository. For a plugin
-without a build step, `pinrail plugins new` creates the same folder
-without a checkout.
+Run these commands from a checkout of this repository. For a plugin without
+a build step, `pinrail plugins new` creates the same folder without a
+checkout.
 
-What it writes: `manifest.json` at `0.1.0` with the schemas by `$ref` and
-the entry, a `description` and a `use_when` to replace; `example.json`, a
-payload that passes the payload schema; `sample.json`, a whole review
-(`title` and `payload`) that `pinrail submit <name> --sample` and Settings
-send; `schemas/` with one property each and a description saying what
-to replace; `view/index.html` and `view/view.js`, typed with `// @ts-check`
-against `pinrail-plugin.d.ts`, the SDK's types copied beside the manifest
-(or `src/`, `vite.config.ts` and `tsconfig.json`), a yes-or-no question
-with a comment in the style of the sample plugins; `AGENTS.md`, the plugin
-explained to an agent helping build it, and `CLAUDE.md` pointing at it;
-`fixtures/basic.json`; `tests/<name>.spec.ts` under the
-harness with its `playwright.config.ts`; `package.json` depending on this
-package and Playwright; a `.gitignore`; a README with the commands; and
-`.github/workflows/release.yml`, which attaches `<name>-<version>.zip` to a
-GitHub release on a `v<version>` tag, for `pinrail plugins install
-<releases URL>`.
+The new folder contains the following files:
 
-`--dir` puts it somewhere other than `./<name>`. `--sdk` sets where
-`package.json` gets this package from; the default is the tarball of the
-SDK's own GitHub release.
+- `manifest.json`, at version `0.1.0`, which refers to the schemas with
+  `$ref` and names the entry. Replace its `description` and `use_when`.
+- `example.json`, a payload that passes the payload schema.
+- `sample.json`, a complete review with a `title` and a `payload`. `pinrail
+  submit <name> --sample` and the app's Settings send it.
+- `schemas/`, with one property in each schema and a description of what to
+  replace.
+- `view/index.html` and `view/view.js`, a yes-or-no question with comments in
+  the style of the sample plugins. They are type-checked with
+  `// @ts-check` against `pinrail-plugin.d.ts`, a copy of the SDK's types
+  beside the manifest. A template with a build step writes `src/`,
+  `vite.config.ts` and `tsconfig.json` instead.
+- `AGENTS.md`, which explains the plugin to an agent that helps build it,
+  and `CLAUDE.md`, which refers to it.
+- `fixtures/basic.json`, a review to show in the view.
+- `tests/<name>.spec.ts`, a test in the harness, with its
+  `playwright.config.ts`.
+- `package.json`, which depends on this package and on Playwright.
+- `.gitignore`.
+- `README.md`, with the commands for the plugin.
+- `.github/workflows/release.yml`, which attaches `<name>-<version>.zip` to a
+  GitHub release when you push a `v<version>` tag. Anyone can then install
+  the plugin with `pinrail plugins install <releases URL>`.
+
+The `--dir` option creates the folder somewhere other than `./<name>`. The
+`--sdk` option sets where `package.json` installs this package from. By
+default, it uses the tarball attached to the SDK's GitHub release.
 
 ## Running a plugin in the browser
 
-`pinrail-plugin dev` is a shell for one plugin, without the app: point it at
-a plugin directory and it serves the view under the app's CSP with the SDK
-beside it, and opens a page that plays the shell.
+`pinrail-plugin dev` runs one plugin without the app. Give it a plugin
+folder, and it serves the view under the app's Content Security Policy,
+with the SDK beside it, and opens a page that acts as the app's shell.
 
 ```sh
 npx pinrail-plugin dev .                       # in a plugin folder that has the package installed
-mise run dev:plugin plugins/artifact          # in this repository, where nothing at the root links it
-                                              # --port N (4790), --no-open
+mise run dev:plugin plugins/artifact          # in this repository, where no package links it at the root
+                                              # options: --port N (default 4790), --no-open
 ```
 
-The page lists the plugin's `fixtures/*.json` to initialise the view with,
-lets a decided fixture stand in as the previous round, toggles read-only and
-the theme, sends `collect` the way the app's hand-over button does, and
-answers a submit with `violations` you type or with `submitted`. Everything
-the view posts — `ready`, `resize`, `draft`, `status`, `submit` — appears in
-a log beside it. A change to any file in the plugin reloads the view, with
-the last draft handed back on the next `init`, so it pairs with a build in
-watch mode. The app can serve the same folder at the same time:
-`pinrail plugins install <dir> --link`, which `dev` prints at start.
+The page lists the plugin's `fixtures/*.json` files, and you choose one to
+initialise the view with. You can also:
 
-## Testing a plugin in isolation
+- use a decided fixture as the previous round;
+- switch between read-only and editable, and between the themes;
+- send `collect`, as the app's hand-over button does;
+- answer a submission with `violations` that you type, or with `submitted`.
 
-`pinrail-plugin/testing` (`harness/`) mounts a plugin directory in a sandboxed
-iframe under a fake shell with the SDK and the app's CSP, so a
-view is tested alone, without the app or the CLI:
+A log beside the view shows every message the view sends: `ready`,
+`resize`, `draft`, `status` and `submit`. A change to any file in the plugin
+reloads the view, and the last draft is passed back in the next `init`, so
+`dev` works well with a build in watch mode. The app can serve the same
+folder at the same time: run `pinrail plugins install <dir> --link`, which
+`dev` prints when it starts.
+
+## Testing a plugin on its own
+
+`@forgeplane/pinrail-plugin/testing` (in `harness/`) mounts a plugin folder
+in a sandboxed frame, under a simulated shell with the SDK and the app's
+Content Security Policy. A test exercises the view on its own, without the
+app or the CLI:
 
 ```ts
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
@@ -264,30 +302,37 @@ await plugin.frame.getByRole("button", { name: "Yes" }).click();
 expect(await plugin.nextSubmit()).toEqual({ ok: true });
 ```
 
-A fixture is part of a review, in the form the SDK passes a view as `review`, usually `{ "title", "payload" }`, or
-with a `decision` for a read-only or previous-round case. Tests live in
-`<plugin>/tests/*.spec.ts`; `pinrail-plugin test [dir]` runs them, with
-Playwright from the plugin's own dependencies and the plugin's
-`playwright.config` when it has one (the package's otherwise), and hands
-anything else on the line to Playwright: `-g "hands over"`, `--headed`.
-In this repository `mise run test:plugins` runs every sample's tests from
-`plugins/`, which depends on this package by path.
+A fixture holds part of a review, in the form the SDK passes to a view as
+`review`. It is usually `{ "title", "payload" }`, and it includes a
+`decision` for a read-only view or a previous round.
+
+Tests live in `<plugin>/tests/*.spec.ts`. `pinrail-plugin test [dir]` runs
+them with the Playwright from the plugin's own dependencies. It uses the
+plugin's `playwright.config` when there is one, and the package's otherwise.
+Any other arguments are passed to Playwright, such as `-g "hands over"` or
+`--headed`. In this repository, `mise run test:plugins` runs the tests of
+every plugin in `plugins/`, which depend on this package by path.
 
 ## Checking a plugin
 
-`pinrail-plugin check [dir]` says what the app's inspect would say, without
-the app: the manifest, the name, the version, the entry (or the build that
-writes it), the schemas and their `$ref`s are *problems* that refuse the
-folder; a `settings_schema`, `shortcuts` list, `decision_template`,
-`example`, `sample` or `icon` with the wrong shape, an icon that is not an
-SVG file in the folder, an example
-that does not pass the payload schema, or a sample without a title, a
-passing payload or its files, is a *warning*, the feature the
-app drops with the reason on the plugin's row. `--json` gives the same as
-data. The rules are the core's, carried in JavaScript; a test in the core
-runs both over the same folders and compares. The one thing `check` cannot
-do is compile a template: the app does that on install, and rendering a
-decided fixture shows the result.
+`pinrail-plugin check [dir]` runs the checks the app runs when it inspects
+a plugin, without the app. It reports two kinds of results:
+
+- A **problem** means that the app would refuse the folder. Problems concern
+  the manifest, the name, the version, the entry (or the build that writes
+  it), and the schemas with their `$ref` references.
+- A **warning** means that the app would install the plugin but drop one
+  feature, and show the reason on the plugin's row. Warnings concern a
+  `settings_schema`, `shortcuts`, `decision_template`, `example`, `sample`
+  or `icon` with the wrong shape, an icon that is not an SVG file in the
+  folder, an example that does not pass the payload schema, and a sample
+  without a title, a valid payload or its files.
+
+`--json` prints the same results as JSON. The checks are the app's own
+rules, implemented again in JavaScript, and a test in the app runs both
+implementations over the same folders and compares the results. The one
+check that `check` cannot run is compiling the decision template. The app
+compiles it on install, and a decided fixture shows the rendered result.
 
 ## Types
 
@@ -295,21 +340,21 @@ decided fixture shows the result.
 import type { Manifest, Init, Review, ShellMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
 ```
 
-`types.d.ts` is the protocol written down: the manifest with every key the
-app reads, the envelope a view is handed, the messages both ways, and the
-shape of `window.Pinrail`.
+`types.d.ts` describes the protocol: every manifest key the app reads, the
+review a view receives, the messages in both directions, and the shape of
+`window.Pinrail`.
 
 ## Versions
 
-The package's version is the SDK's (`Pinrail.version`), and its major is the
-protocol's: `1.x` serves `sdk/v1`. The app copies `src/` into what it serves
-at `/sdk/v1` on every build, so the app and the package carry the same bytes
-at the same commit.
+The package's version is the SDK's version (`Pinrail.version`), and its
+major version is the protocol's: the `1.x` package is the SDK the app serves
+at `/sdk/v1`. The app copies `src/` into the files it serves on every build,
+so the app and the package contain the same files at every commit.
 
 ## License
 
 The package is licensed under the Apache License 2.0; see `LICENSE` and
-`NOTICE`. The files `pinrail-plugin create` writes into a new plugin come from
-`templates/`, which is licensed under MIT No Attribution
-(`templates/LICENSE`): a plugin made from them is yours to license however you
+`NOTICE`. The files that `pinrail-plugin create` writes into a new plugin come
+from `templates/`, which is licensed under MIT No Attribution
+(`templates/LICENSE`). You can license a plugin made from them however you
 like, with no notice to keep.
