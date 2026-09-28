@@ -21,7 +21,7 @@ type Draft = { verdict: Verdict | null; note: string };
 const { Pinrail } = window;
 
 export function App() {
-  const [review, setGate] = useState<Review<Payload, Decision> | null>(null);
+  const [review, setReview] = useState<Review<Payload, Decision> | null>(null);
   const [readonly, setReadonly] = useState(false);
   const [draft, setDraft] = useState<Draft>({ verdict: null, note: "" });
   const [error, setError] = useState("");
@@ -33,7 +33,7 @@ export function App() {
   useEffect(() => {
     plugin.current = Pinrail.connect<Payload, Decision>({
       onInit({ review, readonly, draft }) {
-        setGate(review);
+        setReview(review);
         setReadonly(readonly);
         if (draft) setDraft(draft as Draft);
       },
@@ -46,7 +46,7 @@ export function App() {
         setError(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
       },
       onSubmitted() {
-        setGate({ ...plugin.current!.review! });
+        setReview({ ...plugin.current!.review! });
         setReadonly(true);
       },
     });

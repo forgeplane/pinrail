@@ -295,13 +295,13 @@ button.toggle.warn.on { background: color-mix(in oklab, var(--sev-major) 14%, tr
    forge-specific remains. */
 
 /* ---------- bridge ---------- */
-let GATE = null, PREVIOUS = null, RO_FLAG = false;
+let REVIEW = null, PREVIOUS = null, RO_FLAG = false;
 const RO = () => RO_FLAG;
 
 const plugin = Pinrail.connect({
   resize: "fill",
   onInit(init) {
-    GATE = init.review; PREVIOUS = init.previous; RO_FLAG = init.readonly;
+    REVIEW = init.review; PREVIOUS = init.previous; RO_FLAG = init.readonly;
     applySettings(init.settings);
     boot(init.draft);
   },
@@ -1022,7 +1022,7 @@ function submitModalHtml() {
    workflow, the ref and a link to it. This header says what the shell cannot
    know, and leaves out whatever it can see is already up there. */
 function shellShows(field) {
-  const origin = (GATE && GATE.origin) || {};
+  const origin = (REVIEW && REVIEW.origin) || {};
   const change = D.change;
   if (field === "url") return !!origin.url && origin.url === change.url;
   const bare = (value) => String(value == null ? "" : value).replace(/^[#!]/, "");
@@ -1040,7 +1040,7 @@ function headerHtml() {
   const undecidedList = props.filter((p) => !decided(p.id));
   const pct = props.length ? Math.round((decidedCount / props.length) * 100) : 0;
   const c = D.change;
-  const status = GATE.status;
+  const status = REVIEW.status;
   const roLabel = status === "decided" ? "READ-ONLY · DECIDED" : `READ-ONLY · ${String(status).toUpperCase()}`;
   return `<header class="head">
     <button class="bare head-tree" data-act="toggle-tree">${Pinrail.icon(S.treeOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: S.treeOpen ? "Collapse the file tree" : "Show the file tree" })}</button>
@@ -1391,13 +1391,13 @@ document.addEventListener("keydown", (e) => {
 
 /* ---------- boot ---------- */
 function boot(draftData) {
-  D = adapt(GATE.payload);
+  D = adapt(REVIEW.payload);
   if (!D.files.some((f) => f.rank != null)) S.orderMode = "path";
   prep();
-  S.done = RO() && !!GATE.decision;
+  S.done = RO() && !!REVIEW.decision;
   S.showSubmit = false; S.composer = null; S.noteOpen = {}; S.errors = null;
   if (RO()) {
-    loadDecision(GATE.decision && GATE.decision.data);
+    loadDecision(REVIEW.decision && REVIEW.decision.data);
   } else if (draftData && draftData.decisions) {
     S.decisions = draftData.decisions || {};
     S.manualComments = draftData.manualComments || [];

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "license": "Apache-2.0",
   "scripts": {
-    "build": "rm -rf assets && tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build",
     "watch": "vite build --watch",
     "test": "npx --prefix .. pinrail-plugin test"
   },

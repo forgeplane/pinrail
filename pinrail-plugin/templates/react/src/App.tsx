@@ -18,7 +18,7 @@ type Draft = { ok: boolean | null; comment: string };
 const { Pinrail } = window;
 
 export function App() {
-  const [review, setGate] = useState<Review<Payload, Decision> | null>(null);
+  const [review, setReview] = useState<Review<Payload, Decision> | null>(null);
   const [readonly, setReadonly] = useState(false);
   const [draft, setDraft] = useState<Draft>({ ok: null, comment: "" });
   const [errors, setErrors] = useState("");
@@ -30,7 +30,7 @@ export function App() {
   useEffect(() => {
     plugin.current = Pinrail.connect<Payload, Decision>({
       onInit({ review, readonly, draft }) {
-        setGate(review);
+        setReview(review);
         setReadonly(readonly);
         const kept = draft as Draft | null;
         if (kept) setDraft({ ok: typeof kept.ok === "boolean" ? kept.ok : null, comment: kept.comment ?? "" });
@@ -44,7 +44,7 @@ export function App() {
         setErrors(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
       },
       onSubmitted() {
-        setGate({ ...plugin.current!.review! });
+        setReview({ ...plugin.current!.review! });
         setReadonly(true);
       },
     });
