@@ -319,8 +319,28 @@ const COMMAND_MARK: &str = "__pinrail_command__=";
 /// start-up files may print their own. None when the shell does not answer
 /// in time.
 pub fn ask_login_shell() -> Option<ShellView> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    ask_shell(&shell)
+    #[cfg(unix)]
+    let uid = rustix::process::getuid().as_raw();
+    #[cfg(not(unix))]
+    let uid = 0;
+    let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
+    ask_shell(&login_shell(std::env::var("SHELL").ok(), &passwd, uid))
+}
+
+/// The shell a new terminal starts: SHELL, which an app started from a
+/// Linux desktop may not have, else the account's shell in `passwd`, else
+/// `/bin/sh`, which every Unix has.
+fn login_shell(variable: Option<String>, passwd: &str, uid: u32) -> String {
+    if let Some(shell) = variable.filter(|s| !s.is_empty()) {
+        return shell;
+    }
+    passwd
+        .lines()
+        .map(|line| line.split(':').collect::<Vec<_>>())
+        .find(|fields| fields.len() >= 7 && fields[2].parse() == Ok(uid))
+        .map(|fields| fields[6].to_string())
+        .filter(|shell| !shell.is_empty())
+        .unwrap_or_else(|| "/bin/sh".to_string())
 }
 
 fn ask_shell(shell: &str) -> Option<ShellView> {
@@ -364,6 +384,23 @@ fn parse_shell(text: &str) -> Option<ShellView> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_login_shell_is_the_variable_then_the_account_then_sh() {
+        let passwd = "root:x:0:0:root:/root:/bin/bash\n\
+                      pinrail:x:1000:1000::/home/pinrail:/usr/bin/fish\n";
+        assert_eq!(
+            login_shell(Some("/bin/zsh".into()), passwd, 1000),
+            "/bin/zsh"
+        );
+        // an app started from a Linux desktop may have no SHELL
+        assert_eq!(login_shell(None, passwd, 1000), "/usr/bin/fish");
+        assert_eq!(
+            login_shell(Some(String::new()), passwd, 1000),
+            "/usr/bin/fish"
+        );
+        assert_eq!(login_shell(None, passwd, 1001), "/bin/sh");
+    }
 
     #[cfg(unix)]
     #[test]

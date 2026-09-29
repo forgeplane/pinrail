@@ -45,6 +45,10 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSError", "NSBundle", "NSValue", "NSArray", "NSEnumerator"] }
 objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCenter", "UNNotificationRequest", "UNNotificationContent", "UNNotification", "UNNotificationResponse", "UNNotificationSound", "UNNotificationSettings", "block2"] }
 
+[target.'cfg(unix)'.dependencies]
+# the user's id, to find their login shell when SHELL is not set
+rustix = { version = "1", features = ["process"] }
+
 [dev-dependencies]
 tempfile = "3"
 

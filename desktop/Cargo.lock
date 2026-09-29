@@ -3365,6 +3365,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-user-notifications",
  "pinrail-core",
+ "rustix",
  "serde",
  "serde_json",
  "tauri",
