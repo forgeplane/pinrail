@@ -741,13 +741,55 @@ fn notify(app: &AppHandle, notice: &Notice) {
         });
         return;
     }
-    let mut builder = app.notification().builder().title(title).body(body);
-    if settings.sound {
-        builder = builder.sound("default");
+    #[cfg(target_os = "linux")]
+    {
+        notify_linux(app, title, &body, notice.review_id.clone(), settings.sound);
+        return;
     }
-    if let Err(error) = builder.show() {
-        eprintln!("pinrail: notification not shown: {error}");
+    #[allow(unreachable_code)]
+    {
+        let mut builder = app.notification().builder().title(title).body(body);
+        if settings.sound {
+            builder = builder.sound("default");
+        }
+        if let Err(error) = builder.show() {
+            eprintln!("pinrail: notification not shown: {error}");
+        }
     }
+}
+
+/// On Linux, a notification with a default action, which the notification
+/// server invokes when the person clicks it: the review then opens. A
+/// thread waits for the click and ends when the notification closes.
+#[cfg(target_os = "linux")]
+fn notify_linux(app: &AppHandle, title: &str, body: &str, review_id: Option<String>, sound: bool) {
+    let mut notification = notify_rust::Notification::new();
+    notification.summary(title).body(body).auto_icon();
+    if sound {
+        notification.sound_name("default");
+    }
+    if review_id.is_some() {
+        notification.action("default", "Open");
+    }
+    let handle = match notification.show() {
+        Ok(handle) => handle,
+        Err(error) => {
+            eprintln!("pinrail: notification not shown: {error}");
+            return;
+        }
+    };
+    let Some(id) = review_id else {
+        return;
+    };
+    let app = app.clone();
+    std::thread::spawn(move || {
+        handle.wait_for_action(|action| {
+            if action == "default" {
+                let opener = app.clone();
+                let _ = app.run_on_main_thread(move || open_review(&opener, &id));
+            }
+        });
+    });
 }
 
 #[cfg(test)]
