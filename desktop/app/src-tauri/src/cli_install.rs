@@ -202,11 +202,12 @@ pub fn install(mode: Mode, bundled: &Path, link: &Path) -> Result<(), String> {
     }
 }
 
-/// Brings the AppImage's copy of the CLI up to the bundled one, after an
-/// update replaced the AppImage but not the copy. Only a copy that is some
-/// other version of the pinrail CLI is replaced: none is made where the
-/// person did not install one, and a file that is not the CLI stays. True
-/// when the copy was replaced.
+/// Brings a copy that [`Mode::Copy`] installed up to the bundled CLI, after
+/// an update replaced the app but not the copy (a link follows the app,
+/// and a package updates its own file). Only a copy that is some other
+/// version of the pinrail CLI is replaced: none is made where the person
+/// did not install one, and a file that is not the CLI stays. True when
+/// the copy was replaced.
 pub fn refresh(bundled: &Path, link: &Path) -> Result<bool, String> {
     if !status(Mode::Copy, Some(bundled), link, None).outdated {
         return Ok(false);

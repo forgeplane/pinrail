@@ -382,13 +382,14 @@ pub fn run() {
                     .unwrap_or(true)
             });
 
-            // an update replaces the AppImage, not the copy of the CLI that
-            // Install the CLI made from it: bring that copy up to date
-            if cli_install::in_appimage() {
-                std::thread::spawn(|| {
-                    let (Some(bundled), Some(home)) =
-                        (cli_install::bundled(), std::env::var_os("HOME"))
-                    else {
+            // an update replaces the app, not a copy of the CLI that Install
+            // the CLI made from it (the AppImage's way): bring it up to date
+            if let Some(bundled) = cli_install::bundled()
+                && cli_install::mode(&bundled, cli_install::in_appimage())
+                    == cli_install::Mode::Copy
+            {
+                std::thread::spawn(move || {
+                    let Some(home) = std::env::var_os("HOME") else {
                         return;
                     };
                     let link = cli_install::link_path(&PathBuf::from(home));
