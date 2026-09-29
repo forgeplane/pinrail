@@ -21,7 +21,7 @@ Download it from [the download page](/download/), which has every system and for
 
 Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, or in the system tray on Linux, so agents can still ask while the window is closed.
 
-The macOS app and the AppImage update themselves. They download new versions in the background and install them when you restart or quit Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is available, and you install it in the same way as the first one. On macOS, the `pinrail` command is a link into the app, so it updates with the app. If you use the AppImage, choose **Install the CLI** in *Settings › Data* again after each update. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
+The macOS app and the AppImage update themselves. They download new versions in the background and install them when you restart or quit Pinrail. With the `.deb` or `.rpm`, Pinrail tells you when a new version is available, and you install it in the same way as the first one. On macOS, the `pinrail` command is a link into the app, so it updates with the app. With the AppImage, Pinrail updates the copy of the command it installed the next time it starts. See [Settings › About](/docs/using/settings/#about) to check by hand or turn automatic checks off.
 
 ## The command
 

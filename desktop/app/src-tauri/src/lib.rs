@@ -382,6 +382,24 @@ pub fn run() {
                     .unwrap_or(true)
             });
 
+            // an update replaces the AppImage, not the copy of the CLI that
+            // Install the CLI made from it: bring that copy up to date
+            if cli_install::in_appimage() {
+                std::thread::spawn(|| {
+                    let (Some(bundled), Some(home)) =
+                        (cli_install::bundled(), std::env::var_os("HOME"))
+                    else {
+                        return;
+                    };
+                    let link = cli_install::link_path(&PathBuf::from(home));
+                    match cli_install::refresh(&bundled, &link) {
+                        Ok(true) => eprintln!("pinrail: updated the CLI at {}", link.display()),
+                        Ok(false) => {}
+                        Err(error) => eprintln!("pinrail: the CLI was not updated: {error}"),
+                    }
+                });
+            }
+
             // pinrail:// links; a packaged app registers the scheme through
             // its bundle or package, a development build or an AppImage
             // here. Links not working is no reason not to start.

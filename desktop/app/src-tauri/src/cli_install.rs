@@ -202,6 +202,18 @@ pub fn install(mode: Mode, bundled: &Path, link: &Path) -> Result<(), String> {
     }
 }
 
+/// Brings the AppImage's copy of the CLI up to the bundled one, after an
+/// update replaced the AppImage but not the copy. Only a copy that is some
+/// other version of the pinrail CLI is replaced: none is made where the
+/// person did not install one, and a file that is not the CLI stays. True
+/// when the copy was replaced.
+pub fn refresh(bundled: &Path, link: &Path) -> Result<bool, String> {
+    if !status(Mode::Copy, Some(bundled), link, None).outdated {
+        return Ok(false);
+    }
+    copy(bundled, link).map(|()| true)
+}
+
 /// Copies beside `link` and renames over it, so a terminal never runs half a
 /// file, and a link in its place is replaced rather than written through.
 fn copy(bundled: &Path, link: &Path) -> Result<(), String> {
@@ -537,6 +549,42 @@ mod tests {
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, format!("#!/bin/sh\necho 'pinrail {version}'\n")).unwrap();
         executable(path).unwrap();
+    }
+
+    /// After an update, the AppImage's copy of the CLI is brought up to the
+    /// bundled one; a copy nobody installed is not made, and a file that is
+    /// not the CLI is left alone.
+    #[cfg(unix)]
+    #[test]
+    fn an_appimage_update_refreshes_the_copy_it_installed() {
+        let dir = tempfile::tempdir().unwrap();
+        let bundled = dir.path().join("app").join(COMMAND);
+        script(&bundled, "0.2.0");
+        let link = link_path(&dir.path().join("home"));
+
+        assert_eq!(
+            refresh(&bundled, &link),
+            Ok(false),
+            "nothing installed, nothing made"
+        );
+        assert!(!link.exists());
+
+        script(&link, "0.1.0");
+        assert_eq!(refresh(&bundled, &link), Ok(true));
+        assert!(same_contents(&bundled, &link));
+        assert_eq!(
+            refresh(&bundled, &link),
+            Ok(false),
+            "already the bundled one"
+        );
+
+        std::fs::write(&link, "#!/bin/sh\necho 'something else'\n").unwrap();
+        assert_eq!(refresh(&bundled, &link), Ok(false));
+        assert!(
+            std::fs::read_to_string(&link)
+                .unwrap()
+                .contains("something else")
+        );
     }
 
     #[test]
