@@ -126,11 +126,9 @@ it. The first run compiles everything and takes several minutes; later
 runs reuse the build.
 
 The container builds from a copy of your checkout, so your working tree
-stays as it is. To run a command inside it, such as submitting a review:
-
-```sh
-docker exec -u pinrail pinrail-linux pinrail submit list --title "Try it" --data '{"groups":[]}'
-```
+stays as it is. [docker/linux-desktop/README.md](docker/linux-desktop/README.md)
+explains how to send reviews and samples, install plugins and try a
+change.
 
 The container has no GPU, and it runs Linux for your Mac's processor
 rather than the x86-64 of the release, so check anything that depends on
