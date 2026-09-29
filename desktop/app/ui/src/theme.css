@@ -86,9 +86,13 @@ textarea,
 [contenteditable],
 pre,
 code,
-.notice {
+.notice,
+.copyable {
   user-select: text;
   -webkit-user-select: text;
+}
+.copyable {
+  cursor: text;
 }
 a {
   color: var(--accent);

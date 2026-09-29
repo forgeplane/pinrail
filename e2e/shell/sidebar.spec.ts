@@ -111,4 +111,11 @@ test("the app's own text cannot be selected, as in a desktop app, but fields and
   expect(await selectable(".nav-count")).toBe("none");
   expect(await selectable("h1")).toBe("none");
   expect(await selectable("input[type=search]")).not.toBe("none");
+
+  // a review's title and id are there to be copied
+  const review = await createReview(page.request, { title: "Copy my title", payload });
+  await page.goto(`/#/reviews/${review.id}`);
+  await expect(page.locator(".crumb-title")).toHaveText("Copy my title");
+  expect(await selectable(".crumb-title")).not.toBe("none");
+  expect(await selectable(".strip-id .mono")).not.toBe("none");
 });

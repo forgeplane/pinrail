@@ -384,7 +384,7 @@ export function ReviewScreen() {
             {back.label}
           </Link>
           <span className="crumb-sep">›</span>
-          <span className="crumb-title" title={review.title}>
+          <span className="crumb-title copyable" title={review.title}>
             {review.title}
           </span>
           {originUrl ? (
@@ -522,7 +522,7 @@ export function ReviewScreen() {
           </span>
         ) : null}
         <span className="strip-id">
-          <span className="mono faint">{review.id}</span>
+          <span className="mono faint copyable">{review.id}</span>
           <Tooltip
             label={copiedId === "done" ? "Copied" : copiedId === "failed" ? "Could not copy" : "Copy the id"}
             side="bottom"
@@ -651,7 +651,7 @@ export function ReviewScreen() {
         >
           {maximized ? (
             <div className="frame-bar" data-tauri-drag-region>
-              <span className="frame-bar-title">{review.title}</span>
+              <span className="frame-bar-title copyable">{review.title}</span>
               <Tooltip label="Restore the view" keys={[MOD, SHIFT, "M"]} side="bottom">
                 <button
                   type="button"
