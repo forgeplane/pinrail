@@ -37,6 +37,10 @@ tower-http = { version = "0.6", features = ["cors", "set-header"] }
 ureq = { version = "3", features = ["json"] }
 zip = { version = "4", default-features = false, features = ["deflate"] }
 
+[target.'cfg(unix)'.dependencies]
+# to signal a build's or a fetch's whole process group
+rustix = { version = "1", features = ["process"] }
+
 [dev-dependencies]
 http-body-util = "0.1"
 tempfile = "3"

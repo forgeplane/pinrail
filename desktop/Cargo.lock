@@ -3341,6 +3341,7 @@ dependencies = [
  "mime_guess",
  "minijinja",
  "rusqlite",
+ "rustix",
  "serde",
  "serde_json",
  "sha2",

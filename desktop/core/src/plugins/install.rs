@@ -1604,13 +1604,15 @@ fn run_build(
     Ok(log_path)
 }
 
-/// Ends a build and everything it started: the build runs in a process
-/// group of its own, led by the shell.
+/// Ends a build or a fetch and everything it started: each runs in a
+/// process group of its own, led by the process `pid`. The signal goes to
+/// the group directly, since the `kill` command of Linux's procps does not
+/// take a group the way the BSD one does.
 fn stop_group(pid: u32) {
     #[cfg(unix)]
-    let _ = Command::new("kill")
-        .args(["-KILL", &format!("-{pid}")])
-        .status();
+    if let Some(group) = rustix::process::Pid::from_raw(pid as i32) {
+        let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+    }
     #[cfg(not(unix))]
     let _ = Command::new("taskkill")
         .args(["/F", "/T", "/PID", &pid.to_string()])
