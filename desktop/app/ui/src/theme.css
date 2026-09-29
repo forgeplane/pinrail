@@ -75,6 +75,20 @@ body {
   color: var(--text);
   font: 13px/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
+  /* a desktop app: its own labels, lists and buttons are not text to
+     select; what a person may copy is re-enabled below */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+input,
+textarea,
+[contenteditable],
+pre,
+code,
+.notice {
+  user-select: text;
+  -webkit-user-select: text;
 }
 a {
   color: var(--accent);
@@ -223,8 +237,6 @@ h1 {
   flex: none;
   display: flex;
   align-items: center;
-  user-select: none;
-  -webkit-user-select: none;
 }
 .sidebar-bar {
   gap: 4px;
@@ -1817,8 +1829,6 @@ h1 {
   flex: none;
   padding: 2px 8px 0 12px;
   box-shadow: 0 1px 0 var(--border);
-  user-select: none;
-  -webkit-user-select: none;
 }
 .plugin-frame-wrap.has-overlay-bar .frame-bar {
   padding-left: 78px;
@@ -2084,20 +2094,10 @@ h1 {
   box-shadow: 0 24px 60px rgb(0 0 0 / 0.45);
   overflow: hidden;
 }
-/* dialogs are chrome, not a page: nothing to drag-select, except what is typed or worth copying */
-.settings,
-.app-dialog,
-.palette {
-  user-select: none;
-  -webkit-user-select: none;
-  cursor: default;
-}
 .settings input,
 .settings textarea,
 .settings .mono,
 .palette input {
-  user-select: text;
-  -webkit-user-select: text;
   cursor: text;
 }
 .settings-rail {
@@ -2591,8 +2591,6 @@ h1 {
   color: var(--dim);
   white-space: pre-wrap;
   word-break: break-word;
-  user-select: text;
-  -webkit-user-select: text;
   cursor: text;
 }
 .install-error {

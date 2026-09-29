@@ -99,3 +99,16 @@ test("⌘B hides the sidebar and shows it again", async ({ page }) => {
   await page.keyboard.press("ControlOrMeta+b");
   await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
 });
+
+test("the app's own text cannot be selected, as in a desktop app, but fields and messages can", async ({ page }) => {
+  await page.goto("/");
+  const selectable = (selector: string) =>
+    page
+      .locator(selector)
+      .first()
+      .evaluate((el) => getComputedStyle(el).webkitUserSelect || getComputedStyle(el).userSelect);
+  await expect(page.locator(".nav-count").first()).toBeVisible();
+  expect(await selectable(".nav-count")).toBe("none");
+  expect(await selectable("h1")).toBe("none");
+  expect(await selectable("input[type=search]")).not.toBe("none");
+});
