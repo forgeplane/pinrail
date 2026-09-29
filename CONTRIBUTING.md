@@ -110,6 +110,32 @@ test` from `desktop/`, and check the difference before you commit it. The
 other recorded answers in `tests/fixtures/api`, the wording of refusals, are
 edited by hand.
 
+## Trying the Linux app from macOS
+
+With Docker installed, run:
+
+```sh
+mise run linux-desktop
+```
+
+This builds the app and the `pinrail` command for Linux in a container,
+and runs the app on a virtual display with a panel, a system tray and a
+notification daemon. Open
+<http://localhost:6080/vnc.html?autoconnect=1&resize=scale> to see and use
+it. The first run compiles everything and takes several minutes; later
+runs reuse the build.
+
+The container builds from a copy of your checkout, so your working tree
+stays as it is. To run a command inside it, such as submitting a review:
+
+```sh
+docker exec -u pinrail pinrail-linux pinrail submit list --title "Try it" --data '{"groups":[]}'
+```
+
+The container has no GPU, and it runs Linux for your Mac's processor
+rather than the x86-64 of the release, so check anything that depends on
+those on a real Linux machine.
+
 ## Before opening a pull request
 
 Run the linters and the tests. ESLint and Prettier come from the package at

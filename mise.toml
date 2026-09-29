@@ -69,6 +69,14 @@ description = "Desktop app with the UI dev server and live reload"
 dir = "{{config_root}}/desktop/app"
 run = "npx tauri dev"
 
+[tasks."linux-desktop"]
+description = "The desktop app on Linux in Docker, shown in a browser at http://localhost:6080; needs Docker"
+dir = "{{config_root}}"
+run = [
+  "docker build -q -t pinrail-linux-desktop docker/linux-desktop",
+  "docker run --rm -it --name pinrail-linux -p 6080:6080 -v {{config_root}}:/src:ro -v pinrail-linux-work:/work -v pinrail-linux-cache:/cache --shm-size=1g pinrail-linux-desktop",
+]
+
 [tasks.lint]
 description = "What CI enforces: rustfmt, clippy with warnings denied, the shell type-checked, ESLint and Prettier, dependency licences and sources"
 run = [
