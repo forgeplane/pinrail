@@ -9,7 +9,7 @@ FROM rust:1-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
       librsvg2-dev libxdo-dev libssl-dev \
-      xvfb openbox tint2 dunst dbus-x11 libnotify-bin xdg-utils \
+      xvfb openbox tint2 dunst dbus-x11 libnotify-bin xdg-utils desktop-file-utils \
       x11vnc novnc websockify \
       fonts-dejavu fonts-noto-color-emoji rsync git ca-certificates curl xz-utils \
     && rm -rf /var/lib/apt/lists/*
@@ -24,6 +24,7 @@ RUN arch="$(dpkg --print-architecture)"; \
 # the app runs as a person would, not as root
 RUN useradd --create-home --shell /bin/bash pinrail
 
+COPY dunstrc /etc/xdg/dunst/dunstrc
 COPY start.sh /usr/local/bin/start-pinrail
 RUN chmod +x /usr/local/bin/start-pinrail
 
