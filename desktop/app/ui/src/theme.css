@@ -1530,6 +1530,43 @@ h1 {
   background: var(--bg-hover);
   color: var(--text);
 }
+.feedback-diagnostics {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.feedback-diagnostics-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.feedback-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.feedback-show {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+}
+.feedback-show:hover {
+  text-decoration: underline;
+}
+.feedback-diagnostics-text {
+  margin: 4px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  font: 11.5px/1.45 var(--mono);
+  user-select: text;
+}
 .feedback-actions {
   align-items: center;
 }

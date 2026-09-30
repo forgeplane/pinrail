@@ -1,10 +1,13 @@
 // Sending feedback to the Pinrail team: a reply address, a subject, the
-// message, and files the person attaches, drops or pastes. The app adds its
-// version and system when it sends. ⌘Enter sends, Esc leaves.
+// message, files the person attaches, drops or pastes, and the app's
+// diagnostics unless the person leaves them out. The app adds its version
+// and system when it sends. ⌘Enter sends, Esc leaves.
 
 import { Paperclip, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { sendFeedback } from "../api/client";
+import { api, inTauri, sendFeedback } from "../api/client";
+import { describeDiagnostics, type CliState } from "../lib/diagnostics";
+import { size } from "../lib/format";
 import { MOD } from "../lib/keys";
 
 /** What the feedback service accepts. */
@@ -29,12 +32,19 @@ const remember = (email: string) => {
   }
 };
 
-const size = (bytes: number) =>
-  bytes < 1024
-    ? `${bytes} B`
-    : bytes < 1024 * 1024
-      ? `${Math.round(bytes / 1024)} KB`
-      : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+/** The diagnostics text, from what the core and the shell say; a part that cannot be read is left out. */
+async function gatherDiagnostics(): Promise<string> {
+  const quietly = <T,>(promise: Promise<T>) => promise.catch(() => null);
+  const [info, plugins, settings, cli] = await Promise.all([
+    quietly(api.info()),
+    quietly(api.plugins().then((answer) => answer.plugins)),
+    quietly(api.settings()),
+    inTauri()
+      ? quietly(import("@tauri-apps/api/core").then(({ invoke }) => invoke<CliState>("cli_status")))
+      : Promise.resolve(null),
+  ]);
+  return describeDiagnostics({ info, plugins, settings, cli });
+}
 
 /** A pasted screenshot has a generic name; give it one that says what it is. */
 const named = (file: File, index: number) =>
@@ -46,11 +56,22 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [dropping, setDropping] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<string | null>(null);
+  const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const first = useRef<HTMLInputElement>(null);
   const second = useRef<HTMLInputElement>(null);
   const picker = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let current = true;
+    gatherDiagnostics().then((text) => current && setDiagnostics(text));
+    return () => {
+      current = false;
+    };
+  }, []);
 
   // a remembered address leaves the subject to fill first
   useEffect(() => {
@@ -91,6 +112,7 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
     form.append("email", email.trim());
     form.append("subject", subject.trim());
     form.append("message", message.trim());
+    if (includeDiagnostics && diagnostics) form.append("diagnostics", diagnostics);
     for (const file of files) form.append("file", file, file.name);
     try {
       await sendFeedback(form);
@@ -225,6 +247,35 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
               e.target.value = "";
             }}
           />
+        </div>
+        <div className="feedback-diagnostics">
+          <div className="feedback-diagnostics-row">
+            <label className="feedback-check">
+              <input
+                type="checkbox"
+                checked={includeDiagnostics}
+                onChange={(e) => setIncludeDiagnostics(e.target.checked)}
+                disabled={busy}
+              />
+              Include diagnostics
+            </label>
+            <button
+              type="button"
+              className="feedback-show"
+              aria-expanded={showDiagnostics}
+              onClick={() => setShowDiagnostics((shown) => !shown)}
+            >
+              {showDiagnostics ? "Hide" : "Show"}
+            </button>
+          </div>
+          <span className="dim">
+            How Pinrail is installed, its plugins and its settings. Nothing from your reviews is included.
+          </span>
+          {showDiagnostics ? (
+            <pre className="feedback-diagnostics-text" aria-label="Diagnostics">
+              {diagnostics ?? "Gathering…"}
+            </pre>
+          ) : null}
         </div>
         {error ? <p className="notice notice-danger">{error}</p> : null}
         <div className="dialog-actions feedback-actions">

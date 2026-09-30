@@ -16,7 +16,9 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Send feedback to the Pinrail team from the app, with **Help › Send
   Feedback…** or the command palette. A report has a reply address, a
   subject and a message, and can include up to five attached files, which
-  you can choose, drop or paste.
+  you can choose, drop or paste. It includes diagnostics, which you can read
+  before sending or leave out: how Pinrail is installed, its plugins and its
+  settings.
 
 ### Fixed
 

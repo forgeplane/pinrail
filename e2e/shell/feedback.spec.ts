@@ -56,10 +56,28 @@ test("feedback goes with its address, subject, message and files, chosen or drop
   expect(field("message")).toBe("After a review the inbox jumps to the top.");
   expect(body).toContain('name="file"; filename="inbox.png"');
   expect(body).toContain('name="file"; filename="notes.txt"');
+  // the diagnostics are included unless the person leaves them out
+  expect(body).toMatch(/name="diagnostics"\r\n\r\nPinrail: \d/);
+  expect(body).toContain("Plugins (");
 
   // the address is kept for the next time
   const again = await openFeedback(page);
   await expect(again.getByLabel("Email")).toHaveValue("maya@example.com");
+});
+
+test("diagnostics can be read before sending, and left out", async ({ page }) => {
+  const got = await feedbackService(page);
+  const dialog = await openFeedback(page);
+  await dialog.getByRole("button", { name: "Show" }).click();
+  await expect(dialog.getByLabel("Diagnostics", { exact: true })).toContainText("Settings:");
+
+  await dialog.getByLabel("Include diagnostics").uncheck();
+  await dialog.getByLabel("Email").fill("maya@example.com");
+  await dialog.getByLabel("Subject").fill("Hello");
+  await dialog.getByLabel("Message").fill("Hi");
+  await dialog.getByRole("button", { name: "Send" }).click();
+  await expect(dialog).toBeHidden();
+  expect(got[0].body).not.toContain('name="diagnostics"');
 });
 
 test("a refused report keeps the dialog open with the service's reason", async ({ page }) => {
