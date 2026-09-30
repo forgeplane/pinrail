@@ -9,8 +9,16 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
+## [Unreleased]
+
+### Fixed
+
+- The AppImage starts on newer Linux systems, such as Arch and Fedora 44,
+  where it aborted with "Could not create default EGL display".
+
 ## [0.1.0]
 
 Initial version of Pinrail.
 
+[Unreleased]: https://github.com/forgeplane/pinrail/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.1.0
