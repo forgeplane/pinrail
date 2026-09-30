@@ -379,7 +379,8 @@ export function ReviewScreen() {
   const crumb = useMemo(
     () =>
       review ? (
-        <span className="crumb">
+        // it stretches across the bar, so its own empty space moves the window
+        <span className="crumb" data-tauri-drag-region>
           <Link to={back.to} state={location.state} className="crumb-root">
             {back.label}
           </Link>

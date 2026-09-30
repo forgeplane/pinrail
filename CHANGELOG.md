@@ -15,6 +15,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 - The AppImage starts on newer Linux systems, such as Arch and Fedora 44,
   where it aborted with "Could not create default EGL display".
+- Dragging the empty space of a review's top bar moves the window, as it
+  does on every other screen.
 
 ## [0.1.0]
 
