@@ -3383,6 +3383,7 @@ dependencies = [
  "tauri-plugin-window-state",
  "tempfile",
  "tokio",
+ "ureq",
 ]
 
 [[package]]

@@ -438,8 +438,30 @@ h1 {
   background: var(--bg-raised);
   font-size: 12px;
 }
-.update-notice + .sidebar-bottom {
+/* a quiet link above the status row, pushed to the bottom with it */
+.sidebar-feedback {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 2px 10px;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+}
+.sidebar-feedback:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+.update-notice + .sidebar-feedback {
   margin-top: 0;
+}
+/* the sidebar's gap would set it apart from the row it belongs with */
+.sidebar-feedback + .sidebar-bottom {
+  margin-top: -12px;
 }
 .update-notice-text {
   flex: 1;
@@ -1417,6 +1439,103 @@ h1 {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+.feedback-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.feedback-dialog.is-dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: -6px;
+}
+.feedback-dialog p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.feedback-field {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.feedback-input {
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  color: var(--text);
+}
+.feedback-message {
+  resize: vertical;
+  min-height: 96px;
+}
+.feedback-attachments {
+  display: grid;
+  gap: 8px;
+}
+.feedback-attach-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.feedback-attach-row .chrome-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+}
+.feedback-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.feedback-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-raised);
+  font-size: 12.5px;
+}
+.feedback-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feedback-file-remove {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--dim);
+}
+.feedback-file-remove:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.feedback-actions {
+  align-items: center;
+}
+.feedback-note {
+  margin-right: auto;
+  font-size: 12px;
 }
 .settings-plugin-links {
   display: flex;

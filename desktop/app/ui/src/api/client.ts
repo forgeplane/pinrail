@@ -153,6 +153,46 @@ export const api = {
     `${await serverUrl()}/plugins/${seg(review.plugin)}/${review.plugin_version}/${entry}`,
 };
 
+/** Where feedback goes from a browser; the app sends it through its shell. */
+const FEEDBACK_URL = import.meta.env.VITE_PINRAIL_FEEDBACK_URL ?? "https://feedback.pinrail.dev/v1/feedback";
+
+/**
+ * Sends the feedback form to the Pinrail team. Inside the app the shell sends
+ * it, adding the app's version and system; in a browser (development,
+ * tests) it goes to the service directly. Rejects with a sentence to show.
+ */
+export async function sendFeedback(form: FormData): Promise<void> {
+  if (inTauri()) {
+    // the form as it would go over HTTP: its bytes, and the boundary in its type
+    const packed = new Response(form);
+    const type = packed.headers.get("content-type") ?? "multipart/form-data";
+    const bytes = new Uint8Array(await packed.arrayBuffer());
+    const { invoke } = await import("@tauri-apps/api/core");
+    try {
+      await invoke("send_feedback", bytes, { headers: { "x-content-type": type } });
+    } catch (e) {
+      throw new Error(typeof e === "string" ? e : "The feedback was not sent.", { cause: e });
+    }
+    return;
+  }
+  let response: Response;
+  try {
+    response = await fetch(FEEDBACK_URL, {
+      method: "POST",
+      body: form,
+      headers: { "x-pinrail-client": "pinrail/dev" },
+    });
+  } catch (e) {
+    throw new Error("Pinrail could not reach the feedback service. Check your connection and try again.", {
+      cause: e,
+    });
+  }
+  if (!response.ok) {
+    const said = ((await response.json().catch(() => null)) as { message?: string } | null)?.message;
+    throw new Error(said ? `The feedback was not sent: ${said}.` : "The feedback was not sent.");
+  }
+}
+
 /** Subscribes to the server's event stream. Returns a function that closes it. */
 export function subscribe(handlers: {
   onNotice: (notice: Notice) => void;

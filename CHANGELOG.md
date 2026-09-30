@@ -11,6 +11,13 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ## [Unreleased]
 
+### Added
+
+- Send feedback to the Pinrail team from the app, with **Help › Send
+  Feedback…** or the command palette. A report has a reply address, a
+  subject and a message, and can include up to five attached files, which
+  you can choose, drop or paste.
+
 ### Fixed
 
 - The AppImage starts on newer Linux systems, such as Arch and Fedora 44,

@@ -8,6 +8,7 @@ import {
   History,
   Inbox,
   Keyboard,
+  MessageSquare,
   Moon,
   PanelLeft,
   RefreshCw,
@@ -24,9 +25,11 @@ import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
+import { FeedbackDialog } from "./FeedbackDialog";
 import { MOD, SHIFT, hasMod } from "../lib/keys";
 import { NO_PROJECT } from "../lib/url";
 import { useLive } from "../state/live";
+import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
@@ -73,6 +76,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const topbar = useTopBarContent();
   const [help, setHelp] = useState(false);
+  const [feedback, setFeedback] = useState(false);
+  const toast = useToast();
   const [palette, setPalette] = useState(false);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
   const [settingsPlugin, setSettingsPlugin] = useState<string | null>(null);
@@ -128,6 +133,7 @@ export function Layout({ children }: { children: ReactNode }) {
     { id: "shortcuts", label: "Keyboard shortcuts", keys: ["?"], icon: Keyboard, run: () => setHelp(true) },
     { id: "settings", label: "Open settings", keys: [MOD, ","], icon: Settings, run: () => setSettings("general") },
     { id: "welcome", label: "Set up Pinrail", icon: Hand, run: () => setWelcome({ step: 0 }) },
+    { id: "feedback", label: "Send feedback…", icon: MessageSquare, run: () => setFeedback(true) },
     ...(location.pathname.startsWith("/reviews/")
       ? [
           {
@@ -291,6 +297,9 @@ export function Layout({ children }: { children: ReactNode }) {
         case "forward":
           navigate(1);
           break;
+        case "feedback":
+          setFeedback(true);
+          break;
       }
     };
     const onThemeToggle = (event: Event) =>
@@ -386,6 +395,10 @@ export function Layout({ children }: { children: ReactNode }) {
             </section>
           ) : null}
           <UpdateNotice onDetails={() => setSettings("about")} />
+          <button type="button" className="sidebar-feedback" onClick={() => setFeedback(true)}>
+            <MessageSquare size={13} strokeWidth={1.75} />
+            Send feedback
+          </button>
           <div className="sidebar-bottom">
             <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
             <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
@@ -460,6 +473,15 @@ export function Layout({ children }: { children: ReactNode }) {
         }}
       />
       {help ? <ShortcutsDialog plugin={topbar?.plugin} onClose={() => setHelp(false)} /> : null}
+      {feedback ? (
+        <FeedbackDialog
+          onClose={() => setFeedback(false)}
+          onSent={() => {
+            setFeedback(false);
+            toast("Thank you. Your feedback was sent.");
+          }}
+        />
+      ) : null}
       <Toasts />
     </div>
   );

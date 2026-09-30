@@ -10,6 +10,7 @@ import { corePort } from "./shell/helpers";
 // dialog does not cover what the tests click.
 const root = path.resolve(__dirname, "..");
 const uiPort = 5199;
+const feedbackUrl = "https://feedback.test/v1/feedback";
 const data = path.join(__dirname, ".state", "shell-data");
 
 export default defineConfig({
@@ -38,7 +39,8 @@ export default defineConfig({
     {
       command: `npm run sdk:build && npx vite --host 127.0.0.1 --port ${uiPort} --strictPort`,
       cwd: path.join(root, "desktop", "app"),
-      env: { VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}` },
+      // feedback goes to an address the tests answer, never to the service
+      env: { VITE_PINRAIL_URL: `http://127.0.0.1:${corePort}`, VITE_PINRAIL_FEEDBACK_URL: feedbackUrl },
       url: `http://127.0.0.1:${uiPort}`,
       reuseExistingServer: false,
       timeout: 120_000,

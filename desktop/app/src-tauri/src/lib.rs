@@ -2,6 +2,7 @@
 //! Closing the window hides it; the app lives in the menu bar until "Quit".
 
 mod cli_install;
+mod feedback;
 mod headless;
 mod native;
 #[cfg(target_os = "macos")]
@@ -121,6 +122,27 @@ fn open_notification_settings() -> Result<(), String> {
 /// Where the bundled CLI is, whether `~/.local/bin/pinrail` links to it, and
 /// what a new terminal would run. Asks the login shell, so it runs off the
 /// main thread.
+/// Sends the feedback dialog's form, as the bytes of a multipart body with
+/// its content type in the `x-content-type` header, to the feedback service.
+#[tauri::command]
+async fn send_feedback(request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let tauri::ipc::InvokeBody::Raw(body) = request.body() else {
+        return Err("the feedback must be sent as bytes".into());
+    };
+    let content_type = request
+        .headers()
+        .get("x-content-type")
+        .and_then(|value| value.to_str().ok())
+        .ok_or("the feedback's content type is missing")?
+        .to_string();
+    let body = body.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        feedback::send(&feedback::endpoint(), &content_type, &body)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn cli_status() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -433,6 +455,7 @@ pub fn run() {
                     | "maximize-view"
                     | "back"
                     | "forward"
+                    | "feedback"
             ) {
                 let _ = app.emit(COMMAND_EVENT, id.to_string());
             }
@@ -454,6 +477,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_url,
+            send_feedback,
             take_pending_route,
             shortcut_state,
             notification_status,
@@ -495,7 +519,8 @@ pub fn run() {
 }
 
 /// The standard menus plus a Navigate menu, whose accelerators reach the
-/// shell even while a plugin view has the keyboard.
+/// shell even while a plugin view has the keyboard, and Send Feedback in the
+/// Help menu.
 fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let menu = Menu::default(app)?;
     let navigate = Submenu::with_items(
@@ -554,6 +579,18 @@ fn app_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .position(|item| item.as_submenu().and_then(|s| s.text().ok()).as_deref() == Some("Window"))
         .unwrap_or(0);
     menu.insert(&navigate, at)?;
+    if let Some(help) = menu
+        .get(tauri::menu::HELP_SUBMENU_ID)
+        .and_then(|item| item.as_submenu().cloned())
+    {
+        help.prepend(&MenuItem::with_id(
+            app,
+            "feedback",
+            "Send Feedback…",
+            true,
+            None::<&str>,
+        )?)?;
+    }
     Ok(menu)
 }
 
