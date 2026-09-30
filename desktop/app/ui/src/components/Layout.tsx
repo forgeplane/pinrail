@@ -396,7 +396,7 @@ export function Layout({ children }: { children: ReactNode }) {
           ) : null}
           <UpdateNotice onDetails={() => setSettings("about")} />
           <button type="button" className="sidebar-feedback" onClick={() => setFeedback(true)}>
-            <MessageSquare size={13} strokeWidth={1.75} />
+            <MessageSquare size={15} strokeWidth={1.75} />
             Send feedback
           </button>
           <div className="sidebar-bottom">

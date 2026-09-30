@@ -438,30 +438,30 @@ h1 {
   background: var(--bg-raised);
   font-size: 12px;
 }
-/* a quiet link above the status row, pushed to the bottom with it */
+/* a row like the navigation's, above the status row and pushed to the bottom with it */
 .sidebar-feedback {
   margin-top: auto;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 6px;
-  align-self: flex-start;
-  padding: 2px 10px;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
   border: 0;
+  border-radius: 6px;
   background: none;
   color: var(--dim);
-  font: inherit;
-  font-size: 12px;
+  text-align: left;
 }
 .sidebar-feedback:hover {
-  color: var(--accent);
-  text-decoration: underline;
+  background: var(--bg-hover);
+  color: var(--text);
 }
 .update-notice + .sidebar-feedback {
   margin-top: 0;
 }
 /* the sidebar's gap would set it apart from the row it belongs with */
 .sidebar-feedback + .sidebar-bottom {
-  margin-top: -12px;
+  margin-top: -10px;
 }
 .update-notice-text {
   flex: 1;
