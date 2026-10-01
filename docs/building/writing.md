@@ -410,6 +410,66 @@ Templates are written in [MiniJinja](https://docs.rs/minijinja). Each object in 
 
 The `verb` filter turns common actions into past participles: `accept` and `keep` become "accepted", `reject` and `decline` become "rejected", and `send`, `revise`, `discard`, `approve`, `edit` and `skip` become "sent", "revised", "discarded", "approved", "edited" and "skipped". `request_changes` becomes "changes requested". It leaves any other word unchanged, so `{{ item.action | verb }}` suits a plugin whose actions are among these, and a plugin with other actions spells its own words, as the example above does.
 
+## Summing up a review
+
+The app shows a short summary of each review: what it asks on the inbox row, in notifications and in the review's header, and what was decided in the header, in history and in the command's output. The plugin declares the summary in its manifest. A plugin that declares none has no summary, and the app shows the review's status instead.
+
+A summary counts arrays. The `request` side counts arrays in the payload when the review is submitted, and the `outcome` side counts arrays in the decision when it is handed over. The app keeps both with the review, so a later version of the plugin does not change what history shows.
+
+```json title="manifest.json"
+{
+  "summary": {
+    "request": {
+      "counts": [
+        {
+          "items": "/groups/*/items",
+          "by": "severity",
+          "values": {
+            "blocker": { "tone": "danger" },
+            "major": { "tone": "warning" },
+            "minor": { "tone": "info" }
+          }
+        }
+      ]
+    },
+    "outcome": {
+      "verdict": {
+        "at": "/verdict",
+        "values": {
+          "approve": { "label": "approved", "tone": "success" },
+          "revise": { "label": "changes requested", "tone": "warning" }
+        }
+      },
+      "counts": [
+        {
+          "items": "/decisions",
+          "by": "action",
+          "values": {
+            "close": { "label": "closed", "tone": "success" },
+            "keep": { "label": "kept", "tone": "info" }
+          },
+          "other": false
+        },
+        { "items": "/undecided", "label": "undecided" }
+      ]
+    }
+  }
+}
+```
+
+Each entry in `counts` names an array with `items`, a [JSON Pointer](https://www.rfc-editor.org/rfc/rfc6901) in which `*` stands for every element of an array. `/groups/*/items` counts the items of every group.
+
+- **With `by`**, the entry counts the array's elements by the value of that field. Each value listed in `values` becomes a count, in the order listed, with its own `label` (the value itself when omitted) and `tone`. Elements with a value that is not listed are counted as `other`, unless `"other": false` is set. Elements without the field are not counted.
+- **Without `by`**, the entry counts the whole array under its `label` and `tone`.
+- **`plural`** gives a label its plural form, which the app uses for any count other than one: `{ "items": "/drafts", "label": "draft", "plural": "drafts" }` reads "1 draft" and "3 drafts". Labels such as "accepted" or "major" need no plural.
+- **`tone`** is one of `danger`, `warning`, `info`, `success` and `neutral`, the default. The app chooses the colours, so a summary looks the same in both themes.
+
+A count of zero is left out. A summary shows at most six counts, so the entries of one side may add up to at most six, counting `other` where it applies.
+
+`verdict`, on the `outcome` side only, names one field of the decision and the label and tone of each of its values. A field that holds `true` or `false`, such as a yes-or-no answer, is listed under the keys `"true"` and `"false"`; the same applies to the field that `by` names. The app shows the verdict in place of the review's status, for example "approved" instead of "decided". A value that is not listed shows no verdict.
+
+The app checks the declaration when it loads the plugin. A declaration that is not valid costs the plugin its summaries, and *Settings › Plugins* shows the reason on the plugin's row. `pinrail plugins check` reports the same problems.
+
 ## Next
 
 - [The protocol](/docs/building/protocol/): every message between the app and a view.

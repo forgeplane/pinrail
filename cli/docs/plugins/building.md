@@ -37,6 +37,11 @@ pinrail withdraw <id>                     # when you are done with the sample
   for people to see the plugin. Both are optional, and go together with
   the payload schema and the view: a change to the payload's shape
   touches all four.
+- `summary` in the manifest declares what the app counts for the inbox
+  and history: arrays of the payload (`request`) and of the decision
+  (`outcome`), by a field such as `severity` or `action`, each value with
+  a label and a tone. Without it, a review shows no summary. The format
+  is in the `manifest` brief's schema.
 - Read the schemas, not prose about them: your plugin's own are
   `schemas/payload.schema.json` and `schemas/decision.schema.json`, JSON
   Schema 2020-12; an installed plugin's are in
