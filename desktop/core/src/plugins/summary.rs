@@ -141,7 +141,7 @@ impl Rules {
                     let found: Vec<Option<&str>> = items
                         .iter()
                         .flat_map(|a| a.iter())
-                        .map(|element| element.get(field).and_then(Value::as_str))
+                        .map(|element| element.get(field).and_then(key))
                         .collect();
                     for (value, label) in values {
                         let n = found.iter().filter(|v| **v == Some(value.as_str())).count();
@@ -159,7 +159,7 @@ impl Rules {
             }
         }
         let verdict = self.verdict.as_ref().and_then(|rule| {
-            let found = lookup(data, &rule.at)?.as_str()?;
+            let found = key(lookup(data, &rule.at)?)?;
             let (_, label) = rule.values.iter().find(|(value, _)| value == found)?;
             Some(json!({ "label": label.label, "tone": label.tone }))
         });
@@ -378,6 +378,17 @@ fn within(path: &str, error: String) -> String {
     }
 }
 
+/// A field's value as the key `values` lists it under: text as it is, and
+/// `true` or `false` for a yes-or-no answer.
+fn key(value: &Value) -> Option<&str> {
+    match value {
+        Value::String(text) => Some(text),
+        Value::Bool(true) => Some("true"),
+        Value::Bool(false) => Some("false"),
+        _ => None,
+    }
+}
+
 fn push(counts: &mut Vec<Value>, label: &Label, count: usize) {
     if count > 0 {
         let text = match &label.plural {
@@ -486,6 +497,20 @@ mod tests {
                 { "label": "drafts", "count": 3, "tone": "neutral" },
                 { "label": "note", "count": 1, "tone": "neutral" }
             ]}))
+        );
+    }
+
+    #[test]
+    fn a_yes_or_no_answer_is_a_verdict() {
+        let rules = declaration(json!({ "outcome": { "verdict": { "at": "/ok", "values": {
+            "true": { "label": "yes", "tone": "success" },
+            "false": { "label": "no", "tone": "danger" }
+        }}}}))
+        .outcome
+        .unwrap();
+        assert_eq!(
+            rules.derive(&json!({ "ok": false })),
+            Some(json!({ "counts": [], "verdict": { "label": "no", "tone": "danger" } }))
         );
     }
 
