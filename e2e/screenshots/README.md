@@ -14,7 +14,11 @@ Each scene is saved as `<name>-light.png` and `<name>-dark.png` in
 `website/public/screenshots`, where the docs use them as
 `![alt](screenshot:<name> "caption")` and show the reader's theme. Shots the
 landing pages use are copied into `website/src/assets/screenshots` as well.
-A full run replaces everything in both folders.
+`made.json` records the files a full run made. When a full run succeeds, it
+removes the files an earlier run made and this one did not, such as the shots
+of a renamed scene, and records its own. A file that no run made, such as a
+shot taken by hand, stays. A run with `--only` or `--out`, or with a failed
+scene, removes nothing.
 
 ## How a run goes
 

@@ -11,9 +11,14 @@
 // scene then runs once per theme and saves <name>-light.png and
 // <name>-dark.png into website/public/screenshots (or --out), for the docs;
 // the ones the landing pages use are copied into website/src/assets too.
+//
+// made.json records the files a full run made. The next full run that
+// succeeds removes the ones it no longer makes, such as a renamed scene's;
+// a file no run made, such as a shot taken by hand, is left alone.
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { NOW, root, startApp } from "./app.mjs";
 import { seed } from "./seed.mjs";
@@ -54,6 +59,10 @@ const only = flag("--only");
 const chosen = scenes.filter((s) => !only || s.name.startsWith(only));
 if (!chosen.length) throw new Error(`no scene starts with ${only}`);
 
+// the files a full run made, relative to the repository
+const record = path.join(path.dirname(fileURLToPath(import.meta.url)), "made.json");
+const made = new Set();
+
 const app = await startApp({ build: !args.includes("--no-build") });
 // WebGL in software, for the views that draw with it (the model plugin)
 const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
@@ -61,11 +70,7 @@ let failed = false;
 try {
   const reviews = await seed(app);
   fs.mkdirSync(out, { recursive: true });
-  // a full run leaves exactly what the scenes make: earlier shots go first
   fs.mkdirSync(siteAssets, { recursive: true });
-  if (!only)
-    for (const dir of [out, siteAssets])
-      for (const file of fs.readdirSync(dir)) if (file.endsWith(".png")) fs.rmSync(path.join(dir, file));
 
   for (const theme of ["light", "dark"]) {
     const context = await browser.newContext({
@@ -88,7 +93,12 @@ try {
         ]);
         const file = path.join(out, `${name}-${theme}.png`);
         await target.screenshot({ path: file, animations: "disabled", caret: "hide", ...options });
-        if (site) fs.copyFileSync(file, path.join(siteAssets, path.basename(file)));
+        made.add(path.relative(root, file));
+        if (site) {
+          const copy = path.join(siteAssets, path.basename(file));
+          fs.copyFileSync(file, copy);
+          made.add(path.relative(root, copy));
+        }
         console.log(`screenshots: ${path.relative(root, file)}`);
       };
       try {
@@ -106,3 +116,11 @@ try {
   await app.stop();
 }
 if (failed) process.exit(1);
+
+// a full run into the website, every scene made: what an earlier run made
+// and this one did not goes, and the record is this run's
+if (!only && !flag("--out")) {
+  const before = fs.existsSync(record) ? JSON.parse(fs.readFileSync(record, "utf8")) : [];
+  for (const file of before) if (!made.has(file)) fs.rmSync(path.join(root, file), { force: true });
+  fs.writeFileSync(record, JSON.stringify([...made].sort(), null, 2) + "\n");
+}
