@@ -7,6 +7,14 @@
   "icon": "icon.svg",
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
+  "summary": {
+    "outcome": {
+      "verdict": {
+        "at": "/ok",
+        "values": { "true": { "label": "yes", "tone": "success" }, "false": { "label": "no", "tone": "danger" } }
+      }
+    }
+  },
   "example": "example.json",
   "sample": "sample.json",
   "entry": "view/index.html",
