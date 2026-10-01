@@ -22,7 +22,6 @@ pub struct Plugin {
     pub entry: String,
     pub min_height: u32,
     pub dev: bool,
-    pub editorial: bool,
     /// The plugin's icon, the SVG markup of the file its manifest names,
     /// shown wherever the plugin is named; `icon_error` says why a declared
     /// one was dropped.
@@ -149,7 +148,6 @@ impl Plugin {
                 entry: "index.html".into(),
                 min_height: 400,
                 dev: false,
-                editorial: false,
                 icon: None,
                 icon_error: None,
                 manifest: Map::new(),
@@ -391,7 +389,6 @@ impl Plugin {
                 .map(|n| n as u32)
                 .unwrap_or(400),
             dev: manifest.get("dev") == Some(&Value::Bool(true)),
-            editorial: manifest.get("editorial") == Some(&Value::Bool(true)),
             icon,
             icon_error,
             manifest,
@@ -589,7 +586,6 @@ impl Plugin {
             "entry": self.entry,
             "min_height": self.min_height,
             "dev": self.dev,
-            "editorial": self.editorial,
             "icon": self.icon,
             "icon_error": self.icon_error,
             "usable": self.usable(),

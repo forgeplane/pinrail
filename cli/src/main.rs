@@ -1401,14 +1401,11 @@ fn wait(
                 if status == "pending" {
                     continue;
                 }
-                if status == "decided" {
-                    if let Some(path) = &opts.decision_out {
-                        out::write_decision(path, &review["decision"]["data"])?;
-                        out::note(format_args!("decision written to {}", path.display()));
-                    }
-                    if let Some(counts) = out::editorial_counts(&review["decision"]["data"]) {
-                        out::note(counts);
-                    }
+                if status == "decided"
+                    && let Some(path) = &opts.decision_out
+                {
+                    out::write_decision(path, &review["decision"]["data"])?;
+                    out::note(format_args!("decision written to {}", path.display()));
                 }
                 output.review(client, &review)?;
                 return Ok(match status {

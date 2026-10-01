@@ -126,33 +126,6 @@ pub fn write_decision(path: &Path, data: &Value) -> Result<()> {
     std::fs::write(path, text).with_context(|| format!("writing {}", path.display()))
 }
 
-/// "6 kept, 3 declined, 1 edited" for a decision in the editorial shape:
-/// `items[].outcome` of keep, decline or edit. None for other shapes.
-pub fn editorial_counts(data: &Value) -> Option<String> {
-    let items = data.get("items")?.as_array()?;
-    let mut kept = 0;
-    let mut declined = 0;
-    let mut edited = 0;
-    for item in items {
-        match item.get("outcome").and_then(Value::as_str)? {
-            "keep" => kept += 1,
-            "decline" => declined += 1,
-            "edit" => edited += 1,
-            _ => return None,
-        }
-    }
-    let mut parts = vec![format!("{kept} kept"), format!("{declined} declined")];
-    if edited > 0 {
-        parts.push(format!("{edited} edited"));
-    }
-    if let Some(undecided) = data.get("undecided").and_then(Value::as_array)
-        && !undecided.is_empty()
-    {
-        parts.push(format!("{} undecided", undecided.len()));
-    }
-    Some(parts.join(", "))
-}
-
 /// Writes every review as `reviews/<id>/review.json` plus `events.jsonl`,
 /// newest first through the paged listing. Returns how many were written.
 pub fn export(client: &Client, dir: &Path) -> Result<usize> {

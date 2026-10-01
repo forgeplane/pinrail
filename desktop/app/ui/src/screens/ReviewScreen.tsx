@@ -158,7 +158,6 @@ export function ReviewScreen() {
               entry: "index.html",
               min_height: 400,
               dev: false,
-              editorial: false,
               icon: installed?.icon ?? null,
               usable: true,
               error: null,
