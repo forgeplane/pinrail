@@ -5,7 +5,7 @@ description: "Pinrail is a desktop app where agents submit their work for your d
 
 Pinrail is the inbox where your agents ask before they act. An agent about to do something that matters, such as posting review comments, sending email or shipping a page, submits a review and waits. You decide in a view made for that kind of question, and the agent carries on with your decision.
 
-![The Pinrail inbox, with eight reviews waiting from different agents and projects.](screenshot:inbox)
+![The Pinrail inbox, with eleven reviews waiting from different agents and projects.](screenshot:inbox)
 
 ## Where to start
 

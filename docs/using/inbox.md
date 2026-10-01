@@ -5,11 +5,13 @@ description: "Where reviews wait for you, how you decide them, the history of ev
 
 The inbox is where your agents' reviews wait. When you open a review, its plugin's view shows the work. You decide in the view and hand the decision over, and the agent continues. Reviews that have ended move to your history.
 
-![The inbox: eight pending reviews grouped by project, with the waiting list and the projects in the sidebar.](screenshot:inbox "Eight reviews waiting, across six projects.")
+![The inbox: eleven pending reviews grouped by project, each with counts of what it asks, and the waiting list and the projects in the sidebar.](screenshot:inbox "Eleven reviews waiting, across eight projects.")
 
 ## The inbox
 
-The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what is inside. A paperclip icon shows that a review includes attachments, and how many. Hover over it to see their total size.
+The inbox lists every **pending** review, newest first. Each row shows the title, the plugin, where it came from and who asked, and a summary of what the review asks. A paperclip icon shows that a review includes attachments, and how many. Hover over it to see their total size.
+
+The summary is a set of counts, such as *1 blocker · 2 major · 1 nit* for a code review or *3 drafts* for emails, colored by importance. Each plugin decides what it counts, and a plugin that counts nothing shows no summary. The same counts appear in the notification for a new review and at the top of the review while it waits.
 
 - **Filter by project or plugin.** The sidebar lists the projects your reviews come from. Pick one, or choose a project or a plugin from the menus above the list, to see only those reviews.
 - **Show new rounds.** *New rounds* shows only the reviews that revise an earlier one.
@@ -46,7 +48,9 @@ When an agent revises a review you asked it to change, the new round opens with 
 
 Every review that has ended is in your **history**: decided, discarded, withdrawn or expired. Open one and it renders read-only, with the latest installed release of the plugin's major version it was created under.
 
-![History: ended reviews with their outcome, project and when they were recorded.](screenshot:history "Reviews that were decided, discarded or withdrawn, newest first.")
+Each decided review shows what was decided, as its plugin counts it: for example *2 accepted · 1 rejected*, or a verdict such as *approved* in place of *decided*. The review's header shows the same, and so does the decision the agent receives.
+
+![History: ended reviews with their outcome and what was decided, their project, and when they were recorded.](screenshot:history "Reviews that were decided, discarded or withdrawn, newest first.")
 
 To search your history, press <kbd>/</kbd> and type one or more words. A review matches when each word appears in its title, plugin, requester, project, workflow or reference, or in the name of the person who decided it. As in the inbox, the content of a review is not searched. You can also filter by project, plugin or outcome. Open it with <kbd>⌘⇧H</kbd>.
 
