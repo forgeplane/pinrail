@@ -559,7 +559,8 @@ fn select(with_payload: bool) -> String {
     o.kind, o.at, o.by, o.reason, o.data, o.agent_note,
     r.plugin_release,
     (SELECT count(*) FROM review_attachments a WHERE a.review_id = r.id),
-    (SELECT coalesce(sum(a.size), 0) FROM review_attachments a WHERE a.review_id = r.id)
+    (SELECT coalesce(sum(a.size), 0) FROM review_attachments a WHERE a.review_id = r.id),
+    o.summary
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id{join}"
     )
@@ -598,6 +599,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     let agent_note: Option<String> = row.get(16)?;
     let plugin_release: Option<String> = row.get(17)?;
     let attachments_total = (row.get::<_, i64>(18)? as u64, row.get::<_, i64>(19)? as u64);
+    let outcome_summary: Option<String> = row.get(20)?;
     let plugin_version = row.get::<_, i64>(2)? as u32;
     let at = at.and_then(|s| parse_datetime(&s));
     let (
@@ -617,6 +619,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
                     .as_deref()
                     .and_then(|d| serde_json::from_str(d).ok())
                     .unwrap_or(Value::Null),
+                summary: outcome_summary.and_then(|s| serde_json::from_str(&s).ok()),
             })
         }
         Some("withdrawn") => {

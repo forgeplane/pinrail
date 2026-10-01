@@ -225,6 +225,68 @@ async fn envelope_violations_keep_their_recorded_wording() {
     assert_eq!(status, StatusCode::CREATED, "{response}");
 }
 
+/// A review is summed up as its plugin declares: the request from the
+/// payload when it is submitted, the outcome from the decision when it is
+/// decided, both kept with the review.
+#[tokio::test]
+async fn a_review_is_summed_up_as_its_plugin_declares() {
+    let app = app();
+    let dir = app.dir.path().join("counted");
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/list"),
+        &dir,
+    );
+    let mut manifest: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
+    manifest["name"] = json!("counted");
+    manifest["summary"] = json!({
+        "request": {"counts": [{
+            "items": "/groups/*/items", "by": "severity",
+            "values": {"major": {"tone": "warning"}, "minor": {"tone": "info"}}
+        }]},
+        "outcome": {"counts": [
+            {"items": "/decisions", "by": "action", "values": {
+                "accept": {"label": "accepted", "tone": "success"},
+                "reject": {"label": "rejected", "tone": "danger"}
+            }},
+            {"items": "/undecided", "label": "undecided"}
+        ]}
+    });
+    std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
+    let (status, body) = install(&app, &dir, json!({"link": true})).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let mut body = submission();
+    body["plugin"] = json!("counted");
+    let review = submit(&app, body).await;
+    assert_eq!(
+        review["summary"],
+        json!({"counts": [
+            {"label": "major", "count": 1, "tone": "warning"},
+            {"label": "minor", "count": 1, "tone": "info"}
+        ]})
+    );
+
+    let id = review["id"].as_str().unwrap();
+    let (status, decided) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{id}/decision"),
+        Some(json!({"data": {"decisions": [{"id": 1, "action": "accept"}], "undecided": [2]}})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{decided}");
+    let expected = json!({"counts": [
+        {"label": "accepted", "count": 1, "tone": "success"},
+        {"label": "undecided", "count": 1, "tone": "neutral"}
+    ]});
+    assert_eq!(decided["decision"]["summary"], expected);
+    // read back from the store, as a listing or a restart sees it
+    let (_, stored) = call(&app, "GET", &format!("/api/v1/reviews/{id}"), None).await;
+    assert_eq!(stored["summary"]["counts"][0]["label"], "major");
+    assert_eq!(stored["decision"]["summary"], expected);
+}
+
 #[tokio::test]
 async fn deciding_validates_records_and_then_refuses() {
     let app = app();

@@ -46,6 +46,9 @@ pub struct Decision {
     pub decided_by: String,
     pub decided_at: DateTime<Utc>,
     pub data: Value,
+    /// What was decided, summed up as the plugin declares; none when it
+    /// declares no outcome summary or there is nothing to show.
+    pub summary: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -118,6 +121,7 @@ impl Review {
                 "decided_by": d.decided_by,
                 "decided_at": iso(d.decided_at),
                 "data": d.data,
+                "summary": d.summary,
             })),
             "agent_note": self.agent_note,
             "withdrawn_at": self.withdrawn_at.map(iso),
@@ -229,6 +233,7 @@ mod tests {
             decided_by: "a".into(),
             decided_at: now,
             data: json!({}),
+            summary: None,
         });
         assert_eq!(r.status(now), Status::Decided);
     }

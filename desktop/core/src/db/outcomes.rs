@@ -26,6 +26,7 @@ impl Db {
                 by: Some(&decision.decided_by),
                 reason: None,
                 data: Some(&decision.data),
+                summary: decision.summary.as_ref(),
                 agent_note,
             },
             crate::events::DECIDED,
@@ -53,6 +54,7 @@ impl Db {
                 by: None,
                 reason,
                 data: None,
+                summary: None,
                 agent_note: None,
             },
             crate::events::WITHDRAWN,
@@ -82,6 +84,7 @@ impl Db {
                 by: Some(by),
                 reason,
                 data: None,
+                summary: None,
                 agent_note: None,
             },
             crate::events::DISCARDED,
@@ -107,8 +110,8 @@ impl Db {
         // An expired review has no outcome row, so the insert itself checks
         // the time: an ending that arrives as the review expires loses.
         let inserted = tx.execute(
-            "INSERT OR IGNORE INTO outcomes (review_id, kind, at, by, reason, data, agent_note) \
-             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7 FROM reviews \
+            "INSERT OR IGNORE INTO outcomes (review_id, kind, at, by, reason, data, agent_note, summary) \
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?9 FROM reviews \
              WHERE id = ?1 AND (expires_at IS NULL OR expires_at > ?8)",
             params![
                 id,
@@ -118,7 +121,8 @@ impl Db {
                 outcome.reason,
                 outcome.data.map(Value::to_string),
                 outcome.agent_note,
-                crate::reviews::iso(chrono::Utc::now())
+                crate::reviews::iso(chrono::Utc::now()),
+                outcome.summary.map(Value::to_string)
             ],
         )?;
         if inserted == 0 {
@@ -137,5 +141,6 @@ struct Outcome<'a> {
     by: Option<&'a str>,
     reason: Option<&'a str>,
     data: Option<&'a Value>,
+    summary: Option<&'a Value>,
     agent_note: Option<&'a str>,
 }

@@ -41,6 +41,7 @@ fn decision() -> Decision {
         decided_by: "pat".into(),
         decided_at: Utc::now(),
         data: json!({"ok": true}),
+        summary: None,
     }
 }
 

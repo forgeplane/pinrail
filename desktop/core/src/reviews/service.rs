@@ -121,7 +121,11 @@ impl Reviews {
                 .get("revises")
                 .and_then(Value::as_str)
                 .map(str::to_string),
-            summary: None,
+            summary: plugin
+                .summary
+                .request
+                .as_ref()
+                .and_then(|rules| rules.derive(&payload)),
             payload: Some(payload),
             decision: None,
             agent_note: None,
@@ -299,6 +303,11 @@ impl Reviews {
             decided_by: self.user.clone(),
             decided_at: Utc::now(),
             data: data.clone(),
+            summary: plugin
+                .summary
+                .outcome
+                .as_ref()
+                .and_then(|rules| rules.derive(data)),
         };
         let note = agent_note.map(str::trim).filter(|n| !n.is_empty());
         let Some(event_id) = self.db.insert_decision(id, &decision, note)? else {
