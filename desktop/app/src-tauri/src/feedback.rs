@@ -35,6 +35,7 @@ pub fn send(url: &str, content_type: &str, body: &[u8]) -> Result<(), String> {
             "x-pinrail-platform",
             format!("{} {}", std::env::consts::OS, std::env::consts::ARCH),
         )
+        .header("x-pinrail-os", os_version().unwrap_or_default())
         .send(body)
         .map_err(|_| {
             "Pinrail could not reach the feedback service. Check your connection and try again."
@@ -56,6 +57,47 @@ pub fn send(url: &str, content_type: &str, body: &[u8]) -> Result<(), String> {
             response.status()
         ),
     })
+}
+
+/// The operating system's name and version, as people know it: "macOS
+/// 15.4.1", or on Linux the distribution and the kernel. `None` when the
+/// system does not say.
+pub fn os_version() -> Option<String> {
+    if cfg!(target_os = "macos") {
+        let out = std::process::Command::new("/usr/bin/sw_vers")
+            .arg("-productVersion")
+            .output()
+            .ok()?;
+        let version = String::from_utf8(out.stdout).ok()?.trim().to_string();
+        return (!version.is_empty()).then(|| format!("macOS {version}"));
+    }
+    if cfg!(target_os = "linux") {
+        let release = std::fs::read_to_string("/etc/os-release").ok();
+        let kernel = std::fs::read_to_string("/proc/sys/kernel/osrelease").ok();
+        return linux_version(release.as_deref(), kernel.as_deref());
+    }
+    None
+}
+
+/// "Arch Linux, kernel 6.10.3": the distribution's name from os-release
+/// and the kernel's release.
+fn linux_version(os_release: Option<&str>, kernel: Option<&str>) -> Option<String> {
+    let name = os_release.and_then(|text| {
+        let field = |key: &str| {
+            text.lines()
+                .find_map(|line| line.strip_prefix(key)?.strip_prefix('='))
+                .map(|value| value.trim().trim_matches('"').to_string())
+                .filter(|value| !value.is_empty())
+        };
+        field("PRETTY_NAME").or_else(|| field("NAME"))
+    });
+    let kernel = kernel.map(str::trim).filter(|k| !k.is_empty());
+    match (name, kernel) {
+        (Some(name), Some(kernel)) => Some(format!("{name}, kernel {kernel}")),
+        (Some(name), None) => Some(name),
+        (None, Some(kernel)) => Some(format!("Linux, kernel {kernel}")),
+        (None, None) => None,
+    }
 }
 
 #[cfg(test)]
@@ -131,6 +173,46 @@ mod tests {
             request.ends_with("name=\"message\"\r\n\r\nhi\r\n--b--\r\n"),
             "{request}"
         );
+    }
+
+    #[test]
+    fn the_report_names_the_systems_version() {
+        let (url, request) = service("200 OK", r#"{"ok":true}"#);
+        send(&url, "text/plain", b"").unwrap();
+        let request = request.join().unwrap();
+        let line = request
+            .lines()
+            .find_map(|line| {
+                line.to_ascii_lowercase()
+                    .strip_prefix("x-pinrail-os: ")
+                    .map(str::to_string)
+            })
+            .expect("the x-pinrail-os header");
+        if cfg!(target_os = "macos") {
+            assert!(line.starts_with("macos 1"), "{line}");
+        }
+        if cfg!(target_os = "linux") {
+            assert!(line.contains(", kernel "), "{line}");
+        }
+    }
+
+    #[test]
+    fn a_linux_system_is_named_by_its_distribution_and_kernel() {
+        let arch = "NAME=\"Arch Linux\"\nPRETTY_NAME=\"Arch Linux\"\nID=arch\n";
+        assert_eq!(
+            linux_version(Some(arch), Some("6.10.3-arch1-1\n")).as_deref(),
+            Some("Arch Linux, kernel 6.10.3-arch1-1")
+        );
+        let bare = "NAME=Fedora Linux\nVERSION_ID=44\n";
+        assert_eq!(
+            linux_version(Some(bare), None).as_deref(),
+            Some("Fedora Linux")
+        );
+        assert_eq!(
+            linux_version(None, Some("6.8.0")).as_deref(),
+            Some("Linux, kernel 6.8.0")
+        );
+        assert_eq!(linux_version(None, None), None);
     }
 
     #[test]
