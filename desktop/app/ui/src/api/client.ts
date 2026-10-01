@@ -154,7 +154,7 @@ export const api = {
 };
 
 /** Where feedback goes from a browser; the app sends it through its shell. */
-const FEEDBACK_URL = import.meta.env.VITE_PINRAIL_FEEDBACK_URL ?? "https://feedback.pinrail.dev/v1/feedback";
+const FEEDBACK_URL = import.meta.env.VITE_PINRAIL_FEEDBACK_URL ?? "https://api.pinrail.dev/v1/feedback";
 
 /**
  * Sends the feedback form to the Pinrail team. Inside the app the shell sends

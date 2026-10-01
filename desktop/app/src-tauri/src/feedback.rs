@@ -7,7 +7,7 @@ use std::time::Duration;
 
 /// Where feedback goes; `PINRAIL_FEEDBACK_URL` points a development build or
 /// a test elsewhere.
-const ENDPOINT: &str = "https://feedback.pinrail.dev/v1/feedback";
+const ENDPOINT: &str = "https://api.pinrail.dev/v1/feedback";
 
 /// How long the upload of a report and its files may take.
 const TIMEOUT: Duration = Duration::from_secs(60);
