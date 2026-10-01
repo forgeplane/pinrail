@@ -37,8 +37,9 @@ struct Count {
 enum Group {
     /// The array's length, under one label.
     Whole(Label),
-    /// One count per value of a field, in the declared order, and the rest
-    /// as `other` unless that is turned off.
+    /// One count per value of a field, in the declared order, and the
+    /// values not listed as `other` unless that is turned off. An element
+    /// without the field is not counted.
     By {
         field: String,
         values: Vec<(String, Label)>,
@@ -55,6 +56,8 @@ struct Verdict {
 #[derive(Debug, Clone)]
 struct Label {
     label: String,
+    /// The label for any count but one, when it differs: `draft`, `drafts`.
+    plural: Option<String>,
     tone: &'static str,
 }
 
@@ -147,9 +150,8 @@ impl Rules {
                     if *other {
                         let n = found
                             .iter()
-                            .filter(|v| {
-                                !values.iter().any(|(value, _)| **v == Some(value.as_str()))
-                            })
+                            .flatten()
+                            .filter(|v| !values.iter().any(|(value, _)| value == *v))
                             .count();
                         push(&mut counts, &Label::other(), n);
                     }
@@ -175,7 +177,10 @@ impl Rules {
 impl Count {
     fn load(raw: &Value) -> Result<Count, String> {
         let raw = raw.as_object().ok_or("must be an object")?;
-        known_keys(raw, &["items", "by", "values", "other", "label", "tone"])?;
+        known_keys(
+            raw,
+            &["items", "by", "values", "other", "label", "plural", "tone"],
+        )?;
         let items = pointer(raw.get("items").ok_or("items is required")?)?;
         let group = match raw.get("by") {
             None => {
@@ -187,7 +192,7 @@ impl Count {
                 Group::Whole(Label::load(raw, None)?.ok_or("label is required without by")?)
             }
             Some(Value::String(field)) if !field.is_empty() => {
-                for key in ["label", "tone"] {
+                for key in ["label", "plural", "tone"] {
                     if raw.contains_key(key) {
                         return Err(format!("{key} is set per value with by"));
                     }
@@ -235,19 +240,26 @@ impl Label {
     /// The label and tone in `raw`; `fallback` is the label when only the
     /// tone is given. `None` when neither is.
     fn load(raw: &Map<String, Value>, fallback: Option<&str>) -> Result<Option<Label>, String> {
-        let label = match raw.get("label") {
-            None => fallback.map(str::to_string),
-            Some(Value::String(label)) if !label.trim().is_empty() => Some(label.clone()),
-            Some(_) => return Err("label must be text".into()),
+        let text = |key: &str| match raw.get(key) {
+            None => Ok(None),
+            Some(Value::String(text)) if !text.trim().is_empty() => {
+                if text.chars().count() > MAX_LABEL {
+                    Err(format!(
+                        "{key} {text:?} is longer than {MAX_LABEL} characters"
+                    ))
+                } else {
+                    Ok(Some(text.clone()))
+                }
+            }
+            Some(_) => Err(format!("{key} must be text")),
         };
-        let Some(label) = label else {
-            return Ok(None);
+        let plural = text("plural")?;
+        let Some(label) = text("label")?.or_else(|| fallback.map(str::to_string)) else {
+            return match plural {
+                Some(_) => Err("plural needs a label".into()),
+                None => Ok(None),
+            };
         };
-        if label.chars().count() > MAX_LABEL {
-            return Err(format!(
-                "label {label:?} is longer than {MAX_LABEL} characters"
-            ));
-        }
         let tone = match raw.get("tone") {
             None => "neutral",
             Some(Value::String(tone)) => TONES
@@ -256,12 +268,17 @@ impl Label {
                 .ok_or_else(|| format!("tone {tone:?} is not one of {}", TONES.join(", ")))?,
             Some(_) => return Err("tone must be text".into()),
         };
-        Ok(Some(Label { label, tone }))
+        Ok(Some(Label {
+            label,
+            plural,
+            tone,
+        }))
     }
 
     fn other() -> Label {
         Label {
             label: "other".into(),
+            plural: None,
             tone: "neutral",
         }
     }
@@ -278,7 +295,7 @@ fn values(raw: &Value) -> Result<Vec<(String, Label)>, String> {
             let spec = spec
                 .as_object()
                 .ok_or_else(|| format!("values/{value} must be an object"))?;
-            known_keys(spec, &["label", "tone"])
+            known_keys(spec, &["label", "plural", "tone"])
                 .map_err(|e| within(&format!("values/{value}"), e))?;
             let label = Label::load(spec, Some(value))
                 .map_err(|e| within(&format!("values/{value}"), e))?
@@ -363,7 +380,11 @@ fn within(path: &str, error: String) -> String {
 
 fn push(counts: &mut Vec<Value>, label: &Label, count: usize) {
     if count > 0 {
-        counts.push(json!({ "label": label.label, "count": count, "tone": label.tone }));
+        let text = match &label.plural {
+            Some(plural) if count != 1 => plural,
+            _ => &label.label,
+        };
+        counts.push(json!({ "label": text, "count": count, "tone": label.tone }));
     }
 }
 
@@ -391,6 +412,7 @@ mod tests {
         }]}}))
         .request
         .unwrap();
+        // a proposal without a severity has none to count, not "other"
         let payload = json!({ "proposals": [
             { "severity": "nit" }, { "severity": "major" }, { "severity": "major" }, { "severity": "odd" }, {}
         ]});
@@ -399,7 +421,7 @@ mod tests {
             Some(json!({ "counts": [
                 { "label": "major", "count": 2, "tone": "warning" },
                 { "label": "nit", "count": 1, "tone": "neutral" },
-                { "label": "other", "count": 2, "tone": "neutral" }
+                { "label": "other", "count": 1, "tone": "neutral" }
             ]}))
         );
     }
@@ -447,6 +469,23 @@ mod tests {
         assert_eq!(
             rules.derive(&json!({ "verdict": "maybe", "undecided": [] })),
             None
+        );
+    }
+
+    #[test]
+    fn a_noun_takes_its_plural_for_any_count_but_one() {
+        let rules = declaration(json!({ "request": { "counts": [
+            { "items": "/drafts", "label": "draft", "plural": "drafts" },
+            { "items": "/notes", "label": "note", "plural": "notes" }
+        ]}}))
+        .request
+        .unwrap();
+        assert_eq!(
+            rules.derive(&json!({ "drafts": [1, 2, 3], "notes": [1] })),
+            Some(json!({ "counts": [
+                { "label": "drafts", "count": 3, "tone": "neutral" },
+                { "label": "note", "count": 1, "tone": "neutral" }
+            ]}))
         );
     }
 

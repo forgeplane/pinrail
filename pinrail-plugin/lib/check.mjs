@@ -295,7 +295,9 @@ function rulesProblem(raw, outcome) {
 
 function countProblem(raw) {
   if (!isObject(raw)) return "must be an object";
-  const unknown = Object.keys(raw).find((k) => !["items", "by", "values", "other", "label", "tone"].includes(k));
+  const unknown = Object.keys(raw).find(
+    (k) => !["items", "by", "values", "other", "label", "plural", "tone"].includes(k),
+  );
   if (unknown) return `${unknown} is not a key here`;
   if (!("items" in raw)) return "items is required";
   const items = pointerProblem(raw.items);
@@ -306,7 +308,7 @@ function countProblem(raw) {
     return labelProblem(raw);
   }
   if (typeof raw.by !== "string" || raw.by === "") return "by must name a field";
-  for (const key of ["label", "tone"]) if (key in raw) return `${key} is set per value with by`;
+  for (const key of ["label", "plural", "tone"]) if (key in raw) return `${key} is set per value with by`;
   if (!("values" in raw)) return "values is required with by";
   const values = valuesProblem(raw.values);
   if (values) return values;
@@ -319,7 +321,7 @@ function valuesProblem(raw) {
   if (Object.keys(raw).length === 0) return "values lists no value";
   for (const [value, spec] of Object.entries(raw)) {
     if (!isObject(spec)) return `values/${value} must be an object`;
-    const unknown = Object.keys(spec).find((k) => !["label", "tone"].includes(k));
+    const unknown = Object.keys(spec).find((k) => !["label", "plural", "tone"].includes(k));
     if (unknown) return `/values/${value}: ${unknown} is not a key here`;
     const why = labelProblem(spec);
     if (why) return `/values/${value}: ${why}`;
@@ -328,9 +330,10 @@ function valuesProblem(raw) {
 }
 
 function labelProblem(raw) {
-  if ("label" in raw) {
-    if (typeof raw.label !== "string" || raw.label.trim() === "") return "label must be text";
-    if ([...raw.label].length > MAX_LABEL) return `label "${raw.label}" is longer than ${MAX_LABEL} characters`;
+  for (const key of ["plural", "label"]) {
+    if (!(key in raw)) continue;
+    if (typeof raw[key] !== "string" || raw[key].trim() === "") return `${key} must be text`;
+    if ([...raw[key]].length > MAX_LABEL) return `${key} "${raw[key]}" is longer than ${MAX_LABEL} characters`;
   }
   if ("tone" in raw) {
     if (typeof raw.tone !== "string") return "tone must be text";
