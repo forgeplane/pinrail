@@ -68,6 +68,7 @@ fn agree(dir: &Path, js: &Value) {
         ("settings_schema", plugin.settings_error.is_some()),
         ("shortcuts", plugin.shortcuts_error.is_some()),
         ("decision_template", plugin.template_error.is_some()),
+        ("summary", plugin.summary_error.is_some()),
         ("example", plugin.example_error.is_some()),
         ("sample", plugin.sample_error.is_some()),
         ("icon", plugin.icon_error.is_some()),
@@ -239,6 +240,47 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
         (
             "template_number",
             base(json!({"decision_template": 1})),
+            entry,
+        ),
+        // a summary that does not read costs the plugin its summaries
+        ("summary_number", base(json!({"summary": 3})), entry),
+        (
+            "summary_side",
+            base(json!({"summary": {"reqest": {}}})),
+            entry,
+        ),
+        (
+            "summary_tone",
+            base(
+                json!({"summary": {"request": {"counts": [{"items": "/a", "label": "a", "tone": "red"}]}}}),
+            ),
+            entry,
+        ),
+        (
+            "summary_pointer",
+            base(
+                json!({"summary": {"outcome": {"counts": [{"items": "decisions", "label": "a"}]}}}),
+            ),
+            entry,
+        ),
+        (
+            "summary_too_many",
+            base(
+                json!({"summary": {"outcome": {"counts": [{"items": "/d", "by": "action", "values": {"a": {}, "b": {}, "c": {}, "d": {}, "e": {}, "f": {}}}]}}}),
+            ),
+            entry,
+        ),
+        (
+            "summary_verdict_star",
+            base(json!({"summary": {"outcome": {"verdict": {"at": "/v/*", "values": {"a": {}}}}}})),
+            entry,
+        ),
+        (
+            "summary_ok",
+            base(json!({"summary": {
+                "request": {"counts": [{"items": "/groups/*/items", "by": "severity", "values": {"high": {"tone": "danger"}}, "other": false}]},
+                "outcome": {"counts": [{"items": "/undecided", "label": "undecided"}], "verdict": {"at": "/verdict", "values": {"approve": {"label": "approved", "tone": "success"}}}}
+            }})),
             entry,
         ),
         // an example payload, which must pass the payload schema

@@ -106,6 +106,15 @@
       "not": { "type": "string", "pattern": "\\.\\." },
       "description": "A MiniJinja file that renders a decision as markdown, for the command's markdown output and Copy as markdown. A template that does not compile costs the plugin the template."
     },
+    "summary": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "request": { "type": "object", "description": "What a review asks, counted from its payload when it is submitted." },
+        "outcome": { "type": "object", "description": "What was decided, counted from the decision when it is handed over, with an optional verdict." }
+      },
+      "description": "How the app sums up the plugin's reviews: which arrays of the payload and the decision to count, grouped by which field, with a label and a tone (`danger`, `warning`, `info`, `success` or `neutral`) for each value. A plugin without one shows no summary. A summary that does not read costs the plugin its summaries."
+    },
     "build": {
       "type": ["object", "null"],
       "required": ["command"],

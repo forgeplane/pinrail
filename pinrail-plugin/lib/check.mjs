@@ -7,7 +7,7 @@
 //
 // A problem costs the plugin its place: the app will not install it. A
 // warning costs it a feature: the app installs it and says on its row what
-// was dropped (settings, shortcuts, the markdown template).
+// was dropped (settings, shortcuts, the markdown template, the summary).
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -20,7 +20,7 @@ export const MANIFEST_SCHEMA = JSON.parse(
 const validateManifest = new Ajv2020({ allErrors: true, strict: false }).compile(MANIFEST_SCHEMA);
 
 /** Keys whose violation costs the plugin that feature, not its place. */
-const FEATURES = ["settings_schema", "shortcuts", "decision_template", "example", "sample", "icon"];
+const FEATURES = ["settings_schema", "shortcuts", "decision_template", "summary", "example", "sample", "icon"];
 /** The largest icon file the app takes. Mirrors `ICON_MAX_BYTES`. */
 const ICON_MAX_BYTES = 32 * 1024;
 const SCALARS = ["boolean", "string", "integer", "number"];
@@ -167,6 +167,11 @@ export function checkPlugin(dir) {
     if (why) warn("shortcuts", why);
   }
 
+  if (manifest.summary !== undefined && manifest.summary !== null && !dropped.has("summary")) {
+    const why = summaryProblem(manifest.summary);
+    if (why) warn("summary", why);
+  }
+
   // the example must pass the plugin's own payload schema, as the app checks
   if (typeof manifest.example === "string" && !dropped.has("example") && !refused("payload_schema")) {
     const why = exampleProblem(dir, manifest.example, manifest.payload_schema);
@@ -240,6 +245,104 @@ function isKind(kind) {
   if (kind.startsWith(".")) return token(kind.slice(1));
   const [type, sub, ...rest] = kind.split("/");
   return rest.length === 0 && sub !== undefined && token(type) && (sub === "*" || token(sub));
+}
+
+const TONES = ["danger", "warning", "info", "success", "neutral"];
+const MAX_COUNTS = 6;
+const MAX_LABEL = 24;
+
+/** Why the manifest's summary would be dropped, or null. Mirrors `summary::Declaration::load`. */
+function summaryProblem(raw) {
+  if (!isObject(raw)) return "summary: must be an object";
+  for (const [key, rules] of Object.entries(raw)) {
+    if (key !== "request" && key !== "outcome") return `summary/${key}: is not request or outcome`;
+    const why = rulesProblem(rules, key === "outcome");
+    if (why) return `summary/${key}${why.startsWith("/") ? "" : ": "}${why}`;
+  }
+  return null;
+}
+
+/** What is wrong with one side's rules, as `/counts/0: …` or a message. */
+function rulesProblem(raw, outcome) {
+  if (!isObject(raw)) return "must be an object";
+  const unknown = Object.keys(raw).find((k) => !["counts", "verdict"].includes(k));
+  if (unknown) return `${unknown} is not a key here`;
+  if ("verdict" in raw && !outcome) return "verdict is for the outcome";
+  const counts = raw.counts ?? [];
+  if (!Array.isArray(counts)) return "counts must be a list";
+  let most = 0;
+  for (const [i, rule] of counts.entries()) {
+    const why = countProblem(rule);
+    if (why) return `/counts/${i}${why.startsWith("/") ? "" : ": "}${why}`;
+    most += "by" in rule ? Object.keys(rule.values).length + (rule.other === false ? 0 : 1) : 1;
+  }
+  if ("verdict" in raw) {
+    const v = raw.verdict;
+    if (!isObject(v)) return "/verdict: must be an object";
+    const unknownV = Object.keys(v).find((k) => !["at", "values"].includes(k));
+    if (unknownV) return `/verdict: ${unknownV} is not a key here`;
+    if (!("at" in v)) return "/verdict: at is required";
+    const at = pointerProblem(v.at);
+    if (at) return `/verdict: ${at}`;
+    if (v.at.split("/").includes("*")) return "/verdict: at names one field; * is for counts";
+    if (!("values" in v)) return "/verdict: values is required";
+    const values = valuesProblem(v.values);
+    if (values) return `/verdict${values.startsWith("/") ? "" : ": "}${values}`;
+  }
+  if (most > MAX_COUNTS) return `counts declare up to ${most} entries; a summary shows at most ${MAX_COUNTS}`;
+  return null;
+}
+
+function countProblem(raw) {
+  if (!isObject(raw)) return "must be an object";
+  const unknown = Object.keys(raw).find((k) => !["items", "by", "values", "other", "label", "tone"].includes(k));
+  if (unknown) return `${unknown} is not a key here`;
+  if (!("items" in raw)) return "items is required";
+  const items = pointerProblem(raw.items);
+  if (items) return items;
+  if (!("by" in raw)) {
+    for (const key of ["values", "other"]) if (key in raw) return `${key} needs by`;
+    if (!("label" in raw)) return "label is required without by";
+    return labelProblem(raw);
+  }
+  if (typeof raw.by !== "string" || raw.by === "") return "by must name a field";
+  for (const key of ["label", "tone"]) if (key in raw) return `${key} is set per value with by`;
+  if (!("values" in raw)) return "values is required with by";
+  const values = valuesProblem(raw.values);
+  if (values) return values;
+  if ("other" in raw && typeof raw.other !== "boolean") return "other must be true or false";
+  return null;
+}
+
+function valuesProblem(raw) {
+  if (!isObject(raw)) return "values must be an object";
+  if (Object.keys(raw).length === 0) return "values lists no value";
+  for (const [value, spec] of Object.entries(raw)) {
+    if (!isObject(spec)) return `values/${value} must be an object`;
+    const unknown = Object.keys(spec).find((k) => !["label", "tone"].includes(k));
+    if (unknown) return `/values/${value}: ${unknown} is not a key here`;
+    const why = labelProblem(spec);
+    if (why) return `/values/${value}: ${why}`;
+  }
+  return null;
+}
+
+function labelProblem(raw) {
+  if ("label" in raw) {
+    if (typeof raw.label !== "string" || raw.label.trim() === "") return "label must be text";
+    if ([...raw.label].length > MAX_LABEL) return `label "${raw.label}" is longer than ${MAX_LABEL} characters`;
+  }
+  if ("tone" in raw) {
+    if (typeof raw.tone !== "string") return "tone must be text";
+    if (!TONES.includes(raw.tone)) return `tone "${raw.tone}" is not one of ${TONES.join(", ")}`;
+  }
+  return null;
+}
+
+function pointerProblem(raw) {
+  if (typeof raw !== "string") return "a pointer must be text";
+  if (raw !== "" && !raw.startsWith("/")) return `"${raw}" is not a JSON Pointer; it starts with /`;
+  return null;
 }
 
 /** The payload schema as a document: inline, or the file its $ref names. */

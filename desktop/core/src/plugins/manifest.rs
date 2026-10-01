@@ -46,6 +46,11 @@ pub struct Plugin {
     /// `template_error` says why a declared one was dropped.
     pub decision_template: Option<String>,
     pub template_error: Option<String>,
+    /// How the plugin's reviews are summed up (the manifest's `summary`):
+    /// what a request asks and what was decided; `summary_error` says why a
+    /// declared one was dropped. Empty when none is declared.
+    pub summary: super::summary::Declaration,
+    pub summary_error: Option<String>,
     /// When an agent should ask with this plugin (the manifest's `use_when`).
     pub use_when: Option<String>,
     /// A payload that passes the payload schema (the manifest's `example`,
@@ -157,6 +162,8 @@ impl Plugin {
                 shortcuts_error: None,
                 decision_template: None,
                 template_error: None,
+                summary: Default::default(),
+                summary_error: None,
                 use_when: None,
                 example: None,
                 example_error: None,
@@ -307,6 +314,17 @@ impl Plugin {
             },
             Some(_) => (None, None),
         };
+        // a summary that does not read costs the plugin its summaries
+        let (summary, summary_error) = match manifest.get("summary") {
+            _ if shape.dropped.contains_key("summary") => {
+                (Default::default(), shape.dropped.get("summary").cloned())
+            }
+            None | Some(Value::Null) => (Default::default(), None),
+            Some(raw) => match super::summary::Declaration::load(raw) {
+                Ok(declaration) => (declaration, None),
+                Err(message) => (Default::default(), Some(message)),
+            },
+        };
         // an example that does not pass the plugin's own schema is dropped,
         // so what an agent is shown always submits
         let (example, example_error) = match manifest.get("example") {
@@ -386,6 +404,8 @@ impl Plugin {
             shortcuts_error,
             decision_template,
             template_error,
+            summary,
+            summary_error,
             use_when,
             example,
             example_error,
@@ -532,6 +552,7 @@ impl Plugin {
             ("settings_schema", &self.settings_error),
             ("shortcuts", &self.shortcuts_error),
             ("decision_template", &self.template_error),
+            ("summary", &self.summary_error),
             ("example", &self.example_error),
             ("sample", &self.sample_error),
             ("icon", &self.icon_error),
@@ -580,6 +601,7 @@ impl Plugin {
             "shortcuts": self.shortcuts,
             "shortcuts_error": self.shortcuts_error,
             "template_error": self.template_error,
+            "summary_error": self.summary_error,
             "description": self.manifest.get("description"),
             "use_when": self.use_when,
             "example_error": self.example_error,
@@ -642,6 +664,7 @@ mod shape {
         "settings_schema",
         "shortcuts",
         "decision_template",
+        "summary",
         "example",
         "sample",
         "icon",
@@ -1207,6 +1230,12 @@ mod tests {
                 "decision_template",
                 "decision_template: ",
             ),
+            (json!({"summary": 3}), "summary", "summary: "),
+            (
+                json!({"summary": {"request": {"counts": [{"items": "/a", "label": "x", "tone": "red"}]}}}),
+                "summary",
+                "summary/request/counts/0: tone",
+            ),
         ];
         for (i, (changes, feature, expected)) in cases.iter().enumerate() {
             let dir = with_manifest(
@@ -1219,6 +1248,7 @@ mod tests {
             let why = match *feature {
                 "settings_schema" => p.settings_error.clone(),
                 "shortcuts" => p.shortcuts_error.clone(),
+                "summary" => p.summary_error.clone(),
                 _ => p.template_error.clone(),
             }
             .unwrap_or_default();

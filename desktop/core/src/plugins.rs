@@ -11,6 +11,7 @@ mod manifest;
 mod registry;
 mod sample;
 mod service;
+mod summary;
 
 pub use install::Expect as InstallExpect;
 pub use install::Options as InstallOptions;
@@ -21,6 +22,7 @@ pub use manifest::{FEATURES as MANIFEST_FEATURES, SCHEMA as MANIFEST_SCHEMA};
 pub use manifest::{Install, Plugin};
 pub use sample::Sample;
 pub use service::{PluginService, UpdateOutcome};
+pub use summary::Declaration as SummaryDeclaration;
 
 pub(crate) use install::{in_the_bundle, tidy};
 pub(crate) use manifest::version_of;

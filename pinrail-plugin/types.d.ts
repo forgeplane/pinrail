@@ -49,6 +49,8 @@ export type Manifest = {
   entry?: string;
   /** a MiniJinja file that renders a decision as markdown: `templates/decision.md.j2` */
   decision_template?: string;
+  /** what the app counts to sum up a review: arrays of the payload and of the decision */
+  summary?: { request?: SummaryRules; outcome?: SummaryRules };
   min_height?: number;
   /** the command that produces the bundle, run by an install: `npm ci && npm run build` */
   build?: { command: string };
@@ -67,6 +69,24 @@ export type Manifest = {
   sample?: string;
   /** the files the plugin takes beside a payload; without it, none */
   attachments?: AttachmentRules;
+};
+
+/** The colours a summary may use; the app maps each to the theme. */
+export type SummaryTone = "danger" | "warning" | "info" | "success" | "neutral";
+
+/** A label in a summary, with its plural when the count is not one. */
+export type SummaryLabel = { label?: string; plural?: string; tone?: SummaryTone };
+
+/** One side of a summary: counts of arrays, and for the outcome a verdict. */
+export type SummaryRules = {
+  /** each entry counts the array `items` points to (JSON Pointer, `*` for
+   *  every element): by the values of the field `by`, or as a whole */
+  counts?: (
+    | { items: string; by: string; values: Record<string, SummaryLabel>; other?: boolean }
+    | ({ items: string; label: string } & SummaryLabel)
+  )[];
+  /** the field that holds the decision's overall answer, and how each value reads */
+  verdict?: { at: string; values: Record<string, SummaryLabel> };
 };
 
 /** What a plugin takes: kinds as `.ext` or media types (`image/*` too), and
