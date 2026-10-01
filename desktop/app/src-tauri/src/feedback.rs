@@ -189,7 +189,9 @@ mod tests {
             })
             .expect("the x-pinrail-os header");
         if cfg!(target_os = "macos") {
-            assert!(line.starts_with("macos 1"), "{line}");
+            // macOS 13 to 15, then 26 and on
+            let version = line.strip_prefix("macos ").unwrap_or_default();
+            assert!(version.starts_with(|c: char| c.is_ascii_digit()), "{line}");
         }
         if cfg!(target_os = "linux") {
             assert!(line.contains(", kernel "), "{line}");
