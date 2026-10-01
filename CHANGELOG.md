@@ -9,16 +9,16 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
-## [Unreleased]
+## [0.2.0]
 
 ### Added
 
-- Send feedback to the Pinrail team from the app, with **Help › Send
-  Feedback…** or the command palette. A report has a reply address, a
-  subject and a message, and can include up to five attached files, which
-  you can choose, drop or paste. It includes diagnostics, which you can read
-  before sending or leave out: how Pinrail is installed, its plugins and its
-  settings.
+- Send feedback to the Pinrail team from the app, with **Send feedback** at
+  the bottom of the sidebar, **Help › Send Feedback…** or the command
+  palette. A report has a reply address, a subject and a message, and can
+  include up to five attached files, which you can choose, drop or paste.
+  It includes diagnostics, which you can read before sending or leave out:
+  how Pinrail is installed, its plugins and its settings.
 
 ### Fixed
 
@@ -31,5 +31,5 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 Initial version of Pinrail.
 
-[Unreleased]: https://github.com/forgeplane/pinrail/compare/v0.1.0...HEAD
+[0.2.0]: https://github.com/forgeplane/pinrail/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.1.0
