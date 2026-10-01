@@ -140,7 +140,7 @@ test("Copy as markdown copies the review on screen, after moving from another", 
   );
 });
 
-test("what the last review said stays with it: the next one opens without its notice", async ({ page }) => {
+test("discarding a review returns to the inbox, where the others wait", async ({ page }) => {
   await clearInbox(page.request);
   const payload = (intro: string) => ({
     intro,
@@ -161,14 +161,13 @@ test("what the last review said stays with it: the next one opens without its no
   await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The first review.");
   await page.locator("[data-discard]").click();
   await page.locator("[data-discard-confirm]").click();
-  await expect(page.getByText("Discarded. The agent was told to stop.")).toBeVisible();
 
-  await page.locator("[data-waiting-review]").filter({ hasText: "Notice: the second" }).click();
-  await expect(page.frameLocator("#plugin-frame").locator("body")).toContainText("The second review.");
-  await expect(
-    page.getByText("Discarded. The agent was told to stop."),
-    "the notice belongs to the review that was discarded",
-  ).toHaveCount(0);
+  // the review has ended: back to the inbox, where the other one waits
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(page.getByText("Discarded. The agent was told to stop.")).toBeVisible();
+  const rows = page.locator("[data-review-row]");
+  await expect(rows).toHaveCount(1);
+  await expect(rows).toContainText("Notice: the second");
 });
 
 test("a view that posts its hand-over twice decides the review once", async ({ page }) => {

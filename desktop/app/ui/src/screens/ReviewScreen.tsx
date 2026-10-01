@@ -608,9 +608,10 @@ export function ReviewScreen() {
           review={review}
           onClose={() => setDiscarding(false)}
           onDone={() => {
+            // the review has ended: back to what is still waiting
             setDiscarding(false);
-            setFlash("Discarded. The agent was told to stop.");
-            load();
+            toast("Discarded. The agent was told to stop.");
+            navigate("/");
           }}
         />
       ) : null}
