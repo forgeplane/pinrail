@@ -53,6 +53,9 @@ export async function startApp({ build = true } = {}) {
   const data = path.join(root, "e2e", ".state", "screenshots-data");
   fs.rmSync(data, { recursive: true, force: true });
   fs.mkdirSync(data, { recursive: true });
+  // a returning person's data: the setup already seen, so its dialog does
+  // not cover the screens
+  fs.writeFileSync(path.join(data, "settings.json"), JSON.stringify({ welcome: { seen: true } }));
 
   const corePort = await freePort();
   const uiPort = await freePort();
@@ -166,6 +169,7 @@ function pinDatabase(file, plan) {
     db.prepare("UPDATE reviews SET id = ?, created_at = ? WHERE id = ?").run(id, iso(created), old);
     db.prepare("UPDATE reviews SET revises = ? WHERE revises = ?").run(id, old);
     db.prepare("UPDATE outcomes SET review_id = ? WHERE review_id = ?").run(id, old);
+    db.prepare("UPDATE review_payloads SET review_id = ? WHERE review_id = ?").run(id, old);
     db.prepare("UPDATE events SET review_id = ? WHERE review_id = ?").run(id, old);
     db.prepare("UPDATE review_attachments SET review_id = ? WHERE review_id = ?").run(id, old);
     if (times.outcome !== undefined)
