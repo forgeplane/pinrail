@@ -623,14 +623,15 @@ fn tray_label(review: &Review, now: DateTime<Utc>) -> String {
     parts.join("  ·  ")
 }
 
-/// The summary's counts as "1 blocker, 2 major", when the review has them.
+/// A review's request summary as a line, "1 blocker, 2 major", when it has
+/// one.
 fn summary_counts(summary: Option<&serde_json::Value>) -> Option<String> {
     let counts = summary?.get("counts")?.as_array()?;
     let parts: Vec<String> = counts
         .iter()
-        .filter_map(|pair| {
-            let label = pair.get(0)?.as_str()?;
-            let n = pair.get(1)?.as_u64()?;
+        .filter_map(|count| {
+            let label = count.get("label")?.as_str()?;
+            let n = count.get("count")?.as_u64()?;
             Some(format!("{n} {label}"))
         })
         .collect();
@@ -909,8 +910,11 @@ mod tests {
     }
 
     #[test]
-    fn summary_counts_read_the_pairs() {
-        let summary = serde_json::json!({ "counts": [["blocker", 1], ["major", 2]] });
+    fn summary_counts_read_as_a_line() {
+        let summary = serde_json::json!({ "counts": [
+            { "label": "blocker", "count": 1, "tone": "danger" },
+            { "label": "major", "count": 2, "tone": "warning" }
+        ]});
         assert_eq!(
             summary_counts(Some(&summary)),
             Some("1 blocker, 2 major".to_string())

@@ -1136,13 +1136,26 @@ h1 {
   background: color-mix(in srgb, var(--ok) 15%, transparent);
   color: var(--ok);
 }
-.status-approved {
+/* a verdict, in the tone its plugin's summary gives it */
+.status-success {
   background: color-mix(in srgb, var(--ok) 15%, transparent);
   color: var(--ok);
 }
-.status-revise {
+.status-warning {
   background: color-mix(in srgb, var(--sev-major) 15%, transparent);
   color: var(--sev-major);
+}
+.status-danger {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+.status-info {
+  background: color-mix(in srgb, var(--sev-minor) 15%, transparent);
+  color: var(--sev-minor);
+}
+.status-neutral {
+  background: var(--bg-hover);
+  color: var(--dim);
 }
 .status-withdrawn {
   background: var(--bg-hover);
@@ -1182,21 +1195,28 @@ h1 {
   background: var(--bg-hover);
   color: var(--dim);
 }
-.summary-count.sev-blocker {
-  background: color-mix(in srgb, var(--sev-blocker) 15%, transparent);
-  color: var(--sev-blocker);
+.history-outcome {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
-.summary-count.sev-major {
-  background: color-mix(in srgb, var(--sev-major) 15%, transparent);
-  color: var(--sev-major);
+/* the tones a plugin's summary may use; neutral keeps the plain chip */
+.tone-danger {
+  --tone: var(--danger);
 }
-.summary-count.sev-minor {
-  background: color-mix(in srgb, var(--sev-minor) 15%, transparent);
-  color: var(--sev-minor);
+.tone-warning {
+  --tone: var(--sev-major);
 }
-.summary-count.sev-nit {
-  background: color-mix(in srgb, var(--sev-nit) 15%, transparent);
-  color: var(--sev-nit);
+.tone-info {
+  --tone: var(--sev-minor);
+}
+.tone-success {
+  --tone: var(--ok);
+}
+.summary-count:is(.tone-danger, .tone-warning, .tone-info, .tone-success) {
+  background: color-mix(in srgb, var(--tone) 15%, transparent);
+  color: var(--tone);
 }
 
 /* inbox */
@@ -1891,12 +1911,21 @@ h1 {
   --tone: var(--accent);
 }
 .round-decided,
-.round-approved {
+.round-success {
   --tone: var(--ok);
 }
-.round-revise,
+.round-warning,
 .round-discarded {
   --tone: var(--sev-major);
+}
+.round-danger {
+  --tone: var(--danger);
+}
+.round-info {
+  --tone: var(--sev-minor);
+}
+.round-neutral {
+  --tone: var(--faint);
 }
 .round-expired {
   --tone: var(--danger);

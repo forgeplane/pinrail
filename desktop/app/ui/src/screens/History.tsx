@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { ReviewListing } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
-import { FilesCount, OutcomeBadge } from "../components/Badges";
+import { FilesCount, OutcomeBadge, SummaryCounts } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { PluginIcon } from "../components/PluginIcon";
@@ -288,7 +288,10 @@ export function History() {
                     </small>
                   </td>
                   <td>
-                    <OutcomeBadge review={r} />
+                    <span className="history-outcome">
+                      <OutcomeBadge review={r} />
+                      <SummaryCounts summary={r.decision?.summary} />
+                    </span>
                   </td>
                   <td>
                     {r.origin.repo}

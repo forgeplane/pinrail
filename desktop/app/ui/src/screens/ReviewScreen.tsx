@@ -7,7 +7,7 @@ import type { Plugin, Review, Violation } from "../api/types";
 import { usePluginBridge, type SubmitResult } from "../bridge/usePluginBridge";
 import { AgentIcon } from "../components/AgentIcon";
 import { AttachmentsChip } from "../components/AttachmentsChip";
-import { OutcomeBadge, PluginBadge, outcomeOf } from "../components/Badges";
+import { OutcomeBadge, PluginBadge, SummaryCounts, outcomeOf } from "../components/Badges";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { WaitMark } from "../components/WaitMark";
 import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
@@ -503,6 +503,8 @@ export function ReviewScreen() {
     <div className="review-page">
       <div className="review-strip">
         <OutcomeBadge review={review} />
+        {/* what it asks while it waits, what was decided once it is */}
+        <SummaryCounts summary={review.status === "pending" ? review.summary : review.decision?.summary} />
         <PluginBadge name={review.plugin} version={review.plugin_version} />
         {review.attachments?.length ? <AttachmentsChip reviewId={review.id} attachments={review.attachments} /> : null}
         {originText ? (

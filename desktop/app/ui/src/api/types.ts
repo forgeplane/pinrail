@@ -12,11 +12,18 @@ export type Decision = {
   decided_by: string;
   decided_at: string;
   data: unknown;
+  /** what was decided, as the plugin declares it summed up */
+  summary?: Summary | null;
 };
 
+/** The fixed set of colours a plugin's summary may use. */
+export type Tone = "danger" | "warning" | "info" | "success" | "neutral";
+
+/** A review summed up as its plugin declares: counts, and for an outcome
+ *  the overall verdict. The core derives it; nothing reads the payload. */
 export type Summary = {
-  counts?: [string, number][];
-  subtitle?: string;
+  counts: { label: string; count: number; tone: Tone }[];
+  verdict?: { label: string; tone: Tone };
 };
 
 export type Review = {
