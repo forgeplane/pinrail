@@ -16,6 +16,29 @@
   },
   "entry": "view/index.html",
   "decision_template": "templates/decision.md.j2",
+  "summary": {
+    "outcome": {
+      "verdict": {
+        "at": "/verdict",
+        "values": {
+          "approve": { "label": "approved", "tone": "success" },
+          "revise": { "label": "changes requested", "tone": "warning" }
+        }
+      },
+      "counts": [
+        {
+          "items": "/comments",
+          "by": "kind",
+          "values": {
+            "change": { "label": "change", "plural": "changes", "tone": "warning" },
+            "question": { "label": "question", "plural": "questions", "tone": "info" },
+            "praise": { "label": "praise", "tone": "success" }
+          },
+          "other": false
+        }
+      ]
+    }
+  },
   "min_height": 640,
   "build": { "command": "npm ci && npm run build" },
   "shortcuts": [

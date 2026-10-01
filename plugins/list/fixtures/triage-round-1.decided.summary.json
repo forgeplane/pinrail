@@ -1,0 +1,17 @@
+{
+  "request": null,
+  "outcome": {
+    "counts": [
+      {
+        "label": "rejected",
+        "count": 1,
+        "tone": "danger"
+      },
+      {
+        "label": "undecided",
+        "count": 1,
+        "tone": "neutral"
+      }
+    ]
+  }
+}

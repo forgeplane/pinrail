@@ -501,6 +501,66 @@ mod tests {
         assert_eq!(rules.derive(&json!("not an object")), None);
     }
 
+    /// Every `plugins/*/fixtures/*.decided.json` sums up, by its plugin's
+    /// declaration, to the `.decided.summary.json` beside it: the request
+    /// from the payload and the outcome from the decision.
+    /// `UPDATE_FIXTURES=1 cargo test` rewrites the expected files.
+    #[test]
+    fn decided_fixtures_sum_up_to_their_expected_summaries() {
+        let plugins = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+        let update = std::env::var("UPDATE_FIXTURES").is_ok();
+        let mut seen = 0;
+        for dir in std::fs::read_dir(&plugins)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+        {
+            if !dir.join("manifest.json").is_file() {
+                continue;
+            }
+            let plugin = super::super::Plugin::load(&dir);
+            assert_eq!(plugin.summary_error, None, "{}", dir.display());
+            let Ok(fixtures) = std::fs::read_dir(dir.join("fixtures")) else {
+                continue;
+            };
+            for path in fixtures.flatten().map(|e| e.path()) {
+                let name = path.file_name().unwrap().to_string_lossy().to_string();
+                let Some(stem) = name.strip_suffix(".decided.json") else {
+                    continue;
+                };
+                let fixture: Value =
+                    serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+                let derive = |rules: &Option<Rules>, data: &Value| {
+                    rules
+                        .as_ref()
+                        .and_then(|r| r.derive(data))
+                        .unwrap_or(Value::Null)
+                };
+                let summed = json!({
+                    "request": derive(&plugin.summary.request, &fixture["payload"]),
+                    "outcome": derive(&plugin.summary.outcome, &fixture["decision"]["data"]),
+                });
+                let expected_path = path.with_file_name(format!("{stem}.decided.summary.json"));
+                if update {
+                    let text = serde_json::to_string_pretty(&summed).unwrap() + "\n";
+                    std::fs::write(&expected_path, text).unwrap();
+                }
+                let expected: Value = serde_json::from_str(
+                    &std::fs::read_to_string(&expected_path).unwrap_or_else(|_| {
+                        panic!(
+                            "{} is missing; run with UPDATE_FIXTURES=1 to write it",
+                            expected_path.display()
+                        )
+                    }),
+                )
+                .unwrap();
+                assert_eq!(summed, expected, "{}", path.display());
+                seen += 1;
+            }
+        }
+        assert!(seen >= 7, "only {seen} decided fixtures found");
+    }
+
     #[test]
     fn a_wrong_declaration_says_where() {
         let wrong = |raw: Value| Declaration::load(&raw).unwrap_err();

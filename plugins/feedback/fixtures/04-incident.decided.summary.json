@@ -1,0 +1,30 @@
+{
+  "request": {
+    "counts": [
+      {
+        "label": "questions",
+        "count": 9,
+        "tone": "neutral"
+      }
+    ]
+  },
+  "outcome": {
+    "counts": [
+      {
+        "label": "answered",
+        "count": 3,
+        "tone": "success"
+      },
+      {
+        "label": "unanswered",
+        "count": 1,
+        "tone": "warning"
+      },
+      {
+        "label": "excluded",
+        "count": 5,
+        "tone": "neutral"
+      }
+    ]
+  }
+}

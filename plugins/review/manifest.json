@@ -14,6 +14,36 @@
   "example": "example.json",
   "sample": "sample.json",
   "decision_template": "templates/decision.md.j2",
+  "summary": {
+    "request": {
+      "counts": [
+        {
+          "items": "/proposals",
+          "by": "severity",
+          "values": {
+            "blocker": { "tone": "danger" },
+            "major": { "tone": "warning" },
+            "minor": { "tone": "info" },
+            "nit": { "tone": "neutral" }
+          }
+        }
+      ]
+    },
+    "outcome": {
+      "counts": [
+        {
+          "items": "/decisions",
+          "by": "action",
+          "values": {
+            "accept": { "label": "accepted", "tone": "success" },
+            "reject": { "label": "rejected", "tone": "danger" }
+          },
+          "other": false
+        },
+        { "items": "/undecided", "label": "undecided" }
+      ]
+    }
+  },
   "entry": "view/index.html",
   "min_height": 600,
   "shortcuts": [

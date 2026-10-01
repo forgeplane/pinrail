@@ -8,6 +8,24 @@
   "payload_schema": { "$ref": "schemas/payload.schema.json" },
   "decision_schema": { "$ref": "schemas/decision.schema.json" },
   "decision_template": "templates/decision.md.j2",
+  "summary": {
+    "request": { "counts": [{ "items": "/drafts", "label": "draft", "plural": "drafts" }] },
+    "outcome": {
+      "counts": [
+        {
+          "items": "/drafts",
+          "by": "action",
+          "values": {
+            "send": { "label": "to send", "tone": "success" },
+            "revise": { "label": "to revise", "tone": "warning" },
+            "discard": { "label": "discarded", "tone": "danger" }
+          },
+          "other": false
+        },
+        { "items": "/undecided", "label": "undecided" }
+      ]
+    }
+  },
   "example": "example.json",
   "sample": "sample.json",
   "entry": "view/index.html",

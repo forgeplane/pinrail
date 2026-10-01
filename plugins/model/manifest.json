@@ -25,6 +25,24 @@
   },
   "entry": "view/index.html",
   "decision_template": "templates/decision.md.j2",
+  "summary": {
+    "request": { "counts": [{ "items": "/models", "label": "model", "plural": "models" }] },
+    "outcome": {
+      "counts": [
+        {
+          "items": "/decisions",
+          "by": "action",
+          "values": {
+            "favorite": { "label": "favorite", "plural": "favorites", "tone": "success" },
+            "keep": { "label": "kept", "tone": "info" },
+            "drop": { "label": "dropped", "tone": "neutral" }
+          },
+          "other": false
+        },
+        { "items": "/undecided", "label": "undecided" }
+      ]
+    }
+  },
   "min_height": 680,
   "build": {
     "command": "npm ci && npm run build"

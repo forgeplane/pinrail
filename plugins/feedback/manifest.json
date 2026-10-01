@@ -7,6 +7,16 @@
   "icon": "icon.svg",
   "entry": "view/index.html",
   "decision_template": "templates/decision.md.j2",
+  "summary": {
+    "request": { "counts": [{ "items": "/groups/*/questions", "label": "question", "plural": "questions" }] },
+    "outcome": {
+      "counts": [
+        { "items": "/answers", "label": "answered", "tone": "success" },
+        { "items": "/unanswered", "label": "unanswered", "tone": "warning" },
+        { "items": "/excluded", "label": "excluded" }
+      ]
+    }
+  },
   "payload_schema": {
     "$ref": "schemas/payload.schema.json"
   },

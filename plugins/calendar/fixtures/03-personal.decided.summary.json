@@ -1,0 +1,24 @@
+{
+  "request": {
+    "counts": [
+      {
+        "label": "events",
+        "count": 3,
+        "tone": "neutral"
+      }
+    ]
+  },
+  "outcome": {
+    "counts": [
+      {
+        "label": "scheduled",
+        "count": 3,
+        "tone": "success"
+      }
+    ],
+    "verdict": {
+      "label": "approved",
+      "tone": "success"
+    }
+  }
+}

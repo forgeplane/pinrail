@@ -15,6 +15,24 @@
   "sample": "sample.json",
   "entry": "view/index.html",
   "decision_template": "templates/decision.md.j2",
+  "summary": {
+    "request": { "counts": [{ "items": "/marks", "label": "mark", "plural": "marks" }] },
+    "outcome": {
+      "counts": [
+        {
+          "items": "/decisions",
+          "by": "action",
+          "values": {
+            "favorite": { "label": "favorite", "plural": "favorites", "tone": "success" },
+            "keep": { "label": "kept", "tone": "info" },
+            "drop": { "label": "dropped", "tone": "neutral" }
+          },
+          "other": false
+        },
+        { "items": "/undecided", "label": "undecided" }
+      ]
+    }
+  },
   "min_height": 640,
   "shortcuts": [
     {

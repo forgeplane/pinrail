@@ -1,0 +1,26 @@
+{
+  "request": null,
+  "outcome": {
+    "counts": [
+      {
+        "label": "change",
+        "count": 1,
+        "tone": "warning"
+      },
+      {
+        "label": "question",
+        "count": 1,
+        "tone": "info"
+      },
+      {
+        "label": "praise",
+        "count": 1,
+        "tone": "success"
+      }
+    ],
+    "verdict": {
+      "label": "changes requested",
+      "tone": "warning"
+    }
+  }
+}

@@ -11,6 +11,23 @@
   "sample": "sample.json",
   "entry": "view/index.html",
   "decision_template": "templates/decision.md.j2",
+  "summary": {
+    "request": { "counts": [{ "items": "/items", "label": "event", "plural": "events" }] },
+    "outcome": {
+      "verdict": {
+        "at": "/verdict",
+        "values": {
+          "approve": { "label": "approved", "tone": "success" },
+          "revise": { "label": "changes requested", "tone": "warning" }
+        }
+      },
+      "counts": [
+        { "items": "/selections", "label": "scheduled", "tone": "success" },
+        { "items": "/deferred", "label": "deferred", "tone": "warning" },
+        { "items": "/declined", "label": "declined" }
+      ]
+    }
+  },
   "min_height": 620,
   "settings_schema": {
     "type": "object",
