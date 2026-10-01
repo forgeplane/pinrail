@@ -24,7 +24,7 @@ Open a review with <kbd>Enter</kbd> or a click. The plugin's view fills the scre
 
 1. **Decide in the view.** Use the controls that the plugin provides, for example to accept, reject, edit or comment. Your work is saved as a draft as you go, so you can open another review and come back to it.
 2. **Add a note to the agent**, if you want to, in the box below the view.
-3. **Hand over** with the button, or <kbd>⌘↵</kbd>. The button says what will happen, such as *Hand over 3 of 5*.
+3. **Hand over** with the button, or <kbd>⌘↵</kbd>. The button says what will happen, such as *Hand over 3 of 5*. Pinrail then returns to the inbox, where the next review is waiting.
 
 :::caution[Drafts last only while Pinrail runs]
 Quitting, restarting or updating Pinrail loses your drafts and any note to the agent that you have not handed over yet. Hand over a review before you quit the app.

@@ -87,21 +87,24 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   // a decision the schema refuses gets violations; one it accepts, submitted
   await send(frame, { type: "submit", data: { ok: "yes" } });
   await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
-  const inits = async () => (await received(frame)).filter((m) => m.type === "init").length;
-  const before = await inits();
+  // the app closes the view as it returns to the inbox, so what the view
+  // is told from here on is read from its console
+  const told: { type: string; decision?: { data: unknown } }[] = [];
+  page.on("console", (m) => {
+    const text = m.text();
+    if (text.startsWith("view got ")) told.push(JSON.parse(text.slice("view got ".length)));
+  });
+  await frame.evaluate(() =>
+    window.addEventListener("message", (e) => console.log(`view got ${JSON.stringify(e.data)}`)),
+  );
   await send(frame, { type: "submit", data: { ok: true } });
-  await expect
-    .poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data)
-    .toEqual({ ok: true });
+  // the view that handed the review over is told submitted, and not init
+  // again, before the app returns to the inbox
+  await expect(page).toHaveURL(/#\/$/);
+  expect(told.find((m) => m.type === "submitted")?.decision?.data).toEqual({ ok: true });
+  expect(told.filter((m) => m.type === "init")).toEqual([]);
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.status).toBe("decided");
-  // the view that handed the review over is told submitted, and not init
-  // again: once the screen shows the decision, an answer to a later request
-  // comes after anything the app sent the view before it
-  await expect(page.locator(".review-strip .status-badge")).not.toHaveText(/pending/i);
-  await send(frame, { type: "attachment", req: 9, name: "note.txt" });
-  await expect.poll(async () => (await received(frame)).some((m) => m.type === "attachment" && m.req === 9)).toBe(true);
-  expect(await inits()).toBe(before);
 });
 
 test("a decision that lands after moving to another review stays with its own", async ({ page }) => {

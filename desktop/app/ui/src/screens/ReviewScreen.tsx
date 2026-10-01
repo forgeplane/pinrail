@@ -18,6 +18,7 @@ import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { comboFromEvent, isShadowed } from "../lib/shortcuts";
 import { age, stamp } from "../lib/format";
 import { useLive } from "../state/live";
+import { useToast } from "../state/toasts";
 import { useSettings } from "../state/settings";
 import { useTopBar } from "../state/topbar";
 
@@ -28,6 +29,7 @@ export function ReviewScreen() {
   const live = useLive();
   const { settings: prefs, update: updatePrefs } = useSettings();
   const navigate = useNavigate();
+  const toast = useToast();
   const [copied, setCopied] = useState<"done" | "failed" | null>(null);
   const [copiedId, setCopiedId] = useState<"done" | "failed" | null>(null);
   // the review as the core renders it in markdown, for a merge request or a thread
@@ -207,9 +209,10 @@ export function ReviewScreen() {
         // the person moved on while it was on its way: the screen is
         // another review's now, and the decision stays with its own
         if (wanted.current !== id) return { ok: true, decision: decided.decision! };
-        setReview(decided);
-        setViolations([]);
-        setFlash("Decision recorded");
+        // the review is done with: back to what is still waiting, once the
+        // view has been told submitted, which the bridge sends on return
+        toast("Decision recorded");
+        setTimeout(() => navigate("/"), 0);
         return { ok: true, decision: decided.decision! };
       } catch (e) {
         if (wanted.current !== id) return { ok: false, violations: [] };
@@ -222,7 +225,7 @@ export function ReviewScreen() {
         return { ok: false, violations: [] };
       }
     },
-    [id, load],
+    [id, load, navigate, toast],
   );
 
   // the plugin's own settings as they stand: its defaults under what was set

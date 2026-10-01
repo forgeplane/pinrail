@@ -104,8 +104,11 @@ test("the answer chosen in the view is handed over and becomes the decision", as
 
   await expect.poll(async () => (await review(page.request, id)).status).toBe("decided");
   expect((await review(page.request, id)).decision?.data).toEqual({ ok: true, comment: "after the rebase" });
-  // the view turns to what was decided, and there is nothing left to hand over
-  await expect(view.locator("p").last()).toContainText("Decided: yes — after the rebase");
+  // the app returns to the inbox; opened again, the review shows what was
+  // decided, with nothing left to hand over
+  await expect(page).toHaveURL(/#\/$/);
+  const again = await open(page, id, "p >> nth=-1");
+  await expect(again.locator("p").last()).toContainText("Decided: yes — after the rebase");
   await expect(handover).toHaveCount(0);
 });
 

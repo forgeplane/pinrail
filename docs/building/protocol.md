@@ -44,7 +44,7 @@ sequenceDiagram
 | `attachment` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `attachment`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
 | `collect` | | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. |
 | `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema, or a `settings_set` failed the plugin's settings schema. Settings errors have paths under `/plugins/<name>`, so a view can tell them apart. |
-| `submitted` | `decision` | The decision was accepted. The review is read-only from here. |
+| `submitted` | `decision` | The decision was accepted. The app then returns to the inbox and closes the view, so there is no need to show the decision. When the person opens the review again, `init` comes with `readonly: true` and the decision. |
 | `appearance` | `theme: "dark" \| "light"` | Before `init`, and whenever the app's theme changes. |
 | `settings` | `settings` | The plugin's own settings changed, in the app or from a view. |
 | `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | A shortcut the manifest declares, pressed while the app, not the frame, had focus. |
