@@ -176,8 +176,8 @@ enum Command {
     ///       "payload": {"groups": []}
     ///     }
     ///
-    /// The keys are plugin, title, payload, origin, summary, revises,
-    /// expires_at and requested_by. Options override the file's keys, and
+    /// The keys are plugin, title, payload, origin, revises, expires_at and
+    /// requested_by. Options override the file's keys, and
     /// --data replaces its payload, so you can send a new round with the
     /// same file, --revises and the id of the earlier round. You can leave
     /// out the plugin argument when the file names one.
@@ -334,12 +334,6 @@ struct SubmitArgs {
     /// unless another name follows =. Repeat the option for more files
     #[arg(long = "attach", value_name = "PATH[=NAME]", value_parser = attachments::parse_flag)]
     attachments: Vec<(String, PathBuf)>,
-    /// What the inbox row shows beside the title, as JSON. It can hold
-    /// counts, a list of [label, number] pairs (blocker, major, minor and nit
-    /// are shown in their colours), and a subtitle. For example:
-    /// '{"counts":[["major",2]],"subtitle":"3 new"}'
-    #[arg(long, value_parser = parse_json)]
-    summary: Option<Value>,
     /// The id of the review that this one is a new round of
     #[arg(long)]
     revises: Option<String>,
@@ -355,7 +349,7 @@ struct SubmitArgs {
     requested_by: Option<String>,
     /// Send the plugin's sample review, which shows what the plugin looks
     /// like, instead of a payload. --title and --origin still apply
-    #[arg(long, conflicts_with_all = ["request", "data", "attachments", "summary", "revises", "expires_at", "dry_run"])]
+    #[arg(long, conflicts_with_all = ["request", "data", "attachments", "revises", "expires_at", "dry_run"])]
     sample: bool,
     /// Wait until the review ends, whether or not it is decided (see wait)
     #[arg(long)]
@@ -1204,9 +1198,6 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     }
     origin::drop_unknown(&mut body);
     origin::fill_from_git(&mut body);
-    if let Some(summary) = &args.summary {
-        body["summary"] = summary.clone();
-    }
     if let Some(id) = &args.revises {
         body["revises"] = json!(id);
     }
@@ -1541,8 +1532,4 @@ fn read_json_arg(spec: &str) -> Result<Value> {
         std::fs::read_to_string(spec).with_context(|| format!("reading {spec}"))?
     };
     serde_json::from_str(&text).with_context(|| format!("{spec} is not valid JSON"))
-}
-
-fn parse_json(s: &str) -> Result<Value, String> {
-    serde_json::from_str(s).map_err(|e| e.to_string())
 }

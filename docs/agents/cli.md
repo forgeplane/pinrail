@@ -86,7 +86,6 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--revises <id>` | This review is a new round of an earlier one. It must revise the latest round, with the same plugin. A revised round that is still pending is withdrawn. |
 | `--timeout <seconds>` | With `--wait`: give up after this long, exit 4, and leave the review pending. |
 | `--decision-out <file>` | Also write the decision's data, as JSON, to a file. |
-| `--summary` | The counts the inbox shows beside the title. |
 | `--expires-at` | Close the review if nobody decides by then. |
 | `--requested-by` | Who is asking, shown on the review, with the agent's icon when the app knows it. Defaults to `PINRAIL_REQUESTED_BY`. Otherwise it is the coding agent the command runs under, as `AI_AGENT` or `AGENT` names it when either is set, or as found from the variables that `claude-code`, `codex`, `cursor`, `gemini-cli` and `opencode` set. `AGENT` counts only when it names an agent Pinrail knows, which also includes `kimi`. Without any of these, it is `pinrail-cli`. Name the job or role with `--origin workflow=…`. |
 
@@ -109,7 +108,7 @@ Instead of flags, the agent can write the whole request as one JSON file and pas
 pinrail submit --request request.json --wait
 ```
 
-The file takes the same keys as the flags: `plugin`, `title`, `payload`, `origin`, `summary`, `revises`, `expires_at`, `requested_by`, and `attachments`, a map of name to path relative to the file. Any flag given as well overrides the file's key, and `--data` replaces its payload. So a new round is the same file with one more flag:
+The file takes the same keys as the flags: `plugin`, `title`, `payload`, `origin`, `revises`, `expires_at`, `requested_by`, and `attachments`, a map of name to path relative to the file. Any flag given as well overrides the file's key, and `--data` replaces its payload. So a new round is the same file with one more flag:
 
 ```sh
 pinrail submit --request request.json --revises <id> --wait

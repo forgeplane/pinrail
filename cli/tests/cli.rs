@@ -177,7 +177,6 @@ fn submit_prints_the_review_and_its_id_on_stderr() {
         assert_eq!(sent["origin"]["ref"], "42");
         assert_eq!(sent["payload"]["groups"], serde_json::json!([]));
         assert_eq!(sent["requested_by"], "agent");
-        assert_eq!(sent["summary"]["subtitle"], "3 new");
         (201, review("pending"))
     }));
     let dir = tempdir();
@@ -196,8 +195,6 @@ fn submit_prints_the_review_and_its_id_on_stderr() {
             dir.join("p.json").to_str().unwrap(),
             "--requested-by",
             "agent",
-            "--summary",
-            r#"{"subtitle":"3 new"}"#,
             "--no-start",
         ],
     );

@@ -65,7 +65,6 @@ fn submission() -> Value {
         "title": "MR !42",
         "origin": {"repo": "acme", "workflow": "review", "ref": "42", "run_id": "r1", "url": "https://x/42", "junk": 1},
         "requested_by": "agent",
-        "summary": {"counts": [["major", 1]], "subtitle": "2 items"},
         "payload": list_payload()
     })
 }
@@ -80,6 +79,24 @@ async fn an_expiry_past_the_year_9999_is_refused() {
     let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
     assert_eq!(violations(&refused)[0].0, "/expires_at");
+}
+
+/// The plugin derives a review's summary from its payload; an agent that
+/// still sends one is told so, rather than having it dropped unseen.
+#[tokio::test]
+async fn a_summary_from_the_agent_is_refused() {
+    let app = app();
+    let mut body = submission();
+    body["summary"] = json!({"counts": [["major", 1]]});
+    let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(body)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(
+        violations(&refused),
+        vec![(
+            "/summary".to_string(),
+            "summary is not accepted; the plugin derives it from the payload".to_string()
+        )]
+    );
 }
 
 async fn submit(app: &App, body: Value) -> Value {
@@ -121,7 +138,6 @@ async fn submit_returns_every_field_of_the_envelope() {
         json!({"repo": "acme", "workflow": "review", "ref": "42", "run_id": "r1", "url": "https://x/42"})
     );
     assert_eq!(review["requested_by"], "agent");
-    assert_eq!(review["summary"]["subtitle"], "2 items");
     assert_eq!(review["payload"], list_payload());
     assert_eq!(review["decision"], Value::Null);
     assert!(review["created_at"].as_str().unwrap().ends_with('Z'));

@@ -320,7 +320,7 @@ The person sees every file a review carries, whatever the plugin draws: the inbo
 }
 ```
 
-It has the shape `pinrail submit --request` reads: `title` and `payload` are required, `summary` is optional, and `attachments` maps each name the payload refers to onto a file, relative to the sample and inside the folder. Keep the sample and its files out of `fixtures/`: installs leave that folder behind. A good fixture usually makes a good sample. If the sample cannot be loaded, the plugin works without one, and its row in *Settings › Plugins* shows the reason.
+It has the shape `pinrail submit --request` reads: `title` and `payload` are required, and `attachments` maps each name the payload refers to onto a file, relative to the sample and inside the folder. Keep the sample and its files out of `fixtures/`: installs leave that folder behind. A good fixture usually makes a good sample. If the sample cannot be loaded, the plugin works without one, and its row in *Settings › Plugins* shows the reason.
 
 ## Look like the app
 

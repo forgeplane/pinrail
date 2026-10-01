@@ -26,7 +26,6 @@ pinrail submit <plugin> --title "<title>" --data payload.json --wait
 - `--timeout <seconds>`: with `--wait`, stop waiting after this long, exit 4.
   If your commands have a time limit, keep it below that. `PINRAIL_TIMEOUT`
   sets it once for every wait.
-- `--summary '<json>'`: the counts the inbox shows beside the title.
 - `--request <json>`: the whole request as JSON, inline or in a file;
   flags override its keys.
 

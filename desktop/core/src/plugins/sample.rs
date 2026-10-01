@@ -13,7 +13,6 @@ use crate::schema::{Schema, safe_join};
 pub struct Sample {
     pub title: String,
     pub payload: Value,
-    pub summary: Option<Value>,
     pub files: Vec<SampleFile>,
 }
 
@@ -91,7 +90,6 @@ pub fn load(dir: &Path, file: &str, schema: &Schema) -> Result<Sample, String> {
     Ok(Sample {
         title,
         payload,
-        summary: request.get("summary").cloned().filter(|s| !s.is_null()),
         files,
     })
 }
@@ -106,9 +104,6 @@ impl Sample {
             "payload": self.payload,
             "requested_by": "sample",
         });
-        if let Some(summary) = &self.summary {
-            body["summary"] = summary.clone();
-        }
         if !self.files.is_empty() {
             let declared: Map<String, Value> = self
                 .files

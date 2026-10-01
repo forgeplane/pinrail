@@ -84,7 +84,7 @@ impl Reviews {
     }
 
     /// Submits a review from a request body. `plugin` and `title` are
-    /// required; `origin`, `payload`, `summary`, `revises`, `expires_at` and
+    /// required; `origin`, `payload`, `revises`, `expires_at` and
     /// `requested_by` are optional. Every failure is `invalid` with
     /// violations pointing into the body.
     pub fn submit(&self, body: &Value, actor: Option<&str>) -> Result<Review, Error> {
@@ -121,7 +121,7 @@ impl Reviews {
                 .get("revises")
                 .and_then(Value::as_str)
                 .map(str::to_string),
-            summary: attrs.get("summary").cloned().filter(|s| !s.is_null()),
+            summary: None,
             payload: Some(payload),
             decision: None,
             agent_note: None,
@@ -543,7 +543,15 @@ impl Reviews {
             },
             Some(_) => violations.push(Violation::new("/revises", "must be a review id")),
         }
-        for key in ["origin", "payload", "summary"] {
+        // the plugin sums a review up; an agent's summary is refused, not
+        // dropped unseen
+        if attrs.contains_key("summary") {
+            violations.push(Violation::new(
+                "/summary",
+                "summary is not accepted; the plugin derives it from the payload",
+            ));
+        }
+        for key in ["origin", "payload"] {
             if let Some(v) = attrs.get(key)
                 && !v.is_null()
                 && !v.is_object()
