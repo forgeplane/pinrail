@@ -2,12 +2,13 @@ import { expect, test, type Page } from "@playwright/test";
 
 const service = "https://feedback.test/v1/feedback";
 
-/** The feedback service: answers every report with `status` and hands back what it got. */
-async function feedbackService(page: Page, status = 200, answer: object = { ok: true }) {
+/** The feedback service: answers every report with `status`, once `held` resolves, and hands back what it got. */
+async function feedbackService(page: Page, status = 200, answer: object = { ok: true }, held?: Promise<void>) {
   const got: { headers: Record<string, string>; body: string }[] = [];
   await page.route(service, async (route) => {
     const request = route.request();
     got.push({ headers: request.headers(), body: request.postDataBuffer()?.toString("latin1") ?? "" });
+    await held;
     await route.fulfill({ status, json: answer, headers: { "access-control-allow-origin": "*" } });
   });
   return got;
@@ -20,7 +21,8 @@ async function openFeedback(page: Page) {
 }
 
 test("feedback goes with its address, subject, message and files, chosen or dropped", async ({ page }) => {
-  const got = await feedbackService(page);
+  let answer!: () => void;
+  const got = await feedbackService(page, 200, { ok: true }, new Promise<void>((resolve) => (answer = resolve)));
   const dialog = await openFeedback(page);
   const send = dialog.getByRole("button", { name: "Send" });
   await expect(send).toBeDisabled();
@@ -43,8 +45,11 @@ test("feedback goes with its address, subject, message and files, chosen or drop
   const attached = dialog.getByRole("list", { name: "Attachments" }).getByRole("listitem");
   await expect(attached).toHaveCount(2);
 
+  // the dialog closes at once, and the report goes in the background
   await send.click();
   await expect(dialog).toBeHidden();
+  await expect(page.getByText("Sending your feedback…")).toBeVisible();
+  answer();
   await expect(page.getByText("Thank you. Your feedback was sent.")).toBeVisible();
 
   expect(got).toHaveLength(1);
@@ -76,11 +81,11 @@ test("diagnostics can be read before sending, and left out", async ({ page }) =>
   await dialog.getByLabel("Subject").fill("Hello");
   await dialog.getByLabel("Message").fill("Hi");
   await dialog.getByRole("button", { name: "Send" }).click();
-  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Thank you. Your feedback was sent.")).toBeVisible();
   expect(got[0].body).not.toContain('name="diagnostics"');
 });
 
-test("a refused report keeps the dialog open with the service's reason", async ({ page }) => {
+test("a refused report opens the dialog again with the draft and the service's reason", async ({ page }) => {
   await feedbackService(page, 429, {
     error: "rate_limited",
     message: "too much feedback from this address; try again in a minute",
@@ -89,9 +94,14 @@ test("a refused report keeps the dialog open with the service's reason", async (
   await dialog.getByLabel("Email").fill("maya@example.com");
   await dialog.getByLabel("Subject").fill("Hello");
   await dialog.getByLabel("Message").fill("Hi");
+  await dialog
+    .getByLabel("Attach files")
+    .setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("x") });
   await dialog.getByLabel("Message").press("ControlOrMeta+Enter");
   await expect(dialog.getByText("try again in a minute")).toBeVisible();
+  await expect(dialog.getByLabel("Subject")).toHaveValue("Hello");
   await expect(dialog.getByLabel("Message")).toHaveValue("Hi");
+  await expect(dialog.getByRole("list", { name: "Attachments" })).toContainText("notes.txt");
 });
 
 test("the command palette opens the feedback dialog", async ({ page }) => {

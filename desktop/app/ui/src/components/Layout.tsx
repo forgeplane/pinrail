@@ -19,13 +19,13 @@ import {
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { api } from "../api/client";
+import { api, sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
 import { Toasts } from "./Toasts";
 import { ShortcutsDialog } from "./ShortcutsDialog";
-import { FeedbackDialog } from "./FeedbackDialog";
+import { FeedbackDialog, rememberFeedbackEmail, type FeedbackDraft } from "./FeedbackDialog";
 import { MOD, SHIFT, hasMod } from "../lib/keys";
 import { NO_PROJECT } from "../lib/url";
 import { useLive } from "../state/live";
@@ -77,6 +77,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const topbar = useTopBarContent();
   const [help, setHelp] = useState(false);
   const [feedback, setFeedback] = useState(false);
+  // a report that was not sent, to open the dialog again with
+  const [unsent, setUnsent] = useState<{ draft: FeedbackDraft; reason: string } | null>(null);
+  const feedbackOpen = useRef(false);
+  feedbackOpen.current = feedback;
   const toast = useToast();
   const [palette, setPalette] = useState(false);
   const [settings, setSettings] = useState<SettingsSection | null>(null);
@@ -475,10 +479,32 @@ export function Layout({ children }: { children: ReactNode }) {
       {help ? <ShortcutsDialog plugin={topbar?.plugin} onClose={() => setHelp(false)} /> : null}
       {feedback ? (
         <FeedbackDialog
-          onClose={() => setFeedback(false)}
-          onSent={() => {
+          draft={unsent?.draft}
+          refusal={unsent?.reason}
+          onClose={() => {
             setFeedback(false);
-            toast("Thank you. Your feedback was sent.");
+            setUnsent(null);
+          }}
+          onSend={(form, draft) => {
+            setFeedback(false);
+            setUnsent(null);
+            toast("Sending your feedback…");
+            sendFeedback(form).then(
+              () => {
+                rememberFeedbackEmail(draft.email.trim());
+                toast("Thank you. Your feedback was sent.");
+              },
+              (e: unknown) => {
+                const reason = e instanceof Error ? e.message : "The feedback was not sent.";
+                // a dialog opened since holds another report; leave it as it is
+                if (feedbackOpen.current) {
+                  toast(reason, "danger");
+                  return;
+                }
+                setUnsent({ draft, reason });
+                setFeedback(true);
+              },
+            );
           }}
         />
       ) : null}

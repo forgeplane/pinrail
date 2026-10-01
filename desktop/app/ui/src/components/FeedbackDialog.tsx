@@ -2,10 +2,14 @@
 // message, files the person attaches, drops or pastes, and the app's
 // diagnostics unless the person leaves them out. The app adds its version
 // and system when it sends. ⌘Enter sends, Esc leaves.
+//
+// The dialog closes as soon as the person sends; whoever opened it sends the
+// form in the background, and opens the dialog again with the draft and the
+// reason when the service refuses it or cannot be reached.
 
 import { Paperclip, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api, inTauri, sendFeedback } from "../api/client";
+import { api, inTauri } from "../api/client";
 import { describeDiagnostics, type CliState } from "../lib/diagnostics";
 import { size } from "../lib/format";
 import { MOD } from "../lib/keys";
@@ -24,7 +28,8 @@ const remembered = () => {
   }
 };
 
-const remember = (email: string) => {
+/** Keeps the address of a report that was sent, to fill in next time. */
+export const rememberFeedbackEmail = (email: string) => {
   try {
     localStorage.setItem(EMAIL_KEY, email);
   } catch {
@@ -46,21 +51,41 @@ async function gatherDiagnostics(): Promise<string> {
   return describeDiagnostics({ info, plugins, settings, cli });
 }
 
+/** What the person wrote and chose, kept to open the dialog again with. */
+export type FeedbackDraft = {
+  email: string;
+  subject: string;
+  message: string;
+  files: File[];
+  includeDiagnostics: boolean;
+};
+
 /** A pasted screenshot has a generic name; give it one that says what it is. */
 const named = (file: File, index: number) =>
   file.name && file.name !== "image.png" ? file : new File([file], `pasted-${index + 1}.png`, { type: file.type });
 
-export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
-  const [email, setEmail] = useState(remembered);
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
+export function FeedbackDialog({
+  draft,
+  refusal,
+  onClose,
+  onSend,
+}: {
+  /** what was written before, when a report was not sent */
+  draft?: FeedbackDraft;
+  /** why it was not sent */
+  refusal?: string | null;
+  onClose: () => void;
+  onSend: (form: FormData, draft: FeedbackDraft) => void;
+}) {
+  const [email, setEmail] = useState(() => draft?.email ?? remembered());
+  const [subject, setSubject] = useState(draft?.subject ?? "");
+  const [message, setMessage] = useState(draft?.message ?? "");
+  const [files, setFiles] = useState<File[]>(draft?.files ?? []);
   const [dropping, setDropping] = useState(false);
   const [diagnostics, setDiagnostics] = useState<string | null>(null);
-  const [includeDiagnostics, setIncludeDiagnostics] = useState(true);
+  const [includeDiagnostics, setIncludeDiagnostics] = useState(draft?.includeDiagnostics ?? true);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(refusal ?? null);
   const first = useRef<HTMLInputElement>(null);
   const second = useRef<HTMLInputElement>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -104,24 +129,15 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
 
   const ready = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && subject.trim() !== "" && message.trim() !== "";
 
-  const send = async () => {
-    if (busy || !ready) return;
-    setBusy(true);
-    setError(null);
+  const send = () => {
+    if (!ready) return;
     const form = new FormData();
     form.append("email", email.trim());
     form.append("subject", subject.trim());
     form.append("message", message.trim());
     if (includeDiagnostics && diagnostics) form.append("diagnostics", diagnostics);
     for (const file of files) form.append("file", file, file.name);
-    try {
-      await sendFeedback(form);
-      remember(email.trim());
-      onSent();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The feedback was not sent.");
-      setBusy(false);
-    }
+    onSend(form, { email, subject, message, files, includeDiagnostics });
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -222,7 +238,6 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
                     className="feedback-file-remove"
                     aria-label={`Remove ${file.name}`}
                     onClick={() => setFiles((current) => current.filter((_, j) => j !== i))}
-                    disabled={busy}
                   >
                     <X size={12} />
                   </button>
@@ -235,7 +250,7 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
               type="button"
               className="chrome-button"
               onClick={() => picker.current?.click()}
-              disabled={busy || files.length >= MAX_FILES}
+              disabled={files.length >= MAX_FILES}
             >
               <Paperclip size={13} /> Attach files
             </button>
@@ -260,7 +275,6 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
                 type="checkbox"
                 checked={includeDiagnostics}
                 onChange={(e) => setIncludeDiagnostics(e.target.checked)}
-                disabled={busy}
               />
               Include diagnostics
             </label>
@@ -285,17 +299,17 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
         {error ? <p className="notice notice-danger">{error}</p> : null}
         <div className="dialog-actions feedback-actions">
           <span className="dim feedback-note">Pinrail adds its version and your operating system.</span>
-          <button type="button" className="chrome-button" onClick={onClose} disabled={busy}>
+          <button type="button" className="chrome-button" onClick={onClose}>
             Cancel
           </button>
           <button
             type="button"
             className="chrome-button button-primary"
             onClick={send}
-            disabled={busy || !ready}
+            disabled={!ready}
             title={MOD === "⌘" ? "⌘Enter" : "Ctrl+Enter"}
           >
-            {busy ? "Sending…" : "Send"}
+            Send
           </button>
         </div>
       </div>
