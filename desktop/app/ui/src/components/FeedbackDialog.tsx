@@ -166,7 +166,12 @@ export function FeedbackDialog({ onClose, onSent }: { onClose: () => void; onSen
           <h2 id="feedback-title">Send feedback</h2>
         </div>
         <p className="dim">
-          Report a problem or suggest an idea. The Pinrail team reads every message and replies by email.
+          Report a problem or suggest an idea. The Pinrail team reads every message and replies by email. You can also
+          email us at{" "}
+          <a href="mailto:hey@pinrail.dev" target="_blank" rel="noreferrer">
+            hey@pinrail.dev
+          </a>
+          .
         </p>
         <label className="feedback-field">
           <span>Email</span>
