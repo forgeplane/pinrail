@@ -123,7 +123,7 @@ test("markdown, the default, prints the decision as prose, and the decision file
   const result = await waiter.done;
   expect(result.code).toBe(0);
   expect(result.stdout).toMatch(
-    /^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/,
+    /^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\noutcome: 1 accepted, 1 rejected\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/,
   );
 
   const shown = pinrail(["show", id, "--markdown"]);

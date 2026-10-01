@@ -13,6 +13,19 @@
 use chrono::{DateTime, FixedOffset, Local, Utc};
 use serde_json::{Map, Value, json};
 
+/// A summary in a line: the verdict, then each count, as "approved, 3
+/// scheduled" or "2 accepted, 1 rejected". None when there is nothing in it.
+pub fn summary_line(summary: &Value) -> Option<String> {
+    let verdict = summary["verdict"]["label"].as_str().map(str::to_string);
+    let counts = summary["counts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|c| Some(format!("{} {}", c["count"].as_u64()?, c["label"].as_str()?)));
+    let parts: Vec<String> = verdict.into_iter().chain(counts).collect();
+    (!parts.is_empty()).then(|| parts.join(", "))
+}
+
 /// Checks a plugin's template compiles, at load, so a bad one is reported
 /// on the plugin's row rather than at the first review.
 pub fn compile(source: &str) -> Result<(), String> {
@@ -107,11 +120,16 @@ pub fn render_in(
         _ => format!("Pending since {}", when(review["created_at"].as_str())),
     };
     let url = origin["url"].as_str().filter(|s| !s.is_empty());
+    // what was decided, as the plugin sums it up
+    let outcome = summary_line(&review["decision"]["summary"]);
 
     let mut out = String::new();
     match head {
         Head::Document => {
             out.push_str(&format!("# {title}\n\n{}\n{standing}\n", place.join(" · ")));
+            if let Some(outcome) = &outcome {
+                out.push_str(&format!("Outcome: {outcome}\n"));
+            }
             if status == "pending" {
                 if let Some(url) = url {
                     out.push_str(&format!("{url}\n"));
@@ -129,6 +147,9 @@ pub fn render_in(
                 "{id} · {status} · {title}\n{} · {lower}\n",
                 place.join(" · ")
             ));
+            if let Some(outcome) = &outcome {
+                out.push_str(&format!("outcome: {outcome}\n"));
+            }
             if let Some(url) = url {
                 out.push_str(&format!("{url}\n"));
             }
@@ -495,6 +516,27 @@ mod tests {
             "decision": {"decided_by": "pnezis", "decided_at": "2026-09-16T09:14:00Z", "data": data},
             "agent_note": "Reversing is a no-op here either way."
         })
+    }
+
+    #[test]
+    fn the_outcome_reads_under_who_decided() {
+        let mut review = decided("calendar", json!({"verdict": "approve"}));
+        review["decision"]["summary"] = json!({
+            "verdict": {"label": "approved", "tone": "success"},
+            "counts": [{"label": "scheduled", "count": 3, "tone": "success"}]
+        });
+        let md = render(&review, None, None);
+        let lines: Vec<&str> = md.lines().collect();
+        assert!(lines[3].starts_with("Decided by pnezis at "), "{md}");
+        assert_eq!(lines[4], "Outcome: approved, 3 scheduled", "{md}");
+
+        // a plugin that declares no outcome summary has no line for it
+        let md = render(
+            &decided("calendar", json!({"verdict": "approve"})),
+            None,
+            None,
+        );
+        assert!(!md.contains("Outcome"), "{md}");
     }
 
     #[test]
