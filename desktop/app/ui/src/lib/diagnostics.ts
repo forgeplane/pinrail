@@ -33,12 +33,14 @@ export function describeDiagnostics({
   plugins,
   settings,
   cli,
+  now = Date.now(),
 }: {
   info: Info | null;
   plugins: Plugin[] | null;
   settings: ServerSettings | null;
   /** null outside the app, in a browser */
   cli: CliState | null;
+  now?: number;
 }): string {
   const lines: string[] = [];
   lines.push(`Pinrail: ${info?.version ?? "unknown"}`);
@@ -61,11 +63,13 @@ export function describeDiagnostics({
 
   if (settings) {
     const n = settings.notifications;
+    // a pause that has ended stays in the settings until the next one
+    const pausedUntil = n.paused_until && Date.parse(n.paused_until) > now ? n.paused_until : null;
     lines.push(
       "",
       "Settings:",
       `  Theme: ${settings.appearance.theme}, text size ${settings.appearance.text_size}`,
-      `  Notifications: ${onOff(n.enabled)}, sound ${onOff(n.sound)}${n.paused_until ? `, paused until ${n.paused_until}` : ""}`,
+      `  Notifications: ${onOff(n.enabled)}, sound ${onOff(n.sound)}${pausedUntil ? `, paused until ${pausedUntil}` : ""}`,
       `  Closing the window: ${settings.close_window === "quit" ? "quits" : "hides the window"}`,
       `  Menu bar icon: ${onOff(settings.menu_bar_icon)}`,
       `  History kept: ${settings.history.keep_days === null ? "forever" : `${settings.history.keep_days} days`}`,

@@ -68,6 +68,22 @@ describe("describeDiagnostics", () => {
     );
   });
 
+  test("names a pause of the notifications only while it lasts", () => {
+    const now = Date.parse("2026-10-01T12:00:00Z");
+    const paused = (until: string) =>
+      describeDiagnostics({
+        info: null,
+        plugins: null,
+        settings: { ...settings, notifications: { ...settings.notifications, paused_until: until } },
+        cli: null,
+        now,
+      });
+    expect(paused("2026-09-27T17:33:05Z")).toContain("  Notifications: on, sound off\n");
+    expect(paused("2026-10-01T13:00:00Z")).toContain(
+      "  Notifications: on, sound off, paused until 2026-10-01T13:00:00Z\n",
+    );
+  });
+
   test("leaves out paths and the user name", () => {
     const text = describeDiagnostics({ info, plugins: [plugin("model")], settings, cli: null });
     expect(text).not.toContain("/Users/maya");
