@@ -63,7 +63,9 @@ pub fn listing(rows: &Value, page: &Value, scope: &Scope) -> String {
     out
 }
 
-/// `- r_… · pending · list · Title · acme/api@main · …`, one review a line.
+/// `- r_… · pending · list · Title · 2 major · acme/api@main · …`, one
+/// review a line, with what it asks while pending and what was decided
+/// once it ended, as its plugin sums it up.
 pub fn reviews(reviews: &Value) -> String {
     let mut out = String::new();
     for r in reviews.as_array().into_iter().flatten() {
@@ -74,6 +76,14 @@ pub fn reviews(reviews: &Value) -> String {
             text(&r["plugin"]),
             text(&r["title"])
         );
+        let summary = if r["status"] == "pending" {
+            &r["summary"]
+        } else {
+            &r["decision"]["summary"]
+        };
+        if let Some(summary) = summary_line(summary) {
+            line.push_str(&format!(" · {summary}"));
+        }
         if let Some(repo) = r["origin"]["repo"].as_str() {
             line.push_str(&format!(" · {repo}"));
             if let Some(reference) = r["origin"]["ref"].as_str() {
@@ -88,6 +98,19 @@ pub fn reviews(reviews: &Value) -> String {
         out.push('\n');
     }
     out
+}
+
+/// A summary in a line: the verdict, then each count, as "approved, 3
+/// scheduled" or "2 major, 1 nit". None when there is nothing in it.
+fn summary_line(summary: &Value) -> Option<String> {
+    let verdict = summary["verdict"]["label"].as_str().map(str::to_string);
+    let counts = summary["counts"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|c| Some(format!("{} {}", c["count"].as_u64()?, c["label"].as_str()?)));
+    let parts: Vec<String> = verdict.into_iter().chain(counts).collect();
+    (!parts.is_empty()).then(|| parts.join(", "))
 }
 
 /// The rounds of a review, oldest first.

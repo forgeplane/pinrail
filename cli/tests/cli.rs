@@ -2077,6 +2077,36 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     assert!(stderr.contains("cannot be used with"), "{stderr}");
 }
 
+/// Each line of a listing sums the review up as its plugin declares: what
+/// a pending review asks, what an ended one decided.
+#[test]
+fn list_lines_carry_each_reviews_summary() {
+    let server = MockServer::start(Box::new(|_, _, _| {
+        (
+            200,
+            r#"{"reviews":[
+                {"id":"r_1","plugin":"list","title":"Tickets","status":"pending","created_at":"2026-09-11T10:00:00Z",
+                 "summary":{"counts":[{"label":"major","count":2,"tone":"warning"},{"label":"nit","count":1,"tone":"neutral"}]}},
+                {"id":"r_2","plugin":"calendar","title":"Week","status":"decided","created_at":"2026-09-11T10:00:00Z",
+                 "summary":{"counts":[{"label":"events","count":3,"tone":"neutral"}]},
+                 "decision":{"decided_by":"tester","decided_at":"2026-09-11T11:00:00Z","data":{},
+                   "summary":{"verdict":{"label":"approved","tone":"success"},"counts":[{"label":"scheduled","count":3,"tone":"success"}]}}}
+            ],"total":2,"has_more":false}"#
+                .into(),
+        )
+    }));
+    let (code, stdout, stderr) = run(&server, &["list", "--all", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        stdout.contains("- r_1 · pending · list · Tickets · 2 major, 1 nit · "),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("- r_2 · decided · calendar · Week · approved, 3 scheduled · "),
+        "{stdout}"
+    );
+}
+
 #[test]
 fn list_shows_the_pending_reviews_of_the_checkout_and_all_with_all() {
     let dir = tempdir();
