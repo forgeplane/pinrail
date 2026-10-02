@@ -2,26 +2,24 @@ import { expect, test } from "@playwright/test";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { core, linkPlugin } from "./helpers";
+import { core, linkPlugin, layout } from "./helpers";
 import { scratch } from "../helpers/scratch";
 
 /** A plugin whose view asks for the file its payload names and reports what came. */
 function reader(): string {
   const dir = scratch("pinrail-reader-");
+  layout(dir);
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "reader",
       version: "1.0.0",
       title: "Reader",
-      entry: "index.html",
-      payload_schema: {},
-      decision_schema: {},
       attachments: { accept: [".bin"] },
     }),
   );
   fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script><pre id="out">waiting</pre>
 <script>
   const plugin = Pinrail.connect({

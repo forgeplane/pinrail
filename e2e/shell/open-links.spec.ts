@@ -4,7 +4,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { clearInbox, core, createReview, linkPlugin } from "./helpers";
+import { clearInbox, core, createReview, linkPlugin, layout } from "./helpers";
 import { scratch } from "../helpers/scratch";
 
 const WEB = "https://example.com/page?x=1";
@@ -14,16 +14,13 @@ const LONG = `https://example.com/?data=${"x".repeat(2100)}`;
  *  allow its own links through its settings. */
 function opener(): string {
   const dir = scratch("pinrail-opener-");
-  fs.mkdirSync(path.join(dir, "view"));
+  layout(dir);
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "opener",
       version: "1.0.0",
       title: "Opener",
-      entry: "view/index.html",
-      payload_schema: {},
-      decision_schema: {},
     }),
   );
   fs.writeFileSync(

@@ -7,12 +7,10 @@ import { scratch } from "./scratch.cjs";
 // A view with a text field, and a key of its own it keeps from the app.
 function view(): string {
   const dir = scratch("pinrail-app-keys-");
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "keys", version: "1.0.0", title: "Keys" }));
   fs.writeFileSync(
-    path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "keys", version: "1.0.0", title: "Keys", entry: "index.html" }),
-  );
-  fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html>
 <meta charset="utf-8">
 <script src="/sdk/v1/pinrail-plugin.js"></script>

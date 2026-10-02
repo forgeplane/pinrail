@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { clearInbox, core, createReview, linkPlugin } from "./helpers";
+import { clearInbox, core, createReview, linkPlugin, layout } from "./helpers";
 import { scratch } from "../helpers/scratch";
 
 const root = path.resolve(__dirname, "..", "..");
@@ -19,15 +19,13 @@ const hello = path.join(root, "plugins", "hello");
  */
 function probe(): string {
   const dir = scratch("pinrail-probe-");
+  layout(dir, { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } });
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "probe",
       version: "1.0.0",
       title: "Probe",
-      entry: "index.html",
-      payload_schema: {},
-      decision_schema: { type: "object", required: ["ok"], properties: { ok: { type: "boolean" } } },
       shortcuts: [
         { keys: "j", does: "Count" },
         { keys: "cmdorctrl+shift+f", does: "Fold" },
@@ -36,7 +34,7 @@ function probe(): string {
     }),
   );
   fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
 <p id="keys">0</p><p id="folds">0</p><p id="expands">0</p><pre id="errors"></pre>
 <script>

@@ -244,7 +244,7 @@ function reload() {
   ready = false;
   // a frame pointed at the address it already shows does not load again, so
   // every reload is an address of its own
-  frame.src = "/plugin/" + (manifest.entry || "index.html") + "?load=" + Date.now() + "#pinrail-theme=" + theme;
+  frame.src = "/plugin/view/index.html?load=" + Date.now() + "#pinrail-theme=" + theme;
 }
 
 window.addEventListener("message", (event) => {

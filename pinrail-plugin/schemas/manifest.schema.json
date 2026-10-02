@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pinrail.dev/schemas/manifest.schema.json",
   "title": "Pinrail plugin manifest",
-  "description": "The manifest.json at the root of a plugin's folder. Paths in it are relative to that folder and cannot leave it.",
+  "description": "The manifest.json at the root of a plugin's folder. The plugin's files have fixed places beside it: the view in view/index.html, the schemas in schemas/payload.schema.json and schemas/decision.schema.json, the icon in icon.svg, the decision's markdown in templates/decision.md.j2.",
   "type": "object",
-  "required": ["name", "version", "payload_schema", "decision_schema"],
+  "required": ["name", "version"],
   "properties": {
     "$schema": {
       "type": "string",
@@ -53,29 +53,6 @@
       "not": { "type": "string", "pattern": "\\.\\." },
       "description": "A request file beside the manifest, in the shape `pinrail submit --request` reads: a `title`, a `payload` that passes payload_schema, and the `attachments` it names, relative to the file. `pinrail submit <plugin> --sample` and Settings send it, so anyone can see the plugin without writing a payload. Keep it out of `fixtures/`, which installs leave behind. One that does not load costs the plugin the sample, not its place."
     },
-    "icon": {
-      "type": ["string", "null"],
-      "minLength": 1,
-      "pattern": "^[^/\\u0000][^\\u0000]*\\.svg$",
-      "not": { "type": "string", "pattern": "\\.\\." },
-      "description": "An SVG file beside the manifest, shown beside the plugin's reviews, such as `icon.svg`. The app draws it in the text's colour at 13 to 16 px, as it draws its own Lucide icons: a 24 × 24 outline in `currentColor` fits best. At most 32 KB. One that does not load costs the plugin its icon, not its place."
-    },
-    "payload_schema": {
-      "type": "object",
-      "description": "What an agent must send: a JSON Schema 2020-12, inline or `{\"$ref\": \"schemas/payload.schema.json\"}`. A payload that fails it never reaches the inbox."
-    },
-    "decision_schema": {
-      "type": "object",
-      "description": "What the view hands back: a JSON Schema 2020-12, inline or by `$ref`. A decision that fails it goes back to the view as violations."
-    },
-    "entry": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^[^/\\u0000][^\\u0000]*$",
-      "not": { "type": "string", "pattern": "\\.\\." },
-      "default": "index.html",
-      "description": "The view's HTML file."
-    },
     "min_height": {
       "type": "integer",
       "minimum": 1,
@@ -98,13 +75,6 @@
           "group": { "type": ["string", "null"], "description": "Lists the entry under this caption." }
         }
       }
-    },
-    "decision_template": {
-      "type": ["string", "null"],
-      "minLength": 1,
-      "pattern": "^[^/]",
-      "not": { "type": "string", "pattern": "\\.\\." },
-      "description": "A MiniJinja file that renders a decision as markdown, for the command's markdown output and Copy as markdown. A template that does not compile costs the plugin the template."
     },
     "summary": {
       "type": ["object", "null"],

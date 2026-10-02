@@ -1278,10 +1278,14 @@ async fn a_bundle_is_served_only_for_a_plugins_own_name() {
     std::fs::create_dir_all(&outside).unwrap();
     std::fs::write(
         outside.join("manifest.json"),
-        json!({"name": "outside", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "entry": "index.html"}).to_string(),
+        json!({"name": "outside", "version": "1.0.0", "entry": "index.html"}).to_string(),
     )
     .unwrap();
-    std::fs::write(outside.join("index.html"), "<html>outside</html>").unwrap();
+    std::fs::create_dir_all(outside.join("view")).unwrap();
+    std::fs::write(outside.join("view/index.html"), "<html>outside</html>").unwrap();
+    std::fs::create_dir_all(outside.join("schemas")).unwrap();
+    std::fs::write(outside.join("schemas/payload.schema.json"), "{}").unwrap();
+    std::fs::write(outside.join("schemas/decision.schema.json"), "{}").unwrap();
 
     for path in [
         "/plugins/..%2Foutside/1/index.html",
@@ -1693,14 +1697,15 @@ async fn an_upload_is_not_held_to_the_json_limit() {
 /// installed as a link from `root`.
 async fn files_plugin(app: &App, root: &Path, attachments: Value) -> Value {
     let dir = root.join("files");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+    view(&dir, "<html></html>");
+    schemas(
+        &dir,
+        json!({ "type": "object", "properties": { "files": { "type": "array" } } }),
+    );
     std::fs::write(
         dir.join("manifest.json"),
         json!({
             "name": "files", "version": "1.0.0",
-            "payload_schema": { "type": "object", "properties": { "files": { "type": "array" } } },
-            "decision_schema": {},
             "attachments": attachments,
         })
         .to_string(),
@@ -2110,11 +2115,11 @@ async fn a_plugin_whose_attachments_block_is_broken_is_not_installed() {
     ];
     for (i, (block, said)) in cases.into_iter().enumerate() {
         let dir = scratch.path().join(format!("files{i}"));
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+        view(&dir, "<html></html>");
+        schemas(&dir, json!({}));
         std::fs::write(
             dir.join("manifest.json"),
-            json!({ "name": "files", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "attachments": block }).to_string(),
+            json!({ "name": "files", "version": "1.0.0", "attachments": block }).to_string(),
         )
         .unwrap();
         let (status, refused) = install(&app, &dir, json!({ "link": true })).await;
@@ -2394,7 +2399,11 @@ async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
     assert_eq!(review["plugin"], "shelf", "{review}");
 
     // a file changed behind the app's back: still served, but said so
-    std::fs::write(entry.join("index.html"), "<html>changed</html>").unwrap();
+    std::fs::create_dir_all(entry.join("view")).unwrap();
+    std::fs::write(entry.join("view/index.html"), "<html>changed</html>").unwrap();
+    std::fs::create_dir_all(entry.join("schemas")).unwrap();
+    std::fs::write(entry.join("schemas/payload.schema.json"), "{}").unwrap();
+    std::fs::write(entry.join("schemas/decision.schema.json"), "{}").unwrap();
     call(&app, "POST", "/api/v1/plugins/reload", None).await;
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     let shelf = body["plugins"]
@@ -2889,7 +2898,7 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
     let built = buildable_plugin(
         scratch.path(),
         "built",
-        "printf '<html>ok</html>' > index.html",
+        "mkdir -p view && printf '<html>ok</html>' > view/index.html",
     );
     for _ in 0..6 {
         let (status, row) = install(&app, &built, json!({})).await;
@@ -2905,14 +2914,29 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
 }
 
 /// A plugin whose bundle only exists after its build runs.
+/// The two schemas every plugin has, in their places: the payload's as
+/// given, the decision's taking anything.
+fn schemas(dir: &std::path::Path, payload: Value) {
+    std::fs::create_dir_all(dir.join("schemas")).unwrap();
+    std::fs::write(dir.join("schemas/payload.schema.json"), payload.to_string()).unwrap();
+    std::fs::write(dir.join("schemas/decision.schema.json"), "{}").unwrap();
+}
+
+/// A plugin's view in its place.
+fn view(dir: &std::path::Path, html: &str) {
+    std::fs::create_dir_all(dir.join("view")).unwrap();
+    std::fs::write(dir.join("view/index.html"), html).unwrap();
+}
+
 fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("src/view.txt"), "sources").unwrap();
     std::fs::write(dir.join("package.json"), "{}").unwrap();
+    schemas(&dir, json!({}));
     std::fs::write(
         dir.join("manifest.json"),
-        json!({"name": name, "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "build": {"command": command}}).to_string(),
+        json!({"name": name, "version": "1.0.0", "build": {"command": command}}).to_string(),
     )
     .unwrap();
     dir
@@ -2926,7 +2950,10 @@ async fn a_build_runs_only_as_it_was_confirmed() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let ran = scratch.path().join("ran");
-    let command = format!("touch {} && echo hi > index.html", ran.display());
+    let command = format!(
+        "touch {} && mkdir -p view && echo hi > view/index.html",
+        ran.display()
+    );
     let built = buildable_plugin(scratch.path(), "built", &command);
     let source = json!({ "source": built.display().to_string() });
 
@@ -3122,7 +3149,10 @@ async fn a_manifest_name_that_is_not_a_name_is_refused_before_the_build() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let ran = scratch.path().join("ran");
-    let command = format!("touch {} && echo hi > index.html", ran.display());
+    let command = format!(
+        "touch {} && mkdir -p view && echo hi > view/index.html",
+        ran.display()
+    );
     let dir = buildable_plugin(scratch.path(), "escaping", &command);
     let mut manifest: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
@@ -3147,7 +3177,7 @@ async fn a_link_in_a_plugin_that_builds_is_refused() {
     let scratch = tempfile::tempdir().unwrap();
     let secret = scratch.path().join("secret.txt");
     std::fs::write(&secret, "not for the store").unwrap();
-    let command = "echo hi > index.html";
+    let command = "mkdir -p view && echo hi > view/index.html";
     let dir = buildable_plugin(scratch.path(), "linking", command);
     std::os::unix::fs::symlink(&secret, dir.join("data.txt")).unwrap();
     let (status, job) = install_as_sent(
@@ -3216,7 +3246,7 @@ async fn a_build_that_runs_too_long_is_stopped() {
 async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bundle_is_placed() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
-    let command = "echo building && mkdir -p assets && printf '<html>ok</html>' > index.html && printf 'x' > assets/a.js";
+    let command = "echo building && mkdir -p view/assets && printf '<html>ok</html>' > view/index.html && printf 'x' > view/assets/a.js";
     let built = buildable_plugin(scratch.path(), "built", command);
     let (status, started) = call(
         &app,
@@ -3243,14 +3273,14 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
         .join("built")
         .join("1");
     assert_eq!(
-        std::fs::read_to_string(entry.join("index.html")).unwrap(),
+        std::fs::read_to_string(entry.join("view/index.html")).unwrap(),
         "<html>ok</html>"
     );
-    assert!(entry.join("assets/a.js").is_file());
+    assert!(entry.join("view/assets/a.js").is_file());
     assert!(!entry.join("src").exists(), "sources never enter the store");
     assert!(!entry.join("package.json").exists(), "nor the tooling");
     assert!(
-        !built.join("index.html").exists(),
+        !built.join("view").exists(),
         "the source folder was not written to"
     );
     assert!(job["plugin"]["install"]["hash"].is_string());
@@ -3286,8 +3316,7 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     std::fs::create_dir_all(&bare).unwrap();
     std::fs::write(
         bare.join("manifest.json"),
-        json!({"name": "bare", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}})
-            .to_string(),
+        json!({"name": "bare", "version": "1.0.0"}).to_string(),
     )
     .unwrap();
     let (status, body) = install(&app, &bare, json!({})).await;
@@ -3303,11 +3332,14 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     // a manifest that breaks its schema says so, and nothing about builds
     let typo = scratch.path().join("typo");
     std::fs::create_dir_all(&typo).unwrap();
-    std::fs::write(typo.join("index.html"), "<html></html>").unwrap();
+    std::fs::create_dir_all(typo.join("view")).unwrap();
+    std::fs::write(typo.join("view/index.html"), "<html></html>").unwrap();
+    std::fs::create_dir_all(typo.join("schemas")).unwrap();
+    std::fs::write(typo.join("schemas/payload.schema.json"), "{}").unwrap();
+    std::fs::write(typo.join("schemas/decision.schema.json"), "{}").unwrap();
     std::fs::write(
         typo.join("manifest.json"),
-        json!({"name": "typo", "version": "1.0.0", "title": 3, "payload_schema": {}, "decision_schema": {}})
-            .to_string(),
+        json!({"name": "typo", "version": "1.0.0", "title": 3}).to_string(),
     )
     .unwrap();
     let (status, body) = install(&app, &typo, json!({})).await;
@@ -3533,12 +3565,22 @@ fn zipped(files: &[(&str, &str)]) -> Vec<u8> {
     for (path, content) in files {
         out.start_file(*path, plain).unwrap();
         out.write_all(content.as_bytes()).unwrap();
+        // every bundle has its two schemas beside its manifest
+        if let Some(root) = path.strip_suffix("manifest.json") {
+            for schema in [
+                "schemas/payload.schema.json",
+                "schemas/decision.schema.json",
+            ] {
+                out.start_file(format!("{root}{schema}"), plain).unwrap();
+                out.write_all(b"{}").unwrap();
+            }
+        }
     }
     out.finish().unwrap().into_inner()
 }
 
 fn bundle_manifest(name: &str, version: &str) -> String {
-    json!({"name": name, "version": version, "payload_schema": {}, "decision_schema": {}, "build": {"command": "false"}}).to_string()
+    json!({"name": name, "version": version, "build": {"command": "false"}}).to_string()
 }
 
 /// A stand-in for GitHub's releases API: a release per (repo, tag), a
@@ -3654,7 +3696,7 @@ async fn a_release_tagged_with_the_plugins_name_installs_and_follows_its_own_rel
             format!("review-{version}.zip"),
             zipped(&[
                 ("manifest.json", &bundle_manifest("review", version)),
-                ("index.html", "<html>review</html>"),
+                ("view/index.html", "<html>review</html>"),
             ]),
         );
     }
@@ -3709,14 +3751,14 @@ async fn an_update_never_installs_another_plugin_in_its_place() {
         "thing.zip".to_string(),
         zipped(&[
             ("manifest.json", &bundle_manifest("thing", "1.0.0")),
-            ("index.html", "<html>thing</html>"),
+            ("view/index.html", "<html>thing</html>"),
         ]),
     );
     assets.insert(
         "other.zip".to_string(),
         zipped(&[
             ("manifest.json", &bundle_manifest("other", "2.0.0")),
-            ("index.html", "<html>other</html>"),
+            ("view/index.html", "<html>other</html>"),
         ]),
     );
     let fake = Arc::new(Releases {
@@ -3765,11 +3807,11 @@ async fn an_update_never_installs_another_plugin_in_its_place() {
 async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_latest() {
     let thing_120 = zipped(&[
         ("manifest.json", &bundle_manifest("thing", "1.2.0")),
-        ("index.html", "<html>1.2.0</html>"),
+        ("view/index.html", "<html>1.2.0</html>"),
     ]);
     let thing_130 = zipped(&[
         ("manifest.json", &bundle_manifest("thing", "1.3.0")),
-        ("index.html", "<html>1.3.0</html>"),
+        ("view/index.html", "<html>1.3.0</html>"),
     ]);
     // a bundle inside the one folder at the archive's root, as GitHub's
     // own source archives and most zip tools lay it out
@@ -3778,11 +3820,11 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
             "pinned-1.0.1/manifest.json",
             &bundle_manifest("pinned", "1.0.1"),
         ),
-        ("pinned-1.0.1/index.html", "<html>pinned</html>"),
+        ("pinned-1.0.1/view/index.html", "<html>pinned</html>"),
     ]);
     let lying = zipped(&[
         ("manifest.json", &bundle_manifest("lying", "1.0.0")),
-        ("index.html", "<html>lying</html>"),
+        ("view/index.html", "<html>lying</html>"),
     ]);
     let mut assets = std::collections::HashMap::new();
     assets.insert("thing-1.2.0.zip".to_string(), thing_120.clone());
@@ -3835,7 +3877,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     assert_eq!(plugin["install"]["tag"], "v1.2.0");
     let dir = app.state.config().plugin_store_dir().join("thing/1");
     assert_eq!(
-        std::fs::read_to_string(dir.join("index.html")).unwrap(),
+        std::fs::read_to_string(dir.join("view/index.html")).unwrap(),
         "<html>1.2.0</html>"
     );
     assert!(!dir.join("thing-1.2.0.zip").exists());
@@ -3859,7 +3901,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     assert_eq!(plugin["install"]["version"], "1.3.0");
     let dir = app.state.config().plugin_store_dir().join("thing/1");
     assert_eq!(
-        std::fs::read_to_string(dir.join("index.html")).unwrap(),
+        std::fs::read_to_string(dir.join("view/index.html")).unwrap(),
         "<html>1.3.0</html>"
     );
 
@@ -3876,7 +3918,7 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     assert_eq!(plugin["install"]["tag"], "v1.0.1");
     let dir = app.state.config().plugin_store_dir().join("pinned/1");
     assert_eq!(
-        std::fs::read_to_string(dir.join("index.html")).unwrap(),
+        std::fs::read_to_string(dir.join("view/index.html")).unwrap(),
         "<html>pinned</html>"
     );
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/pinned/updates", None).await;

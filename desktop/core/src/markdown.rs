@@ -783,21 +783,18 @@ Undecided: #19, #20
         let mut seen = 0;
         for plugin in std::fs::read_dir(&plugins).unwrap().flatten() {
             let dir = plugin.path();
-            let Ok(manifest) = std::fs::read_to_string(dir.join("manifest.json")) else {
+            if !dir.join("manifest.json").is_file() {
                 continue;
-            };
-            let manifest: Value = serde_json::from_str(&manifest).unwrap();
-            let template = manifest["decision_template"]
-                .as_str()
-                .map(|f| std::fs::read_to_string(dir.join(f)).unwrap());
-            // a fixture shows what the plugin sends and gets back, so both
-            // must be what its own schemas accept
-            let schema = |key: &str| {
-                crate::schema::Schema::compile(&dir, "fixture", 1, key, &manifest[key])
-                    .unwrap_or_else(|e| panic!("{}: {key}: {e}", dir.display()))
-            };
-            let (payload_schema, decision_schema) =
-                (schema("payload_schema"), schema("decision_schema"));
+            }
+            // the plugin as the app loads it: its template, and the schemas
+            // a fixture must pass, since it shows what the plugin sends and
+            // gets back
+            let loaded = crate::plugins::Plugin::load(&dir);
+            assert_eq!(loaded.error, None, "{}", dir.display());
+            let manifest = Value::Object(loaded.manifest.clone());
+            let template = loaded.decision_template.clone();
+            let payload_schema = loaded.payload_schema.as_ref().unwrap();
+            let decision_schema = loaded.decision_schema.as_ref().unwrap();
             let Ok(fixtures) = std::fs::read_dir(dir.join("fixtures")) else {
                 continue;
             };

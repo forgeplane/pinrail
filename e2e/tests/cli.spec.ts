@@ -217,16 +217,14 @@ test("files sent with --attach travel with the review and come back byte for byt
   try {
     const root = path.join(path.dirname(tmpFile("x", "")), "files-plugin");
     fs.mkdirSync(root, { recursive: true });
-    fs.writeFileSync(path.join(root, "index.html"), "<html></html>");
+    fs.mkdirSync(path.join(root, "view"), { recursive: true });
+    fs.writeFileSync(path.join(root, "view", "index.html"), "<html></html>");
+    fs.mkdirSync(path.join(root, "schemas"), { recursive: true });
+    fs.writeFileSync(path.join(root, "schemas", "payload.schema.json"), "{}");
+    fs.writeFileSync(path.join(root, "schemas", "decision.schema.json"), "{}");
     fs.writeFileSync(
       path.join(root, "manifest.json"),
-      JSON.stringify({
-        name: "files",
-        version: "1.0.0",
-        payload_schema: {},
-        decision_schema: {},
-        attachments: { accept: [".glb"] },
-      }),
+      JSON.stringify({ name: "files", version: "1.0.0", attachments: { accept: [".glb"] } }),
     );
     pinrailJson(["plugins", "install", root, "--link"]);
 

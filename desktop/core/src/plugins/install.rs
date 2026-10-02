@@ -1451,10 +1451,10 @@ fn read_manifest(dir: &Path) -> Result<Map<String, Value>, Error> {
     }
 }
 
-/// Why a folder is not a plugin. When its entry is missing and a build could
+/// Why a folder is not a plugin. When its view is missing and a build could
 /// have written it, say how to declare one; any other reason stands alone.
 fn not_a_plugin(why: &str, could_build: bool) -> String {
-    let entry_missing = why.starts_with("entry ") && why.ends_with(" not found");
+    let entry_missing = why == format!("{} not found", pinrail_format::manifest::VIEW);
     if could_build && entry_missing {
         format!(
             "not a plugin: {why}; a source that needs building declares its build in the manifest"

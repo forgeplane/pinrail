@@ -2,6 +2,8 @@
 // decided and cleared through its API, as an agent or the app would.
 
 import { expect, type APIRequestContext } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
 /** The port of the headless core the shell runs against. */
 export const corePort = 4799;
@@ -61,4 +63,13 @@ export async function linkPlugin(request: APIRequestContext, source: string, nam
       ).some((p) => p.name === name && p.usable),
     )
     .toBe(true);
+}
+
+/** What every plugin folder has besides its manifest, in the fixed layout:
+ *  a `view/` folder for its page, and the two schemas, the decision's as given. */
+export function layout(dir: string, decisionSchema: unknown = {}) {
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
+  fs.mkdirSync(path.join(dir, "schemas"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "schemas", "payload.schema.json"), "{}");
+  fs.writeFileSync(path.join(dir, "schemas", "decision.schema.json"), JSON.stringify(decisionSchema));
 }

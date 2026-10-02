@@ -125,13 +125,12 @@ function fixture(file) {
   return review;
 }
 
-/** Checks a decision against the plugin's decision_schema, inline or a
- *  file by `$ref`, as the core does: the first problem, or null. */
-function decisionChecker(pluginDir, schema) {
-  if (!schema) return () => null;
-  let doc = schema;
-  if (typeof schema.$ref === "string") doc = JSON.parse(fs.readFileSync(path.join(pluginDir, schema.$ref), "utf8"));
-  doc = { ...doc };
+/** Checks a decision against the plugin's decision schema,
+ *  `schemas/decision.schema.json`, as the core does: the first problem, or null. */
+function decisionChecker(pluginDir) {
+  const file = path.join(pluginDir, "schemas", "decision.schema.json");
+  if (!fs.existsSync(file)) return () => null;
+  const doc = { ...JSON.parse(fs.readFileSync(file, "utf8")) };
   delete doc.$schema;
   delete doc.$id;
   const validate = new Ajv2020({ allErrors: false, strict: false, validateFormats: false }).compile(doc);
@@ -153,7 +152,7 @@ async function mountPlugin(page, pluginDir, opts) {
   };
 
   const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
-  const checkDecision = decisionChecker(pluginDir, manifest.decision_schema);
+  const checkDecision = decisionChecker(pluginDir);
   // where the app serves it: /plugins/<name>/<major>/, a major of 1 here
   const bundle = `/plugins/${manifest.name}/1/`;
   await page.route(`${ORIGIN}/**`, async (route) => {
@@ -185,14 +184,14 @@ async function mountPlugin(page, pluginDir, opts) {
 
   // a view a build writes is not there until it runs: say so, rather than
   // time out on a frame that got a 404
-  const entryFile = path.join(pluginDir, manifest.entry ?? "index.html");
+  const entryFile = path.join(pluginDir, "view", "index.html");
   if (!fs.existsSync(entryFile)) {
     throw new Error(
       `${entryFile} does not exist${manifest.build ? `: build the plugin first (${manifest.build.command})` : ""}`,
     );
   }
   await page.goto(
-    `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + (manifest.entry ?? "index.html"))}`,
+    `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + "view/index.html")}`,
   );
   const init = {
     review,

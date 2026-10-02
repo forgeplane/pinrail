@@ -131,6 +131,38 @@ pub fn version_of(value: &Value) -> Option<(String, i64)> {
 const UNKNOWN_KEY: &str =
     "not a manifest key: a typo, or a key for a newer Pinrail; the app ignores it";
 
+/// The view's page: the frame loads it, and everything it loads is beside
+/// it under `view/`.
+pub const VIEW: &str = "view/index.html";
+/// The plugin's icon, when it has one.
+pub const ICON: &str = "icon.svg";
+/// The payload's schema.
+pub const PAYLOAD_SCHEMA: &str = "schemas/payload.schema.json";
+/// The decision's schema.
+pub const DECISION_SCHEMA: &str = "schemas/decision.schema.json";
+/// The decision as markdown, when the plugin renders its own.
+pub const TEMPLATE: &str = "templates/decision.md.j2";
+
+/// Keys that once named a file, and where that file always is now: a
+/// manifest that still has one is told so rather than that the key is
+/// unknown.
+const PLACED: &[(&str, &str)] = &[
+    ("entry", "the view is always view/index.html"),
+    ("icon", "the icon is always icon.svg"),
+    (
+        "payload_schema",
+        "the payload schema is always schemas/payload.schema.json",
+    ),
+    (
+        "decision_schema",
+        "the decision schema is always schemas/decision.schema.json",
+    ),
+    (
+        "decision_template",
+        "the template is always templates/decision.md.j2",
+    ),
+];
+
 impl Plugin {
     /// Loads the plugin at `dir`. Never fails: a bad plugin comes back with `error`.
     pub fn load(dir: &Path) -> Plugin {
@@ -217,8 +249,8 @@ impl Plugin {
                 warnings.insert(
                     0,
                     serde_json::json!({
-                        "key": "entry",
-                        "message": format!("entry {} not found yet: the build ({command}) has to write it", plugin.entry),
+                        "key": "view",
+                        "message": format!("{VIEW} not found yet: the build ({command}) has to write it"),
                     }),
                 );
             }
@@ -260,43 +292,40 @@ impl Plugin {
                 ));
             }
         }
-        let entry = manifest
-            .get("entry")
-            .and_then(Value::as_str)
-            .unwrap_or("index.html")
-            .to_string();
+        let entry = VIEW.to_string();
         let builds = manifest
             .get("build")
             .and_then(|build| build["command"].as_str())
             .is_some_and(|command| !command.trim().is_empty());
-        let found = crate::schema::safe_join(dir, &entry).is_some_and(|path| path.is_file());
+        let found = dir.join(VIEW).is_file();
         if !found && !(before_build && builds) {
-            return Err(format!("entry {entry} not found"));
+            return Err(format!("{VIEW} not found"));
         }
         // an icon that does not load costs the plugin its icon, not its place
-        let (icon, icon_error) = match manifest.get("icon") {
-            _ if shape.dropped.contains_key("icon") => (None, shape.dropped.get("icon").cloned()),
-            Some(Value::String(file)) => match icon_markup(dir, file) {
+        let (icon, icon_error) = if dir.join(ICON).exists() {
+            match icon_markup(dir, ICON) {
                 Ok(svg) => (Some(svg), None),
                 Err(message) => (None, Some(message)),
-            },
-            _ => (None, None),
+            }
+        } else {
+            (None, None)
         };
 
-        let payload_schema = Schema::compile(
-            dir,
-            &name,
-            version,
-            "payload_schema",
-            &manifest["payload_schema"],
-        )?;
-        let decision_schema = Schema::compile(
-            dir,
-            &name,
-            version,
-            "decision_schema",
-            &manifest["decision_schema"],
-        )?;
+        // the two schemas the plugin cannot do without, each in its place
+        let schema = |key: &str, file: &str| {
+            if !dir.join(file).is_file() {
+                return Err(format!("{file} not found"));
+            }
+            Schema::compile(
+                dir,
+                &name,
+                version,
+                key,
+                &serde_json::json!({ "$ref": file }),
+            )
+        };
+        let payload_schema = schema("payload_schema", PAYLOAD_SCHEMA)?;
+        let decision_schema = schema("decision_schema", DECISION_SCHEMA)?;
         // a bad settings schema costs the plugin its settings, not its place
         let (settings_schema, settings_validator, settings_error) =
             match manifest.get("settings_schema") {
@@ -321,19 +350,16 @@ impl Plugin {
                 Err(message) => (Vec::new(), Some(message)),
             },
         };
-        let (decision_template, template_error) = match manifest.get("decision_template") {
-            _ if shape.dropped.contains_key("decision_template") => {
-                (None, shape.dropped.get("decision_template").cloned())
-            }
-            None | Some(Value::Null) => (None, None),
-            Some(Value::String(file)) => match read_inside(dir, file) {
+        let (decision_template, template_error) = if dir.join(TEMPLATE).exists() {
+            match read_inside(dir, TEMPLATE) {
                 Ok(source) => match crate::compile_template(&source) {
                     Ok(()) => (Some(source), None),
-                    Err(message) => (None, Some(format!("{file}: {message}"))),
+                    Err(message) => (None, Some(format!("{TEMPLATE}: {message}"))),
                 },
-                Err(e) => (None, Some(format!("{file}: cannot read ({e})"))),
-            },
-            Some(_) => (None, None),
+                Err(e) => (None, Some(format!("{TEMPLATE}: cannot read ({e})"))),
+            }
+        } else {
+            (None, None)
         };
         // a summary that does not read costs the plugin its summaries
         let (summary, summary_error) = match manifest.get("summary") {
@@ -549,19 +575,15 @@ impl Plugin {
     /// The manifest's schema under `key`, or the file its `$ref` names when
     /// that is all it holds.
     fn schema_document(&self, key: &str) -> Value {
-        let raw = self.manifest.get(key).cloned().unwrap_or(Value::Null);
-        let Some(reference) = raw
-            .as_object()
-            .filter(|map| map.len() == 1)
-            .and_then(|map| map.get("$ref"))
-            .and_then(Value::as_str)
-        else {
-            return raw;
+        let file = if key == "payload_schema" {
+            PAYLOAD_SCHEMA
+        } else {
+            DECISION_SCHEMA
         };
-        crate::schema::safe_join(&self.path, reference)
-            .and_then(|path| std::fs::read_to_string(path).ok())
+        std::fs::read_to_string(self.path.join(file))
+            .ok()
             .and_then(|text| serde_json::from_str(&text).ok())
-            .unwrap_or(raw)
+            .unwrap_or(Value::Null)
     }
 
     /// What the app makes of the folder, as `pinrail-plugin check --json`
@@ -571,7 +593,7 @@ impl Plugin {
         let warnings: Vec<Value> = [
             ("settings_schema", &self.settings_error),
             ("shortcuts", &self.shortcuts_error),
-            ("decision_template", &self.template_error),
+            ("template", &self.template_error),
             ("summary", &self.summary_error),
             ("example", &self.example_error),
             ("sample", &self.sample_error),
@@ -583,11 +605,14 @@ impl Plugin {
                 .as_ref()
                 .map(|message| serde_json::json!({ "key": key, "message": message }))
         })
-        .chain(
-            self.unknown_keys
+        .chain(self.unknown_keys.iter().map(|key| {
+            let message = PLACED
                 .iter()
-                .map(|key| serde_json::json!({ "key": key, "message": UNKNOWN_KEY })),
-        )
+                .find(|(placed, _)| placed == key)
+                .map(|(_, place)| format!("no longer read: {place}"))
+                .unwrap_or_else(|| UNKNOWN_KEY.to_string());
+            serde_json::json!({ "key": key, "message": message })
+        }))
         .collect();
         serde_json::json!({
             "usable": self.usable(),
@@ -613,8 +638,8 @@ impl Plugin {
             "icon_error": self.icon_error,
             "usable": self.usable(),
             "error": self.error,
-            "payload_schema": self.manifest.get("payload_schema"),
-            "decision_schema": self.manifest.get("decision_schema"),
+            "payload_schema": self.schema_document("payload_schema"),
+            "decision_schema": self.schema_document("decision_schema"),
             "settings_schema": self.settings_schema,
             "settings_error": self.settings_error,
             "shortcuts": self.shortcuts,
@@ -681,11 +706,9 @@ mod shape {
     pub const FEATURES: &[&str] = &[
         "settings_schema",
         "shortcuts",
-        "decision_template",
         "summary",
         "example",
         "sample",
-        "icon",
     ];
 
     pub struct Shape {
@@ -977,42 +1000,21 @@ mod tests {
     /// out is refused, and a template or an example that a link carries
     /// out of the folder is dropped.
     #[cfg(unix)]
+    #[cfg(unix)]
     #[test]
     fn a_plugin_reads_no_file_outside_its_folder() {
         let root = tempfile::tempdir().unwrap();
         let outside = root.path().join("other");
         std::fs::create_dir_all(&outside).unwrap();
-        std::fs::write(outside.join("index.html"), "<html></html>").unwrap();
         std::fs::write(outside.join("t.j2"), "{{ note }}").unwrap();
         std::fs::write(outside.join("ex.json"), "{}").unwrap();
-        let plugin = |name: &str, extra: Value| {
-            let dir = root.path().join(name);
-            std::fs::create_dir_all(&dir).unwrap();
-            std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
-            let mut manifest = serde_json::json!({
-                "name": name, "version": "1.0.0", "payload_schema": {}, "decision_schema": {},
-            });
-            for (key, value) in extra.as_object().unwrap() {
-                manifest[key] = value.clone();
-            }
-            std::fs::write(dir.join(MANIFEST), manifest.to_string()).unwrap();
-            dir
-        };
-
-        let climbs = plugin(
-            "climbs",
-            serde_json::json!({"entry": "../other/index.html"}),
-        );
-        assert!(
-            Plugin::load(&climbs).error.is_some(),
-            "an entry outside the folder was accepted"
-        );
-
-        let linked = plugin(
+        let linked = with_manifest(
+            root.path(),
             "linked",
-            serde_json::json!({"decision_template": "t.j2", "example": "ex.json"}),
+            manifest(serde_json::json!({"example": "ex.json"})),
         );
-        std::os::unix::fs::symlink(outside.join("t.j2"), linked.join("t.j2")).unwrap();
+        std::fs::create_dir_all(linked.join("templates")).unwrap();
+        std::os::unix::fs::symlink(outside.join("t.j2"), linked.join(TEMPLATE)).unwrap();
         std::os::unix::fs::symlink(outside.join("ex.json"), linked.join("ex.json")).unwrap();
         let loaded = Plugin::load(&linked);
         assert!(loaded.error.is_none(), "{:?}", loaded.error);
@@ -1049,24 +1051,30 @@ mod tests {
     /// A plugin directory with the given manifest fields on top of the
     /// minimum, and an empty view.
     fn plugin_dir(root: &Path, name: &str, extra: &str) -> PathBuf {
-        let dir = root.join(name);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+        let dir = layout(root, name);
         std::fs::write(
             dir.join("manifest.json"),
-            format!(
-                "{{\"name\":\"{name}\",\"version\":\"1.0.0\",\"payload_schema\":{{}},\"decision_schema\":{{}}{extra}}}"
-            ),
+            format!("{{\"name\":\"{name}\",\"version\":\"1.0.0\"{extra}}}"),
         )
         .unwrap();
         dir
     }
 
-    /// A plugin folder with exactly this manifest and an index.html.
-    fn with_manifest(root: &Path, folder: &str, manifest: serde_json::Value) -> PathBuf {
+    /// A plugin folder in the fixed layout with what every plugin must have
+    /// but its manifest: a view and two schemas that take anything.
+    fn layout(root: &Path, folder: &str) -> PathBuf {
         let dir = root.join(folder);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("index.html"), "<html></html>").unwrap();
+        std::fs::create_dir_all(dir.join("view")).unwrap();
+        std::fs::create_dir_all(dir.join("schemas")).unwrap();
+        std::fs::write(dir.join(VIEW), "<html></html>").unwrap();
+        std::fs::write(dir.join(PAYLOAD_SCHEMA), "{}").unwrap();
+        std::fs::write(dir.join(DECISION_SCHEMA), "{}").unwrap();
+        dir
+    }
+
+    /// A plugin folder with exactly this manifest, a view and two schemas.
+    fn with_manifest(root: &Path, folder: &str, manifest: serde_json::Value) -> PathBuf {
+        let dir = layout(root, folder);
         std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
         dir
     }
@@ -1074,7 +1082,7 @@ mod tests {
     /// The smallest manifest the schema accepts, with `changes` laid over
     /// it; a null in `changes` removes the key.
     fn manifest(changes: serde_json::Value) -> serde_json::Value {
-        let mut m = serde_json::json!({"name": "sample", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}});
+        let mut m = serde_json::json!({"name": "sample", "version": "1.0.0"});
         for (k, v) in changes.as_object().unwrap() {
             if v.is_null() {
                 m.as_object_mut().unwrap().remove(k);
@@ -1087,16 +1095,10 @@ mod tests {
 
     #[test]
     fn an_icon_is_the_markup_of_its_svg_file_and_a_bad_one_costs_only_the_icon() {
-        use serde_json::json;
         let tmp = tempfile::tempdir().unwrap();
-        let ok = with_manifest(
-            tmp.path(),
-            "ok",
-            manifest(json!({"icon": "icons/mark.svg"})),
-        );
-        std::fs::create_dir_all(ok.join("icons")).unwrap();
+        let ok = with_manifest(tmp.path(), "ok", manifest(serde_json::json!({})));
         std::fs::write(
-            ok.join("icons/mark.svg"),
+            ok.join(ICON),
             "<?xml version=\"1.0\"?>\n<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M4 4h16\"/></svg>\n",
         )
         .unwrap();
@@ -1111,22 +1113,28 @@ mod tests {
         );
         assert!(p.icon_error.is_none());
 
-        for (i, (changes, why)) in [
-            (json!({"icon": "mail"}), "icon: "),
-            (json!({"icon": "missing.svg"}), "missing.svg: cannot read"),
-            (json!({"icon": "../outside.svg"}), "icon: "),
-            (json!({"icon": "not.svg"}), "not.svg: not an SVG"),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            let dir = with_manifest(tmp.path(), &format!("bad{i}"), manifest(changes.clone()));
-            std::fs::write(dir.join("not.svg"), "hello").unwrap();
+        // no icon.svg is no icon, and no complaint
+        let none = Plugin::load(&with_manifest(
+            tmp.path(),
+            "none",
+            manifest(serde_json::json!({})),
+        ));
+        assert!(none.icon.is_none() && none.icon_error.is_none());
+
+        // an icon.svg that is not an SVG, or not a file, costs only the icon
+        let not_svg = with_manifest(tmp.path(), "not-svg", manifest(serde_json::json!({})));
+        std::fs::write(not_svg.join(ICON), "hello").unwrap();
+        let folder = with_manifest(tmp.path(), "folder", manifest(serde_json::json!({})));
+        std::fs::create_dir_all(folder.join(ICON)).unwrap();
+        for (dir, why) in [
+            (not_svg, "icon.svg: not an SVG"),
+            (folder, "icon.svg: cannot read"),
+        ] {
             let p = Plugin::load(&dir);
-            assert!(p.usable(), "{changes}: {:?}", p.error);
-            assert!(p.icon.is_none(), "{changes}");
+            assert!(p.usable(), "{}: {:?}", dir.display(), p.error);
+            assert!(p.icon.is_none());
             let error = p.icon_error.clone().unwrap_or_default();
-            assert!(error.starts_with(why), "{changes}: {error}");
+            assert!(error.starts_with(why), "{}: {error}", dir.display());
         }
     }
 
@@ -1137,14 +1145,6 @@ mod tests {
         let cases = [
             (json!({"name": null}), "property 'name' is required"),
             (json!({"version": null}), "property 'version' is required"),
-            (
-                json!({"payload_schema": null}),
-                "property 'payload_schema' is required",
-            ),
-            (
-                json!({"decision_schema": null}),
-                "property 'decision_schema' is required",
-            ),
             (json!({"name": "Sample"}), "name: "),
             (json!({"name": "1sample"}), "name: "),
             (json!({"name": "sam ple"}), "name: "),
@@ -1157,14 +1157,6 @@ mod tests {
             (json!({"version": true}), "version: "),
             (json!({"title": 3}), "title: "),
             (json!({"description": ["a"]}), "description: "),
-            (
-                json!({"payload_schema": "schemas/payload.json"}),
-                "payload_schema: ",
-            ),
-            (json!({"decision_schema": []}), "decision_schema: "),
-            (json!({"entry": ""}), "entry: "),
-            (json!({"entry": "/etc/index.html"}), "entry: "),
-            (json!({"entry": 3}), "entry: "),
             (json!({"min_height": 0}), "min_height: "),
             (json!({"min_height": "400"}), "min_height: "),
             (json!({"min_height": 12.5}), "min_height: "),
@@ -1190,16 +1182,34 @@ mod tests {
             std::fs::write(dir.join("manifest.json"), text).unwrap();
             assert!(!Plugin::load(&dir).usable(), "{text} loaded");
         }
-        // and a file the schema cannot see: the entry must be there
-        let dir = with_manifest(
-            tmp.path(),
-            "no-entry",
-            manifest(serde_json::json!({"entry": "view/index.html"})),
-        );
-        assert_eq!(
-            Plugin::load(&dir).error.as_deref(),
-            Some("entry view/index.html not found")
-        );
+        // and the files the schema cannot see: the view and the two schemas
+        // must be in their places, and the schemas must be schemas
+        for (i, (file, text, expected)) in [
+            (VIEW, None, "view/index.html not found"),
+            (
+                PAYLOAD_SCHEMA,
+                None,
+                "schemas/payload.schema.json not found",
+            ),
+            (
+                DECISION_SCHEMA,
+                None,
+                "schemas/decision.schema.json not found",
+            ),
+            (PAYLOAD_SCHEMA, Some("{"), "payload_schema"),
+            (DECISION_SCHEMA, Some("{\"type\": 3}"), "decision_schema"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let dir = with_manifest(tmp.path(), &format!("files{i}"), manifest(json!({})));
+            match text {
+                None => std::fs::remove_file(dir.join(file)).unwrap(),
+                Some(text) => std::fs::write(dir.join(file), text).unwrap(),
+            }
+            let error = Plugin::load(&dir).error.unwrap_or_default();
+            assert!(error.contains(expected), "{file}: {error}");
+        }
     }
 
     #[test]
@@ -1228,26 +1238,6 @@ mod tests {
                 "shortcuts",
                 "shortcuts/0/does: ",
             ),
-            (
-                json!({"decision_template": "../outside.j2"}),
-                "decision_template",
-                "decision_template: ",
-            ),
-            (
-                json!({"decision_template": "/etc/decision.j2"}),
-                "decision_template",
-                "decision_template: ",
-            ),
-            (
-                json!({"decision_template": ""}),
-                "decision_template",
-                "decision_template: ",
-            ),
-            (
-                json!({"decision_template": 1}),
-                "decision_template",
-                "decision_template: ",
-            ),
             (json!({"summary": 3}), "summary", "summary: "),
             (
                 json!({"summary": {"request": {"counts": [{"items": "/a", "label": "x", "tone": "red"}]}}}),
@@ -1272,6 +1262,16 @@ mod tests {
             .unwrap_or_default();
             assert!(why.starts_with(expected), "{changes}: {why}");
         }
+
+        // a template that does not compile costs the plugin its template
+        let dir = with_manifest(tmp.path(), "template", manifest(json!({})));
+        std::fs::create_dir_all(dir.join("templates")).unwrap();
+        std::fs::write(dir.join(TEMPLATE), "{% if %}").unwrap();
+        let p = Plugin::load(&dir);
+        assert!(p.usable(), "{:?}", p.error);
+        assert!(p.decision_template.is_none());
+        let why = p.template_error.unwrap_or_default();
+        assert!(why.starts_with("templates/decision.md.j2: "), "{why}");
     }
 
     #[test]
@@ -1282,10 +1282,13 @@ mod tests {
             let dir = with_manifest(
                 tmp.path(),
                 folder,
-                manifest(
-                    json!({"payload_schema": {"type": "object", "required": ["n"]}, "example": "example.json", "use_when": "Before posting"}),
-                ),
+                manifest(json!({"example": "example.json", "use_when": "Before posting"})),
             );
+            std::fs::write(
+                dir.join(PAYLOAD_SCHEMA),
+                r#"{"type": "object", "required": ["n"]}"#,
+            )
+            .unwrap();
             std::fs::write(dir.join("example.json"), example).unwrap();
             Plugin::load(&dir)
         };
@@ -1370,6 +1373,53 @@ mod tests {
         );
     }
 
+    /// A key that once named a file still loads the plugin, and says where
+    /// the file always is now.
+    #[test]
+    fn a_key_that_named_a_file_says_where_the_file_is_now() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = Plugin::load(&plugin_dir(
+            tmp.path(),
+            "older",
+            r#","entry":"index.html","icon":"mark.svg","payload_schema":{},"decision_schema":{"$ref":"d.json"},"decision_template":"t.j2""#,
+        ));
+        assert_eq!(p.error, None);
+        let warnings: Vec<(String, String)> = p.verdict()["warnings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|w| {
+                (
+                    w["key"].as_str().unwrap().into(),
+                    w["message"].as_str().unwrap().into(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            warnings,
+            [
+                (
+                    "entry",
+                    "no longer read: the view is always view/index.html"
+                ),
+                ("icon", "no longer read: the icon is always icon.svg"),
+                (
+                    "payload_schema",
+                    "no longer read: the payload schema is always schemas/payload.schema.json"
+                ),
+                (
+                    "decision_schema",
+                    "no longer read: the decision schema is always schemas/decision.schema.json"
+                ),
+                (
+                    "decision_template",
+                    "no longer read: the template is always templates/decision.md.j2"
+                ),
+            ]
+            .map(|(k, m)| (k.to_string(), m.to_string()))
+        );
+    }
+
     #[test]
     fn what_the_schema_allows_loads() {
         use serde_json::json;
@@ -1451,7 +1501,7 @@ mod tests {
     /// The manifest text with its `"version":…` field replaced.
     fn regex_lite_version(text: &str, version: &str) -> String {
         let start = text.find("\"version\":").unwrap() + "\"version\":".len();
-        let end = start + text[start..].find(',').unwrap();
+        let end = start + text[start..].find([',', '}']).unwrap();
         format!("{}{version}{}", &text[..start], &text[end..])
     }
 

@@ -10,6 +10,7 @@ import { scratch } from "./scratch.cjs";
 /** A plugin whose view hands over `{ ok: "yes" }`, a string where its schema wants a boolean. */
 function wrongDecision(): string {
   const dir = scratch("pinrail-harness-");
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
   fs.mkdirSync(path.join(dir, "schemas"));
   fs.writeFileSync(
     path.join(dir, "schemas", "decision.schema.json"),
@@ -20,13 +21,10 @@ function wrongDecision(): string {
     JSON.stringify({
       name: "wrong",
       version: "1.0.0",
-      entry: "index.html",
-      payload_schema: {},
-      decision_schema: { $ref: "schemas/decision.schema.json" },
     }),
   );
   fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html>
 <meta charset="utf-8">
 <script src="/sdk/v1/pinrail-plugin.js"></script>
@@ -47,13 +45,11 @@ test("a view that loads its script by an absolute path fails here as in the app"
   // the app serves a plugin under /plugins/<name>/<major>/ and allows scripts
   // from there alone: /view.js is another server path, which it refuses
   const dir = scratch("pinrail-harness-");
-  fs.writeFileSync(
-    path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "absolute", version: "1.0.0", entry: "index.html" }),
-  );
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "absolute", version: "1.0.0" }));
   fs.writeFileSync(path.join(dir, "view.js"), "document.documentElement.dataset.ran = 'yes';");
   fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html><meta charset="utf-8"><script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>Pinrail.connect({});</script><script src="/view.js"></script><p>view</p>`,
   );
@@ -66,12 +62,12 @@ test("a view that loads its script by an absolute path fails here as in the app"
 test("sendKey sends only what the app would forward to the view", async ({ page }) => {
   // the app forwards a declared key, and not one it keeps for itself
   const dir = scratch("pinrail-harness-");
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "keys",
       version: "1.0.0",
-      entry: "index.html",
       shortcuts: [
         { keys: "j", does: "Next" },
         { keys: "cmd+enter", does: "Hand over" },
@@ -81,7 +77,7 @@ test("sendKey sends only what the app would forward to the view", async ({ page 
     }),
   );
   fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html><script src="/sdk/v1/pinrail-plugin.js"></script><script>Pinrail.connect({});</script><p>keys</p>`,
   );
   const plugin = await mountPlugin(page, dir, { review: reviewFrom({ title: "Keys", payload: {} }) });
@@ -96,12 +92,10 @@ test("sendKey sends only what the app would forward to the view", async ({ page 
 
 test("a view takes init only from the shell that holds its frame", async ({ page }) => {
   const dir = scratch("pinrail-harness-");
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "titled", version: "1.0.0" }));
   fs.writeFileSync(
-    path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "titled", version: "1.0.0", entry: "index.html", payload_schema: {}, decision_schema: {} }),
-  );
-  fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html>
 <meta charset="utf-8">
 <script src="/sdk/v1/pinrail-plugin.js"></script>

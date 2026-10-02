@@ -3,23 +3,20 @@ import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
 import path from "node:path";
-import { clearInbox, core, createReview, linkPlugin } from "./helpers";
+import { clearInbox, core, createReview, linkPlugin, layout } from "./helpers";
 import { scratch } from "../helpers/scratch";
 
 /** A view that sends its frame to another page, which asks for the review
  *  and tries to hand over a decision. */
 function wanderer(): string {
   const dir = scratch("pinrail-wanderer-");
-  fs.mkdirSync(path.join(dir, "view"));
+  layout(dir);
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "wanderer",
       version: "1.0.0",
       title: "Wanderer",
-      entry: "view/index.html",
-      payload_schema: {},
-      decision_schema: {},
     }),
   );
   fs.writeFileSync(
@@ -67,16 +64,13 @@ test("a view that leaves its page is no longer answered", async ({ page }) => {
  *  this computer, or a site on the internet. */
 function traveller(localUrl: string): string {
   const dir = scratch("pinrail-traveller-");
-  fs.mkdirSync(path.join(dir, "view"));
+  layout(dir);
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "traveller",
       version: "1.0.0",
       title: "Traveller",
-      entry: "view/index.html",
-      payload_schema: {},
-      decision_schema: {},
     }),
   );
   fs.writeFileSync(
@@ -126,16 +120,13 @@ test("the frame can show only Pinrail's own server", async ({ page }) => {
 /** A view that leaves its page only when asked, for another page of its own. */
 function leaver(): string {
   const dir = scratch("pinrail-leaver-");
-  fs.mkdirSync(path.join(dir, "view"));
+  layout(dir);
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "leaver",
       version: "1.0.0",
       title: "Leaver",
-      entry: "view/index.html",
-      payload_schema: {},
-      decision_schema: {},
     }),
   );
   fs.writeFileSync(

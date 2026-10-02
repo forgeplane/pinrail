@@ -29,6 +29,10 @@ export type Shortcut = {
   group?: string;
 };
 
+/** A plugin's manifest. The plugin's files have fixed places beside it:
+ *  `view/index.html`, `schemas/payload.schema.json`,
+ *  `schemas/decision.schema.json`, `icon.svg` and
+ *  `templates/decision.md.j2`. */
 export type Manifest = {
   /** the manifest schema's address, for an editor that validates the file */
   $schema?: string;
@@ -40,15 +44,7 @@ export type Manifest = {
   pinrail?: string;
   /** what the app calls the plugin; the name when absent */
   title?: string;
-  /** an SVG file beside the manifest, shown beside the plugin's reviews: `icon.svg` */
-  icon?: string;
   description?: string;
-  payload_schema: SchemaRef;
-  decision_schema: SchemaRef;
-  /** the HTML the app serves as the view, relative to the folder: `view/index.html` */
-  entry?: string;
-  /** a MiniJinja file that renders a decision as markdown: `templates/decision.md.j2` */
-  decision_template?: string;
   /** what the app counts to sum up a review: arrays of the payload and of the decision */
   summary?: { request?: SummaryRules; outcome?: SummaryRules };
   min_height?: number;

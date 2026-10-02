@@ -4,26 +4,7 @@
   "title": "Hello",
   "description": "One yes-or-no question with an optional comment: the smallest complete plugin.",
   "use_when": "You need a single yes or no from the person, such as whether to push, deploy or go on.",
-  "icon": "icon.svg",
-  "payload_schema": {
-    "type": "object",
-    "required": ["message"],
-    "additionalProperties": false,
-    "properties": {
-      "message": { "type": "string", "description": "The yes-or-no question, as the person reads it." }
-    }
-  },
-  "decision_schema": {
-    "type": "object",
-    "required": ["ok"],
-    "additionalProperties": false,
-    "properties": {
-      "ok": { "type": "boolean", "description": "The person's answer: true for yes." },
-      "comment": { "type": "string", "description": "What the person added, if anything." }
-    }
-  },
   "example": "example.json",
   "sample": "sample.json",
-  "entry": "view/index.html",
   "min_height": 200
 }

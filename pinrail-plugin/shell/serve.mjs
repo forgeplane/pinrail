@@ -112,7 +112,9 @@ function violations(pluginDir, kind, data) {
       ? JSON.parse(fs.readFileSync(path.join(pluginDir, schema.$ref), "utf8"))
       : schema;
   const prefix = kind === "settings" ? `/plugins/${manifest.name}` : "";
-  let schema = load(kind === "settings" ? manifest.settings_schema : manifest.decision_schema);
+  let schema = load(
+    kind === "settings" ? manifest.settings_schema : { $ref: path.join("schemas", "decision.schema.json") },
+  );
   if (!schema) return kind === "settings" ? [{ path: prefix, message: "the plugin has no settings" }] : [];
   schema = { ...schema };
   delete schema.$schema;

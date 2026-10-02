@@ -150,13 +150,16 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     let config = Config::new(dir.path().join("data"), 0);
     let plugin = dir.path().join("sources").join("knobs");
     std::fs::create_dir_all(&plugin).unwrap();
-    std::fs::write(plugin.join("index.html"), "<html></html>").unwrap();
+    std::fs::create_dir_all(plugin.join("view")).unwrap();
+    std::fs::write(plugin.join("view/index.html"), "<html></html>").unwrap();
+    std::fs::create_dir_all(plugin.join("schemas")).unwrap();
+    std::fs::write(plugin.join("schemas/payload.schema.json"), "{}").unwrap();
+    std::fs::write(plugin.join("schemas/decision.schema.json"), "{}").unwrap();
     std::fs::write(
         plugin.join("manifest.json"),
         json!({
             "name": "knobs", "version": "1.0.0", "title": "Knobs",
-            "payload_schema": {}, "decision_schema": {},
-            "settings_schema": {
+                        "settings_schema": {
                 "type": "object",
                 "properties": {"wrap": {"type": "boolean", "default": true}}
             }

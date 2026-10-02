@@ -11,12 +11,13 @@ import { scratch } from "./scratch.cjs";
 /** A plugin whose whole view renders `Pinrail.markdown` of its payload. */
 function renderer(): string {
   const dir = scratch("pinrail-markdown-");
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
-    JSON.stringify({ name: "markdown", version: "1.0.0", title: "Markdown", entry: "index.html" }),
+    JSON.stringify({ name: "markdown", version: "1.0.0", title: "Markdown" }),
   );
   fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html>
 <meta charset="utf-8">
 <script src="/sdk/v1/pinrail-plugin.js"></script>

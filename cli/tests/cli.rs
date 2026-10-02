@@ -2490,7 +2490,7 @@ fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
     let (code, stdout, _) = run_offline(&["plugins", "check", dir.to_str().unwrap(), "--markdown"]);
     assert_eq!(code, 2);
     assert!(
-        stdout.contains("the app would refuse it.\n\n- refused: entry view/index.html not found"),
+        stdout.contains("the app would refuse it.\n\n- refused: view/index.html not found"),
         "{stdout}"
     );
     std::fs::create_dir_all(dir.join("view")).unwrap();
@@ -2577,9 +2577,12 @@ fn plugins_check_names_the_bundle_and_what_is_left_behind_changes_nothing() {
 fn plugins_check_takes_a_plugin_that_builds_its_view_before_its_build() {
     let dir = tempdir();
     std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::create_dir_all(dir.join("schemas")).unwrap();
+    std::fs::write(dir.join("schemas/payload.schema.json"), "{}").unwrap();
+    std::fs::write(dir.join("schemas/decision.schema.json"), "{}").unwrap();
     std::fs::write(
         dir.join("manifest.json"),
-        r#"{"name": "fresh", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "build": {"command": "npm run build"}}"#,
+        r#"{"name": "fresh", "version": "1.0.0", "build": {"command": "npm run build"}}"#,
     )
     .unwrap();
     let (code, stdout, stderr) = run_offline(&["plugins", "check", dir.to_str().unwrap()]);
@@ -2587,6 +2590,6 @@ fn plugins_check_takes_a_plugin_that_builds_its_view_before_its_build() {
     let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(
         verdict["warnings"],
-        serde_json::json!([{ "key": "entry", "message": "entry index.html not found yet: the build (npm run build) has to write it" }])
+        serde_json::json!([{ "key": "view", "message": "view/index.html not found yet: the build (npm run build) has to write it" }])
     );
 }

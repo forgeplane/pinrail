@@ -57,7 +57,10 @@ test("the plain template is a whole plugin, named throughout", async () => {
   assert.equal(manifest.title, "Ticket triage");
   assert.equal(titleOf("ticket_triage"), "Ticket triage");
   assert.equal(manifest.version, "0.1.0");
-  assert.equal(manifest.entry, "view/index.html");
+  // the view and the schemas are in their fixed places, which the manifest does not name
+  assert.equal(manifest.entry, undefined);
+  assert.equal(fs.existsSync(path.join(dir, "view/index.html")), true);
+  assert.equal(fs.existsSync(path.join(dir, "schemas/payload.schema.json")), true);
   assert.equal(manifest.build, undefined);
   assert.equal(manifest.sample, "sample.json");
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "sample.json"), "utf8")).title.length > 0, true);
@@ -71,8 +74,8 @@ test("the plain template is a whole plugin, named throughout", async () => {
     /pinrail docs plugins\/building/,
     "points the agent at the briefs",
   );
-  for (const ref of [manifest.payload_schema.$ref, manifest.decision_schema.$ref]) {
-    assert.ok(fs.existsSync(path.join(dir, ref)), `${ref} exists`);
+  for (const schema of ["schemas/payload.schema.json", "schemas/decision.schema.json"]) {
+    assert.ok(fs.existsSync(path.join(dir, schema)), `${schema} exists`);
   }
 
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));

@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "required": [
+    "message"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "message": {
+      "type": "string",
+      "description": "The yes-or-no question, as the person reads it."
+    }
+  }
+}

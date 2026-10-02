@@ -3,17 +3,8 @@
   "version": "1.0.0",
   "title": "Conformance",
   "description": "A test view that speaks the raw plugin protocol, to check that every host answers it the same way.",
-  "payload_schema": { "type": "object" },
-  "decision_schema": {
-    "type": "object",
-    "required": ["ok"],
-    "additionalProperties": false,
-    "properties": { "ok": { "type": "boolean" } }
-  },
   "settings_schema": {
     "type": "object",
     "properties": { "mode": { "type": "string", "enum": ["a", "b"], "default": "a" } }
   },
-  "attachments": { "accept": [".txt"] },
-  "entry": "view/index.html"
-}
+  "attachments": { "accept": [".txt"] }}

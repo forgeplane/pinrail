@@ -10,18 +10,18 @@ import { scratch } from "./scratch.cjs";
 /** A plugin whose view asks for the file its payload names and reports what came. */
 function reader(): string {
   const dir = scratch("pinrail-attachments-");
+  fs.mkdirSync(path.join(dir, "view"), { recursive: true });
   fs.writeFileSync(
     path.join(dir, "manifest.json"),
     JSON.stringify({
       name: "reader",
       version: "1.0.0",
       title: "Reader",
-      entry: "index.html",
       attachments: { accept: [".bin", "image/*"] },
     }),
   );
   fs.writeFileSync(
-    path.join(dir, "index.html"),
+    path.join(dir, "view", "index.html"),
     `<!doctype html>
 <meta charset="utf-8">
 <script src="/sdk/v1/pinrail-plugin.js"></script>

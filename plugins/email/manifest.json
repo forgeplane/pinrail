@@ -4,10 +4,6 @@
   "title": "Draft emails",
   "description": "Email drafts read, edited and sent, revised or discarded one by one.",
   "use_when": "You drafted emails on the person's behalf and need them read, edited or approved before anything is sent.",
-  "icon": "icon.svg",
-  "payload_schema": { "$ref": "schemas/payload.schema.json" },
-  "decision_schema": { "$ref": "schemas/decision.schema.json" },
-  "decision_template": "templates/decision.md.j2",
   "summary": {
     "request": { "counts": [{ "items": "/drafts", "label": "draft", "plural": "drafts" }] },
     "outcome": {
@@ -28,7 +24,6 @@
   },
   "example": "example.json",
   "sample": "sample.json",
-  "entry": "view/index.html",
   "min_height": 560,
   "shortcuts": [
     { "keys": "j", "does": "Next draft" },

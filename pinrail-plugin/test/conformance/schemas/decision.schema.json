@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "required": [
+    "ok"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    }
+  }
+}

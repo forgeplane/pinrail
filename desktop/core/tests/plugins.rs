@@ -14,13 +14,16 @@ use serde_json::{Value, json};
 fn plugin(root: &Path, name: &str, version: &str) -> PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("index.html"), "<html>plugin</html>").unwrap();
+    std::fs::create_dir_all(dir.join("view")).unwrap();
+    std::fs::write(dir.join("view/index.html"), "<html>plugin</html>").unwrap();
+    std::fs::create_dir_all(dir.join("schemas")).unwrap();
+    std::fs::write(dir.join("schemas/payload.schema.json"), "{}").unwrap();
+    std::fs::write(dir.join("schemas/decision.schema.json"), "{}").unwrap();
     std::fs::write(
         dir.join("manifest.json"),
         json!({
             "name": name, "version": version, "title": name,
-            "payload_schema": {}, "decision_schema": {},
-            "settings_schema": {
+                        "settings_schema": {
                 "type": "object",
                 "properties": {"wrap": {"type": "boolean", "default": true}}
             }
@@ -321,7 +324,7 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     let removed = app.plugins().remove("hello").unwrap();
     assert_eq!(removed["removed"], "hello");
     assert!(
-        linked.join("index.html").exists(),
+        linked.join("view/index.html").exists(),
         "a linked source is kept"
     );
     assert!(db.installed_plugins().unwrap().is_empty());

@@ -170,10 +170,14 @@ async fn with_knobs(app: &App) -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
     let plugin = dir.path().join("knobs");
     std::fs::create_dir_all(&plugin).unwrap();
-    std::fs::write(plugin.join("index.html"), "<html></html>").unwrap();
+    std::fs::create_dir_all(plugin.join("view")).unwrap();
+    std::fs::write(plugin.join("view/index.html"), "<html></html>").unwrap();
+    std::fs::create_dir_all(plugin.join("schemas")).unwrap();
+    std::fs::write(plugin.join("schemas/payload.schema.json"), "{}").unwrap();
+    std::fs::write(plugin.join("schemas/decision.schema.json"), "{}").unwrap();
     std::fs::write(
         plugin.join("manifest.json"),
-        r#"{"name":"knobs","version":"1.0.0","title":"Knobs","payload_schema":{},"decision_schema":{},
+        r#"{"name":"knobs","version":"1.0.0","title":"Knobs",
             "settings_schema":{"type":"object","properties":{
               "diff":{"type":"string","title":"Diff","enum":["inline","split"],"default":"inline"},
               "wrap":{"type":"boolean","title":"Wrap","default":true}}}}"#,
