@@ -58,11 +58,6 @@ export type Manifest = {
   dev?: boolean;
   /** when an agent should ask with this plugin, for `pinrail plugins describe` */
   use_when?: string;
-  /** a payload that passes payload_schema, a JSON file beside the manifest */
-  example?: string;
-  /** a whole request (`title`, `payload`, `attachments`), a JSON file beside the
-   *  manifest, sent by `pinrail submit <plugin> --sample` and Settings */
-  sample?: string;
   /** the files the plugin takes beside a payload; without it, none */
   attachments?: AttachmentRules;
 };
