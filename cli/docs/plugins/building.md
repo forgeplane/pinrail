@@ -50,3 +50,9 @@ pinrail withdraw <id>                     # when you are done with the sample
   and decides nothing. A change to the view shows the next time the
   preview is opened; after a change to the manifest or a schema,
   `pinrail plugins reload`.
+- The view runs in a sandboxed frame with an opaque origin, so a
+  browser tool that reads or clicks through the page's DOM or
+  accessibility tree sees the frame as empty, even when the view is
+  drawn. To check a view, take a screenshot, or drive the preview with
+  Playwright and reach inside with `page.frameLocator("iframe")`. An
+  empty frame in your tool does not mean the view is broken.
