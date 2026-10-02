@@ -8,12 +8,14 @@
 //! uploaded beside reviews.
 
 mod blobs;
+mod bundles;
 mod events;
 mod outcomes;
 mod plugins;
 mod reviews;
 mod schema;
 
+pub use bundles::BundleRecord;
 pub use events::Event;
 pub use plugins::InstalledRecord;
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};

@@ -114,6 +114,11 @@ impl Config {
         self.data_dir.join("attachments")
     }
 
+    /// Plugin bundles: one folder per bundle, named by its hash.
+    pub fn plugin_bundles_dir(&self) -> PathBuf {
+        self.data_dir.join("plugins").join("bundles")
+    }
+
     /// Installed plugins: one entry per plugin and major version.
     pub fn plugin_store_dir(&self) -> PathBuf {
         self.data_dir.join("plugins").join("store")

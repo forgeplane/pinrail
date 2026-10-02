@@ -5,6 +5,7 @@
 //! business. What stays public is the vocabulary a caller reads from a review
 //! or a manifest.
 
+mod bundles;
 mod install;
 mod jobs;
 mod registry;
@@ -12,6 +13,7 @@ mod service;
 
 use pinrail_format::{manifest, sample, summary};
 
+pub use bundles::Bundles;
 pub use install::Expect as InstallExpect;
 pub use install::Options as InstallOptions;
 pub use jobs::Job as InstallJob;

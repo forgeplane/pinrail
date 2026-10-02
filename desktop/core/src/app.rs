@@ -13,7 +13,7 @@ use crate::attachments::{Attachments, UploadError};
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::Events;
-use crate::plugins::{self as plugin_store, PluginService, Registry};
+use crate::plugins::{self as plugin_store, Bundles, PluginService, Registry};
 use crate::reviews::Reviews;
 use crate::settings::SettingsService;
 
@@ -29,6 +29,7 @@ pub struct Pinrail {
     plugins: PluginService,
     reviews: Reviews,
     attachments: Attachments,
+    bundles: Bundles,
     /// The data directory's lock, held until the application is dropped
     _lock: File,
 }
@@ -48,6 +49,11 @@ impl Pinrail {
     /// Review operations share the application's storage, registry and event bus.
     pub fn reviews(&self) -> &Reviews {
         &self.reviews
+    }
+
+    /// The plugin bundles the app holds, by hash.
+    pub fn bundles(&self) -> &Bundles {
+        &self.bundles
     }
 
     /// The files sent beside reviews, stored by their hash.
@@ -140,6 +146,7 @@ impl Pinrail {
             db.clone(),
             config.max_attachment_bytes,
         )?;
+        let bundles = Bundles::open(&config.plugin_bundles_dir(), db.clone())?;
         let reviews = Reviews::new(
             db.clone(),
             registry.clone(),
@@ -154,6 +161,7 @@ impl Pinrail {
             plugins,
             reviews,
             attachments,
+            bundles,
             _lock: lock,
         })
     }

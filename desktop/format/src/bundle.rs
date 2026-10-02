@@ -149,6 +149,49 @@ impl Listing {
         )
     }
 
+    /// A listing read back from the text [`Listing::text`] wrote.
+    pub fn parse(text: &str) -> Result<Listing, String> {
+        let mut lines = text.split_terminator('\n');
+        if lines.next() != Some(FORMAT) {
+            return Err(format!("not a {FORMAT} listing"));
+        }
+        let files = lines
+            .map(|line| {
+                let mut fields = line.splitn(3, ' ');
+                let (Some(sha256), Some(size), Some(path)) =
+                    (fields.next(), fields.next(), fields.next())
+                else {
+                    return Err(format!("{line}: not `<sha256> <size> <path>`"));
+                };
+                let size = size
+                    .parse()
+                    .map_err(|_| format!("{line}: the size is not a number"))?;
+                Ok(File {
+                    path: path.to_string(),
+                    size,
+                    sha256: sha256.to_string(),
+                })
+            })
+            .collect::<Result<Vec<File>, String>>()?;
+        // sorted by path, each once, as a listing is written
+        if files.windows(2).any(|pair| pair[0].path >= pair[1].path) {
+            return Err("the files are not in the order of their paths".to_string());
+        }
+        let listing = Listing { files };
+        if listing.text() != text {
+            return Err("the listing is not in its canonical form".to_string());
+        }
+        Ok(listing)
+    }
+
+    /// The file at `path`, if the bundle holds it.
+    pub fn file(&self, path: &str) -> Option<&File> {
+        self.files
+            .binary_search_by(|f| f.path.as_str().cmp(path))
+            .ok()
+            .map(|i| &self.files[i])
+    }
+
     /// The canonical listing the hash is taken over: the format's line, then
     /// a line per file, `<sha256> <size> <path>`, each ending with `\n`.
     pub fn text(&self) -> String {
@@ -464,6 +507,29 @@ mod tests {
         // a file called view
         assert!(listing(&[("manifest.json/a", "x")], Taken::AsBundle).is_err());
         assert!(listing(&[("view", "x")], Taken::AsBundle).is_err());
+    }
+
+    #[test]
+    fn a_listing_reads_back_from_its_text() {
+        let mut files = PLUGIN.to_vec();
+        files.push(("view/a file with spaces.txt", "x"));
+        let listing = listing(&files, Taken::AsBundle).unwrap();
+        let read = Listing::parse(&listing.text()).unwrap();
+        assert_eq!(read, listing);
+        assert_eq!(read.hash(), listing.hash());
+        assert_eq!(
+            read.file("view/a file with spaces.txt").map(|f| f.size),
+            Some(1)
+        );
+        assert!(read.file("view/missing.txt").is_none());
+
+        assert!(Listing::parse("").is_err());
+        assert!(Listing::parse("pinrail-bundle-1\nnot a line\n").is_err());
+        // out of order is not the listing a hash was taken over
+        let text = listing.text();
+        let mut lines: Vec<&str> = text.lines().collect();
+        lines[1..].reverse();
+        assert!(Listing::parse(&(lines.join("\n") + "\n")).is_err());
     }
 
     #[test]
