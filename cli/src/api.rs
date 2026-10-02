@@ -265,6 +265,14 @@ impl Client {
         }
     }
 
+    /// Rolls the plugin back to the release its last update replaced.
+    pub fn plugins_rollback(&self, name: &str, force: bool) -> Result<Value> {
+        self.post(
+            &format!("/api/v1/plugins/{}/rollback", segment(name)),
+            Some(&serde_json::json!({ "force": force })),
+        )
+    }
+
     pub fn plugins_remove(&self, name: &str) -> Result<Value> {
         self.delete(&format!("/api/v1/plugins/{}", segment(name)))
     }

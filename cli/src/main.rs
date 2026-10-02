@@ -516,7 +516,20 @@ enum PluginsCommand {
         #[arg(long, short = 'y')]
         yes: bool,
     },
-    /// Remove an installed plugin. Versions that existing reviews still render
+    /// Roll a plugin back to the release its last update replaced
+    ///
+    /// The release an update replaces is kept for a week. A rollback to a
+    /// release that does not take what reviews made since may hold is
+    /// refused unless forced.
+    Rollback {
+        /// The plugin's name, or its full name such as acme/review
+        name: String,
+        /// Roll back even though reviews made since the update may no longer
+        /// render
+        #[arg(long)]
+        force: bool,
+    },
+    /// Remove an installed plugin. Lines that existing reviews still render
     /// with are kept
     Remove {
         /// The plugin's name
@@ -1147,6 +1160,9 @@ fn run(cli: Cli) -> Result<u8> {
                     Value::Array(answers)
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
+                Some(PluginsCommand::Rollback { name, force }) => {
+                    json!({ "state": "rolled_back", "plugin": client.plugins_rollback(&name, force)? })
+                }
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
                 Some(PluginsCommand::Lines { name }) => client.plugin_lines(&name)?,
                 Some(

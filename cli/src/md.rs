@@ -204,6 +204,9 @@ pub fn plugins_result(value: &Value) -> String {
             .as_str()
             .map(|s| format!(" from {s}"))
             .unwrap_or_default();
+        if value["state"] == "rolled_back" {
+            return format!("{name}: rolled back to {}\n", text(&plugin["version"]));
+        }
         if value["state"] == "updated" {
             return format!("{name}: updated to {}{from}\n", text(&plugin["version"]));
         }

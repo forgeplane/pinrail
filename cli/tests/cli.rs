@@ -2617,6 +2617,42 @@ fn plugins_check_since_a_release_says_what_it_breaks_of_its_line() {
     assert!(stdout.contains("- note: 2.0.0 starts line 2"), "{stdout}");
 }
 
+/// Rolling back asks the app for the plugin's previous release, forced only
+/// when asked, and says what the line is back on.
+#[test]
+fn plugins_rollback_asks_for_the_previous_release() {
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
+        ("POST", "/api/v1/plugins/hello/rollback") => {
+            seen.lock().unwrap().push(body.to_string());
+            (
+                200,
+                r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","line":"1","lines":[]}"#.into(),
+            )
+        }
+        other => panic!("unexpected {other:?}"),
+    }));
+    let (code, stdout, stderr) = run(&server, &["plugins", "rollback", "hello", "--markdown"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(stdout, "local/hello: rolled back to 1.0.0\n");
+    let (code, _, _) = run(&server, &["plugins", "rollback", "hello", "--force"]);
+    assert_eq!(code, 0);
+    let bodies: Vec<serde_json::Value> = sent
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|b| serde_json::from_str(b).unwrap())
+        .collect();
+    assert_eq!(
+        bodies,
+        vec![
+            serde_json::json!({"force": false}),
+            serde_json::json!({"force": true})
+        ]
+    );
+}
+
 /// The check names the bundle a folder would make: its hash, which only
 /// the files in the bundle's layout decide, so sources, dependencies and
 /// dot files beside them change nothing.
