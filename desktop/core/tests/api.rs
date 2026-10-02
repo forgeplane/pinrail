@@ -3613,6 +3613,92 @@ fn git_repo(root: &std::path::Path) -> (std::path::PathBuf, std::path::PathBuf) 
     (work, bare)
 }
 
+/// A bundle is its files, wherever they came from: the same plugin from a
+/// folder and from a repository on this machine is one plugin with one
+/// bundle, and installing it again after removing it makes the kept line
+/// current again.
+#[tokio::test]
+async fn the_same_files_from_two_sources_are_one_bundle() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let folder = plugin_copy(&scratch.path().join("folder"), "hello", "1.0.0");
+    let (status, from_folder) = install(&app, &folder, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{from_folder}");
+    let (_, bare) = git_repo(scratch.path());
+    let url = format!("file://{}", bare.display());
+    let (status, from_git) = install(&app, Path::new(&url), json!({"path": "tools/hello"})).await;
+    assert_eq!(status, StatusCode::OK, "{from_git}");
+
+    // one plugin, a repository on this machine being local too, and one bundle
+    assert_eq!(from_folder["plugin"], "local/hello");
+    assert_eq!(from_git["plugin"], "local/hello");
+    assert_eq!(from_git["install"]["kind"], "git");
+    let bundle = from_folder["install"]["bundle"].as_str().unwrap();
+    assert_eq!(from_git["install"]["bundle"], bundle);
+    let stored: Vec<_> = std::fs::read_dir(app.state.config().plugin_bundles_dir())
+        .unwrap()
+        .flatten()
+        .filter(|e| e.file_name() == bundle)
+        .collect();
+    assert_eq!(stored.len(), 1);
+
+    // removed while a review uses it, then installed again: the line is
+    // current again, with the same bundle
+    let mut body = submission();
+    body["plugin"] = json!("hello");
+    body["payload"] = json!({"message": "hi"});
+    let review = submit(&app, body).await;
+    let (status, _) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
+    assert_eq!(status, StatusCode::OK);
+    let (status, again) = install(&app, &folder, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{again}");
+    assert_eq!(again["line"], "1");
+    assert_eq!(again["install"]["bundle"], bundle);
+    assert_eq!(
+        view_url(&app, &review).await,
+        format!("/bundles/{bundle}/view/index.html")
+    );
+}
+
+/// A build that fails changes nothing: the line keeps its current bundle,
+/// and its reviews render as before.
+#[tokio::test]
+async fn a_failed_build_leaves_the_lines_current_bundle() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let built = buildable_plugin(
+        scratch.path(),
+        "built",
+        "mkdir -p view && printf '<html>ok</html>' > view/index.html",
+    );
+    let (status, row) = install(&app, &built, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let bundle = row["install"]["bundle"].as_str().unwrap().to_string();
+
+    let failing = buildable_plugin(
+        &scratch.path().join("again"),
+        "built",
+        "echo broken; exit 1",
+    );
+    let manifest = failing.join("manifest.json");
+    let text = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(&manifest, text.replace("\"1.0.0\"", "\"1.0.1\"")).unwrap();
+    let (status, body) = install(&app, &failing, json!({})).await;
+    assert_ne!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        app.state.plugins().line_bundle("local/built", "1"),
+        Some(bundle)
+    );
+    let (_, plugins) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let built = plugins["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["plugin"] == "local/built")
+        .unwrap();
+    assert_eq!(built["version"], "1.0.0");
+}
+
 /// Runs git in `dir` as a fixed author, and returns what it printed.
 fn git_in(dir: &std::path::Path, args: &[&str]) -> String {
     let out = std::process::Command::new("git")
