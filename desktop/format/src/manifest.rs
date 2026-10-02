@@ -104,6 +104,16 @@ pub struct Line {
     pub line: String,
     pub version: String,
     pub bundle: String,
+    /// The release the current one replaced, while it can be rolled back to.
+    pub previous: Option<Previous>,
+}
+
+/// A release a line can be rolled back to, until when.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Previous {
+    pub version: String,
+    pub bundle: String,
+    pub until: String,
 }
 
 impl Install {
@@ -667,7 +677,16 @@ impl Plugin {
             "lines": self.install.as_ref().map(|i| {
                 i.lines
                     .iter()
-                    .map(|l| serde_json::json!({ "line": l.line, "version": l.version, "bundle": l.bundle }))
+                    .map(|l| {
+                        serde_json::json!({
+                            "line": l.line,
+                            "version": l.version,
+                            "bundle": l.bundle,
+                            "previous": l.previous.as_ref().map(|p| serde_json::json!({
+                                "version": p.version, "bundle": p.bundle, "until": p.until,
+                            })),
+                        })
+                    })
                     .collect::<Vec<_>>()
             }).unwrap_or_default(),
             "title": self.title,

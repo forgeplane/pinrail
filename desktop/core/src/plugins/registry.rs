@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use super::bundles::{Bundles, Files};
 use super::install::BUNDLED_PUBLISHER;
-use super::manifest::{Install, Line, Plugin};
+use super::manifest::{Install, Line, Plugin, Previous};
 use crate::db::{Db, InstallRecord, LineRecord};
 use crate::error::Error;
 
@@ -393,10 +393,22 @@ impl Registry {
                 .bundle(&line.bundle)?
                 .map(|b| b.version)
                 .unwrap_or_default();
+            let now = crate::reviews::iso(Utc::now());
+            let previous = match (&line.previous, &line.previous_until) {
+                (Some(bundle), Some(until)) if until.as_str() > now.as_str() => {
+                    self.db.bundle(bundle)?.map(|b| Previous {
+                        version: b.version,
+                        bundle: bundle.clone(),
+                        until: until.clone(),
+                    })
+                }
+                _ => None,
+            };
             own_lines.push(Line {
                 line: line.line.clone(),
                 version,
                 bundle: line.bundle.clone(),
+                previous,
             });
         }
         own_lines.sort_by_key(|l| pinrail_format::semver(&l.version));

@@ -2534,7 +2534,7 @@ async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
     assert_eq!(installed["path"], stored.display().to_string());
     assert_eq!(
         installed["lines"],
-        json!([{"line": "1", "version": "1.0.0", "bundle": bundle}])
+        json!([{"line": "1", "version": "1.0.0", "bundle": bundle, "previous": null}])
     );
     assert_eq!(installed["install"]["modified"], false);
 
@@ -3811,6 +3811,129 @@ async fn a_published_plugins_breaking_release_cannot_be_forced() {
         app.state.plugins().line_bundle("acme/strict", "1"),
         row["install"]["bundle"].as_str().map(str::to_string)
     );
+}
+
+/// An update keeps the release it replaced for a week, so it can be
+/// rolled back: the line goes back to it, and the sweep leaves it until
+/// then and removes it after.
+#[tokio::test]
+async fn an_update_can_be_rolled_back_within_a_week() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let first = plugin_copy(&scratch.path().join("a"), "hello", "1.0.0");
+    std::fs::write(first.join("view/index.html"), "<html>first</html>").unwrap();
+    let (_, row) = install(&app, &first, json!({})).await;
+    let old = row["install"]["bundle"].as_str().unwrap().to_string();
+    // nothing to roll back to yet
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/hello/rollback",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let second = plugin_copy(&scratch.path().join("b"), "hello", "1.0.1");
+    std::fs::write(second.join("view/index.html"), "<html>second</html>").unwrap();
+    let (_, row) = install(&app, &second, json!({})).await;
+    let new = row["install"]["bundle"].as_str().unwrap().to_string();
+    assert_eq!(row["lines"][0]["previous"]["version"], "1.0.0");
+    assert_eq!(row["lines"][0]["previous"]["bundle"], old);
+    assert!(row["lines"][0]["previous"]["until"].is_string());
+
+    // the previous release outlives the sweep while it can be rolled back to
+    let later = chrono::Utc::now() + chrono::Duration::minutes(1);
+    app.state.bundles().sweep(later).unwrap();
+    assert!(app.state.bundles().path(&old).is_dir());
+
+    let (status, row) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/hello/rollback",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["version"], "1.0.0");
+    assert_eq!(row["install"]["bundle"], old);
+    assert_eq!(row["lines"][0]["previous"], Value::Null);
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/hello/rollback",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "only once");
+    // the release rolled back from goes with the sweep
+    app.state.bundles().sweep(later).unwrap();
+    assert!(!app.state.bundles().path(&new).exists());
+
+    // a week on, the previous release is no longer kept
+    let (_, row) = install(&app, &second, json!({})).await;
+    assert_eq!(row["lines"][0]["previous"]["bundle"], old);
+    let conn = rusqlite::Connection::open(app.state.config().db_path()).unwrap();
+    conn.execute(
+        "UPDATE plugin_lines SET previous_until = '2000-01-01T00:00:00Z'",
+        [],
+    )
+    .unwrap();
+    app.state.bundles().sweep(later).unwrap();
+    assert!(!app.state.bundles().path(&old).exists());
+    call(&app, "POST", "/api/v1/plugins/reload", None).await;
+    let (status, _) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/hello/rollback",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+/// Rolling back is held to the same rule as an update, in reverse: the
+/// reviews made since may hold what the previous release did not take.
+/// It can be forced, since it is how the person undoes a broken release.
+#[tokio::test]
+async fn a_rollback_that_breaks_the_line_needs_force() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let first = plugin_copy(&scratch.path().join("a"), "hello", "1.0.0");
+    install(&app, &first, json!({})).await;
+    let second = plugin_copy(&scratch.path().join("b"), "hello", "1.1.0");
+    let path = second.join("schemas/decision.schema.json");
+    let mut decision: Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    decision["properties"]["mood"] = json!({"type": "string"});
+    std::fs::write(&path, decision.to_string()).unwrap();
+    let (status, _) = install(&app, &second, json!({})).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/hello/rollback",
+        Some(json!({})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("removes the property mood"),
+        "{body}"
+    );
+    let (status, row) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/hello/rollback",
+        Some(json!({"force": true})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["version"], "1.0.0");
 }
 
 /// Runs git in `dir` as a fixed author, and returns what it printed.

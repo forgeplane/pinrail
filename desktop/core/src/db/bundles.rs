@@ -105,22 +105,35 @@ impl Db {
     }
 
     /// Deletes the bundles stored before `before` that no line refers to,
-    /// in one statement, and returns the ones it deleted.
+    /// as its current or as the previous it can still roll back to, and
+    /// returns the ones it deleted. A previous whose week is over is let
+    /// go first.
     pub fn delete_unreferenced_bundles(
         &self,
         before: chrono::DateTime<Utc>,
     ) -> rusqlite::Result<Vec<String>> {
-        let conn = self.conn();
-        conn.prepare(
-            "DELETE FROM plugin_bundles
-             WHERE stored_at < ?1
-               AND NOT EXISTS (SELECT 1 FROM plugin_lines l WHERE l.bundle = plugin_bundles.hash)
-             RETURNING hash",
-        )?
-        .query_map(
-            params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
-            |r| r.get(0),
-        )?
-        .collect()
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        tx.execute(
+            "UPDATE plugin_lines SET previous = NULL, previous_until = NULL
+             WHERE previous_until <= ?1",
+            params![now()],
+        )?;
+        let gone = tx
+            .prepare(
+                "DELETE FROM plugin_bundles
+                 WHERE stored_at < ?1
+                   AND NOT EXISTS (SELECT 1 FROM plugin_lines l
+                                   WHERE l.bundle = plugin_bundles.hash
+                                      OR l.previous = plugin_bundles.hash)
+                 RETURNING hash",
+            )?
+            .query_map(
+                params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
+                |r| r.get(0),
+            )?
+            .collect::<rusqlite::Result<Vec<String>>>()?;
+        tx.commit()?;
+        Ok(gone)
     }
 }

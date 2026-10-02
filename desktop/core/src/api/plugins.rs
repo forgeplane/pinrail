@@ -33,6 +33,7 @@ pub fn routes() -> Router<ApiState> {
         )
         .route("/api/v1/plugins/{name}", delete(remove))
         .route("/api/v1/plugins/{name}/lines", get(lines))
+        .route("/api/v1/plugins/{name}/rollback", post(rollback))
         .route("/api/v1/plugins/{name}/describe", get(describe))
         .route("/api/v1/plugins/{name}/sample", post(sample))
 }
@@ -68,6 +69,23 @@ async fn describe(
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     Ok(Json(state.plugins().describe(Some(&name))?))
+}
+
+/// Rolls the plugin's line back to the release its last update replaced,
+/// while that is kept; `{"force": true}` rolls back one that does not take
+/// what reviews made since may hold.
+async fn rollback(
+    State(state): State<Arc<Pinrail>>,
+    Path(name): Path<String>,
+    body: Bytes,
+) -> Result<Json<Value>, ApiError> {
+    let body: Value = if body.is_empty() {
+        Value::Null
+    } else {
+        super::parse_body(&body)?
+    };
+    let force = body["force"].as_bool().unwrap_or(false);
+    Ok(Json(state.plugins().rollback(&name, force)?))
 }
 
 async fn lines(

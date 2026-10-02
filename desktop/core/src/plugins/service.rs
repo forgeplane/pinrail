@@ -131,6 +131,71 @@ impl PluginService {
         }))
     }
 
+    /// Makes the release an update replaced the current one of its line
+    /// again, while it is kept. Held to the same rule as an update, in
+    /// reverse, since reviews made since may hold what it did not take; a
+    /// rollback can be forced, as the way to undo a broken release.
+    pub fn rollback(&self, name: &str, force: bool) -> Result<Value, Error> {
+        let record = self.installed(name)?;
+        let line = record.line.clone().ok_or_else(|| {
+            Error::invalid(
+                "/name",
+                format!(
+                    "{} is a link: it is always what its folder holds",
+                    record.plugin
+                ),
+            )
+        })?;
+        let _changing = self.registry.changing();
+        let nothing = || {
+            Error::invalid(
+                "/name",
+                format!(
+                    "{} has no earlier release of line {line} to roll back to",
+                    record.plugin
+                ),
+            )
+        };
+        let plugin = self.registry.get(&record.plugin).ok_or_else(nothing)?;
+        let held = plugin
+            .install
+            .as_ref()
+            .and_then(|i| i.lines.iter().find(|l| l.line == line))
+            .and_then(|l| Some((l.bundle.clone(), l.previous.clone()?)))
+            .ok_or_else(nothing)?;
+        let (current, previous) = held;
+        let bundles = self.registry.bundles();
+        let breaks = pinrail_format::compat::plugin_breaks(
+            &bundles.path(&current),
+            &bundles.path(&previous.bundle),
+        );
+        if !breaks.is_empty() && !force {
+            let listed: Vec<String> = breaks
+                .iter()
+                .take(10)
+                .map(|b| format!("- {}: {}", b.path, b.message))
+                .collect();
+            return Err(Error::invalid(
+                "/force",
+                format!(
+                    "{} {} does not take what reviews made since may hold:\n{}\nPass force to roll back anyway",
+                    record.plugin,
+                    previous.version,
+                    listed.join("\n")
+                ),
+            ));
+        }
+        self.db
+            .roll_back(&record.plugin, &line)?
+            .ok_or_else(nothing)?;
+        self.registry.reload()?;
+        self.announce()?;
+        self.registry
+            .get(&record.plugin)
+            .map(|p| p.to_json())
+            .ok_or_else(|| Error::NotFound(format!("plugin {name}")))
+    }
+
     /// The folder of a linked plugin, by full name; none for any other.
     pub fn installed_link(&self, plugin: &str) -> Option<std::path::PathBuf> {
         self.registry
