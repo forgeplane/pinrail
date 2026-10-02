@@ -575,6 +575,11 @@ enum PluginsCommand {
         /// The plugin's folder
         #[arg(default_value = ".")]
         dir: PathBuf,
+        /// The release before this one, as a folder: also report what this
+        /// release breaks of what that release's line holds, which the app
+        /// refuses as an update of the line
+        #[arg(long, value_name = "DIR")]
+        since: Option<PathBuf>,
     },
     /// List the lines of a plugin that reviews render with, and the
     /// release current on each
@@ -962,13 +967,24 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Plugins(PluginsArgs {
-            command: Some(PluginsCommand::Check { dir }),
+            command: Some(PluginsCommand::Check { dir, since }),
         }) => {
             let dir = dir
                 .canonicalize()
                 .with_context(|| format!("{} is not a folder here", dir.display()))?;
             // the format's own check, the one the app loads plugins with
-            let verdict = pinrail_format::Plugin::check(&dir);
+            let mut verdict = pinrail_format::Plugin::check(&dir);
+            if let Some(since) = since {
+                let since = since
+                    .canonicalize()
+                    .with_context(|| format!("{} is not a folder here", since.display()))?;
+                verdict["since"] = pinrail_format::compat::since(&since, &dir);
+            }
+            // what the app would refuse as an update of the line
+            let breaks_line = verdict["since"]["same_line"] == true
+                && verdict["since"]["breaks"]
+                    .as_array()
+                    .is_some_and(|b| !b.is_empty());
             if output.markdown {
                 print!(
                     "{}",
@@ -989,8 +1005,20 @@ fn run(cli: Cli) -> Result<u8> {
                         out::terminal_safe(p["message"].as_str().unwrap_or_default())
                     );
                 }
+                if breaks_line {
+                    for b in verdict["since"]["breaks"].as_array().into_iter().flatten() {
+                        eprintln!(
+                            "pinrail: breaks line {}: {}: {}",
+                            out::terminal_safe(
+                                verdict["since"]["line"].as_str().unwrap_or_default()
+                            ),
+                            out::terminal_safe(b["path"].as_str().unwrap_or_default()),
+                            out::terminal_safe(b["message"].as_str().unwrap_or_default())
+                        );
+                    }
+                }
             }
-            Ok(if verdict["usable"] == true {
+            Ok(if verdict["usable"] == true && !breaks_line {
                 0
             } else {
                 EXIT_REFUSED

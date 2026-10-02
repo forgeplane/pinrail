@@ -2531,6 +2531,92 @@ fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
     );
 }
 
+/// A release checked against the one before it: what it breaks of what
+/// the line's reviews hold, which the app refuses as an update of that
+/// line, and which a release on a new line may do.
+#[test]
+fn plugins_check_since_a_release_says_what_it_breaks_of_its_line() {
+    let release = |version: &str, decision: &dyn Fn(&mut serde_json::Value)| {
+        let dir = tempdir();
+        let list = repo_plugin("list");
+        for f in [
+            "manifest.json",
+            "schemas/payload.schema.json",
+            "schemas/decision.schema.json",
+            "view/index.html",
+        ] {
+            let to = dir.join(f);
+            std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+            std::fs::copy(list.join(f), to).unwrap();
+        }
+        let manifest = dir.join("manifest.json");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(
+            &manifest,
+            text.replace("\"1.0.0\"", &format!("\"{version}\"")),
+        )
+        .unwrap();
+        let path = dir.join("schemas/decision.schema.json");
+        let mut schema: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        decision(&mut schema);
+        std::fs::write(&path, schema.to_string()).unwrap();
+        dir
+    };
+    let old = release("1.0.0", &|_| {});
+    let optional = |s: &mut serde_json::Value| {
+        s["properties"]["extra"] = serde_json::json!({"type": "string"});
+    };
+    let required = |s: &mut serde_json::Value| {
+        s["properties"]["extra"] = serde_json::json!({"type": "string"});
+        s["required"].as_array_mut().unwrap().push("extra".into());
+    };
+    let check = |new: &std::path::Path, markdown: bool| {
+        let mut args = vec![
+            "plugins",
+            "check",
+            new.to_str().unwrap(),
+            "--since",
+            old.to_str().unwrap(),
+        ];
+        if markdown {
+            args.push("--markdown");
+        }
+        run_offline(&args)
+    };
+
+    // a new optional field keeps the line
+    let (code, stdout, stderr) = check(&release("1.1.0", &optional), false);
+    assert_eq!(code, 0, "{stderr}");
+    let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(verdict["since"]["previous"], "1.0.0");
+    assert_eq!(verdict["since"]["breaks"], serde_json::json!([]));
+
+    // a newly required one breaks it: the update the app would refuse
+    let breaking = release("1.1.0", &required);
+    let (code, stdout, _) = check(&breaking, false);
+    assert_eq!(code, 2);
+    let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        verdict["since"]["breaks"][0],
+        serde_json::json!({"path": "schemas/decision.schema.json#/required", "message": "makes extra required"})
+    );
+    assert_eq!(verdict["since"]["next"], "2.0.0");
+    let (code, stdout, _) = check(&breaking, true);
+    assert_eq!(code, 2);
+    assert!(
+        stdout.contains(
+            "- breaks line 1: schemas/decision.schema.json#/required: makes extra required"
+        ) && stdout.contains("Release it as 2.0.0 to start a new line."),
+        "{stdout}"
+    );
+
+    // on a new line, the same change breaks nothing that line holds
+    let (code, stdout, stderr) = check(&release("2.0.0", &required), true);
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stdout.contains("- note: 2.0.0 starts line 2"), "{stdout}");
+}
+
 /// The check names the bundle a folder would make: its hash, which only
 /// the files in the bundle's layout decide, so sources, dependencies and
 /// dot files beside them change nothing.

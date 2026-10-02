@@ -1723,7 +1723,7 @@ fn breaks_its_line(
             bundle.version,
             bundle.line,
             listed.join("\n"),
-            next_line(&bundle.version),
+            pinrail_format::compat::next_line(&bundle.version),
             if own {
                 ", or pass force to replace the line anyway"
             } else {
@@ -1731,17 +1731,6 @@ fn breaks_its_line(
             }
         ),
     ))
-}
-
-/// The first version of the line after the one `version` is on: `2.0.0`
-/// after `1.4.2`, `0.4.0` after `0.3.1`.
-fn next_line(version: &str) -> String {
-    let (major, minor, _) = semver(version);
-    if major > 0 {
-        format!("{}.0.0", major + 1)
-    } else {
-        format!("0.{}.0", minor + 1)
-    }
 }
 
 /// The installation a source makes, with `line` the line its new reviews

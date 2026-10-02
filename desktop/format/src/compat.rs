@@ -14,7 +14,7 @@ use std::path::Path;
 use serde_json::{Map, Value};
 
 use crate::Violation;
-use crate::manifest::{DECISION_SCHEMA, PAYLOAD_SCHEMA};
+use crate::manifest::{DECISION_SCHEMA, PAYLOAD_SCHEMA, line_of};
 use crate::schema::safe_join;
 
 /// Keywords that describe a schema and never decide what it accepts.
@@ -91,6 +91,42 @@ pub fn plugin_breaks(old: &Path, new: &Path) -> Vec<Violation> {
         }
     }
     out
+}
+
+/// A release at `new` against the one before it at `old`, as
+/// `pinrail plugins check --since` reports it: the versions, whether the
+/// new one stays on the old one's line, what it breaks of what that line
+/// holds, and the version that would start the next line. Breaks matter
+/// only on the same line, where the app refuses them as an update.
+pub fn since(old: &Path, new: &Path) -> Value {
+    let version = |dir: &Path| -> String {
+        std::fs::read_to_string(dir.join(crate::manifest::MANIFEST))
+            .ok()
+            .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+            .and_then(|m| m["version"].as_str().map(str::to_string))
+            .unwrap_or_default()
+    };
+    let (before, after) = (version(old), version(new));
+    let (old_line, new_line) = (line_of(&before), line_of(&after));
+    serde_json::json!({
+        "previous": before,
+        "version": after,
+        "line": new_line,
+        "same_line": old_line.is_some() && old_line == new_line,
+        "breaks": plugin_breaks(old, new),
+        "next": next_line(&after),
+    })
+}
+
+/// The first version of the line after the one `version` is on: `2.0.0`
+/// after `1.4.2`, `0.4.0` after `0.3.1`.
+pub fn next_line(version: &str) -> String {
+    let (major, minor, _) = crate::semver(version);
+    if major > 0 {
+        format!("{}.0.0", major + 1)
+    } else {
+        format!("0.{}.0", minor + 1)
+    }
 }
 
 /// What in `new` breaks a document `old` accepted, each at its path in the

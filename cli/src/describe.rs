@@ -58,6 +58,31 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
     for n in verdict["notes"].as_array().into_iter().flatten() {
         out.push_str(&format!("\n- note: {}", text(&n["message"])));
     }
+    let since = &verdict["since"];
+    let breaks = since["breaks"].as_array().cloned().unwrap_or_default();
+    if since["same_line"] == true {
+        for b in &breaks {
+            out.push_str(&format!(
+                "\n- breaks line {}: {}: {}",
+                text(&since["line"]),
+                text(&b["path"]),
+                text(&b["message"])
+            ));
+        }
+        if !breaks.is_empty() {
+            out.push_str(&format!(
+                "\n\nRelease it as {} to start a new line.\n",
+                text(&since["next"])
+            ));
+        }
+    } else if since.is_object() {
+        out.push_str(&format!(
+            "\n- note: {} starts line {}, so it may change what {} held",
+            text(&since["version"]),
+            text(&since["line"]),
+            text(&since["previous"])
+        ));
+    }
     if verdict["problems"]
         .as_array()
         .is_some_and(|a| !a.is_empty())
@@ -65,6 +90,7 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
             .as_array()
             .is_some_and(|a| !a.is_empty())
         || verdict["notes"].as_array().is_some_and(|a| !a.is_empty())
+        || (since.is_object() && since["same_line"] != true)
     {
         out.push('\n');
     }
