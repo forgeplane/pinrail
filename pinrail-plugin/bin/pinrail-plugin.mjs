@@ -4,7 +4,8 @@
 //   pinrail-plugin create <name> [--template plain|vite|react|vue|svelte]   a plugin folder to start from
 //   pinrail-plugin dev [dir] [--port N] [--no-open]        the fake shell in a browser, reloading on change
 //   pinrail-plugin test [dir] [playwright arguments]       the plugin's tests/ under the harness
-//   pinrail-plugin check [dir] [--json]                    what the app's inspect would say
+//   pinrail-plugin check [dir] [--json]                    what the app would say, through `pinrail plugins check`
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -41,8 +42,16 @@ switch (command) {
     break;
   }
   case "check": {
-    const { check } = await import(pathToFileURL(path.join(here, "..", "lib", "check.mjs")).href);
-    check(rest);
+    // the app's own rules, as the pinrail command runs them; one
+    // implementation, not a copy of it here
+    const ran = spawnSync("pinrail", ["plugins", "check", ...rest], { stdio: "inherit" });
+    if (ran.error) {
+      console.error(
+        "pinrail-plugin check runs `pinrail plugins check`, and the pinrail command was not found. Install Pinrail and its command (Settings › Data › Command line), then try again.",
+      );
+      process.exit(1);
+    }
+    process.exit(ran.status ?? 1);
     break;
   }
   case undefined:

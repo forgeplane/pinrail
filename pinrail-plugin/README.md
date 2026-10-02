@@ -13,7 +13,7 @@ write a Pinrail plugin:
 - **`pinrail-plugin dev`** runs a plugin in the browser, without the app.
 - **`pinrail-plugin test`** runs a plugin's tests in the test harness.
 - **`pinrail-plugin check`** reports what the app would report for a
-  plugin folder.
+  plugin folder, by running `pinrail plugins check`.
 - **`@forgeplane/pinrail-plugin/testing`** is a Playwright harness that
   mounts a plugin on its own.
 - **`@forgeplane/pinrail-plugin/types`** describes the protocol and the
@@ -315,24 +315,23 @@ every plugin in `plugins/`, which depend on this package by path.
 
 ## Checking a plugin
 
-`pinrail-plugin check [dir]` runs the checks the app runs when it inspects
-a plugin, without the app. It reports two kinds of results:
+`pinrail-plugin check [dir]` runs `pinrail plugins check [dir]`, which
+checks a plugin folder with the app's own rules, without the app running
+and without installing anything. It needs the `pinrail` command. It
+reports two kinds of results:
 
 - A **problem** means that the app would refuse the folder. Problems concern
   the manifest, the name, the version, the entry (or the build that writes
   it), and the schemas with their `$ref` references.
 - A **warning** means that the app would install the plugin but drop one
   feature, and show the reason on the plugin's row. Warnings concern a
-  `settings_schema`, `shortcuts`, `decision_template`, `example`, `sample`
-  or `icon` with the wrong shape, an icon that is not an SVG file in the
-  folder, an example that does not pass the payload schema, and a sample
+  `settings_schema`, `shortcuts`, `decision_template`, `example`, `sample`,
+  `summary` or `icon` that is not valid, an icon that is not an SVG file in
+  the folder, an example that does not pass the payload schema, and a sample
   without a title, a valid payload or its files.
 
-`--json` prints the same results as JSON. The checks are the app's own
-rules, implemented again in JavaScript, and a test in the app runs both
-implementations over the same folders and compares the results. The one
-check that `check` cannot run is compiling the decision template. The app
-compiles it on install, and a decided fixture shows the rendered result.
+`--json` prints the same results as JSON. The command exits with 0 when the
+app would take the plugin and with 2 when it would refuse it.
 
 ## Types
 

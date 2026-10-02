@@ -157,10 +157,6 @@ jobs:
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets --locked
           cargo clippy --manifest-path desktop/Cargo.toml --workspace --all-targets --locked
-      # the core's check test runs pinrail-plugin check and compares
-      - name: Install pinrail-plugin
-        working-directory: pinrail-plugin
-        run: npm ci --omit=dev
       # the core's tests load every official plugin, and the artifact
       # plugin's view is what its build writes
       - name: Build the artifact plugin

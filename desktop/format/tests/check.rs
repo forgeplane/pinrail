@@ -1,92 +1,11 @@
-//! `pinrail-plugin check` says of a folder what the core's loader says: the
-//! rules live in Rust and are carried in JavaScript for authors without the
-//! app, so both run here over the sample plugins and a set of broken
-//! folders, and their verdicts are compared. A rule changed on one side
-//! fails this test until the other follows.
+//! What the format makes of a folder: which plugins it takes, and which
+//! feature a plugin loses for each rule its manifest breaks. Each case is a
+//! folder and the verdict expected of it.
 
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
-use pinrail_core::plugins::Plugin;
+use pinrail_format::Plugin;
 use serde_json::{Value, json};
-
-fn repo() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("..")
-        .join("..")
-        .canonicalize()
-        .unwrap()
-}
-
-/// The JavaScript verdict, or None when node is not on the path.
-fn js_check(dir: &Path) -> Option<Value> {
-    let bin = repo()
-        .join("pinrail-plugin")
-        .join("bin")
-        .join("pinrail-plugin.mjs");
-    let out = Command::new("node")
-        .arg(&bin)
-        .arg("check")
-        .arg("--json")
-        .arg(dir)
-        .output()
-        .ok()?;
-    let text = String::from_utf8_lossy(&out.stdout);
-    Some(serde_json::from_str(&text).unwrap_or_else(|e| {
-        panic!(
-            "check --json on {}: {e} (run `mise run setup` if pinrail-plugin's packages are missing)\n{text}\n{}",
-            dir.display(),
-            String::from_utf8_lossy(&out.stderr)
-        )
-    }))
-}
-
-fn keys(list: &Value) -> Vec<&str> {
-    list.as_array()
-        .map(|items| items.iter().filter_map(|i| i["key"].as_str()).collect())
-        .unwrap_or_default()
-}
-
-/// Both sides over one folder: usable as the core sees it, and each feature
-/// the core drops warned about by the script, and nothing else.
-fn agree(dir: &Path, js: &Value) {
-    let plugin = Plugin::load(dir);
-    let usable = plugin.error.is_none();
-    assert_eq!(
-        js["usable"].as_bool(),
-        Some(usable),
-        "{}: core says {:?}, check says {}",
-        dir.display(),
-        plugin.error,
-        js["problems"]
-    );
-    if !usable {
-        return;
-    }
-    let warned = keys(&js["warnings"]);
-    for (key, dropped) in [
-        ("settings_schema", plugin.settings_error.is_some()),
-        ("shortcuts", plugin.shortcuts_error.is_some()),
-        ("decision_template", plugin.template_error.is_some()),
-        ("summary", plugin.summary_error.is_some()),
-        ("example", plugin.example_error.is_some()),
-        ("sample", plugin.sample_error.is_some()),
-        ("icon", plugin.icon_error.is_some()),
-    ] {
-        assert_eq!(
-            warned.contains(&key),
-            dropped,
-            "{}: {key}: core says {:?}, check warns {:?}",
-            dir.display(),
-            (
-                &plugin.settings_error,
-                &plugin.shortcuts_error,
-                &plugin.template_error
-            ),
-            warned
-        );
-    }
-}
 
 /// Files beside the manifest: relative path and content.
 type Files = &'static [(&'static str, &'static str)];
@@ -103,24 +22,22 @@ fn folder(root: &Path, name: &str, manifest: Value, files: Files) -> PathBuf {
     dir
 }
 
-#[test]
-fn the_script_and_the_loader_give_the_same_verdicts() {
-    let samples = repo().join("plugins");
-    let first = samples.join("hello");
-    // without node the parity goes unchecked: fail, unless told that is fine
-    let Some(js) = js_check(&first) else {
-        assert!(
-            std::env::var_os("PINRAIL_SKIP_NODE").is_some(),
-            "node is not on the path; install it, or set PINRAIL_SKIP_NODE=1 to skip this test"
-        );
-        return;
-    };
-    agree(&first, &js);
-    for name in ["email", "review", "artifact"] {
-        let dir = samples.join(name);
-        agree(&dir, &js_check(&dir).unwrap());
-    }
+/// The verdict in brief: whether the plugin is taken, and the keys of the
+/// features it would lose, sorted.
+fn brief(dir: &Path) -> (bool, Vec<String>) {
+    let verdict = Plugin::check(dir);
+    let mut keys: Vec<String> = verdict["warnings"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|w| w["key"].as_str().map(str::to_string))
+        .collect();
+    keys.sort();
+    (verdict["usable"] == true, keys)
+}
 
+#[test]
+fn each_folder_gets_the_verdict_its_rules_give() {
     let tmp = tempfile::tempdir().unwrap();
     let base = |extra: Value| {
         let mut m = json!({"name": "sample", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}});
@@ -421,8 +338,110 @@ fn the_script_and_the_loader_give_the_same_verdicts() {
             entry,
         ),
     ];
-    for (name, manifest, files) in cases {
+    let expected: &[(&str, bool, &[&str])] = &[
+        ("fine", true, &[]),
+        ("icon_missing", true, &["icon"]),
+        ("icon_not_svg", true, &["icon"]),
+        ("young", true, &[]),
+        ("zero", false, &[]),
+        ("integer", false, &[]),
+        ("no_version", false, &[]),
+        ("bad_name", false, &[]),
+        ("no_entry", false, &[]),
+        ("builds_later", true, &["entry"]),
+        ("abs_entry", false, &[]),
+        ("entry_outside", false, &[]),
+        ("no_schema", false, &[]),
+        ("ref_out", false, &[]),
+        ("ref_missing", false, &[]),
+        ("ref_ok", true, &[]),
+        ("bad_icon", true, &["icon"]),
+        ("title_number", false, &[]),
+        ("description_list", false, &[]),
+        ("icon_dash", true, &["icon"]),
+        ("min_height_zero", false, &[]),
+        ("min_height_text", false, &[]),
+        ("dev_text", false, &[]),
+        ("empty_entry", false, &[]),
+        ("build_text", false, &[]),
+        ("build_empty", false, &[]),
+        ("build_blank", false, &[]),
+        ("schema_text", false, &[]),
+        ("version_short", false, &[]),
+        ("extra_key", true, &["later"]),
+        ("settings_text", true, &["settings_schema"]),
+        ("shortcuts_text", true, &["shortcuts"]),
+        ("shortcut_empty_keys", true, &["shortcuts"]),
+        ("template_outside", true, &["decision_template"]),
+        ("template_number", true, &["decision_template"]),
+        ("summary_number", true, &["summary"]),
+        ("summary_side", true, &["summary"]),
+        ("summary_tone", true, &["summary"]),
+        ("summary_pointer", true, &["summary"]),
+        ("summary_too_many", true, &["summary"]),
+        ("summary_verdict_star", true, &["summary"]),
+        ("summary_ok", true, &[]),
+        ("example_ok", true, &[]),
+        ("example_fails", true, &["example"]),
+        ("example_missing", true, &["example"]),
+        ("example_outside", true, &["example"]),
+        ("sample_ok", true, &[]),
+        ("sample_untitled", true, &["sample"]),
+        ("sample_fails", true, &["sample"]),
+        ("sample_file_missing", true, &["sample"]),
+        ("sample_outside", true, &["sample"]),
+        ("use_when", true, &[]),
+        ("settings_ok", true, &[]),
+        ("settings_no_default", true, &["settings_schema"]),
+        ("settings_object", true, &["settings_schema"]),
+        ("settings_enum", true, &["settings_schema"]),
+        ("shortcuts_ok", true, &[]),
+        ("shortcuts_modifier", true, &["shortcuts"]),
+        ("shortcuts_no_does", true, &["shortcuts"]),
+        ("shortcuts_shape", true, &["shortcuts"]),
+        ("template_ok", true, &[]),
+        ("template_missing", true, &["decision_template"]),
+        ("template_out", true, &["decision_template"]),
+    ];
+    assert_eq!(cases.len(), expected.len(), "a case without its verdict");
+    for ((name, manifest, files), (expected_name, usable, keys)) in cases.into_iter().zip(expected)
+    {
+        assert_eq!(
+            name, *expected_name,
+            "the cases and the verdicts are in one order"
+        );
         let dir = folder(tmp.path(), name, manifest, files);
-        agree(&dir, &js_check(&dir).unwrap());
+        let keys: Vec<String> = keys.iter().map(|k| k.to_string()).collect();
+        assert_eq!(
+            brief(&dir),
+            (*usable, keys),
+            "{name}: {}",
+            Plugin::check(&dir)
+        );
     }
+}
+
+/// Every official plugin is taken whole, with nothing dropped.
+#[test]
+fn every_official_plugin_is_taken_with_nothing_dropped() {
+    let plugins = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
+    let mut seen = 0;
+    for dir in std::fs::read_dir(&plugins)
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+    {
+        if !dir.join("manifest.json").is_file() {
+            continue;
+        }
+        assert_eq!(
+            brief(&dir),
+            (true, Vec::new()),
+            "{}: {}",
+            dir.display(),
+            Plugin::check(&dir)
+        );
+        seen += 1;
+    }
+    assert!(seen >= 9, "only {seen} plugins found");
 }
