@@ -168,6 +168,7 @@ jobs:
         run: |
           cargo test --manifest-path cli/Cargo.toml --locked
           cargo test --manifest-path desktop/Cargo.toml --workspace --locked
+          cargo test --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --locked --lib docs::
       # what needs the network: a plugin built from its sources with npm ci
       - name: Rust tests that need the network
         run: cargo test --manifest-path desktop/Cargo.toml -p pinrail-core --locked -- --ignored
