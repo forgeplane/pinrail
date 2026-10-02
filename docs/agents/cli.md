@@ -226,6 +226,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
 | `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. A plugin whose build writes its view is checked before that build runs, with a warning that the build has to write the entry. It needs no running app. |
 | `pinrail plugins describe <name>` | What an agent needs to ask with a plugin; `--payload-schema`, `--example` or `--decision-schema` for one part alone. See [Learning what to ask](#learning-what-to-ask). |
+| `pinrail plugins rollback <name>` | Rolls a plugin back to the release its last update replaced, within a week of the update. |
 | `pinrail plugins lines <name>` | The lines of a plugin that reviews render with, each with its current release. |
 | `pinrail plugins reload` | Read every plugin again from disk, after changing a linked plugin's manifest or schemas. |
 | `pinrail docs [path]` | The briefs for an agent: how to ask, and how to build a plugin. `--tree` lists them all. |

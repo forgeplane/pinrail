@@ -99,6 +99,14 @@ flowchart LR
 - **A release that breaks its line** is refused: one whose schemas no longer accept what the line's reviews hold, such as one that removes a property or makes one required. The refusal lists what breaks. A plugin from a folder of your own can be replaced with `--force`, and its reviews may then stop rendering. A published plugin's author has to release the change as a new line.
 - **A release on a new line** is installed beside the old one, and new reviews use it. The old line stays for as long as a review still renders with it.
 
+An update keeps the release it replaced for a week. Within that week, roll back from the plugin's details in *Settings › Plugins*, or from the command line:
+
+```sh
+pinrail plugins rollback review
+```
+
+A rollback is checked by the same rule as an update, in reverse: if reviews made since the update may hold something the earlier release does not accept, the rollback is refused with the reasons, and you can confirm it anyway (`--force` on the command line).
+
 Check for updates from the plugin's row in *Settings › Plugins*, or from the command line:
 
 ```sh
