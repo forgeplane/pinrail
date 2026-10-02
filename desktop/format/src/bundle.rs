@@ -83,6 +83,18 @@ impl Listing {
                     }
                 }
             }
+            // .DS_Store, .gitkeep and the like differ from one machine to
+            // the next, and would change the hash
+            if path.split('/').any(|part| part.starts_with('.')) {
+                match taken {
+                    Taken::FromSource => continue,
+                    Taken::AsBundle => {
+                        return Err(format!(
+                            "{path}: a hidden file, which a bundle does not hold"
+                        ));
+                    }
+                }
+            }
             // a top-level name of a file only, or of a folder only
             if TOP_FILES.contains(&top) != !path.contains('/') {
                 return Err(format!("{path}: not where the layout puts it"));
@@ -181,7 +193,10 @@ fn walk(
         let relative = relative(root, &path)?;
         // a source folder's entries outside the layout are never read, so
         // node_modules and the like cost nothing
-        if dir == root && taken == Taken::FromSource && !in_layout(&relative) {
+        if taken == Taken::FromSource
+            && ((dir == root && !in_layout(&relative))
+                || entry.file_name().to_string_lossy().starts_with('.'))
+        {
             continue;
         }
         let kind = entry.file_type().map_err(|e| format!("{relative}: {e}"))?;
@@ -441,6 +456,28 @@ mod tests {
         // a file called view
         assert!(listing(&[("manifest.json/a", "x")], Taken::AsBundle).is_err());
         assert!(listing(&[("view", "x")], Taken::AsBundle).is_err());
+    }
+
+    #[test]
+    fn a_hidden_file_is_left_behind_from_a_source_and_refused_in_a_bundle() {
+        let mut source = PLUGIN.to_vec();
+        source.extend([
+            ("view/.DS_Store", "x"),
+            ("samples/.cache/a.json", "{}"),
+            ("view/assets/.gitkeep", ""),
+        ]);
+        let dir = folder(&source);
+        let taken = Listing::of_folder(dir.path(), Taken::FromSource).unwrap();
+        assert_eq!(
+            taken.hash(),
+            listing(PLUGIN, Taken::AsBundle).unwrap().hash()
+        );
+
+        let refused = listing(&[("view/.DS_Store", "x")], Taken::AsBundle).unwrap_err();
+        assert_eq!(
+            refused,
+            "view/.DS_Store: a hidden file, which a bundle does not hold"
+        );
     }
 
     #[test]
