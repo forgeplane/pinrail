@@ -183,7 +183,30 @@ impl Plugin {
             return Self::load(dir).verdict();
         };
         let mut verdict = plugin.verdict();
-        if !dir.join(&plugin.entry).is_file() {
+        let built = dir.join(&plugin.entry).is_file();
+        // the bundle an install would make of the folder, once its view is
+        // there; one it could not make refuses the folder
+        if built {
+            match crate::bundle::Listing::of_folder(dir, crate::bundle::Taken::FromSource) {
+                Ok(listing) => {
+                    verdict["bundle"] = serde_json::json!({
+                        "hash": listing.hash(),
+                        "files": listing.files.len(),
+                        "size": listing.size(),
+                    });
+                }
+                Err(message) => {
+                    verdict["usable"] = Value::Bool(false);
+                    verdict["name"] = Value::Null;
+                    verdict["release"] = Value::Null;
+                    verdict["warnings"] = serde_json::json!([]);
+                    if let Some(problems) = verdict["problems"].as_array_mut() {
+                        problems.push(serde_json::json!({ "message": message }));
+                    }
+                }
+            }
+        }
+        if !built {
             let command = plugin
                 .manifest
                 .get("build")

@@ -39,6 +39,12 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
     } else {
         format!("{dir}: the app would refuse it.\n")
     };
+    if let Some(hash) = verdict["bundle"]["hash"].as_str() {
+        out.push_str(&format!(
+            "\nBundle {hash}: {} files, {} bytes.\n",
+            verdict["bundle"]["files"], verdict["bundle"]["size"]
+        ));
+    }
     for p in verdict["problems"].as_array().into_iter().flatten() {
         out.push_str(&format!("\n- refused: {}", text(&p["message"])));
     }

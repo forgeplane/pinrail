@@ -2503,6 +2503,74 @@ fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
     );
 }
 
+/// The check names the bundle a folder would make: its hash, which only
+/// the files in the bundle's layout decide, so sources, dependencies and
+/// dot files beside them change nothing.
+#[test]
+fn plugins_check_names_the_bundle_and_what_is_left_behind_changes_nothing() {
+    let copy = |junk: bool| {
+        let dir = tempdir();
+        for f in [
+            "manifest.json",
+            "schemas/payload.schema.json",
+            "schemas/decision.schema.json",
+            "view/index.html",
+            "icon.svg",
+        ] {
+            let to = dir.join(f);
+            std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+            std::fs::copy(repo_plugin("list").join(f), to).unwrap();
+        }
+        if junk {
+            for (f, text) in [
+                ("node_modules/x/index.js", "x"),
+                ("src/main.ts", "x"),
+                (".env", "SECRET=1"),
+            ] {
+                let to = dir.join(f);
+                std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+                std::fs::write(to, text).unwrap();
+            }
+        }
+        dir
+    };
+    let bundle = |dir: &std::path::Path| {
+        let (code, stdout, stderr) = run_offline(&["plugins", "check", dir.to_str().unwrap()]);
+        assert_eq!(code, 0, "{stderr}");
+        let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        verdict["bundle"].clone()
+    };
+    let (clean, junk) = (copy(false), copy(true));
+    let named = bundle(&clean);
+    assert_eq!(named["files"], 5, "{named}");
+    assert_eq!(named["hash"].as_str().map(str::len), Some(64), "{named}");
+    assert_eq!(
+        bundle(&junk),
+        named,
+        "the same bundle, whatever is beside it"
+    );
+
+    let (_, stdout, _) = run_offline(&["plugins", "check", clean.to_str().unwrap(), "--markdown"]);
+    let hash = named["hash"].as_str().unwrap();
+    assert!(
+        stdout.contains(&format!("\nBundle {hash}: 5 files, ")),
+        "{stdout}"
+    );
+
+    // a folder an install could not make a bundle of is refused
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink("/etc/hosts", clean.join("view/hosts")).unwrap();
+        let (code, stdout, _) =
+            run_offline(&["plugins", "check", clean.to_str().unwrap(), "--markdown"]);
+        assert_eq!(code, 2, "{stdout}");
+        assert!(
+            stdout.contains("- refused: view/hosts: a symbolic link; a bundle holds files only"),
+            "{stdout}"
+        );
+    }
+}
+
 /// A plugin as it is scaffolded with a framework, sources and a build but
 /// no view yet, is checked as an install would take it: before its build.
 #[test]
