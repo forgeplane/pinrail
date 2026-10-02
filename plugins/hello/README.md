@@ -11,5 +11,5 @@ Link the folder and send it a review:
 
 ```sh
 pinrail plugins install ./plugins/hello --link
-pinrail submit hello --title "Push the branch?" --data plugins/hello/example.json --wait
+pinrail submit hello --sample --wait
 ```

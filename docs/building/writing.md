@@ -43,8 +43,8 @@ ticket_triage/
 │   ├── view.js              its script, checked against the SDK's types
 │   └── icons/               the icons the view draws, check.svg and x.svg, with their LICENSE
 ├── icon.svg                 the plugin's icon, in the app
-├── example.json             the smallest payload, for agents
-├── sample.json              a review to look at
+├── samples/
+│   └── ticket_triage.json   a review to look at
 ├── pinrail-plugin.d.ts      the SDK's types, for your editor
 ├── README.md                what the plugin is, and how to try it
 ├── AGENTS.md                directs a coding agent to the building guide
@@ -57,7 +57,20 @@ ticket_triage/
 To build the view with React, Vue or Svelte, or to test it in a browser without the app, use the plugin SDK from a checkout of the Pinrail repository. See [Building with a framework](/docs/building/frameworks/).
 :::
 
-When the plugin is installed, Pinrail copies the folder except `src/`, `tests/`, `fixtures/`, `node_modules/`, package and tool configuration such as `package.json` and `vite.config.ts`, and hidden files. Everything else, including `AGENTS.md` and `pinrail-plugin.d.ts`, is copied and served with the view.
+Each of the files the app reads has a fixed place in the folder, so the manifest does not name them:
+
+| Path | Contents |
+|---|---|
+| `manifest.json` | Required. The plugin's name, version and declarations. |
+| `schemas/payload.schema.json` | Required. What an agent sends. |
+| `schemas/decision.schema.json` | Required. What the view hands back. |
+| `view/index.html` | Required. The view's page, with its scripts, styles, fonts and images beside it in `view/`. |
+| `templates/decision.md.j2` | Optional. A template that renders a decision as markdown. |
+| `icon.svg` | Optional. The plugin's icon, shown wherever the app names the plugin, in the text's colour. A [Lucide](https://lucide.dev/icons) icon fits the app best. |
+| `samples/` | Optional. Reviews to try the plugin with, one `<name>.json` file each, and the files they attach. |
+| `README.md`, `LICENSE` | Optional. What the plugin is, and the terms it is shared under. |
+
+When the plugin is installed, Pinrail copies these entries and nothing else. Sources, tests, fixtures, `node_modules/`, package and tool configuration, hidden files, `AGENTS.md` and `pinrail-plugin.d.ts` stay in your folder.
 
 ## The manifest
 
@@ -68,12 +81,6 @@ When the plugin is installed, Pinrail copies the folder except `src/`, `tests/`,
   "title": "Ticket triage",
   "description": "Support tickets sorted into keep, merge or close.",
   "use_when": "You triaged a queue of support tickets and need a person to confirm each call before you act on it.",
-  "icon": "icon.svg",
-  "payload_schema": { "$ref": "schemas/payload.schema.json" },
-  "decision_schema": { "$ref": "schemas/decision.schema.json" },
-  "example": "example.json",
-  "sample": "sample.json",
-  "entry": "view/index.html",
   "min_height": 200
 }
 ```
@@ -85,11 +92,6 @@ When the plugin is installed, Pinrail copies the folder except `src/`, `tests/`,
 | `title` | What the app calls the plugin in its lists and settings. |
 | `description` | A sentence on what the plugin is for. |
 | `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins` when they choose a plugin. |
-| `icon` | An SVG file in the folder, shown wherever the app names the plugin, in the text's colour. A [Lucide](https://lucide.dev/icons) icon fits the app best. |
-| `payload_schema`, `decision_schema` | JSON Schema 2020-12, inline or as a `$ref` to a file inside the folder. |
-| `example` | A JSON file inside the folder with a payload that passes `payload_schema`. Agents get it as a starting point, and read it whole every time they describe the plugin, so keep it to the fewest items that show the shape: one of each kind, short texts, files by name rather than inline. |
-| `sample` | A review anyone can send to see the plugin: a request file inside the folder with a `title`, a `payload` and any files. See [A sample to look at](#a-sample-to-look-at). |
-| `entry` | The view's HTML file, relative to the folder. |
 | `min_height` | The smallest height, in pixels, the app gives the view. |
 
 Write `use_when` for an agent deciding between plugins: name the moment, not the feature. *You triaged a queue of support tickets and need a person to confirm each call* tells an agent when to reach for the plugin; *Ticket triage view* does not.
@@ -310,17 +312,25 @@ The person sees every file a review carries, whatever the plugin draws: the inbo
 
 ## A sample to look at
 
-`example` is for agents: the smallest payload that passes. A sample is for people. It's a whole review, with a title, a realistic payload and the files it refers to. Someone who has just installed your plugin sends it from its details in *Settings › Plugins*, or with `pinrail submit ticket_triage --sample`, and sees what your view does before any agent uses it.
+A sample is a whole review, with a title, a realistic payload and the files it refers to. Someone who has just installed your plugin sends it from its details in *Settings › Plugins*, or with `pinrail submit ticket_triage --sample`, and sees what your view does before any agent uses it.
 
-```json title="sample.json"
+Each sample is a file in `samples/`, named after the sample:
+
+```json title="samples/ticket_triage.json"
 {
   "title": "Support queue — 4 stale tickets",
   "payload": { "tickets": [ … ] },
-  "attachments": { "screenshot.png": "sample/screenshot.png" }
+  "attachments": { "screenshot.png": "screenshot.png" }
 }
 ```
 
-It has the shape `pinrail submit --request` reads: `title` and `payload` are required, and `attachments` maps each name the payload refers to onto a file, relative to the sample and inside the folder. Keep the sample and its files out of `fixtures/`: installs leave that folder behind. A good fixture usually makes a good sample. If the sample cannot be loaded, the plugin works without one, and its row in *Settings › Plugins* shows the reason.
+It has the shape `pinrail submit --request` reads: `title` and `payload` are required, and `attachments` maps each name the payload refers to onto a file in `samples/`, relative to it. A good fixture usually makes a good sample.
+
+A plugin can have several samples. `pinrail submit ticket_triage --sample stale_queue` sends `samples/stale_queue.json`, and `--sample` alone sends the first in order of name. *Settings › Plugins* offers a button for each.
+
+The first sample's payload is also the plugin's example: `pinrail plugins describe` shows it to an agent as a starting point, and agents read it whole every time they describe the plugin. Keep that sample to the fewest items that show the shape, and put fuller reviews in the samples after it.
+
+If a sample cannot be loaded, the plugin works without it, and its row in *Settings › Plugins* shows the reason. `pinrail plugins check` notes a plugin that has no samples.
 
 ## Look like the app
 
@@ -399,12 +409,7 @@ The `pinrail` command prints a decision as markdown for the agent. Without a tem
 {% endfor %}
 ```
 
-```json title="manifest.json" ins={3}
-{
-  "entry": "view/index.html",
-  "decision_template": "templates/decision.md.j2"
-}
-```
+The app uses the template when the plugin has one at `templates/decision.md.j2`.
 
 Templates are written in [MiniJinja](https://docs.rs/minijinja). Each object in `items` has a `payload` field that holds the object with the same `id` from the review's payload, wherever the payload nests it. The template also receives `review`, `decision`, `data` and `note`. The app writes the heading itself, so every plugin's output starts the same way.
 

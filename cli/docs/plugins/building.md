@@ -13,7 +13,7 @@ another kind of answer does not do the job.
 
 ```sh
 pinrail plugins new <name> --dir <path>   # scaffold it; no build, nothing installed
-# make it yours: the decision and payload schemas, the view, example and sample
+# make it yours: the decision and payload schemas, the view, the samples
 pinrail plugins check <path>              # what the app would refuse, and why
 pinrail plugins install <path> --link     # the app serves the folder live
 pinrail submit <name> --sample            # a real review of its sample, in the person's inbox
@@ -25,18 +25,21 @@ pinrail withdraw <id>                     # when you are done with the sample
   and lists it in the person's plugins; `pinrail plugins remove <name>`
   undoes it. Linking a plugin the person's task needs is part of that
   task. `plugins new --link` scaffolds and links in one step.
-- A manifest needs `name`, `version`, `payload_schema` and
-  `decision_schema`. Always give `use_when` too, the moment an agent
-  should ask with the plugin, specific: agents choose by it. `icon` is an
-  SVG file in the folder, `icon.svg` in the scaffold.
-- The view is `view/index.html` and `view/view.js`; the SDK's types are in
-  `pinrail-plugin.d.ts`. The scaffold sets `"entry": "view/index.html"`;
-  without it the app looks for `index.html` at the folder's top.
-- The scaffold includes `example.json`, the smallest payload that passes,
-  for agents, and `sample.json`, a whole review, `title` and `payload`,
-  for people to see the plugin. Both are optional, and go together with
-  the payload schema and the view: a change to the payload's shape
-  touches all four.
+- A manifest needs `name` and `version`. Always give `use_when` too, the
+  moment an agent should ask with the plugin, specific: agents choose by
+  it.
+- Each file has a fixed place, which the manifest does not name:
+  `schemas/payload.schema.json` and `schemas/decision.schema.json`
+  (required), `view/index.html` (required, with its scripts and assets in
+  `view/`), `templates/decision.md.j2`, `icon.svg`, `samples/<name>.json`,
+  `README.md` and `LICENSE`. An install copies these and nothing else.
+  The SDK's types are in `pinrail-plugin.d.ts`.
+- A sample, `samples/<name>.json`, is a whole review (`title`, `payload`
+  and any `attachments`, relative to `samples/`) for people to see the
+  plugin. `--sample <name>` sends one; `--sample` alone sends the first
+  by name. The first sample's payload is also the example agents get
+  from `pinrail plugins describe`, so keep it small. A change to the
+  payload's shape touches the payload schema, the view and the samples.
 - `summary` in the manifest declares what the app counts for the inbox
   and history: arrays of the payload (`request`) and of the decision
   (`outcome`), by a field such as `severity` or `action`, each value with

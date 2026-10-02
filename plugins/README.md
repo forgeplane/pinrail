@@ -47,19 +47,21 @@ Every plugin here uses the same layout:
 
 ```
 review/
-  manifest.json           # name, version, the schemas and the entry, by path
+  manifest.json           # name, version, title and the plugin's declarations
   README.md
+  icon.svg                # the plugin's icon
   view/index.html         # the page the app serves, with the files it loads
   schemas/                # payload.schema.json and decision.schema.json
   templates/              # decision.md.j2, when the plugin writes its own Markdown
-  example.json            # a payload that passes payload_schema, shown to agents
+  samples/                # <name>.json, reviews to try the plugin with; the first is the agents' example
   fixtures/               # payloads for development and tests, and recorded decisions
   tests/                  # the plugin's Playwright tests under the SDK's harness
   src/                    # only for a plugin with a build: the sources the build turns into view/
 ```
 
-When a plugin is installed, everything except `src/`, `tests/`, `fixtures/`,
-`node_modules/` and hidden files is copied into the app.
+When a plugin is installed, only `manifest.json`, `icon.svg`, `README.md`,
+`LICENSE` and the folders `schemas/`, `view/`, `templates/` and `samples/`
+are copied into the app, without hidden files.
 
 A plugin's view always runs in a sandbox, however the plugin was
 installed. Installing from a source that needs a build runs the build

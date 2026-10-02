@@ -21,7 +21,8 @@ use your checkout instead, add `--sdk file:<path to pinrail/pinrail-plugin>`.
 
 What the app needs from a built view:
 
-- `entry` in the manifest names the built page, such as `view/index.html`.
+- The build writes the page to `view/index.html`, with its scripts and
+  styles beside it in `view/`.
 - `build` in the manifest is the command an installation runs, such as
   `npm ci && npm run build`. A plugin installed with `--link` is served as
   it is, so build it yourself first.

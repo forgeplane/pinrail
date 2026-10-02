@@ -84,7 +84,7 @@ window.addEventListener("message", (event) => {
     case "attachment": answerAttachment(msg); break;
   }
 });
-// the view is whatever the manifest names as its entry; index.html by default
+// the view's page, view/index.html in the bundle the harness serves
 const entry = new URLSearchParams(location.search).get("entry") || "index.html";
 frame.src = entry + "#pinrail-theme=" + theme;
 </script>

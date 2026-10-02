@@ -15,7 +15,7 @@ A plugin with a view of a screen or two needs no framework and no build: an HTML
 
 ## What the app needs from a build
 
-- **An HTML page in the folder.** The manifest's `entry` names the built page, such as `view/index.html`, and the page's scripts and styles sit beside it.
+- **An HTML page at `view/index.html`.** The build writes the page there, and the page's scripts and styles beside it in `view/`.
 - **A `build` command in the manifest**, such as `npm ci && npm run build`. Installing from a folder or a repository runs it, after showing it to the person. A plugin linked for development (`--link`) is served as it is, so build it yourself first.
 - **A build that finishes by itself.** Pinrail gives the build no input, so a step that asks a question fails at once. Pinrail also stops any build that runs longer than 15 minutes. Everything the build writes, to stdout or stderr, goes to its log.
 - **Relative paths.** The app serves the plugin under a path of its own, so the build must refer to its files relatively: with Vite, `base: "./"`.
@@ -28,7 +28,7 @@ The plugin's manifest, and the schemas every framework's version shares:
 
 ## 1. Create the folder
 
-Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on, with a `sample.json` to send and an `AGENTS.md` that directs a coding agent to `pinrail docs plugins/building`:
+Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on, with a sample to send and an `AGENTS.md` that directs a coding agent to `pinrail docs plugins/building`:
 
 ```sh
 # from a checkout of github.com/forgeplane/pinrail
@@ -44,7 +44,7 @@ This page builds Ship it? instead. Choose a framework, and every example on this
 
 A plugin written by `create` takes the SDK from the SDK's GitHub release. The examples on this page take it from the Pinrail repository instead. The SDK is not published to npm.
 
-The manifest is the same for every framework. Its `entry` is the built page, and `build` is the command an install runs:
+The manifest is the same for every framework. Its `build` is the command an install runs:
 
 ![Manifest](example:ship-it/react/manifest.json)
 
@@ -83,7 +83,7 @@ npm test                   # build, then the tests under the harness
 :::
 
 :::note[pinrail-plugin check: what the app would say]
-`pinrail-plugin check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing entry file. A missing entry is accepted while a declared build has not yet run, because the build writes it. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, an example that does not pass its own schema, or a template that cannot be read. `--json` prints the result for a script or CI.
+`pinrail-plugin check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. A missing `view/index.html` is accepted while a declared build has not yet run, because the build writes it. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
 :::
 
 A test mounts the built view alone and drives it the way a person would. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:

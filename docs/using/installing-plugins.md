@@ -63,8 +63,8 @@ flowchart TB
 
 1. **Fetch.** Pinrail copies the folder, clones the repository at the ref, or downloads the release's bundle.
 2. **Build, when declared.** A plugin written with a framework declares its build in the manifest, for example `"build": { "command": "npm ci && npm run build" }`. Pinrail runs it through the shell in a copy of the source, without `node_modules` or `.git`, shows the output as it runs, and keeps the log. A non-zero exit stops the install and shows the end of the log. The tools the command needs, such as `node` or `pnpm`, must be on your `PATH`.
-3. **Check.** The manifest, the schemas and the entry must be valid. A manifest without `build` whose entry file is missing is refused, with the reason.
-4. **Store.** Only the bundle is kept: `src/`, `tests/`, `fixtures/`, `node_modules/`, dot-files and package and tool configuration stay behind. The copy is stored under the plugin's name and major version, hashed and recorded with where it came from.
+3. **Check.** The manifest, the schemas and `view/index.html` must be valid. A plugin without `build` whose `view/index.html` is missing is refused, with the reason.
+4. **Store.** Only the bundle is kept: `manifest.json`, `icon.svg`, `README.md`, `LICENSE` and the folders `schemas/`, `view/`, `templates/` and `samples/`, without hidden files. Everything else, such as sources, tests, fixtures and `node_modules/`, stays behind. The copy is stored under the plugin's name and major version, hashed and recorded with where it came from.
 
 ## Versions and updates
 

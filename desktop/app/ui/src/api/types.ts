@@ -90,7 +90,7 @@ export type Plugin = {
   entry: string;
   min_height: number;
   dev: boolean;
-  /** a lucide icon name, when the manifest sets one */
+  /** the markup of the plugin's icon.svg, when it has one */
   icon: string | null;
   usable: boolean;
   error: string | null;

@@ -131,9 +131,8 @@ package instead, as the templates do: `lucide-react`, `@lucide/vue`,
 icons the view imports, and the stylesheet sizes an `svg.lucide` element to
 the text, as it does for `Pinrail.icon`.
 
-The manifest's `icon` is also an SVG file in the plugin's folder, such as
-`icon.svg`. The app shows it, drawn the same way, wherever it names the
-plugin.
+The plugin's own icon is `icon.svg`, at the top of its folder. The app
+shows it, drawn the same way, wherever it names the plugin.
 
 The SDK also provides two helpers. `Pinrail.escape(s)` escapes text for use
 in HTML. `Pinrail.previousVerdict(previous, id)` returns the verdict on an
@@ -232,11 +231,11 @@ checkout.
 
 The new folder contains the following files:
 
-- `manifest.json`, at version `0.1.0`, which refers to the schemas with
-  `$ref` and names the entry. Replace its `description` and `use_when`.
-- `example.json`, a payload that passes the payload schema.
-- `sample.json`, a complete review with a `title` and a `payload`. `pinrail
-  submit <name> --sample` and the app's Settings send it.
+- `manifest.json`, at version `0.1.0`. Replace its `description` and
+  `use_when`.
+- `samples/<name>.json`, a complete review with a `title` and a `payload`.
+  `pinrail submit <name> --sample` and the app's Settings send it, and its
+  payload is the example that agents get.
 - `schemas/`, with one property in each schema and a description of what to
   replace.
 - `view/index.html` and `view/view.js`, a yes-or-no question with comments in
@@ -321,14 +320,13 @@ and without installing anything. It needs the `pinrail` command. It
 reports two kinds of results:
 
 - A **problem** means that the app would refuse the folder. Problems concern
-  the manifest, the name, the version, the entry (or the build that writes
-  it), and the schemas with their `$ref` references.
+  the manifest, the name, the version, `view/index.html` (or the build that
+  writes it), and the schemas in `schemas/`.
 - A **warning** means that the app would install the plugin but drop one
   feature, and show the reason on the plugin's row. Warnings concern a
-  `settings_schema`, `shortcuts`, `decision_template`, `example`, `sample`,
-  `summary` or `icon` that is not valid, an icon that is not an SVG file in
-  the folder, an example that does not pass the payload schema, and a sample
-  without a title, a valid payload or its files.
+  `settings_schema`, `shortcuts` or `summary` that is not valid, an
+  `icon.svg` that is not an SVG file, a template that does not compile, and
+  a sample without a title, a valid payload or its files.
 
 `--json` prints the same results as JSON. The command exits with 0 when the
 app would take the plugin and with 2 when it would refuse it.

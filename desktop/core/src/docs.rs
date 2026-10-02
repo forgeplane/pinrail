@@ -101,7 +101,7 @@ pub fn manifest_page() -> String {
         "\nIf {} or {last} is invalid, the plugin loses only that feature, and the problem is shown on its row in Settings. \
          Any other invalid key means the plugin cannot be used. The formats of `settings_schema` and `shortcuts` are described in \
          [Settings and keys of a plugin](/docs/building/settings-and-keys/). \
-         `pinrail plugins check <folder>` checks a plugin folder against the same schema, together with the files the manifest names.\n",
+         `pinrail plugins check <folder>` checks a plugin folder against the same schema, together with the files at the places [the folder's layout](/docs/building/writing/#create-the-folder) gives them.\n",
         rest.join(", ")
     );
     page
