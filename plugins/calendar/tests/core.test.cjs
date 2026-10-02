@@ -7,7 +7,10 @@ const payload = require("../fixtures/01-personal-assistant.json").payload;
 const fresh = () => C.restore(payload, null);
 
 test("every supplied fixture is semantically valid", () => {
-  for (const name of fs.readdirSync(path.join(__dirname, "../fixtures")).filter((n) => n.endsWith(".json"))) {
+  for (const name of fs
+    .readdirSync(path.join(__dirname, "../fixtures"))
+    // a fixture's expected summaries are beside it, and are not a review
+    .filter((n) => n.endsWith(".json") && !n.endsWith(".summary.json"))) {
     const review = require("../fixtures/" + name);
     assert.equal(C.validate(review.payload), review.payload);
     if (review.decision)

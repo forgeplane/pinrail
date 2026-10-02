@@ -8,7 +8,10 @@ const fresh = () => C.restore(p, null);
 
 test("all fixtures pass semantic validation and the decided fixture round-trips", () => {
   // the .md beside a decided fixture is what the app renders it to, not a review
-  for (const name of fs.readdirSync(path.join(__dirname, "../fixtures")).filter((n) => n.endsWith(".json"))) {
+  for (const name of fs
+    .readdirSync(path.join(__dirname, "../fixtures"))
+    // a fixture's expected summaries are beside it, and are not a review
+    .filter((n) => n.endsWith(".json") && !n.endsWith(".summary.json"))) {
     const review = require("../fixtures/" + name);
     C.validate(review.payload);
     if (review.decision)
