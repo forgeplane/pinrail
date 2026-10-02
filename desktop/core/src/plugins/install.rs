@@ -1420,6 +1420,9 @@ fn install_dir(
     {
         return Err(refusal);
     }
+    if let Some(refusal) = breaks_its_line(registry, &record, &bundle, options.force) {
+        return Err(refusal);
+    }
     commit(db, registry, record, Some(&bundle))
 }
 
@@ -1679,6 +1682,66 @@ fn older_than_current(
         )));
     }
     Ok(None)
+}
+
+/// Refuses a release whose schemas break what its line's reviews hold, as
+/// [`pinrail_format::compat`] judges it. Forcing it is for the person's
+/// own plugins only: the reviews of a published plugin's line are not
+/// theirs to break.
+fn breaks_its_line(
+    registry: &Registry,
+    record: &InstallRecord,
+    bundle: &crate::db::BundleRecord,
+    force: bool,
+) -> Option<Error> {
+    let current = registry.line_bundle(&record.plugin, &bundle.line)?;
+    if current == bundle.hash {
+        return None;
+    }
+    let breaks = pinrail_format::compat::plugin_breaks(
+        &registry.bundles().path(&current),
+        &registry.bundles().path(&bundle.hash),
+    );
+    let own = record.publisher == LOCAL_PUBLISHER;
+    if breaks.is_empty() || (force && own) {
+        return None;
+    }
+    const SHOWN: usize = 10;
+    let mut listed: Vec<String> = breaks
+        .iter()
+        .take(SHOWN)
+        .map(|b| format!("- {}: {}", b.path, b.message))
+        .collect();
+    if breaks.len() > SHOWN {
+        listed.push(format!("- and {} more", breaks.len() - SHOWN));
+    }
+    Some(Error::invalid(
+        "/source",
+        format!(
+            "{} {} breaks what the reviews of line {} hold:\n{}\nRelease it as {} to start a new line{}",
+            record.plugin,
+            bundle.version,
+            bundle.line,
+            listed.join("\n"),
+            next_line(&bundle.version),
+            if own {
+                ", or pass force to replace the line anyway"
+            } else {
+                ""
+            }
+        ),
+    ))
+}
+
+/// The first version of the line after the one `version` is on: `2.0.0`
+/// after `1.4.2`, `0.4.0` after `0.3.1`.
+fn next_line(version: &str) -> String {
+    let (major, minor, _) = semver(version);
+    if major > 0 {
+        format!("{}.0.0", major + 1)
+    } else {
+        format!("0.{}.0", minor + 1)
+    }
 }
 
 /// The installation a source makes, with `line` the line its new reviews

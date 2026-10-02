@@ -3699,6 +3699,120 @@ async fn a_failed_build_leaves_the_lines_current_bundle() {
     assert_eq!(built["version"], "1.0.0");
 }
 
+/// An update within a line must keep what the line's reviews hold: one
+/// whose schema breaks that is refused, with the breaks and the line to
+/// release it on instead. A plugin of the person's own, from a folder, can
+/// be forced.
+#[tokio::test]
+async fn an_update_that_breaks_its_lines_schema_is_refused() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let first = plugin_copy(&scratch.path().join("a"), "hello", "1.0.0");
+    let (status, row) = install(&app, &first, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let bundle = row["install"]["bundle"].as_str().unwrap().to_string();
+
+    // a description and an optional field: allowed
+    let compatible = plugin_copy(&scratch.path().join("b"), "hello", "1.1.0");
+    let path = compatible.join("schemas/decision.schema.json");
+    let mut decision: Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    decision["properties"]["mood"] = json!({"type": "string", "description": "How it felt."});
+    std::fs::write(&path, decision.to_string()).unwrap();
+    let (status, row) = install(&app, &compatible, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    let allowed = row["install"]["bundle"].as_str().unwrap().to_string();
+    assert_ne!(allowed, bundle);
+
+    // the comment now required: refused, the line as it was
+    let breaking = plugin_copy(&scratch.path().join("c"), "hello", "1.2.0");
+    let path = breaking.join("schemas/decision.schema.json");
+    decision["required"] = json!(["ok", "comment"]);
+    std::fs::write(&path, decision.to_string()).unwrap();
+    let (status, body) = install(&app, &breaking, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let message = body["error"].as_str().unwrap();
+    assert!(
+        message.contains("schemas/decision.schema.json#/required: makes comment required")
+            && message.contains("2.0.0"),
+        "{message}"
+    );
+    assert_eq!(
+        app.state.plugins().line_bundle("local/hello", "1"),
+        Some(allowed)
+    );
+
+    // the person's own plugin can be forced
+    let (status, row) = install(&app, &breaking, json!({"force": true})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["version"], "1.2.0");
+}
+
+/// A published plugin's breaking release cannot be forced onto its line:
+/// its reviews are not only the person's own development.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_published_plugins_breaking_release_cannot_be_forced() {
+    use std::io::Write;
+    let release = |version: &str, decision: &Value| {
+        let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let plain = zip::write::SimpleFileOptions::default();
+        for (path, content) in [
+            ("manifest.json", bundle_manifest("strict", version)),
+            ("view/index.html", "<html>strict</html>".to_string()),
+            ("schemas/payload.schema.json", "{}".to_string()),
+            ("schemas/decision.schema.json", decision.to_string()),
+        ] {
+            out.start_file(path, plain).unwrap();
+            out.write_all(content.as_bytes()).unwrap();
+        }
+        out.finish().unwrap().into_inner()
+    };
+    let mut assets = std::collections::HashMap::new();
+    let open = json!({"type": "object", "properties": {"ok": {"type": "boolean"}}});
+    let strict =
+        json!({"type": "object", "required": ["ok"], "properties": {"ok": {"type": "boolean"}}});
+    assets.insert("strict-1.0.0.zip".to_string(), release("1.0.0", &open));
+    assets.insert("strict-1.1.0.zip".to_string(), release("1.1.0", &strict));
+    let fake = Arc::new(Releases {
+        latest: Default::default(),
+        releases: Default::default(),
+        assets,
+        base: Default::default(),
+    });
+    let base = releases_server(fake.clone()).await;
+    let app = app_with(|c| c.github_api = base.clone());
+    fake.release("acme/strict", "v1.0.0", &["strict-1.0.0.zip"]);
+    fake.release("acme/strict", "v1.1.0", &["strict-1.1.0.zip"]);
+    let (status, row) = install(
+        &app,
+        Path::new("https://github.com/acme/strict/releases/tag/v1.0.0"),
+        json!({}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["plugin"], "acme/strict");
+    for force in [false, true] {
+        let (status, body) = install(
+            &app,
+            Path::new("https://github.com/acme/strict/releases/tag/v1.1.0"),
+            json!({"force": force}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{force}: {body}");
+        assert!(
+            body["error"]
+                .as_str()
+                .unwrap()
+                .contains("makes ok required"),
+            "{body}"
+        );
+    }
+    assert_eq!(
+        app.state.plugins().line_bundle("acme/strict", "1"),
+        row["install"]["bundle"].as_str().map(str::to_string)
+    );
+}
+
 /// Runs git in `dir` as a fixed author, and returns what it printed.
 fn git_in(dir: &std::path::Path, args: &[&str]) -> String {
     let out = std::process::Command::new("git")
