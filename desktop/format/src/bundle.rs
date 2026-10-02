@@ -32,6 +32,14 @@ pub fn in_layout(top: &str) -> bool {
     TOP_FILES.contains(&top) || TOP_FOLDERS.contains(&top)
 }
 
+/// Whether a path in a source folder, relative to it with `/` between its
+/// parts, is one a bundle taken from that folder holds: it is under the
+/// layout, and neither it nor a folder on the way is hidden.
+pub fn holds(path: &str) -> bool {
+    let top = path.split('/').next().unwrap_or_default();
+    in_layout(top) && !path.split('/').any(|part| part.starts_with('.'))
+}
+
 /// Where the files come from, which decides what happens to an entry
 /// outside the layout.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -478,6 +486,30 @@ mod tests {
             refused,
             "view/.DS_Store: a hidden file, which a bundle does not hold"
         );
+    }
+
+    #[test]
+    fn a_path_is_held_when_under_the_layout_and_not_hidden() {
+        for held in [
+            "manifest.json",
+            "view/index.html",
+            "samples/a/b.glb",
+            "LICENSE",
+        ] {
+            assert!(holds(held), "{held} left out");
+        }
+        for left in [
+            ".env",
+            ".git/config",
+            "node_modules/a/index.js",
+            "src/main.ts",
+            "package.json",
+            "notes.txt",
+            "view/.DS_Store",
+            "samples/.cache/a.json",
+        ] {
+            assert!(!holds(left), "{left} held");
+        }
     }
 
     #[test]

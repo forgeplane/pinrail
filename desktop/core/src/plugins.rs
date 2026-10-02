@@ -23,6 +23,6 @@ pub use sample::Sample;
 pub use service::{PluginService, UpdateOutcome};
 pub use summary::Declaration as SummaryDeclaration;
 
-pub(crate) use install::{in_the_bundle, tidy};
+pub(crate) use install::tidy;
 pub(crate) use manifest::version_of;
 pub(crate) use registry::{Registry, install_builtin};

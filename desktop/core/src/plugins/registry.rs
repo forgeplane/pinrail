@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 use include_dir::{Dir, include_dir};
+use pinrail_format::bundle::{Listing, Taken};
 use serde_json::Value;
 
 use super::manifest::{Install, MANIFEST, Plugin};
@@ -22,48 +23,10 @@ pub fn is_builtin(name: &str) -> bool {
     BUILTIN.dirs().any(|d| d.path().to_string_lossy() == name)
 }
 
-/// SHA-256 over a directory's files: each relative path and its bytes, in
-/// sorted order, with the same exclusions the copier applies.
-pub(super) fn hash_dir(dir: &Path) -> std::io::Result<String> {
-    hash_dir_where(dir, &|name| {
-        name != "node_modules" && !name.starts_with('.')
-    })
-}
-
-/// `hash_dir` over the entries `keep` admits, by name, at every level.
-pub(super) fn hash_dir_where(dir: &Path, keep: &dyn Fn(&str) -> bool) -> std::io::Result<String> {
-    use sha2::{Digest, Sha256};
-    fn walk(
-        root: &Path,
-        dir: &Path,
-        keep: &dyn Fn(&str) -> bool,
-        out: &mut Vec<PathBuf>,
-    ) -> std::io::Result<()> {
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
-            if !keep(&entry.file_name().to_string_lossy()) {
-                continue;
-            }
-            let path = entry.path();
-            if entry.file_type()?.is_dir() {
-                walk(root, &path, keep, out)?;
-            } else {
-                out.push(path.strip_prefix(root).unwrap_or(&path).to_path_buf());
-            }
-        }
-        Ok(())
-    }
-    let mut files = Vec::new();
-    walk(dir, dir, keep, &mut files)?;
-    files.sort();
-    let mut hasher = Sha256::new();
-    for relative in files {
-        hasher.update(relative.to_string_lossy().as_bytes());
-        hasher.update([0]);
-        hasher.update(std::fs::read(dir.join(&relative))?);
-        hasher.update([0]);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
+/// The hash of the bundle a folder holds, as `pinrail_format::bundle`
+/// takes it.
+pub(super) fn bundle_hash(dir: &Path, taken: Taken) -> Result<String, String> {
+    Listing::of_folder(dir, taken).map(|listing| listing.hash())
 }
 
 /// Writes the embedded plugins into `dir`, one folder each, and returns `dir`.
@@ -323,7 +286,9 @@ impl Registry {
             };
             let mut plugin = Plugin::load(&dir);
             let modified = match (&record.hash, record.linked) {
-                (Some(expected), false) => hash_dir(&dir).map(|h| &h != expected).unwrap_or(true),
+                (Some(expected), false) => bundle_hash(&dir, Taken::AsBundle)
+                    .map(|h| &h != expected)
+                    .unwrap_or(true),
                 _ => false,
             };
             // Listed under the record's name, whatever the folder holds:
@@ -478,6 +443,20 @@ mod tests {
         assert_eq!(r.fetch("feedback").unwrap().path, builtin.join("feedback"));
         assert!(r.fetch("feedback").unwrap().install.is_none());
         assert!(r.fetch("list").is_ok());
+    }
+
+    #[test]
+    fn a_builtin_plugin_ships_its_bundle_and_nothing_else() {
+        let tmp = tempfile::tempdir().unwrap();
+        let builtin = install_builtin(&tmp.path().join("builtin")).unwrap();
+        for name in ["list", "feedback"] {
+            let source = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../plugins")
+                .join(name);
+            let bundle = Listing::of_folder(&source, Taken::FromSource).unwrap();
+            let shipped = Listing::of_folder(&builtin.join(name), Taken::AsBundle);
+            assert_eq!(shipped, Ok(bundle), "{name}");
+        }
     }
 
     #[test]

@@ -21,10 +21,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use chrono::Utc;
+use pinrail_format::bundle::{Listing, Taken};
 use serde_json::{Map, Value};
 
 use super::jobs::Progress;
-use super::registry::hash_dir;
 use crate::db::{Db, InstalledRecord};
 use crate::error::Error;
 use crate::plugins::{Plugin, Registry};
@@ -458,7 +458,7 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
                     "path" => {
                         build.is_none()
                             && r.hash.is_some()
-                            && super::registry::hash_dir_where(dir, &in_the_bundle).ok() == r.hash
+                            && super::registry::bundle_hash(dir, Taken::FromSource).ok() == r.hash
                     }
                     "git" => r.commit.is_some() && r.commit == prepared.origin.commit,
                     _ => r.asset_hash.is_some() && r.asset_hash == prepared.origin.asset_hash,
@@ -1205,7 +1205,7 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
             // bundle that was
             let source = Path::new(&record.resolved);
             match (
-                super::registry::hash_dir_where(source, &in_the_bundle),
+                super::registry::bundle_hash(source, Taken::FromSource),
                 &record.hash,
             ) {
                 (Ok(now), Some(then)) if &now == then => {
@@ -1335,33 +1335,27 @@ fn install_dir(
         let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
         return Err(refusal);
     }
-    // a link could point anywhere on the machine, and a copy would carry
-    // what it points to into the store
-    if let Some(link) = first_link(&staged)? {
-        let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
-        return Err(Error::invalid(
-            "/source",
-            format!(
-                "the plugin contains a symbolic link, which Pinrail does not install: {}",
-                link.strip_prefix(&staged).unwrap_or(&link).display()
-            ),
-        ));
-    }
+    // what the store takes: the files of the layout, and only those; a
+    // link, which could point anywhere on the machine, is refused
+    let listing = match Listing::of_folder(&staged, Taken::FromSource) {
+        Ok(listing) => listing,
+        Err(why) => {
+            let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
+            return Err(Error::invalid(
+                "/source",
+                format!("the plugin cannot be installed: {why}"),
+            ));
+        }
+    };
 
     progress(Progress::Step("placing"));
     let _changing = registry.changing();
-    let placed = place(registry, &plugin, &staged);
+    let placed = place(registry, &plugin, &staged, &listing);
     if build.is_some() {
         let _ = std::fs::remove_dir_all(&staged);
     }
     let placed = placed?;
-    let hash = match hash_dir(&placed.entry) {
-        Ok(hash) => hash,
-        Err(error) => {
-            placed.undo();
-            return Err(error.into());
-        }
-    };
+    let hash = listing.hash();
     let record = record_for(
         &plugin,
         &origin,
@@ -1717,33 +1711,6 @@ fn commit(
     Ok(record)
 }
 
-/// What never enters the store: sources and the tooling that builds them.
-/// The bundle is what is left.
-const NOT_IN_THE_BUNDLE: &[&str] = &[
-    "node_modules",
-    "src",
-    "tests",
-    "test",
-    "fixtures",
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "bun.lockb",
-    "tsconfig.json",
-];
-
-/// Whether a file or folder of this name belongs to a plugin's bundle, at
-/// any depth: what an install copies, and what is served for a linked one.
-pub(crate) fn in_the_bundle(name: &str) -> bool {
-    !name.starts_with('.')
-        && !NOT_IN_THE_BUNDLE.contains(&name)
-        && !name.starts_with("tsconfig.")
-        && !name.starts_with("vite.config.")
-        && !name.starts_with("vitest.config.")
-        && !name.starts_with("playwright.config.")
-}
-
 /// A bundle swapped into its store entry, with what the entry held kept
 /// beside it until the registry takes the new one.
 struct Placed {
@@ -1772,14 +1739,19 @@ impl Placed {
 /// Copies the plugin's bundle into the store entry for its line, whole or
 /// not at all: the copy lands beside the entry and takes its place with
 /// one rename, and what the entry held is moved aside, not deleted.
-fn place(registry: &Registry, plugin: &Plugin, dir: &Path) -> Result<Placed, Error> {
+fn place(
+    registry: &Registry,
+    plugin: &Plugin,
+    dir: &Path,
+    listing: &Listing,
+) -> Result<Placed, Error> {
     let entry = registry.store_entry(&plugin.name, plugin.version as i64);
     let staging = entry.with_extension("staging");
     let _ = std::fs::remove_dir_all(&staging);
     if let Some(parent) = entry.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    copy_bundle(dir, &staging)?;
+    copy_bundle(dir, listing, &staging)?;
     let old = entry.with_extension("old");
     let _ = std::fs::remove_dir_all(&old);
     let old = if entry.exists() {
@@ -1798,47 +1770,14 @@ fn place(registry: &Registry, plugin: &Plugin, dir: &Path) -> Result<Placed, Err
     Ok(Placed { entry, old })
 }
 
-/// The first symbolic link among the files a copy of the plugin would hold.
-fn first_link(dir: &Path) -> std::io::Result<Option<PathBuf>> {
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
-        if !in_the_bundle(&entry.file_name().to_string_lossy()) {
-            continue;
+/// Copies the files of `listing` from `from` into `to`.
+fn copy_bundle(from: &Path, listing: &Listing, to: &Path) -> std::io::Result<()> {
+    for file in &listing.files {
+        let target = to.join(&file.path);
+        if let Some(parent) = target.parent() {
+            std::fs::create_dir_all(parent)?;
         }
-        let kind = entry.file_type()?;
-        if kind.is_symlink() {
-            return Ok(Some(entry.path()));
-        }
-        if kind.is_dir()
-            && let Some(link) = first_link(&entry.path())?
-        {
-            return Ok(Some(link));
-        }
-    }
-    Ok(None)
-}
-
-fn copy_bundle(from: &Path, to: &Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(to)?;
-    for entry in std::fs::read_dir(from)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        if !in_the_bundle(&name.to_string_lossy()) {
-            continue;
-        }
-        // refused before the copy; never followed here either
-        if entry.file_type()?.is_symlink() {
-            return Err(std::io::Error::other(format!(
-                "symbolic link {}",
-                entry.path().display()
-            )));
-        }
-        let target = to.join(&name);
-        if entry.file_type()?.is_dir() {
-            copy_bundle(&entry.path(), &target)?;
-        } else {
-            std::fs::copy(entry.path(), target)?;
-        }
+        std::fs::copy(from.join(&file.path), target)?;
     }
     Ok(())
 }
@@ -2078,7 +2017,7 @@ mod source_tests {
 
 #[cfg(test)]
 mod bundle_tests {
-    use super::{Path, Unpacking, in_the_bundle, unzip, unzip_within};
+    use super::{Path, Unpacking, unzip, unzip_within};
 
     fn zipped(entries: &[&str]) -> Vec<u8> {
         use std::io::Write;
@@ -2144,27 +2083,5 @@ mod bundle_tests {
         unzip(&zipped(&["manifest.json", "view/index.html"]), into.path()).unwrap();
         assert!(into.path().join("manifest.json").is_file());
         assert!(into.path().join("view/index.html").is_file());
-    }
-
-    #[test]
-    fn the_bundle_is_what_the_view_needs_and_not_the_tooling() {
-        for kept in ["manifest.json", "index.html", "view", "schemas", "icon.svg"] {
-            assert!(in_the_bundle(kept), "{kept} left out");
-        }
-        for dropped in [
-            ".git",
-            ".env",
-            "node_modules",
-            "src",
-            "tests",
-            "fixtures",
-            "package.json",
-            "tsconfig.json",
-            "vite.config.ts",
-            "vitest.config.ts",
-            "playwright.config.ts",
-        ] {
-            assert!(!in_the_bundle(dropped), "{dropped} kept");
-        }
     }
 }

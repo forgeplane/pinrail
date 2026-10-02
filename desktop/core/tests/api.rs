@@ -13,6 +13,7 @@ use http_body_util::BodyExt;
 use pinrail_core::Config;
 use pinrail_core::Pinrail;
 use pinrail_core::api::router;
+use pinrail_format::bundle::{Listing, Taken};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 
@@ -1098,6 +1099,8 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
         ("src/main.ts", "x"),
         ("package.json", "{}"),
         ("view/.secret", "x"),
+        ("notes.txt", "x"),
+        ("cache/build.bin", "x"),
     ] {
         let path = hello.join(file);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -1116,6 +1119,8 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
         "src/main.ts",
         "package.json",
         "view/.secret",
+        "notes.txt",
+        "cache/build.bin",
     ] {
         let (status, body) = raw(&app, "GET", &format!("/plugins/hello/1/{file}"), &host, "").await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{file}: {body}");
@@ -2433,6 +2438,30 @@ fn copy_tree(from: &Path, to: &Path) {
     }
 }
 
+/// Every file under `dir`, by its path relative to it with `/` between
+/// the parts, sorted.
+fn files_under(dir: &std::path::Path) -> Vec<String> {
+    fn walk(root: &std::path::Path, dir: &std::path::Path, out: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(root, &path, out);
+            } else {
+                let relative = path.strip_prefix(root).unwrap();
+                out.push(relative.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir, dir, &mut out);
+    out.sort();
+    out
+}
+
+fn files_under_listing(listing: &Listing) -> Vec<String> {
+    listing.files.iter().map(|f| f.path.clone()).collect()
+}
+
 fn plugin_copy(root: &std::path::Path, name: &str, version: &str) -> std::path::PathBuf {
     let from = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../plugins")
@@ -2502,6 +2531,12 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     std::fs::write(hello.join(".env"), "TOKEN=secret").unwrap();
     std::fs::create_dir_all(hello.join("node_modules/x")).unwrap();
     std::fs::write(hello.join("node_modules/x/index.js"), "").unwrap();
+    // and what the layout does not name: notes, a cache, a hidden file
+    std::fs::write(hello.join("notes.txt"), "to do").unwrap();
+    std::fs::create_dir_all(hello.join("cache")).unwrap();
+    std::fs::write(hello.join("cache/build.bin"), "x").unwrap();
+    std::fs::write(hello.join("view/.DS_Store"), "x").unwrap();
+    let bundle = Listing::of_folder(&hello, Taken::FromSource).unwrap();
     let (status, row) = install(&app, &hello, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["name"], "hello");
@@ -2524,6 +2559,9 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
         !entry.join("node_modules").exists(),
         "node_modules reached the store"
     );
+    // the store holds the bundle: its files, and its hash
+    assert_eq!(files_under(&entry), files_under_listing(&bundle));
+    assert_eq!(row["install"]["hash"], bundle.hash());
     assert_eq!(row["path"], entry.display().to_string());
 
     // a review renders from the line and records the exact version
@@ -2663,6 +2701,8 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     std::fs::create_dir_all(plain.join("tests")).unwrap();
     std::fs::write(plain.join("tests/plain.spec.ts"), "test").unwrap();
     std::fs::write(plain.join(".editorconfig"), "root = true").unwrap();
+    std::fs::write(plain.join("notes.txt"), "to do").unwrap();
+    std::fs::write(plain.join("view/.DS_Store"), "x").unwrap();
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/hello/updates", None).await;
     assert_eq!(updates["state"], "up_to_date", "{updates}");
     std::fs::write(plain.join("view/index.html"), "<html>changed</html>").unwrap();

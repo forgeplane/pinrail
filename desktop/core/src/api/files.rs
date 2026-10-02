@@ -62,10 +62,7 @@ async fn bundle(
     // Only what an installed copy holds, whichever way the plugin was
     // installed: a linked plugin is served from its developer's folder,
     // with its hidden files, dependencies and sources beside the view.
-    if path
-        .split('/')
-        .any(|part| !crate::plugins::in_the_bundle(part))
-    {
+    if !pinrail_format::bundle::holds(&path) {
         return StatusCode::NOT_FOUND.into_response();
     }
     // A view loads its files as a page, scripts, styles, fonts and images,
