@@ -243,6 +243,38 @@ impl Source {
         })
     }
 
+    /// Who publishes the plugins this source holds. It comes from where a
+    /// plugin comes from and never from its manifest, so no plugin can take
+    /// another's: a repository's owner on its host, lowercased, with a
+    /// group path joined by `.` (`gitlab.com/acme/tools/review` gives
+    /// `acme.tools`); a release's owner; and `local` for a folder or a
+    /// repository on this machine.
+    pub fn publisher(&self) -> String {
+        let owner_path = |url: &str| -> Option<String> {
+            // the part after the host: `git@host:a/b/c.git`, `scheme://host/a/b/c`
+            let rest = match url.split_once("://") {
+                Some(("file", _)) => return None,
+                Some((_, rest)) => rest.split_once('/')?.1,
+                None => url.split_once(':')?.1,
+            };
+            let mut parts: Vec<&str> = rest
+                .trim_end_matches('/')
+                .trim_end_matches(".git")
+                .split('/')
+                .filter(|p| !p.is_empty())
+                .collect();
+            parts.pop()?;
+            (!parts.is_empty()).then(|| parts.join(".").to_lowercase())
+        };
+        match self {
+            Source::Folder(_) => LOCAL_PUBLISHER.to_string(),
+            Source::Git { url, .. } => {
+                owner_path(url).unwrap_or_else(|| LOCAL_PUBLISHER.to_string())
+            }
+            Source::Release { owner, .. } => owner.to_lowercase(),
+        }
+    }
+
     fn folder_in_repo(p: &str) -> Result<String, Error> {
         let clean = p.trim_matches('/');
         if clean.is_empty() || clean.split('/').any(|seg| seg == ".." || seg == ".") {
@@ -270,6 +302,13 @@ impl Source {
         }
     }
 }
+
+/// The publisher of a plugin from a folder, a link, or a repository on
+/// this machine.
+pub const LOCAL_PUBLISHER: &str = "local";
+
+/// The publisher of the plugins that ship with the app.
+pub const BUNDLED_PUBLISHER: &str = "forgeplane";
 
 /// What a fetch of a git source produced: the checkout and its commit.
 struct Fetched {
@@ -1841,6 +1880,32 @@ pub use pinrail_format::semver;
 #[cfg(test)]
 mod source_tests {
     use super::Source;
+
+    #[test]
+    fn the_publisher_comes_from_where_the_plugin_comes_from() {
+        for (text, publisher) in [
+            ("https://github.com/acme/plugins", "acme"),
+            ("https://github.com/Acme/plugins.git", "acme"),
+            ("https://github.com/acme/plugins/tree/v3/review", "acme"),
+            ("github.com/acme/plugins/review@v3", "acme"),
+            ("https://github.com/acme/plugins/releases/tag/v1.0.0", "acme"),
+            ("https://github.com/Acme/plugins/releases", "acme"),
+            ("https://codeberg.org/acme/plugins", "acme"),
+            ("git@github.com:acme/plugins.git", "acme"),
+            ("ssh://git@github.com/acme/plugins.git", "acme"),
+            ("git@gitlab.com:acme/tools/review.git", "acme.tools"),
+            ("ssh://git@gitlab.com/acme/tools/sub/review", "acme.tools.sub"),
+            ("file:///home/me/plugins", "local"),
+            ("./review", "local"),
+            ("/abs/review", "local"),
+        ] {
+            assert_eq!(
+                Source::parse(text, None, None).unwrap().publisher(),
+                publisher,
+                "{text}"
+            );
+        }
+    }
 
     fn git(url: &str, path: Option<&str>, reference: Option<&str>) -> Source {
         Source::Git {
