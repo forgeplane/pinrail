@@ -98,20 +98,20 @@ The recipe is three steps, in any CI or by hand:
 
 ## Choosing the version
 
-Each version is on a line, a promise to every review already created with your plugin. From `1.0.0` on, the line is the major version. Before `1.0.0`, it is the major and the minor, so a plugin still finding its shape can make a breaking change from `0.3` to `0.4`. Pinrail keeps the latest release of each line that reviews use, and a review keeps rendering with the line it was created on.
+Each review keeps the release it was submitted to, so a new release never changes the reviews already made. The version is a promise to the agents that use your plugin:
 
 | You changed | Release as |
 |---|---|
-| A fix in the view, or a new optional field | The same line: `1.2.0` → `1.3.0`, or `0.3.0` → `0.3.1`. Existing reviews pick it up. |
-| A schema, or the view, in a way an old review would not survive | A new line: `1.3.0` → `2.0.0`, or `0.3.1` → `0.4.0`. Old reviews keep their line. |
+| A fix in the view, or a new optional field | A minor or a patch: `1.2.0` → `1.3.0`, or `0.3.0` → `0.3.1`. |
+| A schema, in a way an earlier payload or decision would not pass | A new major: `1.3.0` → `2.0.0`. Before `1.0.0`, a new minor: `0.3.1` → `0.4.0`. |
 
-Pinrail refuses an update whose schemas break what its line's reviews hold: a removed property, a newly required one, a changed `type`, a removed `enum` value, or any other change to what a schema accepts. New optional properties and new `enum` values are allowed. Check a release before you publish it:
+Check a release against the previous one before you publish it:
 
 ```sh
 pinrail plugins check . --since ../previous-release
 ```
 
-The command lists each break and the version that would start a new line, and exits with `2` when the release breaks its line. See [Versions](/docs/building/writing/#versions) for the full rule.
+The command lists what the new schemas no longer accept, such as a removed property, a newly required one or a changed `type`, and exits with `2` when the version does not announce the break. See [Versions](/docs/building/writing/#versions) for the full rule.
 
 ## How people install and update it
 

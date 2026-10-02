@@ -88,7 +88,7 @@ When the plugin is installed, Pinrail copies these entries and nothing else. Sou
 | Key | What it does |
 |---|---|
 | `name` | The plugin's identifier. Agents submit to it: `pinrail submit ticket_triage`. |
-| `version` | Semantic, such as `"1.2.0"`. Its line is a compatibility promise; see [Versions](#versions). |
+| `version` | Semantic, such as `"1.2.0"`. See [Versions](#versions). |
 | `title` | What the app calls the plugin in its lists and settings. |
 | `description` | A sentence on what the plugin is for. |
 | `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins` when they choose a plugin. |
@@ -389,14 +389,16 @@ To test the view on its own, in a browser without the app, use the test harness 
 
 ## Versions
 
-Each version is on a line, which is a promise to every review already created. From `1.0.0` on, the line is the major version: `1.4.2` is on line `1`. Before `1.0.0`, the line is the major and the minor, as in Cargo: `0.3.1` is on line `0.3`. The app keeps the latest release of each line your reviews use, and a review renders and validates with the line it was created on, even after you release the next one.
+Each review keeps the release of your plugin it was submitted to, and always renders and validates with it. A new release is for new reviews, so it can change anything without breaking the reviews already made, and a decided review shows what the person saw.
 
-- Fix the view or add an optional field: release a new version on the same line. Existing reviews pick it up.
-- Change a schema or the view in a way an old review would not survive: start a new line, `2.0.0` after `1.4.2`, or `0.4.0` after `0.3.1`. Old reviews keep their line, and new ones get the new one.
+Agents rely on the version, though: an agent that wrote its payloads for `1.3.0` expects `1.4.0` to take them. Follow semantic versioning:
 
-A release on the same line must keep every payload and decision that the line's reviews hold. Pinrail compares its payload and decision schemas with the current release's, and refuses the update if they break:
+- Fix the view or add an optional field: raise the minor or the patch.
+- Change a schema in a way an earlier payload or decision would not pass: raise the major, `2.0.0` after `1.4.2`. Before `1.0.0`, raise the minor, `0.4.0` after `0.3.1`.
 
-| Change to a schema | On the same line |
+`pinrail plugins check ./ticket_triage --since ./previous-release` compares your release's schemas with the previous one's, and lists what the new ones no longer accept. It exits with `2` when the release breaks what the previous one took without announcing it in its version:
+
+| Change to a schema | Without a new major version |
 |---|---|
 | A new optional property | Allowed |
 | A new `enum` value | Allowed |
@@ -406,8 +408,6 @@ A release on the same line must keep every payload and decision that the line's 
 | Any change of `type`, even to a wider one | Breaks |
 | A removed `enum` value | Breaks |
 | Any other change to what the schema accepts, such as `pattern`, `maxLength` or `additionalProperties` | Breaks |
-
-`pinrail plugins check ./ticket_triage --since ./previous-release` applies the same comparison before you publish. It lists each break and the version that would start a new line, and exits with `2` when the release breaks its line.
 
 ## Decisions as markdown
 

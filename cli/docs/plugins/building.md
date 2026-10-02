@@ -40,11 +40,12 @@ pinrail withdraw <id>                     # when you are done with the sample
   by name. The first sample's payload is also the example agents get
   from `pinrail plugins describe`, so keep it small. A change to the
   payload's shape touches the payload schema, the view and the samples.
-- A release on the same line, such as `1.4.0` after `1.3.2`, may only add
-  optional properties and `enum` values to the schemas; any other change
-  is refused as an update, so start a new line (`2.0.0`, or `0.4.0`
-  after `0.3.x`). `pinrail plugins check <dir> --since <previous release
-  dir>` says whether a release keeps its line.
+- Each review keeps the release it was submitted to, so a new release
+  never breaks stored reviews. Agents rely on the version: a release
+  whose schemas no longer accept what the previous one took needs a new
+  major version (`2.0.0`, or `0.4.0` after `0.3.x`).
+  `pinrail plugins check <dir> --since <previous release dir>` lists such
+  breaks.
 - `summary` in the manifest declares what the app counts for the inbox
   and history: arrays of the payload (`request`) and of the decision
   (`outcome`), by a field such as `severity` or `action`, each value with
