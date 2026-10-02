@@ -123,6 +123,23 @@ pub fn version_of(value: &Value) -> Option<(String, i64)> {
     Some((text.to_string(), major))
 }
 
+/// The compatibility line of a version, `major.minor.patch`: the major
+/// from 1 on, and below it the major and minor, as Cargo reads `0.x`
+/// versions. `1.4.2` is on line `1`, `0.3.1` on `0.3` and `0.0.4` on `0.0`.
+/// A version that is not three numbers has no line.
+pub fn line_of(version: &str) -> Option<String> {
+    let (version, _) = version_of(&Value::from(version))?;
+    let mut parts = version.split('.').map(|p| p.parse::<u64>());
+    let (Some(Ok(major)), Some(Ok(minor))) = (parts.next(), parts.next()) else {
+        return None;
+    };
+    Some(if major > 0 {
+        major.to_string()
+    } else {
+        format!("0.{minor}")
+    })
+}
+
 /// What a check says of a manifest key the schema does not define.
 const UNKNOWN_KEY: &str =
     "not a manifest key: a typo, or a key for a newer Pinrail; the app ignores it";
@@ -982,6 +999,23 @@ fn read_inside(dir: &Path, file: &str) -> std::io::Result<String> {
 mod tests {
 
     use super::*;
+
+    #[test]
+    fn the_line_of_a_version_is_its_major_or_below_one_its_minor() {
+        for (version, line) in [
+            ("1.4.2", "1"),
+            ("2.0.0", "2"),
+            ("10.3.7", "10"),
+            ("0.3.1", "0.3"),
+            ("0.12.0", "0.12"),
+            ("0.0.4", "0.0"),
+        ] {
+            assert_eq!(line_of(version).as_deref(), Some(line), "{version}");
+        }
+        for version in ["1.4", "1", "", "v1.0.0", "1.0.0-beta", "1.x.0", "1.0.0.0"] {
+            assert_eq!(line_of(version), None, "{version}");
+        }
+    }
 
     /// A plugin reads only files inside its folder: an entry that climbs
     /// out is refused, and a template or an example that a link carries
