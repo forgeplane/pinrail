@@ -209,7 +209,6 @@ function manifestPanel(m) {
       .join(", ");
     row("attachments", `${a.accept.map((k) => `<code>${escape(k)}</code>`).join(" ")}${limits ? ` · ${limits}` : ""}`);
   }
-  row("entry", m.entry ? `<code>${escape(m.entry)}</code>` : "");
   // the keys as keycaps, the way the docs write them everywhere else
   if (m.shortcuts?.length)
     row(
@@ -226,8 +225,8 @@ function contract(name, alt) {
   // a sample plugin by its name, or an example by its path under docs/examples
   const dir = name.includes("/") ? path.join(plugins, "../docs/examples", name) : path.join(plugins, name);
   const manifest = read(dir, "manifest.json");
-  const payload = document(dir, manifest.payload_schema);
-  const decision = document(dir, manifest.decision_schema);
+  const payload = read(dir, "schemas/payload.schema.json");
+  const decision = read(dir, "schemas/decision.schema.json");
   const tabs = [
     ["manifest", "Manifest", "manifest.json", manifestPanel(manifest), manifest],
     ["payload", "Payload", "what the agent sends", schemaPanel(payload), payload],
