@@ -224,7 +224,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail serve` | Start the app's server if it is not running, and print its URL. |
 | `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install, update or remove](/docs/using/installing-plugins/) them. |
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
-| `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. A plugin whose build writes its view is checked before that build runs, with a warning that the build has to write the entry. |
+| `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. A plugin whose build writes its view is checked before that build runs, with a warning that the build has to write the entry. It needs no running app. |
 | `pinrail plugins describe <name>` | What an agent needs to ask with a plugin; `--payload-schema`, `--example` or `--decision-schema` for one part alone. See [Learning what to ask](#learning-what-to-ask). |
 | `pinrail plugins versions <name>` | The versions of a plugin that reviews can still render with, one per major. |
 | `pinrail plugins reload` | Read every plugin again from disk, after changing a linked plugin's manifest or schemas. |
@@ -240,7 +240,7 @@ The CLI talks to the server the Pinrail app runs on your machine, and finds it o
 2. The `server.json` the running app writes into its data directory: `PINRAIL_DATA_DIR`, else `$XDG_DATA_HOME/pinrail`, else `~/.local/share/pinrail`.
 3. `http://127.0.0.1:4747`, or the port in `PINRAIL_PORT`.
 
-When nothing answers, `submit`, `serve`, `plugins`, `plugins describe`, `plugins check` and `plugins new --link` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
+When nothing answers, `submit`, `serve`, `plugins`, `plugins describe` and `plugins new --link` can start a server for you, if you say how with `PINRAIL_SERVER_CMD`. The app runs its server without a window with `--headless`:
 
 ```sh
 export PINRAIL_SERVER_CMD='/Applications/Pinrail.app/Contents/MacOS/Pinrail --headless'

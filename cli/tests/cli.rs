@@ -2425,33 +2425,100 @@ fn plugins_update_without_a_name_reports_every_plugin_when_one_fails() {
     );
 }
 
+/// The command with no app to talk to: the address it would use answers
+/// nothing.
+fn run_offline(args: &[&str]) -> (i32, String, String) {
+    let markdown = args.contains(&"--markdown");
+    let args: Vec<&str> = args
+        .iter()
+        .copied()
+        .filter(|a| *a != "--markdown")
+        .collect();
+    let mut cmd = pinrail();
+    if markdown {
+        cmd.env_remove("PINRAIL_JSON");
+    }
+    let out = cmd
+        .args(&args)
+        .env("PINRAIL_URL", "http://127.0.0.1:9")
+        .current_dir(std::env::temp_dir())
+        .output()
+        .unwrap();
+    (
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        String::from_utf8_lossy(&out.stderr).into_owned(),
+    )
+}
+
+fn repo_plugin(name: &str) -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../plugins")
+        .join(name)
+        .canonicalize()
+        .unwrap()
+}
+
+/// The check is the format's own, run by the command: no app is needed,
+/// and the exit code is the verdict.
 #[test]
-fn plugins_check_asks_the_app_about_the_folder_and_exits_by_its_verdict() {
+fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
+    let list = repo_plugin("list");
+    let (code, stdout, stderr) = run_offline(&["plugins", "check", list.to_str().unwrap()]);
+    assert_eq!(code, 0, "{stderr}");
+    let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(verdict["usable"], true, "{verdict}");
+    assert_eq!(verdict["name"], "list");
+    assert_eq!(verdict["problems"], serde_json::json!([]));
+    assert_eq!(verdict["warnings"], serde_json::json!([]));
+
+    // a missing entry costs the plugin; a broken sample, the sample
     let dir = tempdir();
-    let verdicts = Arc::new(Mutex::new(vec![
-        r#"{"usable":true,"name":"t","release":"0.1.0","problems":[],"warnings":[{"key":"sample","message":"sample.json: needs a title"}]}"#,
-        r#"{"usable":false,"name":null,"release":null,"problems":[{"message":"entry index.html not found"}],"warnings":[]}"#,
-    ]));
-    let expected = dir.canonicalize().unwrap().to_string_lossy().to_string();
-    let server = MockServer::start(Box::new(move |method, path, body| {
-        assert_eq!((method, path), ("POST", "/api/v1/plugins/check"));
-        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
-        assert_eq!(sent["dir"], expected.as_str(), "the folder, resolved");
-        (200, verdicts.lock().unwrap().remove(0).into())
-    }));
-    let (code, _, stderr) = run(&server, &["plugins", "check", dir.to_str().unwrap()]);
+    for f in [
+        "manifest.json",
+        "schemas/payload.schema.json",
+        "schemas/decision.schema.json",
+        "templates/decision.md.j2",
+        "example.json",
+        "icon.svg",
+    ] {
+        let to = dir.join(f);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::copy(list.join(f), to).unwrap();
+    }
+    std::fs::write(dir.join("sample.json"), r#"{"payload": {}}"#).unwrap();
+    let (code, stdout, _) = run_offline(&["plugins", "check", dir.to_str().unwrap(), "--markdown"]);
+    assert_eq!(code, 2);
+    assert!(
+        stdout.contains("the app would refuse it.\n\n- refused: entry view/index.html not found"),
+        "{stdout}"
+    );
+    std::fs::create_dir_all(dir.join("view")).unwrap();
+    std::fs::write(dir.join("view/index.html"), "").unwrap();
+    let (code, _, stderr) = run_offline(&["plugins", "check", dir.to_str().unwrap()]);
     assert_eq!(code, 0, "{stderr}");
     assert!(
         stderr.contains("pinrail: sample dropped: sample.json: needs a title"),
         "{stderr}"
     );
-    let (code, stdout, _) = run(
-        &server,
-        &["plugins", "check", dir.to_str().unwrap(), "--markdown"],
-    );
-    assert_eq!(code, 2);
-    assert!(
-        stdout.contains("the app would refuse it.\n\n- refused: entry index.html not found"),
-        "{stdout}"
+}
+
+/// A plugin as it is scaffolded with a framework, sources and a build but
+/// no view yet, is checked as an install would take it: before its build.
+#[test]
+fn plugins_check_takes_a_plugin_that_builds_its_view_before_its_build() {
+    let dir = tempdir();
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(
+        dir.join("manifest.json"),
+        r#"{"name": "fresh", "version": "1.0.0", "payload_schema": {}, "decision_schema": {}, "build": {"command": "npm run build"}}"#,
+    )
+    .unwrap();
+    let (code, stdout, stderr) = run_offline(&["plugins", "check", dir.to_str().unwrap()]);
+    assert_eq!(code, 0, "{stderr}");
+    let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        verdict["warnings"],
+        serde_json::json!([{ "key": "entry", "message": "entry index.html not found yet: the build (npm run build) has to write it" }])
     );
 }

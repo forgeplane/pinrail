@@ -965,7 +965,8 @@ fn run(cli: Cli) -> Result<u8> {
             let dir = dir
                 .canonicalize()
                 .with_context(|| format!("{} is not a folder here", dir.display()))?;
-            let verdict = client.plugins_check(&dir.to_string_lossy())?;
+            // the format's own check, the one the app loads plugins with
+            let verdict = pinrail_format::Plugin::check(&dir);
             if output.markdown {
                 print!(
                     "{}",

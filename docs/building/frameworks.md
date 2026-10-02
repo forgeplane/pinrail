@@ -83,7 +83,7 @@ npm test                   # build, then the tests under the harness
 :::
 
 :::note[pinrail-plugin check: what the app would say]
-`pinrail-plugin check` reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing entry file. A missing entry is accepted while a declared build has not yet run, because the build writes it. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, an example that does not pass its own schema, or a template that cannot be read. `pinrail plugins check` gives the same verdict through the app. `--json` prints the result for a script or CI.
+`pinrail-plugin check` reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing entry file. A missing entry is accepted while a declared build has not yet run, because the build writes it. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, an example that does not pass its own schema, or a template that cannot be read. `pinrail plugins check` gives the same verdict. `--json` prints the result for a script or CI.
 :::
 
 A test mounts the built view alone and drives it the way a person would. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:
