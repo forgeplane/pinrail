@@ -55,12 +55,16 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
             text(&w["message"])
         ));
     }
+    for n in verdict["notes"].as_array().into_iter().flatten() {
+        out.push_str(&format!("\n- note: {}", text(&n["message"])));
+    }
     if verdict["problems"]
         .as_array()
         .is_some_and(|a| !a.is_empty())
         || verdict["warnings"]
             .as_array()
             .is_some_and(|a| !a.is_empty())
+        || verdict["notes"].as_array().is_some_and(|a| !a.is_empty())
     {
         out.push('\n');
     }

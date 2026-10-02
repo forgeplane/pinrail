@@ -347,10 +347,11 @@ struct SubmitArgs {
     /// pinrail-cli]
     #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
-    /// Send the plugin's sample review, which shows what the plugin looks
-    /// like, instead of a payload. --title and --origin still apply
-    #[arg(long, conflicts_with_all = ["request", "data", "attachments", "revises", "expires_at", "dry_run"])]
-    sample: bool,
+    /// Send one of the plugin's sample reviews, which show what the plugin
+    /// looks like, instead of a payload: the one named, or else its first.
+    /// --title and --origin still apply
+    #[arg(long, value_name = "NAME", num_args = 0..=1, default_missing_value = "", conflicts_with_all = ["request", "data", "attachments", "revises", "expires_at", "dry_run"])]
+    sample: Option<String>,
     /// Wait until the review ends, whether or not it is decided (see wait)
     #[arg(long)]
     wait: bool,
@@ -1155,12 +1156,15 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if args.request.as_deref() == Some("-") && args.data.as_deref() == Some("-") {
         anyhow::bail!("--request and --data cannot both read stdin");
     }
-    if args.sample {
+    if let Some(which) = &args.sample {
         let plugin = args
             .plugin
             .as_deref()
             .context("--sample needs the plugin")?;
         let mut body = json!({});
+        if !which.is_empty() {
+            body["sample"] = json!(which);
+        }
         if let Some(title) = &args.title {
             body["title"] = json!(title);
         }

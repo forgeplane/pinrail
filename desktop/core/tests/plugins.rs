@@ -395,13 +395,7 @@ fn every_shipped_plugin_says_when_to_use_it_and_ships_an_example_and_a_sample() 
         // a view built from sources is not in a fresh checkout: stand in for it
         let copy = tempfile::tempdir().unwrap();
         copy_without_node_modules(&entry.path(), copy.path());
-        let manifest: Value = serde_json::from_str(
-            &std::fs::read_to_string(copy.path().join("manifest.json")).unwrap(),
-        )
-        .unwrap();
-        let view = copy
-            .path()
-            .join(manifest["entry"].as_str().unwrap_or("index.html"));
+        let view = copy.path().join("view/index.html");
         if !view.is_file() {
             std::fs::create_dir_all(view.parent().unwrap()).unwrap();
             std::fs::write(&view, "").unwrap();
@@ -414,15 +408,14 @@ fn every_shipped_plugin_says_when_to_use_it_and_ships_an_example_and_a_sample() 
             plugin.name
         );
         assert!(
-            plugin.example.is_some(),
+            plugin.sample_errors.is_empty(),
             "{}: {:?}",
             plugin.name,
-            plugin.example_error
+            plugin.sample_errors
         );
-        assert_eq!(plugin.sample_error, None, "{}", plugin.name);
+        assert!(plugin.example().is_some(), "{} has an example", plugin.name);
         let sample = plugin
-            .sample
-            .as_ref()
+            .sample(None)
             .unwrap_or_else(|| panic!("{} has no sample", plugin.name));
         assert!(!sample.title.is_empty(), "{}", plugin.name);
     }

@@ -50,8 +50,9 @@ impl PluginService {
         }
     }
 
-    /// The sample a usable plugin ships, or why there is none to send.
-    pub fn sample(&self, name: &str) -> Result<super::Sample, Error> {
+    /// The sample of a usable plugin, the one named or else its first, or
+    /// why there is none to send.
+    pub fn sample(&self, name: &str, which: Option<&str>) -> Result<super::Sample, Error> {
         let plugin = self
             .registry
             .all()
@@ -60,14 +61,21 @@ impl PluginService {
             .ok_or_else(|| {
                 Error::invalid("/plugin", format!("no usable plugin is named {name}"))
             })?;
-        match (&plugin.sample, &plugin.sample_error) {
-            (Some(sample), _) => Ok(sample.clone()),
-            (None, Some(why)) => Err(Error::invalid(
-                "/sample",
-                format!("{name}'s sample does not load: {why}"),
-            )),
-            (None, None) => Err(Error::invalid("/sample", format!("{name} has no sample"))),
+        if let Some(sample) = plugin.sample(which) {
+            return Ok(sample.clone());
         }
+        let names = plugin.sample_names();
+        Err(Error::invalid(
+            "/sample",
+            match (which, names.is_empty(), plugin.sample_errors.first()) {
+                (Some(which), false, _) => format!(
+                    "{name} has no sample named {which}; its samples are {}",
+                    names.join(", ")
+                ),
+                (_, true, Some(why)) => format!("{name}'s sample does not load: {why}"),
+                _ => format!("{name} has no sample"),
+            },
+        ))
     }
 
     /// Registered plugins with their effective settings over the supplied stored values.

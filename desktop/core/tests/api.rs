@@ -4075,9 +4075,34 @@ async fn a_plugin_sample_is_sent_over_http_and_listed_as_there() {
         .iter()
         .find(|p| p["name"] == "list")
         .unwrap();
-    assert_eq!(list["sample"], true);
+    assert_eq!(list["samples"], json!(["list"]));
     let (_, described) = call(&app, "GET", "/api/v1/plugins/list/describe", None).await;
-    assert_eq!(described["plugins"][0]["sample"], true);
+    assert_eq!(described["plugins"][0]["samples"], json!(["list"]));
+
+    // a sample sent by name, and a name the plugin has no sample of
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/list/sample",
+        Some(json!({ "sample": "list" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/list/sample",
+        Some(json!({ "sample": "nope" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        violations(&body),
+        [(
+            "/sample".to_string(),
+            "list has no sample named nope; its samples are list".to_string()
+        )]
+    );
 }
 
 #[tokio::test]

@@ -403,98 +403,86 @@ fn each_folder_gets_the_verdict_its_rules_give() {
             true,
             &[],
         ),
-        // an example payload, which must pass the payload schema
-        (
-            "example_ok",
-            base(json!({"example": "ex.json"})),
-            &[
-                (
-                    "schemas/payload.schema.json",
-                    r#"{"type": "object", "required": ["n"]}"#,
-                ),
-                ("ex.json", r#"{"n": 1}"#),
-            ],
-            true,
-            &[],
-        ),
-        (
-            "example_fails",
-            base(json!({"example": "ex.json"})),
-            &[
-                (
-                    "schemas/payload.schema.json",
-                    r#"{"type": "object", "required": ["n"]}"#,
-                ),
-                ("ex.json", r#"{"m": 1}"#),
-            ],
-            true,
-            &["example"],
-        ),
-        (
-            "example_missing",
-            base(json!({"example": "ex.json"})),
-            none,
-            true,
-            &["example"],
-        ),
-        (
-            "example_outside",
-            base(json!({"example": "../ex.json"})),
-            none,
-            true,
-            &["example"],
-        ),
-        // a sample: a request with a title, a payload that passes, its files
+        // samples: requests with a title and a payload that passes, their
+        // files beside them in samples/
         (
             "sample_ok",
-            base(json!({"sample": "s.json"})),
+            base(json!({})),
             &[
                 (
                     "schemas/payload.schema.json",
                     r#"{"type": "object", "required": ["n"]}"#,
                 ),
                 (
-                    "s.json",
+                    "samples/s.json",
                     r#"{"title": "t", "payload": {"n": 1}, "attachments": {"a.png": "a.png"}}"#,
                 ),
-                ("a.png", "png"),
+                ("samples/a.png", "png"),
             ],
             true,
             &[],
         ),
         (
             "sample_untitled",
-            base(json!({"sample": "s.json"})),
-            &[("s.json", r#"{"payload": {}}"#)],
+            base(json!({})),
+            &[("samples/s.json", r#"{"payload": {}}"#)],
             true,
-            &["sample"],
+            &["samples"],
         ),
         (
             "sample_fails",
-            base(json!({"sample": "s.json"})),
+            base(json!({})),
             &[
                 (
                     "schemas/payload.schema.json",
                     r#"{"type": "object", "required": ["n"]}"#,
                 ),
-                ("s.json", r#"{"title": "t", "payload": {"m": 1}}"#),
+                ("samples/s.json", r#"{"title": "t", "payload": {"m": 1}}"#),
             ],
             true,
-            &["sample"],
+            &["samples"],
         ),
         (
             "sample_file_missing",
-            base(json!({"sample": "s.json"})),
+            base(json!({})),
             &[(
-                "s.json",
+                "samples/s.json",
                 r#"{"title": "t", "payload": {}, "attachments": {"a.png": "a.png"}}"#,
             )],
             true,
-            &["sample"],
+            &["samples"],
         ),
         (
-            "sample_outside",
-            base(json!({"sample": "../s.json"})),
+            "sample_file_outside",
+            base(json!({})),
+            &[(
+                "samples/s.json",
+                r#"{"title": "t", "payload": {}, "attachments": {"a.png": "../../a.png"}}"#,
+            )],
+            true,
+            &["samples"],
+        ),
+        (
+            "samples_one_bad",
+            base(json!({})),
+            &[
+                ("samples/a.json", r#"{"title": "a", "payload": {}}"#),
+                ("samples/b.json", "{"),
+            ],
+            true,
+            &["samples"],
+        ),
+        // the keys that named the example and the sample
+        (
+            "example_key",
+            base(json!({"example": "ex.json"})),
+            none,
+            true,
+            &["example"],
+        ),
+        (
+            "sample_key",
+            base(json!({"sample": "s.json"})),
             none,
             true,
             &["sample"],
@@ -510,6 +498,25 @@ fn each_folder_gets_the_verdict_its_rules_give() {
             Plugin::check(&dir)
         );
     }
+}
+
+/// A plugin without samples is taken, with a note that agents and people
+/// get nothing to start from; one with samples gets no such note.
+#[test]
+fn a_plugin_without_samples_is_told_in_a_note() {
+    let tmp = tempfile::tempdir().unwrap();
+    let manifest = json!({"name": "bare", "version": "1.0.0"});
+    let bare = folder(tmp.path(), "bare", manifest.clone(), &[]);
+    let verdict = Plugin::check(&bare);
+    assert_eq!(verdict["usable"], true);
+    assert_eq!(verdict["notes"][0]["key"], "samples", "{verdict}");
+    let sampled = folder(
+        tmp.path(),
+        "sampled",
+        manifest,
+        &[("samples/s.json", r#"{"title": "t", "payload": {}}"#)],
+    );
+    assert_eq!(Plugin::check(&sampled)["notes"], json!([]));
 }
 
 /// Every official plugin is taken whole, with nothing dropped.

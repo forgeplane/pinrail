@@ -2077,6 +2077,19 @@ fn submit_sample_asks_for_the_plugins_sample_and_nothing_else() {
     assert!(stderr.contains("cannot be used with"), "{stderr}");
 }
 
+/// A sample named after --sample is the one asked for; without a name the
+/// app sends the plugin's first.
+#[test]
+fn submit_sample_names_the_sample_it_asks_for() {
+    let server = MockServer::start(Box::new(|_, _, body| {
+        let sent: serde_json::Value = serde_json::from_str(body).unwrap();
+        assert_eq!(sent["sample"], "triage", "{sent}");
+        (201, review("pending"))
+    }));
+    let (code, _, stderr) = run(&server, &["submit", "list", "--sample", "triage"]);
+    assert_eq!(code, 0, "{stderr}");
+}
+
 /// Each line of a listing sums the review up as its plugin declares: what
 /// a pending review asks, what an ended one decided.
 #[test]
@@ -2479,14 +2492,14 @@ fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
         "schemas/payload.schema.json",
         "schemas/decision.schema.json",
         "templates/decision.md.j2",
-        "example.json",
         "icon.svg",
     ] {
         let to = dir.join(f);
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
         std::fs::copy(list.join(f), to).unwrap();
     }
-    std::fs::write(dir.join("sample.json"), r#"{"payload": {}}"#).unwrap();
+    std::fs::create_dir_all(dir.join("samples")).unwrap();
+    std::fs::write(dir.join("samples/bad.json"), r#"{"payload": {}}"#).unwrap();
     let (code, stdout, _) = run_offline(&["plugins", "check", dir.to_str().unwrap(), "--markdown"]);
     assert_eq!(code, 2);
     assert!(
@@ -2498,7 +2511,7 @@ fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
     let (code, _, stderr) = run_offline(&["plugins", "check", dir.to_str().unwrap()]);
     assert_eq!(code, 0, "{stderr}");
     assert!(
-        stderr.contains("pinrail: sample dropped: sample.json: needs a title"),
+        stderr.contains("pinrail: samples dropped: samples/bad.json: needs a title"),
         "{stderr}"
     );
 }

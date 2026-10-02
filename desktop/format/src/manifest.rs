@@ -52,16 +52,12 @@ pub struct Plugin {
     pub summary_error: Option<String>,
     /// When an agent should ask with this plugin (the manifest's `use_when`).
     pub use_when: Option<String>,
-    /// A payload that passes the payload schema (the manifest's `example`,
-    /// a file beside it), for an agent to start from; `example_error` says
-    /// why a declared one was dropped.
-    pub example: Option<Value>,
-    pub example_error: Option<String>,
-    /// A review anyone can send to see the plugin (the manifest's
-    /// `sample`, a request file beside it); `sample_error` says why a
-    /// declared one was dropped.
-    pub sample: Option<crate::sample::Sample>,
-    pub sample_error: Option<String>,
+    /// Whole reviews anyone can send to see the plugin, from
+    /// `samples/<name>.json`, in order of name. The first one's payload is
+    /// the example an agent is shown. `sample_errors` says why each one
+    /// that does not load was dropped.
+    pub samples: Vec<crate::sample::Sample>,
+    pub sample_errors: Vec<String>,
     /// Top-level manifest keys the schema does not define: a typo, or a key
     /// a newer Pinrail reads. Kept, and warned about by a check.
     pub unknown_keys: Vec<String>,
@@ -161,6 +157,11 @@ const PLACED: &[(&str, &str)] = &[
         "decision_template",
         "the template is always templates/decision.md.j2",
     ),
+    (
+        "example",
+        "the example is the first sample's payload, in samples/",
+    ),
+    ("sample", "samples are samples/<name>.json"),
 ];
 
 impl Plugin {
@@ -195,10 +196,8 @@ impl Plugin {
                 summary: Default::default(),
                 summary_error: None,
                 use_when: None,
-                example: None,
-                example_error: None,
-                sample: None,
-                sample_error: None,
+                samples: Vec::new(),
+                sample_errors: Vec::new(),
                 unknown_keys: Vec::new(),
                 attachments: None,
                 install: None,
@@ -215,6 +214,15 @@ impl Plugin {
             return Self::load(dir).verdict();
         };
         let mut verdict = plugin.verdict();
+        // advice that costs the plugin nothing
+        let mut notes = Vec::new();
+        if plugin.samples.is_empty() && plugin.sample_errors.is_empty() {
+            notes.push(serde_json::json!({
+                "key": "samples",
+                "message": "no samples: agents get no example payload to start from, and people no review to try; add samples/<name>.json",
+            }));
+        }
+        verdict["notes"] = Value::Array(notes);
         let built = dir.join(&plugin.entry).is_file();
         // the bundle an install would make of the folder, once its view is
         // there; one it could not make refuses the folder
@@ -372,45 +380,9 @@ impl Plugin {
                 Err(message) => (Default::default(), Some(message)),
             },
         };
-        // an example that does not pass the plugin's own schema is dropped,
-        // so what an agent is shown always submits
-        let (example, example_error) = match manifest.get("example") {
-            _ if shape.dropped.contains_key("example") => {
-                (None, shape.dropped.get("example").cloned())
-            }
-            None | Some(Value::Null) => (None, None),
-            Some(Value::String(file)) => match read_inside(dir, file)
-                .map_err(|e| format!("{file}: cannot read ({e})"))
-                .and_then(|text| {
-                    serde_json::from_str::<Value>(&text)
-                        .map_err(|e| format!("{file}: not JSON ({e})"))
-                }) {
-                Ok(payload) => match payload_schema.validate(&payload).first() {
-                    None => (Some(payload), None),
-                    Some(v) => (
-                        None,
-                        Some(format!(
-                            "{file}: does not pass payload_schema at {}: {}",
-                            if v.path.is_empty() { "/" } else { &v.path },
-                            v.message
-                        )),
-                    ),
-                },
-                Err(message) => (None, Some(message)),
-            },
-            Some(_) => (None, None),
-        };
-        // likewise a sample that does not load
-        let (sample, sample_error) = match manifest.get("sample") {
-            _ if shape.dropped.contains_key("sample") => {
-                (None, shape.dropped.get("sample").cloned())
-            }
-            Some(Value::String(file)) => match crate::sample::load(dir, file, &payload_schema) {
-                Ok(sample) => (Some(sample), None),
-                Err(message) => (None, Some(message)),
-            },
-            _ => (None, None),
-        };
+        // each sample that does not load is dropped, so what is sent and
+        // what an agent is shown always submits
+        let (samples, sample_errors) = crate::sample::load_all(dir, &payload_schema);
         let use_when = manifest
             .get("use_when")
             .and_then(Value::as_str)
@@ -453,15 +425,34 @@ impl Plugin {
             summary,
             summary_error,
             use_when,
-            example,
-            example_error,
-            sample,
-            sample_error,
+            samples,
+            sample_errors,
             unknown_keys,
             attachments,
             install: None,
             error: None,
         })
+    }
+
+    /// The payload an agent is shown to start from: the first sample's.
+    pub fn example(&self) -> Option<&Value> {
+        self.samples.first().map(|sample| &sample.payload)
+    }
+
+    /// The samples' names, in order: what `--sample <name>` takes.
+    pub fn sample_names(&self) -> Vec<&str> {
+        self.samples
+            .iter()
+            .map(|sample| sample.name.as_str())
+            .collect()
+    }
+
+    /// The sample of this name, or the first when no name is given.
+    pub fn sample(&self, name: Option<&str>) -> Option<&crate::sample::Sample> {
+        match name {
+            None => self.samples.first(),
+            Some(name) => self.samples.iter().find(|sample| sample.name == name),
+        }
     }
 
     pub fn usable(&self) -> bool {
@@ -565,8 +556,8 @@ impl Plugin {
             "use_when": self.use_when,
             "payload_schema": self.schema_document("payload_schema"),
             "decision_schema": self.schema_document("decision_schema"),
-            "example": self.example,
-            "sample": self.sample.is_some(),
+            "example": self.example(),
+            "samples": self.sample_names(),
             "attachments": self.manifest.get("attachments"),
             "markdown": self.decision_template.is_some(),
         })
@@ -595,8 +586,6 @@ impl Plugin {
             ("shortcuts", &self.shortcuts_error),
             ("template", &self.template_error),
             ("summary", &self.summary_error),
-            ("example", &self.example_error),
-            ("sample", &self.sample_error),
             ("icon", &self.icon_error),
         ]
         .into_iter()
@@ -605,6 +594,11 @@ impl Plugin {
                 .as_ref()
                 .map(|message| serde_json::json!({ "key": key, "message": message }))
         })
+        .chain(
+            self.sample_errors
+                .iter()
+                .map(|message| serde_json::json!({ "key": "samples", "message": message })),
+        )
         .chain(self.unknown_keys.iter().map(|key| {
             let message = PLACED
                 .iter()
@@ -648,9 +642,8 @@ impl Plugin {
             "summary_error": self.summary_error,
             "description": self.manifest.get("description"),
             "use_when": self.use_when,
-            "example_error": self.example_error,
-            "sample": self.sample.is_some(),
-            "sample_error": self.sample_error,
+            "samples": self.sample_names(),
+            "sample_errors": self.sample_errors,
             "attachments": self.manifest.get("attachments"),
             "install": self.install.as_ref().map(Install::to_json),
         })
@@ -703,13 +696,7 @@ mod shape {
     pub const SCHEMA: &str = include_str!(concat!(env!("OUT_DIR"), "/manifest.schema.json"));
 
     /// Keys whose violation costs the plugin that feature, not its place.
-    pub const FEATURES: &[&str] = &[
-        "settings_schema",
-        "shortcuts",
-        "summary",
-        "example",
-        "sample",
-    ];
+    pub const FEATURES: &[&str] = &["settings_schema", "shortcuts", "summary"];
 
     pub struct Shape {
         /// violations that refuse the plugin, as `path: message`
@@ -1007,15 +994,12 @@ mod tests {
         let outside = root.path().join("other");
         std::fs::create_dir_all(&outside).unwrap();
         std::fs::write(outside.join("t.j2"), "{{ note }}").unwrap();
-        std::fs::write(outside.join("ex.json"), "{}").unwrap();
-        let linked = with_manifest(
-            root.path(),
-            "linked",
-            manifest(serde_json::json!({"example": "ex.json"})),
-        );
+        std::fs::write(outside.join("s.json"), r#"{"title": "t", "payload": {}}"#).unwrap();
+        let linked = with_manifest(root.path(), "linked", manifest(serde_json::json!({})));
         std::fs::create_dir_all(linked.join("templates")).unwrap();
+        std::fs::create_dir_all(linked.join("samples")).unwrap();
         std::os::unix::fs::symlink(outside.join("t.j2"), linked.join(TEMPLATE)).unwrap();
-        std::os::unix::fs::symlink(outside.join("ex.json"), linked.join("ex.json")).unwrap();
+        std::os::unix::fs::symlink(outside.join("s.json"), linked.join("samples/s.json")).unwrap();
         let loaded = Plugin::load(&linked);
         assert!(loaded.error.is_none(), "{:?}", loaded.error);
         assert!(
@@ -1023,8 +1007,8 @@ mod tests {
             "a template outside the folder was read"
         );
         assert!(
-            loaded.example.is_none(),
-            "an example outside the folder was read"
+            loaded.samples.is_empty(),
+            "a sample outside the folder was read"
         );
     }
 
@@ -1275,56 +1259,48 @@ mod tests {
     }
 
     #[test]
-    fn an_example_is_kept_when_it_passes_the_payload_schema_and_dropped_when_not() {
+    fn the_example_is_the_first_samples_payload_and_use_when_is_read() {
         use serde_json::json;
         let tmp = tempfile::tempdir().unwrap();
-        let with = |folder: &str, example: &str| {
-            let dir = with_manifest(
-                tmp.path(),
-                folder,
-                manifest(json!({"example": "example.json", "use_when": "Before posting"})),
-            );
-            std::fs::write(
-                dir.join(PAYLOAD_SCHEMA),
-                r#"{"type": "object", "required": ["n"]}"#,
-            )
-            .unwrap();
-            std::fs::write(dir.join("example.json"), example).unwrap();
-            Plugin::load(&dir)
-        };
-        let good = with("good", r#"{"n": 1}"#);
-        assert_eq!(good.example, Some(json!({"n": 1})));
-        assert_eq!(good.use_when.as_deref(), Some("Before posting"));
-        let bad = with("bad", r#"{"m": 1}"#);
-        assert!(bad.usable() && bad.example.is_none());
+        let dir = with_manifest(
+            tmp.path(),
+            "described",
+            manifest(json!({"use_when": "Before posting"})),
+        );
+        std::fs::write(
+            dir.join(PAYLOAD_SCHEMA),
+            r#"{"type": "object", "required": ["n"]}"#,
+        )
+        .unwrap();
+        std::fs::create_dir_all(dir.join("samples")).unwrap();
+        std::fs::write(
+            dir.join("samples/one.json"),
+            r#"{"title": "One", "payload": {"n": 1}}"#,
+        )
+        .unwrap();
+        let p = Plugin::load(&dir);
+        assert_eq!(p.use_when.as_deref(), Some("Before posting"));
+        assert_eq!(p.example(), Some(&json!({"n": 1})));
+        assert_eq!(p.describe()["example"], json!({"n": 1}));
+        assert_eq!(p.describe()["samples"], json!(["one"]));
+        assert_eq!(p.to_json()["samples"], json!(["one"]));
+
+        // a sample that does not pass is no example, and says why
+        std::fs::write(
+            dir.join("samples/one.json"),
+            r#"{"title": "One", "payload": {"m": 1}}"#,
+        )
+        .unwrap();
+        let p = Plugin::load(&dir);
+        assert_eq!(p.example(), None);
+        let warning = &p.verdict()["warnings"][0];
+        assert_eq!(warning["key"], "samples");
         assert!(
-            bad.example_error
-                .as_deref()
+            warning["message"]
+                .as_str()
                 .unwrap()
                 .contains("does not pass payload_schema"),
-            "{:?}",
-            bad.example_error
-        );
-        let broken = with("broken", "{");
-        assert!(
-            broken
-                .example_error
-                .as_deref()
-                .unwrap()
-                .contains("not JSON")
-        );
-        let missing = Plugin::load(&with_manifest(
-            tmp.path(),
-            "missing",
-            manifest(json!({"example": "nope.json"})),
-        ));
-        assert!(
-            missing.usable()
-                && missing
-                    .example_error
-                    .as_deref()
-                    .unwrap()
-                    .contains("cannot read")
+            "{warning}"
         );
     }
 

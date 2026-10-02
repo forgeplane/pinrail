@@ -18,17 +18,18 @@ pinrail plugins install . --link       # the app serves this folder live; keep t
 Then, from an agent's session:
 
 ```sh
-pinrail submit __NAME__ --title "Push the branch?" --data example.json --wait
+pinrail submit __NAME__ --sample --wait
 ```
 
 ## Layout
 
 ```
-manifest.json       name, version, the schemas, the entry and the build, by path
+manifest.json       name, version, title, and the build command
 src/                index.html and main.ts: the view, typed against pinrail-plugin/types
 view/               the build; the app serves it in a sandboxed frame (not versioned)
 schemas/            payload and decision, JSON Schema 2020-12
 fixtures/           payloads to develop and test with
+samples/            reviews to look at: pinrail submit __NAME__ --sample
 tests/              the Playwright spec the harness runs
 ```
 

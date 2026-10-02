@@ -4,8 +4,6 @@
   "title": "Calendar",
   "description": "Times to arrange on a calendar around what is already booked: pick one suggested slot per item, or leave it for the agent.",
   "use_when": "You found candidate times for appointments, meetings or interviews and need the person to choose one for each, around their existing calendar, before you book anything.",
-  "example": "example.json",
-  "sample": "sample.json",
   "summary": {
     "request": { "counts": [{ "items": "/items", "label": "event", "plural": "events" }] },
     "outcome": {

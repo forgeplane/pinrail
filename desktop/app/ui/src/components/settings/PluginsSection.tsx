@@ -317,12 +317,12 @@ function PluginEntry({
     }
   };
 
-  // its sample, sent as a review and opened
+  // one of its samples, sent as a review and opened
   const [sending, setSending] = useState(false);
-  const sendSample = async () => {
+  const sendSample = async (sample?: string) => {
     setSending(true);
     try {
-      const review = await api.sendSample(p.name);
+      const review = await api.sendSample(p.name, sample ? { sample } : {});
       onOpenReview(review.id);
     } catch (e) {
       setSending(false);
@@ -418,8 +418,8 @@ function PluginEntry({
       </span>
     ) : p.settings_error ? (
       <span className="danger">Settings ignored: {p.settings_error}</span>
-    ) : p.sample_error ? (
-      <span className="danger">Sample ignored: {p.sample_error}</span>
+    ) : p.sample_errors?.length ? (
+      <span className="danger">Sample ignored: {p.sample_errors.join("; ")}</span>
     ) : null);
 
   return (
@@ -572,18 +572,35 @@ function PluginEntry({
               </>
             ) : null}
           </dl>
-          {p.usable && p.sample ? (
+          {p.usable && p.samples?.length ? (
             <div className="settings-plugin-actions">
-              <button
-                type="button"
-                className="chrome-button"
-                onClick={sendSample}
-                disabled={sending}
-                data-plugin-sample
-              >
-                <Send size={13} /> Send a sample
-              </button>
-              <span className="dim">A review with made-up content, to see how it looks</span>
+              {p.samples.length === 1 ? (
+                <button
+                  type="button"
+                  className="chrome-button"
+                  onClick={() => sendSample()}
+                  disabled={sending}
+                  data-plugin-sample
+                >
+                  <Send size={13} /> Send a sample
+                </button>
+              ) : (
+                p.samples.map((sample) => (
+                  <button
+                    key={sample}
+                    type="button"
+                    className="chrome-button"
+                    onClick={() => sendSample(sample)}
+                    disabled={sending}
+                    data-plugin-sample={sample}
+                  >
+                    <Send size={13} /> {sample}
+                  </button>
+                ))
+              )}
+              <span className="dim">
+                {p.samples.length === 1 ? "A review" : "Reviews"} with made-up content, to see how it looks
+              </span>
             </div>
           ) : null}
           {entries.length ? (

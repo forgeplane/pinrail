@@ -93,7 +93,7 @@ export const api = {
   listReviews: (params: Record<string, string | undefined> = {}) =>
     request<ReviewListing>("GET", `/api/v1/reviews${query(params)}`),
   /** a plugin's sample, sent as a new review: what `pinrail submit <plugin> --sample` does */
-  sendSample: (plugin: string, body: { title?: string } = {}) =>
+  sendSample: (plugin: string, body: { title?: string; sample?: string } = {}) =>
     request<Review>("POST", `/api/v1/plugins/${seg(plugin)}/sample`, body),
   getReview: (id: string) => request<Review>("GET", `/api/v1/reviews/${seg(id)}`),
   rounds: (id: string) => request<Review[]>("GET", `/api/v1/reviews/${seg(id)}/rounds`),

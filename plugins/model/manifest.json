@@ -4,8 +4,6 @@
   "title": "3D model review",
   "description": "Candidate 3D models, sent as GLB files, each one to orbit under studio light, from set views and the agent's own, with its size and triangle count. Pick a favourite, keep or drop the rest, and click a part to ask for a change to it.",
   "use_when": "You made candidate 3D models or scenes (GLB files, or small three.js JSON) and need a person to pick one, shortlist or drop the rest, and ask for changes to parts of a model.",
-  "example": "example.json",
-  "sample": "sample.json",
   "attachments": {
     "accept": [
       ".glb",

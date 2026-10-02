@@ -1,0 +1,41 @@
+{
+  "title": "Ship payments-api v2.4.1 to production?",
+  "payload": {
+    "service": "payments-api",
+    "version": "v2.4.1",
+    "environment": "production",
+    "changes": [
+      {
+        "title": "Retry card captures once on a gateway timeout"
+      },
+      {
+        "title": "Add the refunds index on ledger_entries",
+        "risky": true
+      },
+      {
+        "title": "Log the idempotency key with each capture"
+      }
+    ],
+    "checks": [
+      {
+        "name": "Unit and integration tests",
+        "passed": true,
+        "detail": "1,284 passed"
+      },
+      {
+        "name": "Migration dry run",
+        "passed": true,
+        "detail": "4.2s on a copy of production"
+      },
+      {
+        "name": "Canary",
+        "passed": false,
+        "detail": "p99 latency 180 ms over the baseline"
+      },
+      {
+        "name": "Security scan",
+        "passed": true
+      }
+    ]
+  }
+}

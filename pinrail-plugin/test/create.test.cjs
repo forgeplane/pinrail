@@ -31,14 +31,13 @@ test("the plain template is a whole plugin, named throughout", async () => {
     "AGENTS.md",
     "CLAUDE.md",
     "README.md",
-    "example.json",
     "fixtures/basic.json",
     "icon.svg",
     "manifest.json",
     "package.json",
     "pinrail-plugin.d.ts",
     "playwright.config.ts",
-    "sample.json",
+    "samples/ticket_triage.json",
     "schemas/decision.schema.json",
     "schemas/payload.schema.json",
     "tests/ticket_triage.spec.ts",
@@ -62,8 +61,12 @@ test("the plain template is a whole plugin, named throughout", async () => {
   assert.equal(fs.existsSync(path.join(dir, "view/index.html")), true);
   assert.equal(fs.existsSync(path.join(dir, "schemas/payload.schema.json")), true);
   assert.equal(manifest.build, undefined);
-  assert.equal(manifest.sample, "sample.json");
-  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "sample.json"), "utf8")).title.length > 0, true);
+  // the sample is named for the plugin, in the place the app reads it from
+  assert.equal(manifest.sample, undefined);
+  assert.equal(
+    JSON.parse(fs.readFileSync(path.join(dir, "samples/ticket_triage.json"), "utf8")).title.length > 0,
+    true,
+  );
   assert.equal(
     fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8").trim(),
     "@AGENTS.md",

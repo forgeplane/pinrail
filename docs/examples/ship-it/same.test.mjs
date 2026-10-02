@@ -1,5 +1,5 @@
 // The four builds of Ship it? are one plugin: the same manifest, schemas,
-// fixtures, example and test in each, and the same page around the view,
+// fixtures, sample and test in each, and the same page around the view,
 // which differs only in the script it loads. Only the view's code is the
 // framework's own.
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ const here = path.dirname(new URL(import.meta.url).pathname);
 const FRAMEWORKS = ["vanilla", "react", "vue", "svelte"];
 const SHARED = [
   "manifest.json",
-  "example.json",
+  "samples/ship_it.json",
   "playwright.config.ts",
   ".gitignore",
   "schemas/payload.schema.json",

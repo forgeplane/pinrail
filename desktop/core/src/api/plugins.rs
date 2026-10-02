@@ -42,8 +42,9 @@ async fn index(State(state): State<Arc<Pinrail>>) -> Json<Value> {
     Json(state.plugins().listing(&stored))
 }
 
-/// Sends the plugin's sample as a new review; the body may give a
-/// `title`, `requested_by` or `origin`. 201 with the review.
+/// Sends one of the plugin's samples as a new review; the body may name
+/// the `sample` (the first otherwise) and give a `title`, `requested_by`
+/// or `origin`. 201 with the review.
 async fn sample(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,

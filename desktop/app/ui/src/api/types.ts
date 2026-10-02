@@ -105,10 +105,10 @@ export type Plugin = {
   shortcuts_error: string | null;
   /** the files it takes beside a payload, as the manifest declares them; null for none */
   attachments?: AttachmentRules | null;
-  /** it ships a sample review anyone can send to see it */
-  sample?: boolean;
-  /** why a declared sample was dropped */
-  sample_error?: string | null;
+  /** the names of the sample reviews it ships, which anyone can send to see it, in order */
+  samples?: string[];
+  /** why each sample that did not load was dropped */
+  sample_errors?: string[];
   /** how it got here; null for a built-in */
   install: PluginInstall | null;
 };

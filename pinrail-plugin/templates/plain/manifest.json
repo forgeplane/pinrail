@@ -12,7 +12,5 @@
       }
     }
   },
-  "example": "example.json",
-  "sample": "sample.json",
   "min_height": 200
 }

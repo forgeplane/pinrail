@@ -102,9 +102,9 @@
     ]
   },
   "attachments": {
-    "pivot.glb": "sample/pivot.glb",
-    "arc.glb": "sample/arc.glb",
-    "column.glb": "sample/column.glb",
-    "tripod.glb": "sample/tripod.glb"
+    "pivot.glb": "pivot.glb",
+    "arc.glb": "arc.glb",
+    "column.glb": "column.glb",
+    "tripod.glb": "tripod.glb"
   }
 }

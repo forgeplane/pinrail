@@ -66,14 +66,16 @@ impl Pinrail {
     }
 
     /// Sends a plugin's sample as a new review: its files stored, its
-    /// request submitted like any other. `overrides` may give a `title`,
-    /// `requested_by` or `origin`; the sample's are used otherwise.
+    /// request submitted like any other. `overrides` may name the `sample`
+    /// (the first otherwise) and give a `title`, `requested_by` or
+    /// `origin`; the sample's are used otherwise.
     pub fn send_sample(
         &self,
         name: &str,
         overrides: &Value,
     ) -> Result<crate::reviews::Review, Error> {
-        let sample = self.plugins.sample(name)?;
+        let which = overrides.get("sample").and_then(Value::as_str);
+        let sample = self.plugins.sample(name, which)?;
         let mut stored = Vec::new();
         for file in &sample.files {
             let bytes = std::fs::read(&file.path)?;

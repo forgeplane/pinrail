@@ -47,12 +47,8 @@ const FILES: &[(&str, &str)] = &[
         include_str!("../../pinrail-plugin/templates/common/schemas/decision.schema.json"),
     ),
     (
-        "example.json",
-        include_str!("../../pinrail-plugin/templates/common/example.json"),
-    ),
-    (
-        "sample.json",
-        include_str!("../../pinrail-plugin/templates/common/sample.json"),
+        "samples/__NAME__.json",
+        include_str!("../../pinrail-plugin/templates/common/samples/__NAME__.json"),
     ),
     (
         "AGENTS.md",
@@ -123,7 +119,8 @@ pub fn write(name: &str, dir: &Path) -> Result<Vec<PathBuf>> {
     let title = title_of(name);
     let mut written = Vec::new();
     for (to, template) in FILES {
-        let target = dir.join(to);
+        let to = to.replace("__NAME__", name);
+        let target = dir.join(&to);
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("creating {}", parent.display()))?;
@@ -132,7 +129,7 @@ pub fn write(name: &str, dir: &Path) -> Result<Vec<PathBuf>> {
             .replace("__NAME__", name)
             .replace("__TITLE__", &title);
         std::fs::write(&target, text).with_context(|| format!("writing {}", target.display()))?;
-        written.push(PathBuf::from(to));
+        written.push(PathBuf::from(&to));
     }
     Ok(written)
 }
@@ -160,7 +157,9 @@ mod tests {
                 .unwrap();
         assert_eq!(manifest["name"], "ticket_triage");
         assert_eq!(manifest["title"], "Ticket triage");
-        assert_eq!(manifest["sample"], "sample.json");
+        // the sample, named for the plugin, is where the app finds it
+        assert!(manifest.get("sample").is_none());
+        assert!(dir.join("samples/ticket_triage.json").is_file());
         // the icons are Lucide's, whose licence travels with them
         assert!(
             std::fs::read_to_string(dir.join("view/icons/LICENSE"))

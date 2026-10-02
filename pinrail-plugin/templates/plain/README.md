@@ -17,16 +17,16 @@ pinrail plugins install . --link       # the app serves this folder live
 Then, from an agent's session:
 
 ```sh
-pinrail submit __NAME__ --title "Push the branch?" --data example.json --wait
+pinrail submit __NAME__ --sample --wait
 ```
 
 ## Layout
 
 ```
-manifest.json       name, version, the schemas and the entry, by path
+manifest.json       name, version, title, and when an agent should ask with it
 view/index.html     the view the app serves, in a sandboxed frame
 view/view.js        its script, checked against pinrail-plugin.d.ts
-sample.json         a review to look at: pinrail submit __NAME__ --sample
+samples/            reviews to look at: pinrail submit __NAME__ --sample
 AGENTS.md           how the plugin works, for the agent that helps you build it
 schemas/            payload and decision, JSON Schema 2020-12
 fixtures/           payloads to develop and test with
