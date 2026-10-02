@@ -7,6 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { unified } from "@astrojs/markdown-remark";
 import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
 import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
+import remarkVideo from "./src/plugins/remark-video.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
 import remarkPageSlug from "./src/plugins/remark-page-slug.mjs";
 import remarkContract from "./src/plugins/remark-contract.mjs";
@@ -26,6 +27,7 @@ export default defineConfig({
         remarkPageSlug,
         remarkMermaid,
         remarkScreenshots,
+        remarkVideo,
         remarkKbd,
         remarkContract,
         remarkTokens,

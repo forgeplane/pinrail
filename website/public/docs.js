@@ -275,3 +275,180 @@ document.addEventListener("click", (event) => {
     /* nothing to keep */
   }
 });
+
+// The docs' videos. In the page a video is its poster with a play button.
+// Played, it leaves its place and opens large over the page, with its own
+// bar: what has played, a mark for each chapter, and the chapter's name. The
+// chapters listed under the poster open it at their moments.
+const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// the one video that is open, if any
+let open = null;
+
+function setUpVideo(root) {
+  const video = root.querySelector("video");
+  const dialog = root.querySelector(".pr-video-dialog");
+  const shell = root.querySelector(".pr-video-shell");
+  const backdrop = root.querySelector(".pr-video-backdrop");
+  const frame = root.querySelector(".pr-video-frame");
+  const track = root.querySelector(".pr-video-track");
+  const progress = root.querySelector(".pr-video-progress");
+  const time = root.querySelector(".pr-video-time");
+  const chapter = root.querySelector(".pr-video-chapter");
+  const toggle = root.querySelector(".pr-video-toggle");
+  const mute = root.querySelector(".pr-video-mute");
+  const start = root.querySelector(".pr-video-start");
+  const chapters = [...root.querySelectorAll(".pr-video-mark")].map((mark) => ({
+    at: Number(mark.dataset.at),
+    title: mark.querySelector(".pr-video-tip b").textContent,
+    detail: mark.querySelector(".pr-video-tip span").textContent,
+  }));
+  const length = () => (Number.isFinite(video.duration) && video.duration) || Number(root.dataset.seconds);
+
+  // the player takes over from the browser's controls
+  video.controls = false;
+  root.classList.add("is-ready");
+
+  function update() {
+    const at = video.currentTime;
+    progress.style.width = `${(at / length()) * 100}%`;
+    time.textContent = `${clock(at)} / ${clock(length())}`;
+    track.setAttribute("aria-valuenow", String(Math.round(at)));
+    track.setAttribute("aria-valuetext", clock(at));
+    const now = chapters.filter((c) => c.at <= at + 0.05).pop() ?? chapters[0];
+    if (chapter.firstElementChild.textContent !== now.title) {
+      chapter.firstElementChild.textContent = now.title;
+      chapter.lastElementChild.textContent = now.detail;
+    }
+    root.classList.toggle("is-playing", !video.paused && !video.ended);
+    root.classList.toggle("is-muted", video.muted);
+    toggle.setAttribute("aria-label", video.paused ? "Play" : "Pause");
+    mute.setAttribute("aria-label", video.muted ? "Unmute" : "Mute");
+  }
+  // between the video's own reports, so that the timeline moves evenly
+  function follow() {
+    update();
+    if (!video.paused && !video.ended) requestAnimationFrame(follow);
+  }
+  const seek = (to) => {
+    video.currentTime = Math.min(Math.max(0, to), length() - 0.05);
+    update();
+  };
+  const play = () => {
+    if (video.ended) video.currentTime = 0;
+    video.play().catch(() => {});
+  };
+  const playOrPause = () => (video.paused || video.ended ? play() : video.pause());
+
+  // the move between the video's place in the page and its place over it
+  const fly = (from, to, backwards) => {
+    if (calm) return Promise.resolve();
+    const away = {
+      transformOrigin: "0 0",
+      transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width})`,
+    };
+    const home = { transformOrigin: "0 0", transform: "none" };
+    const timing = {
+      duration: 320,
+      easing: "cubic-bezier(0.2, 0.8, 0.2, 1)",
+      direction: backwards ? "reverse" : "normal",
+    };
+    backdrop.animate([{ opacity: 0 }, { opacity: 1 }], timing);
+    return dialog.animate([away, home], timing).finished;
+  };
+  function expand(at) {
+    if (open && open !== api) open.collapse();
+    if (!root.classList.contains("is-expanded")) {
+      const from = frame.getBoundingClientRect();
+      root.classList.add("is-expanded");
+      // In the browser's top layer, so that it lies over the page's header
+      // and sidebars whatever they are stacked in. The attribute is set only
+      // now: an element that has it is hidden until it is shown.
+      if (shell.showPopover) {
+        shell.setAttribute("popover", "manual");
+        shell.showPopover();
+      }
+      document.documentElement.style.overflow = "hidden";
+      open = api;
+      fly(from, dialog.getBoundingClientRect(), false);
+      toggle.focus({ preventScroll: true });
+    }
+    if (at !== undefined) seek(at);
+    play();
+  }
+  async function collapse() {
+    if (!root.classList.contains("is-expanded")) return;
+    video.pause();
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+    await fly(frame.getBoundingClientRect(), dialog.getBoundingClientRect(), true).catch(() => {});
+    if (shell.hasAttribute("popover")) {
+      shell.hidePopover();
+      shell.removeAttribute("popover");
+    }
+    root.classList.remove("is-expanded");
+    document.documentElement.style.overflow = "";
+    if (open === api) open = null;
+    start.focus({ preventScroll: true });
+  }
+  const fullScreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else (dialog.requestFullscreen || dialog.webkitRequestFullscreen)?.call(dialog);
+  };
+  const api = { collapse, playOrPause, seek, fullScreen, video };
+
+  start.addEventListener("click", () => expand());
+  root
+    .querySelectorAll(".pr-video-jump")
+    .forEach((jump) => jump.addEventListener("click", () => expand(Number(jump.dataset.at))));
+  root.querySelectorAll("[data-video-close]").forEach((close) => close.addEventListener("click", collapse));
+  toggle.addEventListener("click", playOrPause);
+  video.addEventListener("click", () => root.classList.contains("is-expanded") && playOrPause());
+  mute.addEventListener("click", () => {
+    video.muted = !video.muted;
+  });
+  root.querySelector(".pr-video-full").addEventListener("click", fullScreen);
+  for (const name of ["play", "pause", "ended", "timeupdate", "volumechange", "loadedmetadata", "seeked"])
+    video.addEventListener(name, update);
+  video.addEventListener("play", follow);
+
+  // the timeline: a click or a drag goes to that moment, a mark to its chapter
+  const momentAt = (event) => {
+    const box = track.getBoundingClientRect();
+    return (Math.min(Math.max(0, event.clientX - box.left), box.width) / box.width) * length();
+  };
+  track.addEventListener("pointerdown", (event) => {
+    const mark = event.target.closest(".pr-video-mark");
+    if (mark) return seek(Number(mark.dataset.at));
+    track.setPointerCapture(event.pointerId);
+    root.classList.add("is-seeking");
+    seek(momentAt(event));
+  });
+  track.addEventListener("pointermove", (event) => {
+    if (root.classList.contains("is-seeking")) seek(momentAt(event));
+  });
+  for (const name of ["pointerup", "pointercancel"])
+    track.addEventListener(name, () => root.classList.remove("is-seeking"));
+  update();
+}
+
+document.querySelectorAll("[data-video]").forEach(setUpVideo);
+
+// the keys of the open video: the ones a player is expected to answer
+document.addEventListener("keydown", (event) => {
+  if (!open || event.metaKey || event.ctrlKey || event.altKey) return;
+  const { video } = open;
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  if (key === "Escape") {
+    // the browser leaves the whole screen on this key itself
+    if (!document.fullscreenElement) open.collapse();
+  } else if (key === " " || key === "k") {
+    // a button with the focus takes the space bar itself
+    if (key === " " && event.target.closest("button")) return;
+    open.playOrPause();
+  } else if (key === "ArrowLeft") open.seek(video.currentTime - 5);
+  else if (key === "ArrowRight") open.seek(video.currentTime + 5);
+  else if (key === "m") video.muted = !video.muted;
+  else if (key === "f") open.fullScreen();
+  else return;
+  event.preventDefault();
+});
