@@ -193,14 +193,16 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
         .settings()
         .change(&json!({
             "autostart": true,
-            "plugins": {"knobs": {"wrap": "yes"}}
+            "plugins": {"local/knobs": {"wrap": "yes"}}
         }))
         .unwrap_err();
     let Error::Invalid(violations) = error else {
         panic!("expected validation errors, got {error:?}");
     };
     assert!(
-        violations.iter().any(|v| v.path == "/plugins/knobs/wrap"),
+        violations
+            .iter()
+            .any(|v| v.path == "/plugins/local~1knobs/wrap"),
         "{violations:?}"
     );
     assert_eq!(app.settings().get()["autostart"], false);

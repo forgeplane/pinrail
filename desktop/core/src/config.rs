@@ -104,11 +104,6 @@ impl Config {
         self.data_dir.join("pinrail.db")
     }
 
-    /// Where the plugin embedded in the binary is written out.
-    pub fn builtin_plugins_dir(&self) -> PathBuf {
-        self.data_dir.join("builtin")
-    }
-
     /// Attachments: `sha256/<first two>/<hash>`, and `tmp/` for uploads in flight.
     pub fn attachments_dir(&self) -> PathBuf {
         self.data_dir.join("attachments")
@@ -116,12 +111,12 @@ impl Config {
 
     /// Plugin bundles: one folder per bundle, named by its hash.
     pub fn plugin_bundles_dir(&self) -> PathBuf {
-        self.data_dir.join("plugins").join("bundles")
+        self.plugins_dir().join("bundles")
     }
 
-    /// Installed plugins: one entry per plugin and major version.
-    pub fn plugin_store_dir(&self) -> PathBuf {
-        self.data_dir.join("plugins").join("store")
+    /// Plugins: `bundles/`, and `work/` and `logs/` for fetches and builds.
+    pub fn plugins_dir(&self) -> PathBuf {
+        self.data_dir.join("plugins")
     }
 }
 

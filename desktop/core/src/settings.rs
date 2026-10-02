@@ -10,7 +10,7 @@ pub use store::port_in;
 #[cfg(feature = "docs")]
 pub use store::reference;
 
-/// The group that holds each plugin's own settings, plugin name to an
+/// The group that holds each plugin's own settings, its full name to an
 /// object of the values someone changed; the shape of the values is the
 /// plugin's schema, checked by the settings service.
 pub const PLUGINS: &str = "/plugins";
@@ -18,3 +18,9 @@ pub const PLUGINS: &str = "/plugins";
 /// open without asking, and the source it was installed from when they
 /// were allowed. The app writes it; a plugin's view cannot.
 pub const LINKS: &str = "/links";
+
+/// A key as one part of a JSON pointer: a plugin's full name holds a `/`,
+/// which a pointer spells `~1`.
+pub fn pointer_part(key: &str) -> String {
+    key.replace('~', "~0").replace('/', "~1")
+}

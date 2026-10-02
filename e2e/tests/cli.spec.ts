@@ -123,7 +123,7 @@ test("markdown, the default, prints the decision as prose, and the decision file
   const result = await waiter.done;
   expect(result.code).toBe(0);
   expect(result.stdout).toMatch(
-    /^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\noutcome: 1 accepted, 1 rejected\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/,
+    /^r_\w+ · decided · markdown please\nforgeplane\/list · acme · review · 42 · decided by [^\n]*\noutcome: 1 accepted, 1 rejected\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/,
   );
 
   const shown = pinrail(["show", id, "--markdown"]);
@@ -133,14 +133,16 @@ test("markdown, the default, prints the decision as prose, and the decision file
   expect(JSON.parse(env.stdout).status).toBe("decided");
 });
 
-test("plugins install places a copy in the store, and a link serves the folder live", async () => {
+test("plugins install stores a bundle, and a link serves the folder live", async () => {
   const hello = path.resolve(__dirname, "../../plugins/hello");
   const installed = pinrailJson(["plugins", "install", hello]);
+  expect(installed.plugin).toBe("local/hello");
   expect(installed.name).toBe("hello");
-  expect(installed.release).toBe("1.0.0");
+  expect(installed.version).toBe("1.0.0");
+  expect(installed.line).toBe("1");
   expect(installed.install.linked).toBe(false);
-  expect(installed.install.hash).toMatch(/^[0-9a-f]{64}$/);
-  expect(installed.path).toMatch(/plugins\/store\/hello\/1$/);
+  expect(installed.install.bundle).toMatch(/^[0-9a-f]{64}$/);
+  expect(installed.path).toMatch(new RegExp(`plugins/bundles/${installed.install.bundle}$`));
   expect(fs.existsSync(path.join(installed.path, "manifest.json"))).toBe(true);
 
   const linked = pinrailJson(["plugins", "install", hello, "--link"]);
@@ -169,7 +171,7 @@ test("plugins update says when there is nothing new, and remove drops the record
     expect(refused.stderr).toContain("is a link");
 
     const removed = pinrailJson(["plugins", "remove", "hello"]);
-    expect(removed.removed).toBe("hello");
+    expect(removed.removed).toBe("local/hello");
     expect(removed.linked).toBe(true);
     const names = pinrailJson(["plugins"]).plugins.map((p: any) => p.name);
     expect(names).not.toContain("hello");
@@ -188,8 +190,9 @@ test("a plugin pinrail-plugin create wrote installs as a link and decides a revi
     execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir], { stdio: "pipe" });
 
     const linked = pinrailJson(["plugins", "install", dir, "--link"]);
-    expect(linked.name).toBe("triage");
-    expect(linked.release).toBe("0.1.0");
+    expect(linked.plugin).toBe("local/triage");
+    expect(linked.version).toBe("0.1.0");
+    expect(linked.line).toBe("0.1");
     expect(pinrailJson(["plugins"]).plugins.find((p: any) => p.name === "triage").usable).toBe(true);
 
     const payload = tmpFile("payload.json", JSON.stringify({ message: "Push it?" }));

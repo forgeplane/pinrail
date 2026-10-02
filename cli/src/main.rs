@@ -576,9 +576,10 @@ enum PluginsCommand {
         #[arg(default_value = ".")]
         dir: PathBuf,
     },
-    /// List the versions of a plugin that reviews can still render with
-    Versions {
-        /// The plugin's name
+    /// List the lines of a plugin that reviews render with, and the
+    /// release current on each
+    Lines {
+        /// The plugin's name, or its full name such as forgeplane/list
         name: String,
     },
 }
@@ -1085,9 +1086,9 @@ fn run(cli: Cli) -> Result<u8> {
                     let listed = client.plugins()?;
                     let mut answers = Vec::new();
                     for plugin in listed["plugins"].as_array().into_iter().flatten() {
-                        let name = plugin["name"].as_str().unwrap_or_default();
+                        let name = plugin["plugin"].as_str().unwrap_or_default();
                         let install = &plugin["install"];
-                        answers.push(if !install.is_object() {
+                        answers.push(if install["kind"] == "bundled" {
                             json!({ "name": name, "state": "built_in" })
                         } else if install["linked"] == true {
                             json!({ "name": name, "state": "linked", "source": install["source"] })
@@ -1119,7 +1120,7 @@ fn run(cli: Cli) -> Result<u8> {
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
-                Some(PluginsCommand::Versions { name }) => client.plugin_versions(&name)?,
+                Some(PluginsCommand::Lines { name }) => client.plugin_lines(&name)?,
                 Some(
                     PluginsCommand::Describe { .. }
                     | PluginsCommand::Check { .. }
@@ -1258,7 +1259,7 @@ fn unusable(client: &Client, name: &str, err: anyhow::Error) -> anyhow::Error {
         .and_then(|l| l["plugins"].as_array())
         .and_then(|rows| {
             rows.iter()
-                .find(|p| p["name"] == name && p["error"].is_string())
+                .find(|p| (p["name"] == name || p["plugin"] == name) && p["error"].is_string())
         })
     else {
         return not_installed(err);

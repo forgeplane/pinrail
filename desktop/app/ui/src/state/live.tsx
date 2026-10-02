@@ -49,7 +49,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const loadPlugins = useCallback(async () => {
     try {
       const { plugins } = await api.plugins();
-      setPlugins(new Map(plugins.map((p) => [p.name, p])));
+      setPlugins(new Map(plugins.map((p) => [p.plugin, p])));
     } catch {
       // the list stays as it was; the next reload event retries
     }

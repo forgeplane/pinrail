@@ -17,6 +17,13 @@ function pluginCopy(sample: string, name: string, version: string, extra: Record
   return dir;
 }
 
+/** The page a plugin's new reviews show: its current bundle's view, fetched. */
+async function servedView(page: Page, name: string): Promise<string> {
+  const { plugins } = await (await page.request.get(`${core}/api/v1/plugins`)).json();
+  const plugin = plugins.find((p: { name: string }) => p.name === name);
+  return (await page.request.get(`${core}/bundles/${plugin.install.bundle}/view/index.html`)).text();
+}
+
 async function openInstall(page: Page) {
   await page.goto("/#/plugins");
   await expect(page.locator("[data-settings]")).toBeVisible();
@@ -58,9 +65,9 @@ test("a folder is looked at before it is installed, and its row says where it ca
   // the copy is what is served: a record with a hash, not a link
   const plugins = await (await page.request.get(`${core}/api/v1/plugins`)).json();
   const greeter = plugins.plugins.find((p: { name: string }) => p.name === "greeter");
-  expect(greeter.install.kind).toBe("path");
+  expect(greeter.install.kind).toBe("folder");
   expect(greeter.install.linked).toBe(false);
-  expect(greeter.install.hash).toBeTruthy();
+  expect(greeter.install.bundle).toBeTruthy();
 
   // checking for updates of a copy compares the folder with the store
   await row.getByRole("button", { name: "Check for updates of greeter" }).click();
@@ -72,7 +79,7 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await expect(row.locator("[data-plugin-updates]")).toHaveText("The folder changed since it was copied");
   await row.locator("[data-plugin-update]").click();
   await expect(row.locator("[data-plugin-updates]")).toHaveText("Updated to 1.2.0");
-  const served = await (await page.request.get(`${core}/plugins/greeter/1/view/index.html`)).text();
+  const served = await servedView(page, "greeter");
   expect(served).toBe("<html>second</html>");
 
   // the same version again says what it replaces
@@ -124,7 +131,7 @@ test("a source that builds shows the exact command as the consent, then runs it"
   await dialog.locator("[data-install-close]").click();
   await expect(page.locator('[data-plugin-row="compiled"]')).toContainText("ready");
 
-  const bundle = await (await page.request.get(`${core}/plugins/compiled/1/view/index.html`)).text();
+  const bundle = await servedView(page, "compiled");
   expect(bundle).toBe("<html>built</html>");
 });
 
@@ -154,13 +161,13 @@ test("an update that brings a build shows the command and runs it only once conf
   await ask.getByRole("button", { name: "Cancel" }).click();
   await expect(ask).toHaveCount(0);
   const before = await (await page.request.get(`${core}/api/v1/plugins`)).json();
-  expect(before.plugins.find((p: { name: string }) => p.name === "rebuilt").install.version).toBe("1.0.0");
+  expect(before.plugins.find((p: { name: string }) => p.name === "rebuilt").version).toBe("1.0.0");
 
   await row.getByRole("button", { name: "Check for updates of rebuilt" }).click();
   await row.locator("[data-plugin-update]").click();
   await row.locator("[data-plugin-update-confirm]").click();
   await expect(row.locator("[data-plugin-updates]")).toHaveText("Updated to 1.1.0");
-  const served = await (await page.request.get(`${core}/plugins/rebuilt/1/view/index.html`)).text();
+  const served = await servedView(page, "rebuilt");
   expect(served).toBe("<html>rebuilt</html>");
 });
 

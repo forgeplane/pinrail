@@ -154,12 +154,12 @@ fn insert_in(
     }
     {
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_version, plugin_release, title, origin, requested_by, summary, revises, expires_at, created_at)
+            "INSERT INTO reviews (id, plugin, plugin_line, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at)
              VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 review.id,
                 review.plugin,
-                review.plugin_version,
+                review.plugin_line,
                 review.title,
                 Value::Object(review.origin.clone()).to_string(),
                 review.requested_by,
@@ -167,7 +167,7 @@ fn insert_in(
                 review.revises,
                 review.expires_at.map(crate::reviews::iso),
                 crate::reviews::iso(review.created_at),
-                review.plugin_release,
+                review.plugin_version,
             ],
         )?;
         tx.execute(
@@ -481,23 +481,23 @@ impl Db {
         rows.collect()
     }
 
-    /// Reviews that ended before `before`, as (id, plugin, major): decided,
+    /// Reviews that ended before `before`, as (id, plugin, line): decided,
     /// withdrawn or discarded then, or expired then with nothing recorded.
     /// A round that a round still here revises stays with it, so a chain
     /// goes as a whole and `revises` never dangles.
     pub fn ended_before(
         &self,
         before: DateTime<Utc>,
-    ) -> rusqlite::Result<Vec<(String, String, u32)>> {
+    ) -> rusqlite::Result<Vec<(String, String, String)>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT r.id, r.plugin, r.plugin_version FROM reviews r
+            "SELECT r.id, r.plugin, r.plugin_line FROM reviews r
                LEFT JOIN outcomes o ON o.review_id = r.id
               WHERE (o.at IS NOT NULL AND o.at < ?1)
                  OR (o.review_id IS NULL AND r.expires_at IS NOT NULL AND r.expires_at < ?1)
               ORDER BY r.id",
         )?;
-        let ended: Vec<(String, String, u32)> = stmt
+        let ended: Vec<(String, String, String)> = stmt
             .query_map(params![crate::reviews::iso(before)], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
             })?
@@ -554,10 +554,10 @@ fn select(with_payload: bool) -> String {
         ("NULL", "")
     };
     format!(
-        "SELECT r.id, r.plugin, r.plugin_version, r.title, r.origin, r.requested_by, {payload}, r.summary,
+        "SELECT r.id, r.plugin, r.plugin_line, r.title, r.origin, r.requested_by, {payload}, r.summary,
     r.revises, r.expires_at, r.created_at,
     o.kind, o.at, o.by, o.reason, o.data, o.agent_note,
-    r.plugin_release,
+    r.plugin_version,
     (SELECT count(*) FROM review_attachments a WHERE a.review_id = r.id),
     (SELECT coalesce(sum(a.size), 0) FROM review_attachments a WHERE a.review_id = r.id),
     o.summary
@@ -597,10 +597,9 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     let reason: Option<String> = row.get(14)?;
     let data: Option<String> = row.get(15)?;
     let agent_note: Option<String> = row.get(16)?;
-    let plugin_release: Option<String> = row.get(17)?;
+    let plugin_version: Option<String> = row.get(17)?;
     let attachments_total = (row.get::<_, i64>(18)? as u64, row.get::<_, i64>(19)? as u64);
     let outcome_summary: Option<String> = row.get(20)?;
-    let plugin_version = row.get::<_, i64>(2)? as u32;
     let at = at.and_then(|s| parse_datetime(&s));
     let (
         mut decision,
@@ -638,8 +637,8 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
         attachments_total,
         id: row.get(0)?,
         plugin: row.get(1)?,
-        plugin_version,
-        plugin_release: plugin_release.unwrap_or_else(|| format!("{plugin_version}.0.0")),
+        plugin_line: row.get(2)?,
+        plugin_version: plugin_version.unwrap_or_default(),
         title: row.get(3)?,
         origin: serde_json::from_str::<Value>(&origin)
             .ok()

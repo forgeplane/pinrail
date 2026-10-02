@@ -13,13 +13,12 @@ pub const MANIFEST: &str = "manifest.json";
 #[derive(Debug)]
 pub struct Plugin {
     pub name: String,
-    /// The major version: the line a review renders from.
-    pub version: u32,
-    /// The exact version, such as `1.2.3`.
-    pub release: String,
+    /// The semantic version, such as `1.2.3`.
+    pub version: String,
+    /// The compatibility line the version is on, such as `1` or `0.3`.
+    pub line: String,
     pub title: String,
     pub path: PathBuf,
-    pub entry: String,
     pub min_height: u32,
     pub dev: bool,
     /// The plugin's icon, the SVG markup of the file its manifest names,
@@ -65,8 +64,9 @@ pub struct Plugin {
     /// `attachments`); none takes none. A malformed block makes the plugin
     /// unusable, as a broken schema does.
     pub attachments: Option<crate::attachments::AttachmentRules>,
-    /// How the plugin got here: a link served live, or a store entry with
-    /// its record; none for a built-in plugin.
+    /// How the plugin got here and what it holds: its full name, its source
+    /// and its lines. None for a plugin read from a folder by itself, as a
+    /// check reads one.
     pub install: Option<Install>,
     /// Set when the plugin could not be loaded; it is listed but unusable.
     pub error: Option<String>,
@@ -75,19 +75,35 @@ pub struct Plugin {
 /// What the registry knows about an installed plugin, for its row.
 #[derive(Debug, Clone)]
 pub struct Install {
+    /// The full name, `<publisher>/<name>`.
+    pub plugin: String,
+    pub publisher: String,
+    /// `bundled`, `folder`, `link`, `git` or `release`
     pub kind: String,
     pub source: String,
-    pub version: String,
     pub linked: bool,
     pub commit: Option<String>,
     /// for a release, the tag it came from
     pub tag: Option<String>,
     /// for a release, the SHA-256 of the asset downloaded
     pub asset_hash: Option<String>,
-    pub hash: Option<String>,
-    /// the store entry's files no longer match the hash recorded at install
+    /// The bundle new reviews render with; none for a link.
+    pub bundle: Option<String>,
+    /// the bundle's files no longer match its listing
     pub modified: bool,
     pub installed_at: String,
+    pub updated_at: String,
+    /// Every line the plugin has, new reviews' and those kept for older
+    /// reviews, oldest first.
+    pub lines: Vec<Line>,
+}
+
+/// A line of an installed plugin and the release that is current on it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Line {
+    pub line: String,
+    pub version: String,
+    pub bundle: String,
 }
 
 impl Install {
@@ -95,14 +111,14 @@ impl Install {
         serde_json::json!({
             "kind": self.kind,
             "source": self.source,
-            "version": self.version,
             "linked": self.linked,
             "commit": self.commit,
             "tag": self.tag,
             "asset_hash": self.asset_hash,
-            "hash": self.hash,
+            "bundle": self.bundle,
             "modified": self.modified,
             "installed_at": self.installed_at,
+            "updated_at": self.updated_at,
         })
     }
 }
@@ -191,11 +207,10 @@ impl Plugin {
                     .file_name()
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default(),
-                version: 0,
-                release: "0.0.0".into(),
+                version: "0.0.0".into(),
+                line: "0.0".into(),
                 title: String::new(),
                 path: dir.to_path_buf(),
-                entry: "index.html".into(),
                 min_height: 400,
                 dev: false,
                 icon: None,
@@ -240,7 +255,7 @@ impl Plugin {
             }));
         }
         verdict["notes"] = Value::Array(notes);
-        let built = dir.join(&plugin.entry).is_file();
+        let built = dir.join(VIEW).is_file();
         // the bundle an install would make of the folder, once its view is
         // there; one it could not make refuses the folder
         if built {
@@ -255,7 +270,7 @@ impl Plugin {
                 Err(message) => {
                     verdict["usable"] = Value::Bool(false);
                     verdict["name"] = Value::Null;
-                    verdict["release"] = Value::Null;
+                    verdict["version"] = Value::Null;
                     verdict["warnings"] = serde_json::json!([]);
                     if let Some(problems) = verdict["problems"].as_array_mut() {
                         problems.push(serde_json::json!({ "message": message }));
@@ -304,9 +319,11 @@ impl Plugin {
         // the schema has checked the shapes; what is left is what it cannot
         // say, such as whether the files named are there
         let name = manifest["name"].as_str().unwrap_or_default().to_string();
-        let (release, major) = version_of(&manifest["version"])
-            .ok_or("version is not a semantic version like \"1.2.0\"")?;
-        let version = major as u32;
+        let version = manifest["version"]
+            .as_str()
+            .and_then(line_of)
+            .and_then(|line| Some((version_of(&manifest["version"])?.0, line)));
+        let (version, line) = version.ok_or("version is not a semantic version like \"1.2.0\"")?;
         // the oldest Pinrail the plugin says it works with
         if let Some(needed) = manifest.get("pinrail").and_then(Value::as_str) {
             let needed = needed.trim_start_matches(">=").trim();
@@ -317,7 +334,6 @@ impl Plugin {
                 ));
             }
         }
-        let entry = VIEW.to_string();
         let builds = manifest
             .get("build")
             .and_then(|build| build["command"].as_str())
@@ -341,13 +357,7 @@ impl Plugin {
             if !dir.join(file).is_file() {
                 return Err(format!("{file} not found"));
             }
-            Schema::compile(
-                dir,
-                &name,
-                version,
-                key,
-                &serde_json::json!({ "$ref": file }),
-            )
+            Schema::compile(dir, &name, &line, key, &serde_json::json!({ "$ref": file }))
         };
         let payload_schema = schema("payload_schema", PAYLOAD_SCHEMA)?;
         let decision_schema = schema("decision_schema", DECISION_SCHEMA)?;
@@ -358,7 +368,7 @@ impl Plugin {
                     (None, None, shape.dropped.get("settings_schema").cloned())
                 }
                 None | Some(Value::Null) => (None, None, None),
-                Some(raw) => match settings::load(dir, &name, version, raw) {
+                Some(raw) => match settings::load(dir, &name, &line, raw) {
                     Ok((document, validator)) => (Some(document), Some(validator), None),
                     Err(message) => (None, None, Some(message)),
                 },
@@ -417,9 +427,8 @@ impl Plugin {
                 .unwrap_or_else(|| name.clone()),
             name,
             version,
-            release,
+            line,
             path: dir.to_path_buf(),
-            entry,
             min_height: manifest
                 .get("min_height")
                 .and_then(Value::as_u64)
@@ -482,9 +491,12 @@ impl Plugin {
     }
 
     /// A change to the plugin's settings checked against its schema; the
-    /// paths come back under `/plugins/<name>`.
+    /// paths come back under `/plugins/<full name>`, its `/` spelled `~1`.
     pub fn validate_settings(&self, patch: &Value) -> Vec<Violation> {
-        let prefix = format!("/plugins/{}", self.name);
+        let prefix = format!(
+            "/plugins/{}",
+            self.full_name().replace('~', "~0").replace('/', "~1")
+        );
         let Some(schema) = &self.settings_validator else {
             return vec![Violation::new(&prefix, "the plugin has no settings")];
         };
@@ -563,12 +575,22 @@ impl Plugin {
 
     /// What an agent needs to ask with the plugin: what it is for, when to
     /// use it, the schemas with a top-level `$ref` read in, and an example.
+    /// The plugin's full name, `<publisher>/<name>`, once it is installed;
+    /// its name alone before.
+    pub fn full_name(&self) -> &str {
+        self.install
+            .as_ref()
+            .map(|i| i.plugin.as_str())
+            .unwrap_or(&self.name)
+    }
+
     pub fn describe(&self) -> Value {
         serde_json::json!({
+            "plugin": self.full_name(),
             "name": self.name,
             "title": self.title,
             "version": self.version,
-            "release": self.release,
+            "line": self.line,
             "description": self.manifest.get("description"),
             "use_when": self.use_when,
             "payload_schema": self.schema_document("payload_schema"),
@@ -628,7 +650,7 @@ impl Plugin {
         serde_json::json!({
             "usable": self.usable(),
             "name": self.usable().then_some(&self.name),
-            "release": self.usable().then_some(&self.release),
+            "version": self.usable().then_some(&self.version),
             "problems": self.error.iter().map(|message| serde_json::json!({ "message": message })).collect::<Vec<_>>(),
             "warnings": if self.usable() { warnings } else { Vec::new() },
         })
@@ -637,12 +659,19 @@ impl Plugin {
     /// What the API lists for a plugin.
     pub fn to_json(&self) -> Value {
         serde_json::json!({
+            "plugin": self.full_name(),
+            "publisher": self.install.as_ref().map(|i| &i.publisher),
             "name": self.name,
             "version": self.version,
-            "release": self.release,
+            "line": self.line,
+            "lines": self.install.as_ref().map(|i| {
+                i.lines
+                    .iter()
+                    .map(|l| serde_json::json!({ "line": l.line, "version": l.version, "bundle": l.bundle }))
+                    .collect::<Vec<_>>()
+            }).unwrap_or_default(),
             "title": self.title,
             "path": self.path.display().to_string(),
-            "entry": self.entry,
             "min_height": self.min_height,
             "dev": self.dev,
             "icon": self.icon,
@@ -874,7 +903,7 @@ mod settings {
     pub fn load(
         dir: &Path,
         name: &str,
-        version: u32,
+        line: &str,
         raw: &Value,
     ) -> Result<(Value, Schema), String> {
         let document = resolve(dir, raw)?;
@@ -895,8 +924,7 @@ mod settings {
         let mut root = map.clone();
         root.insert("type".into(), Value::String("object".into()));
         root.insert("additionalProperties".into(), Value::Bool(false));
-        let validator =
-            Schema::compile(dir, name, version, "settings_schema", &Value::Object(root))?;
+        let validator = Schema::compile(dir, name, line, "settings_schema", &Value::Object(root))?;
         Ok((Value::Object(map.clone()), validator))
     }
 
@@ -1492,9 +1520,9 @@ mod tests {
         };
         let p = with("\"0.1.0\"");
         assert_eq!(p.error, None, "{:?}", p.error);
-        assert_eq!((p.version, p.release.as_str()), (0, "0.1.0"));
+        assert_eq!((p.version.as_str(), p.line.as_str()), ("0.1.0", "0.1"));
         let p = with("\"2.3.4\"");
-        assert_eq!((p.version, p.release.as_str()), (2, "2.3.4"));
+        assert_eq!((p.version.as_str(), p.line.as_str()), ("2.3.4", "2"));
         // a bare number is not a semantic version
         for bad in ["\"0.0.0\"", "0", "3", "\"1.2\"", "\"v1.2.0\"", "true"] {
             let p = with(bad);

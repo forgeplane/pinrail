@@ -73,12 +73,12 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
 
   // the origins a plugin may open without asking, while it keeps its source
   const allowedOrigins = (p: Plugin) => {
-    const permission = settings.links[p.name];
+    const permission = settings.links[p.plugin];
     return permission && permission.source === sourceOf(p) ? permission.origins : [];
   };
   const forgetLink = (p: Plugin, origin: string) => {
     const rest = allowedOrigins(p).filter((o) => o !== origin);
-    update({ links: { [p.name]: rest.length ? { source: sourceOf(p), origins: rest } : null } });
+    update({ links: { [p.plugin]: rest.length ? { source: sourceOf(p), origins: rest } : null } });
   };
 
   const setNotify = (name: string, on: boolean) => {
@@ -123,17 +123,17 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
         ) : null}
         {plugins.map((p) => (
           <PluginEntry
-            key={p.name}
+            key={p.plugin}
             plugin={p}
             native={native}
-            muted={muted.includes(p.name)}
-            stored={settings.plugins[p.name] ?? {}}
-            open={focus === p.name}
+            muted={muted.includes(p.plugin)}
+            stored={settings.plugins[p.plugin] ?? {}}
+            open={focus === p.plugin}
             onReveal={() => reveal(p.path)}
-            onNotify={(on) => setNotify(p.name, on)}
+            onNotify={(on) => setNotify(p.plugin, on)}
             links={allowedOrigins(p)}
             onForgetLink={(origin) => forgetLink(p, origin)}
-            onChange={(values) => update({ plugins: { [p.name]: values } })}
+            onChange={(values) => update({ plugins: { [p.plugin]: values } })}
             onCopy={() => setInstalling({ source: p.path })}
             onMessage={notify}
             onOpenReview={onOpenReview}
@@ -158,7 +158,7 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
 /** Where a plugin came from: how, in words, and from where. */
 function originOf(p: Plugin): { how: string; where: string | null } {
   const i = p.install;
-  if (!i) return { how: "Built into Pinrail", where: null };
+  if (!i || i.kind === "bundled") return { how: "Built into Pinrail", where: null };
   if (i.linked) return { how: "Linked to", where: p.path };
   if (i.kind === "git")
     return { how: "Cloned from", where: `${i.source}${i.commit ? ` · ${i.commit.slice(0, 7)}` : ""}` };
@@ -248,7 +248,7 @@ function PluginEntry({
   const check = async () => {
     setUpdates("checking");
     try {
-      setUpdates(updatesLine(await api.pluginUpdates(p.name)));
+      setUpdates(updatesLine(await api.pluginUpdates(p.plugin)));
     } catch (e) {
       setUpdates({ text: `Could not check: ${e instanceof Error ? e.message : "unknown"}`, tone: "danger" });
     }
@@ -263,7 +263,7 @@ function PluginEntry({
     setUpdating("checking");
     setUpdates(null);
     try {
-      const seen = await api.inspectUpdate(p.name);
+      const seen = await api.inspectUpdate(p.plugin);
       if (seen.state === "up_to_date") {
         setUpdating(null);
         setUpdates({ text: "Up to date", tone: "ok" });
@@ -288,7 +288,7 @@ function PluginEntry({
     setConfirming(null);
     setUpdating("starting");
     try {
-      const started = await api.updatePlugin(p.name, expect);
+      const started = await api.updatePlugin(p.plugin, expect);
       if (!started.job) {
         setUpdating(null);
         setUpdates({ text: "Up to date", tone: "ok" });
@@ -302,7 +302,7 @@ function PluginEntry({
       if (!job) return;
       setUpdating(null);
       if (job.status === "done") {
-        const version = job.plugin?.install?.version ?? "";
+        const version = job.plugin?.version ?? "";
         setUpdates({ text: `Updated to ${version}`.trim(), tone: "ok" });
         onMessage(`${p.title || p.name} plugin was updated to ${version}`.trim());
       } else {
@@ -322,7 +322,7 @@ function PluginEntry({
   const sendSample = async (sample?: string) => {
     setSending(true);
     try {
-      const review = await api.sendSample(p.name, sample ? { sample } : {});
+      const review = await api.sendSample(p.plugin, sample ? { sample } : {});
       onOpenReview(review.id);
     } catch (e) {
       setSending(false);
@@ -338,7 +338,7 @@ function PluginEntry({
   const remove = async () => {
     setRemoving("busy");
     try {
-      await api.removePlugin(p.name);
+      await api.removePlugin(p.plugin);
       // the row goes with the plugins_reloaded notice
       onMessage(`${p.title || p.name} plugin was removed`);
     } catch (e) {
@@ -353,6 +353,8 @@ function PluginEntry({
   };
 
   const linked = p.install?.linked ?? false;
+  // installed by the person, from a source; the plugins Pinrail ships are not
+  const ownInstall = p.install && p.install.kind !== "bundled" ? p.install : null;
   const origin = originOf(p);
   // asked before a removal, in place of whatever the line says
   const ask = removing ? (
@@ -434,7 +436,7 @@ function PluginEntry({
         label={p.title || p.name}
         description={
           <span className="settings-plugin-line">
-            <PluginBadge name={p.name} version={p.version} icon={p.icon} />
+            <PluginBadge name={p.plugin} version={p.version} icon={p.icon} />
             {p.error ? (
               // why it is broken, on hover or keyboard focus
               <Tooltip label={p.error} tone="danger">
@@ -461,13 +463,13 @@ function PluginEntry({
             </button>
           </Tooltip>
         ) : null}
-        {p.install && linked ? (
+        {ownInstall && linked ? (
           <Tooltip label="Install a copy of this linked plugin">
             <button type="button" className="bar-button" onClick={onCopy} aria-label={`Install a copy of ${p.name}`}>
               <PackagePlus size={15} />
             </button>
           </Tooltip>
-        ) : p.install ? (
+        ) : ownInstall ? (
           <Tooltip label="Check for updates">
             <button
               type="button"
@@ -480,7 +482,7 @@ function PluginEntry({
             </button>
           </Tooltip>
         ) : null}
-        {p.install ? (
+        {ownInstall ? (
           <Tooltip label="Remove">
             <button
               type="button"
@@ -532,7 +534,7 @@ function PluginEntry({
           ) : null}
           <dl className="settings-plugin-details">
             <dt>Version</dt>
-            <dd>{p.install?.version ?? p.release ?? p.version}</dd>
+            <dd>{p.version}</dd>
             <dt>Source</dt>
             <dd className="settings-plugin-origin">
               <span>

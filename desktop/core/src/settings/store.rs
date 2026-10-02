@@ -435,7 +435,7 @@ fn changed(before: &Value, after: &Value) -> Vec<String> {
     };
     let (a, b) = (links(before), links(after));
     for name in a.keys().chain(b.keys()) {
-        let pointer = format!("{LINKS}/{name}");
+        let pointer = format!("{LINKS}/{}", super::pointer_part(name));
         if a.get(name) != b.get(name) && !out.contains(&pointer) {
             out.push(pointer);
         }
@@ -447,7 +447,7 @@ fn changed(before: &Value, after: &Value) -> Vec<String> {
             b.get(name).and_then(Value::as_object).unwrap_or(&empty),
         );
         for key in x.keys().chain(y.keys()) {
-            let pointer = format!("{PLUGINS}/{name}/{key}");
+            let pointer = format!("{PLUGINS}/{}/{key}", super::pointer_part(name));
             if x.get(key) != y.get(key) && !out.contains(&pointer) {
                 out.push(pointer);
             }
@@ -499,7 +499,7 @@ fn validate_plugins(value: &Value, out: &mut Vec<Violation>) {
         return;
     };
     for (name, settings) in plugins {
-        let pointer = format!("{PLUGINS}/{name}");
+        let pointer = format!("{PLUGINS}/{}", super::pointer_part(name));
         let Value::Object(map) = settings else {
             out.push(Violation::new(pointer, "must be a JSON object"));
             continue;
@@ -523,7 +523,7 @@ fn validate_links(value: &Value, out: &mut Vec<Violation>) {
         return;
     };
     for (name, entry) in plugins {
-        let pointer = format!("{LINKS}/{name}");
+        let pointer = format!("{LINKS}/{}", super::pointer_part(name));
         let Value::Object(map) = entry else {
             if !entry.is_null() {
                 out.push(Violation::new(pointer, "must be a JSON object, or null"));

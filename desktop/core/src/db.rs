@@ -17,7 +17,7 @@ mod schema;
 
 pub use bundles::BundleRecord;
 pub use events::Event;
-pub use plugins::InstalledRecord;
+pub use plugins::{InstallRecord, LineRecord};
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;
 
@@ -80,6 +80,6 @@ mod tests {
             let _held = db.conn.lock().unwrap();
             panic!("a request fails while it holds the connection");
         }));
-        assert!(db.installed_plugins().is_ok());
+        assert!(db.installs().is_ok());
     }
 }

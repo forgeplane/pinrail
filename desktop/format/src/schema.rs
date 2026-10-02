@@ -28,8 +28,8 @@ impl std::fmt::Debug for Schema {
 }
 
 /// The `$id` prefix for a plugin, ending in a slash.
-pub fn prefix(name: &str, version: u32) -> String {
-    format!("{SCHEME}{name}/{version}/")
+pub fn prefix(name: &str, line: &str) -> String {
+    format!("{SCHEME}{name}/{line}/")
 }
 
 impl Schema {
@@ -38,14 +38,14 @@ impl Schema {
     pub fn compile(
         dir: &Path,
         name: &str,
-        version: u32,
+        line: &str,
         key: &str,
         schema: &Value,
     ) -> Result<Self, String> {
         let Value::Object(map) = schema else {
             return Err(format!("{key} must be a JSON Schema object"));
         };
-        let prefix = prefix(name, version);
+        let prefix = prefix(name, line);
         let mut root = map.clone();
         root.entry("$schema").or_insert_with(|| {
             Value::String("https://json-schema.org/draft/2020-12/schema".into())
@@ -205,7 +205,7 @@ mod tests {
 
     fn payload_schema() -> Schema {
         let schema = json!({ "$ref": "schemas/payload.schema.json" });
-        Schema::compile(&list_dir(), "list", 1, "payload_schema", &schema).unwrap()
+        Schema::compile(&list_dir(), "list", "1", "payload_schema", &schema).unwrap()
     }
 
     #[test]
@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn enum_violations_list_the_options() {
         let schema = json!({ "$ref": "schemas/decision.schema.json" });
-        let s = Schema::compile(&list_dir(), "list", 1, "decision_schema", &schema).unwrap();
+        let s = Schema::compile(&list_dir(), "list", "1", "decision_schema", &schema).unwrap();
         assert_eq!(
             s.validate(&json!({ "decisions": [{ "id": 1, "action": "maybe" }] })),
             vec![
@@ -263,7 +263,8 @@ mod tests {
     #[test]
     fn refs_cannot_leave_the_plugin_directory() {
         let schema = json!({ "$ref": "../../../Cargo.toml" });
-        let error = Schema::compile(&list_dir(), "list", 1, "payload_schema", &schema).unwrap_err();
+        let error =
+            Schema::compile(&list_dir(), "list", "1", "payload_schema", &schema).unwrap_err();
         assert!(error.starts_with("payload_schema:"), "{error}");
         assert!(safe_join(Path::new("/p"), "../x").is_none());
         assert_eq!(

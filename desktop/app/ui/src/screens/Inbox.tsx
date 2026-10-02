@@ -9,7 +9,7 @@ import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
-import { FilesCount, SummaryCounts } from "../components/Badges";
+import { FilesCount, pluginLabels, shortName, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
@@ -221,9 +221,9 @@ export function Inbox() {
           <FilesCount total={review.attachments_total} />
         </span>
       </span>
-      <span className="review-row-plugin">
+      <span className="review-row-plugin" title={review.plugin}>
         <PluginIcon icon={live.pluginIcon(review.plugin)} size={13} />
-        {review.plugin}
+        {shortName(review.plugin)}
       </span>
       <span className="review-row-summary">
         <SummaryCounts summary={review.summary} />
@@ -301,7 +301,11 @@ export function Inbox() {
             onChange={(v) => setParam("plugin", v)}
             options={[
               { value: "", label: "All plugins", icon: <Blocks size={14} /> },
-              ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> })),
+              ...plugins.map((p) => ({
+                value: p,
+                label: pluginLabels(plugins).get(p) ?? p,
+                icon: <PluginIcon icon={live.pluginIcon(p)} size={14} />,
+              })),
             ]}
           />
         </div>

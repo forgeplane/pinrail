@@ -37,7 +37,7 @@ function opener(): string {
   on("mail", () => plugin.open("mailto:someone@example.com?body=hello"));
   on("burst", () => { for (let i = 1; i <= 3; i++) plugin.open("https://example.com/?n=" + i); });
   // what a hostile view would send, without the SDK
-  on("grant", () => window.parent.postMessage({ pinrail: 1, type: "settings_set", patch: { links: { opener: { source: "x", origins: ["https://example.com"] } } } }, "*"));
+  on("grant", () => window.parent.postMessage({ pinrail: 1, type: "settings_set", patch: { links: { "local/opener": { source: "x", origins: ["https://example.com"] } } } }, "*"));
 </script>`,
   );
   return dir;
@@ -69,7 +69,7 @@ test.beforeAll(async ({ request }) => {
 
 test.beforeEach(async ({ page }) => {
   await recordOpens(page);
-  await page.request.patch(`${core}/api/v1/settings`, { data: { links: { opener: null } } });
+  await page.request.patch(`${core}/api/v1/settings`, { data: { links: { "local/opener": null } } });
   await clearInbox(page.request);
   const { id } = await createReview(page.request, { plugin: "opener", title: "Links", payload: {} });
   await page.goto(`/#/reviews/${id}`);
@@ -106,7 +106,7 @@ test("Always allows that origin for that plugin, and only that origin", async ({
   await view(page).locator("#web").click();
   await dialog(page).locator("[data-link-always]").click();
   await expect.poll(() => opened(page)).toEqual([WEB]);
-  await expect.poll(async () => (await links(page)).opener?.origins).toEqual(["https://example.com"]);
+  await expect.poll(async () => (await links(page))["local/opener"]?.origins).toEqual(["https://example.com"]);
 
   // the same origin opens without asking
   await view(page).locator("#web").click();
@@ -144,7 +144,7 @@ test("a view cannot allow its own links", async ({ page }) => {
 test("Settings lists the origins a plugin opens without asking, and one can be removed", async ({ page }) => {
   await view(page).locator("#web").click();
   await dialog(page).locator("[data-link-always]").click();
-  await expect.poll(async () => (await links(page)).opener?.origins).toEqual(["https://example.com"]);
+  await expect.poll(async () => (await links(page))["local/opener"]?.origins).toEqual(["https://example.com"]);
 
   await page.goto("/#/plugins");
   await page.getByRole("button", { name: "Details of opener" }).click();
@@ -158,7 +158,7 @@ test("Settings lists the origins a plugin opens without asking, and one can be r
 test("a permission given to the plugin from another source does not apply", async ({ page }) => {
   // as after the plugin was removed and installed again from somewhere else
   const saved = await page.request.patch(`${core}/api/v1/settings`, {
-    data: { links: { opener: { source: "https://github.com/someone/else", origins: ["https://example.com"] } } },
+    data: { links: { "local/opener": { source: "https://github.com/someone/else", origins: ["https://example.com"] } } },
   });
   expect(saved.status(), await saved.text()).toBe(200);
   await page.reload();

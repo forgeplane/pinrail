@@ -104,30 +104,23 @@ impl Db {
             .collect()
     }
 
-    /// Deletes the bundles stored before `before` that are not in
-    /// `referenced`, in one transaction, and returns the ones it deleted.
+    /// Deletes the bundles stored before `before` that no line refers to,
+    /// in one statement, and returns the ones it deleted.
     pub fn delete_unreferenced_bundles(
         &self,
         before: chrono::DateTime<Utc>,
-        referenced: &HashSet<String>,
     ) -> rusqlite::Result<Vec<String>> {
-        let mut conn = self.conn();
-        let tx = conn.transaction()?;
-        let old: Vec<String> = tx
-            .prepare("SELECT hash FROM plugin_bundles WHERE stored_at < ?1")?
-            .query_map(
-                params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
-                |r| r.get(0),
-            )?
-            .collect::<rusqlite::Result<_>>()?;
-        let unreferenced: Vec<String> = old
-            .into_iter()
-            .filter(|hash| !referenced.contains(hash))
-            .collect();
-        for hash in &unreferenced {
-            tx.execute("DELETE FROM plugin_bundles WHERE hash = ?1", params![hash])?;
-        }
-        tx.commit()?;
-        Ok(unreferenced)
+        let conn = self.conn();
+        conn.prepare(
+            "DELETE FROM plugin_bundles
+             WHERE stored_at < ?1
+               AND NOT EXISTS (SELECT 1 FROM plugin_lines l WHERE l.bundle = plugin_bundles.hash)
+             RETURNING hash",
+        )?
+        .query_map(
+            params![before.to_rfc3339_opts(SecondsFormat::Secs, true)],
+            |r| r.get(0),
+        )?
+        .collect()
     }
 }

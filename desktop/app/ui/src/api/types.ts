@@ -28,8 +28,12 @@ export type Summary = {
 
 export type Review = {
   id: string;
+  /** the plugin's full name, such as forgeplane/list */
   plugin: string;
-  plugin_version: number;
+  /** the line the review renders with, such as 1 or 0.3 */
+  plugin_line: string;
+  /** the exact version it was submitted to, such as 1.2.0 */
+  plugin_version: string;
   title: string;
   origin: Origin;
   requested_by: string | null;
@@ -79,15 +83,22 @@ export type ReviewListing = {
   facets?: { plugins: string[]; repos: string[]; unassigned: boolean };
 };
 
+/** A line of a plugin and the release current on it. */
+export type PluginLine = { line: string; version: string; bundle: string };
+
 export type Plugin = {
+  /** the full name, `<publisher>/<name>` */
+  plugin: string;
+  publisher: string | null;
   name: string;
-  /** the major version, which reviews render with */
-  version: number;
-  /** the full version the manifest declares, such as 1.2.0 */
-  release?: string;
+  /** the version new reviews use, such as 1.2.0 */
+  version: string;
+  /** its line, such as 1 or 0.3 */
+  line: string;
+  /** every line the plugin has, those kept for older reviews too */
+  lines: PluginLine[];
   title: string;
   path: string;
-  entry: string;
   min_height: number;
   dev: boolean;
   /** the markup of the plugin's icon.svg, when it has one */
@@ -109,33 +120,41 @@ export type Plugin = {
   samples?: string[];
   /** why each sample that did not load was dropped */
   sample_errors?: string[];
-  /** how it got here; null for a built-in */
+  /** how it got here; null for a line kept after its plugin was removed */
   install: PluginInstall | null;
 };
 
-/** The record an install left: where the plugin came from and what was placed. */
+/** Where an installed plugin came from, and the bundle new reviews use. */
 export type PluginInstall = {
-  kind: "path" | "git" | "release";
+  kind: "bundled" | "folder" | "link" | "git" | "release";
   source: string;
-  version: string;
   /** served live from its folder rather than copied */
   linked: boolean;
   commit: string | null;
   tag: string | null;
   asset_hash: string | null;
-  hash: string | null;
-  /** the store entry's files no longer match the hash recorded at install */
+  /** the bundle new reviews render with; null for a link */
+  bundle: string | null;
+  /** the bundle's files no longer match its listing */
   modified: boolean;
   installed_at: string;
+  updated_at: string;
 };
+
+/** What the app's frame loads to show a review: its view's address, and
+ *  the plugin of the review's line. */
+export type ReviewView = { url: string; plugin: Plugin };
 
 /** What installing a source would do, as the core reports it before anything runs. */
 export type Inspection = {
   source: string;
   link: boolean;
+  /** the full name it would install as */
+  plugin: string;
+  publisher: string;
   name: string;
   version: string;
-  major: number;
+  line: string;
   title: string;
   icon: string | null;
   /** the exact command a build runs; null when nothing runs */
@@ -145,7 +164,7 @@ export type Inspection = {
   /** the files it would take beside a payload; null for none */
   attachments?: AttachmentRules | null;
   origin: {
-    kind: "path" | "git" | "release";
+    kind: "folder" | "git" | "release";
     resolved:
       | string
       | {
@@ -161,8 +180,15 @@ export type Inspection = {
         };
     commit: string | null;
   };
-  /** what is installed under the name already */
-  installed: { version: string; major: number; linked: boolean; kind: string; path: string; unchanged: boolean } | null;
+  /** what is installed under the full name already; `path` is a link's folder */
+  installed: {
+    version: string;
+    line: string | null;
+    linked: boolean;
+    kind: string;
+    path: string | null;
+    unchanged: boolean;
+  } | null;
   /** the source is older than what is installed on the same line */
   older: boolean;
 };

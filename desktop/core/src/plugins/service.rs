@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 
 use super::jobs::Jobs;
 use super::{InstallJob, InstallOptions, Plugin, Registry, install};
-use crate::db::{Db, InstalledRecord};
+use crate::db::{Db, InstallRecord};
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
 
@@ -37,11 +37,16 @@ impl PluginService {
 
     /// Each usable plugin described for an agent, or the one named.
     pub fn describe(&self, name: Option<&str>) -> Result<Value, Error> {
+        let wanted = name
+            .map(|n| self.registry.resolve(n))
+            .transpose()
+            .ok()
+            .flatten();
         let plugins: Vec<Value> = self
             .registry
             .all()
             .iter()
-            .filter(|p| p.usable() && name.is_none_or(|n| p.name == n))
+            .filter(|p| p.usable() && name.is_none_or(|_| wanted.as_deref() == Some(p.full_name())))
             .map(|p| p.describe())
             .collect();
         match name {
@@ -55,9 +60,8 @@ impl PluginService {
     pub fn sample(&self, name: &str, which: Option<&str>) -> Result<super::Sample, Error> {
         let plugin = self
             .registry
-            .all()
-            .into_iter()
-            .find(|p| p.name == name && p.usable())
+            .get(name)
+            .filter(|p| p.usable())
             .ok_or_else(|| {
                 Error::invalid("/plugin", format!("no usable plugin is named {name}"))
             })?;
@@ -89,7 +93,7 @@ impl PluginService {
                 // the plugin's settings as they stand: defaults under the stored values
                 row["settings"] = p
                     .has_settings()
-                    .then(|| p.effective_settings(&stored[&p.name]))
+                    .then(|| p.effective_settings(&stored[p.full_name()]))
                     .into();
                 row
             })
@@ -97,42 +101,59 @@ impl PluginService {
         json!({ "plugins": plugins })
     }
 
-    /// Available major versions, including entries retained for existing reviews.
-    pub fn versions(&self, name: &str) -> Result<Value, Error> {
-        // the majors that render: the current plugin, and the store entries
-        // kept for reviews that still point at them
-        let current = self.registry.get(name);
-        let mut versions: Vec<u32> = Vec::new();
-        let dir = self.registry.store_dir().join(name);
-        if let Ok(entries) = std::fs::read_dir(&dir) {
-            for entry in entries.flatten() {
-                if let Ok(v) = entry.file_name().to_string_lossy().parse::<u32>()
-                    && entry.path().join("manifest.json").is_file()
-                {
-                    versions.push(v);
-                }
-            }
+    /// A plugin's lines: the one new reviews use, and each line kept for
+    /// the reviews that render with it, with its current release. A removed
+    /// plugin whose lines reviews still use is named in full.
+    pub fn lines(&self, name: &str) -> Result<Value, Error> {
+        let plugin = match self.registry.resolve(name) {
+            Ok(plugin) => plugin,
+            Err(_) if name.contains('/') => name.to_string(),
+            Err(_) => return Err(Error::NotFound(format!("plugin {name}"))),
+        };
+        let mut lines = Vec::new();
+        for line in self.db.lines()?.into_iter().filter(|l| l.plugin == plugin) {
+            let version = self
+                .db
+                .bundle(&line.bundle)?
+                .map(|b| b.version)
+                .unwrap_or_default();
+            lines.push(json!({ "line": line.line, "version": version, "bundle": line.bundle }));
         }
-        if let Some(p) = &current
-            && p.usable()
-            && !versions.contains(&p.version)
-        {
-            versions.push(p.version);
-        }
-        if current.is_none() && versions.is_empty() {
+        let current = self.registry.get(&plugin).filter(|p| p.usable());
+        if current.is_none() && lines.is_empty() {
             return Err(Error::NotFound(format!("plugin {name}")));
         }
-        versions.sort_unstable();
+        lines.sort_by_key(|l| pinrail_format::semver(l["version"].as_str().unwrap_or_default()));
         Ok(json!({
-            "name": name,
-            "current": current.as_ref().filter(|p| p.usable()).map(|p| p.version),
-            "versions": versions,
+            "plugin": plugin,
+            "current": current.as_ref().map(|p| p.line.clone()),
+            "lines": lines,
         }))
     }
 
-    /// The version a review renders with, even after its plugin was removed.
-    pub fn fetch_version(&self, name: &str, version: u32) -> Result<Arc<Plugin>, Error> {
-        self.registry.fetch_version(name, version)
+    /// The folder of a linked plugin, by full name; none for any other.
+    pub fn installed_link(&self, plugin: &str) -> Option<std::path::PathBuf> {
+        self.registry
+            .installs()
+            .into_iter()
+            .find(|i| i.plugin == plugin && i.linked())
+            .map(|i| std::path::PathBuf::from(i.resolved))
+    }
+
+    /// The full name a plugin's name stands for; see [`Registry::resolve`].
+    pub fn resolve(&self, name: &str) -> Result<String, Error> {
+        self.registry.resolve(name)
+    }
+
+    /// The plugin a review renders with: its line's current bundle, even
+    /// after its plugin was removed.
+    pub fn fetch_line(&self, plugin: &str, line: &str) -> Result<Arc<Plugin>, Error> {
+        self.registry.fetch_line(plugin, line)
+    }
+
+    /// The bundle a line renders with.
+    pub fn line_bundle(&self, plugin: &str, line: &str) -> Option<String> {
+        self.registry.line_bundle(plugin, line)
     }
 
     /// Removes the installation while retaining versions still used by reviews.
@@ -143,11 +164,7 @@ impl PluginService {
     }
 
     pub fn reload(&self) -> Result<usize, Error> {
-        let records = self.db.installed_plugins()?;
-        let count = self
-            .registry
-            .reload_with(records)
-            .map_err(Error::Internal)?;
+        let count = self.registry.reload()?;
         self.announce()?;
         Ok(count)
     }
@@ -182,12 +199,12 @@ impl PluginService {
                 worker.announce()?;
                 worker
                     .registry
-                    .get(&record.name)
+                    .get(&record.plugin)
                     .map(|p| p.to_json())
                     .ok_or_else(|| {
                         Error::Internal(format!(
                             "{} was installed and is not registered",
-                            record.name
+                            record.plugin
                         ))
                     })
             });
@@ -267,7 +284,10 @@ impl PluginService {
                     format!("{name} is pinned to {at}; install another ref to move it"),
                 ));
             }
-            "up_to_date" => return Ok(Err(record.version)),
+            "up_to_date" => {
+                let version = self.registry.get(&record.plugin).map(|p| p.version.clone());
+                return Ok(Err(version.unwrap_or_default()));
+            }
             _ => {}
         }
         let (mut source, mut options) = install::source_of(&record);
@@ -284,15 +304,25 @@ impl PluginService {
         Ok(Ok((source, options)))
     }
 
-    fn installed(&self, name: &str) -> Result<InstalledRecord, Error> {
-        self.db
-            .installed_plugins()?
-            .into_iter()
-            .find(|r| r.name == name)
-            .ok_or_else(|| Error::NotFound(format!("plugin {name}")))
+    fn installed(&self, name: &str) -> Result<InstallRecord, Error> {
+        let plugin = self
+            .registry
+            .resolve(name)
+            .map_err(|_| Error::NotFound(format!("plugin {name}")))?;
+        let record = self
+            .db
+            .install(&plugin)?
+            .ok_or_else(|| Error::NotFound(format!("plugin {name}")))?;
+        if record.kind == "bundled" {
+            return Err(Error::invalid(
+                "/name",
+                format!("{plugin} ships with Pinrail and is updated with it"),
+            ));
+        }
+        Ok(record)
     }
 
-    async fn check_record(&self, record: InstalledRecord) -> Result<Value, Error> {
+    async fn check_record(&self, record: InstallRecord) -> Result<Value, Error> {
         let registry = self.registry.clone();
         tokio::task::spawn_blocking(move || install::check_updates(&registry, &record))
             .await

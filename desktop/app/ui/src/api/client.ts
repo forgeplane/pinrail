@@ -10,6 +10,7 @@ import type {
   Notice,
   Plugin,
   PluginUpdates,
+  ReviewView,
   Review,
   ReviewEvent,
   ReviewListing,
@@ -114,12 +115,11 @@ export const api = {
   installPlugin: (body: InstallRequest) => request<{ job: string }>("POST", "/api/v1/plugins/install", body),
   pluginJob: (id: string) => request<InstallJob>("GET", `/api/v1/plugins/jobs/${seg(id)}`),
   pluginUpdates: (name: string) => request<PluginUpdates>("GET", `/api/v1/plugins/${seg(name)}/updates`),
-  /** the majors of a plugin that reviews can still render with; 404 for an unknown plugin */
-  pluginVersions: (name: string) =>
-    request<{ name: string; current: number | null; versions: number[] }>(
-      "GET",
-      `/api/v1/plugins/${seg(name)}/versions`,
-    ),
+  /** what the app's frame loads to show a review */
+  reviewView: async (id: string) => {
+    const view = await request<ReviewView>("GET", `/api/v1/reviews/${seg(id)}/view`);
+    return { ...view, url: `${await serverUrl()}${view.url}` };
+  },
   /** what an update would install: the newer version's inspection, or up_to_date */
   inspectUpdate: (name: string) =>
     request<({ state: "available" } & Inspection) | { state: "up_to_date"; version: string }>(
@@ -132,9 +132,9 @@ export const api = {
     request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${seg(name)}/update`, {
       expect,
     }),
-  /** drops the record and the store entries no review renders from */
+  /** drops the installation and the lines no review renders with */
   removePlugin: (name: string) =>
-    request<{ removed: string; linked: boolean; entries_kept: number[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),
+    request<{ removed: string; linked: boolean; lines_kept: string[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** the review rendered as markdown by the core, for the clipboard */
@@ -149,8 +149,6 @@ export const api = {
     if (!response.ok) throw new ApiError(response.status, await errorBody(response));
     return response.arrayBuffer();
   },
-  bundleUrl: async (review: Review, entry: string) =>
-    `${await serverUrl()}/plugins/${seg(review.plugin)}/${review.plugin_version}/${entry}`,
 };
 
 /** Where feedback goes from a browser; the app sends it through its shell. */

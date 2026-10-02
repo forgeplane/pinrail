@@ -32,7 +32,7 @@ pub fn routes() -> Router<ApiState> {
             post(inspect_update),
         )
         .route("/api/v1/plugins/{name}", delete(remove))
-        .route("/api/v1/plugins/{name}/versions", get(versions))
+        .route("/api/v1/plugins/{name}/lines", get(lines))
         .route("/api/v1/plugins/{name}/describe", get(describe))
         .route("/api/v1/plugins/{name}/sample", post(sample))
 }
@@ -70,11 +70,11 @@ async fn describe(
     Ok(Json(state.plugins().describe(Some(&name))?))
 }
 
-async fn versions(
+async fn lines(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    Ok(Json(state.plugins().versions(&name)?))
+    Ok(Json(state.plugins().lines(&name)?))
 }
 
 /// The source and the options an install or an inspect takes:
@@ -175,23 +175,28 @@ async fn update(
     }
 }
 
-/// Removes an installed plugin: the record and the store entries no
-/// review renders from; the ones a review still uses stay, and the answer
-/// names them. A built-in has no record and cannot be removed.
+/// Removes an installed plugin: its installation and the lines no review
+/// renders with; the ones a review still uses stay, and the answer names
+/// them. A plugin the app ships cannot be removed.
 async fn remove(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let answer = state.plugins().remove(&name)?;
     // the links it was allowed to open go with it
+    let plugin = answer["removed"].as_str().unwrap_or_default().to_string();
     if state
         .settings()
-        .value(&format!("/links/{name}"))
+        .value(&format!(
+            "{}/{}",
+            crate::settings::LINKS,
+            crate::settings::pointer_part(&plugin)
+        ))
         .is_object()
     {
         state
             .settings()
-            .change(&serde_json::json!({ "links": { name: null } }))?;
+            .change(&serde_json::json!({ "links": { plugin: null } }))?;
     }
     Ok(Json(answer))
 }

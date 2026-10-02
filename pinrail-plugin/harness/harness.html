@@ -84,7 +84,7 @@ window.addEventListener("message", (event) => {
     case "attachment": answerAttachment(msg); break;
   }
 });
-// the view's page, view/index.html in the bundle the harness serves
+// the view's page, index.html in the view/ of the bundle the harness serves
 const entry = new URLSearchParams(location.search).get("entry") || "index.html";
 frame.src = entry + "#pinrail-theme=" + theme;
 </script>

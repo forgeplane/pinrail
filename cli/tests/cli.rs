@@ -659,7 +659,7 @@ fn assert_harmless(text: &str) {
 #[test]
 fn a_plugin_description_cannot_drive_the_terminal() {
     let listing = serde_json::json!({ "plugins": [{
-        "name": "hello", "title": "Hello", "version": 1, "release": "1.0.0", "usable": true,
+        "plugin": "local/hello", "name": "hello", "title": "Hello", "version": "1.0.0", "line": "1", "usable": true,
         "description": format!("Greets{HOSTILE} people"), "use_when": format!("always{HOSTILE}"),
     }]});
     let server = MockServer::start(Box::new(move |_, path, _| match path {
@@ -699,7 +699,7 @@ fn a_discard_reason_cannot_drive_the_terminal() {
 
 #[test]
 fn updating_every_plugin_exits_1_when_the_app_fails_and_2_when_it_refuses() {
-    let listing = r#"{"plugins":[{"name":"one","install":{"linked":false}},{"name":"two","install":{"linked":false}}]}"#;
+    let listing = r#"{"plugins":[{"plugin":"one","name":"one","install":{"linked":false}},{"plugin":"two","name":"two","install":{"linked":false}}]}"#;
     // one refused (a 4xx), the other failing on the app's side (a 5xx)
     let failing = |second: u16| {
         MockServer::start(Box::new(move |method, path, _| match (method, path) {
@@ -878,26 +878,34 @@ fn with_json_an_error_on_stderr_is_one_line_of_json() {
 }
 
 #[test]
-fn plugin_versions_say_when_no_version_is_usable() {
-    let server = MockServer::start(Box::new(|_, path, _| match path {
-        "/api/v1/plugins/hello/versions" => (
+fn plugin_lines_say_when_no_release_is_usable() {
+    let server = MockServer::start(Box::new(|_, path, _| {
+        match path {
+        "/api/v1/plugins/hello/lines" => (
             200,
-            r#"{"name":"hello","current":null,"versions":[1,2]}"#.into(),
+            r#"{"plugin":"local/hello","current":null,"lines":[{"line":"1","version":"1.0.4"},{"line":"2","version":"2.1.0"}]}"#.into(),
         ),
-        "/api/v1/plugins/list/versions" => (
+        "/api/v1/plugins/forgeplane%2Flist/lines" => (
             200,
-            r#"{"name":"list","current":2,"versions":[1,2]}"#.into(),
+            r#"{"plugin":"forgeplane/list","current":"2","lines":[{"line":"1","version":"1.3.0"},{"line":"2","version":"2.0.0"}]}"#.into(),
         ),
         other => panic!("unexpected {other}"),
+    }
     }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "versions", "hello", "--markdown"]);
+    let (code, stdout, stderr) = run(&server, &["plugins", "lines", "hello", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(
         stdout,
-        "hello: no usable version installed; reviews render with v1, v2.\n"
+        "local/hello: no usable release installed; reviews render with line 1 (1.0.4), line 2 (2.1.0).\n"
     );
-    let (_, stdout, _) = run(&server, &["plugins", "versions", "list", "--markdown"]);
-    assert_eq!(stdout, "list: current v2; reviews render with v1, v2.\n");
+    let (_, stdout, _) = run(
+        &server,
+        &["plugins", "lines", "forgeplane/list", "--markdown"],
+    );
+    assert_eq!(
+        stdout,
+        "forgeplane/list: new reviews use line 2; reviews render with line 1 (1.3.0), line 2 (2.0.0).\n"
+    );
 }
 
 #[test]
@@ -969,8 +977,7 @@ fn a_server_error_is_not_a_refusal_and_a_wait_rides_it_out() {
 
 const INSPECTED_WITHOUT_BUILD: &str = r#"{"name":"triage","version":"1.0.0","build":null,"expect":{"build":null,"commit":"abc1234"}}"#;
 const INSPECTED_WITH_BUILD: &str = r#"{"state":"available","name":"triage","version":"1.1.0","build":"npm ci && npm run build","expect":{"build":"npm ci && npm run build","commit":"def5678"}}"#;
-const JOB_DONE: &str =
-    r#"{"status":"done","log":"","log_offset":0,"plugin":{"name":"triage","release":"1.1.0"}}"#;
+const JOB_DONE: &str = r#"{"status":"done","log":"","log_offset":0,"plugin":{"plugin":"local/triage","name":"triage","version":"1.1.0","lines":[]}}"#;
 
 /// A server that answers inspections with `inspected`, and records the
 /// body of every install or update it is asked to start.
@@ -980,7 +987,8 @@ fn plugin_server(inspected: &'static str) -> (MockServer, Arc<Mutex<Vec<String>>
     let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
         ("GET", "/api/v1/plugins") => (
             200,
-            r#"{"plugins":[{"name":"triage","install":{"linked":false}}]}"#.into(),
+            r#"{"plugins":[{"plugin":"triage","name":"triage","install":{"linked":false}}]}"#
+                .into(),
         ),
         ("POST", "/api/v1/plugins/inspect" | "/api/v1/plugins/triage/update/inspect") => {
             (200, inspected.into())
@@ -1153,7 +1161,8 @@ fn list_all_follows_the_cursor_to_the_last_page() {
 
 #[test]
 fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
-    let server = MockServer::start(Box::new(|method, path, body| match (method, path) {
+    let server = MockServer::start(Box::new(|method, path, body| {
+        match (method, path) {
         ("GET", "/api/v1/reviews?status=pending&repo=acme") => (
             200,
             r#"{"reviews":[],"total":0,"has_more":false,"next_cursor":null}"#.into(),
@@ -1178,11 +1187,12 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
             (200, review("decided"))
         }
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[]}"#.into()),
-        ("GET", "/api/v1/plugins/list/versions") => {
-            (200, r#"{"name":"list","versions":[1]}"#.into())
+        ("GET", "/api/v1/plugins/list/lines") => {
+            (200, r#"{"plugin":"forgeplane/list","current":"1","lines":[{"line":"1","version":"1.0.0"}]}"#.into())
         }
         ("POST", "/api/v1/plugins/reload") => (200, r#"{"ok":true,"count":1}"#.into()),
         other => panic!("unexpected {other:?}"),
+    }
     }));
     let dir = tempdir();
     std::fs::write(dir.join("d.json"), r#"{"ok":true}"#).unwrap();
@@ -1217,7 +1227,7 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
     );
     assert_eq!(run(&server, &["plugins"]).0, 0);
     assert_eq!(run(&server, &["plugins", "reload"]).0, 0);
-    assert_eq!(run(&server, &["plugins", "versions", "list"]).0, 0);
+    assert_eq!(run(&server, &["plugins", "lines", "list"]).0, 0);
 }
 
 #[test]
@@ -1479,7 +1489,7 @@ fn rand_suffix() -> u128 {
 fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     let server = MockServer::start(Box::new(|method, path, _| {
         assert_eq!(method, "GET");
-        let body = r#"{"plugins":[{"name":"list","title":"List","release":"1.2.0","description":"Items to accept or reject.","use_when":"Before posting review comments","payload_schema":{"type":"object"},"decision_schema":{"type":"object"},"example":{"groups":[]},"markdown":true}]}"#;
+        let body = r#"{"plugins":[{"plugin":"forgeplane/list","name":"list","title":"List","version":"1.2.0","description":"Items to accept or reject.","use_when":"Before posting review comments","payload_schema":{"type":"object"},"decision_schema":{"type":"object"},"example":{"groups":[]},"markdown":true}]}"#;
         match path {
             "/api/v1/plugins/list/describe" => (200, body.into()),
             "/api/v1/plugins" => (200, r#"{"plugins":[{"name":"hello","path":"/src/hello","error":"entry view/index.html not found"}]}"#.into()),
@@ -1500,13 +1510,16 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     // one plugin is the document: its heading first, its command, no general parts
     let (code, stdout, _) = run(&server, &["plugins", "describe", "list", "--markdown"]);
     assert_eq!(code, 0);
-    assert!(stdout.starts_with("# List (`list`) · 1.2.0\n"), "{stdout}");
+    assert!(
+        stdout.starts_with("# List (`forgeplane/list`) · 1.2.0\n"),
+        "{stdout}"
+    );
     assert!(stdout.contains("**Use when:** Before posting review comments"));
-    assert!(stdout.contains("pinrail submit list --title"));
+    assert!(stdout.contains("pinrail submit forgeplane/list --title"));
     assert!(!stdout.contains("| 4 | timed out") && !stdout.contains("# Pinrail plugins"));
     // the decision's schema only when asked for; it reads as markdown otherwise
     assert!(
-        stdout.contains("pinrail plugins describe list --decision-schema"),
+        stdout.contains("pinrail plugins describe forgeplane/list --decision-schema"),
         "{stdout}"
     );
     assert!(!stdout.contains("is shaped by"));
@@ -1588,7 +1601,7 @@ fn a_dry_run_checks_the_submission_and_creates_nothing() {
         }
         (
             200,
-            r#"{"valid":true,"plugin":"list","plugin_version":1,"plugin_release":"1.2.0"}"#.into(),
+            r#"{"valid":true,"plugin":"forgeplane/list","plugin_line":"1","plugin_version":"1.2.0"}"#.into(),
         )
     }));
     let (code, stdout, stderr) = run(
@@ -1742,7 +1755,7 @@ fn submit_checks_then_uploads_only_what_the_app_lacks() {
         match (method, path) {
             ("POST", "/api/v1/reviews/validate") => (
                 200,
-                r#"{"valid":true,"plugin":"model","plugin_release":"2.0.0"}"#.into(),
+                r#"{"valid":true,"plugin":"forgeplane/model","plugin_line":"2","plugin_version":"2.0.0"}"#.into(),
             ),
             ("HEAD", p) if p.ends_with(&have) => (200, String::new()),
             ("HEAD", p) if p.ends_with(&missing) => (404, String::new()),
@@ -1823,7 +1836,7 @@ fn a_dry_run_or_a_refused_submission_uploads_nothing() {
             422,
             r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/attachments/a.glb","message":"this plugin takes .png, not model/gltf-binary"}]}"#.into(),
         ),
-        ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"plugin":"model","plugin_release":"2.0.0"}"#.into()),
+        ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"plugin":"forgeplane/model","plugin_line":"2","plugin_version":"2.0.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));
@@ -1999,9 +2012,9 @@ fn attachments_lists_a_review_s_files_and_saves_one() {
 fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     let server = MockServer::start(Box::new(|_, path, _| {
         let body = r#"{"plugins":[
-            {"name":"model","title":"3D model review","release":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
-             "install":null,"attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
-            {"name":"list","title":"List","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"install":null,"attachments":null}]}"#;
+            {"plugin":"forgeplane/model","name":"model","title":"3D model review","version":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
+             "install":{"kind":"bundled"},"attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
+            {"plugin":"forgeplane/list","name":"list","title":"List","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"install":{"kind":"bundled"},"attachments":null}]}"#;
         match path {
             "/api/v1/plugins" => (200, body.into()),
             // describe answers with the one plugin asked for
@@ -2019,7 +2032,9 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert!(
-        stdout.contains("- model · 2.0.0 · built in · ready\n  Takes files: .glb.\n"),
+        stdout.contains(
+            "- forgeplane/model · 2.0.0 · comes with the app · ready\n  Takes files: .glb.\n"
+        ),
         "{stdout}"
     );
     assert_eq!(stdout.matches("Takes files").count(), 1);
@@ -2031,7 +2046,7 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
         stdout.contains("## Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
         "{stdout}"
     );
-    assert!(stdout.contains("pinrail submit model --title \"<what it is about>\" --data payload.json --attach <file> --wait"));
+    assert!(stdout.contains("pinrail submit forgeplane/model --title \"<what it is about>\" --data payload.json --attach <file> --wait"));
     assert_eq!(stdout.matches("## Files").count(), 1);
 }
 
@@ -2042,7 +2057,7 @@ fn describe_gives_a_file_limit_under_a_megabyte_as_it_is() {
         assert_eq!(path, "/api/v1/plugins/notes/describe");
         (
             200,
-            r#"{"plugins":[{"name":"notes","title":"Notes","release":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
+            r#"{"plugins":[{"plugin":"local/notes","name":"notes","title":"Notes","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
                 "install":null,"attachments":{"accept":[".txt"],"max_size":512000}}]}"#
                 .into(),
         )
@@ -2264,20 +2279,20 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
     let server = MockServer::start(Box::new(|_, path, _| {
         assert_eq!(path, "/api/v1/plugins");
         (200, r#"{"plugins":[
-            {"name":"list","release":"1.0.0","install":null,"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
-            {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"},"error":null},
-            {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"},"error":"entry index.html not found"}]}"#.into())
+            {"plugin":"forgeplane/list","name":"list","version":"1.0.0","install":{"kind":"bundled"},"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
+            {"plugin":"local/review","name":"review","version":"2.1.0","install":{"kind":"link","linked":true,"source":"/src/review"},"error":null},
+            {"plugin":"acme/odd","name":"odd","version":"0.1.0","install":{"kind":"git","linked":false,"source":"github.com/acme/odd"},"error":"view/index.html not found"}]}"#.into())
     }));
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(
         stdout,
         "3 plugins installed. pinrail plugins describe <name> shows a plugin's payload schema and an example, and --decision-schema shows what it returns.\n\n\
-         - list · 1.0.0 · built in · ready\n\
+         - forgeplane/list · 1.0.0 · comes with the app · ready\n\
          \x20 Proposed actions to accept or reject.\n\
          \x20 Use when: You have changes to propose.\n\
-         - review · 2.1.0 · linked, /src/review · ready\n\
-         - odd · 0.1.0 · github.com/acme/odd · broken: entry index.html not found\n"
+         - local/review · 2.1.0 · linked, /src/review · ready\n\
+         - acme/odd · 0.1.0 · github.com/acme/odd · broken: view/index.html not found\n"
     );
 }
 
@@ -2303,7 +2318,7 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
         }
         ("GET", "/api/v1/plugins/jobs/j1") => (
             200,
-            r#"{"status":"done","log":"","plugin":{"name":"hello","release":"1.0.0","entry":"view/index.html"}}"#.into(),
+            r#"{"status":"done","log":"","plugin":{"plugin":"local/hello","name":"hello","version":"1.0.0","lines":[]}}"#.into(),
         ),
         other => panic!("unexpected {other:?}"),
     }
@@ -2333,7 +2348,7 @@ fn an_install_log_the_app_trims_is_followed_line_by_line() {
         serde_json::json!({ "status": "building", "log": text(0, 2), "log_offset": 0 }),
         serde_json::json!({ "status": "building", "log": text(1, 3), "log_offset": offset(1) }),
         serde_json::json!({ "status": "done", "log": text(2, 4), "log_offset": offset(2),
-            "plugin": { "name": "hello", "release": "1.0.0", "entry": "view/index.html" } }),
+            "plugin": { "plugin": "local/hello", "name": "hello", "version": "1.0.0", "lines": [] } }),
     ]));
     let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
         ("POST", "/api/v1/plugins/inspect") => (200, INSPECTED_WITHOUT_BUILD.into()),
@@ -2394,10 +2409,10 @@ fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[
-            {"name":"list","release":"1.0.0","install":null},
-            {"name":"review","release":"2.1.0","install":{"linked":true,"source":"/src/review"}},
-            {"name":"odd","release":"0.1.0","install":{"linked":false,"source":"github.com/acme/odd"}}]}"#.into()),
-        ("POST", "/api/v1/plugins/odd/update/inspect") => (200, r#"{"state":"up_to_date","version":"0.1.0"}"#.into()),
+            {"plugin":"forgeplane/list","name":"list","version":"1.0.0","install":{"kind":"bundled"}},
+            {"plugin":"local/review","name":"review","version":"2.1.0","install":{"kind":"link","linked":true,"source":"/src/review"}},
+            {"plugin":"acme/odd","name":"odd","version":"0.1.0","install":{"kind":"git","linked":false,"source":"github.com/acme/odd"}}]}"#.into()),
+        ("POST", "/api/v1/plugins/acme%2Fodd/update/inspect") => (200, r#"{"state":"up_to_date","version":"0.1.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));
@@ -2406,9 +2421,9 @@ fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
     assert!(stderr.is_empty(), "{stderr}");
     assert_eq!(
         stdout,
-        "list: built in, updated with the app\n\
-         review: linked, served live from /src/review\n\
-         odd: up to date, 0.1.0\n"
+        "forgeplane/list: comes with the app and is updated with it\n\
+         local/review: linked, served live from /src/review\n\
+         acme/odd: up to date, 0.1.0\n"
     );
 }
 
@@ -2419,12 +2434,12 @@ fn plugins_update_without_a_name_reports_every_plugin_when_one_fails() {
     let server = MockServer::start(Box::new(|method, path, _| {
         match (method, path) {
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[
-            {"name":"first","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/first"}},
-            {"name":"broken","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/broken"}},
-            {"name":"last","release":"1.0.0","install":{"linked":false,"source":"github.com/acme/last"}}]}"#.into()),
-        ("POST", "/api/v1/plugins/first/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
-        ("POST", "/api/v1/plugins/broken/update/inspect") => (422, r#"{"error":"invalid","message":"github.com/acme/broken could not be fetched","violations":[]}"#.into()),
-        ("POST", "/api/v1/plugins/last/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
+            {"plugin":"acme/first","name":"first","version":"1.0.0","install":{"kind":"git","linked":false,"source":"github.com/acme/first"}},
+            {"plugin":"acme/broken","name":"broken","version":"1.0.0","install":{"kind":"git","linked":false,"source":"github.com/acme/broken"}},
+            {"plugin":"acme/last","name":"last","version":"1.0.0","install":{"kind":"git","linked":false,"source":"github.com/acme/last"}}]}"#.into()),
+        ("POST", "/api/v1/plugins/acme%2Ffirst/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
+        ("POST", "/api/v1/plugins/acme%2Fbroken/update/inspect") => (422, r#"{"error":"invalid","message":"github.com/acme/broken could not be fetched","violations":[]}"#.into()),
+        ("POST", "/api/v1/plugins/acme%2Flast/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));
@@ -2432,9 +2447,9 @@ fn plugins_update_without_a_name_reports_every_plugin_when_one_fails() {
     assert_eq!(code, 2, "a failure is still a failure: {stderr}");
     assert_eq!(
         stdout,
-        "first: up to date, 1.0.0\n\
-         broken: failed: github.com/acme/broken could not be fetched\n\
-         last: up to date, 1.0.0\n"
+        "acme/first: up to date, 1.0.0\n\
+         acme/broken: failed: github.com/acme/broken could not be fetched\n\
+         acme/last: up to date, 1.0.0\n"
     );
 }
 

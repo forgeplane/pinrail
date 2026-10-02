@@ -1,112 +1,150 @@
-//! Plugin discovery, installed versions and entries retained for review history.
+//! The registered plugins: every installation, each with the plugin its new
+//! reviews use, and the lines that render older reviews, loaded from their
+//! bundles when a review asks for them.
+//!
+//! A plugin is known by its full name, `<publisher>/<name>`. An agent may
+//! name it by its name alone when no other installed plugin has that name.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, RwLock};
 
-use std::sync::{Arc, RwLock};
-
+use chrono::Utc;
 use include_dir::{Dir, include_dir};
-use pinrail_format::bundle::{Listing, Taken};
 use serde_json::Value;
 
-use super::manifest::{Install, MANIFEST, Plugin};
-use crate::db::InstalledRecord;
+use super::bundles::{Bundles, Files};
+use super::install::BUNDLED_PUBLISHER;
+use super::manifest::{Install, Line, Plugin};
+use crate::db::{Db, InstallRecord, LineRecord};
 use crate::error::Error;
 
-/// The plugins every server has. They live in `plugins/` with the others;
-/// build.rs copies their bundles here for the binary to carry.
+/// The plugins that ship with the app. They live in `plugins/` with the
+/// others; build.rs copies their bundles here for the binary to carry.
 static BUILTIN: Dir = include_dir!("$OUT_DIR/builtin");
 
-/// Whether a plugin of this name ships with the app, in which case it cannot
-/// be installed over: the built-in copy is the one that is served.
-pub fn is_builtin(name: &str) -> bool {
-    BUILTIN.dirs().any(|d| d.path().to_string_lossy() == name)
-}
-
-/// The hash of the bundle a folder holds, as `pinrail_format::bundle`
-/// takes it.
-pub(super) fn bundle_hash(dir: &Path, taken: Taken) -> Result<String, String> {
-    Listing::of_folder(dir, taken).map(|listing| listing.hash())
-}
-
-/// Writes the embedded plugins into `dir`, one folder each, and returns `dir`.
-/// Every start rewrites them, so an upgraded binary brings its own copies.
-pub fn install_builtin(dir: &Path) -> std::io::Result<PathBuf> {
-    // each plugin is written whole beside the old copy and then takes its
-    // place, so no file an older build had stays behind
-    let fresh = dir.join(".fresh");
-    let _ = std::fs::remove_dir_all(&fresh);
-    for plugin in BUILTIN.dirs() {
-        write_dir(plugin, &fresh)?;
-        let target = dir.join(plugin.path());
-        if target.exists() {
-            std::fs::remove_dir_all(&target)?;
+/// The files of each plugin the app carries, by its folder: paths relative
+/// to the plugin, and their bytes.
+pub(crate) fn bundled() -> Vec<(String, Files)> {
+    fn files(dir: &Dir, root: &Path, out: &mut Vec<(String, Vec<u8>)>) {
+        for file in dir.files() {
+            let path = file.path().strip_prefix(root).unwrap_or(file.path());
+            out.push((
+                path.to_string_lossy().replace('\\', "/"),
+                file.contents().to_vec(),
+            ));
         }
-        std::fs::rename(fresh.join(plugin.path()), &target)?;
+        for child in dir.dirs() {
+            files(child, root, out);
+        }
     }
-    let _ = std::fs::remove_dir(&fresh);
-    Ok(dir.to_path_buf())
+    BUILTIN
+        .dirs()
+        .map(|plugin| {
+            let mut out = Vec::new();
+            files(plugin, plugin.path(), &mut out);
+            (plugin.path().to_string_lossy().into_owned(), out)
+        })
+        .collect()
 }
 
-/// One embedded directory under `into`, with the files below it.
-fn write_dir(source: &Dir, into: &Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(into.join(source.path()))?;
-    for file in source.files() {
-        std::fs::write(into.join(file.path()), file.contents())?;
-    }
-    for child in source.dirs() {
-        write_dir(child, into)?;
+/// Stores the plugins the app carries as bundles and installs each as
+/// `forgeplane/<name>`. A bundled release becomes its line's current when
+/// it is newer than the line's current, so an earlier line stays for the
+/// reviews that use it when the app ships the next.
+pub(crate) fn store_bundled(db: &Db, bundles: &Bundles) -> Result<(), Error> {
+    let now = crate::reviews::iso(Utc::now());
+    let lines = db.lines()?;
+    for (_, files) in bundled() {
+        let bundle = bundles.store_files(&files)?;
+        let plugin = format!("{BUNDLED_PUBLISHER}/{}", bundle.name);
+        let newer = match lines
+            .iter()
+            .find(|l| l.plugin == plugin && l.line == bundle.line)
+        {
+            None => true,
+            Some(current) => db.bundle(&current.bundle)?.is_none_or(|current| {
+                pinrail_format::semver(&bundle.version) > pinrail_format::semver(&current.version)
+            }),
+        };
+        let current = newer.then_some((bundle.line.as_str(), bundle.hash.as_str()));
+        match db.install(&plugin)? {
+            // installed from elsewhere, such as its repository: that
+            // installation stands, and only a newer release takes its line
+            Some(install) if install.kind != "bundled" => {
+                if let Some(current) = current {
+                    db.record_install(&install, Some(current))?;
+                }
+            }
+            installed => {
+                let line = Some(bundle.line.clone());
+                if current.is_none() && installed.as_ref().is_some_and(|i| i.line == line) {
+                    continue;
+                }
+                let source = format!("Pinrail {}", env!("CARGO_PKG_VERSION"));
+                let record = InstallRecord {
+                    plugin: plugin.clone(),
+                    publisher: BUNDLED_PUBLISHER.into(),
+                    name: bundle.name.clone(),
+                    kind: "bundled".into(),
+                    resolved: source.clone(),
+                    source,
+                    commit: None,
+                    asset_hash: None,
+                    build_log: None,
+                    line,
+                    installed_at: now.clone(),
+                    updated_at: now.clone(),
+                };
+                db.record_install(&record, current)?;
+            }
+        }
     }
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct RegistryState {
+    installs: Vec<InstallRecord>,
+    lines: Vec<LineRecord>,
+    /// Each installation's plugin for new reviews, by full name.
     plugins: BTreeMap<String, Arc<Plugin>>,
-    /// store entries a review still renders from, loaded on demand
-    kept: HashMap<(String, u32), Arc<Plugin>>,
-    /// the installed plugins, links and store entries, as last given
-    records: Vec<InstalledRecord>,
 }
 
-/// The registered plugins, which are the built-in ones, the linked folders
-/// and the store, and the store entries kept for reviews.
+/// The installed plugins and the lines their reviews render with.
 #[derive(Debug)]
 pub struct Registry {
-    /// The built-in plugins, shipped inside the app and written out here.
-    builtin_dir: PathBuf,
-    store_dir: PathBuf,
+    db: Arc<Db>,
+    bundles: Bundles,
+    /// Where fetches, builds and their logs go: `work/` and `logs/`.
+    plugins_dir: PathBuf,
     /// Where release installs and update checks ask GitHub.
     github_api: String,
     /// How long a plugin's build may run.
     build_timeout: std::time::Duration,
     fetch_timeout: std::time::Duration,
     state: RwLock<RegistryState>,
-    /// Held while the store and the install records change, so two installs
-    /// or removals of a plugin cannot interleave.
-    changes: std::sync::Mutex<()>,
+    /// The plugins of bundles a review asked for, by the bundle's hash: a
+    /// bundle never changes.
+    by_bundle: Mutex<HashMap<String, Arc<Plugin>>>,
+    /// Held while installations and lines change, so two installs or
+    /// removals of a plugin cannot interleave.
+    changes: Mutex<()>,
 }
 
 impl Registry {
-    /// Loads the built-in plugins and the installed `records`.
-    /// Fails when two plugins share a name.
-    pub fn open(
-        builtin_dir: PathBuf,
-        records: Vec<InstalledRecord>,
-        store_dir: PathBuf,
-    ) -> Result<Registry, String> {
+    /// Loads every installation the database records.
+    pub fn open(db: Arc<Db>, bundles: Bundles, plugins_dir: PathBuf) -> Result<Registry, Error> {
         let registry = Registry {
-            builtin_dir,
-            store_dir,
+            db,
+            bundles,
+            plugins_dir,
             github_api: "https://api.github.com".to_string(),
             build_timeout: crate::config::BUILD_TIMEOUT,
             fetch_timeout: crate::config::FETCH_TIMEOUT,
-            state: RwLock::new(RegistryState {
-                plugins: BTreeMap::new(),
-                kept: HashMap::new(),
-                records,
-            }),
-            changes: std::sync::Mutex::default(),
+            state: RwLock::default(),
+            by_bundle: Mutex::default(),
+            changes: Mutex::default(),
         };
         registry.reload()?;
         Ok(registry)
@@ -141,57 +179,87 @@ impl Registry {
         self.fetch_timeout
     }
 
-    pub fn store_dir(&self) -> &Path {
-        &self.store_dir
+    pub fn bundles(&self) -> &Bundles {
+        &self.bundles
     }
 
-    /// Taken while the store and the install records change: an install
-    /// placing and recording a plugin, or a removal.
+    /// Where a source is fetched and built: scratch, emptied at start.
+    pub fn work_dir(&self) -> PathBuf {
+        self.plugins_dir.join("work")
+    }
+
+    /// Where each build's output is kept.
+    pub fn logs_dir(&self) -> PathBuf {
+        self.plugins_dir.join("logs")
+    }
+
+    /// Taken while installations and lines change: an install recording a
+    /// plugin, a removal, or the history sweep letting a line go.
     pub(crate) fn changing(&self) -> std::sync::MutexGuard<'_, ()> {
         self.changes.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Where a store entry lives: one per plugin and major.
-    pub fn store_entry(&self, name: &str, major: i64) -> PathBuf {
-        self.store_dir.join(name).join(major.to_string())
-    }
-
-    pub fn records(&self) -> Vec<InstalledRecord> {
+    fn read(&self) -> std::sync::RwLockReadGuard<'_, RegistryState> {
         self.state
             .read()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .records
-            .clone()
+    }
+
+    pub fn installs(&self) -> Vec<InstallRecord> {
+        self.read().installs.clone()
     }
 
     pub fn all(&self) -> Vec<Arc<Plugin>> {
-        self.state
-            .read()
-            .unwrap()
-            .plugins
-            .values()
-            .cloned()
-            .collect()
+        self.read().plugins.values().cloned().collect()
     }
 
-    /// The current plugin, usable or not.
+    /// The full name an agent's name stands for: the name itself when it is
+    /// one, or the one installed plugin with that name. Two with the name
+    /// are refused with both full names to choose from.
+    pub fn resolve(&self, name: &str) -> Result<String, Error> {
+        let state = self.read();
+        if name.contains('/') {
+            return match state.installs.iter().any(|i| i.plugin == name) {
+                true => Ok(name.to_string()),
+                false => Err(Error::invalid("/plugin", format!("unknown plugin {name}"))),
+            };
+        }
+        let matches: Vec<&str> = state
+            .installs
+            .iter()
+            .filter(|i| i.name == name)
+            .map(|i| i.plugin.as_str())
+            .collect();
+        match matches.as_slice() {
+            [one] => Ok(one.to_string()),
+            [] => Err(Error::invalid("/plugin", format!("unknown plugin {name}"))),
+            several => Err(Error::invalid(
+                "/plugin",
+                format!(
+                    "{name} names {}; give the full name of one",
+                    several.join(" and ")
+                ),
+            )),
+        }
+    }
+
+    /// The installed plugin new reviews use, usable or not, by full name or
+    /// by a name only it has.
     pub fn get(&self, name: &str) -> Option<Arc<Plugin>> {
-        self.state
-            .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .plugins
-            .get(name)
-            .cloned()
+        let plugin = self.resolve(name).ok()?;
+        self.read().plugins.get(&plugin).cloned()
     }
 
-    /// The usable current plugin, or an `invalid` error pointing at `/plugin`.
+    /// The usable plugin new reviews use, or an `invalid` error pointing at
+    /// `/plugin`.
     pub fn fetch(&self, name: &str) -> Result<Arc<Plugin>, Error> {
-        match self.get(name) {
-            Some(p) if p.usable() => Ok(p),
+        let plugin = self.resolve(name)?;
+        match self.read().plugins.get(&plugin) {
+            Some(p) if p.usable() => Ok(p.clone()),
             Some(p) => Err(Error::invalid(
                 "/plugin",
                 format!(
-                    "plugin {name} is not usable: {}",
+                    "plugin {plugin} is not usable: {}",
                     p.error.clone().unwrap_or_default()
                 ),
             )),
@@ -199,334 +267,317 @@ impl Registry {
         }
     }
 
-    /// The plugin at the version a review was created under: the current
-    /// one when the version matches, else the store entry kept for the
-    /// reviews that still render from it.
-    pub fn fetch_version(&self, name: &str, version: u32) -> Result<Arc<Plugin>, Error> {
+    /// The bundle a line of a plugin renders with, by full name.
+    pub fn line_bundle(&self, plugin: &str, line: &str) -> Option<String> {
+        self.read()
+            .lines
+            .iter()
+            .find(|l| l.plugin == plugin && l.line == line)
+            .map(|l| l.bundle.clone())
+    }
+
+    /// The plugin a review renders with: the installed plugin when the line
+    /// is the one its new reviews use, which is the linked folder for a
+    /// link; else the line's current bundle.
+    pub fn fetch_line(&self, plugin: &str, line: &str) -> Result<Arc<Plugin>, Error> {
         let missing = || {
             Error::invalid(
                 "/plugin",
-                format!("plugin {name} version {version} is not installed"),
+                format!("plugin {plugin} line {line} is not installed"),
             )
         };
-        // the name is joined into a store path below, and comes from a URL
-        if !super::manifest::valid_name(name) {
-            return Err(missing());
-        }
-        if let Some(p) = self.get(name)
-            && p.version == version
+        if let Some(p) = self.read().plugins.get(plugin)
+            && p.line == line
             && p.usable()
-        {
-            return Ok(p);
-        }
-        if let Some(p) = self
-            .state
-            .read()
-            .unwrap()
-            .kept
-            .get(&(name.to_string(), version))
         {
             return Ok(p.clone());
         }
-        let dir = self.store_entry(name, version as i64);
-        if dir.join(MANIFEST).is_file() {
-            let plugin = Plugin::load(&dir);
-            if plugin.name == name && plugin.version == version && plugin.usable() {
-                let plugin = Arc::new(plugin);
-                self.state
-                    .write()
-                    .unwrap()
-                    .kept
-                    .insert((name.to_string(), version), plugin.clone());
-                return Ok(plugin);
-            }
+        let bundle = self.line_bundle(plugin, line).ok_or_else(missing)?;
+        let mut by_bundle = self.by_bundle.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(p) = by_bundle.get(&bundle) {
+            return Ok(p.clone());
         }
-        Err(missing())
+        let loaded = Plugin::load(&self.bundles.path(&bundle));
+        if !loaded.usable() {
+            return Err(missing());
+        }
+        let loaded = Arc::new(loaded);
+        by_bundle.insert(bundle, loaded.clone());
+        Ok(loaded)
     }
 
-    /// Loads everything again with a new set of records. On a duplicate
-    /// name the old state is kept, records and plugins alike.
-    pub fn reload_with(&self, records: Vec<InstalledRecord>) -> Result<usize, String> {
-        self.load(records)
-    }
-
-    /// Reads every plugin again: the built-in ones, the linked folders, the
-    /// store entries — each of the last with its record and, for a store
-    /// entry, its files hashed against what was installed. A record whose
-    /// name is built in is skipped; on any other duplicate name the old
-    /// state is kept.
-    pub fn reload(&self) -> Result<usize, String> {
-        let records = self
-            .state
-            .read()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .records
-            .clone();
-        self.load(records)
-    }
-
-    /// Builds the state from `records` and, only when it is sound, puts the
-    /// records and the plugins in place together.
-    fn load(&self, records: Vec<InstalledRecord>) -> Result<usize, String> {
-        let mut loaded: Vec<Plugin> = subdirs(&self.builtin_dir)
-            .into_iter()
-            .map(|sub| Plugin::load(&sub))
-            .collect();
-        for record in &records {
-            // A plugin that has since become built-in: the copy in the binary
-            // is the one served, and the record is left where it is rather
-            // than failing the whole registry over a name it no longer owns.
-            if is_builtin(&record.name) {
-                continue;
-            }
-            let dir = if record.linked {
-                PathBuf::from(&record.path)
-            } else {
-                self.store_entry(&record.name, record.major)
-            };
-            let mut plugin = Plugin::load(&dir);
-            let modified = match (&record.hash, record.linked) {
-                (Some(expected), false) => bundle_hash(&dir, Taken::AsBundle)
-                    .map(|h| &h != expected)
-                    .unwrap_or(true),
-                _ => false,
-            };
-            // Listed under the record's name, whatever the folder holds:
-            // records are unique by name, so a broken or renamed plugin
-            // costs only itself. A failed load names it after its folder,
-            // which for a store entry is only its major.
-            if plugin.error.is_none() && plugin.name != record.name {
-                plugin.error = Some(format!(
-                    "the manifest names {}, the record {}",
-                    plugin.name, record.name
-                ));
-            }
-            plugin.name = record.name.clone();
-            plugin.install = Some(Install {
-                kind: record.kind.clone(),
-                source: record.source.clone(),
-                version: record.version.clone(),
-                linked: record.linked,
-                commit: record.commit.clone(),
-                tag: (record.kind == "release")
-                    .then(|| serde_json::from_str::<Value>(&record.resolved).ok())
-                    .flatten()
-                    .and_then(|r| r["tag"].as_str().map(str::to_string)),
-                asset_hash: record.asset_hash.clone(),
-                hash: record.hash.clone(),
-                modified,
-                installed_at: record.installed_at.clone(),
-            });
-            loaded.push(plugin);
-        }
-        let mut by_name: BTreeMap<String, Vec<&Plugin>> = BTreeMap::new();
-        for p in &loaded {
-            by_name.entry(p.name.clone()).or_default().push(p);
-        }
-        let duplicates: Vec<String> = by_name
-            .iter()
-            .filter(|(_, ps)| ps.len() > 1)
-            .map(|(name, ps)| {
-                format!(
-                    "plugin {name} is defined at {}",
-                    ps.iter()
-                        .map(|p| p.path.display().to_string())
-                        .collect::<Vec<_>>()
-                        .join(" and ")
-                )
-            })
-            .collect();
-        if !duplicates.is_empty() {
-            return Err(duplicates.join("; "));
+    /// Reads every installation and line again from the database, and the
+    /// plugins they name.
+    pub fn reload(&self) -> Result<usize, Error> {
+        let installs = self.db.installs()?;
+        let lines = self.db.lines()?;
+        let mut plugins = BTreeMap::new();
+        for install in &installs {
+            plugins.insert(
+                install.plugin.clone(),
+                Arc::new(self.load(install, &lines)?),
+            );
         }
         let mut state = self
             .state
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.records = records;
-        state.plugins = loaded
-            .into_iter()
-            .map(|p| (p.name.clone(), Arc::new(p)))
-            .collect();
-        state.kept.clear();
-        Ok(state.plugins.len())
+        let count = plugins.len();
+        *state = RegistryState {
+            installs,
+            lines,
+            plugins,
+        };
+        Ok(count)
     }
-}
 
-fn subdirs(dir: &Path) -> Vec<PathBuf> {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return Vec::new();
-    };
-    let mut subs: Vec<PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.join(MANIFEST).is_file())
-        .collect();
-    subs.sort();
-    subs
+    /// The plugin an installation's new reviews use: its linked folder, or
+    /// the current bundle of its line, checked against that bundle's
+    /// listing. A broken one is listed with its error.
+    fn load(&self, install: &InstallRecord, lines: &[LineRecord]) -> Result<Plugin, Error> {
+        let current = install.line.as_ref().and_then(|line| {
+            lines
+                .iter()
+                .find(|l| l.plugin == install.plugin && &l.line == line)
+        });
+        let mut plugin = match (install.linked(), current) {
+            (true, _) => Plugin::load(Path::new(&install.resolved)),
+            (false, Some(current)) => Plugin::load(&self.bundles.path(&current.bundle)),
+            (false, None) => {
+                let mut broken = Plugin::load(&self.bundles.path("none"));
+                broken.error = Some(format!(
+                    "line {} has no bundle",
+                    install.line.as_deref().unwrap_or("none")
+                ));
+                broken
+            }
+        };
+        // listed under the installation's name, whatever the folder holds
+        if plugin.error.is_none() && plugin.name != install.name {
+            plugin.error = Some(format!(
+                "the manifest names {}, the installation {}",
+                plugin.name, install.name
+            ));
+        }
+        plugin.name = install.name.clone();
+        let mut own_lines = Vec::new();
+        for line in lines.iter().filter(|l| l.plugin == install.plugin) {
+            let version = self
+                .db
+                .bundle(&line.bundle)?
+                .map(|b| b.version)
+                .unwrap_or_default();
+            own_lines.push(Line {
+                line: line.line.clone(),
+                version,
+                bundle: line.bundle.clone(),
+            });
+        }
+        own_lines.sort_by_key(|l| pinrail_format::semver(&l.version));
+        let modified = current.is_some_and(|c| self.bundles.verify(&c.bundle).is_err());
+        plugin.install = Some(Install {
+            plugin: install.plugin.clone(),
+            publisher: install.publisher.clone(),
+            kind: install.kind.clone(),
+            source: install.source.clone(),
+            linked: install.linked(),
+            commit: install.commit.clone(),
+            tag: (install.kind == "release")
+                .then(|| serde_json::from_str::<Value>(&install.resolved).ok())
+                .flatten()
+                .and_then(|r| r["tag"].as_str().map(str::to_string)),
+            asset_hash: install.asset_hash.clone(),
+            bundle: current.map(|c| c.bundle.clone()),
+            modified,
+            installed_at: install.installed_at.clone(),
+            updated_at: install.updated_at.clone(),
+            lines: own_lines,
+        });
+        Ok(plugin)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// A file a newer build dropped from a built-in plugin is gone after
-    /// the next start, rather than served from the copy on disk.
-    #[test]
-    fn writing_the_built_in_plugins_leaves_no_file_of_an_older_build() {
-        let dir = tempfile::tempdir().unwrap();
-        install_builtin(dir.path()).unwrap();
-        let stale = dir.path().join("list").join("dropped.js");
-        std::fs::write(&stale, "from an older build").unwrap();
-        install_builtin(dir.path()).unwrap();
-        assert!(!stale.exists());
-        assert!(dir.path().join("list").join(MANIFEST).is_file());
+    fn open(dir: &Path, db: Arc<Db>) -> Registry {
+        let bundles = Bundles::open(&dir.join("bundles"), db.clone()).unwrap();
+        store_bundled(&db, &bundles).unwrap();
+        Registry::open(db, bundles, dir.to_path_buf()).unwrap()
     }
 
-    /// A linked record for a plugin folder, as an install would have written.
-    fn linked(name: &str, dir: &Path) -> InstalledRecord {
-        let path = dir.display().to_string();
-        InstalledRecord {
-            name: name.into(),
-            version: "1.0.0".into(),
-            major: 1,
-            kind: "path".into(),
-            source: path.clone(),
-            resolved: path.clone(),
-            commit: None,
-            asset_hash: None,
-            hash: None,
-            build_log: None,
-            installed_at: "2026-09-01T10:00:00Z".into(),
-            linked: true,
-            path,
-        }
-    }
-
-    fn registry(tmp: &Path) -> Registry {
-        let builtin = install_builtin(&tmp.join("builtin")).unwrap();
-        Registry::open(builtin, vec![], tmp.join("store")).unwrap()
+    fn installs(db: &Db) -> Vec<(String, String, Option<String>)> {
+        db.installs()
+            .unwrap()
+            .into_iter()
+            .map(|i| (i.plugin, i.kind, i.line))
+            .collect()
     }
 
     #[test]
-    fn the_builtin_plugins_load_and_are_fetched_by_version() {
+    fn the_bundled_plugins_are_stored_and_installed_under_forgeplane() {
         let tmp = tempfile::tempdir().unwrap();
-        let r = registry(tmp.path());
+        let db = Arc::new(Db::in_memory().unwrap());
+        let r = open(tmp.path(), db.clone());
+        assert_eq!(
+            installs(&db),
+            vec![
+                (
+                    "forgeplane/feedback".into(),
+                    "bundled".into(),
+                    Some("1".into())
+                ),
+                ("forgeplane/list".into(), "bundled".into(), Some("1".into())),
+            ]
+        );
         let list = r.fetch("list").unwrap();
-        assert_eq!((list.version, list.title.as_str()), (1, "Action list"));
-        assert!(r.fetch("nope").is_err());
-        assert!(r.fetch_version("list", 1).is_ok());
-        assert!(r.fetch_version("list", 9).is_err());
+        assert_eq!(list.full_name(), "forgeplane/list");
+        assert_eq!((list.version.as_str(), list.line.as_str()), ("1.0.0", "1"));
+        assert_eq!(
+            r.fetch("forgeplane/list").unwrap().full_name(),
+            "forgeplane/list"
+        );
+        let bundle = list.install.as_ref().unwrap().bundle.clone().unwrap();
+        assert_eq!(list.path, r.bundles().path(&bundle));
+        assert!(r.fetch_line("forgeplane/list", "1").is_ok());
+        assert!(r.fetch_line("forgeplane/list", "9").is_err());
 
-        // the second built-in keeps its files in subdirectories: a view and
-        // the schemas it refers to, which are written out with it
-        let feedback = r.fetch("feedback").unwrap();
-        assert_eq!(feedback.entry, "view/index.html");
-        assert!(feedback.error.is_none(), "{:?}", feedback.error);
-        assert!(feedback.path.join("view/feedback-core.js").is_file());
-        assert!(feedback.path.join("schemas/payload.schema.json").is_file());
+        // a second start finds them stored: nothing changes
+        let before = db.installs().unwrap();
+        store_bundled(&db, r.bundles()).unwrap();
+        assert_eq!(db.installs().unwrap(), before);
     }
 
     #[test]
-    fn an_installed_plugin_that_became_builtin_is_shadowed_by_it() {
-        let tmp = tempfile::tempdir().unwrap();
-        let builtin = install_builtin(&tmp.path().join("builtin")).unwrap();
-        // someone installed feedback from a folder before it shipped with
-        // the app; two plugins of one name would otherwise refuse to load
-        let elsewhere = tmp.path().join("elsewhere");
-        install_builtin(&elsewhere).unwrap();
-        let record = linked("feedback", &elsewhere.join("feedback"));
-        let r = Registry::open(builtin.clone(), vec![record], tmp.path().join("store")).unwrap();
-
-        // the copy in the binary is the one served, and the rest still loads
-        assert!(is_builtin("feedback"));
-        assert_eq!(r.fetch("feedback").unwrap().path, builtin.join("feedback"));
-        assert!(r.fetch("feedback").unwrap().install.is_none());
-        assert!(r.fetch("list").is_ok());
-    }
-
-    #[test]
-    fn a_builtin_plugin_ships_its_bundle_and_nothing_else() {
-        let tmp = tempfile::tempdir().unwrap();
-        let builtin = install_builtin(&tmp.path().join("builtin")).unwrap();
-        for name in ["list", "feedback"] {
+    fn a_bundled_plugin_ships_its_bundle_and_nothing_else() {
+        use pinrail_format::bundle::{Listing, Taken};
+        for (folder, files) in bundled() {
             let source = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../plugins")
-                .join(name);
+                .join(&folder);
             let bundle = Listing::of_folder(&source, Taken::FromSource).unwrap();
-            let shipped = Listing::of_folder(&builtin.join(name), Taken::AsBundle);
-            assert_eq!(shipped, Ok(bundle), "{name}");
+            let shipped = Listing::from_files(
+                files.iter().map(|(p, b)| (p.as_str(), b.as_slice())),
+                Taken::AsBundle,
+            );
+            assert_eq!(shipped, Ok(bundle), "{folder}");
         }
+    }
+
+    /// An older bundled release does not replace a newer one on its line.
+    #[test]
+    fn a_bundled_release_takes_its_line_only_when_newer() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::in_memory().unwrap());
+        let r = open(tmp.path(), db.clone());
+        let shipped = r.line_bundle("forgeplane/list", "1").unwrap();
+
+        // a newer 1.x on line 1, as an update from elsewhere left it
+        let newer = tmp.path().join("newer");
+        copy_dir(&r.bundles().path(&shipped), &newer);
+        let manifest = newer.join("manifest.json");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(&manifest, text.replace("\"1.0.0\"", "\"1.9.0\"")).unwrap();
+        let stored = r.bundles().store(&newer).unwrap();
+        let install = db.install("forgeplane/list").unwrap().unwrap();
+        db.record_install(&install, Some(("1", &stored.hash)))
+            .unwrap();
+
+        store_bundled(&db, r.bundles()).unwrap();
+        r.reload().unwrap();
+        assert_eq!(r.line_bundle("forgeplane/list", "1"), Some(stored.hash));
+        assert_eq!(r.fetch("list").unwrap().version, "1.9.0");
+    }
+
+    fn link(db: &Db, publisher: &str, name: &str, folder: &Path) {
+        db.record_install(
+            &InstallRecord {
+                plugin: format!("{publisher}/{name}"),
+                publisher: publisher.into(),
+                name: name.into(),
+                kind: "link".into(),
+                source: folder.display().to_string(),
+                resolved: folder.display().to_string(),
+                commit: None,
+                asset_hash: None,
+                build_log: None,
+                line: None,
+                installed_at: "2026-10-01T10:00:00Z".into(),
+                updated_at: "2026-10-01T10:00:00Z".into(),
+            },
+            None,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn short_names_resolve_to_the_one_plugin_with_that_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::in_memory().unwrap());
+        let r = open(tmp.path(), db.clone());
+        assert_eq!(r.resolve("list").unwrap(), "forgeplane/list");
+        assert_eq!(r.resolve("forgeplane/list").unwrap(), "forgeplane/list");
+        let unknown = r.resolve("nope").unwrap_err().to_string();
+        assert!(unknown.contains("unknown plugin nope"), "{unknown}");
+        assert!(r.resolve("acme/list").is_err());
+
+        // a second plugin named list, linked from a folder
+        let folder = tmp.path().join("list");
+        let shipped = r.line_bundle("forgeplane/list", "1").unwrap();
+        copy_dir(&r.bundles().path(&shipped), &folder);
+        link(&db, "local", "list", &folder);
+        r.reload().unwrap();
+        let error = r.resolve("list").unwrap_err().to_string();
+        assert!(
+            error.contains("forgeplane/list") && error.contains("local/list"),
+            "{error}"
+        );
+        assert!(r.fetch("list").is_err());
+        let linked = r.fetch("local/list").unwrap();
+        assert_eq!(linked.full_name(), "local/list");
+        assert!(linked.install.as_ref().unwrap().linked);
+        assert_eq!(linked.path, folder);
+        // the linked folder renders its own line while it is on it
+        assert_eq!(r.fetch_line("local/list", "1").unwrap().path, folder);
+        assert_eq!(r.resolve("feedback").unwrap(), "forgeplane/feedback");
     }
 
     #[test]
     fn a_broken_plugin_is_listed_with_its_error() {
         let tmp = tempfile::tempdir().unwrap();
-        let bad = tmp.path().join("user").join("broken");
-        std::fs::create_dir_all(&bad).unwrap();
-        std::fs::write(bad.join("manifest.json"), "{\"name\":\"broken\"}").unwrap();
-        let r = Registry::open(tmp.path().join("user"), vec![], tmp.path().join("store")).unwrap();
+        let db = Arc::new(Db::in_memory().unwrap());
+        let r = open(tmp.path(), db.clone());
+        let folder = tmp.path().join("broken");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(
+            folder.join("manifest.json"),
+            r#"{"name": "broken", "version": "1.0.0"}"#,
+        )
+        .unwrap();
+        link(&db, "local", "broken", &folder);
+        r.reload().unwrap();
         let broken = r.get("broken").unwrap();
-        // the manifest schema's first word on it: a required key is missing
+        assert!(!broken.usable());
         assert!(
-            broken
-                .error
-                .as_deref()
-                .is_some_and(|e| e.ends_with("is required")),
+            broken.error.as_deref().unwrap().contains("not found"),
             "{:?}",
             broken.error
         );
         assert!(r.fetch("broken").is_err());
+        // the rest still loads
+        assert!(r.fetch("list").is_ok());
     }
 
-    #[test]
-    fn broken_store_entries_cost_only_themselves() {
-        // two installed plugins at the same major whose store folders are
-        // gone: a bad upgrade, a hand deletion, an interrupted install
-        let tmp = tempfile::tempdir().unwrap();
-        let builtin = install_builtin(&tmp.path().join("builtin")).unwrap();
-        let store = tmp.path().join("store");
-        let installed = |name: &str| InstalledRecord {
-            kind: "git".into(),
-            linked: false,
-            path: store.join(name).join("1").display().to_string(),
-            ..linked(name, &store.join(name).join("1"))
-        };
-        let r = Registry::open(builtin, vec![installed("alpha"), installed("beta")], store)
-            .expect("one bad plugin must not stop the app from starting");
-        for name in ["alpha", "beta"] {
-            let plugin = r
-                .get(name)
-                .unwrap_or_else(|| panic!("{name} is listed under its own name"));
-            assert!(plugin.error.is_some(), "{name} carries its error");
-            assert!(r.fetch(name).is_err());
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for entry in std::fs::read_dir(from).unwrap().flatten() {
+            let target = to.join(entry.file_name());
+            if entry.path().is_dir() {
+                copy_dir(&entry.path(), &target);
+            } else {
+                std::fs::write(&target, std::fs::read(entry.path()).unwrap()).unwrap();
+            }
         }
-        assert!(r.fetch("list").is_ok(), "the rest still work");
-    }
-
-    #[test]
-    fn duplicate_names_are_refused_and_the_old_state_stands() {
-        let tmp = tempfile::tempdir().unwrap();
-        let r = registry(tmp.path());
-        // two folders, each calling its plugin the same name, both linked
-        let (one, two) = (tmp.path().join("one"), tmp.path().join("two"));
-        for dir in [&one, &two] {
-            install_builtin(dir).unwrap();
-            let manifest = dir.join("list").join(MANIFEST);
-            let text = std::fs::read_to_string(&manifest).unwrap();
-            std::fs::write(&manifest, text.replace("\"list\"", "\"twin\"")).unwrap();
-        }
-        let records = vec![
-            linked("twin", &one.join("list")),
-            linked("twin", &two.join("list")),
-        ];
-
-        let error = r.reload_with(records).unwrap_err();
-        assert!(error.contains("plugin twin is defined at"), "{error}");
-        assert!(r.fetch("list").is_ok(), "the old state stands");
-        assert!(
-            r.records().is_empty(),
-            "and so do the old records, which the history sweep reads"
-        );
     }
 }

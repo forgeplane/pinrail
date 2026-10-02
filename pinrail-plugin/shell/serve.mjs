@@ -111,7 +111,8 @@ function violations(pluginDir, kind, data) {
     schema && typeof schema.$ref === "string"
       ? JSON.parse(fs.readFileSync(path.join(pluginDir, schema.$ref), "utf8"))
       : schema;
-  const prefix = kind === "settings" ? `/plugins/${manifest.name}` : "";
+  // the app keeps a plugin's settings under its full name, `/` written `~1`
+  const prefix = kind === "settings" ? `/plugins/local~1${manifest.name}` : "";
   let schema = load(
     kind === "settings" ? manifest.settings_schema : { $ref: path.join("schemas", "decision.schema.json") },
   );

@@ -35,7 +35,7 @@ async function pluginFrame(page: import("@playwright/test").Page): Promise<Frame
   await expect
     .poll(
       () => {
-        frame = page.frames().find((f) => f.url().includes("/plugins/list/"));
+        frame = page.frames().find((f) => f.url().includes("/bundles/"));
         return Boolean(frame);
       },
       { message: "the plugin view never got a frame of its own" },
@@ -144,8 +144,10 @@ test("a plugin view loads images and fonts from the app, and from nowhere else",
       };
       const out = {
         imageOff: await image(`${urls.refused}?leak=secret`),
-        // the plugin's own icon, in its folder above the view
-        imageFromPlugin: await image(new URL("../icon.svg", document.baseURI).href),
+        // an image of the view's own folder: allowed, though this one is not there
+        imageFromView: await image(new URL("probe.svg", document.baseURI).href),
+        // the plugin's icon, in its bundle above the view: not the view's to load
+        imageAboveView: await image(new URL("../icon.svg", document.baseURI).href),
         fontOff: await font(urls.refused),
         fontFromSdk: await font(urls.sdkFont),
         rules: [] as string[],
@@ -164,19 +166,22 @@ test("a plugin view loads images and fonts from the app, and from nowhere else",
   // than merely to hosts a plugin declares.
   expect(load.imageOff, "an image address carries whatever is put in it").toBe("blocked");
   expect(load.fontOff, "a font address carries data the same way").toBe("blocked");
+  // a sandboxed frame reports a violation without its address: two images
+  // are refused, the one off the app and the one above the view, and the
+  // view's own image is not
   expect(
-    load.rules.some((r) => r.startsWith("img-src")),
-    "the policy refused the image, not the network",
-  ).toBe(true);
+    load.rules.filter((r) => r.startsWith("img-src")).length,
+    "the policy refused the images, not the network",
+  ).toBe(2);
+  expect(load.imageAboveView, "nothing outside the view's folder is served").toBe("blocked");
   expect(
     load.rules.some((r) => r.startsWith("font-src")),
     "the policy refused the font, not the network",
   ).toBe(true);
 
-  // The other half: the app serves the icon set and the typeface it draws
-  // itself in, so a view looks like the window around it without reaching
-  // outside. If either of these breaks, panels silently fall back.
-  expect(load.imageFromPlugin, "a plugin's own icons must load").toBe("loaded");
+  // The other half: the app serves the typeface it draws itself in, so a
+  // view looks like the window around it without reaching outside. If it
+  // breaks, panels silently fall back.
   expect(load.fontFromSdk, "the typeface the app serves must load").toBe("loaded");
 });
 

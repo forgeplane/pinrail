@@ -46,7 +46,7 @@ const failure = (e: unknown) =>
 /** Where the plugin comes from, in one line. */
 function Origin({ seen }: { seen: Inspection }) {
   const { origin } = seen;
-  if (origin.kind === "path") {
+  if (origin.kind === "folder") {
     return (
       <p>
         {seen.link ? "Linked from the folder " : "From the folder "}
@@ -93,7 +93,7 @@ function Origin({ seen }: { seen: Inspection }) {
 
 /** What runs on this computer, and what happens to what is already installed. */
 function Consequences({ seen }: { seen: Inspection }) {
-  const local = seen.origin.kind === "path";
+  const local = seen.origin.kind === "folder";
   const installed = seen.installed;
   return (
     <>
@@ -136,7 +136,7 @@ function Consequences({ seen }: { seen: Inspection }) {
               ? "link"
               : installed.unchanged
                 ? "unchanged"
-                : installed.major === seen.major
+                : installed.line === seen.line
                   ? seen.older
                     ? "older"
                     : "same"
@@ -152,8 +152,8 @@ function Consequences({ seen }: { seen: Inspection }) {
               : `, as a link to ${installed.path}. Installing copies this folder and removes the link.`
             : installed.unchanged
               ? `, from this source, and the source has not changed. Installing again replaces it with the same files.`
-              : installed.major !== seen.major
-                ? `. This major version is installed beside it, and the old one stays while reviews still use it.`
+              : installed.line !== seen.line
+                ? `. This version starts a new line beside it, and the old line stays while reviews still use it.`
                 : seen.older
                   ? `, and it is newer than this version. Installing replaces it with this older version.`
                   : `. Installing replaces it.`}
@@ -414,8 +414,8 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
 
       {stage.at === "done" ? (
         <p className="install-done" data-install-done>
-          <b>{stage.job.plugin?.title ?? stage.job.plugin?.name}</b> {stage.job.plugin?.install?.version} is ready.
-          Reviews for this plugin now open with this version.
+          <b>{stage.job.plugin?.title ?? stage.job.plugin?.name}</b> {stage.job.plugin?.version} is ready. Reviews for
+          this plugin now open with this version.
         </p>
       ) : null}
 

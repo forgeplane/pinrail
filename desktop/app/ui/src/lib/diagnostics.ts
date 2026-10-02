@@ -55,9 +55,9 @@ export function describeDiagnostics({
 
   if (plugins) {
     lines.push("", `Plugins (${plugins.length}):`);
-    for (const plugin of [...plugins].sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const plugin of [...plugins].sort((a, b) => a.plugin.localeCompare(b.plugin))) {
       const notes = [plugin.dev ? "linked for development" : null, plugin.usable ? null : "not usable"].filter(Boolean);
-      lines.push(`  ${plugin.name} ${plugin.release ?? plugin.version}${notes.length ? ` (${notes.join(", ")})` : ""}`);
+      lines.push(`  ${plugin.plugin} ${plugin.version}${notes.length ? ` (${notes.join(", ")})` : ""}`);
     }
   }
 

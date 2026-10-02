@@ -10,7 +10,7 @@ function bundlesLoaded(page: Page) {
   page.on("framenavigated", (frame) => {
     if (frame === page.mainFrame()) return;
     const url = new URL(frame.url());
-    if (url.pathname.startsWith("/plugins/")) loads.push(url.pathname);
+    if (url.pathname.startsWith("/bundles/") || url.pathname.startsWith("/links/")) loads.push(url.pathname);
   });
   return {
     take() {
@@ -56,12 +56,14 @@ test("switching to a review of another plugin loads that plugin's view, and only
     await rows.filter({ hasText: "Switch: a question" }).click();
     await expect(page).toHaveURL(new RegExp(`/reviews/${question.id}$`));
     await expect(frame.locator("p").first()).toHaveText("Push the branch to origin?");
-    expect(loads.take()).toEqual(["/plugins/hello/1/view/index.html"]);
+    // hello is linked, so served live from its folder
+    expect(loads.take()).toEqual(["/links/local/hello/view/index.html"]);
 
     await rows.filter({ hasText: "Switch: a list" }).click();
     await expect(page).toHaveURL(new RegExp(`/reviews/${list.id}$`));
     await expect(frame.locator("body")).toContainText("Two proposals from the list plugin.");
-    expect(loads.take()).toEqual(["/plugins/list/1/view/index.html"]);
+    // list comes with the app, a bundle named by its hash
+    expect(loads.take()).toEqual([expect.stringMatching(/^\/bundles\/[0-9a-f]{64}\/view\/index\.html$/)]);
   }
 });
 

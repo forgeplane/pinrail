@@ -185,17 +185,21 @@ matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
     const earlier = await json(`/api/v1/reviews/${encodeURIComponent(review.revises)}`);
     previous = earlier.ok ? earlier.body : null;
   }
+  // the view of the review's line, as the core resolves it, and the
+  // plugin's settings as they stand
+  const view = await json(`/api/v1/reviews/${encodeURIComponent(id)}/view`);
   const listed = await json("/api/v1/plugins");
-  const plugin = ((listed.body && listed.body.plugins) || []).find((p) => p.name === review.plugin) || {};
-  settings = plugin.settings || {};
+  const installed = ((listed.body && listed.body.plugins) || []).find((p) => p.plugin === review.plugin) || {};
+  const plugin = (view.ok && view.body.plugin) || {};
+  settings = installed.settings || {};
   minHeight = plugin.min_height || 200;
   document.title = `${review.title} · Pinrail`;
   document.getElementById("title").textContent = review.title;
-  document.getElementById("meta").textContent = `${review.plugin} v${review.plugin_version} · ${review.status}`;
+  document.getElementById("meta").textContent = `${review.plugin} ${review.plugin_version} · ${review.status}`;
   if (readonly()) showDecided();
   else button.disabled = false;
   frame.style.height = `${minHeight}px`;
-  frame.src = `/plugins/${encodeURIComponent(review.plugin)}/${review.plugin_version}/${plugin.entry || "index.html"}`;
+  if (view.ok) frame.src = view.body.url;
 })();
 </script>
 </body>

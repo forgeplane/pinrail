@@ -6,7 +6,7 @@
 //! is put in place before the row is written, so a stop between the two
 //! leaves a folder no row names, which the next open removes.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -17,6 +17,9 @@ use serde_json::Value;
 
 use crate::db::{BundleRecord, Db};
 use crate::error::Error;
+
+/// A bundle's files as paths and bytes.
+pub type Files = Vec<(String, Vec<u8>)>;
 
 /// Where a staged copy waits before it takes its hash's name.
 const STAGING: &str = ".staging-";
@@ -64,9 +67,28 @@ impl Bundles {
     pub fn store(&self, source: &Path) -> Result<BundleRecord, Error> {
         let listing = Listing::of_folder(source, Taken::FromSource)
             .map_err(|why| Error::invalid("/source", why))?;
+        let files = listing
+            .files
+            .iter()
+            .map(|f| Ok((f.path.clone(), fs::read(source.join(&f.path))?)))
+            .collect::<std::io::Result<Vec<_>>>()?;
+        self.store_files(&files)
+    }
+
+    /// Stores a bundle given as its files, paths and bytes, such as one the
+    /// app carries inside it.
+    pub fn store_files(&self, files: &[(String, Vec<u8>)]) -> Result<BundleRecord, Error> {
+        let listing = Listing::from_files(
+            files.iter().map(|(p, b)| (p.as_str(), b.as_slice())),
+            Taken::AsBundle,
+        )
+        .map_err(|why| Error::invalid("/source", why))?;
         let hash = listing.hash();
-        let manifest = fs::read_to_string(source.join(MANIFEST))
-            .map_err(|e| Error::invalid("/source", format!("{MANIFEST}: {e}")))?;
+        let manifest = files
+            .iter()
+            .find(|(p, _)| p == MANIFEST)
+            .map(|(_, bytes)| String::from_utf8_lossy(bytes).into_owned())
+            .ok_or_else(|| Error::invalid("/source", format!("{MANIFEST} not found")))?;
         let parsed: Value = serde_json::from_str(&manifest)
             .map_err(|e| Error::invalid("/source", format!("{MANIFEST}: {e}")))?;
         let name = parsed["name"]
@@ -95,7 +117,7 @@ impl Bundles {
             return Ok(self.db.bundle(&hash)?.unwrap_or(record));
         }
         let staging = self.dir.join(format!("{STAGING}{}", crate::id::next()));
-        let placed = copy_read_only(source, &listing, &staging).and_then(|()| {
+        let placed = write_read_only(files, &staging).and_then(|()| {
             if target.exists() {
                 remove(&target)?;
             }
@@ -150,17 +172,12 @@ impl Bundles {
         Ok(())
     }
 
-    /// Removes the bundles that were stored before `before` and that are
-    /// not in `referenced`: the rows first, then the folders, so a stop
-    /// between them leaves folders the next open removes. Returns how many
-    /// went.
-    pub fn sweep(
-        &self,
-        before: chrono::DateTime<chrono::Utc>,
-        referenced: &HashSet<String>,
-    ) -> Result<usize, Error> {
+    /// Removes the bundles that were stored before `before` and that no
+    /// line refers to: the rows first, then the folders, so a stop between
+    /// them leaves folders the next open removes. Returns how many went.
+    pub fn sweep(&self, before: chrono::DateTime<chrono::Utc>) -> Result<usize, Error> {
         let _files = self.files.lock().unwrap_or_else(|e| e.into_inner());
-        let gone = self.db.delete_unreferenced_bundles(before, referenced)?;
+        let gone = self.db.delete_unreferenced_bundles(before)?;
         let mut listings = self.listings.lock().unwrap_or_else(|e| e.into_inner());
         for hash in &gone {
             listings.remove(hash);
@@ -170,16 +187,15 @@ impl Bundles {
     }
 }
 
-/// Copies the listing's files from `from` into a new folder `to`, each
-/// made read-only.
-fn copy_read_only(from: &Path, listing: &Listing, to: &Path) -> std::io::Result<()> {
+/// Writes the files into a new folder `to`, each made read-only.
+fn write_read_only(files: &[(String, Vec<u8>)], to: &Path) -> std::io::Result<()> {
     fs::create_dir_all(to)?;
-    for file in &listing.files {
-        let target = to.join(&file.path);
+    for (path, bytes) in files {
+        let target = to.join(path);
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::copy(from.join(&file.path), &target)?;
+        fs::write(&target, bytes)?;
         let mut permissions = fs::metadata(&target)?.permissions();
         permissions.set_readonly(true);
         fs::set_permissions(&target, permissions)?;
@@ -234,6 +250,29 @@ mod tests {
             fs::write(to, text).unwrap();
         }
         dir
+    }
+
+    /// Makes the bundle the current one of its plugin's line, which is
+    /// what keeps a bundle.
+    fn refer(bundles: &Bundles, bundle: &BundleRecord) {
+        let record = crate::db::InstallRecord {
+            plugin: format!("local/{}", bundle.name),
+            publisher: "local".into(),
+            name: bundle.name.clone(),
+            kind: "folder".into(),
+            source: "./hello".into(),
+            resolved: "/hello".into(),
+            commit: None,
+            asset_hash: None,
+            build_log: None,
+            line: Some(bundle.line.clone()),
+            installed_at: "2026-10-01T10:00:00Z".into(),
+            updated_at: "2026-10-01T10:00:00Z".into(),
+        };
+        bundles
+            .db
+            .record_install(&record, Some((&bundle.line, &bundle.hash)))
+            .unwrap();
     }
 
     fn later() -> chrono::DateTime<chrono::Utc> {
@@ -347,15 +386,15 @@ mod tests {
         let unused = bundles
             .store(&source(root.path(), "b", "hello", "2.0.0"))
             .unwrap();
-        let referenced = HashSet::from([kept.hash.clone()]);
+        refer(&bundles, &kept);
 
         // stored within the grace period: an install may be about to refer
         // to it, so an hour-old cutoff leaves both
         let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
-        assert_eq!(bundles.sweep(hour_ago, &referenced).unwrap(), 0);
+        assert_eq!(bundles.sweep(hour_ago).unwrap(), 0);
         assert_eq!(folders(&bundles).len(), 2);
 
-        assert_eq!(bundles.sweep(later(), &referenced).unwrap(), 1);
+        assert_eq!(bundles.sweep(later()).unwrap(), 1);
         assert_eq!(folders(&bundles), vec![kept.hash.clone()]);
         assert!(bundles.get(&unused.hash).unwrap().is_none());
         assert!(bundles.listing(&unused.hash).unwrap().is_none());
@@ -389,7 +428,7 @@ mod tests {
             std::thread::spawn(move || {
                 let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
                 while !stop.load(std::sync::atomic::Ordering::Relaxed) {
-                    bundles.sweep(hour_ago, &HashSet::new()).unwrap();
+                    bundles.sweep(hour_ago).unwrap();
                 }
             })
         };

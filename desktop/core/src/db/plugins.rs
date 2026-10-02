@@ -1,102 +1,173 @@
-//! Installed plugins: what the app has, where it came from, and whether a
-//! review still renders from a version that would otherwise be removed.
+//! Installed plugins and their lines: what the person has installed and
+//! where it came from, and for each line of a plugin the bundle that is
+//! current. A line stays while a review renders with it, after its plugin
+//! is removed.
 
 use rusqlite::{OptionalExtension, params};
 
 use super::Db;
 
-/// One installed plugin: a linked folder served live, or an entry in the
-/// store, with where it came from and what was placed.
-#[derive(Debug, Clone)]
-pub struct InstalledRecord {
+/// One installed plugin: a linked folder served live, or a source whose
+/// releases are stored as bundles on lines.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InstallRecord {
+    /// The full name, `<publisher>/<name>`.
+    pub plugin: String,
+    pub publisher: String,
     pub name: String,
-    pub version: String,
-    pub major: i64,
-    /// `path`, `git` or `release`
+    /// `bundled`, `folder`, `link`, `git` or `release`
     pub kind: String,
     pub source: String,
     pub resolved: String,
     pub commit: Option<String>,
     pub asset_hash: Option<String>,
-    /// SHA-256 over the placed files; none for a link
-    pub hash: Option<String>,
     pub build_log: Option<String>,
+    /// The line new reviews use; none for a link.
+    pub line: Option<String>,
     pub installed_at: String,
-    pub linked: bool,
-    /// the folder for a link, the store entry otherwise
-    pub path: String,
+    pub updated_at: String,
+}
+
+impl InstallRecord {
+    pub fn linked(&self) -> bool {
+        self.kind == "link"
+    }
+}
+
+/// A line of a plugin and its current bundle.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LineRecord {
+    pub plugin: String,
+    pub line: String,
+    pub bundle: String,
+}
+
+const INSTALL_COLUMNS: &str = "plugin, publisher, name, source_kind, source, resolved, commit_id, \
+     asset_hash, build_log, line, installed_at, updated_at";
+
+fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
+    Ok(InstallRecord {
+        plugin: r.get(0)?,
+        publisher: r.get(1)?,
+        name: r.get(2)?,
+        kind: r.get(3)?,
+        source: r.get(4)?,
+        resolved: r.get(5)?,
+        commit: r.get(6)?,
+        asset_hash: r.get(7)?,
+        build_log: r.get(8)?,
+        line: r.get(9)?,
+        installed_at: r.get(10)?,
+        updated_at: r.get(11)?,
+    })
 }
 
 impl Db {
-    pub fn installed_plugins(&self) -> rusqlite::Result<Vec<InstalledRecord>> {
+    /// Every installed plugin, by full name.
+    pub fn installs(&self) -> rusqlite::Result<Vec<InstallRecord>> {
         let conn = self.conn();
-        let mut stmt = conn.prepare(
-            "SELECT name, version, major, kind, source, resolved, commit_id, asset_hash, hash, build_log, installed_at, linked, path
-             FROM installed_plugins ORDER BY name",
-        )?;
-        let rows = stmt.query_map([], |r| {
-            Ok(InstalledRecord {
-                name: r.get(0)?,
-                version: r.get(1)?,
-                major: r.get(2)?,
-                kind: r.get(3)?,
-                source: r.get(4)?,
-                resolved: r.get(5)?,
-                commit: r.get(6)?,
-                asset_hash: r.get(7)?,
-                hash: r.get(8)?,
-                build_log: r.get(9)?,
-                installed_at: r.get(10)?,
-                linked: r.get::<_, i64>(11)? != 0,
-                path: r.get(12)?,
-            })
-        })?;
-        rows.collect()
+        conn.prepare(&format!(
+            "SELECT {INSTALL_COLUMNS} FROM plugin_installs ORDER BY plugin"
+        ))?
+        .query_map([], install_row)?
+        .collect()
     }
 
-    /// Writes the record, replacing the plugin's previous one.
-    pub fn upsert_installed(&self, record: &InstalledRecord) -> rusqlite::Result<()> {
+    pub fn install(&self, plugin: &str) -> rusqlite::Result<Option<InstallRecord>> {
         let conn = self.conn();
-        conn.execute(
-            "INSERT OR REPLACE INTO installed_plugins
-             (name, version, major, kind, source, resolved, commit_id, asset_hash, hash, build_log, installed_at, linked, path)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+        conn.query_row(
+            &format!("SELECT {INSTALL_COLUMNS} FROM plugin_installs WHERE plugin = ?1"),
+            params![plugin],
+            install_row,
+        )
+        .optional()
+    }
+
+    /// Every line of every plugin, installed or not.
+    pub fn lines(&self) -> rusqlite::Result<Vec<LineRecord>> {
+        let conn = self.conn();
+        conn.prepare("SELECT plugin, line, bundle FROM plugin_lines ORDER BY plugin, line")?
+            .query_map([], |r| {
+                Ok(LineRecord {
+                    plugin: r.get(0)?,
+                    line: r.get(1)?,
+                    bundle: r.get(2)?,
+                })
+            })?
+            .collect()
+    }
+
+    /// Writes the installation, replacing the plugin's previous one but
+    /// keeping when it was first installed, and makes `current` the bundle
+    /// of its line: both or neither.
+    pub fn record_install(
+        &self,
+        record: &InstallRecord,
+        current: Option<(&str, &str)>,
+    ) -> rusqlite::Result<()> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        tx.execute(
+            &format!(
+                "INSERT INTO plugin_installs ({INSTALL_COLUMNS})
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                 ON CONFLICT(plugin) DO UPDATE SET
+                   source_kind = excluded.source_kind, source = excluded.source,
+                   resolved = excluded.resolved, commit_id = excluded.commit_id,
+                   asset_hash = excluded.asset_hash, build_log = excluded.build_log,
+                   line = excluded.line, updated_at = excluded.updated_at"
+            ),
             params![
+                record.plugin,
+                record.publisher,
                 record.name,
-                record.version,
-                record.major,
                 record.kind,
                 record.source,
                 record.resolved,
                 record.commit,
                 record.asset_hash,
-                record.hash,
                 record.build_log,
+                record.line,
                 record.installed_at,
-                record.linked as i64,
-                record.path
+                record.updated_at
             ],
         )?;
-        Ok(())
+        if let Some((line, bundle)) = current {
+            tx.execute(
+                "INSERT INTO plugin_lines (plugin, line, bundle) VALUES (?1, ?2, ?3)
+                 ON CONFLICT(plugin, line) DO UPDATE SET bundle = excluded.bundle",
+                params![record.plugin, line, bundle],
+            )?;
+        }
+        tx.commit()
     }
 
-    /// Whether any review renders from this plugin's line.
-    pub fn reviews_use(&self, plugin: &str, major: u32) -> rusqlite::Result<bool> {
+    /// Whether any review renders with this line of the plugin.
+    pub fn reviews_use(&self, plugin: &str, line: &str) -> rusqlite::Result<bool> {
         let conn = self.conn();
         conn.query_row(
-            "SELECT 1 FROM reviews WHERE plugin = ?1 AND plugin_version = ?2 LIMIT 1",
-            params![plugin, major],
+            "SELECT 1 FROM reviews WHERE plugin = ?1 AND plugin_line = ?2 LIMIT 1",
+            params![plugin, line],
             |_| Ok(()),
         )
         .optional()
         .map(|r| r.is_some())
     }
 
-    pub fn remove_installed(&self, name: &str) -> rusqlite::Result<bool> {
+    pub fn remove_line(&self, plugin: &str, line: &str) -> rusqlite::Result<()> {
+        let conn = self.conn();
+        conn.execute(
+            "DELETE FROM plugin_lines WHERE plugin = ?1 AND line = ?2",
+            params![plugin, line],
+        )?;
+        Ok(())
+    }
+
+    pub fn remove_install(&self, plugin: &str) -> rusqlite::Result<bool> {
         let conn = self.conn();
         Ok(conn.execute(
-            "DELETE FROM installed_plugins WHERE name = ?1",
-            params![name],
+            "DELETE FROM plugin_installs WHERE plugin = ?1",
+            params![plugin],
         )? > 0)
     }
 }

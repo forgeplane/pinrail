@@ -42,8 +42,8 @@ test("a decision that fails the plugin's decision_schema fails nextSubmit", asyn
 });
 
 test("a view that loads its script by an absolute path fails here as in the app", async ({ page }) => {
-  // the app serves a plugin under /plugins/<name>/<major>/ and allows scripts
-  // from there alone: /view.js is another server path, which it refuses
+  // the app serves a plugin's view/ under /bundles/<hash>/view/ and allows
+  // scripts from there alone: /view.js is another server path, which it refuses
   const dir = scratch("pinrail-harness-");
   fs.mkdirSync(path.join(dir, "view"), { recursive: true });
   fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ name: "absolute", version: "1.0.0" }));

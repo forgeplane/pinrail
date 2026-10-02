@@ -1,9 +1,8 @@
 //! Plugin bundles and the SDK.
 //!
-//! A view is served from the plugin's own folder, the store entry or the
-//! linked directory under `/plugins/`, or from a stored bundle under
-//! `/bundles/<hash>/view/`, with the CSP that makes the sandbox real: no
-//! network at all.
+//! A view is served from a stored bundle under `/bundles/<hash>/view/`, or
+//! from a linked plugin's folder under `/links/<publisher>/<name>/view/`,
+//! with the CSP that makes the sandbox real: no network at all.
 //! Scripts, styles and fonts only inline, from the bundle's own path, or the
 //! SDK under `/sdk/`, which carries the stylesheet's typeface; images only
 //! inline or from the bundle. The iframe
@@ -26,7 +25,7 @@ use sha2::{Digest, Sha256};
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
-        .route("/plugins/{name}/{version}/{*path}", get(bundle))
+        .route("/links/{publisher}/{name}/view/{*path}", get(linked))
         .route("/bundles/{hash}/view/{*path}", get(stored_bundle))
         .route("/sdk/v1/{*path}", get(sdk))
         .route("/preview/reviews/{id}", get(preview))
@@ -55,35 +54,34 @@ async fn preview() -> Response {
         .into_response()
 }
 
-async fn bundle(
+/// A file of a linked plugin's view, served from the developer's folder as
+/// it is: never cached, since the folder changes as they work.
+async fn linked(
     State(state): State<Arc<Pinrail>>,
-    Path((name, version, path)): Path<(String, String, String)>,
+    Path((publisher, name, path)): Path<(String, String, String)>,
     headers: HeaderMap,
 ) -> Response {
-    let Ok(version) = version.parse::<u32>() else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    // Only what an installed copy holds, whichever way the plugin was
-    // installed: a linked plugin is served from its developer's folder,
-    // with its hidden files, dependencies and sources beside the view.
-    if !pinrail_format::bundle::holds(&path) {
-        return StatusCode::NOT_FOUND.into_response();
-    }
     if is_fetch(&headers) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    let Ok(plugin) = state.plugins().fetch_version(&name, version) else {
+    let plugin = format!("{publisher}/{name}");
+    let Some(install) = state.plugins().installed_link(&plugin) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let dir = plugin.path.clone();
-    let Some(file) = safe_join(&dir, &path).filter(|f| f.is_file()) else {
+    // only what a bundle of the folder would hold under view/: the folder
+    // has hidden files, dependencies and sources beside the view
+    let path = format!("view/{path}");
+    if !pinrail_format::bundle::holds(&path) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Some(file) = safe_join(&install, &path).filter(|f| f.is_file()) else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let Ok(body) = tokio::fs::read(&file).await else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let origin = origin(&headers);
-    let base = format!("{origin}/plugins/{name}/{version}/");
+    let base = format!("{origin}/links/{plugin}/view/");
     let mime = mime_guess::from_path(&file).first_or_octet_stream();
     let mut response = (view_headers(&origin, &base, mime.as_ref()), body).into_response();
     response

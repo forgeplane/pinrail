@@ -131,8 +131,9 @@ async fn submit_returns_every_field_of_the_envelope() {
         "the envelope changed; run with UPDATE_FIXTURES=1 if that is meant"
     );
     assert!(review["id"].as_str().unwrap().starts_with("r_"));
-    assert_eq!(review["plugin"], "list");
-    assert_eq!(review["plugin_version"], 1);
+    assert_eq!(review["plugin"], "forgeplane/list");
+    assert_eq!(review["plugin_line"], "1");
+    assert_eq!(review["plugin_version"], "1.0.0");
     assert_eq!(review["status"], "pending");
     assert_eq!(
         review["origin"],
@@ -634,7 +635,7 @@ async fn a_listing_pages_by_cursor_or_offset_searches_every_field_and_offers_its
     )
     .await;
     assert_eq!(titles(&acme), vec!["fifth", "second", "first"]);
-    assert_eq!(acme["facets"]["plugins"], json!(["list"]));
+    assert_eq!(acme["facets"]["plugins"], json!(["forgeplane/list"]));
     assert_eq!(acme["facets"]["repos"], json!(["acme", "other"]));
     assert_eq!(acme["facets"]["unassigned"], json!(true));
 
@@ -711,15 +712,15 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|p| p["name"].as_str().unwrap().to_string())
+            .map(|p| p["plugin"].as_str().unwrap().to_string())
             .collect()
     };
     let (status, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         names(&body),
-        vec!["feedback", "list"],
-        "a fresh app has the built-in ones"
+        vec!["forgeplane/feedback", "forgeplane/list"],
+        "a fresh app has the ones it ships"
     );
     assert_eq!(body["plugins"][0]["usable"], true);
 
@@ -728,11 +729,23 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     let (status, body) = install(&app, &samples.join("hello"), json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    assert_eq!(names(&body), vec!["feedback", "hello", "list"]);
+    assert_eq!(
+        names(&body),
+        vec!["forgeplane/feedback", "forgeplane/list", "local/hello"]
+    );
 
-    let links = db(&app).installed_plugins().unwrap();
+    let links: Vec<_> = db(&app)
+        .installs()
+        .unwrap()
+        .into_iter()
+        .filter(|r| r.kind != "bundled")
+        .collect();
     assert_eq!(links.len(), 1, "one install, one record");
-    assert!(links.iter().all(|r| r.linked && r.kind == "path"));
+    assert!(
+        links
+            .iter()
+            .all(|r| r.linked() && r.plugin == "local/hello")
+    );
     let hello = body["plugins"]
         .as_array()
         .unwrap()
@@ -740,17 +753,19 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
         .find(|p| p["name"] == "hello")
         .unwrap();
     assert_eq!(hello["install"]["linked"], true);
-    assert_eq!(hello["install"]["kind"], "path");
-    assert_eq!(hello["install"]["version"], "1.0.0");
+    assert_eq!(hello["install"]["kind"], "link");
+    assert_eq!(hello["publisher"], "local");
+    assert_eq!(hello["version"], "1.0.0");
+    assert_eq!(hello["line"], "1");
     assert!(
         body["plugins"]
             .as_array()
             .unwrap()
             .iter()
             .find(|p| p["name"] == "list")
-            .unwrap()["install"]
-            .is_null(),
-        "the built-in was not installed from anywhere"
+            .unwrap()["install"]["kind"]
+            == "bundled",
+        "the official one comes with the app"
     );
 
     // a source that is not there is refused, naming the field
@@ -768,58 +783,57 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["count"], 3, "the two built-in ones and hello");
 
-    let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/versions", None).await;
+    let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/lines", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     submit(&app, submission()).await;
-    let (status, body) = call(&app, "GET", "/api/v1/plugins/list/versions", None).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["versions"], json!([1]));
-    assert_eq!(body["current"], 1);
+    for name in ["list", "forgeplane%2Flist"] {
+        let (status, body) =
+            call(&app, "GET", &format!("/api/v1/plugins/{name}/lines"), None).await;
+        assert_eq!(status, StatusCode::OK, "{name}");
+        assert_eq!(body["plugin"], "forgeplane/list");
+        assert_eq!(body["lines"][0]["line"], "1");
+        assert_eq!(body["lines"][0]["version"], "1.0.0");
+        assert_eq!(body["current"], "1");
+    }
 }
 
+/// A review's frame loads the current bundle of the review's line, at an
+/// address that names the bundle, under the sandbox's policy.
 #[tokio::test]
-async fn bundles_are_served_with_the_sandbox_csp() {
+async fn a_review_is_shown_from_its_lines_bundle_with_the_sandbox_csp() {
     let app = app();
-    let request = |path: &str| {
-        Request::get(path)
-            .header("host", "127.0.0.1:4747")
-            .body(Body::empty())
-            .unwrap()
-    };
-    // a version that never existed is not served
-    let response = app
-        .router
-        .clone()
-        .oneshot(request("/plugins/list/7/index.html"))
-        .await
+    let review = submit(&app, submission()).await;
+    assert_eq!(review["plugin"], "forgeplane/list");
+    assert_eq!(review["plugin_line"], "1");
+    assert_eq!(review["plugin_version"], "1.0.0");
+    let id = review["id"].as_str().unwrap();
+    let (status, view) = call(&app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    assert_eq!(view["plugin"]["plugin"], "forgeplane/list");
+    assert_eq!(view["plugin"]["line"], "1");
+    let bundle = app
+        .state
+        .plugins()
+        .line_bundle("forgeplane/list", "1")
         .unwrap();
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
-    let response = app
-        .router
-        .clone()
-        .oneshot(request("/plugins/list/1/view/index.html"))
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(view["url"], format!("/bundles/{bundle}/view/index.html"));
 
-    submit(&app, submission()).await;
-    let response = app
-        .router
-        .clone()
-        .oneshot(request("/plugins/list/1/view/index.html"))
-        .await
-        .unwrap();
+    let response = bundle_get(&app, view["url"].as_str().unwrap(), &[]).await;
     assert_eq!(response.status(), StatusCode::OK);
     let csp = response.headers()["content-security-policy"]
         .to_str()
         .unwrap()
         .to_string();
-    assert!(csp.starts_with("sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' http://127.0.0.1:4747/plugins/list/1/ http://127.0.0.1:4747/sdk/"), "{csp}");
+    let base = format!("http://127.0.0.1:4747/bundles/{bundle}/view/");
+    assert!(
+        csp.starts_with(&format!(
+            "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' {base} http://127.0.0.1:4747/sdk/"
+        )),
+        "{csp}"
+    );
     // the SDK stylesheet names a typeface the SDK itself serves
     assert!(
-        csp.contains(
-            "font-src data: http://127.0.0.1:4747/plugins/list/1/ http://127.0.0.1:4747/sdk/"
-        ),
+        csp.contains(&format!("font-src data: {base} http://127.0.0.1:4747/sdk/")),
         "{csp}"
     );
     assert!(
@@ -828,23 +842,17 @@ async fn bundles_are_served_with_the_sandbox_csp() {
         ),
         "{csp}"
     );
-    assert_eq!(response.headers()["x-content-type-options"], "nosniff");
-    assert!(
-        response.headers()["content-type"]
-            .to_str()
-            .unwrap()
-            .starts_with("text/html")
-    );
 
-    for bad in [
-        "/plugins/list/1/../manifest.json",
-        "/plugins/list/2/index.html",
-        "/plugins/nope/1/index.html",
-        "/plugins/list/x/index.html",
+    // no address by name and version, whatever is current
+    for gone in [
+        "/plugins/list/1/view/index.html",
+        "/plugins/forgeplane/list/1/view/index.html",
     ] {
-        let response = app.router.clone().oneshot(request(bad)).await.unwrap();
-        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{bad}");
+        let response = bundle_get(&app, gone, &[]).await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{gone}");
     }
+    let (status, _) = call(&app, "GET", "/api/v1/reviews/r_nope/view", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
@@ -942,7 +950,7 @@ async fn a_review_is_served_as_markdown_on_request() {
         body.starts_with(
             "# MR !42
 
-list · acme · review · 42
+forgeplane/list · acme · review · 42
 Pending since "
         ),
         "{body}"
@@ -1040,7 +1048,7 @@ Pending since "
     .unwrap();
     assert!(
         body.contains(
-            "list · acme · review · 42 · round 2 of 2
+            "forgeplane/list · acme · review · 42 · round 2 of 2
 "
         ),
         "{body}"
@@ -1075,7 +1083,7 @@ async fn removing_a_plugin_forgets_the_links_it_was_allowed_to_open() {
     let hello = plugin_copy(root.path(), "hello", "1.0.0");
     let (status, row) = install(&app, &hello, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    let links = json!({"links": {"hello": {"source": row["install"]["source"], "origins": ["https://github.com"]}}});
+    let links = json!({"links": {"local/hello": {"source": row["install"]["source"], "origins": ["https://github.com"]}}});
     let (status, body) = call(&app, "PATCH", "/api/v1/settings", Some(links)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
@@ -1133,9 +1141,11 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
     assert_eq!(status, StatusCode::OK, "{row}");
 
     let host = [("host", "127.0.0.1:4747")];
-    let (status, _) = raw(&app, "GET", "/plugins/hello/1/view/index.html", &host, "").await;
+    let (status, _) = raw(&app, "GET", "/links/local/hello/view/index.html", &host, "").await;
     assert_eq!(status, StatusCode::OK);
     for file in [
+        "manifest.json",
+        "schemas/payload.schema.json",
         ".env",
         ".git/config",
         "node_modules/lib/index.js",
@@ -1145,7 +1155,14 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
         "notes.txt",
         "cache/build.bin",
     ] {
-        let (status, body) = raw(&app, "GET", &format!("/plugins/hello/1/{file}"), &host, "").await;
+        let (status, body) = raw(
+            &app,
+            "GET",
+            &format!("/links/local/hello/{file}"),
+            &host,
+            "",
+        )
+        .await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{file}: {body}");
     }
 }
@@ -1263,8 +1280,13 @@ async fn a_changed_bundle_file_is_not_served() {
 #[tokio::test]
 async fn other_websites_cannot_read_a_plugins_files() {
     let app = app();
+    let bundle = app
+        .state
+        .plugins()
+        .line_bundle("forgeplane/list", "1")
+        .unwrap();
     let request = |dest: Option<&str>| {
-        let mut r = Request::get("/plugins/list/1/view/index.html")
+        let mut r = Request::get(format!("/bundles/{bundle}/view/index.html"))
             .header("host", "127.0.0.1:4747")
             .header("origin", "https://evil.example");
         if let Some(dest) = dest {
@@ -1336,9 +1358,9 @@ async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
     let (status, body) = install(&app, &linked, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let host = [("host", "127.0.0.1:4747")];
-    let (status, body) = raw(&app, "GET", "/plugins/hello/1/view/notes.txt", &host, "").await;
+    let (status, body) = raw(&app, "GET", "/links/local/hello/view/notes.txt", &host, "").await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
-    let (status, _) = raw(&app, "GET", "/plugins/hello/1/view/alias.html", &host, "").await;
+    let (status, _) = raw(&app, "GET", "/links/local/hello/view/alias.html", &host, "").await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -1401,33 +1423,24 @@ async fn the_same_submission_while_the_first_is_pending_is_one_review() {
     assert_eq!(pending["total"], 1, "{pending}");
 }
 
-/// A plugin name is looked up, never joined into a path: a plugin folder
-/// beside the store is not reached through `..`.
+/// A linked plugin is looked up by its full name, never joined into a
+/// path: a folder beside the plugins' data is not reached through `..`,
+/// and only an installed link is served.
 #[tokio::test]
-async fn a_bundle_is_served_only_for_a_plugins_own_name() {
+async fn a_link_is_served_only_for_a_linked_plugins_own_name() {
     let app = app();
-    let store = app.state.config().plugin_store_dir();
-    // as in a running app, where installs have made the store
-    std::fs::create_dir_all(&store).unwrap();
-    let outside = store.parent().unwrap().join("outside/1");
-    std::fs::create_dir_all(&outside).unwrap();
-    std::fs::write(
-        outside.join("manifest.json"),
-        json!({"name": "outside", "version": "1.0.0", "entry": "index.html"}).to_string(),
-    )
-    .unwrap();
+    let outside = app.state.config().plugins_dir().join("outside");
     std::fs::create_dir_all(outside.join("view")).unwrap();
     std::fs::write(outside.join("view/index.html"), "<html>outside</html>").unwrap();
-    std::fs::create_dir_all(outside.join("schemas")).unwrap();
-    std::fs::write(outside.join("schemas/payload.schema.json"), "{}").unwrap();
-    std::fs::write(outside.join("schemas/decision.schema.json"), "{}").unwrap();
-
     for path in [
-        "/plugins/..%2Foutside/1/index.html",
-        "/plugins/..%2F..%2Fplugins%2Foutside/1/index.html",
+        "/links/..%2Foutside/x/view/index.html",
+        "/links/..%2F..%2Fplugins/outside/view/index.html",
+        "/links/local/outside/view/index.html",
+        // the official plugins are bundles, not links
+        "/links/forgeplane/list/view/index.html",
     ] {
-        let (status, body) = raw(&app, "GET", path, &[("host", "127.0.0.1:4747")], "").await;
-        assert_eq!(status, StatusCode::NOT_FOUND, "{path}: {body}");
+        let response = bundle_get(&app, path, &[]).await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
     }
 }
 
@@ -1463,7 +1476,7 @@ async fn a_page_that_rebound_its_name_to_loopback_is_refused() {
     for path in [
         "/api/v1/info",
         "/api/v1/reviews",
-        "/plugins/list/1/view/index.html",
+        "/bundles/0/view/index.html",
         "/api/v1/events",
     ] {
         let (status, body) = raw(&app, "GET", path, &[("host", "evil.example:4747")], "").await;
@@ -2488,14 +2501,17 @@ async fn the_history_sweep_deletes_ended_reviews_past_the_days_kept() {
     );
 }
 
-/// A store entry: the built-in list plugin copied under another name, as
-/// an install would place it, with its record and hash.
+/// An installed bundle: the official list plugin copied under another name
+/// and installed from its folder. A file changed behind the app's back is
+/// flagged on the plugin's row and not served.
+#[cfg(unix)]
 #[tokio::test]
-async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
+async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
+    use std::os::unix::fs::PermissionsExt;
     let app = app();
     let source = tempfile::tempdir().unwrap();
-    let builtin = app.state.config().builtin_plugins_dir().join("list");
-    copy_tree(&builtin, source.path());
+    let list = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/list");
+    copy_tree(&list, source.path());
     let manifest_path = source.path().join("manifest.json");
     let mut manifest: Value =
         serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
@@ -2504,51 +2520,52 @@ async fn a_store_entry_is_served_and_a_tampered_one_is_flagged() {
 
     let (status, installed) = install(&app, source.path(), json!({})).await;
     assert_eq!(status, StatusCode::OK, "{installed}");
+    assert_eq!(installed["plugin"], "local/shelf");
     assert_eq!(installed["install"]["linked"], false);
-    let hash = installed["install"]["hash"].as_str().unwrap();
-    assert!(!hash.is_empty());
-    let entry = app
-        .state
-        .config()
-        .plugin_store_dir()
-        .join("shelf")
-        .join("1");
-    let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    let shelf = body["plugins"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|p| p["name"] == "shelf")
-        .unwrap();
-    assert_eq!(shelf["usable"], true, "{shelf}");
-    assert_eq!(shelf["install"]["modified"], false);
-    assert_eq!(shelf["install"]["hash"], hash);
-    assert_eq!(shelf["path"], entry.display().to_string());
+    assert_eq!(installed["install"]["kind"], "folder");
+    let bundle = installed["install"]["bundle"].as_str().unwrap().to_string();
+    assert_eq!(
+        bundle,
+        Listing::of_folder(source.path(), Taken::FromSource)
+            .unwrap()
+            .hash()
+    );
+    let stored = app.state.bundles().path(&bundle);
+    assert_eq!(installed["path"], stored.display().to_string());
+    assert_eq!(
+        installed["lines"],
+        json!([{"line": "1", "version": "1.0.0", "bundle": bundle}])
+    );
+    assert_eq!(installed["install"]["modified"], false);
 
-    // a review renders from the entry itself
+    // a review renders with the bundle
     let mut body = submission();
     body["plugin"] = json!("shelf");
     let review = submit(&app, body).await;
-    assert_eq!(review["plugin"], "shelf", "{review}");
+    assert_eq!(review["plugin"], "local/shelf", "{review}");
+    let id = review["id"].as_str().unwrap();
+    let (_, view) = call(&app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
+    let url = view["url"].as_str().unwrap().to_string();
+    assert_eq!(url, format!("/bundles/{bundle}/view/index.html"));
+    assert_eq!(bundle_get(&app, &url, &[]).await.status(), StatusCode::OK);
 
-    // a file changed behind the app's back: still served, but said so
-    std::fs::create_dir_all(entry.join("view")).unwrap();
-    std::fs::write(entry.join("view/index.html"), "<html>changed</html>").unwrap();
-    std::fs::create_dir_all(entry.join("schemas")).unwrap();
-    std::fs::write(entry.join("schemas/payload.schema.json"), "{}").unwrap();
-    std::fs::write(entry.join("schemas/decision.schema.json"), "{}").unwrap();
+    // changed behind the app's back
+    let page = stored.join("view/index.html");
+    std::fs::set_permissions(&page, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::write(&page, "<html>changed</html>").unwrap();
     call(&app, "POST", "/api/v1/plugins/reload", None).await;
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     let shelf = body["plugins"]
         .as_array()
         .unwrap()
         .iter()
-        .find(|p| p["name"] == "shelf")
+        .find(|p| p["plugin"] == "local/shelf")
         .unwrap();
     assert_eq!(shelf["install"]["modified"], true);
-    assert_eq!(shelf["usable"], true);
+    assert_eq!(
+        bundle_get(&app, &url, &[]).await.status(),
+        StatusCode::INTERNAL_SERVER_ERROR
+    );
 }
 
 /// A copy of a sample plugin with its manifest's version rewritten.
@@ -2650,13 +2667,21 @@ async fn follow(app: &App, id: &str) -> Value {
     panic!("the install job {id} never ended");
 }
 
+/// The bundle a review's frame loads.
+async fn view_url(app: &App, review: &Value) -> String {
+    let id = review["id"].as_str().unwrap();
+    let (status, view) = call(app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
+    assert_eq!(status, StatusCode::OK, "{view}");
+    view["url"].as_str().unwrap().to_string()
+}
+
 #[tokio::test]
-async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines_in_use() {
+async fn installing_from_a_folder_makes_a_bundle_current_for_its_line() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
 
-    // the sample as it is: 1.0.0, placed, hashed, recorded; with a secret
-    // and a dependency folder beside it, which a copy must leave behind
+    // the sample as it is: 1.0.0, stored as a bundle on line 1; with a
+    // secret and a dependency folder beside it, which the bundle leaves out
     let hello = plugin_copy(scratch.path(), "hello", "1.0.0");
     std::fs::write(hello.join(".env"), "TOKEN=secret").unwrap();
     std::fs::create_dir_all(hello.join("node_modules/x")).unwrap();
@@ -2669,46 +2694,50 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     let bundle = Listing::of_folder(&hello, Taken::FromSource).unwrap();
     let (status, row) = install(&app, &hello, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["plugin"], "local/hello");
+    assert_eq!(row["publisher"], "local");
     assert_eq!(row["name"], "hello");
-    assert_eq!(row["release"], "1.0.0");
-    assert_eq!(row["install"]["kind"], "path");
+    assert_eq!(row["version"], "1.0.0");
+    assert_eq!(row["line"], "1");
+    assert_eq!(row["install"]["kind"], "folder");
     assert_eq!(row["install"]["linked"], false);
-    assert!(row["install"]["hash"].is_string());
-    let entry = app
-        .state
-        .config()
-        .plugin_store_dir()
-        .join("hello")
-        .join("1");
-    assert!(entry.join("manifest.json").is_file());
-    assert!(
-        !entry.join(".env").exists(),
-        "a dot-entry reached the store"
-    );
-    assert!(
-        !entry.join("node_modules").exists(),
-        "node_modules reached the store"
-    );
-    // the store holds the bundle: its files, and its hash
-    assert_eq!(files_under(&entry), files_under_listing(&bundle));
-    assert_eq!(row["install"]["hash"], bundle.hash());
-    assert_eq!(row["path"], entry.display().to_string());
+    assert_eq!(row["install"]["bundle"], bundle.hash());
+    // the store holds the bundle: its files, and nothing else
+    let stored = app.state.bundles().path(&bundle.hash());
+    assert_eq!(files_under(&stored), files_under_listing(&bundle));
+    assert_eq!(row["path"], stored.display().to_string());
 
-    // a review renders from the line and records the exact version
+    // a review renders with the line and records the exact version
     let mut body = submission();
     body["plugin"] = json!("hello");
     body["payload"] = json!({"message": "hi"});
-    let review = submit(&app, body).await;
-    assert_eq!(review["plugin_version"], 1);
-    assert_eq!(review["plugin_release"], "1.0.0");
+    let review = submit(&app, body.clone()).await;
+    assert_eq!(review["plugin"], "local/hello");
+    assert_eq!(review["plugin_line"], "1");
+    assert_eq!(review["plugin_version"], "1.0.0");
+    assert_eq!(
+        view_url(&app, &review).await,
+        format!("/bundles/{}/view/index.html", bundle.hash())
+    );
 
-    // a patch replaces the line in place
+    // a patch becomes the line's current: the review renders with it, and
+    // keeps the version it was submitted to
     let patch = plugin_copy(scratch.path(), "hello", "1.0.4");
+    std::fs::write(patch.join("view/index.html"), "<html>1.0.4</html>").unwrap();
+    let patched = Listing::of_folder(&patch, Taken::FromSource)
+        .unwrap()
+        .hash();
     let (status, row) = install(&app, &patch, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["release"], "1.0.4");
-    assert_eq!(row["version"], 1);
-    assert_eq!(db(&app).installed_plugins().unwrap().len(), 1);
+    assert_eq!(
+        (row["version"].as_str(), row["line"].as_str()),
+        (Some("1.0.4"), Some("1"))
+    );
+    assert_eq!(row["lines"].as_array().unwrap().len(), 1, "{row}");
+    assert_eq!(
+        view_url(&app, &review).await,
+        format!("/bundles/{patched}/view/index.html")
+    );
     let (_, shown) = call(
         &app,
         "GET",
@@ -2717,63 +2746,83 @@ async fn installing_from_a_folder_places_a_line_in_the_store_and_keeps_old_lines
     )
     .await;
     assert_eq!(
-        shown["plugin_release"], "1.0.0",
-        "the review keeps what it was submitted under"
+        shown["plugin_version"], "1.0.0",
+        "the review keeps what it was submitted to"
     );
 
     // an older one is refused, unless forced
     let older = plugin_copy(scratch.path(), "hello", "1.0.2");
-    let (status, body) = install(&app, &older, json!({})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    let (status, body_older) = install(&app, &older, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body_older}");
     assert!(
-        body["error"]
+        body_older["error"]
             .as_str()
             .unwrap()
             .contains("older than the installed 1.0.4"),
-        "{body}"
+        "{body_older}"
     );
     let (status, row) = install(&app, &older, json!({"force": true})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["release"], "1.0.2");
+    assert_eq!(row["version"], "1.0.2");
 
-    // a new major is a new line; the old one stays because the review uses it
+    // a new major is a new line, whose decision schema has another shape;
+    // line 1 stays because the review uses it
     let next = plugin_copy(scratch.path(), "hello", "2.0.0");
+    std::fs::write(
+        next.join("schemas/decision.schema.json"),
+        json!({"type": "object", "required": ["answer"], "properties": {"answer": {"type": "string"}}})
+            .to_string(),
+    )
+    .unwrap();
     let (status, row) = install(&app, &next, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["version"], 2);
-    assert!(
-        app.state
-            .config()
-            .plugin_store_dir()
-            .join("hello")
-            .join("2")
-            .join("manifest.json")
-            .is_file()
-    );
-    assert!(
-        entry.join("manifest.json").is_file(),
-        "line 1 stays: a review renders from it"
-    );
-    let (status, versions) = call(&app, "GET", "/api/v1/plugins/hello/versions", None).await;
+    assert_eq!(row["line"], "2");
+    let lines: Vec<&str> = row["lines"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["line"].as_str().unwrap())
+        .collect();
+    assert_eq!(lines, vec!["1", "2"], "{row}");
+    let (status, answer) = call(&app, "GET", "/api/v1/plugins/hello/lines", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(versions["current"], 2);
-    let (status, bundle) = call(
-        &app,
-        "GET",
-        &format!("/plugins/hello/1/{}", row["entry"].as_str().unwrap()),
-        None,
-    )
-    .await;
+    assert_eq!(answer["current"], "2");
+    let url = view_url(&app, &review).await;
+    assert_eq!(bundle_get(&app, &url, &[]).await.status(), StatusCode::OK);
+
+    // each review's decision is checked against its own line's schema
+    body["title"] = json!("on line 2");
+    let newer = submit(&app, body).await;
+    assert_eq!(newer["plugin_line"], "2");
+    let decide = |review: &Value, data: Value| {
+        let id = review["id"].as_str().unwrap().to_string();
+        let app = &app;
+        async move {
+            call(
+                app,
+                "POST",
+                &format!("/api/v1/reviews/{id}/decision"),
+                Some(json!({ "data": data })),
+            )
+            .await
+            .0
+        }
+    };
     assert_eq!(
-        status,
-        StatusCode::OK,
-        "the old line's bundle is still served: {bundle}"
+        decide(&newer, json!({"ok": true})).await,
+        StatusCode::UNPROCESSABLE_ENTITY
+    );
+    assert_eq!(decide(&review, json!({"ok": true})).await, StatusCode::OK);
+    assert_eq!(
+        decide(&newer, json!({"answer": "yes"})).await,
+        StatusCode::OK
     );
 
     // a link serves the folder live, and a folder with no manifest is refused
     let (status, row) = install(&app, &hello, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["install"]["linked"], true);
+    assert_eq!(row["plugin"], "local/hello");
     assert_eq!(
         row["path"],
         std::path::absolute(&hello).unwrap().display().to_string()
@@ -2802,15 +2851,19 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["plugin"], "local/hello");
+    assert_eq!(seen["publisher"], "local");
     assert_eq!(seen["name"], "hello");
     assert_eq!(seen["version"], "1.4.0");
-    assert_eq!(seen["major"], 1);
+    assert_eq!(seen["line"], "1");
     assert_eq!(seen["build"], Value::Null);
-    assert_eq!(seen["origin"]["kind"], "path");
+    assert_eq!(seen["origin"]["kind"], "folder");
     assert_eq!(seen["installed"], Value::Null);
     assert_eq!(seen["link"], false);
-    let store = app.state.config().plugin_store_dir().join("hello");
-    assert!(!store.exists(), "inspecting placed something");
+    assert!(
+        db(&app).install("local/hello").unwrap().is_none(),
+        "inspecting installed something"
+    );
 
     // a source that builds says what it will run; once something is
     // installed under the name, the inspection says what it replaces
@@ -2826,8 +2879,8 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     assert_eq!(seen["installed"]["version"], "1.4.0");
     assert_eq!(seen["installed"]["unchanged"], true, "{seen}");
 
-    // checking for updates compares the folder with the store: what the
-    // bundle leaves behind does not count as a change
+    // checking for updates compares the folder with the line's bundle:
+    // what a bundle leaves out does not count as a change
     std::fs::create_dir_all(plain.join("tests")).unwrap();
     std::fs::write(plain.join("tests/plain.spec.ts"), "test").unwrap();
     std::fs::write(plain.join(".editorconfig"), "root = true").unwrap();
@@ -2875,25 +2928,41 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
 }
 
 #[tokio::test]
-async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
+async fn removing_drops_the_installation_and_keeps_a_line_a_review_renders_with() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let source = plugin_copy(scratch.path(), "hello", "1.0.0");
     let (status, row) = install(&app, &source, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    let entry = app.state.config().plugin_store_dir().join("hello/1");
-    assert!(entry.join("manifest.json").is_file());
+    let bundle = row["install"]["bundle"].as_str().unwrap().to_string();
 
-    // a built-in has no record to remove
+    // a plugin the app ships cannot be removed
     let (status, body) = call(&app, "DELETE", "/api/v1/plugins/list", None).await;
-    assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap()
+            .contains("ships with Pinrail"),
+        "{body}"
+    );
 
-    // nothing renders from it: the entry goes with the record
+    // nothing renders with it: the line goes with the installation, and
+    // the bundle with the next sweep
     let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::OK, "{answer}");
-    assert_eq!(answer["entries_removed"], json!([1]));
-    assert_eq!(answer["entries_kept"], json!([]));
-    assert!(!entry.exists());
+    assert_eq!(answer["removed"], "local/hello");
+    assert_eq!(answer["lines_removed"], json!(["1"]));
+    assert_eq!(answer["lines_kept"], json!([]));
+    assert!(
+        app.state
+            .plugins()
+            .line_bundle("local/hello", "1")
+            .is_none()
+    );
+    let later = chrono::Utc::now() + chrono::Duration::minutes(1);
+    assert_eq!(app.state.bundles().sweep(later).unwrap(), 1);
+    assert!(!app.state.bundles().path(&bundle).exists());
     let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
     assert!(
         listed["plugins"]
@@ -2904,7 +2973,7 @@ async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
         "{listed}"
     );
 
-    // a review still rendering from the entry keeps it, and it is still served
+    // a review still rendering with the line keeps it, and its bundle
     let (status, row) = install(&app, &source, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     let mut body = submission();
@@ -2913,19 +2982,13 @@ async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
     let review = submit(&app, body).await;
     let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::OK, "{answer}");
-    assert_eq!(answer["entries_kept"], json!([1]), "{answer}");
-    assert!(entry.join("manifest.json").is_file());
-    let (status, _) = call(
-        &app,
-        "GET",
-        &format!(
-            "/plugins/hello/{}/view/index.html",
-            review["plugin_version"]
-        ),
-        None,
-    )
-    .await;
-    assert_eq!(status, StatusCode::OK);
+    assert_eq!(answer["lines_kept"], json!(["1"]), "{answer}");
+    assert_eq!(app.state.bundles().sweep(later).unwrap(), 0);
+    let url = view_url(&app, &review).await;
+    assert_eq!(bundle_get(&app, &url, &[]).await.status(), StatusCode::OK);
+    let (status, kept) = call(&app, "GET", "/api/v1/plugins/local%2Fhello/lines", None).await;
+    assert_eq!(status, StatusCode::OK, "{kept}");
+    assert_eq!(kept["current"], Value::Null);
     let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
     assert!(
         listed["plugins"]
@@ -2947,6 +3010,15 @@ async fn removing_drops_the_record_and_keeps_an_entry_a_review_renders_from() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
+/// The page a review's frame shows: its view address, fetched.
+async fn served(app: &App, review: &Value) -> String {
+    let url = view_url(app, review).await;
+    let response = bundle_get(app, &url, &[]).await;
+    assert_eq!(response.status(), StatusCode::OK, "{url}");
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
 #[tokio::test]
 async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     let app = app();
@@ -2955,103 +3027,71 @@ async fn a_patch_update_is_what_the_app_serves_and_a_link_is_live() {
     std::fs::write(first.join("view/index.html"), "<html>first</html>").unwrap();
     let (status, row) = install(&app, &first, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-
-    // rendered once, and a review created against it, as the app does
-    let (status, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        body.as_str().unwrap_or(&body.to_string()),
-        "<html>first</html>"
-    );
     let mut body = submission();
     body["plugin"] = json!("hello");
     body["payload"] = json!({"message": "hi"});
-    submit(&app, body).await;
-    // the patch replaces the line, and the app serves it at once
+    let review = submit(&app, body).await;
+    assert_eq!(served(&app, &review).await, "<html>first</html>");
+
+    // the patch becomes the line's current, and the review renders with it
     let second = plugin_copy(scratch.path(), "hello", "1.0.1");
     std::fs::write(second.join("view/index.html"), "<html>second</html>").unwrap();
     let (status, row) = install(&app, &second, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["install"]["version"], "1.0.1");
-    let (status, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        body.as_str().unwrap_or(&body.to_string()),
-        "<html>second</html>"
-    );
+    assert_eq!(row["version"], "1.0.1");
+    assert_eq!(served(&app, &review).await, "<html>second</html>");
 
     // a link is served live: an edit shows on the next request
     let live = plugin_copy(scratch.path(), "hello", "1.1.0");
     std::fs::write(live.join("view/index.html"), "<html>live</html>").unwrap();
     let (status, _) = install(&app, &live, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK);
-    let mut body = submission();
-    body["plugin"] = json!("hello");
-    body["payload"] = json!({"message": "again"});
-    submit(&app, body).await;
+    assert_eq!(served(&app, &review).await, "<html>live</html>");
     std::fs::write(live.join("view/index.html"), "<html>edited</html>").unwrap();
-    let (_, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
-    assert_eq!(
-        body.as_str().unwrap_or(&body.to_string()),
-        "<html>edited</html>"
+    assert_eq!(served(&app, &review).await, "<html>edited</html>");
+    assert!(
+        view_url(&app, &review)
+            .await
+            .starts_with("/links/local/hello/view/")
     );
-    // the link removed: the store entry the link had replaced is still
-    // referenced by reviews, so it is kept and serves them, and the
-    // versions endpoint lists it with no current plugin
+
+    // the link removed: the line the reviews use is kept, and renders them
+    // with its last bundle
     let (status, _) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::OK);
-    let (status, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
-    assert_eq!(
-        status,
-        StatusCode::OK,
-        "the kept store entry serves the reviews"
-    );
-    assert_eq!(
-        body.as_str().unwrap_or(&body.to_string()),
-        "<html>second</html>"
-    );
-    let (status, versions) = call(&app, "GET", "/api/v1/plugins/hello/versions", None).await;
-    assert_eq!(status, StatusCode::OK, "{versions}");
-    assert_eq!(versions["current"], Value::Null);
-    assert_eq!(versions["versions"], json!([1]));
+    assert_eq!(served(&app, &review).await, "<html>second</html>");
+    let (status, lines) = call(&app, "GET", "/api/v1/plugins/local%2Fhello/lines", None).await;
+    assert_eq!(status, StatusCode::OK, "{lines}");
+    assert_eq!(lines["current"], Value::Null);
+    assert_eq!(lines["lines"][0]["version"], "1.0.1");
 
-    // installed again from the live folder, the line is replaced and current
+    // installed again from the live folder, its bundle takes the line
     let (status, _) = install(&app, &live, json!({})).await;
     assert_eq!(status, StatusCode::OK);
-    let (_, versions) = call(&app, "GET", "/api/v1/plugins/hello/versions", None).await;
-    assert_eq!(versions["current"], 1);
-    let (_, body) = call(&app, "GET", "/plugins/hello/1/view/index.html", None).await;
-    assert_eq!(
-        body.as_str().unwrap_or(&body.to_string()),
-        "<html>edited</html>"
-    );
+    let (_, lines) = call(&app, "GET", "/api/v1/plugins/hello/lines", None).await;
+    assert_eq!(lines["current"], "1");
+    assert_eq!(served(&app, &review).await, "<html>edited</html>");
 }
 
 #[tokio::test]
 async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() {
-    // a clone left in fetch by a crash, and a store entry to keep
+    // a clone left in work by a crash
     let dir = tempfile::tempdir().unwrap();
     let plugins = dir.path().join("plugins");
-    std::fs::create_dir_all(plugins.join("fetch/git-abc")).unwrap();
-    std::fs::write(plugins.join("fetch/git-abc/file"), "x").unwrap();
-    std::fs::create_dir_all(plugins.join("store/hello/1")).unwrap();
-    std::fs::write(plugins.join("store/hello/1/keep"), "x").unwrap();
+    std::fs::create_dir_all(plugins.join("work/git-abc")).unwrap();
+    std::fs::write(plugins.join("work/git-abc/file"), "x").unwrap();
     std::fs::create_dir_all(plugins.join("logs")).unwrap();
     std::fs::write(plugins.join("logs/old.log"), "x").unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
     let state = Arc::new(Pinrail::open(config).unwrap());
     assert!(
-        plugins.join("fetch").is_dir()
-            && std::fs::read_dir(plugins.join("fetch"))
+        plugins.join("work").is_dir()
+            && std::fs::read_dir(plugins.join("work"))
                 .unwrap()
                 .next()
                 .is_none(),
-        "fetch is emptied"
-    );
-    assert!(
-        plugins.join("store/hello/1/keep").is_file(),
-        "the store is untouched"
+        "work is emptied"
     );
     assert!(
         plugins.join("logs/old.log").is_file(),
@@ -3438,10 +3478,8 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
     );
     let entry = app
         .state
-        .config()
-        .plugin_store_dir()
-        .join("built")
-        .join("1");
+        .bundles()
+        .path(job["plugin"]["install"]["bundle"].as_str().unwrap());
     assert_eq!(
         std::fs::read_to_string(entry.join("view/index.html")).unwrap(),
         "<html>ok</html>"
@@ -3453,8 +3491,10 @@ async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bu
         !built.join("view").exists(),
         "the source folder was not written to"
     );
-    assert!(job["plugin"]["install"]["hash"].is_string());
-    let log_path = db(&app).installed_plugins().unwrap()[0]
+    let log_path = db(&app)
+        .install("local/built")
+        .unwrap()
+        .unwrap()
         .build_log
         .clone()
         .unwrap();
@@ -3531,10 +3571,8 @@ async fn the_artifact_plugin_installs_from_its_sources() {
     assert_eq!(row["usable"], true, "{row}");
     let entry = app
         .state
-        .config()
-        .plugin_store_dir()
-        .join("artifact")
-        .join("1");
+        .bundles()
+        .path(row["install"]["bundle"].as_str().unwrap());
     assert!(entry.join("view/index.html").is_file());
     assert!(entry.join("view/assets").is_dir());
     assert!(entry.join("schemas/payload.schema.json").is_file());
@@ -3613,9 +3651,9 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
     assert_eq!(row["install"]["kind"], "git");
     let tagged = git_in(&work, &["rev-parse", "v1"]);
     assert_eq!(row["install"]["commit"], tagged);
-    assert!(row["install"]["hash"].is_string());
+    assert!(row["install"]["bundle"].is_string());
     let record = db(&app)
-        .installed_plugins()
+        .installs()
         .unwrap()
         .into_iter()
         .find(|r| r.name == "hello")
@@ -3625,16 +3663,9 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
         resolved,
         json!({"url": url, "path": "tools/hello", "ref": "v1"})
     );
-    let fetched: Vec<_> = std::fs::read_dir(
-        app.state
-            .config()
-            .plugin_store_dir()
-            .parent()
-            .unwrap()
-            .join("fetch"),
-    )
-    .map(|d| d.flatten().collect())
-    .unwrap_or_default();
+    let fetched: Vec<_> = std::fs::read_dir(app.state.config().plugins_dir().join("work"))
+        .map(|d| d.flatten().collect())
+        .unwrap_or_default();
     assert!(fetched.is_empty(), "the clone is gone once placed");
 
     // a tag is pinned: nothing to update, however the branch moves
@@ -3670,7 +3701,7 @@ async fn installing_from_a_repository_records_the_commit_and_knows_what_is_new()
     let job = follow(&app, started["job"].as_str().unwrap()).await;
     assert_eq!(job["status"], "done", "{job}");
     let row = &job["plugin"];
-    assert_eq!(row["release"], "1.0.1");
+    assert_eq!(row["version"], "1.0.1");
     assert_eq!(row["install"]["commit"], newer);
     // and says when there is nothing to do
     let (status, answer) = call(&app, "POST", "/api/v1/plugins/hello/update", None).await;
@@ -3891,7 +3922,7 @@ async fn a_release_tagged_with_the_plugins_name_installs_and_follows_its_own_rel
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["release"], "1.0.0", "{row}");
+    assert_eq!(row["version"], "1.0.0", "{row}");
 
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/review/updates", None).await;
     assert_eq!(updates["state"], "up_to_date", "{updates}");
@@ -3908,7 +3939,7 @@ async fn a_release_tagged_with_the_plugins_name_installs_and_follows_its_own_rel
     let job = follow(&app, started["job"].as_str().unwrap()).await;
     assert_eq!(job["status"], "done", "{job}");
     assert_eq!(job["plugin"]["name"], "review", "{job}");
-    assert_eq!(job["plugin"]["release"], "1.1.0", "{job}");
+    assert_eq!(job["plugin"]["version"], "1.1.0", "{job}");
     // and it keeps following its own releases
     let (_, updates) = call(&app, "GET", "/api/v1/plugins/review/updates", None).await;
     assert_eq!(updates["state"], "up_to_date", "{updates}");
@@ -4037,15 +4068,19 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     .await;
     assert_eq!(status, StatusCode::OK, "{plugin}");
     assert_eq!(plugin["name"], "thing");
+    assert_eq!(plugin["plugin"], "acme/thing");
     assert_eq!(plugin["install"]["kind"], "release");
-    assert_eq!(plugin["install"]["version"], "1.2.0");
+    assert_eq!(plugin["version"], "1.2.0");
     let expected_hash = {
         use sha2::{Digest, Sha256};
         format!("{:x}", Sha256::digest(&thing_120))
     };
     assert_eq!(plugin["install"]["asset_hash"], expected_hash);
     assert_eq!(plugin["install"]["tag"], "v1.2.0");
-    let dir = app.state.config().plugin_store_dir().join("thing/1");
+    let dir = app
+        .state
+        .bundles()
+        .path(plugin["install"]["bundle"].as_str().unwrap());
     assert_eq!(
         std::fs::read_to_string(dir.join("view/index.html")).unwrap(),
         "<html>1.2.0</html>"
@@ -4068,8 +4103,11 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{plugin}");
-    assert_eq!(plugin["install"]["version"], "1.3.0");
-    let dir = app.state.config().plugin_store_dir().join("thing/1");
+    assert_eq!(plugin["version"], "1.3.0");
+    let dir = app
+        .state
+        .bundles()
+        .path(plugin["install"]["bundle"].as_str().unwrap());
     assert_eq!(
         std::fs::read_to_string(dir.join("view/index.html")).unwrap(),
         "<html>1.3.0</html>"
@@ -4084,9 +4122,12 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{plugin}");
-    assert_eq!(plugin["install"]["version"], "1.0.1");
+    assert_eq!(plugin["version"], "1.0.1");
     assert_eq!(plugin["install"]["tag"], "v1.0.1");
-    let dir = app.state.config().plugin_store_dir().join("pinned/1");
+    let dir = app
+        .state
+        .bundles()
+        .path(plugin["install"]["bundle"].as_str().unwrap());
     assert_eq!(
         std::fs::read_to_string(dir.join("view/index.html")).unwrap(),
         "<html>pinned</html>"
@@ -4155,14 +4196,8 @@ async fn installing_from_a_release_takes_the_bundle_as_it_is_and_follows_the_lat
     .await;
     assert!(body["error"].as_str().unwrap().contains("bundle"), "{body}");
 
-    // the fetch folder is left clean
-    let fetch = app
-        .state
-        .config()
-        .plugin_store_dir()
-        .parent()
-        .unwrap()
-        .join("fetch");
+    // the work folder is left clean
+    let fetch = app.state.config().plugins_dir().join("work");
     let left: Vec<_> = std::fs::read_dir(&fetch)
         .map(|d| d.flatten().collect())
         .unwrap_or_default();
@@ -4180,6 +4215,7 @@ async fn plugins_describe_themselves_and_a_submission_validates_without_being_st
     let (status, body) = call(&app, "GET", "/api/v1/plugins/list/describe", None).await;
     assert_eq!(status, StatusCode::OK);
     let list = &body["plugins"][0];
+    assert_eq!(list["plugin"], "forgeplane/list");
     assert_eq!(list["name"], "list");
     assert!(
         list["payload_schema"]["$ref"].is_null()
@@ -4194,8 +4230,9 @@ async fn plugins_describe_themselves_and_a_submission_validates_without_being_st
     let (status, body) = call(&app, "POST", "/api/v1/reviews/validate", Some(submission())).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["valid"], true);
-    assert_eq!(body["plugin"], "list");
-    assert_eq!(body["plugin_version"], 1);
+    assert_eq!(body["plugin"], "forgeplane/list");
+    assert_eq!(body["plugin_line"], "1");
+    assert_eq!(body["plugin_version"], "1.0.0");
     let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
     assert_eq!(listing["total"], 0, "nothing was stored");
 

@@ -19,7 +19,7 @@ pub fn markdown(plugin: &Value) -> String {
         .trim_start()
         .replacen("## ", "# ", 1)
         .replace("\n### ", "\n## ");
-    let name = plugin["name"].as_str().unwrap_or("<plugin>");
+    let name = plugin["plugin"].as_str().unwrap_or("<plugin>");
     out.push_str(&format!(
         "\n## Submitting\n\n```sh\n{}\n```\n\nInside a git checkout, the command fills in the project from git. Outside one, add `--origin repo=<project>`.\n\nExit codes, rounds and the rest: `pinrail docs asking`.\n",
         SUBMIT.replace("<plugin>", name)
@@ -34,7 +34,7 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
         format!(
             "{} {} in {dir}: the app would take it.\n",
             text(&verdict["name"]),
-            text(&verdict["release"])
+            text(&verdict["version"])
         )
     } else {
         format!("{dir}: the app would refuse it.\n")
@@ -86,8 +86,8 @@ pub fn listing(listed: &Value) -> String {
     for plugin in rows {
         let text = |v: &Value| v.as_str().unwrap_or_default().to_string();
         let install = &plugin["install"];
-        let from = if install.is_null() {
-            "built in".to_string()
+        let from = if install["kind"] == "bundled" {
+            "comes with the app".to_string()
         } else if install["linked"] == true {
             format!("linked, {}", text(&install["source"]))
         } else {
@@ -99,8 +99,8 @@ pub fn listing(listed: &Value) -> String {
         };
         out.push_str(&format!(
             "- {} · {} · {from} · {state}\n",
-            text(&plugin["name"]),
-            text(&plugin["release"]),
+            text(&plugin["plugin"]),
+            text(&plugin["version"]),
         ));
         if let Some(about) = plugin["description"]
             .as_str()
@@ -141,11 +141,11 @@ fn files(plugin: &Value) -> Option<String> {
 
 fn plugin_section(out: &mut String, plugin: &Value) {
     let text = |key: &str| plugin[key].as_str().filter(|s| !s.is_empty());
-    let name = text("name").unwrap_or_default();
+    let name = text("plugin").or(text("name")).unwrap_or_default();
     out.push_str(&format!(
         "\n## {} (`{name}`) · {}\n\n",
         text("title").unwrap_or(name),
-        text("release").unwrap_or_default()
+        text("version").unwrap_or_default()
     ));
     if let Some(description) = text("description") {
         out.push_str(&format!("{description}\n\n"));
@@ -181,7 +181,7 @@ fn plugin_section(out: &mut String, plugin: &Value) {
     }
     out.push_str(&format!(
         "\n### Decision\n\nThe decision comes back as markdown to read. To process it as JSON (`--json`), its schema: `pinrail plugins describe {} --decision-schema`.\n",
-        plugin["name"].as_str().unwrap_or("<plugin>")
+        name
     ));
 }
 

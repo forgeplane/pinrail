@@ -14,9 +14,10 @@ const info: Info = {
 
 const plugin = (name: string, more: Partial<Plugin> = {}) =>
   ({
+    plugin: `forgeplane/${name}`,
     name,
-    version: 1,
-    release: "1.2.0",
+    version: "1.2.0",
+    line: "1",
     path: `/Users/maya/plugins/${name}`,
     dev: false,
     usable: true,
@@ -40,7 +41,7 @@ describe("describeDiagnostics", () => {
   test("says how Pinrail is installed, its plugins and its settings", () => {
     const text = describeDiagnostics({
       info,
-      plugins: [plugin("model", { usable: false }), plugin("artifact", { dev: true, release: "0.3.0" })],
+      plugins: [plugin("model", { usable: false }), plugin("artifact", { dev: true, version: "0.3.0" })],
       settings,
       cli: { mode: "copy", installed: true, outdated: false, dir_on_path: false },
     });
@@ -53,8 +54,8 @@ describe("describeDiagnostics", () => {
         "Stored attachments: 27, 1.3 MB",
         "",
         "Plugins (2):",
-        "  artifact 0.3.0 (linked for development)",
-        "  model 1.2.0 (not usable)",
+        "  forgeplane/artifact 0.3.0 (linked for development)",
+        "  forgeplane/model 1.2.0 (not usable)",
         "",
         "Settings:",
         "  Theme: system, text size default",

@@ -254,7 +254,7 @@ impl Client {
             Some(id) => {
                 let plugin = self.follow_job(id)?;
                 Ok(
-                    serde_json::json!({ "state": "updated", "version": plugin["release"], "plugin": plugin }),
+                    serde_json::json!({ "state": "updated", "version": plugin["version"], "plugin": plugin }),
                 )
             }
             None => {
@@ -327,8 +327,8 @@ impl Client {
         }
     }
 
-    pub fn plugin_versions(&self, name: &str) -> Result<Value> {
-        self.get(&format!("/api/v1/plugins/{}/versions", segment(name)), &[])
+    pub fn plugin_lines(&self, name: &str) -> Result<Value> {
+        self.get(&format!("/api/v1/plugins/{}/lines", segment(name)), &[])
     }
 
     pub fn plugins_describe(&self, name: &str) -> Result<Value> {

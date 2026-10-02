@@ -114,8 +114,8 @@ impl Pinrail {
         self.reviews.submit(&body, None)
     }
 
-    /// Locks the data directory, opens the database, writes out the
-    /// built-in plugins, loads the installed ones and wires the services
+    /// Locks the data directory, opens the database, stores the plugins the
+    /// app carries, loads the installed ones and wires the services
     /// together. The caller decides how the application is held: serving it
     /// over HTTP wants an `Arc`, a one-off operation does not.
     ///
@@ -125,14 +125,11 @@ impl Pinrail {
         private_dir(&config.data_dir)?;
         let lock = lock_data_dir(&config.data_dir)?;
         let db = Arc::new(Db::open(&config.db_path())?);
-        let builtin = plugin_store::install_builtin(&config.builtin_plugins_dir())?;
-        let records = db.installed_plugins()?;
-        if let Some(plugins_dir) = config.plugin_store_dir().parent() {
-            plugin_store::tidy(plugins_dir)?;
-        }
+        plugin_store::tidy(&config.plugins_dir())?;
+        let bundles = Bundles::open(&config.plugin_bundles_dir(), db.clone())?;
+        plugin_store::store_bundled(&db, &bundles)?;
         let registry = Arc::new(
-            Registry::open(builtin, records, config.plugin_store_dir())
-                .map_err(Error::Internal)?
+            Registry::open(db.clone(), bundles.clone(), config.plugins_dir())?
                 .with_github_api(&config.github_api)
                 .with_build_timeout(config.build_timeout)
                 .with_fetch_timeout(config.fetch_timeout),
@@ -146,7 +143,6 @@ impl Pinrail {
             db.clone(),
             config.max_attachment_bytes,
         )?;
-        let bundles = Bundles::open(&config.plugin_bundles_dir(), db.clone())?;
         let reviews = Reviews::new(
             db.clone(),
             registry.clone(),

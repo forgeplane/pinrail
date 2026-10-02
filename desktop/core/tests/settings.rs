@@ -236,13 +236,16 @@ async fn a_plugin_declares_settings_and_the_core_keeps_them() {
         &app,
         "PATCH",
         "/api/v1/settings",
-        Some(json!({"plugins": {"knobs": {"diff": "split"}}})),
+        Some(json!({"plugins": {"local/knobs": {"diff": "split"}}})),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{body}");
-    assert_eq!(body["plugins"], json!({"knobs": {"diff": "split"}}));
+    assert_eq!(body["plugins"], json!({"local/knobs": {"diff": "split"}}));
     let notice = rx.try_recv().unwrap();
-    assert_eq!(notice.keys, Some(vec!["/plugins/knobs/diff".to_string()]));
+    assert_eq!(
+        notice.keys,
+        Some(vec!["/plugins/local~1knobs/diff".to_string()])
+    );
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     let knobs = body["plugins"]
         .as_array()
@@ -255,20 +258,20 @@ async fn a_plugin_declares_settings_and_the_core_keeps_them() {
     // refused: a value outside the schema, a key it does not have, a plugin without settings
     for (patch, path) in [
         (
-            json!({"plugins": {"knobs": {"diff": "wide"}}}),
-            "/plugins/knobs/diff",
+            json!({"plugins": {"local/knobs": {"diff": "wide"}}}),
+            "/plugins/local~1knobs/diff",
         ),
         (
-            json!({"plugins": {"knobs": {"nope": 1}}}),
-            "/plugins/knobs/nope",
+            json!({"plugins": {"local/knobs": {"nope": 1}}}),
+            "/plugins/local~1knobs/nope",
         ),
         (
-            json!({"plugins": {"list": {"anything": 1}}}),
-            "/plugins/list",
+            json!({"plugins": {"forgeplane/list": {"anything": 1}}}),
+            "/plugins/forgeplane~1list",
         ),
         (
-            json!({"plugins": {"knobs": {"wrap": {"deep": true}}}}),
-            "/plugins/knobs/wrap",
+            json!({"plugins": {"local/knobs": {"wrap": {"deep": true}}}}),
+            "/plugins/local~1knobs/wrap",
         ),
     ] {
         let (status, body) = call(&app, "PATCH", "/api/v1/settings", Some(patch.clone())).await;

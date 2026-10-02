@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router";
 import { api } from "../api/client";
 import type { ReviewListing } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
-import { FilesCount, OutcomeBadge, SummaryCounts } from "../components/Badges";
+import { FilesCount, OutcomeBadge, pluginLabels, shortName, SummaryCounts } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { PluginIcon } from "../components/PluginIcon";
@@ -218,7 +218,11 @@ export function History() {
             onChange={(v) => setFilter("plugin", v)}
             options={[
               { value: "", label: "All plugins", icon: <Blocks size={14} /> },
-              ...plugins.map((p) => ({ value: p, label: p, icon: <PluginIcon icon={live.pluginIcon(p)} size={14} /> })),
+              ...plugins.map((p) => ({
+                value: p,
+                label: pluginLabels(plugins).get(p) ?? p,
+                icon: <PluginIcon icon={live.pluginIcon(p)} size={14} />,
+              })),
             ]}
           />
           {filtered ? (
@@ -280,9 +284,9 @@ export function History() {
                         </span>
                       ) : null}
                       {r.requested_by ? " · " : ""}
-                      <span className="history-plugin">
+                      <span className="history-plugin" title={r.plugin}>
                         <PluginIcon icon={live.pluginIcon(r.plugin)} size={12} />
-                        {r.plugin}
+                        {shortName(r.plugin)}
                       </span>{" "}
                       <FilesCount total={r.attachments_total} />
                     </small>

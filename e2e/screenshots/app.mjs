@@ -184,17 +184,27 @@ function pinDatabase(file, plan) {
     });
   });
   const oldest = Math.max(0, ...entries.map(([, t]) => t.created));
-  db.prepare("UPDATE installed_plugins SET installed_at = ?").run(iso(NOW - oldest - 3_600_000));
+  const installedAt = iso(NOW - oldest - 3_600_000);
+  db.prepare("UPDATE plugin_installs SET installed_at = ?, updated_at = ?").run(installedAt, installedAt);
   // installed from the project's repository at a fixed commit, as a
-  // reader's would be, not copied from this checkout
-  for (const { name } of db.prepare("SELECT name FROM installed_plugins").all()) {
+  // reader's would be, not copied from this checkout: published by
+  // forgeplane, under that name in every table that names it
+  for (const { plugin, name } of db
+    .prepare("SELECT plugin, name FROM plugin_installs WHERE source_kind <> 'bundled'")
+    .all()) {
     const commit = createHash("sha256").update(`pinrail-screenshots-${name}`).digest("hex").slice(0, 40);
-    db.prepare("UPDATE installed_plugins SET kind = 'git', source = ?, resolved = ?, commit_id = ? WHERE name = ?").run(
+    const official = `forgeplane/${name}`;
+    db.prepare(
+      "UPDATE plugin_installs SET plugin = ?, publisher = 'forgeplane', source_kind = 'git', source = ?, resolved = ?, commit_id = ? WHERE plugin = ?",
+    ).run(
+      official,
       `github.com/forgeplane/pinrail/plugins/${name}`,
-      `https://github.com/forgeplane/pinrail`,
+      JSON.stringify({ url: "https://github.com/forgeplane/pinrail", path: `plugins/${name}`, ref: null }),
       commit,
-      name,
+      plugin,
     );
+    db.prepare("UPDATE plugin_lines SET plugin = ? WHERE plugin = ?").run(official, plugin);
+    db.prepare("UPDATE reviews SET plugin = ? WHERE plugin = ?").run(official, plugin);
   }
   // the person deciding is the fixtures' person, not whoever runs this
   db.prepare("UPDATE outcomes SET by = ? WHERE kind IN ('decided', 'discarded')").run(PERSON);

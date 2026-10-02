@@ -94,8 +94,9 @@ function csp(bundle) {
 function reviewFrom(partial) {
   return {
     id: "g_test",
-    plugin: "test",
-    plugin_version: 1,
+    plugin: "local/test",
+    plugin_line: "1",
+    plugin_version: "1.0.0",
     title: "test review",
     origin: { repo: "acme", workflow: "test" },
     requested_by: "test",
@@ -153,8 +154,9 @@ async function mountPlugin(page, pluginDir, opts) {
 
   const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
   const checkDecision = decisionChecker(pluginDir);
-  // where the app serves it: /plugins/<name>/<major>/, a major of 1 here
-  const bundle = `/plugins/${manifest.name}/1/`;
+  // where the app serves it: a bundle's view/, and nothing outside it
+  const bundle = `/bundles/${manifest.name}/view/`;
+  const viewDir = path.resolve(pluginDir, "view");
   await page.route(`${ORIGIN}/**`, async (route) => {
     const url = new URL(route.request().url());
     const p = url.pathname;
@@ -171,8 +173,8 @@ async function mountPlugin(page, pluginDir, opts) {
     // the stylesheet imports a typeface; tests run offline and in the system font
     if (p === "/sdk/v1/fonts.css") return route.fulfill({ contentType: mime[".css"], body: "" });
     if (!p.startsWith(bundle)) return route.fulfill({ status: 404, body: "not found" });
-    const file = path.join(pluginDir, decodeURIComponent(p.slice(bundle.length)));
-    if (!file.startsWith(path.resolve(pluginDir)) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+    const file = path.join(viewDir, decodeURIComponent(p.slice(bundle.length)));
+    if (!file.startsWith(viewDir + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
       return route.fulfill({ status: 404, body: "not found" });
     }
     return route.fulfill({
@@ -191,7 +193,7 @@ async function mountPlugin(page, pluginDir, opts) {
     );
   }
   await page.goto(
-    `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + "view/index.html")}`,
+    `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + "index.html")}`,
   );
   const init = {
     review,

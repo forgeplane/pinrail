@@ -62,12 +62,12 @@ export function ReviewScreen() {
   const [rounds, setRounds] = useState<Review[]>([]);
   // the other rounds still waiting that have never been opened: what is new
   const [unopened, setUnopened] = useState<Set<string>>(new Set());
-  // The plugin and its bundle URL, resolved together for one plugin at one
-  // version. The screen outlives a change of review, so what was resolved
+  // The plugin and its view's URL, resolved together for one plugin at one
+  // line. The screen outlives a change of review, so what was resolved
   // for the last review stays in state until the lookup for this one lands:
   // it counts only when it was resolved for the review on screen.
   const [resolved, setResolved] = useState<{ key: string; plugin: Plugin | null; src: string | null } | null>(null);
-  const pluginKey = review ? `${review.plugin}@${review.plugin_version}` : null;
+  const pluginKey = review ? `${review.plugin}@${review.plugin_line}` : null;
   const current = resolved && resolved.key === pluginKey ? resolved : null;
   const plugin: Plugin | null | undefined = current ? current.plugin : undefined;
   const src = current?.src ?? null;
@@ -134,47 +134,19 @@ export function ReviewScreen() {
     if (notice.review_id === id || (revises && roundIds.current.has(revises))) load();
   }, [live.lastNotice, id, load]);
 
-  // The plugin at the review's version: the current one when it matches,
-  // otherwise the store entry kept for it, whose entry we assume is
-  // index.html; null when neither is there, and the review says so.
+  // The plugin of the review's line and the address of its view; null when
+  // the line is gone, and the review says so.
   useEffect(() => {
     if (!review || !pluginKey) return;
     if (resolved?.key === pluginKey) return;
     let cancelled = false;
     (async () => {
       try {
-        const { plugins } = await api.plugins();
-        if (cancelled) return;
-        const installed = plugins.find((p) => p.name === review.plugin);
-        let found: Plugin | null = null;
-        if (installed && installed.version === review.plugin_version && installed.usable) {
-          found = installed;
-        } else {
-          const kept = await api.pluginVersions(review.plugin).catch(() => null);
-          if (kept?.versions.includes(review.plugin_version)) {
-            found = {
-              name: review.plugin,
-              version: review.plugin_version,
-              title: installed?.title ?? review.plugin,
-              path: "",
-              entry: "index.html",
-              min_height: 400,
-              dev: false,
-              icon: installed?.icon ?? null,
-              usable: true,
-              error: null,
-              settings_schema: null,
-              settings_error: null,
-              settings: null,
-              shortcuts: [],
-              shortcuts_error: null,
-              install: null,
-            };
-          }
-        }
-        const url = found ? await api.bundleUrl(review, found.entry) : null;
+        // the plugin of the review's line and its view's address, as the
+        // core resolves them: the line's current bundle, or a live link
+        const view = await api.reviewView(review.id);
         // the plugin and its URL arrive in one update, for the key they were looked up for
-        if (!cancelled) setResolved({ key: pluginKey, plugin: found, src: url });
+        if (!cancelled) setResolved({ key: pluginKey, plugin: view.plugin.usable ? view.plugin : null, src: view.url });
       } catch {
         if (!cancelled) setResolved({ key: pluginKey, plugin: null, src: null });
       }
@@ -229,7 +201,7 @@ export function ReviewScreen() {
   );
 
   // the plugin's own settings as they stand: its defaults under what was set
-  const stored = plugin ? prefs.plugins[plugin.name] : undefined;
+  const stored = plugin ? prefs.plugins[plugin.plugin] : undefined;
   const pluginSettings = useMemo(() => {
     if (!plugin?.settings_schema) return null;
     const out: Record<string, unknown> = {};
@@ -241,7 +213,7 @@ export function ReviewScreen() {
     async (patch: Record<string, unknown>): Promise<Violation[]> => {
       if (!plugin) return [];
       try {
-        await api.patchSettings({ plugins: { [plugin.name]: patch } });
+        await api.patchSettings({ plugins: { [plugin.plugin]: patch } });
         return [];
       } catch (e) {
         return e instanceof ApiError
@@ -264,7 +236,7 @@ export function ReviewScreen() {
       if (!plugin || asking.current) return;
       const request = linkRequest(url);
       if (!request) return;
-      if (allowedWithoutAsking(request, prefsNow.current.links[plugin.name], sourceOf(plugin))) {
+      if (allowedWithoutAsking(request, prefsNow.current.links[plugin.plugin], sourceOf(plugin))) {
         openExternal(url);
         return;
       }
@@ -281,7 +253,7 @@ export function ReviewScreen() {
       if (!request || !plugin || choice === "cancel") return;
       if (choice === "always" && request.origin) {
         updatePrefs({
-          links: { [plugin.name]: allowing(prefsNow.current.links[plugin.name], sourceOf(plugin), request.origin) },
+          links: { [plugin.plugin]: allowing(prefsNow.current.links[plugin.plugin], sourceOf(plugin), request.origin) },
         });
       }
       openExternal(request.url);
@@ -637,7 +609,7 @@ export function ReviewScreen() {
         <div className="notice notice-danger plugin-missing" data-plugin-missing>
           <p>
             <b>
-              {review.plugin} v{review.plugin_version}
+              {review.plugin} {review.plugin_version}
             </b>{" "}
             is not installed, so this review has no view. What was decided is still on record.
           </p>

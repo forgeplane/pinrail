@@ -3,10 +3,10 @@
 //! from. A link points the registry at the folder instead and serves it
 //! live.
 //!
-//! The store keeps one entry per plugin and major version, the latest
-//! installed in that line: an equal or higher version replaces it, an
-//! older one is refused unless forced. An old line stays while a review
-//! still renders from it.
+//! Every source ends in a bundle, stored once by its hash, which becomes
+//! the current bundle of its line: an equal or higher version replaces the
+//! line's current, an older one is refused unless forced. A line stays
+//! while a review still renders with it.
 //!
 //! An install is a job: it reports its step and its build log as it goes,
 //! so a dialog or a terminal can follow a build that takes a minute.
@@ -22,10 +22,11 @@ use std::process::{Command, Stdio};
 
 use chrono::Utc;
 use pinrail_format::bundle::{Listing, Taken};
+use pinrail_format::manifest::line_of;
 use serde_json::{Map, Value};
 
 use super::jobs::Progress;
-use crate::db::{Db, InstalledRecord};
+use crate::db::{Db, InstallRecord};
 use crate::error::Error;
 use crate::plugins::{Plugin, Registry};
 
@@ -324,7 +325,7 @@ pub fn install(
     source: &str,
     options: Options,
     progress: &dyn Fn(Progress),
-) -> Result<InstalledRecord, Error> {
+) -> Result<InstallRecord, Error> {
     let prepared = prepare(registry, source, &options, progress)?;
     let scratch = prepared.scratch.clone();
     let result = install_dir(
@@ -343,7 +344,7 @@ pub fn install(
 
 /// The source an installed plugin came from, as an install takes it: the
 /// path, or the URL with its ref and folder, or the release's page.
-pub fn source_of(record: &InstalledRecord) -> (String, Options) {
+pub fn source_of(record: &InstallRecord) -> (String, Options) {
     let resolved: Value = serde_json::from_str(&record.resolved).unwrap_or(Value::Null);
     match record.kind.as_str() {
         "git" => (
@@ -373,52 +374,52 @@ pub fn source_of(record: &InstalledRecord) -> (String, Options) {
         _ => (
             record.resolved.clone(),
             Options {
-                link: record.linked,
+                link: record.linked(),
                 ..Options::default()
             },
         ),
     }
 }
 
-/// Removes an installed plugin: its record, and its store entries no
-/// review renders from. An entry a review still uses stays, and the
-/// answer says which. A link loses only its record.
+/// Removes an installed plugin: its installation, and its lines no review
+/// renders with. A line a review still uses stays, and the answer says
+/// which. The plugins the app ships cannot be removed.
 pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> {
     let _changing = registry.changing();
+    let plugin = registry
+        .resolve(name)
+        .map_err(|_| Error::NotFound(format!("plugin {name}")))?;
     let record = db
-        .installed_plugins()?
-        .into_iter()
-        .find(|r| r.name == name)
+        .install(&plugin)?
         .ok_or_else(|| Error::NotFound(format!("plugin {name}")))?;
-    let mut kept: Vec<i64> = Vec::new();
-    let mut removed: Vec<i64> = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(registry.store_dir().join(name)) {
-        for entry in entries.flatten() {
-            let Ok(major) = entry.file_name().to_string_lossy().parse::<i64>() else {
-                continue;
-            };
-            if db.reviews_use(name, major as u32)? {
-                kept.push(major);
-            } else {
-                std::fs::remove_dir_all(entry.path())?;
-                removed.push(major);
-            }
+    if record.kind == "bundled" {
+        return Err(Error::invalid(
+            "/name",
+            format!("{plugin} ships with Pinrail and cannot be removed"),
+        ));
+    }
+    let version = registry
+        .get(&plugin)
+        .map(|p| p.version.clone())
+        .unwrap_or_default();
+    db.remove_install(&plugin)?;
+    let mut kept: Vec<String> = Vec::new();
+    let mut removed: Vec<String> = Vec::new();
+    for line in db.lines()?.into_iter().filter(|l| l.plugin == plugin) {
+        if db.reviews_use(&plugin, &line.line)? {
+            kept.push(line.line);
+        } else {
+            db.remove_line(&plugin, &line.line)?;
+            removed.push(line.line);
         }
     }
-    if kept.is_empty() {
-        let _ = std::fs::remove_dir(registry.store_dir().join(name));
-    }
-    db.remove_installed(name)?;
-    let records = db.installed_plugins()?;
-    registry.reload_with(records).map_err(Error::Internal)?;
-    kept.sort_unstable();
-    removed.sort_unstable();
+    registry.reload()?;
     Ok(serde_json::json!({
-        "removed": name,
-        "linked": record.linked,
-        "version": record.version,
-        "entries_removed": removed,
-        "entries_kept": kept,
+        "removed": plugin,
+        "linked": record.linked(),
+        "version": version,
+        "lines_removed": removed,
+        "lines_kept": kept,
     }))
 }
 
@@ -434,14 +435,19 @@ pub fn inspect(
     progress: &dyn Fn(Progress),
 ) -> Result<Value, Error> {
     let prepared = prepare(registry, source, &options, progress)?;
-    let summary = summarize(db, &prepared, &options);
+    let summary = summarize(db, registry, &prepared, &options);
     if let Some(scratch) = &prepared.scratch {
         let _ = std::fs::remove_dir_all(scratch);
     }
     summary
 }
 
-fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, Error> {
+fn summarize(
+    db: &Db,
+    registry: &Registry,
+    prepared: &Prepared,
+    options: &Options,
+) -> Result<Value, Error> {
     let dir = &prepared.dir;
     if !dir.is_dir() {
         return Err(Error::invalid(
@@ -466,10 +472,11 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
             not_a_plugin(why, !options.link && prepared.origin.kind != "release"),
         ));
     }
-    let (version, major) = manifest
+    let (version, line) = manifest
         .get("version")
         .and_then(crate::plugins::version_of)
-        .filter(|(release, _)| release != "0.0.0")
+        .filter(|(version, _)| version != "0.0.0")
+        .and_then(|(version, _)| Some((version.clone(), line_of(&version)?)))
         .ok_or_else(|| {
             Error::invalid(
                 "/source",
@@ -482,44 +489,52 @@ fn summarize(db: &Db, prepared: &Prepared, options: &Options) -> Result<Value, E
         .filter(|n| super::manifest::valid_name(n))
         .ok_or_else(|| Error::invalid("/source", "not a plugin: name is required"))?
         .to_string();
-    builtin_name(&name)?;
-    // what is installed under the name, and whether this source is the
-    // very thing that was installed: the same files from a folder, the
+    let plugin = format!("{}/{name}", prepared.origin.publisher);
+    // what is installed under the full name, and whether this source is
+    // the very thing that was installed: the same files from a folder, the
     // same commit, the same asset
-    let installed = db
-        .installed_plugins()?
-        .into_iter()
-        .find(|r| r.name == name)
-        .map(|r| {
-            let unchanged = !r.linked
-                && r.version == version
+    let installed = match db.install(&plugin)? {
+        None => None,
+        Some(r) => {
+            let current = registry.get(&plugin);
+            let installed_version = current
+                .as_ref()
+                .map(|p| p.version.clone())
+                .unwrap_or_default();
+            let bundle = current
+                .as_ref()
+                .and_then(|p| p.install.as_ref()?.bundle.clone());
+            let unchanged = !r.linked()
+                && installed_version == version
                 && match prepared.origin.kind {
-                    "path" => {
-                        build.is_none()
-                            && r.hash.is_some()
-                            && super::registry::bundle_hash(dir, Taken::FromSource).ok() == r.hash
+                    "folder" => {
+                        build.is_none() && bundle.is_some() && bundle_hash_of(dir).ok() == bundle
                     }
                     "git" => r.commit.is_some() && r.commit == prepared.origin.commit,
                     _ => r.asset_hash.is_some() && r.asset_hash == prepared.origin.asset_hash,
                 };
-            serde_json::json!({
-                "version": r.version, "major": r.major, "linked": r.linked, "kind": r.kind,
-                "path": r.path, "unchanged": unchanged,
-            })
-        });
-    let older = installed.as_ref().is_some_and(|r| {
-        !r["linked"].as_bool().unwrap_or(false)
-            && r["major"].as_i64() == Some(major)
-            && semver(&version) < semver(r["version"].as_str().unwrap_or_default())
-    });
+            Some(serde_json::json!({
+                "version": installed_version, "line": r.line, "linked": r.linked(),
+                "kind": r.kind, "unchanged": unchanged,
+                "path": r.linked().then_some(&r.resolved),
+            }))
+        }
+    };
+    // a release older than the current one of its line
+    let older = registry
+        .line_bundle(&plugin, &line)
+        .and_then(|bundle| db.bundle(&bundle).ok().flatten())
+        .is_some_and(|current| semver(&version) < semver(&current.version));
     let resolved: Value = serde_json::from_str(&prepared.origin.resolved)
         .unwrap_or_else(|_| Value::String(prepared.origin.resolved.clone()));
     Ok(serde_json::json!({
         "source": prepared.origin.source,
         "link": options.link,
+        "plugin": plugin,
+        "publisher": prepared.origin.publisher,
         "name": name,
         "version": version,
-        "major": major,
+        "line": line,
         "title": manifest.get("title").and_then(Value::as_str).unwrap_or(&name),
         // the icon's markup, as the app shows an installed plugin's
         "icon": super::manifest::icon_markup(&prepared.dir, super::manifest::ICON).ok(),
@@ -553,17 +568,20 @@ fn prepare(
     options: &Options,
     progress: &dyn Fn(Progress),
 ) -> Result<Prepared, Error> {
-    match Source::parse(
+    let parsed = Source::parse(
         source,
         options.reference.as_deref(),
         options.path.as_deref(),
-    )? {
+    )?;
+    let publisher = parsed.publisher();
+    match parsed {
         Source::Folder(folder) => {
             let dir = std::path::absolute(&folder)?;
             Ok(Prepared {
                 scratch: None,
                 origin: Origin {
-                    kind: "path",
+                    kind: "folder",
+                    publisher,
                     source: folder.display().to_string(),
                     resolved: dir.display().to_string(),
                     commit: None,
@@ -595,6 +613,7 @@ fn prepare(
                 dir,
                 origin: Origin {
                     kind: "git",
+                    publisher,
                     source: source.trim().to_string(),
                     resolved: serde_json::json!({ "url": url, "path": path, "ref": reference })
                         .to_string(),
@@ -635,6 +654,7 @@ fn prepare(
                 dir: release.root.clone(),
                 origin: Origin {
                     kind: "release",
+                    publisher,
                     source: source.trim().to_string(),
                     resolved: serde_json::json!({
                         // a tag of one plugin's series is followed, not pinned
@@ -656,6 +676,8 @@ fn prepare(
 /// Where a record says it came from.
 struct Origin {
     kind: &'static str,
+    /// who publishes what the source holds
+    publisher: String,
     source: String,
     resolved: String,
     commit: Option<String>,
@@ -772,7 +794,7 @@ fn fetch_release(
         format!("{:x}", Sha256::digest(&bytes))
     };
 
-    let scratch = fetch_dir(registry).join(format!(
+    let scratch = registry.work_dir().join(format!(
         "release-{}",
         crate::id::next().trim_start_matches("r_")
     ));
@@ -925,7 +947,7 @@ fn fetch_git(
     reference: Option<&str>,
     progress: &dyn Fn(Progress),
 ) -> Result<Fetched, Error> {
-    let root = fetch_dir(registry).join(format!(
+    let root = registry.work_dir().join(format!(
         "git-{}",
         crate::id::next().trim_start_matches("r_")
     ));
@@ -1067,10 +1089,10 @@ fn unreachable(said: &str) -> bool {
 /// How many build logs a plugin keeps; older ones go when a new one is written.
 const LOGS_KEPT: usize = 5;
 
-/// Tidies `<data>/plugins` at start: `fetch` is scratch and no install
+/// Tidies `<data>/plugins` at start: `work` is scratch and no install
 /// survives a restart, so what a stop left there goes.
 pub fn tidy(plugins_dir: &Path) -> std::io::Result<()> {
-    let Ok(entries) = std::fs::read_dir(plugins_dir.join("fetch")) else {
+    let Ok(entries) = std::fs::read_dir(plugins_dir.join("work")) else {
         return Ok(());
     };
     for leftover in entries.flatten() {
@@ -1105,20 +1127,16 @@ fn trim_logs(logs: &Path, name: &str) {
     }
 }
 
-fn fetch_dir(registry: &Registry) -> PathBuf {
-    registry
-        .store_dir()
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| registry.store_dir().to_path_buf())
-        .join("fetch")
+/// The hash of the bundle a source folder holds.
+fn bundle_hash_of(dir: &Path) -> Result<String, String> {
+    Listing::of_folder(dir, Taken::FromSource).map(|listing| listing.hash())
 }
 
 /// What is new for an installed plugin, asked of its source: `up_to_date`,
 /// `available` with the newer commit, `pinned` for a tag or a commit that
 /// never moves, or `unknown` when the source cannot be asked.
-pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_json::Value {
-    if record.linked {
+pub fn check_updates(registry: &Registry, record: &InstallRecord) -> serde_json::Value {
+    if record.linked() {
         return serde_json::json!({ "state": "linked" });
     }
     match record.kind.as_str() {
@@ -1226,8 +1244,12 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
                     let version = tag_version(&tag)
                         .map(|(_, version)| version.to_string())
                         .unwrap_or_default();
-                    if semver(&version) > semver(&record.version) {
-                        serde_json::json!({ "state": "available", "tag": tag, "version": version, "installed": record.version })
+                    let installed = registry
+                        .get(&record.plugin)
+                        .map(|p| p.version.clone())
+                        .unwrap_or_default();
+                    if semver(&version) > semver(&installed) {
+                        serde_json::json!({ "state": "available", "tag": tag, "version": version, "installed": installed })
                     } else {
                         serde_json::json!({ "state": "up_to_date", "tag": tag })
                     }
@@ -1235,14 +1257,15 @@ pub fn check_updates(registry: &Registry, record: &InstalledRecord) -> serde_jso
                 Err(e) => serde_json::json!({ "state": "unknown", "message": e.to_string() }),
             }
         }
-        "path" => {
-            // the folder as the bundle would be copied from it, against the
-            // bundle that was
+        "folder" => {
+            // the folder as a bundle would be taken from it, against the
+            // bundle that is current
             let source = Path::new(&record.resolved);
-            match (
-                super::registry::bundle_hash(source, Taken::FromSource),
-                &record.hash,
-            ) {
+            let current = record
+                .line
+                .as_ref()
+                .and_then(|line| registry.line_bundle(&record.plugin, line));
+            match (bundle_hash_of(source), &current) {
                 (Ok(now), Some(then)) if &now == then => {
                     serde_json::json!({ "state": "up_to_date" })
                 }
@@ -1266,7 +1289,7 @@ fn install_dir(
     options: Options,
     progress: &dyn Fn(Progress),
     origin: Origin,
-) -> Result<InstalledRecord, Error> {
+) -> Result<InstallRecord, Error> {
     progress(Progress::Step("inspecting"));
     let dir = std::path::absolute(dir)?;
     if !dir.is_dir() {
@@ -1279,7 +1302,7 @@ fn install_dir(
     // the name goes into the paths of the build's copy and log, so it is
     // checked before anything uses it
     match manifest.get("name").and_then(Value::as_str) {
-        Some(name) if super::manifest::valid_name(name) => builtin_name(name)?,
+        Some(name) if super::manifest::valid_name(name) => {}
         Some(name) => {
             return Err(Error::invalid(
                 "/source",
@@ -1319,14 +1342,14 @@ fn install_dir(
         if let Some(why) = &plugin.error {
             return Err(Error::invalid("/source", format!("not a plugin: {why}")));
         }
-        let record = record_for(
-            &plugin,
-            &origin,
-            None,
-            None,
-            true,
-            dir.display().to_string(),
-        );
+        // a link is the person's own work in progress, whatever the
+        // folder came from
+        let origin = Origin {
+            kind: "link",
+            publisher: LOCAL_PUBLISHER.to_string(),
+            ..origin
+        };
+        let record = record_for(&plugin, &origin, None, None);
         let _changing = registry.changing();
         return commit(db, registry, record, None);
     }
@@ -1366,40 +1389,38 @@ fn install_dir(
             },
         ));
     }
-    if let Some(refusal) = older_than_installed(db, &plugin, options.force)? {
-        let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
-        return Err(refusal);
-    }
     // what the store takes: the files of the layout, and only those; a
     // link, which could point anywhere on the machine, is refused
-    let listing = match Listing::of_folder(&staged, Taken::FromSource) {
-        Ok(listing) => listing,
-        Err(why) => {
-            let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
-            return Err(Error::invalid(
-                "/source",
-                format!("the plugin cannot be installed: {why}"),
-            ));
-        }
-    };
-
     progress(Progress::Step("placing"));
-    let _changing = registry.changing();
-    let placed = place(registry, &plugin, &staged, &listing);
+    let stored = registry.bundles().store(&staged);
     if build.is_some() {
         let _ = std::fs::remove_dir_all(&staged);
     }
-    let placed = placed?;
-    let hash = listing.hash();
+    let bundle = stored.map_err(|error| match error {
+        Error::Invalid(violations) => Error::invalid(
+            "/source",
+            format!(
+                "the plugin cannot be installed: {}",
+                violations
+                    .first()
+                    .map(|v| v.message.clone())
+                    .unwrap_or_default()
+            ),
+        ),
+        other => other,
+    })?;
+    let _changing = registry.changing();
     let record = record_for(
         &plugin,
         &origin,
-        Some(hash),
+        Some(bundle.line.clone()),
         log_path.map(|p| p.display().to_string()),
-        false,
-        placed.entry.display().to_string(),
     );
-    commit(db, registry, record, Some(placed))
+    if let Some(refusal) = older_than_current(db, registry, &record.plugin, &bundle, options.force)?
+    {
+        return Err(refusal);
+    }
+    commit(db, registry, record, Some(&bundle))
 }
 
 /// Refuses an install whose build the person did not confirm, or whose
@@ -1447,18 +1468,6 @@ fn confirmed(expect: Option<&Expect>, build: Option<&str>, origin: &Origin) -> R
                     "the build changed after it was inspected: it no longer runs one. {again}"
                 ),
             },
-        ));
-    }
-    Ok(())
-}
-
-/// A built-in ships in the binary and is written out at every start, so an
-/// installed plugin of the same name would never be the one served.
-fn builtin_name(name: &str) -> Result<(), Error> {
-    if super::registry::is_builtin(name) {
-        return Err(Error::invalid(
-            "/source",
-            format!("{name} ships with Pinrail and cannot be installed over"),
         ));
     }
     Ok(())
@@ -1516,16 +1525,10 @@ fn scratch_dir(registry: &Registry, manifest: &Map<String, Value>) -> PathBuf {
         .get("name")
         .and_then(Value::as_str)
         .unwrap_or("plugin");
-    registry
-        .store_dir()
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| registry.store_dir().to_path_buf())
-        .join("fetch")
-        .join(format!(
-            "{name}-{}",
-            crate::id::next().trim_start_matches("r_")
-        ))
+    registry.work_dir().join(format!(
+        "{name}-{}",
+        crate::id::next().trim_start_matches("r_")
+    ))
 }
 
 /// Runs the build command through the shell in the scratch copy, its
@@ -1542,12 +1545,7 @@ fn run_build(
         .get("name")
         .and_then(Value::as_str)
         .unwrap_or("plugin");
-    let logs = registry
-        .store_dir()
-        .parent()
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| registry.store_dir().to_path_buf())
-        .join("logs");
+    let logs = registry.logs_dir();
     std::fs::create_dir_all(&logs)?;
     let log_path = logs.join(format!(
         "{name}-{}.log",
@@ -1656,165 +1654,76 @@ fn minutes(duration: std::time::Duration) -> String {
     }
 }
 
-/// Whether the same line already holds a newer version.
-fn older_than_installed(db: &Db, plugin: &Plugin, force: bool) -> Result<Option<Error>, Error> {
-    let records = db.installed_plugins()?;
-    let current = records.iter().find(|r| r.name == plugin.name);
-    if let Some(current) = current
-        && !current.linked
-        && current.major == plugin.version as i64
-        && semver(&plugin.release) < semver(&current.version)
-        && !force
-    {
+/// Refuses a release older than the current one of its line, unless
+/// forced.
+fn older_than_current(
+    db: &Db,
+    registry: &Registry,
+    plugin: &str,
+    bundle: &crate::db::BundleRecord,
+    force: bool,
+) -> Result<Option<Error>, Error> {
+    let Some(current) = registry
+        .line_bundle(plugin, &bundle.line)
+        .and_then(|hash| db.bundle(&hash).ok().flatten())
+    else {
+        return Ok(None);
+    };
+    if !force && semver(&bundle.version) < semver(&current.version) {
         return Ok(Some(Error::invalid(
             "/source",
             format!(
-                "{} {} is older than the installed {}; pass force to replace it",
-                plugin.name, plugin.release, current.version
+                "{plugin} {} is older than the installed {}; pass force to replace it",
+                bundle.version, current.version
             ),
         )));
     }
     Ok(None)
 }
 
+/// The installation a source makes, with `line` the line its new reviews
+/// use; none for a link.
 fn record_for(
     plugin: &Plugin,
     origin: &Origin,
-    hash: Option<String>,
+    line: Option<String>,
     build_log: Option<String>,
-    linked: bool,
-    path: String,
-) -> InstalledRecord {
-    InstalledRecord {
+) -> InstallRecord {
+    let now = crate::reviews::iso(Utc::now());
+    InstallRecord {
+        plugin: format!("{}/{}", origin.publisher, plugin.name),
+        publisher: origin.publisher.clone(),
         name: plugin.name.clone(),
-        version: plugin.release.clone(),
-        major: plugin.version as i64,
         kind: origin.kind.into(),
         source: origin.source.clone(),
         resolved: origin.resolved.clone(),
         commit: origin.commit.clone(),
         asset_hash: origin.asset_hash.clone(),
-        hash,
         build_log,
-        installed_at: crate::reviews::iso(Utc::now()),
-        linked,
-        path,
+        line,
+        installed_at: now.clone(),
+        updated_at: now,
     }
 }
 
-/// Writes the record and reloads the registry, then drops what the new
-/// install replaced: the files `placed` swapped out, and a previous line no
-/// review renders from. When the registry refuses the plugin, the record
-/// and the files go back to what they were, and nothing is dropped.
+/// Records the installation and makes `bundle` its line's current, then
+/// lets go of the line it used before when no review renders with it.
 fn commit(
     db: &Db,
     registry: &Registry,
-    record: InstalledRecord,
-    placed: Option<Placed>,
-) -> Result<InstalledRecord, Error> {
-    let previous = db
-        .installed_plugins()?
-        .into_iter()
-        .find(|r| r.name == record.name);
-    db.upsert_installed(&record)?;
-    if let Err(message) = registry.reload_with(db.installed_plugins()?) {
-        // The record is written before the registry takes it, so a plugin
-        // the registry refuses must be taken out again: left there, it
-        // would come back at the next start and be refused for ever.
-        match &previous {
-            Some(previous) => db.upsert_installed(previous)?,
-            None => {
-                db.remove_installed(&record.name)?;
-            }
-        }
-        if let Some(placed) = placed {
-            placed.undo();
-        }
-        let _ = registry.reload_with(db.installed_plugins()?);
-        return Err(Error::invalid("/source", message));
-    }
-    if let Some(placed) = placed {
-        placed.keep();
-    }
-    if let Some(previous) = &previous
-        && !previous.linked
-        && (previous.major != record.major || record.linked)
-        && !db.reviews_use(&previous.name, previous.major as u32)?
+    record: InstallRecord,
+    bundle: Option<&crate::db::BundleRecord>,
+) -> Result<InstallRecord, Error> {
+    let previous = db.install(&record.plugin)?;
+    db.record_install(&record, bundle.map(|b| (b.line.as_str(), b.hash.as_str())))?;
+    if let Some(previous_line) = previous.and_then(|p| p.line)
+        && Some(&previous_line) != record.line.as_ref()
+        && !db.reviews_use(&record.plugin, &previous_line)?
     {
-        let _ = std::fs::remove_dir_all(registry.store_entry(&previous.name, previous.major));
+        db.remove_line(&record.plugin, &previous_line)?;
     }
+    registry.reload()?;
     Ok(record)
-}
-
-/// A bundle swapped into its store entry, with what the entry held kept
-/// beside it until the registry takes the new one.
-struct Placed {
-    entry: PathBuf,
-    old: Option<PathBuf>,
-}
-
-impl Placed {
-    /// The registry took the new bundle: what it replaced goes.
-    fn keep(self) {
-        if let Some(old) = self.old {
-            let _ = std::fs::remove_dir_all(old);
-        }
-    }
-
-    /// The registry refused it: the entry goes back to what it held, or
-    /// away if it held nothing.
-    fn undo(self) {
-        let _ = std::fs::remove_dir_all(&self.entry);
-        if let Some(old) = self.old {
-            let _ = std::fs::rename(old, &self.entry);
-        }
-    }
-}
-
-/// Copies the plugin's bundle into the store entry for its line, whole or
-/// not at all: the copy lands beside the entry and takes its place with
-/// one rename, and what the entry held is moved aside, not deleted.
-fn place(
-    registry: &Registry,
-    plugin: &Plugin,
-    dir: &Path,
-    listing: &Listing,
-) -> Result<Placed, Error> {
-    let entry = registry.store_entry(&plugin.name, plugin.version as i64);
-    let staging = entry.with_extension("staging");
-    let _ = std::fs::remove_dir_all(&staging);
-    if let Some(parent) = entry.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    copy_bundle(dir, listing, &staging)?;
-    let old = entry.with_extension("old");
-    let _ = std::fs::remove_dir_all(&old);
-    let old = if entry.exists() {
-        std::fs::rename(&entry, &old)?;
-        Some(old)
-    } else {
-        None
-    };
-    if let Err(error) = std::fs::rename(&staging, &entry) {
-        if let Some(old) = &old {
-            let _ = std::fs::rename(old, &entry);
-        }
-        let _ = std::fs::remove_dir_all(&staging);
-        return Err(error.into());
-    }
-    Ok(Placed { entry, old })
-}
-
-/// Copies the files of `listing` from `from` into `to`.
-fn copy_bundle(from: &Path, listing: &Listing, to: &Path) -> std::io::Result<()> {
-    for file in &listing.files {
-        let target = to.join(&file.path);
-        if let Some(parent) = target.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-        std::fs::copy(from.join(&file.path), target)?;
-    }
-    Ok(())
 }
 
 /// A copy of a source tree for building in, without the names given.
@@ -1888,13 +1797,19 @@ mod source_tests {
             ("https://github.com/Acme/plugins.git", "acme"),
             ("https://github.com/acme/plugins/tree/v3/review", "acme"),
             ("github.com/acme/plugins/review@v3", "acme"),
-            ("https://github.com/acme/plugins/releases/tag/v1.0.0", "acme"),
+            (
+                "https://github.com/acme/plugins/releases/tag/v1.0.0",
+                "acme",
+            ),
             ("https://github.com/Acme/plugins/releases", "acme"),
             ("https://codeberg.org/acme/plugins", "acme"),
             ("git@github.com:acme/plugins.git", "acme"),
             ("ssh://git@github.com/acme/plugins.git", "acme"),
             ("git@gitlab.com:acme/tools/review.git", "acme.tools"),
-            ("ssh://git@gitlab.com/acme/tools/sub/review", "acme.tools.sub"),
+            (
+                "ssh://git@gitlab.com/acme/tools/sub/review",
+                "acme.tools.sub",
+            ),
             ("file:///home/me/plugins", "local"),
             ("./review", "local"),
             ("/abs/review", "local"),

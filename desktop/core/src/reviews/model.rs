@@ -54,11 +54,12 @@ pub struct Decision {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Review {
     pub id: String,
+    /// the plugin's full name, `forgeplane/list`
     pub plugin: String,
-    /// the major line the review renders from
-    pub plugin_version: u32,
-    /// the exact version it was submitted under, `1.2.3`
-    pub plugin_release: String,
+    /// the line the review renders with, `1` or `0.3`
+    pub plugin_line: String,
+    /// the exact version it was submitted to, `1.2.3`
+    pub plugin_version: String,
     pub title: String,
     pub origin: Map<String, Value>,
     pub requested_by: Option<String>,
@@ -107,8 +108,8 @@ impl Review {
         let mut map = json!({
             "id": self.id,
             "plugin": self.plugin,
+            "plugin_line": self.plugin_line,
             "plugin_version": self.plugin_version,
-            "plugin_release": self.plugin_release,
             "title": self.title,
             "origin": self.origin,
             "requested_by": self.requested_by,
@@ -195,9 +196,9 @@ mod tests {
             attachments: Vec::new(),
             attachments_total: (0, 0),
             id: "r_1".into(),
-            plugin: "list".into(),
-            plugin_version: 1,
-            plugin_release: "1.0.0".into(),
+            plugin: "forgeplane/list".into(),
+            plugin_line: "1".into(),
+            plugin_version: "1.0.0".into(),
             title: "t".into(),
             origin: Map::new(),
             requested_by: None,

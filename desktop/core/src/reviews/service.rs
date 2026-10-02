@@ -103,9 +103,9 @@ impl Reviews {
         } = self.check(body, Presence::Stored)?;
         let review = Review {
             id: crate::id::next(),
-            plugin: plugin.name.clone(),
-            plugin_version: plugin.version,
-            plugin_release: plugin.release.clone(),
+            plugin: plugin.full_name().to_string(),
+            plugin_line: plugin.line.clone(),
+            plugin_version: plugin.version.clone(),
             title: attrs["title"].as_str().unwrap_or_default().to_string(),
             origin: Review::normalize_origin(attrs.get("origin")),
             requested_by: attrs
@@ -294,7 +294,7 @@ impl Reviews {
         }
         let plugin = self
             .registry
-            .fetch_version(&review.plugin, review.plugin_version)?;
+            .fetch_line(&review.plugin, &review.plugin_line)?;
         let violations = plugin.validate_decision(data);
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
@@ -324,7 +324,7 @@ impl Reviews {
         let review = self.get(id)?;
         let plugin = self
             .registry
-            .fetch_version(&review.plugin, review.plugin_version)?;
+            .fetch_line(&review.plugin, &review.plugin_line)?;
         let violations = plugin.validate_decision(data);
         if violations.is_empty() {
             Ok(())
@@ -397,8 +397,8 @@ impl Reviews {
     }
 
     /// Deletes the reviews that ended more than `keep_days` ago, with their
-    /// events and outcomes, and the store entries nothing renders from
-    /// any more. `None` keeps everything, and so does 0, which the settings
+    /// events and outcomes, and the plugin lines nothing renders with any
+    /// more. `None` keeps everything, and so does 0, which the settings
     /// refuse. Returns how many reviews went.
     pub fn sweep_history(&self, keep_days: Option<u32>) -> Result<usize, Error> {
         match keep_days {
@@ -417,24 +417,30 @@ impl Reviews {
         }
         let ids: Vec<&str> = ended.iter().map(|(id, _, _)| id.as_str()).collect();
         let count = self.db.delete_reviews(&ids)?;
-        // a store entry kept past the plugin's removal goes once nothing
-        // renders from it
-        let versions: std::collections::BTreeSet<(String, u32)> = ended
+        // a line no review renders with any more goes, unless new reviews
+        // of its installed plugin use it; its bundle goes with the next
+        // sweep of the bundles
+        let lines: std::collections::BTreeSet<(String, String)> = ended
             .into_iter()
-            .map(|(_, plugin, version)| (plugin, version))
+            .map(|(_, plugin, line)| (plugin, line))
             .collect();
-        // under the lock installs take, so an install placing the same
-        // entry again cannot land between the check and the deletion
+        // under the lock installs take, so an install making the same line
+        // current again cannot land between the check and the removal
         let _changing = self.registry.changing();
-        let records = self.registry.records();
-        for (plugin, version) in versions {
-            if self.db.reviews_use(&plugin, version)? {
+        let installs = self.registry.installs();
+        let mut changed = false;
+        for (plugin, line) in lines {
+            let current = installs
+                .iter()
+                .any(|i| i.plugin == plugin && i.line.as_deref() == Some(line.as_str()));
+            if current || self.db.reviews_use(&plugin, &line)? {
                 continue;
             }
-            if !records.iter().any(|r| r.name == plugin) {
-                let _ = std::fs::remove_dir_all(self.registry.store_entry(&plugin, version as i64));
-                let _ = std::fs::remove_dir(self.registry.store_dir().join(&plugin));
-            }
+            self.db.remove_line(&plugin, &line)?;
+            changed = true;
+        }
+        if changed {
+            self.registry.reload()?;
         }
         let event_id = self.db.append_event(
             None,
@@ -535,8 +541,9 @@ impl Reviews {
                     violations.push(Violation::new("/revises", format!("unknown review {id}")));
                 }
                 Some(revised) => {
+                    // named the way an agent names it, in full or alone
                     if let Some(plugin) = attrs.get("plugin").and_then(Value::as_str)
-                        && plugin != revised
+                        && self.registry.resolve(plugin).ok().as_deref() != Some(revised.as_str())
                     {
                         violations.push(Violation::new(
                             "/revises",

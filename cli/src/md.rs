@@ -195,24 +195,25 @@ pub fn plugins_result(value: &Value) -> String {
     } else {
         value
     };
-    if let Some(name) = plugin["name"]
+    // a plugin row has its lines; a lines answer has them beside `current`
+    if let Some(name) = plugin["plugin"]
         .as_str()
-        .filter(|_| plugin.get("entry").is_some())
+        .filter(|_| plugin.get("lines").is_some() && plugin.get("current").is_none())
     {
         let from = plugin["install"]["source"]
             .as_str()
             .map(|s| format!(" from {s}"))
             .unwrap_or_default();
         if value["state"] == "updated" {
-            return format!("{name}: updated to {}{from}\n", text(&plugin["release"]));
+            return format!("{name}: updated to {}{from}\n", text(&plugin["version"]));
         }
-        return format!("Installed {name} {}{from}.\n", text(&plugin["release"]));
+        return format!("Installed {name} {}{from}.\n", text(&plugin["version"]));
     }
     match (
         value["state"].as_str(),
         value["removed"].as_str(),
         value["count"].as_u64(),
-        value["versions"].as_array(),
+        value["lines"].as_array(),
     ) {
         (Some("up_to_date"), ..) => format!(
             "{}: up to date, {}\n",
@@ -225,7 +226,10 @@ pub fn plugins_result(value: &Value) -> String {
             text(&value["error"])
         ),
         (Some("built_in"), ..) => {
-            format!("{}: built in, updated with the app\n", text(&value["name"]))
+            format!(
+                "{}: comes with the app and is updated with it\n",
+                text(&value["name"])
+            )
         }
         (Some("linked"), ..) => format!(
             "{}: linked, served live from {}\n",
@@ -234,17 +238,17 @@ pub fn plugins_result(value: &Value) -> String {
         ),
         (_, Some(name), ..) => format!("Removed {name}.\n"),
         (_, _, Some(count), _) => format!("Reloaded {count} plugins.\n"),
-        (_, _, _, Some(versions)) => format!(
+        (_, _, _, Some(lines)) => format!(
             "{}: {}; reviews render with {}.\n",
-            text(&value["name"]),
-            match value["current"].as_u64() {
-                Some(major) => format!("current v{major}"),
-                // removed with its copies kept for old reviews, or broken
-                None => "no usable version installed".to_string(),
+            text(&value["plugin"]),
+            match value["current"].as_str() {
+                Some(line) => format!("new reviews use line {line}"),
+                // removed with its lines kept for old reviews, or broken
+                None => "no usable release installed".to_string(),
             },
-            versions
+            lines
                 .iter()
-                .map(|v| format!("v{v}"))
+                .map(|l| format!("line {} ({})", text(&l["line"]), text(&l["version"])))
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
@@ -279,7 +283,7 @@ pub fn valid(answer: &Value) -> String {
     format!(
         "Valid: {} {} would render it.\n",
         text(&answer["plugin"]),
-        text(&answer["plugin_release"])
+        text(&answer["plugin_version"])
     )
 }
 

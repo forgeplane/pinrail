@@ -123,9 +123,9 @@ pub fn bind(config: &crate::Config) -> std::io::Result<std::net::TcpListener> {
 /// Serves the API on a listener from `bind` until `shutdown` resolves. It
 /// advertises itself in `server.json` while it runs. Every 30 seconds it
 /// sweeps expired reviews, the reviews older than the days the history
-/// keeps (when it keeps a limited number), and files that no review names
-/// and that are more than an hour old. Every second it notices an edit to
-/// settings.json made outside the app.
+/// keeps (when it keeps a limited number), files that no review names, and
+/// plugin bundles that no line refers to, each more than an hour old.
+/// Every second it notices an edit to settings.json made outside the app.
 pub async fn serve(
     app: Arc<Pinrail>,
     listener: std::net::TcpListener,
@@ -156,6 +156,11 @@ pub async fn serve(
                 let hour_ago = chrono::Utc::now() - chrono::Duration::hours(1);
                 if let Err(error) = app.attachments().sweep(hour_ago) {
                     eprintln!("pinrail: attachments sweep failed: {error}");
+                }
+                // the bundles no line refers to, such as one an update or
+                // the history replaced
+                if let Err(error) = app.bundles().sweep(hour_ago) {
+                    eprintln!("pinrail: bundles sweep failed: {error}");
                 }
             }
         })

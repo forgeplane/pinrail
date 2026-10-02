@@ -30,6 +30,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/validate", post(validate))
         .route("/api/v1/reviews/{id}", get(show))
         .route("/api/v1/reviews/{id}/rounds", get(rounds))
+        .route("/api/v1/reviews/{id}/view", get(view))
         .route("/api/v1/reviews/{id}/wait", get(wait))
         .route("/api/v1/reviews/{id}/decision", post(decide))
         .route("/api/v1/reviews/{id}/withdraw", post(withdraw))
@@ -58,9 +59,9 @@ async fn validate(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json
     let plugin = state.reviews().validate(&body)?;
     Ok(Json(json!({
         "valid": true,
-        "plugin": plugin.name,
+        "plugin": plugin.full_name(),
+        "plugin_line": plugin.line,
         "plugin_version": plugin.version,
-        "plugin_release": plugin.release,
     })))
 }
 
@@ -72,7 +73,13 @@ async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    let filters = filters(&params)?;
+    let mut filters = filters(&params)?;
+    // a plugin named the way an agent names it, by its name alone
+    if let Some(name) = filters.plugin.as_mut()
+        && let Ok(full) = state.plugins().resolve(name)
+    {
+        *name = full;
+    }
     let mut facets = false;
     if let Some(include) = params.get("include") {
         for name in include.split(',').map(str::trim).filter(|n| !n.is_empty()) {
@@ -147,7 +154,7 @@ async fn review_response(
         .flatten();
     let template = state
         .plugins()
-        .fetch_version(&review.plugin, review.plugin_version)
+        .fetch_line(&review.plugin, &review.plugin_line)
         .ok()
         .and_then(|p| p.decision_template.clone());
     let json = review.to_json(true);
@@ -171,6 +178,34 @@ async fn show(
 ) -> Result<Response, ApiError> {
     let review = state.reviews().get(&id)?;
     review_response(&state, &review, wants_markdown(&headers, &params)).await
+}
+
+/// What the app's frame loads to show a review: the plugin of the review's
+/// line, and the address of its view. That is the line's current bundle,
+/// which never changes and is cached, or the linked folder while a link is
+/// on the line, served as it is.
+async fn view(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, ApiError> {
+    let review = state.reviews().get(&id)?;
+    let plugin = state
+        .plugins()
+        .fetch_line(&review.plugin, &review.plugin_line)?;
+    let url = match plugin.install.as_ref().filter(|i| i.linked) {
+        Some(install) => format!("/links/{}/view/index.html", install.plugin),
+        None => {
+            let bundle = state
+                .plugins()
+                .line_bundle(&review.plugin, &review.plugin_line)
+                .ok_or_else(|| Error::NotFound(format!("the bundle of review {id}")))?;
+            format!("/bundles/{bundle}/view/index.html")
+        }
+    };
+    let mut plugin = plugin.to_json();
+    // a line kept after its plugin was removed is still the plugin's
+    plugin["plugin"] = Value::String(review.plugin.clone());
+    Ok(Json(json!({ "url": url, "plugin": plugin })))
 }
 
 async fn rounds(
