@@ -1,14 +1,16 @@
-//! Installed plugins and their lines: what the person has installed and
-//! where it came from, and for each line of a plugin the bundle that is
-//! current. A line stays while a review renders with it, after its plugin
-//! is removed.
+//! Installed plugins: what the person has installed, where it came from,
+//! and the bundle new reviews use, with the one before it kept for a week
+//! so an update can be rolled back.
 
 use rusqlite::{OptionalExtension, params};
 
 use super::Db;
 
+/// How long the release an update replaced is kept for a rollback.
+pub const ROLLBACK_DAYS: i64 = 7;
+
 /// One installed plugin: a linked folder served live, or a source whose
-/// releases are stored as bundles on lines.
+/// releases are stored as bundles.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallRecord {
     /// The full name, `<publisher>/<name>`.
@@ -22,8 +24,11 @@ pub struct InstallRecord {
     pub commit: Option<String>,
     pub asset_hash: Option<String>,
     pub build_log: Option<String>,
-    /// The line new reviews use; none for a link.
-    pub line: Option<String>,
+    /// The bundle new reviews use; none for a link, which is served live.
+    pub bundle: Option<String>,
+    /// The bundle an update replaced, and until when it is kept.
+    pub previous: Option<String>,
+    pub previous_until: Option<String>,
     pub installed_at: String,
     pub updated_at: String,
 }
@@ -34,22 +39,8 @@ impl InstallRecord {
     }
 }
 
-/// A line of a plugin and its current bundle, with the one it replaced
-/// while that can still be rolled back to.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LineRecord {
-    pub plugin: String,
-    pub line: String,
-    pub bundle: String,
-    pub previous: Option<String>,
-    pub previous_until: Option<String>,
-}
-
-/// How long the release an update replaced is kept for a rollback.
-pub const ROLLBACK_DAYS: i64 = 7;
-
 const INSTALL_COLUMNS: &str = "plugin, publisher, name, source_kind, source, resolved, commit_id, \
-     asset_hash, build_log, line, installed_at, updated_at";
+     asset_hash, build_log, bundle, previous, previous_until, installed_at, updated_at";
 
 fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
     Ok(InstallRecord {
@@ -62,10 +53,16 @@ fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
         commit: r.get(6)?,
         asset_hash: r.get(7)?,
         build_log: r.get(8)?,
-        line: r.get(9)?,
-        installed_at: r.get(10)?,
-        updated_at: r.get(11)?,
+        bundle: r.get(9)?,
+        previous: r.get(10)?,
+        previous_until: r.get(11)?,
+        installed_at: r.get(12)?,
+        updated_at: r.get(13)?,
     })
+}
+
+fn now() -> String {
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
 impl Db {
@@ -89,45 +86,31 @@ impl Db {
         .optional()
     }
 
-    /// Every line of every plugin, installed or not.
-    pub fn lines(&self) -> rusqlite::Result<Vec<LineRecord>> {
-        let conn = self.conn();
-        conn.prepare(
-            "SELECT plugin, line, bundle, previous, previous_until FROM plugin_lines
-             ORDER BY plugin, line",
-        )?
-        .query_map([], |r| {
-            Ok(LineRecord {
-                plugin: r.get(0)?,
-                line: r.get(1)?,
-                bundle: r.get(2)?,
-                previous: r.get(3)?,
-                previous_until: r.get(4)?,
-            })
-        })?
-        .collect()
-    }
-
     /// Writes the installation, replacing the plugin's previous one but
-    /// keeping when it was first installed, and makes `current` the bundle
-    /// of its line: both or neither. The bundle it replaces on the line is
-    /// kept for [`ROLLBACK_DAYS`], to roll back to.
-    pub fn record_install(
-        &self,
-        record: &InstallRecord,
-        current: Option<(&str, &str)>,
-    ) -> rusqlite::Result<()> {
-        let mut conn = self.conn();
-        let tx = conn.transaction()?;
-        tx.execute(
+    /// keeping when it was first installed. A bundle that replaces another
+    /// keeps the one it replaces for [`ROLLBACK_DAYS`], to roll back to.
+    pub fn record_install(&self, record: &InstallRecord) -> rusqlite::Result<()> {
+        let conn = self.conn();
+        let until = (chrono::Utc::now() + chrono::Duration::days(ROLLBACK_DAYS))
+            .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+        conn.execute(
             &format!(
                 "INSERT INTO plugin_installs ({INSTALL_COLUMNS})
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL, ?11, ?12)
                  ON CONFLICT(plugin) DO UPDATE SET
                    source_kind = excluded.source_kind, source = excluded.source,
                    resolved = excluded.resolved, commit_id = excluded.commit_id,
                    asset_hash = excluded.asset_hash, build_log = excluded.build_log,
-                   line = excluded.line, updated_at = excluded.updated_at"
+                   previous = CASE
+                     WHEN plugin_installs.bundle IS NOT NULL AND excluded.bundle IS NOT NULL
+                          AND plugin_installs.bundle <> excluded.bundle
+                     THEN plugin_installs.bundle ELSE plugin_installs.previous END,
+                   previous_until = CASE
+                     WHEN plugin_installs.bundle IS NOT NULL AND excluded.bundle IS NOT NULL
+                          AND plugin_installs.bundle <> excluded.bundle
+                     THEN ?13 ELSE plugin_installs.previous_until END,
+                   bundle = excluded.bundle,
+                   updated_at = excluded.updated_at"
             ),
             params![
                 record.plugin,
@@ -139,63 +122,28 @@ impl Db {
                 record.commit,
                 record.asset_hash,
                 record.build_log,
-                record.line,
+                record.bundle,
                 record.installed_at,
-                record.updated_at
+                record.updated_at,
+                until
             ],
         )?;
-        if let Some((line, bundle)) = current {
-            let until = (chrono::Utc::now() + chrono::Duration::days(ROLLBACK_DAYS))
-                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-            tx.execute(
-                "INSERT INTO plugin_lines (plugin, line, bundle) VALUES (?1, ?2, ?3)
-                 ON CONFLICT(plugin, line) DO UPDATE SET
-                   previous = CASE WHEN plugin_lines.bundle <> excluded.bundle
-                     THEN plugin_lines.bundle ELSE plugin_lines.previous END,
-                   previous_until = CASE WHEN plugin_lines.bundle <> excluded.bundle
-                     THEN ?4 ELSE plugin_lines.previous_until END,
-                   bundle = excluded.bundle",
-                params![record.plugin, line, bundle, until],
-            )?;
-        }
-        tx.commit()
+        Ok(())
     }
 
-    /// Whether any review renders with this line of the plugin.
-    pub fn reviews_use(&self, plugin: &str, line: &str) -> rusqlite::Result<bool> {
+    /// Makes the installation's previous bundle its current again, while it
+    /// is kept; the bundle it rolls back to, or none when there is nothing to.
+    pub fn roll_back(&self, plugin: &str) -> rusqlite::Result<Option<String>> {
         let conn = self.conn();
         conn.query_row(
-            "SELECT 1 FROM reviews WHERE plugin = ?1 AND plugin_line = ?2 LIMIT 1",
-            params![plugin, line],
-            |_| Ok(()),
-        )
-        .optional()
-        .map(|r| r.is_some())
-    }
-
-    /// Makes the line's previous bundle its current again, while it is kept;
-    /// the bundle it rolls back to, or none when there is nothing to.
-    pub fn roll_back(&self, plugin: &str, line: &str) -> rusqlite::Result<Option<String>> {
-        let conn = self.conn();
-        let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-        conn.query_row(
-            "UPDATE plugin_lines
-             SET bundle = previous, previous = NULL, previous_until = NULL
-             WHERE plugin = ?1 AND line = ?2 AND previous IS NOT NULL AND previous_until > ?3
+            "UPDATE plugin_installs
+             SET bundle = previous, previous = NULL, previous_until = NULL, updated_at = ?2
+             WHERE plugin = ?1 AND previous IS NOT NULL AND previous_until > ?2
              RETURNING bundle",
-            params![plugin, line, now],
+            params![plugin, now()],
             |r| r.get(0),
         )
         .optional()
-    }
-
-    pub fn remove_line(&self, plugin: &str, line: &str) -> rusqlite::Result<()> {
-        let conn = self.conn();
-        conn.execute(
-            "DELETE FROM plugin_lines WHERE plugin = ?1 AND line = ?2",
-            params![plugin, line],
-        )?;
-        Ok(())
     }
 
     pub fn remove_install(&self, plugin: &str) -> rusqlite::Result<bool> {

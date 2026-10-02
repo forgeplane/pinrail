@@ -62,12 +62,12 @@ export function ReviewScreen() {
   const [rounds, setRounds] = useState<Review[]>([]);
   // the other rounds still waiting that have never been opened: what is new
   const [unopened, setUnopened] = useState<Set<string>>(new Set());
-  // The plugin and its view's URL, resolved together for one plugin at one
-  // line. The screen outlives a change of review, so what was resolved
+  // The plugin and its view's URL, resolved together for one plugin and
+  // the bundle the review was submitted to. The screen outlives a change of review, so what was resolved
   // for the last review stays in state until the lookup for this one lands:
   // it counts only when it was resolved for the review on screen.
   const [resolved, setResolved] = useState<{ key: string; plugin: Plugin | null; src: string | null } | null>(null);
-  const pluginKey = review ? `${review.plugin}@${review.plugin_line}` : null;
+  const pluginKey = review ? `${review.plugin}@${review.plugin_bundle}` : null;
   const current = resolved && resolved.key === pluginKey ? resolved : null;
   const plugin: Plugin | null | undefined = current ? current.plugin : undefined;
   const src = current?.src ?? null;
@@ -134,8 +134,8 @@ export function ReviewScreen() {
     if (notice.review_id === id || (revises && roundIds.current.has(revises))) load();
   }, [live.lastNotice, id, load]);
 
-  // The plugin of the review's line and the address of its view; null when
-  // the line is gone, and the review says so.
+  // The plugin the review renders with and the address of its view; null
+  // when it is not there, and the review says so.
   useEffect(() => {
     if (!review || !pluginKey) return;
     if (resolved?.key === pluginKey) return;

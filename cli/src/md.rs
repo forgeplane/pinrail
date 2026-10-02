@@ -195,10 +195,9 @@ pub fn plugins_result(value: &Value) -> String {
     } else {
         value
     };
-    // a plugin row has its lines; a lines answer has them beside `current`
     if let Some(name) = plugin["plugin"]
         .as_str()
-        .filter(|_| plugin.get("lines").is_some() && plugin.get("current").is_none())
+        .filter(|_| plugin.get("install").is_some())
     {
         let from = plugin["install"]["source"]
             .as_str()
@@ -216,7 +215,6 @@ pub fn plugins_result(value: &Value) -> String {
         value["state"].as_str(),
         value["removed"].as_str(),
         value["count"].as_u64(),
-        value["lines"].as_array(),
     ) {
         (Some("up_to_date"), ..) => format!(
             "{}: up to date, {}\n",
@@ -240,21 +238,7 @@ pub fn plugins_result(value: &Value) -> String {
             text(&value["source"])
         ),
         (_, Some(name), ..) => format!("Removed {name}.\n"),
-        (_, _, Some(count), _) => format!("Reloaded {count} plugins.\n"),
-        (_, _, _, Some(lines)) => format!(
-            "{}: {}; reviews render with {}.\n",
-            text(&value["plugin"]),
-            match value["current"].as_str() {
-                Some(line) => format!("new reviews use line {line}"),
-                // removed with its lines kept for old reviews, or broken
-                None => "no usable release installed".to_string(),
-            },
-            lines
-                .iter()
-                .map(|l| format!("line {} ({})", text(&l["line"]), text(&l["version"])))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
+        (_, _, Some(count)) => format!("Reloaded {count} plugins.\n"),
         _ => format!("{value}\n"),
     }
 }

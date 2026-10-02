@@ -126,12 +126,6 @@ async fn inspection_and_update_jobs_work_without_http() {
         .unwrap();
     assert_eq!(inspected["name"], "hello");
     assert!(db.install("local/hello").unwrap().is_none());
-    assert!(
-        db.lines()
-            .unwrap()
-            .iter()
-            .all(|l| l.plugin != "local/hello")
-    );
     assert!(notices.try_recv().is_err());
 
     // A cloned service shares the same jobs and notifications.
@@ -174,13 +168,9 @@ async fn inspection_and_update_jobs_work_without_http() {
     assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
     assert!(notices.try_recv().is_err());
     assert_eq!(db.events_after(0, 10).unwrap().len(), 2);
-    let line = db
-        .lines()
-        .unwrap()
-        .into_iter()
-        .find(|l| l.plugin == "local/hello")
-        .unwrap();
-    assert_eq!(db.bundle(&line.bundle).unwrap().unwrap().version, "1.0.1");
+    let install = db.install("local/hello").unwrap().unwrap();
+    let bundle = install.bundle.unwrap();
+    assert_eq!(db.bundle(&bundle).unwrap().unwrap().version, "1.0.1");
 }
 
 #[tokio::test]
@@ -217,7 +207,7 @@ async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plug
     );
     assert!(failed.plugin.is_none());
     assert!(matches!(
-        app.plugins().lines("broken"),
+        app.plugins().describe(Some("broken")),
         Err(Error::NotFound(_))
     ));
     assert!(matches!(
@@ -230,8 +220,10 @@ async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plug
     assert!(db.events_after(0, 10).unwrap().is_empty());
 }
 
+/// A review keeps the release it was submitted to: through an update to a
+/// new major and the plugin's removal, it renders and decides with it.
 #[tokio::test]
-async fn removal_keeps_the_line_an_existing_review_needs() {
+async fn a_review_keeps_its_release_through_updates_and_removal() {
     let dir = tempfile::tempdir().unwrap();
     let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let sources = dir.path().join("sources");
@@ -248,6 +240,7 @@ async fn removal_keeps_the_line_an_existing_review_needs() {
             None,
         )
         .unwrap();
+    assert_eq!(review.plugin_version, "1.0.0");
 
     plugin(&sources, "hello", "2.0.0");
     let UpdateOutcome::Started { job_id } =
@@ -257,40 +250,15 @@ async fn removal_keeps_the_line_an_existing_review_needs() {
     };
     let updated = finished(app.plugins(), &job_id).await;
     assert_eq!(updated.status, "done", "{updated:?}");
-    let lines = |answer: Value| -> Vec<(String, String)> {
-        answer["lines"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|l| {
-                (
-                    l["line"].as_str().unwrap().into(),
-                    l["version"].as_str().unwrap().into(),
-                )
-            })
-            .collect()
-    };
-    assert_eq!(
-        lines(app.plugins().lines("hello").unwrap()),
-        vec![("1".into(), "1.0.0".into()), ("2".into(), "2.0.0".into())]
-    );
-    assert_eq!(app.plugins().lines("hello").unwrap()["current"], "2");
 
     let removed = app.plugins().remove("hello").unwrap();
     assert_eq!(removed["removed"], "local/hello");
-    assert_eq!(removed["lines_kept"], json!(["1"]));
-    assert_eq!(removed["lines_removed"], json!(["2"]));
-    let kept = app.plugins().lines("local/hello").unwrap();
-    assert_eq!(kept["current"], Value::Null);
-    assert_eq!(lines(kept), vec![("1".into(), "1.0.0".into())]);
-    assert_eq!(
-        app.plugins()
-            .fetch_line("local/hello", "1")
-            .unwrap()
-            .version,
-        "1.0.0"
-    );
-    assert!(app.plugins().fetch_line("local/hello", "2").is_err());
+    assert_eq!(removed["version"], "2.0.0");
+    let kept = app
+        .plugins()
+        .fetch_review("local/hello", review.plugin_bundle.as_deref())
+        .unwrap();
+    assert_eq!(kept.version, "1.0.0");
     app.reviews().decide(&review.id, &json!({}), None).unwrap();
     assert!(app.reviews().get(&review.id).unwrap().decision.is_some());
 }
@@ -371,10 +339,9 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     assert!(recorded.iter().all(|e| e.kind == events::PLUGINS_RELOADED));
     assert!(notices.try_recv().is_err());
     assert!(matches!(
-        app.plugins().lines("hello"),
+        app.plugins().describe(Some("hello")),
         Err(Error::NotFound(_))
     ));
-    assert!(app.plugins().fetch_line("forgeplane/list", "1").is_ok());
 }
 
 /// Two publishers can each have a plugin of one name: a link named list
@@ -412,22 +379,21 @@ async fn a_plugin_of_an_official_name_sits_beside_it_under_its_own_publisher() {
         .submit(&json!({"plugin": "local/list", "title": "Mine"}), None)
         .unwrap();
     assert_eq!(
-        (local.plugin.as_str(), local.plugin_line.as_str()),
-        ("local/list", "2")
+        (local.plugin.as_str(), local.plugin_version.as_str()),
+        ("local/list", "2.0.0")
     );
 
     drop(app);
     let reopened = Pinrail::open(config).unwrap();
-    assert_eq!(
-        reopened.plugins().lines("local/list").unwrap()["current"],
-        "2"
-    );
-    assert_eq!(
-        reopened.plugins().lines("forgeplane/list").unwrap()["current"],
-        "1"
-    );
+    let described = reopened.plugins().describe(Some("local/list")).unwrap();
+    assert_eq!(described["plugins"][0]["version"], "2.0.0");
+    let described = reopened
+        .plugins()
+        .describe(Some("forgeplane/list"))
+        .unwrap();
+    assert_eq!(described["plugins"][0]["version"], "1.0.0");
     assert!(matches!(
-        reopened.plugins().lines("another"),
+        reopened.plugins().describe(Some("another")),
         Err(Error::NotFound(_))
     ));
 }

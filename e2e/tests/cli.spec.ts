@@ -139,7 +139,6 @@ test("plugins install stores a bundle, and a link serves the folder live", async
   expect(installed.plugin).toBe("local/hello");
   expect(installed.name).toBe("hello");
   expect(installed.version).toBe("1.0.0");
-  expect(installed.line).toBe("1");
   expect(installed.install.linked).toBe(false);
   expect(installed.install.bundle).toMatch(/^[0-9a-f]{64}$/);
   expect(installed.path).toMatch(new RegExp(`plugins/bundles/${installed.install.bundle}$`));
@@ -192,7 +191,6 @@ test("a plugin pinrail-plugin create wrote installs as a link and decides a revi
     const linked = pinrailJson(["plugins", "install", dir, "--link"]);
     expect(linked.plugin).toBe("local/triage");
     expect(linked.version).toBe("0.1.0");
-    expect(linked.line).toBe("0.1");
     expect(pinrailJson(["plugins"]).plugins.find((p: any) => p.name === "triage").usable).toBe(true);
 
     const payload = tmpFile("payload.json", JSON.stringify({ message: "Push it?" }));

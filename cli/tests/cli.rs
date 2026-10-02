@@ -878,37 +878,6 @@ fn with_json_an_error_on_stderr_is_one_line_of_json() {
 }
 
 #[test]
-fn plugin_lines_say_when_no_release_is_usable() {
-    let server = MockServer::start(Box::new(|_, path, _| {
-        match path {
-        "/api/v1/plugins/hello/lines" => (
-            200,
-            r#"{"plugin":"local/hello","current":null,"lines":[{"line":"1","version":"1.0.4"},{"line":"2","version":"2.1.0"}]}"#.into(),
-        ),
-        "/api/v1/plugins/forgeplane%2Flist/lines" => (
-            200,
-            r#"{"plugin":"forgeplane/list","current":"2","lines":[{"line":"1","version":"1.3.0"},{"line":"2","version":"2.0.0"}]}"#.into(),
-        ),
-        other => panic!("unexpected {other}"),
-    }
-    }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "lines", "hello", "--markdown"]);
-    assert_eq!(code, 0, "{stderr}");
-    assert_eq!(
-        stdout,
-        "local/hello: no usable release installed; reviews render with line 1 (1.0.4), line 2 (2.1.0).\n"
-    );
-    let (_, stdout, _) = run(
-        &server,
-        &["plugins", "lines", "forgeplane/list", "--markdown"],
-    );
-    assert_eq!(
-        stdout,
-        "forgeplane/list: new reviews use line 2; reviews render with line 1 (1.3.0), line 2 (2.0.0).\n"
-    );
-}
-
-#[test]
 fn text_from_a_review_cannot_drive_the_terminal() {
     // a title with escape sequences: clear the screen, set the clipboard
     let server = MockServer::start(Box::new(|_, path, _| {
@@ -977,7 +946,7 @@ fn a_server_error_is_not_a_refusal_and_a_wait_rides_it_out() {
 
 const INSPECTED_WITHOUT_BUILD: &str = r#"{"name":"triage","version":"1.0.0","build":null,"expect":{"build":null,"commit":"abc1234"}}"#;
 const INSPECTED_WITH_BUILD: &str = r#"{"state":"available","name":"triage","version":"1.1.0","build":"npm ci && npm run build","expect":{"build":"npm ci && npm run build","commit":"def5678"}}"#;
-const JOB_DONE: &str = r#"{"status":"done","log":"","log_offset":0,"plugin":{"plugin":"local/triage","name":"triage","version":"1.1.0","lines":[]}}"#;
+const JOB_DONE: &str = r#"{"status":"done","log":"","log_offset":0,"plugin":{"plugin":"local/triage","name":"triage","version":"1.1.0","install":{"kind":"folder"}}}"#;
 
 /// A server that answers inspections with `inspected`, and records the
 /// body of every install or update it is asked to start.
@@ -1161,8 +1130,7 @@ fn list_all_follows_the_cursor_to_the_last_page() {
 
 #[test]
 fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
-    let server = MockServer::start(Box::new(|method, path, body| {
-        match (method, path) {
+    let server = MockServer::start(Box::new(|method, path, body| match (method, path) {
         ("GET", "/api/v1/reviews?status=pending&repo=acme") => (
             200,
             r#"{"reviews":[],"total":0,"has_more":false,"next_cursor":null}"#.into(),
@@ -1187,12 +1155,8 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
             (200, review("decided"))
         }
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[]}"#.into()),
-        ("GET", "/api/v1/plugins/list/lines") => {
-            (200, r#"{"plugin":"forgeplane/list","current":"1","lines":[{"line":"1","version":"1.0.0"}]}"#.into())
-        }
         ("POST", "/api/v1/plugins/reload") => (200, r#"{"ok":true,"count":1}"#.into()),
         other => panic!("unexpected {other:?}"),
-    }
     }));
     let dir = tempdir();
     std::fs::write(dir.join("d.json"), r#"{"ok":true}"#).unwrap();
@@ -1227,7 +1191,6 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
     );
     assert_eq!(run(&server, &["plugins"]).0, 0);
     assert_eq!(run(&server, &["plugins", "reload"]).0, 0);
-    assert_eq!(run(&server, &["plugins", "lines", "list"]).0, 0);
 }
 
 #[test]
@@ -1601,7 +1564,7 @@ fn a_dry_run_checks_the_submission_and_creates_nothing() {
         }
         (
             200,
-            r#"{"valid":true,"plugin":"forgeplane/list","plugin_line":"1","plugin_version":"1.2.0"}"#.into(),
+            r#"{"valid":true,"plugin":"forgeplane/list","plugin_version":"1.2.0"}"#.into(),
         )
     }));
     let (code, stdout, stderr) = run(
@@ -1755,7 +1718,7 @@ fn submit_checks_then_uploads_only_what_the_app_lacks() {
         match (method, path) {
             ("POST", "/api/v1/reviews/validate") => (
                 200,
-                r#"{"valid":true,"plugin":"forgeplane/model","plugin_line":"2","plugin_version":"2.0.0"}"#.into(),
+                r#"{"valid":true,"plugin":"forgeplane/model","plugin_version":"2.0.0"}"#.into(),
             ),
             ("HEAD", p) if p.ends_with(&have) => (200, String::new()),
             ("HEAD", p) if p.ends_with(&missing) => (404, String::new()),
@@ -1836,7 +1799,7 @@ fn a_dry_run_or_a_refused_submission_uploads_nothing() {
             422,
             r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/attachments/a.glb","message":"this plugin takes .png, not model/gltf-binary"}]}"#.into(),
         ),
-        ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"plugin":"forgeplane/model","plugin_line":"2","plugin_version":"2.0.0"}"#.into()),
+        ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"plugin":"forgeplane/model","plugin_version":"2.0.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));
@@ -2318,7 +2281,7 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
         }
         ("GET", "/api/v1/plugins/jobs/j1") => (
             200,
-            r#"{"status":"done","log":"","plugin":{"plugin":"local/hello","name":"hello","version":"1.0.0","lines":[]}}"#.into(),
+            r#"{"status":"done","log":"","plugin":{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"folder"}}}"#.into(),
         ),
         other => panic!("unexpected {other:?}"),
     }
@@ -2348,7 +2311,7 @@ fn an_install_log_the_app_trims_is_followed_line_by_line() {
         serde_json::json!({ "status": "building", "log": text(0, 2), "log_offset": 0 }),
         serde_json::json!({ "status": "building", "log": text(1, 3), "log_offset": offset(1) }),
         serde_json::json!({ "status": "done", "log": text(2, 4), "log_offset": offset(2),
-            "plugin": { "plugin": "local/hello", "name": "hello", "version": "1.0.0", "lines": [] } }),
+            "plugin": { "plugin": "local/hello", "name": "hello", "version": "1.0.0", "install": {"kind": "folder"} } }),
     ]));
     let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
         ("POST", "/api/v1/plugins/inspect") => (200, INSPECTED_WITHOUT_BUILD.into()),
@@ -2531,11 +2494,11 @@ fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
     );
 }
 
-/// A release checked against the one before it: what it breaks of what
-/// the line's reviews hold, which the app refuses as an update of that
-/// line, and which a release on a new line may do.
+/// A release checked against the one before it: what its schemas no longer
+/// accept of what that one took, which only a version that announces a
+/// breaking change may do.
 #[test]
-fn plugins_check_since_a_release_says_what_it_breaks_of_its_line() {
+fn plugins_check_since_a_release_says_what_it_breaks_of_the_one_before() {
     let release = |version: &str, decision: &dyn Fn(&mut serde_json::Value)| {
         let dir = tempdir();
         let list = repo_plugin("list");
@@ -2602,123 +2565,44 @@ fn plugins_check_since_a_release_says_what_it_breaks_of_its_line() {
         serde_json::json!({"path": "schemas/decision.schema.json#/required", "message": "makes extra required"})
     );
     assert_eq!(verdict["since"]["next"], "2.0.0");
+    assert_eq!(verdict["since"]["claims_compatible"], true);
     let (code, stdout, _) = check(&breaking, true);
     assert_eq!(code, 2);
     assert!(
         stdout.contains(
-            "- breaks line 1: schemas/decision.schema.json#/required: makes extra required"
-        ) && stdout.contains("Release it as 2.0.0 to start a new line."),
+            "- breaks 1.0.0: schemas/decision.schema.json#/required: makes extra required"
+        ) && stdout.contains("Release it as 2.0.0, a version that announces a breaking change."),
         "{stdout}"
     );
 
-    // on a new line, the same change breaks nothing that line holds
+    // a version that announces the break may make it
     let (code, stdout, stderr) = check(&release("2.0.0", &required), true);
     assert_eq!(code, 0, "{stderr}");
-    assert!(stdout.contains("- note: 2.0.0 starts line 2"), "{stdout}");
+    assert!(
+        stdout.contains(
+            "- note: 2.0.0 announces a breaking change, so it may change what 1.0.0 took"
+        ),
+        "{stdout}"
+    );
 }
 
-/// Rolling back asks the app for the plugin's previous release, forced only
-/// when asked, and says what the line is back on.
+/// Rolling back asks the app for the plugin's previous release, and says
+/// what new reviews use now.
 #[test]
 fn plugins_rollback_asks_for_the_previous_release() {
-    let sent = Arc::new(Mutex::new(Vec::new()));
-    let seen = sent.clone();
-    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
-        ("POST", "/api/v1/plugins/hello/rollback") => {
-            seen.lock().unwrap().push(body.to_string());
-            (
-                200,
-                r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","line":"1","lines":[]}"#.into(),
-            )
-        }
+    let server = MockServer::start(Box::new(|method, path, _| {
+        match (method, path) {
+        ("POST", "/api/v1/plugins/hello/rollback") => (
+            200,
+            r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"folder"}}"#
+                .into(),
+        ),
         other => panic!("unexpected {other:?}"),
+    }
     }));
     let (code, stdout, stderr) = run(&server, &["plugins", "rollback", "hello", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(stdout, "local/hello: rolled back to 1.0.0\n");
-    let (code, _, _) = run(&server, &["plugins", "rollback", "hello", "--force"]);
-    assert_eq!(code, 0);
-    let bodies: Vec<serde_json::Value> = sent
-        .lock()
-        .unwrap()
-        .iter()
-        .map(|b| serde_json::from_str(b).unwrap())
-        .collect();
-    assert_eq!(
-        bodies,
-        vec![
-            serde_json::json!({"force": false}),
-            serde_json::json!({"force": true})
-        ]
-    );
-}
-
-/// The check names the bundle a folder would make: its hash, which only
-/// the files in the bundle's layout decide, so sources, dependencies and
-/// dot files beside them change nothing.
-#[test]
-fn plugins_check_names_the_bundle_and_what_is_left_behind_changes_nothing() {
-    let copy = |junk: bool| {
-        let dir = tempdir();
-        for f in [
-            "manifest.json",
-            "schemas/payload.schema.json",
-            "schemas/decision.schema.json",
-            "view/index.html",
-            "icon.svg",
-        ] {
-            let to = dir.join(f);
-            std::fs::create_dir_all(to.parent().unwrap()).unwrap();
-            std::fs::copy(repo_plugin("list").join(f), to).unwrap();
-        }
-        if junk {
-            for (f, text) in [
-                ("node_modules/x/index.js", "x"),
-                ("src/main.ts", "x"),
-                (".env", "SECRET=1"),
-            ] {
-                let to = dir.join(f);
-                std::fs::create_dir_all(to.parent().unwrap()).unwrap();
-                std::fs::write(to, text).unwrap();
-            }
-        }
-        dir
-    };
-    let bundle = |dir: &std::path::Path| {
-        let (code, stdout, stderr) = run_offline(&["plugins", "check", dir.to_str().unwrap()]);
-        assert_eq!(code, 0, "{stderr}");
-        let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-        verdict["bundle"].clone()
-    };
-    let (clean, junk) = (copy(false), copy(true));
-    let named = bundle(&clean);
-    assert_eq!(named["files"], 5, "{named}");
-    assert_eq!(named["hash"].as_str().map(str::len), Some(64), "{named}");
-    assert_eq!(
-        bundle(&junk),
-        named,
-        "the same bundle, whatever is beside it"
-    );
-
-    let (_, stdout, _) = run_offline(&["plugins", "check", clean.to_str().unwrap(), "--markdown"]);
-    let hash = named["hash"].as_str().unwrap();
-    assert!(
-        stdout.contains(&format!("\nBundle {hash}: 5 files, ")),
-        "{stdout}"
-    );
-
-    // a folder an install could not make a bundle of is refused
-    #[cfg(unix)]
-    {
-        std::os::unix::fs::symlink("/etc/hosts", clean.join("view/hosts")).unwrap();
-        let (code, stdout, _) =
-            run_offline(&["plugins", "check", clean.to_str().unwrap(), "--markdown"]);
-        assert_eq!(code, 2, "{stdout}");
-        assert!(
-            stdout.contains("- refused: view/hosts: a symbolic link; a bundle holds files only"),
-            "{stdout}"
-        );
-    }
 }
 
 /// A plugin as it is scaffolded with a framework, sources and a build but

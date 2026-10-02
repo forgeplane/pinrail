@@ -28,8 +28,8 @@ impl std::fmt::Debug for Schema {
 }
 
 /// The `$id` prefix for a plugin, ending in a slash.
-pub fn prefix(name: &str, line: &str) -> String {
-    format!("{SCHEME}{name}/{line}/")
+pub fn prefix(name: &str, version: &str) -> String {
+    format!("{SCHEME}{name}/{version}/")
 }
 
 impl Schema {
@@ -38,14 +38,14 @@ impl Schema {
     pub fn compile(
         dir: &Path,
         name: &str,
-        line: &str,
+        version: &str,
         key: &str,
         schema: &Value,
     ) -> Result<Self, String> {
         let Value::Object(map) = schema else {
             return Err(format!("{key} must be a JSON Schema object"));
         };
-        let prefix = prefix(name, line);
+        let prefix = prefix(name, version);
         let mut root = map.clone();
         root.entry("$schema").or_insert_with(|| {
             Value::String("https://json-schema.org/draft/2020-12/schema".into())

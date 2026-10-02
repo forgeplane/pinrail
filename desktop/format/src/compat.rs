@@ -1,6 +1,6 @@
-//! Whether a new release's schema keeps every document the old one took:
-//! the rule an update within a line is held to, so the reviews stored on
-//! the line still validate.
+//! Whether a new release's schema keeps every document the old one took,
+//! as semantic versioning promises within a major version: what
+//! `pinrail plugins check --since` tells a plugin's author.
 //!
 //! The rule is fixed and compares the two schemas, never data. Allowed:
 //! a new optional property, a new `enum` value, and a change to what only
@@ -95,9 +95,9 @@ pub fn plugin_breaks(old: &Path, new: &Path) -> Vec<Violation> {
 
 /// A release at `new` against the one before it at `old`, as
 /// `pinrail plugins check --since` reports it: the versions, whether the
-/// new one stays on the old one's line, what it breaks of what that line
-/// holds, and the version that would start the next line. Breaks matter
-/// only on the same line, where the app refuses them as an update.
+/// new version claims to be compatible (the same major, or below 1.0.0 the
+/// same minor, as semantic versioning reads it), what its schemas break of
+/// what the old ones took, and the version that would say it breaks.
 pub fn since(old: &Path, new: &Path) -> Value {
     let version = |dir: &Path| -> String {
         std::fs::read_to_string(dir.join(crate::manifest::MANIFEST))
@@ -111,15 +111,14 @@ pub fn since(old: &Path, new: &Path) -> Value {
     serde_json::json!({
         "previous": before,
         "version": after,
-        "line": new_line,
-        "same_line": old_line.is_some() && old_line == new_line,
+        "claims_compatible": old_line.is_some() && old_line == new_line,
         "breaks": plugin_breaks(old, new),
         "next": next_line(&after),
     })
 }
 
-/// The first version of the line after the one `version` is on: `2.0.0`
-/// after `1.4.2`, `0.4.0` after `0.3.1`.
+/// The version that says a release after `version` breaks compatibility:
+/// `2.0.0` after `1.4.2`, `0.4.0` after `0.3.1`.
 pub fn next_line(version: &str) -> String {
     let (major, minor, _) = crate::semver(version);
     if major > 0 {

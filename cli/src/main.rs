@@ -518,16 +518,12 @@ enum PluginsCommand {
     },
     /// Roll a plugin back to the release its last update replaced
     ///
-    /// The release an update replaces is kept for a week. A rollback to a
-    /// release that does not take what reviews made since may hold is
-    /// refused unless forced.
+    /// The release an update replaces is kept for a week. New reviews use
+    /// the release rolled back to; each existing review keeps the release
+    /// it was submitted to.
     Rollback {
         /// The plugin's name, or its full name such as acme/review
         name: String,
-        /// Roll back even though reviews made since the update may no longer
-        /// render
-        #[arg(long)]
-        force: bool,
     },
     /// Remove an installed plugin. Lines that existing reviews still render
     /// with are kept
@@ -589,16 +585,10 @@ enum PluginsCommand {
         #[arg(default_value = ".")]
         dir: PathBuf,
         /// The release before this one, as a folder: also report what this
-        /// release breaks of what that release's line holds, which the app
-        /// refuses as an update of the line
+        /// release's schemas no longer accept of what that one took, which
+        /// semantic versioning allows only in a version that announces it
         #[arg(long, value_name = "DIR")]
         since: Option<PathBuf>,
-    },
-    /// List the lines of a plugin that reviews render with, and the
-    /// release current on each
-    Lines {
-        /// The plugin's name, or its full name such as forgeplane/list
-        name: String,
     },
 }
 
@@ -993,8 +983,8 @@ fn run(cli: Cli) -> Result<u8> {
                     .with_context(|| format!("{} is not a folder here", since.display()))?;
                 verdict["since"] = pinrail_format::compat::since(&since, &dir);
             }
-            // what the app would refuse as an update of the line
-            let breaks_line = verdict["since"]["same_line"] == true
+            // a break that the version does not announce
+            let breaks_line = verdict["since"]["claims_compatible"] == true
                 && verdict["since"]["breaks"]
                     .as_array()
                     .is_some_and(|b| !b.is_empty());
@@ -1021,9 +1011,9 @@ fn run(cli: Cli) -> Result<u8> {
                 if breaks_line {
                     for b in verdict["since"]["breaks"].as_array().into_iter().flatten() {
                         eprintln!(
-                            "pinrail: breaks line {}: {}: {}",
+                            "pinrail: breaks {}: {}: {}",
                             out::terminal_safe(
-                                verdict["since"]["line"].as_str().unwrap_or_default()
+                                verdict["since"]["previous"].as_str().unwrap_or_default()
                             ),
                             out::terminal_safe(b["path"].as_str().unwrap_or_default()),
                             out::terminal_safe(b["message"].as_str().unwrap_or_default())
@@ -1160,11 +1150,10 @@ fn run(cli: Cli) -> Result<u8> {
                     Value::Array(answers)
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
-                Some(PluginsCommand::Rollback { name, force }) => {
-                    json!({ "state": "rolled_back", "plugin": client.plugins_rollback(&name, force)? })
+                Some(PluginsCommand::Rollback { name }) => {
+                    json!({ "state": "rolled_back", "plugin": client.plugins_rollback(&name)? })
                 }
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
-                Some(PluginsCommand::Lines { name }) => client.plugin_lines(&name)?,
                 Some(
                     PluginsCommand::Describe { .. }
                     | PluginsCommand::Check { .. }

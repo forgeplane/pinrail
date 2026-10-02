@@ -154,12 +154,12 @@ fn insert_in(
     }
     {
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_line, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at)
+            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at)
              VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 review.id,
                 review.plugin,
-                review.plugin_line,
+                review.plugin_bundle,
                 review.title,
                 Value::Object(review.origin.clone()).to_string(),
                 review.requested_by,
@@ -481,7 +481,7 @@ impl Db {
         rows.collect()
     }
 
-    /// Reviews that ended before `before`, as (id, plugin, line): decided,
+    /// Reviews that ended before `before`, as (id, plugin, version): decided,
     /// withdrawn or discarded then, or expired then with nothing recorded.
     /// A round that a round still here revises stays with it, so a chain
     /// goes as a whole and `revises` never dangles.
@@ -491,7 +491,7 @@ impl Db {
     ) -> rusqlite::Result<Vec<(String, String, String)>> {
         let conn = self.conn();
         let mut stmt = conn.prepare(
-            "SELECT r.id, r.plugin, r.plugin_line FROM reviews r
+            "SELECT r.id, r.plugin, r.plugin_version FROM reviews r
                LEFT JOIN outcomes o ON o.review_id = r.id
               WHERE (o.at IS NOT NULL AND o.at < ?1)
                  OR (o.review_id IS NULL AND r.expires_at IS NOT NULL AND r.expires_at < ?1)
@@ -554,7 +554,7 @@ fn select(with_payload: bool) -> String {
         ("NULL", "")
     };
     format!(
-        "SELECT r.id, r.plugin, r.plugin_line, r.title, r.origin, r.requested_by, {payload}, r.summary,
+        "SELECT r.id, r.plugin, r.plugin_bundle, r.title, r.origin, r.requested_by, {payload}, r.summary,
     r.revises, r.expires_at, r.created_at,
     o.kind, o.at, o.by, o.reason, o.data, o.agent_note,
     r.plugin_version,
@@ -637,7 +637,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
         attachments_total,
         id: row.get(0)?,
         plugin: row.get(1)?,
-        plugin_line: row.get(2)?,
+        plugin_bundle: row.get(2)?,
         plugin_version: plugin_version.unwrap_or_default(),
         title: row.get(3)?,
         origin: serde_json::from_str::<Value>(&origin)

@@ -203,7 +203,6 @@ function pinDatabase(file, plan) {
       commit,
       plugin,
     );
-    db.prepare("UPDATE plugin_lines SET plugin = ? WHERE plugin = ?").run(official, plugin);
     db.prepare("UPDATE reviews SET plugin = ? WHERE plugin = ?").run(official, plugin);
   }
   // the person deciding is the fixtures' person, not whoever runs this

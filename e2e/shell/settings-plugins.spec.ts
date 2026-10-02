@@ -93,7 +93,7 @@ test("a folder is looked at before it is installed, and its row says where it ca
   fs.appendFileSync(path.join(source, "view/index.html"), "<!-- edited -->");
   await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="same"]')).toContainText(
-    "greeter 1.2.0 is already installed. Installing replaces it.",
+    "greeter 1.2.0 is already installed. Installing replaces it for new reviews",
   );
   await again.getByLabel("Source").press("Escape");
 

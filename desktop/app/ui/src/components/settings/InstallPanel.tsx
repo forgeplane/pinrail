@@ -131,17 +131,7 @@ function Consequences({ seen }: { seen: Inspection }) {
       {installed ? (
         <p
           className="install-replaces"
-          data-replaces={
-            installed.linked
-              ? "link"
-              : installed.unchanged
-                ? "unchanged"
-                : installed.line === seen.line
-                  ? seen.older
-                    ? "older"
-                    : "same"
-                  : "beside"
-          }
+          data-replaces={installed.linked ? "link" : installed.unchanged ? "unchanged" : seen.older ? "older" : "same"}
         >
           <b>
             {seen.name} {installed.version} is already installed
@@ -152,11 +142,9 @@ function Consequences({ seen }: { seen: Inspection }) {
               : `, as a link to ${installed.path}. Installing copies this folder and removes the link.`
             : installed.unchanged
               ? `, from this source, and the source has not changed. Installing again replaces it with the same files.`
-              : installed.line !== seen.line
-                ? `. This version starts a new line beside it, and the old line stays while reviews still use it.`
-                : seen.older
-                  ? `, and it is newer than this version. Installing replaces it with this older version.`
-                  : `. Installing replaces it.`}
+              : seen.older
+                ? `, and it is newer than this version. Installing replaces it with this older version for new reviews.`
+                : `. Installing replaces it for new reviews; existing reviews keep the version they were made with.`}
         </p>
       ) : null}
     </>

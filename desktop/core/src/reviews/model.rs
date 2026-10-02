@@ -56,10 +56,11 @@ pub struct Review {
     pub id: String,
     /// the plugin's full name, `forgeplane/list`
     pub plugin: String,
-    /// the line the review renders with, `1` or `0.3`
-    pub plugin_line: String,
     /// the exact version it was submitted to, `1.2.3`
     pub plugin_version: String,
+    /// the bundle it was submitted to, which it renders and validates with;
+    /// none only for a review whose bundle could not be recorded
+    pub plugin_bundle: Option<String>,
     pub title: String,
     pub origin: Map<String, Value>,
     pub requested_by: Option<String>,
@@ -108,8 +109,8 @@ impl Review {
         let mut map = json!({
             "id": self.id,
             "plugin": self.plugin,
-            "plugin_line": self.plugin_line,
             "plugin_version": self.plugin_version,
+            "plugin_bundle": self.plugin_bundle,
             "title": self.title,
             "origin": self.origin,
             "requested_by": self.requested_by,
@@ -197,8 +198,8 @@ mod tests {
             attachments_total: (0, 0),
             id: "r_1".into(),
             plugin: "forgeplane/list".into(),
-            plugin_line: "1".into(),
             plugin_version: "1.0.0".into(),
+            plugin_bundle: None,
             title: "t".into(),
             origin: Map::new(),
             requested_by: None,

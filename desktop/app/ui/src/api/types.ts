@@ -30,10 +30,10 @@ export type Review = {
   id: string;
   /** the plugin's full name, such as forgeplane/list */
   plugin: string;
-  /** the line the review renders with, such as 1 or 0.3 */
-  plugin_line: string;
   /** the exact version it was submitted to, such as 1.2.0 */
   plugin_version: string;
+  /** the bundle it was submitted to, which it renders with */
+  plugin_bundle: string | null;
   title: string;
   origin: Origin;
   requested_by: string | null;
@@ -83,15 +83,6 @@ export type ReviewListing = {
   facets?: { plugins: string[]; repos: string[]; unassigned: boolean };
 };
 
-/** A line of a plugin and the release current on it, with the one an
- *  update replaced while it can be rolled back to. */
-export type PluginLine = {
-  line: string;
-  version: string;
-  bundle: string;
-  previous: { version: string; bundle: string; until: string } | null;
-};
-
 export type Plugin = {
   /** the full name, `<publisher>/<name>` */
   plugin: string;
@@ -99,10 +90,6 @@ export type Plugin = {
   name: string;
   /** the version new reviews use, such as 1.2.0 */
   version: string;
-  /** its line, such as 1 or 0.3 */
-  line: string;
-  /** every line the plugin has, those kept for older reviews too */
-  lines: PluginLine[];
   title: string;
   path: string;
   min_height: number;
@@ -141,6 +128,8 @@ export type PluginInstall = {
   asset_hash: string | null;
   /** the bundle new reviews render with; null for a link */
   bundle: string | null;
+  /** the release the last update replaced, while it can be rolled back to */
+  previous: { version: string; bundle: string; until: string } | null;
   /** the bundle's files no longer match its listing */
   modified: boolean;
   installed_at: string;
@@ -160,7 +149,6 @@ export type Inspection = {
   publisher: string;
   name: string;
   version: string;
-  line: string;
   title: string;
   icon: string | null;
   /** the exact command a build runs; null when nothing runs */
@@ -189,7 +177,6 @@ export type Inspection = {
   /** what is installed under the full name already; `path` is a link's folder */
   installed: {
     version: string;
-    line: string | null;
     linked: boolean;
     kind: string;
     path: string | null;

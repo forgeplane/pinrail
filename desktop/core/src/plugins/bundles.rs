@@ -95,17 +95,16 @@ impl Bundles {
             .as_str()
             .ok_or_else(|| Error::invalid("/source", format!("{MANIFEST} has no name")))?;
         let version = parsed["version"].as_str().unwrap_or_default();
-        let line = line_of(version).ok_or_else(|| {
-            Error::invalid(
+        if line_of(version).is_none() {
+            return Err(Error::invalid(
                 "/source",
                 format!("{MANIFEST}: {version:?} is not a version such as 1.0.0"),
-            )
-        })?;
+            ));
+        }
         let record = BundleRecord {
             hash: hash.clone(),
             name: name.to_string(),
             version: version.to_string(),
-            line,
             manifest,
             size: listing.size(),
             stored_at: String::new(),
@@ -173,7 +172,7 @@ impl Bundles {
     }
 
     /// Removes the bundles that were stored before `before` and that no
-    /// line refers to: the rows first, then the folders, so a stop between
+    /// installation or review refers to: the rows first, then the folders, so a stop between
     /// them leaves folders the next open removes. Returns how many went.
     pub fn sweep(&self, before: chrono::DateTime<chrono::Utc>) -> Result<usize, Error> {
         let _files = self.files.lock().unwrap_or_else(|e| e.into_inner());
@@ -252,8 +251,8 @@ mod tests {
         dir
     }
 
-    /// Makes the bundle the current one of its plugin's line, which is
-    /// what keeps a bundle.
+    /// Makes the bundle the current one of an installation, which is one
+    /// thing that keeps a bundle.
     fn refer(bundles: &Bundles, bundle: &BundleRecord) {
         let record = crate::db::InstallRecord {
             plugin: format!("local/{}", bundle.name),
@@ -265,14 +264,13 @@ mod tests {
             commit: None,
             asset_hash: None,
             build_log: None,
-            line: Some(bundle.line.clone()),
+            bundle: Some(bundle.hash.clone()),
+            previous: None,
+            previous_until: None,
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),
         };
-        bundles
-            .db
-            .record_install(&record, Some((&bundle.line, &bundle.hash)))
-            .unwrap();
+        bundles.db.record_install(&record).unwrap();
     }
 
     fn later() -> chrono::DateTime<chrono::Utc> {
@@ -297,12 +295,8 @@ mod tests {
         let listing = Listing::of_folder(&from, Taken::FromSource).unwrap();
         assert_eq!(stored.hash, listing.hash());
         assert_eq!(
-            (
-                stored.name.as_str(),
-                stored.version.as_str(),
-                stored.line.as_str()
-            ),
-            ("hello", "1.4.2", "1")
+            (stored.name.as_str(), stored.version.as_str()),
+            ("hello", "1.4.2")
         );
         assert_eq!(stored.size, listing.size());
         assert_eq!(*bundles.listing(&stored.hash).unwrap().unwrap(), listing);
@@ -327,7 +321,6 @@ mod tests {
             .store(&source(root.path(), "c", "hello", "0.3.1"))
             .unwrap();
         assert_ne!(next.hash, stored.hash);
-        assert_eq!(next.line, "0.3");
         assert_eq!(folders(&bundles).len(), 2);
     }
 

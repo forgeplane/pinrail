@@ -60,26 +60,25 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
     }
     let since = &verdict["since"];
     let breaks = since["breaks"].as_array().cloned().unwrap_or_default();
-    if since["same_line"] == true {
+    if since["claims_compatible"] == true {
         for b in &breaks {
             out.push_str(&format!(
-                "\n- breaks line {}: {}: {}",
-                text(&since["line"]),
+                "\n- breaks {}: {}: {}",
+                text(&since["previous"]),
                 text(&b["path"]),
                 text(&b["message"])
             ));
         }
         if !breaks.is_empty() {
             out.push_str(&format!(
-                "\n\nRelease it as {} to start a new line.\n",
+                "\n\nRelease it as {}, a version that announces a breaking change.\n",
                 text(&since["next"])
             ));
         }
     } else if since.is_object() {
         out.push_str(&format!(
-            "\n- note: {} starts line {}, so it may change what {} held",
+            "\n- note: {} announces a breaking change, so it may change what {} took",
             text(&since["version"]),
-            text(&since["line"]),
             text(&since["previous"])
         ));
     }
@@ -90,7 +89,7 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
             .as_array()
             .is_some_and(|a| !a.is_empty())
         || verdict["notes"].as_array().is_some_and(|a| !a.is_empty())
-        || (since.is_object() && since["same_line"] != true)
+        || (since.is_object() && since["claims_compatible"] != true)
     {
         out.push('\n');
     }

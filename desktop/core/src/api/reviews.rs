@@ -60,7 +60,6 @@ async fn validate(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json
     Ok(Json(json!({
         "valid": true,
         "plugin": plugin.full_name(),
-        "plugin_line": plugin.line,
         "plugin_version": plugin.version,
     })))
 }
@@ -154,7 +153,7 @@ async fn review_response(
         .flatten();
     let template = state
         .plugins()
-        .fetch_line(&review.plugin, &review.plugin_line)
+        .fetch_review(&review.plugin, review.plugin_bundle.as_deref())
         .ok()
         .and_then(|p| p.decision_template.clone());
     let json = review.to_json(true);
@@ -180,10 +179,10 @@ async fn show(
     review_response(&state, &review, wants_markdown(&headers, &params)).await
 }
 
-/// What the app's frame loads to show a review: the plugin of the review's
-/// line, and the address of its view. That is the line's current bundle,
-/// which never changes and is cached, or the linked folder while a link is
-/// on the line, served as it is.
+/// What the app's frame loads to show a review: the plugin it renders
+/// with, and the address of its view. That is the bundle the review was
+/// submitted to, which never changes and is cached, or the linked folder
+/// while its plugin is linked, served as it is.
 async fn view(
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
@@ -191,19 +190,17 @@ async fn view(
     let review = state.reviews().get(&id)?;
     let plugin = state
         .plugins()
-        .fetch_line(&review.plugin, &review.plugin_line)?;
-    let url = match plugin.install.as_ref().filter(|i| i.linked) {
-        Some(install) => format!("/links/{}/view/index.html", install.plugin),
-        None => {
-            let bundle = state
-                .plugins()
-                .line_bundle(&review.plugin, &review.plugin_line)
-                .ok_or_else(|| Error::NotFound(format!("the bundle of review {id}")))?;
-            format!("/bundles/{bundle}/view/index.html")
-        }
+        .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
+    let url = match (
+        plugin.install.as_ref().filter(|i| i.linked),
+        &review.plugin_bundle,
+    ) {
+        (Some(install), _) => format!("/links/{}/view/index.html", install.plugin),
+        (None, Some(bundle)) => format!("/bundles/{bundle}/view/index.html"),
+        (None, None) => return Err(Error::NotFound(format!("the bundle of review {id}")).into()),
     };
     let mut plugin = plugin.to_json();
-    // a line kept after its plugin was removed is still the plugin's
+    // a bundle read by itself is still the review's plugin
     plugin["plugin"] = Value::String(review.plugin.clone());
     Ok(Json(json!({ "url": url, "plugin": plugin })))
 }

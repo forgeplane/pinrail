@@ -266,11 +266,8 @@ impl Client {
     }
 
     /// Rolls the plugin back to the release its last update replaced.
-    pub fn plugins_rollback(&self, name: &str, force: bool) -> Result<Value> {
-        self.post(
-            &format!("/api/v1/plugins/{}/rollback", segment(name)),
-            Some(&serde_json::json!({ "force": force })),
-        )
+    pub fn plugins_rollback(&self, name: &str) -> Result<Value> {
+        self.post(&format!("/api/v1/plugins/{}/rollback", segment(name)), None)
     }
 
     pub fn plugins_remove(&self, name: &str) -> Result<Value> {
@@ -333,10 +330,6 @@ impl Client {
                 _ => std::thread::sleep(std::time::Duration::from_millis(300)),
             }
         }
-    }
-
-    pub fn plugin_lines(&self, name: &str) -> Result<Value> {
-        self.get(&format!("/api/v1/plugins/{}/lines", segment(name)), &[])
     }
 
     pub fn plugins_describe(&self, name: &str) -> Result<Value> {

@@ -17,7 +17,7 @@ mod schema;
 
 pub use bundles::BundleRecord;
 pub use events::Event;
-pub use plugins::{InstallRecord, LineRecord};
+pub use plugins::InstallRecord;
 pub use reviews::{Facets, Filters, NO_PROJECT, NotStored};
 pub use schema::LATEST_MIGRATION;
 

@@ -254,11 +254,27 @@ mod tests {
             .collect()
     }
 
-    /// Reviews made with a line of a plugin the app ships keep rendering
-    /// and deciding with that line when a later app ships the next line,
-    /// and new reviews use the new one.
+    /// The next start of the app, with `plugins` among the ones it ships.
+    fn start_with(
+        config: &Config,
+        plugins: Vec<(String, crate::plugins::bundles::Files)>,
+    ) -> Pinrail {
+        let db = Db::open(&config.db_path()).unwrap();
+        let bundles = Bundles::open(
+            &config.plugin_bundles_dir(),
+            Arc::new(Db::open(&config.db_path()).unwrap()),
+        )
+        .unwrap();
+        store_releases(&db, &bundles, plugins).unwrap();
+        drop((db, bundles));
+        Pinrail::open(config.clone()).unwrap()
+    }
+
+    /// A review renders and decides with the release it was submitted to
+    /// when the app ships the next, whatever that changes, and new reviews
+    /// use the new release, also after an older app opened the data.
     #[test]
-    fn a_bundled_plugins_old_line_stays_for_its_reviews_when_the_app_ships_the_next() {
+    fn a_review_keeps_its_release_when_the_app_ships_the_next() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::new(dir.path(), 0);
         let app = Pinrail::open(config.clone()).unwrap();
@@ -266,68 +282,51 @@ mod tests {
         let old = app
             .reviews()
             .submit(
-                &json!({"plugin": "list", "title": "On line 1", "payload": payload}),
+                &json!({"plugin": "list", "title": "With 1.0.0", "payload": payload}),
                 None,
             )
             .unwrap();
-        assert_eq!(old.plugin_line, "1");
-        let line_1 = app.plugins().line_bundle("forgeplane/list", "1").unwrap();
+        assert_eq!(old.plugin_version, "1.0.0");
         drop(app);
 
-        // the next app's start, with list 2.0.0 among its plugins
-        let db = Db::open(&config.db_path()).unwrap();
-        let bundles = Bundles::open(
-            &config.plugin_bundles_dir(),
-            Arc::new(Db::open(&config.db_path()).unwrap()),
-        )
-        .unwrap();
-        store_releases(&db, &bundles, list_2()).unwrap();
-        drop((db, bundles));
+        // the next app ships list 2.0.0; then an older app opens the data
+        drop(start_with(&config, list_2()));
         let app = Pinrail::open(config).unwrap();
-
-        assert_eq!(
-            app.plugins().line_bundle("forgeplane/list", "1"),
-            Some(line_1)
-        );
         let new = app
             .reviews()
             .submit(
-                &json!({"plugin": "list", "title": "On line 2", "payload": payload}),
+                &json!({"plugin": "list", "title": "With 2.0.0", "payload": payload}),
                 None,
             )
             .unwrap();
-        assert_eq!(
-            (new.plugin_line.as_str(), new.plugin_version.as_str()),
-            ("2", "2.0.0")
-        );
+        assert_eq!(new.plugin_version, "2.0.0");
+        assert_ne!(new.plugin_bundle, old.plugin_bundle);
 
-        // each decided with its own line's schema
+        // each decided with its own release's schema
         let one = json!({"decisions": [{"id": 1, "action": "accept"}], "undecided": []});
         assert!(app.reviews().decide(&new.id, &one, None).is_err());
         app.reviews().decide(&old.id, &one, None).unwrap();
         app.reviews()
             .decide(&new.id, &json!({"verdict": "ok"}), None)
             .unwrap();
-        assert_eq!(
-            app.plugins()
-                .fetch_line("forgeplane/list", "1")
-                .unwrap()
-                .version,
-            "1.0.0"
-        );
+        let rendered = app
+            .plugins()
+            .fetch_review(&old.plugin, old.plugin_bundle.as_deref())
+            .unwrap();
+        assert_eq!(rendered.version, "1.0.0");
     }
 
-    /// A newer release of a line the app ships becomes that line's current
-    /// at start, and the reviews of the line render with it.
+    /// A patch the app ships is what new reviews use; the reviews made
+    /// before keep the release they were made with.
     #[test]
-    fn a_newer_bundled_release_takes_its_line_at_start() {
+    fn a_newer_bundled_release_is_for_new_reviews() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::new(dir.path(), 0);
         let app = Pinrail::open(config.clone()).unwrap();
         let review = app
             .reviews()
             .submit(
-                &json!({"plugin": "list", "title": "On line 1", "payload": {"groups": []}}),
+                &json!({"plugin": "list", "title": "Before", "payload": {"groups": []}}),
                 None,
             )
             .unwrap();
@@ -351,20 +350,19 @@ mod tests {
                 (folder, files)
             })
             .collect();
-        let db = Db::open(&config.db_path()).unwrap();
-        let bundles = Bundles::open(
-            &config.plugin_bundles_dir(),
-            Arc::new(Db::open(&config.db_path()).unwrap()),
-        )
-        .unwrap();
-        store_releases(&db, &bundles, patched).unwrap();
-        drop((db, bundles));
-
-        let app = Pinrail::open(config).unwrap();
-        let plugin = app
-            .plugins()
-            .fetch_line(&review.plugin, &review.plugin_line)
+        let app = start_with(&config, patched);
+        let new = app
+            .reviews()
+            .submit(
+                &json!({"plugin": "list", "title": "After", "payload": {"groups": []}}),
+                None,
+            )
             .unwrap();
-        assert_eq!(plugin.version, "1.0.1");
+        assert_eq!(new.plugin_version, "1.0.1");
+        let kept = app
+            .plugins()
+            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())
+            .unwrap();
+        assert_eq!(kept.version, "1.0.0");
     }
 }

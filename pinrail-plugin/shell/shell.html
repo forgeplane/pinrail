@@ -103,17 +103,10 @@ const THEME_KEY = "pinrail-shell:theme";
 let theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
 document.documentElement.dataset.theme = theme;
 
-// The compatibility line of a version: its major, or below 1.0.0 its major
-// and minor, as the app reads it.
-const lineOf = (version) => {
-  const [major, minor] = version.split(".");
-  return major === "0" ? `0.${minor}` : major;
-};
-
 // The envelope as the app hands it to a view, around the fixture's fields.
 const reviewFrom = (partial, name) => ({
-  id: "g_dev", plugin: `local/${name}`, plugin_line: lineOf(String(manifest.version ?? "1.0.0")),
-  plugin_version: String(manifest.version ?? "1.0.0"),
+  id: "g_dev", plugin: `local/${name}`, plugin_version: String(manifest.version ?? "1.0.0"),
+  plugin_bundle: null,
   title: "dev review", origin: { repo: "dev", workflow: "shell" },
   requested_by: "dev", created_at: new Date().toISOString(), expires_at: null, revises: null,
   summary: null, status: partial.decision ? "decided" : "pending", decision: null, agent_note: null, payload: {}, ...partial,

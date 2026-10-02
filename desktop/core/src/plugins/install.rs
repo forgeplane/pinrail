@@ -381,9 +381,9 @@ pub fn source_of(record: &InstallRecord) -> (String, Options) {
     }
 }
 
-/// Removes an installed plugin: its installation, and its lines no review
-/// renders with. A line a review still uses stays, and the answer says
-/// which. The plugins the app ships cannot be removed.
+/// Removes an installed plugin: its installation. The bundles reviews
+/// were submitted to stay with them, so they still render; the rest go
+/// with the sweep. The plugins the app ships cannot be removed.
 pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> {
     let _changing = registry.changing();
     let plugin = registry
@@ -403,23 +403,11 @@ pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> 
         .map(|p| p.version.clone())
         .unwrap_or_default();
     db.remove_install(&plugin)?;
-    let mut kept: Vec<String> = Vec::new();
-    let mut removed: Vec<String> = Vec::new();
-    for line in db.lines()?.into_iter().filter(|l| l.plugin == plugin) {
-        if db.reviews_use(&plugin, &line.line)? {
-            kept.push(line.line);
-        } else {
-            db.remove_line(&plugin, &line.line)?;
-            removed.push(line.line);
-        }
-    }
     registry.reload()?;
     Ok(serde_json::json!({
         "removed": plugin,
         "linked": record.linked(),
         "version": version,
-        "lines_removed": removed,
-        "lines_kept": kept,
     }))
 }
 
@@ -472,11 +460,11 @@ fn summarize(
             not_a_plugin(why, !options.link && prepared.origin.kind != "release"),
         ));
     }
-    let (version, line) = manifest
+    let version = manifest
         .get("version")
         .and_then(crate::plugins::version_of)
-        .filter(|(version, _)| version != "0.0.0")
-        .and_then(|(version, _)| Some((version.clone(), line_of(&version)?)))
+        .map(|(version, _)| version)
+        .filter(|version| version != "0.0.0" && line_of(version).is_some())
         .ok_or_else(|| {
             Error::invalid(
                 "/source",
@@ -514,16 +502,16 @@ fn summarize(
                     _ => r.asset_hash.is_some() && r.asset_hash == prepared.origin.asset_hash,
                 };
             Some(serde_json::json!({
-                "version": installed_version, "line": r.line, "linked": r.linked(),
+                "version": installed_version, "linked": r.linked(),
                 "kind": r.kind, "unchanged": unchanged,
                 "path": r.linked().then_some(&r.resolved),
             }))
         }
     };
-    // a release older than the current one of its line
+    // a release older than the installed one
     let older = registry
-        .line_bundle(&plugin, &line)
-        .and_then(|bundle| db.bundle(&bundle).ok().flatten())
+        .get(&plugin)
+        .filter(|p| p.install.as_ref().is_some_and(|i| !i.linked))
         .is_some_and(|current| semver(&version) < semver(&current.version));
     let resolved: Value = serde_json::from_str(&prepared.origin.resolved)
         .unwrap_or_else(|_| Value::String(prepared.origin.resolved.clone()));
@@ -534,7 +522,6 @@ fn summarize(
         "publisher": prepared.origin.publisher,
         "name": name,
         "version": version,
-        "line": line,
         "title": manifest.get("title").and_then(Value::as_str).unwrap_or(&name),
         // the icon's markup, as the app shows an installed plugin's
         "icon": super::manifest::icon_markup(&prepared.dir, super::manifest::ICON).ok(),
@@ -1261,10 +1248,7 @@ pub fn check_updates(registry: &Registry, record: &InstallRecord) -> serde_json:
             // the folder as a bundle would be taken from it, against the
             // bundle that is current
             let source = Path::new(&record.resolved);
-            let current = record
-                .line
-                .as_ref()
-                .and_then(|line| registry.line_bundle(&record.plugin, line));
+            let current = record.bundle.clone();
             match (bundle_hash_of(source), &current) {
                 (Ok(now), Some(then)) if &now == then => {
                     serde_json::json!({ "state": "up_to_date" })
@@ -1351,7 +1335,7 @@ fn install_dir(
         };
         let record = record_for(&plugin, &origin, None, None);
         let _changing = registry.changing();
-        return commit(db, registry, record, None);
+        return commit(db, registry, record);
     }
 
     confirmed(options.expect.as_ref(), build.as_deref(), &origin)?;
@@ -1413,17 +1397,13 @@ fn install_dir(
     let record = record_for(
         &plugin,
         &origin,
-        Some(bundle.line.clone()),
+        Some(bundle.hash.clone()),
         log_path.map(|p| p.display().to_string()),
     );
-    if let Some(refusal) = older_than_current(db, registry, &record.plugin, &bundle, options.force)?
-    {
+    if let Some(refusal) = older_than_installed(db, &record.plugin, &bundle, options.force)? {
         return Err(refusal);
     }
-    if let Some(refusal) = breaks_its_line(registry, &record, &bundle, options.force) {
-        return Err(refusal);
-    }
-    commit(db, registry, record, Some(&bundle))
+    commit(db, registry, record)
 }
 
 /// Refuses an install whose build the person did not confirm, or whose
@@ -1657,17 +1637,16 @@ fn minutes(duration: std::time::Duration) -> String {
     }
 }
 
-/// Refuses a release older than the current one of its line, unless
-/// forced.
-fn older_than_current(
+/// Refuses a release older than the installed one, unless forced.
+fn older_than_installed(
     db: &Db,
-    registry: &Registry,
     plugin: &str,
     bundle: &crate::db::BundleRecord,
     force: bool,
 ) -> Result<Option<Error>, Error> {
-    let Some(current) = registry
-        .line_bundle(plugin, &bundle.line)
+    let Some(current) = db
+        .install(plugin)?
+        .and_then(|i| i.bundle)
         .and_then(|hash| db.bundle(&hash).ok().flatten())
     else {
         return Ok(None);
@@ -1684,61 +1663,12 @@ fn older_than_current(
     Ok(None)
 }
 
-/// Refuses a release whose schemas break what its line's reviews hold, as
-/// [`pinrail_format::compat`] judges it. Forcing it is for the person's
-/// own plugins only: the reviews of a published plugin's line are not
-/// theirs to break.
-fn breaks_its_line(
-    registry: &Registry,
-    record: &InstallRecord,
-    bundle: &crate::db::BundleRecord,
-    force: bool,
-) -> Option<Error> {
-    let current = registry.line_bundle(&record.plugin, &bundle.line)?;
-    if current == bundle.hash {
-        return None;
-    }
-    let breaks = pinrail_format::compat::plugin_breaks(
-        &registry.bundles().path(&current),
-        &registry.bundles().path(&bundle.hash),
-    );
-    let own = record.publisher == LOCAL_PUBLISHER;
-    if breaks.is_empty() || (force && own) {
-        return None;
-    }
-    const SHOWN: usize = 10;
-    let mut listed: Vec<String> = breaks
-        .iter()
-        .take(SHOWN)
-        .map(|b| format!("- {}: {}", b.path, b.message))
-        .collect();
-    if breaks.len() > SHOWN {
-        listed.push(format!("- and {} more", breaks.len() - SHOWN));
-    }
-    Some(Error::invalid(
-        "/source",
-        format!(
-            "{} {} breaks what the reviews of line {} hold:\n{}\nRelease it as {} to start a new line{}",
-            record.plugin,
-            bundle.version,
-            bundle.line,
-            listed.join("\n"),
-            pinrail_format::compat::next_line(&bundle.version),
-            if own {
-                ", or pass force to replace the line anyway"
-            } else {
-                ""
-            }
-        ),
-    ))
-}
-
-/// The installation a source makes, with `line` the line its new reviews
-/// use; none for a link.
+/// The installation a source makes, with `bundle` the one new reviews use;
+/// none for a link.
 fn record_for(
     plugin: &Plugin,
     origin: &Origin,
-    line: Option<String>,
+    bundle: Option<String>,
     build_log: Option<String>,
 ) -> InstallRecord {
     let now = crate::reviews::iso(Utc::now());
@@ -1752,28 +1682,17 @@ fn record_for(
         commit: origin.commit.clone(),
         asset_hash: origin.asset_hash.clone(),
         build_log,
-        line,
+        bundle,
+        previous: None,
+        previous_until: None,
         installed_at: now.clone(),
         updated_at: now,
     }
 }
 
-/// Records the installation and makes `bundle` its line's current, then
-/// lets go of the line it used before when no review renders with it.
-fn commit(
-    db: &Db,
-    registry: &Registry,
-    record: InstallRecord,
-    bundle: Option<&crate::db::BundleRecord>,
-) -> Result<InstallRecord, Error> {
-    let previous = db.install(&record.plugin)?;
-    db.record_install(&record, bundle.map(|b| (b.line.as_str(), b.hash.as_str())))?;
-    if let Some(previous_line) = previous.and_then(|p| p.line)
-        && Some(&previous_line) != record.line.as_ref()
-        && !db.reviews_use(&record.plugin, &previous_line)?
-    {
-        db.remove_line(&record.plugin, &previous_line)?;
-    }
+/// Records the installation and reloads the registry.
+fn commit(db: &Db, registry: &Registry, record: InstallRecord) -> Result<InstallRecord, Error> {
+    db.record_install(&record)?;
     registry.reload()?;
     Ok(record)
 }

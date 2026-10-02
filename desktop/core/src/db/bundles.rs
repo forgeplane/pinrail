@@ -14,7 +14,6 @@ pub struct BundleRecord {
     pub hash: String,
     pub name: String,
     pub version: String,
-    pub line: String,
     /// The manifest as the bundle holds it.
     pub manifest: String,
     pub size: u64,
@@ -32,14 +31,13 @@ impl Db {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         tx.execute(
-            "INSERT INTO plugin_bundles (hash, name, version, line, manifest, size, stored_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            "INSERT INTO plugin_bundles (hash, name, version, manifest, size, stored_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
              ON CONFLICT(hash) DO UPDATE SET stored_at = excluded.stored_at",
             params![
                 record.hash,
                 record.name,
                 record.version,
-                record.line,
                 record.manifest,
                 record.size as i64,
                 now()
@@ -67,7 +65,7 @@ impl Db {
     pub fn bundle(&self, hash: &str) -> rusqlite::Result<Option<BundleRecord>> {
         let conn = self.conn();
         conn.query_row(
-            "SELECT hash, name, version, line, manifest, size, stored_at
+            "SELECT hash, name, version, manifest, size, stored_at
              FROM plugin_bundles WHERE hash = ?1",
             params![hash],
             |r| {
@@ -75,10 +73,9 @@ impl Db {
                     hash: r.get(0)?,
                     name: r.get(1)?,
                     version: r.get(2)?,
-                    line: r.get(3)?,
-                    manifest: r.get(4)?,
-                    size: r.get::<_, i64>(5)? as u64,
-                    stored_at: r.get(6)?,
+                    manifest: r.get(3)?,
+                    size: r.get::<_, i64>(4)? as u64,
+                    stored_at: r.get(5)?,
                 })
             },
         )
@@ -104,10 +101,10 @@ impl Db {
             .collect()
     }
 
-    /// Deletes the bundles stored before `before` that no line refers to,
-    /// as its current or as the previous it can still roll back to, and
-    /// returns the ones it deleted. A previous whose week is over is let
-    /// go first.
+    /// Deletes the bundles stored before `before` that nothing refers to:
+    /// no review was submitted to them, and no installation uses them or
+    /// keeps them to roll back to. A previous bundle whose week is over is
+    /// let go first. Returns the ones it deleted.
     pub fn delete_unreferenced_bundles(
         &self,
         before: chrono::DateTime<Utc>,
@@ -115,7 +112,7 @@ impl Db {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
         tx.execute(
-            "UPDATE plugin_lines SET previous = NULL, previous_until = NULL
+            "UPDATE plugin_installs SET previous = NULL, previous_until = NULL
              WHERE previous_until <= ?1",
             params![now()],
         )?;
@@ -123,9 +120,11 @@ impl Db {
             .prepare(
                 "DELETE FROM plugin_bundles
                  WHERE stored_at < ?1
-                   AND NOT EXISTS (SELECT 1 FROM plugin_lines l
-                                   WHERE l.bundle = plugin_bundles.hash
-                                      OR l.previous = plugin_bundles.hash)
+                   AND NOT EXISTS (SELECT 1 FROM plugin_installs i
+                                   WHERE i.bundle = plugin_bundles.hash
+                                      OR i.previous = plugin_bundles.hash)
+                   AND NOT EXISTS (SELECT 1 FROM reviews r
+                                   WHERE r.plugin_bundle = plugin_bundles.hash)
                  RETURNING hash",
             )?
             .query_map(

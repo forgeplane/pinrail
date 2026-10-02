@@ -15,8 +15,6 @@ pub struct Plugin {
     pub name: String,
     /// The semantic version, such as `1.2.3`.
     pub version: String,
-    /// The compatibility line the version is on, such as `1` or `0.3`.
-    pub line: String,
     pub title: String,
     pub path: PathBuf,
     pub min_height: u32,
@@ -64,8 +62,8 @@ pub struct Plugin {
     /// `attachments`); none takes none. A malformed block makes the plugin
     /// unusable, as a broken schema does.
     pub attachments: Option<crate::attachments::AttachmentRules>,
-    /// How the plugin got here and what it holds: its full name, its source
-    /// and its lines. None for a plugin read from a folder by itself, as a
+    /// How the plugin got here: its full name, its source and its bundles.
+    /// None for a plugin read from a folder by itself, as a
     /// check reads one.
     pub install: Option<Install>,
     /// Set when the plugin could not be loaded; it is listed but unusable.
@@ -93,22 +91,11 @@ pub struct Install {
     pub modified: bool,
     pub installed_at: String,
     pub updated_at: String,
-    /// Every line the plugin has, new reviews' and those kept for older
-    /// reviews, oldest first.
-    pub lines: Vec<Line>,
-}
-
-/// A line of an installed plugin and the release that is current on it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Line {
-    pub line: String,
-    pub version: String,
-    pub bundle: String,
     /// The release the current one replaced, while it can be rolled back to.
     pub previous: Option<Previous>,
 }
 
-/// A release a line can be rolled back to, until when.
+/// A release an installation can be rolled back to, until when.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Previous {
     pub version: String,
@@ -126,6 +113,9 @@ impl Install {
             "tag": self.tag,
             "asset_hash": self.asset_hash,
             "bundle": self.bundle,
+            "previous": self.previous.as_ref().map(|p| serde_json::json!({
+                "version": p.version, "bundle": p.bundle, "until": p.until,
+            })),
             "modified": self.modified,
             "installed_at": self.installed_at,
             "updated_at": self.updated_at,
@@ -149,10 +139,10 @@ pub fn version_of(value: &Value) -> Option<(String, i64)> {
     Some((text.to_string(), major))
 }
 
-/// The compatibility line of a version, `major.minor.patch`: the major
-/// from 1 on, and below it the major and minor, as Cargo reads `0.x`
-/// versions. `1.4.2` is on line `1`, `0.3.1` on `0.3` and `0.0.4` on `0.0`.
-/// A version that is not three numbers has no line.
+/// The part of a version within which semantic versioning promises
+/// compatibility: the major from 1 on, and below it the major and minor,
+/// as Cargo reads `0.x` versions. `1.4.2` gives `1`, `0.3.1` gives `0.3`
+/// and `0.0.4` gives `0.0`. A version that is not three numbers has none.
 pub fn line_of(version: &str) -> Option<String> {
     let (version, _) = version_of(&Value::from(version))?;
     let mut parts = version.split('.').map(|p| p.parse::<u64>());
@@ -218,7 +208,6 @@ impl Plugin {
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default(),
                 version: "0.0.0".into(),
-                line: "0.0".into(),
                 title: String::new(),
                 path: dir.to_path_buf(),
                 min_height: 400,
@@ -332,8 +321,8 @@ impl Plugin {
         let version = manifest["version"]
             .as_str()
             .and_then(line_of)
-            .and_then(|line| Some((version_of(&manifest["version"])?.0, line)));
-        let (version, line) = version.ok_or("version is not a semantic version like \"1.2.0\"")?;
+            .and_then(|_| Some(version_of(&manifest["version"])?.0));
+        let version = version.ok_or("version is not a semantic version like \"1.2.0\"")?;
         // the oldest Pinrail the plugin says it works with
         if let Some(needed) = manifest.get("pinrail").and_then(Value::as_str) {
             let needed = needed.trim_start_matches(">=").trim();
@@ -367,7 +356,13 @@ impl Plugin {
             if !dir.join(file).is_file() {
                 return Err(format!("{file} not found"));
             }
-            Schema::compile(dir, &name, &line, key, &serde_json::json!({ "$ref": file }))
+            Schema::compile(
+                dir,
+                &name,
+                &version,
+                key,
+                &serde_json::json!({ "$ref": file }),
+            )
         };
         let payload_schema = schema("payload_schema", PAYLOAD_SCHEMA)?;
         let decision_schema = schema("decision_schema", DECISION_SCHEMA)?;
@@ -378,7 +373,7 @@ impl Plugin {
                     (None, None, shape.dropped.get("settings_schema").cloned())
                 }
                 None | Some(Value::Null) => (None, None, None),
-                Some(raw) => match settings::load(dir, &name, &line, raw) {
+                Some(raw) => match settings::load(dir, &name, &version, raw) {
                     Ok((document, validator)) => (Some(document), Some(validator), None),
                     Err(message) => (None, None, Some(message)),
                 },
@@ -437,7 +432,6 @@ impl Plugin {
                 .unwrap_or_else(|| name.clone()),
             name,
             version,
-            line,
             path: dir.to_path_buf(),
             min_height: manifest
                 .get("min_height")
@@ -600,7 +594,6 @@ impl Plugin {
             "name": self.name,
             "title": self.title,
             "version": self.version,
-            "line": self.line,
             "description": self.manifest.get("description"),
             "use_when": self.use_when,
             "payload_schema": self.schema_document("payload_schema"),
@@ -673,22 +666,6 @@ impl Plugin {
             "publisher": self.install.as_ref().map(|i| &i.publisher),
             "name": self.name,
             "version": self.version,
-            "line": self.line,
-            "lines": self.install.as_ref().map(|i| {
-                i.lines
-                    .iter()
-                    .map(|l| {
-                        serde_json::json!({
-                            "line": l.line,
-                            "version": l.version,
-                            "bundle": l.bundle,
-                            "previous": l.previous.as_ref().map(|p| serde_json::json!({
-                                "version": p.version, "bundle": p.bundle, "until": p.until,
-                            })),
-                        })
-                    })
-                    .collect::<Vec<_>>()
-            }).unwrap_or_default(),
             "title": self.title,
             "path": self.path.display().to_string(),
             "min_height": self.min_height,
@@ -922,7 +899,7 @@ mod settings {
     pub fn load(
         dir: &Path,
         name: &str,
-        line: &str,
+        version: &str,
         raw: &Value,
     ) -> Result<(Value, Schema), String> {
         let document = resolve(dir, raw)?;
@@ -943,7 +920,8 @@ mod settings {
         let mut root = map.clone();
         root.insert("type".into(), Value::String("object".into()));
         root.insert("additionalProperties".into(), Value::Bool(false));
-        let validator = Schema::compile(dir, name, line, "settings_schema", &Value::Object(root))?;
+        let validator =
+            Schema::compile(dir, name, version, "settings_schema", &Value::Object(root))?;
         Ok((Value::Object(map.clone()), validator))
     }
 
@@ -1539,9 +1517,9 @@ mod tests {
         };
         let p = with("\"0.1.0\"");
         assert_eq!(p.error, None, "{:?}", p.error);
-        assert_eq!((p.version.as_str(), p.line.as_str()), ("0.1.0", "0.1"));
+        assert_eq!(p.version, "0.1.0");
         let p = with("\"2.3.4\"");
-        assert_eq!((p.version.as_str(), p.line.as_str()), ("2.3.4", "2"));
+        assert_eq!(p.version, "2.3.4");
         // a bare number is not a semantic version
         for bad in ["\"0.0.0\"", "0", "3", "\"1.2\"", "\"v1.2.0\"", "true"] {
             let p = with(bad);

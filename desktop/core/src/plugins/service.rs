@@ -101,93 +101,18 @@ impl PluginService {
         json!({ "plugins": plugins })
     }
 
-    /// A plugin's lines: the one new reviews use, and each line kept for
-    /// the reviews that render with it, with its current release. A removed
-    /// plugin whose lines reviews still use is named in full.
-    pub fn lines(&self, name: &str) -> Result<Value, Error> {
-        let plugin = match self.registry.resolve(name) {
-            Ok(plugin) => plugin,
-            Err(_) if name.contains('/') => name.to_string(),
-            Err(_) => return Err(Error::NotFound(format!("plugin {name}"))),
-        };
-        let mut lines = Vec::new();
-        for line in self.db.lines()?.into_iter().filter(|l| l.plugin == plugin) {
-            let version = self
-                .db
-                .bundle(&line.bundle)?
-                .map(|b| b.version)
-                .unwrap_or_default();
-            lines.push(json!({ "line": line.line, "version": version, "bundle": line.bundle }));
-        }
-        let current = self.registry.get(&plugin).filter(|p| p.usable());
-        if current.is_none() && lines.is_empty() {
-            return Err(Error::NotFound(format!("plugin {name}")));
-        }
-        lines.sort_by_key(|l| pinrail_format::semver(l["version"].as_str().unwrap_or_default()));
-        Ok(json!({
-            "plugin": plugin,
-            "current": current.as_ref().map(|p| p.line.clone()),
-            "lines": lines,
-        }))
-    }
-
-    /// Makes the release an update replaced the current one of its line
-    /// again, while it is kept. Held to the same rule as an update, in
-    /// reverse, since reviews made since may hold what it did not take; a
-    /// rollback can be forced, as the way to undo a broken release.
-    pub fn rollback(&self, name: &str, force: bool) -> Result<Value, Error> {
+    /// Makes the release the last update replaced the one new reviews use
+    /// again, while it is kept. Reviews keep the release they were
+    /// submitted to, whichever is current.
+    pub fn rollback(&self, name: &str) -> Result<Value, Error> {
         let record = self.installed(name)?;
-        let line = record.line.clone().ok_or_else(|| {
-            Error::invalid(
-                "/name",
-                format!(
-                    "{} is a link: it is always what its folder holds",
-                    record.plugin
-                ),
-            )
-        })?;
         let _changing = self.registry.changing();
-        let nothing = || {
-            Error::invalid(
-                "/name",
-                format!(
-                    "{} has no earlier release of line {line} to roll back to",
-                    record.plugin
-                ),
-            )
-        };
-        let plugin = self.registry.get(&record.plugin).ok_or_else(nothing)?;
-        let held = plugin
-            .install
-            .as_ref()
-            .and_then(|i| i.lines.iter().find(|l| l.line == line))
-            .and_then(|l| Some((l.bundle.clone(), l.previous.clone()?)))
-            .ok_or_else(nothing)?;
-        let (current, previous) = held;
-        let bundles = self.registry.bundles();
-        let breaks = pinrail_format::compat::plugin_breaks(
-            &bundles.path(&current),
-            &bundles.path(&previous.bundle),
-        );
-        if !breaks.is_empty() && !force {
-            let listed: Vec<String> = breaks
-                .iter()
-                .take(10)
-                .map(|b| format!("- {}: {}", b.path, b.message))
-                .collect();
+        if self.db.roll_back(&record.plugin)?.is_none() {
             return Err(Error::invalid(
-                "/force",
-                format!(
-                    "{} {} does not take what reviews made since may hold:\n{}\nPass force to roll back anyway",
-                    record.plugin,
-                    previous.version,
-                    listed.join("\n")
-                ),
+                "/name",
+                format!("{} has no earlier release to roll back to", record.plugin),
             ));
         }
-        self.db
-            .roll_back(&record.plugin, &line)?
-            .ok_or_else(nothing)?;
         self.registry.reload()?;
         self.announce()?;
         self.registry
@@ -210,18 +135,13 @@ impl PluginService {
         self.registry.resolve(name)
     }
 
-    /// The plugin a review renders with: its line's current bundle, even
-    /// after its plugin was removed.
-    pub fn fetch_line(&self, plugin: &str, line: &str) -> Result<Arc<Plugin>, Error> {
-        self.registry.fetch_line(plugin, line)
+    /// The plugin a review renders with; see [`Registry::fetch_review`].
+    pub fn fetch_review(&self, plugin: &str, bundle: Option<&str>) -> Result<Arc<Plugin>, Error> {
+        self.registry.fetch_review(plugin, bundle)
     }
 
-    /// The bundle a line renders with.
-    pub fn line_bundle(&self, plugin: &str, line: &str) -> Option<String> {
-        self.registry.line_bundle(plugin, line)
-    }
-
-    /// Removes the installation while retaining versions still used by reviews.
+    /// Removes the installation; its reviews keep the bundles they were
+    /// submitted to.
     pub fn remove(&self, name: &str) -> Result<Value, Error> {
         let answer = install::remove(&self.db, &self.registry, name)?;
         self.announce()?;

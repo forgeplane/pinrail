@@ -95,8 +95,8 @@ function reviewFrom(partial) {
   return {
     id: "g_test",
     plugin: "local/test",
-    plugin_line: "1",
     plugin_version: "1.0.0",
+    plugin_bundle: null,
     title: "test review",
     origin: { repo: "acme", workflow: "test" },
     requested_by: "test",

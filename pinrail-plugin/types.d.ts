@@ -128,10 +128,10 @@ export type Review<Payload = unknown, Data = unknown> = {
   id: string;
   /** the plugin's full name, such as `forgeplane/list` */
   plugin: string;
-  /** the line the review renders with, such as `1` or `0.3` */
-  plugin_line: string;
   /** the exact version it was submitted to, such as `1.2.0` */
   plugin_version: string;
+  /** the bundle it was submitted to, which it renders with */
+  plugin_bundle: string | null;
   title: string;
   origin: Origin;
   requested_by: string | null;

@@ -91,6 +91,22 @@ impl Reviews {
         self.submit_once(body, actor).map(|(review, _)| review)
     }
 
+    /// The bundle a new review records: the installed release, or for a
+    /// linked plugin the folder as it is now, stored as a bundle so the
+    /// review keeps it after the link is gone.
+    fn bundle_of(&self, plugin: &crate::plugins::Plugin) -> Result<String, Error> {
+        match plugin.install.as_ref() {
+            Some(install) if install.linked => {
+                Ok(self.registry.bundles().store(&plugin.path)?.hash)
+            }
+            Some(install) => install
+                .bundle
+                .clone()
+                .ok_or_else(|| Error::Internal(format!("{} has no bundle", install.plugin))),
+            None => Err(Error::Internal(format!("{} is not installed", plugin.name))),
+        }
+    }
+
     /// As `submit`, and whether the review is new: a submission the same as
     /// a review still pending, as an agent that runs its command again
     /// sends, answers that review instead of creating a second one.
@@ -104,8 +120,8 @@ impl Reviews {
         let review = Review {
             id: crate::id::next(),
             plugin: plugin.full_name().to_string(),
-            plugin_line: plugin.line.clone(),
             plugin_version: plugin.version.clone(),
+            plugin_bundle: Some(self.bundle_of(&plugin)?),
             title: attrs["title"].as_str().unwrap_or_default().to_string(),
             origin: Review::normalize_origin(attrs.get("origin")),
             requested_by: attrs
@@ -294,7 +310,7 @@ impl Reviews {
         }
         let plugin = self
             .registry
-            .fetch_line(&review.plugin, &review.plugin_line)?;
+            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
         let violations = plugin.validate_decision(data);
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
@@ -324,7 +340,7 @@ impl Reviews {
         let review = self.get(id)?;
         let plugin = self
             .registry
-            .fetch_line(&review.plugin, &review.plugin_line)?;
+            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
         let violations = plugin.validate_decision(data);
         if violations.is_empty() {
             Ok(())
@@ -417,31 +433,7 @@ impl Reviews {
         }
         let ids: Vec<&str> = ended.iter().map(|(id, _, _)| id.as_str()).collect();
         let count = self.db.delete_reviews(&ids)?;
-        // a line no review renders with any more goes, unless new reviews
-        // of its installed plugin use it; its bundle goes with the next
-        // sweep of the bundles
-        let lines: std::collections::BTreeSet<(String, String)> = ended
-            .into_iter()
-            .map(|(_, plugin, line)| (plugin, line))
-            .collect();
-        // under the lock installs take, so an install making the same line
-        // current again cannot land between the check and the removal
-        let _changing = self.registry.changing();
-        let installs = self.registry.installs();
-        let mut changed = false;
-        for (plugin, line) in lines {
-            let current = installs
-                .iter()
-                .any(|i| i.plugin == plugin && i.line.as_deref() == Some(line.as_str()));
-            if current || self.db.reviews_use(&plugin, &line)? {
-                continue;
-            }
-            self.db.remove_line(&plugin, &line)?;
-            changed = true;
-        }
-        if changed {
-            self.registry.reload()?;
-        }
+        // the bundles only these reviews kept go with the bundles' sweep
         let event_id = self.db.append_event(
             None,
             events::HISTORY_SWEPT,

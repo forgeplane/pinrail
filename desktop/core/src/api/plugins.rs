@@ -32,7 +32,6 @@ pub fn routes() -> Router<ApiState> {
             post(inspect_update),
         )
         .route("/api/v1/plugins/{name}", delete(remove))
-        .route("/api/v1/plugins/{name}/lines", get(lines))
         .route("/api/v1/plugins/{name}/rollback", post(rollback))
         .route("/api/v1/plugins/{name}/describe", get(describe))
         .route("/api/v1/plugins/{name}/sample", post(sample))
@@ -71,28 +70,13 @@ async fn describe(
     Ok(Json(state.plugins().describe(Some(&name))?))
 }
 
-/// Rolls the plugin's line back to the release its last update replaced,
-/// while that is kept; `{"force": true}` rolls back one that does not take
-/// what reviews made since may hold.
+/// Makes the release the plugin's last update replaced the one new
+/// reviews use again, while it is kept.
 async fn rollback(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
-    body: Bytes,
 ) -> Result<Json<Value>, ApiError> {
-    let body: Value = if body.is_empty() {
-        Value::Null
-    } else {
-        super::parse_body(&body)?
-    };
-    let force = body["force"].as_bool().unwrap_or(false);
-    Ok(Json(state.plugins().rollback(&name, force)?))
-}
-
-async fn lines(
-    State(state): State<Arc<Pinrail>>,
-    Path(name): Path<String>,
-) -> Result<Json<Value>, ApiError> {
-    Ok(Json(state.plugins().lines(&name)?))
+    Ok(Json(state.plugins().rollback(&name)?))
 }
 
 /// The source and the options an install or an inspect takes:
@@ -193,9 +177,8 @@ async fn update(
     }
 }
 
-/// Removes an installed plugin: its installation and the lines no review
-/// renders with; the ones a review still uses stay, and the answer names
-/// them. A plugin the app ships cannot be removed.
+/// Removes an installed plugin; the reviews made with it keep the bundles
+/// they were submitted to. A plugin the app ships cannot be removed.
 async fn remove(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,
