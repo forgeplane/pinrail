@@ -1488,6 +1488,8 @@ h3 {
 }
 .colophon small {
   display: block;
+  /* a long notice wraps under the name, and leaves the links their place */
+  max-width: 78ch;
   margin-top: 6px;
   font-size: 11px;
   opacity: 0.8;
