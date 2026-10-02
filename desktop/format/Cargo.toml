@@ -1,0 +1,20 @@
+[package]
+name = "pinrail-format"
+description = "The Pinrail plugin format: what makes a folder a plugin, shared by the app and the CLI"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+jsonschema = { version = "0.56", default-features = false }
+minijinja = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

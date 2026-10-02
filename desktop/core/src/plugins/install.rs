@@ -1901,14 +1901,7 @@ fn tag_version(tag: &str) -> Option<(&str, &str)> {
     is_version(version).then(|| (&tag[..at], version))
 }
 
-pub fn semver(text: &str) -> (u64, u64, u64) {
-    let mut parts = text.split('.').map(|p| p.parse::<u64>().unwrap_or(0));
-    (
-        parts.next().unwrap_or(0),
-        parts.next().unwrap_or(0),
-        parts.next().unwrap_or(0),
-    )
-}
+pub use pinrail_format::semver;
 
 #[cfg(test)]
 mod source_tests {

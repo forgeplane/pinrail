@@ -25,6 +25,7 @@ futures-util = "0.3"
 include_dir = "0.7"
 jsonschema = { version = "0.56", default-features = false }
 mime_guess = "2"
+pinrail-format = { path = "../format" }
 minijinja = { version = "2", features = ["fuel"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }

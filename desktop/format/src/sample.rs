@@ -128,7 +128,7 @@ mod tests {
 
     use serde_json::json;
 
-    use super::super::Plugin;
+    use crate::Plugin;
 
     fn plugins_dir() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins")

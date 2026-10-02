@@ -3340,6 +3340,7 @@ dependencies = [
  "jsonschema",
  "mime_guess",
  "minijinja",
+ "pinrail-format",
  "rusqlite",
  "rustix",
  "serde",
@@ -3384,6 +3385,17 @@ dependencies = [
  "tempfile",
  "tokio",
  "ureq",
+]
+
+[[package]]
+name = "pinrail-format"
+version = "0.2.0"
+dependencies = [
+ "jsonschema",
+ "minijinja",
+ "serde",
+ "serde_json",
+ "tempfile",
 ]
 
 [[package]]

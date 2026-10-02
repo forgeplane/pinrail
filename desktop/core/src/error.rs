@@ -7,23 +7,9 @@
 //! document, the shape plugins render. The statuses these answer with over
 //! HTTP are the API's to decide; see `api::error`.
 
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct Violation {
-    pub path: String,
-    pub message: String,
-}
-
-impl Violation {
-    pub fn new(path: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            path: path.into(),
-            message: message.into(),
-        }
-    }
-}
+pub use pinrail_format::Violation;
 
 #[derive(Debug)]
 pub enum Error {

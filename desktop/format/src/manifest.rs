@@ -5,10 +5,10 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use crate::error::Violation;
+use crate::Violation;
 use crate::schema::Schema;
 
-pub(super) const MANIFEST: &str = "manifest.json";
+pub const MANIFEST: &str = "manifest.json";
 
 #[derive(Debug)]
 pub struct Plugin {
@@ -48,7 +48,7 @@ pub struct Plugin {
     /// How the plugin's reviews are summed up (the manifest's `summary`):
     /// what a request asks and what was decided; `summary_error` says why a
     /// declared one was dropped. Empty when none is declared.
-    pub summary: super::summary::Declaration,
+    pub summary: crate::summary::Declaration,
     pub summary_error: Option<String>,
     /// When an agent should ask with this plugin (the manifest's `use_when`).
     pub use_when: Option<String>,
@@ -60,7 +60,7 @@ pub struct Plugin {
     /// A review anyone can send to see the plugin (the manifest's
     /// `sample`, a request file beside it); `sample_error` says why a
     /// declared one was dropped.
-    pub sample: Option<super::sample::Sample>,
+    pub sample: Option<crate::sample::Sample>,
     pub sample_error: Option<String>,
     /// Top-level manifest keys the schema does not define: a typo, or a key
     /// a newer Pinrail reads. Kept, and warned about by a check.
@@ -231,7 +231,7 @@ impl Plugin {
         if let Some(needed) = manifest.get("pinrail").and_then(Value::as_str) {
             let needed = needed.trim_start_matches(">=").trim();
             let this = env!("CARGO_PKG_VERSION");
-            if super::install::semver(this) < super::install::semver(needed) {
+            if crate::semver(this) < crate::semver(needed) {
                 return Err(format!(
                     "the plugin needs Pinrail {needed} or later; this is Pinrail {this}"
                 ));
@@ -304,7 +304,7 @@ impl Plugin {
             }
             None | Some(Value::Null) => (None, None),
             Some(Value::String(file)) => match read_inside(dir, file) {
-                Ok(source) => match crate::markdown::compile(&source) {
+                Ok(source) => match crate::compile_template(&source) {
                     Ok(()) => (Some(source), None),
                     Err(message) => (None, Some(format!("{file}: {message}"))),
                 },
@@ -318,7 +318,7 @@ impl Plugin {
                 (Default::default(), shape.dropped.get("summary").cloned())
             }
             None | Some(Value::Null) => (Default::default(), None),
-            Some(raw) => match super::summary::Declaration::load(raw) {
+            Some(raw) => match crate::summary::Declaration::load(raw) {
                 Ok(declaration) => (declaration, None),
                 Err(message) => (Default::default(), Some(message)),
             },
@@ -356,7 +356,7 @@ impl Plugin {
             _ if shape.dropped.contains_key("sample") => {
                 (None, shape.dropped.get("sample").cloned())
             }
-            Some(Value::String(file)) => match super::sample::load(dir, file, &payload_schema) {
+            Some(Value::String(file)) => match crate::sample::load(dir, file, &payload_schema) {
                 Ok(sample) => (Some(sample), None),
                 Err(message) => (None, Some(message)),
             },
@@ -641,7 +641,6 @@ pub fn icon_markup(dir: &Path, file: &str) -> Result<String, String> {
 /// The manifest held to its JSON Schema, `manifest.schema.json` in the
 /// pinrail-plugin package, which build.rs copies in: the one description of a
 /// manifest, shared with authors' editors and the docs.
-#[cfg(feature = "docs")]
 pub use shape::{FEATURES, SCHEMA};
 
 mod shape {
@@ -928,7 +927,7 @@ mod settings {
     }
 }
 
-pub(super) fn valid_name(name: &str) -> bool {
+pub fn valid_name(name: &str) -> bool {
     let mut chars = name.chars();
     matches!(chars.next(), Some(c) if c.is_ascii_lowercase())
         && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')

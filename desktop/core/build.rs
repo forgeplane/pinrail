@@ -2,8 +2,7 @@
 // with the rest. The crate cannot reach outside itself for files it embeds,
 // so their bundles are copied here at build time and embedded from there.
 // What a plugin ships is what the installer would copy: the manifest, the
-// schemas and the view, without its tests, fixtures or readme. The manifest
-// schema comes in the same way, from the pinrail-plugin package.
+// schemas and the view, without its tests, fixtures or readme.
 //
 // Every file in `migrations/` is embedded too, as a list in version order,
 // so adding a migration is adding a file: `<version>_<name>.sql`, the
@@ -22,12 +21,6 @@ fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     let builtin = out.join("builtin");
-
-    // The manifest's JSON Schema belongs to the pinrail-plugin package, where
-    // authors get it; the core holds every manifest to the same file.
-    let schema = manifest.join("../../pinrail-plugin/schemas/manifest.schema.json");
-    println!("cargo:rerun-if-changed={}", schema.display());
-    fs::copy(&schema, out.join("manifest.schema.json")).unwrap();
 
     migrations(&manifest.join("migrations"), &out.join("migrations.rs"));
 

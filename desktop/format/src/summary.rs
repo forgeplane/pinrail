@@ -543,7 +543,7 @@ mod tests {
             if !dir.join("manifest.json").is_file() {
                 continue;
             }
-            let plugin = super::super::Plugin::load(&dir);
+            let plugin = crate::Plugin::load(&dir);
             assert_eq!(plugin.summary_error, None, "{}", dir.display());
             let Ok(fixtures) = std::fs::read_dir(dir.join("fixtures")) else {
                 continue;

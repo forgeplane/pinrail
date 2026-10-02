@@ -13,7 +13,7 @@ use jsonschema::error::{TypeKind, ValidationErrorKind};
 use jsonschema::{Draft, Retrieve, Uri, Validator};
 use serde_json::Value;
 
-use crate::error::Violation;
+use crate::Violation;
 
 const SCHEME: &str = "pinrail-plugin://";
 

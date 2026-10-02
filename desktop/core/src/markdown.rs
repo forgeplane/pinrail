@@ -26,14 +26,6 @@ pub fn summary_line(summary: &Value) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join(", "))
 }
 
-/// Checks a plugin's template compiles, at load, so a bad one is reported
-/// on the plugin's row rather than at the first review.
-pub fn compile(source: &str) -> Result<(), String> {
-    let mut env = minijinja::Environment::new();
-    env.add_template("decision", source)
-        .map_err(|e| e.to_string())
-}
-
 /// How a review's markdown opens.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Head {
@@ -760,7 +752,7 @@ Undecided: #19, #20
         )
         .unwrap();
         let template = std::fs::read_to_string(root.join("templates/decision.md.j2")).unwrap();
-        compile(&template).unwrap();
+        pinrail_format::compile_template(&template).unwrap();
         let review = json!({
             "id": "r_1", "plugin": "review", "plugin_version": 1, "title": fixture["title"],
             "origin": {"repo": "acme/api"}, "status": "decided",
@@ -776,7 +768,7 @@ Undecided: #19, #20
 
         // a template that fails to compile is reported; one that fails to
         // render falls back to the generic body
-        assert!(compile("{% if %}").is_err());
+        assert!(pinrail_format::compile_template("{% if %}").is_err());
         let md = render(&review, None, Some("{{ items | nosuchfilter }}"));
         assert!(md.contains("## Decisions"), "{md}");
     }

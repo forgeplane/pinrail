@@ -20,7 +20,7 @@ pub mod id;
 pub mod markdown;
 pub mod plugins;
 pub mod reviews;
-pub mod schema;
+pub use pinrail_format::schema;
 pub mod server_info;
 pub mod settings;
 

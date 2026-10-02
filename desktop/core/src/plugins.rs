@@ -7,11 +7,10 @@
 
 mod install;
 mod jobs;
-mod manifest;
 mod registry;
-mod sample;
 mod service;
-mod summary;
+
+use pinrail_format::{manifest, sample, summary};
 
 pub use install::Expect as InstallExpect;
 pub use install::Options as InstallOptions;

@@ -37,7 +37,7 @@ pub const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30
 pub const BUILD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 
 /// 100 MB: a model, a recording, a document with its images.
-pub const MAX_ATTACHMENT_BYTES: u64 = 100 * 1024 * 1024;
+pub use pinrail_format::attachments::MAX_ATTACHMENT_BYTES;
 
 impl Config {
     /// Reads `PINRAIL_DATA_DIR`, `PINRAIL_PORT`, `PINRAIL_USER` and
