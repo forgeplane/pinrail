@@ -218,3 +218,153 @@ fn private_dir(dir: &std::path::Path) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plugins::{bundled, store_releases};
+    use serde_json::json;
+
+    /// The list plugin as a later app would ship it: 2.0.0, a new line,
+    /// whose decisions have another shape.
+    fn list_2() -> Vec<(String, crate::plugins::bundles::Files)> {
+        bundled()
+            .into_iter()
+            .filter(|(folder, _)| folder == "list")
+            .map(|(folder, files)| {
+                let files = files
+                    .into_iter()
+                    .map(|(path, bytes)| match path.as_str() {
+                        "manifest.json" => {
+                            let text = String::from_utf8(bytes).unwrap();
+                            let bytes = text.replace("\"1.0.0\"", "\"2.0.0\"").into_bytes();
+                            (path, bytes)
+                        }
+                        "schemas/decision.schema.json" => (
+                            path,
+                            json!({"type": "object", "required": ["verdict"]})
+                                .to_string()
+                                .into_bytes(),
+                        ),
+                        _ => (path, bytes),
+                    })
+                    .collect();
+                (folder, files)
+            })
+            .collect()
+    }
+
+    /// Reviews made with a line of a plugin the app ships keep rendering
+    /// and deciding with that line when a later app ships the next line,
+    /// and new reviews use the new one.
+    #[test]
+    fn a_bundled_plugins_old_line_stays_for_its_reviews_when_the_app_ships_the_next() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config::new(dir.path(), 0);
+        let app = Pinrail::open(config.clone()).unwrap();
+        let payload = json!({"groups": [{"title": "g", "items": [{"id": 1, "title": "one"}]}]});
+        let old = app
+            .reviews()
+            .submit(
+                &json!({"plugin": "list", "title": "On line 1", "payload": payload}),
+                None,
+            )
+            .unwrap();
+        assert_eq!(old.plugin_line, "1");
+        let line_1 = app.plugins().line_bundle("forgeplane/list", "1").unwrap();
+        drop(app);
+
+        // the next app's start, with list 2.0.0 among its plugins
+        let db = Db::open(&config.db_path()).unwrap();
+        let bundles = Bundles::open(
+            &config.plugin_bundles_dir(),
+            Arc::new(Db::open(&config.db_path()).unwrap()),
+        )
+        .unwrap();
+        store_releases(&db, &bundles, list_2()).unwrap();
+        drop((db, bundles));
+        let app = Pinrail::open(config).unwrap();
+
+        assert_eq!(
+            app.plugins().line_bundle("forgeplane/list", "1"),
+            Some(line_1)
+        );
+        let new = app
+            .reviews()
+            .submit(
+                &json!({"plugin": "list", "title": "On line 2", "payload": payload}),
+                None,
+            )
+            .unwrap();
+        assert_eq!(
+            (new.plugin_line.as_str(), new.plugin_version.as_str()),
+            ("2", "2.0.0")
+        );
+
+        // each decided with its own line's schema
+        let one = json!({"decisions": [{"id": 1, "action": "accept"}], "undecided": []});
+        assert!(app.reviews().decide(&new.id, &one, None).is_err());
+        app.reviews().decide(&old.id, &one, None).unwrap();
+        app.reviews()
+            .decide(&new.id, &json!({"verdict": "ok"}), None)
+            .unwrap();
+        assert_eq!(
+            app.plugins()
+                .fetch_line("forgeplane/list", "1")
+                .unwrap()
+                .version,
+            "1.0.0"
+        );
+    }
+
+    /// A newer release of a line the app ships becomes that line's current
+    /// at start, and the reviews of the line render with it.
+    #[test]
+    fn a_newer_bundled_release_takes_its_line_at_start() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config::new(dir.path(), 0);
+        let app = Pinrail::open(config.clone()).unwrap();
+        let review = app
+            .reviews()
+            .submit(
+                &json!({"plugin": "list", "title": "On line 1", "payload": {"groups": []}}),
+                None,
+            )
+            .unwrap();
+        drop(app);
+
+        let patched: Vec<_> = bundled()
+            .into_iter()
+            .filter(|(folder, _)| folder == "list")
+            .map(|(folder, files)| {
+                let files = files
+                    .into_iter()
+                    .map(|(path, bytes)| {
+                        if path == "manifest.json" {
+                            let text = String::from_utf8(bytes).unwrap();
+                            (path, text.replace("\"1.0.0\"", "\"1.0.1\"").into_bytes())
+                        } else {
+                            (path, bytes)
+                        }
+                    })
+                    .collect();
+                (folder, files)
+            })
+            .collect();
+        let db = Db::open(&config.db_path()).unwrap();
+        let bundles = Bundles::open(
+            &config.plugin_bundles_dir(),
+            Arc::new(Db::open(&config.db_path()).unwrap()),
+        )
+        .unwrap();
+        store_releases(&db, &bundles, patched).unwrap();
+        drop((db, bundles));
+
+        let app = Pinrail::open(config).unwrap();
+        let plugin = app
+            .plugins()
+            .fetch_line(&review.plugin, &review.plugin_line)
+            .unwrap();
+        assert_eq!(plugin.version, "1.0.1");
+    }
+}

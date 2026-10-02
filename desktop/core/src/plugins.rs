@@ -5,7 +5,7 @@
 //! business. What stays public is the vocabulary a caller reads from a review
 //! or a manifest.
 
-mod bundles;
+pub(crate) mod bundles;
 mod install;
 mod jobs;
 mod registry;
@@ -28,3 +28,5 @@ pub use summary::Declaration as SummaryDeclaration;
 pub(crate) use install::tidy;
 pub(crate) use manifest::version_of;
 pub(crate) use registry::{Registry, store_bundled};
+#[cfg(test)]
+pub(crate) use registry::{bundled, store_releases};

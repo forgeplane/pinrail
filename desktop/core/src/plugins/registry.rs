@@ -53,9 +53,19 @@ pub(crate) fn bundled() -> Vec<(String, Files)> {
 /// it is newer than the line's current, so an earlier line stays for the
 /// reviews that use it when the app ships the next.
 pub(crate) fn store_bundled(db: &Db, bundles: &Bundles) -> Result<(), Error> {
+    store_releases(db, bundles, bundled())
+}
+
+/// `store_bundled` for the given plugins, as each release of the app
+/// carries its own.
+pub(crate) fn store_releases(
+    db: &Db,
+    bundles: &Bundles,
+    plugins: Vec<(String, Files)>,
+) -> Result<(), Error> {
     let now = crate::reviews::iso(Utc::now());
     let lines = db.lines()?;
-    for (_, files) in bundled() {
+    for (_, files) in plugins {
         let bundle = bundles.store_files(&files)?;
         let plugin = format!("{BUNDLED_PUBLISHER}/{}", bundle.name);
         let newer = match lines
@@ -77,7 +87,23 @@ pub(crate) fn store_bundled(db: &Db, bundles: &Bundles) -> Result<(), Error> {
                 }
             }
             installed => {
-                let line = Some(bundle.line.clone());
+                // new reviews move to this release's line, unless the line
+                // they use holds a newer release, as after a downgrade
+                let newer_elsewhere = match installed.as_ref().and_then(|i| i.line.as_ref()) {
+                    Some(line) if line != &bundle.line => lines
+                        .iter()
+                        .find(|l| l.plugin == plugin && &l.line == line)
+                        .and_then(|l| db.bundle(&l.bundle).ok().flatten())
+                        .is_some_and(|b| {
+                            pinrail_format::semver(&b.version)
+                                > pinrail_format::semver(&bundle.version)
+                        }),
+                    _ => false,
+                };
+                let line = match (&installed, newer_elsewhere) {
+                    (Some(i), true) => i.line.clone(),
+                    _ => Some(bundle.line.clone()),
+                };
                 if current.is_none() && installed.as_ref().is_some_and(|i| i.line == line) {
                     continue;
                 }
