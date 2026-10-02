@@ -1150,6 +1150,113 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
     }
 }
 
+/// A request for a file of a stored bundle, as a view's frame makes it.
+async fn bundle_get(app: &App, uri: &str, extra: &[(&str, &str)]) -> axum::http::Response<Body> {
+    let mut request = Request::get(uri).header("host", "127.0.0.1:4747");
+    for (name, value) in extra {
+        request = request.header(*name, *value);
+    }
+    app.router
+        .clone()
+        .oneshot(request.body(Body::empty()).unwrap())
+        .await
+        .unwrap()
+}
+
+/// A stored bundle serves its view's files, and only those, for ever: the
+/// address names the bundle, which never changes.
+#[tokio::test]
+async fn a_stored_bundle_serves_its_view_and_nothing_else() {
+    let app = app();
+    let root = tempfile::tempdir().unwrap();
+    let hello = plugin_copy(root.path(), "hello", "1.0.0");
+    let stored = app.state.bundles().store(&hello).unwrap();
+    let hash = stored.hash;
+    let listing = Listing::of_folder(&hello, Taken::FromSource).unwrap();
+    let page = listing.file("view/index.html").unwrap().sha256.clone();
+
+    let response = bundle_get(&app, &format!("/bundles/{hash}/view/index.html"), &[]).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let headers = response.headers().clone();
+    assert_eq!(headers["content-type"], "text/html");
+    assert_eq!(
+        headers["cache-control"],
+        "public, max-age=31536000, immutable"
+    );
+    assert_eq!(headers["etag"], format!("\"{page}\""));
+    assert_eq!(headers["x-content-type-options"], "nosniff");
+    let csp = headers["content-security-policy"].to_str().unwrap();
+    let base = format!("http://127.0.0.1:4747/bundles/{hash}/view/");
+    assert!(
+        csp.starts_with(&format!(
+            "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' {base} http://127.0.0.1:4747/sdk/"
+        )),
+        "{csp}"
+    );
+    assert!(csp.contains("connect-src 'none'"), "{csp}");
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(body, std::fs::read(hello.join("view/index.html")).unwrap());
+
+    // the same file again, as the webview asks for one it has
+    let again = bundle_get(
+        &app,
+        &format!("/bundles/{hash}/view/index.html"),
+        &[("if-none-match", &format!("\"{page}\""))],
+    )
+    .await;
+    assert_eq!(again.status(), StatusCode::NOT_MODIFIED);
+    assert_eq!(again.headers()["etag"], format!("\"{page}\""));
+
+    // a file of the view's own folder, with its type
+    let icon = bundle_get(&app, &format!("/bundles/{hash}/view/icons/check.svg"), &[]).await;
+    assert_eq!(icon.status(), StatusCode::OK);
+    assert_eq!(icon.headers()["content-type"], "image/svg+xml");
+
+    // nothing outside view/, whatever the address
+    for uri in [
+        format!("/bundles/{hash}/manifest.json"),
+        format!("/bundles/{hash}/schemas/payload.schema.json"),
+        format!("/bundles/{hash}/samples/hello.json"),
+        format!("/bundles/{hash}/view/../manifest.json"),
+        format!("/bundles/{hash}/view/%2e%2e/manifest.json"),
+        format!("/bundles/{hash}/view/missing.js"),
+        format!("/bundles/{}/view/index.html", "0".repeat(64)),
+        "/bundles/not-a-hash/view/index.html".to_string(),
+    ] {
+        let response = bundle_get(&app, &uri, &[]).await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+    }
+
+    // a fetch comes from another page, reading what is not its own
+    let fetched = bundle_get(
+        &app,
+        &format!("/bundles/{hash}/view/index.html"),
+        &[("sec-fetch-dest", "empty")],
+    )
+    .await;
+    assert_eq!(fetched.status(), StatusCode::FORBIDDEN);
+}
+
+/// A stored file that no longer matches its bundle's listing is not served:
+/// it is not the release the address names.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_changed_bundle_file_is_not_served() {
+    use std::os::unix::fs::PermissionsExt;
+    let app = app();
+    let root = tempfile::tempdir().unwrap();
+    let hello = plugin_copy(root.path(), "hello", "1.0.0");
+    let hash = app.state.bundles().store(&hello).unwrap().hash;
+    let page = app.state.bundles().path(&hash).join("view/index.html");
+    std::fs::set_permissions(&page, std::fs::Permissions::from_mode(0o644)).unwrap();
+    std::fs::write(&page, "<script>changed</script>").unwrap();
+
+    let response = bundle_get(&app, &format!("/bundles/{hash}/view/index.html"), &[]).await;
+    assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    let body = response.into_body().collect().await.unwrap().to_bytes();
+    assert!(!String::from_utf8_lossy(&body).contains("changed"));
+}
+
 /// A plugin's files are for its own view, which loads them as a page,
 /// scripts, styles, fonts and images from an opaque origin: another
 /// website cannot read them.

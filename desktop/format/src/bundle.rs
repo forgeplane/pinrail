@@ -215,7 +215,7 @@ impl Listing {
 
 /// A path as a bundle records it: relative, `/` between its parts, in
 /// Unicode normalization form C, with no empty, `.` or `..` part.
-fn normalized(raw: &str) -> Result<String, String> {
+pub fn normalized(raw: &str) -> Result<String, String> {
     let path: String = raw.nfc().collect();
     if path.is_empty() || path.starts_with('/') || path.contains('\\') {
         return Err(format!(
