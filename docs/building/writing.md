@@ -394,6 +394,21 @@ Each version is on a line, which is a promise to every review already created. F
 - Fix the view or add an optional field: release a new version on the same line. Existing reviews pick it up.
 - Change a schema or the view in a way an old review would not survive: start a new line, `2.0.0` after `1.4.2`, or `0.4.0` after `0.3.1`. Old reviews keep their line, and new ones get the new one.
 
+A release on the same line must keep every payload and decision that the line's reviews hold. Pinrail compares its payload and decision schemas with the current release's, and refuses the update if they break:
+
+| Change to a schema | On the same line |
+|---|---|
+| A new optional property | Allowed |
+| A new `enum` value | Allowed |
+| A new `title`, `description`, `examples` or `default` | Allowed |
+| A removed property | Breaks |
+| A newly required property, new or existing | Breaks |
+| Any change of `type`, even to a wider one | Breaks |
+| A removed `enum` value | Breaks |
+| Any other change to what the schema accepts, such as `pattern`, `maxLength` or `additionalProperties` | Breaks |
+
+`pinrail plugins check ./ticket_triage --since ./previous-release` applies the same comparison before you publish. It lists each break and the version that would start a new line, and exits with `2` when the release breaks its line.
+
 ## Decisions as markdown
 
 The `pinrail` command prints a decision as markdown for the agent. Without a template, the app renders the decision from its structure: each bullet starts with the item's `id` and `action`, a `note` becomes a quotation, and no field is omitted. When a decision reads well only beside its payload, such as "**closed** #101 Export times out past 50k rows" rather than "close: 101", ship a template:

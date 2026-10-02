@@ -96,6 +96,7 @@ flowchart LR
 
 - **A newer release of a line** becomes that line's current release. Every review created on the line renders with it, so it gets the fixes.
 - **An older release** is refused unless you pass `--force`.
+- **A release that breaks its line** is refused: one whose schemas no longer accept what the line's reviews hold, such as one that removes a property or makes one required. The refusal lists what breaks. A plugin from a folder of your own can be replaced with `--force`, and its reviews may then stop rendering. A published plugin's author has to release the change as a new line.
 - **A release on a new line** is installed beside the old one, and new reviews use it. The old line stays for as long as a review still renders with it.
 
 Check for updates from the plugin's row in *Settings › Plugins*, or from the command line:

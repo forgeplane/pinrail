@@ -105,6 +105,14 @@ Each version is on a line, a promise to every review already created with your p
 | A fix in the view, or a new optional field | The same line: `1.2.0` → `1.3.0`, or `0.3.0` → `0.3.1`. Existing reviews pick it up. |
 | A schema, or the view, in a way an old review would not survive | A new line: `1.3.0` → `2.0.0`, or `0.3.1` → `0.4.0`. Old reviews keep their line. |
 
+Pinrail refuses an update whose schemas break what its line's reviews hold: a removed property, a newly required one, a changed `type`, a removed `enum` value, or any other change to what a schema accepts. New optional properties and new `enum` values are allowed. Check a release before you publish it:
+
+```sh
+pinrail plugins check . --since ../previous-release
+```
+
+The command lists each break and the version that would start a new line, and exits with `2` when the release breaks its line. See [Versions](/docs/building/writing/#versions) for the full rule.
+
 ## How people install and update it
 
 | They install from | They get |
