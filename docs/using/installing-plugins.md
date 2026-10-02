@@ -57,34 +57,46 @@ flowchart TB
   B -->|"yes"| R["run the command in a copy"]
   B -->|"no, or a release"| C["check the bundle"]
   R --> C
-  C --> K["store under name and major version"]
-  K --> V["new reviews render from it"]
+  C --> K["store the bundle, current for its line"]
+  K --> V["new reviews render with it"]
 ```
 
 1. **Fetch.** Pinrail copies the folder, clones the repository at the ref, or downloads the release's bundle.
 2. **Build, when declared.** A plugin written with a framework declares its build in the manifest, for example `"build": { "command": "npm ci && npm run build" }`. Pinrail runs it through the shell in a copy of the source, without `node_modules` or `.git`, shows the output as it runs, and keeps the log. A non-zero exit stops the install and shows the end of the log. The tools the command needs, such as `node` or `pnpm`, must be on your `PATH`.
 3. **Check.** The manifest, the schemas and `view/index.html` must be valid. A plugin without `build` whose `view/index.html` is missing is refused, with the reason.
-4. **Store.** Only the bundle is kept: `manifest.json`, `icon.svg`, `README.md`, `LICENSE` and the folders `schemas/`, `view/`, `templates/` and `samples/`, without hidden files. Everything else, such as sources, tests, fixtures and `node_modules/`, stays behind. The copy is stored under the plugin's name and major version, hashed and recorded with where it came from.
+4. **Store.** Only the bundle is kept: `manifest.json`, `icon.svg`, `README.md`, `LICENSE` and the folders `schemas/`, `view/`, `templates/` and `samples/`, without hidden files. Everything else, such as sources, tests, fixtures and `node_modules/`, stays behind. The bundle is stored once, named by the hash of its files, and becomes the current release of its line. Pinrail records where it came from.
+
+## Plugin names
+
+A plugin's full name is its publisher and its name, such as `forgeplane/list`. The publisher comes from where the plugin comes from, never from its manifest:
+
+| Source | Publisher |
+|---|---|
+| The plugins that come with Pinrail | `forgeplane` |
+| A repository or a release | The repository's owner: `github.com/acme/plugins` gives `acme`. A GitLab group path is joined with dots: `gitlab.com/acme/tools/review` gives `acme.tools`. |
+| A folder, or a linked folder | `local` |
+
+So two publishers can each have a plugin called `review`. Agents and commands may name a plugin by its name alone, such as `pinrail submit review`, when only one installed plugin has that name. When two do, the name alone is refused with both full names, and the full name, such as `acme/review`, picks one. Settings, link permissions and muted notifications belong to the full name.
 
 ## Versions and updates
 
-Plugin versions are semantic, such as `"1.2.0"`. The major version is a compatibility promise, and Pinrail keeps one line per major.
+Plugin versions are semantic, such as `"1.2.0"`. Each version is on a line, which is a compatibility promise. From `1.0.0` on, the line is the major version, so `1.2.0` is on line `1`. Before `1.0.0`, the line is the major and the minor, so `0.3.1` is on line `0.3`.
 
-```mermaid title="One line per major version"
+```mermaid title="One current release per line"
 flowchart LR
-  subgraph m1["review · major 1"]
+  subgraph m1["review · line 1"]
     a["1.0.0"] --> b["1.1.0"] --> c["1.2.0"]
   end
-  subgraph m2["review · major 2"]
+  subgraph m2["review · line 2"]
     d["2.0.0"]
   end
-  r1(["reviews created under 1.x"]) -.->|"render with 1.2.0"| c
+  r1(["reviews created on line 1"]) -.->|"render with 1.2.0"| c
   r2(["new reviews"]) -.->|"render with 2.0.0"| d
 ```
 
-- **A newer minor or patch** replaces the copy in place. Every review created under that major renders with it, so it gets the fixes.
-- **An older version** is refused unless you pass `--force`.
-- **A new major** is installed beside the old one. The old line stays for as long as a review still renders from it.
+- **A newer release of a line** becomes that line's current release. Every review created on the line renders with it, so it gets the fixes.
+- **An older release** is refused unless you pass `--force`.
+- **A release on a new line** is installed beside the old one, and new reviews use it. The old line stays for as long as a review still renders with it.
 
 Check for updates from the plugin's row in *Settings › Plugins*, or from the command line:
 
@@ -95,7 +107,7 @@ pinrail plugins update review     # one plugin
 
 An update that runs a build shows the build command first, in the app and on the command line, and runs it only when you confirm. On the command line, `--yes` confirms it in advance. When nobody can confirm, a plugin whose update runs a build is not updated, and the command reports it as failed.
 
-A plugin installed from a repository at a tag or a commit, or from a release whose tag is only a version such as `v1.2.0`, is pinned. The update check reports that it is pinned and does not move it. A release whose tag names the plugin, such as `review-v1.2.0`, is not pinned: the update check follows newer releases of the same plugin. `pinrail plugins versions review` lists the versions reviews can still render with.
+A plugin installed from a repository at a tag or a commit, or from a release whose tag is only a version such as `v1.2.0`, is pinned. The update check reports that it is pinned and does not move it. A release whose tag names the plugin, such as `review-v1.2.0`, is not pinned: the update check follows newer releases of the same plugin. `pinrail plugins lines review` lists the lines reviews render with, and the current release of each.
 
 ## Developing with a linked folder
 
@@ -105,7 +117,7 @@ A linked plugin is served straight from your folder, so a change shows the next 
 pinrail plugins install ./ticket_triage --link
 ```
 
-Reviews of a linked plugin render from the folder as it is now. If you remove the link, its reviews show that the plugin is not installed until you install it again. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
+Reviews of a linked plugin render from the folder as it is now. If you remove the link, its reviews render with the last release of their line that was installed from the folder, if there is one. Otherwise they show that the plugin is not installed until you install it again. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
 
 After editing the manifest or a decision template, reload so the app reads them again:
 
@@ -119,7 +131,7 @@ pinrail plugins reload
 pinrail plugins remove ticket_triage
 ```
 
-Removing a plugin stops new reviews from using it. Stored copies that existing reviews still render from are kept, so your history stays readable.
+Removing a plugin stops new reviews from using it. The lines that existing reviews still render with are kept, so your history stays readable. The plugins that come with Pinrail cannot be removed.
 
 ## What runs on your machine
 
@@ -133,6 +145,6 @@ Under the app's data directory, `plugins/` holds three folders:
 
 | Folder | Contents |
 |---|---|
-| `store/<name>/<major>/` | The installed copies. |
-| `fetch/` | Scratch space an install uses and empties. |
+| `bundles/<hash>/` | The installed releases, each stored once and never changed. |
+| `work/` | Scratch space an install uses and empties. |
 | `logs/` | The last few build logs of each plugin. |

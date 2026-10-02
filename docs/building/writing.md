@@ -88,7 +88,7 @@ When the plugin is installed, Pinrail copies these entries and nothing else. Sou
 | Key | What it does |
 |---|---|
 | `name` | The plugin's identifier. Agents submit to it: `pinrail submit ticket_triage`. |
-| `version` | Semantic, such as `"1.2.0"`. The major version is a compatibility promise; see [Versions](#versions). |
+| `version` | Semantic, such as `"1.2.0"`. Its line is a compatibility promise; see [Versions](#versions). |
 | `title` | What the app calls the plugin in its lists and settings. |
 | `description` | A sentence on what the plugin is for. |
 | `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins` when they choose a plugin. |
@@ -389,12 +389,10 @@ To test the view on its own, in a browser without the app, use the test harness 
 
 ## Versions
 
-The major version is a promise to every review already created. The app keeps one copy of your plugin per major, and a review renders and validates with the latest copy of the major it was created under, even after you release the next one.
+Each version is on a line, which is a promise to every review already created. From `1.0.0` on, the line is the major version: `1.4.2` is on line `1`. Before `1.0.0`, the line is the major and the minor, as in Cargo: `0.3.1` is on line `0.3`. The app keeps the latest release of each line your reviews use, and a review renders and validates with the line it was created on, even after you release the next one.
 
-- Fix the view or add an optional field: raise the minor or patch. Existing reviews pick it up.
-- Change a schema or the view in a way an old review would not survive: raise the major. Old reviews keep the old major; new ones get the new.
-
-A plugin still finding its shape starts at `0.1.0`. Pinrail treats all `0.x` releases as the same major version, `0`, so a breaking change between two `0.x` releases also breaks the reviews created with the earlier one. Move to `1.0.0` once you have reviews that must keep working.
+- Fix the view or add an optional field: release a new version on the same line. Existing reviews pick it up.
+- Change a schema or the view in a way an old review would not survive: start a new line, `2.0.0` after `1.4.2`, or `0.4.0` after `0.3.1`. Old reviews keep their line, and new ones get the new one.
 
 ## Decisions as markdown
 

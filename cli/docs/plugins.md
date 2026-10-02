@@ -20,6 +20,10 @@ pinrail plugins describe <plugin> --example > payload.json   # a start for yours
 Build the payload from the schema; start from the example. `--dry-run`
 checks it before anyone sees it.
 
+A plugin's full name is `<publisher>/<name>`, such as `forgeplane/list`.
+Its name alone works when only one installed plugin has it; when two do,
+the command is refused with both full names, and you give one of them.
+
 If none returns the decision you need, build one for the task:
 `pinrail docs plugins/building`. Installing someone else's plugin,
 updating or removing plugins is the person's call: do it only when they

@@ -46,7 +46,7 @@ When an agent revises a review you asked it to change, the new round opens with 
 
 ## History
 
-Every review that has ended is in your **history**: decided, discarded, withdrawn or expired. Open one and it renders read-only, with the latest installed release of the plugin's major version it was created under.
+Every review that has ended is in your **history**: decided, discarded, withdrawn or expired. Open one and it renders read-only, with the latest installed release of the plugin's line it was created on.
 
 Each decided review shows what was decided, as its plugin counts it: for example *2 accepted · 1 rejected*, or a verdict such as *approved* in place of *decided*. The review's header shows the same, and so does the decision the agent receives.
 

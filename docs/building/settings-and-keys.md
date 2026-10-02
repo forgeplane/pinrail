@@ -78,7 +78,7 @@ flowchart LR
   A -->|"settings"| V2["every other open view"]
 ```
 
-A view can only write its own plugin's settings. A value the schema refuses comes back as `violations`, with a path under `/plugins/<name>`.
+A view can only write its own plugin's settings. A value the schema refuses comes back as `violations`, with a path under `/plugins/<full name>`. A JSON Pointer writes the `/` in a full name as `~1`, so the List plugin's paths start with `/plugins/forgeplane~1list`.
 
 ### Where the values live
 

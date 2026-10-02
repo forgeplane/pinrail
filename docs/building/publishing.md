@@ -98,14 +98,12 @@ The recipe is three steps, in any CI or by hand:
 
 ## Choosing the version
 
-The major version is a promise to every review already created with your plugin: Pinrail keeps one copy per major, and a review keeps rendering with the latest copy of the major it was created under.
+Each version is on a line, a promise to every review already created with your plugin. From `1.0.0` on, the line is the major version. Before `1.0.0`, it is the major and the minor, so a plugin still finding its shape can make a breaking change from `0.3` to `0.4`. Pinrail keeps the latest release of each line that reviews use, and a review keeps rendering with the line it was created on.
 
 | You changed | Release as |
 |---|---|
-| A fix in the view, or a new optional field | A minor or patch: `1.2.0` → `1.3.0`. Existing reviews pick it up. |
-| A schema, or the view, in a way an old review would not survive | A new major: `1.3.0` → `2.0.0`. Old reviews keep `1.x`. |
-
-A plugin that is still finding its shape starts at `0.1.0`. Pinrail treats all `0.x` releases as the same major version, `0`, so a breaking change between two `0.x` releases also breaks the reviews created with the earlier one. Move to `1.0.0` once you have reviews that must keep working.
+| A fix in the view, or a new optional field | The same line: `1.2.0` → `1.3.0`, or `0.3.0` → `0.3.1`. Existing reviews pick it up. |
+| A schema, or the view, in a way an old review would not survive | A new line: `1.3.0` → `2.0.0`, or `0.3.1` → `0.4.0`. Old reviews keep their line. |
 
 ## How people install and update it
 
