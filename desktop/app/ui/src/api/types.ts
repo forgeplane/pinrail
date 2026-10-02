@@ -138,7 +138,6 @@ export type Inspection = {
   major: number;
   title: string;
   icon: string | null;
-  entry: string;
   /** the exact command a build runs; null when nothing runs */
   build: string | null;
   /** sent back with the install, which runs a build only as it was shown */

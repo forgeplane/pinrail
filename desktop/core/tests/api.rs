@@ -1085,6 +1085,29 @@ async fn removing_a_plugin_forgets_the_links_it_was_allowed_to_open() {
     assert_eq!(settings["links"], json!({}), "{settings}");
 }
 
+/// The install dialog shows the plugin it is about to install with its
+/// icon, as the app shows an installed one.
+#[tokio::test]
+async fn an_inspection_shows_the_plugins_icon() {
+    let app = app();
+    let root = tempfile::tempdir().unwrap();
+    let hello = plugin_copy(root.path(), "hello", "1.0.0");
+    let (status, seen) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": hello.display().to_string()})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert!(
+        seen["icon"]
+            .as_str()
+            .is_some_and(|svg| svg.contains("<svg")),
+        "{seen}"
+    );
+}
+
 /// A linked plugin is served from the developer's own folder, which holds
 /// more than a plugin: only what an installed copy would hold is served.
 #[tokio::test]
