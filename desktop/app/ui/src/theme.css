@@ -2479,7 +2479,8 @@ h1 {
   gap: 10px;
   margin-top: 2px;
 }
-.settings-plugin-origin {
+.settings-plugin-origin,
+.settings-plugin-previous {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 10px;

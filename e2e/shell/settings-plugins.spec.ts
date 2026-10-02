@@ -279,3 +279,32 @@ test("an install whose progress stops answering ends as failed, not stuck", asyn
   await expect(dialog.locator(".install-error"), "the panel kept waiting").toBeVisible({ timeout: 15000 });
   await expect(page.locator('[aria-label="Close the install"]')).toBeEnabled();
 });
+
+/** Installs a copy of a folder through the API and waits for the job. */
+async function installCopy(page: Page, source: string) {
+  const inspected = await (await page.request.post(`${core}/api/v1/plugins/inspect`, { data: { source } })).json();
+  const started = await page.request.post(`${core}/api/v1/plugins/install`, {
+    data: { source, expect: inspected.expect },
+  });
+  const { job } = await started.json();
+  await expect
+    .poll(async () => (await (await page.request.get(`${core}/api/v1/plugins/jobs/${job}`)).json()).status)
+    .toBe("done");
+}
+
+test("an update can be rolled back from the plugin's details", async ({ page }) => {
+  await installCopy(page, pluginCopy("hello", "undone", "1.0.0"));
+  await installCopy(page, pluginCopy("hello", "undone", "1.0.1"));
+
+  await page.goto("/#/plugins");
+  const row = page.locator('[data-plugin-row="undone"]');
+  await row.getByRole("button", { name: "Details of undone" }).click();
+  const previous = row.locator("[data-plugin-previous]");
+  await expect(previous).toContainText("1.0.0, kept until");
+  await previous.locator("[data-plugin-rollback]").click();
+
+  await expect(row.locator("[data-plugin-previous]")).toHaveCount(0);
+  const { plugins } = await (await page.request.get(`${core}/api/v1/plugins`)).json();
+  expect(plugins.find((p: { name: string }) => p.name === "undone").version).toBe("1.0.0");
+  await page.request.delete(`${core}/api/v1/plugins/undone`);
+});

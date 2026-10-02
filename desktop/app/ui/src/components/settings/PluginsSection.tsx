@@ -233,6 +233,9 @@ function PluginEntry({
     };
   }, []);
   const [removing, setRemoving] = useState<"asking" | "busy" | null>(null);
+  // a rollback in flight, or why one needs a yes: the release before does
+  // not take what reviews made since may hold
+  const [rolling, setRolling] = useState<"busy" | { refusal: string } | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -335,6 +338,24 @@ function PluginEntry({
     }
   };
 
+  const rollback = async (force: boolean) => {
+    const to = previous?.version ?? "";
+    setRolling("busy");
+    try {
+      await api.rollbackPlugin(p.plugin, force);
+      setRolling(null);
+      onMessage(`${p.title || p.name} plugin was rolled back to ${to}`);
+    } catch (e) {
+      const refusal = e instanceof ApiError ? (e.violations[0] ?? null) : null;
+      if (refusal?.path === "/force") {
+        setRolling({ refusal: refusal.message });
+        return;
+      }
+      setRolling(null);
+      onMessage(refusal?.message ?? `The ${p.title || p.name} plugin could not be rolled back`, "danger");
+    }
+  };
+
   const remove = async () => {
     setRemoving("busy");
     try {
@@ -355,6 +376,8 @@ function PluginEntry({
   const linked = p.install?.linked ?? false;
   // installed by the person, from a source; the plugins Pinrail ships are not
   const ownInstall = p.install && p.install.kind !== "bundled" ? p.install : null;
+  // the release the last update replaced, while it can be rolled back to
+  const previous = ownInstall ? (p.lines.find((l) => l.line === p.line)?.previous ?? null) : null;
   const origin = originOf(p);
   // asked before a removal, in place of whatever the line says
   const ask = removing ? (
@@ -535,6 +558,42 @@ function PluginEntry({
           <dl className="settings-plugin-details">
             <dt>Version</dt>
             <dd>{p.version}</dd>
+            {previous ? (
+              <>
+                <dt>Previous release</dt>
+                <dd className="settings-plugin-previous" data-plugin-previous>
+                  <span>
+                    {previous.version}, kept until {new Date(previous.until).toLocaleDateString()}
+                  </span>
+                  {rolling && rolling !== "busy" ? (
+                    <span className="settings-plugin-ask" data-plugin-rollback-ask>
+                      <span className="danger">{rolling.refusal.split("\n")[0]}</span>
+                      <button
+                        type="button"
+                        className="settings-reset-link danger"
+                        onClick={() => rollback(true)}
+                        data-plugin-rollback-force
+                      >
+                        Roll back anyway
+                      </button>
+                      <button type="button" className="settings-reset-link" onClick={() => setRolling(null)}>
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="settings-reset-link"
+                      onClick={() => rollback(false)}
+                      disabled={rolling === "busy"}
+                      data-plugin-rollback
+                    >
+                      {rolling === "busy" ? "Rolling back…" : `Roll back to ${previous.version}`}
+                    </button>
+                  )}
+                </dd>
+              </>
+            ) : null}
             <dt>Source</dt>
             <dd className="settings-plugin-origin">
               <span>

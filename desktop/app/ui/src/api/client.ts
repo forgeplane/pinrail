@@ -132,6 +132,10 @@ export const api = {
     request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${seg(name)}/update`, {
       expect,
     }),
+  /** makes the release the last update replaced the line's current again;
+   * `force` rolls back to one that does not take what reviews made since hold */
+  rollbackPlugin: (name: string, force = false) =>
+    request<Plugin>("POST", `/api/v1/plugins/${seg(name)}/rollback`, { force }),
   /** drops the installation and the lines no review renders with */
   removePlugin: (name: string) =>
     request<{ removed: string; linked: boolean; lines_kept: string[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),

@@ -83,8 +83,14 @@ export type ReviewListing = {
   facets?: { plugins: string[]; repos: string[]; unassigned: boolean };
 };
 
-/** A line of a plugin and the release current on it. */
-export type PluginLine = { line: string; version: string; bundle: string };
+/** A line of a plugin and the release current on it, with the one an
+ *  update replaced while it can be rolled back to. */
+export type PluginLine = {
+  line: string;
+  version: string;
+  bundle: string;
+  previous: { version: string; bundle: string; until: string } | null;
+};
 
 export type Plugin = {
   /** the full name, `<publisher>/<name>` */
