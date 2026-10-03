@@ -14,7 +14,7 @@ pub mod sample;
 pub mod schema;
 pub mod summary;
 
-pub use manifest::{Install, Plugin, Previous};
+pub use manifest::{Install, Plugin};
 
 /// One thing wrong with a document: where, as a JSON pointer into it, and
 /// what.

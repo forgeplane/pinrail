@@ -698,33 +698,6 @@ fn a_discard_reason_cannot_drive_the_terminal() {
 }
 
 #[test]
-fn updating_every_plugin_exits_1_when_the_app_fails_and_2_when_it_refuses() {
-    let listing = r#"{"plugins":[{"plugin":"one","name":"one","install":{"linked":false}},{"plugin":"two","name":"two","install":{"linked":false}}]}"#;
-    // one refused (a 4xx), the other failing on the app's side (a 5xx)
-    let failing = |second: u16| {
-        MockServer::start(Box::new(move |method, path, _| match (method, path) {
-            ("GET", "/api/v1/plugins") => (200, listing.into()),
-            ("POST", "/api/v1/plugins/one/update/inspect") => (
-                422,
-                r#"{"error":"invalid","message":"pinned","violations":[]}"#.into(),
-            ),
-            ("POST", "/api/v1/plugins/two/update/inspect") => (
-                second,
-                r#"{"error":"internal","message":"git failed","violations":[]}"#.into(),
-            ),
-            other => panic!("unexpected {other:?}"),
-        }))
-    };
-    let (code, _, stderr) = run(&failing(500), &["plugins", "update", "--json"]);
-    assert_eq!(
-        code, 1,
-        "a failure on the app's side is not a refusal: {stderr}"
-    );
-    let (code, _, stderr) = run(&failing(409), &["plugins", "update", "--json"]);
-    assert_eq!(code, 2, "only refusals: {stderr}");
-}
-
-#[test]
 fn a_slow_answer_is_not_reported_as_an_app_that_is_not_running() {
     // the app is there and takes its time: past the CLI's 15 seconds
     let server = MockServer::start(Box::new(|_, _, _| {
@@ -944,12 +917,13 @@ fn a_server_error_is_not_a_refusal_and_a_wait_rides_it_out() {
     assert!(*polls.lock().unwrap() >= 2);
 }
 
-const INSPECTED_WITHOUT_BUILD: &str = r#"{"name":"triage","version":"1.0.0","build":null,"expect":{"build":null,"commit":"abc1234"}}"#;
-const INSPECTED_WITH_BUILD: &str = r#"{"state":"available","name":"triage","version":"1.1.0","build":"npm ci && npm run build","expect":{"build":"npm ci && npm run build","commit":"def5678"}}"#;
+const INSPECTED_WITHOUT_BUILD: &str =
+    r#"{"name":"triage","version":"1.0.0","build":null,"expect":{"build":null}}"#;
+const INSPECTED_WITH_BUILD: &str = r#"{"name":"triage","version":"1.1.0","build":"npm ci && npm run build","expect":{"build":"npm ci && npm run build"}}"#;
 const JOB_DONE: &str = r#"{"status":"done","log":"","log_offset":0,"plugin":{"plugin":"local/triage","name":"triage","version":"1.1.0","install":{"kind":"folder"}}}"#;
 
 /// A server that answers inspections with `inspected`, and records the
-/// body of every install or update it is asked to start.
+/// body of every install it is asked to start.
 fn plugin_server(inspected: &'static str) -> (MockServer, Arc<Mutex<Vec<String>>>) {
     let started = Arc::new(Mutex::new(Vec::new()));
     let seen = started.clone();
@@ -959,10 +933,8 @@ fn plugin_server(inspected: &'static str) -> (MockServer, Arc<Mutex<Vec<String>>
             r#"{"plugins":[{"plugin":"triage","name":"triage","install":{"linked":false}}]}"#
                 .into(),
         ),
-        ("POST", "/api/v1/plugins/inspect" | "/api/v1/plugins/triage/update/inspect") => {
-            (200, inspected.into())
-        }
-        ("POST", "/api/v1/plugins/install" | "/api/v1/plugins/triage/update") => {
+        ("POST", "/api/v1/plugins/inspect") => (200, inspected.into()),
+        ("POST", "/api/v1/plugins/install") => {
             seen.lock().unwrap().push(body.to_string());
             (202, r#"{"job":"j_1"}"#.into())
         }
@@ -974,63 +946,42 @@ fn plugin_server(inspected: &'static str) -> (MockServer, Arc<Mutex<Vec<String>>
 
 #[test]
 fn a_build_runs_only_with_yes_when_nobody_is_at_a_terminal_to_confirm_it() {
-    for args in [
-        &["plugins", "install", "github.com/acme/triage"][..],
-        &["plugins", "update", "triage"],
-    ] {
-        let (server, started) = plugin_server(INSPECTED_WITH_BUILD);
-        let (code, _, stderr) = run(&server, args);
-        assert_eq!(code, 2, "{args:?}: {stderr}");
-        assert!(stderr.contains("npm ci && npm run build"), "{stderr}");
-        assert!(stderr.contains("--yes"), "{stderr}");
-        assert!(
-            started.lock().unwrap().is_empty(),
-            "{args:?} started without a yes"
-        );
+    let args = &["plugins", "install", "./triage"][..];
+    let (server, started) = plugin_server(INSPECTED_WITH_BUILD);
+    let (code, _, stderr) = run(&server, args);
+    assert_eq!(code, 2, "{args:?}: {stderr}");
+    assert!(stderr.contains("npm ci && npm run build"), "{stderr}");
+    assert!(stderr.contains("--yes"), "{stderr}");
+    assert!(
+        started.lock().unwrap().is_empty(),
+        "{args:?} started without a yes"
+    );
 
-        let with_yes = [args, &["--yes"]].concat();
-        let (code, _, stderr) = run(&server, &with_yes);
-        assert_eq!(code, 0, "{with_yes:?}: {stderr}");
-        let body: serde_json::Value = serde_json::from_str(&started.lock().unwrap()[0]).unwrap();
-        assert_eq!(
-            body["expect"],
-            serde_json::json!({"build": "npm ci && npm run build", "commit": "def5678"}),
-            "{with_yes:?}"
-        );
-    }
+    let with_yes = [args, &["--yes"]].concat();
+    let (code, _, stderr) = run(&server, &with_yes);
+    assert_eq!(code, 0, "{with_yes:?}: {stderr}");
+    let body: serde_json::Value = serde_json::from_str(&started.lock().unwrap()[0]).unwrap();
+    assert_eq!(
+        body["expect"],
+        serde_json::json!({"build": "npm ci && npm run build"}),
+        "{with_yes:?}"
+    );
 }
 
 #[test]
 fn a_plugin_without_a_build_installs_as_it_was_inspected() {
     let (server, started) = plugin_server(INSPECTED_WITHOUT_BUILD);
-    let (code, _, stderr) = run(&server, &["plugins", "install", "github.com/acme/triage"]);
+    let (code, _, stderr) = run(&server, &["plugins", "install", "./triage"]);
     assert_eq!(code, 0, "{stderr}");
     let body: serde_json::Value = serde_json::from_str(&started.lock().unwrap()[0]).unwrap();
-    assert_eq!(
-        body["expect"],
-        serde_json::json!({"build": null, "commit": "abc1234"})
-    );
+    assert_eq!(body["expect"], serde_json::json!({"build": null}));
 }
 
 #[test]
-fn updating_every_plugin_leaves_out_a_build_nobody_confirmed() {
-    let (server, started) = plugin_server(INSPECTED_WITH_BUILD);
-    let (code, stdout, stderr) = run(&server, &["plugins", "update"]);
-    assert_eq!(code, 2, "{stderr}");
-    assert!(started.lock().unwrap().is_empty());
-    let answers: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(answers[0]["state"], "failed", "{answers}");
-    assert!(
-        answers[0]["error"].as_str().unwrap().contains("--yes"),
-        "{answers}"
-    );
-}
-
-#[test]
-fn an_install_that_cannot_reach_its_source_exits_1_and_a_wrong_source_2() {
-    for (kind, exit) in [("unavailable", 1), ("invalid", 2)] {
+fn an_install_the_app_fails_exits_1_and_a_refused_one_2() {
+    for (kind, exit) in [("internal", 1), ("invalid", 2)] {
         let failed = format!(
-            r#"{{"status":"failed","log":"","log_offset":0,"error":"git clone failed","error_kind":"{kind}","plugin":null}}"#
+            r#"{{"status":"failed","log":"","log_offset":0,"error":"the plugin cannot be installed","error_kind":"{kind}","plugin":null}}"#
         );
         let server = MockServer::start(Box::new(move |_, path, _| match path {
             "/api/v1/plugins/inspect" => (200, INSPECTED_WITHOUT_BUILD.into()),
@@ -1038,7 +989,7 @@ fn an_install_that_cannot_reach_its_source_exits_1_and_a_wrong_source_2() {
             "/api/v1/plugins/jobs/j_1" => (200, failed.clone()),
             other => panic!("unexpected {other}"),
         }));
-        let (code, _, stderr) = run(&server, &["plugins", "install", "github.com/acme/triage"]);
+        let (code, _, stderr) = run(&server, &["plugins", "install", "./triage"]);
         assert_eq!(code, exit, "{kind}: {stderr}");
     }
 }
@@ -1053,7 +1004,7 @@ fn an_install_answer_with_no_job_says_so() {
             format!(r#"{{"error":"not_found","message":"{other} not found","violations":[]}}"#),
         ),
     }));
-    let (code, _, stderr) = run(&server, &["plugins", "install", "github.com/acme/triage"]);
+    let (code, _, stderr) = run(&server, &["plugins", "install", "./triage"]);
     assert_eq!(code, 1, "{stderr}");
     assert!(stderr.contains("started no install job"), "{stderr}");
 }
@@ -2244,7 +2195,7 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
         (200, r#"{"plugins":[
             {"plugin":"forgeplane/list","name":"list","version":"1.0.0","install":{"kind":"bundled"},"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
             {"plugin":"local/review","name":"review","version":"2.1.0","install":{"kind":"link","linked":true,"source":"/src/review"},"error":null},
-            {"plugin":"acme/odd","name":"odd","version":"0.1.0","install":{"kind":"git","linked":false,"source":"github.com/acme/odd"},"error":"view/index.html not found"}]}"#.into())
+            {"plugin":"local/odd","name":"odd","version":"0.1.0","install":{"kind":"archive","linked":false,"source":"/src/odd.zip"},"error":"view/index.html not found"}]}"#.into())
     }));
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
@@ -2255,7 +2206,7 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
          \x20 Proposed actions to accept or reject.\n\
          \x20 Use when: You have changes to propose.\n\
          - local/review · 2.1.0 · linked, /src/review · ready\n\
-         - acme/odd · 0.1.0 · github.com/acme/odd · broken: view/index.html not found\n"
+         - local/odd · 0.1.0 · /src/odd.zip · broken: view/index.html not found\n"
     );
 }
 
@@ -2405,55 +2356,6 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["linked"], false);
     assert_eq!(json["next"][1], "pinrail plugins check other");
-}
-
-#[test]
-fn plugins_update_without_a_name_says_what_became_of_each_plugin() {
-    let server = MockServer::start(Box::new(|method, path, _| {
-        match (method, path) {
-        ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[
-            {"plugin":"forgeplane/list","name":"list","version":"1.0.0","install":{"kind":"bundled"}},
-            {"plugin":"local/review","name":"review","version":"2.1.0","install":{"kind":"link","linked":true,"source":"/src/review"}},
-            {"plugin":"acme/odd","name":"odd","version":"0.1.0","install":{"kind":"git","linked":false,"source":"github.com/acme/odd"}}]}"#.into()),
-        ("POST", "/api/v1/plugins/acme%2Fodd/update/inspect") => (200, r#"{"state":"up_to_date","version":"0.1.0"}"#.into()),
-        other => panic!("unexpected {other:?}"),
-    }
-    }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "update", "--markdown"]);
-    assert_eq!(code, 0, "{stderr}");
-    assert!(stderr.is_empty(), "{stderr}");
-    assert_eq!(
-        stdout,
-        "forgeplane/list: comes with the app and is updated with it\n\
-         local/review: linked, served live from /src/review\n\
-         acme/odd: up to date, 0.1.0\n"
-    );
-}
-
-#[test]
-fn plugins_update_without_a_name_reports_every_plugin_when_one_fails() {
-    // one failure in the middle: what was updated before it, and what comes
-    // after it, still has to be said
-    let server = MockServer::start(Box::new(|method, path, _| {
-        match (method, path) {
-        ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[
-            {"plugin":"acme/first","name":"first","version":"1.0.0","install":{"kind":"git","linked":false,"source":"github.com/acme/first"}},
-            {"plugin":"acme/broken","name":"broken","version":"1.0.0","install":{"kind":"git","linked":false,"source":"github.com/acme/broken"}},
-            {"plugin":"acme/last","name":"last","version":"1.0.0","install":{"kind":"git","linked":false,"source":"github.com/acme/last"}}]}"#.into()),
-        ("POST", "/api/v1/plugins/acme%2Ffirst/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
-        ("POST", "/api/v1/plugins/acme%2Fbroken/update/inspect") => (422, r#"{"error":"invalid","message":"github.com/acme/broken could not be fetched","violations":[]}"#.into()),
-        ("POST", "/api/v1/plugins/acme%2Flast/update/inspect") => (200, r#"{"state":"up_to_date","version":"1.0.0"}"#.into()),
-        other => panic!("unexpected {other:?}"),
-    }
-    }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "update", "--markdown"]);
-    assert_eq!(code, 2, "a failure is still a failure: {stderr}");
-    assert_eq!(
-        stdout,
-        "acme/first: up to date, 1.0.0\n\
-         acme/broken: failed: github.com/acme/broken could not be fetched\n\
-         acme/last: up to date, 1.0.0\n"
-    );
 }
 
 /// The command with no app to talk to: the address it would use answers
@@ -2684,25 +2586,6 @@ fn a_link_can_replace_a_plugin_and_give_it_back() {
         stdout,
         "Removed the link: forgeplane/review 1.0.0 is back.\n"
     );
-}
-
-/// Rolling back asks the app for the plugin's previous release, and says
-/// what new reviews use now.
-#[test]
-fn plugins_rollback_asks_for_the_previous_release() {
-    let server = MockServer::start(Box::new(|method, path, _| {
-        match (method, path) {
-        ("POST", "/api/v1/plugins/hello/rollback") => (
-            200,
-            r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"folder"}}"#
-                .into(),
-        ),
-        other => panic!("unexpected {other:?}"),
-    }
-    }));
-    let (code, stdout, stderr) = run(&server, &["plugins", "rollback", "hello", "--markdown"]);
-    assert_eq!(code, 0, "{stderr}");
-    assert_eq!(stdout, "local/hello: rolled back to 1.0.0\n");
 }
 
 /// A plugin as it is scaffolded with a framework, sources and a build but

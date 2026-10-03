@@ -6,7 +6,7 @@ use serde_json::{Value, json};
 
 use super::jobs::Jobs;
 use super::{InstallJob, InstallOptions, Plugin, Registry, install};
-use crate::db::{Db, InstallRecord};
+use crate::db::Db;
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
 
@@ -16,13 +16,6 @@ pub struct PluginService {
     registry: Arc<Registry>,
     bus: Bus,
     jobs: Arc<Jobs>,
-}
-
-/// Updating either starts a job or reports that the installed version is current.
-#[derive(Debug, PartialEq, Eq)]
-pub enum UpdateOutcome {
-    UpToDate { version: String },
-    Started { job_id: String },
 }
 
 impl PluginService {
@@ -101,26 +94,6 @@ impl PluginService {
         json!({ "plugins": plugins })
     }
 
-    /// Makes the release the last update replaced the one new reviews use
-    /// again, while it is kept. Reviews keep the release they were
-    /// submitted to, whichever is current.
-    pub fn rollback(&self, name: &str) -> Result<Value, Error> {
-        let record = self.installed(name)?;
-        let _changing = self.registry.changing();
-        if self.db.roll_back(&record.plugin)?.is_none() {
-            return Err(Error::invalid(
-                "/name",
-                format!("{} has no earlier release to roll back to", record.plugin),
-            ));
-        }
-        self.registry.reload()?;
-        self.announce()?;
-        self.registry
-            .get(&record.plugin)
-            .map(|p| p.to_json())
-            .ok_or_else(|| Error::NotFound(format!("plugin {name}")))
-    }
-
     /// The folder of a linked plugin, by full name; none for any other.
     pub fn installed_link(&self, plugin: &str) -> Option<std::path::PathBuf> {
         self.registry
@@ -166,12 +139,12 @@ impl PluginService {
         Ok(count)
     }
 
-    /// Fetches and inspects a source without installing it or announcing a change.
+    /// Inspects a source without installing it or announcing a change.
     pub async fn inspect(&self, source: &str, options: InstallOptions) -> Result<Value, Error> {
         let worker = self.clone();
         let source = source.to_string();
         tokio::task::spawn_blocking(move || {
-            install::inspect(&worker.db, &worker.registry, &source, options, &|_| {})
+            install::inspect(&worker.db, &worker.registry, &source, options)
         })
         .await
         .map_err(|error| Error::Internal(error.to_string()))?
@@ -215,115 +188,6 @@ impl PluginService {
         self.jobs
             .get(id)
             .ok_or_else(|| Error::NotFound(format!("install job {id}")))
-    }
-
-    /// Asks the original source whether a newer version is available.
-    pub async fn check_updates(&self, name: &str) -> Result<Value, Error> {
-        self.check_record(self.installed(name)?).await
-    }
-
-    /// What updating would install, without installing it: the inspection
-    /// of the newer version, with `"state": "available"`, or
-    /// `{"state": "up_to_date", "version"}`. An update that runs a build
-    /// needs the `expect` this answers with.
-    pub async fn inspect_update(&self, name: &str) -> Result<Value, Error> {
-        match self.update_source(name).await? {
-            Err(version) => Ok(serde_json::json!({ "state": "up_to_date", "version": version })),
-            Ok((source, options)) => {
-                let mut seen = self.inspect(&source, options).await?;
-                seen["state"] = Value::String("available".into());
-                Ok(seen)
-            }
-        }
-    }
-
-    /// Updates from the installation's original source, running a build
-    /// only as `expect` confirms it. Links and pinned versions are refused;
-    /// unchanged sources do not start a job or announce a change.
-    pub async fn start_update(
-        &self,
-        name: &str,
-        expect: Option<install::Expect>,
-    ) -> Result<UpdateOutcome, Error> {
-        match self.update_source(name).await? {
-            Err(version) => Ok(UpdateOutcome::UpToDate { version }),
-            Ok((source, mut options)) => {
-                options.expect = expect;
-                Ok(UpdateOutcome::Started {
-                    job_id: self.start_install(&source, options),
-                })
-            }
-        }
-    }
-
-    /// The source and options that update the plugin, or its version when
-    /// it is up to date.
-    async fn update_source(
-        &self,
-        name: &str,
-    ) -> Result<Result<(String, InstallOptions), String>, Error> {
-        let record = self.installed(name)?;
-        let answer = self.check_record(record.clone()).await?;
-        match answer["state"].as_str().unwrap_or("unknown") {
-            "linked" => {
-                return Err(Error::invalid(
-                    "/name",
-                    format!("{name} is a link: it is always what its folder holds"),
-                ));
-            }
-            "pinned" => {
-                let at = answer["tag"]
-                    .as_str()
-                    .or(answer["ref"].as_str())
-                    .unwrap_or("this version");
-                return Err(Error::invalid(
-                    "/name",
-                    format!("{name} is pinned to {at}; install another ref to move it"),
-                ));
-            }
-            "up_to_date" => {
-                let version = self.registry.get(&record.plugin).map(|p| p.version.clone());
-                return Ok(Err(version.unwrap_or_default()));
-            }
-            _ => {}
-        }
-        let (mut source, mut options) = install::source_of(&record);
-        // the release the check found, by its tag: a plugin whose tag names
-        // it shares its repository's latest release with the app and with
-        // the other plugins released there
-        if record.kind == "release"
-            && let Some(tag) = answer["tag"].as_str()
-            && let Some(page) = source.strip_suffix("/releases")
-        {
-            source = format!("{page}/releases/tag/{tag}");
-        }
-        options.updates = Some(record.name.clone());
-        Ok(Ok((source, options)))
-    }
-
-    fn installed(&self, name: &str) -> Result<InstallRecord, Error> {
-        let plugin = self
-            .registry
-            .resolve(name)
-            .map_err(|_| Error::NotFound(format!("plugin {name}")))?;
-        let record = self
-            .db
-            .install(&plugin)?
-            .ok_or_else(|| Error::NotFound(format!("plugin {name}")))?;
-        if record.kind == "bundled" {
-            return Err(Error::invalid(
-                "/name",
-                format!("{plugin} ships with Pinrail and is updated with it"),
-            ));
-        }
-        Ok(record)
-    }
-
-    async fn check_record(&self, record: InstallRecord) -> Result<Value, Error> {
-        let registry = self.registry.clone();
-        tokio::task::spawn_blocking(move || install::check_updates(&registry, &record))
-            .await
-            .map_err(|error| Error::Internal(error.to_string()))
     }
 
     fn announce(&self) -> Result<(), Error> {

@@ -23,18 +23,8 @@ type Stage =
 
 const STEPS: InstallJob["status"][] = ["fetching", "inspecting", "building", "placing"];
 
-/** A path on this machine, as opposed to a URL or a repository. */
-const isLocal = (source: string) => /^(\/|\.|~)/.test(source.trim());
-const isRelease = (source: string) => /\/releases(\/|$)/.test(source.trim());
-
-const short = (commit: string | null) => (commit ? commit.slice(0, 7) : null);
-
-const size = (bytes: number | undefined) => {
-  if (bytes === undefined) return null;
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-};
+/** A zip, which is installed as it is and cannot be linked. */
+const isZip = (source: string) => /\.zip$/i.test(source.trim());
 
 const failure = (e: unknown) =>
   e instanceof ApiError
@@ -50,61 +40,23 @@ function Origin({ seen }: { seen: Inspection }) {
     return (
       <p>
         {seen.link ? "Linked from the folder " : "From the folder "}
-        <span className="mono">{String(origin.resolved)}</span>
-      </p>
-    );
-  }
-  if (origin.kind === "archive") {
-    return (
-      <p>
-        From the zip <span className="mono">{String(origin.resolved)}</span>
-      </p>
-    );
-  }
-  const r = typeof origin.resolved === "object" ? origin.resolved : {};
-  if (origin.kind === "git") {
-    return (
-      <p>
-        From the repository <span className="mono">{r.url}</span>
-        {r.path ? (
-          <>
-            , folder <span className="mono">{r.path}</span>
-          </>
-        ) : null}
-        {r.ref ? (
-          <>
-            , at <span className="mono">{r.ref}</span>
-          </>
-        ) : null}
-        {origin.commit ? (
-          <>
-            {" "}
-            · commit <span className="mono">{short(origin.commit)}</span>
-          </>
-        ) : null}
+        <span className="mono">{origin.resolved}</span>
       </p>
     );
   }
   return (
     <p>
-      Release <span className="mono">{r.tag}</span> of{" "}
-      <span className="mono">
-        {r.owner}/{r.repo}
-      </span>
-      , asset <span className="mono">{r.asset}</span>
-      {r.asset_size !== undefined ? ` (${size(r.asset_size)})` : ""}
-      {r.pinned ? ", pinned to this tag" : ", the latest release"}
+      From the zip <span className="mono">{origin.resolved}</span>
     </p>
   );
 }
 
 /** What runs on this computer, and what happens to what is already installed. */
 function Consequences({ seen }: { seen: Inspection }) {
-  const local = seen.origin.kind === "folder";
   const installed = seen.installed;
   return (
     <>
-      {seen.origin.kind === "release" || seen.origin.kind === "archive" ? (
+      {seen.origin.kind === "archive" ? (
         <p className="install-runs" data-runs="nothing">
           <b>Nothing runs on your computer.</b> The bundle is unpacked, checked and used as it is.
         </p>
@@ -113,15 +65,13 @@ function Consequences({ seen }: { seen: Inspection }) {
           <b>Nothing is copied.</b> Pinrail serves the folder directly, so changes appear the next time the view opens.
         </p>
       ) : seen.build ? (
-        <div className={`install-runs ${local ? "" : "is-warning"}`} data-runs="build">
+        <div className="install-runs" data-runs="build">
           <p>
             <b>Builds with</b> <code className="mono">{seen.build}</code>
           </p>
           <p>
-            {local
-              ? "The command runs on this computer with your user permissions, through the shell."
-              : "The command runs on this computer with your user permissions, outside any sandbox, together with any scripts the dependencies run when they install."}{" "}
-            Any tools it needs must be on your PATH. Choose Install to run it.
+            The command runs on this computer with your user permissions, through the shell. Any tools it needs must be
+            on your PATH. Choose Install to run it.
           </p>
         </div>
       ) : (
@@ -144,7 +94,7 @@ function Consequences({ seen }: { seen: Inspection }) {
             {seen.name} {installed.version} is already installed
           </b>
           {installed.linked
-            ? installed.path === String(seen.origin.resolved)
+            ? installed.path === seen.origin.resolved
               ? `, as a link to this folder. Installing makes a copy and removes the link.`
               : `, as a link to ${installed.path}. Installing copies this folder and removes the link.`
             : installed.unchanged
@@ -160,8 +110,6 @@ function Consequences({ seen }: { seen: Inspection }) {
 
 export function InstallPanel({ initial, onClose }: { initial?: string; onClose: () => void }) {
   const [source, setSource] = useState(initial ?? "");
-  const [ref, setRef] = useState("");
-  const [path, setPath] = useState("");
   const [link, setLink] = useState(false);
   const [stage, setStage] = useState<Stage>({ at: "source" });
   // a job followed after the panel closed would poll for nothing
@@ -194,14 +142,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
     if (logBox.current) logBox.current.scrollTop = logBox.current.scrollHeight;
   });
 
-  const request = (): InstallRequest => {
-    const body: InstallRequest = { source: source.trim(), link };
-    if (!isLocal(source) && !isRelease(source)) {
-      if (ref.trim()) body.ref = ref.trim();
-      if (path.trim()) body.path = path.trim();
-    }
-    return body;
-  };
+  const request = (): InstallRequest => ({ source: source.trim(), link: link && !isZip(source) });
 
   const look = async () => {
     if (!source.trim() || stage.at === "looking") return;
@@ -277,7 +218,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
               className="settings-input install-source-field"
               type="text"
               aria-label="Source"
-              placeholder="/path/to/plugin, /path/to/plugin.zip, github.com/owner/repo/folder@ref, or a releases page"
+              placeholder="/path/to/plugin or /path/to/plugin.zip"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -319,39 +260,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
               {stage.at === "looking" ? "Inspecting…" : "Inspect"}
             </button>
           </div>
-          {!isLocal(source) && !isRelease(source) && source.trim() ? (
-            <div className="install-beside">
-              <input
-                className="settings-input"
-                type="text"
-                aria-label="Ref"
-                placeholder="Branch, tag or commit"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                value={ref}
-                disabled={busy}
-                onChange={(e) => setRef(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && look()}
-              />
-              <input
-                className="settings-input"
-                type="text"
-                aria-label="Folder"
-                placeholder="Folder in the repository"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                value={path}
-                disabled={busy}
-                onChange={(e) => setPath(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && look()}
-              />
-            </div>
-          ) : null}
-          {isLocal(source) ? (
+          {source.trim() && !isZip(source) ? (
             <div className="install-link">
               <Toggle label="Link instead of copying" checked={link} disabled={busy} onChange={setLinked} />
               <span onClick={() => !busy && setLinked(!link)}>

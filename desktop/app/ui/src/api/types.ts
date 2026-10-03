@@ -119,17 +119,12 @@ export type Plugin = {
 
 /** Where an installed plugin came from, and the bundle new reviews use. */
 export type PluginInstall = {
-  kind: "bundled" | "folder" | "archive" | "link" | "git" | "release";
+  kind: "bundled" | "folder" | "archive" | "link";
   source: string;
   /** served live from its folder rather than copied */
   linked: boolean;
-  commit: string | null;
-  tag: string | null;
-  asset_hash: string | null;
   /** the bundle new reviews render with; null for a link */
   bundle: string | null;
-  /** the release the last update replaced, while it can be rolled back to */
-  previous: { version: string; bundle: string; until: string } | null;
   /** for a link in a published plugin's place: that plugin's source,
    *  which removing the link puts back */
   replaced: { kind: string; source: string } | null;
@@ -161,21 +156,9 @@ export type Inspection = {
   /** the files it would take beside a payload; null for none */
   attachments?: AttachmentRules | null;
   origin: {
-    kind: "folder" | "archive" | "git" | "release";
-    resolved:
-      | string
-      | {
-          url?: string;
-          path?: string | null;
-          ref?: string | null;
-          owner?: string;
-          repo?: string;
-          tag?: string;
-          asset?: string;
-          asset_size?: number;
-          pinned?: boolean;
-        };
-    commit: string | null;
+    kind: "folder" | "archive";
+    /** the folder or the zip, as a full path */
+    resolved: string;
   };
   /** what is installed under the full name already; `path` is a link's folder */
   installed: {
@@ -189,7 +172,7 @@ export type Inspection = {
   older: boolean;
 };
 
-export type InstallExpect = { build: string | null; commit?: string; asset_hash?: string };
+export type InstallExpect = { build: string | null };
 
 export type InstallJob = {
   id: string;
@@ -199,13 +182,6 @@ export type InstallJob = {
   error: string | null;
   plugin: Plugin | null;
 };
-
-export type PluginUpdates =
-  | { state: "up_to_date"; commit?: string; tag?: string }
-  | { state: "available"; version?: string; commit?: string; tag?: string; installed?: string; message?: string }
-  | { state: "pinned"; ref?: string; tag?: string }
-  | { state: "linked" }
-  | { state: "unknown"; message?: string };
 
 export type PluginShortcut = { keys: string; does: string; group?: string };
 

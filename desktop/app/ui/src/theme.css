@@ -2479,8 +2479,7 @@ h1 {
   gap: 10px;
   margin-top: 2px;
 }
-.settings-plugin-origin,
-.settings-plugin-previous {
+.settings-plugin-origin {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -2682,15 +2681,6 @@ h1 {
   width: auto;
   min-width: 0;
 }
-.install-beside {
-  display: flex;
-  gap: 8px;
-}
-.install-beside .settings-input {
-  flex: 1;
-  width: auto;
-  min-width: 0;
-}
 .install-link {
   display: flex;
   align-items: center;
@@ -2719,12 +2709,6 @@ h1 {
 .install-runs {
   display: grid;
   gap: 4px;
-}
-.install-runs.is-warning {
-  padding: 8px 10px;
-  border-left: 3px solid var(--danger);
-  background: color-mix(in srgb, var(--danger) 6%, transparent);
-  border-radius: 0 6px 6px 0;
 }
 .install-runs code {
   background: var(--bg);

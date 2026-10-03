@@ -69,19 +69,6 @@ test("a folder is looked at before it is installed, and its row says where it ca
   expect(greeter.install.linked).toBe(false);
   expect(greeter.install.bundle).toBeTruthy();
 
-  // checking for updates of a copy compares the folder with the store
-  await row.getByRole("button", { name: "Check for updates of greeter" }).click();
-  await expect(row.locator("[data-plugin-updates]")).toHaveText("Up to date");
-
-  // once the folder changes, the check offers an update, which copies it again
-  fs.writeFileSync(path.join(source, "view/index.html"), "<html>second</html>");
-  await row.getByRole("button", { name: "Check for updates of greeter" }).click();
-  await expect(row.locator("[data-plugin-updates]")).toHaveText("The folder changed since it was copied");
-  await row.locator("[data-plugin-update]").click();
-  await expect(row.locator("[data-plugin-updates]")).toHaveText("Updated to 1.2.0");
-  const served = await servedView(page, "greeter");
-  expect(served).toBe("<html>second</html>");
-
   // the same version again says what it replaces
   const again = await openInstall(page);
   await again.getByLabel("Source").fill(source);
@@ -89,13 +76,16 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await expect(again.locator('[data-replaces="unchanged"]')).toContainText(
     "greeter 1.2.0 is already installed, from this source, and the source has not changed",
   );
-  // once the folder changes, the same version replaces what is there
-  fs.appendFileSync(path.join(source, "view/index.html"), "<!-- edited -->");
+  // once the folder changes, installing the same version again copies it again
+  fs.writeFileSync(path.join(source, "view/index.html"), "<html>second</html>");
   await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="same"]')).toContainText(
     "greeter 1.2.0 is already installed. Installing replaces it for new reviews",
   );
-  await again.getByLabel("Source").press("Escape");
+  await again.locator("[data-install-confirm]").click();
+  await expect(again.locator("[data-install-done]")).toContainText("1.2.0 is ready");
+  await again.locator("[data-install-close]").click();
+  expect(await servedView(page, "greeter")).toBe("<html>second</html>");
 
   // removing asks once, in the row, then the row goes
   await row.getByRole("button", { name: "Remove greeter" }).click();
@@ -133,42 +123,6 @@ test("a source that builds shows the exact command as the consent, then runs it"
 
   const bundle = await servedView(page, "compiled");
   expect(bundle).toBe("<html>built</html>");
-});
-
-test("an update that brings a build shows the command and runs it only once confirmed", async ({ page }) => {
-  const source = pluginCopy("hello", "rebuilt", "1.0.0");
-  const dialog = await openInstall(page);
-  await dialog.getByLabel("Source").fill(source);
-  await dialog.locator("[data-install-look]").click();
-  await dialog.locator("[data-install-confirm]").click();
-  await expect(dialog.locator("[data-install-done]")).toContainText("1.0.0 is ready");
-  await dialog.locator("[data-install-close]").click();
-
-  // the next version builds its view
-  const command = "mkdir -p view && printf '<html>rebuilt</html>' > view/index.html";
-  const manifest = JSON.parse(fs.readFileSync(path.join(source, "manifest.json"), "utf8"));
-  fs.writeFileSync(
-    path.join(source, "manifest.json"),
-    JSON.stringify({ ...manifest, version: "1.1.0", build: { command } }),
-  );
-  const row = page.locator('[data-plugin-row="rebuilt"]');
-  await row.getByRole("button", { name: "Check for updates of rebuilt" }).click();
-  await row.locator("[data-plugin-update]").click();
-  const ask = row.locator("[data-plugin-update-ask]");
-  await expect(ask).toContainText(command);
-
-  // turned down, nothing runs
-  await ask.getByRole("button", { name: "Cancel" }).click();
-  await expect(ask).toHaveCount(0);
-  const before = await (await page.request.get(`${core}/api/v1/plugins`)).json();
-  expect(before.plugins.find((p: { name: string }) => p.name === "rebuilt").version).toBe("1.0.0");
-
-  await row.getByRole("button", { name: "Check for updates of rebuilt" }).click();
-  await row.locator("[data-plugin-update]").click();
-  await row.locator("[data-plugin-update-confirm]").click();
-  await expect(row.locator("[data-plugin-updates]")).toHaveText("Updated to 1.1.0");
-  const served = await servedView(page, "rebuilt");
-  expect(served).toBe("<html>rebuilt</html>");
 });
 
 test("a link serves the folder live and offers to install a copy", async ({ page }) => {
@@ -278,33 +232,4 @@ test("an install whose progress stops answering ends as failed, not stuck", asyn
 
   await expect(dialog.locator(".install-error"), "the panel kept waiting").toBeVisible({ timeout: 15000 });
   await expect(page.locator('[aria-label="Close the install"]')).toBeEnabled();
-});
-
-/** Installs a copy of a folder through the API and waits for the job. */
-async function installCopy(page: Page, source: string) {
-  const inspected = await (await page.request.post(`${core}/api/v1/plugins/inspect`, { data: { source } })).json();
-  const started = await page.request.post(`${core}/api/v1/plugins/install`, {
-    data: { source, expect: inspected.expect },
-  });
-  const { job } = await started.json();
-  await expect
-    .poll(async () => (await (await page.request.get(`${core}/api/v1/plugins/jobs/${job}`)).json()).status)
-    .toBe("done");
-}
-
-test("an update can be rolled back from the plugin's details", async ({ page }) => {
-  await installCopy(page, pluginCopy("hello", "undone", "1.0.0"));
-  await installCopy(page, pluginCopy("hello", "undone", "1.0.1"));
-
-  await page.goto("/#/plugins");
-  const row = page.locator('[data-plugin-row="undone"]');
-  await row.getByRole("button", { name: "Details of undone" }).click();
-  const previous = row.locator("[data-plugin-previous]");
-  await expect(previous).toContainText("1.0.0, kept until");
-  await previous.locator("[data-plugin-rollback]").click();
-
-  await expect(row.locator("[data-plugin-previous]")).toHaveCount(0);
-  const { plugins } = await (await page.request.get(`${core}/api/v1/plugins`)).json();
-  expect(plugins.find((p: { name: string }) => p.name === "undone").version).toBe("1.0.0");
-  await page.request.delete(`${core}/api/v1/plugins/undone`);
 });

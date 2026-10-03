@@ -5,9 +5,7 @@ use std::time::Duration;
 
 use pinrail_core::db::Db;
 use pinrail_core::events;
-use pinrail_core::plugins::{
-    InstallExpect, InstallJob, InstallOptions, PluginService, UpdateOutcome,
-};
+use pinrail_core::plugins::{InstallExpect, InstallJob, InstallOptions, PluginService};
 use pinrail_core::{Config, Error, Pinrail};
 use serde_json::{Value, json};
 
@@ -110,7 +108,7 @@ async fn a_refused_install_leaves_the_installed_plugin_as_it_was() {
 }
 
 #[tokio::test]
-async fn inspection_and_update_jobs_work_without_http() {
+async fn an_inspection_and_installs_work_without_http() {
     let dir = tempfile::tempdir().unwrap();
     let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let sources = dir.path().join("sources");
@@ -139,29 +137,14 @@ async fn inspection_and_update_jobs_work_without_http() {
     assert_eq!(row["plugin"], "local/hello");
     assert_eq!(row["version"], "1.0.0");
     assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
-    assert_eq!(
-        app.plugins().check_updates("hello").await.unwrap()["state"],
-        "up_to_date"
-    );
-    assert_eq!(
-        app.plugins().start_update("hello", None).await.unwrap(),
-        UpdateOutcome::UpToDate {
-            version: "1.0.0".into()
-        }
-    );
     assert!(notices.try_recv().is_err());
     assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 
+    // installing again from the changed folder upgrades it
     plugin(&sources, "hello", "1.0.1");
-    assert_eq!(
-        app.plugins().check_updates("hello").await.unwrap()["state"],
-        "available"
-    );
-    let UpdateOutcome::Started { job_id } =
-        app.plugins().start_update("hello", None).await.unwrap()
-    else {
-        panic!("the changed source should start an update job");
-    };
+    let job_id = app
+        .plugins()
+        .start_install(source, InstallOptions::default());
     let updated = finished(app.plugins(), &job_id).await;
     assert_eq!(updated.status, "done", "{updated:?}");
     assert_eq!(updated.plugin.unwrap()["version"], "1.0.1");
@@ -190,7 +173,6 @@ async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plug
         InstallOptions {
             expect: Some(InstallExpect {
                 build: Some("echo build-failed; exit 1".into()),
-                ..InstallExpect::default()
             }),
             ..InstallOptions::default()
         },
@@ -220,8 +202,8 @@ async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plug
     assert!(db.events_after(0, 10).unwrap().is_empty());
 }
 
-/// A review keeps the release it was submitted to: through an update to a
-/// new major and the plugin's removal, it renders and decides with it.
+/// A review keeps the release it was submitted to: through an install of
+/// a new major and the plugin's removal, it renders and decides with it.
 #[tokio::test]
 async fn a_review_keeps_its_release_through_updates_and_removal() {
     let dir = tempfile::tempdir().unwrap();
@@ -243,11 +225,9 @@ async fn a_review_keeps_its_release_through_updates_and_removal() {
     assert_eq!(review.plugin_version, "1.0.0");
 
     plugin(&sources, "hello", "2.0.0");
-    let UpdateOutcome::Started { job_id } =
-        app.plugins().start_update("hello", None).await.unwrap()
-    else {
-        panic!("a newer major version should start an update job");
-    };
+    let job_id = app
+        .plugins()
+        .start_install(source.to_str().unwrap(), InstallOptions::default());
     let updated = finished(app.plugins(), &job_id).await;
     assert_eq!(updated.status, "done", "{updated:?}");
 
@@ -261,29 +241,6 @@ async fn a_review_keeps_its_release_through_updates_and_removal() {
     assert_eq!(kept.version, "1.0.0");
     app.reviews().decide(&review.id, &json!({}), None).unwrap();
     assert!(app.reviews().get(&review.id).unwrap().decision.is_some());
-}
-
-#[tokio::test]
-async fn a_link_refuses_update_without_starting_work_or_announcing_a_change() {
-    let dir = tempfile::tempdir().unwrap();
-    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
-    let sources = dir.path().join("sources");
-    link(&app, &plugin(&sources, "hello", "1.0.0")).await;
-    let mut notices = app.events().subscribe();
-
-    assert_eq!(
-        app.plugins().check_updates("hello").await.unwrap()["state"],
-        "linked"
-    );
-    let error = app.plugins().start_update("hello", None).await.unwrap_err();
-    assert!(error.to_string().contains("is a link"), "{error}");
-    assert!(matches!(
-        app.plugins().start_update("missing", None).await,
-        Err(Error::NotFound(_))
-    ));
-    assert!(notices.try_recv().is_err());
-    let db = Db::open(&app.config().db_path()).unwrap();
-    assert_eq!(db.events_after(0, 10).unwrap().len(), 1);
 }
 
 #[tokio::test]

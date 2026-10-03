@@ -153,21 +153,15 @@ test("plugins install stores a bundle, and a link serves the folder live", async
   expect(refused.stderr).toContain("not a plugin");
 });
 
-test("plugins update says when there is nothing new, and remove drops the record", async () => {
+test("installing again replaces a plugin, and remove drops the record", async () => {
   const hello = path.resolve(__dirname, "../../plugins/hello");
   try {
     const installed = pinrailJson(["plugins", "install", hello]);
     expect(installed.install.linked).toBe(false);
-
-    const same = pinrailJson(["plugins", "update", "hello"]);
-    expect(same.state).toBe("up_to_date");
-    expect(same.version).toBe("1.0.0");
+    expect(installed.version).toBe("1.0.0");
 
     const linked = pinrailJson(["plugins", "install", hello, "--link"]);
     expect(linked.install.linked).toBe(true);
-    const refused = pinrail(["plugins", "update", "hello"]);
-    expect(refused.code).toBe(2);
-    expect(refused.stderr).toContain("is a link");
 
     const removed = pinrailJson(["plugins", "remove", "hello"]);
     expect(removed.removed).toBe("local/hello");

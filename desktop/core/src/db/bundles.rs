@@ -102,27 +102,20 @@ impl Db {
     }
 
     /// Deletes the bundles stored before `before` that nothing refers to:
-    /// no review was submitted to them, and no installation uses them or
-    /// keeps them to roll back to. A previous bundle whose week is over is
-    /// let go first. Returns the ones it deleted.
+    /// no review was submitted to them, and no installation uses them.
+    /// Returns the ones it deleted.
     pub fn delete_unreferenced_bundles(
         &self,
         before: chrono::DateTime<Utc>,
     ) -> rusqlite::Result<Vec<String>> {
         let mut conn = self.conn();
         let tx = conn.transaction()?;
-        tx.execute(
-            "UPDATE plugin_installs SET previous = NULL, previous_until = NULL
-             WHERE previous_until <= ?1",
-            params![now()],
-        )?;
         let gone = tx
             .prepare(
                 "DELETE FROM plugin_bundles
                  WHERE stored_at < ?1
                    AND NOT EXISTS (SELECT 1 FROM plugin_installs i
                                    WHERE i.bundle = plugin_bundles.hash
-                                      OR i.previous = plugin_bundles.hash
                                       OR json_extract(i.replaced, '$.bundle') = plugin_bundles.hash)
                    AND NOT EXISTS (SELECT 1 FROM reviews r
                                    WHERE r.plugin_bundle = plugin_bundles.hash)

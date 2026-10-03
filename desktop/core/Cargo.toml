@@ -35,11 +35,10 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "net", "
 tokio-stream = { version = "0.1", features = ["sync"] }
 tokio-util = { version = "0.7", features = ["io"] }
 tower-http = { version = "0.6", features = ["cors", "set-header"] }
-ureq = { version = "3", features = ["json"] }
 zip = { version = "4", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
-# to signal a build's or a fetch's whole process group
+# to signal a build's whole process group
 rustix = { version = "1", features = ["process"] }
 
 [dev-dependencies]

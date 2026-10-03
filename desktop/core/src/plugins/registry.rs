@@ -15,7 +15,7 @@ use serde_json::Value;
 
 use super::bundles::{Bundles, Files};
 use super::install::BUNDLED_PUBLISHER;
-use super::manifest::{Install, Plugin, Previous};
+use super::manifest::{Install, Plugin};
 use crate::db::{Db, InstallRecord};
 use crate::error::Error;
 
@@ -95,12 +95,8 @@ pub(crate) fn store_releases(
                 kind: "bundled".into(),
                 resolved: source.clone(),
                 source,
-                commit: None,
-                asset_hash: None,
                 build_log: None,
                 bundle: Some(bundle.hash.clone()),
-                previous: None,
-                previous_until: None,
                 replaced: None,
                 installed_at: now.clone(),
                 updated_at: now.clone(),
@@ -125,13 +121,10 @@ struct RegistryState {
 pub struct Registry {
     db: Arc<Db>,
     bundles: Bundles,
-    /// Where fetches, builds and their logs go: `work/` and `logs/`.
+    /// Where zips are unpacked, builds run, and their logs go: `work/` and `logs/`.
     plugins_dir: PathBuf,
-    /// Where release installs and update checks ask GitHub.
-    github_api: String,
     /// How long a plugin's build may run.
     build_timeout: std::time::Duration,
-    fetch_timeout: std::time::Duration,
     state: RwLock<RegistryState>,
     /// The plugins of bundles a review asked for, by the bundle's hash: a
     /// bundle never changes.
@@ -148,25 +141,13 @@ impl Registry {
             db,
             bundles,
             plugins_dir,
-            github_api: "https://api.github.com".to_string(),
             build_timeout: crate::config::BUILD_TIMEOUT,
-            fetch_timeout: crate::config::FETCH_TIMEOUT,
             state: RwLock::default(),
             by_bundle: Mutex::default(),
             changes: Mutex::default(),
         };
         registry.reload()?;
         Ok(registry)
-    }
-
-    /// Asks another GitHub API root than the public one.
-    pub fn with_github_api(mut self, root: impl Into<String>) -> Self {
-        self.github_api = root.into();
-        self
-    }
-
-    pub fn github_api(&self) -> &str {
-        &self.github_api
     }
 
     /// Stops builds after `timeout` rather than the default.
@@ -179,20 +160,11 @@ impl Registry {
         self.build_timeout
     }
 
-    pub fn with_fetch_timeout(mut self, timeout: std::time::Duration) -> Self {
-        self.fetch_timeout = timeout;
-        self
-    }
-
-    pub fn fetch_timeout(&self) -> std::time::Duration {
-        self.fetch_timeout
-    }
-
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
     }
 
-    /// Where a source is fetched and built: scratch, emptied at start.
+    /// Where a zip is unpacked and a source built: scratch, emptied at start.
     pub fn work_dir(&self) -> PathBuf {
         self.plugins_dir.join("work")
     }
@@ -373,17 +345,6 @@ impl Registry {
             ));
         }
         plugin.name = install.name.clone();
-        let now = crate::reviews::iso(Utc::now());
-        let previous = match (&install.previous, &install.previous_until) {
-            (Some(bundle), Some(until)) if until.as_str() > now.as_str() => {
-                self.db.bundle(bundle)?.map(|b| Previous {
-                    version: b.version,
-                    bundle: bundle.clone(),
-                    until: until.clone(),
-                })
-            }
-            _ => None,
-        };
         let modified = !install.linked()
             && install
                 .bundle
@@ -395,14 +356,7 @@ impl Registry {
             kind: install.kind.clone(),
             source: install.source.clone(),
             linked: install.linked(),
-            commit: install.commit.clone(),
-            tag: (install.kind == "release")
-                .then(|| serde_json::from_str::<Value>(&install.resolved).ok())
-                .flatten()
-                .and_then(|r| r["tag"].as_str().map(str::to_string)),
-            asset_hash: install.asset_hash.clone(),
             bundle: install.bundle.clone(),
-            previous,
             replaced: install
                 .replaced
                 .as_deref()
@@ -567,12 +521,8 @@ mod tests {
             kind: "link".into(),
             source: folder.display().to_string(),
             resolved: folder.display().to_string(),
-            commit: None,
-            asset_hash: None,
             build_log: None,
             bundle: None,
-            previous: None,
-            previous_until: None,
             replaced: None,
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),

@@ -76,34 +76,19 @@ pub struct Install {
     /// The full name, `<publisher>/<name>`.
     pub plugin: String,
     pub publisher: String,
-    /// `bundled`, `folder`, `link`, `git` or `release`
+    /// `bundled`, `folder`, `archive` or `link`
     pub kind: String,
     pub source: String,
     pub linked: bool,
-    pub commit: Option<String>,
-    /// for a release, the tag it came from
-    pub tag: Option<String>,
-    /// for a release, the SHA-256 of the asset downloaded
-    pub asset_hash: Option<String>,
     /// The bundle new reviews render with; none for a link.
     pub bundle: Option<String>,
     /// the bundle's files no longer match its listing
     pub modified: bool,
     pub installed_at: String,
     pub updated_at: String,
-    /// The release the current one replaced, while it can be rolled back to.
-    pub previous: Option<Previous>,
     /// For a link that takes a published plugin's place: that plugin's
     /// source, `{kind, source}`, which removing the link puts back.
     pub replaced: Option<Value>,
-}
-
-/// A release an installation can be rolled back to, until when.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Previous {
-    pub version: String,
-    pub bundle: String,
-    pub until: String,
 }
 
 impl Install {
@@ -112,13 +97,7 @@ impl Install {
             "kind": self.kind,
             "source": self.source,
             "linked": self.linked,
-            "commit": self.commit,
-            "tag": self.tag,
-            "asset_hash": self.asset_hash,
             "bundle": self.bundle,
-            "previous": self.previous.as_ref().map(|p| serde_json::json!({
-                "version": p.version, "bundle": p.bundle, "until": p.until,
-            })),
             "replaced": self.replaced,
             "modified": self.modified,
             "installed_at": self.installed_at,

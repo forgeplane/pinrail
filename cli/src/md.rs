@@ -189,7 +189,7 @@ pub fn plugins_result(value: &Value) -> String {
     if let Some(all) = value.as_array() {
         return all.iter().map(plugins_result).collect();
     }
-    // install, and an update that installed: the plugin as the app has it
+    // install: the plugin as the app has it
     let plugin = if value["plugin"].is_object() {
         &value["plugin"]
     } else {
@@ -203,12 +203,6 @@ pub fn plugins_result(value: &Value) -> String {
             .as_str()
             .map(|s| format!(" from {s}"))
             .unwrap_or_default();
-        if value["state"] == "rolled_back" {
-            return format!("{name}: rolled back to {}\n", text(&plugin["version"]));
-        }
-        if value["state"] == "updated" {
-            return format!("{name}: updated to {}{from}\n", text(&plugin["version"]));
-        }
         return format!("Installed {name} {}{from}.\n", text(&plugin["version"]));
     }
     match (
@@ -216,27 +210,6 @@ pub fn plugins_result(value: &Value) -> String {
         value["removed"].as_str(),
         value["count"].as_u64(),
     ) {
-        (Some("up_to_date"), ..) => format!(
-            "{}: up to date, {}\n",
-            text(&value["name"]),
-            text(&value["version"])
-        ),
-        (Some("failed"), ..) => format!(
-            "{}: failed: {}\n",
-            text(&value["name"]),
-            text(&value["error"])
-        ),
-        (Some("built_in"), ..) => {
-            format!(
-                "{}: comes with the app and is updated with it\n",
-                text(&value["name"])
-            )
-        }
-        (Some("linked"), ..) => format!(
-            "{}: linked, served live from {}\n",
-            text(&value["name"]),
-            text(&value["source"])
-        ),
         (_, Some(name), ..) => match value["restored"].as_str() {
             Some(version) => format!("Removed the link: {name} {version} is back.\n"),
             None => format!("Removed {name}.\n"),

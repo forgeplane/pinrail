@@ -130,9 +130,7 @@ impl Pinrail {
         plugin_store::store_bundled(&db, &bundles)?;
         let registry = Arc::new(
             Registry::open(db.clone(), bundles.clone(), config.plugins_dir())?
-                .with_github_api(&config.github_api)
-                .with_build_timeout(config.build_timeout)
-                .with_fetch_timeout(config.fetch_timeout),
+                .with_build_timeout(config.build_timeout),
         );
         let events = Events::new(db.clone());
         let settings =

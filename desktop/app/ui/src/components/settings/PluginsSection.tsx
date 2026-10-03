@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Send,
   CircleCheck,
-  CloudDownload,
   FolderOpen,
   Link2,
   PackagePlus,
@@ -20,9 +19,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
-import type { InstallExpect, Plugin, PluginUpdates, SettingProperty } from "../../api/types";
+import type { Plugin, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
-import { followJob } from "../../lib/jobs";
 import { REVEAL } from "../../lib/keys";
 import { sourceOf } from "../../lib/links";
 import { PluginBadge } from "../Badges";
@@ -162,31 +160,7 @@ function originOf(p: Plugin): { how: string; where: string | null } {
   if (i.linked && i.replaced)
     return { how: `Linked in place of ${i.replaced.source || "the published plugin"}, to`, where: p.path };
   if (i.linked) return { how: "Linked to", where: p.path };
-  if (i.kind === "git")
-    return { how: "Cloned from", where: `${i.source}${i.commit ? ` · ${i.commit.slice(0, 7)}` : ""}` };
-  if (i.kind === "release") return { how: "Downloaded from", where: `${i.source}${i.tag ? ` · ${i.tag}` : ""}` };
   return { how: "Copied from", where: i.source };
-}
-
-type Line = { text: string; tone: "ok" | "dim" | "danger"; updatable?: boolean };
-
-/** What "check for updates" found, in a few words. */
-function updatesLine(u: PluginUpdates): Line {
-  switch (u.state) {
-    case "up_to_date":
-      return { text: "Up to date", tone: "ok" };
-    case "available":
-      if (u.version) return { text: `${u.version} is available`, tone: "ok", updatable: true };
-      if (u.commit)
-        return { text: `A newer commit is available: ${u.commit.slice(0, 7)}`, tone: "ok", updatable: true };
-      return { text: "The folder changed since it was copied", tone: "ok", updatable: true };
-    case "pinned":
-      return { text: `Pinned to ${u.tag ?? u.ref ?? "this version"}`, tone: "dim" };
-    case "linked":
-      return { text: "A linked plugin always uses the current contents of its folder", tone: "dim" };
-    default:
-      return { text: `Could not check: ${u.message ?? "unknown"}`, tone: "danger" };
-  }
 }
 
 /** One installed plugin: its row, and its settings folded under it when it declares any. */
@@ -223,19 +197,7 @@ function PluginEntry({
   const entries = schema ? Object.entries(schema.properties) : [];
   const changed = entries.filter(([key, property]) => key in stored && stored[key] !== property.default);
   const [open, setOpen] = useState(openAtStart);
-  const [updates, setUpdates] = useState<Line | "checking" | null>(null);
-  /** an update under way: the job's step */
-  const [updating, setUpdating] = useState<string | null>(null);
-  // an update followed after the row went away would poll for nothing
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
   const [removing, setRemoving] = useState<"asking" | "busy" | null>(null);
-  const [rolling, setRolling] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -247,78 +209,6 @@ function PluginEntry({
 
   const resetAll = () => onChange(Object.fromEntries(entries.map(([key, property]) => [key, property.default])));
   const toggle = () => setOpen((o) => !o);
-
-  const check = async () => {
-    setUpdates("checking");
-    try {
-      setUpdates(updatesLine(await api.pluginUpdates(p.plugin)));
-    } catch (e) {
-      setUpdates({ text: `Could not check: ${e instanceof Error ? e.message : "unknown"}`, tone: "danger" });
-    }
-  };
-
-  /** an update whose build waits for a yes: the command it runs */
-  const [confirming, setConfirming] = useState<{ build: string; expect: InstallExpect } | null>(null);
-
-  // looks at what the update brings first: a build it runs is shown and
-  // waits for a yes
-  const updateNow = async () => {
-    setUpdating("checking");
-    setUpdates(null);
-    try {
-      const seen = await api.inspectUpdate(p.plugin);
-      if (seen.state === "up_to_date") {
-        setUpdating(null);
-        setUpdates({ text: "Up to date", tone: "ok" });
-      } else if (seen.build) {
-        setUpdating(null);
-        setConfirming({ build: seen.build, expect: seen.expect });
-      } else {
-        await runUpdate(seen.expect);
-      }
-    } catch (e) {
-      setUpdating(null);
-      setUpdates({
-        text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Update failed",
-        tone: "danger",
-      });
-    }
-  };
-
-  // installs again from where it came, as the inspection found it; the
-  // row follows the job's steps
-  const runUpdate = async (expect: InstallExpect) => {
-    setConfirming(null);
-    setUpdating("starting");
-    try {
-      const started = await api.updatePlugin(p.plugin, expect);
-      if (!started.job) {
-        setUpdating(null);
-        setUpdates({ text: "Up to date", tone: "ok" });
-        return;
-      }
-      const job = await followJob(
-        started.job,
-        (step) => setUpdating(step.status),
-        () => !mounted.current,
-      );
-      if (!job) return;
-      setUpdating(null);
-      if (job.status === "done") {
-        const version = job.plugin?.version ?? "";
-        setUpdates({ text: `Updated to ${version}`.trim(), tone: "ok" });
-        onMessage(`${p.title || p.name} plugin was updated to ${version}`.trim());
-      } else {
-        setUpdates({ text: `Update failed: ${job.error ?? "unknown"}`, tone: "danger" });
-      }
-    } catch (e) {
-      setUpdating(null);
-      setUpdates({
-        text: e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : "Update failed",
-        tone: "danger",
-      });
-    }
-  };
 
   // one of its samples, sent as a review and opened
   const [sending, setSending] = useState(false);
@@ -335,24 +225,6 @@ function PluginEntry({
           : `The ${p.title || p.name} sample could not be sent`,
         "danger",
       );
-    }
-  };
-
-  const rollback = async () => {
-    const to = previous?.version ?? "";
-    setRolling(true);
-    try {
-      await api.rollbackPlugin(p.plugin);
-      onMessage(`${p.title || p.name} plugin was rolled back to ${to}`);
-    } catch (e) {
-      onMessage(
-        e instanceof ApiError
-          ? (e.violations[0]?.message ?? e.message)
-          : `The ${p.title || p.name} plugin could not be rolled back`,
-        "danger",
-      );
-    } finally {
-      setRolling(false);
     }
   };
 
@@ -376,8 +248,6 @@ function PluginEntry({
   const linked = p.install?.linked ?? false;
   // installed by the person, from a source; the plugins Pinrail ships are not
   const ownInstall = p.install && p.install.kind !== "bundled" ? p.install : null;
-  // the release the last update replaced, while it can be rolled back to
-  const previous = ownInstall?.previous ?? null;
   const origin = originOf(p);
   // asked before a removal, in place of whatever the line says
   const ask = removing ? (
@@ -409,43 +279,9 @@ function PluginEntry({
   ) : null;
   // Under the badge, only what answers a click and what was dropped; where
   // the plugin came from and what it takes are in its details.
-  const confirm = confirming ? (
-    <span className="settings-plugin-ask" data-plugin-update-ask>
-      The update builds with <code className="mono">{confirming.build}</code>
-      <button
-        type="button"
-        className="settings-reset-link"
-        onClick={() => runUpdate(confirming.expect)}
-        data-plugin-update-confirm
-      >
-        Build and update
-      </button>
-      <button type="button" className="settings-reset-link" onClick={() => setConfirming(null)}>
-        Cancel
-      </button>
-    </span>
-  ) : null;
   const note =
     ask ??
-    confirm ??
-    (updating ? (
-      <span className="faint" data-plugin-updating>
-        Updating: {updating}…
-      </span>
-    ) : updates === "checking" ? (
-      <span className="faint">Checking…</span>
-    ) : updates ? (
-      <span className="settings-plugin-ask">
-        <span className={updates.tone} data-plugin-updates>
-          {updates.text}
-        </span>
-        {updates.updatable ? (
-          <button type="button" className="settings-reset-link" onClick={updateNow} data-plugin-update>
-            Update
-          </button>
-        ) : null}
-      </span>
-    ) : p.settings_error ? (
+    (p.settings_error ? (
       <span className="danger">Settings ignored: {p.settings_error}</span>
     ) : p.sample_errors?.length ? (
       <span className="danger">Sample ignored: {p.sample_errors.join("; ")}</span>
@@ -496,18 +332,6 @@ function PluginEntry({
               <PackagePlus size={15} />
             </button>
           </Tooltip>
-        ) : ownInstall ? (
-          <Tooltip label="Check for updates">
-            <button
-              type="button"
-              className="bar-button"
-              onClick={check}
-              aria-label={`Check for updates of ${p.name}`}
-              disabled={updates === "checking"}
-            >
-              <CloudDownload size={15} />
-            </button>
-          </Tooltip>
         ) : null}
         {ownInstall ? (
           <Tooltip label="Remove">
@@ -516,7 +340,7 @@ function PluginEntry({
               className="bar-button"
               onClick={() => setRemoving("asking")}
               aria-label={`Remove ${p.name}`}
-              disabled={removing !== null || updating !== null}
+              disabled={removing !== null}
             >
               <Trash2 size={15} />
             </button>
@@ -562,25 +386,6 @@ function PluginEntry({
           <dl className="settings-plugin-details">
             <dt>Version</dt>
             <dd>{p.version}</dd>
-            {previous ? (
-              <>
-                <dt>Previous release</dt>
-                <dd className="settings-plugin-previous" data-plugin-previous>
-                  <span>
-                    {previous.version}, kept until {new Date(previous.until).toLocaleDateString()}
-                  </span>
-                  <button
-                    type="button"
-                    className="settings-reset-link"
-                    onClick={rollback}
-                    disabled={rolling}
-                    data-plugin-rollback
-                  >
-                    {rolling ? "Rolling back…" : `Roll back to ${previous.version}`}
-                  </button>
-                </dd>
-              </>
-            ) : null}
             <dt>Source</dt>
             <dd className="settings-plugin-origin">
               <span>

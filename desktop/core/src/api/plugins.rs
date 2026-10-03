@@ -15,7 +15,7 @@ use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
 use crate::error::Error;
-use crate::plugins::{InstallExpect, InstallOptions, UpdateOutcome};
+use crate::plugins::{InstallExpect, InstallOptions};
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
@@ -25,14 +25,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/plugins/inspect", post(inspect))
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/jobs/{id}", get(job))
-        .route("/api/v1/plugins/{name}/updates", get(updates))
-        .route("/api/v1/plugins/{name}/update", post(update))
-        .route(
-            "/api/v1/plugins/{name}/update/inspect",
-            post(inspect_update),
-        )
         .route("/api/v1/plugins/{name}", delete(remove))
-        .route("/api/v1/plugins/{name}/rollback", post(rollback))
         .route("/api/v1/plugins/{name}/describe", get(describe))
         .route("/api/v1/plugins/{name}/sample", post(sample))
 }
@@ -70,17 +63,8 @@ async fn describe(
     Ok(Json(state.plugins().describe(Some(&name))?))
 }
 
-/// Makes the release the plugin's last update replaced the one new
-/// reviews use again, while it is kept.
-async fn rollback(
-    State(state): State<Arc<Pinrail>>,
-    Path(name): Path<String>,
-) -> Result<Json<Value>, ApiError> {
-    Ok(Json(state.plugins().rollback(&name)?))
-}
-
 /// The source and the options an install or an inspect takes:
-/// `{source, link?, force?, ref?, path?, replace?, expect?}`.
+/// `{source, link?, force?, replace?, expect?}`.
 fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     let body = parse_body(body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
@@ -89,20 +73,17 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     let options = InstallOptions {
         link: body.get("link").and_then(Value::as_bool).unwrap_or(false),
         force: body.get("force").and_then(Value::as_bool).unwrap_or(false),
-        reference: body.get("ref").and_then(Value::as_str).map(str::to_string),
-        path: body.get("path").and_then(Value::as_str).map(str::to_string),
         replace: body
             .get("replace")
             .and_then(Value::as_str)
             .map(str::to_string),
-        updates: None,
         expect: expect_of(&body)?,
     };
     Ok((source.to_string(), options))
 }
 
 /// The `expect` an inspection answered with and the person confirmed:
-/// `{build, commit?, asset_hash?}`, each a string or null.
+/// `{build}`, a string or null.
 fn expect_of(body: &Value) -> Result<Option<InstallExpect>, Error> {
     let expect = match body.get("expect") {
         None | Some(Value::Null) => return Ok(None),
@@ -119,8 +100,6 @@ fn expect_of(body: &Value) -> Result<Option<InstallExpect>, Error> {
     };
     Ok(Some(InstallExpect {
         build: field("build")?,
-        commit: field("commit")?,
-        asset_hash: field("asset_hash")?,
     }))
 }
 
@@ -135,50 +114,6 @@ async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Respo
     let (source, options) = install_request(&body)?;
     let id = state.plugins().start_install(&source, options);
     Ok((StatusCode::ACCEPTED, Json(json!({ "job": id }))).into_response())
-}
-
-async fn updates(
-    State(state): State<Arc<Pinrail>>,
-    Path(name): Path<String>,
-) -> Result<Json<Value>, ApiError> {
-    Ok(Json(state.plugins().check_updates(&name).await?))
-}
-
-/// What updating would install: the inspection of the newer version, or
-/// that there is nothing newer.
-async fn inspect_update(
-    State(state): State<Arc<Pinrail>>,
-    Path(name): Path<String>,
-) -> Result<Json<Value>, ApiError> {
-    Ok(Json(state.plugins().inspect_update(&name).await?))
-}
-
-/// Updates the plugin; the body may carry `{expect}` from the update's
-/// inspection, which an update that runs a build needs.
-async fn update(
-    State(state): State<Arc<Pinrail>>,
-    Path(name): Path<String>,
-    body: Bytes,
-) -> Result<Response, ApiError> {
-    let body = if body.is_empty() {
-        Value::Null
-    } else {
-        parse_body(&body)?
-    };
-    match state
-        .plugins()
-        .start_update(&name, expect_of(&body)?)
-        .await?
-    {
-        UpdateOutcome::UpToDate { version } => {
-            Ok(Json(json!({ "state": "up_to_date", "version": version })).into_response())
-        }
-        UpdateOutcome::Started { job_id } => Ok((
-            StatusCode::ACCEPTED,
-            Json(json!({ "job": job_id, "state": "updating" })),
-        )
-            .into_response()),
-    }
 }
 
 /// Removes an installed plugin; the reviews made with it keep the bundles

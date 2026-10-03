@@ -3352,7 +3352,6 @@ dependencies = [
  "tokio-util",
  "tower",
  "tower-http",
- "ureq",
  "zip",
 ]
 

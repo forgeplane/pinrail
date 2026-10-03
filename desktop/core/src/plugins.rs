@@ -1,6 +1,6 @@
 //! Plugin definitions, registry and application operations.
 //!
-//! [`PluginService`] is the way in: listing, installing, updating and removing
+//! [`PluginService`] is the way in: listing, installing and removing
 //! are application operations, and the registry behind them is the crate's own
 //! business. What stays public is the vocabulary a caller reads from a review
 //! or a manifest.
@@ -22,7 +22,7 @@ pub use jobs::Job as InstallJob;
 pub use manifest::{FEATURES as MANIFEST_FEATURES, SCHEMA as MANIFEST_SCHEMA};
 pub use manifest::{Install, Plugin};
 pub use sample::Sample;
-pub use service::{PluginService, UpdateOutcome};
+pub use service::PluginService;
 pub use summary::Declaration as SummaryDeclaration;
 
 pub(crate) use install::tidy;

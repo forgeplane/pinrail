@@ -9,7 +9,6 @@ import type {
   Inspection,
   Notice,
   Plugin,
-  PluginUpdates,
   ReviewView,
   Review,
   ReviewEvent,
@@ -76,8 +75,6 @@ export type InstallRequest = {
   source: string;
   link?: boolean;
   force?: boolean;
-  ref?: string;
-  path?: string;
   /** what the inspection found and the person confirmed; a build runs only with it */
   expect?: InstallExpect;
 };
@@ -114,26 +111,11 @@ export const api = {
   /** starts an install; the job says how it goes */
   installPlugin: (body: InstallRequest) => request<{ job: string }>("POST", "/api/v1/plugins/install", body),
   pluginJob: (id: string) => request<InstallJob>("GET", `/api/v1/plugins/jobs/${seg(id)}`),
-  pluginUpdates: (name: string) => request<PluginUpdates>("GET", `/api/v1/plugins/${seg(name)}/updates`),
   /** what the app's frame loads to show a review */
   reviewView: async (id: string) => {
     const view = await request<ReviewView>("GET", `/api/v1/reviews/${seg(id)}/view`);
     return { ...view, url: `${await serverUrl()}${view.url}` };
   },
-  /** what an update would install: the newer version's inspection, or up_to_date */
-  inspectUpdate: (name: string) =>
-    request<({ state: "available" } & Inspection) | { state: "up_to_date"; version: string }>(
-      "POST",
-      `/api/v1/plugins/${seg(name)}/update/inspect`,
-    ),
-  /** installs again from where it came, as the update's inspection found it:
-   * a job to follow, or up_to_date at once */
-  updatePlugin: (name: string, expect: InstallExpect) =>
-    request<{ job?: string; state: string; version?: string }>("POST", `/api/v1/plugins/${seg(name)}/update`, {
-      expect,
-    }),
-  /** makes the release the last update replaced the one new reviews use again */
-  rollbackPlugin: (name: string) => request<Plugin>("POST", `/api/v1/plugins/${seg(name)}/rollback`),
   /** drops the installation and the lines no review renders with */
   removePlugin: (name: string) =>
     request<{ removed: string; linked: boolean; lines_kept: string[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),

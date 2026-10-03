@@ -47,8 +47,6 @@ pub struct InstallRequest<'a> {
     pub source: &'a str,
     pub link: bool,
     pub force: bool,
-    pub reference: Option<&'a str>,
-    pub path: Option<&'a str>,
     /// with `link`: the full name of the installed plugin the link replaces
     pub replace: Option<&'a str>,
     /// what the inspection found, without which the app runs no build
@@ -211,16 +209,9 @@ impl Client {
 
     /// What installing the source would do: the plugin, the build it runs,
     /// and the `expect` an install sends back to run exactly that.
-    pub fn plugins_inspect(
-        &self,
-        source: &str,
-        link: bool,
-        reference: Option<&str>,
-        path: Option<&str>,
-    ) -> Result<Value> {
-        let body =
-            serde_json::json!({ "source": source, "link": link, "ref": reference, "path": path });
-        // the app fetches the source before it answers
+    pub fn plugins_inspect(&self, source: &str, link: bool) -> Result<Value> {
+        let body = serde_json::json!({ "source": source, "link": link });
+        // the app unpacks a zip before it answers
         self.post_with(&self.slow, "/api/v1/plugins/inspect", Some(&body))
     }
 
@@ -231,8 +222,6 @@ impl Client {
             "source": request.source,
             "link": request.link,
             "force": request.force,
-            "ref": request.reference,
-            "path": request.path,
             "replace": request.replace,
             "expect": request.expect,
         });
@@ -241,46 +230,6 @@ impl Client {
             Some(id) => self.follow_job(id),
             None => anyhow::bail!("the server started no install job: {started}"),
         }
-    }
-
-    /// What updating the plugin would install: the newer version's
-    /// inspection, or `up_to_date`.
-    pub fn plugins_inspect_update(&self, name: &str) -> Result<Value> {
-        // the app asks the plugin's source what is new before it answers
-        self.post_with(
-            &self.slow,
-            &format!("/api/v1/plugins/{}/update/inspect", segment(name)),
-            None,
-        )
-    }
-
-    /// Installs a plugin again from where it came, as its update's
-    /// inspection found it; the core says at once when there is nothing
-    /// new, and otherwise the job is followed like an install's.
-    pub fn plugins_update(&self, name: &str, expect: &Value) -> Result<Value> {
-        let started = self.post_with(
-            &self.slow,
-            &format!("/api/v1/plugins/{}/update", segment(name)),
-            Some(&serde_json::json!({ "expect": expect })),
-        )?;
-        match started["job"].as_str() {
-            Some(id) => {
-                let plugin = self.follow_job(id)?;
-                Ok(
-                    serde_json::json!({ "state": "updated", "version": plugin["version"], "plugin": plugin }),
-                )
-            }
-            None => {
-                let mut started = started;
-                started["name"] = serde_json::json!(name);
-                Ok(started)
-            }
-        }
-    }
-
-    /// Rolls the plugin back to the release its last update replaced.
-    pub fn plugins_rollback(&self, name: &str) -> Result<Value> {
-        self.post(&format!("/api/v1/plugins/{}/rollback", segment(name)), None)
     }
 
     pub fn plugins_remove(&self, name: &str) -> Result<Value> {

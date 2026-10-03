@@ -43,7 +43,7 @@ pub const EXITS: &[(u8, &str)] = &[
     ),
     (
         EXIT_ERROR,
-        "Error: bad arguments, the app or a plugin's source could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again.",
+        "Error: bad arguments, the app could not be reached, a file could not be read or written, or the app failed on its side. `wait` and `submit --wait` keep waiting through an error inside the app until it answers again.",
     ),
     (
         EXIT_REFUSED,
@@ -478,13 +478,12 @@ struct PluginsArgs {
 
 #[derive(Subcommand)]
 enum PluginsCommand {
-    /// Install a plugin from a folder, a zip, a repository or a GitHub
-    /// release
+    /// Install a plugin from a folder or a zip
     ///
-    /// Give a repository as github.com/acme/plugins/review@v3, or as the
-    /// folder's URL in the browser.
+    /// Installing again, from the same place or another, replaces the
+    /// installed plugin: this is how a plugin is upgraded.
     Install {
-        /// The plugin's folder, zip, repository or release
+        /// The plugin's folder, or a zip of it
         source: String,
         /// Serve the folder directly instead of copying it, while you develop
         /// the plugin
@@ -493,13 +492,6 @@ enum PluginsCommand {
         /// Replace a newer version that is already installed
         #[arg(long)]
         force: bool,
-        /// A branch, tag or commit, for a git source that does not include one
-        #[arg(long = "ref")]
-        reference: Option<String>,
-        /// The plugin's folder inside the repository, for a git source that
-        /// does not include one
-        #[arg(long)]
-        path: Option<String>,
         /// With --link: take the place of this installed plugin, by its full
         /// name such as forgeplane/review, so its reviews render with the
         /// folder; removing the link puts the plugin back
@@ -510,26 +502,6 @@ enum PluginsCommand {
         /// it at the terminal
         #[arg(long, short = 'y')]
         yes: bool,
-    },
-    /// Update a plugin from its source, or every installed plugin when no
-    /// name is given
-    Update {
-        /// The plugin's name, as `pinrail plugins` lists it
-        name: Option<String>,
-        /// Run the build an update declares without asking. Without this
-        /// option, the build command is shown and runs only after you confirm
-        /// it at the terminal
-        #[arg(long, short = 'y')]
-        yes: bool,
-    },
-    /// Roll a plugin back to the release its last update replaced
-    ///
-    /// The release an update replaces is kept for a week. New reviews use
-    /// the release rolled back to; each existing review keeps the release
-    /// it was submitted to.
-    Rollback {
-        /// The plugin's name, or its full name such as acme/review
-        name: String,
     },
     /// Remove an installed plugin. Lines that existing reviews still render
     /// with are kept
@@ -1063,7 +1035,6 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Plugins(args) => {
-            let mut failed: Option<u8> = None;
             let value = match args.command {
                 None if output.markdown => {
                     print!(
@@ -1077,8 +1048,6 @@ fn run(cli: Cli) -> Result<u8> {
                     source,
                     link,
                     force,
-                    reference,
-                    path,
                     replace,
                     yes,
                 }) => {
@@ -1093,12 +1062,7 @@ fn run(cli: Cli) -> Result<u8> {
                     let seen = if link {
                         None
                     } else {
-                        let seen = client.plugins_inspect(
-                            &source,
-                            false,
-                            reference.as_deref(),
-                            path.as_deref(),
-                        )?;
+                        let seen = client.plugins_inspect(&source, false)?;
                         confirm_build(&seen, yes)?;
                         Some(seen)
                     };
@@ -1106,58 +1070,11 @@ fn run(cli: Cli) -> Result<u8> {
                         source: &source,
                         link,
                         force,
-                        reference: reference.as_deref(),
-                        path: path.as_deref(),
                         replace: replace.as_deref(),
                         expect: seen.as_ref().map(|s| &s["expect"]),
                     })?
                 }
-                Some(PluginsCommand::Update {
-                    name: Some(name),
-                    yes,
-                }) => update_plugin(&client, &name, yes)?,
-                // every installed plugin, each with what became of it: the
-                // built-in ones come with the app, a linked one is its folder
-                Some(PluginsCommand::Update { name: None, yes }) => {
-                    let listed = client.plugins()?;
-                    let mut answers = Vec::new();
-                    for plugin in listed["plugins"].as_array().into_iter().flatten() {
-                        let name = plugin["plugin"].as_str().unwrap_or_default();
-                        let install = &plugin["install"];
-                        answers.push(if install["kind"] == "bundled" {
-                            json!({ "name": name, "state": "built_in" })
-                        } else if install["linked"] == true {
-                            json!({ "name": name, "state": "linked", "source": install["source"] })
-                        } else {
-                            // one that fails is said, and the rest still go
-                            update_plugin(&client, name, yes).unwrap_or_else(|err| {
-                                // the worst of the failures sets the exit code:
-                                // a refusal is 2, anything the app or the
-                                // network got wrong is 1
-                                let refused = err
-                                    .downcast_ref::<ApiError>()
-                                    .is_some_and(|api| api.status < 500);
-                                failed = Some(match failed {
-                                    Some(EXIT_ERROR) => EXIT_ERROR,
-                                    _ if !refused => EXIT_ERROR,
-                                    _ => EXIT_REFUSED,
-                                });
-                                let error = match err.downcast_ref::<ApiError>() {
-                                    Some(api) => api.body["message"]
-                                        .as_str()
-                                        .map_or_else(|| api.to_string(), str::to_string),
-                                    None => format!("{err:#}"),
-                                };
-                                json!({ "name": name, "state": "failed", "error": error })
-                            })
-                        });
-                    }
-                    Value::Array(answers)
-                }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
-                Some(PluginsCommand::Rollback { name }) => {
-                    json!({ "state": "rolled_back", "plugin": client.plugins_rollback(&name)? })
-                }
                 Some(PluginsCommand::Reload) => client.plugins_reload()?,
                 Some(
                     PluginsCommand::Describe { .. }
@@ -1168,7 +1085,7 @@ fn run(cli: Cli) -> Result<u8> {
                 }
             };
             output.data(&value, md::plugins_result);
-            Ok(failed.unwrap_or(0))
+            Ok(0)
         }
         Command::Export { dir } => {
             let count = out::export(&client, &dir)?;
@@ -1503,17 +1420,6 @@ fn wait(
 fn is_inline_json(spec: &str) -> bool {
     let start = spec.trim_start();
     (start.starts_with('{') || start.starts_with('[')) && !std::path::Path::new(spec).exists()
-}
-
-/// Updates one plugin as its update's inspection found it, once any build
-/// it runs is confirmed.
-fn update_plugin(client: &Client, name: &str, yes: bool) -> Result<Value> {
-    let seen = client.plugins_inspect_update(name)?;
-    if seen["state"] == "up_to_date" {
-        return Ok(json!({ "state": "up_to_date", "version": seen["version"], "name": name }));
-    }
-    confirm_build(&seen, yes)?;
-    client.plugins_update(name, &seen["expect"])
 }
 
 /// Lets a build the inspection found run: at once with `--yes`, after a
