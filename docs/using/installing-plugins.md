@@ -84,7 +84,9 @@ pinrail plugins install ./ticket_triage --link
 
 Reviews of a linked plugin render from the folder as it is now. Each review also keeps the folder as it was when the review was submitted, so once you remove the link, it renders with that. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
 
-Pinrail checks a linked folder every second, so a change to the manifest, a schema or the decision template applies without a reload. A manifest that breaks shows its error on the plugin's row until you fix it.
+Pinrail stores a linked folder again whenever it changes: when an agent describes the plugin or submits a review to it after a change, and when it checks the folder, which it does every second. A change to the manifest, a schema or the decision template therefore applies without a reload, and a submission is always checked against the folder as it is. A folder with a mistake, such as a manifest that does not parse, is refused when it is used, with the reason, and the reason shows on the plugin's row until you fix it. Until then, the plugin keeps the last version of the folder that worked.
+
+A linked folder must not contain symbolic links, as for any install.
 
 ### Working on a plugin that comes with Pinrail
 
