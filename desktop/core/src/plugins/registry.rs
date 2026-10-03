@@ -79,6 +79,8 @@ pub(crate) fn store_releases(
         }
         let source = format!("Pinrail {}", env!("CARGO_PKG_VERSION"));
         let record = match installed {
+            // a link in its place, for working on it: left alone
+            Some(install) if install.linked() => continue,
             // installed from elsewhere, such as its repository: that
             // installation stands, with the newer release
             Some(install) if install.kind != "bundled" => InstallRecord {
@@ -99,6 +101,7 @@ pub(crate) fn store_releases(
                 bundle: Some(bundle.hash.clone()),
                 previous: None,
                 previous_until: None,
+                replaced: None,
                 installed_at: now.clone(),
                 updated_at: now.clone(),
             },
@@ -400,6 +403,11 @@ impl Registry {
             asset_hash: install.asset_hash.clone(),
             bundle: install.bundle.clone(),
             previous,
+            replaced: install
+                .replaced
+                .as_deref()
+                .and_then(|r| serde_json::from_str::<Value>(r).ok())
+                .map(|r| serde_json::json!({ "kind": r["kind"], "source": r["source"] })),
             modified,
             installed_at: install.installed_at.clone(),
             updated_at: install.updated_at.clone(),
@@ -565,6 +573,7 @@ mod tests {
             bundle: None,
             previous: None,
             previous_until: None,
+            replaced: None,
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),
         })

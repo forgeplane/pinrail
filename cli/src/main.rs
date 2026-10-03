@@ -25,7 +25,7 @@ use anyhow::{Context, Result};
 use clap::{Args, FromArgMatches, Parser, Subcommand};
 use serde_json::{Value, json};
 
-use api::{ApiError, Client};
+use api::{ApiError, Client, InstallRequest};
 
 pub const EXIT_ERROR: u8 = 1;
 pub const EXIT_REFUSED: u8 = 2;
@@ -499,6 +499,11 @@ enum PluginsCommand {
         /// does not include one
         #[arg(long)]
         path: Option<String>,
+        /// With --link: take the place of this installed plugin, by its full
+        /// name such as forgeplane/review, so its reviews render with the
+        /// folder; removing the link puts the plugin back
+        #[arg(long, value_name = "PLUGIN", requires = "link")]
+        replace: Option<String>,
         /// Run the build the plugin declares without asking. Without this
         /// option, the build command is shown and runs only after you confirm
         /// it at the terminal
@@ -737,14 +742,11 @@ fn run(cli: Cli) -> Result<u8> {
         let dir = dir.canonicalize()?;
         if *link {
             let base = server::resolve_url(cli.url.as_deref(), true)?;
-            Client::new(&base).plugins_install(
-                &dir.to_string_lossy(),
-                true,
-                false,
-                None,
-                None,
-                None,
-            )?;
+            Client::new(&base).plugins_install(&InstallRequest {
+                source: &dir.to_string_lossy(),
+                link: true,
+                ..InstallRequest::default()
+            })?;
         }
         // what comes next, for whoever ran it, most often an agent
         let mut next = vec![
@@ -1076,6 +1078,7 @@ fn run(cli: Cli) -> Result<u8> {
                     force,
                     reference,
                     path,
+                    replace,
                     yes,
                 }) => {
                     // a folder that exists is sent as its full path, `..`
@@ -1098,14 +1101,15 @@ fn run(cli: Cli) -> Result<u8> {
                         confirm_build(&seen, yes)?;
                         Some(seen)
                     };
-                    client.plugins_install(
-                        &source,
+                    client.plugins_install(&InstallRequest {
+                        source: &source,
                         link,
                         force,
-                        reference.as_deref(),
-                        path.as_deref(),
-                        seen.as_ref().map(|s| &s["expect"]),
-                    )?
+                        reference: reference.as_deref(),
+                        path: path.as_deref(),
+                        replace: replace.as_deref(),
+                        expect: seen.as_ref().map(|s| &s["expect"]),
+                    })?
                 }
                 Some(PluginsCommand::Update {
                     name: Some(name),

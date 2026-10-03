@@ -159,6 +159,8 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
 function originOf(p: Plugin): { how: string; where: string | null } {
   const i = p.install;
   if (!i || i.kind === "bundled") return { how: "Built into Pinrail", where: null };
+  if (i.linked && i.replaced)
+    return { how: `Linked in place of ${i.replaced.source || "the published plugin"}, to`, where: p.path };
   if (i.linked) return { how: "Linked to", where: p.path };
   if (i.kind === "git")
     return { how: "Cloned from", where: `${i.source}${i.commit ? ` · ${i.commit.slice(0, 7)}` : ""}` };
@@ -381,7 +383,11 @@ function PluginEntry({
   const ask = removing ? (
     <span className="settings-plugin-ask" data-plugin-remove-ask>
       Remove {p.title || p.name}?
-      {linked ? " The folder stays where it is." : " Reviews that rendered from it keep doing so."}
+      {p.install?.replaced
+        ? " The plugin it replaced comes back, and the folder stays where it is."
+        : linked
+          ? " The folder stays where it is."
+          : " Reviews that rendered from it keep doing so."}
       <button
         type="button"
         className="settings-reset-link danger"

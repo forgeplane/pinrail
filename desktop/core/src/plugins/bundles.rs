@@ -267,6 +267,7 @@ mod tests {
             bundle: Some(bundle.hash.clone()),
             previous: None,
             previous_until: None,
+            replaced: None,
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),
         };

@@ -29,6 +29,9 @@ pub struct InstallRecord {
     /// The bundle an update replaced, and until when it is kept.
     pub previous: Option<String>,
     pub previous_until: Option<String>,
+    /// For a link that takes a published plugin's place: that
+    /// installation, as JSON, to put back when the link is removed.
+    pub replaced: Option<String>,
     pub installed_at: String,
     pub updated_at: String,
 }
@@ -40,7 +43,7 @@ impl InstallRecord {
 }
 
 const INSTALL_COLUMNS: &str = "plugin, publisher, name, source_kind, source, resolved, commit_id, \
-     asset_hash, build_log, bundle, previous, previous_until, installed_at, updated_at";
+     asset_hash, build_log, bundle, previous, previous_until, replaced, installed_at, updated_at";
 
 fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
     Ok(InstallRecord {
@@ -56,8 +59,9 @@ fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
         bundle: r.get(9)?,
         previous: r.get(10)?,
         previous_until: r.get(11)?,
-        installed_at: r.get(12)?,
-        updated_at: r.get(13)?,
+        replaced: r.get(12)?,
+        installed_at: r.get(13)?,
+        updated_at: r.get(14)?,
     })
 }
 
@@ -96,7 +100,7 @@ impl Db {
         conn.execute(
             &format!(
                 "INSERT INTO plugin_installs ({INSTALL_COLUMNS})
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL, ?11, ?12)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, NULL, ?14, ?11, ?12)
                  ON CONFLICT(plugin) DO UPDATE SET
                    source_kind = excluded.source_kind, source = excluded.source,
                    resolved = excluded.resolved, commit_id = excluded.commit_id,
@@ -110,6 +114,8 @@ impl Db {
                           AND plugin_installs.bundle <> excluded.bundle
                      THEN ?13 ELSE plugin_installs.previous_until END,
                    bundle = excluded.bundle,
+                   publisher = excluded.publisher,
+                   replaced = excluded.replaced,
                    updated_at = excluded.updated_at"
             ),
             params![
@@ -125,7 +131,8 @@ impl Db {
                 record.bundle,
                 record.installed_at,
                 record.updated_at,
-                until
+                until,
+                record.replaced
             ],
         )?;
         Ok(())

@@ -93,6 +93,9 @@ pub struct Install {
     pub updated_at: String,
     /// The release the current one replaced, while it can be rolled back to.
     pub previous: Option<Previous>,
+    /// For a link that takes a published plugin's place: that plugin's
+    /// source, `{kind, source}`, which removing the link puts back.
+    pub replaced: Option<Value>,
 }
 
 /// A release an installation can be rolled back to, until when.
@@ -116,6 +119,7 @@ impl Install {
             "previous": self.previous.as_ref().map(|p| serde_json::json!({
                 "version": p.version, "bundle": p.bundle, "until": p.until,
             })),
+            "replaced": self.replaced,
             "modified": self.modified,
             "installed_at": self.installed_at,
             "updated_at": self.updated_at,

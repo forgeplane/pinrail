@@ -3775,6 +3775,75 @@ async fn an_update_can_be_rolled_back_within_a_week() {
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
+/// Working on a published plugin in place: a link that replaces it takes
+/// its full name, so its reviews render with the folder, and removing the
+/// link puts the published release back.
+#[tokio::test]
+async fn a_link_can_replace_a_published_plugin_until_it_is_removed() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    let published = current_bundle(&app, "forgeplane/list").unwrap();
+    let review = submit(&app, submission()).await;
+    assert_eq!(review["plugin"], "forgeplane/list");
+
+    let mine = plugin_copy(scratch.path(), "list", "1.0.0");
+    std::fs::write(mine.join("view/index.html"), "<html>my fix</html>").unwrap();
+    // a plugin of another name cannot take its place
+    let other = plugin_copy(scratch.path(), "hello", "1.0.0");
+    let (status, body) = install(
+        &app,
+        &other,
+        json!({"link": true, "replace": "forgeplane/list"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    // nor can a plugin that is not installed be replaced
+    let (status, _) = install(&app, &mine, json!({"link": true, "replace": "acme/list"})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+
+    let (status, row) = install(
+        &app,
+        &mine,
+        json!({"link": true, "replace": "forgeplane/list"}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    assert_eq!(row["plugin"], "forgeplane/list");
+    assert_eq!(row["install"]["linked"], true);
+    assert_eq!(row["install"]["replaced"]["kind"], "bundled");
+    // no second plugin of the name, and the reviews render with the folder
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let lists = listed["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["name"] == "list")
+        .count();
+    assert_eq!(lists, 1);
+    assert_eq!(served(&app, &review).await, "<html>my fix</html>");
+
+    // the published release is kept for when the link goes
+    let later = chrono::Utc::now() + chrono::Duration::minutes(1);
+    app.state.bundles().sweep(later).unwrap();
+    assert!(app.state.bundles().path(&published).is_dir());
+
+    let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/list", None).await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["restored"], "1.0.0");
+    assert_eq!(current_bundle(&app, "forgeplane/list"), Some(published));
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let list = listed["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["plugin"] == "forgeplane/list")
+        .unwrap()
+        .clone();
+    assert_eq!(list["install"]["kind"], "bundled");
+    assert_eq!(list["install"]["replaced"], Value::Null);
+    assert_ne!(served(&app, &review).await, "<html>my fix</html>");
+}
+
 /// Runs git in `dir` as a fixed author, and returns what it printed.
 fn git_in(dir: &std::path::Path, args: &[&str]) -> String {
     let out = std::process::Command::new("git")

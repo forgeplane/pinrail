@@ -80,7 +80,7 @@ async fn rollback(
 }
 
 /// The source and the options an install or an inspect takes:
-/// `{source, link?, force?, ref?, path?, expect?}`.
+/// `{source, link?, force?, ref?, path?, replace?, expect?}`.
 fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     let body = parse_body(body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
@@ -91,6 +91,10 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
         force: body.get("force").and_then(Value::as_bool).unwrap_or(false),
         reference: body.get("ref").and_then(Value::as_str).map(str::to_string),
         path: body.get("path").and_then(Value::as_str).map(str::to_string),
+        replace: body
+            .get("replace")
+            .and_then(Value::as_str)
+            .map(str::to_string),
         updates: None,
         expect: expect_of(&body)?,
     };
@@ -184,16 +188,18 @@ async fn remove(
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let answer = state.plugins().remove(&name)?;
-    // the links it was allowed to open go with it
+    // the links it was allowed to open go with it, unless a link that
+    // replaced it was removed and the plugin is back
     let plugin = answer["removed"].as_str().unwrap_or_default().to_string();
-    if state
-        .settings()
-        .value(&format!(
-            "{}/{}",
-            crate::settings::LINKS,
-            crate::settings::pointer_part(&plugin)
-        ))
-        .is_object()
+    if answer.get("restored").is_none()
+        && state
+            .settings()
+            .value(&format!(
+                "{}/{}",
+                crate::settings::LINKS,
+                crate::settings::pointer_part(&plugin)
+            ))
+            .is_object()
     {
         state
             .settings()

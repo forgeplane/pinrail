@@ -2586,6 +2586,66 @@ fn plugins_check_since_a_release_says_what_it_breaks_of_the_one_before() {
     );
 }
 
+/// A link that replaces a published plugin asks for it by full name, and
+/// removing it says the plugin is back.
+#[test]
+fn a_link_can_replace_a_plugin_and_give_it_back() {
+    let dir = tempdir();
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        match (method, path) {
+        ("POST", "/api/v1/plugins/install") => {
+            seen.lock().unwrap().push(body.to_string());
+            (202, r#"{"job":"j1"}"#.into())
+        }
+        ("GET", "/api/v1/plugins/jobs/j1") => (
+            200,
+            r#"{"status":"done","log":"","plugin":{"plugin":"forgeplane/review","name":"review","version":"1.0.0","install":{"kind":"link"}}}"#.into(),
+        ),
+        ("DELETE", "/api/v1/plugins/review") => (
+            200,
+            r#"{"removed":"forgeplane/review","linked":true,"version":"1.0.0","restored":"1.0.0"}"#.into(),
+        ),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let folder = dir.to_str().unwrap();
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "plugins",
+            "install",
+            folder,
+            "--link",
+            "--replace",
+            "forgeplane/review",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let body: serde_json::Value = serde_json::from_str(&sent.lock().unwrap()[0]).unwrap();
+    assert_eq!(body["replace"], "forgeplane/review");
+    assert_eq!(body["link"], true);
+    // only with a link
+    let (code, _, _) = run(
+        &server,
+        &[
+            "plugins",
+            "install",
+            folder,
+            "--replace",
+            "forgeplane/review",
+        ],
+    );
+    assert_ne!(code, 0);
+    let (code, stdout, _) = run(&server, &["plugins", "remove", "review", "--markdown"]);
+    assert_eq!(code, 0);
+    assert_eq!(
+        stdout,
+        "Removed the link: forgeplane/review 1.0.0 is back.\n"
+    );
+}
+
 /// Rolling back asks the app for the plugin's previous release, and says
 /// what new reviews use now.
 #[test]

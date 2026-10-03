@@ -41,6 +41,20 @@ pub struct Client {
     base: String,
 }
 
+/// What an install asks the app for.
+#[derive(Debug, Default)]
+pub struct InstallRequest<'a> {
+    pub source: &'a str,
+    pub link: bool,
+    pub force: bool,
+    pub reference: Option<&'a str>,
+    pub path: Option<&'a str>,
+    /// with `link`: the full name of the installed plugin the link replaces
+    pub replace: Option<&'a str>,
+    /// what the inspection found, without which the app runs no build
+    pub expect: Option<&'a Value>,
+}
+
 impl Client {
     /// What a request that reached no server says: where it looked, and
     /// what to do about it.
@@ -211,18 +225,17 @@ impl Client {
     }
 
     /// Starts the install and follows its job, printing the build's output
-    /// as it comes; the plugin's row when done. `expect` is what the
-    /// inspection found, without which the app runs no build.
-    pub fn plugins_install(
-        &self,
-        source: &str,
-        link: bool,
-        force: bool,
-        reference: Option<&str>,
-        path: Option<&str>,
-        expect: Option<&Value>,
-    ) -> Result<Value> {
-        let body = serde_json::json!({ "source": source, "link": link, "force": force, "ref": reference, "path": path, "expect": expect });
+    /// as it comes; the plugin's row when done.
+    pub fn plugins_install(&self, request: &InstallRequest) -> Result<Value> {
+        let body = serde_json::json!({
+            "source": request.source,
+            "link": request.link,
+            "force": request.force,
+            "ref": request.reference,
+            "path": request.path,
+            "replace": request.replace,
+            "expect": request.expect,
+        });
         let started = self.post("/api/v1/plugins/install", Some(&body))?;
         match started["job"].as_str() {
             Some(id) => self.follow_job(id),

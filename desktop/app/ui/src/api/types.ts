@@ -130,6 +130,9 @@ export type PluginInstall = {
   bundle: string | null;
   /** the release the last update replaced, while it can be rolled back to */
   previous: { version: string; bundle: string; until: string } | null;
+  /** for a link in a published plugin's place: that plugin's source,
+   *  which removing the link puts back */
+  replaced: { kind: string; source: string } | null;
   /** the bundle's files no longer match its listing */
   modified: boolean;
   installed_at: string;

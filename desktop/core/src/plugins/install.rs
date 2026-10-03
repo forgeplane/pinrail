@@ -40,6 +40,9 @@ pub struct Options {
     pub reference: Option<String>,
     /// the plugin's folder inside the repository, given beside a git source
     pub path: Option<String>,
+    /// with `link`: the full name of an installed plugin the link takes the
+    /// place of, until it is removed
+    pub replace: Option<String>,
     /// the plugin an update is for: a bundle that names another is refused
     pub updates: Option<String>,
     /// what the person confirmed, as the inspection answered it: a build
@@ -402,6 +405,18 @@ pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> 
         .get(&plugin)
         .map(|p| p.version.clone())
         .unwrap_or_default();
+    // a link that took a published plugin's place gives it back
+    if let Some(replaced) = &record.replaced {
+        db.record_install(&restored(&record, replaced)?)?;
+        registry.reload()?;
+        let restored = registry.get(&plugin).map(|p| p.version.clone());
+        return Ok(serde_json::json!({
+            "removed": plugin,
+            "linked": true,
+            "version": version,
+            "restored": restored,
+        }));
+    }
     db.remove_install(&plugin)?;
     registry.reload()?;
     Ok(serde_json::json!({
@@ -1333,8 +1348,11 @@ fn install_dir(
             publisher: LOCAL_PUBLISHER.to_string(),
             ..origin
         };
-        let record = record_for(&plugin, &origin, None, None);
+        let mut record = record_for(&plugin, &origin, None, None);
         let _changing = registry.changing();
+        if let Some(target) = &options.replace {
+            record = replacing(db, record, target)?;
+        }
         return commit(db, registry, record);
     }
 
@@ -1637,6 +1655,72 @@ fn minutes(duration: std::time::Duration) -> String {
     }
 }
 
+/// A link that takes the place of the installed plugin `target`: under its
+/// full name, keeping that installation to put back when the link goes.
+fn replacing(db: &Db, link: InstallRecord, target: &str) -> Result<InstallRecord, Error> {
+    let installed = db.install(target)?.ok_or_else(|| {
+        Error::invalid(
+            "/replace",
+            format!("no plugin named {target} is installed to replace"),
+        )
+    })?;
+    if installed.name != link.name {
+        return Err(Error::invalid(
+            "/replace",
+            format!(
+                "the folder holds {}, which cannot take the place of {target}",
+                link.name
+            ),
+        ));
+    }
+    // linking again keeps what the first link replaced
+    let replaced = match (installed.linked(), installed.replaced) {
+        (true, Some(replaced)) => replaced,
+        (true, None) => {
+            return Err(Error::invalid(
+                "/replace",
+                format!("{target} is a link already; remove it first"),
+            ));
+        }
+        (false, _) => serde_json::json!({
+            "kind": installed.kind,
+            "source": installed.source,
+            "resolved": installed.resolved,
+            "commit": installed.commit,
+            "asset_hash": installed.asset_hash,
+            "build_log": installed.build_log,
+            "bundle": installed.bundle,
+        })
+        .to_string(),
+    };
+    Ok(InstallRecord {
+        plugin: installed.plugin,
+        publisher: installed.publisher,
+        replaced: Some(replaced),
+        installed_at: installed.installed_at,
+        ..link
+    })
+}
+
+/// The installation a link replaced, put back in its place.
+fn restored(link: &InstallRecord, replaced: &str) -> Result<InstallRecord, Error> {
+    let was: Value = serde_json::from_str(replaced)
+        .map_err(|e| Error::Internal(format!("{}: what the link replaced: {e}", link.plugin)))?;
+    let text = |key: &str| was[key].as_str().map(str::to_string);
+    Ok(InstallRecord {
+        kind: text("kind").unwrap_or_else(|| "folder".into()),
+        source: text("source").unwrap_or_default(),
+        resolved: text("resolved").unwrap_or_default(),
+        commit: text("commit"),
+        asset_hash: text("asset_hash"),
+        build_log: text("build_log"),
+        bundle: text("bundle"),
+        replaced: None,
+        updated_at: crate::reviews::iso(Utc::now()),
+        ..link.clone()
+    })
+}
+
 /// Refuses a release older than the installed one, unless forced.
 fn older_than_installed(
     db: &Db,
@@ -1685,6 +1769,7 @@ fn record_for(
         bundle,
         previous: None,
         previous_until: None,
+        replaced: None,
         installed_at: now.clone(),
         updated_at: now,
     }

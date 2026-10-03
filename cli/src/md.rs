@@ -237,7 +237,10 @@ pub fn plugins_result(value: &Value) -> String {
             text(&value["name"]),
             text(&value["source"])
         ),
-        (_, Some(name), ..) => format!("Removed {name}.\n"),
+        (_, Some(name), ..) => match value["restored"].as_str() {
+            Some(version) => format!("Removed the link: {name} {version} is back.\n"),
+            None => format!("Removed {name}.\n"),
+        },
         (_, _, Some(count)) => format!("Reloaded {count} plugins.\n"),
         _ => format!("{value}\n"),
     }

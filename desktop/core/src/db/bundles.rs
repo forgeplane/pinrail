@@ -122,7 +122,8 @@ impl Db {
                  WHERE stored_at < ?1
                    AND NOT EXISTS (SELECT 1 FROM plugin_installs i
                                    WHERE i.bundle = plugin_bundles.hash
-                                      OR i.previous = plugin_bundles.hash)
+                                      OR i.previous = plugin_bundles.hash
+                                      OR json_extract(i.replaced, '$.bundle') = plugin_bundles.hash)
                    AND NOT EXISTS (SELECT 1 FROM reviews r
                                    WHERE r.plugin_bundle = plugin_bundles.hash)
                  RETURNING hash",
