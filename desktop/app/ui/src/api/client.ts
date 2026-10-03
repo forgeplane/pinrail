@@ -90,8 +90,9 @@ export const api = {
     request<Review>("POST", `/api/v1/plugins/${seg(plugin)}/sample`, body),
   getReview: (id: string) => request<Review>("GET", `/api/v1/reviews/${seg(id)}`),
   rounds: (id: string) => request<Review[]>("GET", `/api/v1/reviews/${seg(id)}/rounds`),
-  decide: (id: string, data: unknown, agentNote: string) =>
-    request<Review>("POST", `/api/v1/reviews/${seg(id)}/decision`, { data, agent_note: agentNote }),
+  /** the decision on the version the view showed: a review that moved to another since is a conflict */
+  decide: (id: string, data: unknown, agentNote: string, bundle?: string) =>
+    request<Review>("POST", `/api/v1/reviews/${seg(id)}/decision`, { data, agent_note: agentNote, bundle }),
   withdraw: (id: string, reason?: string) =>
     request<Review>("POST", `/api/v1/reviews/${seg(id)}/withdraw`, reason ? { reason } : {}),
   /** the person's "no, and stop": nothing decided, the agent told */
@@ -100,14 +101,13 @@ export const api = {
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${seg(id)}/viewed`),
   events: (id: string) => request<ReviewEvent[]>("GET", `/api/v1/reviews/${seg(id)}/events`),
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
-  reloadPlugins: () => request<{ ok: boolean; count: number }>("POST", "/api/v1/plugins/reload"),
   /** what installing a source would do; the source is fetched and dropped */
   inspectPlugin: (body: InstallRequest) => request<Inspection>("POST", "/api/v1/plugins/inspect", body),
   /** starts an install; the job says how it goes */
   installPlugin: (body: InstallRequest) => request<Plugin>("POST", "/api/v1/plugins/install", body),
-  /** what the app's frame loads to show a review */
+  /** opens a review for the app's frame, moving a pending one to the installed version when it takes it */
   reviewView: async (id: string) => {
-    const view = await request<ReviewView>("GET", `/api/v1/reviews/${seg(id)}/view`);
+    const view = await request<ReviewView>("POST", `/api/v1/reviews/${seg(id)}/view`);
     return { ...view, url: `${await serverUrl()}${view.url}` };
   },
   /** drops the installation and the lines no review renders with */
@@ -196,6 +196,7 @@ export function subscribe(handlers: {
       "discarded",
       "expired",
       "viewed",
+      "plugin_changed",
       "plugins_reloaded",
       "settings_changed",
       "history_swept",

@@ -20,7 +20,6 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
         )
         .unwrap();
     app.settings().change(&json!({"autostart": true})).unwrap();
-    app.plugins().reload().unwrap();
     let withdrawn = app
         .reviews()
         .withdraw(&review.id, Some("No longer needed"))
@@ -29,19 +28,14 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
     let notices = app.events().after(0, 10).unwrap();
     assert_eq!(
         notices.iter().map(|n| n.kind.as_str()).collect::<Vec<_>>(),
-        vec![
-            "created",
-            "settings_changed",
-            "plugins_reloaded",
-            "withdrawn"
-        ]
+        vec!["created", "settings_changed", "withdrawn"]
     );
     assert!(
         notices
             .windows(2)
             .all(|pair| pair[0].event_id < pair[1].event_id)
     );
-    for index in [0, 3] {
+    for index in [0, 2] {
         let notice = &notices[index];
         assert_eq!(notice.review_id.as_deref(), Some(review.id.as_str()));
         assert_eq!(
@@ -53,11 +47,8 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
         assert!(notice.keys.is_none());
     }
     assert_eq!(notices[1].keys, Some(vec!["/autostart".into()]));
-    for index in [1, 2] {
-        assert!(notices[index].review.is_none());
-        assert!(notices[index].review_id.is_none());
-    }
-    assert!(notices[2].keys.is_none());
+    assert!(notices[1].review.is_none());
+    assert!(notices[1].review_id.is_none());
 
     let page = app.events().after(notices[0].event_id, 2).unwrap();
     assert_eq!(
@@ -66,7 +57,7 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
     );
     assert!(
         app.events()
-            .after(notices[3].event_id, 10)
+            .after(notices[2].event_id, 10)
             .unwrap()
             .is_empty()
     );

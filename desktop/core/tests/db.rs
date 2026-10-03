@@ -73,7 +73,7 @@ fn deleting_a_review_takes_what_hangs_off_it() {
         media_type: "image/png".into(),
     }];
     db.insert_review(&first, None).unwrap().unwrap();
-    db.insert_decision("r_1", &decision(), None)
+    db.insert_decision("r_1", &decision(), None, None)
         .unwrap()
         .unwrap();
     let mut second = review("r_2", None);
@@ -137,7 +137,7 @@ fn nothing_ends_a_review_after_it_expired() {
         .unwrap()
         .unwrap();
     assert!(
-        db.insert_decision("r_1", &decision(), None)
+        db.insert_decision("r_1", &decision(), None, None)
             .unwrap()
             .is_none()
     );
@@ -161,7 +161,7 @@ fn a_review_ends_once_whichever_way() {
         .unwrap()
         .unwrap();
     assert!(
-        db.insert_decision("r_1", &decision(), Some("note"))
+        db.insert_decision("r_1", &decision(), Some("note"), None)
             .unwrap()
             .is_some()
     );
@@ -177,7 +177,7 @@ fn a_review_ends_once_whichever_way() {
             .is_none()
     );
     assert!(
-        db.insert_decision("r_1", &decision(), None)
+        db.insert_decision("r_1", &decision(), None, None)
             .unwrap()
             .is_none()
     );
@@ -195,7 +195,7 @@ fn a_review_ends_once_whichever_way() {
             .is_some()
     );
     assert!(
-        db.insert_decision("r_2", &decision(), None)
+        db.insert_decision("r_2", &decision(), None, None)
             .unwrap()
             .is_none()
     );
@@ -220,7 +220,7 @@ fn status_is_answered_by_the_query_and_the_count_is_not_a_listing() {
     db.insert_review(&review("r_y", Some(Duration::hours(1))), None)
         .unwrap()
         .unwrap();
-    db.insert_decision("r_0", &decision(), None).unwrap();
+    db.insert_decision("r_0", &decision(), None, None).unwrap();
     db.insert_withdrawal("r_1", Utc::now(), Some("gone"))
         .unwrap();
     db.insert_discard("r_2", Utc::now(), "pat", None).unwrap();
@@ -292,4 +292,76 @@ fn a_file_a_newer_build_migrated_is_refused() {
     drop(conn);
     let error = Db::open(&path).unwrap_err().to_string();
     assert!(error.contains("newer Pinrail"), "{error}");
+}
+
+/// A pending review moving to another version and a decision made against
+/// the version it had: whichever is written first wins, and the other is
+/// refused, so a decision is never recorded with a version nobody saw.
+#[test]
+fn a_move_and_a_decision_have_one_winner() {
+    use pinrail_core::db::BundleRecord;
+    let db = Db::in_memory().unwrap();
+    for hash in ["b1", "b2", "b3"] {
+        db.insert_bundle(
+            &BundleRecord {
+                hash: hash.repeat(32),
+                name: "list".into(),
+                version: "1.0.0".into(),
+                manifest: "{}".into(),
+                size: 1,
+                stored_at: Utc::now().to_rfc3339(),
+            },
+            "",
+        )
+        .unwrap();
+    }
+    let (b1, b2, b3) = ("b1".repeat(32), "b2".repeat(32), "b3".repeat(32));
+    let attrs = json!({"from": "1.0.0", "to": "1.0.1"});
+
+    // the move first: a decision checked against the old version is refused
+    let mut first = review("r_1", None);
+    first.plugin_bundle = Some(b1.clone());
+    db.insert_review(&first, None).unwrap().unwrap();
+    assert!(
+        db.move_review("r_1", Some(&b1), &b2, "1.0.1", None, &attrs)
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        db.insert_decision("r_1", &decision(), None, Some(&b1))
+            .unwrap()
+            .is_none()
+    );
+    // a move from a version the review no longer has is refused too
+    assert!(
+        db.move_review("r_1", Some(&b1), &b3, "1.0.2", None, &attrs)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        db.insert_decision("r_1", &decision(), None, Some(&b2))
+            .unwrap()
+            .is_some()
+    );
+
+    // the decision first: the review no longer moves
+    let mut second = review("r_2", None);
+    second.plugin_bundle = Some(b1.clone());
+    db.insert_review(&second, None).unwrap().unwrap();
+    db.insert_decision("r_2", &decision(), None, Some(&b1))
+        .unwrap()
+        .unwrap();
+    assert!(
+        db.move_review("r_2", Some(&b1), &b2, "1.0.1", None, &attrs)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        db.get_review("r_2")
+            .unwrap()
+            .unwrap()
+            .plugin_bundle
+            .as_deref(),
+        Some(b1.as_str())
+    );
 }

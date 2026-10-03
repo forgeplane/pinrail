@@ -100,15 +100,6 @@ impl PluginService {
         json!({ "plugins": plugins })
     }
 
-    /// The folder of a linked plugin, by name; none for any other.
-    pub fn installed_link(&self, name: &str) -> Option<std::path::PathBuf> {
-        self.registry
-            .installs()
-            .into_iter()
-            .find(|i| i.name == name && i.linked())
-            .map(|i| std::path::PathBuf::from(i.source))
-    }
-
     /// The plugin a review renders with; see [`Registry::fetch_review`].
     pub fn fetch_review(&self, plugin: &str, bundle: Option<&str>) -> Result<Arc<Plugin>, Error> {
         self.registry.fetch_review(plugin, bundle)
@@ -131,12 +122,6 @@ impl PluginService {
         }
         self.announce()?;
         Ok(true)
-    }
-
-    pub fn reload(&self) -> Result<usize, Error> {
-        let count = self.registry.reload()?;
-        self.announce()?;
-        Ok(count)
     }
 
     /// Inspects a source without installing it or announcing a change.

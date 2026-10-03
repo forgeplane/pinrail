@@ -62,15 +62,35 @@ export function ReviewScreen() {
   const [rounds, setRounds] = useState<Review[]>([]);
   // the other rounds still waiting that have never been opened: what is new
   const [unopened, setUnopened] = useState<Set<string>>(new Set());
-  // The plugin and its view's URL, resolved together for one plugin and
-  // the bundle the review was submitted to. The screen outlives a change of review, so what was resolved
-  // for the last review stays in state until the lookup for this one lands:
-  // it counts only when it was resolved for the review on screen.
-  const [resolved, setResolved] = useState<{ key: string; plugin: Plugin | null; src: string | null } | null>(null);
+  // The review opened: the plugin and its view's URL, resolved together for
+  // one plugin and the bundle the review renders with, which opening may
+  // move it to; the installed bundle when it was opened; and why the
+  // installed version does not take it, when it does not. The screen
+  // outlives a change of review, so what was resolved for the last review
+  // stays in state until the lookup for this one lands: it counts only
+  // when it was resolved for the review on screen.
+  const [resolved, setResolved] = useState<{
+    key: string;
+    plugin: Plugin | null;
+    src: string | null;
+    bundle: string | null;
+    installed: string | null;
+    refused: string | null;
+  } | null>(null);
   const pluginKey = review ? `${review.plugin}@${review.plugin_bundle}` : null;
   const current = resolved && resolved.key === pluginKey ? resolved : null;
   const plugin: Plugin | null | undefined = current ? current.plugin : undefined;
   const src = current?.src ?? null;
+  // the version installed now, which may have changed since the review was opened
+  const installedNow = review ? (live.plugins.get(review.plugin)?.install?.bundle ?? null) : null;
+  const newerInstalled =
+    !!current &&
+    review?.status === "pending" &&
+    installedNow !== null &&
+    installedNow !== current.installed &&
+    installedNow !== current.bundle;
+  // opens the review again, on the version installed now when it takes it
+  const reopen = () => setResolved(null);
   const [violations, setViolations] = useState<Violation[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -140,21 +160,32 @@ export function ReviewScreen() {
     if (!review || !pluginKey) return;
     if (resolved?.key === pluginKey) return;
     let cancelled = false;
+    const installed = live.plugins.get(review.plugin)?.install?.bundle ?? null;
     (async () => {
       try {
-        // the plugin of the review's line and its view's address, as the
-        // core resolves them: the line's current bundle, or a live link
+        // opened, the review may move to the version installed now
         const view = await api.reviewView(review.id);
+        if (cancelled) return;
+        const key = `${view.review.plugin}@${view.bundle}`;
         // the plugin and its URL arrive in one update, for the key they were looked up for
-        if (!cancelled) setResolved({ key: pluginKey, plugin: view.plugin.usable ? view.plugin : null, src: view.url });
+        setResolved({
+          key,
+          plugin: view.plugin.usable ? view.plugin : null,
+          src: view.url,
+          bundle: view.bundle,
+          installed,
+          refused: view.refused,
+        });
+        if (view.review.plugin_bundle !== review.plugin_bundle) setReview(view.review);
       } catch {
-        if (!cancelled) setResolved({ key: pluginKey, plugin: null, src: null });
+        if (!cancelled)
+          setResolved({ key: pluginKey, plugin: null, src: null, bundle: null, installed, refused: null });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [pluginKey]); // eslint-disable-line react-hooks/exhaustive-deps -- the key names the plugin and version; the review changes on every event
+  }, [pluginKey, resolved]); // eslint-disable-line react-hooks/exhaustive-deps -- the key names the plugin and version; the review changes on every event
 
   const previous = useMemo(() => {
     if (!review?.revises) return null;
@@ -172,7 +203,7 @@ export function ReviewScreen() {
   const onSubmit = useCallback(
     async (data: unknown): Promise<SubmitResult> => {
       try {
-        const decided = await api.decide(id, data, noteRef.current);
+        const decided = await api.decide(id, data, noteRef.current, current?.bundle ?? undefined);
         try {
           sessionStorage.removeItem(NOTE_PREFIX + id + ":note");
         } catch {
@@ -192,12 +223,20 @@ export function ReviewScreen() {
           setViolations(e.violations);
           return { ok: false, violations: e.violations };
         }
+        if (e instanceof ApiError && e.kind === "conflict") {
+          // the review moved to another version since it was opened: it
+          // opens again with that one, and the person decides there
+          setFlash("This review was opened again with the plugin's version installed now. Nothing was decided.");
+          load();
+          reopen();
+          return { ok: false, violations: [] };
+        }
         setFlash(e instanceof Error ? e.message : "The decision was not recorded.");
         load();
         return { ok: false, violations: [] };
       }
     },
-    [id, load, navigate, toast],
+    [id, load, navigate, toast, current?.bundle],
   );
 
   // the plugin's own settings as they stand: its defaults under what was set
@@ -236,14 +275,20 @@ export function ReviewScreen() {
       if (!plugin || asking.current) return;
       const request = linkRequest(url);
       if (!request) return;
-      if (allowedWithoutAsking(request, prefsNow.current.links[plugin.name], sourceOf(plugin))) {
+      if (
+        allowedWithoutAsking(
+          request,
+          prefsNow.current.links[plugin.name],
+          sourceOf(live.plugins.get(plugin.name) ?? plugin),
+        )
+      ) {
         openExternal(url);
         return;
       }
       asking.current = true;
       setLinkAsk(request);
     },
-    [plugin],
+    [plugin, live.plugins],
   );
   const onLinkChoice = useCallback(
     (choice: LinkChoice) => {
@@ -253,12 +298,18 @@ export function ReviewScreen() {
       if (!request || !plugin || choice === "cancel") return;
       if (choice === "always" && request.origin) {
         updatePrefs({
-          links: { [plugin.name]: allowing(prefsNow.current.links[plugin.name], sourceOf(plugin), request.origin) },
+          links: {
+            [plugin.name]: allowing(
+              prefsNow.current.links[plugin.name],
+              sourceOf(live.plugins.get(plugin.name) ?? plugin),
+              request.origin,
+            ),
+          },
         });
       }
       openExternal(request.url);
     },
-    [linkAsk, plugin, updatePrefs],
+    [linkAsk, plugin, updatePrefs, live.plugins],
   );
 
   const bridge = usePluginBridge({
@@ -548,6 +599,20 @@ export function ReviewScreen() {
       </div>
 
       {flash ? <p className="notice">{flash}</p> : null}
+      {newerInstalled ? (
+        <p className="notice" data-plugin-newer>
+          The plugin changed since this review was opened.{" "}
+          <button type="button" className="settings-reset-link" onClick={reopen} data-plugin-reload>
+            Reload
+          </button>
+        </p>
+      ) : null}
+      {current?.refused && review.status === "pending" ? (
+        <p className="notice" data-plugin-refused>
+          The installed version of this plugin does not take this review, so it opens with the version it was submitted
+          to. {current.refused}
+        </p>
+      ) : null}
       {review.status === "withdrawn" ? (
         <p className="notice">
           The requester withdrew this review {age(review.withdrawn_at)} ago

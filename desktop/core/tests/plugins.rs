@@ -75,7 +75,6 @@ async fn a_refused_install_leaves_the_installed_plugin_as_it_was() {
     for source in [unbuilt, broken] {
         let refused = copy(&app, &source).await;
         assert!(refused.is_err(), "{refused:?}");
-        app.plugins().reload().unwrap();
         let hello = listed(&app, "hello");
         assert_eq!(hello, before, "{}", source.display());
         assert_eq!(hello["version"], "1.2.0");
@@ -160,12 +159,14 @@ async fn a_review_keeps_its_release_through_updates_and_removal() {
         .fetch_review("hello", review.plugin_bundle.as_deref())
         .unwrap();
     assert_eq!(kept.version, "1.0.0");
-    app.reviews().decide(&review.id, &json!({}), None).unwrap();
+    app.reviews()
+        .decide(&review.id, &json!({}), None, None)
+        .unwrap();
     assert!(app.reviews().get(&review.id).unwrap().decision.is_some());
 }
 
 #[tokio::test]
-async fn linking_reload_and_removal_record_and_announce_changes() {
+async fn linking_and_removal_record_and_announce_changes() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path().join("data"), 0);
     let sources = dir.path().join("sources");
@@ -191,13 +192,6 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     assert_eq!(hello["settings"], json!({"wrap": false}));
     assert_eq!(hello["install"]["link"], true);
 
-    assert_eq!(
-        app.plugins().reload().unwrap(),
-        3,
-        "hello and the built-in ones"
-    );
-    let reloaded = notices.try_recv().unwrap();
-    assert_eq!(reloaded.kind, events::PLUGINS_RELOADED);
     let removed = app.plugins().remove("hello").unwrap();
     assert_eq!(removed["removed"], "hello");
     assert!(
@@ -210,7 +204,7 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     let recorded = db.events_after(0, 10).unwrap();
     assert_eq!(
         recorded.iter().map(|e| e.id).collect::<Vec<_>>(),
-        vec![added.event_id, reloaded.event_id, removed.event_id]
+        vec![added.event_id, removed.event_id]
     );
     assert!(recorded.iter().all(|e| e.kind == events::PLUGINS_RELOADED));
     assert!(notices.try_recv().is_err());
@@ -580,4 +574,190 @@ async fn a_capture_nothing_refers_to_is_swept() {
     let left = stored(&app);
     assert!(!left.contains(&first), "the first capture was kept");
     assert!(left.contains(&second));
+}
+
+/// Writes a decision schema that takes `{ok: bool}` and requires `verdict`.
+fn require_verdict(folder: &Path) {
+    std::fs::write(
+        folder.join("schemas/decision.schema.json"),
+        json!({"type": "object", "required": ["verdict"], "properties": {"verdict": {"type": "string"}}})
+            .to_string(),
+    )
+    .unwrap();
+}
+
+/// A pending review of a linked plugin follows the folder: opened after the
+/// folder changed, it moves to the folder as it is, and is decided by that
+/// version; once the link and the folder are gone, it renders and checks
+/// with what it was decided with.
+#[tokio::test]
+async fn a_pending_review_moves_to_the_folder_when_it_is_opened() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    link(&app, &folder).await.unwrap();
+    let review = app
+        .reviews()
+        .submit(&json!({"plugin": "hello", "title": "Follow"}), None)
+        .unwrap();
+    let first = review.plugin_bundle.clone().unwrap();
+    let mut notices = app.events().subscribe();
+
+    std::fs::write(folder.join("view/index.html"), "<html>second</html>").unwrap();
+    require_verdict(&folder);
+    let opened = app.reviews().open(&review.id).unwrap();
+    assert!(opened.refused.is_none(), "{:?}", opened.refused);
+    let second = opened.review.plugin_bundle.clone().unwrap();
+    assert_ne!(second, first);
+    assert_eq!(
+        opened.plugin.describe()["decision_schema"]["required"],
+        json!(["verdict"])
+    );
+    let moved = notices.try_recv().unwrap();
+    assert_eq!(moved.kind, events::PLUGIN_CHANGED);
+    assert_eq!(moved.review_id.as_deref(), Some(review.id.as_str()));
+    // opened again with nothing changed, it stays
+    let again = app.reviews().open(&review.id).unwrap();
+    assert_eq!(again.review.plugin_bundle.as_deref(), Some(second.as_str()));
+
+    // the old schema's decision is refused, the new one's taken
+    assert!(
+        app.reviews()
+            .decide(&review.id, &json!({"ok": true}), None, Some(&second))
+            .is_err()
+    );
+    app.reviews()
+        .decide(&review.id, &json!({"verdict": "yes"}), None, Some(&second))
+        .unwrap();
+
+    app.plugins().remove("hello").unwrap();
+    std::fs::remove_dir_all(&folder).unwrap();
+    let decided = app.reviews().get(&review.id).unwrap();
+    assert_eq!(decided.plugin_bundle.as_deref(), Some(second.as_str()));
+    let view = std::fs::read_to_string(
+        app.config()
+            .plugin_bundles_dir()
+            .join(&second)
+            .join("view/index.html"),
+    )
+    .unwrap();
+    assert_eq!(view, "<html>second</html>");
+    let rendered = app.reviews().open(&review.id).unwrap();
+    assert_eq!(
+        rendered.review.plugin_bundle.as_deref(),
+        Some(second.as_str())
+    );
+}
+
+/// A hand-over records the version that was shown: the folder may change
+/// again after the review was opened, and the decision is still checked
+/// by, and recorded with, the version the person saw. A hand-over from a
+/// view of another version is a conflict.
+#[tokio::test]
+async fn a_decision_is_recorded_with_the_version_that_was_shown() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    link(&app, &folder).await.unwrap();
+    let review = app
+        .reviews()
+        .submit(&json!({"plugin": "hello", "title": "Shown"}), None)
+        .unwrap();
+    let shown = app
+        .reviews()
+        .open(&review.id)
+        .unwrap()
+        .review
+        .plugin_bundle
+        .unwrap();
+
+    // the folder changes and is captured, but the review is not opened again
+    require_verdict(&folder);
+    app.plugins().describe(Some("hello")).unwrap();
+    assert_ne!(listed(&app, "hello")["install"]["bundle"], shown.as_str());
+
+    // a window that shows another version is refused, and nothing is recorded
+    let stale = app.reviews().decide(
+        &review.id,
+        &json!({"ok": true}),
+        None,
+        Some("0".repeat(64).as_str()),
+    );
+    assert!(matches!(stale, Err(Error::Conflict(_))), "{stale:?}");
+    let decided = app
+        .reviews()
+        .decide(&review.id, &json!({"ok": true}), None, Some(&shown))
+        .unwrap();
+    assert_eq!(decided.plugin_bundle.as_deref(), Some(shown.as_str()));
+}
+
+/// A new version whose payload schema refuses a pending review's payload
+/// leaves the review where it is: it opens with the version it was
+/// submitted to, says the installed one does not take it, and can be
+/// decided. A version that takes it moves it, with that version's summary.
+#[tokio::test]
+async fn an_update_moves_the_pending_reviews_it_takes() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let sources = dir.path().join("sources");
+    copy(&app, &plugin(&sources, "hello", "1.0.0"))
+        .await
+        .unwrap();
+    let review = app
+        .reviews()
+        .submit(
+            &json!({"plugin": "hello", "title": "Keep", "payload": {"items": [1, 2]}}),
+            None,
+        )
+        .unwrap();
+    let first = review.plugin_bundle.clone().unwrap();
+
+    // 1.1.0 needs a field the review's payload has not got
+    let refusing = plugin(&sources, "hello", "1.1.0");
+    std::fs::write(
+        refusing.join("schemas/payload.schema.json"),
+        json!({"type": "object", "required": ["title"]}).to_string(),
+    )
+    .unwrap();
+    copy(&app, &refusing).await.unwrap();
+    let opened = app.reviews().open(&review.id).unwrap();
+    assert_eq!(opened.review.plugin_bundle.as_deref(), Some(first.as_str()));
+    assert!(
+        opened
+            .refused
+            .as_deref()
+            .is_some_and(|why| why.contains("title")),
+        "{:?}",
+        opened.refused
+    );
+
+    // 1.2.0 takes it, and counts its items
+    let taking = plugin(&sources, "hello", "1.2.0");
+    let manifest = taking.join("manifest.json");
+    let mut m: Value = serde_json::from_str(&std::fs::read_to_string(&manifest).unwrap()).unwrap();
+    m["summary"] = json!({"request": {"counts": [{"items": "/items", "label": "items"}]}});
+    std::fs::write(&manifest, m.to_string()).unwrap();
+    copy(&app, &taking).await.unwrap();
+    let opened = app.reviews().open(&review.id).unwrap();
+    assert!(opened.refused.is_none());
+    assert_eq!(opened.review.plugin_version, "1.2.0");
+    assert!(
+        opened.review.summary.is_some(),
+        "{:?}",
+        opened.review.summary
+    );
+    app.reviews()
+        .decide(
+            &review.id,
+            &json!({}),
+            None,
+            opened.review.plugin_bundle.as_deref(),
+        )
+        .unwrap();
+
+    // ended, it keeps its version through another update
+    let later = plugin(&sources, "hello", "1.3.0");
+    copy(&app, &later).await.unwrap();
+    let ended = app.reviews().open(&review.id).unwrap();
+    assert_eq!(ended.review.plugin_version, "1.2.0");
 }

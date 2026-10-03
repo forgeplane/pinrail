@@ -207,14 +207,9 @@ pub fn plugins_result(value: &Value) -> String {
         }
         return format!("Installed {name} {}{from}.\n", text(&plugin["version"]));
     }
-    match (
-        value["state"].as_str(),
-        value["removed"].as_str(),
-        value["count"].as_u64(),
-    ) {
-        (_, Some(name), ..) => format!("Removed {name}.\n"),
-        (_, _, Some(count)) => format!("Reloaded {count} plugins.\n"),
-        _ => format!("{value}\n"),
+    match value["removed"].as_str() {
+        Some(name) => format!("Removed {name}.\n"),
+        None => format!("{value}\n"),
     }
 }
 

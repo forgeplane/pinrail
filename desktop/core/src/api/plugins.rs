@@ -21,7 +21,6 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/plugins", get(index))
         .route("/api/v1/plugins/describe", get(describe_all))
-        .route("/api/v1/plugins/reload", post(reload))
         .route("/api/v1/plugins/inspect", post(inspect))
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/{name}", delete(remove))
@@ -108,9 +107,4 @@ async fn remove(
             .change(&serde_json::json!({ "links": { &name: null } }))?;
     }
     Ok(Json(answer))
-}
-
-async fn reload(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {
-    let count = state.plugins().reload()?;
-    Ok(Json(json!({ "ok": true, "count": count })))
 }

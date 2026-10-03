@@ -12,14 +12,19 @@ use crate::reviews::Decision;
 
 impl Db {
     /// Records the decision; `None` when the review had already ended.
+    /// Records the person's decision, as long as the review still records
+    /// `bundle`, the version it was checked by; `None` when it had ended or
+    /// moved to another version.
     pub fn insert_decision(
         &self,
         id: &str,
         decision: &Decision,
         agent_note: Option<&str>,
+        bundle: Option<&str>,
     ) -> rusqlite::Result<Option<i64>> {
         self.insert_outcome(
             id,
+            bundle,
             Outcome {
                 kind: "decided",
                 at: decision.decided_at,
@@ -48,6 +53,7 @@ impl Db {
             .unwrap_or(Value::Null);
         self.insert_outcome(
             id,
+            None,
             Outcome {
                 kind: "withdrawn",
                 at,
@@ -78,6 +84,7 @@ impl Db {
         };
         self.insert_outcome(
             id,
+            None,
             Outcome {
                 kind: "discarded",
                 at,
@@ -97,9 +104,12 @@ impl Db {
     /// row per review whichever the kind, so the loser of a race, of any
     /// kind against any other, gets `None`; the event goes in the same
     /// transaction as the outcome.
+    /// Ends a review with an outcome; with `bundle`, only while the review
+    /// records that bundle.
     fn insert_outcome(
         &self,
         id: &str,
+        bundle: Option<&str>,
         outcome: Outcome<'_>,
         event: &str,
         actor: Option<&str>,
@@ -112,7 +122,8 @@ impl Db {
         let inserted = tx.execute(
             "INSERT OR IGNORE INTO outcomes (review_id, kind, at, by, reason, data, agent_note, summary) \
              SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?9 FROM reviews \
-             WHERE id = ?1 AND (expires_at IS NULL OR expires_at > ?8)",
+             WHERE id = ?1 AND (expires_at IS NULL OR expires_at > ?8) \
+               AND (?10 IS NULL OR plugin_bundle = ?10)",
             params![
                 id,
                 outcome.kind,
@@ -122,7 +133,8 @@ impl Db {
                 outcome.data.map(Value::to_string),
                 outcome.agent_note,
                 crate::reviews::iso(chrono::Utc::now()),
-                outcome.summary.map(Value::to_string)
+                outcome.summary.map(Value::to_string),
+                bundle
             ],
         )?;
         if inserted == 0 {

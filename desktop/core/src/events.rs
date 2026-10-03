@@ -16,6 +16,8 @@ pub const DECIDED: &str = "decided";
 pub const WITHDRAWN: &str = "withdrawn";
 pub const EXPIRED: &str = "expired";
 pub const DISCARDED: &str = "discarded";
+/// A pending review moved to the version of its plugin installed now.
+pub const PLUGIN_CHANGED: &str = "plugin_changed";
 pub const PLUGINS_RELOADED: &str = "plugins_reloaded";
 pub const SETTINGS_CHANGED: &str = "settings_changed";
 /// Reviews past the history's keep-days were deleted.

@@ -81,7 +81,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
         setLastNotice(notice);
         if (notice.review_id) setPending((pending) => applyNotice(pending, notice));
         if (ENDINGS.has(notice.kind) || notice.kind === "history_swept") setHistoryVersion((v) => v + 1);
-        if (notice.kind === "plugins_reloaded") loadPlugins();
+        // a review that moved may have taken a linked folder as it is now
+        if (notice.kind === "plugins_reloaded" || notice.kind === "plugin_changed") loadPlugins();
       },
     });
   }, [refresh, loadPlugins]);

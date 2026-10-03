@@ -294,15 +294,28 @@ impl Reviews {
     /// Records the decision, made by the configured user. `data` is validated
     /// against the decision schema of the plugin version the review was
     /// submitted under.
+    /// Records the person's decision, checked by the version of the plugin
+    /// the review records. `shown` is the bundle the person's view showed:
+    /// when the review has moved to another since, the decision is refused
+    /// as a conflict, to be made again on the review as it is.
     pub fn decide(
         &self,
         id: &str,
         data: &Value,
         agent_note: Option<&str>,
+        shown: Option<&str>,
     ) -> Result<Review, Error> {
         let review = self.get(id)?;
         if !review.is_pending(Utc::now()) {
             return Err(Error::NotPending(id.to_string()));
+        }
+        let moved = |id: &str| {
+            Error::Conflict(format!(
+                "review {id} moved to another version of its plugin; open it again"
+            ))
+        };
+        if shown.is_some() && shown != review.plugin_bundle.as_deref() {
+            return Err(moved(id));
         }
         let plugin = self
             .registry
@@ -322,12 +335,111 @@ impl Reviews {
                 .and_then(|rules| rules.derive(data)),
         };
         let note = agent_note.map(str::trim).filter(|n| !n.is_empty());
-        let Some(event_id) = self.db.insert_decision(id, &decision, note)? else {
-            return Err(Error::NotPending(id.to_string()));
+        let Some(event_id) =
+            self.db
+                .insert_decision(id, &decision, note, review.plugin_bundle.as_deref())?
+        else {
+            // ended meanwhile, or moved by an opening of the review
+            return Err(match self.get(id)?.is_pending(Utc::now()) {
+                true => moved(id),
+                false => Error::NotPending(id.to_string()),
+            });
         };
         let review = self.get(id)?;
         self.publish(event_id, events::DECIDED, &review);
         Ok(review)
+    }
+
+    /// A review as the app opens it, with the plugin version it renders
+    /// with. A pending review moves first to the version of its plugin
+    /// installed now, a linked folder as it is now, when that version takes
+    /// its payload and its files; when it does not, the review stays, and
+    /// `refused` says why. An ended review keeps its version.
+    pub fn open(&self, id: &str) -> Result<Opened, Error> {
+        let review = self.get(id)?;
+        let mut refused = None;
+        if review.is_pending(Utc::now()) {
+            self.registry.capture(&review.plugin)?;
+            if let Some(installed) = self.registry.get(&review.plugin).filter(|p| p.usable())
+                && let Some(bundle) = installed.install.as_ref().and_then(|i| i.bundle.clone())
+                && review.plugin_bundle.as_deref() != Some(bundle.as_str())
+            {
+                match self.takes(&installed, &review) {
+                    Ok(summary) => {
+                        let attrs = serde_json::json!({
+                            "from": review.plugin_version,
+                            "to": installed.version,
+                        });
+                        if let Some(event_id) = self.db.move_review(
+                            id,
+                            review.plugin_bundle.as_deref(),
+                            &bundle,
+                            &installed.version,
+                            summary.as_ref(),
+                            &attrs,
+                        )? {
+                            self.publish(event_id, events::PLUGIN_CHANGED, &self.get(id)?);
+                        }
+                    }
+                    Err(why) => {
+                        refused = Some(format!(
+                            "{} {} does not take this review: {why}",
+                            installed.name, installed.version
+                        ))
+                    }
+                }
+            }
+        }
+        let review = self.get(id)?;
+        let plugin = self
+            .registry
+            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
+        Ok(Opened {
+            review,
+            plugin,
+            refused,
+        })
+    }
+
+    /// Whether `plugin` takes a review's payload and files, as a submission
+    /// to it would be checked: the request summary it would give, or why not.
+    fn takes(&self, plugin: &Plugin, review: &Review) -> Result<Option<Value>, String> {
+        let payload = review.payload.clone().unwrap_or(Value::Object(Map::new()));
+        let declared: Map<String, Value> = review
+            .attachments
+            .iter()
+            .map(|a| {
+                (
+                    a.name.clone(),
+                    serde_json::json!({ "sha256": a.sha256, "size": a.size, "media_type": a.media_type }),
+                )
+            })
+            .collect();
+        let mut violations: Vec<Violation> = plugin
+            .validate_payload(&payload)
+            .into_iter()
+            .map(|v| Violation::new(format!("/payload{}", v.path), v.message))
+            .collect();
+        if let Err(Error::Invalid(more)) = self.attachments.check(
+            (!declared.is_empty()).then_some(&Value::Object(declared)),
+            plugin.attachments.as_ref(),
+            &payload,
+            Presence::Stored,
+        ) {
+            violations.extend(more);
+        }
+        if !violations.is_empty() {
+            return Err(violations
+                .iter()
+                .map(|v| format!("{}: {}", v.path, v.message))
+                .collect::<Vec<_>>()
+                .join("; "));
+        }
+        Ok(plugin
+            .summary
+            .request
+            .as_ref()
+            .and_then(|rules| rules.derive(&payload)))
     }
 
     /// What `decide` would say of a decision, deciding nothing: the
@@ -579,4 +691,13 @@ impl Reviews {
             Err(Error::Invalid(violations))
         }
     }
+}
+
+/// A review as the app opens it: the review, the plugin version it renders
+/// with, and, when the version installed now does not take it, why.
+#[derive(Debug)]
+pub struct Opened {
+    pub review: Review,
+    pub plugin: Arc<Plugin>,
+    pub refused: Option<String>,
 }

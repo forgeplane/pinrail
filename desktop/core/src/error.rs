@@ -1,7 +1,8 @@
 //! The one error value the reviews API returns.
 //!
 //! `error` is what callers match on: `not_found`, `not_pending` when the
-//! review is decided, withdrawn or expired, `invalid` with violations
+//! review is decided, withdrawn or expired, `conflict` when it moved to
+//! another version of its plugin meanwhile, `invalid` with violations
 //! saying where, and `unavailable` when a source the app fetches from
 //! could not be reached. A violation's path is a JSON pointer into the offending
 //! document, the shape plugins render. The statuses these answer with over
@@ -16,6 +17,9 @@ pub enum Error {
     /// What was not found, as the message names it: `review r_1`, `plugin hello`
     NotFound(String),
     NotPending(String),
+    /// The review moved to another version of its plugin than the one the
+    /// request was made against, as the message says
+    Conflict(String),
     Invalid(Vec<Violation>),
     Internal(String),
     /// The database failed, with the error it gave
@@ -39,6 +43,7 @@ impl Error {
         match self {
             Error::NotFound(what) => format!("{what} not found"),
             Error::NotPending(id) => format!("review {id} is no longer pending"),
+            Error::Conflict(message) => message.clone(),
             Error::Invalid(violations) => {
                 let mut lines = vec!["validation failed:".to_string()];
                 for v in violations {
@@ -59,6 +64,7 @@ impl Error {
         let (kind, violations) = match self {
             Error::NotFound(_) => ("not_found", Vec::new()),
             Error::NotPending(_) => ("not_pending", Vec::new()),
+            Error::Conflict(_) => ("conflict", Vec::new()),
             Error::Invalid(v) => ("invalid", v.clone()),
             Error::Internal(_) | Error::Database(_) | Error::Io(_) => ("internal", Vec::new()),
             Error::InUse(_) => ("in_use", Vec::new()),

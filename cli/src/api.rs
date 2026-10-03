@@ -215,11 +215,6 @@ impl Client {
         self.get(&format!("/api/v1/plugins/{}/describe", segment(name)), &[])
     }
 
-    /// What the app makes of a plugin folder, installing nothing.
-    pub fn plugins_reload(&self) -> Result<Value> {
-        self.post("/api/v1/plugins/reload", None)
-    }
-
     /// The review rendered as markdown by the server, opening the way a
     /// command's output does.
     pub fn review_markdown(&self, id: &str) -> Result<String> {

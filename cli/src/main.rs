@@ -518,11 +518,6 @@ enum PluginsCommand {
         #[arg(long, group = "part")]
         decision_schema: bool,
     },
-    /// Read the installed plugins from disk again
-    ///
-    /// Run this after you change the manifest or schemas of a linked plugin.
-    /// Changes to a linked plugin's view take effect without a reload.
-    Reload,
     /// Create a new plugin that needs no build step
     ///
     /// The new folder contains a manifest, schemas, a sample review, a view,
@@ -1043,7 +1038,6 @@ fn run(cli: Cli) -> Result<u8> {
                     })?
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
-                Some(PluginsCommand::Reload) => client.plugins_reload()?,
                 Some(
                     PluginsCommand::Describe { .. }
                     | PluginsCommand::Check { .. }

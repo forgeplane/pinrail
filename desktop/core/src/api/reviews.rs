@@ -30,7 +30,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/validate", post(validate))
         .route("/api/v1/reviews/{id}", get(show))
         .route("/api/v1/reviews/{id}/rounds", get(rounds))
-        .route("/api/v1/reviews/{id}/view", get(view))
+        .route("/api/v1/reviews/{id}/view", post(view))
         .route("/api/v1/reviews/{id}/wait", get(wait))
         .route("/api/v1/reviews/{id}/decision", post(decide))
         .route("/api/v1/reviews/{id}/withdraw", post(withdraw))
@@ -173,27 +173,26 @@ async fn show(
     review_response(&state, &review, wants_markdown(&headers, &params)).await
 }
 
-/// What the app's frame loads to show a review: the plugin it renders
-/// with, and the address of its view. That is the bundle the review was
-/// submitted to, which never changes and is cached, or the linked folder
-/// while its plugin is linked, served as it is.
+/// Opens a review for the app's frame: a pending review first moves to the
+/// version of its plugin installed now, when that version takes it. The
+/// answer is the plugin it renders with, the bundle and the address of its
+/// view, which never changes and is cached, and `refused` when the
+/// installed version does not take the review, saying why.
 async fn view(
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
-    let review = state.reviews().get(&id)?;
-    let plugin = state
-        .plugins()
-        .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
-    let url = match (
-        plugin.install.as_ref().filter(|i| i.link),
-        &review.plugin_bundle,
-    ) {
-        (Some(_), _) => format!("/links/{}/view/index.html", review.plugin),
-        (None, Some(bundle)) => format!("/bundles/{bundle}/view/index.html"),
-        (None, None) => return Err(Error::NotFound(format!("the bundle of review {id}")).into()),
+    let opened = state.reviews().open(&id)?;
+    let Some(bundle) = opened.review.plugin_bundle.clone() else {
+        return Err(Error::NotFound(format!("the bundle of review {id}")).into());
     };
-    Ok(Json(json!({ "url": url, "plugin": plugin.to_json() })))
+    Ok(Json(json!({
+        "url": format!("/bundles/{bundle}/view/index.html"),
+        "bundle": bundle,
+        "plugin": opened.plugin.to_json(),
+        "review": opened.review.to_json(true),
+        "refused": opened.refused,
+    })))
 }
 
 async fn rounds(
@@ -244,7 +243,9 @@ async fn decide(
         return Ok(Json(json!({ "valid": true, "data": data })).into_response());
     }
     let note = body.get("agent_note").and_then(Value::as_str);
-    let review = state.reviews().decide(&id, data, note)?;
+    // the bundle the person's view showed, when the app sends it
+    let shown = body.get("bundle").and_then(Value::as_str);
+    let review = state.reviews().decide(&id, data, note, shown)?;
     review_response(&state, &review, wants_markdown(&headers, &params)).await
 }
 

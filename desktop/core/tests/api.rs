@@ -390,6 +390,7 @@ async fn wait_times_out_with_204_and_wakes_on_a_decision() {
                 &decide_id,
                 &json!({"decisions": [], "undecided": [1, 2]}),
                 None,
+                None,
             )
             .unwrap();
     });
@@ -704,7 +705,7 @@ async fn expired_reviews_read_as_expired_and_are_swept_once() {
 }
 
 #[tokio::test]
-async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
+async fn plugins_are_listed_and_installed_one_by_one() {
     let app = app();
     let names = |body: &Value| -> Vec<String> {
         body["plugins"]
@@ -769,9 +770,9 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
         "{body}"
     );
 
-    let (status, body) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
-    assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["count"], 3, "the two built-in ones and hello");
+    // nothing reads the plugins again on request
+    let (status, _) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
+    assert!(!status.is_success(), "{status}");
 
     // a plugin named in a path by its name; a publisher is no part of it
     for name in ["nope", "forgeplane%2Flist"] {
@@ -806,7 +807,7 @@ async fn a_review_is_shown_from_its_bundle_with_the_sandbox_csp() {
     assert_eq!(review["plugin"], "list");
     assert_eq!(review["plugin_version"], "1.0.0");
     let id = review["id"].as_str().unwrap();
-    let (status, view) = call(&app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
+    let (status, view) = call(&app, "POST", &format!("/api/v1/reviews/{id}/view"), None).await;
     assert_eq!(status, StatusCode::OK, "{view}");
     assert_eq!(view["plugin"]["name"], "list");
     assert_eq!(view["plugin"]["version"], "1.0.0");
@@ -846,7 +847,7 @@ async fn a_review_is_shown_from_its_bundle_with_the_sandbox_csp() {
         let response = bundle_get(&app, gone, &[]).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{gone}");
     }
-    let (status, _) = call(&app, "GET", "/api/v1/reviews/r_nope/view", None).await;
+    let (status, _) = call(&app, "POST", "/api/v1/reviews/r_nope/view", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
@@ -1111,10 +1112,11 @@ async fn an_inspection_shows_the_plugins_icon() {
     );
 }
 
-/// A linked plugin is served from the developer's own folder, which holds
-/// more than a plugin: only what an installed copy would hold is served.
+/// A linked plugin's folder holds more than a plugin: what is stored of it
+/// is what an installed copy would hold, and nothing is served from the
+/// folder itself.
 #[tokio::test]
-async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
+async fn a_linked_plugin_stores_only_what_an_installed_copy_would_hold() {
     let app = app();
     let root = tempfile::tempdir().unwrap();
     let hello = plugin_copy(root.path(), "hello", "1.0.0");
@@ -1135,12 +1137,12 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
     let (status, row) = install(&app, &hello, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
 
-    let host = [("host", "127.0.0.1:4747")];
-    let (status, _) = raw(&app, "GET", "/links/hello/view/index.html", &host, "").await;
-    assert_eq!(status, StatusCode::OK);
+    let stored = app
+        .state
+        .bundles()
+        .path(row["install"]["bundle"].as_str().unwrap());
+    assert!(stored.join("view/index.html").is_file());
     for file in [
-        "manifest.json",
-        "schemas/payload.schema.json",
         ".env",
         ".git/config",
         "node_modules/lib/index.js",
@@ -1150,8 +1152,13 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
         "notes.txt",
         "cache/build.bin",
     ] {
-        let (status, body) = raw(&app, "GET", &format!("/links/hello/{file}"), &host, "").await;
-        assert_eq!(status, StatusCode::NOT_FOUND, "{file}: {body}");
+        assert!(!stored.join(file).exists(), "{file} was stored");
+    }
+    // the folder is never served
+    let host = [("host", "127.0.0.1:4747")];
+    for path in ["/links/hello/view/index.html", "/links/hello/manifest.json"] {
+        let (status, _) = raw(&app, "GET", path, &host, "").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{path}");
     }
 }
 
@@ -2515,24 +2522,15 @@ async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
     let review = submit(&app, body).await;
     assert_eq!(review["plugin"], "shelf", "{review}");
     let id = review["id"].as_str().unwrap();
-    let (_, view) = call(&app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
+    let (_, view) = call(&app, "POST", &format!("/api/v1/reviews/{id}/view"), None).await;
     let url = view["url"].as_str().unwrap().to_string();
     assert_eq!(url, format!("/bundles/{bundle}/view/index.html"));
     assert_eq!(bundle_get(&app, &url, &[]).await.status(), StatusCode::OK);
 
-    // changed behind the app's back
+    // changed behind the app's back: no longer served
     let page = stored.join("view/index.html");
     std::fs::set_permissions(&page, std::fs::Permissions::from_mode(0o644)).unwrap();
     std::fs::write(&page, "<html>changed</html>").unwrap();
-    call(&app, "POST", "/api/v1/plugins/reload", None).await;
-    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    let shelf = body["plugins"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|p| p["name"] == "shelf")
-        .unwrap();
-    assert_eq!(shelf["install"]["modified"], true);
     assert_eq!(
         bundle_get(&app, &url, &[]).await.status(),
         StatusCode::INTERNAL_SERVER_ERROR
@@ -2609,7 +2607,7 @@ async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCo
 /// The bundle a review's frame loads.
 async fn view_url(app: &App, review: &Value) -> String {
     let id = review["id"].as_str().unwrap();
-    let (status, view) = call(app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
+    let (status, view) = call(app, "POST", &format!("/api/v1/reviews/{id}/view"), None).await;
     assert_eq!(status, StatusCode::OK, "{view}");
     view["url"].as_str().unwrap().to_string()
 }
@@ -2683,7 +2681,8 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
         format!("/bundles/{}/view/index.html", bundle.hash())
     );
 
-    // a patch is what new reviews use; the review keeps its release
+    // a patch is what new reviews use, and a pending review moves to it
+    // when it is next opened
     let patch = plugin_copy(scratch.path(), "hello", "1.0.4");
     std::fs::write(patch.join("view/index.html"), "<html>1.0.4</html>").unwrap();
     let patched = Listing::of_folder(&patch, Taken::FromSource)
@@ -2695,19 +2694,18 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     assert_eq!(row["install"]["bundle"], patched);
     assert_eq!(
         view_url(&app, &review).await,
-        format!("/bundles/{}/view/index.html", bundle.hash())
+        format!("/bundles/{patched}/view/index.html")
     );
-    let (_, shown) = call(
-        &app,
-        "GET",
-        &format!("/api/v1/reviews/{}", review["id"].as_str().unwrap()),
-        None,
-    )
-    .await;
-    assert_eq!(
-        shown["plugin_version"], "1.0.0",
-        "the review keeps what it was submitted to"
-    );
+    let shown = |review: &Value| {
+        let id = review["id"].as_str().unwrap().to_string();
+        let app = &app;
+        async move {
+            call(app, "GET", &format!("/api/v1/reviews/{id}"), None)
+                .await
+                .1
+        }
+    };
+    assert_eq!(shown(&review).await["plugin_version"], "1.0.4");
 
     // an older one replaces it too, and the answer says it is older
     assert_eq!(row["replaced_version"], "1.0.0", "{row}");
@@ -2718,6 +2716,23 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     assert_eq!(row["version"], "1.0.2");
     assert_eq!(row["replaced_version"], "1.0.4", "{row}");
     assert_eq!(row["older"], true, "{row}");
+
+    let decide = |review: &Value, data: Value| {
+        let id = review["id"].as_str().unwrap().to_string();
+        let app = &app;
+        async move {
+            call(
+                app,
+                "POST",
+                &format!("/api/v1/reviews/{id}/decision"),
+                Some(json!({ "data": data })),
+            )
+            .await
+            .0
+        }
+    };
+    // decided, the review keeps the version it was decided with
+    assert_eq!(decide(&review, json!({"ok": true})).await, StatusCode::OK);
 
     // a new major whose decision schema has another shape
     let next = plugin_copy(scratch.path(), "hello", "2.0.0");
@@ -2733,37 +2748,24 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     assert_eq!(row["replaced_version"], "1.0.2", "{row}");
     assert_eq!(row["older"], false, "{row}");
     let url = view_url(&app, &review).await;
+    assert_eq!(url, format!("/bundles/{patched}/view/index.html"));
     assert_eq!(bundle_get(&app, &url, &[]).await.status(), StatusCode::OK);
+    assert_eq!(shown(&review).await["plugin_version"], "1.0.4");
 
-    // each review's decision is checked against its own release's schema
+    // a decision is checked against its review's version's schema
     body["title"] = json!("with 2.0.0");
     let newer = submit(&app, body).await;
     assert_eq!(newer["plugin_version"], "2.0.0");
-    let decide = |review: &Value, data: Value| {
-        let id = review["id"].as_str().unwrap().to_string();
-        let app = &app;
-        async move {
-            call(
-                app,
-                "POST",
-                &format!("/api/v1/reviews/{id}/decision"),
-                Some(json!({ "data": data })),
-            )
-            .await
-            .0
-        }
-    };
     assert_eq!(
         decide(&newer, json!({"ok": true})).await,
         StatusCode::UNPROCESSABLE_ENTITY
     );
-    assert_eq!(decide(&review, json!({"ok": true})).await, StatusCode::OK);
     assert_eq!(
         decide(&newer, json!({"answer": "yes"})).await,
         StatusCode::OK
     );
 
-    // a link serves the folder live, and a folder with no manifest is refused
+    // a link stores the folder, and a folder with no manifest is refused
     let (status, row) = install(&app, &hello, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["install"]["link"], true);
@@ -3077,11 +3079,12 @@ async fn served(app: &App, review: &Value) -> String {
     String::from_utf8_lossy(&bytes).into_owned()
 }
 
-/// A review shows the release it was submitted to: an update is for new
-/// reviews. A linked plugin's reviews show the folder live while it is
-/// linked, and the folder as it was at submit once the link is gone.
+/// A pending review follows its plugin: opened after an update, or after
+/// its linked folder changed, it shows the version installed now. A decided
+/// review keeps the version it was decided with, and a pending one keeps
+/// its own once its plugin is removed.
 #[tokio::test]
-async fn a_review_shows_its_own_release_and_a_link_is_live() {
+async fn a_pending_review_follows_its_plugin_and_an_ended_one_keeps_its_own() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let first = plugin_copy(scratch.path(), "hello", "1.0.0");
@@ -3090,44 +3093,46 @@ async fn a_review_shows_its_own_release_and_a_link_is_live() {
     assert_eq!(status, StatusCode::OK, "{row}");
     let mut body = submission();
     body["plugin"] = json!("hello");
-    body["payload"] = json!({"message": "hi"});
-    let review = submit(&app, body.clone()).await;
-    assert_eq!(served(&app, &review).await, "<html>first</html>");
+    body["payload"] = json!({"message": "decided"});
+    let decided = submit(&app, body.clone()).await;
+    let id = decided["id"].as_str().unwrap();
+    let (status, _) = call(
+        &app,
+        "POST",
+        &format!("/api/v1/reviews/{id}/decision"),
+        Some(json!({"data": {"ok": true}})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    body["payload"] = json!({"message": "pending"});
+    let pending = submit(&app, body.clone()).await;
+    assert_eq!(served(&app, &pending).await, "<html>first</html>");
 
-    // a patch is for new reviews
+    // an update: the pending review moves, the decided one stays
     let second = plugin_copy(scratch.path(), "hello", "1.0.1");
     std::fs::write(second.join("view/index.html"), "<html>second</html>").unwrap();
     let (status, row) = install(&app, &second, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(served(&app, &review).await, "<html>first</html>");
-    body["payload"] = json!({"message": "after the patch"});
-    let patched = submit(&app, body.clone()).await;
-    assert_eq!(served(&app, &patched).await, "<html>second</html>");
+    assert_eq!(served(&app, &pending).await, "<html>second</html>");
+    assert_eq!(served(&app, &decided).await, "<html>first</html>");
 
-    // a link is served live, to every review of the plugin, and each review
-    // made with it records the folder as it was
+    // a link: the pending review follows the folder as it changes
     let live = plugin_copy(scratch.path(), "hello", "1.1.0");
     std::fs::write(live.join("view/index.html"), "<html>live</html>").unwrap();
     let (status, _) = install(&app, &live, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK);
-    body["payload"] = json!({"message": "while linked"});
-    let linked = submit(&app, body).await;
-    assert!(linked["plugin_bundle"].is_string());
+    assert_eq!(served(&app, &pending).await, "<html>live</html>");
     std::fs::write(live.join("view/index.html"), "<html>edited</html>").unwrap();
-    assert_eq!(served(&app, &linked).await, "<html>edited</html>");
-    assert_eq!(served(&app, &review).await, "<html>edited</html>");
-    assert!(
-        view_url(&app, &linked)
-            .await
-            .starts_with("/links/hello/view/")
-    );
+    assert_eq!(served(&app, &pending).await, "<html>edited</html>");
+    assert!(view_url(&app, &pending).await.starts_with("/bundles/"));
+    assert_eq!(served(&app, &decided).await, "<html>first</html>");
 
-    // the link removed: each review shows the release it was made with
+    // the link removed: each keeps what it last had
     let (status, _) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(served(&app, &review).await, "<html>first</html>");
-    assert_eq!(served(&app, &patched).await, "<html>second</html>");
-    assert_eq!(served(&app, &linked).await, "<html>live</html>");
+    std::fs::remove_dir_all(&live).unwrap();
+    assert_eq!(served(&app, &pending).await, "<html>edited</html>");
+    assert_eq!(served(&app, &decided).await, "<html>first</html>");
 }
 
 #[tokio::test]
@@ -3355,9 +3360,8 @@ async fn an_update_that_changes_the_schemas_leaves_earlier_reviews_as_they_were(
 }
 
 /// Working on a plugin the app carries: a link under its name takes its
-/// place, so its reviews render with the folder, and removing the link
-/// removes the installation, while the app's bundle stays for the reviews
-/// made with it.
+/// place, so its pending reviews move to the folder, and removing the link
+/// removes the installation.
 #[tokio::test]
 async fn a_link_takes_the_place_of_the_apps_own_plugin_until_it_is_removed() {
     let app = app();
@@ -3399,11 +3403,12 @@ async fn a_link_takes_the_place_of_the_apps_own_plugin_until_it_is_removed() {
     assert_eq!(status, StatusCode::OK, "{answer}");
     assert_eq!(answer["link"], true);
     assert_eq!(current_bundle(&app, "list"), None);
-    // the review keeps the bundle it was submitted to
+    // the pending review moved to the folder when it was opened, and keeps
+    // it; the app's bundle, which nothing uses now, goes with the sweep
     let later = chrono::Utc::now() + chrono::Duration::minutes(1);
     app.state.bundles().sweep(later).unwrap();
-    assert!(app.state.bundles().path(&published).is_dir());
-    assert_ne!(served(&app, &review).await, "<html>my fix</html>");
+    assert!(!app.state.bundles().path(&published).is_dir());
+    assert_eq!(served(&app, &review).await, "<html>my fix</html>");
 }
 
 /// A zip of `files` as `path → content`, the way a plugin's zip carries

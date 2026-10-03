@@ -11,7 +11,6 @@ import {
   FolderOpen,
   Link2,
   PackagePlus,
-  RefreshCw,
   Trash2,
   TriangleAlert,
   Wrench,
@@ -54,16 +53,6 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
     load().catch(() => {});
   }, [load, live.plugins]);
 
-  const reload = async () => {
-    try {
-      const { count } = await api.reloadPlugins();
-      notify(`Reloaded ${count} plugin${count === 1 ? "" : "s"}`);
-    } catch (e) {
-      notify(e instanceof Error ? e.message : "Reload failed", "danger");
-    }
-    load().catch(() => {});
-  };
-
   const reveal = async (path: string) => {
     const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
     revealItemInDir(path).catch(() => {});
@@ -105,13 +94,6 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
 
       <SettingsGroup
         caption={plugins.length ? `Installed (${plugins.length}${broken ? `, ${broken} broken` : ""})` : "Installed"}
-        action={
-          <Tooltip label="Reload plugins from disk">
-            <button type="button" className="chrome-button settings-caption-action" onClick={reload}>
-              <RefreshCw size={13} /> Reload
-            </button>
-          </Tooltip>
-        }
       >
         {plugins.length === 0 ? (
           <SettingsRow

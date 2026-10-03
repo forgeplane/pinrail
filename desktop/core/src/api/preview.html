@@ -185,11 +185,12 @@ matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
     const earlier = await json(`/api/v1/reviews/${encodeURIComponent(review.revises)}`);
     previous = earlier.ok ? earlier.body : null;
   }
-  // the view of the review's line, as the core resolves it, and the
-  // plugin's settings as they stand
-  const view = await json(`/api/v1/reviews/${encodeURIComponent(id)}/view`);
+  // the review opened, on the version of its plugin it renders with now,
+  // and the plugin's settings as they stand
+  const view = await json(`/api/v1/reviews/${encodeURIComponent(id)}/view`, { method: "POST" });
+  if (view.ok && view.body.review) review = view.body.review;
   const listed = await json("/api/v1/plugins");
-  const installed = ((listed.body && listed.body.plugins) || []).find((p) => p.plugin === review.plugin) || {};
+  const installed = ((listed.body && listed.body.plugins) || []).find((p) => p.name === review.plugin) || {};
   const plugin = (view.ok && view.body.plugin) || {};
   settings = installed.settings || {};
   minHeight = plugin.min_height || 200;

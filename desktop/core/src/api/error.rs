@@ -28,7 +28,7 @@ impl From<Error> for ApiError {
 fn status(error: &Error) -> StatusCode {
     match error {
         Error::NotFound(_) => StatusCode::NOT_FOUND,
-        Error::NotPending(_) => StatusCode::CONFLICT,
+        Error::NotPending(_) | Error::Conflict(_) => StatusCode::CONFLICT,
         Error::Invalid(_) => StatusCode::UNPROCESSABLE_ENTITY,
         Error::Internal(_) | Error::Database(_) | Error::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
         Error::InUse(_) => StatusCode::CONFLICT,

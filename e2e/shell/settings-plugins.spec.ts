@@ -148,8 +148,9 @@ test("a broken plugin can still be removed from its row", async ({ page }) => {
   // the folder changes under it into a manifest Pinrail no longer takes
   const manifest = JSON.parse(fs.readFileSync(path.join(source, "manifest.json"), "utf8"));
   fs.writeFileSync(path.join(source, "manifest.json"), JSON.stringify({ ...manifest, version: 1 }));
-  const reloaded = await page.request.post(`${core}/api/v1/plugins/reload`, { data: {} });
-  expect(reloaded.status(), await reloaded.text()).toBe(200);
+  // describing it reads the folder again, and refuses it
+  const described = await page.request.get(`${core}/api/v1/plugins/broken/describe`);
+  expect(described.status(), await described.text()).toBe(422);
 
   await page.goto("/#/plugins");
   const row = page.locator('[data-plugin-row="broken"]');

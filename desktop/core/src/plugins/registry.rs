@@ -169,10 +169,6 @@ impl Registry {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    pub fn installs(&self) -> Vec<InstallRecord> {
-        self.read().installs.clone()
-    }
-
     pub fn all(&self) -> Vec<Arc<Plugin>> {
         self.read().plugins.values().cloned().collect()
     }
@@ -199,18 +195,10 @@ impl Registry {
         }
     }
 
-    /// The plugin a review renders with: the linked folder while its plugin
-    /// is linked, so the developer sees their changes; else the bundle the
-    /// review was submitted to.
+    /// The plugin a review renders with: the bundle it records.
     pub fn fetch_review(&self, plugin: &str, bundle: Option<&str>) -> Result<Arc<Plugin>, Error> {
-        if let Some(p) = self.read().plugins.get(plugin)
-            && p.install.as_ref().is_some_and(|i| i.link)
-            && p.usable()
-        {
-            return Ok(p.clone());
-        }
         let bundle = bundle.ok_or_else(|| {
-            Error::invalid("/plugin", format!("plugin {plugin} is not installed"))
+            Error::invalid("/plugin", format!("a review of {plugin} records no bundle"))
         })?;
         self.fetch_bundle(bundle)
     }

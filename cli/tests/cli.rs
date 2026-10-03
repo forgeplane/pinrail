@@ -1029,7 +1029,6 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
             (200, review("decided"))
         }
         ("GET", "/api/v1/plugins") => (200, r#"{"plugins":[]}"#.into()),
-        ("POST", "/api/v1/plugins/reload") => (200, r#"{"ok":true,"count":1}"#.into()),
         other => panic!("unexpected {other:?}"),
     }));
     let dir = tempdir();
@@ -1064,7 +1063,6 @@ fn list_show_withdraw_decide_and_plugins_hit_the_right_endpoints() {
         0
     );
     assert_eq!(run(&server, &["plugins"]).0, 0);
-    assert_eq!(run(&server, &["plugins", "reload"]).0, 0);
 }
 
 #[test]

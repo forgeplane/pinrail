@@ -11,7 +11,6 @@ import {
   MessageSquare,
   Moon,
   PanelLeft,
-  RefreshCw,
   Search,
   Settings,
   Sun,
@@ -19,7 +18,7 @@ import {
 } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router";
-import { api, sendFeedback } from "../api/client";
+import { sendFeedback } from "../api/client";
 import { overlayTitleBar } from "../lib/native";
 import { CommandPalette, type PaletteAction } from "./CommandPalette";
 import { SettingsDialog, type SettingsSection } from "./settings/SettingsDialog";
@@ -114,12 +113,6 @@ export function Layout({ children }: { children: ReactNode }) {
     },
     { id: "history", label: "Go to history", keys: NAV[1].keys, icon: History, run: () => navigate("/history") },
     { id: "plugins", label: "Plugins", keys: PLUGINS_KEYS, icon: Blocks, run: () => setSettings("plugins") },
-    {
-      id: "reload-plugins",
-      label: "Reload plugins",
-      icon: RefreshCw,
-      run: () => void api.reloadPlugins().catch(() => {}),
-    },
     {
       id: "theme",
       label: theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme",

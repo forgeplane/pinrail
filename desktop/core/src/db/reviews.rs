@@ -55,6 +55,43 @@ pub enum NotStored {
 }
 
 impl Db {
+    /// Moves a pending review from the bundle `from` to `to`, with that
+    /// version and request summary, and records the move as an event; `None`
+    /// when the review had ended or no longer records `from`, so a move and
+    /// a decision made at once have one winner.
+    pub fn move_review(
+        &self,
+        id: &str,
+        from: Option<&str>,
+        to: &str,
+        version: &str,
+        summary: Option<&Value>,
+        attrs: &Value,
+    ) -> rusqlite::Result<Option<i64>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let moved = tx.execute(
+            "UPDATE reviews SET plugin_bundle = ?2, plugin_version = ?3, summary = ?4
+             WHERE id = ?1 AND plugin_bundle IS ?5
+               AND NOT EXISTS (SELECT 1 FROM outcomes WHERE review_id = ?1)
+               AND (expires_at IS NULL OR expires_at > ?6)",
+            params![
+                id,
+                to,
+                version,
+                summary.map(Value::to_string),
+                from,
+                crate::reviews::iso(chrono::Utc::now())
+            ],
+        )?;
+        if moved == 0 {
+            return Ok(None);
+        }
+        let event_id = insert_event(&tx, Some(id), crate::events::PLUGIN_CHANGED, None, attrs)?;
+        tx.commit()?;
+        Ok(Some(event_id))
+    }
+
     pub fn insert_review(
         &self,
         review: &Review,

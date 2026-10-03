@@ -1,7 +1,6 @@
 //! Plugin bundles and the SDK.
 //!
-//! A view is served from a stored bundle under `/bundles/<hash>/view/`, or
-//! from a linked plugin's folder under `/links/<name>/view/`,
+//! A view is served from a stored bundle under `/bundles/<hash>/view/`,
 //! with the CSP that makes the sandbox real: no network at all.
 //! Scripts, styles and fonts only inline, from the bundle's own path, or the
 //! SDK under `/sdk/`, which carries the stylesheet's typeface; images only
@@ -25,7 +24,6 @@ use sha2::{Digest, Sha256};
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
-        .route("/links/{name}/view/{*path}", get(linked))
         .route("/bundles/{hash}/view/{*path}", get(stored_bundle))
         .route("/sdk/v1/{*path}", get(sdk))
         .route("/preview/reviews/{id}", get(preview))
@@ -52,41 +50,6 @@ async fn preview() -> Response {
         PAGE,
     )
         .into_response()
-}
-
-/// A file of a linked plugin's view, served from the developer's folder as
-/// it is: never cached, since the folder changes as they work.
-async fn linked(
-    State(state): State<Arc<Pinrail>>,
-    Path((plugin, path)): Path<(String, String)>,
-    headers: HeaderMap,
-) -> Response {
-    if is_fetch(&headers) {
-        return StatusCode::FORBIDDEN.into_response();
-    }
-    let Some(install) = state.plugins().installed_link(&plugin) else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    // only what a bundle of the folder would hold under view/: the folder
-    // has hidden files, dependencies and sources beside the view
-    let path = format!("view/{path}");
-    if !pinrail_format::bundle::holds(&path) {
-        return StatusCode::NOT_FOUND.into_response();
-    }
-    let Some(file) = safe_join(&install, &path).filter(|f| f.is_file()) else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    let Ok(body) = tokio::fs::read(&file).await else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    let origin = origin(&headers);
-    let base = format!("{origin}/links/{plugin}/view/");
-    let mime = mime_guess::from_path(&file).first_or_octet_stream();
-    let mut response = (view_headers(&origin, &base, mime.as_ref()), body).into_response();
-    response
-        .headers_mut()
-        .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
-    response
 }
 
 /// A file of a stored bundle's view. The address names the bundle, which

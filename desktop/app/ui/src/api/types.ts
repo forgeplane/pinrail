@@ -131,9 +131,11 @@ export type PluginInstall = {
   updated_at: string;
 };
 
-/** What the app's frame loads to show a review: its view's address, and
- *  the plugin of the review's line. */
-export type ReviewView = { url: string; plugin: Plugin };
+/** A review opened for the app's frame: the review, moved to the version
+ *  of its plugin installed now when that version takes it; the bundle it
+ *  renders with and its view's address; and `refused` when the installed
+ *  version does not take it, saying why. */
+export type ReviewView = { url: string; bundle: string; plugin: Plugin; review: Review; refused: string | null };
 
 /** What installing a source would do, as the core reports it before anything runs. */
 export type Inspection = {
