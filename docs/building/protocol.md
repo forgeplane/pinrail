@@ -43,7 +43,7 @@ sequenceDiagram
 | `init` | `review`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | In answer to `ready`. It comes again, with `readonly: true`, when the review stops being pending while the view is open, for example when the agent withdraws it. After the view's own hand-over, `submitted` comes instead. |
 | `attachment` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `attachment`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
 | `collect` | | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. |
-| `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema, or a `settings_set` failed the plugin's settings schema. Settings errors have paths under `/plugins/<full name>`, such as `/plugins/forgeplane~1list`, so a view can tell them apart. |
+| `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema, or a `settings_set` failed the plugin's settings schema. Settings errors have paths under `/plugins/<name>`, such as `/plugins/list/wrap`, so a view can tell them apart. |
 | `submitted` | `decision` | The decision was accepted. The app then returns to the inbox and closes the view, so there is no need to show the decision. When the person opens the review again, `init` comes with `readonly: true` and the decision. |
 | `appearance` | `theme: "dark" \| "light"` | Before `init`, and whenever the app's theme changes. |
 | `settings` | `settings` | The plugin's own settings changed, in the app or from a view. |

@@ -60,7 +60,7 @@ Click a row to open its details:
 
 - **Version** and **Source**: the version installed, and the folder or zip it came from.
 - **Files**: the files the plugin takes beside a review, for a plugin that takes any.
-- **Opens without asking**: the sites whose links the plugin may open without asking you first. You allow a site from the question Pinrail shows when a plugin wants to open a link. Remove a site with its ✕. Removing the plugin, or installing it again from a different source, removes all of them.
+- **Opens without asking**: the sites whose links the plugin may open without asking you first. You allow a site from the question Pinrail shows when a plugin wants to open a link. Remove a site with its ✕. Removing the plugin removes all of them. Installing a new version from a folder or a zip keeps them, but installing a plugin in place of the copy that comes with Pinrail, or the other way round, does not.
 - **Send a sample**: sends the review the plugin ships to show itself, and opens it. Plugins without a sample don't have the button.
 - **Settings**: the plugin's own settings, when it has any. The code review plugin, for example, lets you choose between an inline and a side-by-side diff.
 

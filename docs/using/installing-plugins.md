@@ -50,14 +50,11 @@ Installing runs nothing on your computer and connects to nothing.
 
 ## Plugin names
 
-A plugin's full name is its publisher and its name, such as `forgeplane/list`. The publisher comes from where the plugin comes from, never from its manifest:
+A plugin is known by the `name` in its manifest, such as `review`. Agents, commands, settings and reviews all use that name. Where a plugin came from, a folder, a zip or the app itself, is shown on its row but is not part of its name.
 
-| Source | Publisher |
-|---|---|
-| The plugins that come with Pinrail | `forgeplane` |
-| A folder, a zip, or a linked folder | `local` |
+One plugin is installed under each name. Installing a plugin under a name that is already installed replaces what is there, and the install dialog says what it replaces before you confirm. This also applies to the plugins that come with Pinrail: a plugin you install under the name `list` takes the place of Pinrail's own.
 
-So a plugin you install can have the same name as one that comes with Pinrail. Agents and commands may name a plugin by its name alone, such as `pinrail submit review`, when only one installed plugin has that name. When two do, the name alone is refused with both full names, and the full name, such as `local/review`, picks one. Settings, link permissions and muted notifications belong to the full name.
+The plugin's settings belong to its name, so they stay when you install a new version. The sites it may open without asking also stay when you install it again from a folder or a zip. They do not carry over between the copy that comes with Pinrail and a plugin from disk under the same name, because that name then means another plugin.
 
 ## Versions and upgrades
 
@@ -74,7 +71,7 @@ flowchart LR
 To upgrade a plugin, install the new version from its folder or its zip. The new version replaces the installed one for new reviews.
 
 - **A newer version** replaces the installed one.
-- **An older version** also replaces it. The install dialog says that the version is older before you install it, and the command line says so afterwards, for example *Replaced local/review 1.3.0 with the older 1.2.0*.
+- **An older version** also replaces it. The install dialog says that the version is older before you install it, and the command line says so afterwards, for example *Replaced review 1.3.0 with the older 1.2.0*.
 - **A version is kept** for as long as a review made with it is kept.
 
 ## Developing with a linked folder
@@ -89,19 +86,15 @@ Reviews of a linked plugin render from the folder as it is now. Each review also
 
 Pinrail checks a linked folder every second, so a change to the manifest, a schema or the decision template applies without a reload. A manifest that breaks shows its error on the plugin's row until you fix it.
 
-### Working on a published plugin
+### Working on a plugin that comes with Pinrail
 
-To fix or change a plugin that someone published, such as `forgeplane/review`, link your copy of it in its place:
-
-```sh
-pinrail plugins install ./review --link --replace forgeplane/review
-```
-
-The link takes the plugin's full name, so its existing reviews and new ones render with your folder. The plugin's row says that a local folder replaces it. Removing the link puts the installed version back:
+To change one of the plugins that come with Pinrail, link your copy of it under the same name:
 
 ```sh
-pinrail plugins remove review
+pinrail plugins install ./list --link
 ```
+
+The link takes the plugin's place, so its reviews render with your folder. Removing the link removes the installation, and Pinrail installs its own copy again the next time it starts.
 
 ## Removing a plugin
 

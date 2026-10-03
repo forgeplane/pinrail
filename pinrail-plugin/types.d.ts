@@ -124,7 +124,7 @@ export type Summary = {
 /** A review as the app hands it to a view: the envelope with its payload. */
 export type Review<Payload = unknown, Data = unknown> = {
   id: string;
-  /** the plugin's full name, such as `forgeplane/list` */
+  /** the plugin's name, such as `list` */
   plugin: string;
   /** the exact version it was submitted to, such as `1.2.0` */
   plugin_version: string;

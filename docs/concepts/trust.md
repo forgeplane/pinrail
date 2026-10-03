@@ -43,7 +43,7 @@ Attachments are only displayed inside a view's sandbox, whatever they contain. T
 Installing a plugin runs nothing. Pinrail installs a plugin from a folder or a zip on your computer: it copies the plugin's static files into its store and checks them, and it downloads nothing. A plugin whose view is made with a build tool is built before it is installed, by its author or by you.
 
 :::caution[Building a plugin runs code]
-If you build a plugin yourself, for example with `npm ci && npm run build`, that build runs on your machine as you: `npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Plugins and their zips are not signed, and publishers are not vetted, so install plugins only from people whose code you would run.
+If you build a plugin yourself, for example with `npm ci && npm run build`, that build runs on your machine as you: `npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Plugins and their zips are not signed, and plugin authors are not vetted, so install plugins only from people whose code you would run.
 :::
 
 After installation, a plugin consists only of static files, and its view runs in the same sandbox as any other.
