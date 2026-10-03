@@ -76,9 +76,9 @@ export default async function globalSetup() {
 
   // One install per plugin, the way a person installs one. The three that
   // need no build are linked, so they are served from the folder they are
-  // developed in; the artifact plugin is copied into the store, which runs
-  // the build its manifest declares and is the only place that path is
-  // exercised end to end. Its build fetches packages, so it gets longer.
+  // developed in; the artifact plugin is built here, as a person builds a
+  // plugin before installing it, and copied into the store. Its build
+  // fetches packages, so it gets longer.
   const install = (name: string, args: string[], timeout: number) => {
     const dir = path.join(root, "plugins", name);
     const done = spawnSync(cli, ["plugins", "install", dir, ...args], {
@@ -90,6 +90,8 @@ export default async function globalSetup() {
   };
   for (const name of ["email", "hello", "review"]) install(name, ["--link"], 120_000);
   console.log("e2e: building and installing the artifact plugin");
-  // nobody is at a terminal to confirm its build
-  install("artifact", ["--yes"], 900_000);
+  const artifact = path.join(root, "plugins", "artifact");
+  execFileSync("npm", ["ci"], { cwd: artifact, stdio: "inherit", timeout: 900_000 });
+  execFileSync("npm", ["run", "build"], { cwd: artifact, stdio: "inherit", timeout: 300_000 });
+  install("artifact", [], 120_000);
 }

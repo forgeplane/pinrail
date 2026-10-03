@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use pinrail_core::db::Db;
 use pinrail_core::events;
-use pinrail_core::plugins::{InstallExpect, InstallJob, InstallOptions, PluginService};
+use pinrail_core::plugins::{InstallJob, InstallOptions, PluginService};
 use pinrail_core::{Config, Error, Pinrail};
 use serde_json::{Value, json};
 
@@ -154,52 +154,6 @@ async fn an_inspection_and_installs_work_without_http() {
     let install = db.install("local/hello").unwrap().unwrap();
     let bundle = install.bundle.unwrap();
     assert_eq!(db.bundle(&bundle).unwrap().unwrap().version, "1.0.1");
-}
-
-#[tokio::test]
-async fn a_failed_build_records_its_log_without_registering_or_announcing_a_plugin() {
-    let dir = tempfile::tempdir().unwrap();
-    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
-    let source = plugin(&dir.path().join("sources"), "broken", "1.0.0");
-    let manifest_path = source.join("manifest.json");
-    let mut manifest: Value =
-        serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
-    manifest["build"] = json!({"command": "echo build-failed; exit 1"});
-    std::fs::write(manifest_path, manifest.to_string()).unwrap();
-    let mut notices = app.events().subscribe();
-
-    let id = app.plugins().start_install(
-        source.to_str().unwrap(),
-        InstallOptions {
-            expect: Some(InstallExpect {
-                build: Some("echo build-failed; exit 1".into()),
-            }),
-            ..InstallOptions::default()
-        },
-    );
-    let failed = finished(app.plugins(), &id).await;
-    assert_eq!(failed.status, "failed");
-    assert!(failed.log.contains("build-failed"), "{failed:?}");
-    assert!(
-        failed
-            .error
-            .as_deref()
-            .unwrap()
-            .contains("the build failed")
-    );
-    assert!(failed.plugin.is_none());
-    assert!(matches!(
-        app.plugins().describe(Some("broken")),
-        Err(Error::NotFound(_))
-    ));
-    assert!(matches!(
-        app.plugins().job("missing"),
-        Err(Error::NotFound(_))
-    ));
-    assert!(notices.try_recv().is_err());
-    let db = Db::open(&app.config().db_path()).unwrap();
-    assert!(db.install("local/broken").unwrap().is_none());
-    assert!(db.events_after(0, 10).unwrap().is_empty());
 }
 
 /// A review keeps the release it was submitted to: through an install of

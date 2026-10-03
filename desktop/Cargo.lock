@@ -3342,7 +3342,6 @@ dependencies = [
  "minijinja",
  "pinrail-format",
  "rusqlite",
- "rustix",
  "serde",
  "serde_json",
  "sha2",

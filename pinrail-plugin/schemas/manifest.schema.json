@@ -71,14 +71,6 @@
       },
       "description": "How the app sums up the plugin's reviews: which arrays of the payload and the decision to count, grouped by which field, with a label and a tone (`danger`, `warning`, `info`, `success` or `neutral`) for each value. A plugin without one shows no summary. A summary that does not read costs the plugin its summaries."
     },
-    "build": {
-      "type": ["object", "null"],
-      "required": ["command"],
-      "properties": {
-        "command": { "type": "string", "pattern": "\\S", "description": "Run through the shell in a copy of the folder." }
-      },
-      "description": "The command that produces the bundle, such as `{\"command\": \"npm ci && npm run build\"}`. An install from a folder or a repository runs it; a release never does."
-    },
     "attachments": {
       "type": ["object", "null"],
       "required": ["accept"],

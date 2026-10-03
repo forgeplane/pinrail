@@ -33,9 +33,6 @@
     }
   },
   "min_height": 680,
-  "build": {
-    "command": "npm ci && npm run build"
-  },
   "shortcuts": [
     {
       "keys": "j",

@@ -183,7 +183,7 @@ const PLACED: &[(&str, &str)] = &[
 impl Plugin {
     /// Loads the plugin at `dir`. Never fails: a bad plugin comes back with `error`.
     pub fn load(dir: &Path) -> Plugin {
-        match Self::try_load(dir, false) {
+        match Self::try_load(dir) {
             Ok(plugin) => plugin,
             Err(message) => Plugin {
                 name: dir
@@ -221,10 +221,9 @@ impl Plugin {
     }
 
     /// What `plugins check` answers for a folder: the loader's verdict,
-    /// except that a plugin whose build writes its entry is judged before
-    /// that build, as an install takes it, with the missing entry a warning.
+    /// with notes and the bundle an install would make of it.
     pub fn check(dir: &Path) -> Value {
-        let Ok(plugin) = Self::try_load(dir, true) else {
+        let Ok(plugin) = Self::try_load(dir) else {
             return Self::load(dir).verdict();
         };
         let mut verdict = plugin.verdict();
@@ -237,52 +236,31 @@ impl Plugin {
             }));
         }
         verdict["notes"] = Value::Array(notes);
-        let built = dir.join(VIEW).is_file();
-        // the bundle an install would make of the folder, once its view is
-        // there; one it could not make refuses the folder
-        if built {
-            match crate::bundle::Listing::of_folder(dir, crate::bundle::Taken::FromSource) {
-                Ok(listing) => {
-                    verdict["bundle"] = serde_json::json!({
-                        "hash": listing.hash(),
-                        "files": listing.files.len(),
-                        "size": listing.size(),
-                    });
-                }
-                Err(message) => {
-                    verdict["usable"] = Value::Bool(false);
-                    verdict["name"] = Value::Null;
-                    verdict["version"] = Value::Null;
-                    verdict["warnings"] = serde_json::json!([]);
-                    if let Some(problems) = verdict["problems"].as_array_mut() {
-                        problems.push(serde_json::json!({ "message": message }));
-                    }
-                }
+        // the bundle an install would make of the folder; one it could not
+        // make refuses the folder
+        match crate::bundle::Listing::of_folder(dir, crate::bundle::Taken::FromSource) {
+            Ok(listing) => {
+                verdict["bundle"] = serde_json::json!({
+                    "hash": listing.hash(),
+                    "files": listing.files.len(),
+                    "size": listing.size(),
+                });
             }
-        }
-        if !built {
-            let command = plugin
-                .manifest
-                .get("build")
-                .and_then(|build| build["command"].as_str())
-                .unwrap_or_default()
-                .trim();
-            if let Some(warnings) = verdict["warnings"].as_array_mut() {
-                warnings.insert(
-                    0,
-                    serde_json::json!({
-                        "key": "view",
-                        "message": format!("{VIEW} not found yet: the build ({command}) has to write it"),
-                    }),
-                );
+            Err(message) => {
+                verdict["usable"] = Value::Bool(false);
+                verdict["name"] = Value::Null;
+                verdict["version"] = Value::Null;
+                verdict["warnings"] = serde_json::json!([]);
+                if let Some(problems) = verdict["problems"].as_array_mut() {
+                    problems.push(serde_json::json!({ "message": message }));
+                }
             }
         }
         verdict
     }
 
-    /// Loads the plugin in `dir`; `before_build` lets a declared build be
-    /// the one to write the entry.
-    fn try_load(dir: &Path, before_build: bool) -> Result<Plugin, String> {
+    /// Loads the plugin in `dir`.
+    fn try_load(dir: &Path) -> Result<Plugin, String> {
         let body = std::fs::read_to_string(dir.join(MANIFEST))
             .map_err(|e| format!("cannot read {MANIFEST} ({e})"))?;
         let manifest: Value = serde_json::from_str(&body)
@@ -316,12 +294,7 @@ impl Plugin {
                 ));
             }
         }
-        let builds = manifest
-            .get("build")
-            .and_then(|build| build["command"].as_str())
-            .is_some_and(|command| !command.trim().is_empty());
-        let found = dir.join(VIEW).is_file();
-        if !found && !(before_build && builds) {
+        if !dir.join(VIEW).is_file() {
             return Err(format!("{VIEW} not found"));
         }
         // an icon that does not load costs the plugin its icon, not its place
@@ -1187,12 +1160,6 @@ mod tests {
             (json!({"min_height": "400"}), "min_height: "),
             (json!({"min_height": 12.5}), "min_height: "),
             (json!({"dev": "yes"}), "dev: "),
-            (json!({"build": "npm run build"}), "build: "),
-            (
-                json!({"build": {}}),
-                "build: property 'command' is required",
-            ),
-            (json!({"build": {"command": "   "}}), "build/command: "),
         ];
         for (i, (changes, expected)) in cases.iter().enumerate() {
             let dir = with_manifest(tmp.path(), &format!("bad{i}"), manifest(changes.clone()));
@@ -1450,7 +1417,6 @@ mod tests {
             json!({"a_key_from_a_newer_app": {"anything": true}}),
             json!({"icon": serde_json::Value::Null, "settings_schema": serde_json::Value::Null}),
             json!({"title": "Sample", "description": "A sample.", "icon": "git-pull-request", "min_height": 200, "dev": true}),
-            json!({"build": {"command": "npm ci && npm run build"}}),
             json!({"shortcuts": [{"keys": "cmd+shift+f", "does": "Fold", "group": "View"}]}),
         ];
         for (i, changes) in cases.iter().enumerate() {

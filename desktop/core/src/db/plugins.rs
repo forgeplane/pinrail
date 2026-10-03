@@ -17,7 +17,6 @@ pub struct InstallRecord {
     pub kind: String,
     pub source: String,
     pub resolved: String,
-    pub build_log: Option<String>,
     /// The bundle new reviews use; none for a link, which is served live.
     pub bundle: Option<String>,
     /// For a link that takes a published plugin's place: that
@@ -33,8 +32,7 @@ impl InstallRecord {
     }
 }
 
-const INSTALL_COLUMNS: &str = "plugin, publisher, name, source_kind, source, resolved, build_log, \
-     bundle, replaced, installed_at, updated_at";
+const INSTALL_COLUMNS: &str = "plugin, publisher, name, source_kind, source, resolved, bundle, replaced, installed_at, updated_at";
 
 fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
     Ok(InstallRecord {
@@ -44,11 +42,10 @@ fn install_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<InstallRecord> {
         kind: r.get(3)?,
         source: r.get(4)?,
         resolved: r.get(5)?,
-        build_log: r.get(6)?,
-        bundle: r.get(7)?,
-        replaced: r.get(8)?,
-        installed_at: r.get(9)?,
-        updated_at: r.get(10)?,
+        bundle: r.get(6)?,
+        replaced: r.get(7)?,
+        installed_at: r.get(8)?,
+        updated_at: r.get(9)?,
     })
 }
 
@@ -80,11 +77,11 @@ impl Db {
         conn.execute(
             &format!(
                 "INSERT INTO plugin_installs ({INSTALL_COLUMNS})
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
                  ON CONFLICT(plugin) DO UPDATE SET
                    publisher = excluded.publisher,
                    source_kind = excluded.source_kind, source = excluded.source,
-                   resolved = excluded.resolved, build_log = excluded.build_log,
+                   resolved = excluded.resolved,
                    bundle = excluded.bundle, replaced = excluded.replaced,
                    updated_at = excluded.updated_at"
             ),
@@ -95,7 +92,6 @@ impl Db {
                 record.kind,
                 record.source,
                 record.resolved,
-                record.build_log,
                 record.bundle,
                 record.replaced,
                 record.installed_at,

@@ -188,9 +188,7 @@ async function mountPlugin(page, pluginDir, opts) {
   // time out on a frame that got a 404
   const entryFile = path.join(pluginDir, "view", "index.html");
   if (!fs.existsSync(entryFile)) {
-    throw new Error(
-      `${entryFile} does not exist${manifest.build ? `: build the plugin first (${manifest.build.command})` : ""}`,
-    );
+    throw new Error(`${entryFile} does not exist: build the plugin first`);
   }
   await page.goto(
     `${ORIGIN}/_harness.html?theme=${opts.theme ?? "dark"}&entry=${encodeURIComponent(bundle + "index.html")}`,

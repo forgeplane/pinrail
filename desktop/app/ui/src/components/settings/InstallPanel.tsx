@@ -21,7 +21,7 @@ type Stage =
   | { at: "done"; job: InstallJob }
   | { at: "failed"; seen: Inspection; job: InstallJob };
 
-const STEPS: InstallJob["status"][] = ["fetching", "inspecting", "building", "placing"];
+const STEPS: InstallJob["status"][] = ["inspecting", "placing"];
 
 /** A zip, which is installed as it is and cannot be linked. */
 const isZip = (source: string) => /\.zip$/i.test(source.trim());
@@ -64,19 +64,9 @@ function Consequences({ seen }: { seen: Inspection }) {
         <p className="install-runs" data-runs="nothing">
           <b>Nothing is copied.</b> Pinrail serves the folder directly, so changes appear the next time the view opens.
         </p>
-      ) : seen.build ? (
-        <div className="install-runs" data-runs="build">
-          <p>
-            <b>Builds with</b> <code className="mono">{seen.build}</code>
-          </p>
-          <p>
-            The command runs on this computer with your user permissions, through the shell. Any tools it needs must be
-            on your PATH. Choose Install to run it.
-          </p>
-        </div>
       ) : (
         <p className="install-runs" data-runs="nothing">
-          <b>No build.</b> The folder is copied without source files, tests and hidden files.
+          <b>Nothing runs on your computer.</b> The folder is copied without source files, tests and hidden files.
         </p>
       )}
       {seen.attachments ? (
@@ -166,7 +156,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
     setError(null);
     setStage({ at: "installing", seen, job: null });
     try {
-      const { job } = await api.installPlugin({ ...request(), force: seen.older, expect: seen.expect });
+      const { job } = await api.installPlugin({ ...request(), force: seen.older });
       const state = await followJob(
         job,
         (step) => setStage({ at: "installing", seen, job: step }),
@@ -342,7 +332,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
             Done
           </button>
         ) : stage.at === "installing" ? (
-          <span className="dim install-wait">{job?.status === "building" ? "Building…" : "Working…"}</span>
+          <span className="dim install-wait">Working…</span>
         ) : null}
       </div>
     </div>

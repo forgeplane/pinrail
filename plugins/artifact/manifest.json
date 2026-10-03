@@ -33,7 +33,6 @@
     }
   },
   "min_height": 640,
-  "build": { "command": "npm ci && npm run build" },
   "shortcuts": [
     { "keys": "s", "does": "Start or stop picking elements" },
     { "keys": "escape", "does": "Stop picking, or close the comment being written" }

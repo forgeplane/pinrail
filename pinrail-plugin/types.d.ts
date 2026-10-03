@@ -48,8 +48,6 @@ export type Manifest = {
   /** what the app counts to sum up a review: arrays of the payload and of the decision */
   summary?: { request?: SummaryRules; outcome?: SummaryRules };
   min_height?: number;
-  /** the command that produces the bundle, run by an install: `npm ci && npm run build` */
-  build?: { command: string };
   /** an object schema of scalars with defaults; each property is a row in Settings › Plugins */
   settings_schema?: Record<string, unknown>;
   /** the keys the view answers, listed by the app and forwarded when the frame has no focus */

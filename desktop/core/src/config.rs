@@ -18,12 +18,7 @@ pub struct Config {
     pub sdk_dir: Option<PathBuf>,
     /// The most one uploaded attachment may be, in bytes.
     pub max_attachment_bytes: u64,
-    /// How long a plugin's build may run before it is stopped.
-    pub build_timeout: std::time::Duration,
 }
-
-/// 15 minutes: a clean `npm ci` and a build on a slow connection.
-pub const BUILD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15 * 60);
 
 /// 100 MB: a model, a recording, a document with its images.
 pub use pinrail_format::attachments::MAX_ATTACHMENT_BYTES;
@@ -60,7 +55,6 @@ impl Config {
             user: "pinrail".to_string(),
             sdk_dir: None,
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
-            build_timeout: BUILD_TIMEOUT,
         }
     }
 

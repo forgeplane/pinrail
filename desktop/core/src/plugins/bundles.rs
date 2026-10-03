@@ -261,7 +261,6 @@ mod tests {
             kind: "folder".into(),
             source: "./hello".into(),
             resolved: "/hello".into(),
-            build_log: None,
             bundle: Some(bundle.hash.clone()),
             replaced: None,
             installed_at: "2026-10-01T10:00:00Z".into(),

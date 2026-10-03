@@ -102,7 +102,10 @@ test("the vite template adds the build, its sources and the config", async () =>
   }
   assert.ok(!files.includes("view/index.html"), "the view is the build's to write");
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
-  assert.equal(manifest.build.command, "npm ci && npm run build");
+  // the package builds the view; the manifest names no build
+  assert.equal(manifest.build, undefined);
+  const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
+  assert.ok(pkg.scripts.build, "the package has a build script");
   assert.match(fs.readFileSync(path.join(dir, ".gitignore"), "utf8"), /^\/view\/$/m);
 });
 
@@ -125,10 +128,8 @@ test("the react template writes the view in React, with its build", async () => 
   assert.ok(!files.includes("src/main.ts"), "no TypeScript entry of the vite template");
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
   assert.ok(pkg.dependencies.react && pkg.devDependencies["@vitejs/plugin-react"], "React and its Vite plugin");
-  assert.equal(
-    JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).build.command,
-    "npm ci && npm run build",
-  );
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8")).build, undefined);
+  assert.ok(pkg.scripts.build, "the package has a build script");
   for (const file of files) {
     assert.ok(
       !/__(NAME|TITLE|SDK_DEP)__/.test(fs.readFileSync(path.join(dir, file), "utf8")),

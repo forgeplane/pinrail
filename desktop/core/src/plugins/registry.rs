@@ -95,7 +95,6 @@ pub(crate) fn store_releases(
                 kind: "bundled".into(),
                 resolved: source.clone(),
                 source,
-                build_log: None,
                 bundle: Some(bundle.hash.clone()),
                 replaced: None,
                 installed_at: now.clone(),
@@ -121,10 +120,8 @@ struct RegistryState {
 pub struct Registry {
     db: Arc<Db>,
     bundles: Bundles,
-    /// Where zips are unpacked, builds run, and their logs go: `work/` and `logs/`.
+    /// Where zips are unpacked: `work/`.
     plugins_dir: PathBuf,
-    /// How long a plugin's build may run.
-    build_timeout: std::time::Duration,
     state: RwLock<RegistryState>,
     /// The plugins of bundles a review asked for, by the bundle's hash: a
     /// bundle never changes.
@@ -141,7 +138,6 @@ impl Registry {
             db,
             bundles,
             plugins_dir,
-            build_timeout: crate::config::BUILD_TIMEOUT,
             state: RwLock::default(),
             by_bundle: Mutex::default(),
             changes: Mutex::default(),
@@ -150,28 +146,13 @@ impl Registry {
         Ok(registry)
     }
 
-    /// Stops builds after `timeout` rather than the default.
-    pub fn with_build_timeout(mut self, timeout: std::time::Duration) -> Self {
-        self.build_timeout = timeout;
-        self
-    }
-
-    pub fn build_timeout(&self) -> std::time::Duration {
-        self.build_timeout
-    }
-
     pub fn bundles(&self) -> &Bundles {
         &self.bundles
     }
 
-    /// Where a zip is unpacked and a source built: scratch, emptied at start.
+    /// Where a zip is unpacked: scratch, emptied at start.
     pub fn work_dir(&self) -> PathBuf {
         self.plugins_dir.join("work")
-    }
-
-    /// Where each build's output is kept.
-    pub fn logs_dir(&self) -> PathBuf {
-        self.plugins_dir.join("logs")
     }
 
     /// Taken while installations and lines change: an install recording a
@@ -521,7 +502,6 @@ mod tests {
             kind: "link".into(),
             source: folder.display().to_string(),
             resolved: folder.display().to_string(),
-            build_log: None,
             bundle: None,
             replaced: None,
             installed_at: "2026-10-01T10:00:00Z".into(),

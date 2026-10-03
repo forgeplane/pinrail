@@ -35,9 +35,6 @@ impl std::error::Error for ApiError {}
 
 pub struct Client {
     agent: Agent,
-    /// For a request the app answers only after remote work, such as
-    /// asking a plugin's repository what is new.
-    slow: Agent,
     base: String,
 }
 
@@ -49,8 +46,6 @@ pub struct InstallRequest<'a> {
     pub force: bool,
     /// with `link`: the full name of the installed plugin the link replaces
     pub replace: Option<&'a str>,
-    /// what the inspection found, without which the app runs no build
-    pub expect: Option<&'a Value>,
 }
 
 impl Client {
@@ -90,7 +85,6 @@ impl Client {
     pub fn new(base: &str) -> Self {
         Client {
             agent: Self::agent(Duration::from_secs(15)),
-            slow: Self::agent(Duration::from_secs(120)),
             base: base.trim_end_matches('/').to_string(),
         }
     }
@@ -207,14 +201,6 @@ impl Client {
         self.get("/api/v1/plugins", &[])
     }
 
-    /// What installing the source would do: the plugin, the build it runs,
-    /// and the `expect` an install sends back to run exactly that.
-    pub fn plugins_inspect(&self, source: &str, link: bool) -> Result<Value> {
-        let body = serde_json::json!({ "source": source, "link": link });
-        // the app unpacks a zip before it answers
-        self.post_with(&self.slow, "/api/v1/plugins/inspect", Some(&body))
-    }
-
     /// Starts the install and follows its job, printing the build's output
     /// as it comes; the plugin's row when done.
     pub fn plugins_install(&self, request: &InstallRequest) -> Result<Value> {
@@ -223,7 +209,6 @@ impl Client {
             "link": request.link,
             "force": request.force,
             "replace": request.replace,
-            "expect": request.expect,
         });
         let started = self.post("/api/v1/plugins/install", Some(&body))?;
         match started["job"].as_str() {

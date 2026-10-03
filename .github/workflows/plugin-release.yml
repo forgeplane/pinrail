@@ -1,10 +1,11 @@
 # A tag named plugin-<name>-v<version> (plugin-review-v1.2.0) builds that
 # plugin and attaches its bundle, <name>-<version>.zip, to a GitHub release
-# of the same tag. Installing it then needs no toolchain:
+# of the same tag. Installing it then needs no toolchain: download the zip
+# and install it from disk.
 #
-#   pinrail plugins install https://github.com/<owner>/pinrail/releases/tag/plugin-review-v1.2.0
+#   pinrail plugins install ~/Downloads/review-1.2.0.zip
 #
-# The manifest's version must be the tag's, or the install refuses it.
+# The manifest's version must be the tag's, or the release fails.
 name: plugin release
 
 on:
@@ -38,11 +39,12 @@ jobs:
           [[ "$name" =~ ^[a-z][a-z0-9_-]*$ && -d "plugins/$name" ]] || { echo "the tag names no plugin: $name"; exit 1; }
           echo "PLUGIN=$name" >> "$GITHUB_ENV"
           echo "VERSION=${ref##*-v}" >> "$GITHUB_ENV"
-      - name: Build when the manifest declares a build
+      - name: Build when the package has a build script
         working-directory: plugins/${{ env.PLUGIN }}
         run: |
-          command=$(node -e 'const m=require("./manifest.json"); process.stdout.write(m.build?.command ?? "")')
-          if [ -n "$command" ]; then sh -c "$command"; fi
+          if [ -f package.json ] && node -e 'process.exit(require("./package.json").scripts?.build ? 0 : 1)'; then
+            npm ci && npm run build
+          fi
           declared=$(node -e 'process.stdout.write(require("./manifest.json").version.trim())')
           test "$declared" = "$VERSION" || { echo "manifest says $declared, tag says $VERSION"; exit 1; }
       - name: The bundle, and nothing else

@@ -917,66 +917,6 @@ fn a_server_error_is_not_a_refusal_and_a_wait_rides_it_out() {
     assert!(*polls.lock().unwrap() >= 2);
 }
 
-const INSPECTED_WITHOUT_BUILD: &str =
-    r#"{"name":"triage","version":"1.0.0","build":null,"expect":{"build":null}}"#;
-const INSPECTED_WITH_BUILD: &str = r#"{"name":"triage","version":"1.1.0","build":"npm ci && npm run build","expect":{"build":"npm ci && npm run build"}}"#;
-const JOB_DONE: &str = r#"{"status":"done","log":"","log_offset":0,"plugin":{"plugin":"local/triage","name":"triage","version":"1.1.0","install":{"kind":"folder"}}}"#;
-
-/// A server that answers inspections with `inspected`, and records the
-/// body of every install it is asked to start.
-fn plugin_server(inspected: &'static str) -> (MockServer, Arc<Mutex<Vec<String>>>) {
-    let started = Arc::new(Mutex::new(Vec::new()));
-    let seen = started.clone();
-    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
-        ("GET", "/api/v1/plugins") => (
-            200,
-            r#"{"plugins":[{"plugin":"triage","name":"triage","install":{"linked":false}}]}"#
-                .into(),
-        ),
-        ("POST", "/api/v1/plugins/inspect") => (200, inspected.into()),
-        ("POST", "/api/v1/plugins/install") => {
-            seen.lock().unwrap().push(body.to_string());
-            (202, r#"{"job":"j_1"}"#.into())
-        }
-        ("GET", "/api/v1/plugins/jobs/j_1") => (200, JOB_DONE.into()),
-        other => panic!("unexpected {other:?}"),
-    }));
-    (server, started)
-}
-
-#[test]
-fn a_build_runs_only_with_yes_when_nobody_is_at_a_terminal_to_confirm_it() {
-    let args = &["plugins", "install", "./triage"][..];
-    let (server, started) = plugin_server(INSPECTED_WITH_BUILD);
-    let (code, _, stderr) = run(&server, args);
-    assert_eq!(code, 2, "{args:?}: {stderr}");
-    assert!(stderr.contains("npm ci && npm run build"), "{stderr}");
-    assert!(stderr.contains("--yes"), "{stderr}");
-    assert!(
-        started.lock().unwrap().is_empty(),
-        "{args:?} started without a yes"
-    );
-
-    let with_yes = [args, &["--yes"]].concat();
-    let (code, _, stderr) = run(&server, &with_yes);
-    assert_eq!(code, 0, "{with_yes:?}: {stderr}");
-    let body: serde_json::Value = serde_json::from_str(&started.lock().unwrap()[0]).unwrap();
-    assert_eq!(
-        body["expect"],
-        serde_json::json!({"build": "npm ci && npm run build"}),
-        "{with_yes:?}"
-    );
-}
-
-#[test]
-fn a_plugin_without_a_build_installs_as_it_was_inspected() {
-    let (server, started) = plugin_server(INSPECTED_WITHOUT_BUILD);
-    let (code, _, stderr) = run(&server, &["plugins", "install", "./triage"]);
-    assert_eq!(code, 0, "{stderr}");
-    let body: serde_json::Value = serde_json::from_str(&started.lock().unwrap()[0]).unwrap();
-    assert_eq!(body["expect"], serde_json::json!({"build": null}));
-}
-
 #[test]
 fn an_install_the_app_fails_exits_1_and_a_refused_one_2() {
     for (kind, exit) in [("internal", 1), ("invalid", 2)] {
@@ -984,7 +924,6 @@ fn an_install_the_app_fails_exits_1_and_a_refused_one_2() {
             r#"{{"status":"failed","log":"","log_offset":0,"error":"the plugin cannot be installed","error_kind":"{kind}","plugin":null}}"#
         );
         let server = MockServer::start(Box::new(move |_, path, _| match path {
-            "/api/v1/plugins/inspect" => (200, INSPECTED_WITHOUT_BUILD.into()),
             "/api/v1/plugins/install" => (202, r#"{"job":"j_1"}"#.into()),
             "/api/v1/plugins/jobs/j_1" => (200, failed.clone()),
             other => panic!("unexpected {other}"),
@@ -997,7 +936,6 @@ fn an_install_the_app_fails_exits_1_and_a_refused_one_2() {
 #[test]
 fn an_install_answer_with_no_job_says_so() {
     let server = MockServer::start(Box::new(|_, path, _| match path {
-        "/api/v1/plugins/inspect" => (200, INSPECTED_WITHOUT_BUILD.into()),
         "/api/v1/plugins/install" => (202, "{}".into()),
         other => (
             404,
@@ -2261,14 +2199,10 @@ fn plugins_install_sends_a_zip_as_its_full_path() {
     let seen = sent.clone();
     let server = MockServer::start(Box::new(move |method, path, body| {
         match (method, path) {
-        ("POST", "/api/v1/plugins/inspect" | "/api/v1/plugins/install") => {
+        ("POST", "/api/v1/plugins/install") => {
             let body: serde_json::Value = serde_json::from_str(body).unwrap();
             seen.lock().unwrap().push(body["source"].as_str().unwrap().to_string());
-            if path.ends_with("inspect") {
-                (200, r#"{"name":"hello","version":"1.0.0","build":null,"expect":{"build":null}}"#.into())
-            } else {
-                (202, r#"{"job":"j1"}"#.into())
-            }
+            (202, r#"{"job":"j1"}"#.into())
         }
         ("GET", "/api/v1/plugins/jobs/j1") => (
             200,
@@ -2283,7 +2217,7 @@ fn plugins_install_sends_a_zip_as_its_full_path() {
         &["plugins", "install", "../hello-1.0.0.zip"],
     );
     assert_eq!(code, 0, "{stderr}");
-    assert_eq!(*sent.lock().unwrap(), vec![expected.clone(), expected]);
+    assert_eq!(*sent.lock().unwrap(), vec![expected]);
 }
 
 #[test]
@@ -2305,7 +2239,6 @@ fn an_install_log_the_app_trims_is_followed_line_by_line() {
             "plugin": { "plugin": "local/hello", "name": "hello", "version": "1.0.0", "install": {"kind": "folder"} } }),
     ]));
     let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
-        ("POST", "/api/v1/plugins/inspect") => (200, INSPECTED_WITHOUT_BUILD.into()),
         ("POST", "/api/v1/plugins/install") => (202, r#"{"job":"j1"}"#.into()),
         ("GET", "/api/v1/plugins/jobs/j1") => {
             let mut polls = polls.lock().unwrap();
@@ -2588,10 +2521,10 @@ fn a_link_can_replace_a_plugin_and_give_it_back() {
     );
 }
 
-/// A plugin as it is scaffolded with a framework, sources and a build but
-/// no view yet, is checked as an install would take it: before its build.
+/// A plugin's sources with no built view are not a plugin yet: an install
+/// would refuse them.
 #[test]
-fn plugins_check_takes_a_plugin_that_builds_its_view_before_its_build() {
+fn plugins_check_refuses_a_plugin_whose_view_is_not_built() {
     let dir = tempdir();
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::create_dir_all(dir.join("schemas")).unwrap();
@@ -2599,14 +2532,14 @@ fn plugins_check_takes_a_plugin_that_builds_its_view_before_its_build() {
     std::fs::write(dir.join("schemas/decision.schema.json"), "{}").unwrap();
     std::fs::write(
         dir.join("manifest.json"),
-        r#"{"name": "fresh", "version": "1.0.0", "build": {"command": "npm run build"}}"#,
+        r#"{"name": "fresh", "version": "1.0.0"}"#,
     )
     .unwrap();
     let (code, stdout, stderr) = run_offline(&["plugins", "check", dir.to_str().unwrap()]);
-    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(code, 2, "{stderr}");
     let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(
-        verdict["warnings"],
-        serde_json::json!([{ "key": "view", "message": "view/index.html not found yet: the build (npm run build) has to write it" }])
+        verdict["problems"],
+        serde_json::json!([{ "message": "view/index.html not found" }])
     );
 }

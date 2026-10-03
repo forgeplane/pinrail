@@ -3004,16 +3004,15 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     )
     .await;
     assert_eq!(seen["installed"]["unchanged"], false, "{seen}");
-    let built = buildable_plugin(scratch.path(), "hello", "npm run build");
+    let older = plugin_copy(&scratch.path().join("older"), "hello", "1.0.0");
     let (status, seen) = call(
         &app,
         "POST",
         "/api/v1/plugins/inspect",
-        Some(json!({"source": built.display().to_string()})),
+        Some(json!({"source": older.display().to_string()})),
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{seen}");
-    assert_eq!(seen["build"], "npm run build");
     assert_eq!(seen["installed"]["version"], "1.4.0");
     assert_eq!(seen["older"], true, "{seen}");
 
@@ -3166,17 +3165,17 @@ async fn a_review_shows_its_own_release_and_a_link_is_live() {
 }
 
 #[tokio::test]
-async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() {
-    // a clone left in work by a crash
+async fn start_tidies_the_plugins_folder() {
+    // a zip unpacked in work by a crash, and the build logs of an earlier version
     let dir = tempfile::tempdir().unwrap();
     let plugins = dir.path().join("plugins");
-    std::fs::create_dir_all(plugins.join("work/git-abc")).unwrap();
-    std::fs::write(plugins.join("work/git-abc/file"), "x").unwrap();
+    std::fs::create_dir_all(plugins.join("work/archive-abc")).unwrap();
+    std::fs::write(plugins.join("work/archive-abc/file"), "x").unwrap();
     std::fs::create_dir_all(plugins.join("logs")).unwrap();
     std::fs::write(plugins.join("logs/old.log"), "x").unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();
-    let state = Arc::new(Pinrail::open(config).unwrap());
+    let _state = Arc::new(Pinrail::open(config).unwrap());
     assert!(
         plugins.join("work").is_dir()
             && std::fs::read_dir(plugins.join("work"))
@@ -3185,37 +3184,9 @@ async fn start_tidies_the_plugins_folder_and_a_build_keeps_the_last_five_logs() 
                 .is_none(),
         "work is emptied"
     );
-    assert!(
-        plugins.join("logs/old.log").is_file(),
-        "logs are untouched at start"
-    );
-
-    // six builds, five logs
-    let app = App {
-        router: router(state.clone()),
-        state,
-        dir,
-    };
-    let scratch = tempfile::tempdir().unwrap();
-    let built = buildable_plugin(
-        scratch.path(),
-        "built",
-        "mkdir -p view && printf '<html>ok</html>' > view/index.html",
-    );
-    for _ in 0..6 {
-        let (status, row) = install(&app, &built, json!({})).await;
-        assert_eq!(status, StatusCode::OK, "{row}");
-    }
-    let logs: Vec<String> = std::fs::read_dir(plugins.join("logs"))
-        .unwrap()
-        .flatten()
-        .map(|e| e.file_name().to_string_lossy().into_owned())
-        .filter(|n| n.starts_with("built-"))
-        .collect();
-    assert_eq!(logs.len(), 5, "{logs:?}");
+    assert!(!plugins.join("logs").exists(), "the build logs are removed");
 }
 
-/// A plugin whose bundle only exists after its build runs.
 /// The two schemas every plugin has, in their places: the payload's as
 /// given, the decision's taking anything.
 fn schemas(dir: &std::path::Path, payload: Value) {
@@ -3230,7 +3201,9 @@ fn view(dir: &std::path::Path, html: &str) {
     std::fs::write(dir.join("view/index.html"), html).unwrap();
 }
 
-fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::path::PathBuf {
+/// A plugin's sources: a manifest, its schemas and the files its view is
+/// built from, with no built view.
+fn plugin_sources(root: &std::path::Path, name: &str) -> std::path::PathBuf {
     let dir = root.join(name);
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("src/view.txt"), "sources").unwrap();
@@ -3238,290 +3211,70 @@ fn buildable_plugin(root: &std::path::Path, name: &str, command: &str) -> std::p
     schemas(&dir, json!({}));
     std::fs::write(
         dir.join("manifest.json"),
-        json!({"name": name, "version": "1.0.0", "build": {"command": command}}).to_string(),
+        json!({"name": name, "version": "1.0.0"}).to_string(),
     )
     .unwrap();
     dir
 }
 
-/// A build runs only as the person confirmed it: an install that does not
-/// send what the inspection found, or whose source changed since, is
-/// refused before anything runs.
+/// A plugin's sources with no built view: installing says to build it
+/// first and runs nothing, not even the build an earlier manifest
+/// declared, and once its view is built the same folder links and
+/// installs.
 #[tokio::test]
-async fn a_build_runs_only_as_it_was_confirmed() {
+async fn a_folder_that_is_not_built_is_refused_and_nothing_runs() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
-    let ran = scratch.path().join("ran");
-    let command = format!(
-        "touch {} && mkdir -p view && echo hi > view/index.html",
-        ran.display()
-    );
-    let built = buildable_plugin(scratch.path(), "built", &command);
-    let source = json!({ "source": built.display().to_string() });
-
-    // unconfirmed
-    let (status, job) = install_as_sent(&app, source.clone()).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
-    assert!(
-        job["error"].as_str().unwrap().contains("not confirmed"),
-        "{job}"
-    );
-    assert!(!ran.exists(), "an unconfirmed build ran");
-
-    // confirmed, and then the command changed before the install
-    let (status, seen) = call(
-        &app,
-        "POST",
-        "/api/v1/plugins/inspect",
-        Some(source.clone()),
+    let marker = scratch.path().join("ran");
+    let sources = plugin_sources(scratch.path(), "built");
+    std::fs::write(
+        sources.join("manifest.json"),
+        json!({"name": "built", "version": "1.0.0", "build": {"command": format!("touch {}", marker.display())}})
+            .to_string(),
     )
-    .await;
-    assert_eq!(status, StatusCode::OK, "{seen}");
-    assert_eq!(seen["expect"], json!({ "build": command }));
-    let other = format!("touch {}.other && {command}", ran.display());
-    buildable_plugin(scratch.path(), "built", &other);
-    let mut body = source.clone();
-    body["expect"] = seen["expect"].clone();
-    let (status, job) = install_as_sent(&app, body).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
-    assert!(job["error"].as_str().unwrap().contains("changed"), "{job}");
-    assert!(!ran.exists(), "a changed build ran");
+    .unwrap();
+    for link in [false, true] {
+        let (status, body) = install(&app, &sources, json!({ "link": link })).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+        let said = body["error"].as_str().or(body["message"].as_str()).unwrap();
+        assert!(
+            said.contains("view/index.html not found; build the plugin first"),
+            "link {link}: {body}"
+        );
+    }
+    assert!(!marker.exists(), "the build ran");
 
-    // as confirmed
-    let (status, row) = install(&app, &built, json!({})).await;
+    std::fs::create_dir_all(sources.join("view")).unwrap();
+    std::fs::write(sources.join("view/index.html"), "<html>built</html>").unwrap();
+    let (status, row) = install(&app, &sources, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert!(ran.exists());
+    let (status, row) = install(&app, &sources, json!({})).await;
+    assert_eq!(status, StatusCode::OK, "{row}");
+    // the sources beside the built view are left behind
+    let stored = app
+        .state
+        .bundles()
+        .path(row["install"]["bundle"].as_str().unwrap());
+    assert!(stored.join("view/index.html").is_file());
+    assert!(!stored.join("src").exists());
+    assert!(!stored.join("package.json").exists());
+    assert!(!marker.exists(), "the build ran");
 }
 
-/// A name that is not a plugin name is refused before anything runs: it
-/// would place the build's copy and log outside the plugins folder.
+/// A name that is not a plugin name is refused before anything is stored.
 #[tokio::test]
-async fn a_manifest_name_that_is_not_a_name_is_refused_before_the_build() {
+async fn a_manifest_name_that_is_not_a_name_is_refused() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
-    let ran = scratch.path().join("ran");
-    let command = format!(
-        "touch {} && mkdir -p view && echo hi > view/index.html",
-        ran.display()
-    );
-    let dir = buildable_plugin(scratch.path(), "escaping", &command);
+    let dir = plugin_sources(scratch.path(), "escaping");
+    view(&dir, "<html>hi</html>");
     let mut manifest: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("manifest.json")).unwrap()).unwrap();
     manifest["name"] = json!("../../escaped");
     std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
-    let (status, job) = install_as_sent(
-        &app,
-        json!({ "source": dir.display().to_string(), "expect": { "build": command } }),
-    )
-    .await;
+    let (status, job) = install(&app, &dir, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
     assert!(job["error"].as_str().unwrap().contains("name"), "{job}");
-    assert!(!ran.exists(), "the build ran");
-}
-
-/// A link in a plugin that builds is refused as it is in one that does
-/// not: copied for the build, it would bring in the file it points to.
-#[cfg(unix)]
-#[tokio::test]
-async fn a_link_in_a_plugin_that_builds_is_refused() {
-    let app = app();
-    let scratch = tempfile::tempdir().unwrap();
-    let secret = scratch.path().join("secret.txt");
-    std::fs::write(&secret, "not for the store").unwrap();
-    let command = "mkdir -p view && echo hi > view/index.html";
-    let dir = buildable_plugin(scratch.path(), "linking", command);
-    std::os::unix::fs::symlink(&secret, dir.join("data.txt")).unwrap();
-    let (status, job) = install_as_sent(
-        &app,
-        json!({ "source": dir.display().to_string(), "expect": { "build": command } }),
-    )
-    .await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
-    assert!(
-        job["error"].as_str().unwrap().contains("symbolic link"),
-        "{job}"
-    );
-}
-
-/// What every step of a build writes to stderr is in its log and in the
-/// failure the person reads, as `npm ci && npm run build` needs.
-#[tokio::test]
-async fn a_failed_build_shows_what_each_step_wrote_to_stderr() {
-    let app = app();
-    let scratch = tempfile::tempdir().unwrap();
-    let failing = buildable_plugin(
-        scratch.path(),
-        "failing",
-        "echo first-step-error 1>&2 && echo second-step && false # a comment",
-    );
-    let (status, job) = install(&app, &failing, json!({})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
-    let error = job["error"].as_str().unwrap_or_default();
-    assert!(error.contains("first-step-error"), "{error}");
-    assert!(error.contains("second-step"), "{error}");
-}
-
-/// A build that does not finish in time is stopped, with everything it
-/// started, and fails with what it wrote.
-#[cfg(unix)]
-#[tokio::test]
-async fn a_build_that_runs_too_long_is_stopped() {
-    let app = app_with(|c| c.build_timeout = Duration::from_secs(1));
-    let scratch = tempfile::tempdir().unwrap();
-    let marker = scratch.path().join("still-running");
-    let slow = buildable_plugin(
-        scratch.path(),
-        "slow",
-        &format!(
-            "echo started; (sleep 3; touch {}) & sleep 60",
-            marker.display()
-        ),
-    );
-    let started = std::time::Instant::now();
-    let (status, job) = install(&app, &slow, json!({})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
-    assert!(
-        started.elapsed() < Duration::from_secs(20),
-        "{:?}",
-        started.elapsed()
-    );
-    let error = job["error"].as_str().unwrap_or_default();
-    assert!(error.contains("did not finish"), "{error}");
-    assert!(error.contains("started"), "{error}");
-    // what the build started in the background went with it
-    tokio::time::sleep(Duration::from_secs(4)).await;
-    assert!(!marker.exists(), "a process the build started kept running");
-}
-
-#[tokio::test]
-async fn a_build_declared_in_the_manifest_runs_in_a_scratch_copy_and_only_the_bundle_is_placed() {
-    let app = app();
-    let scratch = tempfile::tempdir().unwrap();
-    let command = "echo building && mkdir -p view/assets && printf '<html>ok</html>' > view/index.html && printf 'x' > view/assets/a.js";
-    let built = buildable_plugin(scratch.path(), "built", command);
-    let (status, started) = call(
-        &app,
-        "POST",
-        "/api/v1/plugins/install",
-        Some(json!({"source": built.display().to_string(), "expect": {"build": command}})),
-    )
-    .await;
-    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
-    let job = follow(&app, started["job"].as_str().unwrap()).await;
-    assert_eq!(job["status"], "done", "{job}");
-    assert!(
-        job["log"].as_str().unwrap().contains("$ echo building"),
-        "{job}"
-    );
-    assert!(
-        job["log"].as_str().unwrap().contains("\nbuilding\n"),
-        "{job}"
-    );
-    let entry = app
-        .state
-        .bundles()
-        .path(job["plugin"]["install"]["bundle"].as_str().unwrap());
-    assert_eq!(
-        std::fs::read_to_string(entry.join("view/index.html")).unwrap(),
-        "<html>ok</html>"
-    );
-    assert!(entry.join("view/assets/a.js").is_file());
-    assert!(!entry.join("src").exists(), "sources never enter the store");
-    assert!(!entry.join("package.json").exists(), "nor the tooling");
-    assert!(
-        !built.join("view").exists(),
-        "the source folder was not written to"
-    );
-    let log_path = db(&app)
-        .install("local/built")
-        .unwrap()
-        .unwrap()
-        .build_log
-        .clone()
-        .unwrap();
-    assert!(
-        std::fs::read_to_string(log_path)
-            .unwrap()
-            .contains("building")
-    );
-
-    // a failing build stops the install with the tail of its log; a manifest
-    // without a build and without its entry is told what to declare
-    let broken = buildable_plugin(scratch.path(), "broken", "echo nope && exit 3");
-    let (status, body) = install(&app, &broken, json!({})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    let message = body["error"].as_str().unwrap();
-    assert!(
-        message.contains("the build failed") && message.contains("nope"),
-        "{message}"
-    );
-    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
-    assert!(
-        listed["plugins"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|p| p["name"] != "broken")
-    );
-    let bare = scratch.path().join("bare");
-    std::fs::create_dir_all(&bare).unwrap();
-    std::fs::write(
-        bare.join("manifest.json"),
-        json!({"name": "bare", "version": "1.0.0"}).to_string(),
-    )
-    .unwrap();
-    let (status, body) = install(&app, &bare, json!({})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert!(
-        body["error"]
-            .as_str()
-            .unwrap()
-            .contains("declares its build"),
-        "{body}"
-    );
-
-    // a manifest that breaks its schema says so, and nothing about builds
-    let typo = scratch.path().join("typo");
-    std::fs::create_dir_all(&typo).unwrap();
-    std::fs::create_dir_all(typo.join("view")).unwrap();
-    std::fs::write(typo.join("view/index.html"), "<html></html>").unwrap();
-    std::fs::create_dir_all(typo.join("schemas")).unwrap();
-    std::fs::write(typo.join("schemas/payload.schema.json"), "{}").unwrap();
-    std::fs::write(typo.join("schemas/decision.schema.json"), "{}").unwrap();
-    std::fs::write(
-        typo.join("manifest.json"),
-        json!({"name": "typo", "version": "1.0.0", "title": 3}).to_string(),
-    )
-    .unwrap();
-    let (status, body) = install(&app, &typo, json!({})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    let message = body["error"].as_str().unwrap();
-    assert!(
-        message.contains("title: value is not of type string") && !message.contains("build"),
-        "{body}"
-    );
-}
-
-#[tokio::test]
-#[ignore = "runs npm ci, which needs the network; CI runs it with --ignored"]
-async fn the_artifact_plugin_installs_from_its_sources() {
-    let app = app();
-    let artifact = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/artifact");
-    let (status, row) = install(&app, &artifact, json!({})).await;
-    assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["usable"], true, "{row}");
-    let entry = app
-        .state
-        .bundles()
-        .path(row["install"]["bundle"].as_str().unwrap());
-    assert!(entry.join("view/index.html").is_file());
-    assert!(entry.join("view/assets").is_dir());
-    assert!(entry.join("schemas/payload.schema.json").is_file());
-    assert!(
-        !entry.join("src").exists()
-            && !entry.join("node_modules").exists()
-            && !entry.join("package.json").exists()
-    );
 }
 
 /// A bundle is its files, wherever they came from: the same plugin from a
@@ -3567,42 +3320,6 @@ async fn the_same_files_from_two_sources_are_one_bundle() {
         view_url(&app, &review).await,
         format!("/bundles/{bundle}/view/index.html")
     );
-}
-
-/// A build that fails changes nothing: the line keeps its current bundle,
-/// and its reviews render as before.
-#[tokio::test]
-async fn a_failed_build_leaves_the_lines_current_bundle() {
-    let app = app();
-    let scratch = tempfile::tempdir().unwrap();
-    let built = buildable_plugin(
-        scratch.path(),
-        "built",
-        "mkdir -p view && printf '<html>ok</html>' > view/index.html",
-    );
-    let (status, row) = install(&app, &built, json!({})).await;
-    assert_eq!(status, StatusCode::OK, "{row}");
-    let bundle = row["install"]["bundle"].as_str().unwrap().to_string();
-
-    let failing = buildable_plugin(
-        &scratch.path().join("again"),
-        "built",
-        "echo broken; exit 1",
-    );
-    let manifest = failing.join("manifest.json");
-    let text = std::fs::read_to_string(&manifest).unwrap();
-    std::fs::write(&manifest, text.replace("\"1.0.0\"", "\"1.0.1\"")).unwrap();
-    let (status, body) = install(&app, &failing, json!({})).await;
-    assert_ne!(status, StatusCode::OK, "{body}");
-    assert_eq!(current_bundle(&app, "local/built"), Some(bundle));
-    let (_, plugins) = call(&app, "GET", "/api/v1/plugins", None).await;
-    let built = plugins["plugins"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|p| p["plugin"] == "local/built")
-        .unwrap();
-    assert_eq!(built["version"], "1.0.0");
 }
 
 /// An update is installed whatever it changes: the reviews made before it

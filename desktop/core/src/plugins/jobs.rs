@@ -7,11 +7,9 @@ use serde_json::Value;
 
 use crate::error::Error;
 
-/// What an install says as it goes: the step it is at, and lines of the
-/// build's output.
+/// What an install says as it goes: the step it is at.
 pub(super) enum Progress {
     Step(&'static str),
-    Log(String),
 }
 
 /// One install, followed by id: its step, its log, and how it ended.
@@ -21,10 +19,8 @@ pub struct Job {
     pub source: String,
     /// `fetching`, `inspecting`, `building`, `placing`, `done`, `failed`
     pub status: String,
-    /// The end of the log: at most `LOG_KEPT` bytes of it.
+    /// Empty: an install no longer runs anything that writes a log.
     pub log: String,
-    /// How many bytes of the log came before `log`: a reader that follows
-    /// the log keeps its place by the total, which only grows.
     pub log_offset: usize,
     pub error: Option<String>,
     /// what kind of error ended it, as the API names kinds: `invalid` is
@@ -51,8 +47,6 @@ impl Job {
 
 /// How many finished jobs are kept for the dialog and the CLI to read back.
 const FINISHED_KEPT: usize = 50;
-/// The most of a job's log kept in memory; the whole log is on disk.
-const LOG_KEPT: usize = 256 * 1024;
 
 /// The jobs the app has run, by id, for the dialog and the CLI to follow.
 #[derive(Debug, Default)]
@@ -107,24 +101,8 @@ impl Jobs {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let Some(job) = jobs.get_mut(id) else { return };
-        match progress {
-            Progress::Step(step) => job.status = step.to_string(),
-            Progress::Log(line) => {
-                job.log.push_str(&line);
-                job.log.push('\n');
-                if job.log.len() > LOG_KEPT {
-                    // the start goes, up to the first whole line that fits;
-                    // a newline is one byte, so the cut is a character boundary
-                    let from = job.log.len() - LOG_KEPT;
-                    let cut = match job.log.as_bytes()[from..].iter().position(|&b| b == b'\n') {
-                        Some(i) => from + i + 1,
-                        None => job.log.len(),
-                    };
-                    job.log.drain(..cut);
-                    job.log_offset += cut;
-                }
-            }
-        }
+        let Progress::Step(step) = progress;
+        job.status = step.to_string();
     }
 
     pub fn finish(&self, id: &str, outcome: Result<Value, Error>) {
@@ -152,7 +130,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_recent_finished_jobs_are_kept_and_logs_are_capped() {
+    fn only_recent_finished_jobs_are_kept() {
         let jobs = Jobs::default();
         let first = jobs.start("first");
         jobs.finish(&first, Ok(Value::Null));
@@ -167,32 +145,5 @@ mod tests {
         );
         assert!(jobs.get(&running).is_some());
         assert!(jobs.0.lock().unwrap().len() <= FINISHED_KEPT + 1);
-
-        let line = "x".repeat(1000);
-        for _ in 0..1000 {
-            jobs.note(&running, Progress::Log(line.clone()));
-        }
-        let log = jobs.get(&running).unwrap().log;
-        assert!(log.len() <= LOG_KEPT, "{} bytes", log.len());
-        assert!(log.ends_with(&format!("{line}\n")));
-    }
-
-    #[test]
-    fn a_capped_log_of_multi_byte_output_keeps_whole_lines() {
-        let jobs = Jobs::default();
-        let id = jobs.start("build");
-        // what npm and vite print, box drawing and arrows: three bytes a
-        // character, in lines of varying length, so the cut lands inside
-        // characters as well as between them
-        for i in 0..3000 {
-            jobs.note(
-                &id,
-                Progress::Log(format!("{}→ {i}", "─".repeat(90 + i % 7))),
-            );
-        }
-        let log = jobs.get(&id).unwrap().log;
-        assert!(log.len() <= LOG_KEPT, "{} bytes", log.len());
-        assert!(log.starts_with('─'), "the log starts mid-line");
-        assert!(log.ends_with("→ 2999\n"));
     }
 }

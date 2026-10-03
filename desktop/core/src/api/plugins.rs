@@ -15,7 +15,7 @@ use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
 use crate::error::Error;
-use crate::plugins::{InstallExpect, InstallOptions};
+use crate::plugins::InstallOptions;
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
@@ -64,7 +64,7 @@ async fn describe(
 }
 
 /// The source and the options an install or an inspect takes:
-/// `{source, link?, force?, replace?, expect?}`.
+/// `{source, link?, force?, replace?}`.
 fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     let body = parse_body(body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
@@ -77,30 +77,8 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
             .get("replace")
             .and_then(Value::as_str)
             .map(str::to_string),
-        expect: expect_of(&body)?,
     };
     Ok((source.to_string(), options))
-}
-
-/// The `expect` an inspection answered with and the person confirmed:
-/// `{build}`, a string or null.
-fn expect_of(body: &Value) -> Result<Option<InstallExpect>, Error> {
-    let expect = match body.get("expect") {
-        None | Some(Value::Null) => return Ok(None),
-        Some(Value::Object(expect)) => expect,
-        Some(_) => return Err(Error::invalid("/expect", "must be an object")),
-    };
-    let field = |key: &str| match expect.get(key) {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::String(text)) => Ok(Some(text.clone())),
-        Some(_) => Err(Error::invalid(
-            format!("/expect/{key}"),
-            "must be a string or null",
-        )),
-    };
-    Ok(Some(InstallExpect {
-        build: field("build")?,
-    }))
 }
 
 async fn inspect(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {

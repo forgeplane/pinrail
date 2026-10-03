@@ -1,22 +1,20 @@
-//! Installing a plugin from a folder or a zip on disk: inspect it, build
-//! it when its manifest says so, place the bundle in the store, record
-//! where it came from. A link points the registry at the folder instead
-//! and serves it live. Nothing is downloaded.
+//! Installing a plugin from a folder or a zip on disk: inspect it, place
+//! the bundle in the store, record where it came from. A link points the
+//! registry at the folder instead and serves it live. Nothing is
+//! downloaded and nothing runs: a plugin that needs building is built
+//! before it is installed.
 //!
 //! Every source ends in a bundle, stored once by its hash, which becomes
 //! the current bundle of its line: an equal or higher version replaces the
 //! line's current, an older one is refused unless forced. A line stays
 //! while a review still renders with it.
 //!
-//! An install is a job: it reports its step and its build log as it goes,
-//! so a dialog or a terminal can follow a build that takes a minute.
+//! An install is a job: it reports its step as it goes.
 //!
 //! A source is one string: a folder, or a zip on disk. It is parsed
 //! before anything is touched, so a bad one fails at once.
 
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 use chrono::Utc;
 use pinrail_format::bundle::{Listing, Taken};
@@ -37,22 +35,6 @@ pub struct Options {
     /// with `link`: the full name of an installed plugin the link takes the
     /// place of, until it is removed
     pub replace: Option<String>,
-    /// what the person confirmed, as the inspection answered it: a build
-    /// runs only when this matches what was fetched
-    pub expect: Option<Expect>,
-}
-
-/// What an inspection found and the person confirmed: the build command.
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Expect {
-    pub build: Option<String>,
-}
-
-impl Expect {
-    /// The `expect` an inspection answers with, for the install to send back.
-    fn to_json(&self) -> Value {
-        serde_json::json!({ "build": self.build })
-    }
 }
 
 /// Where a plugin comes from, as the source string says.
@@ -171,8 +153,8 @@ pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> 
 }
 
 /// What installing `source` would do, without doing it: the plugin the
-/// manifest describes, where it comes from, whether a build runs and what
-/// it executes, and what is installed under that name already. A zip is
+/// manifest describes, where it comes from, and what is installed under
+/// that name already. A zip is
 /// unpacked the way an install does it, and dropped afterwards.
 pub fn inspect(
     db: &Db,
@@ -202,21 +184,10 @@ fn summarize(
         ));
     }
     let manifest = read_manifest(dir)?;
-    let build = if prepared.origin.build {
-        build_command(&manifest)?
-    } else {
-        None
-    };
-    // what the registry would say of the folder as it is; a source that
-    // builds first is judged after the build
+    // what the registry would say of the folder as it is
     let plugin = Plugin::load(dir);
-    if let Some(why) = &plugin.error
-        && (build.is_none() || options.link)
-    {
-        return Err(Error::invalid(
-            "/source",
-            not_a_plugin(why, !options.link && prepared.origin.build),
-        ));
+    if let Some(why) = &plugin.error {
+        return Err(Error::invalid("/source", not_a_plugin(why)));
     }
     let version = manifest
         .get("version")
@@ -251,7 +222,6 @@ fn summarize(
                 .and_then(|p| p.install.as_ref()?.bundle.clone());
             let unchanged = !r.linked()
                 && installed_version == version
-                && build.is_none()
                 && bundle.is_some()
                 && bundle_hash_of(dir).ok() == bundle;
             Some(serde_json::json!({
@@ -278,12 +248,6 @@ fn summarize(
         "title": manifest.get("title").and_then(Value::as_str).unwrap_or(&name),
         // the icon's markup, as the app shows an installed plugin's
         "icon": super::manifest::icon_markup(&prepared.dir, super::manifest::ICON).ok(),
-        "build": build,
-        // what an install sends back to run exactly what was shown
-        "expect": Expect {
-            build: build.clone(),
-        }
-        .to_json(),
         // the files it takes beside a payload, for the dialog to say before the yes
         "attachments": manifest.get("attachments"),
         "origin": { "kind": prepared.origin.kind, "resolved": resolved },
@@ -313,7 +277,6 @@ fn prepare(registry: &Registry, source: &str, options: &Options) -> Result<Prepa
                     publisher,
                     source: folder.display().to_string(),
                     resolved: dir.display().to_string(),
-                    build: true,
                 },
                 dir,
             })
@@ -335,8 +298,6 @@ fn prepare(registry: &Registry, source: &str, options: &Options) -> Result<Prepa
                     publisher,
                     source: path.display().to_string(),
                     resolved: path.display().to_string(),
-                    // a zip holds a plugin as it is installed: nothing in it runs
-                    build: false,
                 },
             })
         }
@@ -350,9 +311,6 @@ struct Origin {
     publisher: String,
     source: String,
     resolved: String,
-    /// whether a build the manifest declares runs: never for a zip, which
-    /// holds the plugin as it is installed
-    build: bool,
 }
 
 /// The most a zip, downloaded or on disk, may weigh.
@@ -488,12 +446,13 @@ fn unzip_within(bytes: &[u8], into: &Path, limits: Unpacking) -> Result<(), Erro
     Ok(())
 }
 
-/// How many build logs a plugin keeps; older ones go when a new one is written.
-const LOGS_KEPT: usize = 5;
-
 /// Tidies `<data>/plugins` at start: `work` is scratch and no install
-/// survives a restart, so what a stop left there goes.
+/// survives a restart, so what a stop left there goes, and so do the build
+/// logs that earlier versions kept in `logs`.
 pub fn tidy(plugins_dir: &Path) -> std::io::Result<()> {
+    if plugins_dir.join("logs").is_dir() {
+        std::fs::remove_dir_all(plugins_dir.join("logs"))?;
+    }
     let Ok(entries) = std::fs::read_dir(plugins_dir.join("work")) else {
         return Ok(());
     };
@@ -508,33 +467,12 @@ pub fn tidy(plugins_dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Keeps the last `LOGS_KEPT` logs of a plugin, by name.
-fn trim_logs(logs: &Path, name: &str) {
-    let Ok(entries) = std::fs::read_dir(logs) else {
-        return;
-    };
-    let prefix = format!("{name}-");
-    let mut mine: Vec<PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| {
-            p.file_name()
-                .and_then(|f| f.to_str())
-                .is_some_and(|f| f.starts_with(&prefix) && f.ends_with(".log"))
-        })
-        .collect();
-    mine.sort();
-    while mine.len() > LOGS_KEPT {
-        let _ = std::fs::remove_file(mine.remove(0));
-    }
-}
-
 /// The hash of the bundle a source folder holds.
 fn bundle_hash_of(dir: &Path) -> Result<String, String> {
     Listing::of_folder(dir, Taken::FromSource).map(|listing| listing.hash())
 }
 
-/// Installs the plugin in `dir`, wherever it was fetched from.
+/// Installs the plugin in `dir`, a folder or an unpacked zip.
 fn install_dir(
     db: &Db,
     registry: &Registry,
@@ -552,8 +490,6 @@ fn install_dir(
         ));
     }
     let manifest = read_manifest(&dir)?;
-    // the name goes into the paths of the build's copy and log, so it is
-    // checked before anything uses it
     match manifest.get("name").and_then(Value::as_str) {
         Some(name) if super::manifest::valid_name(name) => {}
         Some(name) => {
@@ -566,19 +502,13 @@ fn install_dir(
         }
         None => return Err(Error::invalid("/source", "not a plugin: name is required")),
     }
-    let build = if origin.build {
-        build_command(&manifest)?
-    } else {
-        None
-    };
+    let plugin = Plugin::load(&dir);
+    if let Some(why) = &plugin.error {
+        return Err(Error::invalid("/source", not_a_plugin(why)));
+    }
 
-    // a link serves the folder as it is; what the folder has to be, the
-    // registry says when it loads it
+    // a link serves the folder as it is
     if options.link {
-        let plugin = Plugin::load(&dir);
-        if let Some(why) = &plugin.error {
-            return Err(Error::invalid("/source", format!("not a plugin: {why}")));
-        }
         // a link is the person's own work in progress, whatever the
         // folder came from
         let origin = Origin {
@@ -586,7 +516,7 @@ fn install_dir(
             publisher: LOCAL_PUBLISHER.to_string(),
             ..origin
         };
-        let mut record = record_for(&plugin, &origin, None, None);
+        let mut record = record_for(&plugin, &origin, None);
         let _changing = registry.changing();
         if let Some(target) = &options.replace {
             record = replacing(db, record, target)?;
@@ -594,106 +524,31 @@ fn install_dir(
         return commit(db, registry, record);
     }
 
-    confirmed(options.expect.as_ref(), build.as_deref())?;
-
-    // build in a scratch copy, so the source is never written to
-    let (staged, log_path) = match &build {
-        Some(command) => {
-            progress(Progress::Step("building"));
-            // a link would bring in the file it points to as a copy, where
-            // the check on the bundle could no longer see it
-            if let Some(link) = first_link_to_copy(&dir, BUILD_SKIPS)? {
-                return Err(Error::invalid(
-                    "/source",
-                    format!(
-                        "the plugin contains a symbolic link, which Pinrail does not install: {}",
-                        link.strip_prefix(&dir).unwrap_or(&link).display()
-                    ),
-                ));
-            }
-            let scratch = scratch_dir(registry, &manifest);
-            copy_tree(&dir, &scratch, BUILD_SKIPS)?;
-            let log_path = run_build(registry, &manifest, &scratch, command, progress)?;
-            (scratch, Some(log_path))
-        }
-        None => (dir.clone(), None),
-    };
-    let plugin = Plugin::load(&staged);
-    if let Some(why) = &plugin.error {
-        let _ = build.as_ref().map(|_| std::fs::remove_dir_all(&staged));
-        return Err(Error::invalid(
-            "/source",
-            match build {
-                Some(_) => format!("after the build, not a plugin: {why}"),
-                None => not_a_plugin(why, true),
-            },
-        ));
-    }
     // what the store takes: the files of the layout, and only those; a
     // link, which could point anywhere on the machine, is refused
     progress(Progress::Step("placing"));
-    let stored = registry.bundles().store(&staged);
-    if build.is_some() {
-        let _ = std::fs::remove_dir_all(&staged);
-    }
-    let bundle = stored.map_err(|error| match error {
-        Error::Invalid(violations) => Error::invalid(
-            "/source",
-            format!(
-                "the plugin cannot be installed: {}",
-                violations
-                    .first()
-                    .map(|v| v.message.clone())
-                    .unwrap_or_default()
+    let bundle = registry
+        .bundles()
+        .store(&dir)
+        .map_err(|error| match error {
+            Error::Invalid(violations) => Error::invalid(
+                "/source",
+                format!(
+                    "the plugin cannot be installed: {}",
+                    violations
+                        .first()
+                        .map(|v| v.message.clone())
+                        .unwrap_or_default()
+                ),
             ),
-        ),
-        other => other,
-    })?;
+            other => other,
+        })?;
     let _changing = registry.changing();
-    let record = record_for(
-        &plugin,
-        &origin,
-        Some(bundle.hash.clone()),
-        log_path.map(|p| p.display().to_string()),
-    );
+    let record = record_for(&plugin, &origin, Some(bundle.hash.clone()));
     if let Some(refusal) = older_than_installed(db, &record.plugin, &bundle, options.force)? {
         return Err(refusal);
     }
     commit(db, registry, record)
-}
-
-/// Refuses an install whose build the person did not confirm, or whose
-/// build command is no longer the one they confirmed. A source without a
-/// build needs no confirmation.
-fn confirmed(expect: Option<&Expect>, build: Option<&str>) -> Result<(), Error> {
-    let Some(expect) = expect else {
-        return match build {
-            Some(command) => Err(Error::invalid(
-                "/expect",
-                format!(
-                    "the plugin runs a build that was not confirmed: {command}. Inspect the source and send the expect it answers with"
-                ),
-            )),
-            None => Ok(()),
-        };
-    };
-    let again = "Inspect it again";
-    if expect.build.as_deref() != build {
-        return Err(Error::invalid(
-            "/expect",
-            match build {
-                Some(command) => {
-                    format!(
-                        "the build changed after it was inspected: it now runs {command}. {again}"
-                    )
-                }
-                None => format!(
-                    "the build changed after it was inspected: it no longer runs one. {again}"
-                ),
-            },
-        ));
-    }
-    Ok(())
 }
 
 fn read_manifest(dir: &Path) -> Result<Map<String, Value>, Error> {
@@ -712,168 +567,13 @@ fn read_manifest(dir: &Path) -> Result<Map<String, Value>, Error> {
     }
 }
 
-/// Why a folder is not a plugin. When its view is missing and a build could
-/// have written it, say how to declare one; any other reason stands alone.
-fn not_a_plugin(why: &str, could_build: bool) -> String {
-    let entry_missing = why == format!("{} not found", pinrail_format::manifest::VIEW);
-    if could_build && entry_missing {
-        format!(
-            "not a plugin: {why}; a source that needs building declares its build in the manifest"
-        )
+/// Why a folder is not a plugin. A folder without its view is most often
+/// a plugin's sources that have not been built.
+fn not_a_plugin(why: &str) -> String {
+    if why == format!("{} not found", pinrail_format::manifest::VIEW) {
+        format!("not a plugin: {why}; build the plugin first, so that its view is in the folder")
     } else {
         format!("not a plugin: {why}")
-    }
-}
-
-/// The manifest's `build.command`, when it declares one.
-fn build_command(manifest: &Map<String, Value>) -> Result<Option<String>, Error> {
-    match manifest.get("build") {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::Object(build)) => match build.get("command").and_then(Value::as_str) {
-            Some(command) if !command.trim().is_empty() => Ok(Some(command.trim().to_string())),
-            _ => Err(Error::invalid(
-                "/source",
-                "the manifest's build needs a command",
-            )),
-        },
-        Some(_) => Err(Error::invalid(
-            "/source",
-            "the manifest's build must be an object with a command",
-        )),
-    }
-}
-
-fn scratch_dir(registry: &Registry, manifest: &Map<String, Value>) -> PathBuf {
-    let name = manifest
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or("plugin");
-    registry.work_dir().join(format!(
-        "{name}-{}",
-        crate::id::next().trim_start_matches("r_")
-    ))
-}
-
-/// Runs the build command through the shell in the scratch copy, its
-/// output going to the log and to `progress` line by line. A non-zero exit
-/// stops the install with the tail of the log.
-fn run_build(
-    registry: &Registry,
-    manifest: &Map<String, Value>,
-    scratch: &Path,
-    command: &str,
-    progress: &dyn Fn(Progress),
-) -> Result<PathBuf, Error> {
-    let name = manifest
-        .get("name")
-        .and_then(Value::as_str)
-        .unwrap_or("plugin");
-    let logs = registry.logs_dir();
-    std::fs::create_dir_all(&logs)?;
-    let log_path = logs.join(format!(
-        "{name}-{}.log",
-        Utc::now().format("%Y%m%dT%H%M%S%.3f")
-    ));
-    let mut log = std::fs::File::create(&log_path)?;
-    trim_logs(&logs, name);
-    use std::io::Write;
-    writeln!(log, "$ {command}")?;
-    progress(Progress::Log(format!("$ {command}")));
-
-    // stderr joins stdout for the whole command, every step of it, and on a
-    // line of its own, so nothing the command says can undo it; nothing is
-    // there to answer a prompt, so one fails at once rather than waiting
-    let mut shell = Command::new("sh");
-    shell
-        .arg("-c")
-        .arg(format!("exec 2>&1\n{command}"))
-        .current_dir(scratch)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null());
-    // its own process group, so a stop reaches everything it started
-    #[cfg(unix)]
-    std::os::unix::process::CommandExt::process_group(&mut shell, 0);
-    let mut child = shell
-        .spawn()
-        .map_err(|e| Error::invalid("/source", format!("the build could not start: {e}")))?;
-    let timeout = registry.build_timeout();
-    let finished = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let stopped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let watchdog = {
-        let (finished, stopped, pid) = (finished.clone(), stopped.clone(), child.id());
-        std::thread::spawn(move || {
-            let start = std::time::Instant::now();
-            while !finished.load(std::sync::atomic::Ordering::SeqCst) {
-                if start.elapsed() >= timeout {
-                    stopped.store(true, std::sync::atomic::Ordering::SeqCst);
-                    stop_group(pid);
-                    return;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(100));
-            }
-        })
-    };
-    let mut tail: Vec<String> = Vec::new();
-    if let Some(out) = child.stdout.take() {
-        for line in BufReader::new(out).lines() {
-            let line = line.unwrap_or_default();
-            writeln!(log, "{line}")?;
-            if tail.len() == 20 {
-                tail.remove(0);
-            }
-            tail.push(line.clone());
-            progress(Progress::Log(line));
-        }
-    }
-    let status = child.wait();
-    finished.store(true, std::sync::atomic::Ordering::SeqCst);
-    let _ = watchdog.join();
-    let status = status?;
-    if stopped.load(std::sync::atomic::Ordering::SeqCst) {
-        return Err(Error::invalid(
-            "/source",
-            format!(
-                "the build did not finish within {} and was stopped; the log is at {}\n{}",
-                minutes(timeout),
-                log_path.display(),
-                tail.join("\n")
-            ),
-        ));
-    }
-    if !status.success() {
-        return Err(Error::invalid(
-            "/source",
-            format!(
-                "the build failed ({status}); the log is at {}\n{}",
-                log_path.display(),
-                tail.join("\n")
-            ),
-        ));
-    }
-    Ok(log_path)
-}
-
-/// Ends a build or a fetch and everything it started: each runs in a
-/// process group of its own, led by the process `pid`. The signal goes to
-/// the group directly, since the `kill` command of Linux's procps does not
-/// take a group the way the BSD one does.
-fn stop_group(pid: u32) {
-    #[cfg(unix)]
-    if let Some(group) = rustix::process::Pid::from_raw(pid as i32) {
-        let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
-    }
-    #[cfg(not(unix))]
-    let _ = Command::new("taskkill")
-        .args(["/F", "/T", "/PID", &pid.to_string()])
-        .status();
-}
-
-/// A duration as the person reads it: minutes, or seconds when shorter.
-fn minutes(duration: std::time::Duration) -> String {
-    match duration.as_secs() {
-        s if s >= 60 && s % 60 == 0 => format!("{} minutes", s / 60),
-        s => format!("{s} seconds"),
     }
 }
 
@@ -908,7 +608,6 @@ fn replacing(db: &Db, link: InstallRecord, target: &str) -> Result<InstallRecord
             "kind": installed.kind,
             "source": installed.source,
             "resolved": installed.resolved,
-            "build_log": installed.build_log,
             "bundle": installed.bundle,
         })
         .to_string(),
@@ -931,7 +630,6 @@ fn restored(link: &InstallRecord, replaced: &str) -> Result<InstallRecord, Error
         kind: text("kind").unwrap_or_else(|| "folder".into()),
         source: text("source").unwrap_or_default(),
         resolved: text("resolved").unwrap_or_default(),
-        build_log: text("build_log"),
         bundle: text("bundle"),
         replaced: None,
         updated_at: crate::reviews::iso(Utc::now()),
@@ -967,12 +665,7 @@ fn older_than_installed(
 
 /// The installation a source makes, with `bundle` the one new reviews use;
 /// none for a link.
-fn record_for(
-    plugin: &Plugin,
-    origin: &Origin,
-    bundle: Option<String>,
-    build_log: Option<String>,
-) -> InstallRecord {
+fn record_for(plugin: &Plugin, origin: &Origin, bundle: Option<String>) -> InstallRecord {
     let now = crate::reviews::iso(Utc::now());
     InstallRecord {
         plugin: format!("{}/{}", origin.publisher, plugin.name),
@@ -981,7 +674,6 @@ fn record_for(
         kind: origin.kind.into(),
         source: origin.source.clone(),
         resolved: origin.resolved.clone(),
-        build_log,
         bundle,
         replaced: None,
         installed_at: now.clone(),
@@ -994,48 +686,6 @@ fn commit(db: &Db, registry: &Registry, record: InstallRecord) -> Result<Install
     db.record_install(&record)?;
     registry.reload()?;
     Ok(record)
-}
-
-/// A copy of a source tree for building in, without the names given.
-/// What a build's copy of the source leaves out.
-const BUILD_SKIPS: &[&str] = &[".git", "node_modules"];
-
-/// The first symbolic link among what `copy_tree` would copy.
-fn first_link_to_copy(dir: &Path, skip: &[&str]) -> std::io::Result<Option<PathBuf>> {
-    for entry in std::fs::read_dir(dir)? {
-        let entry = entry?;
-        if skip.contains(&entry.file_name().to_string_lossy().as_ref()) {
-            continue;
-        }
-        let kind = entry.file_type()?;
-        if kind.is_symlink() {
-            return Ok(Some(entry.path()));
-        }
-        if kind.is_dir()
-            && let Some(link) = first_link_to_copy(&entry.path(), skip)?
-        {
-            return Ok(Some(link));
-        }
-    }
-    Ok(None)
-}
-
-fn copy_tree(from: &Path, to: &Path, skip: &[&str]) -> std::io::Result<()> {
-    std::fs::create_dir_all(to)?;
-    for entry in std::fs::read_dir(from)? {
-        let entry = entry?;
-        let name = entry.file_name();
-        if skip.contains(&name.to_string_lossy().as_ref()) {
-            continue;
-        }
-        let target = to.join(&name);
-        if entry.file_type()?.is_dir() {
-            copy_tree(&entry.path(), &target, skip)?;
-        } else {
-            std::fs::copy(entry.path(), target)?;
-        }
-    }
-    Ok(())
 }
 
 pub use pinrail_format::semver;

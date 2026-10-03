@@ -1,10 +1,11 @@
-# A tag v<version> (v0.2.0) builds the plugin when its manifest says so and
-# attaches the bundle, <name>-<version>.zip, to a GitHub release of the same
-# tag. Installing it then needs no toolchain:
+# A tag v<version> (v0.2.0) builds the plugin when its package has a build
+# script and attaches the bundle, <name>-<version>.zip, to a GitHub release
+# of the same tag. Installing it then needs no toolchain: download the zip
+# and install it from disk.
 #
-#   pinrail plugins install https://github.com/<owner>/<repo>/releases/latest
+#   pinrail plugins install ~/Downloads/<name>-<version>.zip
 #
-# The manifest's version must be the tag's, or the install refuses it.
+# The manifest's version must be the tag's, or the release fails.
 name: release
 
 on:
@@ -35,10 +36,11 @@ jobs:
           echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           declared=$(node -e 'process.stdout.write(require("./manifest.json").version)')
           test "$declared" = "${GITHUB_REF_NAME#v}" || { echo "manifest says $declared, tag says ${GITHUB_REF_NAME#v}"; exit 1; }
-      - name: Build when the manifest declares a build
+      - name: Build when the package has a build script
         run: |
-          command=$(node -e 'const m=require("./manifest.json"); process.stdout.write(m.build?.command ?? "")')
-          if [ -n "$command" ]; then sh -c "$command"; fi
+          if [ -f package.json ] && node -e 'process.exit(require("./package.json").scripts?.build ? 0 : 1)'; then
+            npm ci && npm run build
+          fi
       - name: The bundle, and nothing else
         run: |
           zip -r "$PLUGIN-$VERSION.zip" . \

@@ -87,11 +87,11 @@ fn each_folder_gets_the_verdict_its_rules_give() {
             &[],
         ),
         (
-            "builds_later",
-            base(json!({"build": {"command": "npm run build"}})),
+            "not_built",
+            base(json!({})),
             &[("view/index.html", DELETE)],
-            true,
-            &["view"],
+            false,
+            &[],
         ),
         (
             "no_payload_schema",
@@ -222,21 +222,6 @@ fn each_folder_gets_the_verdict_its_rules_give() {
             &[],
         ),
         ("dev_text", base(json!({"dev": "yes"})), none, false, &[]),
-        (
-            "build_text",
-            base(json!({"build": "npm run build"})),
-            none,
-            false,
-            &[],
-        ),
-        ("build_empty", base(json!({"build": {}})), none, false, &[]),
-        (
-            "build_blank",
-            base(json!({"build": {"command": "  "}})),
-            none,
-            false,
-            &[],
-        ),
         (
             "version_short",
             base(json!({"version": "1.2"})),

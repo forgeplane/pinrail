@@ -50,7 +50,7 @@ test("a folder is looked at before it is installed, and its row says where it ca
   const seen = dialog.locator("[data-install-seen]");
   await expect(seen).toContainText("greeter · 1.2.0");
   await expect(seen).toContainText(`From the folder ${source}`);
-  await expect(seen.locator('[data-runs="nothing"]')).toContainText("No build");
+  await expect(seen.locator('[data-runs="nothing"]')).toContainText("Nothing runs on your computer");
   await expect(seen.locator("[data-replaces]")).toHaveCount(0);
 
   await dialog.locator("[data-install-confirm]").click();
@@ -101,28 +101,16 @@ test("a folder is looked at before it is installed, and its row says where it ca
   expect(after.plugins.some((p: { name: string }) => p.name === "greeter")).toBe(false);
 });
 
-test("a source that builds shows the exact command as the consent, then runs it", async ({ page }) => {
-  const source = pluginCopy("hello", "compiled", "1.0.0", {
-    build: { command: "echo building the view && mkdir -p view && printf '<html>built</html>' > view/index.html" },
-  });
+test("a plugin whose view is not built is refused with what to do", async ({ page }) => {
+  const source = pluginCopy("hello", "unbuilt", "1.0.0");
   fs.rmSync(path.join(source, "view/index.html"));
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(source);
   await dialog.locator("[data-install-look]").click();
-
-  const runs = dialog.locator('[data-runs="build"]');
-  await expect(runs).toContainText(
-    "echo building the view && mkdir -p view && printf '<html>built</html>' > view/index.html",
+  await expect(dialog.locator(".install-error")).toContainText(
+    "view/index.html not found; build the plugin first, so that its view is in the folder",
   );
-  await expect(runs).toContainText("with your user permissions");
-
-  await dialog.locator("[data-install-confirm]").click();
-  await expect(dialog.locator("[data-install-done]")).toContainText("1.0.0 is ready");
-  await dialog.locator("[data-install-close]").click();
-  await expect(page.locator('[data-plugin-row="compiled"]')).toContainText("ready");
-
-  const bundle = await servedView(page, "compiled");
-  expect(bundle).toBe("<html>built</html>");
+  await expect(dialog.locator("[data-install-confirm]")).toHaveCount(0);
 });
 
 test("a link serves the folder live and offers to install a copy", async ({ page }) => {
@@ -213,14 +201,14 @@ test("the buttons in a plugin's note do not fold its settings", async ({ page })
 });
 
 test("an install whose progress stops answering ends as failed, not stuck", async ({ page }) => {
-  // a restart during a long build: the job's progress stops answering
+  // a restart during an install: the job's progress stops answering
   const source = pluginCopy("hello", "wobbly", "1.0.0");
   let polls = 0;
   await page.route(`${core}/api/v1/plugins/jobs/*`, (route) => {
     polls++;
     if (polls === 1) {
       return route.fulfill({
-        json: { id: "job", source, status: "building", steps: [], log: "", plugin: null, error: null },
+        json: { id: "job", source, status: "placing", steps: [], log: "", plugin: null, error: null },
       });
     }
     return route.fulfill({ status: 500, contentType: "text/plain", body: "the server is restarting" });

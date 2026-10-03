@@ -497,11 +497,6 @@ enum PluginsCommand {
         /// folder; removing the link puts the plugin back
         #[arg(long, value_name = "PLUGIN", requires = "link")]
         replace: Option<String>,
-        /// Run the build the plugin declares without asking. Without this
-        /// option, the build command is shown and runs only after you confirm
-        /// it at the terminal
-        #[arg(long, short = 'y')]
-        yes: bool,
     },
     /// Remove an installed plugin. Lines that existing reviews still render
     /// with are kept
@@ -1049,7 +1044,6 @@ fn run(cli: Cli) -> Result<u8> {
                     link,
                     force,
                     replace,
-                    yes,
                 }) => {
                     // a folder or a zip that exists is sent as its full
                     // path, `..` resolved, the way the app records and shows it
@@ -1057,21 +1051,11 @@ fn run(cli: Cli) -> Result<u8> {
                         Ok(p) if p.is_dir() || p.is_file() => p.to_string_lossy().into_owned(),
                         _ => source,
                     };
-                    // a link serves the folder as it is and builds nothing;
-                    // anything else installs as it was inspected
-                    let seen = if link {
-                        None
-                    } else {
-                        let seen = client.plugins_inspect(&source, false)?;
-                        confirm_build(&seen, yes)?;
-                        Some(seen)
-                    };
                     client.plugins_install(&InstallRequest {
                         source: &source,
                         link,
                         force,
                         replace: replace.as_deref(),
-                        expect: seen.as_ref().map(|s| &s["expect"]),
                     })?
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
@@ -1420,49 +1404,6 @@ fn wait(
 fn is_inline_json(spec: &str) -> bool {
     let start = spec.trim_start();
     (start.starts_with('{') || start.starts_with('[')) && !std::path::Path::new(spec).exists()
-}
-
-/// Lets a build the inspection found run: at once with `--yes`, after a
-/// yes at the terminal, and otherwise not at all, which is a refusal.
-fn confirm_build(seen: &Value, yes: bool) -> Result<()> {
-    let Some(command) = seen["build"].as_str() else {
-        return Ok(());
-    };
-    // the command comes from the plugin's manifest
-    let what = out::terminal_safe(&format!(
-        "{} {}",
-        seen["name"].as_str().unwrap_or("the plugin"),
-        seen["version"].as_str().unwrap_or_default()
-    ));
-    let command = out::terminal_safe(command);
-    if yes {
-        eprintln!("pinrail: {} builds with: {command}", what.trim_end());
-        return Ok(());
-    }
-    use std::io::IsTerminal;
-    if std::io::stdin().is_terminal() && std::io::stderr().is_terminal() {
-        eprint!(
-            "pinrail: {} builds with:\n  {command}\nRun this command? [y/N] ",
-            what.trim_end()
-        );
-        let mut answer = String::new();
-        std::io::stdin().read_line(&mut answer)?;
-        if matches!(answer.trim().to_ascii_lowercase().as_str(), "y" | "yes") {
-            return Ok(());
-        }
-    }
-    Err(ApiError {
-        status: 409,
-        body: json!({
-            "error": "not_confirmed",
-            "message": format!(
-                "{} runs a build that was not confirmed: {command}. Confirm it at a terminal, or add --yes to run it without asking",
-                what.trim_end()
-            ),
-        }),
-        hint: None,
-    }
-    .into())
 }
 
 /// Where a refusal about a plugin points: the list of those installed.

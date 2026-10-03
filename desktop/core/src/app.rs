@@ -128,10 +128,11 @@ impl Pinrail {
         plugin_store::tidy(&config.plugins_dir())?;
         let bundles = Bundles::open(&config.plugin_bundles_dir(), db.clone())?;
         plugin_store::store_bundled(&db, &bundles)?;
-        let registry = Arc::new(
-            Registry::open(db.clone(), bundles.clone(), config.plugins_dir())?
-                .with_build_timeout(config.build_timeout),
-        );
+        let registry = Arc::new(Registry::open(
+            db.clone(),
+            bundles.clone(),
+            config.plugins_dir(),
+        )?);
         let events = Events::new(db.clone());
         let settings =
             SettingsService::open(&config.data_dir, db.clone(), registry.clone(), events.bus());

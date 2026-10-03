@@ -4,7 +4,6 @@
 
 import type {
   Info,
-  InstallExpect,
   InstallJob,
   Inspection,
   Notice,
@@ -75,8 +74,6 @@ export type InstallRequest = {
   source: string;
   link?: boolean;
   force?: boolean;
-  /** what the inspection found and the person confirmed; a build runs only with it */
-  expect?: InstallExpect;
 };
 
 const query = (params: Record<string, string | undefined>) => {

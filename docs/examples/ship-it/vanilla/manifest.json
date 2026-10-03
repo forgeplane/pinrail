@@ -5,9 +5,6 @@
   "description": "A deploy waiting on a person: what goes out and how the checks went, to ship or to hold with a note.",
   "use_when": "You are about to deploy and need a person to say ship or hold, having seen the changes going out and the checks.",
   "min_height": 240,
-  "build": {
-    "command": "npm ci && npm run build"
-  },
   "shortcuts": [
     {
       "keys": "s",

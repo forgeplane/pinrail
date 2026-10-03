@@ -14,7 +14,6 @@ mod service;
 use pinrail_format::{manifest, sample, summary};
 
 pub use bundles::Bundles;
-pub use install::Expect as InstallExpect;
 pub use install::Options as InstallOptions;
 pub use jobs::Job as InstallJob;
 /// The manifest's JSON Schema, for the docs' manifest reference.

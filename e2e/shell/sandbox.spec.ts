@@ -190,7 +190,7 @@ test("a view's own file opened as a page is as sandboxed as in its frame", async
   // and a view can get its own files loaded that way: the files sit on the
   // app's server, beside the API. Loaded on the API's origin, a page could
   // open a window on that origin without a policy and drive the API from it:
-  // read every review, decide them, install a plugin that runs a build.
+  // read every review, decide them, install a plugin.
   const view = (await pluginFrame(page)).url();
   const escaped = await context.newPage();
   await escaped.goto(view);
