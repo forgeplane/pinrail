@@ -148,6 +148,18 @@ impl PluginService {
         Ok(answer)
     }
 
+    /// Reads the plugins again when a linked folder changed, and announces
+    /// it; whether it did. The server asks every second, so a change to a
+    /// plugin being developed applies without a reload.
+    pub fn reload_if_links_changed(&self) -> Result<bool, Error> {
+        if !self.registry.links_changed() {
+            return Ok(false);
+        }
+        self.registry.reload()?;
+        self.announce()?;
+        Ok(true)
+    }
+
     pub fn reload(&self) -> Result<usize, Error> {
         let count = self.registry.reload()?;
         self.announce()?;

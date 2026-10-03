@@ -495,3 +495,60 @@ async fn a_sample_is_sent_as_a_review_with_its_files() {
         "no usable plugin is named nope"
     );
 }
+
+/// A linked plugin follows its folder: a change to its manifest or a schema
+/// applies at the next look, without a reload, a broken manifest shows on
+/// its row until it is repaired, and the folder can go and come back.
+#[tokio::test]
+async fn a_linked_plugin_follows_its_folder_without_a_reload() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    assert_eq!(link(&app, &folder).await.status, "done");
+    let mut notices = app.events().subscribe();
+    assert!(
+        !app.plugins().reload_if_links_changed().unwrap(),
+        "nothing changed"
+    );
+    assert!(notices.try_recv().is_err());
+
+    let manifest = folder.join("manifest.json");
+    let text = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(
+        &manifest,
+        text.replace("\"title\":\"hello\"", "\"title\":\"Hello again\""),
+    )
+    .unwrap();
+    assert!(app.plugins().reload_if_links_changed().unwrap());
+    assert_eq!(listed(&app, "hello")["title"], "Hello again");
+    assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
+
+    // a schema the next submission is checked against
+    std::fs::write(
+        folder.join("schemas/payload.schema.json"),
+        json!({"type": "object", "required": ["message"]}).to_string(),
+    )
+    .unwrap();
+    assert!(app.plugins().reload_if_links_changed().unwrap());
+    let refused = app
+        .reviews()
+        .submit(&json!({"plugin": "hello", "title": "No message"}), None);
+    assert!(refused.is_err());
+
+    // broken, then repaired
+    std::fs::write(&manifest, "{ not json").unwrap();
+    assert!(app.plugins().reload_if_links_changed().unwrap());
+    assert!(listed(&app, "hello")["error"].is_string());
+    std::fs::write(&manifest, &text).unwrap();
+    assert!(app.plugins().reload_if_links_changed().unwrap());
+    assert_eq!(listed(&app, "hello")["error"], Value::Null);
+
+    // the folder goes, and comes back
+    let moved = dir.path().join("aside");
+    std::fs::rename(&folder, &moved).unwrap();
+    assert!(app.plugins().reload_if_links_changed().unwrap());
+    assert!(listed(&app, "hello")["error"].is_string());
+    std::fs::rename(&moved, &folder).unwrap();
+    assert!(app.plugins().reload_if_links_changed().unwrap());
+    assert_eq!(listed(&app, "hello")["usable"], true);
+}

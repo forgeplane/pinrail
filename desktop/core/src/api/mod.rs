@@ -124,8 +124,9 @@ pub fn bind(config: &crate::Config) -> std::io::Result<std::net::TcpListener> {
 /// advertises itself in `server.json` while it runs. Every 30 seconds it
 /// sweeps expired reviews, the reviews older than the days the history
 /// keeps (when it keeps a limited number), files that no review names, and
-/// plugin bundles that no line refers to, each more than an hour old.
-/// Every second it notices an edit to settings.json made outside the app.
+/// plugin bundles that nothing refers to, each more than an hour old.
+/// Every second it notices an edit to settings.json made outside the app,
+/// and a change to a linked plugin's folder.
 pub async fn serve(
     app: Arc<Pinrail>,
     listener: std::net::TcpListener,
@@ -174,6 +175,9 @@ pub async fn serve(
                 tick.tick().await;
                 if let Err(error) = app.settings().reload() {
                     eprintln!("pinrail: settings change not announced: {error}");
+                }
+                if let Err(error) = app.plugins().reload_if_links_changed() {
+                    eprintln!("pinrail: a linked plugin's change was not read: {error}");
                 }
             }
         })

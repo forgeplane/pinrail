@@ -113,6 +113,8 @@ struct RegistryState {
     installs: Vec<InstallRecord>,
     /// Each installation's plugin for new reviews, by full name.
     plugins: BTreeMap<String, Arc<Plugin>>,
+    /// Each linked folder as it was when it was read, to tell a change.
+    folders: BTreeMap<String, Vec<(String, u64, u128)>>,
 }
 
 /// The installed plugins, and the bundles reviews render with.
@@ -312,7 +314,14 @@ impl Registry {
     pub fn reload(&self) -> Result<usize, Error> {
         let installs = self.db.installs()?;
         let mut plugins = BTreeMap::new();
+        let mut folders = BTreeMap::new();
         for install in &installs {
+            if install.linked() {
+                folders.insert(
+                    install.plugin.clone(),
+                    folder_state(Path::new(&install.resolved)),
+                );
+            }
             plugins.insert(install.plugin.clone(), Arc::new(self.load(install)?));
         }
         let mut state = self
@@ -320,8 +329,24 @@ impl Registry {
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let count = plugins.len();
-        *state = RegistryState { installs, plugins };
+        *state = RegistryState {
+            installs,
+            plugins,
+            folders,
+        };
         Ok(count)
+    }
+
+    /// Whether a linked folder changed since it was read: a file the app
+    /// reads from it was added, removed or written, or the folder went or
+    /// came back.
+    pub fn links_changed(&self) -> bool {
+        let state = self.read();
+        state
+            .installs
+            .iter()
+            .filter(|i| i.linked())
+            .any(|i| state.folders.get(&i.plugin) != Some(&folder_state(Path::new(&i.resolved))))
     }
 
     /// The plugin an installation's new reviews use: its linked folder, or
@@ -381,6 +406,48 @@ impl Registry {
         });
         Ok(plugin)
     }
+}
+
+/// What the app reads of a linked folder, as each file's path, size and
+/// modification time: the layout's files, without the rest of `view/`,
+/// which is served as it is on each request. Empty for a folder that is
+/// not there.
+fn folder_state(dir: &Path) -> Vec<(String, u64, u128)> {
+    fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, u64, u128)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let relative = path
+                .strip_prefix(root)
+                .unwrap_or(&path)
+                .to_string_lossy()
+                .replace('\\', "/");
+            let wanted = pinrail_format::bundle::holds(&relative)
+                || (pinrail_format::bundle::holds(&format!("{relative}/x")) && path.is_dir());
+            if !wanted || (relative.starts_with("view/") && relative != super::manifest::VIEW) {
+                continue;
+            }
+            let Ok(meta) = entry.metadata() else {
+                continue;
+            };
+            if meta.is_dir() {
+                walk(root, &path, out);
+            } else {
+                let modified = meta
+                    .modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map_or(0, |d| d.as_nanos());
+                out.push((relative, meta.len(), modified));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir, dir, &mut out);
+    out.sort();
+    out
 }
 
 #[cfg(test)]
