@@ -11,8 +11,8 @@
 //! An install is a job: it reports its step and its build log as it goes,
 //! so a dialog or a terminal can follow a build that takes a minute.
 //!
-//! A source is one string: a folder, or a git URL with `#path=` and
-//! `#ref=` in its fragment, or a GitHub release URL. It is parsed before
+//! A source is one string: a folder, a zip on disk, or a git URL with
+//! `#path=` and `#ref=` in its fragment, or a GitHub release URL. It is parsed before
 //! anything is touched, so a bad one fails at
 //! once and offline.
 
@@ -77,6 +77,8 @@ impl Expect {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Source {
     Folder(PathBuf),
+    /// a zip of a plugin, on disk
+    Archive(PathBuf),
     Git {
         url: String,
         /// the plugin's folder inside the repository, none for the root
@@ -137,6 +139,9 @@ impl Source {
                     .unwrap_or_else(|| PathBuf::from(text)),
                 None => PathBuf::from(text),
             };
+            if text.to_ascii_lowercase().ends_with(".zip") && !expanded.is_dir() {
+                return Ok(Source::Archive(expanded));
+            }
             return Ok(Source::Folder(expanded));
         }
 
@@ -271,7 +276,7 @@ impl Source {
             (!parts.is_empty()).then(|| parts.join(".").to_lowercase())
         };
         match self {
-            Source::Folder(_) => LOCAL_PUBLISHER.to_string(),
+            Source::Folder(_) | Source::Archive(_) => LOCAL_PUBLISHER.to_string(),
             Source::Git { url, .. } => {
                 owner_path(url).unwrap_or_else(|| LOCAL_PUBLISHER.to_string())
             }
@@ -472,7 +477,7 @@ fn summarize(
     {
         return Err(Error::invalid(
             "/source",
-            not_a_plugin(why, !options.link && prepared.origin.kind != "release"),
+            not_a_plugin(why, !options.link && prepared.origin.build),
         ));
     }
     let version = manifest
@@ -510,7 +515,7 @@ fn summarize(
             let unchanged = !r.linked()
                 && installed_version == version
                 && match prepared.origin.kind {
-                    "folder" => {
+                    "folder" | "archive" => {
                         build.is_none() && bundle.is_some() && bundle_hash_of(dir).ok() == bundle
                     }
                     "git" => r.commit.is_some() && r.commit == prepared.origin.commit,
@@ -591,6 +596,30 @@ fn prepare(
                     build: true,
                 },
                 dir,
+            })
+        }
+        Source::Archive(archive) => {
+            if options.link {
+                return Err(Error::invalid(
+                    "/source",
+                    "a link needs a folder; unpack the zip and link that folder",
+                ));
+            }
+            let path = std::path::absolute(&archive)?;
+            let unpacked = unpack_archive(registry, &path)?;
+            Ok(Prepared {
+                scratch: Some(unpacked.scratch),
+                dir: unpacked.root,
+                origin: Origin {
+                    kind: "archive",
+                    publisher,
+                    source: path.display().to_string(),
+                    resolved: path.display().to_string(),
+                    commit: None,
+                    asset_hash: None,
+                    // a zip holds a plugin as it is installed: nothing in it runs
+                    build: false,
+                },
             })
         }
         Source::Git {
@@ -700,7 +729,7 @@ struct FetchedRelease {
     asset_hash: String,
 }
 
-/// The most an asset may weigh.
+/// The most a zip, downloaded or on disk, may weigh.
 const ASSET_LIMIT: u64 = 200 * 1024 * 1024;
 
 /// One request to the releases API, the asset that is the bundle downloaded
@@ -796,16 +825,54 @@ fn fetch_release(
         format!("{:x}", Sha256::digest(&bytes))
     };
 
+    progress(Progress::Log(format!("unpacking {asset_name}")));
+    let Unpacked { scratch, root } = unpack(registry, &asset_name, &bytes)?;
+    Ok(FetchedRelease {
+        scratch,
+        root,
+        tag: tag_name,
+        asset_name,
+        asset_url,
+        asset_size: size,
+        asset_hash,
+    })
+}
+
+/// A zip unpacked into a scratch folder of its own, and the folder in it
+/// that holds the manifest.
+struct Unpacked {
+    scratch: PathBuf,
+    root: PathBuf,
+}
+
+/// Reads a zip on disk, no larger than [`ASSET_LIMIT`], and unpacks it.
+fn unpack_archive(registry: &Registry, path: &Path) -> Result<Unpacked, Error> {
+    let shown = path.display();
+    let size = std::fs::metadata(path)
+        .map_err(|e| Error::invalid("/source", format!("cannot read {shown}: {e}")))?
+        .len();
+    if size > ASSET_LIMIT {
+        return Err(Error::invalid(
+            "/source",
+            format!("{shown} is {size} bytes, more than the {ASSET_LIMIT} allowed"),
+        ));
+    }
+    let bytes = std::fs::read(path)
+        .map_err(|e| Error::invalid("/source", format!("cannot read {shown}: {e}")))?;
+    unpack(registry, &shown.to_string(), &bytes)
+}
+
+/// Unpacks a zip, named `name` in messages, into a scratch folder. The
+/// manifest sits at the archive's root, or in the single folder at its
+/// root, as `zip -r` of a plugin's folder makes it.
+fn unpack(registry: &Registry, name: &str, bytes: &[u8]) -> Result<Unpacked, Error> {
     let scratch = registry.work_dir().join(format!(
-        "release-{}",
+        "archive-{}",
         crate::id::next().trim_start_matches("r_")
     ));
     let tree = scratch.join("tree");
     std::fs::create_dir_all(&tree)?;
-    std::fs::write(scratch.join(&asset_name), &bytes)?;
-    progress(Progress::Log(format!("unpacking {asset_name}")));
-    let unpacked = unzip(&bytes, &tree).and_then(|_| {
-        // the manifest at the root, or inside the one folder at the root
+    let unpacked = unzip(bytes, &tree).and_then(|_| {
         if tree.join("manifest.json").is_file() {
             return Ok(tree.clone());
         }
@@ -817,29 +884,20 @@ fn fetch_release(
             [only] if only.is_dir() && only.join("manifest.json").is_file() => Ok(only.clone()),
             _ => Err(Error::invalid(
                 "/source",
-                format!("{asset_name} has no manifest.json at its root"),
+                format!("{name} has no manifest.json at its root"),
             )),
         }
     });
-    let root = match unpacked {
-        Ok(root) => root,
+    match unpacked {
+        Ok(root) => Ok(Unpacked { scratch, root }),
         Err(e) => {
             let _ = std::fs::remove_dir_all(&scratch);
-            return Err(match e {
+            Err(match e {
                 Error::Invalid(_) => e,
-                other => Error::invalid("/source", format!("{asset_name}: {other}")),
-            });
+                other => Error::invalid("/source", format!("{name}: {other}")),
+            })
         }
-    };
-    Ok(FetchedRelease {
-        scratch,
-        root,
-        tag: tag_name,
-        asset_name,
-        asset_url,
-        asset_size: size,
-        asset_hash,
-    })
+    }
 }
 
 /// The archive's entries under `into`; an entry that would leave the folder

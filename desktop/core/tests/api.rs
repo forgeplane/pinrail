@@ -2816,6 +2816,131 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     );
 }
 
+/// A zip of every file under `dir`, at the archive's root or inside a
+/// folder named `top`, the way `zip -r` makes one.
+fn zip_of_folder(dir: &std::path::Path, top: Option<&str>) -> Vec<u8> {
+    use std::io::Write;
+    fn add(
+        out: &mut zip::ZipWriter<std::io::Cursor<Vec<u8>>>,
+        root: &std::path::Path,
+        dir: &std::path::Path,
+        top: Option<&str>,
+    ) {
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                add(out, root, &path, top);
+                continue;
+            }
+            let relative = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/");
+            let name = match top {
+                Some(top) => format!("{top}/{relative}"),
+                None => relative,
+            };
+            out.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            out.write_all(&std::fs::read(&path).unwrap()).unwrap();
+        }
+    }
+    let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    add(&mut out, dir, dir, top);
+    out.finish().unwrap().into_inner()
+}
+
+#[tokio::test]
+async fn a_zip_on_disk_installs_the_bundle_its_folder_would() {
+    let app = app();
+    let scratch = tempfile::tempdir().unwrap();
+    // a built plugin with its sources and a hidden file beside the view
+    let hello = plugin_copy(scratch.path(), "hello", "1.2.0");
+    std::fs::create_dir_all(hello.join("src")).unwrap();
+    std::fs::write(hello.join("src/main.ts"), "export {}").unwrap();
+    std::fs::write(hello.join(".env"), "TOKEN=secret").unwrap();
+    let bundle = Listing::of_folder(&hello, Taken::FromSource)
+        .unwrap()
+        .hash();
+
+    // the files at the archive's root, or inside one folder at its root
+    for (file, top) in [("hello-1.2.0.zip", None), ("hello.zip", Some("hello"))] {
+        let zip = scratch.path().join(file);
+        std::fs::write(&zip, zip_of_folder(&hello, top)).unwrap();
+        let (status, row) = install(&app, &zip, json!({})).await;
+        assert_eq!(status, StatusCode::OK, "{file}: {row}");
+        assert_eq!(row["name"], "hello");
+        assert_eq!(row["version"], "1.2.0");
+        assert_eq!(row["install"]["kind"], "archive", "{file}");
+        assert_eq!(row["install"]["source"], zip.display().to_string());
+        assert_eq!(
+            row["install"]["bundle"], bundle,
+            "{file}: the folder's bundle"
+        );
+    }
+
+    // an entry that would leave the archive is refused, and the plugin
+    // stays as it was installed
+    let evil = scratch.path().join("evil.zip");
+    std::fs::write(
+        &evil,
+        zipped(&[
+            (
+                "manifest.json",
+                &json!({"name": "hello", "version": "9.0.0"}).to_string(),
+            ),
+            ("../outside.txt", "x"),
+        ]),
+    )
+    .unwrap();
+    let (status, body) = install(&app, &evil, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("leaves the archive"),
+        "{body}"
+    );
+    assert!(!scratch.path().join("outside.txt").exists());
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let hello_row = listed["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "hello")
+        .unwrap();
+    assert_eq!(hello_row["version"], "1.2.0");
+
+    // a file that is not a zip, and a link to a zip, are refused
+    let not_zip = scratch.path().join("notes.zip");
+    std::fs::write(&not_zip, "not a zip").unwrap();
+    let (status, body) = install(&app, &not_zip, json!({})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["error"]
+            .as_str()
+            .unwrap()
+            .contains("not a zip archive"),
+        "{body}"
+    );
+    let zip = scratch.path().join("hello.zip");
+    let (status, body) = install(&app, &zip, json!({"link": true})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("a link needs a folder")
+            || body["error"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("a link needs a folder"),
+        "{body}"
+    );
+}
+
 #[tokio::test]
 async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     let app = app();

@@ -478,12 +478,13 @@ struct PluginsArgs {
 
 #[derive(Subcommand)]
 enum PluginsCommand {
-    /// Install a plugin from a folder, a repository or a GitHub release
+    /// Install a plugin from a folder, a zip, a repository or a GitHub
+    /// release
     ///
     /// Give a repository as github.com/acme/plugins/review@v3, or as the
     /// folder's URL in the browser.
     Install {
-        /// The plugin's folder, repository or release
+        /// The plugin's folder, zip, repository or release
         source: String,
         /// Serve the folder directly instead of copying it, while you develop
         /// the plugin
@@ -1081,10 +1082,10 @@ fn run(cli: Cli) -> Result<u8> {
                     replace,
                     yes,
                 }) => {
-                    // a folder that exists is sent as its full path, `..`
-                    // resolved, the way the app records and shows it
+                    // a folder or a zip that exists is sent as its full
+                    // path, `..` resolved, the way the app records and shows it
                     let source = match std::fs::canonicalize(&source) {
-                        Ok(p) if p.is_dir() => p.to_string_lossy().into_owned(),
+                        Ok(p) if p.is_dir() || p.is_file() => p.to_string_lossy().into_owned(),
                         _ => source,
                     };
                     // a link serves the folder as it is and builds nothing;

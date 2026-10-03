@@ -54,6 +54,13 @@ function Origin({ seen }: { seen: Inspection }) {
       </p>
     );
   }
+  if (origin.kind === "archive") {
+    return (
+      <p>
+        From the zip <span className="mono">{String(origin.resolved)}</span>
+      </p>
+    );
+  }
   const r = typeof origin.resolved === "object" ? origin.resolved : {};
   if (origin.kind === "git") {
     return (
@@ -97,7 +104,7 @@ function Consequences({ seen }: { seen: Inspection }) {
   const installed = seen.installed;
   return (
     <>
-      {seen.origin.kind === "release" ? (
+      {seen.origin.kind === "release" || seen.origin.kind === "archive" ? (
         <p className="install-runs" data-runs="nothing">
           <b>Nothing runs on your computer.</b> The bundle is unpacked, checked and used as it is.
         </p>
@@ -270,7 +277,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
               className="settings-input install-source-field"
               type="text"
               aria-label="Source"
-              placeholder="/path/to/plugin, github.com/owner/repo/folder@ref, or a releases page"
+              placeholder="/path/to/plugin, /path/to/plugin.zip, github.com/owner/repo/folder@ref, or a releases page"
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"

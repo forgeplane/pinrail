@@ -119,7 +119,7 @@ export type Plugin = {
 
 /** Where an installed plugin came from, and the bundle new reviews use. */
 export type PluginInstall = {
-  kind: "bundled" | "folder" | "link" | "git" | "release";
+  kind: "bundled" | "folder" | "archive" | "link" | "git" | "release";
   source: string;
   /** served live from its folder rather than copied */
   linked: boolean;
@@ -161,7 +161,7 @@ export type Inspection = {
   /** the files it would take beside a payload; null for none */
   attachments?: AttachmentRules | null;
   origin: {
-    kind: "folder" | "git" | "release";
+    kind: "folder" | "archive" | "git" | "release";
     resolved:
       | string
       | {

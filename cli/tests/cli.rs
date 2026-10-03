@@ -2296,6 +2296,46 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
 }
 
 #[test]
+fn plugins_install_sends_a_zip_as_its_full_path() {
+    let dir = tempdir();
+    std::fs::create_dir_all(dir.join("work")).unwrap();
+    std::fs::write(dir.join("hello-1.0.0.zip"), "PK").unwrap();
+    let expected = dir
+        .join("hello-1.0.0.zip")
+        .canonicalize()
+        .unwrap()
+        .to_string_lossy()
+        .to_string();
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| {
+        match (method, path) {
+        ("POST", "/api/v1/plugins/inspect" | "/api/v1/plugins/install") => {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            seen.lock().unwrap().push(body["source"].as_str().unwrap().to_string());
+            if path.ends_with("inspect") {
+                (200, r#"{"name":"hello","version":"1.0.0","build":null,"expect":{"build":null}}"#.into())
+            } else {
+                (202, r#"{"job":"j1"}"#.into())
+            }
+        }
+        ("GET", "/api/v1/plugins/jobs/j1") => (
+            200,
+            r#"{"status":"done","log":"","plugin":{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"archive"}}}"#.into(),
+        ),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let (code, _, stderr) = run_in(
+        &server,
+        &dir.join("work"),
+        &["plugins", "install", "../hello-1.0.0.zip"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(*sent.lock().unwrap(), vec![expected.clone(), expected]);
+}
+
+#[test]
 fn an_install_log_the_app_trims_is_followed_line_by_line() {
     // three polls of a build: the app keeps only the end of the log and
     // says how much it dropped from the start; the output is not ASCII
