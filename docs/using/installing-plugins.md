@@ -123,10 +123,20 @@ pinrail plugins install ./ticket_triage --link
 
 Reviews of a linked plugin render from the folder as it is now. Each review also keeps the folder as it was when the review was submitted, so once you remove the link, it renders with that. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
 
-After editing the manifest or a decision template, reload so the app reads them again:
+Pinrail checks a linked folder every second, so a change to the manifest, a schema or the decision template applies without a reload. A manifest that breaks shows its error on the plugin's row until you fix it.
+
+### Working on a published plugin
+
+To fix or change a plugin that someone published, such as `forgeplane/review`, link your copy of it in its place:
 
 ```sh
-pinrail plugins reload
+pinrail plugins install ./review --link --replace forgeplane/review
+```
+
+The link takes the plugin's full name, so its existing reviews and new ones render with your folder. The plugin's row says that a local folder replaces it. Removing the link puts the published release back:
+
+```sh
+pinrail plugins remove review
 ```
 
 ## Removing a plugin

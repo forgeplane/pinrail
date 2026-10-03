@@ -57,8 +57,12 @@ pinrail withdraw <id>                     # when you are done with the sample
   `pinrail plugins describe <plugin>`.
 - The preview's hand-over checks the decision against the decision schema
   and decides nothing. A change to the view shows the next time the
-  preview is opened; after a change to the manifest or a schema,
-  `pinrail plugins reload`.
+  preview is opened; a change to the manifest or a schema of a linked
+  plugin applies within a second.
+- To fix a plugin someone else published, link your copy in its place:
+  `pinrail plugins install <dir> --link --replace <publisher>/<name>`.
+  Its reviews render with your folder; `pinrail plugins remove <name>`
+  puts the published plugin back.
 - The view runs in a sandboxed frame with an opaque origin, so a
   browser tool that reads or clicks through the page's DOM or
   accessibility tree sees the frame as empty, even when the view is

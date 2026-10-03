@@ -338,11 +338,10 @@ Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both t
 
 ## Run it
 
-A linked plugin is served live: send it its sample, and change the view as you look at it. A change to the view shows the next time you open the review; a change to the manifest or a schema needs a reload.
+A linked plugin is served live: send it its sample, and change the view as you look at it. A change to the view shows the next time you open the review, and a change to the manifest, a schema or the template applies within a second. A manifest that breaks shows its error on the plugin's row in *Settings › Plugins* until you fix it.
 
 ```sh
 pinrail submit ticket_triage --sample   # the review opens in the app
-pinrail plugins reload                  # after changing the manifest or a schema
 pinrail plugins check ticket_triage     # what the app would refuse, and why
 ```
 
