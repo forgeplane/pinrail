@@ -144,17 +144,19 @@ impl PluginService {
     }
 
     /// Installs the plugin a source holds and announces it; the plugin's
-    /// row, as the listing shows it.
+    /// row, as the listing shows it, with the version it replaced as
+    /// `replaced_version`, and whether that one was newer as `older`.
     pub async fn install(&self, source: &str, options: InstallOptions) -> Result<Value, Error> {
         let worker = self.clone();
         let source = source.to_string();
-        let record = tokio::task::spawn_blocking(move || {
+        let (record, before) = tokio::task::spawn_blocking(move || {
             install::install(&worker.db, &worker.registry, &source, options)
         })
         .await
         .map_err(|error| Error::Internal(error.to_string()))??;
         self.announce()?;
-        self.registry
+        let mut row = self
+            .registry
             .get(&record.plugin)
             .map(|p| p.to_json())
             .ok_or_else(|| {
@@ -162,7 +164,13 @@ impl PluginService {
                     "{} was installed and is not registered",
                     record.plugin
                 ))
-            })
+            })?;
+        let older = before.as_deref().is_some_and(|before| {
+            install::semver(row["version"].as_str().unwrap_or_default()) < install::semver(before)
+        });
+        row["replaced_version"] = before.into();
+        row["older"] = older.into();
+        Ok(row)
     }
 
     fn announce(&self) -> Result<(), Error> {

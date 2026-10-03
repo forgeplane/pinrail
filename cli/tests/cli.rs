@@ -2164,6 +2164,48 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
 }
 
 #[test]
+fn installing_an_older_version_says_so() {
+    let server = MockServer::start(Box::new(|method, path, _| {
+        match (method, path) {
+        ("POST", "/api/v1/plugins/install") => (
+            200,
+            r#"{"plugin":"local/review","name":"review","version":"1.2.0","install":{"kind":"archive","source":"/dl/review-1.2.0.zip"},"replaced_version":"1.3.0","older":true}"#.into(),
+        ),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let (code, stdout, stderr) = run(
+        &server,
+        &["plugins", "install", "/dl/review-1.2.0.zip", "--markdown"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        stdout,
+        "Replaced local/review 1.3.0 with the older 1.2.0 from /dl/review-1.2.0.zip.\n"
+    );
+
+    // a newer version says only that it is installed
+    let server = MockServer::start(Box::new(|method, path, _| {
+        match (method, path) {
+        ("POST", "/api/v1/plugins/install") => (
+            200,
+            r#"{"plugin":"local/review","name":"review","version":"1.3.0","install":{"kind":"archive","source":"/dl/review-1.3.0.zip"},"replaced_version":"1.2.0","older":false}"#.into(),
+        ),
+        other => panic!("unexpected {other:?}"),
+    }
+    }));
+    let (code, stdout, stderr) = run(
+        &server,
+        &["plugins", "install", "/dl/review-1.3.0.zip", "--markdown"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        stdout,
+        "Installed local/review 1.3.0 from /dl/review-1.3.0.zip.\n"
+    );
+}
+
+#[test]
 fn plugins_install_sends_a_zip_as_its_full_path() {
     let dir = tempdir();
     std::fs::create_dir_all(dir.join("work")).unwrap();

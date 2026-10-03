@@ -73,11 +73,12 @@ async fn a_refused_install_leaves_the_installed_plugin_as_it_was() {
         .unwrap();
     let before = listed(&app, "hello");
 
-    // an older release of the line, and a folder that is not a plugin
-    let older = plugin(&sources.join("1.1.0"), "hello", "1.1.0");
-    let broken = plugin(&sources.join("1.3.0"), "hello", "1.3.0");
-    std::fs::remove_file(broken.join("view/index.html")).unwrap();
-    for source in [older, broken] {
+    // a release whose view is not built, and one whose schema is not JSON
+    let unbuilt = plugin(&sources.join("1.3.0"), "hello", "1.3.0");
+    std::fs::remove_file(unbuilt.join("view/index.html")).unwrap();
+    let broken = plugin(&sources.join("1.4.0"), "hello", "1.4.0");
+    std::fs::write(broken.join("schemas/payload.schema.json"), "{").unwrap();
+    for source in [unbuilt, broken] {
         let refused = copy(&app, &source).await;
         assert!(refused.is_err(), "{refused:?}");
         app.plugins().reload().unwrap();

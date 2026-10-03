@@ -2662,6 +2662,7 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     assert_eq!(row["install"]["kind"], "folder");
     assert_eq!(row["install"]["linked"], false);
     assert_eq!(row["install"]["bundle"], bundle.hash());
+    assert_eq!(row["replaced_version"], Value::Null, "{row}");
     // the store holds the bundle: its files, and nothing else
     let stored = app.state.bundles().path(&bundle.hash());
     assert_eq!(files_under(&stored), files_under_listing(&bundle));
@@ -2706,20 +2707,15 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
         "the review keeps what it was submitted to"
     );
 
-    // an older one is refused, unless forced
+    // an older one replaces it too, and the answer says it is older
+    assert_eq!(row["replaced_version"], "1.0.0", "{row}");
+    assert_eq!(row["older"], false, "{row}");
     let older = plugin_copy(scratch.path(), "hello", "1.0.2");
-    let (status, body_older) = install(&app, &older, json!({})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body_older}");
-    assert!(
-        body_older["message"]
-            .as_str()
-            .unwrap()
-            .contains("older than the installed 1.0.4"),
-        "{body_older}"
-    );
-    let (status, row) = install(&app, &older, json!({"force": true})).await;
+    let (status, row) = install(&app, &older, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["version"], "1.0.2");
+    assert_eq!(row["replaced_version"], "1.0.4", "{row}");
+    assert_eq!(row["older"], true, "{row}");
 
     // a new major whose decision schema has another shape
     let next = plugin_copy(scratch.path(), "hello", "2.0.0");
@@ -2732,6 +2728,8 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     let (status, row) = install(&app, &next, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
     assert_eq!(row["version"], "2.0.0");
+    assert_eq!(row["replaced_version"], "1.0.2", "{row}");
+    assert_eq!(row["older"], false, "{row}");
     let url = view_url(&app, &review).await;
     assert_eq!(bundle_get(&app, &url, &[]).await.status(), StatusCode::OK);
 

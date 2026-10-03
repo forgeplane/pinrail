@@ -5,9 +5,9 @@
 //! before it is installed.
 //!
 //! Every source ends in a bundle, stored once by its hash, which becomes
-//! the current bundle of its line: an equal or higher version replaces the
-//! line's current, an older one is refused unless forced. A line stays
-//! while a review still renders with it.
+//! the installation's bundle, whatever version it replaces: an older one
+//! too, which the inspection and the answer say. A bundle stays while a
+//! review still renders with it.
 //!
 //! A source is one string: a folder, or a zip on disk. It is parsed
 //! before anything is touched, so a bad one fails at once.
@@ -27,8 +27,6 @@ use crate::plugins::{Plugin, Registry};
 pub struct Options {
     /// serve the folder live instead of copying it
     pub link: bool,
-    /// replace a newer version already installed
-    pub force: bool,
     /// with `link`: the full name of an installed plugin the link takes the
     /// place of, until it is removed
     pub replace: Option<String>,
@@ -82,14 +80,14 @@ pub const LOCAL_PUBLISHER: &str = "local";
 /// The publisher of the plugins that ship with the app.
 pub const BUNDLED_PUBLISHER: &str = "forgeplane";
 
-/// Installs the plugin the source string names. Returns its record; the
-/// registry has been reloaded with it.
+/// Installs the plugin the source string names. Returns its record and the
+/// version it replaced, if any; the registry has been reloaded with it.
 pub fn install(
     db: &Db,
     registry: &Registry,
     source: &str,
     options: Options,
-) -> Result<InstallRecord, Error> {
+) -> Result<(InstallRecord, Option<String>), Error> {
     let prepared = prepare(registry, source, &options)?;
     let scratch = prepared.scratch.clone();
     let result = install_dir(db, registry, &prepared.dir, options, prepared.origin);
@@ -468,7 +466,7 @@ fn install_dir(
     dir: &Path,
     options: Options,
     origin: Origin,
-) -> Result<InstallRecord, Error> {
+) -> Result<(InstallRecord, Option<String>), Error> {
     let dir = std::path::absolute(dir)?;
     if !dir.is_dir() {
         return Err(Error::invalid(
@@ -508,7 +506,8 @@ fn install_dir(
         if let Some(target) = &options.replace {
             record = replacing(db, record, target)?;
         }
-        return commit(db, registry, record);
+        let before = installed_version(registry, &record.plugin);
+        return Ok((commit(db, registry, record)?, before));
     }
 
     // what the store takes: the files of the layout, and only those; a
@@ -531,10 +530,8 @@ fn install_dir(
         })?;
     let _changing = registry.changing();
     let record = record_for(&plugin, &origin, Some(bundle.hash.clone()));
-    if let Some(refusal) = older_than_installed(db, &record.plugin, &bundle, options.force)? {
-        return Err(refusal);
-    }
-    commit(db, registry, record)
+    let before = installed_version(registry, &record.plugin);
+    Ok((commit(db, registry, record)?, before))
 }
 
 fn read_manifest(dir: &Path) -> Result<Map<String, Value>, Error> {
@@ -623,32 +620,6 @@ fn restored(link: &InstallRecord, replaced: &str) -> Result<InstallRecord, Error
     })
 }
 
-/// Refuses a release older than the installed one, unless forced.
-fn older_than_installed(
-    db: &Db,
-    plugin: &str,
-    bundle: &crate::db::BundleRecord,
-    force: bool,
-) -> Result<Option<Error>, Error> {
-    let Some(current) = db
-        .install(plugin)?
-        .and_then(|i| i.bundle)
-        .and_then(|hash| db.bundle(&hash).ok().flatten())
-    else {
-        return Ok(None);
-    };
-    if !force && semver(&bundle.version) < semver(&current.version) {
-        return Ok(Some(Error::invalid(
-            "/source",
-            format!(
-                "{plugin} {} is older than the installed {}; pass force to replace it",
-                bundle.version, current.version
-            ),
-        )));
-    }
-    Ok(None)
-}
-
 /// The installation a source makes, with `bundle` the one new reviews use;
 /// none for a link.
 fn record_for(plugin: &Plugin, origin: &Origin, bundle: Option<String>) -> InstallRecord {
@@ -665,6 +636,11 @@ fn record_for(plugin: &Plugin, origin: &Origin, bundle: Option<String>) -> Insta
         installed_at: now.clone(),
         updated_at: now,
     }
+}
+
+/// The version installed under a full name, before an install replaces it.
+fn installed_version(registry: &Registry, plugin: &str) -> Option<String> {
+    registry.get(plugin).map(|p| p.version.clone())
 }
 
 /// Records the installation and reloads the registry.

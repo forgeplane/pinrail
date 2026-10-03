@@ -63,7 +63,7 @@ async fn describe(
 }
 
 /// The source and the options an install or an inspect takes:
-/// `{source, link?, force?, replace?}`.
+/// `{source, link?, replace?}`.
 fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     let body = parse_body(body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
@@ -71,7 +71,6 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     };
     let options = InstallOptions {
         link: body.get("link").and_then(Value::as_bool).unwrap_or(false),
-        force: body.get("force").and_then(Value::as_bool).unwrap_or(false),
         replace: body
             .get("replace")
             .and_then(Value::as_str)

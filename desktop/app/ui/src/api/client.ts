@@ -72,7 +72,6 @@ const seg = encodeURIComponent;
 export type InstallRequest = {
   source: string;
   link?: boolean;
-  force?: boolean;
 };
 
 const query = (params: Record<string, string | undefined>) => {

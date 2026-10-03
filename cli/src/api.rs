@@ -43,7 +43,6 @@ pub struct Client {
 pub struct InstallRequest<'a> {
     pub source: &'a str,
     pub link: bool,
-    pub force: bool,
     /// with `link`: the full name of the installed plugin the link replaces
     pub replace: Option<&'a str>,
 }
@@ -206,7 +205,6 @@ impl Client {
         let body = serde_json::json!({
             "source": request.source,
             "link": request.link,
-            "force": request.force,
             "replace": request.replace,
         });
         self.post("/api/v1/plugins/install", Some(&body))

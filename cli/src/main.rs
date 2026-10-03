@@ -489,9 +489,6 @@ enum PluginsCommand {
         /// the plugin
         #[arg(long)]
         link: bool,
-        /// Replace a newer version that is already installed
-        #[arg(long)]
-        force: bool,
         /// With --link: take the place of this installed plugin, by its full
         /// name such as forgeplane/review, so its reviews render with the
         /// folder; removing the link puts the plugin back
@@ -1042,7 +1039,6 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(PluginsCommand::Install {
                     source,
                     link,
-                    force,
                     replace,
                 }) => {
                     // a folder or a zip that exists is sent as its full
@@ -1054,7 +1050,6 @@ fn run(cli: Cli) -> Result<u8> {
                     client.plugins_install(&InstallRequest {
                         source: &source,
                         link,
-                        force,
                         replace: replace.as_deref(),
                     })?
                 }

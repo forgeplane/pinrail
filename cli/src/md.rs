@@ -203,6 +203,12 @@ pub fn plugins_result(value: &Value) -> String {
             .as_str()
             .map(|s| format!(" from {s}"))
             .unwrap_or_default();
+        if let (Some(was), true) = (plugin["replaced_version"].as_str(), plugin["older"] == true) {
+            return format!(
+                "Replaced {name} {was} with the older {}{from}.\n",
+                text(&plugin["version"])
+            );
+        }
         return format!("Installed {name} {}{from}.\n", text(&plugin["version"]));
     }
     match (

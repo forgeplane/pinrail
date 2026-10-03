@@ -138,7 +138,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
     setError(null);
     setStage({ at: "installing", seen });
     try {
-      setStage({ at: "done", plugin: await api.installPlugin({ ...request(), force: seen.older }) });
+      setStage({ at: "done", plugin: await api.installPlugin(request()) });
     } catch (e) {
       setStage({ at: "failed", seen, error: failure(e) });
     }
