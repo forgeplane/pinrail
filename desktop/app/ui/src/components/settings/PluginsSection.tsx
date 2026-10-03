@@ -71,12 +71,12 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
 
   // the origins a plugin may open without asking, while it keeps its source
   const allowedOrigins = (p: Plugin) => {
-    const permission = settings.links[p.plugin];
+    const permission = settings.links[p.name];
     return permission && permission.source === sourceOf(p) ? permission.origins : [];
   };
   const forgetLink = (p: Plugin, origin: string) => {
     const rest = allowedOrigins(p).filter((o) => o !== origin);
-    update({ links: { [p.plugin]: rest.length ? { source: sourceOf(p), origins: rest } : null } });
+    update({ links: { [p.name]: rest.length ? { source: sourceOf(p), origins: rest } : null } });
   };
 
   const setNotify = (name: string, on: boolean) => {
@@ -121,17 +121,17 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
         ) : null}
         {plugins.map((p) => (
           <PluginEntry
-            key={p.plugin}
+            key={p.name}
             plugin={p}
             native={native}
-            muted={muted.includes(p.plugin)}
-            stored={settings.plugins[p.plugin] ?? {}}
-            open={focus === p.plugin}
+            muted={muted.includes(p.name)}
+            stored={settings.plugins[p.name] ?? {}}
+            open={focus === p.name}
             onReveal={() => reveal(p.path)}
-            onNotify={(on) => setNotify(p.plugin, on)}
+            onNotify={(on) => setNotify(p.name, on)}
             links={allowedOrigins(p)}
             onForgetLink={(origin) => forgetLink(p, origin)}
-            onChange={(values) => update({ plugins: { [p.plugin]: values } })}
+            onChange={(values) => update({ plugins: { [p.name]: values } })}
             onCopy={() => setInstalling({ source: p.path })}
             onMessage={notify}
             onOpenReview={onOpenReview}
@@ -156,10 +156,9 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
 /** Where a plugin came from: how, in words, and from where. */
 function originOf(p: Plugin): { how: string; where: string | null } {
   const i = p.install;
-  if (!i || i.kind === "bundled") return { how: "Built into Pinrail", where: null };
-  if (i.linked && i.replaced)
-    return { how: `Linked in place of ${i.replaced.source || "the published plugin"}, to`, where: p.path };
-  if (i.linked) return { how: "Linked to", where: p.path };
+  if (!i || i.source_kind === "app") return { how: "Built into Pinrail", where: null };
+  if (i.link) return { how: "Linked to", where: i.source };
+  if (i.source_kind === "archive") return { how: "Installed from the zip", where: i.source };
   return { how: "Copied from", where: i.source };
 }
 
@@ -215,7 +214,7 @@ function PluginEntry({
   const sendSample = async (sample?: string) => {
     setSending(true);
     try {
-      const review = await api.sendSample(p.plugin, sample ? { sample } : {});
+      const review = await api.sendSample(p.name, sample ? { sample } : {});
       onOpenReview(review.id);
     } catch (e) {
       setSending(false);
@@ -231,7 +230,7 @@ function PluginEntry({
   const remove = async () => {
     setRemoving("busy");
     try {
-      await api.removePlugin(p.plugin);
+      await api.removePlugin(p.name);
       // the row goes with the plugins_reloaded notice
       onMessage(`${p.title || p.name} plugin was removed`);
     } catch (e) {
@@ -245,19 +244,15 @@ function PluginEntry({
     }
   };
 
-  const linked = p.install?.linked ?? false;
+  const linked = p.install?.link ?? false;
   // installed by the person, from a source; the plugins Pinrail ships are not
-  const ownInstall = p.install && p.install.kind !== "bundled" ? p.install : null;
+  const ownInstall = p.install && p.install.source_kind !== "app" ? p.install : null;
   const origin = originOf(p);
   // asked before a removal, in place of whatever the line says
   const ask = removing ? (
     <span className="settings-plugin-ask" data-plugin-remove-ask>
       Remove {p.title || p.name}?
-      {p.install?.replaced
-        ? " The plugin it replaced comes back, and the folder stays where it is."
-        : linked
-          ? " The folder stays where it is."
-          : " Reviews that rendered from it keep doing so."}
+      {linked ? " The folder stays where it is." : " Reviews that rendered from it keep doing so."}
       <button
         type="button"
         className="settings-reset-link danger"
@@ -299,7 +294,7 @@ function PluginEntry({
         label={p.title || p.name}
         description={
           <span className="settings-plugin-line">
-            <PluginBadge name={p.plugin} version={p.version} icon={p.icon} />
+            <PluginBadge name={p.name} version={p.version} icon={p.icon} />
             {p.error ? (
               // why it is broken, on hover or keyboard focus
               <Tooltip label={p.error} tone="danger">

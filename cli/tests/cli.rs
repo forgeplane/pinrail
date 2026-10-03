@@ -659,7 +659,7 @@ fn assert_harmless(text: &str) {
 #[test]
 fn a_plugin_description_cannot_drive_the_terminal() {
     let listing = serde_json::json!({ "plugins": [{
-        "plugin": "local/hello", "name": "hello", "title": "Hello", "version": "1.0.0", "line": "1", "usable": true,
+        "name": "hello", "title": "Hello", "version": "1.0.0", "line": "1", "usable": true,
         "description": format!("Greets{HOSTILE} people"), "use_when": format!("always{HOSTILE}"),
     }]});
     let server = MockServer::start(Box::new(move |_, path, _| match path {
@@ -1326,7 +1326,7 @@ fn rand_suffix() -> u128 {
 fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     let server = MockServer::start(Box::new(|method, path, _| {
         assert_eq!(method, "GET");
-        let body = r#"{"plugins":[{"plugin":"forgeplane/list","name":"list","title":"List","version":"1.2.0","description":"Items to accept or reject.","use_when":"Before posting review comments","payload_schema":{"type":"object"},"decision_schema":{"type":"object"},"example":{"groups":[]},"markdown":true}]}"#;
+        let body = r#"{"plugins":[{"name":"list","title":"List","version":"1.2.0","description":"Items to accept or reject.","use_when":"Before posting review comments","payload_schema":{"type":"object"},"decision_schema":{"type":"object"},"example":{"groups":[]},"markdown":true}]}"#;
         match path {
             "/api/v1/plugins/list/describe" => (200, body.into()),
             "/api/v1/plugins" => (200, r#"{"plugins":[{"name":"hello","path":"/src/hello","error":"entry view/index.html not found"}]}"#.into()),
@@ -1347,16 +1347,13 @@ fn describe_gives_one_plugin_whole_and_says_when_one_is_broken() {
     // one plugin is the document: its heading first, its command, no general parts
     let (code, stdout, _) = run(&server, &["plugins", "describe", "list", "--markdown"]);
     assert_eq!(code, 0);
-    assert!(
-        stdout.starts_with("# List (`forgeplane/list`) · 1.2.0\n"),
-        "{stdout}"
-    );
+    assert!(stdout.starts_with("# List (`list`) · 1.2.0\n"), "{stdout}");
     assert!(stdout.contains("**Use when:** Before posting review comments"));
-    assert!(stdout.contains("pinrail submit forgeplane/list --title"));
+    assert!(stdout.contains("pinrail submit list --title"));
     assert!(!stdout.contains("| 4 | timed out") && !stdout.contains("# Pinrail plugins"));
     // the decision's schema only when asked for; it reads as markdown otherwise
     assert!(
-        stdout.contains("pinrail plugins describe forgeplane/list --decision-schema"),
+        stdout.contains("pinrail plugins describe list --decision-schema"),
         "{stdout}"
     );
     assert!(!stdout.contains("is shaped by"));
@@ -1438,7 +1435,7 @@ fn a_dry_run_checks_the_submission_and_creates_nothing() {
         }
         (
             200,
-            r#"{"valid":true,"plugin":"forgeplane/list","plugin_version":"1.2.0"}"#.into(),
+            r#"{"valid":true,"name":"list","plugin_version":"1.2.0"}"#.into(),
         )
     }));
     let (code, stdout, stderr) = run(
@@ -1592,7 +1589,7 @@ fn submit_checks_then_uploads_only_what_the_app_lacks() {
         match (method, path) {
             ("POST", "/api/v1/reviews/validate") => (
                 200,
-                r#"{"valid":true,"plugin":"forgeplane/model","plugin_version":"2.0.0"}"#.into(),
+                r#"{"valid":true,"name":"model","plugin_version":"2.0.0"}"#.into(),
             ),
             ("HEAD", p) if p.ends_with(&have) => (200, String::new()),
             ("HEAD", p) if p.ends_with(&missing) => (404, String::new()),
@@ -1673,7 +1670,7 @@ fn a_dry_run_or_a_refused_submission_uploads_nothing() {
             422,
             r#"{"error":"invalid","message":"validation failed","violations":[{"path":"/attachments/a.glb","message":"this plugin takes .png, not model/gltf-binary"}]}"#.into(),
         ),
-        ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"plugin":"forgeplane/model","plugin_version":"2.0.0"}"#.into()),
+        ("POST", "/api/v1/reviews/validate") => (200, r#"{"valid":true,"name":"model","plugin_version":"2.0.0"}"#.into()),
         other => panic!("unexpected {other:?}"),
     }
     }));
@@ -1849,9 +1846,9 @@ fn attachments_lists_a_review_s_files_and_saves_one() {
 fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     let server = MockServer::start(Box::new(|_, path, _| {
         let body = r#"{"plugins":[
-            {"plugin":"forgeplane/model","name":"model","title":"3D model review","version":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
-             "install":{"kind":"bundled"},"attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
-            {"plugin":"forgeplane/list","name":"list","title":"List","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"install":{"kind":"bundled"},"attachments":null}]}"#;
+            {"name":"model","title":"3D model review","version":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
+             "install":{"source_kind":"app"},"attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
+            {"name":"list","title":"List","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"install":{"source_kind":"app"},"attachments":null}]}"#;
         match path {
             "/api/v1/plugins" => (200, body.into()),
             // describe answers with the one plugin asked for
@@ -1869,9 +1866,7 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert!(
-        stdout.contains(
-            "- forgeplane/model · 2.0.0 · comes with the app · ready\n  Takes files: .glb.\n"
-        ),
+        stdout.contains("- model · 2.0.0 · comes with the app · ready\n  Takes files: .glb.\n"),
         "{stdout}"
     );
     assert_eq!(stdout.matches("Takes files").count(), 1);
@@ -1883,7 +1878,7 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
         stdout.contains("## Files\n\nTakes files beside the payload: .glb, model/gltf-binary (up to 50 MB each, 12 at most)."),
         "{stdout}"
     );
-    assert!(stdout.contains("pinrail submit forgeplane/model --title \"<what it is about>\" --data payload.json --attach <file> --wait"));
+    assert!(stdout.contains("pinrail submit model --title \"<what it is about>\" --data payload.json --attach <file> --wait"));
     assert_eq!(stdout.matches("## Files").count(), 1);
 }
 
@@ -1894,7 +1889,7 @@ fn describe_gives_a_file_limit_under_a_megabyte_as_it_is() {
         assert_eq!(path, "/api/v1/plugins/notes/describe");
         (
             200,
-            r#"{"plugins":[{"plugin":"local/notes","name":"notes","title":"Notes","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
+            r#"{"plugins":[{"name":"notes","title":"Notes","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
                 "install":null,"attachments":{"accept":[".txt"],"max_size":512000}}]}"#
                 .into(),
         )
@@ -2116,20 +2111,20 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
     let server = MockServer::start(Box::new(|_, path, _| {
         assert_eq!(path, "/api/v1/plugins");
         (200, r#"{"plugins":[
-            {"plugin":"forgeplane/list","name":"list","version":"1.0.0","install":{"kind":"bundled"},"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
-            {"plugin":"local/review","name":"review","version":"2.1.0","install":{"kind":"link","linked":true,"source":"/src/review"},"error":null},
-            {"plugin":"local/odd","name":"odd","version":"0.1.0","install":{"kind":"archive","linked":false,"source":"/src/odd.zip"},"error":"view/index.html not found"}]}"#.into())
+            {"name":"list","version":"1.0.0","install":{"source_kind":"app"},"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
+            {"name":"review","version":"2.1.0","install":{"source_kind":"folder","link":true,"source":"/src/review"},"error":null},
+            {"name":"odd","version":"0.1.0","install":{"source_kind":"archive","link":false,"source":"/src/odd.zip"},"error":"view/index.html not found"}]}"#.into())
     }));
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(
         stdout,
         "3 plugins installed. pinrail plugins describe <name> shows a plugin's payload schema and an example, and --decision-schema shows what it returns.\n\n\
-         - forgeplane/list · 1.0.0 · comes with the app · ready\n\
+         - list · 1.0.0 · comes with the app · ready\n\
          \x20 Proposed actions to accept or reject.\n\
          \x20 Use when: You have changes to propose.\n\
-         - local/review · 2.1.0 · linked, /src/review · ready\n\
-         - local/odd · 0.1.0 · /src/odd.zip · broken: view/index.html not found\n"
+         - review · 2.1.0 · linked, /src/review · ready\n\
+         - odd · 0.1.0 · /src/odd.zip · broken: view/index.html not found\n"
     );
 }
 
@@ -2150,7 +2145,10 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
         ("POST", "/api/v1/plugins/install") => {
             let body: serde_json::Value = serde_json::from_str(body).unwrap();
             *seen.lock().unwrap() = body["source"].as_str().unwrap().to_string();
-            (200, r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"folder"}}"#.into())
+            (
+                200,
+                r#"{"name":"hello","version":"1.0.0","install":{"source_kind":"folder"}}"#.into(),
+            )
         }
         other => panic!("unexpected {other:?}"),
     }));
@@ -2169,7 +2167,7 @@ fn installing_an_older_version_says_so() {
         match (method, path) {
         ("POST", "/api/v1/plugins/install") => (
             200,
-            r#"{"plugin":"local/review","name":"review","version":"1.2.0","install":{"kind":"archive","source":"/dl/review-1.2.0.zip"},"replaced_version":"1.3.0","older":true}"#.into(),
+            r#"{"name":"review","version":"1.2.0","install":{"source_kind":"archive","source":"/dl/review-1.2.0.zip"},"replaced_version":"1.3.0","older":true}"#.into(),
         ),
         other => panic!("unexpected {other:?}"),
     }
@@ -2181,7 +2179,7 @@ fn installing_an_older_version_says_so() {
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(
         stdout,
-        "Replaced local/review 1.3.0 with the older 1.2.0 from /dl/review-1.2.0.zip.\n"
+        "Replaced review 1.3.0 with the older 1.2.0 from /dl/review-1.2.0.zip.\n"
     );
 
     // a newer version says only that it is installed
@@ -2189,7 +2187,7 @@ fn installing_an_older_version_says_so() {
         match (method, path) {
         ("POST", "/api/v1/plugins/install") => (
             200,
-            r#"{"plugin":"local/review","name":"review","version":"1.3.0","install":{"kind":"archive","source":"/dl/review-1.3.0.zip"},"replaced_version":"1.2.0","older":false}"#.into(),
+            r#"{"name":"review","version":"1.3.0","install":{"source_kind":"archive","source":"/dl/review-1.3.0.zip"},"replaced_version":"1.2.0","older":false}"#.into(),
         ),
         other => panic!("unexpected {other:?}"),
     }
@@ -2201,7 +2199,7 @@ fn installing_an_older_version_says_so() {
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(
         stdout,
-        "Installed local/review 1.3.0 from /dl/review-1.3.0.zip.\n"
+        "Installed review 1.3.0 from /dl/review-1.3.0.zip.\n"
     );
 }
 
@@ -2224,7 +2222,10 @@ fn plugins_install_sends_a_zip_as_its_full_path() {
             seen.lock()
                 .unwrap()
                 .push(body["source"].as_str().unwrap().to_string());
-            (200, r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"archive"}}"#.into())
+            (
+                200,
+                r#"{"name":"hello","version":"1.0.0","install":{"source_kind":"archive"}}"#.into(),
+            )
         }
         other => panic!("unexpected {other:?}"),
     }));
@@ -2436,61 +2437,6 @@ fn plugins_check_since_a_release_says_what_it_breaks_of_the_one_before() {
             "- note: 2.0.0 announces a breaking change, so it may change what 1.0.0 took"
         ),
         "{stdout}"
-    );
-}
-
-/// A link that replaces a published plugin asks for it by full name, and
-/// removing it says the plugin is back.
-#[test]
-fn a_link_can_replace_a_plugin_and_give_it_back() {
-    let dir = tempdir();
-    let sent = Arc::new(Mutex::new(Vec::new()));
-    let seen = sent.clone();
-    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
-        ("POST", "/api/v1/plugins/install") => {
-            seen.lock().unwrap().push(body.to_string());
-            (200, r#"{"plugin":"forgeplane/review","name":"review","version":"1.0.0","install":{"kind":"link"}}"#.into())
-        }
-        ("DELETE", "/api/v1/plugins/review") => (
-            200,
-            r#"{"removed":"forgeplane/review","linked":true,"version":"1.0.0","restored":"1.0.0"}"#
-                .into(),
-        ),
-        other => panic!("unexpected {other:?}"),
-    }));
-    let folder = dir.to_str().unwrap();
-    let (code, _, stderr) = run(
-        &server,
-        &[
-            "plugins",
-            "install",
-            folder,
-            "--link",
-            "--replace",
-            "forgeplane/review",
-        ],
-    );
-    assert_eq!(code, 0, "{stderr}");
-    let body: serde_json::Value = serde_json::from_str(&sent.lock().unwrap()[0]).unwrap();
-    assert_eq!(body["replace"], "forgeplane/review");
-    assert_eq!(body["link"], true);
-    // only with a link
-    let (code, _, _) = run(
-        &server,
-        &[
-            "plugins",
-            "install",
-            folder,
-            "--replace",
-            "forgeplane/review",
-        ],
-    );
-    assert_ne!(code, 0);
-    let (code, stdout, _) = run(&server, &["plugins", "remove", "review", "--markdown"]);
-    assert_eq!(code, 0);
-    assert_eq!(
-        stdout,
-        "Removed the link: forgeplane/review 1.0.0 is back.\n"
     );
 }
 

@@ -94,7 +94,7 @@ function csp(bundle) {
 function reviewFrom(partial) {
   return {
     id: "g_test",
-    plugin: "local/test",
+    plugin: "test",
     plugin_version: "1.0.0",
     plugin_bundle: null,
     title: "test review",

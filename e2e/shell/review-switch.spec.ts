@@ -57,7 +57,7 @@ test("switching to a review of another plugin loads that plugin's view, and only
     await expect(page).toHaveURL(new RegExp(`/reviews/${question.id}$`));
     await expect(frame.locator("p").first()).toHaveText("Push the branch to origin?");
     // hello is linked, so served live from its folder
-    expect(loads.take()).toEqual(["/links/local/hello/view/index.html"]);
+    expect(loads.take()).toEqual(["/links/hello/view/index.html"]);
 
     await rows.filter({ hasText: "Switch: a list" }).click();
     await expect(page).toHaveURL(new RegExp(`/reviews/${list.id}$`));

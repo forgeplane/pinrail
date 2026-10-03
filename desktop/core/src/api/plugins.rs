@@ -63,7 +63,7 @@ async fn describe(
 }
 
 /// The source and the options an install or an inspect takes:
-/// `{source, link?, replace?}`.
+/// `{source, link?}`.
 fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     let body = parse_body(body)?;
     let Some(source) = body.get("source").and_then(Value::as_str) else {
@@ -71,10 +71,6 @@ fn install_request(body: &Bytes) -> Result<(String, InstallOptions), Error> {
     };
     let options = InstallOptions {
         link: body.get("link").and_then(Value::as_bool).unwrap_or(false),
-        replace: body
-            .get("replace")
-            .and_then(Value::as_str)
-            .map(str::to_string),
     };
     Ok((source.to_string(), options))
 }
@@ -97,22 +93,19 @@ async fn remove(
     Path(name): Path<String>,
 ) -> Result<Json<Value>, ApiError> {
     let answer = state.plugins().remove(&name)?;
-    // the links it was allowed to open go with it, unless a link that
-    // replaced it was removed and the plugin is back
-    let plugin = answer["removed"].as_str().unwrap_or_default().to_string();
-    if answer.get("restored").is_none()
-        && state
-            .settings()
-            .value(&format!(
-                "{}/{}",
-                crate::settings::LINKS,
-                crate::settings::pointer_part(&plugin)
-            ))
-            .is_object()
+    // the links it was allowed to open go with it
+    if state
+        .settings()
+        .value(&format!(
+            "{}/{}",
+            crate::settings::LINKS,
+            crate::settings::pointer_part(&name)
+        ))
+        .is_object()
     {
         state
             .settings()
-            .change(&serde_json::json!({ "links": { plugin: null } }))?;
+            .change(&serde_json::json!({ "links": { &name: null } }))?;
     }
     Ok(Json(answer))
 }

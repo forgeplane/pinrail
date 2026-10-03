@@ -108,7 +108,16 @@ function fakeDocument() {
 const shell = (msg) => Object.assign({ pinrail: 1 }, msg);
 const review = (extra = {}) =>
   Object.assign(
-    { id: "g_1", plugin: "local/t", plugin_version: "1.0.0", plugin_bundle: null, title: "t", status: "pending", payload: {}, decision: null },
+    {
+      id: "g_1",
+      plugin: "t",
+      plugin_version: "1.0.0",
+      plugin_bundle: null,
+      title: "t",
+      status: "pending",
+      payload: {},
+      decision: null,
+    },
     extra,
   );
 const init = (extra = {}) =>

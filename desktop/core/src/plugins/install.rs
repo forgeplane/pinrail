@@ -11,6 +11,9 @@
 //!
 //! A source is one string: a folder, or a zip on disk. It is parsed
 //! before anything is touched, so a bad one fails at once.
+//!
+//! A plugin is installed under its manifest's name, and replaces whatever
+//! was installed under it: a folder, a zip, a link or the app's own copy.
 
 use std::path::{Path, PathBuf};
 
@@ -27,9 +30,6 @@ use crate::plugins::{Plugin, Registry};
 pub struct Options {
     /// serve the folder live instead of copying it
     pub link: bool,
-    /// with `link`: the full name of an installed plugin the link takes the
-    /// place of, until it is removed
-    pub replace: Option<String>,
 }
 
 /// Where a plugin comes from, as the source string says.
@@ -66,19 +66,7 @@ impl Source {
         }
         Ok(Source::Folder(expanded))
     }
-
-    /// Who publishes the plugins this source holds: `local`, for anything
-    /// on this machine.
-    pub fn publisher(&self) -> String {
-        LOCAL_PUBLISHER.to_string()
-    }
 }
-
-/// The publisher of a plugin from a folder, a zip or a link.
-pub const LOCAL_PUBLISHER: &str = "local";
-
-/// The publisher of the plugins that ship with the app.
-pub const BUNDLED_PUBLISHER: &str = "forgeplane";
 
 /// Installs the plugin the source string names. Returns its record and the
 /// version it replaced, if any; the registry has been reloaded with it.
@@ -102,39 +90,24 @@ pub fn install(
 /// with the sweep. The plugins the app ships cannot be removed.
 pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> {
     let _changing = registry.changing();
-    let plugin = registry
-        .resolve(name)
-        .map_err(|_| Error::NotFound(format!("plugin {name}")))?;
     let record = db
-        .install(&plugin)?
+        .install(name)?
         .ok_or_else(|| Error::NotFound(format!("plugin {name}")))?;
-    if record.kind == "bundled" {
+    if record.kind == "app" {
         return Err(Error::invalid(
             "/name",
-            format!("{plugin} ships with Pinrail and cannot be removed"),
+            format!("{name} ships with Pinrail and cannot be removed"),
         ));
     }
     let version = registry
-        .get(&plugin)
+        .get(name)
         .map(|p| p.version.clone())
         .unwrap_or_default();
-    // a link that took a published plugin's place gives it back
-    if let Some(replaced) = &record.replaced {
-        db.record_install(&restored(&record, replaced)?)?;
-        registry.reload()?;
-        let restored = registry.get(&plugin).map(|p| p.version.clone());
-        return Ok(serde_json::json!({
-            "removed": plugin,
-            "linked": true,
-            "version": version,
-            "restored": restored,
-        }));
-    }
-    db.remove_install(&plugin)?;
+    db.remove_install(name)?;
     registry.reload()?;
     Ok(serde_json::json!({
-        "removed": plugin,
-        "linked": record.linked(),
+        "removed": name,
+        "link": record.linked(),
         "version": version,
     }))
 }
@@ -193,51 +166,48 @@ fn summarize(
         .filter(|n| super::manifest::valid_name(n))
         .ok_or_else(|| Error::invalid("/source", "not a plugin: name is required"))?
         .to_string();
-    let plugin = format!("{}/{name}", prepared.origin.publisher);
-    // what is installed under the full name, and whether this source holds
+    // what is installed under the name, and whether this source holds
     // the very files that were installed
-    let installed = match db.install(&plugin)? {
+    let installed = match db.install(&name)? {
         None => None,
         Some(r) => {
-            let current = registry.get(&plugin);
+            let current = registry.get(&name);
             let installed_version = current
                 .as_ref()
                 .map(|p| p.version.clone())
                 .unwrap_or_default();
-            let bundle = current
-                .as_ref()
-                .and_then(|p| p.install.as_ref()?.bundle.clone());
             let unchanged = !r.linked()
                 && installed_version == version
-                && bundle.is_some()
-                && bundle_hash_of(dir).ok() == bundle;
+                && r.bundle.is_some()
+                && bundle_hash_of(dir).ok() == r.bundle;
             Some(serde_json::json!({
-                "version": installed_version, "linked": r.linked(),
-                "kind": r.kind, "unchanged": unchanged,
-                "path": r.linked().then_some(&r.resolved),
+                "version": installed_version,
+                "source_kind": r.kind,
+                "source": r.source,
+                "link": r.linked(),
+                "unchanged": unchanged,
+                // the sites it may open stay with a plugin from disk; the
+                // app's own copy is another plugin
+                "links_kept": r.kind != "app",
             }))
         }
     };
-    // a release older than the installed one
+    // a version older than the installed one
     let older = registry
-        .get(&plugin)
-        .filter(|p| p.install.as_ref().is_some_and(|i| !i.linked))
+        .get(&name)
+        .filter(|p| p.install.as_ref().is_some_and(|i| !i.link))
         .is_some_and(|current| semver(&version) < semver(&current.version));
-    let resolved: Value = serde_json::from_str(&prepared.origin.resolved)
-        .unwrap_or_else(|_| Value::String(prepared.origin.resolved.clone()));
     Ok(serde_json::json!({
-        "source": prepared.origin.source,
-        "link": options.link,
-        "plugin": plugin,
-        "publisher": prepared.origin.publisher,
         "name": name,
         "version": version,
         "title": manifest.get("title").and_then(Value::as_str).unwrap_or(&name),
+        "source_kind": prepared.origin.kind,
+        "source": prepared.origin.source,
+        "link": options.link,
         // the icon's markup, as the app shows an installed plugin's
         "icon": super::manifest::icon_markup(&prepared.dir, super::manifest::ICON).ok(),
         // the files it takes beside a payload, for the dialog to say before the yes
         "attachments": manifest.get("attachments"),
-        "origin": { "kind": prepared.origin.kind, "resolved": resolved },
         "installed": installed,
         "older": older,
     }))
@@ -252,18 +222,14 @@ struct Prepared {
 }
 
 fn prepare(registry: &Registry, source: &str, options: &Options) -> Result<Prepared, Error> {
-    let parsed = Source::parse(source)?;
-    let publisher = parsed.publisher();
-    match parsed {
+    match Source::parse(source)? {
         Source::Folder(folder) => {
             let dir = std::path::absolute(&folder)?;
             Ok(Prepared {
                 scratch: None,
                 origin: Origin {
                     kind: "folder",
-                    publisher,
-                    source: folder.display().to_string(),
-                    resolved: dir.display().to_string(),
+                    source: dir.display().to_string(),
                 },
                 dir,
             })
@@ -282,22 +248,18 @@ fn prepare(registry: &Registry, source: &str, options: &Options) -> Result<Prepa
                 dir: unpacked.root,
                 origin: Origin {
                     kind: "archive",
-                    publisher,
                     source: path.display().to_string(),
-                    resolved: path.display().to_string(),
                 },
             })
         }
     }
 }
 
-/// Where a record says it came from.
+/// Where a record says it came from: `folder` or `archive`, and its full
+/// path.
 struct Origin {
     kind: &'static str,
-    /// who publishes what the source holds
-    publisher: String,
     source: String,
-    resolved: String,
 }
 
 /// The most a zip, downloaded or on disk, may weigh.
@@ -494,19 +456,9 @@ fn install_dir(
 
     // a link serves the folder as it is
     if options.link {
-        // a link is the person's own work in progress, whatever the
-        // folder came from
-        let origin = Origin {
-            kind: "link",
-            publisher: LOCAL_PUBLISHER.to_string(),
-            ..origin
-        };
-        let mut record = record_for(&plugin, &origin, None);
+        let record = record_for(&plugin, &origin, true, None);
         let _changing = registry.changing();
-        if let Some(target) = &options.replace {
-            record = replacing(db, record, target)?;
-        }
-        let before = installed_version(registry, &record.plugin);
+        let before = installed_version(registry, &record.name);
         return Ok((commit(db, registry, record)?, before));
     }
 
@@ -529,8 +481,8 @@ fn install_dir(
             other => other,
         })?;
     let _changing = registry.changing();
-    let record = record_for(&plugin, &origin, Some(bundle.hash.clone()));
-    let before = installed_version(registry, &record.plugin);
+    let record = record_for(&plugin, &origin, false, Some(bundle.hash.clone()));
+    let before = installed_version(registry, &record.name);
     Ok((commit(db, registry, record)?, before))
 }
 
@@ -560,87 +512,29 @@ fn not_a_plugin(why: &str) -> String {
     }
 }
 
-/// A link that takes the place of the installed plugin `target`: under its
-/// full name, keeping that installation to put back when the link goes.
-fn replacing(db: &Db, link: InstallRecord, target: &str) -> Result<InstallRecord, Error> {
-    let installed = db.install(target)?.ok_or_else(|| {
-        Error::invalid(
-            "/replace",
-            format!("no plugin named {target} is installed to replace"),
-        )
-    })?;
-    if installed.name != link.name {
-        return Err(Error::invalid(
-            "/replace",
-            format!(
-                "the folder holds {}, which cannot take the place of {target}",
-                link.name
-            ),
-        ));
-    }
-    // linking again keeps what the first link replaced
-    let replaced = match (installed.linked(), installed.replaced) {
-        (true, Some(replaced)) => replaced,
-        (true, None) => {
-            return Err(Error::invalid(
-                "/replace",
-                format!("{target} is a link already; remove it first"),
-            ));
-        }
-        (false, _) => serde_json::json!({
-            "kind": installed.kind,
-            "source": installed.source,
-            "resolved": installed.resolved,
-            "bundle": installed.bundle,
-        })
-        .to_string(),
-    };
-    Ok(InstallRecord {
-        plugin: installed.plugin,
-        publisher: installed.publisher,
-        replaced: Some(replaced),
-        installed_at: installed.installed_at,
-        ..link
-    })
-}
-
-/// The installation a link replaced, put back in its place.
-fn restored(link: &InstallRecord, replaced: &str) -> Result<InstallRecord, Error> {
-    let was: Value = serde_json::from_str(replaced)
-        .map_err(|e| Error::Internal(format!("{}: what the link replaced: {e}", link.plugin)))?;
-    let text = |key: &str| was[key].as_str().map(str::to_string);
-    Ok(InstallRecord {
-        kind: text("kind").unwrap_or_else(|| "folder".into()),
-        source: text("source").unwrap_or_default(),
-        resolved: text("resolved").unwrap_or_default(),
-        bundle: text("bundle"),
-        replaced: None,
-        updated_at: crate::reviews::iso(Utc::now()),
-        ..link.clone()
-    })
-}
-
 /// The installation a source makes, with `bundle` the one new reviews use;
 /// none for a link.
-fn record_for(plugin: &Plugin, origin: &Origin, bundle: Option<String>) -> InstallRecord {
+fn record_for(
+    plugin: &Plugin,
+    origin: &Origin,
+    link: bool,
+    bundle: Option<String>,
+) -> InstallRecord {
     let now = crate::reviews::iso(Utc::now());
     InstallRecord {
-        plugin: format!("{}/{}", origin.publisher, plugin.name),
-        publisher: origin.publisher.clone(),
         name: plugin.name.clone(),
         kind: origin.kind.into(),
         source: origin.source.clone(),
-        resolved: origin.resolved.clone(),
+        link,
         bundle,
-        replaced: None,
         installed_at: now.clone(),
         updated_at: now,
     }
 }
 
-/// The version installed under a full name, before an install replaces it.
-fn installed_version(registry: &Registry, plugin: &str) -> Option<String> {
-    registry.get(plugin).map(|p| p.version.clone())
+/// The version installed under a name, before an install replaces it.
+fn installed_version(registry: &Registry, name: &str) -> Option<String> {
+    registry.get(name).map(|p| p.version.clone())
 }
 
 /// Records the installation and reloads the registry.

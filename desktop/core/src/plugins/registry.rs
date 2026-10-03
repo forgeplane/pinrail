@@ -1,9 +1,9 @@
 //! The registered plugins: every installation, each with the plugin its new
-//! reviews use, and the lines that render older reviews, loaded from their
-//! bundles when a review asks for them.
+//! reviews use, and the bundles that render older reviews, loaded when a
+//! review asks for them.
 //!
-//! A plugin is known by its full name, `<publisher>/<name>`. An agent may
-//! name it by its name alone when no other installed plugin has that name.
+//! A plugin is known by its manifest's name, and one installation holds
+//! each name.
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -11,10 +11,8 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use chrono::Utc;
 use include_dir::{Dir, include_dir};
-use serde_json::Value;
 
 use super::bundles::{Bundles, Files};
-use super::install::BUNDLED_PUBLISHER;
 use super::manifest::{Install, Plugin};
 use crate::db::{Db, InstallRecord};
 use crate::error::Error;
@@ -48,10 +46,12 @@ pub(crate) fn bundled() -> Vec<(String, Files)> {
         .collect()
 }
 
-/// Stores the plugins the app carries as bundles and installs each as
-/// `forgeplane/<name>`. A bundled release becomes what new reviews use when
-/// it is newer than the installed one, so a downgrade of the app leaves a
-/// newer release in place; reviews keep the bundle they were submitted to.
+/// Stores the plugins the app carries as bundles and installs each under
+/// its name, with `app` as its source, when nothing is installed under
+/// that name; one installed from disk, or linked, is left alone. An app's
+/// copy is replaced when this release of the app carries a newer version,
+/// so a downgrade of the app leaves a newer one in place; reviews keep the
+/// bundle they were submitted to.
 pub(crate) fn store_bundled(db: &Db, bundles: &Bundles) -> Result<(), Error> {
     store_releases(db, bundles, bundled())
 }
@@ -66,40 +66,36 @@ pub(crate) fn store_releases(
     let now = crate::reviews::iso(Utc::now());
     for (_, files) in plugins {
         let bundle = bundles.store_files(&files)?;
-        let plugin = format!("{BUNDLED_PUBLISHER}/{}", bundle.name);
-        let installed = db.install(&plugin)?;
-        let newer = match installed.as_ref().and_then(|i| i.bundle.as_ref()) {
-            None => true,
-            Some(current) => db.bundle(current)?.is_none_or(|current| {
-                pinrail_format::semver(&bundle.version) > pinrail_format::semver(&current.version)
-            }),
-        };
-        if !newer {
-            continue;
-        }
-        let source = format!("Pinrail {}", env!("CARGO_PKG_VERSION"));
+        let installed = db.install(&bundle.name)?;
         let record = match installed {
-            // a link in its place, for working on it: left alone
-            Some(install) if install.linked() => continue,
-            // installed from elsewhere, such as its repository: that
-            // installation stands, with the newer release
-            Some(install) if install.kind != "bundled" => InstallRecord {
-                bundle: Some(bundle.hash.clone()),
-                updated_at: now.clone(),
-                ..install
-            },
-            _ => InstallRecord {
-                plugin: plugin.clone(),
-                publisher: BUNDLED_PUBLISHER.into(),
+            None => InstallRecord {
                 name: bundle.name.clone(),
-                kind: "bundled".into(),
-                resolved: source.clone(),
-                source,
+                kind: "app".into(),
+                source: String::new(),
+                link: false,
                 bundle: Some(bundle.hash.clone()),
-                replaced: None,
                 installed_at: now.clone(),
                 updated_at: now.clone(),
             },
+            Some(install) if install.kind == "app" => {
+                let newer = match &install.bundle {
+                    None => true,
+                    Some(current) => db.bundle(current)?.is_none_or(|current| {
+                        pinrail_format::semver(&bundle.version)
+                            > pinrail_format::semver(&current.version)
+                    }),
+                };
+                if !newer {
+                    continue;
+                }
+                InstallRecord {
+                    bundle: Some(bundle.hash.clone()),
+                    updated_at: now.clone(),
+                    ..install
+                }
+            }
+            // installed from disk, or linked, in the app's copy's place
+            Some(_) => continue,
         };
         db.record_install(&record)?;
     }
@@ -109,7 +105,7 @@ pub(crate) fn store_releases(
 #[derive(Debug, Default)]
 struct RegistryState {
     installs: Vec<InstallRecord>,
-    /// Each installation's plugin for new reviews, by full name.
+    /// Each installation's plugin for new reviews, by name.
     plugins: BTreeMap<String, Arc<Plugin>>,
     /// Each linked folder as it was when it was read, to tell a change.
     folders: BTreeMap<String, Vec<(String, u64, u128)>>,
@@ -175,53 +171,20 @@ impl Registry {
         self.read().plugins.values().cloned().collect()
     }
 
-    /// The full name an agent's name stands for: the name itself when it is
-    /// one, or the one installed plugin with that name. Two with the name
-    /// are refused with both full names to choose from.
-    pub fn resolve(&self, name: &str) -> Result<String, Error> {
-        let state = self.read();
-        if name.contains('/') {
-            return match state.installs.iter().any(|i| i.plugin == name) {
-                true => Ok(name.to_string()),
-                false => Err(Error::invalid("/plugin", format!("unknown plugin {name}"))),
-            };
-        }
-        let matches: Vec<&str> = state
-            .installs
-            .iter()
-            .filter(|i| i.name == name)
-            .map(|i| i.plugin.as_str())
-            .collect();
-        match matches.as_slice() {
-            [one] => Ok(one.to_string()),
-            [] => Err(Error::invalid("/plugin", format!("unknown plugin {name}"))),
-            several => Err(Error::invalid(
-                "/plugin",
-                format!(
-                    "{name} names {}; give the full name of one",
-                    several.join(" and ")
-                ),
-            )),
-        }
-    }
-
-    /// The installed plugin new reviews use, usable or not, by full name or
-    /// by a name only it has.
+    /// The installed plugin new reviews use, usable or not.
     pub fn get(&self, name: &str) -> Option<Arc<Plugin>> {
-        let plugin = self.resolve(name).ok()?;
-        self.read().plugins.get(&plugin).cloned()
+        self.read().plugins.get(name).cloned()
     }
 
     /// The usable plugin new reviews use, or an `invalid` error pointing at
     /// `/plugin`.
     pub fn fetch(&self, name: &str) -> Result<Arc<Plugin>, Error> {
-        let plugin = self.resolve(name)?;
-        match self.read().plugins.get(&plugin) {
+        match self.read().plugins.get(name) {
             Some(p) if p.usable() => Ok(p.clone()),
             Some(p) => Err(Error::invalid(
                 "/plugin",
                 format!(
-                    "plugin {plugin} is not usable: {}",
+                    "plugin {name} is not usable: {}",
                     p.error.clone().unwrap_or_default()
                 ),
             )),
@@ -234,7 +197,7 @@ impl Registry {
     /// review was submitted to.
     pub fn fetch_review(&self, plugin: &str, bundle: Option<&str>) -> Result<Arc<Plugin>, Error> {
         if let Some(p) = self.read().plugins.get(plugin)
-            && p.install.as_ref().is_some_and(|i| i.linked)
+            && p.install.as_ref().is_some_and(|i| i.link)
             && p.usable()
         {
             return Ok(p.clone());
@@ -274,11 +237,11 @@ impl Registry {
         for install in &installs {
             if install.linked() {
                 folders.insert(
-                    install.plugin.clone(),
-                    folder_state(Path::new(&install.resolved)),
+                    install.name.clone(),
+                    folder_state(Path::new(&install.source)),
                 );
             }
-            plugins.insert(install.plugin.clone(), Arc::new(self.load(install)?));
+            plugins.insert(install.name.clone(), Arc::new(self.load(install)?));
         }
         let mut state = self
             .state
@@ -302,7 +265,7 @@ impl Registry {
             .installs
             .iter()
             .filter(|i| i.linked())
-            .any(|i| state.folders.get(&i.plugin) != Some(&folder_state(Path::new(&i.resolved))))
+            .any(|i| state.folders.get(&i.name) != Some(&folder_state(Path::new(&i.source))))
     }
 
     /// The plugin an installation's new reviews use: its linked folder, or
@@ -310,7 +273,7 @@ impl Registry {
     /// one is listed with its error.
     fn load(&self, install: &InstallRecord) -> Result<Plugin, Error> {
         let mut plugin = match (install.linked(), &install.bundle) {
-            (true, _) => Plugin::load(Path::new(&install.resolved)),
+            (true, _) => Plugin::load(Path::new(&install.source)),
             (false, Some(bundle)) => Plugin::load(&self.bundles.path(bundle)),
             (false, None) => {
                 let mut broken = Plugin::load(&self.bundles.path("none"));
@@ -332,17 +295,10 @@ impl Registry {
                 .as_ref()
                 .is_some_and(|b| self.bundles.verify(b).is_err());
         plugin.install = Some(Install {
-            plugin: install.plugin.clone(),
-            publisher: install.publisher.clone(),
-            kind: install.kind.clone(),
+            source_kind: install.kind.clone(),
             source: install.source.clone(),
-            linked: install.linked(),
+            link: install.linked(),
             bundle: install.bundle.clone(),
-            replaced: install
-                .replaced
-                .as_deref()
-                .and_then(|r| serde_json::from_str::<Value>(r).ok())
-                .map(|r| serde_json::json!({ "kind": r["kind"], "source": r["source"] })),
             modified,
             installed_at: install.installed_at.clone(),
             updated_at: install.updated_at.clone(),
@@ -407,33 +363,31 @@ mod tests {
         db.installs()
             .unwrap()
             .into_iter()
-            .map(|i| (i.plugin, i.kind, i.bundle.is_some()))
+            .map(|i| (i.name, i.kind, i.bundle.is_some()))
             .collect()
     }
 
     #[test]
-    fn the_bundled_plugins_are_stored_and_installed_under_forgeplane() {
+    fn the_bundled_plugins_are_stored_and_installed_from_the_app() {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::in_memory().unwrap());
         let r = open(tmp.path(), db.clone());
         assert_eq!(
             installs(&db),
             vec![
-                ("forgeplane/feedback".into(), "bundled".into(), true),
-                ("forgeplane/list".into(), "bundled".into(), true),
+                ("feedback".into(), "app".into(), true),
+                ("list".into(), "app".into(), true),
             ]
         );
         let list = r.fetch("list").unwrap();
-        assert_eq!(list.full_name(), "forgeplane/list");
+        assert_eq!(list.name, "list");
         assert_eq!(list.version, "1.0.0");
-        assert_eq!(
-            r.fetch("forgeplane/list").unwrap().full_name(),
-            "forgeplane/list"
-        );
         let bundle = list.install.as_ref().unwrap().bundle.clone().unwrap();
         assert_eq!(list.path, r.bundles().path(&bundle));
         assert_eq!(r.fetch_bundle(&bundle).unwrap().version, "1.0.0");
         assert!(r.fetch_bundle(&"0".repeat(64)).is_err());
+        // a name with a publisher is no name
+        assert!(r.fetch("forgeplane/list").is_err());
 
         // a second start finds them stored: nothing changes
         let before = db.installs().unwrap();
@@ -457,7 +411,8 @@ mod tests {
         }
     }
 
-    /// An older bundled release does not replace a newer installed one.
+    /// An older release the app carries does not replace a newer one that
+    /// came with an earlier app.
     #[test]
     fn a_bundled_release_is_installed_only_when_newer() {
         let tmp = tempfile::tempdir().unwrap();
@@ -473,14 +428,13 @@ mod tests {
             .clone()
             .unwrap();
 
-        // a newer release, as an update from elsewhere left it
         let newer = tmp.path().join("newer");
         copy_dir(&r.bundles().path(&shipped), &newer);
         let manifest = newer.join("manifest.json");
         let text = std::fs::read_to_string(&manifest).unwrap();
         std::fs::write(&manifest, text.replace("\"1.0.0\"", "\"1.9.0\"")).unwrap();
         let stored = r.bundles().store(&newer).unwrap();
-        let install = db.install("forgeplane/list").unwrap().unwrap();
+        let install = db.install("list").unwrap().unwrap();
         db.record_install(&InstallRecord {
             bundle: Some(stored.hash.clone()),
             ..install
@@ -494,52 +448,39 @@ mod tests {
         assert_eq!(list.install.as_ref().unwrap().bundle, Some(stored.hash));
     }
 
-    fn link(db: &Db, publisher: &str, name: &str, folder: &Path) {
+    fn link(db: &Db, name: &str, folder: &Path) {
         db.record_install(&InstallRecord {
-            plugin: format!("{publisher}/{name}"),
-            publisher: publisher.into(),
             name: name.into(),
-            kind: "link".into(),
+            kind: "folder".into(),
             source: folder.display().to_string(),
-            resolved: folder.display().to_string(),
+            link: true,
             bundle: None,
-            replaced: None,
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),
         })
         .unwrap();
     }
 
+    /// A plugin from disk under the name of one the app carries takes its
+    /// place, and the app leaves it there at the next start.
     #[test]
-    fn short_names_resolve_to_the_one_plugin_with_that_name() {
+    fn a_plugin_from_disk_takes_the_name_of_the_apps_own() {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::in_memory().unwrap());
         let r = open(tmp.path(), db.clone());
-        assert_eq!(r.resolve("list").unwrap(), "forgeplane/list");
-        assert_eq!(r.resolve("forgeplane/list").unwrap(), "forgeplane/list");
-        let unknown = r.resolve("nope").unwrap_err().to_string();
-        assert!(unknown.contains("unknown plugin nope"), "{unknown}");
-        assert!(r.resolve("acme/list").is_err());
-
-        // a second plugin named list, linked from a folder
         let folder = tmp.path().join("list");
-        let shipped = r.fetch("list").unwrap().path.clone();
-        copy_dir(&shipped, &folder);
-        link(&db, "local", "list", &folder);
+        copy_dir(&r.fetch("list").unwrap().path, &folder);
+        link(&db, "list", &folder);
         r.reload().unwrap();
-        let error = r.resolve("list").unwrap_err().to_string();
-        assert!(
-            error.contains("forgeplane/list") && error.contains("local/list"),
-            "{error}"
-        );
-        assert!(r.fetch("list").is_err());
-        let linked = r.fetch("local/list").unwrap();
-        assert_eq!(linked.full_name(), "local/list");
-        assert!(linked.install.as_ref().unwrap().linked);
+
+        store_bundled(&db, r.bundles()).unwrap();
+        r.reload().unwrap();
+        let linked = r.fetch("list").unwrap();
+        assert!(linked.install.as_ref().unwrap().link);
         assert_eq!(linked.path, folder);
         // its reviews render with the folder while it is linked
-        assert_eq!(r.fetch_review("local/list", None).unwrap().path, folder);
-        assert_eq!(r.resolve("feedback").unwrap(), "forgeplane/feedback");
+        assert_eq!(r.fetch_review("list", None).unwrap().path, folder);
+        assert_eq!(installs(&db)[1], ("list".into(), "folder".into(), false));
     }
 
     #[test]
@@ -554,7 +495,7 @@ mod tests {
             r#"{"name": "broken", "version": "1.0.0"}"#,
         )
         .unwrap();
-        link(&db, "local", "broken", &folder);
+        link(&db, "broken", &folder);
         r.reload().unwrap();
         let broken = r.get("broken").unwrap();
         assert!(!broken.usable());

@@ -65,8 +65,8 @@ test("a folder is looked at before it is installed, and its row says where it ca
   // the copy is what is served: a record with a hash, not a link
   const plugins = await (await page.request.get(`${core}/api/v1/plugins`)).json();
   const greeter = plugins.plugins.find((p: { name: string }) => p.name === "greeter");
-  expect(greeter.install.kind).toBe("folder");
-  expect(greeter.install.linked).toBe(false);
+  expect(greeter.install.source_kind).toBe("folder");
+  expect(greeter.install.link).toBe(false);
   expect(greeter.install.bundle).toBeTruthy();
 
   // the same version again says what it replaces

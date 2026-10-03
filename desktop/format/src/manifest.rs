@@ -73,32 +73,27 @@ pub struct Plugin {
 /// What the registry knows about an installed plugin, for its row.
 #[derive(Debug, Clone)]
 pub struct Install {
-    /// The full name, `<publisher>/<name>`.
-    pub plugin: String,
-    pub publisher: String,
-    /// `bundled`, `folder`, `archive` or `link`
-    pub kind: String,
+    /// `app` for a plugin the app carries, `folder` or `archive`
+    pub source_kind: String,
+    /// the folder or the zip, as a full path; empty for the app's own
     pub source: String,
-    pub linked: bool,
+    /// the folder is followed, not copied
+    pub link: bool,
     /// The bundle new reviews render with; none for a link.
     pub bundle: Option<String>,
     /// the bundle's files no longer match its listing
     pub modified: bool,
     pub installed_at: String,
     pub updated_at: String,
-    /// For a link that takes a published plugin's place: that plugin's
-    /// source, `{kind, source}`, which removing the link puts back.
-    pub replaced: Option<Value>,
 }
 
 impl Install {
     pub fn to_json(&self) -> Value {
         serde_json::json!({
-            "kind": self.kind,
+            "source_kind": self.source_kind,
             "source": self.source,
-            "linked": self.linked,
+            "link": self.link,
             "bundle": self.bundle,
-            "replaced": self.replaced,
             "modified": self.modified,
             "installed_at": self.installed_at,
             "updated_at": self.updated_at,
@@ -451,12 +446,9 @@ impl Plugin {
     }
 
     /// A change to the plugin's settings checked against its schema; the
-    /// paths come back under `/plugins/<full name>`, its `/` spelled `~1`.
+    /// paths come back under `/plugins/<name>`.
     pub fn validate_settings(&self, patch: &Value) -> Vec<Violation> {
-        let prefix = format!(
-            "/plugins/{}",
-            self.full_name().replace('~', "~0").replace('/', "~1")
-        );
+        let prefix = format!("/plugins/{}", self.name);
         let Some(schema) = &self.settings_validator else {
             return vec![Violation::new(&prefix, "the plugin has no settings")];
         };
@@ -535,18 +527,8 @@ impl Plugin {
 
     /// What an agent needs to ask with the plugin: what it is for, when to
     /// use it, the schemas with a top-level `$ref` read in, and an example.
-    /// The plugin's full name, `<publisher>/<name>`, once it is installed;
-    /// its name alone before.
-    pub fn full_name(&self) -> &str {
-        self.install
-            .as_ref()
-            .map(|i| i.plugin.as_str())
-            .unwrap_or(&self.name)
-    }
-
     pub fn describe(&self) -> Value {
         serde_json::json!({
-            "plugin": self.full_name(),
             "name": self.name,
             "title": self.title,
             "version": self.version,
@@ -618,8 +600,6 @@ impl Plugin {
     /// What the API lists for a plugin.
     pub fn to_json(&self) -> Value {
         serde_json::json!({
-            "plugin": self.full_name(),
-            "publisher": self.install.as_ref().map(|i| &i.publisher),
             "name": self.name,
             "version": self.version,
             "title": self.title,

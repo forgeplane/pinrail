@@ -489,13 +489,8 @@ enum PluginsCommand {
         /// the plugin
         #[arg(long)]
         link: bool,
-        /// With --link: take the place of this installed plugin, by its full
-        /// name such as forgeplane/review, so its reviews render with the
-        /// folder; removing the link puts the plugin back
-        #[arg(long, value_name = "PLUGIN", requires = "link")]
-        replace: Option<String>,
     },
-    /// Remove an installed plugin. Lines that existing reviews still render
+    /// Remove an installed plugin. The versions that existing reviews render
     /// with are kept
     Remove {
         /// The plugin's name
@@ -710,7 +705,6 @@ fn run(cli: Cli) -> Result<u8> {
             Client::new(&base).plugins_install(&InstallRequest {
                 source: &dir.to_string_lossy(),
                 link: true,
-                ..InstallRequest::default()
             })?;
         }
         // what comes next, for whoever ran it, most often an agent
@@ -1036,11 +1030,7 @@ fn run(cli: Cli) -> Result<u8> {
                     return Ok(0);
                 }
                 None => client.plugins()?,
-                Some(PluginsCommand::Install {
-                    source,
-                    link,
-                    replace,
-                }) => {
+                Some(PluginsCommand::Install { source, link }) => {
                     // a folder or a zip that exists is sent as its full
                     // path, `..` resolved, the way the app records and shows it
                     let source = match std::fs::canonicalize(&source) {
@@ -1050,7 +1040,6 @@ fn run(cli: Cli) -> Result<u8> {
                     client.plugins_install(&InstallRequest {
                         source: &source,
                         link,
-                        replace: replace.as_deref(),
                     })?
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
@@ -1193,7 +1182,7 @@ fn unusable(client: &Client, name: &str, err: anyhow::Error) -> anyhow::Error {
         .and_then(|l| l["plugins"].as_array())
         .and_then(|rows| {
             rows.iter()
-                .find(|p| (p["name"] == name || p["plugin"] == name) && p["error"].is_string())
+                .find(|p| p["name"] == name && p["error"].is_string())
         })
     else {
         return not_installed(err);

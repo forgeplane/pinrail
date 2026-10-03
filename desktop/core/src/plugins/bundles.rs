@@ -255,14 +255,11 @@ mod tests {
     /// thing that keeps a bundle.
     fn refer(bundles: &Bundles, bundle: &BundleRecord) {
         let record = crate::db::InstallRecord {
-            plugin: format!("local/{}", bundle.name),
-            publisher: "local".into(),
             name: bundle.name.clone(),
             kind: "folder".into(),
-            source: "./hello".into(),
-            resolved: "/hello".into(),
+            source: "/hello".into(),
+            link: false,
             bundle: Some(bundle.hash.clone()),
-            replaced: None,
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),
         };

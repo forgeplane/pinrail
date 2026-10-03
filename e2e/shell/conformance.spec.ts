@@ -21,7 +21,7 @@ async function viewFrame(page: Page, after?: Frame): Promise<Frame> {
       () =>
         (frame = page
           .frames()
-          .find((f) => f !== after && !f.isDetached() && f.url().includes("/links/local/conformance/"))) !== undefined,
+          .find((f) => f !== after && !f.isDetached() && f.url().includes("/links/conformance/"))) !== undefined,
     )
     .toBe(true);
   await expect.poll(async () => (await received(frame!)).some((m) => m.type === "init")).toBe(true);

@@ -34,13 +34,7 @@ fn plugin(root: &Path, name: &str, version: &str) -> PathBuf {
 /// Installs one plugin folder as a link: the plugin's row, or why not.
 async fn link(app: &Pinrail, dir: &Path) -> Result<Value, Error> {
     app.plugins()
-        .install(
-            &dir.display().to_string(),
-            InstallOptions {
-                link: true,
-                ..InstallOptions::default()
-            },
-        )
+        .install(&dir.display().to_string(), InstallOptions { link: true })
         .await
 }
 
@@ -105,7 +99,7 @@ async fn an_inspection_and_installs_work_without_http() {
         .await
         .unwrap();
     assert_eq!(inspected["name"], "hello");
-    assert!(db.install("local/hello").unwrap().is_none());
+    assert!(db.install("hello").unwrap().is_none());
     assert!(notices.try_recv().is_err());
 
     // A cloned service shares the same notifications.
@@ -115,7 +109,7 @@ async fn an_inspection_and_installs_work_without_http() {
         .install(source, InstallOptions::default())
         .await
         .unwrap();
-    assert_eq!(row["plugin"], "local/hello");
+    assert_eq!(row["name"], "hello");
     assert_eq!(row["version"], "1.0.0");
     assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
     assert!(notices.try_recv().is_err());
@@ -132,7 +126,7 @@ async fn an_inspection_and_installs_work_without_http() {
     assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
     assert!(notices.try_recv().is_err());
     assert_eq!(db.events_after(0, 10).unwrap().len(), 2);
-    let install = db.install("local/hello").unwrap().unwrap();
+    let install = db.install("hello").unwrap().unwrap();
     let bundle = install.bundle.unwrap();
     assert_eq!(db.bundle(&bundle).unwrap().unwrap().version, "1.0.1");
 }
@@ -159,11 +153,11 @@ async fn a_review_keeps_its_release_through_updates_and_removal() {
     copy(&app, &source).await.unwrap();
 
     let removed = app.plugins().remove("hello").unwrap();
-    assert_eq!(removed["removed"], "local/hello");
+    assert_eq!(removed["removed"], "hello");
     assert_eq!(removed["version"], "2.0.0");
     let kept = app
         .plugins()
-        .fetch_review("local/hello", review.plugin_bundle.as_deref())
+        .fetch_review("hello", review.plugin_bundle.as_deref())
         .unwrap();
     assert_eq!(kept.version, "1.0.0");
     app.reviews().decide(&review.id, &json!({}), None).unwrap();
@@ -184,12 +178,10 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     let added = notices.try_recv().unwrap();
     assert_eq!(added.kind, events::PLUGINS_RELOADED);
     assert!(added.review_id.is_none());
-    assert!(db.install("local/hello").unwrap().unwrap().linked());
+    assert!(db.install("hello").unwrap().unwrap().linked());
 
     // Listing combines each plugin's defaults with the current saved settings.
-    let listed = app
-        .plugins()
-        .listing(&json!({"local/hello": {"wrap": false}}));
+    let listed = app.plugins().listing(&json!({"hello": {"wrap": false}}));
     let hello = listed["plugins"]
         .as_array()
         .unwrap()
@@ -197,7 +189,7 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
         .find(|p| p["name"] == "hello")
         .unwrap();
     assert_eq!(hello["settings"], json!({"wrap": false}));
-    assert_eq!(hello["install"]["linked"], true);
+    assert_eq!(hello["install"]["link"], true);
 
     assert_eq!(
         app.plugins().reload().unwrap(),
@@ -207,12 +199,12 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     let reloaded = notices.try_recv().unwrap();
     assert_eq!(reloaded.kind, events::PLUGINS_RELOADED);
     let removed = app.plugins().remove("hello").unwrap();
-    assert_eq!(removed["removed"], "local/hello");
+    assert_eq!(removed["removed"], "hello");
     assert!(
         linked.join("view/index.html").exists(),
         "a linked source is kept"
     );
-    assert!(db.install("local/hello").unwrap().is_none());
+    assert!(db.install("hello").unwrap().is_none());
     let removed = notices.try_recv().unwrap();
     assert_eq!(removed.kind, events::PLUGINS_RELOADED);
     let recorded = db.events_after(0, 10).unwrap();
@@ -228,57 +220,59 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     ));
 }
 
-/// Two publishers can each have a plugin of one name: a link named list
-/// sits beside the official one. Its short name then names neither, and
-/// each is reached by its full name.
+/// A plugin linked under the name of one the app carries takes its place,
+/// keeps it across a restart, and the app's own comes back once it is
+/// removed.
 #[tokio::test]
-async fn a_plugin_of_an_official_name_sits_beside_it_under_its_own_publisher() {
+async fn a_plugin_of_an_official_name_takes_its_place() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path().join("data"), 0);
     let app = Pinrail::open(config.clone()).unwrap();
-    let mine = plugin(&dir.path().join("sources"), "list", "2.0.0");
-    let row = link(&app, &mine).await.unwrap();
-    assert_eq!(row["plugin"], "local/list");
-
-    let ambiguous = app
-        .reviews()
-        .submit(&json!({"plugin": "list", "title": "Which?"}), None)
-        .unwrap_err()
-        .to_string();
-    assert!(
-        ambiguous.contains("forgeplane/list") && ambiguous.contains("local/list"),
-        "{ambiguous}"
-    );
     let official = app
         .reviews()
         .submit(
-            &json!({"plugin": "forgeplane/list", "title": "Official", "payload": {"groups": []}}),
+            &json!({"plugin": "list", "title": "Official", "payload": {"groups": []}}),
             None,
         )
         .unwrap();
-    assert_eq!(official.plugin, "forgeplane/list");
+    assert_eq!(official.plugin_version, "1.0.0");
+
+    let mine = plugin(&dir.path().join("sources"), "list", "2.0.0");
+    let row = link(&app, &mine).await.unwrap();
+    assert_eq!(row["name"], "list");
+    assert_eq!(row["install"]["source_kind"], "folder");
+    assert_eq!(row["install"]["link"], true);
+    assert_eq!(row["replaced_version"], "1.0.0");
     let local = app
         .reviews()
-        .submit(&json!({"plugin": "local/list", "title": "Mine"}), None)
+        .submit(&json!({"plugin": "list", "title": "Mine"}), None)
         .unwrap();
     assert_eq!(
         (local.plugin.as_str(), local.plugin_version.as_str()),
-        ("local/list", "2.0.0")
+        ("list", "2.0.0")
     );
 
+    // the start that stores the app's own leaves it in its place
     drop(app);
-    let reopened = Pinrail::open(config).unwrap();
-    let described = reopened.plugins().describe(Some("local/list")).unwrap();
+    let reopened = Pinrail::open(config.clone()).unwrap();
+    let described = reopened.plugins().describe(Some("list")).unwrap();
     assert_eq!(described["plugins"][0]["version"], "2.0.0");
-    let described = reopened
-        .plugins()
-        .describe(Some("forgeplane/list"))
-        .unwrap();
-    assert_eq!(described["plugins"][0]["version"], "1.0.0");
+
+    reopened.plugins().remove("list").unwrap();
     assert!(matches!(
-        reopened.plugins().describe(Some("another")),
+        reopened.plugins().describe(Some("list")),
         Err(Error::NotFound(_))
     ));
+    // the review made with the app's copy renders with it
+    let kept = reopened
+        .plugins()
+        .fetch_review("list", official.plugin_bundle.as_deref())
+        .unwrap();
+    assert_eq!(kept.version, "1.0.0");
+    drop(reopened);
+    let again = Pinrail::open(config).unwrap();
+    let described = again.plugins().describe(Some("list")).unwrap();
+    assert_eq!(described["plugins"][0]["version"], "1.0.0");
 }
 
 #[test]
@@ -341,7 +335,7 @@ async fn a_sample_is_sent_as_a_review_with_its_files() {
     let review = app
         .send_sample("list", &json!({ "title": "Try Pinrail" }))
         .unwrap();
-    assert_eq!(review.plugin, "forgeplane/list");
+    assert_eq!(review.plugin, "list");
     assert_eq!(review.title, "Try Pinrail");
     assert_eq!(review.requested_by.as_deref(), Some("sample"));
 

@@ -31,18 +31,17 @@ const failure = (e: unknown) =>
 
 /** Where the plugin comes from, in one line. */
 function Origin({ seen }: { seen: Inspection }) {
-  const { origin } = seen;
-  if (origin.kind === "folder") {
+  if (seen.source_kind === "folder") {
     return (
       <p>
         {seen.link ? "Linked from the folder " : "From the folder "}
-        <span className="mono">{origin.resolved}</span>
+        <span className="mono">{seen.source}</span>
       </p>
     );
   }
   return (
     <p>
-      From the zip <span className="mono">{origin.resolved}</span>
+      From the zip <span className="mono">{seen.source}</span>
     </p>
   );
 }
@@ -52,7 +51,7 @@ function Consequences({ seen }: { seen: Inspection }) {
   const installed = seen.installed;
   return (
     <>
-      {seen.origin.kind === "archive" ? (
+      {seen.source_kind === "archive" ? (
         <p className="install-runs" data-runs="nothing">
           <b>Nothing runs on your computer.</b> The bundle is unpacked, checked and used as it is.
         </p>
@@ -74,20 +73,32 @@ function Consequences({ seen }: { seen: Inspection }) {
       {installed ? (
         <p
           className="install-replaces"
-          data-replaces={installed.linked ? "link" : installed.unchanged ? "unchanged" : seen.older ? "older" : "same"}
+          data-replaces={
+            installed.source_kind === "app"
+              ? "app"
+              : installed.link
+                ? "link"
+                : installed.unchanged
+                  ? "unchanged"
+                  : seen.older
+                    ? "older"
+                    : "same"
+          }
         >
           <b>
             {seen.name} {installed.version} is already installed
           </b>
-          {installed.linked
-            ? installed.path === seen.origin.resolved
-              ? `, as a link to this folder. Installing makes a copy and removes the link.`
-              : `, as a link to ${installed.path}. Installing copies this folder and removes the link.`
-            : installed.unchanged
-              ? `, from this source, and the source has not changed. Installing again replaces it with the same files.`
-              : seen.older
-                ? `, and it is newer than this version. Installing replaces it with this older version for new reviews.`
-                : `. Installing replaces it for new reviews; existing reviews keep the version they were made with.`}
+          {installed.source_kind === "app"
+            ? `, as the copy that comes with Pinrail. This plugin takes its place for new reviews; existing reviews keep the version they were made with.`
+            : installed.link
+              ? installed.source === seen.source
+                ? `, as a link to this folder. Installing makes a copy and removes the link.`
+                : `, as a link to ${installed.source}. Installing copies this folder and removes the link.`
+              : installed.unchanged
+                ? `, from this source, and the source has not changed. Installing again replaces it with the same files.`
+                : seen.older
+                  ? `, and it is newer than this version. Installing replaces it with this older version for new reviews.`
+                  : `. Installing replaces it for new reviews; existing reviews keep the version they were made with.`}
         </p>
       ) : null}
     </>

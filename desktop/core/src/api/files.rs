@@ -1,7 +1,7 @@
 //! Plugin bundles and the SDK.
 //!
 //! A view is served from a stored bundle under `/bundles/<hash>/view/`, or
-//! from a linked plugin's folder under `/links/<publisher>/<name>/view/`,
+//! from a linked plugin's folder under `/links/<name>/view/`,
 //! with the CSP that makes the sandbox real: no network at all.
 //! Scripts, styles and fonts only inline, from the bundle's own path, or the
 //! SDK under `/sdk/`, which carries the stylesheet's typeface; images only
@@ -25,7 +25,7 @@ use sha2::{Digest, Sha256};
 
 pub fn routes() -> Router<ApiState> {
     Router::new()
-        .route("/links/{publisher}/{name}/view/{*path}", get(linked))
+        .route("/links/{name}/view/{*path}", get(linked))
         .route("/bundles/{hash}/view/{*path}", get(stored_bundle))
         .route("/sdk/v1/{*path}", get(sdk))
         .route("/preview/reviews/{id}", get(preview))
@@ -58,13 +58,12 @@ async fn preview() -> Response {
 /// it is: never cached, since the folder changes as they work.
 async fn linked(
     State(state): State<Arc<Pinrail>>,
-    Path((publisher, name, path)): Path<(String, String, String)>,
+    Path((plugin, path)): Path<(String, String)>,
     headers: HeaderMap,
 ) -> Response {
     if is_fetch(&headers) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    let plugin = format!("{publisher}/{name}");
     let Some(install) = state.plugins().installed_link(&plugin) else {
         return StatusCode::NOT_FOUND.into_response();
     };

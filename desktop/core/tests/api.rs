@@ -130,7 +130,7 @@ async fn submit_returns_every_field_of_the_envelope() {
         "the envelope changed; run with UPDATE_FIXTURES=1 if that is meant"
     );
     assert!(review["id"].as_str().unwrap().starts_with("r_"));
-    assert_eq!(review["plugin"], "forgeplane/list");
+    assert_eq!(review["plugin"], "list");
     assert_eq!(review["plugin_version"], "1.0.0");
     assert!(review["plugin_bundle"].is_string());
     assert_eq!(review["status"], "pending");
@@ -634,7 +634,7 @@ async fn a_listing_pages_by_cursor_or_offset_searches_every_field_and_offers_its
     )
     .await;
     assert_eq!(titles(&acme), vec!["fifth", "second", "first"]);
-    assert_eq!(acme["facets"]["plugins"], json!(["forgeplane/list"]));
+    assert_eq!(acme["facets"]["plugins"], json!(["list"]));
     assert_eq!(acme["facets"]["repos"], json!(["acme", "other"]));
     assert_eq!(acme["facets"]["unassigned"], json!(true));
 
@@ -711,14 +711,14 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|p| p["plugin"].as_str().unwrap().to_string())
+            .map(|p| p["name"].as_str().unwrap().to_string())
             .collect()
     };
     let (status, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         names(&body),
-        vec!["forgeplane/feedback", "forgeplane/list"],
+        vec!["feedback", "list"],
         "a fresh app has the ones it ships"
     );
     assert_eq!(body["plugins"][0]["usable"], true);
@@ -728,32 +728,24 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     let (status, body) = install(&app, &samples.join("hello"), json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
-    assert_eq!(
-        names(&body),
-        vec!["forgeplane/feedback", "forgeplane/list", "local/hello"]
-    );
+    assert_eq!(names(&body), vec!["feedback", "hello", "list"]);
 
     let links: Vec<_> = db(&app)
         .installs()
         .unwrap()
         .into_iter()
-        .filter(|r| r.kind != "bundled")
+        .filter(|r| r.kind != "app")
         .collect();
     assert_eq!(links.len(), 1, "one install, one record");
-    assert!(
-        links
-            .iter()
-            .all(|r| r.linked() && r.plugin == "local/hello")
-    );
+    assert!(links.iter().all(|r| r.linked() && r.name == "hello"));
     let hello = body["plugins"]
         .as_array()
         .unwrap()
         .iter()
         .find(|p| p["name"] == "hello")
         .unwrap();
-    assert_eq!(hello["install"]["linked"], true);
-    assert_eq!(hello["install"]["kind"], "link");
-    assert_eq!(hello["publisher"], "local");
+    assert_eq!(hello["install"]["link"], true);
+    assert_eq!(hello["install"]["source_kind"], "folder");
     assert_eq!(hello["version"], "1.0.0");
     assert!(
         body["plugins"]
@@ -761,8 +753,8 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
             .unwrap()
             .iter()
             .find(|p| p["name"] == "list")
-            .unwrap()["install"]["kind"]
-            == "bundled",
+            .unwrap()["install"]["source_kind"]
+            == "app",
         "the official one comes with the app"
     );
 
@@ -781,10 +773,18 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["count"], 3, "the two built-in ones and hello");
 
-    // a plugin named in a path by its name, or in full with its `/` encoded
-    let (status, _) = call(&app, "GET", "/api/v1/plugins/nope/describe", None).await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
-    for name in ["list", "forgeplane%2Flist"] {
+    // a plugin named in a path by its name; a publisher is no part of it
+    for name in ["nope", "forgeplane%2Flist"] {
+        let (status, _) = call(
+            &app,
+            "GET",
+            &format!("/api/v1/plugins/{name}/describe"),
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{name}");
+    }
+    for name in ["list"] {
         let (status, body) = call(
             &app,
             "GET",
@@ -793,7 +793,7 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{name}");
-        assert_eq!(body["plugins"][0]["plugin"], "forgeplane/list");
+        assert_eq!(body["plugins"][0]["name"], "list");
     }
 }
 
@@ -803,14 +803,14 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
 async fn a_review_is_shown_from_its_bundle_with_the_sandbox_csp() {
     let app = app();
     let review = submit(&app, submission()).await;
-    assert_eq!(review["plugin"], "forgeplane/list");
+    assert_eq!(review["plugin"], "list");
     assert_eq!(review["plugin_version"], "1.0.0");
     let id = review["id"].as_str().unwrap();
     let (status, view) = call(&app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
     assert_eq!(status, StatusCode::OK, "{view}");
-    assert_eq!(view["plugin"]["plugin"], "forgeplane/list");
+    assert_eq!(view["plugin"]["name"], "list");
     assert_eq!(view["plugin"]["version"], "1.0.0");
-    let bundle = current_bundle(&app, "forgeplane/list").unwrap();
+    let bundle = current_bundle(&app, "list").unwrap();
     assert_eq!(view["url"], format!("/bundles/{bundle}/view/index.html"));
 
     let response = bundle_get(&app, view["url"].as_str().unwrap(), &[]).await;
@@ -945,7 +945,7 @@ async fn a_review_is_served_as_markdown_on_request() {
         body.starts_with(
             "# MR !42
 
-forgeplane/list · acme · review · 42
+list · acme · review · 42
 Pending since "
         ),
         "{body}"
@@ -1043,7 +1043,7 @@ Pending since "
     .unwrap();
     assert!(
         body.contains(
-            "forgeplane/list · acme · review · 42 · round 2 of 2
+            "list · acme · review · 42 · round 2 of 2
 "
         ),
         "{body}"
@@ -1078,7 +1078,7 @@ async fn removing_a_plugin_forgets_the_links_it_was_allowed_to_open() {
     let hello = plugin_copy(root.path(), "hello", "1.0.0");
     let (status, row) = install(&app, &hello, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    let links = json!({"links": {"local/hello": {"source": row["install"]["source"], "origins": ["https://github.com"]}}});
+    let links = json!({"links": {"hello": {"source": row["install"]["source"], "origins": ["https://github.com"]}}});
     let (status, body) = call(&app, "PATCH", "/api/v1/settings", Some(links)).await;
     assert_eq!(status, StatusCode::OK, "{body}");
 
@@ -1136,7 +1136,7 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
     assert_eq!(status, StatusCode::OK, "{row}");
 
     let host = [("host", "127.0.0.1:4747")];
-    let (status, _) = raw(&app, "GET", "/links/local/hello/view/index.html", &host, "").await;
+    let (status, _) = raw(&app, "GET", "/links/hello/view/index.html", &host, "").await;
     assert_eq!(status, StatusCode::OK);
     for file in [
         "manifest.json",
@@ -1150,14 +1150,7 @@ async fn a_linked_plugin_serves_only_what_an_installed_copy_would_hold() {
         "notes.txt",
         "cache/build.bin",
     ] {
-        let (status, body) = raw(
-            &app,
-            "GET",
-            &format!("/links/local/hello/{file}"),
-            &host,
-            "",
-        )
-        .await;
+        let (status, body) = raw(&app, "GET", &format!("/links/hello/{file}"), &host, "").await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{file}: {body}");
     }
 }
@@ -1280,7 +1273,7 @@ async fn a_changed_bundle_file_is_not_served() {
 #[tokio::test]
 async fn other_websites_cannot_read_a_plugins_files() {
     let app = app();
-    let bundle = current_bundle(&app, "forgeplane/list").unwrap();
+    let bundle = current_bundle(&app, "list").unwrap();
     let request = |dest: Option<&str>| {
         let mut r = Request::get(format!("/bundles/{bundle}/view/index.html"))
             .header("host", "127.0.0.1:4747")
@@ -1354,9 +1347,9 @@ async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
     let (status, body) = install(&app, &linked, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     let host = [("host", "127.0.0.1:4747")];
-    let (status, body) = raw(&app, "GET", "/links/local/hello/view/notes.txt", &host, "").await;
+    let (status, body) = raw(&app, "GET", "/links/hello/view/notes.txt", &host, "").await;
     assert_eq!(status, StatusCode::NOT_FOUND, "{body}");
-    let (status, _) = raw(&app, "GET", "/links/local/hello/view/alias.html", &host, "").await;
+    let (status, _) = raw(&app, "GET", "/links/hello/view/alias.html", &host, "").await;
     assert_eq!(status, StatusCode::OK);
 }
 
@@ -1431,9 +1424,9 @@ async fn a_link_is_served_only_for_a_linked_plugins_own_name() {
     for path in [
         "/links/..%2Foutside/x/view/index.html",
         "/links/..%2F..%2Fplugins/outside/view/index.html",
-        "/links/local/outside/view/index.html",
+        "/links/outside/view/index.html",
         // the official plugins are bundles, not links
-        "/links/forgeplane/list/view/index.html",
+        "/links/list/view/index.html",
     ] {
         let response = bundle_get(&app, path, &[]).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
@@ -2516,9 +2509,9 @@ async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
 
     let (status, installed) = install(&app, source.path(), json!({})).await;
     assert_eq!(status, StatusCode::OK, "{installed}");
-    assert_eq!(installed["plugin"], "local/shelf");
-    assert_eq!(installed["install"]["linked"], false);
-    assert_eq!(installed["install"]["kind"], "folder");
+    assert_eq!(installed["name"], "shelf");
+    assert_eq!(installed["install"]["link"], false);
+    assert_eq!(installed["install"]["source_kind"], "folder");
     let bundle = installed["install"]["bundle"].as_str().unwrap().to_string();
     assert_eq!(
         bundle,
@@ -2535,7 +2528,7 @@ async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
     let mut body = submission();
     body["plugin"] = json!("shelf");
     let review = submit(&app, body).await;
-    assert_eq!(review["plugin"], "local/shelf", "{review}");
+    assert_eq!(review["plugin"], "shelf", "{review}");
     let id = review["id"].as_str().unwrap();
     let (_, view) = call(&app, "GET", &format!("/api/v1/reviews/{id}/view"), None).await;
     let url = view["url"].as_str().unwrap().to_string();
@@ -2552,7 +2545,7 @@ async fn an_installed_bundle_is_served_and_a_tampered_one_is_flagged() {
         .as_array()
         .unwrap()
         .iter()
-        .find(|p| p["plugin"] == "local/shelf")
+        .find(|p| p["name"] == "shelf")
         .unwrap();
     assert_eq!(shelf["install"]["modified"], true);
     assert_eq!(
@@ -2655,14 +2648,38 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     let bundle = Listing::of_folder(&hello, Taken::FromSource).unwrap();
     let (status, row) = install(&app, &hello, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["plugin"], "local/hello");
-    assert_eq!(row["publisher"], "local");
+    assert_eq!(row["name"], "hello");
     assert_eq!(row["name"], "hello");
     assert_eq!(row["version"], "1.0.0");
-    assert_eq!(row["install"]["kind"], "folder");
-    assert_eq!(row["install"]["linked"], false);
+    assert_eq!(row["install"]["source_kind"], "folder");
+    assert_eq!(row["install"]["link"], false);
     assert_eq!(row["install"]["bundle"], bundle.hash());
     assert_eq!(row["replaced_version"], Value::Null, "{row}");
+    // a plugin is its name; where it came from is its installation's
+    assert!(
+        row.get("plugin").is_none() && row.get("publisher").is_none(),
+        "{row}"
+    );
+    let mut keys: Vec<&str> = row["install"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        [
+            "bundle",
+            "installed_at",
+            "link",
+            "modified",
+            "source",
+            "source_kind",
+            "updated_at"
+        ]
+    );
+    assert_eq!(row["install"]["source"], hello.display().to_string());
     // the store holds the bundle: its files, and nothing else
     let stored = app.state.bundles().path(&bundle.hash());
     assert_eq!(files_under(&stored), files_under_listing(&bundle));
@@ -2673,7 +2690,7 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     body["plugin"] = json!("hello");
     body["payload"] = json!({"message": "hi"});
     let review = submit(&app, body.clone()).await;
-    assert_eq!(review["plugin"], "local/hello");
+    assert_eq!(review["plugin"], "hello");
     assert_eq!(review["plugin_version"], "1.0.0");
     assert_eq!(review["plugin_bundle"], bundle.hash());
     assert_eq!(
@@ -2764,8 +2781,8 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     // a link serves the folder live, and a folder with no manifest is refused
     let (status, row) = install(&app, &hello, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["install"]["linked"], true);
-    assert_eq!(row["plugin"], "local/hello");
+    assert_eq!(row["install"]["link"], true);
+    assert_eq!(row["name"], "hello");
     assert_eq!(
         row["path"],
         std::path::absolute(&hello).unwrap().display().to_string()
@@ -2837,7 +2854,7 @@ async fn a_zip_on_disk_installs_the_bundle_its_folder_would() {
         assert_eq!(status, StatusCode::OK, "{file}: {row}");
         assert_eq!(row["name"], "hello");
         assert_eq!(row["version"], "1.2.0");
-        assert_eq!(row["install"]["kind"], "archive", "{file}");
+        assert_eq!(row["install"]["source_kind"], "archive", "{file}");
         assert_eq!(row["install"]["source"], zip.display().to_string());
         assert_eq!(
             row["install"]["bundle"], bundle,
@@ -2919,16 +2936,14 @@ async fn inspecting_says_what_an_install_would_do_without_doing_it() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{seen}");
-    assert_eq!(seen["plugin"], "local/hello");
-    assert_eq!(seen["publisher"], "local");
     assert_eq!(seen["name"], "hello");
     assert_eq!(seen["version"], "1.4.0");
-    assert_eq!(seen["build"], Value::Null);
-    assert_eq!(seen["origin"]["kind"], "folder");
+    assert_eq!(seen["source_kind"], "folder");
+    assert_eq!(seen["source"], plain.display().to_string());
     assert_eq!(seen["installed"], Value::Null);
     assert_eq!(seen["link"], false);
     assert!(
-        db(&app).install("local/hello").unwrap().is_none(),
+        db(&app).install("hello").unwrap().is_none(),
         "inspecting installed something"
     );
 
@@ -3020,8 +3035,8 @@ async fn removing_drops_the_installation_and_reviews_keep_their_bundles() {
     // no review was made with it: the bundle goes with the next sweep
     let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::OK, "{answer}");
-    assert_eq!(answer["removed"], "local/hello");
-    assert!(db(&app).install("local/hello").unwrap().is_none());
+    assert_eq!(answer["removed"], "hello");
+    assert!(db(&app).install("hello").unwrap().is_none());
     let later = chrono::Utc::now() + chrono::Duration::minutes(1);
     assert_eq!(app.state.bundles().sweep(later).unwrap(), 1);
     assert!(!app.state.bundles().path(&bundle).exists());
@@ -3062,7 +3077,7 @@ async fn removing_drops_the_installation_and_reviews_keep_their_bundles() {
     assert_eq!(status, StatusCode::OK, "{row}");
     let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::OK, "{answer}");
-    assert_eq!(answer["linked"], true);
+    assert_eq!(answer["link"], true);
     assert!(source.join("manifest.json").is_file());
     let (status, _) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -3119,7 +3134,7 @@ async fn a_review_shows_its_own_release_and_a_link_is_live() {
     assert!(
         view_url(&app, &linked)
             .await
-            .starts_with("/links/local/hello/view/")
+            .starts_with("/links/hello/view/")
     );
 
     // the link removed: each review shows the release it was made with
@@ -3260,11 +3275,22 @@ async fn the_same_files_from_two_sources_are_one_bundle() {
     assert_eq!(status, StatusCode::OK, "{from_zip}");
 
     // one plugin, and one bundle
-    assert_eq!(from_folder["plugin"], "local/hello");
-    assert_eq!(from_zip["plugin"], "local/hello");
-    assert_eq!(from_zip["install"]["kind"], "archive");
+    assert_eq!(from_folder["name"], "hello");
+    assert_eq!(from_zip["name"], "hello");
+    assert_eq!(from_zip["install"]["source_kind"], "archive");
     let bundle = from_folder["install"]["bundle"].as_str().unwrap();
     assert_eq!(from_zip["install"]["bundle"], bundle);
+    // the zip replaced the folder's installation under the one name
+    assert_eq!(from_zip["replaced_version"], "1.0.0");
+    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
+    let hellos: Vec<&Value> = listed["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["name"] == "hello")
+        .collect();
+    assert_eq!(hellos.len(), 1);
+    assert_eq!(hellos[0]["install"]["source_kind"], "archive");
     let stored: Vec<_> = std::fs::read_dir(app.state.config().plugin_bundles_dir())
         .unwrap()
         .flatten()
@@ -3343,43 +3369,37 @@ async fn an_update_that_changes_the_schemas_leaves_earlier_reviews_as_they_were(
     );
 }
 
-/// Working on a published plugin in place: a link that replaces it takes
-/// its full name, so its reviews render with the folder, and removing the
-/// link puts the published release back.
+/// Working on a plugin the app carries: a link under its name takes its
+/// place, so its reviews render with the folder, and removing the link
+/// removes the installation, while the app's bundle stays for the reviews
+/// made with it.
 #[tokio::test]
-async fn a_link_can_replace_a_published_plugin_until_it_is_removed() {
+async fn a_link_takes_the_place_of_the_apps_own_plugin_until_it_is_removed() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
-    let published = current_bundle(&app, "forgeplane/list").unwrap();
+    let published = current_bundle(&app, "list").unwrap();
     let review = submit(&app, submission()).await;
-    assert_eq!(review["plugin"], "forgeplane/list");
+    assert_eq!(review["plugin"], "list");
 
     let mine = plugin_copy(scratch.path(), "list", "1.0.0");
     std::fs::write(mine.join("view/index.html"), "<html>my fix</html>").unwrap();
-    // a plugin of another name cannot take its place
-    let other = plugin_copy(scratch.path(), "hello", "1.0.0");
-    let (status, body) = install(
+    let (status, seen) = call(
         &app,
-        &other,
-        json!({"link": true, "replace": "forgeplane/list"}),
+        "POST",
+        "/api/v1/plugins/inspect",
+        Some(json!({"source": mine.display().to_string(), "link": true})),
     )
     .await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    // nor can a plugin that is not installed be replaced
-    let (status, _) = install(&app, &mine, json!({"link": true, "replace": "acme/list"})).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(status, StatusCode::OK, "{seen}");
+    assert_eq!(seen["installed"]["source_kind"], "app");
+    assert_eq!(seen["installed"]["links_kept"], false);
 
-    let (status, row) = install(
-        &app,
-        &mine,
-        json!({"link": true, "replace": "forgeplane/list"}),
-    )
-    .await;
+    let (status, row) = install(&app, &mine, json!({"link": true})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
-    assert_eq!(row["plugin"], "forgeplane/list");
-    assert_eq!(row["install"]["linked"], true);
-    assert_eq!(row["install"]["replaced"]["kind"], "bundled");
-    // no second plugin of the name, and the reviews render with the folder
+    assert_eq!(row["name"], "list");
+    assert_eq!(row["install"]["link"], true);
+    assert_eq!(row["install"]["source_kind"], "folder");
+    // one plugin of the name, and the reviews render with the folder
     let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
     let lists = listed["plugins"]
         .as_array()
@@ -3390,25 +3410,14 @@ async fn a_link_can_replace_a_published_plugin_until_it_is_removed() {
     assert_eq!(lists, 1);
     assert_eq!(served(&app, &review).await, "<html>my fix</html>");
 
-    // the published release is kept for when the link goes
+    let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/list", None).await;
+    assert_eq!(status, StatusCode::OK, "{answer}");
+    assert_eq!(answer["link"], true);
+    assert_eq!(current_bundle(&app, "list"), None);
+    // the review keeps the bundle it was submitted to
     let later = chrono::Utc::now() + chrono::Duration::minutes(1);
     app.state.bundles().sweep(later).unwrap();
     assert!(app.state.bundles().path(&published).is_dir());
-
-    let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/list", None).await;
-    assert_eq!(status, StatusCode::OK, "{answer}");
-    assert_eq!(answer["restored"], "1.0.0");
-    assert_eq!(current_bundle(&app, "forgeplane/list"), Some(published));
-    let (_, listed) = call(&app, "GET", "/api/v1/plugins", None).await;
-    let list = listed["plugins"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|p| p["plugin"] == "forgeplane/list")
-        .unwrap()
-        .clone();
-    assert_eq!(list["install"]["kind"], "bundled");
-    assert_eq!(list["install"]["replaced"], Value::Null);
     assert_ne!(served(&app, &review).await, "<html>my fix</html>");
 }
 
@@ -3446,7 +3455,6 @@ async fn plugins_describe_themselves_and_a_submission_validates_without_being_st
     let (status, body) = call(&app, "GET", "/api/v1/plugins/list/describe", None).await;
     assert_eq!(status, StatusCode::OK);
     let list = &body["plugins"][0];
-    assert_eq!(list["plugin"], "forgeplane/list");
     assert_eq!(list["name"], "list");
     assert!(
         list["payload_schema"]["$ref"].is_null()
@@ -3461,7 +3469,7 @@ async fn plugins_describe_themselves_and_a_submission_validates_without_being_st
     let (status, body) = call(&app, "POST", "/api/v1/reviews/validate", Some(submission())).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["valid"], true);
-    assert_eq!(body["plugin"], "forgeplane/list");
+    assert_eq!(body["plugin"], "list");
     assert_eq!(body["plugin_version"], "1.0.0");
     let (_, listing) = call(&app, "GET", "/api/v1/reviews", None).await;
     assert_eq!(listing["total"], 0, "nothing was stored");

@@ -9,7 +9,7 @@ import { api } from "../api/client";
 import type { Plugin, Review } from "../api/types";
 import { age, settledAt } from "../lib/format";
 import { useLive } from "../state/live";
-import { OutcomeBadge, shortName } from "./Badges";
+import { OutcomeBadge } from "./Badges";
 import { PluginIcon } from "./PluginIcon";
 
 export type PaletteAction = {
@@ -115,7 +115,7 @@ export function CommandPalette({
           title: r.title,
           meta: (
             <>
-              <span className="mono">{shortName(r.plugin)}</span>
+              <span className="mono">{r.plugin}</span>
               <span>{age(r.created_at)}</span>
             </>
           ),
@@ -133,7 +133,7 @@ export function CommandPalette({
           meta: (
             <>
               <OutcomeBadge review={r} />
-              <span className="mono">{shortName(r.plugin)}</span>
+              <span className="mono">{r.plugin}</span>
               <span>{age(settledAt(r))}</span>
             </>
           ),
@@ -142,19 +142,19 @@ export function CommandPalette({
       }
     }
     if (want("plugins")) {
-      const found = plugins.filter((p) => matches(q, p.plugin, p.title));
+      const found = plugins.filter((p) => matches(q, p.name, p.title));
       for (const p of all ? found.slice(0, q ? 5 : 3) : found) {
         out.push({
-          key: `plugin:${p.plugin}`,
+          key: `plugin:${p.name}`,
           group: "plugins",
           icon: <PluginIcon icon={p.icon} />,
           title: p.title || p.name,
           meta: (
             <span className="mono">
-              {p.plugin} {p.version}
+              {p.name} {p.version}
             </span>
           ),
-          run: () => navigate("/", { state: { settings: "plugins", plugin: p.plugin } }),
+          run: () => navigate("/", { state: { settings: "plugins", plugin: p.name } }),
         });
       }
     }

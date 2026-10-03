@@ -823,7 +823,7 @@ mod tests {
             enabled: true,
             paused_until: None,
             sound: true,
-            muted_plugins: vec!["acme/logo".into()],
+            muted_plugins: vec!["logo".into()],
             quiet_hours: quiet.map(|(from, to)| {
                 (
                     chrono::NaiveTime::parse_from_str(from, "%H:%M").unwrap(),
@@ -844,8 +844,8 @@ mod tests {
     #[test]
     fn a_review_is_announced_unless_off_paused_or_muted() {
         let on = settings(None);
-        assert!(announces(&on, "forgeplane/list", at("12:00")));
-        assert!(!announces(&on, "acme/logo", at("12:00")), "muted");
+        assert!(announces(&on, "list", at("12:00")));
+        assert!(!announces(&on, "logo", at("12:00")), "muted");
         assert!(!announces(
             &NotificationSettings {
                 enabled: false,

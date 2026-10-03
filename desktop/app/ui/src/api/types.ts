@@ -28,7 +28,7 @@ export type Summary = {
 
 export type Review = {
   id: string;
-  /** the plugin's full name, such as forgeplane/list */
+  /** the plugin's name, such as list */
   plugin: string;
   /** the exact version it was submitted to, such as 1.2.0 */
   plugin_version: string;
@@ -84,9 +84,7 @@ export type ReviewListing = {
 };
 
 export type Plugin = {
-  /** the full name, `<publisher>/<name>` */
-  plugin: string;
-  publisher: string | null;
+  /** the name agents, settings and reviews know it by */
   name: string;
   /** the version new reviews use, such as 1.2.0 */
   version: string;
@@ -113,21 +111,20 @@ export type Plugin = {
   samples?: string[];
   /** why each sample that did not load was dropped */
   sample_errors?: string[];
-  /** how it got here; null for a line kept after its plugin was removed */
+  /** how it got here; null for a bundle loaded for a review */
   install: PluginInstall | null;
 };
 
 /** Where an installed plugin came from, and the bundle new reviews use. */
 export type PluginInstall = {
-  kind: "bundled" | "folder" | "archive" | "link";
+  /** `app` for a plugin the app carries, else a folder or a zip on disk */
+  source_kind: "app" | "folder" | "archive";
+  /** the folder or the zip, as a full path; empty for the app's own */
   source: string;
   /** served live from its folder rather than copied */
-  linked: boolean;
+  link: boolean;
   /** the bundle new reviews render with; null for a link */
   bundle: string | null;
-  /** for a link in a published plugin's place: that plugin's source,
-   *  which removing the link puts back */
-  replaced: { kind: string; source: string } | null;
   /** the bundle's files no longer match its listing */
   modified: boolean;
   installed_at: string;
@@ -140,31 +137,28 @@ export type ReviewView = { url: string; plugin: Plugin };
 
 /** What installing a source would do, as the core reports it before anything runs. */
 export type Inspection = {
-  source: string;
-  link: boolean;
-  /** the full name it would install as */
-  plugin: string;
-  publisher: string;
+  /** the name it would install under */
   name: string;
   version: string;
   title: string;
   icon: string | null;
+  source_kind: "folder" | "archive";
+  /** the folder or the zip, as a full path */
+  source: string;
+  link: boolean;
   /** the files it would take beside a payload; null for none */
   attachments?: AttachmentRules | null;
-  origin: {
-    kind: "folder" | "archive";
-    /** the folder or the zip, as a full path */
-    resolved: string;
-  };
-  /** what is installed under the full name already; `path` is a link's folder */
+  /** what is installed under the name already, which installing replaces */
   installed: {
     version: string;
-    linked: boolean;
-    kind: string;
-    path: string | null;
+    source_kind: "app" | "folder" | "archive";
+    source: string;
+    link: boolean;
     unchanged: boolean;
+    /** whether the sites the plugin may open stay allowed */
+    links_kept: boolean;
   } | null;
-  /** the source is older than what is installed on the same line */
+  /** the source is older than what is installed */
   older: boolean;
 };
 

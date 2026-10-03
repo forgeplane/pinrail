@@ -19,7 +19,7 @@ pub fn markdown(plugin: &Value) -> String {
         .trim_start()
         .replacen("## ", "# ", 1)
         .replace("\n### ", "\n## ");
-    let name = plugin["plugin"].as_str().unwrap_or("<plugin>");
+    let name = plugin["name"].as_str().unwrap_or("<plugin>");
     out.push_str(&format!(
         "\n## Submitting\n\n```sh\n{}\n```\n\nInside a git checkout, the command fills in the project from git. Outside one, add `--origin repo=<project>`.\n\nExit codes, rounds and the rest: `pinrail docs asking`.\n",
         SUBMIT.replace("<plugin>", name)
@@ -111,9 +111,9 @@ pub fn listing(listed: &Value) -> String {
     for plugin in rows {
         let text = |v: &Value| v.as_str().unwrap_or_default().to_string();
         let install = &plugin["install"];
-        let from = if install["kind"] == "bundled" {
+        let from = if install["source_kind"] == "app" {
             "comes with the app".to_string()
-        } else if install["linked"] == true {
+        } else if install["link"] == true {
             format!("linked, {}", text(&install["source"]))
         } else {
             text(&install["source"])
@@ -124,7 +124,7 @@ pub fn listing(listed: &Value) -> String {
         };
         out.push_str(&format!(
             "- {} · {} · {from} · {state}\n",
-            text(&plugin["plugin"]),
+            text(&plugin["name"]),
             text(&plugin["version"]),
         ));
         if let Some(about) = plugin["description"]

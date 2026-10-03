@@ -23,16 +23,11 @@ impl PluginService {
 
     /// Each usable plugin described for an agent, or the one named.
     pub fn describe(&self, name: Option<&str>) -> Result<Value, Error> {
-        let wanted = name
-            .map(|n| self.registry.resolve(n))
-            .transpose()
-            .ok()
-            .flatten();
         let plugins: Vec<Value> = self
             .registry
             .all()
             .iter()
-            .filter(|p| p.usable() && name.is_none_or(|_| wanted.as_deref() == Some(p.full_name())))
+            .filter(|p| p.usable() && name.is_none_or(|n| p.name == n))
             .map(|p| p.describe())
             .collect();
         match name {
@@ -79,7 +74,7 @@ impl PluginService {
                 // the plugin's settings as they stand: defaults under the stored values
                 row["settings"] = p
                     .has_settings()
-                    .then(|| p.effective_settings(&stored[p.full_name()]))
+                    .then(|| p.effective_settings(&stored[&p.name]))
                     .into();
                 row
             })
@@ -87,18 +82,13 @@ impl PluginService {
         json!({ "plugins": plugins })
     }
 
-    /// The folder of a linked plugin, by full name; none for any other.
-    pub fn installed_link(&self, plugin: &str) -> Option<std::path::PathBuf> {
+    /// The folder of a linked plugin, by name; none for any other.
+    pub fn installed_link(&self, name: &str) -> Option<std::path::PathBuf> {
         self.registry
             .installs()
             .into_iter()
-            .find(|i| i.plugin == plugin && i.linked())
-            .map(|i| std::path::PathBuf::from(i.resolved))
-    }
-
-    /// The full name a plugin's name stands for; see [`Registry::resolve`].
-    pub fn resolve(&self, name: &str) -> Result<String, Error> {
-        self.registry.resolve(name)
+            .find(|i| i.name == name && i.linked())
+            .map(|i| std::path::PathBuf::from(i.source))
     }
 
     /// The plugin a review renders with; see [`Registry::fetch_review`].
@@ -157,12 +147,12 @@ impl PluginService {
         self.announce()?;
         let mut row = self
             .registry
-            .get(&record.plugin)
+            .get(&record.name)
             .map(|p| p.to_json())
             .ok_or_else(|| {
                 Error::Internal(format!(
                     "{} was installed and is not registered",
-                    record.plugin
+                    record.name
                 ))
             })?;
         let older = before.as_deref().is_some_and(|before| {

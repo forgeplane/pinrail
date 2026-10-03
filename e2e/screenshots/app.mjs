@@ -186,24 +186,16 @@ function pinDatabase(file, plan) {
   const oldest = Math.max(0, ...entries.map(([, t]) => t.created));
   const installedAt = iso(NOW - oldest - 3_600_000);
   db.prepare("UPDATE plugin_installs SET installed_at = ?, updated_at = ?").run(installedAt, installedAt);
-  // installed from the project's repository at a fixed commit, as a
-  // reader's would be, not copied from this checkout: published by
-  // forgeplane, under that name in every table that names it
-  for (const { plugin, name } of db
-    .prepare("SELECT plugin, name FROM plugin_installs WHERE source_kind <> 'bundled'")
+  // installed from the zip a reader downloads, not copied from this checkout
+  for (const { name, version } of db
+    .prepare(
+      "SELECT i.name, b.version FROM plugin_installs i JOIN plugin_bundles b ON b.hash = i.bundle WHERE i.source_kind <> 'app'",
+    )
     .all()) {
-    const commit = createHash("sha256").update(`pinrail-screenshots-${name}`).digest("hex").slice(0, 40);
-    const official = `forgeplane/${name}`;
-    db.prepare(
-      "UPDATE plugin_installs SET plugin = ?, publisher = 'forgeplane', source_kind = 'git', source = ?, resolved = ?, commit_id = ? WHERE plugin = ?",
-    ).run(
-      official,
-      `github.com/forgeplane/pinrail/plugins/${name}`,
-      JSON.stringify({ url: "https://github.com/forgeplane/pinrail", path: `plugins/${name}`, ref: null }),
-      commit,
-      plugin,
+    db.prepare("UPDATE plugin_installs SET source_kind = 'archive', source = ? WHERE name = ?").run(
+      `/Users/maya/Downloads/${name}-${version}.zip`,
+      name,
     );
-    db.prepare("UPDATE reviews SET plugin = ? WHERE plugin = ?").run(official, plugin);
   }
   // the person deciding is the fixtures' person, not whoever runs this
   db.prepare("UPDATE outcomes SET by = ? WHERE kind IN ('decided', 'discarded')").run(PERSON);

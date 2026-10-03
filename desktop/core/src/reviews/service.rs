@@ -96,13 +96,11 @@ impl Reviews {
     /// review keeps it after the link is gone.
     fn bundle_of(&self, plugin: &crate::plugins::Plugin) -> Result<String, Error> {
         match plugin.install.as_ref() {
-            Some(install) if install.linked => {
-                Ok(self.registry.bundles().store(&plugin.path)?.hash)
-            }
+            Some(install) if install.link => Ok(self.registry.bundles().store(&plugin.path)?.hash),
             Some(install) => install
                 .bundle
                 .clone()
-                .ok_or_else(|| Error::Internal(format!("{} has no bundle", install.plugin))),
+                .ok_or_else(|| Error::Internal(format!("{} has no bundle", plugin.name))),
             None => Err(Error::Internal(format!("{} is not installed", plugin.name))),
         }
     }
@@ -119,7 +117,7 @@ impl Reviews {
         } = self.check(body, Presence::Stored)?;
         let review = Review {
             id: crate::id::next(),
-            plugin: plugin.full_name().to_string(),
+            plugin: plugin.name.clone(),
             plugin_version: plugin.version.clone(),
             plugin_bundle: Some(self.bundle_of(&plugin)?),
             title: attrs["title"].as_str().unwrap_or_default().to_string(),
@@ -533,9 +531,8 @@ impl Reviews {
                     violations.push(Violation::new("/revises", format!("unknown review {id}")));
                 }
                 Some(revised) => {
-                    // named the way an agent names it, in full or alone
                     if let Some(plugin) = attrs.get("plugin").and_then(Value::as_str)
-                        && self.registry.resolve(plugin).ok().as_deref() != Some(revised.as_str())
+                        && plugin != revised
                     {
                         violations.push(Violation::new(
                             "/revises",

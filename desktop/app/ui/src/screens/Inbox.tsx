@@ -9,7 +9,7 @@ import { PluginIcon } from "../components/PluginIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
-import { FilesCount, pluginLabels, shortName, SummaryCounts } from "../components/Badges";
+import { FilesCount, SummaryCounts } from "../components/Badges";
 import { age } from "../lib/format";
 import { clearAll, useUrlParams } from "../lib/url";
 import { useLive } from "../state/live";
@@ -223,7 +223,7 @@ export function Inbox() {
       </span>
       <span className="review-row-plugin" title={review.plugin}>
         <PluginIcon icon={live.pluginIcon(review.plugin)} size={13} />
-        {shortName(review.plugin)}
+        {review.plugin}
       </span>
       <span className="review-row-summary">
         <SummaryCounts summary={review.summary} />
@@ -303,7 +303,7 @@ export function Inbox() {
               { value: "", label: "All plugins", icon: <Blocks size={14} /> },
               ...plugins.map((p) => ({
                 value: p,
-                label: pluginLabels(plugins).get(p) ?? p,
+                label: p,
                 icon: <PluginIcon icon={live.pluginIcon(p)} size={14} />,
               })),
             ]}

@@ -190,12 +190,8 @@ pub fn plugins_result(value: &Value) -> String {
         return all.iter().map(plugins_result).collect();
     }
     // install: the plugin as the app has it
-    let plugin = if value["plugin"].is_object() {
-        &value["plugin"]
-    } else {
-        value
-    };
-    if let Some(name) = plugin["plugin"]
+    let plugin = value;
+    if let Some(name) = plugin["name"]
         .as_str()
         .filter(|_| plugin.get("install").is_some())
     {
@@ -216,10 +212,7 @@ pub fn plugins_result(value: &Value) -> String {
         value["removed"].as_str(),
         value["count"].as_u64(),
     ) {
-        (_, Some(name), ..) => match value["restored"].as_str() {
-            Some(version) => format!("Removed the link: {name} {version} is back.\n"),
-            None => format!("Removed {name}.\n"),
-        },
+        (_, Some(name), ..) => format!("Removed {name}.\n"),
         (_, _, Some(count)) => format!("Reloaded {count} plugins.\n"),
         _ => format!("{value}\n"),
     }

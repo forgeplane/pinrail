@@ -28,22 +28,11 @@ export function PluginBadge({ name, version, icon }: { name: string; version?: s
   return (
     <span className="plugin-badge" title={name}>
       <PluginIcon icon={icon === undefined ? pluginIcon(name) : icon} size={12} strokeWidth={2} />
-      {shortName(name)}
+      {name}
       {version ? <span className="faint">{version}</span> : null}
     </span>
   );
 }
-
-/** A plugin's name without its publisher: `list` for `forgeplane/list`. */
-export const shortName = (plugin: string): string => plugin.slice(plugin.lastIndexOf("/") + 1);
-
-/** Plugins as a menu offers them: each by its name, and in full where two
- *  publishers have a plugin of that name. */
-export const pluginLabels = (plugins: string[]): Map<string, string> => {
-  const count = new Map<string, number>();
-  for (const p of plugins) count.set(shortName(p), (count.get(shortName(p)) ?? 0) + 1);
-  return new Map(plugins.map((p) => [p, (count.get(shortName(p)) ?? 0) > 1 ? p : shortName(p)]));
-};
 
 /** A summary's counts as chips, each in its tone; nothing for none. */
 export function SummaryCounts({ summary }: { summary: Summary | null | undefined }) {

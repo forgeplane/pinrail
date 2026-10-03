@@ -201,7 +201,7 @@ export function ReviewScreen() {
   );
 
   // the plugin's own settings as they stand: its defaults under what was set
-  const stored = plugin ? prefs.plugins[plugin.plugin] : undefined;
+  const stored = plugin ? prefs.plugins[plugin.name] : undefined;
   const pluginSettings = useMemo(() => {
     if (!plugin?.settings_schema) return null;
     const out: Record<string, unknown> = {};
@@ -213,7 +213,7 @@ export function ReviewScreen() {
     async (patch: Record<string, unknown>): Promise<Violation[]> => {
       if (!plugin) return [];
       try {
-        await api.patchSettings({ plugins: { [plugin.plugin]: patch } });
+        await api.patchSettings({ plugins: { [plugin.name]: patch } });
         return [];
       } catch (e) {
         return e instanceof ApiError
@@ -236,7 +236,7 @@ export function ReviewScreen() {
       if (!plugin || asking.current) return;
       const request = linkRequest(url);
       if (!request) return;
-      if (allowedWithoutAsking(request, prefsNow.current.links[plugin.plugin], sourceOf(plugin))) {
+      if (allowedWithoutAsking(request, prefsNow.current.links[plugin.name], sourceOf(plugin))) {
         openExternal(url);
         return;
       }
@@ -253,7 +253,7 @@ export function ReviewScreen() {
       if (!request || !plugin || choice === "cancel") return;
       if (choice === "always" && request.origin) {
         updatePrefs({
-          links: { [plugin.plugin]: allowing(prefsNow.current.links[plugin.plugin], sourceOf(plugin), request.origin) },
+          links: { [plugin.name]: allowing(prefsNow.current.links[plugin.name], sourceOf(plugin), request.origin) },
         });
       }
       openExternal(request.url);

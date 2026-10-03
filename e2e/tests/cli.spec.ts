@@ -123,7 +123,7 @@ test("markdown, the default, prints the decision as prose, and the decision file
   const result = await waiter.done;
   expect(result.code).toBe(0);
   expect(result.stdout).toMatch(
-    /^r_\w+ · decided · markdown please\nforgeplane\/list · acme · review · 42 · decided by [^\n]*\noutcome: 1 accepted, 1 rejected\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/,
+    /^r_\w+ · decided · markdown please\nlist · acme · review · 42 · decided by [^\n]*\noutcome: 1 accepted, 1 rejected\n\n> ship it\n\n## lib\/acme\/tickets\.ex\n\n- \*\*#1 accepted\*\* — do_save dedups without reversing \(major\)\n- \*\*#2 rejected\*\* — moduledoc typo \(minor\)\n {2}> typo is fine\n$/,
   );
 
   const shown = pinrail(["show", id, "--markdown"]);
@@ -136,16 +136,16 @@ test("markdown, the default, prints the decision as prose, and the decision file
 test("plugins install stores a bundle, and a link serves the folder live", async () => {
   const hello = path.resolve(__dirname, "../../plugins/hello");
   const installed = pinrailJson(["plugins", "install", hello]);
-  expect(installed.plugin).toBe("local/hello");
+  expect(installed.name).toBe("hello");
   expect(installed.name).toBe("hello");
   expect(installed.version).toBe("1.0.0");
-  expect(installed.install.linked).toBe(false);
+  expect(installed.install.link).toBe(false);
   expect(installed.install.bundle).toMatch(/^[0-9a-f]{64}$/);
   expect(installed.path).toMatch(new RegExp(`plugins/bundles/${installed.install.bundle}$`));
   expect(fs.existsSync(path.join(installed.path, "manifest.json"))).toBe(true);
 
   const linked = pinrailJson(["plugins", "install", hello, "--link"]);
-  expect(linked.install.linked).toBe(true);
+  expect(linked.install.link).toBe(true);
   expect(linked.path).toBe(hello);
 
   const refused = pinrail(["plugins", "install", path.resolve(__dirname, "..")]);
@@ -157,15 +157,15 @@ test("installing again replaces a plugin, and remove drops the record", async ()
   const hello = path.resolve(__dirname, "../../plugins/hello");
   try {
     const installed = pinrailJson(["plugins", "install", hello]);
-    expect(installed.install.linked).toBe(false);
+    expect(installed.install.link).toBe(false);
     expect(installed.version).toBe("1.0.0");
 
     const linked = pinrailJson(["plugins", "install", hello, "--link"]);
-    expect(linked.install.linked).toBe(true);
+    expect(linked.install.link).toBe(true);
 
     const removed = pinrailJson(["plugins", "remove", "hello"]);
-    expect(removed.removed).toBe("local/hello");
-    expect(removed.linked).toBe(true);
+    expect(removed.removed).toBe("hello");
+    expect(removed.link).toBe(true);
     const names = pinrailJson(["plugins"]).plugins.map((p: any) => p.name);
     expect(names).not.toContain("hello");
     const gone = pinrail(["plugins", "remove", "hello"]);
@@ -183,7 +183,7 @@ test("a plugin pinrail-plugin create wrote installs as a link and decides a revi
     execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir], { stdio: "pipe" });
 
     const linked = pinrailJson(["plugins", "install", dir, "--link"]);
-    expect(linked.plugin).toBe("local/triage");
+    expect(linked.name).toBe("triage");
     expect(linked.version).toBe("0.1.0");
     expect(pinrailJson(["plugins"]).plugins.find((p: any) => p.name === "triage").usable).toBe(true);
 
@@ -280,6 +280,6 @@ test("plugins lists the built-in and the installed sample plugins", async () => 
   // a plugin only installs if it loads, so every one of them is usable
   for (const p of plugins.plugins) expect(p.usable, `${p.name}: ${p.error}`).toBe(true);
   // the three that are developed in place are links; artifact was built and copied
-  const kinds = Object.fromEntries(plugins.plugins.map((p: any) => [p.name, p.install?.linked]));
+  const kinds = Object.fromEntries(plugins.plugins.map((p: any) => [p.name, p.install?.link]));
   expect(kinds).toMatchObject({ email: true, hello: true, review: true, artifact: false });
 });

@@ -14,7 +14,6 @@ const info: Info = {
 
 const plugin = (name: string, more: Partial<Plugin> = {}) =>
   ({
-    plugin: `forgeplane/${name}`,
     name,
     version: "1.2.0",
     line: "1",
@@ -54,8 +53,8 @@ describe("describeDiagnostics", () => {
         "Stored attachments: 27, 1.3 MB",
         "",
         "Plugins (2):",
-        "  forgeplane/artifact 0.3.0 (linked for development)",
-        "  forgeplane/model 1.2.0 (not usable)",
+        "  artifact 0.3.0 (linked for development)",
+        "  model 1.2.0 (not usable)",
         "",
         "Settings:",
         "  Theme: system, text size default",

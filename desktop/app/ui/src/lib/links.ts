@@ -39,7 +39,7 @@ export function linkRequest(url: string): LinkRequest | null {
 
 /** Where a plugin came from, which its link permission is tied to. */
 export const sourceOf = (plugin: Plugin): string =>
-  plugin.install && plugin.install.kind !== "bundled" ? plugin.install.source : "built in";
+  plugin.install && plugin.install.source_kind !== "app" ? plugin.install.source : "built in";
 
 /** Whether the request can open without asking. */
 export function allowedWithoutAsking(

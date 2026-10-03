@@ -59,7 +59,7 @@ async fn validate(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json
     let plugin = state.reviews().validate(&body)?;
     Ok(Json(json!({
         "valid": true,
-        "plugin": plugin.full_name(),
+        "plugin": plugin.name,
         "plugin_version": plugin.version,
     })))
 }
@@ -72,13 +72,7 @@ async fn list(
     State(state): State<Arc<Pinrail>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, ApiError> {
-    let mut filters = filters(&params)?;
-    // a plugin named the way an agent names it, by its name alone
-    if let Some(name) = filters.plugin.as_mut()
-        && let Ok(full) = state.plugins().resolve(name)
-    {
-        *name = full;
-    }
+    let filters = filters(&params)?;
     let mut facets = false;
     if let Some(include) = params.get("include") {
         for name in include.split(',').map(str::trim).filter(|n| !n.is_empty()) {
@@ -192,17 +186,14 @@ async fn view(
         .plugins()
         .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
     let url = match (
-        plugin.install.as_ref().filter(|i| i.linked),
+        plugin.install.as_ref().filter(|i| i.link),
         &review.plugin_bundle,
     ) {
-        (Some(install), _) => format!("/links/{}/view/index.html", install.plugin),
+        (Some(_), _) => format!("/links/{}/view/index.html", review.plugin),
         (None, Some(bundle)) => format!("/bundles/{bundle}/view/index.html"),
         (None, None) => return Err(Error::NotFound(format!("the bundle of review {id}")).into()),
     };
-    let mut plugin = plugin.to_json();
-    // a bundle read by itself is still the review's plugin
-    plugin["plugin"] = Value::String(review.plugin.clone());
-    Ok(Json(json!({ "url": url, "plugin": plugin })))
+    Ok(Json(json!({ "url": url, "plugin": plugin.to_json() })))
 }
 
 async fn rounds(

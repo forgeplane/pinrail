@@ -54,7 +54,7 @@ pub struct Decision {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Review {
     pub id: String,
-    /// the plugin's full name, `forgeplane/list`
+    /// the plugin's name, such as `list`
     pub plugin: String,
     /// the exact version it was submitted to, `1.2.3`
     pub plugin_version: String,
@@ -197,7 +197,7 @@ mod tests {
             attachments: Vec::new(),
             attachments_total: (0, 0),
             id: "r_1".into(),
-            plugin: "forgeplane/list".into(),
+            plugin: "list".into(),
             plugin_version: "1.0.0".into(),
             plugin_bundle: None,
             title: "t".into(),
