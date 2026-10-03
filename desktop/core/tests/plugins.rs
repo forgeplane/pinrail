@@ -127,7 +127,7 @@ async fn an_inspection_and_installs_work_without_http() {
     assert!(notices.try_recv().is_err());
     assert_eq!(db.events_after(0, 10).unwrap().len(), 2);
     let install = db.install("hello").unwrap().unwrap();
-    let bundle = install.bundle.unwrap();
+    let bundle = install.bundle;
     assert_eq!(db.bundle(&bundle).unwrap().unwrap().version, "1.0.1");
 }
 
@@ -427,4 +427,157 @@ async fn a_linked_plugin_follows_its_folder_without_a_reload() {
     std::fs::rename(&moved, &folder).unwrap();
     assert!(app.plugins().reload_if_links_changed().unwrap());
     assert_eq!(listed(&app, "hello")["usable"], true);
+}
+
+/// The bundles stored so far, by hash.
+fn stored(app: &Pinrail) -> Vec<String> {
+    let mut hashes: Vec<String> = std::fs::read_dir(app.config().plugin_bundles_dir())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| !n.starts_with('.'))
+        .collect();
+    hashes.sort();
+    hashes
+}
+
+/// A linked plugin is captured when it is used: a submission after the
+/// folder changed is checked against the folder as it is now, and records
+/// a bundle that holds it, with no reload in between.
+#[tokio::test]
+async fn a_linked_plugin_is_captured_when_it_is_used() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    let row = link(&app, &folder).await.unwrap();
+    // a link has a bundle of its own, from the start
+    let first = row["install"]["bundle"].as_str().unwrap().to_string();
+    let before = app
+        .reviews()
+        .submit(&json!({"plugin": "hello", "title": "Before"}), None)
+        .unwrap();
+    assert_eq!(before.plugin_bundle.as_deref(), Some(first.as_str()));
+
+    // a payload only the new schema takes
+    std::fs::write(
+        folder.join("schemas/payload.schema.json"),
+        json!({"type": "object", "required": ["note"], "properties": {"note": {"type": "string"}}})
+            .to_string(),
+    )
+    .unwrap();
+    let after = app
+        .reviews()
+        .submit(
+            &json!({"plugin": "hello", "title": "After", "payload": {"note": "hi"}}),
+            None,
+        )
+        .unwrap();
+    let second = after.plugin_bundle.clone().unwrap();
+    assert_ne!(second, first);
+    let schema = std::fs::read_to_string(
+        app.config()
+            .plugin_bundles_dir()
+            .join(&second)
+            .join("schemas/payload.schema.json"),
+    )
+    .unwrap();
+    assert!(schema.contains("note"), "{schema}");
+    assert_eq!(listed(&app, "hello")["install"]["bundle"], second);
+    // the earlier review keeps what it was submitted to
+    assert_eq!(
+        app.reviews()
+            .get(&before.id)
+            .unwrap()
+            .plugin_bundle
+            .as_deref(),
+        Some(first.as_str())
+    );
+}
+
+/// A folder that has not changed is stored once, however often its plugin
+/// is used.
+#[tokio::test]
+async fn an_unchanged_linked_folder_is_stored_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    link(&app, &folder).await.unwrap();
+    let bundles = stored(&app);
+    for i in 0..5 {
+        app.plugins().describe(Some("hello")).unwrap();
+        app.reviews()
+            .submit(
+                &json!({"plugin": "hello", "title": format!("Round {i}")}),
+                None,
+            )
+            .unwrap();
+    }
+    assert_eq!(stored(&app), bundles);
+}
+
+/// A linked folder that breaks: describing and submitting are refused with
+/// its problem, the row shows it, and the installation keeps its last good
+/// bundle until the folder is repaired.
+#[tokio::test]
+async fn a_broken_linked_folder_is_refused_until_it_is_repaired() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    let good = link(&app, &folder).await.unwrap()["install"]["bundle"].clone();
+
+    let manifest = folder.join("manifest.json");
+    let text = std::fs::read_to_string(&manifest).unwrap();
+    std::fs::write(&manifest, "{ not json").unwrap();
+    let described = app
+        .plugins()
+        .describe(Some("hello"))
+        .unwrap_err()
+        .to_string();
+    assert!(described.contains("manifest.json"), "{described}");
+    let refused = app
+        .reviews()
+        .submit(&json!({"plugin": "hello", "title": "Broken"}), None)
+        .unwrap_err()
+        .to_string();
+    assert!(refused.contains("manifest.json"), "{refused}");
+    let row = listed(&app, "hello");
+    assert!(
+        row["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("manifest.json"),
+        "{row}"
+    );
+    assert_eq!(row["install"]["bundle"], good);
+
+    std::fs::write(&manifest, &text).unwrap();
+    app.reviews()
+        .submit(&json!({"plugin": "hello", "title": "Repaired"}), None)
+        .unwrap();
+    assert_eq!(listed(&app, "hello")["error"], Value::Null);
+}
+
+/// A capture that nothing refers to any more goes with the sweep.
+#[tokio::test]
+async fn a_capture_nothing_refers_to_is_swept() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    let first = link(&app, &folder).await.unwrap()["install"]["bundle"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    std::fs::write(folder.join("view/index.html"), "<html>second</html>").unwrap();
+    app.plugins().describe(Some("hello")).unwrap();
+    let second = listed(&app, "hello")["install"]["bundle"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_ne!(second, first);
+
+    let later = chrono::Utc::now() + chrono::Duration::hours(2);
+    app.bundles().sweep(later).unwrap();
+    let left = stored(&app);
+    assert!(!left.contains(&first), "the first capture was kept");
+    assert!(left.contains(&second));
 }

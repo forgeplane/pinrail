@@ -73,23 +73,20 @@ pub(crate) fn store_releases(
                 kind: "app".into(),
                 source: String::new(),
                 link: false,
-                bundle: Some(bundle.hash.clone()),
+                bundle: bundle.hash.clone(),
                 installed_at: now.clone(),
                 updated_at: now.clone(),
             },
             Some(install) if install.kind == "app" => {
-                let newer = match &install.bundle {
-                    None => true,
-                    Some(current) => db.bundle(current)?.is_none_or(|current| {
-                        pinrail_format::semver(&bundle.version)
-                            > pinrail_format::semver(&current.version)
-                    }),
-                };
+                let newer = db.bundle(&install.bundle)?.is_none_or(|current| {
+                    pinrail_format::semver(&bundle.version)
+                        > pinrail_format::semver(&current.version)
+                });
                 if !newer {
                     continue;
                 }
                 InstallRecord {
-                    bundle: Some(bundle.hash.clone()),
+                    bundle: bundle.hash.clone(),
                     updated_at: now.clone(),
                     ..install
                 }
@@ -107,8 +104,14 @@ struct RegistryState {
     installs: Vec<InstallRecord>,
     /// Each installation's plugin for new reviews, by name.
     plugins: BTreeMap<String, Arc<Plugin>>,
-    /// Each linked folder as it was when it was read, to tell a change.
-    folders: BTreeMap<String, Vec<(String, u64, u128)>>,
+}
+
+/// What a linked folder was when it was last captured, and why it could not
+/// be, while it cannot.
+#[derive(Debug, Default)]
+struct Captured {
+    seen: Vec<(String, u64, u128)>,
+    problem: Option<String>,
 }
 
 /// The installed plugins, and the bundles reviews render with.
@@ -122,9 +125,11 @@ pub struct Registry {
     /// The plugins of bundles a review asked for, by the bundle's hash: a
     /// bundle never changes.
     by_bundle: Mutex<HashMap<String, Arc<Plugin>>>,
-    /// Held while installations and lines change, so two installs or
-    /// removals of a plugin cannot interleave.
+    /// Held while installations change, so two installs or removals of a
+    /// plugin cannot interleave.
     changes: Mutex<()>,
+    /// Each linked folder as last captured, by name.
+    captured: Mutex<BTreeMap<String, Captured>>,
 }
 
 impl Registry {
@@ -137,6 +142,7 @@ impl Registry {
             state: RwLock::default(),
             by_bundle: Mutex::default(),
             changes: Mutex::default(),
+            captured: Mutex::default(),
         };
         registry.reload()?;
         Ok(registry)
@@ -179,6 +185,7 @@ impl Registry {
     /// The usable plugin new reviews use, or an `invalid` error pointing at
     /// `/plugin`.
     pub fn fetch(&self, name: &str) -> Result<Arc<Plugin>, Error> {
+        self.capture(name)?;
         match self.read().plugins.get(name) {
             Some(p) if p.usable() => Ok(p.clone()),
             Some(p) => Err(Error::invalid(
@@ -233,14 +240,7 @@ impl Registry {
     pub fn reload(&self) -> Result<usize, Error> {
         let installs = self.db.installs()?;
         let mut plugins = BTreeMap::new();
-        let mut folders = BTreeMap::new();
         for install in &installs {
-            if install.linked() {
-                folders.insert(
-                    install.name.clone(),
-                    folder_state(Path::new(&install.source)),
-                );
-            }
             plugins.insert(install.name.clone(), Arc::new(self.load(install)?));
         }
         let mut state = self
@@ -248,39 +248,116 @@ impl Registry {
             .write()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let count = plugins.len();
-        *state = RegistryState {
-            installs,
-            plugins,
-            folders,
-        };
+        *state = RegistryState { installs, plugins };
         Ok(count)
     }
 
-    /// Whether a linked folder changed since it was read: a file the app
-    /// reads from it was added, removed or written, or the folder went or
-    /// came back.
-    pub fn links_changed(&self) -> bool {
-        let state = self.read();
-        state
+    /// Captures a linked plugin's folder when it changed since it was last
+    /// captured: stored as a bundle, which the installation then uses. A
+    /// folder that is not a plugin leaves the installation on its last good
+    /// bundle, and the plugin is listed with the folder's problem until it
+    /// is repaired. Whether anything changed; nothing for a plugin that is
+    /// not linked. An unchanged folder is told by its files' sizes and
+    /// modification times, without reading them.
+    pub fn capture(&self, name: &str) -> Result<bool, Error> {
+        let Some(install) = self
+            .read()
+            .installs
+            .iter()
+            .find(|i| i.name == name && i.linked())
+            .cloned()
+        else {
+            return Ok(false);
+        };
+        let folder = PathBuf::from(&install.source);
+        let seen = folder_state(&folder);
+        let before = {
+            let captured = self.captured.lock().unwrap_or_else(|e| e.into_inner());
+            match captured.get(name) {
+                Some(c) if c.seen == seen => return Ok(false),
+                Some(c) => c.problem.clone(),
+                None => None,
+            }
+        };
+        let _changing = self.changing();
+        let (problem, moved) = match self.store_folder(&folder, name) {
+            Ok(hash) if hash != install.bundle => {
+                self.db.record_install(&InstallRecord {
+                    bundle: hash,
+                    updated_at: crate::reviews::iso(Utc::now()),
+                    ..install
+                })?;
+                (None, true)
+            }
+            Ok(_) => (None, false),
+            Err(why) => (Some(why), false),
+        };
+        let changed = moved || problem != before;
+        self.captured
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name.to_string(), Captured { seen, problem });
+        if changed {
+            self.reload()?;
+        }
+        Ok(changed)
+    }
+
+    /// Captures every linked folder that changed; whether any did.
+    pub fn capture_links(&self) -> Result<bool, Error> {
+        let names: Vec<String> = self
+            .read()
             .installs
             .iter()
             .filter(|i| i.linked())
-            .any(|i| state.folders.get(&i.name) != Some(&folder_state(Path::new(&i.source))))
+            .map(|i| i.name.clone())
+            .collect();
+        let mut changed = false;
+        for name in names {
+            changed |= self.capture(&name)?;
+        }
+        Ok(changed)
     }
 
-    /// The plugin an installation's new reviews use: its linked folder, or
-    /// its current bundle, checked against that bundle's listing. A broken
-    /// one is listed with its error.
+    /// A linked folder stored as a bundle: its hash, or why the folder is
+    /// not the plugin installed under `name`.
+    fn store_folder(&self, folder: &Path, name: &str) -> Result<String, String> {
+        let plugin = Plugin::load(folder);
+        if let Some(why) = plugin.error {
+            return Err(why);
+        }
+        if plugin.name != name {
+            return Err(format!(
+                "the manifest names {}, the installation {name}",
+                plugin.name
+            ));
+        }
+        self.bundles
+            .store(folder)
+            .map(|bundle| bundle.hash)
+            .map_err(|error| match error {
+                Error::Invalid(violations) => violations
+                    .first()
+                    .map(|v| v.message.clone())
+                    .unwrap_or_default(),
+                other => other.to_string(),
+            })
+    }
+
+    /// The plugin an installation's new reviews use: its bundle, checked
+    /// against that bundle's listing. A broken one is listed with its error,
+    /// and a linked one with its folder's problem while it has one.
     fn load(&self, install: &InstallRecord) -> Result<Plugin, Error> {
-        let mut plugin = match (install.linked(), &install.bundle) {
-            (true, _) => Plugin::load(Path::new(&install.source)),
-            (false, Some(bundle)) => Plugin::load(&self.bundles.path(bundle)),
-            (false, None) => {
-                let mut broken = Plugin::load(&self.bundles.path("none"));
-                broken.error = Some("no bundle is installed".into());
-                broken
-            }
-        };
+        let mut plugin = Plugin::load(&self.bundles.path(&install.bundle));
+        if let Some(problem) = self
+            .captured
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&install.name)
+            .and_then(|c| c.problem.clone())
+        {
+            plugin.error = Some(problem);
+        }
         // listed under the installation's name, whatever the folder holds
         if plugin.error.is_none() && plugin.name != install.name {
             plugin.error = Some(format!(
@@ -289,16 +366,12 @@ impl Registry {
             ));
         }
         plugin.name = install.name.clone();
-        let modified = !install.linked()
-            && install
-                .bundle
-                .as_ref()
-                .is_some_and(|b| self.bundles.verify(b).is_err());
+        let modified = self.bundles.verify(&install.bundle).is_err();
         plugin.install = Some(Install {
             source_kind: install.kind.clone(),
             source: install.source.clone(),
             link: install.linked(),
-            bundle: install.bundle.clone(),
+            bundle: Some(install.bundle.clone()),
             modified,
             installed_at: install.installed_at.clone(),
             updated_at: install.updated_at.clone(),
@@ -307,10 +380,9 @@ impl Registry {
     }
 }
 
-/// What the app reads of a linked folder, as each file's path, size and
-/// modification time: the layout's files, without the rest of `view/`,
-/// which is served as it is on each request. Empty for a folder that is
-/// not there.
+/// What a linked folder holds of the layout, as each file's path, size and
+/// modification time, to tell a change without reading the files. Empty
+/// for a folder that is not there.
 fn folder_state(dir: &Path) -> Vec<(String, u64, u128)> {
     fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, u64, u128)>) {
         let Ok(entries) = std::fs::read_dir(dir) else {
@@ -325,7 +397,7 @@ fn folder_state(dir: &Path) -> Vec<(String, u64, u128)> {
                 .replace('\\', "/");
             let wanted = pinrail_format::bundle::holds(&relative)
                 || (pinrail_format::bundle::holds(&format!("{relative}/x")) && path.is_dir());
-            if !wanted || (relative.starts_with("view/") && relative != super::manifest::VIEW) {
+            if !wanted {
                 continue;
             }
             let Ok(meta) = entry.metadata() else {
@@ -363,7 +435,7 @@ mod tests {
         db.installs()
             .unwrap()
             .into_iter()
-            .map(|i| (i.name, i.kind, i.bundle.is_some()))
+            .map(|i| (i.name, i.kind, i.link))
             .collect()
     }
 
@@ -375,8 +447,8 @@ mod tests {
         assert_eq!(
             installs(&db),
             vec![
-                ("feedback".into(), "app".into(), true),
-                ("list".into(), "app".into(), true),
+                ("feedback".into(), "app".into(), false),
+                ("list".into(), "app".into(), false),
             ]
         );
         let list = r.fetch("list").unwrap();
@@ -436,7 +508,7 @@ mod tests {
         let stored = r.bundles().store(&newer).unwrap();
         let install = db.install("list").unwrap().unwrap();
         db.record_install(&InstallRecord {
-            bundle: Some(stored.hash.clone()),
+            bundle: stored.hash.clone(),
             ..install
         })
         .unwrap();
@@ -448,13 +520,15 @@ mod tests {
         assert_eq!(list.install.as_ref().unwrap().bundle, Some(stored.hash));
     }
 
-    fn link(db: &Db, name: &str, folder: &Path) {
+    /// Links a folder that holds a plugin, as an install stores it.
+    fn link(r: &Registry, db: &Db, name: &str, folder: &Path) {
+        let bundle = r.bundles().store(folder).unwrap();
         db.record_install(&InstallRecord {
             name: name.into(),
             kind: "folder".into(),
             source: folder.display().to_string(),
             link: true,
-            bundle: None,
+            bundle: bundle.hash,
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),
         })
@@ -470,17 +544,14 @@ mod tests {
         let r = open(tmp.path(), db.clone());
         let folder = tmp.path().join("list");
         copy_dir(&r.fetch("list").unwrap().path, &folder);
-        link(&db, "list", &folder);
+        link(&r, &db, "list", &folder);
         r.reload().unwrap();
 
         store_bundled(&db, r.bundles()).unwrap();
         r.reload().unwrap();
         let linked = r.fetch("list").unwrap();
         assert!(linked.install.as_ref().unwrap().link);
-        assert_eq!(linked.path, folder);
-        // its reviews render with the folder while it is linked
-        assert_eq!(r.fetch_review("list", None).unwrap().path, folder);
-        assert_eq!(installs(&db)[1], ("list".into(), "folder".into(), false));
+        assert_eq!(installs(&db)[1], ("list".into(), "folder".into(), true));
     }
 
     #[test]
@@ -489,14 +560,15 @@ mod tests {
         let db = Arc::new(Db::in_memory().unwrap());
         let r = open(tmp.path(), db.clone());
         let folder = tmp.path().join("broken");
-        std::fs::create_dir_all(&folder).unwrap();
-        std::fs::write(
-            folder.join("manifest.json"),
-            r#"{"name": "broken", "version": "1.0.0"}"#,
-        )
-        .unwrap();
-        link(&db, "broken", &folder);
+        copy_dir(&r.fetch("list").unwrap().path, &folder);
+        let manifest = folder.join("manifest.json");
+        let text = std::fs::read_to_string(&manifest).unwrap();
+        std::fs::write(&manifest, text.replace("\"list\"", "\"broken\"")).unwrap();
+        link(&r, &db, "broken", &folder);
         r.reload().unwrap();
+        // its view goes from the folder
+        std::fs::remove_file(folder.join("view/index.html")).unwrap();
+        assert!(r.capture("broken").unwrap());
         let broken = r.get("broken").unwrap();
         assert!(!broken.usable());
         assert!(

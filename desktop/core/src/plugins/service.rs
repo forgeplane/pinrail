@@ -23,6 +23,24 @@ impl PluginService {
 
     /// Each usable plugin described for an agent, or the one named.
     pub fn describe(&self, name: Option<&str>) -> Result<Value, Error> {
+        // a linked plugin is described as its folder is now
+        match name {
+            Some(name) => {
+                self.registry.capture(name)?;
+                if let Some(broken) = self.registry.get(name).filter(|p| !p.usable()) {
+                    return Err(Error::invalid(
+                        "/plugin",
+                        format!(
+                            "plugin {name} is not usable: {}",
+                            broken.error.clone().unwrap_or_default()
+                        ),
+                    ));
+                }
+            }
+            None => {
+                self.registry.capture_links()?;
+            }
+        }
         let plugins: Vec<Value> = self
             .registry
             .all()
@@ -104,14 +122,13 @@ impl PluginService {
         Ok(answer)
     }
 
-    /// Reads the plugins again when a linked folder changed, and announces
-    /// it; whether it did. The server asks every second, so a change to a
-    /// plugin being developed applies without a reload.
+    /// Captures each linked folder that changed, and announces it; whether
+    /// any did. The server asks every second, so a change to a plugin being
+    /// developed applies without a reload.
     pub fn reload_if_links_changed(&self) -> Result<bool, Error> {
-        if !self.registry.links_changed() {
+        if !self.registry.capture_links()? {
             return Ok(false);
         }
-        self.registry.reload()?;
         self.announce()?;
         Ok(true)
     }

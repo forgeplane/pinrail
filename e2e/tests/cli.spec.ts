@@ -137,7 +137,6 @@ test("plugins install stores a bundle, and a link serves the folder live", async
   const hello = path.resolve(__dirname, "../../plugins/hello");
   const installed = pinrailJson(["plugins", "install", hello]);
   expect(installed.name).toBe("hello");
-  expect(installed.name).toBe("hello");
   expect(installed.version).toBe("1.0.0");
   expect(installed.install.link).toBe(false);
   expect(installed.install.bundle).toMatch(/^[0-9a-f]{64}$/);
@@ -146,7 +145,9 @@ test("plugins install stores a bundle, and a link serves the folder live", async
 
   const linked = pinrailJson(["plugins", "install", hello, "--link"]);
   expect(linked.install.link).toBe(true);
-  expect(linked.path).toBe(hello);
+  expect(linked.install.source).toBe(hello);
+  // a link holds its folder as a bundle too
+  expect(linked.install.bundle).toMatch(/^[0-9a-f]{64}$/);
 
   const refused = pinrail(["plugins", "install", path.resolve(__dirname, "..")]);
   expect(refused.code).toBe(2);

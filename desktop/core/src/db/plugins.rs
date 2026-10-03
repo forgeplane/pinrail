@@ -16,8 +16,8 @@ pub struct InstallRecord {
     pub source: String,
     /// The folder is followed, not copied.
     pub link: bool,
-    /// The bundle new reviews use; none for a link, which is served live.
-    pub bundle: Option<String>,
+    /// The bundle new reviews use: for a link, its folder as last captured.
+    pub bundle: String,
     pub installed_at: String,
     pub updated_at: String,
 }

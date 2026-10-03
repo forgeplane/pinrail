@@ -127,12 +127,12 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
             muted={muted.includes(p.name)}
             stored={settings.plugins[p.name] ?? {}}
             open={focus === p.name}
-            onReveal={() => reveal(p.path)}
+            onReveal={() => reveal(p.install?.link ? p.install.source : p.path)}
             onNotify={(on) => setNotify(p.name, on)}
             links={allowedOrigins(p)}
             onForgetLink={(origin) => forgetLink(p, origin)}
             onChange={(values) => update({ plugins: { [p.name]: values } })}
-            onCopy={() => setInstalling({ source: p.path })}
+            onCopy={() => setInstalling({ source: p.install?.source ?? p.path })}
             onMessage={notify}
             onOpenReview={onOpenReview}
           />

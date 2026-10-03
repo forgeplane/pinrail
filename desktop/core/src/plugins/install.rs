@@ -178,8 +178,7 @@ fn summarize(
                 .unwrap_or_default();
             let unchanged = !r.linked()
                 && installed_version == version
-                && r.bundle.is_some()
-                && bundle_hash_of(dir).ok() == r.bundle;
+                && bundle_hash_of(dir).ok().as_ref() == Some(&r.bundle);
             Some(serde_json::json!({
                 "version": installed_version,
                 "source_kind": r.kind,
@@ -454,16 +453,9 @@ fn install_dir(
         return Err(Error::invalid("/source", not_a_plugin(why)));
     }
 
-    // a link serves the folder as it is
-    if options.link {
-        let record = record_for(&plugin, &origin, true, None);
-        let _changing = registry.changing();
-        let before = installed_version(registry, &record.name);
-        return Ok((commit(db, registry, record)?, before));
-    }
-
     // what the store takes: the files of the layout, and only those; a
-    // link, which could point anywhere on the machine, is refused
+    // link, which could point anywhere on the machine, is refused. A link
+    // stores its folder as it is now, and follows it from there.
     let bundle = registry
         .bundles()
         .store(&dir)
@@ -481,7 +473,7 @@ fn install_dir(
             other => other,
         })?;
     let _changing = registry.changing();
-    let record = record_for(&plugin, &origin, false, Some(bundle.hash.clone()));
+    let record = record_for(&plugin, &origin, options.link, bundle.hash.clone());
     let before = installed_version(registry, &record.name);
     Ok((commit(db, registry, record)?, before))
 }
@@ -514,12 +506,7 @@ fn not_a_plugin(why: &str) -> String {
 
 /// The installation a source makes, with `bundle` the one new reviews use;
 /// none for a link.
-fn record_for(
-    plugin: &Plugin,
-    origin: &Origin,
-    link: bool,
-    bundle: Option<String>,
-) -> InstallRecord {
+fn record_for(plugin: &Plugin, origin: &Origin, link: bool, bundle: String) -> InstallRecord {
     let now = crate::reviews::iso(Utc::now());
     InstallRecord {
         name: plugin.name.clone(),

@@ -91,12 +91,10 @@ impl Reviews {
         self.submit_once(body, actor).map(|(review, _)| review)
     }
 
-    /// The bundle a new review records: the installed release, or for a
-    /// linked plugin the folder as it is now, stored as a bundle so the
-    /// review keeps it after the link is gone.
+    /// The bundle a new review records: the installed one, which for a
+    /// linked plugin is its folder as it was captured when it was fetched.
     fn bundle_of(&self, plugin: &crate::plugins::Plugin) -> Result<String, Error> {
         match plugin.install.as_ref() {
-            Some(install) if install.link => Ok(self.registry.bundles().store(&plugin.path)?.hash),
             Some(install) => install
                 .bundle
                 .clone()

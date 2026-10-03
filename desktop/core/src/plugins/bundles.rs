@@ -259,7 +259,7 @@ mod tests {
             kind: "folder".into(),
             source: "/hello".into(),
             link: false,
-            bundle: Some(bundle.hash.clone()),
+            bundle: bundle.hash.clone(),
             installed_at: "2026-10-01T10:00:00Z".into(),
             updated_at: "2026-10-01T10:00:00Z".into(),
         };
