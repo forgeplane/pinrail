@@ -40,19 +40,13 @@ Attachments are only displayed inside a view's sandbox, whatever they contain. T
 
 ## What installing a plugin runs
 
-Installing is where code from someone else can run on your machine, and it depends on the source.
+Installing a plugin runs nothing. Pinrail installs a plugin from a folder or a zip on your computer: it copies the plugin's static files into its store and checks them, and it downloads nothing. A plugin whose view is made with a build tool is built before it is installed, by its author or by you.
 
-| You install from | What runs |
-|---|---|
-| A **GitHub release** | Nothing. Pinrail downloads the prebuilt bundle and serves it. |
-| A **folder or repository** without a build | Nothing. Pinrail copies the files. |
-| A **folder or repository** that declares a build | The build command, such as `npm ci && npm run build`, on your machine, as you. |
-
-:::caution[A build is code you run]
-`npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Pinrail shows you the exact command before anything runs, for an install and for an update, and runs it only when you confirm. It installs exactly the commit or release it showed you. On the command line, the `--yes` option confirms a build in advance. Releases are not signed and publishers are not vetted, so install plugins only from people and repositories whose code you would run.
+:::caution[Building a plugin runs code]
+If you build a plugin yourself, for example with `npm ci && npm run build`, that build runs on your machine as you: `npm ci` runs the install scripts of every package in the dependency tree, and the build runs whatever the plugin's package says. Plugins and their zips are not signed, and publishers are not vetted, so install plugins only from people whose code you would run.
 :::
 
-After installation, a built plugin consists only of static files, and its view runs in the same sandbox as any other.
+After installation, a plugin consists only of static files, and its view runs in the same sandbox as any other.
 
 ## What the agent can do
 

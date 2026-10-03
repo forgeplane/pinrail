@@ -58,12 +58,12 @@ docker exec -u pinrail pinrail-linux pinrail plugins install /work/plugins/revie
 docker exec -u pinrail pinrail-linux pinrail submit review --sample
 ```
 
-A plugin with a build step, such as `artifact` or `model`, needs `--yes`
-to run its build without a terminal prompt, and the network to fetch its
-packages:
+A plugin with a build step, such as `artifact`, is built before it is
+installed, which needs the network to fetch its packages:
 
 ```sh
-docker exec -u pinrail pinrail-linux pinrail plugins install /work/plugins/artifact --yes
+docker exec -u pinrail -w /work/plugins/artifact pinrail-linux sh -c 'npm ci && npm run build'
+docker exec -u pinrail pinrail-linux pinrail plugins install /work/plugins/artifact
 ```
 
 ## Try a change

@@ -16,8 +16,7 @@ A plugin with a view of a screen or two needs no framework and no build: an HTML
 ## What the app needs from a build
 
 - **An HTML page at `view/index.html`.** The build writes the page there, and the page's scripts and styles beside it in `view/`.
-- **A `build` command in the manifest**, such as `npm ci && npm run build`. Installing from a folder or a repository runs it, after showing it to the person. A plugin linked for development (`--link`) is served as it is, so build it yourself first.
-- **A build that finishes by itself.** Pinrail gives the build no input, so a step that asks a question fails at once. Pinrail also stops any build that runs longer than 15 minutes. Everything the build writes, to stdout or stderr, goes to its log.
+- **A build you run before installing.** Pinrail installs a plugin as it is and runs nothing, so run the build, such as `npm run build`, before you install or link the folder, and before you zip it for a release. The release workflow of [Publishing a plugin](/docs/building/publishing/) runs it for you.
 - **Relative paths.** The app serves the plugin under a path of its own, so the build must refer to its files relatively: with Vite, `base: "./"`.
 - **The SDK from the app.** Load `/sdk/v1/pinrail-plugin.js` and its stylesheet with tags in the page; don't bundle them. The package gives your code the types: `@forgeplane/pinrail-plugin/types`.
 - **Everything else bundled.** The frame loads nothing from the network, so the framework itself, fonts and images go into the build.
@@ -83,7 +82,7 @@ npm test                   # build, then the tests under the harness
 :::
 
 :::note[pinrail-plugin check: what the app would say]
-`pinrail-plugin check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. A missing `view/index.html` is accepted while a declared build has not yet run, because the build writes it. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
+`pinrail-plugin check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. Run the build first, so that `view/index.html` is there. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
 :::
 
 A test mounts the built view alone and drives it the way a person would. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:
@@ -97,7 +96,7 @@ npm run build
 pinrail plugins install . --link
 ```
 
-A link serves the folder as it is, so rebuild as you change it. Installing without `--link` copies the folder and runs the manifest's `build` in the copy, the way someone else installs your plugin from its repository.
+A link serves the folder as it is, so rebuild as you change it, or keep `npm run watch` running. Installing without `--link` copies the built folder into the app, without its sources.
 
 ## Things to know
 

@@ -23,8 +23,10 @@ It works with any forge. The agent maps its pull or merge request into the paylo
 
 ## Install
 
+Download `review-<version>.zip` from the plugin's latest release on [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), then install it:
+
 ```sh
-pinrail plugins install github.com/forgeplane/pinrail/plugins/review
+pinrail plugins install ~/Downloads/review-<version>.zip
 ```
 
 ## What you see

@@ -49,7 +49,7 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 
 Every installed plugin has a row with its icon, its title and whether it is ready. When a plugin is broken, hover over **broken** to see why. Every row has a **Notify** button, which turns notifications for that plugin's reviews on or off. The other buttons on a row depend on how the plugin was installed:
 
-- An installed copy has **Check for updates** and **Remove**.
+- An installed copy has **Remove**. To upgrade it, install the new version.
 - A linked folder has **Install a copy** and **Remove**.
 - A built-in plugin has neither.
 - In the app, every row also has **Show in Finder**, or **Show in the file manager** on Linux.
@@ -58,7 +58,7 @@ See [Installing plugins](/docs/using/installing-plugins/) for what each of them 
 
 Click a row to open its details:
 
-- **Version** and **Source**: the version installed, and the folder, repository or release it came from.
+- **Version** and **Source**: the version installed, and the folder or zip it came from.
 - **Files**: the files the plugin takes beside a review, for a plugin that takes any.
 - **Opens without asking**: the sites whose links the plugin may open without asking you first. You allow a site from the question Pinrail shows when a plugin wants to open a link. Remove a site with its ✕. Removing the plugin, or installing it again from a different source, removes all of them.
 - **Send a sample**: sends the review the plugin ships to show itself, and opens it. Plugins without a sample don't have the button.

@@ -6,11 +6,16 @@ the view the person decides in.
 
 Two plugins are built into the app: `list` and `feedback`. The app carries
 them in its binary, so they are always available. The others are optional,
-and are installed one at a time:
+and are installed one at a time, from a plugin's zip on a release or from
+its folder here:
 
 ```sh
-pinrail plugins install github.com/forgeplane/pinrail/plugins/review
+pinrail plugins install ~/Downloads/review-1.2.0.zip
+pinrail plugins install ./plugins/review
 ```
+
+`artifact` and `model` have a build step: run `npm ci && npm run build` in
+their folder before installing it.
 
 | Plugin | For |
 |---|---|
@@ -64,10 +69,8 @@ When a plugin is installed, only `manifest.json`, `icon.svg`, `README.md`,
 are copied into the app, without hidden files.
 
 A plugin's view always runs in a sandbox, however the plugin was
-installed. Installing from a source that needs a build runs the build
-command on the person's computer with their permissions, while installing
-a release runs nothing. See [What runs where](../docs/concepts/trust.md)
-for details.
+installed, and installing a plugin runs nothing. See
+[What runs where](../docs/concepts/trust.md) for details.
 
 ## Tests
 
@@ -98,11 +101,11 @@ cd desktop && UPDATE_FIXTURES=1 cargo test -p pinrail-core --lib decided_fixture
 
 A tag named `plugin-<name>-v<version>`, such as `plugin-review-v1.2.0`, runs
 [`plugin-release.yml`](../.github/workflows/plugin-release.yml). It builds
-the plugin when its manifest declares a build, checks that the manifest's
-version matches the tag, and attaches the bundle, `<name>-<version>.zip`, to
-a GitHub release of the same tag. People can then install the plugin without
-building it:
+the plugin when its `package.json` has a `build` script, checks that the
+manifest's version matches the tag, and attaches the bundle,
+`<name>-<version>.zip`, to a GitHub release of the same tag. People can then
+download the zip and install the plugin without building it:
 
 ```sh
-pinrail plugins install https://github.com/forgeplane/pinrail/releases/tag/plugin-review-v1.2.0
+pinrail plugins install ~/Downloads/review-1.2.0.zip
 ```

@@ -19,6 +19,7 @@ it: the comment is pinned to the point you clicked.
 ## Asking
 
 ```sh
+(cd plugins/model && npm ci && npm run build)
 pinrail plugins install ./plugins/model
 pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
   --attach out/pivot.glb --attach out/column.glb --wait
@@ -81,8 +82,8 @@ submit with `--revises <id>`: each model shows the verdict it had last time.
 
 ## Developing
 
-`npm ci && npm run build` bundles three.js into `view/vendor/`, which the app
-does on install. `npm run fixture` writes the Halden lamps again, as GLB files
+`npm ci && npm run build` bundles three.js into `view/vendor/`; run it before
+you install or link the folder. `npm run fixture` writes the Halden lamps again, as GLB files
 in `fixtures/halden/` with the fixtures that name them.
 `mise run dev:plugin plugins/model` opens the view in a browser on the
 fixtures, without the app; its tests run with the other samples':

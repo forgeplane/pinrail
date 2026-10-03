@@ -40,8 +40,8 @@ payload carries everything the view shows.
 
 Bump `version` in the manifest, tag `v<version>` and push the tag:
 `.github/workflows/release.yml` attaches `__NAME__-<version>.zip` to a GitHub
-release, and anyone installs it with
+release. Anyone downloads the zip and installs it with
 
 ```sh
-pinrail plugins install https://github.com/<owner>/<repo>/releases/latest
+pinrail plugins install ~/Downloads/__NAME__-<version>.zip
 ```

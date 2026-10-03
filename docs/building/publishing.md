@@ -1,18 +1,18 @@
 ---
 title: Publishing a plugin
-description: "Publish a plugin as a GitHub release that anyone can install without a toolchain."
+description: "Publish a plugin as a zip on a GitHub release that anyone can install without a toolchain."
 ---
 
-The best way to share a plugin is a GitHub release with the built bundle attached. People install it with one command, Pinrail downloads the bundle and serves it as it is, and nothing is built or run on their machine.
+The best way to share a plugin is a zip of its built bundle, attached to a GitHub release. People download the zip and install it with one command. Pinrail stores the bundle as it is, and nothing is built or run on their machine.
 
 ```sh
-pinrail plugins install https://github.com/acme/ticket-triage/releases
+pinrail plugins install ~/Downloads/ticket-triage-1.2.0.zip
 ```
 
 ## What a release needs
 
-- **One `.zip` that is the bundle.** It holds `manifest.json`, the schemas and the view, either at the root of the archive or inside a single folder, the way most zip tools lay it out. If you attach several zips, name the bundle `pinrail-plugin.zip`.
-- **A tag that matches the manifest's version**, with or without a leading `v`. A release tagged `v1.2.0` whose manifest says `1.1.0` is refused. A repository that releases several plugins can put the plugin's name before the version, as in `review-v1.2.0`. Pinrail then checks for updates only among the releases whose tags start with the same name.
+- **One `.zip` that is the bundle.** It holds `manifest.json`, the schemas and the built view, either at the root of the archive or inside a single folder, the way most zip tools lay it out.
+- **A tag that matches the manifest's version**, with or without a leading `v`, so that people can tell which version a release holds.
 - **The Pinrail it needs.** When your plugin relies on something a newer Pinrail adds, say so in the manifest, as `"pinrail": ">=0.2"`. An older app then refuses the plugin and tells the person which version to install, instead of loading a plugin that does not work.
 - **No symbolic links.** Pinrail refuses to install a plugin whose files include one, because a link can point anywhere on the person's computer.
 - **Only what the app serves.** Leave out sources, tests, fixtures, `node_modules` and tool configuration. Anything else in the zip is served with the view.
@@ -35,7 +35,7 @@ flowchart LR
   R --> I(["pinrail plugins install"]):::you
 ```
 
-The workflow checks the version, runs the manifest's `build` command when there is one, zips the bundle as `<name>-<version>.zip`, and attaches it to a release of the same tag. It handles tags of the form `v<version>` only. A repository that puts the plugin's name before the version needs to change the tag pattern and the way the version is read from the tag.
+The workflow checks the version, runs `npm ci && npm run build` when `package.json` has a `build` script, zips the bundle as `<name>-<version>.zip`, and attaches it to a release of the same tag. It handles tags of the form `v<version>` only. A repository that puts the plugin's name before the version needs to change the tag pattern and the way the version is read from the tag.
 
 ```yaml title=".github/workflows/release.yml"
 name: release
@@ -68,10 +68,11 @@ jobs:
           echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           declared=$(node -e 'process.stdout.write(require("./manifest.json").version)')
           test "$declared" = "${GITHUB_REF_NAME#v}" || { echo "manifest says $declared, tag says ${GITHUB_REF_NAME#v}"; exit 1; }
-      - name: Build when the manifest declares a build
+      - name: Build when the package has a build script
         run: |
-          command=$(node -e 'const m=require("./manifest.json"); process.stdout.write(m.build?.command ?? "")')
-          if [ -n "$command" ]; then sh -c "$command"; fi
+          if [ -f package.json ] && node -e 'process.exit(require("./package.json").scripts?.build ? 0 : 1)'; then
+            npm ci && npm run build
+          fi
       - name: The bundle, and nothing else
         run: |
           zip -r "$PLUGIN-$VERSION.zip" . \
@@ -92,9 +93,9 @@ Raise `version` in `manifest.json`, commit, then tag. The workflow fails fast wh
 
 The recipe is three steps, in any CI or by hand:
 
-1. **Build**, if the manifest declares a `build` command.
+1. **Build** the view, if the plugin has a build step.
 2. **Zip** the folder without its sources, tests, fixtures, `node_modules` and dot-files.
-3. **Attach** the zip to a GitHub release whose tag is the manifest's version.
+3. **Publish** the zip, for example on a GitHub release whose tag is the manifest's version.
 
 ## Choosing the version
 
@@ -113,14 +114,14 @@ pinrail plugins check . --since ../previous-release
 
 The command lists what the new schemas no longer accept, such as a removed property, a newly required one or a changed `type`, and exits with `2` when the version does not announce the break. See [Versions](/docs/building/writing/#versions) for the full rule.
 
-## How people install and update it
+## How people install and upgrade it
 
-| They install from | They get |
-|---|---|
-| `https://github.com/<owner>/<repo>/releases` | The repository's latest release. *Check for updates* compares its tag with what is installed. |
-| `https://github.com/<owner>/<repo>/releases/tag/v1.2.0` | That release, pinned. A tag that is only a version is pinned, and update checks leave it where it is. |
-| `https://github.com/<owner>/<repo>/releases/tag/review-v1.2.0` | That release, followed. A tag with the plugin's name before the version installs that release, and update checks then offer newer releases of the same plugin. |
+People download the zip and install it from disk:
 
-A repository that releases several plugins has one latest release for all of them, so people should install each plugin from a tag URL rather than from `/releases`.
+```sh
+pinrail plugins install ~/Downloads/ticket-triage-1.2.0.zip
+```
 
-Publish the install command in your README, next to a screenshot of the view. That is usually all someone needs to decide whether to try it.
+To upgrade, they download the zip of the new version and install it the same way. It replaces the installed version for new reviews, and the reviews already made keep the version they were made with.
+
+Publish the download link and the install command in your README, next to a screenshot of the view. That is usually all someone needs to decide whether to try it.

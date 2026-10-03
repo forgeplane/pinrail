@@ -37,7 +37,7 @@ The app suites run the app's UI from Vite against a headless server
 | `shell/palette.spec.ts` | the command palette finds reviews of every status |
 | `shell/sidebar.spec.ts` | the sidebar's list of waiting reviews, and moving through it with ⌥↓ |
 | `shell/settings-data.spec.ts` | the data settings: how long history is kept, and the port |
-| `shell/settings-plugins.spec.ts` | the plugins settings: installing from a folder, with the build command shown for consent |
+| `shell/settings-plugins.spec.ts` | the plugins settings: installing from a folder, and refusing one whose view is not built |
 | `shell/theme.spec.ts` | ⌘⇧L switches the theme, and T is left to plugins |
 | `shell/conformance.spec.ts` | the app and the preview host a view as the protocol describes, and a decision that arrives after moving on stays with its review |
 | `shell/frame-navigation.spec.ts` | a view that leaves its page is no longer answered, and the frame shows only Pinrail's own server |

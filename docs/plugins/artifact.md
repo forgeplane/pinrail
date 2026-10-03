@@ -22,12 +22,14 @@ The artifact plugin is for reviewing something an agent designed: a landing page
 
 ## Install
 
+Download `artifact-<version>.zip` from the plugin's latest release on [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), then install it:
+
 ```sh
-pinrail plugins install github.com/forgeplane/pinrail/plugins/artifact
+pinrail plugins install ~/Downloads/artifact-<version>.zip
 ```
 
 :::note
-This plugin's view is built with Vite, so installing it from a folder or a repository runs `npm ci && npm run build` on your machine, and Pinrail shows you the command first. Installing from a release needs no build.
+This plugin's view is built with Vite. The zip on the release holds the built view. To install the plugin from a clone of the repository instead, build it first with `npm ci && npm run build` in `plugins/artifact`.
 :::
 
 ## What you see

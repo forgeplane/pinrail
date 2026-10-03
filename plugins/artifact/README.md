@@ -73,14 +73,13 @@ npm run watch      # rebuild on change, with the folder linked (below)
 npm test           # the plugin's own tests under the SDK harness
 ```
 
-Installing it runs the build for you: the manifest declares
-`"build": { "command": "npm ci && npm run build" }`, and only the bundle
-enters the app's store.
+Build it before you install it: Pinrail installs a plugin as it is and
+runs nothing, and only the bundle enters the app's store.
 
 ## Trying it
 
 ```sh
-pinrail plugins install ./plugins/artifact           # builds, then copies the bundle into the store
+pinrail plugins install ./plugins/artifact           # copies the built bundle into the store
 pinrail plugins install ./plugins/artifact --link    # or serve the folder live while working on it
 pinrail submit artifact --title "Landing page — first draft" \
   --data <(jq .payload plugins/artifact/fixtures/landing.json) --wait

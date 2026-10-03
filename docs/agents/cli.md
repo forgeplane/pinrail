@@ -222,11 +222,10 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail discard <id>` | Discard a pending review. Its waiter exits 5. |
 | `pinrail export <dir>` | Write every review as JSON files under a directory. |
 | `pinrail serve` | Start the app's server if it is not running, and print its URL. |
-| `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install, update or remove](/docs/using/installing-plugins/) them. |
+| `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install or remove](/docs/using/installing-plugins/) them. |
 | `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
-| `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. A plugin whose build writes its view is checked before that build runs, with a warning that the build has to write the entry. It needs no running app. |
+| `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. Exits 0 when it would take it, 2 when not. Build a plugin that has a build step first, so that its view is there. It needs no running app. |
 | `pinrail plugins describe <name>` | What an agent needs to ask with a plugin; `--payload-schema`, `--example` or `--decision-schema` for one part alone. See [Learning what to ask](#learning-what-to-ask). |
-| `pinrail plugins rollback <name>` | Makes the release the last update replaced the one new reviews use, within a week of the update. |
 | `pinrail plugins reload` | Read every plugin again from disk. Pinrail reads a linked plugin's folder again by itself when it changes. |
 | `pinrail docs [path]` | The briefs for an agent: how to ask, and how to build a plugin. `--tree` lists them all. |
 

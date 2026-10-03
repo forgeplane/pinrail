@@ -54,9 +54,9 @@ and decision is kept, so history can be reopened and rendered again.
 
 A plugin defines one kind of review: the payload an agent sends, the
 decision you give back, and the view you decide in. Two plugins are built
-into the app, `list` and `feedback`. The other official plugins are optional,
-and you install the ones you need with
-`pinrail plugins install github.com/forgeplane/pinrail/plugins/<name>`.
+into the app, `list` and `feedback`. The other official plugins are optional:
+download the zip of the ones you need from the releases page, and install
+each with `pinrail plugins install <zip>`.
 Anyone can write a plugin for what their agents do, such as triaging alerts,
 approving a deploy or choosing between designs, and share it for others to
 install.

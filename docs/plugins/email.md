@@ -23,8 +23,10 @@ It works with any mail provider. The agent maps its mailbox into the payload and
 
 ## Install
 
+Download `email-<version>.zip` from the plugin's latest release on [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), then install it:
+
 ```sh
-pinrail plugins install github.com/forgeplane/pinrail/plugins/email
+pinrail plugins install ~/Downloads/email-<version>.zip
 ```
 
 ## What you see

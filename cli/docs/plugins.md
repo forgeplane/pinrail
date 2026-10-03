@@ -26,9 +26,7 @@ the command is refused with both full names, and you give one of them.
 
 If none returns the decision you need, build one for the task:
 `pinrail docs plugins/building`. Installing someone else's plugin,
-updating or removing plugins is the person's call: do it only when they
-ask (`pinrail plugins install <folder or GitHub URL>`,
-`pinrail plugins update`, `pinrail plugins remove <name>`). A plugin
-that runs a build is refused unless the build is confirmed: show the
-person the build command the refusal names, and add `--yes` only once
-they approve it.
+upgrading it or removing it is the person's call: do it only when they
+ask (`pinrail plugins install <folder or zip>`,
+`pinrail plugins remove <name>`). Installing runs nothing; a plugin
+with a build step is built before it is installed.

@@ -24,7 +24,7 @@ pinrail submit __NAME__ --sample --wait
 ## Layout
 
 ```
-manifest.json       name, version, title, and the build command
+manifest.json       name, version and title
 src/                index.html, main.tsx and App.tsx: the view in React, typed against pinrail-plugin/types
 view/               the build; the app serves it in a sandboxed frame (not versioned)
 schemas/            payload and decision, JSON Schema 2020-12
@@ -40,11 +40,11 @@ payload carries everything the view shows, and the build bundles the rest into `
 
 Bump `version` in the manifest, tag `v<version>` and push the tag:
 `.github/workflows/release.yml` builds, then attaches `__NAME__-<version>.zip`
-to a GitHub release, and anyone installs it with
+to a GitHub release. Anyone downloads the zip and installs it with
 
 ```sh
-pinrail plugins install https://github.com/<owner>/<repo>/releases/latest
+pinrail plugins install ~/Downloads/__NAME__-<version>.zip
 ```
 
-Installing from the source folder or its git URL runs the manifest's
-`build.command` instead, on the person's machine.
+Pinrail installs a plugin as it is and runs nothing, so build the view
+with `npm run build` before you install or link this folder.
