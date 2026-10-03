@@ -176,8 +176,9 @@ async fn show(
 /// Opens a review for the app's frame: a pending review first moves to the
 /// version of its plugin installed now, when that version takes it. The
 /// answer is the plugin it renders with, the bundle and the address of its
-/// view, which never changes and is cached, and `refused` when the
-/// installed version does not take the review, saying why.
+/// view, which never changes and is cached, the bundle the installation
+/// holds now, and `refused` when the installed version does not take the
+/// review, saying why.
 async fn view(
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
@@ -192,6 +193,7 @@ async fn view(
         "plugin": opened.plugin.to_json(),
         "review": opened.review.to_json(true),
         "refused": opened.refused,
+        "installed": opened.installed,
     })))
 }
 

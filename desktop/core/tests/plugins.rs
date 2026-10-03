@@ -367,7 +367,7 @@ async fn a_sample_is_sent_as_a_review_with_its_files() {
 }
 
 /// A linked plugin follows its folder: a change to its manifest or a schema
-/// applies at the next look, without a reload, a broken manifest shows on
+/// applies the next time the plugin is used, without a reload, a broken manifest shows on
 /// its row until it is repaired, and the folder can go and come back.
 #[tokio::test]
 async fn a_linked_plugin_follows_its_folder_without_a_reload() {
@@ -390,6 +390,8 @@ async fn a_linked_plugin_follows_its_folder_without_a_reload() {
     )
     .unwrap();
     assert!(app.plugins().reload_if_links_changed().unwrap());
+    // noticed by the check, stored when the plugin is next used
+    app.plugins().describe(None).unwrap();
     assert_eq!(listed(&app, "hello")["title"], "Hello again");
     assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
 
@@ -400,6 +402,8 @@ async fn a_linked_plugin_follows_its_folder_without_a_reload() {
     )
     .unwrap();
     assert!(app.plugins().reload_if_links_changed().unwrap());
+    // noticed by the check, stored when the plugin is next used
+    app.plugins().describe(None).unwrap();
     let refused = app
         .reviews()
         .submit(&json!({"plugin": "hello", "title": "No message"}), None);
@@ -408,18 +412,26 @@ async fn a_linked_plugin_follows_its_folder_without_a_reload() {
     // broken, then repaired
     std::fs::write(&manifest, "{ not json").unwrap();
     assert!(app.plugins().reload_if_links_changed().unwrap());
+    // noticed by the check, stored when the plugin is next used
+    app.plugins().describe(None).unwrap();
     assert!(listed(&app, "hello")["error"].is_string());
     std::fs::write(&manifest, &text).unwrap();
     assert!(app.plugins().reload_if_links_changed().unwrap());
+    // noticed by the check, stored when the plugin is next used
+    app.plugins().describe(None).unwrap();
     assert_eq!(listed(&app, "hello")["error"], Value::Null);
 
     // the folder goes, and comes back
     let moved = dir.path().join("aside");
     std::fs::rename(&folder, &moved).unwrap();
     assert!(app.plugins().reload_if_links_changed().unwrap());
+    // noticed by the check, stored when the plugin is next used
+    app.plugins().describe(None).unwrap();
     assert!(listed(&app, "hello")["error"].is_string());
     std::fs::rename(&moved, &folder).unwrap();
     assert!(app.plugins().reload_if_links_changed().unwrap());
+    // noticed by the check, stored when the plugin is next used
+    app.plugins().describe(None).unwrap();
     assert_eq!(listed(&app, "hello")["usable"], true);
 }
 
@@ -613,6 +625,8 @@ async fn a_pending_review_moves_to_the_folder_when_it_is_opened() {
         opened.plugin.describe()["decision_schema"]["required"],
         json!(["verdict"])
     );
+    // the folder stored as it is, then the review moved to it
+    assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
     let moved = notices.try_recv().unwrap();
     assert_eq!(moved.kind, events::PLUGIN_CHANGED);
     assert_eq!(moved.review_id.as_deref(), Some(review.id.as_str()));
@@ -760,4 +774,62 @@ async fn an_update_moves_the_pending_reviews_it_takes() {
     copy(&app, &later).await.unwrap();
     let ended = app.reviews().open(&review.id).unwrap();
     assert_eq!(ended.review.plugin_version, "1.2.0");
+}
+
+/// The check of linked folders notices a change and says so, storing
+/// nothing; the plugin is stored once, when it is next used, however many
+/// changes came before.
+#[tokio::test]
+async fn changes_to_a_linked_folder_are_stored_once_when_it_is_used() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
+    link(&app, &folder).await.unwrap();
+    let bundles = stored(&app);
+    assert!(
+        !app.plugins().reload_if_links_changed().unwrap(),
+        "nothing changed"
+    );
+    assert_eq!(listed(&app, "hello")["install"]["folder_changed"], false);
+
+    let mut notices = app.events().subscribe();
+    for i in 0..4 {
+        std::fs::write(folder.join("view/index.html"), format!("<html>{i}</html>")).unwrap();
+        // a later modification time, as each save gives
+        let file = std::fs::File::options()
+            .write(true)
+            .open(folder.join("view/index.html"))
+            .unwrap();
+        file.set_modified(std::time::SystemTime::now() + std::time::Duration::from_secs(i + 1))
+            .unwrap();
+        assert!(
+            app.plugins().reload_if_links_changed().unwrap(),
+            "change {i}"
+        );
+        assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
+        assert!(
+            !app.plugins().reload_if_links_changed().unwrap(),
+            "said once"
+        );
+    }
+    assert_eq!(stored(&app), bundles, "the check stored a copy");
+    assert_eq!(listed(&app, "hello")["install"]["folder_changed"], true);
+
+    app.plugins().describe(Some("hello")).unwrap();
+    let after = stored(&app);
+    assert_eq!(
+        after.len(),
+        bundles.len() + 1,
+        "one copy for all the changes"
+    );
+    let row = listed(&app, "hello");
+    assert_eq!(row["install"]["folder_changed"], false);
+    let view = std::fs::read_to_string(
+        app.config()
+            .plugin_bundles_dir()
+            .join(row["install"]["bundle"].as_str().unwrap())
+            .join("view/index.html"),
+    )
+    .unwrap();
+    assert_eq!(view, "<html>3</html>");
 }

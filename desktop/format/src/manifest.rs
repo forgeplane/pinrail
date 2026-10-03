@@ -83,6 +83,9 @@ pub struct Install {
     pub bundle: Option<String>,
     /// the bundle's files no longer match its listing
     pub modified: bool,
+    /// a linked folder changed since it was last stored: the next use of
+    /// the plugin stores it
+    pub folder_changed: bool,
     pub installed_at: String,
     pub updated_at: String,
 }
@@ -95,6 +98,7 @@ impl Install {
             "link": self.link,
             "bundle": self.bundle,
             "modified": self.modified,
+            "folder_changed": self.folder_changed,
             "installed_at": self.installed_at,
             "updated_at": self.updated_at,
         })

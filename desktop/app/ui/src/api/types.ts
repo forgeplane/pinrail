@@ -127,6 +127,8 @@ export type PluginInstall = {
   bundle: string | null;
   /** the bundle's files no longer match its listing */
   modified: boolean;
+  /** a linked folder changed since it was stored; the next use stores it */
+  folder_changed: boolean;
   installed_at: string;
   updated_at: string;
 };
@@ -135,7 +137,15 @@ export type PluginInstall = {
  *  of its plugin installed now when that version takes it; the bundle it
  *  renders with and its view's address; and `refused` when the installed
  *  version does not take it, saying why. */
-export type ReviewView = { url: string; bundle: string; plugin: Plugin; review: Review; refused: string | null };
+export type ReviewView = {
+  url: string;
+  bundle: string;
+  plugin: Plugin;
+  review: Review;
+  refused: string | null;
+  /** the bundle the plugin's installation holds now */
+  installed: string | null;
+};
 
 /** What installing a source would do, as the core reports it before anything runs. */
 export type Inspection = {

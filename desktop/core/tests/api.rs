@@ -2654,6 +2654,7 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
         keys,
         [
             "bundle",
+            "folder_changed",
             "installed_at",
             "link",
             "modified",

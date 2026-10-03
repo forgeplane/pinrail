@@ -207,6 +207,7 @@ impl Reviews {
         self.envelope_violations(attrs)?;
 
         let plugin_name = attrs["plugin"].as_str().unwrap_or_default();
+        self.capture(plugin_name)?;
         let plugin = self.registry.fetch(plugin_name)?;
         let payload = attrs
             .get("payload")
@@ -359,7 +360,7 @@ impl Reviews {
         let review = self.get(id)?;
         let mut refused = None;
         if review.is_pending(Utc::now()) {
-            self.registry.capture(&review.plugin)?;
+            self.capture(&review.plugin)?;
             if let Some(installed) = self.registry.get(&review.plugin).filter(|p| p.usable())
                 && let Some(bundle) = installed.install.as_ref().and_then(|i| i.bundle.clone())
                 && review.plugin_bundle.as_deref() != Some(bundle.as_str())
@@ -394,10 +395,15 @@ impl Reviews {
         let plugin = self
             .registry
             .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
+        let installed = self
+            .registry
+            .get(&review.plugin)
+            .and_then(|p| p.install.as_ref()?.bundle.clone());
         Ok(Opened {
             review,
             plugin,
             refused,
+            installed,
         })
     }
 
@@ -592,6 +598,18 @@ impl Reviews {
         }
     }
 
+    /// Stores a linked plugin's folder when it changed, and tells the app
+    /// its plugins changed.
+    fn capture(&self, plugin: &str) -> Result<(), Error> {
+        if self.registry.capture(plugin)? {
+            let event_id =
+                self.db
+                    .append_event(None, events::PLUGINS_RELOADED, None, &Value::Null)?;
+            self.publish_plain(event_id, events::PLUGINS_RELOADED);
+        }
+        Ok(())
+    }
+
     fn publish_plain(&self, event_id: i64, kind: &str) {
         self.bus.publish(Notice {
             event_id,
@@ -700,4 +718,6 @@ pub struct Opened {
     pub review: Review,
     pub plugin: Arc<Plugin>,
     pub refused: Option<String>,
+    /// the bundle its plugin's installation holds now
+    pub installed: Option<String>,
 }

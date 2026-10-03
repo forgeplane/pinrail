@@ -81,14 +81,15 @@ export function ReviewScreen() {
   const current = resolved && resolved.key === pluginKey ? resolved : null;
   const plugin: Plugin | null | undefined = current ? current.plugin : undefined;
   const src = current?.src ?? null;
-  // the version installed now, which may have changed since the review was opened
-  const installedNow = review ? (live.plugins.get(review.plugin)?.install?.bundle ?? null) : null;
+  // the plugin as installed now: another version, or a linked folder
+  // changed since it was stored, may have come since the review was opened
+  const installedNow = review ? live.plugins.get(review.plugin)?.install : undefined;
   const newerInstalled =
     !!current &&
     review?.status === "pending" &&
-    installedNow !== null &&
-    installedNow !== current.installed &&
-    installedNow !== current.bundle;
+    !!installedNow &&
+    (installedNow.folder_changed ||
+      (installedNow.bundle !== current.installed && installedNow.bundle !== current.bundle));
   // opens the review again, on the version installed now when it takes it
   const reopen = () => setResolved(null);
   const [violations, setViolations] = useState<Violation[]>([]);
@@ -160,7 +161,6 @@ export function ReviewScreen() {
     if (!review || !pluginKey) return;
     if (resolved?.key === pluginKey) return;
     let cancelled = false;
-    const installed = live.plugins.get(review.plugin)?.install?.bundle ?? null;
     (async () => {
       try {
         // opened, the review may move to the version installed now
@@ -173,13 +173,13 @@ export function ReviewScreen() {
           plugin: view.plugin.usable ? view.plugin : null,
           src: view.url,
           bundle: view.bundle,
-          installed,
           refused: view.refused,
+          installed: view.installed,
         });
         if (view.review.plugin_bundle !== review.plugin_bundle) setReview(view.review);
       } catch {
         if (!cancelled)
-          setResolved({ key: pluginKey, plugin: null, src: null, bundle: null, installed, refused: null });
+          setResolved({ key: pluginKey, plugin: null, src: null, bundle: null, installed: null, refused: null });
       }
     })();
     return () => {

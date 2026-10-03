@@ -106,12 +106,14 @@ struct RegistryState {
     plugins: BTreeMap<String, Arc<Plugin>>,
 }
 
-/// What a linked folder was when it was last captured, and why it could not
-/// be, while it cannot.
+/// What a linked folder was when it was last captured, why it could not
+/// be while it cannot, and the change the check of linked folders noticed
+/// since, which the next use captures.
 #[derive(Debug, Default)]
 struct Captured {
     seen: Vec<(String, u64, u128)>,
     problem: Option<String>,
+    noticed: Option<Vec<(String, u64, u128)>>,
 }
 
 /// The installed plugins, and the bundles reviews render with.
@@ -281,28 +283,60 @@ impl Registry {
             Err(why) => (Some(why), false),
         };
         let changed = moved || problem != before;
-        self.captured
+        let noticed_before = self
+            .captured
             .lock()
             .unwrap_or_else(|e| e.into_inner())
-            .insert(name.to_string(), Captured { seen, problem });
+            .insert(
+                name.to_string(),
+                Captured {
+                    seen,
+                    problem,
+                    noticed: None,
+                },
+            )
+            .is_some_and(|c| c.noticed.is_some());
+        let changed = changed || noticed_before;
         if changed {
             self.reload()?;
         }
         Ok(changed)
     }
 
-    /// Captures every linked folder that changed; whether any did.
-    pub fn capture_links(&self) -> Result<bool, Error> {
-        let names: Vec<String> = self
+    /// Notices which linked folders changed since they were captured, and
+    /// marks them, storing nothing: the next use of the plugin captures it.
+    /// Whether a mark came or went. A folder seen for the first time since
+    /// the app started is captured, so its installation matches it.
+    pub fn notice_links(&self) -> Result<bool, Error> {
+        let links: Vec<(String, PathBuf)> = self
             .read()
             .installs
             .iter()
             .filter(|i| i.linked())
-            .map(|i| i.name.clone())
+            .map(|i| (i.name.clone(), PathBuf::from(&i.source)))
             .collect();
         let mut changed = false;
-        for name in names {
+        let mut first = Vec::new();
+        {
+            let mut captured = self.captured.lock().unwrap_or_else(|e| e.into_inner());
+            for (name, folder) in &links {
+                let now = folder_state(folder);
+                match captured.get_mut(name) {
+                    None => first.push(name.clone()),
+                    Some(c) if c.seen == now => changed |= c.noticed.take().is_some(),
+                    Some(c) if c.noticed.as_ref() != Some(&now) => {
+                        c.noticed = Some(now);
+                        changed = true;
+                    }
+                    Some(_) => {}
+                }
+            }
+        }
+        for name in first {
             changed |= self.capture(&name)?;
+        }
+        if changed {
+            self.reload()?;
         }
         Ok(changed)
     }
@@ -355,12 +389,20 @@ impl Registry {
         }
         plugin.name = install.name.clone();
         let modified = self.bundles.verify(&install.bundle).is_err();
+        let folder_changed = install.linked()
+            && self
+                .captured
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(&install.name)
+                .is_some_and(|c| c.noticed.is_some());
         plugin.install = Some(Install {
             source_kind: install.kind.clone(),
             source: install.source.clone(),
             link: install.linked(),
             bundle: Some(install.bundle.clone()),
             modified,
+            folder_changed,
             installed_at: install.installed_at.clone(),
             updated_at: install.updated_at.clone(),
         });

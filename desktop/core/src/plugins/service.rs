@@ -26,7 +26,9 @@ impl PluginService {
         // a linked plugin is described as its folder is now
         match name {
             Some(name) => {
-                self.registry.capture(name)?;
+                if self.registry.capture(name)? {
+                    self.announce()?;
+                }
                 if let Some(broken) = self.registry.get(name).filter(|p| !p.usable()) {
                     return Err(Error::invalid(
                         "/plugin",
@@ -38,7 +40,18 @@ impl PluginService {
                 }
             }
             None => {
-                self.registry.capture_links()?;
+                let mut changed = false;
+                for linked in self
+                    .registry
+                    .all()
+                    .iter()
+                    .filter(|p| p.install.as_ref().is_some_and(|i| i.link))
+                {
+                    changed |= self.registry.capture(&linked.name)?;
+                }
+                if changed {
+                    self.announce()?;
+                }
             }
         }
         let plugins: Vec<Value> = self
@@ -113,11 +126,11 @@ impl PluginService {
         Ok(answer)
     }
 
-    /// Captures each linked folder that changed, and announces it; whether
-    /// any did. The server asks every second, so a change to a plugin being
-    /// developed applies without a reload.
+    /// Notices each linked folder that changed since it was stored, and
+    /// announces it, storing nothing; whether any did. The server asks
+    /// every second, so an open review of the plugin can offer to reload.
     pub fn reload_if_links_changed(&self) -> Result<bool, Error> {
-        if !self.registry.capture_links()? {
+        if !self.registry.notice_links()? {
             return Ok(false);
         }
         self.announce()?;
