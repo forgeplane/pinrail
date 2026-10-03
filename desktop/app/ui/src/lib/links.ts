@@ -37,9 +37,12 @@ export function linkRequest(url: string): LinkRequest | null {
   return { url, kind: "web", origin: parsed.origin, target: parsed.host, long };
 }
 
-/** Where a plugin came from, which its link permission is tied to. */
+/** What a plugin's link permission is tied to: the app's own copy, or a
+ *  plugin from disk. An upgrade from another folder or zip keeps the
+ *  permission; the app's copy and one from disk do not share it, since one
+ *  name then means another plugin. */
 export const sourceOf = (plugin: Plugin): string =>
-  plugin.install && plugin.install.source_kind !== "app" ? plugin.install.source : "built in";
+  plugin.install?.source_kind === "app" || !plugin.install ? "app" : "disk";
 
 /** Whether the request can open without asking. */
 export function allowedWithoutAsking(

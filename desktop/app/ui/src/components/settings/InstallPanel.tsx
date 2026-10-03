@@ -99,6 +99,12 @@ function Consequences({ seen }: { seen: Inspection }) {
                 : seen.older
                   ? `, and it is newer than this version. Installing replaces it with this older version for new reviews.`
                   : `. Installing replaces it for new reviews; existing reviews keep the version they were made with.`}
+          {installed.links_kept ? null : (
+            <span data-links-forgotten>
+              {" "}
+              The sites it was allowed to open without asking do not carry over to this plugin.
+            </span>
+          )}
         </p>
       ) : null}
     </>
