@@ -4,7 +4,6 @@
 
 import type {
   Info,
-  InstallJob,
   Inspection,
   Notice,
   Plugin,
@@ -106,8 +105,7 @@ export const api = {
   /** what installing a source would do; the source is fetched and dropped */
   inspectPlugin: (body: InstallRequest) => request<Inspection>("POST", "/api/v1/plugins/inspect", body),
   /** starts an install; the job says how it goes */
-  installPlugin: (body: InstallRequest) => request<{ job: string }>("POST", "/api/v1/plugins/install", body),
-  pluginJob: (id: string) => request<InstallJob>("GET", `/api/v1/plugins/jobs/${seg(id)}`),
+  installPlugin: (body: InstallRequest) => request<Plugin>("POST", "/api/v1/plugins/install", body),
   /** what the app's frame loads to show a review */
   reviewView: async (id: string) => {
     const view = await request<ReviewView>("GET", `/api/v1/reviews/${seg(id)}/view`);

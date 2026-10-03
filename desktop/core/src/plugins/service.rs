@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use serde_json::{Value, json};
 
-use super::jobs::Jobs;
-use super::{InstallJob, InstallOptions, Plugin, Registry, install};
+use super::{InstallOptions, Plugin, Registry, install};
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::{self, Bus, Notice};
@@ -15,17 +14,11 @@ pub struct PluginService {
     db: Arc<Db>,
     registry: Arc<Registry>,
     bus: Bus,
-    jobs: Arc<Jobs>,
 }
 
 impl PluginService {
     pub(crate) fn new(db: Arc<Db>, registry: Arc<Registry>, bus: Bus) -> Self {
-        Self {
-            db,
-            registry,
-            bus,
-            jobs: Arc::new(Jobs::default()),
-        }
+        Self { db, registry, bus }
     }
 
     /// Each usable plugin described for an agent, or the one named.
@@ -150,44 +143,26 @@ impl PluginService {
         .map_err(|error| Error::Internal(error.to_string()))?
     }
 
-    /// Starts an installation and returns the id used to follow its progress.
-    /// Requires a Tokio runtime. Failures are recorded on the job.
-    pub fn start_install(&self, source: &str, options: InstallOptions) -> String {
-        let id = self.jobs.start(source);
-        let job_id = id.clone();
+    /// Installs the plugin a source holds and announces it; the plugin's
+    /// row, as the listing shows it.
+    pub async fn install(&self, source: &str, options: InstallOptions) -> Result<Value, Error> {
         let worker = self.clone();
         let source = source.to_string();
-        tokio::task::spawn_blocking(move || {
-            let progress = |p| worker.jobs.note(&job_id, p);
-            // a panic still ends the job, as failed: left running, it
-            // would keep everyone who follows it waiting for good
-            let installed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                install::install(&worker.db, &worker.registry, &source, options, &progress)
-            }))
-            .unwrap_or_else(|_| Err(Error::Internal("the install stopped unexpectedly".into())));
-            let outcome = installed.and_then(|record| {
-                worker.announce()?;
-                worker
-                    .registry
-                    .get(&record.plugin)
-                    .map(|p| p.to_json())
-                    .ok_or_else(|| {
-                        Error::Internal(format!(
-                            "{} was installed and is not registered",
-                            record.plugin
-                        ))
-                    })
-            });
-            worker.jobs.finish(&job_id, outcome);
-        });
-        id
-    }
-
-    /// A snapshot of an installation's progress or final result.
-    pub fn job(&self, id: &str) -> Result<InstallJob, Error> {
-        self.jobs
-            .get(id)
-            .ok_or_else(|| Error::NotFound(format!("install job {id}")))
+        let record = tokio::task::spawn_blocking(move || {
+            install::install(&worker.db, &worker.registry, &source, options)
+        })
+        .await
+        .map_err(|error| Error::Internal(error.to_string()))??;
+        self.announce()?;
+        self.registry
+            .get(&record.plugin)
+            .map(|p| p.to_json())
+            .ok_or_else(|| {
+                Error::Internal(format!(
+                    "{} was installed and is not registered",
+                    record.plugin
+                ))
+            })
     }
 
     fn announce(&self) -> Result<(), Error> {

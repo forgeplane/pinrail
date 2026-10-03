@@ -36,17 +36,10 @@ export function fixtures() {
 /** The plugins the fixtures use beyond the built-in ones. */
 const OPTIONAL = ["review", "email", "artifact", "logo", "calendar", "model"];
 
+/** Installs one of the official plugins; artifact's view must be built first. */
 async function install(app, name) {
   const source = path.join(app.root, "plugins", name);
-  // confirms the build the inspection shows, as a person does in the app
-  const { expect } = await app.api("POST", "/api/v1/plugins/inspect", { source });
-  const { job } = await app.api("POST", "/api/v1/plugins/install", { source, expect });
-  for (;;) {
-    const state = await app.api("GET", `/api/v1/plugins/jobs/${job}`);
-    if (state.status === "done") return;
-    if (state.status === "failed") throw new Error(`installing ${name}: ${state.error}\n${state.log}`);
-    await new Promise((r) => setTimeout(r, 250));
-  }
+  await app.api("POST", "/api/v1/plugins/install", { source });
 }
 
 /** Uploads the files a fixture names, and says what the review carries. */

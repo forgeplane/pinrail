@@ -7,7 +7,6 @@
 
 pub(crate) mod bundles;
 mod install;
-mod jobs;
 mod registry;
 mod service;
 
@@ -15,7 +14,6 @@ use pinrail_format::{manifest, sample, summary};
 
 pub use bundles::Bundles;
 pub use install::Options as InstallOptions;
-pub use jobs::Job as InstallJob;
 /// The manifest's JSON Schema, for the docs' manifest reference.
 #[cfg(feature = "docs")]
 pub use manifest::{FEATURES as MANIFEST_FEATURES, SCHEMA as MANIFEST_SCHEMA};

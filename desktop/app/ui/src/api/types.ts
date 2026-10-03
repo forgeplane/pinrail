@@ -168,15 +168,6 @@ export type Inspection = {
   older: boolean;
 };
 
-export type InstallJob = {
-  id: string;
-  source: string;
-  status: "fetching" | "inspecting" | "placing" | "done" | "failed";
-  log: string;
-  error: string | null;
-  plugin: Plugin | null;
-};
-
 export type PluginShortcut = { keys: string; does: string; group?: string };
 
 /** A flat JSON Schema: one row per property, each a scalar with a default. */

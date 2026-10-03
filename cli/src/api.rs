@@ -201,8 +201,7 @@ impl Client {
         self.get("/api/v1/plugins", &[])
     }
 
-    /// Starts the install and follows its job, printing the build's output
-    /// as it comes; the plugin's row when done.
+    /// Installs the plugin a folder or a zip holds; the plugin's row.
     pub fn plugins_install(&self, request: &InstallRequest) -> Result<Value> {
         let body = serde_json::json!({
             "source": request.source,
@@ -210,73 +209,11 @@ impl Client {
             "force": request.force,
             "replace": request.replace,
         });
-        let started = self.post("/api/v1/plugins/install", Some(&body))?;
-        match started["job"].as_str() {
-            Some(id) => self.follow_job(id),
-            None => anyhow::bail!("the server started no install job: {started}"),
-        }
+        self.post("/api/v1/plugins/install", Some(&body))
     }
 
     pub fn plugins_remove(&self, name: &str) -> Result<Value> {
         self.delete(&format!("/api/v1/plugins/{}", segment(name)))
-    }
-
-    /// Follows an install job to its end, printing each step and the log
-    /// as it comes; the plugin's row when done.
-    fn follow_job(&self, id: &str) -> Result<Value> {
-        // how much of the whole log has been printed: the app keeps only its
-        // end, and says with log_offset how much it dropped from the start
-        let mut shown = 0;
-        let mut step = String::new();
-        // a build that says nothing for a while may be stuck: say so, and
-        // keep following it
-        let mut quiet_since = std::time::Instant::now();
-        loop {
-            let job = self.get(&format!("/api/v1/plugins/jobs/{}", segment(id)), &[])?;
-            let status = job["status"].as_str().unwrap_or("");
-            if status != step {
-                step = status.to_string();
-                if !matches!(status, "done" | "failed") {
-                    eprintln!("pinrail: {status}…");
-                }
-            }
-            let log = job["log"].as_str().unwrap_or("");
-            let offset = job["log_offset"].as_u64().unwrap_or(0) as usize;
-            if offset > shown {
-                eprintln!("pinrail: (some earlier output was skipped)");
-            }
-            let new = log
-                .get(shown.saturating_sub(offset).min(log.len())..)
-                .unwrap_or(log);
-            if !new.is_empty() {
-                // build output, from the plugin's own tools
-                eprint!("{}", crate::out::terminal_safe(new));
-                shown = offset + log.len();
-                quiet_since = std::time::Instant::now();
-            } else if quiet_since.elapsed() >= std::time::Duration::from_secs(60) {
-                eprintln!("pinrail: still {status}, with no new output for a minute");
-                quiet_since = std::time::Instant::now();
-            }
-            match status {
-                "done" => return Ok(job["plugin"].clone()),
-                "failed" => {
-                    // a source that could not be reached, or the app failing,
-                    // is not the caller's to fix: the exit code says which
-                    let status = match job["error_kind"].as_str() {
-                        Some("unavailable") => 502,
-                        Some("internal") => 500,
-                        _ => 422,
-                    };
-                    return Err(ApiError {
-                        status,
-                        body: serde_json::json!({ "error": "install_failed", "message": job["error"] }),
-                        hint: None,
-                    }
-                    .into());
-                }
-                _ => std::thread::sleep(std::time::Duration::from_millis(300)),
-            }
-        }
     }
 
     pub fn plugins_describe(&self, name: &str) -> Result<Value> {

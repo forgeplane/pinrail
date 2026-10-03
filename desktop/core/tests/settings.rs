@@ -183,25 +183,15 @@ async fn with_knobs(app: &App) -> tempfile::TempDir {
               "wrap":{"type":"boolean","title":"Wrap","default":true}}}}"#,
     )
     .unwrap();
-    let (status, started) = call(
+    let (status, row) = call(
         app,
         "POST",
         "/api/v1/plugins/install",
         Some(json!({"source": plugin.display().to_string(), "link": true})),
     )
     .await;
-    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
-    let id = started["job"].as_str().unwrap().to_string();
-    for _ in 0..600 {
-        let (status, job) = call(app, "GET", &format!("/api/v1/plugins/jobs/{id}"), None).await;
-        assert_eq!(status, StatusCode::OK, "{job}");
-        match job["status"].as_str() {
-            Some("done") => return dir,
-            Some("failed") => panic!("installing knobs failed: {}", job["error"]),
-            _ => tokio::time::sleep(std::time::Duration::from_millis(10)).await,
-        }
-    }
-    panic!("installing knobs never finished");
+    assert_eq!(status, StatusCode::OK, "{row}");
+    dir
 }
 
 #[tokio::test]

@@ -1,11 +1,10 @@
 //! Plugin workflows through the application service, without HTTP.
 
 use std::path::{Path, PathBuf};
-use std::time::Duration;
 
 use pinrail_core::db::Db;
 use pinrail_core::events;
-use pinrail_core::plugins::{InstallJob, InstallOptions, PluginService};
+use pinrail_core::plugins::InstallOptions;
 use pinrail_core::{Config, Error, Pinrail};
 use serde_json::{Value, json};
 
@@ -32,39 +31,24 @@ fn plugin(root: &Path, name: &str, version: &str) -> PathBuf {
     dir
 }
 
-async fn finished(plugins: &PluginService, id: &str) -> InstallJob {
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            let job = plugins.job(id).unwrap();
-            if matches!(job.status.as_str(), "done" | "failed") {
-                return job;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("installation did not finish")
+/// Installs one plugin folder as a link: the plugin's row, or why not.
+async fn link(app: &Pinrail, dir: &Path) -> Result<Value, Error> {
+    app.plugins()
+        .install(
+            &dir.display().to_string(),
+            InstallOptions {
+                link: true,
+                ..InstallOptions::default()
+            },
+        )
+        .await
 }
 
-/// Installs one plugin folder as a link, the only way a plugin arrives, and
-/// waits for the job.
-async fn link(app: &Pinrail, dir: &Path) -> InstallJob {
-    let id = app.plugins().start_install(
-        &dir.display().to_string(),
-        InstallOptions {
-            link: true,
-            ..InstallOptions::default()
-        },
-    );
-    finished(app.plugins(), &id).await
-}
-
-/// Installs a copy of one plugin folder into the store, and waits for the job.
-async fn copy(app: &Pinrail, dir: &Path) -> InstallJob {
-    let id = app
-        .plugins()
-        .start_install(&dir.display().to_string(), InstallOptions::default());
-    finished(app.plugins(), &id).await
+/// Installs a copy of one plugin folder into the store.
+async fn copy(app: &Pinrail, dir: &Path) -> Result<Value, Error> {
+    app.plugins()
+        .install(&dir.display().to_string(), InstallOptions::default())
+        .await
 }
 
 /// The listing's entry for one plugin.
@@ -84,12 +68,9 @@ async fn a_refused_install_leaves_the_installed_plugin_as_it_was() {
     let config = Config::new(dir.path().join("data"), 0);
     let app = Pinrail::open(config.clone()).unwrap();
     let sources = dir.path().join("sources");
-    assert_eq!(
-        copy(&app, &plugin(&sources.join("1.2.0"), "hello", "1.2.0"))
-            .await
-            .status,
-        "done"
-    );
+    copy(&app, &plugin(&sources.join("1.2.0"), "hello", "1.2.0"))
+        .await
+        .unwrap();
     let before = listed(&app, "hello");
 
     // an older release of the line, and a folder that is not a plugin
@@ -97,8 +78,8 @@ async fn a_refused_install_leaves_the_installed_plugin_as_it_was() {
     let broken = plugin(&sources.join("1.3.0"), "hello", "1.3.0");
     std::fs::remove_file(broken.join("view/index.html")).unwrap();
     for source in [older, broken] {
-        let job = copy(&app, &source).await;
-        assert_eq!(job.status, "failed", "{job:?}");
+        let refused = copy(&app, &source).await;
+        assert!(refused.is_err(), "{refused:?}");
         app.plugins().reload().unwrap();
         let hello = listed(&app, "hello");
         assert_eq!(hello, before, "{}", source.display());
@@ -126,14 +107,13 @@ async fn an_inspection_and_installs_work_without_http() {
     assert!(db.install("local/hello").unwrap().is_none());
     assert!(notices.try_recv().is_err());
 
-    // A cloned service shares the same jobs and notifications.
-    let id = app
+    // A cloned service shares the same notifications.
+    let row = app
         .plugins()
         .clone()
-        .start_install(source, InstallOptions::default());
-    let installed = finished(app.plugins(), &id).await;
-    assert_eq!(installed.status, "done", "{installed:?}");
-    let row = installed.plugin.unwrap();
+        .install(source, InstallOptions::default())
+        .await
+        .unwrap();
     assert_eq!(row["plugin"], "local/hello");
     assert_eq!(row["version"], "1.0.0");
     assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
@@ -142,12 +122,12 @@ async fn an_inspection_and_installs_work_without_http() {
 
     // installing again from the changed folder upgrades it
     plugin(&sources, "hello", "1.0.1");
-    let job_id = app
+    let updated = app
         .plugins()
-        .start_install(source, InstallOptions::default());
-    let updated = finished(app.plugins(), &job_id).await;
-    assert_eq!(updated.status, "done", "{updated:?}");
-    assert_eq!(updated.plugin.unwrap()["version"], "1.0.1");
+        .install(source, InstallOptions::default())
+        .await
+        .unwrap();
+    assert_eq!(updated["version"], "1.0.1");
     assert_eq!(notices.try_recv().unwrap().kind, events::PLUGINS_RELOADED);
     assert!(notices.try_recv().is_err());
     assert_eq!(db.events_after(0, 10).unwrap().len(), 2);
@@ -164,11 +144,7 @@ async fn a_review_keeps_its_release_through_updates_and_removal() {
     let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let sources = dir.path().join("sources");
     let source = plugin(&sources, "hello", "1.0.0");
-    let id = app
-        .plugins()
-        .start_install(source.to_str().unwrap(), InstallOptions::default());
-    let installed = finished(app.plugins(), &id).await;
-    assert_eq!(installed.status, "done", "{installed:?}");
+    copy(&app, &source).await.unwrap();
     let review = app
         .reviews()
         .submit(
@@ -179,11 +155,7 @@ async fn a_review_keeps_its_release_through_updates_and_removal() {
     assert_eq!(review.plugin_version, "1.0.0");
 
     plugin(&sources, "hello", "2.0.0");
-    let job_id = app
-        .plugins()
-        .start_install(source.to_str().unwrap(), InstallOptions::default());
-    let updated = finished(app.plugins(), &job_id).await;
-    assert_eq!(updated.status, "done", "{updated:?}");
+    copy(&app, &source).await.unwrap();
 
     let removed = app.plugins().remove("hello").unwrap();
     assert_eq!(removed["removed"], "local/hello");
@@ -207,7 +179,7 @@ async fn linking_reload_and_removal_record_and_announce_changes() {
     let mut notices = app.events().subscribe();
     let db = Db::open(&config.db_path()).unwrap();
 
-    assert_eq!(link(&app, &linked).await.status, "done");
+    link(&app, &linked).await.unwrap();
     let added = notices.try_recv().unwrap();
     assert_eq!(added.kind, events::PLUGINS_RELOADED);
     assert!(added.review_id.is_none());
@@ -264,9 +236,8 @@ async fn a_plugin_of_an_official_name_sits_beside_it_under_its_own_publisher() {
     let config = Config::new(dir.path().join("data"), 0);
     let app = Pinrail::open(config.clone()).unwrap();
     let mine = plugin(&dir.path().join("sources"), "list", "2.0.0");
-    let job = link(&app, &mine).await;
-    assert_eq!(job.status, "done", "{job:?}");
-    assert_eq!(job.plugin.unwrap()["plugin"], "local/list");
+    let row = link(&app, &mine).await.unwrap();
+    assert_eq!(row["plugin"], "local/list");
 
     let ambiguous = app
         .reviews()
@@ -375,7 +346,7 @@ async fn a_sample_is_sent_as_a_review_with_its_files() {
 
     // a linked plugin's sample, with the files it names stored
     let model = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/model");
-    assert_eq!(link(&app, &model).await.status, "done");
+    link(&app, &model).await.unwrap();
     let review = app.send_sample("model", &json!({})).unwrap();
     assert_eq!(review.title, "Halden desk lamp");
     let mut names: Vec<&str> = review.attachments.iter().map(|a| a.name.as_str()).collect();
@@ -387,10 +358,9 @@ async fn a_sample_is_sent_as_a_review_with_its_files() {
 
     // one without a sample, and none at all
     let sources = dir.path().join("sources");
-    assert_eq!(
-        link(&app, &plugin(&sources, "bare", "1.0.0")).await.status,
-        "done"
-    );
+    link(&app, &plugin(&sources, "bare", "1.0.0"))
+        .await
+        .unwrap();
     let message = |e: Error| {
         e.to_json()["violations"][0]["message"]
             .as_str()
@@ -415,7 +385,7 @@ async fn a_linked_plugin_follows_its_folder_without_a_reload() {
     let dir = tempfile::tempdir().unwrap();
     let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
     let folder = plugin(&dir.path().join("sources"), "hello", "1.0.0");
-    assert_eq!(link(&app, &folder).await.status, "done");
+    link(&app, &folder).await.unwrap();
     let mut notices = app.events().subscribe();
     assert!(
         !app.plugins().reload_if_links_changed().unwrap(),

@@ -770,7 +770,7 @@ async fn plugins_are_listed_installed_one_by_one_and_reloaded() {
     let (status, body) = install(&app, Path::new("/nope/nowhere"), Value::Null).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(
-        body["error"]
+        body["message"]
             .as_str()
             .unwrap()
             .contains("/source: /nope/nowhere is not a directory"),
@@ -1335,7 +1335,7 @@ async fn a_plugin_never_brings_in_files_from_outside_its_folder() {
         let (status, body) = install(&app, &renamed, json!({})).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{name}: {body}");
         assert!(
-            body["error"]
+            body["message"]
                 .as_str()
                 .unwrap_or_default()
                 .contains("symbolic link"),
@@ -2269,7 +2269,7 @@ async fn a_plugin_whose_attachments_block_is_broken_is_not_installed() {
         let (status, refused) = install(&app, &dir, json!({ "link": true })).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{block}");
         assert!(
-            refused["error"].as_str().unwrap().contains(said),
+            refused["message"].as_str().unwrap().contains(said),
             "{block}: {refused}"
         );
     }
@@ -2615,9 +2615,8 @@ fn plugin_copy(root: &std::path::Path, name: &str, version: &str) -> std::path::
     to
 }
 
-/// Installs as a person does: inspects the source, confirms what the
-/// inspection found, and follows the install's job to the end. The
-/// plugin's row with 200, or the failure as a 422 body.
+/// Installs as a person does, after looking at the source: the plugin's
+/// row with 200, or the refusal with 422.
 async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCode, Value) {
     let mut body = json!({ "source": source.display().to_string() });
     if let Value::Object(map) = extra {
@@ -2625,39 +2624,8 @@ async fn install(app: &App, source: &std::path::Path, extra: Value) -> (StatusCo
             body[k] = v;
         }
     }
-    // a source the inspection refuses fails the install the same way
-    let (status, seen) = call(app, "POST", "/api/v1/plugins/inspect", Some(body.clone())).await;
-    if status == StatusCode::OK && body.get("expect").is_none() {
-        body["expect"] = seen["expect"].clone();
-    }
-    install_as_sent(app, body).await
-}
-
-/// Starts an install with the body as given and follows its job.
-async fn install_as_sent(app: &App, body: Value) -> (StatusCode, Value) {
-    let (status, started) = call(app, "POST", "/api/v1/plugins/install", Some(body)).await;
-    assert_eq!(status, StatusCode::ACCEPTED, "{started}");
-    let id = started["job"].as_str().unwrap().to_string();
-    let job = follow(app, &id).await;
-    // the install answers 202 with a job either way: here a job that ended
-    // failed reads as 422, with the job itself as the body
-    if job["status"] == "done" {
-        (StatusCode::OK, job["plugin"].clone())
-    } else {
-        (StatusCode::UNPROCESSABLE_ENTITY, job)
-    }
-}
-
-async fn follow(app: &App, id: &str) -> Value {
-    for _ in 0..600 {
-        let (status, job) = call(app, "GET", &format!("/api/v1/plugins/jobs/{id}"), None).await;
-        assert_eq!(status, StatusCode::OK, "{job}");
-        if job["status"] == "done" || job["status"] == "failed" {
-            return job;
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
-    panic!("the install job {id} never ended");
+    call(app, "POST", "/api/v1/plugins/inspect", Some(body.clone())).await;
+    call(app, "POST", "/api/v1/plugins/install", Some(body)).await
 }
 
 /// The bundle a review's frame loads.
@@ -2743,7 +2711,7 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     let (status, body_older) = install(&app, &older, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body_older}");
     assert!(
-        body_older["error"]
+        body_older["message"]
             .as_str()
             .unwrap()
             .contains("older than the installed 1.0.4"),
@@ -2807,7 +2775,7 @@ async fn installing_from_a_folder_stores_a_bundle_new_reviews_use() {
     let (status, body) = install(&app, scratch.path(), json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     assert!(
-        body["error"]
+        body["message"]
             .as_str()
             .unwrap()
             .contains("/source: not a plugin: cannot read manifest.json"),
@@ -2896,7 +2864,7 @@ async fn a_zip_on_disk_installs_the_bundle_its_folder_would() {
     let (status, body) = install(&app, &evil, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
-        body["error"]
+        body["message"]
             .as_str()
             .unwrap()
             .contains("leaves the archive"),
@@ -2918,7 +2886,7 @@ async fn a_zip_on_disk_installs_the_bundle_its_folder_would() {
     let (status, body) = install(&app, &not_zip, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
     assert!(
-        body["error"]
+        body["message"]
             .as_str()
             .unwrap()
             .contains("not a zip archive"),
@@ -2932,7 +2900,7 @@ async fn a_zip_on_disk_installs_the_bundle_its_folder_would() {
             .as_str()
             .unwrap_or_default()
             .contains("a link needs a folder")
-            || body["error"]
+            || body["message"]
                 .as_str()
                 .unwrap_or_default()
                 .contains("a link needs a folder"),
@@ -3236,7 +3204,7 @@ async fn a_folder_that_is_not_built_is_refused_and_nothing_runs() {
     for link in [false, true] {
         let (status, body) = install(&app, &sources, json!({ "link": link })).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-        let said = body["error"].as_str().or(body["message"].as_str()).unwrap();
+        let said = body["message"].as_str().unwrap();
         assert!(
             said.contains("view/index.html not found; build the plugin first"),
             "link {link}: {body}"
@@ -3274,7 +3242,7 @@ async fn a_manifest_name_that_is_not_a_name_is_refused() {
     std::fs::write(dir.join("manifest.json"), manifest.to_string()).unwrap();
     let (status, job) = install(&app, &dir, json!({})).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{job}");
-    assert!(job["error"].as_str().unwrap().contains("name"), "{job}");
+    assert!(job["message"].as_str().unwrap().contains("name"), "{job}");
 }
 
 /// A bundle is its files, wherever they came from: the same plugin from a

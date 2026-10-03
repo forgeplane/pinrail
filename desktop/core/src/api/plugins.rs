@@ -24,7 +24,6 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/plugins/reload", post(reload))
         .route("/api/v1/plugins/inspect", post(inspect))
         .route("/api/v1/plugins/install", post(install))
-        .route("/api/v1/plugins/jobs/{id}", get(job))
         .route("/api/v1/plugins/{name}", delete(remove))
         .route("/api/v1/plugins/{name}/describe", get(describe))
         .route("/api/v1/plugins/{name}/sample", post(sample))
@@ -86,12 +85,10 @@ async fn inspect(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<
     Ok(Json(state.plugins().inspect(&source, options).await?))
 }
 
-/// What the app makes of a plugin folder on this machine, installing
-/// nothing: `{"dir": "/abs/path"}`, answered with the loader's verdict.
-async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
+/// Installs the plugin a folder or a zip holds; the plugin's row.
+async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
     let (source, options) = install_request(&body)?;
-    let id = state.plugins().start_install(&source, options);
-    Ok((StatusCode::ACCEPTED, Json(json!({ "job": id }))).into_response())
+    Ok(Json(state.plugins().install(&source, options).await?))
 }
 
 /// Removes an installed plugin; the reviews made with it keep the bundles
@@ -119,14 +116,6 @@ async fn remove(
             .change(&serde_json::json!({ "links": { plugin: null } }))?;
     }
     Ok(Json(answer))
-}
-
-/// An install job as it stands: its step, its log so far, and how it ended.
-async fn job(
-    State(state): State<Arc<Pinrail>>,
-    Path(id): Path<String>,
-) -> Result<Json<Value>, ApiError> {
-    Ok(Json(state.plugins().job(&id)?.to_json()))
 }
 
 async fn reload(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {

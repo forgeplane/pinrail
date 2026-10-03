@@ -919,32 +919,17 @@ fn a_server_error_is_not_a_refusal_and_a_wait_rides_it_out() {
 
 #[test]
 fn an_install_the_app_fails_exits_1_and_a_refused_one_2() {
-    for (kind, exit) in [("internal", 1), ("invalid", 2)] {
+    for (status, kind, exit) in [(500, "internal", 1), (422, "invalid", 2)] {
         let failed = format!(
-            r#"{{"status":"failed","log":"","log_offset":0,"error":"the plugin cannot be installed","error_kind":"{kind}","plugin":null}}"#
+            r#"{{"error":"{kind}","message":"the plugin cannot be installed","violations":[]}}"#
         );
         let server = MockServer::start(Box::new(move |_, path, _| match path {
-            "/api/v1/plugins/install" => (202, r#"{"job":"j_1"}"#.into()),
-            "/api/v1/plugins/jobs/j_1" => (200, failed.clone()),
+            "/api/v1/plugins/install" => (status, failed.clone()),
             other => panic!("unexpected {other}"),
         }));
         let (code, _, stderr) = run(&server, &["plugins", "install", "./triage"]);
         assert_eq!(code, exit, "{kind}: {stderr}");
     }
-}
-
-#[test]
-fn an_install_answer_with_no_job_says_so() {
-    let server = MockServer::start(Box::new(|_, path, _| match path {
-        "/api/v1/plugins/install" => (202, "{}".into()),
-        other => (
-            404,
-            format!(r#"{{"error":"not_found","message":"{other} not found","violations":[]}}"#),
-        ),
-    }));
-    let (code, _, stderr) = run(&server, &["plugins", "install", "./triage"]);
-    assert_eq!(code, 1, "{stderr}");
-    assert!(stderr.contains("started no install job"), "{stderr}");
 }
 
 #[test]
@@ -2161,19 +2146,13 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
         .to_string();
     let sent = Arc::new(Mutex::new(String::new()));
     let seen = sent.clone();
-    let server = MockServer::start(Box::new(move |method, path, body| {
-        match (method, path) {
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
         ("POST", "/api/v1/plugins/install") => {
             let body: serde_json::Value = serde_json::from_str(body).unwrap();
             *seen.lock().unwrap() = body["source"].as_str().unwrap().to_string();
-            (202, r#"{"job":"j1"}"#.into())
+            (200, r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"folder"}}"#.into())
         }
-        ("GET", "/api/v1/plugins/jobs/j1") => (
-            200,
-            r#"{"status":"done","log":"","plugin":{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"folder"}}}"#.into(),
-        ),
         other => panic!("unexpected {other:?}"),
-    }
     }));
     let (code, _, stderr) = run_in(
         &server,
@@ -2197,19 +2176,15 @@ fn plugins_install_sends_a_zip_as_its_full_path() {
         .to_string();
     let sent = Arc::new(Mutex::new(Vec::new()));
     let seen = sent.clone();
-    let server = MockServer::start(Box::new(move |method, path, body| {
-        match (method, path) {
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
         ("POST", "/api/v1/plugins/install") => {
             let body: serde_json::Value = serde_json::from_str(body).unwrap();
-            seen.lock().unwrap().push(body["source"].as_str().unwrap().to_string());
-            (202, r#"{"job":"j1"}"#.into())
+            seen.lock()
+                .unwrap()
+                .push(body["source"].as_str().unwrap().to_string());
+            (200, r#"{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"archive"}}"#.into())
         }
-        ("GET", "/api/v1/plugins/jobs/j1") => (
-            200,
-            r#"{"status":"done","log":"","plugin":{"plugin":"local/hello","name":"hello","version":"1.0.0","install":{"kind":"archive"}}}"#.into(),
-        ),
         other => panic!("unexpected {other:?}"),
-    }
     }));
     let (code, _, stderr) = run_in(
         &server,
@@ -2218,45 +2193,6 @@ fn plugins_install_sends_a_zip_as_its_full_path() {
     );
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(*sent.lock().unwrap(), vec![expected]);
-}
-
-#[test]
-fn an_install_log_the_app_trims_is_followed_line_by_line() {
-    // three polls of a build: the app keeps only the end of the log and
-    // says how much it dropped from the start; the output is not ASCII
-    let lines = ["▶ one é", "▶ two ─", "▶ three →", "▶ four ✓"];
-    let text = |from: usize, to: usize| {
-        lines[from..to]
-            .iter()
-            .map(|l| format!("{l}\n"))
-            .collect::<String>()
-    };
-    let offset = |n: usize| text(0, n).len();
-    let polls = Arc::new(Mutex::new(vec![
-        serde_json::json!({ "status": "building", "log": text(0, 2), "log_offset": 0 }),
-        serde_json::json!({ "status": "building", "log": text(1, 3), "log_offset": offset(1) }),
-        serde_json::json!({ "status": "done", "log": text(2, 4), "log_offset": offset(2),
-            "plugin": { "plugin": "local/hello", "name": "hello", "version": "1.0.0", "install": {"kind": "folder"} } }),
-    ]));
-    let server = MockServer::start(Box::new(move |method, path, _| match (method, path) {
-        ("POST", "/api/v1/plugins/install") => (202, r#"{"job":"j1"}"#.into()),
-        ("GET", "/api/v1/plugins/jobs/j1") => {
-            let mut polls = polls.lock().unwrap();
-            let next = if polls.len() > 1 {
-                polls.remove(0)
-            } else {
-                polls[0].clone()
-            };
-            (200, next.to_string())
-        }
-        other => panic!("unexpected {other:?}"),
-    }));
-    let dir = tempdir();
-    std::fs::create_dir_all(dir.join("hello")).unwrap();
-    let (code, _, stderr) = run_in(&server, &dir, &["plugins", "install", "hello"]);
-    assert_eq!(code, 0, "{stderr}");
-    let printed: Vec<&str> = stderr.lines().filter(|l| l.starts_with('▶')).collect();
-    assert_eq!(printed, lines, "{stderr}");
 }
 
 #[test]
@@ -2468,22 +2404,17 @@ fn a_link_can_replace_a_plugin_and_give_it_back() {
     let dir = tempdir();
     let sent = Arc::new(Mutex::new(Vec::new()));
     let seen = sent.clone();
-    let server = MockServer::start(Box::new(move |method, path, body| {
-        match (method, path) {
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
         ("POST", "/api/v1/plugins/install") => {
             seen.lock().unwrap().push(body.to_string());
-            (202, r#"{"job":"j1"}"#.into())
+            (200, r#"{"plugin":"forgeplane/review","name":"review","version":"1.0.0","install":{"kind":"link"}}"#.into())
         }
-        ("GET", "/api/v1/plugins/jobs/j1") => (
-            200,
-            r#"{"status":"done","log":"","plugin":{"plugin":"forgeplane/review","name":"review","version":"1.0.0","install":{"kind":"link"}}}"#.into(),
-        ),
         ("DELETE", "/api/v1/plugins/review") => (
             200,
-            r#"{"removed":"forgeplane/review","linked":true,"version":"1.0.0","restored":"1.0.0"}"#.into(),
+            r#"{"removed":"forgeplane/review","linked":true,"version":"1.0.0","restored":"1.0.0"}"#
+                .into(),
         ),
         other => panic!("unexpected {other:?}"),
-    }
     }));
     let folder = dir.to_str().unwrap();
     let (code, _, stderr) = run(

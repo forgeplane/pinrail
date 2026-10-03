@@ -1,14 +1,12 @@
 // Installing a plugin, in place in the Plugins section: one field for the
-// source, a look at what it is before anything runs, the words that say
-// what will run on this machine, and the log as the install goes. Install
-// is the consent.
+// source, a look at what it is before it is installed, and what installing
+// replaces. Install is the consent.
 
 import { FolderOpen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri, type InstallRequest } from "../../api/client";
-import type { InstallJob, Inspection } from "../../api/types";
+import type { Inspection, Plugin } from "../../api/types";
 import { takes } from "../../lib/format";
-import { followJob } from "../../lib/jobs";
 import { PluginIcon } from "../PluginIcon";
 import { Tooltip } from "../Tooltip";
 import { Toggle } from "./controls";
@@ -17,11 +15,9 @@ type Stage =
   | { at: "source" }
   | { at: "looking" }
   | { at: "seen"; seen: Inspection }
-  | { at: "installing"; seen: Inspection; job: InstallJob | null }
-  | { at: "done"; job: InstallJob }
-  | { at: "failed"; seen: Inspection; job: InstallJob };
-
-const STEPS: InstallJob["status"][] = ["inspecting", "placing"];
+  | { at: "installing"; seen: Inspection }
+  | { at: "done"; plugin: Plugin }
+  | { at: "failed"; seen: Inspection; error: string };
 
 /** A zip, which is installed as it is and cannot be linked. */
 const isZip = (source: string) => /\.zip$/i.test(source.trim());
@@ -102,17 +98,8 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
   const [source, setSource] = useState(initial ?? "");
   const [link, setLink] = useState(false);
   const [stage, setStage] = useState<Stage>({ at: "source" });
-  // a job followed after the panel closed would poll for nothing
-  const mounted = useRef(true);
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
-  const logBox = useRef<HTMLPreElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const actions = useRef<HTMLDivElement>(null);
   const native = inTauri();
@@ -126,11 +113,6 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
   useEffect(() => {
     if (stage.at !== "source") actions.current?.scrollIntoView({ block: "nearest" });
   }, [stage.at]);
-
-  // the log keeps up with the build
-  useEffect(() => {
-    if (logBox.current) logBox.current.scrollTop = logBox.current.scrollHeight;
-  });
 
   const request = (): InstallRequest => ({ source: source.trim(), link: link && !isZip(source) });
 
@@ -154,20 +136,11 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
 
   const install = async (seen: Inspection) => {
     setError(null);
-    setStage({ at: "installing", seen, job: null });
+    setStage({ at: "installing", seen });
     try {
-      const { job } = await api.installPlugin({ ...request(), force: seen.older });
-      const state = await followJob(
-        job,
-        (step) => setStage({ at: "installing", seen, job: step }),
-        () => !mounted.current,
-      );
-      if (!state) return;
-      if (state.status === "done") setStage({ at: "done", job: state });
-      else setStage({ at: "failed", seen, job: state });
+      setStage({ at: "done", plugin: await api.installPlugin({ ...request(), force: seen.older }) });
     } catch (e) {
-      setError(failure(e));
-      setStage({ at: "seen", seen });
+      setStage({ at: "failed", seen, error: failure(e) });
     }
   };
 
@@ -187,7 +160,6 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
 
   const busy = stage.at === "looking" || stage.at === "installing";
   const seen = "seen" in stage ? stage.seen : null;
-  const job = "job" in stage ? stage.job : null;
 
   return (
     <div ref={panel} className="install-panel" data-install-panel>
@@ -281,35 +253,12 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
         </div>
       ) : null}
 
-      {stage.at === "installing" || stage.at === "failed" ? (
-        <div className="install-progress" data-install-progress={job?.status ?? "starting"}>
-          <ol className="install-steps">
-            {STEPS.map((step) => {
-              const current = job?.status ?? "fetching";
-              const index = STEPS.indexOf(current as InstallJob["status"]);
-              const at = STEPS.indexOf(step);
-              const state =
-                stage.at === "failed" ? (at <= index ? "failed" : "") : at < index ? "done" : at === index ? "now" : "";
-              return (
-                <li key={step} className={state}>
-                  {step}
-                </li>
-              );
-            })}
-          </ol>
-          {job?.log ? (
-            <pre ref={logBox} className="install-log" data-install-log>
-              {job.log}
-            </pre>
-          ) : null}
-          {stage.at === "failed" ? <p className="notice notice-danger install-error">{stage.job.error}</p> : null}
-        </div>
-      ) : null}
+      {stage.at === "failed" ? <p className="notice notice-danger install-error">{stage.error}</p> : null}
 
       {stage.at === "done" ? (
         <p className="install-done" data-install-done>
-          <b>{stage.job.plugin?.title ?? stage.job.plugin?.name}</b> {stage.job.plugin?.version} is ready. Reviews for
-          this plugin now open with this version.
+          <b>{stage.plugin.title || stage.plugin.name}</b> {stage.plugin.version} is ready. Reviews for this plugin now
+          open with this version.
         </p>
       ) : null}
 
@@ -332,7 +281,7 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
             Done
           </button>
         ) : stage.at === "installing" ? (
-          <span className="dim install-wait">Working…</span>
+          <span className="dim install-wait">Installing…</span>
         ) : null}
       </div>
     </div>

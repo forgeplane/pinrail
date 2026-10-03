@@ -2719,54 +2719,6 @@ h1 {
 .install-replaces {
   color: var(--dim);
 }
-.install-progress {
-  display: grid;
-  gap: 10px;
-}
-.install-steps {
-  display: flex;
-  gap: 14px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font: 11.5px var(--mono);
-  color: var(--faint);
-}
-.install-steps li::before {
-  content: "○ ";
-}
-.install-steps li.done {
-  color: var(--ok);
-}
-.install-steps li.done::before {
-  content: "● ";
-}
-.install-steps li.now {
-  color: var(--accent);
-}
-.install-steps li.now::before {
-  content: "◉ ";
-}
-.install-steps li.failed {
-  color: var(--danger);
-}
-.install-steps li.failed::before {
-  content: "● ";
-}
-.install-log {
-  margin: 0;
-  max-height: 200px;
-  overflow: auto;
-  padding: 8px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  font: 11.5px/1.5 var(--mono);
-  color: var(--dim);
-  white-space: pre-wrap;
-  word-break: break-word;
-  cursor: text;
-}
 .install-error {
   margin: 0;
 }

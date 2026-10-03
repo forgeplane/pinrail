@@ -188,7 +188,7 @@ test("the buttons in a plugin's note do not fold its settings", async ({ page })
   // when clicked: pressing them must do only what they say
   const source = pluginCopy("calendar", "planner", "1.0.0");
   const installed = await page.request.post(`${core}/api/v1/plugins/install`, { data: { source, link: true } });
-  expect(installed.status(), await installed.text()).toBe(202);
+  expect(installed.status(), await installed.text()).toBe(200);
   await page.goto("/#/plugins");
   const row = page.locator('[data-plugin-row="planner"]');
   await expect(row).toBeVisible();
@@ -200,24 +200,18 @@ test("the buttons in a plugin's note do not fold its settings", async ({ page })
   await expect(row, "Keep folded the settings open").not.toHaveClass(/is-open/);
 });
 
-test("an install whose progress stops answering ends as failed, not stuck", async ({ page }) => {
-  // a restart during an install: the job's progress stops answering
+test("an install the app could not do says why, and the panel can go back", async ({ page }) => {
   const source = pluginCopy("hello", "wobbly", "1.0.0");
-  let polls = 0;
-  await page.route(`${core}/api/v1/plugins/jobs/*`, (route) => {
-    polls++;
-    if (polls === 1) {
-      return route.fulfill({
-        json: { id: "job", source, status: "placing", steps: [], log: "", plugin: null, error: null },
-      });
-    }
-    return route.fulfill({ status: 500, contentType: "text/plain", body: "the server is restarting" });
-  });
+  await page.route(`${core}/api/v1/plugins/install`, (route) =>
+    route.fulfill({ status: 500, contentType: "text/plain", body: "the server is restarting" }),
+  );
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(source);
   await dialog.locator("[data-install-look]").click();
   await dialog.locator("[data-install-confirm]").click();
 
-  await expect(dialog.locator(".install-error"), "the panel kept waiting").toBeVisible({ timeout: 15000 });
+  await expect(dialog.locator(".install-error")).toContainText("request failed (500)");
   await expect(page.locator('[aria-label="Close the install"]')).toBeEnabled();
+  await dialog.getByRole("button", { name: "Back" }).click();
+  await expect(dialog.locator("[data-install-confirm]")).toBeVisible();
 });

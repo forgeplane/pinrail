@@ -168,25 +168,16 @@ async fn invalid_plugin_settings_do_not_partially_apply_a_patch() {
     )
     .unwrap();
     let app = Pinrail::open(config).unwrap();
-    let job = app.plugins().start_install(
-        &plugin.display().to_string(),
-        InstallOptions {
-            link: true,
-            ..InstallOptions::default()
-        },
-    );
-    let installed = tokio::time::timeout(std::time::Duration::from_secs(10), async {
-        loop {
-            let job = app.plugins().job(&job).unwrap();
-            if matches!(job.status.as_str(), "done" | "failed") {
-                return job;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("installing knobs did not finish");
-    assert_eq!(installed.status, "done", "{:?}", installed.error);
+    app.plugins()
+        .install(
+            &plugin.display().to_string(),
+            InstallOptions {
+                link: true,
+                ..InstallOptions::default()
+            },
+        )
+        .await
+        .unwrap();
     let mut notices = app.events().subscribe();
 
     let error = app

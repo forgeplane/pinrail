@@ -9,8 +9,6 @@
 //! line's current, an older one is refused unless forced. A line stays
 //! while a review still renders with it.
 //!
-//! An install is a job: it reports its step as it goes.
-//!
 //! A source is one string: a folder, or a zip on disk. It is parsed
 //! before anything is touched, so a bad one fails at once.
 
@@ -21,7 +19,6 @@ use pinrail_format::bundle::{Listing, Taken};
 use pinrail_format::manifest::line_of;
 use serde_json::{Map, Value};
 
-use super::jobs::Progress;
 use crate::db::{Db, InstallRecord};
 use crate::error::Error;
 use crate::plugins::{Plugin, Registry};
@@ -85,25 +82,17 @@ pub const LOCAL_PUBLISHER: &str = "local";
 /// The publisher of the plugins that ship with the app.
 pub const BUNDLED_PUBLISHER: &str = "forgeplane";
 
-/// Installs the plugin the source string names, telling `progress` as it
-/// goes. Returns its record; the registry has been reloaded with it.
+/// Installs the plugin the source string names. Returns its record; the
+/// registry has been reloaded with it.
 pub fn install(
     db: &Db,
     registry: &Registry,
     source: &str,
     options: Options,
-    progress: &dyn Fn(Progress),
 ) -> Result<InstallRecord, Error> {
     let prepared = prepare(registry, source, &options)?;
     let scratch = prepared.scratch.clone();
-    let result = install_dir(
-        db,
-        registry,
-        &prepared.dir,
-        options,
-        progress,
-        prepared.origin,
-    );
+    let result = install_dir(db, registry, &prepared.dir, options, prepared.origin);
     if let Some(scratch) = scratch {
         let _ = std::fs::remove_dir_all(scratch);
     }
@@ -478,10 +467,8 @@ fn install_dir(
     registry: &Registry,
     dir: &Path,
     options: Options,
-    progress: &dyn Fn(Progress),
     origin: Origin,
 ) -> Result<InstallRecord, Error> {
-    progress(Progress::Step("inspecting"));
     let dir = std::path::absolute(dir)?;
     if !dir.is_dir() {
         return Err(Error::invalid(
@@ -526,7 +513,6 @@ fn install_dir(
 
     // what the store takes: the files of the layout, and only those; a
     // link, which could point anywhere on the machine, is refused
-    progress(Progress::Step("placing"));
     let bundle = registry
         .bundles()
         .store(&dir)
