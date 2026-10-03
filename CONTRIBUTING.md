@@ -25,6 +25,18 @@ This repository does not accept new plugins: the `plugins/` folder only holds
 the official plugins that ship with the app. To write your own, see
 [Writing a plugin](https://pinrail.dev/docs/building/writing/).
 
+To work on an official plugin's view in the running app, link its folder:
+
+```sh
+pinrail plugins install plugins/review --link
+```
+
+The link takes the place of the installed plugin of that name, including
+the copy of `list` or `feedback` that the app carries. When you change the
+folder, an open review of the plugin offers *Reload*. A plugin with a
+build step, such as `artifact`, needs `npm run build` after each change.
+Remove the link to go back: `pinrail plugins remove review`.
+
 ## Setting up
 
 Node is pinned in `mise.toml`, and Rust in `rust-toolchain.toml`, which
@@ -63,9 +75,7 @@ with `npx playwright install chromium` from `e2e/`.
   type check of the UI and its unit tests (Vitest, for the UI's pure logic:
   formatting, key handling, how events change the pending list). The UI's
   screens are tested end to end, by `mise run e2e:shell`. The core's check test compares the Rust plugin check
-  with the SDK's, so it needs Node; set `PINRAIL_SKIP_NODE=1` to skip it. One
-  test builds a plugin with `npm ci` and needs the network, so it only runs
-  when asked: `cargo test -p pinrail-core -- --ignored` from `desktop/`.
+  with the SDK's, so it needs Node; set `PINRAIL_SKIP_NODE=1` to skip it.
 - **CLI:** `mise run test:cli`. The `pinrail` command against a scripted
   HTTP server, with no app running.
 - **Plugin SDK:** `mise run test:sdk`. Unit tests of `pinrail-plugin` under

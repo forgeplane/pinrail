@@ -11,7 +11,7 @@ npx playwright install chromium       # once, for the tests
 npx pinrail-plugin dev                 # the view in a browser, on fixtures/basic.json, reloading on change
 npm test                              # tests/ under the harness, no app needed
 npm run check                         # what the app would say of the folder
-pinrail plugins install . --link       # the app serves this folder live
+pinrail plugins install . --link       # the app follows this folder as you change it
 ```
 
 Then, from an agent's session:

@@ -12,7 +12,7 @@ npm run watch                         # rebuilds view/ on every change…
 npx pinrail-plugin dev                 # …and the view is in a browser, on fixtures/basic.json, reloading
 npm test                              # builds, then tests/ under the harness, no app needed
 npm run check                         # what the app would say of the folder
-pinrail plugins install . --link       # the app serves this folder live; keep the watch running
+pinrail plugins install . --link       # the app follows this folder; keep the watch running
 ```
 
 Then, from an agent's session:

@@ -58,17 +58,20 @@ The plugin's settings belong to its name, so they stay when you install a new ve
 
 ## Versions and upgrades
 
-Plugin versions are semantic, such as `"1.2.0"`. A review keeps the version it was submitted to, and always renders and validates with it. An upgrade is for new reviews, so it never changes a review already made, and a decided review shows what you saw when you decided.
+Plugin versions are semantic, such as `"1.2.0"`. A review records the version of its plugin that it renders and validates with.
 
-```mermaid title="Each review keeps its version"
+- **A pending review** moves to the version installed now when you open it, as long as that version accepts the review's payload and files. When it does not, the review stays on its version, and the review screen says why. If the plugin changes while a review is open, the review screen offers *Reload*.
+- **An ended review**, one that was decided, discarded, withdrawn or expired, keeps its version. A decided review therefore always shows what you saw when you decided.
+
+```mermaid title="Pending reviews follow the plugin, ended reviews keep their version"
 flowchart LR
   a["1.0.0"] --> b["1.1.0"] --> c["2.0.0"]
-  r1(["reviews made with 1.0.0"]) -.-> a
-  r2(["reviews made with 1.1.0"]) -.-> b
-  r3(["new reviews"]) -.-> c
+  r1(["reviews decided with 1.0.0"]) -.-> a
+  r2(["reviews decided with 1.1.0"]) -.-> b
+  r3(["pending reviews, once opened"]) -.-> c
 ```
 
-To upgrade a plugin, install the new version from its folder or its zip. The new version replaces the installed one for new reviews.
+To upgrade a plugin, install the new version from its folder or its zip. The new version replaces the installed one for new reviews, and for the pending reviews it accepts.
 
 - **A newer version** replaces the installed one.
 - **An older version** also replaces it. The install dialog says that the version is older before you install it, and the command line says so afterwards, for example *Replaced review 1.3.0 with the older 1.2.0*.
@@ -82,9 +85,9 @@ A linked plugin is served straight from your folder, so a change shows the next 
 pinrail plugins install ./ticket_triage --link
 ```
 
-Reviews of a linked plugin render from the folder as it is now. Each review also keeps the folder as it was when the review was submitted, so once you remove the link, it renders with that. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
+A linked plugin follows your folder. When you open a pending review of it after a change, Pinrail stores the folder as it is and the review moves to it. When you change the folder while the review is open, the review screen offers *Reload*. Once the review ends, or once you remove the link, it keeps the version of the folder it last showed. When you are done iterating, choose *Install a copy* on the plugin's row to keep the current state.
 
-Pinrail stores a linked folder again whenever it changes: when an agent describes the plugin or submits a review to it after a change, and when it checks the folder, which it does every second. A change to the manifest, a schema or the decision template therefore applies without a reload, and a submission is always checked against the folder as it is. A folder with a mistake, such as a manifest that does not parse, is refused when it is used, with the reason, and the reason shows on the plugin's row until you fix it. Until then, the plugin keeps the last version of the folder that worked.
+Pinrail stores a linked folder again whenever it changes: when an agent describes the plugin or submits a review to it, when a review of it is opened, and when it checks the folder, which it does every second. A change to the manifest, a schema or the decision template therefore applies without a reload, and a submission is always checked against the folder as it is. A folder with a mistake, such as a manifest that does not parse, is refused when it is used, with the reason, and the reason shows on the plugin's row until you fix it. Until then, the plugin keeps the last version of the folder that worked.
 
 A linked folder must not contain symbolic links, as for any install.
 

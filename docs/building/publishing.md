@@ -99,7 +99,7 @@ The recipe is three steps, in any CI or by hand:
 
 ## Choosing the version
 
-Each review keeps the release it was submitted to, so a new release never changes the reviews already made. The version is a promise to the agents that use your plugin:
+A pending review moves to a new release when it is next opened, if the release accepts its payload, and an ended review keeps the release it ended with. The version is a promise to the agents that use your plugin:
 
 | You changed | Release as |
 |---|---|
@@ -122,6 +122,6 @@ People download the zip and install it from disk:
 pinrail plugins install ~/Downloads/ticket-triage-1.2.0.zip
 ```
 
-To upgrade, they download the zip of the new version and install it the same way. It replaces the installed version for new reviews, and the reviews already made keep the version they were made with.
+To upgrade, they download the zip of the new version and install it the same way. It replaces the installed version for new reviews and for the pending reviews it accepts. Reviews that have ended keep the version they ended with.
 
 Publish the download link and the install command in your README, next to a screenshot of the view. That is usually all someone needs to decide whether to try it.

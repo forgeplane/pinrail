@@ -15,7 +15,7 @@ another kind of answer does not do the job.
 pinrail plugins new <name> --dir <path>   # scaffold it; no build, nothing installed
 # make it yours: the decision and payload schemas, the view, the samples
 pinrail plugins check <path>              # what the app would refuse, and why
-pinrail plugins install <path> --link     # the app serves the folder live
+pinrail plugins install <path> --link     # the app follows the folder as it changes
 pinrail submit <name> --sample            # a real review of its sample, in the person's inbox
 pinrail open <id> --browser               # its preview: the view in a browser, prints the address
 pinrail withdraw <id>                     # when you are done with the sample
@@ -40,8 +40,10 @@ pinrail withdraw <id>                     # when you are done with the sample
   by name. The first sample's payload is also the example agents get
   from `pinrail plugins describe`, so keep it small. A change to the
   payload's shape touches the payload schema, the view and the samples.
-- Each review keeps the release it was submitted to, so a new release
-  never breaks stored reviews. Agents rely on the version: a release
+- An opened pending review moves to a new release that takes its
+  payload; an ended one keeps its release. A move can change the
+  decision schema: on a decision you did not expect, describe the
+  plugin again. Agents rely on the version: a release
   whose schemas no longer accept what the previous one took needs a new
   major version (`2.0.0`, or `0.4.0` after `0.3.x`).
   `pinrail plugins check <dir> --since <previous release dir>` lists such

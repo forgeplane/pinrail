@@ -96,7 +96,7 @@ npm run build
 pinrail plugins install . --link
 ```
 
-A link serves the folder as it is, so rebuild as you change it, or keep `npm run watch` running. Installing without `--link` copies the built folder into the app, without its sources.
+A link follows the folder as it is, so rebuild as you change it, or keep `npm run watch` running. Installing without `--link` copies the built folder into the app, without its sources.
 
 ## Things to know
 

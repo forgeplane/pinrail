@@ -338,7 +338,7 @@ Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both t
 
 ## Run it
 
-A linked plugin is served live: send it its sample, and change the view as you look at it. A change to the view shows the next time you open the review, and a change to the manifest, a schema or the template applies within a second. A manifest that breaks shows its error on the plugin's row in *Settings › Plugins* until you fix it.
+A linked plugin follows its folder: send it its sample, and change the view as you look at it. When you change the folder, the review screen offers *Reload*, which opens the review with the folder as it is now. A change to the manifest, a schema or the template applies to the next submission, and to the review when you reload it. A manifest that breaks shows its error on the plugin's row in *Settings › Plugins* until you fix it.
 
 ```sh
 pinrail submit ticket_triage --sample   # the review opens in the app
@@ -388,7 +388,7 @@ To test the view on its own, in a browser without the app, use the test harness 
 
 ## Versions
 
-Each review keeps the release of your plugin it was submitted to, and always renders and validates with it. A new release is for new reviews, so it can change anything without breaking the reviews already made, and a decided review shows what the person saw.
+A review records the release of your plugin that it renders and validates with. When a person opens a pending review, it moves to the release installed now, as long as that release accepts its payload and files. An ended review keeps its release, so a decided review shows what the person saw. A move can change the decision schema, so an agent that receives a decision it does not expect describes the plugin again.
 
 Agents rely on the version, though: an agent that wrote its payloads for `1.3.0` expects `1.4.0` to take them. Follow semantic versioning:
 

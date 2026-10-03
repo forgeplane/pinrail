@@ -42,7 +42,7 @@ stateDiagram-v2
 | **Withdrawn** | The agent | Nothing to act on. The agent withdrew the review before you decided it. Exit `3`. |
 | **Expired** | Nobody | The review had a deadline and nobody decided in time. Exit `3`. |
 
-An ended review never changes again. It moves from the inbox to your history, read-only, and renders with the release of the plugin it was submitted to.
+An ended review never changes again. It moves from the inbox to your history, read-only, and renders with the version of the plugin it ended with. A pending review, by contrast, moves to the version of its plugin installed now when you open it, if that version accepts it.
 
 ### Deciding and discarding
 
