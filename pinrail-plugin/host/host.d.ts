@@ -59,7 +59,7 @@ export type HostOptions = {
   onLeft?: () => void;
   /** every message, as it comes in from the view or goes out to it */
   observe?: (direction: "in" | "out", message: ShellMessage | PluginMessage) => void;
-  capabilities?: Capability[] | (() => Capability[]);
+  capabilities?: Capability[];
 };
 
 export type Host = {

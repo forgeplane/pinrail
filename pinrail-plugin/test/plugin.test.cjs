@@ -576,7 +576,6 @@ test("attachment asks the shell for a file the review lists, and resolves with t
         id: "g_0",
         attachments: [{ name: "old.glb", size: 1, media_type: "model/gltf-binary", sha256: "cd" }],
       }),
-      capabilities: ["attachments"],
     }),
   );
   assert.deepEqual(plugin.attachments, files);
@@ -608,22 +607,16 @@ test("attachment asks the shell for a file the review lists, and resolves with t
   assert.equal(await url, "blob:test/model/gltf-binary/3");
 });
 
-test("attachment refuses a name the review does not list, and a shell that cannot hand files over", async () => {
+test("attachment refuses a name the review does not list", async () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
   env.deliver(
     init({
       review: review({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }),
-      capabilities: ["attachments"],
     }),
   );
   await assert.rejects(plugin.attachment("b.glb"), /no attachment "b.glb" on this review/);
   assert.equal(env.last("attachment"), undefined, "nothing was asked");
-
-  const old = fakeEnv();
-  const older = Pinrail.createPlugin(old, { resize: "manual" });
-  old.deliver(init({ review: review({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }) }));
-  await assert.rejects(older.attachment("a.glb"), /cannot hand files to a view; update the app/);
 });
 
 test("attachmentName reads a reference, and the package's schema describes one", () => {

@@ -84,17 +84,6 @@ test("a name the review does not list is refused without asking the shell", asyn
   expect((await plugin.messages()).filter((m) => m.type === "attachment")).toEqual([]);
 });
 
-test("under an app too old to hand files over, the view is told so", async ({ page }) => {
-  const plugin = await mountPlugin(page, reader(), {
-    review: { title: "files", payload: { file: { $attachment: "data.bin" } } },
-    attachments: { "data.bin": "data.bin" },
-    capabilities: [],
-  });
-  await expect(plugin.frame.locator("#out")).toHaveText(
-    "refused: this version of Pinrail cannot hand files to a view; update the app",
-  );
-});
-
 test("a fixture lists its files by path, beside it", async ({ page }) => {
   const dir = reader();
   fs.mkdirSync(path.join(dir, "fixtures"));

@@ -36,8 +36,7 @@ function handshakeProblems(received) {
   if (!("draft" in init)) problems.push("init has no draft");
   if (!isObject(init.settings)) problems.push("init.settings is not an object");
   if (typeof init.shell_origin !== "string") problems.push("init.shell_origin is not a string");
-  if (!Array.isArray(init.capabilities) || !init.capabilities.includes("attachments"))
-    problems.push("init.capabilities does not list attachments");
+  if (!Array.isArray(init.capabilities)) problems.push("init.capabilities is not a list");
   return problems;
 }
 

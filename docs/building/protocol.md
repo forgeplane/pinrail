@@ -61,7 +61,7 @@ sequenceDiagram
 | `draft` | any or `null` | What the view last posted as a draft for this review. |
 | `settings` | object | The plugin's own settings: every key the manifest declares, with its current value. |
 | `shell_origin` | string | The app's origin. Accept messages from it alone. |
-| `capabilities` | string array | What the app can do beyond the messages above: `"attachments"` when it hands a view the files a review carries. |
+| `capabilities` | string array | What the app can do beyond the messages on this page. It is empty in this version; a later addition is named here, so a view can tell whether the app it runs in has it. |
 
 `review` and `previous` have these fields, and no others:
 
@@ -170,7 +170,7 @@ The answer carries the same number, and the bytes as an `ArrayBuffer`:
 }
 ```
 
-The app answers only for names in `review.attachments` (or in `previous.attachments`, with `round: "previous"`), and says why otherwise, with `ok: false` and `error`. Ask again for another copy: each answer transfers its buffer. An app without `"attachments"` in `capabilities` does not answer; the SDK's `plugin.attachment` rejects at once there, saying the app needs updating.
+The app answers only for names in `review.attachments` (or in `previous.attachments`, with `round: "previous"`), and says why otherwise, with `ok: false` and `error`. Ask again for another copy: each answer transfers its buffer.
 
 ## The first frame
 

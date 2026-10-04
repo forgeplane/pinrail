@@ -230,7 +230,6 @@ async function mountPlugin(page, pluginDir, opts) {
     readonly: !!opts.readonly,
     draft: opts.draft ?? null,
     settings: opts.settings ?? {},
-    capabilities: opts.capabilities ?? ["attachments"],
   };
   await page.evaluate((i) => window.__shell.init(i), init);
 

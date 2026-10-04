@@ -17,8 +17,6 @@ export type MountOptions = {
    *  folder) or `{ path, media_type }`. A fixture's own `attachments` are
    *  served without this. */
   attachments?: Record<string, string | { path: string; media_type?: string }>;
-  /** what the fake shell says it can do; `[]` plays an app too old for files */
-  capabilities?: string[];
 };
 
 export type Message = PluginMessage;

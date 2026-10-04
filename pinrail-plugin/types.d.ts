@@ -136,8 +136,8 @@ export type Init<Payload = unknown, Data = unknown> = {
   settings: Settings;
 };
 
-/** What the shell can do beyond protocol 1's first messages, from `init`. */
-export type Capability = "attachments";
+/** What the app can do for a view beyond protocol 1, from `init`: nothing yet. */
+export type Capability = string;
 
 export type Violation = { path: string; message: string };
 

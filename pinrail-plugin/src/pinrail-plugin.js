@@ -123,7 +123,6 @@
       readonly: false,
       theme: (env.initialTheme && env.initialTheme()) || "dark",
       settings: {},
-      capabilities: [],
     };
     // file requests and settings changes waiting on the app, by request
     // number, which the two share
@@ -214,7 +213,6 @@
           state.previous = data.previous || null;
           state.readonly = !!data.readonly;
           state.settings = settingsOf(data.settings);
-          state.capabilities = Array.isArray(data.capabilities) ? data.capabilities : [];
           // every JSON value a view kept comes back as it was, false and 0 too
           call("onInit", {
             review: state.review,
@@ -316,9 +314,6 @@
     function attachment(name, opts) {
       const round = opts && opts.round === "previous" ? "previous" : "current";
       const review = round === "previous" ? state.previous : state.review;
-      if (!state.capabilities.includes("attachments")) {
-        return Promise.reject(new Error("this version of Pinrail cannot hand files to a view; update the app"));
-      }
       const listed = review && Array.isArray(review.attachments) ? review.attachments : [];
       if (!listed.some((a) => a && a.name === name)) {
         return Promise.reject(

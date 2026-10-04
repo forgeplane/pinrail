@@ -9,7 +9,7 @@
 // message the plugin posts and lets a test send any message. A test answers
 // a submit itself, with sendSubmitted or sendViolations, or asks handOver()
 // to hand over as the app does.
-import { CAPABILITIES, connectFrame } from "/_host.js";
+import { connectFrame } from "/_host.js";
 
 const frame = document.getElementById("plugin-frame");
 const log = [];
@@ -52,8 +52,6 @@ const host = connectFrame(frame, {
   readonly: () => !!(pending && pending.readonly),
   settings: () => (pending && pending.settings) || {},
   loadDraft: () => (pending ? pending.draft ?? null : null),
-  // a test may play an app that can do less
-  capabilities: () => (pending && pending.capabilities) || CAPABILITIES,
   // the files a fixture names, as the app fetches them from the core
   file: async (_review, listed, round) => {
     const response = await fetch(`/_attachments/${round}/${encodeURIComponent(listed.name)}`);

@@ -69,7 +69,7 @@ test("ready is answered with the appearance, then init with every field", () => 
   assert.deepEqual(init.draft, { step: 2 });
   assert.deepEqual(init.settings, { mode: "a" });
   assert.equal(init.shell_origin, "http://app.test");
-  assert.deepEqual(init.capabilities, ["attachments"]);
+  assert.deepEqual(init.capabilities, []);
 });
 
 test("a read-only review is sent no draft, and keeps none", () => {

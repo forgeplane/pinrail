@@ -13,8 +13,10 @@
 
 export const PROTOCOL = 1;
 
-/** What a host can do for a view beyond protocol 1's first messages. */
-export const CAPABILITIES = ["attachments"];
+/** What a host can do for a view beyond protocol 1: nothing yet. A later
+ *  addition is named here, so a view can tell whether the app it runs in
+ *  has it. */
+export const CAPABILITIES = [];
 
 /** How long a view has to answer a request for its decision. */
 export const COLLECT_TIMEOUT_MS = 60_000;
