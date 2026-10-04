@@ -174,7 +174,10 @@ kbd {
   overflow: auto;
   padding: 20px;
   background: var(--pinrail-bg-raised);
-  background-image: radial-gradient(color-mix(in srgb, var(--pinrail-border-strong) 60%, transparent) 1px, transparent 1px);
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--pinrail-border-strong) 60%, transparent) 1px,
+    transparent 1px
+  );
   background-size: 16px 16px;
 }
 .is-selecting .stage {

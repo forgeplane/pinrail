@@ -561,7 +561,13 @@ h2 {
   font-style: normal;
 }
 .legend-blocked {
-  background: repeating-linear-gradient(135deg, var(--pinrail-border), var(--pinrail-border) 2px, var(--subtle) 2px, var(--subtle) 5px);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--pinrail-border),
+    var(--pinrail-border) 2px,
+    var(--subtle) 2px,
+    var(--subtle) 5px
+  );
   border: 1px solid var(--pinrail-border-strong);
 }
 .legend-option {

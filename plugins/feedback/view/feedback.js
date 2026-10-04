@@ -231,11 +231,13 @@
       el?.focus({ preventScroll: true });
       if (el?.tagName === "TEXTAREA" && focus.start !== null) el.setSelectionRange(focus.start, focus.end);
     }
-    plugin.handOverLabel(plugin.readonly
+    plugin.handOverLabel(
+      plugin.readonly
         ? "Feedback recorded"
         : Object.keys(invalid).length
           ? `Complete ${Object.keys(invalid).length} ${Object.keys(invalid).length === 1 ? "question" : "questions"}`
-          : `Hand over ${answered} ${answered === 1 ? "answer" : "answers"}`);
+          : `Hand over ${answered} ${answered === 1 ? "answer" : "answers"}`,
+    );
   }
   function save() {
     shellErrors = [];

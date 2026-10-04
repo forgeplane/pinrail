@@ -6,10 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { visit } from "unist-util-visit";
 
-const stylesheet = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../../../pinrail-plugin/src/tokens.css",
-);
+const stylesheet = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../pinrail-plugin/src/tokens.css");
 
 const escape = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

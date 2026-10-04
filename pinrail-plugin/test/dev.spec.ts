@@ -10,7 +10,9 @@ import { scratch } from "./scratch.cjs";
 const sdk = path.resolve(import.meta.dirname, "..");
 const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
 
-test("the menu offers the samples and the fixtures, marks a decided one, and loads the one chosen", async ({ page }) => {
+test("the menu offers the samples and the fixtures, marks a decided one, and loads the one chosen", async ({
+  page,
+}) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
   execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
   const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));

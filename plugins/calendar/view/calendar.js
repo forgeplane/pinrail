@@ -318,13 +318,15 @@
       );
       target?.focus({ preventScroll: true });
     }
-    plugin.handOverLabel(plugin.readonly
+    plugin.handOverLabel(
+      plugin.readonly
         ? "Decision recorded"
         : unresolved
           ? `Choose ${unresolved} more ${unresolved === 1 ? "item" : "items"}`
           : handedBack
             ? `Hand over · ${selected.length} selected, ${handedBack}`
-            : `Hand over ${selected.length} ${selected.length === 1 ? "selection" : "selections"}`);
+            : `Hand over ${selected.length} ${selected.length === 1 ? "selection" : "selections"}`,
+    );
   }
   app.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");

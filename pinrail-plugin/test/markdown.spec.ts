@@ -106,7 +106,8 @@ function viewScripts(page: any): string[] {
   // the view's own scripts, not the harness page's
   page.on(
     "request",
-    (r: any) => r.resourceType() === "script" && r.frame() !== page.mainFrame() && scripts.push(new URL(r.url()).pathname),
+    (r: any) =>
+      r.resourceType() === "script" && r.frame() !== page.mainFrame() && scripts.push(new URL(r.url()).pathname),
   );
   return scripts;
 }

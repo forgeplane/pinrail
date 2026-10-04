@@ -88,8 +88,7 @@ export function scaffold(name, opts = {}) {
 
 /** The command line: `create <name> [--template plain|vite|react] [--dir path] [--sdk spec]`. */
 export function create(argv) {
-  const usage =
-    "usage: pinrail-plugin create <name> [--template plain|vite|react] [--dir path] [--sdk spec]";
+  const usage = "usage: pinrail-plugin create <name> [--template plain|vite|react] [--dir path] [--sdk spec]";
   // --template react and --template=react alike; an unknown flag, or one
   // without its value, is refused rather than quietly ignored
   let parsed;

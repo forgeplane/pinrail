@@ -37,7 +37,9 @@ async function checksAndRuns(page: any, dir: string) {
 }
 
 async function decides(page: any, dir: string) {
-  const plugin = await mountPlugin(page, dir, { review: fixture(path.join(dir, "samples", `${path.basename(dir)}.json`)) });
+  const plugin = await mountPlugin(page, dir, {
+    review: fixture(path.join(dir, "samples", `${path.basename(dir)}.json`)),
+  });
   await expect(plugin.frame.locator("p").first()).toContainText("3 commits");
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over: yes");
@@ -45,7 +47,9 @@ async function decides(page: any, dir: string) {
   expect(await plugin.nextSubmit()).toEqual({ ok: true });
 }
 
-test("the plain scaffold renders its sample, hands over a decision, passes check and runs under dev", async ({ page }) => {
+test("the plain scaffold renders its sample, hands over a decision, passes check and runs under dev", async ({
+  page,
+}) => {
   const dir = scaffold("triage", "plain");
   await decides(page, dir);
   await checksAndRuns(page, dir);

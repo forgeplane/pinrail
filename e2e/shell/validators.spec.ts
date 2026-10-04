@@ -28,7 +28,10 @@ function plugins() {
         ? fs
             .readdirSync(fixturesDir)
             .filter((f) => f.endsWith(".json") && !f.endsWith(".summary.json"))
-            .map((f) => ({ file: path.join(fixturesDir, f), ...JSON.parse(fs.readFileSync(path.join(fixturesDir, f), "utf8")) }))
+            .map((f) => ({
+              file: path.join(fixturesDir, f),
+              ...JSON.parse(fs.readFileSync(path.join(fixturesDir, f), "utf8")),
+            }))
             .filter((f) => f.payload !== undefined)
         : [];
       return { name, pluginDir, fixtures };
@@ -87,7 +90,11 @@ let asked = 0;
 async function appTakesDecision(request: APIRequestContext, plugin: string, fixture: Fixture, data: unknown) {
   const attachments = await upload(request, fixture);
   const created = await request.post(`${core}/api/v1/reviews`, {
-    data: { ...envelope(plugin, fixture, attachments), title: `${fixture.title} (${++asked})`, payload: fixture.payload },
+    data: {
+      ...envelope(plugin, fixture, attachments),
+      title: `${fixture.title} (${++asked})`,
+      payload: fixture.payload,
+    },
   });
   expect(created.status(), await created.text()).toBe(201);
   const { id } = await created.json();
@@ -113,7 +120,10 @@ test("the harness and the app agree on the official plugins' fixtures", async ({
       const decisionOk = schemaChecker(pluginDir, "decision");
       for (const fixture of fixtures) {
         const label = `${name}/${path.basename(fixture.file)}`;
-        for (const [what, payload] of [["payload", fixture.payload], ["empty payload", {}]] as const) {
+        for (const [what, payload] of [
+          ["payload", fixture.payload],
+          ["empty payload", {}],
+        ] as const) {
           verdicts.push({
             case: `${label}: ${what}`,
             harness: payloadOk(payload).length === 0,

@@ -158,18 +158,13 @@ test("the diff's bar holds how it reads and the bulk decisions; icons carry name
   const bar = plugin.frame.locator('[role="toolbar"]');
 
   // the header: only the rail's toggle
-  expect(await header.locator(".pinrail-icon").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
-    "panel-left-close",
-  ]);
+  expect(
+    await header.locator(".pinrail-icon").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon)),
+  ).toEqual(["panel-left-close"]);
   // the diff's bar: how it reads, and the decisions on the findings still open below
-  expect(await bar.locator(".pinrail-icon").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
-    "rows-3",
-    "columns-2",
-    "fold-vertical",
-    "wrap-text",
-    "list-check",
-    "list-x",
-  ]);
+  expect(
+    await bar.locator(".pinrail-icon").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon)),
+  ).toEqual(["rows-3", "columns-2", "fold-vertical", "wrap-text", "list-check", "list-x"]);
 
   // Beside a word, an icon is decoration and the word is the name.
   await expect(bar.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
@@ -218,7 +213,10 @@ test("the file tree's controls carry icons, and the collapse in the header says 
   await collapse.click();
   await expect(plugin.frame.locator("aside")).toHaveCount(0);
   await expect(plugin.frame.getByRole("button", { name: "Show the file tree" })).toBeVisible();
-  await expect(plugin.frame.locator('[data-act="toggle-tree"] .pinrail-icon')).toHaveAttribute("data-icon", "panel-left-open");
+  await expect(plugin.frame.locator('[data-act="toggle-tree"] .pinrail-icon')).toHaveAttribute(
+    "data-icon",
+    "panel-left-open",
+  );
 
   await plugin.frame.locator('[data-act="toggle-tree"]').click();
   await expect(plugin.frame.locator("aside")).toBeVisible();
