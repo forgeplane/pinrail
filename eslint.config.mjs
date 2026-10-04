@@ -27,6 +27,7 @@ export default tseslint.config(
       "plugins/*/view/**",
       "plugins/artifact/src/**",
       "pinrail-plugin/src/**",
+      "pinrail-plugin/host/**",
       "pinrail-plugin/templates/*/src/**",
       "pinrail-plugin/templates/*/view/**",
       "docs/examples/*/*/src/**",

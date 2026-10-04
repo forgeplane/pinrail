@@ -344,7 +344,7 @@
         try {
           value = JSON.parse(JSON.stringify(data));
         } catch (error) {
-          throw new TypeError(`Pinrail: a draft must be a JSON value: ${error.message}`);
+          throw new TypeError(`Pinrail: a draft must be a JSON value: ${error.message}`, { cause: error });
         }
         post({ type: "draft", data: value });
       },

@@ -19,6 +19,7 @@
  * mailto keeps its text and loses its address. Styling stays the view's:
  * the renderer writes plain elements and no classes.
  */
+/* global markdownit -- the parser, put in front of this file when it is served */
 (function (root, markdownit) {
   "use strict";
 

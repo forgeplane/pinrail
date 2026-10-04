@@ -4,7 +4,7 @@
 // The SDK is on the window from the script tag in index.html; the types come
 // from the package.
 import { CircleCheck, CircleX, Hand, Rocket } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 export type Payload = {
@@ -54,12 +54,16 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
     return note.trim() ? { verdict, note: note.trim() } : { verdict };
   };
 
-  function choose(verdict: Verdict) {
-    const next = { ...latest.current, verdict };
-    setDraft(next);
-    setError("");
-    plugin.draft(next);
-  }
+  // the same function across renders, since the key listener below calls it
+  const choose = useCallback(
+    (verdict: Verdict) => {
+      const next = { ...latest.current, verdict };
+      setDraft(next);
+      setError("");
+      plugin.draft(next);
+    },
+    [plugin],
+  );
 
   function writeNote(note: string) {
     const next = { ...latest.current, note };
@@ -90,7 +94,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [readonly]);
+  }, [readonly, choose]);
 
   const { payload } = review;
   const decided = review.decision?.data;
