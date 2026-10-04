@@ -9,7 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { packageRoot, markdownScript } = require("../lib/paths.cjs");
 const { resolveAttachments } = require("./attachments.cjs");
-const Ajv2020 = require("ajv/dist/2020").default;
+const { checker, schemaChecker } = require("./schemas.cjs");
 
 const ORIGIN = "http://plugin.test";
 
@@ -126,19 +126,6 @@ function fixture(file) {
   return review;
 }
 
-/** Checks a decision against the plugin's decision schema,
- *  `schemas/decision.schema.json`, as the core does: the violations, as
- *  `{ path, message }`, or none. */
-function decisionChecker(pluginDir) {
-  const file = path.join(pluginDir, "schemas", "decision.schema.json");
-  if (!fs.existsSync(file)) return () => [];
-  const doc = { ...JSON.parse(fs.readFileSync(file, "utf8")) };
-  delete doc.$schema;
-  delete doc.$id;
-  const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(doc);
-  return (data) => (validate(data) ? [] : validate.errors.map((e) => ({ path: e.instancePath, message: e.message })));
-}
-
 /** Checks a change to the plugin's settings against the manifest's
  *  settings_schema, as the core does: the violations, or none. */
 function settingsChecker(manifest) {
@@ -146,13 +133,9 @@ function settingsChecker(manifest) {
   if (!schema || typeof schema !== "object") {
     return () => [{ path: "", message: "the manifest declares no settings" }];
   }
-  const doc = { ...schema };
-  delete doc.$schema;
-  delete doc.$id;
   // a change names some of the settings, not all of them
-  delete doc.required;
-  const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(doc);
-  return (patch) => (validate(patch) ? [] : validate.errors.map((e) => ({ path: e.instancePath, message: e.message })));
+  const { required, ...change } = schema;
+  return checker(change);
 }
 
 /* The checkers of the plugin mounted last on each page: a page can expose a
@@ -177,7 +160,7 @@ async function mountPlugin(page, pluginDir, opts) {
   };
 
   const manifest = JSON.parse(fs.readFileSync(path.join(pluginDir, "manifest.json"), "utf8"));
-  const checkDecision = decisionChecker(pluginDir);
+  const checkDecision = schemaChecker(pluginDir, "decision");
   // where the app serves it: a bundle's view/, and nothing outside it
   const bundle = `/bundles/${manifest.name}/view/`;
   const viewDir = path.resolve(pluginDir, "view");
