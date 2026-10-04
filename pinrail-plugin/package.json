@@ -25,7 +25,7 @@
       "default": "./host/host.js"
     },
     "./sdk/v1/pinrail-plugin.js": "./src/pinrail-plugin.js",
-    "./sdk/v1/pinrail-plugin.css": "./src/pinrail-plugin.css",
+    "./sdk/v1/markdown.js": "./dist/markdown.js",
     "./package.json": "./package.json",
     "./schemas/manifest.schema.json": "./schemas/manifest.schema.json",
     "./schemas/attachment.schema.json": "./schemas/attachment.schema.json"
@@ -35,6 +35,7 @@
     "NOTICE",
     "CHANGELOG.md",
     "bin",
+    "dist",
     "harness",
     "host",
     "lib",
@@ -49,7 +50,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test test/*.test.cjs test/*.test.mjs && playwright test"
+    "test": "node --test test/*.test.cjs test/*.test.mjs && playwright test",
+    "prepack": "node scripts/build-markdown.cjs"
   },
   "dependencies": {
     "ajv": "^8.20.0",

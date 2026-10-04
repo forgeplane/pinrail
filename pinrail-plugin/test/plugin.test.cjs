@@ -610,12 +610,23 @@ test("attachmentName reads a reference, and the package's schema describes one",
   assert.equal(valid({ $attachment: "a", extra: 1 }), false);
 });
 
-test("the script a view loads names no source map, which nothing serves", () => {
+test("the Markdown script names no source map, which nothing serves", () => {
   const path = require("node:path");
-  const { sdkScript } = require("../lib/paths.cjs");
-  const script = sdkScript(path.resolve(__dirname, ".."));
-  assert.ok(script.includes("markdownit"), "the parser is in it");
+  const { markdownScript } = require("../lib/paths.cjs");
+  const script = markdownScript(path.resolve(__dirname, ".."));
   assert.ok(!/sourceMappingURL/.test(script), "no source map comment");
+});
+
+test("without the Markdown script, Pinrail.markdown says which script it needs", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const vm = require("node:vm");
+  const context = vm.createContext({});
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "src", "pinrail-plugin.js"), "utf8"), context);
+  assert.throws(() => context.Pinrail.markdown("# Title"), /\/sdk\/v1\/markdown\.js/);
+  assert.throws(() => context.Pinrail.markdownInline("a"), /\/sdk\/v1\/markdown\.js/);
+  // and the SDK alone leaves no parser behind
+  assert.equal(context.markdownit, undefined);
 });
 
 test("the app's own keys, pressed in the view, go up to the app", () => {

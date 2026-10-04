@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import Ajv2020 from "ajv/dist/2020.js";
 import { resolveAttachments } from "../harness/attachments.cjs";
-import { packageRoot, sdkScript } from "../lib/paths.cjs";
+import { packageRoot, markdownScript } from "../lib/paths.cjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = packageRoot(fileURLToPath(import.meta.url));
@@ -280,11 +280,11 @@ export function serve(argv) {
     if (p === "/sdk/v1/fonts.css") {
       return send(res, 200, fontsCss(), { "content-type": "text/css", "access-control-allow-origin": "*" });
     }
-    // the SDK carries its markdown parser, as it does in the app
-    if (p === "/sdk/v1/pinrail-plugin.js") {
-      return send(res, 200, sdkScript(root), { "content-type": mime[".js"], "access-control-allow-origin": "*" });
+    // the Markdown renderer, with its parser in front of it, as in the app
+    if (p === "/sdk/v1/markdown.js") {
+      return send(res, 200, markdownScript(root), { "content-type": mime[".js"], "access-control-allow-origin": "*" });
     }
-    if (p === "/sdk/v1/pinrail-plugin.css" || p === "/sdk/v1/tokens.css")
+    if (p === "/sdk/v1/pinrail-plugin.js" || p === "/sdk/v1/pinrail-plugin.css" || p === "/sdk/v1/tokens.css")
       return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
     if (p.startsWith("/plugin/")) {
       const file = under(pluginDir, p.slice("/plugin/".length));

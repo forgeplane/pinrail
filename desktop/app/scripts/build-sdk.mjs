@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { sdkScript } from "../../../pinrail-plugin/lib/paths.cjs";
+import { markdownScript } from "../../../pinrail-plugin/lib/paths.cjs";
 
 const app = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const sdkSrc = path.resolve(app, "..", "..", "pinrail-plugin", "src");
@@ -17,9 +17,9 @@ const out = path.join(app, "sdk", "v1");
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
-// pinrail-plugin.js is assembled below rather than copied: it carries a parser
+// markdown.js is built below rather than copied: it carries a parser
 for (const file of fs.readdirSync(sdkSrc)) {
-  if (file === "pinrail-plugin.js") continue;
+  if (file === "markdown.js") continue;
   fs.copyFileSync(path.join(sdkSrc, file), path.join(out, file));
 }
 // the weight axis, every script, normal only: what the shell imports
@@ -32,10 +32,9 @@ for (const file of faces) {
 // points at ./files/, which is where the faces now sit
 fs.copyFileSync(path.join(font, "wght.css"), path.join(out, "fonts.css"));
 
-// The SDK and the markdown parser it renders with, as the one script a view
-// loads. The parser comes from the app's own dependencies: a release installs
-// no others.
-fs.writeFileSync(path.join(out, "pinrail-plugin.js"), sdkScript(app, sdkSrc));
+// The Markdown renderer with its parser. The parser comes from the app's own
+// dependencies: a release installs no others.
+fs.writeFileSync(path.join(out, "markdown.js"), markdownScript(app, sdkSrc));
 
 console.log(
   `sdk: ${fs.readdirSync(sdkSrc).length} SDK files and ${faces.length} font files in ${path.relative(app, out)}`,

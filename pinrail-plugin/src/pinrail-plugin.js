@@ -56,43 +56,20 @@
     );
   }
 
-  /* Markdown is rendered by markdown-it, which the app prepends to this file:
-     the script a view loads carries its parser, so Pinrail.markdown and
-     Pinrail.markdownInline render CommonMark — headings, tables, blockquotes,
-     nested lists and the rest — from the view's first line onwards.
-
-     What the renderer promises is that the HTML is its own: raw HTML in the
-     source is escaped rather than passed through, which matters because a
-     view's frame runs inline scripts, so markup that reached the DOM would
-     run. Addresses are checked too: a link to anything but http, https or
-     mailto keeps its text and loses its address. Styling stays the view's:
-     the renderer writes plain elements and no classes. */
+  /* Markdown is rendered by the SDK's second script, /sdk/v1/markdown.js,
+     which a view that renders Markdown loads beside this one. It may load
+     before or after this file: the renderer is looked up on each call. */
+  const MARKDOWN = Symbol.for("pinrail.markdown");
+  /** The addresses a view may send someone to. */
   const SAFE_HREF = /^(https?:|mailto:)/i;
 
-  function configure(markdownit) {
-    const parser = markdownit({
-      // the default, and the reason no sanitiser is needed: raw HTML is escaped
-      html: false,
-      linkify: true,
-      breaks: false,
-      typographer: false,
-    });
-    const link = parser.renderer.rules.link_open || ((t, i, o, e, self) => self.renderToken(t, i, o));
-    parser.renderer.rules.link_open = (tokens, i, options, env, self) => {
-      if (!SAFE_HREF.test(tokens[i].attrGet("href") || "")) tokens[i].attrSet("href", "#");
-      tokens[i].attrSet("rel", "noreferrer");
-      tokens[i].attrSet("target", "_blank");
-      return link(tokens, i, options, env, self);
-    };
-    return parser;
-  }
-
-  // The parser is a global by the time this runs, because it is prepended to
-  // this file; the source half of it on its own renders nothing.
-  const md = root.markdownit ? configure(root.markdownit) : null;
-
   function render(method, src) {
-    if (!md) throw new Error("Pinrail.markdown needs the parser the app serves with the SDK");
+    const md = root[MARKDOWN];
+    if (!md) {
+      throw new Error(
+        'Pinrail.markdown needs the SDK\'s Markdown script: add <script src="/sdk/v1/markdown.js"></script> to the view',
+      );
+    }
     return src == null ? "" : md[method](String(src));
   }
 

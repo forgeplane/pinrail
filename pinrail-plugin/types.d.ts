@@ -284,7 +284,7 @@ export type PinrailSdk = {
   /** the plugin's own `icons/<name>.svg`, beside the view, as markup that takes the text's colour */
   icon(name: string, opts?: { label?: string; size?: number | string; class?: string }): string;
   escape(text: string): string;
-  /** markdown as HTML: raw HTML escaped, unsafe addresses dropped */
+  /** markdown as HTML: raw HTML escaped, unsafe addresses dropped; needs `/sdk/v1/markdown.js` loaded beside the SDK */
   markdown(source: string): string;
   /** the same, for one line: no paragraph around it */
   markdownInline(source: string): string;

@@ -8,8 +8,9 @@ import { scratch } from "./scratch.cjs";
 // no network of its own, and inline scripts allowed. The last of those is why
 // the escaping test below matters — HTML that reached the DOM would run.
 
-/** A plugin whose whole view renders `Pinrail.markdown` of its payload. */
-function renderer(): string {
+/** A plugin whose whole view renders `Pinrail.markdown` of its payload, with
+ *  the renderer's script or without it. */
+function renderer({ withMarkdown = true } = {}): string {
   const dir = scratch("pinrail-markdown-");
   fs.mkdirSync(path.join(dir, "view"), { recursive: true });
   fs.writeFileSync(
@@ -21,6 +22,7 @@ function renderer(): string {
     `<!doctype html>
 <meta charset="utf-8">
 <script src="/sdk/v1/pinrail-plugin.js"></script>
+${withMarkdown ? '<script src="/sdk/v1/markdown.js"></script>' : ""}
 <div id="out"></div>
 <div id="inline"></div>
 <script>
@@ -39,8 +41,8 @@ function renderer(): string {
   return dir;
 }
 
-async function render(page: any, source: string) {
-  const plugin = await mountPlugin(page, renderer(), {
+async function render(page: any, source: string, opts = {}) {
+  const plugin = await mountPlugin(page, renderer(opts), {
     review: reviewFrom({ title: "Markdown", payload: { source } }),
   });
   return plugin.frame;
@@ -98,19 +100,32 @@ test("renders one line without a paragraph around it", async ({ page }) => {
   await expect(frame.locator("#inline p")).toHaveCount(0);
 });
 
-test("comes with the SDK, in one script and no second request", async ({ page }) => {
+/** The paths of the scripts the view's frame asks for. */
+function viewScripts(page: any): string[] {
   const scripts: string[] = [];
   // the view's own scripts, not the harness page's
   page.on(
     "request",
-    (r) => r.resourceType() === "script" && r.frame() !== page.mainFrame() && scripts.push(new URL(r.url()).pathname),
+    (r: any) => r.resourceType() === "script" && r.frame() !== page.mainFrame() && scripts.push(new URL(r.url()).pathname),
   );
+  return scripts;
+}
 
+test("is ready in onInit once the view loads its script", async ({ page }) => {
+  const scripts = viewScripts(page);
   const frame = await render(page, "# Title");
 
-  // a view renders in onInit with no await of its own, because the parser is
-  // already there: the SDK it loaded carries it
+  // a view renders in onInit with no await of its own
   await expect(frame.locator("#out h1")).toHaveText("Title");
+  expect(scripts).toEqual(["/sdk/v1/pinrail-plugin.js", "/sdk/v1/markdown.js"]);
+});
+
+test("a view without the script loads no parser, and is told which script it needs", async ({ page }) => {
+  const scripts = viewScripts(page);
+  const frame = await render(page, "# Title", { withMarkdown: false });
+
+  await expect(frame.locator("#out")).toContainText("threw:");
+  await expect(frame.locator("#out")).toContainText('<script src="/sdk/v1/markdown.js">');
   expect(scripts).toEqual(["/sdk/v1/pinrail-plugin.js"]);
 });
 

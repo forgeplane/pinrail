@@ -4,10 +4,14 @@
 // browser would, and take Pinrail off the global it leaves it on.
 const path = require("node:path");
 const vm = require("node:vm");
-const { sdkScript } = require("../lib/paths.cjs");
-// the script the app serves, parser and all, not the source half of it
+const fs = require("node:fs");
+const { markdownScript } = require("../lib/paths.cjs");
+// the two scripts the app serves: the SDK as it is, and the Markdown renderer
 const sdkFile = path.join(__dirname, "..", "src", "pinrail-plugin.js");
-vm.runInThisContext(sdkScript(path.join(__dirname, "..")), { filename: sdkFile });
+vm.runInThisContext(fs.readFileSync(sdkFile, "utf8"), { filename: sdkFile });
+vm.runInThisContext(markdownScript(path.join(__dirname, "..")), {
+  filename: path.join(__dirname, "..", "src", "markdown.js"),
+});
 // the client with a fake environment, which the global keeps off its
 // documented members
 const Pinrail = Object.assign(Object.create(globalThis.Pinrail), {
