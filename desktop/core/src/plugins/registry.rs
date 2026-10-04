@@ -50,8 +50,9 @@ pub(crate) fn bundled() -> Vec<(String, Files)> {
 /// its name, with `app` as its source, when nothing is installed under
 /// that name; one installed from disk, or linked, is left alone. An app's
 /// copy is replaced when this release of the app carries a newer version,
-/// so a downgrade of the app leaves a newer one in place; reviews keep the
-/// bundle they were submitted to.
+/// or the same version with other files, so the copy always matches the SDK
+/// the app serves; a downgrade of the app leaves a newer one in place.
+/// Reviews keep the bundle they were submitted to.
 pub(crate) fn store_bundled(db: &Db, bundles: &Bundles) -> Result<(), Error> {
     store_releases(db, bundles, bundled())
 }
@@ -78,11 +79,14 @@ pub(crate) fn store_releases(
                 updated_at: now.clone(),
             },
             Some(install) if install.kind == "app" => {
-                let newer = db.bundle(&install.bundle)?.is_none_or(|current| {
-                    pinrail_format::semver(&bundle.version)
-                        > pinrail_format::semver(&current.version)
+                let replaces = db.bundle(&install.bundle)?.is_none_or(|current| {
+                    let (ours, theirs) = (
+                        pinrail_format::semver(&bundle.version),
+                        pinrail_format::semver(&current.version),
+                    );
+                    ours > theirs || (ours == theirs && bundle.hash != install.bundle)
                 });
-                if !newer {
+                if !replaces {
                     continue;
                 }
                 InstallRecord {
@@ -548,6 +552,39 @@ mod tests {
         let list = r.fetch("list").unwrap();
         assert_eq!(list.version, "1.9.0");
         assert_eq!(list.install.as_ref().unwrap().bundle, Some(stored.hash));
+    }
+
+    #[test]
+    fn a_bundled_release_of_the_same_version_with_other_files_replaces_the_apps_copy() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::in_memory().unwrap());
+        let r = open(tmp.path(), db.clone());
+        let shipped = db.install("list").unwrap().unwrap().bundle;
+
+        // the next build of the app, whose list view changed but not its version
+        let changed: Vec<(String, Files)> = bundled()
+            .into_iter()
+            .filter(|(folder, _)| folder == "list")
+            .map(|(folder, files)| {
+                let files = files
+                    .into_iter()
+                    .map(|(path, bytes)| match path.as_str() {
+                        "view/index.html" => (path, b"<!doctype html><p>changed</p>".to_vec()),
+                        _ => (path, bytes),
+                    })
+                    .collect();
+                (folder, files)
+            })
+            .collect();
+        store_releases(&db, r.bundles(), changed).unwrap();
+        r.reload().unwrap();
+
+        let list = r.fetch("list").unwrap();
+        assert_eq!(list.version, "1.0.0");
+        let now = list.install.as_ref().unwrap().bundle.clone().unwrap();
+        assert_ne!(now, shipped);
+        let view = std::fs::read_to_string(r.bundles().path(&now).join("view/index.html")).unwrap();
+        assert!(view.contains("changed"));
     }
 
     /// Links a folder that holds a plugin, as an install stores it.
