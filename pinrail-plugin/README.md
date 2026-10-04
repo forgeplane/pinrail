@@ -241,7 +241,8 @@ The new folder contains the following files:
   `use_when`.
 - `samples/<name>.json`, a complete review with a `title` and a `payload`.
   `pinrail submit <name> --sample` and the app's Settings send it, and its
-  payload is the example that agents get.
+  payload is the example that agents get. The development shell and the
+  test show it too.
 - `schemas/`, with one property in each schema and a description of what to
   replace.
 - `view/index.html` and `view/view.js`, a yes-or-no question with comments in
@@ -251,7 +252,6 @@ The new folder contains the following files:
   `vite.config.ts` and `tsconfig.json` instead.
 - `AGENTS.md`, which explains the plugin to an agent that helps build it,
   and `CLAUDE.md`, which refers to it.
-- `fixtures/basic.json`, a review to show in the view.
 - `tests/<name>.spec.ts`, a test in the harness, with its
   `playwright.config.ts`.
 - `package.json`, which depends on this package and on Playwright.
@@ -277,8 +277,10 @@ mise run dev:plugin plugins/artifact          # in this repository, where no pac
                                               # options: --port N (default 4790), --no-open
 ```
 
-The page lists the plugin's `fixtures/*.json` files, and you choose one to
-initialise the view with. You can also:
+The page lists the plugin's `samples/*.json` and `fixtures/*.json` files,
+and you choose one to initialise the view with. Keep in `fixtures/` the
+reviews that should not ship with the plugin, such as a decided review or
+an edge case. You can also:
 
 - use a decided fixture as the previous round;
 - switch between read-only and editable, and between the themes;
@@ -303,7 +305,7 @@ app or the CLI:
 ```ts
 import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
-const plugin = await mountPlugin(page, pluginDir, { review: fixture("fixtures/basic.json") });
+const plugin = await mountPlugin(page, pluginDir, { review: fixture("samples/ticket_triage.json") });
 await plugin.frame.getByRole("button", { name: "Yes" }).click();
 expect(await plugin.handOver()).toMatchObject({ decision: { data: { ok: true } } });
 ```
@@ -314,8 +316,8 @@ the violations, or `{ deferred: true }` when the view returned nothing.
 `collect()` only asks, and `nextSubmit()` returns what the view answered,
 for a test that replies itself with `sendViolations` or `sendSubmitted`.
 
-A fixture holds part of a review, in the form the SDK passes to a view as
-`review`. It is usually `{ "title", "payload" }`, and it includes a
+A fixture or a sample holds part of a review, in the form the SDK passes
+to a view as `review`. It is usually `{ "title", "payload" }`, and it includes a
 `decision` for a read-only view or a previous round.
 
 Tests live in `<plugin>/tests/*.spec.ts`. `pinrail-plugin test [dir]` runs
