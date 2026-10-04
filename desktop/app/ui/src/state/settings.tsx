@@ -142,6 +142,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   current.current = settings;
   // the latest change sent: an older answer that lands after it is dropped
   const sent = useRef(0);
+  // the changes sent and not yet answered
+  const unanswered = useRef(0);
   const applied = useRef<Pick<Settings, "appearance"> | null>(null);
 
   const apply = useCallback((s: Pick<Settings, "appearance">) => {
@@ -152,8 +154,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const load = useCallback(async () => {
+    // A reload that overlaps a change of ours may have read the settings
+    // from before it, and would undo it; the change's answer carries the
+    // server's settings instead.
+    const before = sent.current;
+    const overlapped = () => unanswered.current > 0 || sent.current !== before;
     try {
+      if (overlapped()) return;
       const s = fromServer(await api.settings());
+      if (overlapped()) return;
       apply(s);
       setSettings((prev) => ({ ...prev, ...s }));
       setLoaded(true);
@@ -237,13 +246,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         if (patch.updates) body.updates = patch.updates;
         if (patch.welcome) body.welcome = patch.welcome;
         const mine = ++sent.current;
+        unanswered.current++;
         try {
           const s = fromServer(await api.patchSettings(body));
+          unanswered.current--;
           if (mine !== sent.current) return;
           apply(s);
           current.current = { ...current.current, ...s };
           setSettings((prev) => ({ ...prev, ...s }));
         } catch {
+          unanswered.current--;
           // refused or the server is away: what was applied stays for this session
         }
       }

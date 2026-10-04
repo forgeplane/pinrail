@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { clearInbox, createReview, decide } from "./helpers";
+import { clearInbox, core, createReview, decide } from "./helpers";
 
 const payload = {
   intro: "Two proposals.",
@@ -98,6 +98,34 @@ test("⌘B hides the sidebar and shows it again", async ({ page }) => {
   await expect(toggle).toHaveAttribute("aria-label", "Show sidebar");
   await page.keyboard.press("ControlOrMeta+b");
   await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+});
+
+test("a quick second ⌘B is not undone by the reload the first one caused", async ({ page }) => {
+  await page.goto("/#/history");
+  const toggle = page.locator("button.bar-button[aria-label$='sidebar']");
+  await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+  // a slow server: the settings the first change makes the app reload come
+  // back after the second change
+  await page.route(`${core}/api/v1/settings`, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    await new Promise((r) => setTimeout(r, 800));
+    await route.fulfill({ response });
+  });
+
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect(toggle).toHaveAttribute("aria-label", "Show sidebar");
+  await page.waitForTimeout(200);
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect(toggle).toHaveAttribute("aria-label", "Hide sidebar");
+  // and it stays shown while every reload comes back
+  const seen = new Set<string | null>();
+  for (let i = 0; i < 40; i++) {
+    seen.add(await toggle.getAttribute("aria-label"));
+    await page.waitForTimeout(50);
+  }
+  expect([...seen]).toEqual(["Hide sidebar"]);
+  await page.unroute(`${core}/api/v1/settings`);
 });
 
 test("the app's own text cannot be selected, as in a desktop app, but fields and messages can", async ({ page }) => {
