@@ -10,7 +10,7 @@ import { scratch } from "./scratch.cjs";
 const sdk = path.resolve(import.meta.dirname, "..");
 const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
 
-function scaffold(name: string, template: "plain" | "vite" | "react" | "vue" | "svelte"): string {
+function scaffold(name: string, template: "plain" | "vite" | "react"): string {
   const dir = path.join(scratch("pinrail-scaffold-"), name);
   execFileSync(process.execPath, [bin, "create", name, "--template", template, "--dir", dir, "--sdk", `file:${sdk}`], {
     stdio: "pipe",
@@ -53,20 +53,6 @@ function passesItsOwnTests(dir: string) {
 test("the react scaffold type-checks, builds and passes its own tests", async ({ page }) => {
   test.setTimeout(180_000);
   const dir = scaffold("fancy_react", "react");
-  passesItsOwnTests(dir);
-  await decides(page, dir);
-});
-
-test("the vue scaffold type-checks, builds and passes its own tests", async ({ page }) => {
-  test.setTimeout(180_000);
-  const dir = scaffold("fancy_vue", "vue");
-  passesItsOwnTests(dir);
-  await decides(page, dir);
-});
-
-test("the svelte scaffold checks, builds and passes its own tests", async ({ page }) => {
-  test.setTimeout(180_000);
-  const dir = scaffold("fancy_svelte", "svelte");
   passesItsOwnTests(dir);
   await decides(page, dir);
 });

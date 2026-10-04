@@ -11,7 +11,7 @@ const root = packageRoot(fileURLToPath(import.meta.url));
 const templates = path.join(root, "templates");
 const { version } = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-export const TEMPLATES = ["plain", "vite", "react", "vue", "svelte"];
+export const TEMPLATES = ["plain", "vite", "react"];
 const NAME = /^[a-z][a-z0-9_-]*$/;
 
 /**
@@ -86,10 +86,10 @@ export function scaffold(name, opts = {}) {
   return { dir, written };
 }
 
-/** The command line: `create <name> [--template plain|vite|react|vue|svelte] [--dir path] [--sdk spec]`. */
+/** The command line: `create <name> [--template plain|vite|react] [--dir path] [--sdk spec]`. */
 export function create(argv) {
   const usage =
-    "usage: pinrail-plugin create <name> [--template plain|vite|react|vue|svelte] [--dir path] [--sdk spec]";
+    "usage: pinrail-plugin create <name> [--template plain|vite|react] [--dir path] [--sdk spec]";
   // --template react and --template=react alike; an unknown flag, or one
   // without its value, is refused rather than quietly ignored
   let parsed;

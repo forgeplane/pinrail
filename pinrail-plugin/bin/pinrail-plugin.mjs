@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The plugin author's command: one word, then the rest of the line.
 //
-//   pinrail-plugin create <name> [--template plain|vite|react|vue|svelte]   a plugin folder to start from
+//   pinrail-plugin create <name> [--template plain|vite|react]   a plugin folder to start from
 //   pinrail-plugin dev [dir] [--port N] [--no-open]        the fake shell in a browser, reloading on change
 //   pinrail-plugin test [dir] [playwright arguments]       the plugin's tests/ under the harness
 //   pinrail-plugin check [dir] [--json]                    what the app would say, through `pinrail plugins check`
@@ -15,7 +15,7 @@ const [command, ...rest] = process.argv.slice(2);
 const usage = `usage: pinrail-plugin <command> [options]
 
   create <name>   a plugin folder to start from: manifest, schemas, view, fixture, test, release workflow
-                  --template plain|vite|react|vue|svelte (default plain), --dir path (default ./<name>)
+                  --template plain|vite|react (default plain), --dir path (default ./<name>)
   dev [dir]       the fake shell in a browser, serving the plugin in dir (default .), reloading on change
                   --port N (default 4790), --no-open
   test [dir]      the plugin's tests/ under the harness, with Playwright from its dependencies
