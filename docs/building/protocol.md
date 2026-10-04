@@ -55,15 +55,27 @@ sequenceDiagram
 
 | Field | Type | Meaning |
 |---|---|---|
-| `review` | object | The review: its `id`, `title`, `status`, `origin`, `payload`, and `decision` once there is one. |
-| `previous` | object or `null` | The round this review revises, with its decision, so you can show earlier verdicts beside the new ones. |
+| `review` | object | The review, with the fields below. |
+| `previous` | object or `null` | The round this review revises, with the same fields and its decision, so you can show earlier verdicts beside the new ones. |
 | `readonly` | boolean | `true` whenever the review is not pending. |
 | `draft` | any or `null` | What the view last posted as a draft for this review. |
 | `settings` | object | The plugin's own settings: every key the manifest declares, with its current value. |
 | `shell_origin` | string | The app's origin. Accept messages from it alone. |
 | `capabilities` | string array | What the app can do beyond the messages above: `"attachments"` when it hands a view the files a review carries. |
 
-`review.attachments` lists those files, each with its `name`, `size`, `media_type` and `sha256`.
+`review` and `previous` have these fields, and no others:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `id` | string | The review's id. |
+| `title` | string | The title the agent gave it. |
+| `status` | string | `pending`, `decided`, `withdrawn`, `discarded` or `expired`. |
+| `created_at` | string | When the agent sent it, as an RFC 3339 timestamp. |
+| `payload` | any | The payload, as the payload schema describes it. |
+| `attachments` | array | The files it carries, each with its `name`, `size`, `media_type` and `sha256`. |
+| `decision` | object or `null` | Once the review is decided: `data`, the decision itself, and `decided_by` and `decided_at`. |
+
+`previous` and `draft` can come from an earlier release of the plugin, because a pending review moves to a newer release when it is opened. Check their shape before you use them, and fall back to an empty view when they do not match.
 
 A review is read-only for one of four reasons, and `review.status` says which:
 
@@ -71,7 +83,7 @@ A review is read-only for one of four reasons, and `review.status` says which:
 |---|---|
 | `decided` | A decision was handed over. It is in `review.decision`. |
 | `withdrawn` | The agent took the review back before anyone decided. |
-| `discarded` | The person said no and told the agent to stop. `review.discarded_by` and `review.discarded_reason` say who and why. |
+| `discarded` | The person said no and told the agent to stop. |
 | `expired` | The review passed its expiry without a decision. |
 
 Render all four the same way: what was there, and nothing to submit.
