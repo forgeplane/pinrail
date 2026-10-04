@@ -27,6 +27,24 @@ pub fn routes() -> Router<ApiState> {
         .route("/bundles/{hash}/view/{*path}", get(stored_bundle))
         .route("/sdk/v1/{*path}", get(sdk))
         .route("/preview/reviews/{id}", get(preview))
+        .route("/preview/host.js", get(preview_host))
+}
+
+/// The app's side of the plugin protocol, which the preview page runs: the
+/// same module the app, the SDK's development shell and its harness use.
+async fn preview_host() -> Response {
+    const HOST: &str = include_str!("../../../../pinrail-plugin/host/host.js");
+    (
+        [
+            (
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("text/javascript; charset=utf-8"),
+            ),
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-cache")),
+        ],
+        HOST,
+    )
+        .into_response()
 }
 
 /// A review as the app shows it, in a browser: the plugin's view in a frame,
@@ -34,7 +52,7 @@ pub fn routes() -> Router<ApiState> {
 /// everything else from the API, so any id gets the same page.
 async fn preview() -> Response {
     const PAGE: &str = include_str!("preview.html");
-    let csp = "default-src 'self'; script-src 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
+    let csp = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
     (
         [
             (

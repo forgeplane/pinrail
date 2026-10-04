@@ -42,15 +42,16 @@
   <span class="hint">⌘/Ctrl+Enter presses it too.</span>
   <button type="button" id="handover" disabled>Check the hand-over</button>
 </footer>
-<script>
-"use strict";
-const PROTOCOL = 1;
+<script type="module">
+// The app's side of the protocol from the SDK's host module, as the app runs
+// it, with a hand-over that checks the decision and stores nothing.
+import { connectFrame } from "/preview/host.js";
+
 const id = decodeURIComponent(location.pathname.split("/").pop());
 const frame = document.getElementById("view");
 const button = document.getElementById("handover");
-let review = null, previous = null, settings = {}, minHeight = 200, checking = false;
+let review = null, previous = null, settings = {}, minHeight = 200;
 
-const post = (msg, transfer) => frame.contentWindow && frame.contentWindow.postMessage({ pinrail: PROTOCOL, ...msg }, "*", transfer || []);
 // a link a view asks for opens out in the world, never back to this machine
 const followable = (url) => {
   try {
@@ -77,10 +78,6 @@ function showDecided() {
   foot.append(line);
 }
 
-function collect() {
-  if (!readonly() && !checking) post({ type: "collect" });
-}
-
 /** What the result area says: a decision that passes, and what the agent would get. */
 function result(ok, text, data) {
   const area = document.getElementById("result");
@@ -92,79 +89,55 @@ function result(ok, text, data) {
   pre.textContent = data === undefined ? "" : JSON.stringify(data, null, 2);
 }
 
-// The view's decision, checked and never stored: it passes, and the page
-// shows what the agent would get; or it fails, and the view gets the
-// violations, as in the app. Either way the view can go on editing.
-async function submit(data) {
-  if (readonly() || checking) return;
-  checking = true;
-  button.disabled = true;
-  try {
-    const { ok, body } = await json(`/api/v1/reviews/${encodeURIComponent(id)}/decision?dry_run=true`, { method: "POST", body: JSON.stringify({ data }) });
-    if (ok) {
-      result(true, "The decision passes. Decided in Pinrail, this is what the agent would get:", data);
-      post({ type: "violations", errors: [] });
-    } else {
+const host = connectFrame(frame, {
+  origin: location.origin,
+  review: () => review,
+  previous: () => previous,
+  readonly,
+  settings: () => settings,
+  theme,
+  label: (text) => (button.textContent = `Check: ${text}`),
+  open: (url) => {
+    if (followable(url)) window.open(url, "_blank", "noreferrer");
+  },
+  resize: (height) => {
+    frame.style.height = height === "fill" ? "100%" : `${Math.max(minHeight, height)}px`;
+  },
+  file: async (from, listed) => {
+    const response = await fetch(`/api/v1/reviews/${encodeURIComponent(from.id)}/attachments/${encodeURIComponent(listed.name)}`);
+    if (!response.ok) throw new Error(`could not fetch ${listed.name}`);
+    return response.arrayBuffer();
+  },
+  // The view's decision, checked and never stored: it passes, and the page
+  // shows what the agent would get; or it fails, and the view gets the
+  // violations, as in the app. Either way the view can go on editing.
+  handOver: async (data) => {
+    button.disabled = true;
+    try {
+      const { ok, body } = await json(`/api/v1/reviews/${encodeURIComponent(id)}/decision?dry_run=true`, { method: "POST", body: JSON.stringify({ data }) });
+      if (ok) {
+        result(true, "The decision passes. Decided in Pinrail, this is what the agent would get:", data);
+        return { ok: false, violations: [] };
+      }
       const errors = (body && body.violations) || [{ path: "", message: (body && body.message) || "The decision was refused." }];
       result(false, `The decision fails the plugin's schema: ${errors.length === 1 ? "1 violation" : errors.length + " violations"}, sent back to the view.`);
-      post({ type: "violations", errors });
+      return { ok: false, violations: errors };
+    } finally {
+      if (!readonly()) button.disabled = false;
     }
-  } finally {
-    checking = false;
-    if (!readonly()) button.disabled = false;
-  }
-}
-
-async function attachment(msg) {
-  const from = msg.round === "previous" ? previous : review;
-  const listed = from && (from.attachments || []).find((a) => a.name === msg.name);
-  const fail = (error) => post({ type: "attachment", req: msg.req, ok: false, name: msg.name, error });
-  if (!listed) return fail(`no attachment "${msg.name}" on this ${msg.round === "previous" ? "previous round" : "review"}`);
-  const response = await fetch(`/api/v1/reviews/${encodeURIComponent(from.id)}/attachments/${encodeURIComponent(msg.name)}`);
-  if (!response.ok) return fail(`could not fetch ${msg.name}`);
-  const bytes = await response.arrayBuffer();
-  post({ type: "attachment", req: msg.req, ok: true, name: msg.name, media_type: listed.media_type, size: listed.size, bytes }, [bytes]);
-}
-
-window.addEventListener("message", (event) => {
-  if (event.source !== frame.contentWindow) return;
-  const msg = event.data;
-  if (!msg || msg.pinrail !== PROTOCOL) return;
-  switch (msg.type) {
-    case "ready":
-      // the theme before the review, as the app sends them
-      post({ type: "appearance", theme: theme() });
-      post({ type: "init", review, previous, readonly: readonly(), draft: null, settings, shell_origin: location.origin, capabilities: ["attachments"] });
-      break;
-    case "resize":
-      if (msg.height === "fill") frame.style.height = "100%";
-      else if (typeof msg.height === "number" && isFinite(msg.height)) frame.style.height = `${Math.max(minHeight, Math.ceil(msg.height))}px`;
-      break;
-    case "status":
-      if (typeof msg.label === "string" && msg.label.trim()) button.textContent = `Check: ${msg.label}`;
-      break;
-    case "submit":
-      submit(msg.data);
-      break;
-    case "attachment":
-      attachment(msg);
-      break;
-    case "open":
-      if (typeof msg.url === "string" && followable(msg.url)) window.open(msg.url, "_blank", "noreferrer");
-      break;
-  }
+  },
 });
 
-button.addEventListener("click", collect);
+button.addEventListener("click", () => host.collect());
 window.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
     e.preventDefault();
-    collect();
+    host.collect();
   }
 });
 matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
   document.documentElement.dataset.theme = theme();
-  post({ type: "appearance", theme: theme() });
+  host.appearance(theme());
 });
 
 (async () => {

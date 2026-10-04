@@ -70,4 +70,24 @@ function violationsProblems(received) {
   return [];
 }
 
-module.exports = { handshakeProblems, attachmentProblems, refusedAttachmentProblems, violationsProblems };
+/** A second `ready` from the frame is another page in the view's place, and
+ *  the host answers it nothing: no `init`, and no answer to the attachment
+ *  request 9 the page sends next. `before` is how many messages the view had
+ *  received when the second `ready` went out. */
+function secondReadyProblems(received, before) {
+  const after = received.slice(before);
+  const problems = [];
+  if (after.some((m) => m.type === "init")) problems.push("a second ready was answered with init");
+  if (after.some((m) => m.type === "attachment" && m.req === 9))
+    problems.push("a request after a second ready was answered");
+  if (after.length) problems.push(`the host still sent ${after.map((m) => m.type).join(", ")}`);
+  return problems;
+}
+
+module.exports = {
+  handshakeProblems,
+  attachmentProblems,
+  refusedAttachmentProblems,
+  violationsProblems,
+  secondReadyProblems,
+};

@@ -38,6 +38,16 @@ test("the harness hosts a view as the app does", async ({ page }) => {
   await expect
     .poll(async () => (await received(frame)).filter((m) => m.type === "init").at(-1)?.draft)
     .toEqual({ step: 2 });
+
+  // another page in the view's place speaks first: it gets nothing
+  const before = (await received(frame)).length;
+  await frame.evaluate(() => {
+    const send = (window as unknown as { send: (m: object) => void }).send;
+    send({ type: "ready" });
+    send({ type: "attachment", req: 9, name: "note.txt" });
+  });
+  await page.waitForTimeout(500);
+  expect(conformance.secondReadyProblems(await received(frame), before)).toEqual([]);
 });
 
 const bin = fileURLToPath(new URL("../bin/pinrail-plugin.mjs", import.meta.url));
@@ -101,6 +111,13 @@ test("the dev shell hosts a view as the app does", async ({ page }) => {
     await expect
       .poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data)
       .toEqual({ ok: true });
+
+    // another page in the view's place speaks first: it gets nothing
+    const before = (await received(frame)).length;
+    await send({ type: "ready" });
+    await send({ type: "attachment", req: 9, name: "note.txt" });
+    await page.waitForTimeout(500);
+    expect(conformance.secondReadyProblems(await received(frame), before)).toEqual([]);
   } finally {
     shell.kill();
   }

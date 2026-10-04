@@ -91,14 +91,15 @@
     </div>
   </aside>
 </div>
-<script>
-"use strict";
-// The shell side of the protocol, as in the app: init on ready, collect on
-// demand, violations or submitted in answer to a submit. Everything the view
-// posts goes into the log and the state panel.
+<script type="module">
+// The app's side of the protocol, from ../host/host.js as the app runs it:
+// init on ready, collect on demand, violations or submitted in answer to a
+// submit. Everything the view posts goes into the log and the state panel.
+import { connectFrame } from "/dev/host.js";
+
 const $ = (id) => document.getElementById(id);
 const frame = $("frame"), stage = $("stage"), log = $("log");
-let manifest = {}, fixtures = [], review = null, previous = null, draft = null, lastSubmit = null, ready = false, stamp = null;
+let manifest = {}, fixtures = [], review = null, previous = null, draft = null, lastSubmit = null, stamp = null;
 const THEME_KEY = "pinrail-shell:theme";
 let theme = localStorage.getItem(THEME_KEY) === "light" ? "light" : "dark";
 document.documentElement.dataset.theme = theme;
@@ -112,7 +113,6 @@ const reviewFrom = (partial, name) => ({
   summary: null, status: partial.decision ? "decided" : "pending", decision: null, agent_note: null, payload: {}, ...partial,
 });
 
-function post(msg) { frame.contentWindow.postMessage({ pinrail: 1, ...msg }, "*"); note(msg, "out"); }
 function note(msg, dir) {
   if (log.querySelector(".empty")) log.replaceChildren();
   const el = document.createElement("div");
@@ -126,11 +126,55 @@ function note(msg, dir) {
 const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 const show = (id, v) => { $(id).textContent = v == null ? "—" : typeof v === "string" ? v : JSON.stringify(v); };
 
-function sendInit() {
-  if (!ready || !review) return;
-  post({ type: "appearance", theme });
-  post({ type: "init", review, previous, readonly: $("readonly").checked || review.status !== "pending", draft, settings: settingsNow(), shell_origin: location.origin, capabilities: ["attachments"] });
-}
+const readonly = () => !!review && ($("readonly").checked || review.status !== "pending");
+const host = connectFrame(frame, {
+  origin: location.origin,
+  review: () => review,
+  previous: () => previous,
+  readonly,
+  settings: () => settingsNow(),
+  theme: () => theme,
+  loadDraft: () => draft,
+  saveDraft: (data) => { draft = data; keepDraft(draft); show("s-draft", draft); },
+  label: (text) => show("s-status", text),
+  // in the app the system browser opens it; here, a tab
+  open: (url) => window.open(url, "_blank", "noreferrer"),
+  resize: (height) => {
+    if (height === "fill") { stage.classList.add("fill"); }
+    else { stage.classList.remove("fill"); frame.style.height = Math.max(manifest.min_height || 200, height) + "px"; }
+  },
+  // as the app: a change the settings schema refuses comes back as
+  // violations; one it allows is kept, and everyone hears the values
+  setSettings: async (patch) => {
+    const errors = await check("settings", patch);
+    if (!errors.length) setStored(patch);
+    return errors;
+  },
+  // as the app: a decision the schema refuses comes back as violations, one
+  // it accepts as submitted; the buttons below reply otherwise
+  handOver: async (data) => {
+    lastSubmit = data;
+    show("s-submit", lastSubmit);
+    const errors = await check("decision", data);
+    return errors.length ? { ok: false, violations: errors } : { ok: true, decision: accept() };
+  },
+  file: async (_review, listed, round) => {
+    const fixture = round === "previous" ? previousFixture : reviewFixture;
+    const response = await fetch("/dev/attachments/" + encodeURIComponent(fixture) + "/" + encodeURIComponent(listed.name));
+    if (!response.ok) throw new Error(`could not fetch ${listed.name}`);
+    return response.arrayBuffer();
+  },
+  observe: (direction, msg) => {
+    // a file's bytes are logged by size, not by content
+    if (msg.type === "attachment" && msg.bytes) {
+      const { bytes, ...rest } = msg;
+      return note(rest, direction);
+    }
+    note(msg, direction);
+  },
+});
+const post = (msg) => host.send(msg);
+const sendInit = () => host.init();
 
 // The plugin's own settings, from the manifest's settings_schema: the
 // defaults under what was set here, kept per plugin in localStorage. A row
@@ -148,7 +192,7 @@ function setStored(patch) {
   stored = { ...stored, ...patch };
   localStorage.setItem(SETTINGS_KEY(), JSON.stringify(stored));
   drawSettings();
-  if (ready) post({ type: "settings", settings: settingsNow() });
+  host.settings(settingsNow());
 }
 function drawSettings() {
   const box = $("settings");
@@ -193,20 +237,6 @@ function drawSettings() {
 // which fixture each round came from, for the files it carries
 let reviewFixture = "", previousFixture = "";
 
-async function answerAttachment(msg) {
-  const previousRound = msg.round === "previous";
-  const from = previousRound ? previous : review;
-  const listed = from && (from.attachments || []).find((a) => a.name === msg.name);
-  const fail = (error) => post({ type: "attachment", req: msg.req, ok: false, name: msg.name, error });
-  if (!listed) return fail(`no attachment "${msg.name}" on this ${previousRound ? "previous round" : "review"}`);
-  const fixture = previousRound ? previousFixture : reviewFixture;
-  const response = await fetch("/dev/attachments/" + encodeURIComponent(fixture) + "/" + encodeURIComponent(msg.name));
-  if (!response.ok) return fail(`could not fetch ${msg.name}`);
-  const bytes = await response.arrayBuffer();
-  frame.contentWindow.postMessage({ pinrail: 1, type: "attachment", req: msg.req, ok: true, name: msg.name, media_type: listed.media_type, size: listed.size, bytes }, "*", [bytes]);
-  note({ type: "attachment", req: msg.req, ok: true, name: msg.name, size: listed.size }, "out");
-}
-
 // A draft is kept per fixture for the browser session, as the app keeps one
 // per review: reloading the page brings it back, a hand-over clears it.
 const DRAFT_KEY = () => `pinrail-shell:draft:${manifest.name}:${reviewFixture}`;
@@ -242,51 +272,17 @@ async function loadPrevious(name) {
 }
 
 function reload() {
-  ready = false;
+  host.reload();
   // a frame pointed at the address it already shows does not load again, so
   // every reload is an address of its own
   frame.src = "/plugin/view/index.html?load=" + Date.now() + "#pinrail-theme=" + theme;
 }
 
-window.addEventListener("message", (event) => {
-  if (event.source !== frame.contentWindow) return;
-  const msg = event.data;
-  if (!msg || msg.pinrail !== 1) return;
-  note(msg, "in");
-  switch (msg.type) {
-    case "ready": ready = true; sendInit(); break;
-    case "resize":
-      if (msg.height === "fill") { stage.classList.add("fill"); }
-      else { stage.classList.remove("fill"); frame.style.height = Math.max(manifest.min_height || 200, Math.ceil(msg.height)) + "px"; }
-      break;
-    case "draft": draft = msg.data; keepDraft(draft); show("s-draft", draft); break;
-    case "status": show("s-status", msg.label); break;
-    // in the app the system browser opens it; here, a tab
-    case "open": window.open(msg.url, "_blank", "noreferrer"); break;
-    case "settings_set":
-      // as the app: a change the settings schema refuses comes back as
-      // violations; one it allows is kept, and everyone hears the values
-      if (msg.patch && typeof msg.patch === "object" && !Array.isArray(msg.patch)) {
-        const patch = msg.patch;
-        check("settings", patch).then((errors) => (errors.length ? post({ type: "violations", errors }) : setStored(patch)));
-      }
-      break;
-    case "submit":
-      // as the app: a decision the schema refuses comes back as violations,
-      // one it accepts as submitted; the buttons below reply otherwise
-      lastSubmit = msg.data;
-      show("s-submit", lastSubmit);
-      check("decision", lastSubmit).then((errors) => (errors.length ? post({ type: "violations", errors }) : submitted()));
-      break;
-    case "attachment": answerAttachment(msg); break;
-  }
-});
-
 $("fixture").addEventListener("change", (e) => loadFixture(e.target.value));
 $("previous").addEventListener("change", (e) => loadPrevious(e.target.value));
 $("readonly").addEventListener("change", sendInit);
 $("reinit").addEventListener("click", sendInit);
-$("collect").addEventListener("click", () => post({ type: "collect" }));
+$("collect").addEventListener("click", () => host.collect());
 $("send-violations").addEventListener("click", () => {
   let errors;
   try { errors = JSON.parse($("violations").value || "[]"); } catch { alert("violations must be a JSON array of {path, message}"); return; }
@@ -297,21 +293,22 @@ async function check(kind, data) {
   const answer = await fetch("/dev/check", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, data }) });
   return answer.ok ? (await answer.json()).errors : [];
 }
-function submitted() {
+/** The last decision, as the app stores it: the review is decided, and its draft goes. */
+function accept() {
   draft = null;
   keepDraft(null);
   review = { ...review, status: "decided", decision: { decided_by: "dev", decided_at: new Date().toISOString(), data: lastSubmit } };
-  post({ type: "submitted", decision: review.decision });
+  return review.decision;
 }
 $("send-submitted").addEventListener("click", () => {
   if (lastSubmit == null) { alert("nothing was submitted yet: press Collect first"); return; }
-  submitted();
+  post({ type: "submitted", decision: accept() });
 });
 $("theme").addEventListener("click", () => {
   theme = theme === "dark" ? "light" : "dark";
   localStorage.setItem(THEME_KEY, theme);
   document.documentElement.dataset.theme = theme;
-  post({ type: "appearance", theme });
+  host.appearance(theme);
 });
 
 // The manifest's shortcuts, pressed while this page rather than the frame
@@ -329,9 +326,9 @@ window.addEventListener("keydown", (e) => {
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
   const combo = comboOf(e);
   const declared = (manifest.shortcuts || []).some((s) => s.keys === combo);
-  if (!combo || !declared || !ready) return;
+  if (!combo || !declared || !host.ready) return;
   e.preventDefault();
-  post({ type: "key", key: e.key, code: e.code, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey });
+  host.key({ key: e.key, code: e.code, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey });
 });
 
 // files change, the view reloads; the draft comes back with the next init

@@ -158,6 +158,19 @@ test("a decision that lands after moving to another review stays with its own", 
   await expect(page.getByText("Decision recorded")).toHaveCount(0);
 });
 
+test("a second ready from the frame is another page, which the app answers nothing", async ({ page }) => {
+  await linkPlugin(page.request, dir, "conformance");
+  await clearInbox(page.request);
+  const id = await conformanceReview(page);
+  await page.goto(`/#/reviews/${id}`);
+  const frame = await viewFrame(page);
+  const before = (await received(frame)).length;
+  await send(frame, { type: "ready" });
+  await send(frame, { type: "attachment", req: 9, name: "note.txt" });
+  await page.waitForTimeout(500);
+  expect(conformance.secondReadyProblems(await received(frame), before)).toEqual([]);
+});
+
 test("a view whose review ends elsewhere is sent init again, read-only", async ({ page }) => {
   await linkPlugin(page.request, dir, "conformance");
   await clearInbox(page.request);
@@ -212,4 +225,11 @@ test("the preview hosts a view as the protocol says, and decides nothing", async
   expect((await received(frame)).some((m) => m.type === "submitted")).toBe(false);
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.status).toBe("pending");
+
+  // another page in the view's place speaks first: it gets nothing
+  const before = (await received(frame)).length;
+  await send(frame, { type: "ready" });
+  await send(frame, { type: "attachment", req: 9, name: "note.txt" });
+  await page.waitForTimeout(500);
+  expect(conformance.secondReadyProblems(await received(frame), before)).toEqual([]);
 });

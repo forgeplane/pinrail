@@ -100,7 +100,11 @@ test("renders one line without a paragraph around it", async ({ page }) => {
 
 test("comes with the SDK, in one script and no second request", async ({ page }) => {
   const scripts: string[] = [];
-  page.on("request", (r) => r.resourceType() === "script" && scripts.push(new URL(r.url()).pathname));
+  // the view's own scripts, not the harness page's
+  page.on(
+    "request",
+    (r) => r.resourceType() === "script" && r.frame() !== page.mainFrame() && scripts.push(new URL(r.url()).pathname),
+  );
 
   const frame = await render(page, "# Title");
 

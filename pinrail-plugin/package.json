@@ -20,6 +20,10 @@
     "./types": {
       "types": "./types.d.ts"
     },
+    "./host": {
+      "types": "./host/host.d.ts",
+      "default": "./host/host.js"
+    },
     "./sdk/v1/pinrail-plugin.js": "./src/pinrail-plugin.js",
     "./sdk/v1/pinrail-plugin.css": "./src/pinrail-plugin.css",
     "./package.json": "./package.json",
@@ -31,6 +35,7 @@
     "CHANGELOG.md",
     "bin",
     "harness",
+    "host",
     "lib",
     "licenses",
     "shell",
@@ -43,7 +48,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test test/*.test.cjs && playwright test"
+    "test": "node --test test/*.test.cjs test/*.test.mjs && playwright test"
   },
   "dependencies": {
     "ajv": "^8.20.0",

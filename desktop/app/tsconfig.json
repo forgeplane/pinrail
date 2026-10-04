@@ -9,7 +9,11 @@
     "noEmit": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "paths": {
+      "@forgeplane/pinrail-plugin/host": ["../../pinrail-plugin/host/host.d.ts"],
+      "@forgeplane/pinrail-plugin/types": ["../../pinrail-plugin/types.d.ts"]
+    }
   },
   "include": ["ui/src"]
 }

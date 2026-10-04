@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import license from "rollup-plugin-license";
 import path from "node:path";
@@ -20,12 +20,16 @@ const ALLOWED = [
   "Zlib",
 ];
 
+// The app's side of the plugin protocol, from the SDK package beside the app.
+const host = path.resolve(__dirname, "..", "..", "pinrail-plugin", "host");
+
 // The UI lives in ui/; Tauri loads the built files from dist/. A production
 // build also records every npm package that ends up in the bundle, with its
 // licence text, in notices/npm.json for scripts/build-notices.mjs, and fails
 // on a package under a licence outside ALLOWED.
 export default defineConfig({
   root: "ui",
+  resolve: { alias: { "@forgeplane/pinrail-plugin/host": path.join(host, "host.js") } },
   plugins: [
     react(),
     {
@@ -53,6 +57,6 @@ export default defineConfig({
     },
   ],
   clearScreen: false,
-  server: { port: 5173, strictPort: true },
+  server: { port: 5173, strictPort: true, fs: { allow: [searchForWorkspaceRoot(process.cwd()), host] } },
   build: { outDir: "../dist", emptyOutDir: true },
 });

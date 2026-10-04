@@ -215,6 +215,8 @@ export function serve(argv) {
     const p = url.pathname;
 
     if (p === "/") return sendFile(res, path.join(here, "shell.html"));
+    // the app's side of the protocol, which the shell page runs
+    if (p === "/dev/host.js") return sendFile(res, path.join(root, "host", "host.js"));
     if (p === "/dev/manifest") {
       try {
         return send(res, 200, fs.readFileSync(path.join(pluginDir, "manifest.json")), {

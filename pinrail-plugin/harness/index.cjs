@@ -142,6 +142,7 @@ async function mountPlugin(page, pluginDir, opts) {
   const sdk = sdkScript(root);
   const sdkCss = fs.readFileSync(path.join(root, "src", "pinrail-plugin.css"), "utf8");
   const harness = fs.readFileSync(path.join(__dirname, "harness.html"), "utf8");
+  const host = fs.readFileSync(path.join(root, "host", "host.js"), "utf8");
 
   // the files the view may ask for: from fixture(), or given as { name: path }
   const given = opts.attachments ? resolveAttachments(opts.attachments, pluginDir) : null;
@@ -161,6 +162,8 @@ async function mountPlugin(page, pluginDir, opts) {
     const url = new URL(route.request().url());
     const p = url.pathname;
     if (p === "/_harness.html") return route.fulfill({ contentType: "text/html", body: harness });
+    // the app's side of the protocol, which the harness page runs
+    if (p === "/_host.js") return route.fulfill({ contentType: mime[".js"], body: host });
     // the shell's own fetch of a file, as the app fetches it from the core
     if (p.startsWith("/_attachments/")) {
       const [round, ...rest] = p.slice("/_attachments/".length).split("/");
