@@ -747,10 +747,9 @@ fn run(cli: Cli) -> Result<u8> {
 
     let auto_start = match &cli.command {
         Command::Submit(args) => !args.no_start,
-        Command::Plugins(args) => matches!(
-            args.command,
-            None | Some(PluginsCommand::Describe { .. } | PluginsCommand::Check { .. })
-        ),
+        Command::Plugins(args) => {
+            matches!(args.command, None | Some(PluginsCommand::Describe { .. }))
+        }
         _ => false,
     };
     let base = server::resolve_url(cli.url.as_deref(), auto_start)?;

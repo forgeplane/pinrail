@@ -2268,8 +2268,8 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     assert_eq!(json["next"][1], "pinrail plugins check other");
 }
 
-/// The command with no app to talk to: the address it would use answers
-/// nothing.
+/// The command with no app to talk to and no address given: nothing
+/// answers on the default port, and no server.json names another.
 fn run_offline(args: &[&str]) -> (i32, String, String) {
     let markdown = args.contains(&"--markdown");
     let args: Vec<&str> = args
@@ -2277,13 +2277,15 @@ fn run_offline(args: &[&str]) -> (i32, String, String) {
         .copied()
         .filter(|a| *a != "--markdown")
         .collect();
+    let data = tempdir();
     let mut cmd = pinrail();
     if markdown {
         cmd.env_remove("PINRAIL_JSON");
     }
     let out = cmd
         .args(&args)
-        .env("PINRAIL_URL", "http://127.0.0.1:9")
+        .env("PINRAIL_PORT", "9")
+        .env("PINRAIL_DATA_DIR", &data)
         .current_dir(std::env::temp_dir())
         .output()
         .unwrap();
