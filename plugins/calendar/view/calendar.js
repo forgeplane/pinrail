@@ -222,11 +222,11 @@
     return `<div class="list-scroll">${payload.items
       .map((item) => {
         const options = plugin.readonly ? (chosen(item) ? [chosen(item)] : []) : C.available(payload, state, item);
-        return `<section class="list-group ${color(item)}"><div class="list-heading"><span class="activity-icon">${icon(item.icon || "calendar")}</span><div><h3>${esc(item.title)}</h3><p>${esc(item.subtitle || "Choose one of the available times")}</p></div></div>${deferred(item) ? '<p class="dim">Another time asked for.</p>' : declined(item) ? '<p class="dim">Declined: not to be scheduled.</p>' : options.length ? options.map((o) => optionButton(item, o)).join("") : '<p class="dim">No compatible options remain.</p>'}</section>`;
+        return `<section class="list-group ${color(item)}"><div class="list-heading"><span class="activity-icon">${icon(item.icon || "calendar")}</span><div><h3>${esc(item.title)}</h3><p>${esc(item.subtitle || "Choose one of the available times")}</p></div></div>${deferred(item) ? '<p class="pinrail-dim">Another time asked for.</p>' : declined(item) ? '<p class="pinrail-dim">Declined: not to be scheduled.</p>' : options.length ? options.map((o) => optionButton(item, o)).join("") : '<p class="pinrail-dim">No compatible options remain.</p>'}</section>`;
       })
       .join(
         "",
-      )}<section class="blocked-list"><h3>${icon("lock-keyhole")} Already in your calendar</h3>${payload.blocked.length ? payload.blocked.map((b) => `<p><strong>${esc(b.title)}</strong><span>${esc(fullTime(b))}</span></p>`).join("") : '<p class="dim">No blocked time in this window.</p>'}</section></div>`;
+      )}<section class="blocked-list"><h3>${icon("lock-keyhole")} Already in your calendar</h3>${payload.blocked.length ? payload.blocked.map((b) => `<p><strong>${esc(b.title)}</strong><span>${esc(fullTime(b))}</span></p>`).join("") : '<p class="pinrail-dim">No blocked time in this window.</p>'}</section></div>`;
   }
   function render() {
     const scroller = document.getElementById("calendar-scroll"),
@@ -291,10 +291,10 @@
             },
           ).join("")}</div>`
         : "";
-    app.innerHTML = `<header class="plugin-header calendar-header"><h1 class="plugin-title">${esc(plugin.review.title || "Calendar")}</h1><span class="header-progress">${plugin.readonly ? `Read-only · ${esc(plugin.review.status || "closed")}` : `<b>${selected.length}</b> of ${total} selected${handedBack ? ` · ${handedBack}` : ""}`}</span></header>
+    app.innerHTML = `<header class="pinrail-header calendar-header"><h1 class="pinrail-title">${esc(plugin.review.title || "Calendar")}</h1><span class="header-progress">${plugin.readonly ? `Read-only · ${esc(plugin.review.status || "closed")}` : `<b>${selected.length}</b> of ${total} selected${handedBack ? ` · ${handedBack}` : ""}`}</span></header>
       <div class="workbench"><aside class="sidebar" aria-label="Activities to arrange"><div class="sidebar-heading"><h2>The plan</h2><span>${total} ${total === 1 ? "item" : "items"}</span></div>
         ${payload.items.map(card).join("")}
-        ${!total ? '<div class="empty">Nothing to schedule in this review.</div>' : ""}
+        ${!total ? '<div class="pinrail-empty">Nothing to schedule in this review.</div>' : ""}
         <div class="selection-summary"><div><span>${selected.length}<small> / ${total}</small></span>${icon(unresolved === 0 ? "circle-check" : "mouse-pointer-2")}</div><strong>${unresolved ? "A little room for your judgment." : selected.length ? "Your plan is ready." : "Back to the agent."}</strong><p>${selected.length ? `${duration >= 60 ? Math.floor(duration / 60) + "h " : ""}${duration % 60 ? (duration % 60) + "m " : ""}planned. ` : ""}${handedBack ? `${handedBack}. ` : ""}${unresolved ? "Pick a time for each item, ask for another, or decline it." : "Use Pinrail’s hand-over to send your choices."}</p><div class="progress" aria-hidden="true"><span style="width:${total ? ((total - unresolved) / total) * 100 : 100}%"></span></div></div>
         ${selected.length && !plugin.readonly ? `<button class="reset" data-action="reset">${icon("rotate-ccw")} Clear all choices</button>` : ""}
         ${previous ? '<p class="revision-note">Revised proposal · choices apply to this round only.</p>' : ""}

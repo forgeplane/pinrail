@@ -46,23 +46,23 @@ const markdown = (source: string) => Pinrail.markdown(source);
 </script>
 
 <template>
-  <main class="plugin-content">
+  <main class="pinrail-content">
     <div v-html="markdown(review.payload.message)"></div>
-    <p v-if="readonly && review.decision" class="dim">
+    <p v-if="readonly && review.decision" class="pinrail-dim">
       Decided: <b>{{ review.decision.data?.ok ? "yes" : "no" }}</b>
     </p>
     <!-- withdrawn or expired: nobody answered -->
-    <p v-else-if="readonly" class="dim">Closed without a decision ({{ review.status }})</p>
+    <p v-else-if="readonly" class="pinrail-dim">Closed without a decision ({{ review.status }})</p>
     <template v-else>
       <div class="choice">
-        <button type="button" class="btn" id="yes" :aria-pressed="draft.ok === true" @click="pick(true)">
+        <button type="button" class="pinrail-btn" id="yes" :aria-pressed="draft.ok === true" @click="pick(true)">
           <Check /> Yes
         </button>
-        <button type="button" class="btn" id="no" :aria-pressed="draft.ok === false" @click="pick(false)">
+        <button type="button" class="pinrail-btn" id="no" :aria-pressed="draft.ok === false" @click="pick(false)">
           <X /> No
         </button>
       </div>
-      <div id="errors" class="errors">{{ errors }}</div>
+      <div id="errors" class="pinrail-errors">{{ errors }}</div>
     </template>
   </main>
 </template>

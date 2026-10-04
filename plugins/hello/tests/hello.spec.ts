@@ -124,7 +124,7 @@ test("an icon paints inside the sandbox and takes the colour of its button", asy
   const yes = plugin.frame.getByRole("button", { name: "Yes" });
   await expect(yes).toBeVisible();
 
-  const mark = yes.locator(".wi");
+  const mark = yes.locator(".pinrail-icon");
   await expect(mark).toHaveAttribute("data-icon", "check");
   // Decorative: the button already says Yes, so the icon is not announced.
   await expect(mark).toHaveAttribute("aria-hidden", "true");
@@ -157,7 +157,7 @@ test("a name with no icon behind it renders nothing and says which name", async 
     const el = body.querySelector('[data-icon="not-an-icon"]') as HTMLElement;
     const box = el.getBoundingClientRect();
     return { name: el.dataset.icon, width: Math.round(box.width) };
-  }, `<span class="wi" data-icon="not-an-icon" style="--wi:url(/sdk/v1/icons/not-an-icon.svg)"></span>`);
+  }, `<span class="pinrail-icon" data-icon="not-an-icon" style="--pinrail-icon:url(/sdk/v1/icons/not-an-icon.svg)"></span>`);
   expect(missing.name).toBe("not-an-icon");
   expect(missing.width).toBeGreaterThan(8);
 });

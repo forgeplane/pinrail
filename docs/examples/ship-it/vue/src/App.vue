@@ -90,19 +90,19 @@ const decided = review.decision?.data;
 </script>
 
 <template>
-  <main class="plugin-content ship">
-    <p class="eyebrow">Deploy to {{ review.payload.environment }}</p>
-    <h1>{{ review.payload.service }} <span class="meta">{{ review.payload.version }}</span></h1>
+  <main class="pinrail-content ship">
+    <p class="pinrail-eyebrow">Deploy to {{ review.payload.environment }}</p>
+    <h1>{{ review.payload.service }} <span class="pinrail-chip">{{ review.payload.version }}</span></h1>
     <section>
-      <h2 class="eyebrow">Changes</h2>
+      <h2 class="pinrail-eyebrow">Changes</h2>
       <ul aria-label="Changes">
         <li v-for="c in review.payload.changes" :key="c.title">
-          {{ c.title }}<template v-if="c.risky">&#32;<span class="sev sev-major">risky</span></template>
+          {{ c.title }}<template v-if="c.risky">&#32;<span class="pinrail-tone pinrail-tone-warning">risky</span></template>
         </li>
       </ul>
     </section>
     <section>
-      <h2 class="eyebrow">Checks</h2>
+      <h2 class="pinrail-eyebrow">Checks</h2>
       <ul aria-label="Checks">
         <li v-for="c in review.payload.checks" :key="c.name" :data-passed="String(c.passed)">
           <CircleCheck v-if="c.passed" /><CircleX v-else /> {{ c.name }}<template v-if="c.detail">&#32;<span class="detail">{{ c.detail }}</span></template>
@@ -114,21 +114,21 @@ const decided = review.decision?.data;
     </p>
     <template v-else>
       <div class="choice" role="group" aria-label="Verdict">
-        <button type="button" class="btn" :aria-pressed="draft.verdict === 'ship'" @click="choose('ship')">
+        <button type="button" class="pinrail-btn" :aria-pressed="draft.verdict === 'ship'" @click="choose('ship')">
           <Rocket /> Ship <kbd>s</kbd>
         </button>
-        <button type="button" class="btn" :aria-pressed="draft.verdict === 'hold'" @click="choose('hold')">
+        <button type="button" class="pinrail-btn" :aria-pressed="draft.verdict === 'hold'" @click="choose('hold')">
           <Hand /> Hold <kbd>h</kbd>
         </button>
       </div>
       <textarea
-        class="note"
+        class="pinrail-note"
         aria-label="Note to the agent"
         placeholder="A note for the agent (optional)"
         :value="draft.note"
         @input="writeNote"
       ></textarea>
-      <div class="errors" role="alert">{{ error }}</div>
+      <div class="pinrail-errors" role="alert">{{ error }}</div>
     </template>
   </main>
 </template>

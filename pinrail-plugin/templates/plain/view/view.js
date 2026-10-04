@@ -10,7 +10,7 @@
 /** @typedef {{ ok: boolean }} Decision */
 
 const view = Pinrail.layout();
-view.content.className = "plugin-content dim";
+view.content.className = "pinrail-content pinrail-dim";
 view.content.textContent = "waiting for the shell…";
 let choice = null;
 
@@ -46,21 +46,21 @@ function pick(value) {
 function render() {
   const review = plugin.review;
   const decided = review.decision && review.decision.data;
-  view.content.className = "plugin-content";
+  view.content.className = "pinrail-content";
   // the redraw replaces the buttons: the one that had focus gets it back
   const focused = document.activeElement && document.activeElement.id;
   view.content.innerHTML =
     Pinrail.markdown(review.payload.message) +
     (plugin.readonly
       ? decided
-        ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b></p>`
+        ? `<p class="pinrail-dim">Decided: <b>${decided.ok ? "yes" : "no"}</b></p>`
         : // withdrawn or expired: nobody answered
-          `<p class="dim">Closed without a decision (${Pinrail.escape(review.status)})</p>`
+          `<p class="pinrail-dim">Closed without a decision (${Pinrail.escape(review.status)})</p>`
       : `<div class="choice">
-         <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${Pinrail.icon("check")} Yes</button>
-         <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${Pinrail.icon("x")} No</button>
+         <button type="button" class="pinrail-btn" id="yes" aria-pressed="${choice === true}">${Pinrail.icon("check")} Yes</button>
+         <button type="button" class="pinrail-btn" id="no" aria-pressed="${choice === false}">${Pinrail.icon("x")} No</button>
        </div>
-       <div id="errors" class="errors" role="alert"></div>`);
+       <div id="errors" class="pinrail-errors" role="alert"></div>`);
   if (focused) document.getElementById(focused)?.focus();
   if (plugin.readonly) return;
   document.getElementById("yes").onclick = () => pick(true);

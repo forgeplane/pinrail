@@ -1,0 +1,79 @@
+/* The typeface. Whoever serves this stylesheet says where it comes from: the
+   app serves the files it bundles, the dev server points at a CDN, and the
+   test harness serves nothing and lets the system font stand in. */
+@import "./fonts.css";
+
+/*
+ * Pinrail's tokens, protocol 1: the palette in both themes, the tones and the
+ * typefaces, as custom properties. pinrail-plugin.css imports this file; a
+ * view that brings its own component library links this one alone:
+ *
+ *   <link rel="stylesheet" href="/sdk/v1/tokens.css">
+ *
+ * Every name starts with --pinrail-, so no library's names collide with
+ * them. The app tells the view which theme is on and the SDK sets data-theme,
+ * so the light palette needs nothing from you.
+ */
+
+@layer pinrail {
+  :root {
+    --pinrail-bg: #18191b;
+    --pinrail-bg-panel: #18191b;
+    --pinrail-bg-raised: #202124;
+    --pinrail-bg-hover: #232428;
+    --pinrail-border: #2b2d31;
+    --pinrail-border-strong: #44474e;
+    --pinrail-text: #ededef;
+    --pinrail-dim: #999ba5;
+    --pinrail-faint: #7b7d87;
+    --pinrail-accent: #a1a5ef;
+    --pinrail-accent-bg: #292a3c;
+    --pinrail-button-bg: #6873d6;
+
+    /* the five tones the manifest's summary uses */
+    --pinrail-danger: #e48c98;
+    --pinrail-warning: #d4ac6a;
+    --pinrail-info: #a1a5ef;
+    --pinrail-success: #7cc79e;
+    --pinrail-neutral: #a0abc2;
+
+    /* a diff's added and deleted lines, and their gutters */
+    --pinrail-add-bg: oklch(0.65 0.12 150 / 0.1);
+    --pinrail-add-gut: oklch(0.65 0.12 150 / 0.18);
+    --pinrail-del-bg: oklch(0.6 0.15 25 / 0.1);
+    --pinrail-del-gut: oklch(0.6 0.15 25 / 0.18);
+
+    --pinrail-sans: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --pinrail-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    color-scheme: dark;
+  }
+
+  [data-theme="light"] {
+    --pinrail-bg: #ffffff;
+    --pinrail-bg-panel: #ffffff;
+    --pinrail-bg-raised: #f6f7f9;
+    --pinrail-bg-hover: #f3f4f7;
+    --pinrail-border: #e8e9ed;
+    --pinrail-border-strong: #cdd0d7;
+    --pinrail-text: #24262c;
+    --pinrail-dim: #72757f;
+    --pinrail-faint: #888b94;
+    --pinrail-accent: #5965cb;
+    --pinrail-accent-bg: #f0f0fa;
+    --pinrail-button-bg: #5965bc;
+
+    --pinrail-danger: #bc4655;
+    --pinrail-warning: #99651b;
+    --pinrail-info: #5965cb;
+    --pinrail-success: #28795c;
+    --pinrail-neutral: #65738e;
+
+    --pinrail-add-bg: oklch(0.65 0.13 150 / 0.13);
+    --pinrail-add-gut: oklch(0.65 0.13 150 / 0.24);
+    --pinrail-del-bg: oklch(0.6 0.16 25 / 0.11);
+    --pinrail-del-gut: oklch(0.6 0.16 25 / 0.2);
+
+    color-scheme: light;
+  }
+}

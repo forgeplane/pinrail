@@ -64,26 +64,38 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
 
   const decided = review.decision?.data;
   return (
-    <main className="plugin-content">
+    <main className="pinrail-content">
       <div dangerouslySetInnerHTML={{ __html: Pinrail.markdown(review.payload.message) }} />
       {readonly && decided ? (
-        <p className="dim">
+        <p className="pinrail-dim">
           Decided: <b>{decided.ok ? "yes" : "no"}</b>
         </p>
       ) : readonly ? (
         // withdrawn or expired: nobody answered
-        <p className="dim">Closed without a decision ({review.status})</p>
+        <p className="pinrail-dim">Closed without a decision ({review.status})</p>
       ) : (
         <>
           <div className="choice">
-            <button type="button" className="btn" id="yes" aria-pressed={draft.ok === true} onClick={() => pick(true)}>
+            <button
+              type="button"
+              className="pinrail-btn"
+              id="yes"
+              aria-pressed={draft.ok === true}
+              onClick={() => pick(true)}
+            >
               <Check /> Yes
             </button>
-            <button type="button" className="btn" id="no" aria-pressed={draft.ok === false} onClick={() => pick(false)}>
+            <button
+              type="button"
+              className="pinrail-btn"
+              id="no"
+              aria-pressed={draft.ok === false}
+              onClick={() => pick(false)}
+            >
               <X /> No
             </button>
           </div>
-          <div id="errors" className="errors">
+          <div id="errors" className="pinrail-errors">
             {errors}
           </div>
         </>

@@ -95,13 +95,13 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
   const { payload } = review;
   const decided = review.decision?.data;
   return (
-    <main className="plugin-content ship">
-      <p className="eyebrow">Deploy to {payload.environment}</p>
+    <main className="pinrail-content ship">
+      <p className="pinrail-eyebrow">Deploy to {payload.environment}</p>
       <h1>
-        {payload.service} <span className="meta">{payload.version}</span>
+        {payload.service} <span className="pinrail-chip">{payload.version}</span>
       </h1>
       <section>
-        <h2 className="eyebrow">Changes</h2>
+        <h2 className="pinrail-eyebrow">Changes</h2>
         <ul aria-label="Changes">
           {payload.changes.map((c) => (
             <li key={c.title}>
@@ -109,7 +109,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
               {c.risky ? (
                 <>
                   {" "}
-                  <span className="sev sev-major">risky</span>
+                  <span className="pinrail-tone pinrail-tone-warning">risky</span>
                 </>
               ) : null}
             </li>
@@ -117,7 +117,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
         </ul>
       </section>
       <section>
-        <h2 className="eyebrow">Checks</h2>
+        <h2 className="pinrail-eyebrow">Checks</h2>
         <ul aria-label="Checks">
           {payload.checks.map((c) => (
             <li key={c.name} data-passed={String(c.passed)}>
@@ -142,7 +142,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
           <div className="choice" role="group" aria-label="Verdict">
             <button
               type="button"
-              className="btn"
+              className="pinrail-btn"
               aria-pressed={draft.verdict === "ship"}
               onClick={() => choose("ship")}
             >
@@ -150,7 +150,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
             </button>
             <button
               type="button"
-              className="btn"
+              className="pinrail-btn"
               aria-pressed={draft.verdict === "hold"}
               onClick={() => choose("hold")}
             >
@@ -158,13 +158,13 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
             </button>
           </div>
           <textarea
-            className="note"
+            className="pinrail-note"
             aria-label="Note to the agent"
             placeholder="A note for the agent (optional)"
             value={draft.note}
             onChange={(e) => writeNote(e.target.value)}
           />
-          <div className="errors" role="alert">
+          <div className="pinrail-errors" role="alert">
             {error}
           </div>
         </>

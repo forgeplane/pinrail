@@ -9,26 +9,26 @@
   /* A review as the app shows it, in a browser: the header, the plugin's
      view, the hand-over. The SDK stylesheet gives the tokens and the base. */
   html, body { height: 100%; margin: 0; }
-  body { display: flex; flex-direction: column; background: var(--bg); color: var(--text); }
-  header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--border); }
+  body { display: flex; flex-direction: column; background: var(--pinrail-bg); color: var(--pinrail-text); }
+  header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--pinrail-border); }
   header h1 { margin: 0; font-size: 15px; font-weight: 600; }
-  header .meta { color: var(--dim); font-size: 12px; }
-  header .about { flex-basis: 100%; color: var(--faint); font-size: 12px; }
+  header .meta { color: var(--pinrail-dim); font-size: 12px; }
+  header .about { flex-basis: 100%; color: var(--pinrail-faint); font-size: 12px; }
   main { flex: 1; min-height: 0; overflow: auto; }
   main { display: flex; }
   iframe { display: block; flex: 1; width: 100%; border: 0; }
-  footer { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-top: 1px solid var(--border); }
-  footer textarea { flex: 1; min-height: 34px; resize: vertical; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised, var(--bg)); color: var(--text); }
-  footer button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  footer { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-top: 1px solid var(--pinrail-border); }
+  footer textarea { flex: 1; min-height: 34px; resize: vertical; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--pinrail-border); border-radius: 6px; background: var(--pinrail-bg-raised, var(--pinrail-bg)); color: var(--pinrail-text); }
+  footer button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--pinrail-accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
   footer button:disabled { opacity: 0.5; cursor: default; }
-  .decided { color: var(--dim); font-size: 13px; }
-  header a { color: var(--accent); }
-  #result { padding: 10px 18px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .decided { color: var(--pinrail-dim); font-size: 13px; }
+  header a { color: var(--pinrail-accent); }
+  #result { padding: 10px 18px 0; border-top: 1px solid var(--pinrail-border); font-size: 13px; }
   #result p { margin: 0 0 6px; }
-  #result.ok p { color: var(--ok, #2a7); }
-  #result pre { max-height: 180px; margin: 0; padding: 8px 10px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; }
-  footer .hint { flex: 1; color: var(--faint); font-size: 12px; }
-  .error { padding: 24px 18px; color: var(--danger, #c33); }
+  #result.ok p { color: var(--pinrail-success, #2a7); }
+  #result pre { max-height: 180px; margin: 0; padding: 8px 10px; overflow: auto; border: 1px solid var(--pinrail-border); border-radius: 6px; font-size: 12px; }
+  footer .hint { flex: 1; color: var(--pinrail-faint); font-size: 12px; }
+  .error { padding: 24px 18px; color: var(--pinrail-danger, #c33); }
 </style>
 </head>
 <body>

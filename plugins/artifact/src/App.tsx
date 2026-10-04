@@ -278,12 +278,12 @@ export function App({ plugin, init }: { plugin: Plugin; init: Init }) {
         <div className="notes" dangerouslySetInnerHTML={{ __html: window.Pinrail.markdown(payload.notes) }} />
       ) : null}
       {loadError ? (
-        <div className="errors" data-load-error>
+        <div className="pinrail-errors errors" data-load-error>
           {loadError}
         </div>
       ) : null}
       {errors.length > 0 ? (
-        <div className="errors">
+        <div className="pinrail-errors errors">
           {errors.map((e, i) => (
             <div key={i}>
               {e.path || "/"}: {e.message}

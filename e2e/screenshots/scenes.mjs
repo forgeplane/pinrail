@@ -243,7 +243,7 @@ export const scenes = [
       await f.locator('[data-note="6"]').fill("Wait for the stable release");
       await f.locator('[data-id="4"] button', { hasText: "Accept" }).click();
       await f.locator('[data-note="4"]').fill("Run the codemod in its own PR first");
-      await f.locator('.item[data-id="2"]').evaluate((el) => el.scrollIntoView({ block: "start" }));
+      await f.locator('.pinrail-item[data-id="2"]').evaluate((el) => el.scrollIntoView({ block: "start" }));
       await settle(page);
       await shot("list");
       await shot("list-view", page.locator("#plugin-frame"), { site: true });

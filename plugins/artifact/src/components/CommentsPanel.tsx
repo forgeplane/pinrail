@@ -22,8 +22,8 @@ export function CommentsPanel({ comments, pins, focused, readonly, previous, onF
   return (
     <aside className="panel" data-panel-list>
       <div className="panel-head">
-        <span className="eyebrow">Comments</span>
-        <span className="faint">{comments.length}</span>
+        <span className="pinrail-eyebrow">Comments</span>
+        <span className="pinrail-faint">{comments.length}</span>
       </div>
       {comments.length === 0 ? (
         <p className="panel-empty">
@@ -46,7 +46,7 @@ export function CommentsPanel({ comments, pins, focused, readonly, previous, onF
                     <span className="mono">{c.selector}</span>
                     <span className={`kind-tag kind-${c.kind}`}>{kindLabel(c.kind)}</span>
                     {detached ? (
-                      <span className="faint with-icon" title="The element is no longer in the artifact">
+                      <span className="pinrail-faint with-icon" title="The element is no longer in the artifact">
                         <Unlink size={11} /> detached
                       </span>
                     ) : null}
@@ -90,8 +90,8 @@ export function CommentsPanel({ comments, pins, focused, readonly, previous, onF
             onClick={() => setShowPrevious((s) => !s)}
             aria-expanded={showPrevious}
           >
-            <span className="eyebrow">Previous round</span>
-            <span className="faint">{previous.length}</span>
+            <span className="pinrail-eyebrow">Previous round</span>
+            <span className="pinrail-faint">{previous.length}</span>
           </button>
           {showPrevious ? (
             <ol className="comment-list is-previous">

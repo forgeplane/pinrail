@@ -284,7 +284,7 @@ export function serve(argv) {
     if (p === "/sdk/v1/pinrail-plugin.js") {
       return send(res, 200, sdkScript(root), { "content-type": mime[".js"], "access-control-allow-origin": "*" });
     }
-    if (p === "/sdk/v1/pinrail-plugin.css")
+    if (p === "/sdk/v1/pinrail-plugin.css" || p === "/sdk/v1/tokens.css")
       return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
     if (p.startsWith("/plugin/")) {
       const file = under(pluginDir, p.slice("/plugin/".length));

@@ -13,10 +13,10 @@ test("renders groups, items, markdown and meta chips", async ({ page }) => {
   await expect(f.locator(".intro")).toContainText("Sentry triage for acme-api");
   await expect(f.locator(".intro strong")).toHaveText(["acme-api", "acme-worker"]);
   await expect(f.locator("h2.group")).toHaveText(["acme-api2", "acme-worker2"]);
-  await expect(f.locator('[data-id="101"] .sev')).toHaveText("blocker");
-  await expect(f.locator('[data-id="101"] .meta')).toHaveText(["issue: ACME-API-9F2", "count: 312"]);
+  await expect(f.locator('[data-id="101"] .pinrail-tone')).toHaveText("blocker");
+  await expect(f.locator('[data-id="101"] .pinrail-chip')).toHaveText(["issue: ACME-API-9F2", "count: 312"]);
   await expect(f.locator('[data-id="104"] pre')).toContainText("timeout after 60000ms");
-  await expect(f.locator(".plugin-meta .count")).toHaveText(["0accepted", "0rejected", "4undecided"]);
+  await expect(f.locator(".pinrail-meta .count")).toHaveText(["0accepted", "0rejected", "4undecided"]);
 });
 
 test("accept, reject with a note, accept the rest; the decision is exactly that", async ({ page }) => {
@@ -26,7 +26,7 @@ test("accept, reject with a note, accept the rest; the decision is exactly that"
   await f.locator('[data-id="102"] button', { hasText: "Reject" }).click();
   await f.getByLabel("note for item 102").fill("deploys are fine, fix the rollout instead");
   await f.getByRole("button", { name: "accept all undecided" }).click();
-  await expect(f.locator(".plugin-meta .count")).toHaveText(["3accepted", "1rejected", "0undecided"]);
+  await expect(f.locator(".pinrail-meta .count")).toHaveText(["3accepted", "1rejected", "0undecided"]);
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({
     decisions: [
@@ -54,14 +54,14 @@ test("undecided items need a confirmation and are reported as undecided", async 
 
 test("the header and the group heading stay while the body scrolls under them", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: triage() });
-  await expect(plugin.frame.locator(".item").first()).toBeVisible();
+  await expect(plugin.frame.locator(".pinrail-item").first()).toBeVisible();
   await plugin.setFrameHeight(360);
 
-  const pinned = await plugin.frame.locator(".plugin-scroll").evaluate((scroll) => {
+  const pinned = await plugin.frame.locator(".pinrail-scroll").evaluate((scroll) => {
     scroll.scrollTop = 300;
     const doc = scroll.ownerDocument;
-    const header = doc.querySelector(".plugin-header").getBoundingClientRect();
-    const subhead = doc.querySelector(".plugin-subhead").getBoundingClientRect();
+    const header = doc.querySelector(".pinrail-header").getBoundingClientRect();
+    const subhead = doc.querySelector(".pinrail-subhead").getBoundingClientRect();
     return {
       scrolled: scroll.scrollTop > 0,
       documentScrolled: doc.documentElement.scrollTop,
@@ -141,12 +141,12 @@ test("an item's body is markdown, whatever the agent wrote in it", async ({ page
 
   // the SDK renders all of it, and this view styles the box rather than the
   // prose: a heading, a table, a fenced block and a quote all land as elements
-  await expect(f.locator('[data-id="1"] .body h3').first()).toHaveText("Where");
-  await expect(f.locator('[data-id="1"] .body table td').first()).toContainText("lib/checkout/refund.ex");
-  await expect(f.locator('[data-id="1"] .body pre')).toContainText("Checkout.Refund.split");
+  await expect(f.locator('[data-id="1"] .pinrail-item-body h3').first()).toHaveText("Where");
+  await expect(f.locator('[data-id="1"] .pinrail-item-body table td').first()).toContainText("lib/checkout/refund.ex");
+  await expect(f.locator('[data-id="1"] .pinrail-item-body pre')).toContainText("Checkout.Refund.split");
   await expect(f.locator(".intro blockquote")).toContainText("Nothing is filed until you hand over.");
   // a link keeps its text and goes nowhere the frame can follow
-  await expect(f.locator('[data-id="2"] .body a')).toHaveAttribute("rel", "noreferrer");
+  await expect(f.locator('[data-id="2"] .pinrail-item-body a')).toHaveAttribute("rel", "noreferrer");
 });
 
 test("a verdict pressed from the keyboard keeps the focus on its button", async ({ page }) => {

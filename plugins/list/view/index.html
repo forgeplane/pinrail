@@ -6,77 +6,78 @@
 <title>list review</title>
 <link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <style>
-  /* Tokens, base and the shared pieces (.item, .sev, .btn, .note, .meta,
-     .empty, .notice, code.inl) come from the SDK stylesheet. What is left is
+  /* Tokens, base and the shared pieces (.pinrail-item, .pinrail-tone,
+     .pinrail-btn, .pinrail-note, .pinrail-chip, .pinrail-empty,
+     .pinrail-notice) come from the SDK stylesheet. What is left is
      this view's own: the groups, the verdict column and the running tally. */
-  .intro { color: var(--dim); margin: 0 0 20px; }
+  .intro { color: var(--pinrail-dim); margin: 0 0 20px; }
   .intro p:first-child { margin-top: 0; }
 
   /* A group is a rule with its name sitting on it, so the eye finds the
      boundaries without reading. */
   h2.group {
     font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--faint); margin: 26px 0 0; display: flex; align-items: center; gap: 10px;
+    color: var(--pinrail-faint); margin: 26px 0 0; display: flex; align-items: center; gap: 10px;
   }
   h2.group:first-of-type { margin-top: 0; }
   h2.group .count {
-    font-size: 10.5px; font-weight: 600; letter-spacing: 0; color: var(--faint);
-    background: var(--bg-raised); border-radius: 999px; padding: 1px 7px;
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0; color: var(--pinrail-faint);
+    background: var(--pinrail-bg-raised); border-radius: 999px; padding: 1px 7px;
   }
-  h2.group::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  h2.group::after { content: ""; flex: 1; height: 1px; background: var(--pinrail-border); }
 
   /* The group's rule is the divider for the item under it: two hairlines a
      few pixels apart read as a mistake. */
-  h2.group + .item { border-top: 0; }
+  h2.group + .pinrail-item { border-top: 0; }
 
   /* Every item keeps a gutter on the left. It is empty until the item is
      decided, and then it carries the verdict's colour, so a decided list
      can be read down the edge without reading a word of it. */
-  .item { padding: 14px 0 14px 16px; position: relative; }
-  .item::before {
+  .pinrail-item { padding: 14px 0 14px 16px; position: relative; }
+  .pinrail-item::before {
     content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px;
     border-radius: 999px; background: transparent;
   }
-  .item.accepted::before { background: var(--ok); }
-  .item.rejected::before { background: var(--danger); }
+  .pinrail-item.accepted::before { background: var(--pinrail-success); }
+  .pinrail-item.rejected::before { background: var(--pinrail-danger); }
 
   /* The verdict is shown when there is one. Undecided is the state every
      item starts in, and saying so on every row says nothing. */
   .verdict { margin-left: auto; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
-  .verdict.accept { color: var(--ok); background: color-mix(in oklab, var(--ok) 12%, transparent); }
-  .verdict.reject { color: var(--danger); background: color-mix(in oklab, var(--danger) 12%, transparent); }
+  .verdict.accept { color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 12%, transparent); }
+  .verdict.reject { color: var(--pinrail-danger); background: color-mix(in oklab, var(--pinrail-danger) 12%, transparent); }
   .verdict.undecided { display: none; }
-  .previous { margin-top: 6px; font-size: 11.5px; color: var(--faint); }
-  .previous b { color: var(--dim); font-weight: 600; }
+  .previous { margin-top: 6px; font-size: 11.5px; color: var(--pinrail-faint); }
+  .previous b { color: var(--pinrail-dim); font-weight: 600; }
 
   /* Accept and reject are one choice, so they are one control: joined, and
      coloured only once chosen. */
   .choice { display: inline-flex; flex: none; }
-  .choice .btn { border-radius: 0; margin: 0; }
-  .choice .btn:first-child { border-radius: 6px 0 0 6px; }
-  .choice .btn:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
-  .btn.accept.on { background: color-mix(in oklab, var(--ok) 80%, oklch(0.3 0.06 150)); border-color: transparent; color: white; }
-  .btn.reject.on { background: color-mix(in oklab, var(--danger) 18%, transparent); border-color: color-mix(in oklab, var(--danger) 55%, transparent); color: var(--danger); }
-  .choice .btn.on { position: relative; z-index: 1; }
+  .choice .pinrail-btn { border-radius: 0; margin: 0; }
+  .choice .pinrail-btn:first-child { border-radius: 6px 0 0 6px; }
+  .choice .pinrail-btn:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
+  .pinrail-btn.accept.on { background: color-mix(in oklab, var(--pinrail-success) 80%, oklch(0.3 0.06 150)); border-color: transparent; color: white; }
+  .pinrail-btn.reject.on { background: color-mix(in oklab, var(--pinrail-danger) 18%, transparent); border-color: color-mix(in oklab, var(--pinrail-danger) 55%, transparent); color: var(--pinrail-danger); }
+  .choice .pinrail-btn.on { position: relative; z-index: 1; }
 
   /* The note grows with the row but stops before the far edge: a field the
      width of a screen is harder to write in, not easier. */
-  textarea.note { flex: 1 1 260px; max-width: 70ch; min-height: 30px; padding: 5px 9px; }
+  textarea.pinrail-note { flex: 1 1 260px; max-width: 70ch; min-height: 30px; padding: 5px 9px; }
   .note-ro { flex: 1 1 260px; font-size: 12.5px; padding: 4px 0; white-space: pre-wrap; }
-  .note-ro .label { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
+  .note-ro .label { color: var(--pinrail-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
 
   /* The running total lives in the header, in the colours the gutters use. */
-  .plugin-meta .count { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 9px; border-radius: 999px; background: var(--bg-raised); color: var(--dim); font-size: 11.5px; }
-  .plugin-meta .count b { font-size: 12.5px; color: var(--text); }
-  .plugin-meta .count.accept b { color: var(--ok); }
-  .plugin-meta .count.reject b { color: var(--danger); }
-  .plugin-meta .count.left b { color: var(--sev-major); }
-  .plugin-header .btn .wi { margin-right: 5px; }
+  .pinrail-meta .count { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 9px; border-radius: 999px; background: var(--pinrail-bg-raised); color: var(--pinrail-dim); font-size: 11.5px; }
+  .pinrail-meta .count b { font-size: 12.5px; color: var(--pinrail-text); }
+  .pinrail-meta .count.accept b { color: var(--pinrail-success); }
+  .pinrail-meta .count.reject b { color: var(--pinrail-danger); }
+  .pinrail-meta .count.left b { color: var(--pinrail-warning); }
+  .pinrail-header .pinrail-btn .pinrail-icon { margin-right: 5px; }
 
   /* The footer is only there when something has to be confirmed. */
-  .footer { position: sticky; bottom: 0; margin-top: 22px; padding: 10px 0; border-top: 1px solid var(--border); background: var(--bg-panel); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; }
-  .footer .tally.warn { color: var(--sev-major); }
-  .errors { margin-top: 10px; }
+  .footer { position: sticky; bottom: 0; margin-top: 22px; padding: 10px 0; border-top: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; }
+  .footer .tally.warn { color: var(--pinrail-warning); }
+  .pinrail-errors { margin-top: 10px; }
   .done { margin-bottom: 16px; }
 </style>
 </head>
@@ -94,13 +95,13 @@ const esc = Pinrail.escape, markdown = Pinrail.markdown;
 /* The header and its controls are built once and stay put; the body is
    rewritten on every change. */
 const view = Pinrail.layout({ header: true });
-view.content.className = "plugin-content empty";
+view.content.className = "pinrail-content pinrail-empty";
 view.content.textContent = "waiting for the shell…";
 
 const control = (icon, label, onclick) => {
   const button = document.createElement("button");
   button.type = "button";
-  button.className = "btn ghost";
+  button.className = "pinrail-btn pinrail-btn-ghost";
   button.innerHTML = `${Pinrail.icon(icon)}${esc(label)}`;
   button.onclick = onclick;
   return button;
@@ -225,7 +226,9 @@ function syncStatus() {
 }
 
 /* ---------- render ---------- */
-const sevClass = (s) => ["blocker", "major", "minor", "nit"].includes(s) ? `sev-${s}` : "sev-other";
+/* The severities this plugin takes, in the SDK's tones. */
+const TONES = { blocker: "danger", major: "warning", minor: "info", nit: "neutral" };
+const toneClass = (s) => `pinrail-tone-${TONES[s] || "neutral"}`;
 
 function previousLine(id) {
   const prev = previousVerdict(previous, id);
@@ -238,27 +241,27 @@ function renderItem(item) {
   const d = S.decisions[item.id] || { action: null, note: "" };
   const cls = d.action === "accept" ? "accepted" : d.action === "reject" ? "rejected" : "";
   const meta = item.meta && typeof item.meta === "object"
-    ? Object.entries(item.meta).map(([k, v]) => `<span class="meta">${esc(k)}: ${esc(typeof v === "object" ? JSON.stringify(v) : v)}</span>`).join("")
+    ? Object.entries(item.meta).map(([k, v]) => `<span class="pinrail-chip">${esc(k)}: ${esc(typeof v === "object" ? JSON.stringify(v) : v)}</span>`).join("")
     : "";
   const verdict = d.action || "undecided";
-  const head = `<div class="head"><span class="id">#${esc(item.id)}</span>
-      ${item.severity ? `<span class="sev ${sevClass(item.severity)}">${esc(item.severity)}</span>` : ""}
-      <span class="title">${esc(item.title)}</span>${meta}
+  const head = `<div class="pinrail-item-head"><span class="pinrail-item-id">#${esc(item.id)}</span>
+      ${item.severity ? `<span class="pinrail-tone ${toneClass(item.severity)}">${esc(item.severity)}</span>` : ""}
+      <span class="pinrail-item-title">${esc(item.title)}</span>${meta}
       <span class="verdict ${verdict}">${verdict}</span></div>
-    ${item.body ? `<div class="body">${markdown(item.body)}</div>` : ""}
+    ${item.body ? `<div class="pinrail-item-body">${markdown(item.body)}</div>` : ""}
     ${previousLine(item.id)}`;
   if (readonly) {
-    const note = d.note ? `<div class="controls"><div class="note-ro"><span class="label">${d.action === "reject" ? "reason" : "note"}</span>${esc(d.note)}</div></div>` : "";
-    return `<div class="item ${cls}" data-id="${item.id}">${head}${note}</div>`;
+    const note = d.note ? `<div class="pinrail-item-controls"><div class="note-ro"><span class="label">${d.action === "reject" ? "reason" : "note"}</span>${esc(d.note)}</div></div>` : "";
+    return `<div class="pinrail-item ${cls}" data-id="${item.id}">${head}${note}</div>`;
   }
   const placeholder = d.action === "reject" ? "why (becomes a lesson for the agent)" : d.action === "accept" ? "revise before acting (optional)" : "note (optional)";
-  return `<div class="item ${cls}" data-id="${item.id}">${head}
-    <div class="controls">
+  return `<div class="pinrail-item ${cls}" data-id="${item.id}">${head}
+    <div class="pinrail-item-controls">
       <span class="choice" role="group" aria-label="decide item ${esc(item.id)}">
-        <button type="button" class="btn accept ${d.action === "accept" ? "on" : ""}" data-act="accept" data-id="${item.id}" aria-pressed="${d.action === "accept"}">Accept</button>
-        <button type="button" class="btn reject ${d.action === "reject" ? "on" : ""}" data-act="reject" data-id="${item.id}" aria-pressed="${d.action === "reject"}">Reject</button>
+        <button type="button" class="pinrail-btn accept ${d.action === "accept" ? "on" : ""}" data-act="accept" data-id="${item.id}" aria-pressed="${d.action === "accept"}">Accept</button>
+        <button type="button" class="pinrail-btn reject ${d.action === "reject" ? "on" : ""}" data-act="reject" data-id="${item.id}" aria-pressed="${d.action === "reject"}">Reject</button>
       </span>
-      <textarea class="note" rows="1" data-note="${item.id}" placeholder="${placeholder}" aria-label="note for item ${esc(item.id)}">${esc(d.note || "")}</textarea>
+      <textarea class="pinrail-note" rows="1" data-note="${item.id}" placeholder="${placeholder}" aria-label="note for item ${esc(item.id)}">${esc(d.note || "")}</textarea>
     </div>
   </div>`;
 }
@@ -271,28 +274,28 @@ function render() {
   if (readonly) {
     const dec = review.decision;
     html += dec
-      ? `<div class="done notice ok">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
-      : `<div class="done notice ok">Closed without a decision (${esc(review.status)}). Read-only.</div>`;
+      ? `<div class="done pinrail-notice pinrail-notice-success">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
+      : `<div class="done pinrail-notice pinrail-notice-success">Closed without a decision (${esc(review.status)}). Read-only.</div>`;
   }
   if (review.payload.intro) html += `<div class="intro">${markdown(review.payload.intro)}</div>`;
-  if (!groups.length) html += `<div class="empty">Nothing to decide.</div>`;
+  if (!groups.length) html += `<div class="pinrail-empty">Nothing to decide.</div>`;
   for (const g of groups) {
-    html += `<h2 class="group plugin-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
+    html += `<h2 class="group pinrail-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
     for (const item of g.items) html += renderItem(item);
   }
   if (S.errors && S.errors.length) {
-    html += `<div class="errors notice danger" id="errors" role="alert">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
+    html += `<div class="pinrail-errors pinrail-notice pinrail-notice-danger" id="errors" role="alert">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
   }
   if (!readonly) {
     if (S.armed) {
       html += `<div class="footer">
         <span class="tally warn">${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.</span>
-        <span class="spacer" style="flex:1"></span>
-        <button type="button" class="btn ghost" id="disarm">keep deciding</button>
+        <span class="pinrail-spacer"></span>
+        <button type="button" class="pinrail-btn pinrail-btn-ghost" id="disarm">keep deciding</button>
       </div>`;
     }
   }
-  view.content.className = "plugin-content";
+  view.content.className = "pinrail-content";
   // the redraw replaces every button: the one that had focus gets it back
   const had = document.activeElement?.closest?.("button[data-act]");
   const again = had ? `button[data-act="${had.dataset.act}"][data-id="${had.dataset.id}"]` : null;

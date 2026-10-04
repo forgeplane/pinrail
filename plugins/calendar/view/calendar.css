@@ -31,7 +31,7 @@ button,
     border-color 140ms;
 }
 button:focus-visible {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--pinrail-accent);
   outline-offset: 2px;
   z-index: 6;
 }
@@ -53,17 +53,17 @@ button:focus-visible {
 .waiting,
 .fatal {
   padding: 64px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .fatal h1 {
   font-size: 24px;
-  color: var(--text);
+  color: var(--pinrail-text);
 }
 .calendar-header {
   gap: 8px 16px;
   padding: 9px 16px;
 }
-.calendar-header .plugin-title {
+.calendar-header .pinrail-title {
   margin: 0;
   min-width: 0;
   flex: 1;
@@ -76,12 +76,12 @@ button:focus-visible {
   white-space: nowrap;
 }
 .header-progress {
-  color: var(--dim);
+  color: var(--pinrail-dim);
   font-size: 12px;
   white-space: nowrap;
 }
 .header-progress b {
-  color: var(--text);
+  color: var(--pinrail-text);
   font-weight: 600;
 }
 .workbench {
@@ -94,7 +94,7 @@ button:focus-visible {
   flex: none;
   padding: 23px 18px;
   background: var(--canvas);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--pinrail-border);
   overflow-y: auto;
 }
 .sidebar-heading {
@@ -111,7 +111,7 @@ h2 {
 }
 .sidebar-heading > span {
   font-size: 11px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .violet {
   --item: #8e77ed;
@@ -198,8 +198,8 @@ h2 {
   --item-solid: #5362b2;
 }
 .activity {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  background: var(--pinrail-bg-panel);
+  border: 1px solid var(--pinrail-border);
   border-radius: 12px;
   margin-bottom: 12px;
   overflow: hidden;
@@ -218,7 +218,7 @@ h2 {
   background: none;
 }
 .activity-heading:hover {
-  background: var(--bg-hover);
+  background: var(--pinrail-bg-hover);
 }
 .activity-icon {
   display: grid;
@@ -238,7 +238,7 @@ h2 {
 }
 .activity-sub {
   display: block;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   font-size: 11px;
   margin-top: 3px;
 }
@@ -256,7 +256,7 @@ h2 {
   margin: 0 14px 12px;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .chosen-location {
   display: flex;
@@ -269,7 +269,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   font-size: 11px;
   margin: 0 14px 11px;
 }
@@ -279,13 +279,13 @@ h2 {
 .no-options {
   margin: 0 14px 12px;
   font-size: 12px;
-  color: var(--sev-major);
+  color: var(--pinrail-warning);
 }
 .card-actions {
   display: flex;
   justify-content: space-between;
   padding: 9px 13px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--pinrail-border);
 }
 .card-actions button {
   display: inline-flex;
@@ -293,7 +293,7 @@ h2 {
   gap: 5px;
   font-size: 11px;
   padding: 2px 0;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   background: none;
   border: 0;
   min-height: 24px;
@@ -322,19 +322,19 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   margin-bottom: 9px;
 }
 .selection-summary > div > span {
   font-size: 28px;
   font-weight: 600;
   letter-spacing: -0.04em;
-  color: var(--text);
+  color: var(--pinrail-text);
 }
 .selection-summary small {
   font-size: 17px;
   font-weight: 400;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .selection-summary strong {
   font-size: 12px;
@@ -343,26 +343,26 @@ h2 {
 .selection-summary p {
   font-size: 12px;
   line-height: 1.7;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   margin: 6px 0 15px;
 }
 .progress {
   height: 4px;
-  background: var(--border);
+  background: var(--pinrail-border);
   border-radius: 3px;
   overflow: hidden;
 }
 .progress span {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--pinrail-accent);
   transition: width 0.2s ease;
 }
 .reset {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   background: none;
   border: 0;
   margin: 17px 0 0;
@@ -370,10 +370,10 @@ h2 {
   padding: 5px;
 }
 .reset:hover {
-  color: var(--text);
+  color: var(--pinrail-text);
 }
 .revision-note {
-  color: var(--dim);
+  color: var(--pinrail-dim);
   font-size: 11px;
   margin: 20px 5px;
 }
@@ -397,7 +397,7 @@ h2 {
 }
 .calendar-toolbar > div > span {
   display: block;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   margin-top: 3px;
   font-size: 11px;
 }
@@ -414,7 +414,7 @@ h2 {
   align-items: center;
   gap: 2px;
   padding: 3px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--pinrail-border);
   border-radius: 8px;
   background: var(--subtle);
 }
@@ -427,12 +427,12 @@ h2 {
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   font-size: 11px;
 }
 .pager button:hover:not(:disabled) {
-  background: var(--bg-panel);
-  color: var(--text);
+  background: var(--pinrail-bg-panel);
+  color: var(--pinrail-text);
 }
 .pager button:disabled {
   opacity: 0.4;
@@ -457,10 +457,10 @@ h2 {
   gap: 1px;
   min-width: 56px;
   padding: 6px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--pinrail-border);
   border-radius: 9px;
-  background: var(--bg-panel);
-  color: var(--dim);
+  background: var(--pinrail-bg-panel);
+  color: var(--pinrail-dim);
 }
 .day-strip button span {
   font-size: 9.5px;
@@ -470,7 +470,7 @@ h2 {
 .day-strip button strong {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text);
+  color: var(--pinrail-text);
   letter-spacing: -0.03em;
 }
 .day-strip button i {
@@ -484,18 +484,18 @@ h2 {
   height: 17px;
   padding: 0 4px;
   border-radius: 99px;
-  background: var(--accent);
-  color: var(--bg-panel);
-  font: 700 9.5px var(--sans);
+  background: var(--pinrail-accent);
+  color: var(--pinrail-bg-panel);
+  font: 700 9.5px var(--pinrail-sans);
   font-style: normal;
-  box-shadow: 0 0 0 2px var(--bg-panel);
+  box-shadow: 0 0 0 2px var(--pinrail-bg-panel);
 }
 .day-strip button:hover {
-  border-color: var(--border-strong);
+  border-color: var(--pinrail-border-strong);
 }
 .day-strip button.is-current {
-  border-color: var(--accent);
-  background: var(--accent-bg);
+  border-color: var(--pinrail-accent);
+  background: var(--pinrail-accent-bg);
 }
 .day-head.is-single {
   display: flex;
@@ -511,14 +511,14 @@ h2 {
 .day-head.is-single em {
   font-style: normal;
   font-size: 13px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .view-switch {
   display: flex;
   background: var(--subtle);
   padding: 3px;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--pinrail-border);
 }
 .view-switch button {
   display: flex;
@@ -528,12 +528,12 @@ h2 {
   background: transparent;
   padding: 6px 10px;
   font-size: 11px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   border-radius: 5px;
 }
 .view-switch button[aria-pressed="true"] {
-  background: var(--bg-panel);
-  color: var(--text);
+  background: var(--pinrail-bg-panel);
+  color: var(--pinrail-text);
   box-shadow: 0 1px 4px #0000000d;
 }
 .legend {
@@ -543,7 +543,7 @@ h2 {
   gap: 14px;
   padding: 0 23px 15px;
   font-size: 10px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   flex: none;
 }
 .legend > span {
@@ -561,15 +561,15 @@ h2 {
   font-style: normal;
 }
 .legend-blocked {
-  background: repeating-linear-gradient(135deg, var(--border), var(--border) 2px, var(--subtle) 2px, var(--subtle) 5px);
-  border: 1px solid var(--border-strong);
+  background: repeating-linear-gradient(135deg, var(--pinrail-border), var(--pinrail-border) 2px, var(--subtle) 2px, var(--subtle) 5px);
+  border: 1px solid var(--pinrail-border-strong);
 }
 .legend-option {
-  background: var(--accent-bg);
-  border: 1px dashed var(--accent);
+  background: var(--pinrail-accent-bg);
+  border: 1px dashed var(--pinrail-accent);
 }
 .legend-selected {
-  background: var(--button-bg);
+  background: var(--pinrail-button-bg);
   color: #fff;
 }
 .legend .conflict-indicator {
@@ -580,7 +580,7 @@ h2 {
   overflow: auto;
   flex: 1;
   min-height: 150px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--pinrail-border);
 }
 .calendar-grid {
   display: grid;
@@ -591,10 +591,10 @@ h2 {
 .day-head {
   position: sticky;
   top: 0;
-  background: var(--bg-panel);
+  background: var(--pinrail-bg-panel);
   z-index: 8;
-  border-bottom: 1px solid var(--border);
-  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--pinrail-border);
+  border-left: 1px solid var(--pinrail-border);
   text-align: center;
   padding-top: 9px;
 }
@@ -603,7 +603,7 @@ h2 {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .day-head strong {
   font-size: 21px;
@@ -615,7 +615,7 @@ h2 {
   z-index: 9;
   display: grid;
   place-items: center;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   border-left: 0;
   padding: 0;
 }
@@ -623,13 +623,13 @@ h2 {
   position: sticky;
   left: 0;
   z-index: 5;
-  background: var(--bg-panel);
+  background: var(--pinrail-bg-panel);
 }
 .time-rail > span {
   position: absolute;
   right: 9px;
   font-size: 9px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   font-variant-numeric: tabular-nums;
   transform: translateY(5px);
 }
@@ -684,14 +684,14 @@ h2 {
   margin-top: 3px;
 }
 .blocked {
-  border: 1px solid var(--border);
-  color: var(--dim);
+  border: 1px solid var(--pinrail-border);
+  color: var(--pinrail-dim);
   background: repeating-linear-gradient(
     135deg,
     var(--subtle),
     var(--subtle) 5px,
-    var(--bg-panel) 5px,
-    var(--bg-panel) 7px
+    var(--pinrail-bg-panel) 5px,
+    var(--pinrail-bg-panel) 7px
   );
 }
 .suggestion {
@@ -730,8 +730,8 @@ h2 {
 }
 .calendar-footer {
   padding: 12px 21px;
-  border-top: 1px solid var(--border);
-  color: var(--dim);
+  border-top: 1px solid var(--pinrail-border);
+  color: var(--pinrail-dim);
   font-size: 11px;
   display: flex;
   align-items: center;
@@ -746,9 +746,9 @@ h2 {
   gap: 9px;
   align-items: center;
   padding: 12px 20px;
-  background: var(--del-bg);
-  border-top: 1px solid var(--border);
-  color: var(--danger);
+  background: var(--pinrail-del-bg);
+  border-top: 1px solid var(--pinrail-border);
+  color: var(--pinrail-danger);
   flex: none;
 }
 .list-scroll {
@@ -759,7 +759,7 @@ h2 {
 }
 .list-group {
   padding: 19px 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--pinrail-border);
 }
 .list-heading {
   display: flex;
@@ -774,7 +774,7 @@ h2 {
 .list-heading p {
   margin: 3px 0 0;
   font-size: 12px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .option {
   display: flex;
@@ -782,8 +782,8 @@ h2 {
   gap: 12px;
   width: 100%;
   text-align: left;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  background: var(--pinrail-bg-panel);
+  border: 1px solid var(--pinrail-border);
   border-radius: 8px;
   margin-top: 7px;
   padding: 12px;
@@ -798,7 +798,7 @@ h2 {
 .option-check {
   width: 19px;
   height: 19px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--pinrail-border-strong);
   border-radius: 50%;
   flex: none;
   display: grid;
@@ -823,11 +823,11 @@ h2 {
 .option-text > span {
   font-size: 12px;
   margin-top: 2px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .option-text small {
   font-size: 11px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   margin-top: 3px;
 }
 .recommended {
@@ -840,7 +840,7 @@ h2 {
   white-space: nowrap;
 }
 .blocked-list {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--pinrail-border);
   padding-top: 12px;
 }
 .blocked-list h3 {
@@ -854,7 +854,7 @@ h2 {
   justify-content: space-between;
   gap: 10px;
   font-size: 12px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   padding: 9px 0;
   margin: 0;
 }
@@ -876,7 +876,7 @@ h2 {
     padding: 9px 12px;
     gap: 4px 12px;
   }
-  .calendar-header .plugin-title {
+  .calendar-header .pinrail-title {
     flex-basis: 100%;
     font-size: 14px;
   }
@@ -890,7 +890,7 @@ h2 {
   .sidebar {
     width: auto;
     border-right: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--pinrail-border);
     padding: 15px;
     overflow: visible;
   }
@@ -971,10 +971,10 @@ h2 {
 
 /* an item handed back without a time: asked to reschedule, or declined */
 .card-actions .decline {
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .card-actions .decline:hover {
-  color: var(--danger);
+  color: var(--pinrail-danger);
 }
 .activity.is-deferred,
 .activity.is-declined {
@@ -982,13 +982,13 @@ h2 {
 }
 .activity.is-declined .activity-heading strong {
   text-decoration: line-through;
-  color: var(--dim);
+  color: var(--pinrail-dim);
 }
 .activity.is-declined .activity-status {
-  color: var(--danger);
+  color: var(--pinrail-danger);
 }
 .activity.is-deferred .activity-status {
-  color: var(--accent);
+  color: var(--pinrail-accent);
 }
 .handback {
   padding: 0 15px 12px;
@@ -999,22 +999,22 @@ h2 {
   resize: vertical;
   padding: 8px 10px;
   box-sizing: border-box;
-  border: 1px solid var(--border);
+  border: 1px solid var(--pinrail-border);
   border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font: 12px/1.5 var(--sans);
+  background: var(--pinrail-bg);
+  color: var(--pinrail-text);
+  font: 12px/1.5 var(--pinrail-sans);
 }
 .handback textarea:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 16%, transparent);
+  border-color: var(--pinrail-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--pinrail-accent) 16%, transparent);
 }
 .handback-note {
   margin: 0;
   padding: 8px 10px;
-  border-left: 2px solid var(--border-strong);
+  border-left: 2px solid var(--pinrail-border-strong);
   font-size: 12px;
-  color: var(--dim);
+  color: var(--pinrail-dim);
   white-space: pre-wrap;
 }

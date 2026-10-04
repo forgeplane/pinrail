@@ -29,7 +29,7 @@
  * Pinrail.icon("check") returns the plugin's own icons/check.svg, beside the
  * view, as markup that takes the colour of the text around it:
  *
- *   `<button class="btn">${Pinrail.icon("check")} Accept</button>`
+ *   `<button class="pinrail-btn">${Pinrail.icon("check")} Accept</button>`
  *
  * Pinrail.layout() builds the standard skeleton that goes with the SDK's
  * stylesheet: a header that stays put and a body that scrolls.
@@ -419,7 +419,7 @@
     };
 
     const into = options.into || doc.body;
-    into.className = into.className ? into.className + " plugin-layout" : "plugin-layout";
+    into.className = into.className ? into.className + " pinrail-layout" : "pinrail-layout";
 
     const wantsHeader =
       options.header === true || options.title != null || options.meta != null || options.controls != null;
@@ -430,18 +430,18 @@
     let controlsNode = null;
 
     if (wantsHeader) {
-      header = make("header", "plugin-header");
-      titleNode = make("span", "plugin-title");
-      metaNode = make("span", "plugin-meta");
-      controlsNode = make("span", "plugin-controls");
+      header = make("header", "pinrail-header");
+      titleNode = make("span", "pinrail-title");
+      metaNode = make("span", "pinrail-meta");
+      controlsNode = make("span", "pinrail-controls");
       header.append(titleNode, metaNode, controlsNode);
       into.append(header);
     }
 
     // The body scrolls, not the document, so a heading inside it can pin to
     // the top of the scroll without having to know the header's height.
-    const scroll = make("div", "plugin-scroll");
-    const content = make("div", "plugin-content");
+    const scroll = make("div", "pinrail-scroll");
+    const content = make("div", "pinrail-content");
     scroll.append(content);
     into.append(scroll);
 
@@ -500,12 +500,12 @@
         : typeof options.size === "string" && /^[0-9.]+(px|em|rem|%)$/.test(options.size)
           ? options.size
           : null;
-    const size = length ? `--wi-size:${length};` : "";
+    const size = length ? `--pinrail-icon-size:${length};` : "";
     const extra = options.class ? " " + escape(options.class) : "";
     const described = options.label ? ` role="img" aria-label="${escape(options.label)}"` : ' aria-hidden="true"';
     const base = typeof document === "undefined" ? "http://plugin.invalid/view/" : document.baseURI;
     const url = new URL(`icons/${safe}.svg`, base).href;
-    return `<span class="wi${extra}" data-icon="${safe}" style="--wi:url(&quot;${escape(url)}&quot;);${size}"${described}></span>`;
+    return `<span class="pinrail-icon${extra}" data-icon="${safe}" style="--pinrail-icon:url(&quot;${escape(url)}&quot;);${size}"${described}></span>`;
   }
 
   function browserEnv(win) {

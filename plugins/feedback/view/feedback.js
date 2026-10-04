@@ -87,7 +87,7 @@
     const invalid = error ? 'aria-invalid="true"' : "";
     const describedBy = `hint-${q.id}${q.description ? " desc-" + q.id : ""}${error ? " error-" + q.id : ""}`;
     if (q.type === "text")
-      return `<textarea id="answer-${q.id}" class="field text-answer" data-answer="${q.id}" rows="3" ${disabled} ${invalid} aria-labelledby="prompt-${q.id}" aria-describedby="${describedBy}" placeholder="${esc(q.placeholder || "Your response…")}">${esc(value || "")}</textarea><div class="text-limit">${q.max_length ? `Up to ${q.max_length} characters` : ""}</div>`;
+      return `<textarea id="answer-${q.id}" class="pinrail-field text-answer" data-answer="${q.id}" rows="3" ${disabled} ${invalid} aria-labelledby="prompt-${q.id}" aria-describedby="${describedBy}" placeholder="${esc(q.placeholder || "Your response…")}">${esc(value || "")}</textarea><div class="text-limit">${q.max_length ? `Up to ${q.max_length} characters` : ""}</div>`;
     if (q.type === "checkbox")
       return `<label class="acknowledgment ${value === true ? "is-selected" : ""}"><input id="answer-${q.id}" type="checkbox" data-answer="${q.id}" ${value === true ? "checked" : ""} ${disabled} ${invalid} aria-labelledby="prompt-${q.id}" aria-describedby="${describedBy}"><span>${esc(q.checkbox_label || "I confirm")}</span></label>`;
     const options =
@@ -129,7 +129,7 @@
         ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ""}</details>`
         : "",
       q.type !== "text" && (!plugin.readonly || note)
-        ? `<div class="question-actions">${commentToggle(q, note, expanded)}</div><div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? "" : "hidden"}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico("trash-2")} Remove comment</button>` : ""}</div><textarea id="comment-${q.id}" class="field question-comment" data-comment="${q.id}" rows="3" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? "disabled" : ""}>${esc(note)}</textarea></div>`
+        ? `<div class="question-actions">${commentToggle(q, note, expanded)}</div><div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? "" : "hidden"}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico("trash-2")} Remove comment</button>` : ""}</div><textarea id="comment-${q.id}" class="pinrail-field question-comment" data-comment="${q.id}" rows="3" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? "disabled" : ""}>${esc(note)}</textarea></div>`
         : "",
     ].join("");
     return `<fieldset id="question-${q.id}" class="question is-${status} ${current === q.id ? "is-current" : ""}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Pinrail.icon("check", { size: 12 }) : String(number).padStart(2, "0")}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Pinrail.icon("rotate-ccw", { size: 11 })} Clear answer</button>` : ""}<span class="requirement ${q.required ? "is-required" : ""}">${q.required ? "Required" : "Optional"}</span></span></legend>
@@ -173,7 +173,7 @@
       (q) => visible.has(q.id) && q.type !== "text" && (state.comments[q.id] || "").trim(),
     ).length;
     let index = 0;
-    const html = `<header class="plugin-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Pinrail.icon(railOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: railOpen ? "Hide the group list" : "Show the group list" })}</button><h1 class="plugin-title">${esc(plugin.review.title || "Feedback")}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.review.status || "closed")}` : `<span><b>${answered}</b> of ${count} answered</span>${required ? `<span class="tally-required"><b>${required}</b> required left</span>` : ""}${comments ? `<span><b>${comments}</b> ${comments === 1 ? "comment" : "comments"}</span>` : ""}`}</span><div class="header-progress" aria-hidden="true"><span style="width:${count ? (answered / count) * 100 : 100}%"></span></div></header>
+    const html = `<header class="pinrail-header feedback-header"><button type="button" class="rail-toggle" data-rail="1">${Pinrail.icon(railOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: railOpen ? "Hide the group list" : "Show the group list" })}</button><h1 class="pinrail-title">${esc(plugin.review.title || "Feedback")}</h1><span class="header-count">${plugin.readonly ? `Read-only · ${esc(plugin.review.status || "closed")}` : `<span><b>${answered}</b> of ${count} answered</span>${required ? `<span class="tally-required"><b>${required}</b> required left</span>` : ""}${comments ? `<span><b>${comments}</b> ${comments === 1 ? "comment" : "comments"}</span>` : ""}`}</span><div class="header-progress" aria-hidden="true"><span style="width:${count ? (answered / count) * 100 : 100}%"></span></div></header>
       <div class="workspace"><aside class="sidebar" ${railOpen ? "" : "hidden"}><div class="sidebar-label">Questions <span>${count}</span></div><nav aria-label="Question groups">${shownGroups
         .map((g, i) => {
           const qs = g.questions.filter((q) => visible.has(q.id)),
@@ -210,7 +210,7 @@
                 .join("")}</section>`,
           )
           .join("")}
-        ${!count ? '<p class="empty">No questions apply to these answers.</p>' : ""}
+        ${!count ? '<p class="pinrail-empty">No questions apply to these answers.</p>' : ""}
         <div class="end-note">${ico("check-check")}<span>${plugin.readonly ? "Only the questions applicable to this response are shown." : "Your answers stay in draft until you use Pinrail’s hand-over."}</span></div>
       </div></div></div>`;
     // Keep the desktop and mobile scroll containers mounted. Replacing them

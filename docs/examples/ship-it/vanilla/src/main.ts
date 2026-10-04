@@ -63,17 +63,17 @@ function render() {
 
   const decided = decision?.data;
   app.innerHTML = `
-    <main class="plugin-content ship">
-      <p class="eyebrow">Deploy to ${esc(payload.environment)}</p>
-      <h1>${esc(payload.service)} <span class="meta">${esc(payload.version)}</span></h1>
+    <main class="pinrail-content ship">
+      <p class="pinrail-eyebrow">Deploy to ${esc(payload.environment)}</p>
+      <h1>${esc(payload.service)} <span class="pinrail-chip">${esc(payload.version)}</span></h1>
       <section>
-        <h2 class="eyebrow">Changes</h2>
+        <h2 class="pinrail-eyebrow">Changes</h2>
         <ul aria-label="Changes">
-          ${payload.changes.map((c) => `<li>${esc(c.title)}${c.risky ? ' <span class="sev sev-major">risky</span>' : ""}</li>`).join("")}
+          ${payload.changes.map((c) => `<li>${esc(c.title)}${c.risky ? ' <span class="pinrail-tone pinrail-tone-warning">risky</span>' : ""}</li>`).join("")}
         </ul>
       </section>
       <section>
-        <h2 class="eyebrow">Checks</h2>
+        <h2 class="pinrail-eyebrow">Checks</h2>
         <ul aria-label="Checks">
           ${payload.checks.map((c) => `<li data-passed="${c.passed}">${svg(c.passed ? CircleCheck : CircleX)} ${esc(c.name)}${c.detail ? ` <span class="detail">${esc(c.detail)}</span>` : ""}</li>`).join("")}
         </ul>
@@ -82,11 +82,11 @@ function render() {
         plugin.readonly
           ? `<p class="decided"><b>${decided?.verdict === "ship" ? "Shipped" : "Held"}</b>${decided?.note ? `: ${esc(decided.note)}` : ""}</p>`
           : `<div class="choice" role="group" aria-label="Verdict">
-            <button type="button" class="btn" data-verdict="ship" aria-pressed="${draft.verdict === "ship"}">${svg(Rocket)} Ship <kbd>s</kbd></button>
-            <button type="button" class="btn" data-verdict="hold" aria-pressed="${draft.verdict === "hold"}">${svg(Hand)} Hold <kbd>h</kbd></button>
+            <button type="button" class="pinrail-btn" data-verdict="ship" aria-pressed="${draft.verdict === "ship"}">${svg(Rocket)} Ship <kbd>s</kbd></button>
+            <button type="button" class="pinrail-btn" data-verdict="hold" aria-pressed="${draft.verdict === "hold"}">${svg(Hand)} Hold <kbd>h</kbd></button>
           </div>
-          <textarea class="note" aria-label="Note to the agent" placeholder="A note for the agent (optional)">${esc(draft.note)}</textarea>
-          <div class="errors" role="alert">${esc(error)}</div>`
+          <textarea class="pinrail-note" aria-label="Note to the agent" placeholder="A note for the agent (optional)">${esc(draft.note)}</textarea>
+          <div class="pinrail-errors" role="alert">${esc(error)}</div>`
       }
     </main>`;
 }

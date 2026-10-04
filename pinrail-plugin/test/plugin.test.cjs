@@ -321,10 +321,10 @@ test("layout builds a body on its own, and a header when asked for one", () => {
   const bare = fakeDocument();
   const plain = Pinrail.layout({ document: bare });
   assert.equal(plain.header, null, "no header unless the view wants one");
-  assert.equal(bare.body.className, "plugin-layout");
+  assert.equal(bare.body.className, "pinrail-layout");
   assert.deepEqual(
     bare.body.children.map((n) => n.className),
-    ["plugin-scroll"],
+    ["pinrail-scroll"],
   );
   assert.deepEqual(plain.scroll.children, [plain.content], "the body scrolls, the document does not");
 
@@ -332,11 +332,11 @@ test("layout builds a body on its own, and a header when asked for one", () => {
   const view = Pinrail.layout({ document: doc, title: "5 items" });
   assert.deepEqual(
     doc.body.children.map((n) => n.className),
-    ["plugin-header", "plugin-scroll"],
+    ["pinrail-header", "pinrail-scroll"],
   );
   assert.deepEqual(
     view.header.children.map((n) => n.className),
-    ["plugin-title", "plugin-meta", "plugin-controls"],
+    ["pinrail-title", "pinrail-meta", "pinrail-controls"],
   );
   assert.equal(view.header.children[0].textContent, "5 items");
 });
@@ -372,7 +372,7 @@ test("layout can be put somewhere other than the body", () => {
   assert.deepEqual(doc.body.children, []);
   assert.deepEqual(
     host.children.map((n) => n.className),
-    ["plugin-header", "plugin-scroll"],
+    ["pinrail-header", "pinrail-scroll"],
   );
   assert.equal(host.children[1], view.scroll);
   assert.equal(view.scroll.children[0], view.content);
@@ -413,10 +413,10 @@ test("the plugin object has the members a view uses, and no others", () => {
 
 test("icon markup takes the name, the colour of its text, and nothing from a payload", () => {
   const plain = Pinrail.icon("check");
-  assert.match(plain, /class="wi"/);
+  assert.match(plain, /class="pinrail-icon"/);
   assert.match(
     plain,
-    /--wi:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/check\.svg&quot;\)/,
+    /--pinrail-icon:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/check\.svg&quot;\)/,
     "the plugin's own, beside the view",
   );
   assert.match(plain, /aria-hidden="true"/, "decorative unless it is given a name");
@@ -424,7 +424,7 @@ test("icon markup takes the name, the colour of its text, and nothing from a pay
 
   // A view may take the name from a review payload, which is not ours to trust.
   const hostile = Pinrail.icon("x.svg) url(https://evil.test/pixel.svg");
-  assert.match(hostile, /--wi:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/[a-z0-9-]*\.svg&quot;\);/);
+  assert.match(hostile, /--pinrail-icon:url\(&quot;http:\/\/plugin\.invalid\/view\/icons\/[a-z0-9-]*\.svg&quot;\);/);
   assert.equal(hostile.includes("evil.test"), false, "the host is gone");
   assert.equal(
     /url\(/.test(hostile.replace("url(&quot;http://plugin.invalid/view/icons/", "")),
@@ -432,13 +432,13 @@ test("icon markup takes the name, the colour of its text, and nothing from a pay
     "no second url()",
   );
 
-  assert.match(Pinrail.icon("check", { size: 18 }), /--wi-size:18px/);
-  assert.match(Pinrail.icon("check", { size: "1.25em" }), /--wi-size:1\.25em/);
+  assert.match(Pinrail.icon("check", { size: 18 }), /--pinrail-icon-size:18px/);
+  assert.match(Pinrail.icon("check", { size: "1.25em" }), /--pinrail-icon-size:1\.25em/);
   // a size taken from a payload cannot leave the style attribute
   const breakout = Pinrail.icon("check", { size: '1px" onmouseover="alert(1)' });
   assert.doesNotMatch(breakout, /onmouseover/);
-  assert.doesNotMatch(breakout, /--wi-size/);
-  assert.match(Pinrail.icon("check", { class: "spacer" }), /class="wi spacer"/);
+  assert.doesNotMatch(breakout, /--pinrail-icon-size/);
+  assert.match(Pinrail.icon("check", { class: "pinrail-spacer" }), /class="pinrail-icon pinrail-spacer"/);
 
   const named = Pinrail.icon("trash-2", { label: "delete" });
   assert.match(named, /role="img"/);

@@ -158,11 +158,11 @@ test("the diff's bar holds how it reads and the bulk decisions; icons carry name
   const bar = plugin.frame.locator('[role="toolbar"]');
 
   // the header: only the rail's toggle
-  expect(await header.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
+  expect(await header.locator(".pinrail-icon").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
     "panel-left-close",
   ]);
   // the diff's bar: how it reads, and the decisions on the findings still open below
-  expect(await bar.locator(".wi").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
+  expect(await bar.locator(".pinrail-icon").evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.icon))).toEqual([
     "rows-3",
     "columns-2",
     "fold-vertical",
@@ -174,7 +174,7 @@ test("the diff's bar holds how it reads and the bulk decisions; icons carry name
   // Beside a word, an icon is decoration and the word is the name.
   await expect(bar.getByRole("button", { name: "Accept remaining (3)" })).toBeVisible();
   await expect(bar.getByRole("button", { name: "Fold all" })).toBeVisible();
-  await expect(bar.locator('[data-act="bulk-accept"] .wi')).toHaveAttribute("aria-hidden", "true");
+  await expect(bar.locator('[data-act="bulk-accept"] .pinrail-icon')).toHaveAttribute("aria-hidden", "true");
 
   // The diff toggle has no words, so its two buttons are named.
   await expect(bar.getByRole("button", { name: "Inline diff" })).toBeVisible();
@@ -183,12 +183,12 @@ test("the diff's bar holds how it reads and the bulk decisions; icons carry name
   // Folding flips the label and the icon together.
   await bar.getByRole("button", { name: "Fold all" }).click();
   await expect(bar.getByRole("button", { name: "Unfold all" })).toBeVisible();
-  await expect(bar.locator('[data-act="fold-all"] .wi')).toHaveAttribute("data-icon", "unfold-vertical");
+  await expect(bar.locator('[data-act="fold-all"] .pinrail-icon')).toHaveAttribute("data-icon", "unfold-vertical");
 
   // Confirming a bulk action changes the words, not the icon.
   await bar.getByRole("button", { name: "Reject remaining (3)" }).click();
   await expect(bar.getByRole("button", { name: "Really reject 3?" })).toBeVisible();
-  await expect(bar.locator('[data-act="bulk-reject"] .wi')).toHaveAttribute("data-icon", "list-x");
+  await expect(bar.locator('[data-act="bulk-reject"] .pinrail-icon')).toHaveAttribute("data-icon", "list-x");
 });
 
 test("the file tree's controls carry icons, and the collapse in the header says which way it goes", async ({
@@ -197,28 +197,28 @@ test("the file tree's controls carry icons, and the collapse in the header says 
   const plugin = await mountPlugin(page, dir, { review: round2() });
   const aside = plugin.frame.locator("aside");
 
-  await expect(aside.locator(".rail-head .wi")).toHaveCount(2);
+  await expect(aside.locator(".rail-head .pinrail-icon")).toHaveCount(2);
   // each folder opens and closes on a chevron, beside a folder that says which
-  await expect(aside.locator('[data-act="toggle-dir"] .wi[data-icon="folder-open"]')).toHaveCount(2);
+  await expect(aside.locator('[data-act="toggle-dir"] .pinrail-icon[data-icon="folder-open"]')).toHaveCount(2);
   await expect(aside.getByRole("button", { name: "semantic" })).toBeVisible();
   await expect(aside.getByRole("button", { name: "findings" })).toBeVisible();
 
   // The order pill's icon says which order is on, along with its label.
   const order = plugin.frame.locator('[data-act="toggle-order"]');
-  await expect(order.locator(".wi")).toHaveAttribute("data-icon", "list-ordered");
+  await expect(order.locator(".pinrail-icon")).toHaveAttribute("data-icon", "list-ordered");
   await order.click();
   await expect(order).toHaveText("a→z");
-  await expect(order.locator(".wi")).toHaveAttribute("data-icon", "arrow-down-a-z");
+  await expect(order.locator(".pinrail-icon")).toHaveAttribute("data-icon", "arrow-down-a-z");
 
   // The collapse has no words, so it is named, and the name follows the state.
   const collapse = plugin.frame.locator('[data-act="toggle-tree"]');
-  await expect(collapse.locator(".wi")).toHaveAttribute("data-icon", "panel-left-close");
+  await expect(collapse.locator(".pinrail-icon")).toHaveAttribute("data-icon", "panel-left-close");
   await expect(plugin.frame.getByRole("button", { name: "Collapse the file tree" })).toBeVisible();
 
   await collapse.click();
   await expect(plugin.frame.locator("aside")).toHaveCount(0);
   await expect(plugin.frame.getByRole("button", { name: "Show the file tree" })).toBeVisible();
-  await expect(plugin.frame.locator('[data-act="toggle-tree"] .wi')).toHaveAttribute("data-icon", "panel-left-open");
+  await expect(plugin.frame.locator('[data-act="toggle-tree"] .pinrail-icon')).toHaveAttribute("data-icon", "panel-left-open");
 
   await plugin.frame.locator('[data-act="toggle-tree"]').click();
   await expect(plugin.frame.locator("aside")).toBeVisible();

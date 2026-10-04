@@ -65,7 +65,7 @@ test("a tall view scrolls inside its frame, and its header stays in place", asyn
   const frame = page.frameLocator("#plugin-frame");
   await expect(frame.locator("body")).toContainText("60 proposals.");
 
-  const header = frame.locator(".plugin-header");
+  const header = frame.locator(".pinrail-header");
   const before = (await header.boundingBox())!;
   const last = frame.getByText("item 60", { exact: true });
   await expect(last).not.toBeInViewport();

@@ -93,19 +93,19 @@
 <svelte:document onkeydown={onKey} />
 
 {#if review}
-  <main class="plugin-content ship">
-    <p class="eyebrow">Deploy to {review.payload.environment}</p>
-    <h1>{review.payload.service} <span class="meta">{review.payload.version}</span></h1>
+  <main class="pinrail-content ship">
+    <p class="pinrail-eyebrow">Deploy to {review.payload.environment}</p>
+    <h1>{review.payload.service} <span class="pinrail-chip">{review.payload.version}</span></h1>
     <section>
-      <h2 class="eyebrow">Changes</h2>
+      <h2 class="pinrail-eyebrow">Changes</h2>
       <ul aria-label="Changes">
         {#each review.payload.changes as c (c.title)}
-          <li>{c.title}{#if c.risky}{" "}<span class="sev sev-major">risky</span>{/if}</li>
+          <li>{c.title}{#if c.risky}{" "}<span class="pinrail-tone pinrail-tone-warning">risky</span>{/if}</li>
         {/each}
       </ul>
     </section>
     <section>
-      <h2 class="eyebrow">Checks</h2>
+      <h2 class="pinrail-eyebrow">Checks</h2>
       <ul aria-label="Checks">
         {#each review.payload.checks as c (c.name)}
           <li data-passed={String(c.passed)}>
@@ -118,15 +118,15 @@
       <p class="decided"><b>{decided?.verdict === "ship" ? "Shipped" : "Held"}</b>{#if decided?.note}: {decided.note}{/if}</p>
     {:else}
       <div class="choice" role="group" aria-label="Verdict">
-        <button type="button" class="btn" aria-pressed={draft.verdict === "ship"} onclick={() => choose("ship")}>
+        <button type="button" class="pinrail-btn" aria-pressed={draft.verdict === "ship"} onclick={() => choose("ship")}>
           <Rocket /> Ship <kbd>s</kbd>
         </button>
-        <button type="button" class="btn" aria-pressed={draft.verdict === "hold"} onclick={() => choose("hold")}>
+        <button type="button" class="pinrail-btn" aria-pressed={draft.verdict === "hold"} onclick={() => choose("hold")}>
           <Hand /> Hold <kbd>h</kbd>
         </button>
       </div>
-      <textarea class="note" aria-label="Note to the agent" placeholder="A note for the agent (optional)" value={draft.note} oninput={writeNote}></textarea>
-      <div class="errors" role="alert">{error}</div>
+      <textarea class="pinrail-note" aria-label="Note to the agent" placeholder="A note for the agent (optional)" value={draft.note} oninput={writeNote}></textarea>
+      <div class="pinrail-errors" role="alert">{error}</div>
     {/if}
   </main>
 {/if}

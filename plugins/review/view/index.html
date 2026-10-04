@@ -6,95 +6,95 @@
 <title>review review</title>
 <link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
 <style>
-/* Tokens, base, code.inl, .eyebrow, .meta and the scrollbars come from the
+/* Tokens, base, .pinrail-eyebrow, .pinrail-chip and the scrollbars come from the
    SDK stylesheet. What is left is this view's own: a workbench needs more
    controls than a list does. */
 html, body { height: 100%; }
 :root { --ui: 13px; --code-size: 12.5px; }
-#app { font-family: var(--sans); font-size: var(--ui); color: var(--text); background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+#app { font-family: var(--pinrail-sans); font-size: var(--ui); color: var(--pinrail-text); background: var(--pinrail-bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 
-button.ghost { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; color: var(--dim); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
-button.ghost:hover { color: var(--text); border-color: var(--border-strong); }
+button.ghost { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; color: var(--pinrail-dim); border: 1px solid var(--pinrail-border); border-radius: 6px; padding: 4px 10px; white-space: nowrap; }
+button.ghost:hover { color: var(--pinrail-text); border-color: var(--pinrail-border-strong); }
 button.bare { all: unset; cursor: pointer; }
-button.link { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--accent); font-size: 12px; padding: 3px 7px; border-radius: 5px; }
-button.link:hover { background: var(--bg-hover); }
-button.primary { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: oklch(0.99 0 0); background: var(--accent); border-radius: 6px; padding: 5px 16px; white-space: nowrap; }
+button.link { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--pinrail-accent); font-size: 12px; padding: 3px 7px; border-radius: 5px; }
+button.link:hover { background: var(--pinrail-bg-hover); }
+button.primary { all: unset; cursor: pointer; font-weight: 600; font-size: 12.5px; color: oklch(0.99 0 0); background: var(--pinrail-accent); border-radius: 6px; padding: 5px 16px; white-space: nowrap; }
 button.primary:hover { filter: brightness(1.1); }
-button.accept-btn { all: unset; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px 0 7px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; color: var(--ok); background: color-mix(in oklab, var(--ok) 13%, transparent); }
-button.accept-btn:hover { background: color-mix(in oklab, var(--ok) 22%, transparent); }
-button.reject-btn { all: unset; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px 0 7px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; color: var(--danger); background: color-mix(in oklab, var(--danger) 11%, transparent); }
-button.reject-btn:hover { background: color-mix(in oklab, var(--danger) 20%, transparent); }
-button.undo-btn { all: unset; cursor: pointer; color: var(--dim); font-size: 12px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 5px; }
-button.undo-btn:hover { border-color: var(--border-strong); color: var(--text); }
-button.save-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12px; color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); padding: 6px 12px; border-radius: 6px; }
-button.save-btn:hover { background: var(--accent-bg); }
-button.dim-btn { all: unset; cursor: pointer; font-size: 12px; color: var(--dim); padding: 6px 8px; }
-button.dim-btn:hover { color: var(--text); }
-button.tiny { all: unset; cursor: pointer; font-size: 11.5px; color: var(--dim); flex: none; }
-button.tiny:hover { color: var(--text); }
-button.tiny.danger:hover { color: var(--danger); }
-button.seg { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; padding: 4px 10px; color: var(--faint); }
-button.seg.on { color: var(--text); background: var(--bg-hover); }
-button.toggle { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; color: var(--dim); white-space: nowrap; }
-button.toggle:hover { color: var(--text); border-color: var(--border-strong); }
-button.toggle.on { color: var(--accent); background: var(--accent-bg); border-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+button.accept-btn { all: unset; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px 0 7px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 13%, transparent); }
+button.accept-btn:hover { background: color-mix(in oklab, var(--pinrail-success) 22%, transparent); }
+button.reject-btn { all: unset; flex: none; box-sizing: border-box; display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px 0 7px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 11.5px; color: var(--pinrail-danger); background: color-mix(in oklab, var(--pinrail-danger) 11%, transparent); }
+button.reject-btn:hover { background: color-mix(in oklab, var(--pinrail-danger) 20%, transparent); }
+button.undo-btn { all: unset; cursor: pointer; color: var(--pinrail-dim); font-size: 12px; padding: 2px 8px; border: 1px solid var(--pinrail-border); border-radius: 5px; }
+button.undo-btn:hover { border-color: var(--pinrail-border-strong); color: var(--pinrail-text); }
+button.save-btn { all: unset; cursor: pointer; font-weight: 600; font-size: 12px; color: var(--pinrail-accent); border: 1px solid color-mix(in oklab, var(--pinrail-accent) 45%, transparent); padding: 6px 12px; border-radius: 6px; }
+button.save-btn:hover { background: var(--pinrail-accent-bg); }
+button.dim-btn { all: unset; cursor: pointer; font-size: 12px; color: var(--pinrail-dim); padding: 6px 8px; }
+button.dim-btn:hover { color: var(--pinrail-text); }
+button.tiny { all: unset; cursor: pointer; font-size: 11.5px; color: var(--pinrail-dim); flex: none; }
+button.tiny:hover { color: var(--pinrail-text); }
+button.tiny.danger:hover { color: var(--pinrail-danger); }
+button.seg { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; padding: 4px 10px; color: var(--pinrail-faint); }
+button.seg.on { color: var(--pinrail-text); background: var(--pinrail-bg-hover); }
+button.toggle { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 11.5px; padding: 4px 8px; border: 1px solid var(--pinrail-border); border-radius: 6px; color: var(--pinrail-dim); white-space: nowrap; }
+button.toggle:hover { color: var(--pinrail-text); border-color: var(--pinrail-border-strong); }
+button.toggle.on { color: var(--pinrail-accent); background: var(--pinrail-accent-bg); border-color: color-mix(in oklab, var(--pinrail-accent) 40%, transparent); }
 /* the rail: files, and each file's findings under it with where they stand */
-.rail { width: 284px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--bg-panel); }
-.rail-head { flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-bottom: 1px solid var(--border); }
+.rail { width: 284px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); }
+.rail-head { flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border-bottom: 1px solid var(--pinrail-border); }
 .pane { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.diff-bar { flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 20px 0 24px; border-bottom: 1px solid var(--border); background: var(--bg); }
-.rail-head .eyebrow { white-space: nowrap; }
+.diff-bar { flex: none; box-sizing: border-box; display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 20px 0 24px; border-bottom: 1px solid var(--pinrail-border); background: var(--pinrail-bg); }
+.rail-head .pinrail-eyebrow { white-space: nowrap; }
 .rail-body { flex: 1; overflow-y: auto; padding: 8px 8px 24px; }
 .grow { flex: 1; }
 .tree-row { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 7px; width: 100%; padding: 5px 8px; border-radius: 6px; }
-.tree-row:hover { background: var(--bg-hover); }
-.tree-dir { margin-top: 6px; font-size: 11.5px; color: var(--faint); }
+.tree-row:hover { background: var(--pinrail-bg-hover); }
+.tree-dir { margin-top: 6px; font-size: 11.5px; color: var(--pinrail-faint); }
 .tree-dir { gap: 5px; }
-.tree-dir .caret { flex: none; display: inline-flex; color: var(--faint); transition: transform 0.12s ease; }
+.tree-dir .caret { flex: none; display: inline-flex; color: var(--pinrail-faint); transition: transform 0.12s ease; }
 .tree-dir .caret.open { transform: rotate(90deg); }
-.tree-dir > .wi { flex: none; color: var(--faint); }
-.tree-dir:hover, .tree-dir:hover .caret, .tree-dir:hover > .wi { color: var(--dim); }
+.tree-dir > .pinrail-icon { flex: none; color: var(--pinrail-faint); }
+.tree-dir:hover, .tree-dir:hover .caret, .tree-dir:hover > .pinrail-icon { color: var(--pinrail-dim); }
 .tree-loose { cursor: default; } .tree-loose:hover { background: none; }
-.tree-loose > .wi { flex: none; margin-left: 15px; }
-.tree-dir .path { font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-loose > .pinrail-icon { flex: none; margin-left: 15px; }
+.tree-dir .path { font-family: var(--pinrail-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tree-file { padding-left: 20px; }
-.tree-file .name { min-width: 0; font: 12px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tree-file.quiet .name { color: var(--faint); }
-.tree-file.on .name { color: var(--accent); font-weight: 600; }
-.tree-file .count { flex: none; padding: 0 6px; border-radius: 99px; font: 600 10.5px var(--mono); color: var(--dim); background: var(--bg-hover); }
-.tree-file .count.done { color: var(--ok); background: color-mix(in oklab, var(--ok) 14%, transparent); }
-.tree-file .churn { flex: none; font: 10.5px var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tree-file .plus { color: var(--ok); } .tree-file .minus { color: var(--danger); }
-.tree-finding { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 8px 3px 30px; border-radius: 6px; font-size: 12px; color: var(--dim); }
-.tree-finding:hover { background: var(--bg-hover); color: var(--text); }
-.tree-finding.focus { background: var(--accent-bg); color: var(--text); }
+.tree-file .name { min-width: 0; font: 12px var(--pinrail-mono); color: var(--pinrail-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tree-file.quiet .name { color: var(--pinrail-faint); }
+.tree-file.on .name { color: var(--pinrail-accent); font-weight: 600; }
+.tree-file .count { flex: none; padding: 0 6px; border-radius: 99px; font: 600 10.5px var(--pinrail-mono); color: var(--pinrail-dim); background: var(--pinrail-bg-hover); }
+.tree-file .count.done { color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 14%, transparent); }
+.tree-file .churn { flex: none; font: 10.5px var(--pinrail-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tree-file .plus { color: var(--pinrail-success); } .tree-file .minus { color: var(--pinrail-danger); }
+.tree-finding { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 8px 3px 30px; border-radius: 6px; font-size: 12px; color: var(--pinrail-dim); }
+.tree-finding:hover { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
+.tree-finding.focus { background: var(--pinrail-accent-bg); color: var(--pinrail-text); }
 .tree-finding .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tree-finding .n { flex: none; font: 10.5px var(--mono); color: var(--faint); }
-.tree-finding.mine-row > .wi { flex: none; color: var(--accent); }
-.tree-finding.mine-row .t { color: var(--text); }
-.tree-finding .has-note { flex: none; display: inline-flex; color: var(--accent); }
-.tree-finding .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--sev-nit); }
-.tree-finding .dot.is-blocker { border-color: var(--sev-blocker); } .tree-finding .dot.is-major { border-color: var(--sev-major); } .tree-finding .dot.is-minor { border-color: var(--sev-minor); }
-.tree-finding.accepted .dot { border-color: var(--ok); background: var(--ok); }
-.tree-finding.rejected .dot { border-color: var(--danger); background: var(--danger); }
-.tree-finding.accepted .t, .tree-finding.rejected .t { color: var(--faint); }
+.tree-finding .n { flex: none; font: 10.5px var(--pinrail-mono); color: var(--pinrail-faint); }
+.tree-finding.mine-row > .pinrail-icon { flex: none; color: var(--pinrail-accent); }
+.tree-finding.mine-row .t { color: var(--pinrail-text); }
+.tree-finding .has-note { flex: none; display: inline-flex; color: var(--pinrail-accent); }
+.tree-finding .dot { flex: none; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--pinrail-neutral); }
+.tree-finding .dot.is-blocker { border-color: var(--pinrail-danger); } .tree-finding .dot.is-major { border-color: var(--pinrail-warning); } .tree-finding .dot.is-minor { border-color: var(--pinrail-info); }
+.tree-finding.accepted .dot { border-color: var(--pinrail-success); background: var(--pinrail-success); }
+.tree-finding.rejected .dot { border-color: var(--pinrail-danger); background: var(--pinrail-danger); }
+.tree-finding.accepted .t, .tree-finding.rejected .t { color: var(--pinrail-faint); }
 .tree-finding.rejected .t { text-decoration: line-through; }
-textarea.ta { flex: 1; resize: vertical; background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; outline: none; min-height: 20px; color: var(--text); }
-textarea.ta:focus { border-color: var(--accent); }
+textarea.ta { flex: 1; resize: vertical; background: var(--pinrail-bg); border: 1px solid var(--pinrail-border-strong); border-radius: 6px; padding: 7px 10px; font-size: 12.5px; outline: none; min-height: 20px; color: var(--pinrail-text); }
+textarea.ta:focus { border-color: var(--pinrail-accent); }
 /* diff rows: one class each, so three thousand rows cost bytes, not kilobytes */
 .diff-row { display: grid; }
 .diff-row.inline { grid-template-columns: 44px 44px 18px 1fr; }
 .diff-row.split { grid-template-columns: 40px 1fr 40px 1fr; }
 .diff-row.inline.add { background: var(--rv-add); }
 .diff-row.inline.del { background: var(--rv-del); }
-.diff-row .ln { text-align: right; padding: 0 8px 0 4px; color: color-mix(in oklab, var(--faint) 85%, transparent); user-select: none; position: relative; font-variant-numeric: tabular-nums; }
-.diff-row.inline.add .ln, .diff-row.split .ln.add { color: color-mix(in oklab, var(--ok) 72%, transparent); }
-.diff-row.inline.del .ln, .diff-row.split .ln.del { color: color-mix(in oklab, var(--danger) 72%, transparent); }
+.diff-row .ln { text-align: right; padding: 0 8px 0 4px; color: color-mix(in oklab, var(--pinrail-faint) 85%, transparent); user-select: none; position: relative; font-variant-numeric: tabular-nums; }
+.diff-row.inline.add .ln, .diff-row.split .ln.add { color: color-mix(in oklab, var(--pinrail-success) 72%, transparent); }
+.diff-row.inline.del .ln, .diff-row.split .ln.del { color: color-mix(in oklab, var(--pinrail-danger) 72%, transparent); }
 .diff-row .sign { text-align: center; user-select: none; }
-.diff-row.add .sign { color: var(--ok); }
-.diff-row.del .sign { color: var(--danger); }
-.diff-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--text); }
+.diff-row.add .sign { color: var(--pinrail-success); }
+.diff-row.del .sign { color: var(--pinrail-danger); }
+.diff-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--pinrail-text); }
 /* a wrapped line carries on two characters in, so it never reads as a new one */
 .diff-row .code { tab-size: 4; }
 .diff-row.inline .code { padding-left: calc((var(--i, 0) + 2) * 1ch); text-indent: calc((var(--i, 0) + 2) * -1ch); }
@@ -102,11 +102,11 @@ textarea.ta:focus { border-color: var(--accent); }
 /* no sign column side by side: the + sits in the room before the code */
 .diff-row.split .addbtn { transform: translateX(3px); }
 .diff-row.split .addbtn:hover { transform: translateX(3px) scale(1.12); }
-.diff-row.split .code.l { border-right: 1px solid var(--border); }
+.diff-row.split .code.l { border-right: 1px solid var(--pinrail-border); }
 .diff-row.split .code.add, .diff-row.split .ln.add { background: var(--rv-add); }
 .diff-row.split .code.del, .diff-row.split .ln.del { background: var(--rv-del); }
-.hunk { padding: 2px 12px 2px 106px; font-size: 11px; color: var(--faint); background: color-mix(in oklab, var(--accent) 5%, var(--bg-panel)); }
-.hunk:not(:first-child) { border-top: 1px solid var(--border); }
+.hunk { padding: 2px 12px 2px 106px; font-size: 11px; color: var(--pinrail-faint); background: color-mix(in oklab, var(--pinrail-accent) 5%, var(--pinrail-bg-panel)); }
+.hunk:not(:first-child) { border-top: 1px solid var(--pinrail-border); }
 .hunk.split { padding-left: 52px; }
 /* each file section is laid out and painted on its own, and skipped while
    off screen: a change in one file never costs the others, and scrolling
@@ -114,174 +114,174 @@ textarea.ta:focus { border-color: var(--accent); }
 [data-filesec] { content-visibility: auto; contain: content; }
 .diff-row .addbtn { opacity: 0; transition: opacity 0.08s; pointer-events: none; }
 .diff-row:hover .addbtn, .addbtn:focus-visible { opacity: 1; pointer-events: auto; }
-.addbtn { all: unset; box-sizing: border-box; position: absolute; left: 100%; top: 1.5px; transform: translateX(1px); z-index: 2; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; background: var(--accent); color: oklch(0.99 0 0); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+.addbtn { all: unset; box-sizing: border-box; position: absolute; left: 100%; top: 1.5px; transform: translateX(1px); z-index: 2; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; background: var(--pinrail-accent); color: oklch(0.99 0 0); cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
 .addbtn:hover { transform: translateX(1px) scale(1.12); }
 /* your own comment on a line, and the box you write it in */
-.mine { font: var(--ui) var(--sans); padding: 9px 16px 11px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg-raised); box-shadow: inset 3px 0 0 var(--accent); }
-.mine-head { display: flex; align-items: center; gap: 7px; min-height: 26px; color: var(--accent); }
-.mine-label { font: 600 10px var(--mono); letter-spacing: 0.07em; }
-.mine-at { font: 11px var(--mono); color: var(--dim); }
-.mine-for, .mine-hint { font-size: 11px; color: var(--faint); }
-.mine-text, button.mine-text { display: block; width: 100%; box-sizing: border-box; text-align: left; cursor: text; margin-top: 2px; line-height: 1.55; white-space: pre-wrap; color: var(--text); }
-.mine.editing { background: color-mix(in oklab, var(--accent) 5%, var(--bg-raised)); }
+.mine { font: var(--ui) var(--pinrail-sans); padding: 9px 16px 11px; border-top: 1px solid var(--pinrail-border); border-bottom: 1px solid var(--pinrail-border); background: var(--pinrail-bg-raised); box-shadow: inset 3px 0 0 var(--pinrail-accent); }
+.mine-head { display: flex; align-items: center; gap: 7px; min-height: 26px; color: var(--pinrail-accent); }
+.mine-label { font: 600 10px var(--pinrail-mono); letter-spacing: 0.07em; }
+.mine-at { font: 11px var(--pinrail-mono); color: var(--pinrail-dim); }
+.mine-for, .mine-hint { font-size: 11px; color: var(--pinrail-faint); }
+.mine-text, button.mine-text { display: block; width: 100%; box-sizing: border-box; text-align: left; cursor: text; margin-top: 2px; line-height: 1.55; white-space: pre-wrap; color: var(--pinrail-text); }
+.mine.editing { background: color-mix(in oklab, var(--pinrail-accent) 5%, var(--pinrail-bg-raised)); }
 .mine.editing textarea.note-ta { margin-top: 4px; font-size: 13px; }
-button.icon-btn.ok { color: var(--accent); }
+button.icon-btn.ok { color: var(--pinrail-accent); }
 /* a finding: what the agent would post, and your call on it */
-.card { font-size: var(--ui); background: var(--bg-raised); overflow: hidden; }
-.card.boxed { border: 1px solid var(--border); border-radius: 10px; }
-.card.flush { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.card { font-size: var(--ui); background: var(--pinrail-bg-raised); overflow: hidden; }
+.card.boxed { border: 1px solid var(--pinrail-border); border-radius: 10px; }
+.card.flush { border-top: 1px solid var(--pinrail-border); border-bottom: 1px solid var(--pinrail-border); }
 /* the bar down a finding's left edge says where it stands; focus is a tint */
-.card { --bar: var(--border-strong); box-shadow: inset 3px 0 0 var(--bar); }
-.card.accepted { --bar: var(--ok); }
-.card.rejected { --bar: var(--danger); }
+.card { --bar: var(--pinrail-border-strong); box-shadow: inset 3px 0 0 var(--bar); }
+.card.accepted { --bar: var(--pinrail-success); }
+.card.rejected { --bar: var(--pinrail-danger); }
 /* the finding the keys act on: an accent ring round it, over its decision bar */
-.card.focused { position: relative; z-index: 1; background: color-mix(in oklab, var(--accent) 8%, var(--bg-raised)); box-shadow: inset 3px 0 0 var(--bar), inset 0 0 0 2px var(--accent), 0 4px 18px -8px color-mix(in oklab, var(--accent) 45%, transparent); }
-.card.boxed.focused { border-color: var(--accent); }
+.card.focused { position: relative; z-index: 1; background: color-mix(in oklab, var(--pinrail-accent) 8%, var(--pinrail-bg-raised)); box-shadow: inset 3px 0 0 var(--bar), inset 0 0 0 2px var(--pinrail-accent), 0 4px 18px -8px color-mix(in oklab, var(--pinrail-accent) 45%, transparent); }
+.card.boxed.focused { border-color: var(--pinrail-accent); }
 .card .grow { flex: 1; }
-.card .id { flex: none; font: 11px var(--mono); color: var(--faint); }
-.sev { flex: none; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--sev-nit); background: color-mix(in oklab, var(--sev-nit) 16%, transparent); }
-.sev.is-blocker { color: var(--sev-blocker); background: color-mix(in oklab, var(--sev-blocker) 16%, transparent); }
-.sev.is-major { color: var(--sev-major); background: color-mix(in oklab, var(--sev-major) 16%, transparent); }
-.sev.is-minor { color: var(--sev-minor); background: color-mix(in oklab, var(--sev-minor) 16%, transparent); }
-button.icon-btn { all: unset; flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--dim); cursor: pointer; }
-button.icon-btn:hover { color: var(--text); background: var(--bg-hover); }
-button.icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-button.file-fold { display: inline-flex; color: var(--faint); transition: transform 0.12s ease; }
+.card .id { flex: none; font: 11px var(--pinrail-mono); color: var(--pinrail-faint); }
+.sev { flex: none; padding: 2px 8px; border-radius: 99px; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--pinrail-neutral); background: color-mix(in oklab, var(--pinrail-neutral) 16%, transparent); }
+.sev.is-blocker { color: var(--pinrail-danger); background: color-mix(in oklab, var(--pinrail-danger) 16%, transparent); }
+.sev.is-major { color: var(--pinrail-warning); background: color-mix(in oklab, var(--pinrail-warning) 16%, transparent); }
+.sev.is-minor { color: var(--pinrail-info); background: color-mix(in oklab, var(--pinrail-info) 16%, transparent); }
+button.icon-btn { all: unset; flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--pinrail-dim); cursor: pointer; }
+button.icon-btn:hover { color: var(--pinrail-text); background: var(--pinrail-bg-hover); }
+button.icon-btn:focus-visible { outline: 2px solid var(--pinrail-accent); outline-offset: 1px; }
+button.file-fold { display: inline-flex; color: var(--pinrail-faint); transition: transform 0.12s ease; }
 button.file-fold.open { transform: rotate(90deg); }
-button.file-fold:hover { color: var(--text); }
+button.file-fold:hover { color: var(--pinrail-text); }
 .card-head { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 10px 16px 0; }
 .card.folded .card-head { padding-bottom: 10px; }
 .card-name, button.card-toggle { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
 button.card-toggle { cursor: pointer; border-radius: 6px; margin: -3px -6px; padding: 3px 6px; }
-button.card-toggle:hover { background: var(--bg-hover); }
-button.card-toggle .caret { display: inline-flex; color: var(--faint); transition: transform 0.12s ease; }
+button.card-toggle:hover { background: var(--pinrail-bg-hover); }
+button.card-toggle .caret { display: inline-flex; color: var(--pinrail-faint); transition: transform 0.12s ease; }
 button.card-toggle .caret.open { transform: rotate(90deg); }
-.card.rejected .card-title { color: var(--dim); }
+.card.rejected .card-title { color: var(--pinrail-dim); }
 .card.rejected.folded .card-title { text-decoration: line-through; }
-.card-title { min-width: 0; font-weight: 600; font-size: 13.5px; color: var(--text); }
-.card .tag { flex: none; padding: 1px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent); }
-.card .resolves { flex: none; font-size: 11px; color: var(--ok); }
+.card-title { min-width: 0; font-weight: 600; font-size: 13.5px; color: var(--pinrail-text); }
+.card .tag { flex: none; padding: 1px 8px; border-radius: 99px; font-size: 10px; font-weight: 600; letter-spacing: 0.05em; color: var(--pinrail-accent); border: 1px solid color-mix(in oklab, var(--pinrail-accent) 40%, transparent); }
+.card .resolves { flex: none; font-size: 11px; color: var(--pinrail-success); }
 .verdict { flex: none; padding: 2px 9px; border-radius: 99px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; white-space: nowrap; }
-.verdict.accept { color: var(--ok); background: color-mix(in oklab, var(--ok) 14%, transparent); }
-.verdict.reject { color: var(--danger); background: color-mix(in oklab, var(--danger) 13%, transparent); }
-.verdict.none { color: var(--sev-major); background: color-mix(in oklab, var(--sev-major) 14%, transparent); }
-.card-body { display: flex; flex-direction: column; gap: 9px; margin: 8px 16px 14px; line-height: 1.6; color: var(--text); }
-.card.rejected .card-body { color: var(--dim); }
+.verdict.accept { color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 14%, transparent); }
+.verdict.reject { color: var(--pinrail-danger); background: color-mix(in oklab, var(--pinrail-danger) 13%, transparent); }
+.verdict.none { color: var(--pinrail-warning); background: color-mix(in oklab, var(--pinrail-warning) 14%, transparent); }
+.card-body { display: flex; flex-direction: column; gap: 9px; margin: 8px 16px 14px; line-height: 1.6; color: var(--pinrail-text); }
+.card.rejected .card-body { color: var(--pinrail-dim); }
 .card-body p { margin: 0; }
 .md-text > :last-child { margin-bottom: 0; }
 .md-text p, .md-text ul, .md-text ol { margin: 0 0 6px; }
 .md-text ul, .md-text ol { padding-left: 18px; }
-.code-block { margin: 0; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); font: var(--code-size)/1.55 var(--mono); white-space: pre-wrap; overflow-x: auto; color: var(--text); }
-.sugg { border: 1px solid var(--border-strong); border-radius: 7px; overflow: hidden; }
-.sugg-head { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--border); background: var(--bg); font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; color: var(--dim); }
-.sugg-row { display: grid; grid-template-columns: 40px 18px 1fr; font: var(--code-size)/1.6 var(--mono); }
-.sugg-row.add { background: var(--add-bg); } .sugg-row.del { background: var(--del-bg); }
-.sugg-row .ln { text-align: right; padding: 0 8px 0 4px; color: var(--faint); user-select: none; font-variant-numeric: tabular-nums; }
-.sugg-row.add .ln { background: var(--add-gut); } .sugg-row.del .ln { background: var(--del-gut); }
+.code-block { margin: 0; padding: 9px 12px; border: 1px solid var(--pinrail-border); border-radius: 6px; background: var(--pinrail-bg); font: var(--code-size)/1.55 var(--pinrail-mono); white-space: pre-wrap; overflow-x: auto; color: var(--pinrail-text); }
+.sugg { border: 1px solid var(--pinrail-border-strong); border-radius: 7px; overflow: hidden; }
+.sugg-head { display: flex; align-items: center; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--pinrail-border); background: var(--pinrail-bg); font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em; color: var(--pinrail-dim); }
+.sugg-row { display: grid; grid-template-columns: 40px 18px 1fr; font: var(--code-size)/1.6 var(--pinrail-mono); }
+.sugg-row.add { background: var(--pinrail-add-bg); } .sugg-row.del { background: var(--pinrail-del-bg); }
+.sugg-row .ln { text-align: right; padding: 0 8px 0 4px; color: var(--pinrail-faint); user-select: none; font-variant-numeric: tabular-nums; }
+.sugg-row.add .ln { background: var(--pinrail-add-gut); } .sugg-row.del .ln { background: var(--pinrail-del-gut); }
 .sugg-row .sign { text-align: center; user-select: none; }
-.sugg-row.add .sign { color: var(--ok); } .sugg-row.del .sign { color: var(--danger); }
-.sugg-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--text); }
-.note { display: flex; align-items: flex-start; gap: 6px; margin: 0 16px 12px; padding: 7px 10px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); }
-.note.accept { background: var(--accent-bg); border-color: color-mix(in oklab, var(--accent) 25%, transparent); }
-.note.reject { background: color-mix(in oklab, var(--danger) 7%, var(--bg)); border-color: color-mix(in oklab, var(--danger) 22%, transparent); }
-.note-text, button.note-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; line-height: 1.55; color: var(--text); text-align: left; cursor: text; }
+.sugg-row.add .sign { color: var(--pinrail-success); } .sugg-row.del .sign { color: var(--pinrail-danger); }
+.sugg-row .code { white-space: pre-wrap; word-break: break-word; padding-right: 12px; color: var(--pinrail-text); }
+.note { display: flex; align-items: flex-start; gap: 6px; margin: 0 16px 12px; padding: 7px 10px; border-radius: 7px; background: var(--pinrail-bg); border: 1px solid var(--pinrail-border); }
+.note.accept { background: var(--pinrail-accent-bg); border-color: color-mix(in oklab, var(--pinrail-accent) 25%, transparent); }
+.note.reject { background: color-mix(in oklab, var(--pinrail-danger) 7%, var(--pinrail-bg)); border-color: color-mix(in oklab, var(--pinrail-danger) 22%, transparent); }
+.note-text, button.note-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; line-height: 1.55; color: var(--pinrail-text); text-align: left; cursor: text; }
 .note-text .line { display: block; }
-.note-label { font: 600 9.5px var(--mono); letter-spacing: 0.08em; color: var(--faint); }
-.note.accept .note-label { color: var(--accent); } .note.reject .note-label { color: var(--danger); }
-button.note.editing { border-color: color-mix(in oklab, var(--accent) 55%, transparent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent); }
+.note-label { font: 600 9.5px var(--pinrail-mono); letter-spacing: 0.08em; color: var(--pinrail-faint); }
+.note.accept .note-label { color: var(--pinrail-accent); } .note.reject .note-label { color: var(--pinrail-danger); }
+button.note.editing { border-color: color-mix(in oklab, var(--pinrail-accent) 55%, transparent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--pinrail-accent) 12%, transparent); }
 .note-label { display: flex; align-items: baseline; gap: 10px; }
-.note-hint { margin-left: auto; font: 11px var(--sans); letter-spacing: 0; color: var(--faint); text-transform: none; }
-textarea.note-ta { all: unset; display: block; width: 100%; box-sizing: border-box; min-height: 21px; resize: none; overflow: hidden; font-size: 12.5px; line-height: 1.55; color: var(--text); white-space: pre-wrap; }
-textarea.note-ta::placeholder { color: var(--faint); }
-.note-del { flex: none; color: var(--faint); padding: 2px; border-radius: 4px; }
-button.note-del:hover { color: var(--danger); }
-.thread { margin: 10px 16px 0; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); overflow: hidden; }
-button.thread-head { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 7px 11px; font-size: 11.5px; color: var(--faint); }
+.note-hint { margin-left: auto; font: 11px var(--pinrail-sans); letter-spacing: 0; color: var(--pinrail-faint); text-transform: none; }
+textarea.note-ta { all: unset; display: block; width: 100%; box-sizing: border-box; min-height: 21px; resize: none; overflow: hidden; font-size: 12.5px; line-height: 1.55; color: var(--pinrail-text); white-space: pre-wrap; }
+textarea.note-ta::placeholder { color: var(--pinrail-faint); }
+.note-del { flex: none; color: var(--pinrail-faint); padding: 2px; border-radius: 4px; }
+button.note-del:hover { color: var(--pinrail-danger); }
+.thread { margin: 10px 16px 0; border: 1px solid var(--pinrail-border); border-radius: 8px; background: var(--pinrail-bg); overflow: hidden; }
+button.thread-head { display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 7px 11px; font-size: 11.5px; color: var(--pinrail-faint); }
 button.thread-head .caret { display: inline-flex; transition: transform 0.12s; }  button.thread-head .caret.open { transform: rotate(90deg); }
 .thread-label { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; }
 .thread-body { max-height: 340px; overflow-y: auto; }
-.thread-msg { padding: 8px 12px; border-top: 1px solid var(--border); }
-.thread-who { margin-bottom: 3px; font-size: 10.5px; font-weight: 600; color: var(--accent); }
-.thread-msg.ours .thread-who { color: var(--faint); }
-.thread-text { font-size: 12px; line-height: 1.55; color: var(--dim); }
-.previous { margin: 8px 16px 0; font-size: 11.5px; color: var(--faint); }
+.thread-msg { padding: 8px 12px; border-top: 1px solid var(--pinrail-border); }
+.thread-who { margin-bottom: 3px; font-size: 10.5px; font-weight: 600; color: var(--pinrail-accent); }
+.thread-msg.ours .thread-who { color: var(--pinrail-faint); }
+.thread-text { font-size: 12px; line-height: 1.55; color: var(--pinrail-dim); }
+.previous { margin: 8px 16px 0; font-size: 11.5px; color: var(--pinrail-faint); }
 .previous-label { font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
-.previous-verdict { font-weight: 600; } .previous-verdict.accept { color: var(--ok); } .previous-verdict.reject { color: var(--danger); }
+.previous-verdict { font-weight: 600; } .previous-verdict.accept { color: var(--pinrail-success); } .previous-verdict.reject { color: var(--pinrail-danger); }
 /* a file: its header stays in view while its diff scrolls under it */
-section.file { margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-raised); }
-.file-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 0 14px 0 10px; border-bottom: 1px solid var(--border); border-radius: 10px 10px 0 0; background: var(--bg-panel); }
+section.file { margin-bottom: 18px; border: 1px solid var(--pinrail-border); border-radius: 10px; background: var(--pinrail-bg-raised); }
+.file-head { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 9px; min-height: 40px; padding: 0 14px 0 10px; border-bottom: 1px solid var(--pinrail-border); border-radius: 10px 10px 0 0; background: var(--pinrail-bg-panel); }
 .file-head.folded { border-bottom: 0; border-radius: 10px; }
-.file-path { min-width: 0; font: 12.5px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.file-path .dir { color: var(--faint); } .file-path .base { color: var(--text); font-weight: 600; }
-.file-badge { flex: none; padding: 1px 7px; border-radius: 99px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--dim); background: var(--bg-hover); }
-.file-badge.is-added { color: var(--ok); background: color-mix(in oklab, var(--ok) 13%, transparent); }
-.file-badge.is-deleted { color: var(--danger); background: color-mix(in oklab, var(--danger) 12%, transparent); }
-.file-churn { flex: none; font: 11px var(--mono); font-variant-numeric: tabular-nums; }
-.file-churn .plus { color: var(--ok); } .file-churn .minus { color: var(--danger); }
-.file-count { flex: none; padding: 1px 8px; border-radius: 99px; font: 600 10.5px var(--mono); color: var(--dim); background: var(--bg-hover); }
-.file-count.done { color: var(--ok); background: color-mix(in oklab, var(--ok) 14%, transparent); }
-.file-summary { padding: 7px 14px 7px 38px; border-bottom: 1px solid var(--border); font-size: 12px; line-height: 1.5; color: var(--dim); }
-.file-diff { overflow: hidden; border-radius: 0 0 10px 10px; font: var(--code-size)/1.6 var(--mono); }
-.file-unanchored { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 1px dashed var(--border-strong); }
-.file-unanchored-head { font-size: 11px; color: var(--faint); }
+.file-path { min-width: 0; font: 12.5px var(--pinrail-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-path .dir { color: var(--pinrail-faint); } .file-path .base { color: var(--pinrail-text); font-weight: 600; }
+.file-badge { flex: none; padding: 1px 7px; border-radius: 99px; font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; color: var(--pinrail-dim); background: var(--pinrail-bg-hover); }
+.file-badge.is-added { color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 13%, transparent); }
+.file-badge.is-deleted { color: var(--pinrail-danger); background: color-mix(in oklab, var(--pinrail-danger) 12%, transparent); }
+.file-churn { flex: none; font: 11px var(--pinrail-mono); font-variant-numeric: tabular-nums; }
+.file-churn .plus { color: var(--pinrail-success); } .file-churn .minus { color: var(--pinrail-danger); }
+.file-count { flex: none; padding: 1px 8px; border-radius: 99px; font: 600 10.5px var(--pinrail-mono); color: var(--pinrail-dim); background: var(--pinrail-bg-hover); }
+.file-count.done { color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 14%, transparent); }
+.file-summary { padding: 7px 14px 7px 38px; border-bottom: 1px solid var(--pinrail-border); font-size: 12px; line-height: 1.5; color: var(--pinrail-dim); }
+.file-diff { overflow: hidden; border-radius: 0 0 10px 10px; font: var(--code-size)/1.6 var(--pinrail-mono); }
+.file-unanchored { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; border-top: 1px dashed var(--pinrail-border-strong); }
+.file-unanchored-head { font-size: 11px; color: var(--pinrail-faint); }
 /* unwrapped: long lines keep to one row and the file scrolls sideways; the
    numbers stay put, and what sits between the rows stays in view */
-.in-diff { font-family: var(--sans); }
+.in-diff { font-family: var(--pinrail-sans); }
 .file-diff.nowrap { overflow-x: auto; container-type: inline-size; }
 .file-diff.nowrap > div { width: max-content; min-width: 100%; }
 .file-diff.nowrap .diff-row.inline { width: max-content; min-width: 100%; }
 .file-diff.nowrap .diff-row .code { white-space: pre; padding-left: 0; text-indent: 0; }
-.file-diff.nowrap .diff-row.inline .ln, .file-diff.nowrap .diff-row.inline .sign { position: sticky; z-index: 2; background: var(--bg-raised); }
+.file-diff.nowrap .diff-row.inline .ln, .file-diff.nowrap .diff-row.inline .sign { position: sticky; z-index: 2; background: var(--pinrail-bg-raised); }
 .file-diff.nowrap .diff-row.inline .ln:nth-child(1) { left: 0; }
 .file-diff.nowrap .diff-row.inline .ln:nth-child(2) { left: 44px; z-index: 3; }
 .file-diff.nowrap .diff-row.inline .ln:nth-child(1):has(.addbtn) { z-index: 4; }
 .addbtn.past-new { left: calc(100% + 44px); }
 .file-diff.nowrap .diff-row.inline .sign { left: 88px; }
-.file-diff.nowrap .diff-row.inline.add :is(.ln, .sign) { background: color-mix(in oklab, var(--ok) 9%, var(--bg-raised)); }
-.file-diff.nowrap .diff-row.inline.del :is(.ln, .sign) { background: color-mix(in oklab, var(--danger) 8%, var(--bg-raised)); }
+.file-diff.nowrap .diff-row.inline.add :is(.ln, .sign) { background: color-mix(in oklab, var(--pinrail-success) 9%, var(--pinrail-bg-raised)); }
+.file-diff.nowrap .diff-row.inline.del :is(.ln, .sign) { background: color-mix(in oklab, var(--pinrail-danger) 8%, var(--pinrail-bg-raised)); }
 .file-diff.nowrap :is(.in-diff, .mine, .hunk) { position: sticky; left: 0; z-index: 3; width: 100cqw; box-sizing: border-box; }
-button.tool.on { color: var(--accent); }
+button.tool.on { color: var(--pinrail-accent); }
 button.tool:disabled { opacity: 0.45; cursor: default; }
 /* calmer diff colours: the tint on the row, the colour in the sign and the number */
-.file-diff { --rv-add: color-mix(in oklab, var(--add-bg) 75%, transparent); --rv-del: color-mix(in oklab, var(--del-bg) 75%, transparent); }
+.file-diff { --rv-add: color-mix(in oklab, var(--pinrail-add-bg) 75%, transparent); --rv-del: color-mix(in oklab, var(--pinrail-del-bg) 75%, transparent); }
 /* the header: the change and how far along its review is */
-.head { position: relative; display: flex; align-items: center; gap: 8px 18px; padding: 11px 18px; border-bottom: 1px solid var(--border); background: var(--bg-panel); flex: none; }
-button.head-tree { color: var(--faint); padding: 2px 4px; margin-right: -8px; }
-button.head-tree:hover { color: var(--text); }
+.head { position: relative; display: flex; align-items: center; gap: 8px 18px; padding: 11px 18px; border-bottom: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); flex: none; }
+button.head-tree { color: var(--pinrail-faint); padding: 2px 4px; margin-right: -8px; }
+button.head-tree:hover { color: var(--pinrail-text); }
 .head-title { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1 1 0; overflow: hidden; }
 .head-title h1 { min-width: 0; }
 .head-title h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.head-ref { flex: none; font: 11px var(--mono); color: var(--faint); }
-.head-branch { flex: none; display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--dim); white-space: nowrap; }
-.head-branch .arrow { color: var(--faint); }
-.head-ro { flex: none; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent); border-radius: 99px; padding: 3px 12px; }
-.tally { flex: none; display: flex; gap: 14px; font-size: 12px; color: var(--dim); white-space: nowrap; }
-.tally b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.tally .t-ok b { color: var(--ok); } .tally .t-no b { color: var(--danger); }
-.seg-group { display: flex; margin-right: 4px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
-.seg-group .seg + .seg { border-left: 1px solid var(--border); }
-button.tool { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; padding: 5px 8px; border-radius: 6px; font-size: 11.5px; color: var(--dim); white-space: nowrap; }
-button.tool:hover { background: var(--bg-hover); color: var(--text); }
-button.tool.armed.accept { color: var(--ok); background: color-mix(in oklab, var(--ok) 12%, transparent); }
-button.tool.armed.reject { color: var(--danger); background: color-mix(in oklab, var(--danger) 12%, transparent); }
+.head-ref { flex: none; font: 11px var(--pinrail-mono); color: var(--pinrail-faint); }
+.head-branch { flex: none; display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--pinrail-dim); white-space: nowrap; }
+.head-branch .arrow { color: var(--pinrail-faint); }
+.head-ro { flex: none; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--pinrail-accent); border: 1px solid color-mix(in oklab, var(--pinrail-accent) 40%, transparent); border-radius: 99px; padding: 3px 12px; }
+.tally { flex: none; display: flex; gap: 14px; font-size: 12px; color: var(--pinrail-dim); white-space: nowrap; }
+.tally b { color: var(--pinrail-text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.tally .t-ok b { color: var(--pinrail-success); } .tally .t-no b { color: var(--pinrail-danger); }
+.seg-group { display: flex; margin-right: 4px; border: 1px solid var(--pinrail-border); border-radius: 7px; overflow: hidden; }
+.seg-group .seg + .seg { border-left: 1px solid var(--pinrail-border); }
+button.tool { all: unset; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; padding: 5px 8px; border-radius: 6px; font-size: 11.5px; color: var(--pinrail-dim); white-space: nowrap; }
+button.tool:hover { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
+button.tool.armed.accept { color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 12%, transparent); }
+button.tool.armed.reject { color: var(--pinrail-danger); background: color-mix(in oklab, var(--pinrail-danger) 12%, transparent); }
 .head-progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
-.head-progress span { display: block; height: 100%; background: var(--accent); transition: width 160ms ease-out; }
+.head-progress span { display: block; height: 100%; background: var(--pinrail-accent); transition: width 160ms ease-out; }
 /* the brief: what the agent says the change is, and its concerns on a click */
-.brief { max-width: 980px; margin-bottom: 18px; border: 1px solid color-mix(in oklab, var(--accent) 22%, transparent); border-radius: 10px; background: var(--accent-bg); overflow: hidden; }
+.brief { max-width: 980px; margin-bottom: 18px; border: 1px solid color-mix(in oklab, var(--pinrail-accent) 22%, transparent); border-radius: 10px; background: var(--pinrail-accent-bg); overflow: hidden; }
 .brief-line { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; }
-.brief-line > svg { flex: none; margin-top: 3px; color: var(--accent); }
-.brief-text { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; color: var(--text); }
-.brief-text b { display: block; margin-bottom: 1px; font: 600 10.5px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.brief-line > svg { flex: none; margin-top: 3px; color: var(--pinrail-accent); }
+.brief-text { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.55; color: var(--pinrail-text); }
+.brief-text b { display: block; margin-bottom: 1px; font: 600 10.5px var(--pinrail-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pinrail-accent); }
 .brief-pills { flex: none; display: flex; gap: 6px; margin-top: 1px; }
-button.toggle.warn { color: var(--sev-major); border-color: color-mix(in oklab, var(--sev-major) 40%, transparent); }
-button.toggle.warn.on { background: color-mix(in oklab, var(--sev-major) 14%, transparent); border-color: color-mix(in oklab, var(--sev-major) 70%, transparent); }
-.brief-concerns, .brief-details { padding: 10px 14px 12px 38px; border-top: 1px solid color-mix(in oklab, var(--accent) 16%, transparent); background: var(--bg-raised); line-height: 1.6; }
-.brief-concerns { box-shadow: inset 3px 0 0 var(--sev-major); }
-.brief-concerns .eyebrow { color: var(--sev-major); margin-bottom: 4px; }
+button.toggle.warn { color: var(--pinrail-warning); border-color: color-mix(in oklab, var(--pinrail-warning) 40%, transparent); }
+button.toggle.warn.on { background: color-mix(in oklab, var(--pinrail-warning) 14%, transparent); border-color: color-mix(in oklab, var(--pinrail-warning) 70%, transparent); }
+.brief-concerns, .brief-details { padding: 10px 14px 12px 38px; border-top: 1px solid color-mix(in oklab, var(--pinrail-accent) 16%, transparent); background: var(--pinrail-bg-raised); line-height: 1.6; }
+.brief-concerns { box-shadow: inset 3px 0 0 var(--pinrail-warning); }
+.brief-concerns .pinrail-eyebrow { color: var(--pinrail-warning); margin-bottom: 4px; }
 .brief-details { display: flex; flex-direction: column; gap: 12px; }
-.brief-details .eyebrow { margin-bottom: 4px; }
-.md.dim { font-size: 12px; color: var(--dim); }
-.errors { margin: 0 22px 12px 22px; padding: 9px 12px; border: 1px solid color-mix(in oklab, var(--danger) 45%, transparent); border-radius: 8px; background: color-mix(in oklab, var(--danger) 8%, transparent); font-family: var(--mono); font-size: 12px; color: var(--danger); white-space: pre-wrap; }
+.brief-details .pinrail-eyebrow { margin-bottom: 4px; }
+.md.dim { font-size: 12px; color: var(--pinrail-dim); }
+.errors { margin: 0 22px 12px 22px; padding: 9px 12px; border: 1px solid color-mix(in oklab, var(--pinrail-danger) 45%, transparent); border-radius: 8px; background: color-mix(in oklab, var(--pinrail-danger) 8%, transparent); font-family: var(--pinrail-mono); font-size: 12px; color: var(--pinrail-danger); white-space: pre-wrap; }
 </style>
 </head>
 <body>
@@ -406,7 +406,7 @@ function mdSegments(body) {
 function mdBlockHtml(body) {
   return mdSegments(body || "").map((seg) => {
     if (seg.kind === "para") return `<div class="md-text">${seg.html}</div>`;
-    return `<pre style="margin:0 0 6px 0;background:var(--bg-panel);border:1px solid var(--border);border-radius:5px;padding:6px 9px;font-family:var(--mono);font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap">${esc(seg.text)}</pre>`;
+    return `<pre style="margin:0 0 6px 0;background:var(--pinrail-bg-panel);border:1px solid var(--pinrail-border);border-radius:5px;padding:6px 9px;font-family:var(--pinrail-mono);font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap">${esc(seg.text)}</pre>`;
   }).join("");
 }
 
@@ -942,7 +942,7 @@ function treeHtml() {
   const hasRanks = D.files.some((f) => f.rank != null);
   return `<aside class="rail">
     <div class="rail-head">
-      <span class="eyebrow">FILES · ${D.files.length}</span>
+      <span class="pinrail-eyebrow">FILES · ${D.files.length}</span>
       <span class="grow"></span>
       ${hasRanks ? `<button class="toggle ${S.orderMode === "semantic" ? "on" : ""}" data-act="toggle-order" title="Semantic reading order vs alphabetical">${ico(S.orderMode === "semantic" ? "list-ordered" : "arrow-down-a-z")}${S.orderMode === "semantic" ? "semantic" : "a→z"}</button>` : ""}
       <button class="toggle ${S.findingsOnly ? "on" : ""}" data-act="toggle-findings-only" title="Show only files with findings">${ico("funnel")}findings</button>
@@ -965,11 +965,11 @@ function briefHtml() {
   // chip opens the rest of the summary and the description — the line is
   // never repeated
   const concerns = S.concernsOpen && ov.concerns ? `<div class="brief-concerns">
-      <div class="eyebrow">REVIEW CONCERNS</div><div class="md">${mdBlockHtml(ov.concerns)}</div>
+      <div class="pinrail-eyebrow">REVIEW CONCERNS</div><div class="md">${mdBlockHtml(ov.concerns)}</div>
     </div>` : "";
   const details = S.briefOpen && hasDetails ? `<div class="brief-details">
       ${longer ? `<div class="md">${mdBlockHtml(full)}</div>` : ""}
-      ${D.change.description ? `<div><div class="eyebrow">DESCRIPTION</div><div class="md dim">${mdBlockHtml(D.change.description)}</div></div>` : ""}
+      ${D.change.description ? `<div><div class="pinrail-eyebrow">DESCRIPTION</div><div class="md dim">${mdBlockHtml(D.change.description)}</div></div>` : ""}
     </div>` : "";
   return `<div id="brief" class="brief">
     <div class="brief-line">
@@ -993,42 +993,42 @@ function submitModalHtml() {
   const yours = S.manualComments.length;
   const groups = [];
   const item = (ref, title, note) => `<div style="display:flex;gap:8px;font-size:12px;align-items:baseline">
-    <span style="font-family:var(--mono);color:var(--faint);flex:none">${esc(ref)}</span>
-    <span style="color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</span>
-    ${note ? `<span style="color:var(--dim);font-style:italic;flex:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">“${esc(note)}”</span>` : ""}</div>`;
+    <span style="font-family:var(--pinrail-mono);color:var(--pinrail-faint);flex:none">${esc(ref)}</span>
+    <span style="color:var(--pinrail-text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</span>
+    ${note ? `<span style="color:var(--pinrail-dim);font-style:italic;flex:none;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">“${esc(note)}”</span>` : ""}</div>`;
   const group = (title, fg, items) => `<div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.07em;color:${fg};margin-bottom:5px">${title}</div><div style="display:flex;flex-direction:column;gap:3px">${items.join("")}</div></div>`;
-  if (verbatim.length) groups.push(group("POSTED VERBATIM", "var(--ok)", verbatim.map((e) => item("#" + e.p.id, e.p.title))));
-  if (revised.length) groups.push(group("POSTED AFTER REVISION", "var(--accent)", revised.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
-  if (rejected.length) groups.push(group("REJECTED — NOT POSTED", "var(--danger)", rejected.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
-  if (yours) groups.push(group("YOUR COMMENTS — HANDED TO THE AGENT", "var(--accent)", [
+  if (verbatim.length) groups.push(group("POSTED VERBATIM", "var(--pinrail-success)", verbatim.map((e) => item("#" + e.p.id, e.p.title))));
+  if (revised.length) groups.push(group("POSTED AFTER REVISION", "var(--pinrail-accent)", revised.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
+  if (rejected.length) groups.push(group("REJECTED — NOT POSTED", "var(--pinrail-danger)", rejected.map((e) => item("#" + e.p.id, e.p.title, e.d.note))));
+  if (yours) groups.push(group("YOUR COMMENTS — HANDED TO THE AGENT", "var(--pinrail-accent)", [
     ...S.manualComments.map((m) => item(m.file.split("/").pop() + ":" + m.line, m.body))]));
-  if (undecidedList.length) groups.push(group("UNDECIDED — REPORTED AS SUCH", "var(--sev-major)", undecidedList.map((p) => item("#" + p.id, p.title))));
+  if (undecidedList.length) groups.push(group("UNDECIDED — REPORTED AS SUCH", "var(--pinrail-warning)", undecidedList.map((p) => item("#" + p.id, p.title))));
   const stats = [
-    [verbatim.length, "posted verbatim", "var(--ok)"],
-    [revised.length, "posted after revision", "var(--accent)"],
-    [rejected.length, "rejected", "var(--danger)"],
-    [yours, "your comments", "var(--accent)"],
-    [undecidedList.length, "left undecided", undecidedList.length ? "var(--sev-major)" : "var(--faint)"],
-  ].map(([n, label, fg]) => `<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg)">
+    [verbatim.length, "posted verbatim", "var(--pinrail-success)"],
+    [revised.length, "posted after revision", "var(--pinrail-accent)"],
+    [rejected.length, "rejected", "var(--pinrail-danger)"],
+    [yours, "your comments", "var(--pinrail-accent)"],
+    [undecidedList.length, "left undecided", undecidedList.length ? "var(--pinrail-warning)" : "var(--pinrail-faint)"],
+  ].map(([n, label, fg]) => `<div style="border:1px solid var(--pinrail-border);border-radius:8px;padding:8px 10px;background:var(--pinrail-bg)">
     <div style="font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;color:${fg}">${n}</div>
-    <div style="font-size:10.5px;color:var(--dim);line-height:1.3">${label}</div></div>`).join("");
+    <div style="font-size:10.5px;color:var(--pinrail-dim);line-height:1.3">${label}</div></div>`).join("");
   const errors = S.errors && S.errors.length ? `<div class="errors" id="errors">The server refused the decision:\n${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>` : "";
   const body = `
     <div style="padding:18px 22px 0 22px">
       <div style="font-size:15px;font-weight:600">Hand over to the agent</div>
-      <div style="font-size:12px;color:var(--dim);margin-top:3px">This is the review. Exactly the following goes back to the workflow — nothing else.</div>
+      <div style="font-size:12px;color:var(--pinrail-dim);margin-top:3px">This is the review. Exactly the following goes back to the workflow — nothing else.</div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;padding:14px 22px">${stats}</div>
-    ${undecidedList.length ? `<div style="margin:0 22px 12px 22px;padding:9px 12px;border:1px solid color-mix(in oklab, var(--sev-major) 45%, transparent);background:color-mix(in oklab, var(--sev-major) 10%, transparent);border-radius:8px;font-size:12.5px">⚠ <b>${undecidedList.length} proposal(s) still undecided.</b> They will not be posted; the workflow is told they were left undecided.</div>` : ""}
+    ${undecidedList.length ? `<div style="margin:0 22px 12px 22px;padding:9px 12px;border:1px solid color-mix(in oklab, var(--pinrail-warning) 45%, transparent);background:color-mix(in oklab, var(--pinrail-warning) 10%, transparent);border-radius:8px;font-size:12.5px">⚠ <b>${undecidedList.length} proposal(s) still undecided.</b> They will not be posted; the workflow is told they were left undecided.</div>` : ""}
     ${errors}
     <div style="padding:0 22px 8px 22px;display:flex;flex-direction:column;gap:10px">${groups.join("")}</div>
-    <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg-raised)">
-      <span style="flex:1;font-size:11.5px;color:var(--faint)">Your note to the agent travels with this.</span>
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--pinrail-border);position:sticky;bottom:0;background:var(--pinrail-bg-raised)">
+      <span style="flex:1;font-size:11.5px;color:var(--pinrail-faint)">Your note to the agent travels with this.</span>
       <button class="ghost" data-act="close-submit" style="font-size:12.5px;padding:6px 12px">Keep reviewing</button>
       <span data-handover-hint style="font-size:12.5px;font-weight:600">${S.confirmSubmitArm ? `Press Hand over again to send it, with ${undecidedList.length} left undecided` : `Press Hand over, or ⌘↵, to send ${decEntries.length + yours} decision(s)`}</span>
     </div>`;
   return `<div style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.65);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;animation:fade 0.12s ease-out">
-    <div id="submit-modal" style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
+    <div id="submit-modal" style="background:var(--pinrail-bg-raised);border:1px solid var(--pinrail-border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
 }
 /* Toolbar icons sit beside their label, so they are decoration and the label
    is the name. The one button with no label of its own carries one instead. */
@@ -1049,7 +1049,7 @@ function headerHtml() {
       <h1>${esc(c.title)}</h1>
       <span class="head-ref">${esc(c.ref)}</span>
       <span class="head-branch">
-        ${c.source ? `<span class="meta">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span class="arrow">→</span>` : ""}${c.target ? `<span class="meta">${esc(c.target)}</span>` : ""}
+        ${c.source ? `<span class="pinrail-chip">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span class="arrow">→</span>` : ""}${c.target ? `<span class="pinrail-chip">${esc(c.target)}</span>` : ""}
         ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer">open ↗</a>` : ""}
       </span>
     </div>
@@ -1099,7 +1099,7 @@ const compose = (html) => html.replace(/<!--region:([^>]*)-->/g, (_, key) => HUN
 const hunkFile = (key) => "file:" + key.slice("hunk:".length, key.lastIndexOf(":"));
 function render() {
   const app = document.getElementById("app");
-  if (!D) { app.innerHTML = `<div style="padding:40px;color:var(--dim);font-family:var(--sans)">waiting for the shell…</div>`; RENDERED = null; return; }
+  if (!D) { app.innerHTML = `<div style="padding:40px;color:var(--pinrail-dim);font-family:var(--pinrail-sans)">waiting for the shell…</div>`; RENDERED = null; return; }
   const main = document.getElementById("main");
   const scrollTop = main ? main.scrollTop : 0;
   const focusEl = document.activeElement;
@@ -1116,11 +1116,11 @@ function render() {
   regions.set("brief", region("brief", briefHtml()));
   for (const i of order) regions.set(`file:${D.files[i].path}`, region(`file:${D.files[i].path}`, fileSectionHtml(D.files[i], i)));
   regions.set("unanchored", region("unanchored", globalUn.length ? `<section style="margin-bottom:20px">
-          <div style="display:flex;align-items:baseline;gap:10px;padding:7px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px 8px 0 0">
+          <div style="display:flex;align-items:baseline;gap:10px;padding:7px 11px;background:var(--pinrail-bg-panel);border:1px solid var(--pinrail-border);border-radius:8px 8px 0 0">
             <span style="font-size:12.5px;font-weight:600">Not anchored to any file</span>
-            <span style="font-size:11px;color:var(--faint)">replies go to their thread; the rest post on the change as a whole</span>
+            <span style="font-size:11px;color:var(--pinrail-faint)">replies go to their thread; the rest post on the change as a whole</span>
           </div>
-          <div style="border:1px dashed var(--border-strong);border-top:none;border-radius:0 0 8px 8px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg-panel)">${globalUn.map(cardHtml).join("")}</div>
+          <div style="border:1px dashed var(--pinrail-border-strong);border-top:none;border-radius:0 0 8px 8px;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--pinrail-bg-panel)">${globalUn.map(cardHtml).join("")}</div>
         </section>` : ""));
   regions.set("submit", region("submit", submitModalHtml()));
   const shape = JSON.stringify([S.treeOpen, S.done, order.map((i) => D.files[i].path), globalUn.map((p) => p.id)]);
@@ -1152,7 +1152,7 @@ function render() {
     }
   }
 
-  const banner = S.done ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--ok) 12%, var(--bg-panel));border-bottom:1px solid color-mix(in oklab, var(--ok) 35%, var(--border));font-size:12.5px;color:var(--ok);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>` : "";
+  const banner = S.done ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--pinrail-success) 12%, var(--pinrail-bg-panel));border-bottom:1px solid color-mix(in oklab, var(--pinrail-success) 35%, var(--pinrail-border));font-size:12.5px;color:var(--pinrail-success);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>` : "";
   app.innerHTML = `${regions.get("header")}${banner}
   <div style="display:flex;flex:1;min-height:0">
     ${regions.get("tree")}

@@ -46,22 +46,22 @@
   const decided = review.decision?.data;
 </script>
 
-<main class="plugin-content">
+<main class="pinrail-content">
   <div>{@html Pinrail.markdown(review.payload.message)}</div>
   {#if readonly && decided}
-    <p class="dim">Decided: <b>{decided.ok ? "yes" : "no"}</b></p>
+    <p class="pinrail-dim">Decided: <b>{decided.ok ? "yes" : "no"}</b></p>
   {:else if readonly}
     <!-- withdrawn or expired: nobody answered -->
-    <p class="dim">Closed without a decision ({review.status})</p>
+    <p class="pinrail-dim">Closed without a decision ({review.status})</p>
   {:else}
     <div class="choice">
-      <button type="button" class="btn" id="yes" aria-pressed={draft.ok === true} onclick={() => pick(true)}>
+      <button type="button" class="pinrail-btn" id="yes" aria-pressed={draft.ok === true} onclick={() => pick(true)}>
         <Check /> Yes
       </button>
-      <button type="button" class="btn" id="no" aria-pressed={draft.ok === false} onclick={() => pick(false)}>
+      <button type="button" class="pinrail-btn" id="no" aria-pressed={draft.ok === false} onclick={() => pick(false)}>
         <X /> No
       </button>
     </div>
-    <div id="errors" class="errors">{errors}</div>
+    <div id="errors" class="pinrail-errors">{errors}</div>
   {/if}
 </main>
