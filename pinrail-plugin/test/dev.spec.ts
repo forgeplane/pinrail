@@ -55,3 +55,30 @@ test("the menu offers the samples and the fixtures, marks a decided one, and loa
     shell.kill();
   }
 });
+
+test("the view is set in the app's typeface, and nothing is fetched from off the machine", async ({ page }) => {
+  const dir = path.join(scratch("pinrail-dev-"), "typeface");
+  execFileSync(process.execPath, [bin, "create", "typeface", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  const away: string[] = [];
+  page.on("request", (r) => new URL(r.url()).hostname !== "127.0.0.1" && away.push(r.url()));
+
+  const port = await freePort();
+  const shell = spawn(process.execPath, [bin, "dev", dir, "--port", String(port), "--no-open"], { stdio: "pipe" });
+  try {
+    await expect
+      .poll(async () => (await fetch(`http://127.0.0.1:${port}/dev/manifest`).catch(() => null))?.status)
+      .toBe(200);
+    await page.goto(`http://127.0.0.1:${port}/`);
+    await expect(page.frameLocator("#frame").getByRole("button", { name: "Yes" })).toBeVisible();
+    const view = page.frames().find((f) => f.url().includes("/plugin/"))!;
+
+    const loaded = await view.evaluate(async () => {
+      await document.fonts.ready;
+      return [...document.fonts].some((f) => f.family.replace(/"/g, "") === "Inter Variable" && f.status === "loaded");
+    });
+    expect(loaded).toBe(true);
+    expect(away).toEqual([]);
+  } finally {
+    shell.kill();
+  }
+});
