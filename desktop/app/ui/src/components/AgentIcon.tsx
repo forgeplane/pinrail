@@ -4,10 +4,10 @@
 // The marks are inline so the ones drawn in currentColor follow the theme.
 
 import { Bot } from "lucide-react";
+import antigravity from "../assets/agents/antigravity.svg?raw";
 import claude from "../assets/agents/claude.svg?raw";
 import codex from "../assets/agents/codex.svg?raw";
 import cursor from "../assets/agents/cursor.svg?raw";
-import gemini from "../assets/agents/gemini.svg?raw";
 import grok from "../assets/agents/grok.svg?raw";
 import kimi from "../assets/agents/kimi.svg?raw";
 import opencode from "../assets/agents/opencode.svg?raw";
@@ -17,8 +17,8 @@ const AGENTS: Record<string, { label: string; svg: string }> = {
   claude: { label: "Claude Code", svg: claude },
   codex: { label: "Codex", svg: codex },
   cursor: { label: "Cursor", svg: cursor },
-  "gemini-cli": { label: "Gemini CLI", svg: gemini },
-  gemini: { label: "Gemini CLI", svg: gemini },
+  antigravity: { label: "Antigravity CLI", svg: antigravity },
+  agy: { label: "Antigravity CLI", svg: antigravity },
   opencode: { label: "OpenCode", svg: opencode },
   kimi: { label: "Kimi", svg: kimi },
   grok: { label: "Grok CLI", svg: grok },

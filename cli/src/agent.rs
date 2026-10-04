@@ -9,7 +9,7 @@ const KNOWN: [(&str, &str); 7] = [
     ("claude-code", "claude"),
     ("codex", "codex"),
     ("cursor", "cursor"),
-    ("gemini-cli", "gemini"),
+    ("antigravity", "agy"),
     ("opencode", "opencode"),
     ("kimi", "kimi"),
     ("grok", "grok"),
@@ -21,7 +21,10 @@ const MARKERS: [(&str, &[&str]); 6] = [
     ("codex", &["CODEX_THREAD_ID", "CODEX_SANDBOX", "CODEX_CI"]),
     // not CURSOR_TRACE_ID: the editor sets it in a person's terminals too
     ("cursor", &["CURSOR_AGENT"]),
-    ("gemini-cli", &["GEMINI_CLI"]),
+    (
+        "antigravity",
+        &["ANTIGRAVITY_AGENT", "ANTIGRAVITY_CONVERSATION_ID"],
+    ),
     ("opencode", &["OPENCODE", "OPENCODE_PID", "OPENCODE_CLIENT"]),
     ("grok", &["GROK_AGENT", "GROK_SESSION_ID"]),
 ];
@@ -45,7 +48,7 @@ pub fn detect_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {
 }
 
 /// The review's name for an agent a value names: `claude-code_2-1-281_agent`,
-/// `Claude`, `gemini` and `gemini-cli` all say which one it is.
+/// `Claude`, `agy` and `antigravity` all say which one it is.
 fn known(value: &str) -> Option<String> {
     let word = first_word(value);
     KNOWN
@@ -100,9 +103,14 @@ mod tests {
         );
         assert_eq!(detect(&[("CURSOR_AGENT", "1")]).as_deref(), Some("cursor"));
         assert_eq!(
-            detect(&[("GEMINI_CLI", "1")]).as_deref(),
-            Some("gemini-cli")
+            detect(&[("ANTIGRAVITY_AGENT", "1")]).as_deref(),
+            Some("antigravity")
         );
+        assert_eq!(
+            detect(&[("ANTIGRAVITY_CONVERSATION_ID", "abc")]).as_deref(),
+            Some("antigravity")
+        );
+        assert_eq!(detect(&[("AGENT", "agy")]).as_deref(), Some("antigravity"));
         assert_eq!(detect(&[("OPENCODE", "1")]).as_deref(), Some("opencode"));
         assert_eq!(detect(&[("AI_AGENT", "Grok")]).as_deref(), Some("grok"));
         assert_eq!(detect(&[("AGENT", "grok")]).as_deref(), Some("grok"));
@@ -113,7 +121,7 @@ mod tests {
         );
         // a person's own terminal in Cursor, and blank values, name nobody
         assert_eq!(
-            detect(&[("CURSOR_TRACE_ID", "abc"), ("GEMINI_CLI", " ")]),
+            detect(&[("CURSOR_TRACE_ID", "abc"), ("ANTIGRAVITY_AGENT", " ")]),
             None
         );
     }

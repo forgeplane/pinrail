@@ -343,7 +343,7 @@ struct SubmitArgs {
     /// Who is asking, shown on the review as its requester, with the
     /// agent's icon when the app knows the agent [default: the coding agent
     /// the command runs under, detected from the variables it sets
-    /// (claude-code, codex, cursor, gemini-cli, opencode, kimi), or else
+    /// (claude-code, codex, cursor, antigravity, grok, opencode, kimi), or else
     /// pinrail-cli]
     #[arg(long, env = "PINRAIL_REQUESTED_BY")]
     requested_by: Option<String>,
