@@ -17,7 +17,7 @@ Every message is a JSON object with the protocol version and a type:
 }
 ```
 
-The view announces itself with `ready`, and the app answers with `init`. From then on, either side can send. The app accepts messages only from the view's own frame. The view should accept messages only from the app: it checks that `event.source` is `window.parent`, and after `init`, that `event.origin` equals the `shell_origin` that `init` gives.
+The view announces itself with `ready`, and the app answers with `init`. From then on, either side can send. A view sends `ready` once: a second `ready` from the frame means another page has taken the view's place, and the app sends nothing more to that frame. The app accepts messages only from the view's own frame. The view should accept messages only from the app: it checks that `event.source` is `window.parent`, and after `init`, that `event.origin` equals the `shell_origin` that `init` gives.
 
 ```mermaid title="A review's life, from the view's side"
 sequenceDiagram
