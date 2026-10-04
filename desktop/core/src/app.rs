@@ -106,7 +106,7 @@ impl Pinrail {
             stored.push((sha256, bytes.len() as u64));
         }
         let mut body = sample.request(name, &stored);
-        for key in ["title", "requested_by", "origin"] {
+        for key in ["title", "requested_by", "origin", "session"] {
             if let Some(value) = overrides.get(key).filter(|v| !v.is_null()) {
                 body[key] = value.clone();
             }

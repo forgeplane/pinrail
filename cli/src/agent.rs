@@ -29,8 +29,31 @@ const MARKERS: [(&str, &[&str]); 6] = [
     ("grok", &["GROK_AGENT", "GROK_SESSION_ID"]),
 ];
 
+/// The variable each agent keeps its session's id in.
+const SESSIONS: [(&str, &str); 5] = [
+    ("claude-code", "CLAUDE_CODE_SESSION_ID"),
+    ("codex", "CODEX_SESSION_ID"),
+    ("opencode", "OPENCODE_SESSION_ID"),
+    ("grok", "GROK_SESSION_ID"),
+    ("antigravity", "ANTIGRAVITY_CONVERSATION_ID"),
+];
+
 pub fn detect() -> Option<String> {
     detect_with(|key| std::env::var(key).ok())
+}
+
+/// The id of the session of the agent the CLI runs under, so a review can
+/// be traced back to it; only that agent's own variable counts.
+pub fn session() -> Option<String> {
+    session_with(|key| std::env::var(key).ok())
+}
+
+pub fn session_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {
+    let agent = detect_with(&var)?;
+    let (_, key) = SESSIONS.iter().find(|(name, _)| *name == agent)?;
+    var(key)
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
 }
 
 pub fn detect_with(var: impl Fn(&str) -> Option<String>) -> Option<String> {

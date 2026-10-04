@@ -191,8 +191,8 @@ fn insert_in(
     }
     {
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at)
-             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session)
+             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12)",
             params![
                 review.id,
                 review.plugin,
@@ -205,6 +205,7 @@ fn insert_in(
                 review.expires_at.map(crate::reviews::iso),
                 crate::reviews::iso(review.created_at),
                 review.plugin_version,
+                review.session,
             ],
         )?;
         tx.execute(
@@ -597,7 +598,8 @@ fn select(with_payload: bool) -> String {
     r.plugin_version,
     (SELECT count(*) FROM review_attachments a WHERE a.review_id = r.id),
     (SELECT coalesce(sum(a.size), 0) FROM review_attachments a WHERE a.review_id = r.id),
-    o.summary
+    o.summary,
+    r.session
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id{join}"
     )
@@ -682,6 +684,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
             .and_then(|v| v.as_object().cloned())
             .unwrap_or_default(),
         requested_by: row.get(5)?,
+        session: row.get(21)?,
         payload: payload
             .filter(|_| with_payload)
             .map(|p| serde_json::from_str(&p).unwrap_or(Value::Null)),

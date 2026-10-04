@@ -1091,6 +1091,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
         origin::drop_unknown(&mut body);
         origin::fill_from_git(&mut body);
         body["requested_by"] = json!(requester(args.requested_by.as_deref()));
+        with_session(&mut body);
         let review = client.sample(plugin, &body)?;
         return submitted(client, review, &args, output);
     }
@@ -1115,6 +1116,7 @@ fn submit(client: &Client, args: SubmitArgs, output: Output) -> Result<u8> {
     if args.requested_by.is_some() || body.get("requested_by").is_none() {
         body["requested_by"] = json!(requester(args.requested_by.as_deref()));
     }
+    with_session(&mut body);
     if let Some(origin) = &args.origin {
         body["origin"] = json!(origin);
     }
@@ -1235,6 +1237,13 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
 
 /// Who a review is from: who the flag or PINRAIL_REQUESTED_BY names, else
 /// the coding agent the CLI runs under, else the CLI itself.
+/// The agent's session, set on every submission without the agent asking.
+fn with_session(body: &mut Value) {
+    if let Some(session) = agent::session() {
+        body["session"] = json!(session);
+    }
+}
+
 fn requester(given: Option<&str>) -> String {
     if let Some(by) = given {
         return by.to_string();

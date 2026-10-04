@@ -99,6 +99,45 @@ async fn a_summary_from_the_agent_is_refused() {
     );
 }
 
+/// The agent's session, which the CLI sets on its own, is kept with the
+/// review so it can be traced back to where it was asked.
+#[tokio::test]
+async fn a_review_keeps_the_session_it_was_asked_from() {
+    let app = app();
+    let mut body = submission();
+    body["session"] = json!("c-1");
+    let review = submit(&app, body).await;
+    assert_eq!(review["session"], "c-1");
+    let (_, shown) = call(
+        &app,
+        "GET",
+        &format!("/api/v1/reviews/{}", review["id"].as_str().unwrap()),
+        None,
+    )
+    .await;
+    assert_eq!(shown["session"], "c-1");
+
+    let mut other = submission();
+    other["title"] = json!("No session");
+    assert_eq!(submit(&app, other).await["session"], Value::Null);
+
+    let mut bad = submission();
+    bad["session"] = json!(7);
+    let (status, refused) = call(&app, "POST", "/api/v1/reviews", Some(bad)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    assert_eq!(violations(&refused)[0].0, "/session");
+
+    let (status, sample) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/list/sample",
+        Some(json!({ "session": "c-2" })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{sample}");
+    assert_eq!(sample["session"], "c-2");
+}
+
 async fn submit(app: &App, body: Value) -> Value {
     let (status, review) = call(app, "POST", "/api/v1/reviews", Some(body)).await;
     assert_eq!(status, StatusCode::CREATED, "{review}");

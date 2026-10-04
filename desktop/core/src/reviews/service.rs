@@ -124,6 +124,10 @@ impl Reviews {
                 .get("requested_by")
                 .and_then(Value::as_str)
                 .map(str::to_string),
+            session: attrs
+                .get("session")
+                .and_then(Value::as_str)
+                .map(str::to_string),
             created_at: Utc::now(),
             expires_at: attrs
                 .get("expires_at")
@@ -683,6 +687,14 @@ impl Reviews {
                 "/summary",
                 "summary is not accepted; the plugin derives it from the payload",
             ));
+        }
+        match attrs.get("session") {
+            None | Some(Value::Null) => {}
+            Some(Value::String(s)) if s.len() <= 200 => {}
+            Some(_) => violations.push(Violation::new(
+                "/session",
+                "must be a string of at most 200 characters",
+            )),
         }
         for key in ["origin", "payload"] {
             if let Some(v) = attrs.get(key)

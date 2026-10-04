@@ -21,6 +21,7 @@ fn review(id: &str, expires_in: Option<Duration>) -> Review {
         title: format!("review {id}"),
         origin: Map::new(),
         requested_by: None,
+        session: None,
         created_at: Utc::now(),
         expires_at: expires_in.map(|d| Utc::now() + d),
         revises: None,

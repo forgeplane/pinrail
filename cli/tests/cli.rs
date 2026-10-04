@@ -124,6 +124,9 @@ fn pinrail() -> Command {
         .env_remove("OPENCODE_CLIENT")
         .env_remove("GROK_AGENT")
         .env_remove("GROK_SESSION_ID")
+        .env_remove("CLAUDE_CODE_SESSION_ID")
+        .env_remove("CODEX_SESSION_ID")
+        .env_remove("OPENCODE_SESSION_ID")
         .env("PINRAIL_JSON", "1");
     cmd.stdin(Stdio::null());
     cmd
@@ -344,6 +347,55 @@ fn open_refuses_a_review_the_app_does_not_have_before_opening_anything() {
     assert!(stdout.is_empty(), "{stdout}");
     assert_eq!(stderr, "pinrail: refused: review r_x not found\n");
     assert_eq!(server.requests().len(), 1);
+}
+
+#[test]
+fn a_review_carries_the_session_of_the_agent_the_cli_runs_under() {
+    let sent = Arc::new(Mutex::new(Vec::<serde_json::Value>::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |_, _, body| {
+        let body: serde_json::Value = serde_json::from_str(body).unwrap();
+        seen.lock().unwrap().push(body["session"].clone());
+        (201, review("pending"))
+    }));
+    let submit = |envs: &[(&str, &str)]| {
+        let mut cmd = pinrail();
+        cmd.args(["submit", "list", "--title", "t", "--no-start"])
+            .env("PINRAIL_URL", &server.url)
+            .current_dir(std::env::temp_dir());
+        for (k, v) in envs {
+            cmd.env(k, v);
+        }
+        let out = cmd.output().unwrap();
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    submit(&[("CLAUDECODE", "1"), ("CLAUDE_CODE_SESSION_ID", "c-1")]);
+    submit(&[("CODEX_SANDBOX", "seatbelt"), ("CODEX_SESSION_ID", "x-2")]);
+    submit(&[("OPENCODE", "1"), ("OPENCODE_SESSION_ID", "o-3")]);
+    submit(&[("GROK_AGENT", "1"), ("GROK_SESSION_ID", "g-4")]);
+    submit(&[
+        ("ANTIGRAVITY_AGENT", "1"),
+        ("ANTIGRAVITY_CONVERSATION_ID", "a-5"),
+    ]);
+    // another agent's session is not this review's
+    submit(&[("CLAUDECODE", "1"), ("CODEX_SESSION_ID", "x-6")]);
+    submit(&[]);
+    assert_eq!(
+        *sent.lock().unwrap(),
+        [
+            serde_json::json!("c-1"),
+            serde_json::json!("x-2"),
+            serde_json::json!("o-3"),
+            serde_json::json!("g-4"),
+            serde_json::json!("a-5"),
+            serde_json::Value::Null,
+            serde_json::Value::Null,
+        ]
+    );
 }
 
 #[test]
