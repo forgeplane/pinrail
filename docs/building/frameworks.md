@@ -58,7 +58,7 @@ The page loads the SDK and its stylesheet from the app, and your code from the b
 
 ## 3. The view
 
-The view connects to the app once, with `Pinrail.connect`, and draws the review from what `onInit` hands it. It keeps the person's choice as a draft, tells the hand-over button what it will do with `status`, and submits when the app sends `collect`:
+The view connects to the app once, with `Pinrail.connect`, and draws the review from what `onInit` hands it. It keeps the person's choice as a draft, tells the hand-over button what it will do with `status`, and returns its decision from `onCollect` when the person hands over:
 
 ![TypeScript](example:ship-it/vanilla/src/main.ts)
 ![React](example:ship-it/react/src/main.tsx) ![React](example:ship-it/react/src/App.tsx)
@@ -101,8 +101,8 @@ A link follows the folder as it is, so rebuild as you change it, or keep `npm ru
 ## Things to know
 
 - **A forwarded key has no element as its target.** The app forwards a manifest shortcut pressed outside the frame as a `keydown` on your document, so check `event.target instanceof Element` before calling `closest` on it.
-- **Hand the SDK plain data.** Vue's refs and Svelte's `$state` are proxies, which a message to the app cannot carry. Pass a copy to `plugin.draft` and `plugin.submit`: `{ ...draft.value }` in Vue, `$state.snapshot(draft)` in Svelte.
+- **Hand the SDK your state as it is.** Vue's refs and Svelte's `$state` are proxies, which a message to the app cannot carry, so the SDK sends a plain copy of a draft or a decision.
 - **Connect once.** Call `Pinrail.connect` when the view mounts, not on every render. Its callbacks are made once, so read the latest state from somewhere they can reach, such as a React ref.
-- **Leave the hand-over to the app.** Draw no submit button; the app sends `collect` from its own. See [Design and styling](/docs/building/design/#the-design-language).
+- **Leave the hand-over to the app.** Draw no submit button; the app asks for the decision from its own. See [Design and styling](/docs/building/design/#the-design-language).
 
 The four versions are in the repository under [`docs/examples/ship-it`](https://github.com/forgeplane/pinrail/tree/main/docs/examples/ship-it), each a whole plugin with its tests.

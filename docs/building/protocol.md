@@ -30,8 +30,8 @@ sequenceDiagram
   V->>S: draft { data }
   V->>S: status { label }
   Note over S,V: the person hands over
-  S->>V: collect
-  V->>S: submit { data }
+  S->>V: collect { req }
+  V->>S: submit { req, data }
   S-->>V: violations, if the decision fails its schema
   S->>V: submitted, once it passes
 ```
@@ -42,7 +42,7 @@ sequenceDiagram
 |---|---|---|
 | `init` | `review`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | In answer to `ready`. It comes again, with `readonly: true`, when the review stops being pending while the view is open, for example when the agent withdraws it. After the view's own hand-over, `submitted` comes instead. |
 | `attachment` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `attachment`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
-| `collect` | | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. |
+| `collect` | `req` | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. The view answers with `submit` or `defer` and the same `req`. |
 | `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema, or a `settings_set` failed the plugin's settings schema. Settings errors have paths under `/plugins/<name>`, such as `/plugins/list/wrap`, so a view can tell them apart. |
 | `submitted` | `decision` | The decision was accepted. The app then returns to the inbox and closes the view, so there is no need to show the decision. When the person opens the review again, `init` comes with `readonly: true` and the decision. |
 | `appearance` | `theme: "dark" \| "light"` | Before `init`, and whenever the app's theme changes. |
@@ -78,7 +78,11 @@ Render all four the same way: what was there, and nothing to submit.
 
 ### `collect`
 
-`collect` means the person asked to hand over. Assemble the decision and send `submit`. The view does not have to submit at once. It can show what would be sent or display a warning, update the button's label with `status`, and submit on the next `collect`.
+`collect` asks for the decision. Answer it once, with `submit` and the same `req`, or with `defer` when there is nothing to hand over yet: an answer is missing, or the view shows what would be sent and waits for the person to confirm. The next press of the button is a new request, with a new `req`.
+
+The app accepts one answer per request, and only for the request that is open. A `submit` the app did not ask for, a second answer to one request, and an answer that comes after the app stopped waiting all decide nothing. The app stops waiting after a minute, when the frame reloads, and when the review ends.
+
+With the SDK, `onCollect` returns the decision, and the SDK sends the answer.
 
 :::note
 A view never draws its own submit button. The app puts one below every review, in the same place for every plugin, so nothing leaves on a single click and the person always knows where to look.
@@ -115,9 +119,10 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | `resize` | `height`: a number, or `"fill"` | Sizes the frame. A number is the content height in pixels and the page scrolls; `"fill"` gives the view the viewport's height and the view scrolls inside. |
 | `draft` | `data` | Keeps work in progress. It comes back in `init` as `draft`, for as long as the app keeps running. |
 | `status` | `label` | What the app's hand-over button should read, such as `Hand over 3 of 5`. |
-| `submit` | `data` | The decision. Validated against the decision schema. |
+| `submit` | `req`, `data` | The decision, in answer to the `collect` with the same `req`. Validated against the decision schema. |
+| `defer` | `req` | Nothing to hand over for the `collect` with the same `req` yet. |
 | `settings_set` | `patch` | Writes the plugin's own settings. Everyone hears the result as `settings`. |
-| `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | One of the app's own keys on the review screen, <kbd>?</kbd>, <kbd>[</kbd> or <kbd>]</kbd>, pressed in the view outside a text field and left alone by it. The SDK sends it; the app acts on it as if pressed in its window. |
+| `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | One of the app's own keys on the review screen, <kbd>?</kbd>, <kbd>[</kbd> or <kbd>]</kbd>, pressed in the view outside a text field and left alone by it, or <kbd>⌘↵</kbd> pressed anywhere in the view. The SDK sends it; the app acts on it as if pressed in its window, and <kbd>⌘↵</kbd> starts the hand-over. |
 | `open` | `url` | Asks the app to open a link in the person's browser. Only `http`, `https` and `mailto` addresses are considered. The app asks the person first, unless they allowed the address's origin for this plugin. It always asks about a `mailto` address and an address longer than 2,000 characters, and it ignores `open` messages that arrive while it is asking. |
 | `attachment` | `req`, `name`, and `round: "previous"` for a file of the round this one revises | Asks for the bytes of a file the review carries. The app answers with `attachment` and the same `req`. |
 
@@ -184,7 +189,11 @@ addEventListener("message", (event) => {
 
   switch (msg.type) {
     case "init": render(msg.review, msg.readonly, msg.draft); break;
-    case "collect": post({ type: "submit", data: decision() }); break;
+    case "collect": {
+      const data = decision();                       // undefined: nothing yet
+      post(data === undefined ? { type: "defer", req: msg.req } : { type: "submit", req: msg.req, data });
+      break;
+    }
     case "violations": showErrors(msg.errors); break;
     case "submitted": showDecided(msg.decision); break;
   }
@@ -194,7 +203,7 @@ const post = (msg) => parent.postMessage({ pinrail: 1, ...msg }, shell ?? "*");
 post({ type: "ready" });
 ```
 
-Without the SDK, your view must also do the following: size the frame on every change, debounce drafts, apply the theme before the first paint, forward links with `open`, and handle <kbd>⌘↵</kbd>.
+Without the SDK, your view must also do the following: size the frame on every change, debounce drafts, apply the theme before the first paint, forward links with `open`, and forward <kbd>⌘↵</kbd> to the app as `key`.
 
 ## Versions
 

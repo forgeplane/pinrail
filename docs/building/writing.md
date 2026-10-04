@@ -176,7 +176,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
       render();
     },
     onCollect() {
-      plugin.submit({ decisions: [...choices].map(([id, action]) => ({ id, action })) });
+      return { decisions: [...choices].map(([id, action]) => ({ id, action })) };
     },
   });
 
@@ -204,7 +204,7 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
 `Pinrail.connect` does the protocol for you: it announces the view, receives the review, sizes the frame to your content and keeps drafts. You write two callbacks and a renderer.
 
 - **`onInit`** runs with the review (`review`, payload included), whether it is `readonly`, the `previous` round when this one revises another, and the `draft` the person left. It runs again, read-only, when the review ends while it is open, for example when the agent withdraws it, so it should draw the view from scratch each time rather than add to what is there.
-- **`onCollect`** runs when the person hands over. Assemble the decision and call `plugin.submit`.
+- **`onCollect`** runs when the person hands over. Return the decision, or a promise of it. Return nothing when the person still has to do something first, and say what in the view; the next press asks again.
 - **`plugin.draft`** keeps work in progress, so the person can open another review, or reload the view, and find their work in place.
 
 :::caution[Drafts last only while the app runs]
@@ -219,8 +219,8 @@ sequenceDiagram
   S->>V: init { review, draft, readonly }
   V->>S: draft { … }
   Note over S,V: the person presses Hand over, or ⌘↵
-  S->>V: collect
-  V->>S: submit { decision }
+  S->>V: collect { req }
+  V->>S: submit { req, decision }
   S-->>V: violations, if it fails the schema
   S->>V: submitted, once it passes
 ```

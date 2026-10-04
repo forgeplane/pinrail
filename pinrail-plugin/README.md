@@ -7,8 +7,8 @@ write a Pinrail plugin:
   the SDK at `/sdk/v1/pinrail-plugin.js`, bundled with the markdown-it
   parser. A view loads it with a single script tag, and the SDK handles the
   protocol for it: the `ready` message, origin pinning, resizing, drafts,
-  the `submitted`, `violations` and `collect` messages, and the ⌘/Ctrl+Enter
-  shortcut.
+  the hand-over, the `submitted` and `violations` messages, and the
+  ⌘/Ctrl+Enter shortcut.
 - **`pinrail-plugin create`** creates a new plugin folder.
 - **`pinrail-plugin dev`** runs a plugin in the browser, without the app.
 - **`pinrail-plugin test`** runs a plugin's tests in the test harness.
@@ -37,12 +37,12 @@ tarball attached to its GitHub release.
     onInit({ review, previous, readonly, draft }) { render(); },
     onViolations(errors) { showErrors(errors); },   // [{ path, message }]
     onSubmitted(decision) { render(); },           // the view is now read-only
-    onCollect() { submit(); },                     // the shell's hand-over button, or ⌘/Ctrl+Enter
+    onCollect() { return decision(); },            // the app's hand-over button, or ⌘/Ctrl+Enter
     onAppearance(theme) { … },                     // optional: "dark" | "light"
     onSettings(settings) { render(); },            // optional: the plugin's settings changed
     onKey(key) { … },                              // optional: a declared shortcut, pressed while the app has focus
+    onError(error) { … },                          // optional: a handler threw, or a decision is not JSON
   });
-  plugin.submit(data);
   plugin.draft(data);                   // debounced by 150 ms; { flush: true } sends it at once
   plugin.status({label: "Hand over anyway"});   // the label of the shell's button
   plugin.readonly; plugin.review; plugin.previous;
@@ -51,11 +51,13 @@ tarball attached to its GitHub release.
 </script>
 ```
 
-The shell provides the button that hands a decision over. A view does not
-render its own submit button: the shell shows one next to the note field of
-every review, and pressing it sends `collect` to the view. The view can
-submit at once, or ask for confirmation and submit on the next `collect`.
-Call `status` to keep the button's label accurate.
+The app provides the button that hands a decision over. A view does not
+render its own submit button: the app shows one next to the note field of
+every review. When the person presses it, or ⌘/Ctrl+Enter, the SDK calls
+`onCollect`, and the view returns the decision, or a promise of it. When the
+view needs more from the person first, such as a missing answer or a
+preview to confirm, it returns nothing: the app hands nothing over, and the
+next press asks again. Call `status` to keep the button's label accurate.
 
 The shell also sets the theme. The theme is part of the frame's URL when
 the frame opens, and every later change arrives as an `appearance` message.
@@ -276,11 +278,12 @@ initialise the view with. You can also:
 
 - use a decided fixture as the previous round;
 - switch between read-only and editable, and between the themes;
-- send `collect`, as the app's hand-over button does;
+- press **Collect**, which asks the view for its decision as the app's
+  hand-over button does;
 - answer a submission with `violations` that you type, or with `submitted`.
 
-A log beside the view shows every message the view sends: `ready`,
-`resize`, `draft`, `status` and `submit`. A change to any file in the plugin
+A log beside the view shows every message the view sends, such as `ready`,
+`resize`, `draft`, `status`, `submit` and `defer`. A change to any file in the plugin
 reloads the view, and the last draft is passed back in the next `init`, so
 `dev` works well with a build in watch mode. The app can serve the same
 folder at the same time: run `pinrail plugins install <dir> --link`, which
@@ -298,8 +301,14 @@ import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 
 const plugin = await mountPlugin(page, pluginDir, { review: fixture("fixtures/basic.json") });
 await plugin.frame.getByRole("button", { name: "Yes" }).click();
-expect(await plugin.nextSubmit()).toEqual({ ok: true });
+expect(await plugin.handOver()).toMatchObject({ decision: { data: { ok: true } } });
 ```
+
+`handOver()` hands over as the app does: it asks the view for its decision,
+checks it against the decision schema, and returns the accepted decision,
+the violations, or `{ deferred: true }` when the view returned nothing.
+`collect()` only asks, and `nextSubmit()` returns what the view answered,
+for a test that replies itself with `sendViolations` or `sendSubmitted`.
 
 A fixture holds part of a review, in the form the SDK passes to a view as
 `review`. It is usually `{ "title", "payload" }`, and it includes a

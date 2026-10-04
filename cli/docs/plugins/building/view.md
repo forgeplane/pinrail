@@ -19,7 +19,7 @@ shaped by your decision schema, and `value` whatever state you keep.
 ```js
 const plugin = Pinrail.connect({
   onInit({ review, readonly, draft, settings }) {}, // review.payload is what the agent sent
-  onCollect() { plugin.submit(decision); },       // the app's hand-over button, or ⌘/Ctrl+Enter
+  onCollect() { return decision; },               // the app's hand-over button, or ⌘/Ctrl+Enter
   onViolations(errors) {},                        // [{ path, message }]: the decision failed its schema
   onSubmitted() {},                               // accepted: show it read-only
 });
@@ -29,6 +29,9 @@ plugin.status({ label: "Hand over: yes" });       // the hand-over button's word
 
 - `onInit` runs again, read-only, when the review ends while the view is open, for example when the agent withdraws it. Draw the view from scratch each time.
 - The app draws the hand-over button; the view never draws its own.
+  `onCollect` returns the decision, or a promise of it. It returns
+  nothing when the view needs more from the person first, and the next
+  press asks again.
 - `plugin.readonly` is true for a review that is no longer pending: show
   `review.decision.data` and offer no editing.
 - The frame loads nothing from outside the plugin folder: the payload
