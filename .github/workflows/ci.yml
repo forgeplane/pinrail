@@ -169,10 +169,13 @@ jobs:
           cargo test --manifest-path cli/Cargo.toml --locked
           cargo test --manifest-path desktop/Cargo.toml --workspace --locked
           cargo test --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --locked --lib docs::
+      # the shell suite checks fixtures with the plugin SDK's harness, which
+      # needs the package's own dependencies
       - name: Install Playwright
         working-directory: e2e
         run: |
           npm ci
+          (cd ../pinrail-plugin && npm ci)
           npx playwright install --with-deps chromium
       - name: CLI end to end
         working-directory: e2e
