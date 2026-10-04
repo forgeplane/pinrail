@@ -6,7 +6,7 @@
 // event.source is its window.
 //
 // Every message is {pinrail: 1, type, ...}.
-//   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {req, data} |
+//   plugin -> shell: ready | draft {data} | submit {req, data} |
 //                    defer {req} | status {label} | settings_set {patch} |
 //                    key {key, code, metaKey, ctrlKey, shiftKey} |
 //                    attachment {req, name, round?: "previous"}
@@ -34,8 +34,6 @@ import { modalOpen } from "../lib/keys";
 const VIEW_APP_KEYS = ["?", "[", "]"];
 
 const DRAFT_PREFIX = "pinrail:draft:";
-const LOADING_FALLBACK_MS = 2500;
-const MAX_HEIGHT = 50000;
 
 export type SubmitResult = { ok: true; decision: Decision } | { ok: false; violations: Violation[] };
 
@@ -46,7 +44,6 @@ type Options = {
   review: Review | null;
   previous: Review | null;
   readonly: boolean;
-  minHeight: number;
   /** the bundle URL without the theme fragment */
   src: string | null;
   connected: boolean;
@@ -61,8 +58,6 @@ type Options = {
 
 export type Bridge = {
   loaded: boolean;
-  /** the view asked for the whole remaining height */
-  fill: boolean;
   submitting: boolean;
   handoverLabel: string;
   /** asks the view to assemble and submit its decision */
@@ -78,22 +73,9 @@ export type Bridge = {
 };
 
 export function usePluginBridge(options: Options): Bridge {
-  const {
-    frame,
-    reviewId,
-    review,
-    previous,
-    readonly,
-    minHeight,
-    src,
-    connected,
-    onSubmit,
-    settings,
-    onSetSetting,
-    onOpen,
-  } = options;
+  const { frame, reviewId, review, previous, readonly, src, connected, onSubmit, settings, onSetSetting, onOpen } =
+    options;
   const [loaded, setLoaded] = useState(false);
-  const [fill, setFill] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [handoverLabel, setHandoverLabel] = useState("Hand over");
   // the frame went to another page, which gets nothing from here on
@@ -101,9 +83,8 @@ export function usePluginBridge(options: Options): Bridge {
   const [reloads, setReloads] = useState(0);
   const reload = useCallback(() => setReloads((n) => n + 1), []);
   const host = useRef<(Host & { disconnect(): void }) | null>(null);
-  const fallback = useRef<number | undefined>(undefined);
-  const latest = useRef({ review, previous, readonly, connected, onSubmit, settings, onSetSetting, onOpen, minHeight });
-  latest.current = { review, previous, readonly, connected, onSubmit, settings, onSetSetting, onOpen, minHeight };
+  const latest = useRef({ review, previous, readonly, connected, onSubmit, settings, onSetSetting, onOpen });
+  latest.current = { review, previous, readonly, connected, onSubmit, settings, onSetSetting, onOpen };
 
   const draftKey = () => DRAFT_PREFIX + (latest.current.review?.id ?? "");
   const loadDraft = () => {
@@ -131,11 +112,6 @@ export function usePluginBridge(options: Options): Bridge {
     }
   };
 
-  const markLoaded = useCallback(() => {
-    window.clearTimeout(fallback.current);
-    setLoaded(true);
-  }, []);
-
   const collect = useCallback(() => {
     // not while a dialog is open: ⌘Enter in a plugin's setting field is no
     // hand-over
@@ -151,7 +127,6 @@ export function usePluginBridge(options: Options): Bridge {
     if (!el || !src) return;
     setLeft(false);
     setLoaded(false);
-    setFill(false);
     setHandoverLabel("Hand over");
 
     // A file fetched once per frame and review, however often the view asks;
@@ -204,15 +179,6 @@ export function usePluginBridge(options: Options): Bridge {
       // the plugin's name, and the core checks the values
       setSettings: (patch) => latest.current.onSetSetting(patch),
       label: setHandoverLabel,
-      resize: (height) => {
-        if (height === "fill") {
-          el.style.height = "";
-          setFill(true);
-        } else {
-          el.style.height = `min(${Math.min(MAX_HEIGHT, Math.max(latest.current.minHeight, height))}px, 100%)`;
-        }
-        markLoaded();
-      },
       // one of the app's own keys, pressed inside the view: the app acts on
       // it as if pressed in its window; nothing else is accepted
       appKey: (message) => {
@@ -229,11 +195,8 @@ export function usePluginBridge(options: Options): Bridge {
       },
       // ⌘/Ctrl+Enter pressed inside the view: the hand-over, as from the app
       handOverKey: collect,
-      // a view that never reports a size would otherwise sit behind the
-      // loading cover for good
-      onReady: () => {
-        fallback.current = window.setTimeout(markLoaded, LOADING_FALLBACK_MS);
-      },
+      // the view is listening and has its review: the loading cover goes
+      onReady: () => setLoaded(true),
       onLeft: () => setLeft(true),
     });
     host.current = connection;
@@ -256,10 +219,9 @@ export function usePluginBridge(options: Options): Bridge {
       if (host.current === connection) host.current = null;
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:appearance", onAppearance);
-      window.clearTimeout(fallback.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the draft helpers read the review from latest
-  }, [frame, reviewId, src, reloads, markLoaded, collect]);
+  }, [frame, reviewId, src, reloads, collect]);
 
   // The plugin's settings changed, in Settings or through the view itself:
   // the view hears the values as they stand now.
@@ -278,5 +240,5 @@ export function usePluginBridge(options: Options): Bridge {
     host.current?.changed();
   }, [readonly]);
 
-  return { loaded, fill, submitting, handoverLabel, collect, left, reload, reloads };
+  return { loaded, submitting, handoverLabel, collect, left, reload, reloads };
 }

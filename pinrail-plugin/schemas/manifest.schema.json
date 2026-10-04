@@ -39,12 +39,6 @@
       "maxLength": 400,
       "description": "When an agent should ask with this plugin, in one line: what situation it is for. `pinrail plugins` shows it to an agent choosing a plugin."
     },
-    "min_height": {
-      "type": "integer",
-      "minimum": 1,
-      "default": 400,
-      "description": "The smallest height, in pixels, the app gives the view."
-    },
     "settings_schema": {
       "type": ["object", "null"],
       "description": "The plugin's own settings, each a row in Settings › Plugins: an object schema of booleans, strings and numbers, each with a default, inline or by `$ref`. A schema that breaks these rules costs the plugin its settings, not its place."

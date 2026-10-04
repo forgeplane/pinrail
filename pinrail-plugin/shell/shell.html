@@ -68,7 +68,7 @@
   <button id="theme" title="Switch theme">Theme</button>
 </div>
 <div class="main">
-  <div class="stage" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe></div>
+  <div class="stage fill" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe></div>
   <aside class="side">
     <h2>Settings</h2>
     <div class="state" id="settings"><div class="empty" style="padding:0 0 4px">The manifest declares none.</div></div>
@@ -139,10 +139,6 @@ const host = connectFrame(frame, {
   label: (text) => show("s-status", text),
   // in the app the system browser opens it; here, a tab
   open: (url) => window.open(url, "_blank", "noreferrer"),
-  resize: (height) => {
-    if (height === "fill") { stage.classList.add("fill"); }
-    else { stage.classList.remove("fill"); frame.style.height = Math.max(manifest.min_height || 200, height) + "px"; }
-  },
   // as the app: a change the settings schema refuses comes back as
   // violations; one it allows is kept, and everyone hears the values
   setSettings: async (patch) => {

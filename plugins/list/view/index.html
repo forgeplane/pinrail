@@ -123,7 +123,6 @@ let review = null, previous = null, readonly = false;
 const S = { decisions: {}, armed: false, errors: null };
 
 const plugin = Pinrail.connect({
-  resize: "auto",
   onInit(init) {
     review = init.review; previous = init.previous; readonly = init.readonly;
     S.errors = null; S.armed = false;

@@ -233,7 +233,6 @@ let review = null, readonly = false;
 const S = { sel: 0, verdict: {}, subject: {}, body: {}, marks: {}, note: {}, history: {}, future: {}, armed: false, errors: null, active: null };
 
 const plugin = Pinrail.connect({
-  resize: "fill",
   onInit(init) {
     review = init.review; readonly = init.readonly;
     S.errors = null; S.armed = false; S.history = {}; S.future = {}; S.active = null; S.sel = 0;

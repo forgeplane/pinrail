@@ -19,7 +19,6 @@
   // the question j and k move from: the last one moved to, clicked or typed in
   let current = null;
   const plugin = Pinrail.connect({
-    resize: "fill",
     onInit({ review, draft, previous: old, settings }) {
       applySettings(settings);
       showErrors = false;

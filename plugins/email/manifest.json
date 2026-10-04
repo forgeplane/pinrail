@@ -22,7 +22,6 @@
       ]
     }
   },
-  "min_height": 560,
   "shortcuts": [
     { "keys": "j", "does": "Next draft" },
     { "keys": "k", "does": "Previous draft" },

@@ -90,7 +90,6 @@ export type Plugin = {
   version: string;
   title: string;
   path: string;
-  min_height: number;
   dev: boolean;
   /** the markup of the plugin's icon.svg, when it has one */
   icon: string | null;

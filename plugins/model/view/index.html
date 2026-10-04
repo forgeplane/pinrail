@@ -720,7 +720,6 @@ renderer.domElement.addEventListener("pointerleave", () => {
 });
 
 const plugin = Pinrail.connect({
-  resize: "fill",
   async onInit({ review, draft }) {
     P = review.payload;
     S.verdicts = {};

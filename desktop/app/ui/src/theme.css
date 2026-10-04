@@ -2062,7 +2062,7 @@ h1 {
   border-radius: 8px;
   background: var(--bg-panel);
 }
-.plugin-frame-wrap.is-fill .plugin-frame {
+.plugin-frame-wrap .plugin-frame {
   height: 100%;
 }
 .plugin-loading {

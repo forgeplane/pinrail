@@ -3,11 +3,10 @@
  *
  * Served by the app at /sdk/v1/pinrail-plugin.js. A plugin loads it with one
  * script tag and calls Pinrail.connect(handlers); everything the protocol
- * requires (ready, origin pinning, resize, drafts, the hand-over, submitted,
+ * requires (ready, origin pinning, drafts, the hand-over, submitted,
  * violations and the Cmd/Ctrl+Enter shortcut) is handled here.
  *
  *   const plugin = Pinrail.connect({
- *     resize: "auto",                 // "auto" (content height), "fill" (viewport), or "manual"
  *     onInit({ review, previous, readonly, draft, settings }) { … },
  *     onCollect() { return decision }, // the app's hand-over button, or Cmd/Ctrl+Enter:
  *                                      // the decision, a promise of it, or nothing to hand over yet
@@ -109,13 +108,8 @@
     return ref && typeof ref === "object" && typeof ref.$attachment === "string" ? ref.$attachment : null;
   }
 
-  // The skeleton a view built with layout(), so auto sizing can measure the
-  // body rather than the document, which no longer scrolls.
-  let skeleton = null;
-
   function createPlugin(env, handlers) {
     handlers = handlers || {};
-    const resizeMode = handlers.resize || "auto";
     const state = {
       appOrigin: null,
       review: null,
@@ -129,7 +123,6 @@
     const asked = new Map();
     const changing = new Map();
     let nextAsk = 1;
-    let stopObserving = null;
 
     const post = (msg) => env.post(Object.assign({ pinrail: PROTOCOL }, msg), state.appOrigin || "*");
     /* An error of the view's own code: its handler, or none, the console. */
@@ -152,15 +145,6 @@
     const keep = (stop) => {
       if (typeof stop === "function") undo.push(stop);
     };
-
-    function startResize() {
-      if (resizeMode === "fill") {
-        post({ type: "resize", height: "fill" });
-      } else if (resizeMode === "auto" && !stopObserving && env.observeSize) {
-        stopObserving = env.observeSize((height) => post({ type: "resize", height }));
-        keep(stopObserving);
-      }
-    }
 
     /* Where a link goes is the shell's to open — in the system browser, not
        in the panel. Anything but http, https or mailto is not a link a view
@@ -221,7 +205,6 @@
             draft: data.draft === undefined ? null : data.draft,
             settings: state.settings,
           });
-          startResize();
           break;
         case "settings": {
           // the answer to setSetting, by its request number
@@ -390,15 +373,11 @@
       },
       /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */
       open,
-      resize(height) {
-        post({ type: "resize", height });
-      },
       /** what the app's hand-over button reads, such as "Hand over 3 of 5" */
       handOverLabel(text) {
         post({ type: "status", label: String(text) });
       },
-      /* Undoes what the client set up: its listeners, its timer and the
-         observer. For tests, which make a client per case; a view keeps its
+      /* Undoes what the client set up: its listeners. For tests, which make a client per case; a view keeps its
          connection for as long as its page lives. */
       [TEARDOWN]() {
         for (const stop of undo.splice(0)) stop();
@@ -488,7 +467,6 @@
     if (options.meta != null) view.meta(options.meta);
     if (options.controls != null) view.controls(options.controls);
 
-    skeleton = view;
     return view;
   }
 
@@ -546,20 +524,6 @@
       },
       setTimeout: (fn, ms) => win.setTimeout(fn, ms),
       clearTimeout: (t) => win.clearTimeout(t),
-      observeSize: (cb) => {
-        // With a skeleton the document does not scroll, so its height says
-        // nothing; measure the header and the body instead.
-        const emit = () =>
-          cb(
-            skeleton
-              ? (skeleton.header ? skeleton.header.offsetHeight : 0) + skeleton.content.scrollHeight
-              : doc.documentElement.scrollHeight,
-          );
-        const ro = new win.ResizeObserver(emit);
-        ro.observe(skeleton ? skeleton.content : doc.body);
-        emit();
-        return () => ro.disconnect();
-      },
       applyTheme: (theme) => {
         doc.documentElement.dataset.theme = theme;
       },

@@ -22,7 +22,6 @@ function fakeEnv() {
     nextTimer: 1,
     shortcuts: [],
     links: [],
-    observers: [],
     themes: [],
     keys: [],
     appKeys: [],
@@ -43,13 +42,7 @@ function fakeEnv() {
     clearTimeout(id) {
       env.timers = env.timers.filter((t) => t.id !== id);
     },
-    observeSize(cb) {
-      env.observers.push(cb);
-      env.observing += 1;
-      cb(321);
-      return () => (env.observing -= 1);
-    },
-    observing: 0,
+
     applyTheme(theme) {
       env.themes.push(theme);
     },
@@ -74,9 +67,9 @@ function fakeEnv() {
       return `blob:test/${type}/${bytes.byteLength}`;
     },
     // helpers
-    /** what the client still has set up: listeners and observers */
+    /** what the client still has set up: its listeners */
     active() {
-      return env.listeners.length + env.appKeys.length + env.links.length + env.observing;
+      return env.listeners.length + env.appKeys.length + env.links.length;
     },
     deliver(data, origin = "http://shell.test") {
       env.listeners.forEach((fn) => fn(data, origin));

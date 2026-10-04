@@ -200,6 +200,7 @@ mod tests {
             assert!(page.contains(&format!("| `{key}` |")), "{key} is missing");
         }
         assert!(page.contains("| `name` | Yes | a string matching `^[a-z][a-z0-9_-]*$` |"));
-        assert!(page.contains("| `min_height` |  | an integer, at least 1; defaults to `400` |"));
+        // the frame fills the panel: no key sizes it
+        assert!(!page.contains("min_height"));
     }
 }

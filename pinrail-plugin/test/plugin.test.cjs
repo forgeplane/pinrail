@@ -13,7 +13,7 @@ test("connect posts ready at once, to any origin", () => {
 test("init hands the review, previous, readonly and draft to onInit and pins the shell origin", () => {
   const env = fakeEnv();
   const seen = [];
-  const plugin = Pinrail.createPlugin(env, { onInit: (i) => seen.push(i), resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, { onInit: (i) => seen.push(i) });
   env.deliver(init({ previous: review({ id: "g_0" }), draft: { a: 1 } }));
 
   assert.equal(seen.length, 1);
@@ -32,7 +32,6 @@ test("messages without the protocol marker, or from another origin once pinned, 
   Pinrail.createPlugin(env, {
     onInit: () => calls.push("init"),
     onViolations: () => calls.push("violations"),
-    resize: "manual",
   });
 
   env.deliver({ type: "init" });
@@ -50,7 +49,6 @@ test("violations, submitted and collect dispatch; submitted flips read-only and 
   const env = fakeEnv();
   const calls = [];
   const plugin = Pinrail.createPlugin(env, {
-    resize: "manual",
     onViolations: (e) => calls.push(["violations", e]),
     onSubmitted: (d) => calls.push(["submitted", d]),
     onCollect: () => calls.push(["collect"]),
@@ -77,7 +75,7 @@ test("violations, submitted and collect dispatch; submitted flips read-only and 
 
 test("⌘/Ctrl+Enter is the app's: the view registers no shortcut of its own", () => {
   const env = fakeEnv();
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => ({ ok: true }) });
+  Pinrail.createPlugin(env, { onCollect: () => ({ ok: true }) });
   env.deliver(init());
   assert.equal(env.shortcuts.length, 0);
   env.appKeys[0]({ key: "Enter", code: "Enter", metaKey: true, ctrlKey: false, altKey: false, shiftKey: false });
@@ -96,7 +94,7 @@ test("⌘/Ctrl+Enter is the app's: the view registers no shortcut of its own", (
 
 test("a draft is posted at once, as it is, and not at all once read-only", () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, {});
   env.deliver(init());
 
   plugin.draft({ n: 1 });
@@ -114,7 +112,7 @@ test("a draft is posted at once, as it is, and not at all once read-only", () =>
 
 test("a draft JSON cannot hold throws where the view kept it, and sends nothing", () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, {});
   env.deliver(init());
   const loop = { a: 1 };
   loop.self = loop;
@@ -126,32 +124,17 @@ test("a draft JSON cannot hold throws where the view kept it, and sends nothing"
   assert.equal(env.last("draft").msg.data, false);
 });
 
-test("resize: auto observes after init, fill posts once, manual posts nothing", () => {
-  const auto = fakeEnv();
-  Pinrail.createPlugin(auto, {});
-  assert.equal(auto.observers.length, 0);
-  auto.deliver(init());
-  assert.equal(auto.observers.length, 1);
-  assert.deepEqual(auto.last("resize").msg, { pinrail: 1, type: "resize", height: 321 });
-  auto.deliver(init());
-  assert.equal(auto.observers.length, 1, "a second init does not observe twice");
-
-  const fill = fakeEnv();
-  Pinrail.createPlugin(fill, { resize: "fill" });
-  fill.deliver(init());
-  assert.deepEqual(fill.last("resize").msg, { pinrail: 1, type: "resize", height: "fill" });
-
-  const manual = fakeEnv();
-  const plugin = Pinrail.createPlugin(manual, { resize: "manual" });
-  manual.deliver(init());
-  assert.equal(manual.last("resize"), undefined);
-  plugin.resize(500);
-  assert.deepEqual(manual.last("resize").msg.height, 500);
+test("a view never sizes its frame: it fills the panel and scrolls inside", () => {
+  const env = fakeEnv();
+  const plugin = Pinrail.createPlugin(env, {});
+  env.deliver(init());
+  assert.equal(env.last("resize"), undefined);
+  assert.equal("resize" in plugin, false);
 });
 
 test("handOverLabel tells the app what its hand-over button reads", () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, {});
   env.deliver(init());
 
   plugin.handOverLabel("Hand over 3 decisions");
@@ -161,7 +144,7 @@ test("handOverLabel tells the app what its hand-over button reads", () => {
 
 test("the decision onCollect returns answers the app's request, by its number", async () => {
   const env = fakeEnv();
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => ({ ok: true }) });
+  Pinrail.createPlugin(env, { onCollect: () => ({ ok: true }) });
   env.deliver(init());
   env.deliver(shell({ type: "collect", req: 7 }));
   await settle();
@@ -175,7 +158,6 @@ test("a promise of the decision is waited for", async () => {
   const env = fakeEnv();
   let confirm;
   Pinrail.createPlugin(env, {
-    resize: "manual",
     onCollect: () => new Promise((resolve) => (confirm = () => resolve({ ok: false }))),
   });
   env.deliver(init());
@@ -190,7 +172,7 @@ test("a promise of the decision is waited for", async () => {
 test("nothing returned is defer: the view needs more from the person first", async () => {
   const env = fakeEnv();
   const answers = [undefined, null, Promise.resolve(undefined)];
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => answers.shift() });
+  Pinrail.createPlugin(env, { onCollect: () => answers.shift() });
   env.deliver(init());
   for (const req of [1, 2, 3]) {
     env.deliver(shell({ type: "collect", req }));
@@ -214,7 +196,7 @@ test("a handler that throws, or a decision JSON cannot hold, reaches onError and
     () => loop,
     () => Promise.reject(new Error("the preview failed")),
   ];
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => answers.shift()(), onError: (e) => errors.push(e) });
+  Pinrail.createPlugin(env, { onCollect: () => answers.shift()(), onError: (e) => errors.push(e) });
   env.deliver(init());
   for (const req of [1, 2, 3]) {
     env.deliver(shell({ type: "collect", req }));
@@ -233,7 +215,6 @@ test("a handler that throws, or a decision JSON cannot hold, reaches onError and
 test("without onError, an error goes to the console", async () => {
   const env = fakeEnv();
   Pinrail.createPlugin(env, {
-    resize: "manual",
     onCollect: () => {
       throw new Error("unhandled");
     },
@@ -247,7 +228,7 @@ test("without onError, an error goes to the console", async () => {
 test("a read-only view answers defer without asking onCollect", async () => {
   const env = fakeEnv();
   let asked = 0;
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => (asked++, { ok: true }) });
+  Pinrail.createPlugin(env, { onCollect: () => (asked++, { ok: true }) });
   env.deliver(init({ readonly: true }));
   env.deliver(shell({ type: "collect", req: 1 }));
   await settle();
@@ -258,7 +239,7 @@ test("a read-only view answers defer without asking onCollect", async () => {
 test("a collect without a request number is not the protocol's, and is ignored", async () => {
   const env = fakeEnv();
   let asked = 0;
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => (asked++, { ok: true }) });
+  Pinrail.createPlugin(env, { onCollect: () => (asked++, { ok: true }) });
   env.deliver(init());
   env.deliver(shell({ type: "collect" }));
   await settle();
@@ -271,7 +252,7 @@ test("the theme comes from the environment first, and the shell can still change
   // that can be in place before the view paints.
   const env = Object.assign(fakeEnv(), { initialTheme: () => "light" });
   const seen = [];
-  const plugin = Pinrail.createPlugin(env, { resize: "manual", onAppearance: (t) => seen.push(t) });
+  const plugin = Pinrail.createPlugin(env, { onAppearance: (t) => seen.push(t) });
 
   assert.equal(plugin.theme, "light", "in the shell's theme before a single message");
   assert.deepEqual(seen, [], "and without anything to react to");
@@ -282,14 +263,14 @@ test("the theme comes from the environment first, and the shell can still change
 });
 
 test("an environment with no theme of its own leaves the plugin dark", () => {
-  const plugin = Pinrail.createPlugin(fakeEnv(), { resize: "manual" });
+  const plugin = Pinrail.createPlugin(fakeEnv(), {});
   assert.equal(plugin.theme, "dark");
 });
 
 test("appearance applies the theme, exposes it, and ignores anything else", () => {
   const env = fakeEnv();
   const seen = [];
-  const plugin = Pinrail.createPlugin(env, { resize: "manual", onAppearance: (t) => seen.push(t) });
+  const plugin = Pinrail.createPlugin(env, { onAppearance: (t) => seen.push(t) });
 
   assert.equal(plugin.theme, "dark", "dark until the environment or the shell says otherwise");
 
@@ -311,7 +292,7 @@ test("appearance applies the theme, exposes it, and ignores anything else", () =
 test("a theme change neither re-initialises the view nor disturbs a draft", () => {
   const env = fakeEnv();
   let inits = 0;
-  const plugin = Pinrail.createPlugin(env, { resize: "manual", onInit: () => inits++ });
+  const plugin = Pinrail.createPlugin(env, { onInit: () => inits++ });
   env.deliver(init());
   plugin.draft({ n: 1 });
 
@@ -413,7 +394,7 @@ test("window.Pinrail has the members a view uses, and no others", () => {
 });
 
 test("the plugin object has the members a view uses, and no others", () => {
-  const plugin = Pinrail.createPlugin(fakeEnv(), { resize: "manual" });
+  const plugin = Pinrail.createPlugin(fakeEnv(), {});
   assert.deepEqual(Object.keys(plugin).sort(), [
     "attachment",
     "attachmentUrl",
@@ -423,7 +404,6 @@ test("the plugin object has the members a view uses, and no others", () => {
     "open",
     "previous",
     "readonly",
-    "resize",
     "review",
     "setSetting",
     "settings",
@@ -472,7 +452,6 @@ test("settings arrive with init and again as a message", () => {
   const env = fakeEnv();
   const seen = [];
   const plugin = Pinrail.createPlugin(env, {
-    resize: "manual",
     onInit: (i) => seen.push(["init", i.settings]),
     onSettings: (s) => seen.push(["settings", s]),
   });
@@ -495,7 +474,7 @@ test("settings arrive with init and again as a message", () => {
 test("setSetting resolves with the settings the app kept, or rejects with why not", async () => {
   const env = fakeEnv();
   const violations = [];
-  const plugin = Pinrail.createPlugin(env, { resize: "manual", onViolations: (e) => violations.push(e) });
+  const plugin = Pinrail.createPlugin(env, { onViolations: (e) => violations.push(e) });
   env.deliver(init({ settings: { diff: "split", wrap: true } }));
 
   const kept = plugin.setSetting("diff", "inline");
@@ -528,7 +507,7 @@ test("setSetting resolves with the settings the app kept, or rejects with why no
 
 test("a forwarded key lands on the document; junk is ignored", () => {
   const env = fakeEnv();
-  Pinrail.createPlugin(env, { resize: "manual" });
+  Pinrail.createPlugin(env, {});
   env.deliver(init());
   env.deliver(shell({ type: "key", key: "j", code: "KeyJ" }));
   env.deliver(shell({ type: "key", key: "M", code: "KeyM", metaKey: true, shiftKey: true }));
@@ -547,7 +526,7 @@ test("the package's major version is the protocol's", () => {
 
 test("a link is the shell's to open, and only where a view may send someone", () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, {});
   env.deliver(init());
 
   // a click in the frame: sandboxed without popups, it opens nothing itself
@@ -567,7 +546,7 @@ test("a link is the shell's to open, and only where a view may send someone", ()
 
 test("attachment asks the shell for a file the review lists, and resolves with the bytes it answers", async () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, {});
   const files = [{ name: "pivot.glb", size: 3, media_type: "model/gltf-binary", sha256: "ab" }];
   env.deliver(
     init({
@@ -609,7 +588,7 @@ test("attachment asks the shell for a file the review lists, and resolves with t
 
 test("attachment refuses a name the review does not list", async () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, {});
   env.deliver(
     init({
       review: review({ attachments: [{ name: "a.glb", size: 1, media_type: "x/y", sha256: "ab" }] }),
@@ -662,7 +641,6 @@ test("a decision or draft held in reactive state is sent as the plain data it ho
   env.post = (msg, target) => env.posted.push({ msg: structuredClone(msg), target });
   const reactive = (value) => new Proxy(value, {});
   const plugin = Pinrail.createPlugin(env, {
-    resize: "manual",
     onCollect: () => reactive({ ok: true, items: reactive([1, 2]), skipped: undefined }),
   });
   env.deliver(init());
@@ -682,7 +660,7 @@ test("a draft of false, 0 or an empty string comes back as it was", () => {
   for (const kept of [false, 0, ""]) {
     const env = fakeEnv();
     const seen = [];
-    Pinrail.createPlugin(env, { resize: "manual", onInit: (i) => seen.push(i.draft) });
+    Pinrail.createPlugin(env, { onInit: (i) => seen.push(i.draft) });
     env.deliver(init({ draft: kept }));
     assert.deepEqual(seen, [kept]);
   }
@@ -691,7 +669,7 @@ test("a draft of false, 0 or an empty string comes back as it was", () => {
 test("a forwarded key reaches the view once, as a keydown", () => {
   const env = fakeEnv();
   const handled = [];
-  Pinrail.createPlugin(env, { resize: "manual", onKey: (k) => handled.push(k.key) });
+  Pinrail.createPlugin(env, { onKey: (k) => handled.push(k.key) });
   env.deliver(init());
   env.deliver(shell({ type: "key", key: "j", code: "KeyJ" }));
   assert.equal(env.keys.length, 1);
@@ -701,21 +679,22 @@ test("a forwarded key reaches the view once, as a keydown", () => {
 test("a handler that throws in onInit does not stop the client", () => {
   const env = fakeEnv();
   const errors = [];
-  Pinrail.createPlugin(env, {
+  const plugin = Pinrail.createPlugin(env, {
     onInit() {
       throw new Error("the view broke");
     },
     onError: (e) => errors.push(e.message),
   });
   env.deliver(init());
-  // the client still starts reporting the view's size
-  assert.equal(env.observers.length, 1);
   assert.deepEqual(errors, ["the view broke"]);
+  // the client carries on: the next message still reaches the view
+  env.deliver(shell({ type: "settings", settings: { mode: "b" } }));
+  assert.deepEqual(plugin.settings, { mode: "b" });
 });
 
 test("submitted replaces the review the view holds, and leaves the old object as it was", () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, {});
   env.deliver(init());
   const held = plugin.review;
   env.deliver(shell({ type: "submitted", decision: { decided_by: "a", data: { ok: true } } }));

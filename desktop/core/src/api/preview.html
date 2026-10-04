@@ -15,7 +15,8 @@
   header .meta { color: var(--dim); font-size: 12px; }
   header .about { flex-basis: 100%; color: var(--faint); font-size: 12px; }
   main { flex: 1; min-height: 0; overflow: auto; }
-  iframe { display: block; width: 100%; height: 400px; border: 0; }
+  main { display: flex; }
+  iframe { display: block; flex: 1; width: 100%; border: 0; }
   footer { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-top: 1px solid var(--border); }
   footer textarea { flex: 1; min-height: 34px; resize: vertical; font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-raised, var(--bg)); color: var(--text); }
   footer button { padding: 8px 14px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -50,7 +51,7 @@ import { connectFrame } from "/preview/host.js";
 const id = decodeURIComponent(location.pathname.split("/").pop());
 const frame = document.getElementById("view");
 const button = document.getElementById("handover");
-let review = null, previous = null, settings = {}, minHeight = 200;
+let review = null, previous = null, settings = {};
 
 // a link a view asks for opens out in the world, never back to this machine
 const followable = (url) => {
@@ -99,9 +100,6 @@ const host = connectFrame(frame, {
   label: (text) => (button.textContent = `Check: ${text}`),
   open: (url) => {
     if (followable(url)) window.open(url, "_blank", "noreferrer");
-  },
-  resize: (height) => {
-    frame.style.height = height === "fill" ? "100%" : `${Math.max(minHeight, height)}px`;
   },
   file: async (from, listed) => {
     const response = await fetch(`/api/v1/reviews/${encodeURIComponent(from.id)}/attachments/${encodeURIComponent(listed.name)}`);
@@ -164,15 +162,12 @@ matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
   if (view.ok && view.body.review) review = view.body.review;
   const listed = await json("/api/v1/plugins");
   const installed = ((listed.body && listed.body.plugins) || []).find((p) => p.name === review.plugin) || {};
-  const plugin = (view.ok && view.body.plugin) || {};
   settings = installed.settings || {};
-  minHeight = plugin.min_height || 200;
   document.title = `${review.title} · Pinrail`;
   document.getElementById("title").textContent = review.title;
   document.getElementById("meta").textContent = `${review.plugin} ${review.plugin_version} · ${review.status}`;
   if (readonly()) showDecided();
   else button.disabled = false;
-  frame.style.height = `${minHeight}px`;
   if (view.ok) frame.src = view.body.url;
 })();
 </script>

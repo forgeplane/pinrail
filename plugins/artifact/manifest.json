@@ -32,7 +32,6 @@
       ]
     }
   },
-  "min_height": 640,
   "shortcuts": [
     { "keys": "s", "does": "Start or stop picking elements" },
     { "keys": "escape", "does": "Stop picking, or close the comment being written" }

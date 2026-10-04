@@ -21,7 +21,6 @@
       ]
     }
   },
-  "min_height": 620,
   "settings_schema": {
     "type": "object",
     "properties": {

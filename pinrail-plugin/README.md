@@ -33,7 +33,6 @@ tarball attached to its GitHub release.
 <script src="/sdk/v1/pinrail-plugin.js"></script>
 <script>
   const plugin = Pinrail.connect({
-    resize: "auto",                     // "auto" (content height), "fill" (viewport), "manual"
     onInit({ review, previous, readonly, draft }) { render(); },
     onCollect() { return decision(); },            // the app's hand-over button, or ⌘/Ctrl+Enter
     onViolations(errors) { markFields(errors); },  // optional: [{ path, message }], already listed by the app
@@ -281,7 +280,7 @@ initialise the view with. You can also:
 - answer a submission with `violations` that you type, or with `submitted`.
 
 A log beside the view shows every message the view sends, such as `ready`,
-`resize`, `draft`, `status`, `submit` and `defer`. A change to any file in the plugin
+`draft`, `status`, `submit` and `defer`. A change to any file in the plugin
 reloads the view, and the last draft is passed back in the next `init`, so
 `dev` works well with a build in watch mode. The app can serve the same
 folder at the same time: run `pinrail plugins install <dir> --link`, which

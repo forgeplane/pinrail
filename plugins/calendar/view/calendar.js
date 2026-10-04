@@ -19,7 +19,6 @@
     expanded = null,
     previous = null;
   const plugin = Pinrail.connect({
-    resize: "fill",
     onInit({ review, draft, previous: old, settings }) {
       error = "";
       previous = old;

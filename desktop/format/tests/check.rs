@@ -70,7 +70,7 @@ fn each_folder_gets_the_verdict_its_rules_give() {
     let cases: Vec<(&str, Value, Files, bool, &[&str])> = vec![
         (
             "fine",
-            base(json!({"title": "Sample", "min_height": 300})),
+            base(json!({"title": "Sample"})),
             &[(
                 "icon.svg",
                 r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 4h16"/></svg>"#,
@@ -203,20 +203,6 @@ fn each_folder_gets_the_verdict_its_rules_give() {
         (
             "description_list",
             base(json!({"description": ["a"]})),
-            none,
-            false,
-            &[],
-        ),
-        (
-            "min_height_zero",
-            base(json!({"min_height": 0})),
-            none,
-            false,
-            &[],
-        ),
-        (
-            "min_height_text",
-            base(json!({"min_height": "400"})),
             none,
             false,
             &[],

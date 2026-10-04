@@ -330,7 +330,6 @@ export function ReviewScreen() {
     review,
     previous: previous ? { ...previous } : null,
     readonly,
-    minHeight: plugin?.min_height ?? 400,
     src,
     connected: live.connected,
     onSubmit,
@@ -703,7 +702,7 @@ export function ReviewScreen() {
 
       {plugin ? (
         <div
-          className={`plugin-frame-wrap ${bridge.fill ? "is-fill" : ""} ${maximized ? "is-maximized" : ""} ${overlayTitleBar ? "has-overlay-bar" : ""}`}
+          className={`plugin-frame-wrap ${maximized ? "is-maximized" : ""} ${overlayTitleBar ? "has-overlay-bar" : ""}`}
         >
           {maximized ? (
             <div className="frame-bar" data-tauri-drag-region>
@@ -742,7 +741,7 @@ export function ReviewScreen() {
             referrerPolicy="no-referrer"
             title={review.title}
             className="plugin-frame"
-            style={{ height: `${plugin.min_height}px`, visibility: bridge.left ? "hidden" : undefined }}
+            style={{ visibility: bridge.left ? "hidden" : undefined }}
           />
         </div>
       ) : null}

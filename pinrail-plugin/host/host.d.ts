@@ -42,7 +42,6 @@ export type HostOptions = {
   setSettings?: (patch: Record<string, unknown>) => Promise<Violation[]>;
   /** the text the view gives the hand-over button */
   label?: (text: string) => void;
-  resize?: (height: number | "fill") => void;
   /** one of the app's own keys, pressed inside the view */
   appKey?: (message: Extract<PluginMessage, { type: "key" }>) => void;
   /** ⌘/Ctrl+Enter pressed inside the view; without it, the host asks for

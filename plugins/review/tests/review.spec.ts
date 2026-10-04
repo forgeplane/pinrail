@@ -24,8 +24,6 @@ test("renders the change, the tree, the diff, the anchored cards, a thread and a
   await expect(f.locator("#card-19")).toContainText("2 comments (1 from the developer)");
   await expect(f.locator("#card-19")).toContainText("Fair, I added the backfill");
   await expect(f.locator("#card-20")).toBeVisible();
-  const resize = (await plugin.messages()).find((m) => m.type === "resize");
-  expect(resize?.height).toBe("fill");
 });
 
 test("verdicts, notes and own comments become exactly the decision", async ({ page }) => {

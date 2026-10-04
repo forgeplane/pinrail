@@ -299,7 +299,6 @@ let REVIEW = null, PREVIOUS = null, RO_FLAG = false;
 const RO = () => RO_FLAG;
 
 const plugin = Pinrail.connect({
-  resize: "fill",
   onInit(init) {
     REVIEW = init.review; PREVIOUS = init.previous; RO_FLAG = init.readonly;
     applySettings(init.settings);

@@ -12,7 +12,6 @@ const root = createRoot(document.getElementById("root")!);
 let inits = 0;
 
 const plugin = window.Pinrail.connect({
-  resize: "fill",
   onInit: (init) => root.render(<App key={++inits} plugin={plugin} init={init} />),
   // the app's hand-over button, or ⌘/Ctrl+Enter: the view's decision
   onCollect: () => view.collect(),

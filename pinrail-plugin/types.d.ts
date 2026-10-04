@@ -44,7 +44,6 @@ export type Manifest = {
   description?: string;
   /** what the app counts to sum up a review: arrays of the payload and of the decision */
   summary?: { request?: SummaryRules; outcome?: SummaryRules };
-  min_height?: number;
   /** an object schema of scalars with defaults; each property is a row in Settings › Plugins */
   settings_schema?: Record<string, unknown>;
   /** the keys the view answers, listed by the app and forwarded when the frame has no focus */
@@ -179,7 +178,6 @@ export type AppMessage =
 /** Plugin → shell, over `postMessage`. */
 export type PluginMessage =
   | { pinrail: Protocol; type: "ready" }
-  | { pinrail: Protocol; type: "resize"; height: number | "fill" }
   | { pinrail: Protocol; type: "draft"; data: any }
   | { pinrail: Protocol; type: "status"; label?: string }
   /** the decision, in answer to the `collect` with this `req` */
@@ -216,8 +214,6 @@ export type PluginMessage =
 // ---------------------------------------------------------------- the SDK
 
 export type Handlers<Payload = unknown, Data = unknown> = {
-  /** "auto" (content height, the default), "fill" (the viewport) or "manual" */
-  resize?: "auto" | "fill" | "manual";
   onInit?(init: Init<Payload, Data>): void;
   onViolations?(errors: Violation[]): void;
   /** the decision was accepted; render read-only */
@@ -242,8 +238,6 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   readonly settings: Settings;
   /** keeps work in progress at once; it comes back in `init`. Throws for a value JSON cannot hold. */
   draft(data: unknown): void;
-  /** only for `resize: "manual"` */
-  resize(height: number | "fill"): void;
   /** what the app's hand-over button reads, such as "Hand over 3 of 5" */
   handOverLabel(text: string): void;
   /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */

@@ -18,7 +18,6 @@ export type Init = {
 export type Violation = { path: string; message: string };
 
 export type Handlers = {
-  resize?: "auto" | "fill" | "manual";
   onInit?: (init: Init) => void;
   onViolations?: (errors: Violation[]) => void;
   onSubmitted?: (decision: { data: Record<string, unknown> } | null) => void;

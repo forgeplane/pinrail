@@ -17,7 +17,6 @@ pub struct Plugin {
     pub version: String,
     pub title: String,
     pub path: PathBuf,
-    pub min_height: u32,
     pub dev: bool,
     /// The plugin's icon, the SVG markup of the file its manifest names,
     /// shown wherever the plugin is named; `icon_error` says why a declared
@@ -192,7 +191,6 @@ impl Plugin {
                 version: "0.0.0".into(),
                 title: String::new(),
                 path: dir.to_path_buf(),
-                min_height: 400,
                 dev: false,
                 icon: None,
                 icon_error: None,
@@ -388,12 +386,6 @@ impl Plugin {
             name,
             version,
             path: dir.to_path_buf(),
-            min_height: manifest
-                .get("min_height")
-                .and_then(Value::as_u64)
-                .filter(|n| *n > 0)
-                .map(|n| n as u32)
-                .unwrap_or(400),
             dev: manifest.get("dev") == Some(&Value::Bool(true)),
             icon,
             icon_error,
@@ -608,7 +600,6 @@ impl Plugin {
             "version": self.version,
             "title": self.title,
             "path": self.path.display().to_string(),
-            "min_height": self.min_height,
             "dev": self.dev,
             "icon": self.icon,
             "icon_error": self.icon_error,
@@ -1140,9 +1131,6 @@ mod tests {
             (json!({"version": true}), "version: "),
             (json!({"title": 3}), "title: "),
             (json!({"description": ["a"]}), "description: "),
-            (json!({"min_height": 0}), "min_height: "),
-            (json!({"min_height": "400"}), "min_height: "),
-            (json!({"min_height": 12.5}), "min_height: "),
             (json!({"dev": "yes"}), "dev: "),
         ];
         for (i, (changes, expected)) in cases.iter().enumerate() {
@@ -1342,6 +1330,25 @@ mod tests {
         );
     }
 
+    /// The frame fills the panel: a manifest that still asks for a height
+    /// is warned, naming the key, and loads.
+    #[test]
+    fn a_manifest_with_min_height_is_warned_about() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p = Plugin::load(&plugin_dir(tmp.path(), "tall", r#","min_height":600"#));
+        assert_eq!(p.error, None);
+        let warnings = p.verdict()["warnings"].clone();
+        assert!(
+            warnings
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|w| w["key"] == "min_height"),
+            "{warnings}"
+        );
+        assert!(p.to_json().get("min_height").is_none());
+    }
+
     /// A key that once named a file still loads the plugin, and says where
     /// the file always is now.
     #[test]
@@ -1400,7 +1407,7 @@ mod tests {
             json!({"$schema": "https://pinrail.dev/schemas/manifest.schema.json"}),
             json!({"a_key_from_a_newer_app": {"anything": true}}),
             json!({"icon": serde_json::Value::Null, "settings_schema": serde_json::Value::Null}),
-            json!({"title": "Sample", "description": "A sample.", "icon": "git-pull-request", "min_height": 200, "dev": true}),
+            json!({"title": "Sample", "description": "A sample.", "icon": "git-pull-request", "dev": true}),
             json!({"shortcuts": [{"keys": "cmd+shift+f", "does": "Fold", "group": "View"}]}),
         ];
         for (i, changes) in cases.iter().enumerate() {

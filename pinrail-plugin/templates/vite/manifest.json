@@ -11,6 +11,5 @@
         "values": { "true": { "label": "yes", "tone": "success" }, "false": { "label": "no", "tone": "danger" } }
       }
     }
-  },
-  "min_height": 200
+  }
 }

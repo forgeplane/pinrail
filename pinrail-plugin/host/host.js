@@ -74,7 +74,6 @@ export function createHost(options) {
     open,
     setSettings,
     label,
-    resize,
     appKey,
     handOverKey,
     onDefer,
@@ -243,11 +242,6 @@ export function createHost(options) {
         ready = true;
         init();
         if (onReady) onReady();
-        break;
-      case "resize":
-        if (!resize) break;
-        if (msg.height === "fill") resize("fill");
-        else if (typeof msg.height === "number" && Number.isFinite(msg.height)) resize(Math.ceil(msg.height));
         break;
       case "draft":
         if (saveDraft && !readonly()) saveDraft(msg.data);

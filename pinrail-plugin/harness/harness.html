@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><title>pinrail plugin harness</title></head>
 <body style="margin:0;background:#101216">
-<iframe id="plugin-frame" sandbox="allow-scripts" style="display:block;width:100%;height:600px;border:0"></iframe>
+<iframe id="plugin-frame" sandbox="allow-scripts" style="display:block;width:100%;height:100vh;border:0"></iframe>
 <script type="module">
 // A stand-in for the app, with the app's side of the protocol from
 // ../host/host.js, so a plugin can be exercised alone. It records every
@@ -18,7 +18,6 @@ let lastDraft = null;
 let lastStatus = null;
 let lastOpen = null;
 let lastSettingsSet = null;
-let pinnedHeight = null;
 // the test waiting on handOver(): resolved with what became of the request
 let waiting = null;
 // the test waiting on collect(): resolved once the view has answered
@@ -85,9 +84,6 @@ const host = connectFrame(frame, {
   },
   // the app opens it; here it is only recorded
   open: (url) => (lastOpen = url),
-  resize: (height) => {
-    if (pinnedHeight === null) frame.style.height = (height === "fill" ? 800 : Math.max(200, height)) + "px";
-  },
   observe: (direction, msg) => {
     if (direction !== "in") return;
     log.push(msg);
@@ -124,9 +120,9 @@ window.__shell = {
   settings(values) { host.send({ type: "settings", settings: values }); },
   /* a declared shortcut pressed while the shell had focus, as "shift+a" or "j" */
   sendKey(combo) { host.send(Object.assign({ type: "key" }, keyMessage(combo))); },
-  // Hold the frame at a height so a test can make the view scroll; the real
-  // shell caps it against the page, the harness otherwise grows to fit.
-  setFrameHeight(px) { pinnedHeight = px; frame.style.height = px + "px"; },
+  // The frame is the panel's height, as in the app; a test can change it,
+  // to make a view scroll.
+  setFrameHeight(px) { frame.style.height = px + "px"; },
   reload() { host.reload(); frame.src = frame.src; },
 };
 

@@ -33,6 +33,5 @@
         { "items": "/undecided", "label": "undecided" }
       ]
     }
-  },
-  "min_height": 400
+  }
 }
