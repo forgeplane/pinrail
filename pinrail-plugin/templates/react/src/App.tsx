@@ -8,7 +8,7 @@
 // come from the package, so `review.payload` is your payload.
 import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Init, Plugin, Violation } from "@forgeplane/pinrail-plugin/types";
+import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 export type Payload = { message: string };
 export type Decision = { ok: boolean };
@@ -21,8 +21,6 @@ const { Pinrail } = window;
 export const view = {
   /** the decision, or nothing while there is no answer to hand over */
   collect: (): Decision | undefined => undefined,
-  violations: (_errors: Violation[]) => {},
-  submitted: () => {},
 };
 
 /** A draft kept by an earlier release may have another shape: use it only
@@ -33,8 +31,9 @@ const draftOf = (kept: unknown): Draft =>
     : { ok: null };
 
 export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision> }) {
-  const [review, setReview] = useState(init.review);
-  const [readonly, setReadonly] = useState(init.readonly);
+  // the app closes the view once the decision is accepted: what it shows
+  // is the review as init handed it over
+  const { review, readonly } = init;
   const [draft, setDraft] = useState<Draft>(() => draftOf(init.draft));
   const [errors, setErrors] = useState("");
   // the connection calls `view` at any time, so it reads the draft from here
@@ -48,11 +47,6 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
       return;
     }
     return { ok };
-  };
-  view.violations = (errors) => setErrors(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
-  view.submitted = () => {
-    setReview(plugin.review!);
-    setReadonly(true);
   };
 
   // what the app's hand-over button says follows the answer

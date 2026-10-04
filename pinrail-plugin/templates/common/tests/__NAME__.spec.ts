@@ -21,7 +21,7 @@ test("renders the payload, and hands over the answer as the app does", async ({ 
   expect(handed).toMatchObject({ decision: { data: { ok: true } } });
 });
 
-test("asks for an answer before handing over, and shows what the app refuses", async ({ page }) => {
+test("asks for an answer before handing over, and leaves a refused decision to the app", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: basic() });
   // no answer yet: the view hands nothing over, and says why
   expect(await plugin.handOver()).toEqual({ deferred: true });
@@ -31,8 +31,11 @@ test("asks for an answer before handing over, and shows what the app refuses", a
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({ ok: false });
 
+  // the app lists a refused decision's violations under the view, so the
+  // view does not repeat them
   await plugin.sendViolations([{ path: "/ok", message: "value is not of type boolean" }]);
-  await expect(plugin.frame.locator("#errors")).toContainText("/ok: value is not of type boolean");
+  await page.waitForTimeout(200);
+  await expect(plugin.frame.locator("#errors")).toHaveText("");
 });
 
 test("a decided review renders read-only", async ({ page }) => {

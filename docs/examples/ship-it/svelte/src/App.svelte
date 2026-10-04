@@ -4,7 +4,6 @@
      decision, and `view` answers with it. The SDK is on the window from the
      script tag in index.html; the types come from the package. -->
 <script lang="ts" module>
-  import type { Violation } from "@forgeplane/pinrail-plugin/types";
 
   export type Payload = {
     service: string;
@@ -22,8 +21,6 @@
   export type View = {
     /** the decision, or nothing while there is no verdict to hand over */
     collect: () => Decision | undefined;
-    violations: (errors: Violation[]) => void;
-    submitted: () => void;
   };
 
   /** A draft kept by an earlier release may have another shape: use only
@@ -46,8 +43,9 @@
     $props();
 
   // the component is mounted afresh for each init, so it starts from it once
-  let review = $state(untrack(() => init.review));
-  let readonly = $state(untrack(() => init.readonly));
+  // the app closes the view once the decision is accepted: what it shows
+  // is the review as init handed it over
+  const { review, readonly } = untrack(() => init);
   let draft = $state<Draft>(untrack(() => draftOf(init.draft)));
   let error = $state("");
   // the object main.ts calls, kept for the life of the page: filled in once
@@ -60,13 +58,6 @@
       return;
     }
     return note.trim() ? { verdict, note: note.trim() } : { verdict };
-  };
-  handlers.violations = (errors) => {
-    error = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-  };
-  handlers.submitted = () => {
-    review = plugin.review!;
-    readonly = true;
   };
 
   function choose(verdict: Verdict) {
@@ -96,7 +87,7 @@
     plugin.handOverLabel(label);
   });
 
-  const decided = $derived(review.decision?.data);
+  const decided = review.decision?.data;
 </script>
 
 <svelte:document onkeydown={onKey} />

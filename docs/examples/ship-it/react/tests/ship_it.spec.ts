@@ -34,7 +34,7 @@ test("ship with a key, and a note, handed over when the app collects", async ({ 
   expect(await plugin.nextSubmit()).toEqual({ verdict: "ship", note: "Watch the canary for an hour" });
 });
 
-test("asks for a verdict first, and shows what the app refuses", async ({ page }) => {
+test("asks for a verdict first, and leaves a refused decision to the app", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: deploy() });
   const f = plugin.frame;
   await expect(f.getByRole("button", { name: /^Hold/ })).toBeVisible();
@@ -46,8 +46,11 @@ test("asks for a verdict first, and shows what the app refuses", async ({ page }
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({ verdict: "hold" });
 
+  // the app lists a refused decision's violations under the view, so the
+  // view does not repeat them
   await plugin.sendViolations([{ path: "/verdict", message: '"later" is not one of ["ship","hold"]' }]);
-  await expect(f.getByRole("alert")).toContainText("/verdict:");
+  await page.waitForTimeout(200);
+  await expect(f.getByRole("alert")).toHaveText("");
 });
 
 test("a draft comes back as it was left", async ({ page }) => {

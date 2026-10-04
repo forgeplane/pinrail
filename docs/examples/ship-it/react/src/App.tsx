@@ -5,7 +5,7 @@
 // from the package.
 import { CircleCheck, CircleX, Hand, Rocket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Init, Plugin, Violation } from "@forgeplane/pinrail-plugin/types";
+import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 export type Payload = {
   service: string;
@@ -23,8 +23,6 @@ type Draft = { verdict: Verdict | null; note: string };
 export const view = {
   /** the decision, or nothing while there is no verdict to hand over */
   collect: (): Decision | undefined => undefined,
-  violations: (_errors: Violation[]) => {},
-  submitted: () => {},
 };
 
 /** A draft kept by an earlier release may have another shape: use only what
@@ -38,8 +36,9 @@ function draftOf(kept: unknown): Draft {
 }
 
 export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision> }) {
-  const [review, setReview] = useState(init.review);
-  const [readonly, setReadonly] = useState(init.readonly);
+  // the app closes the view once the decision is accepted: what it shows
+  // is the review as init handed it over
+  const { review, readonly } = init;
   const [draft, setDraft] = useState<Draft>(() => draftOf(init.draft));
   const [error, setError] = useState("");
   // the connection calls `view` at any time, so it reads the draft from here
@@ -53,11 +52,6 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
       return;
     }
     return note.trim() ? { verdict, note: note.trim() } : { verdict };
-  };
-  view.violations = (errors) => setError(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
-  view.submitted = () => {
-    setReview(plugin.review!);
-    setReadonly(true);
   };
 
   function choose(verdict: Verdict) {

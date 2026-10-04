@@ -23,6 +23,4 @@ const plugin = Pinrail.connect<Payload, Decision>({
     ),
   // the app's hand-over button, or ⌘/Ctrl+Enter: the view's decision
   onCollect: () => view.collect(),
-  onViolations: (errors) => view.violations(errors),
-  onSubmitted: () => view.submitted(),
 });

@@ -4,7 +4,6 @@
      decision, and `view` answers with it. The SDK is on the window from the
      script tag in index.html; the types come from the package. -->
 <script lang="ts">
-import type { Violation } from "@forgeplane/pinrail-plugin/types";
 
 export type Payload = {
   service: string;
@@ -22,8 +21,6 @@ type Draft = { verdict: Verdict | null; note: string };
 export type View = {
   /** the decision, or nothing while there is no verdict to hand over */
   collect: () => Decision | undefined;
-  violations: (errors: Violation[]) => void;
-  submitted: () => void;
 };
 
 /** A draft kept by an earlier release may have another shape: use only what
@@ -39,12 +36,13 @@ function draftOf(kept: unknown): Draft {
 
 <script setup lang="ts">
 import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/vue";
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from "vue";
+import { onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
 import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 const props = defineProps<{ plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision>; view: View }>();
-const review = shallowRef(props.init.review);
-const readonly = ref(props.init.readonly);
+// the app closes the view once the decision is accepted: what it shows is
+// the review as init handed it over
+const { review, readonly } = props.init;
 const draft = ref<Draft>(draftOf(props.init.draft));
 const error = ref("");
 
@@ -55,13 +53,6 @@ props.view.collect = () => {
     return;
   }
   return note.trim() ? { verdict, note: note.trim() } : { verdict };
-};
-props.view.violations = (errors) => {
-  error.value = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-};
-props.view.submitted = () => {
-  review.value = props.plugin.review!;
-  readonly.value = true;
 };
 
 onMounted(() => document.addEventListener("keydown", onKey));
@@ -82,20 +73,20 @@ function writeNote(event: Event) {
 // keydown on the document itself, so the target is not always an element.
 function onKey(e: KeyboardEvent) {
   const typing = e.target instanceof Element && e.target.closest("textarea, input");
-  if (readonly.value || e.metaKey || e.ctrlKey || e.altKey || typing) return;
+  if (readonly || e.metaKey || e.ctrlKey || e.altKey || typing) return;
   if (e.key === "s") choose("ship");
   if (e.key === "h") choose("hold");
 }
 
 // what the app's hand-over button says follows the choice
 watchEffect(() => {
-  if (readonly.value) return;
+  if (readonly) return;
   const verdict = draft.value.verdict;
-  const label = verdict === "ship" ? `Ship ${review.value.payload.version}` : verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
+  const label = verdict === "ship" ? `Ship ${review.payload.version}` : verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
   props.plugin.handOverLabel(label);
 });
 
-const decided = computed(() => review.value.decision?.data);
+const decided = review.decision?.data;
 </script>
 
 <template>

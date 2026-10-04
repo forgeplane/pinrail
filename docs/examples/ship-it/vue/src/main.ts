@@ -8,7 +8,7 @@ import App, { type Decision, type Payload, type View } from "./App.vue";
 
 const { Pinrail } = window;
 // what the view on screen fills in, for the connection to call
-const view: View = { collect: () => undefined, violations: () => {}, submitted: () => {} };
+const view: View = { collect: () => undefined };
 let app: VueApp | null = null;
 
 const plugin = Pinrail.connect<Payload, Decision>({
@@ -19,6 +19,4 @@ const plugin = Pinrail.connect<Payload, Decision>({
   },
   // the app's hand-over button, or ⌘/Ctrl+Enter: the view's decision
   onCollect: () => view.collect(),
-  onViolations: (errors) => view.violations(errors),
-  onSubmitted: () => view.submitted(),
 });

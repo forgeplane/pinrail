@@ -1,7 +1,5 @@
 // What the connection in main.ts asks of the view on screen, and the shapes
 // of this plugin's payload, decision and draft.
-import type { Violation } from "@forgeplane/pinrail-plugin/types";
-
 export type Payload = { message: string };
 export type Decision = { ok: boolean };
 /** what is kept between reloads: the decision so far, answer still open */
@@ -10,8 +8,6 @@ export type Draft = { ok: boolean | null };
 export const view = {
   /** the decision, or nothing while there is no answer to hand over */
   collect: (): Decision | undefined => undefined,
-  violations: (_errors: Violation[]) => {},
-  submitted: () => {},
 };
 
 /** A draft kept by an earlier release may have another shape: use it only

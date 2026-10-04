@@ -16,8 +16,9 @@
 
   const { Pinrail } = window;
   // the component is mounted afresh for each init, so it starts from it once
-  let review = $state(untrack(() => init.review));
-  let readonly = $state(untrack(() => init.readonly));
+  // the app closes the view once the decision is accepted: what it shows
+  // is the review as init handed it over
+  const { review, readonly } = untrack(() => init);
   let draft = $state<Draft>(untrack(() => draftOf(init.draft)));
   let errors = $state("");
 
@@ -28,13 +29,6 @@
       return;
     }
     return { ok };
-  };
-  view.violations = (list) => {
-    errors = list.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-  };
-  view.submitted = () => {
-    review = plugin.review!;
-    readonly = true;
   };
 
   function pick(value: boolean) {
@@ -49,7 +43,7 @@
     plugin.handOverLabel(draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}`);
   });
 
-  const decided = $derived(review.decision?.data);
+  const decided = review.decision?.data;
 </script>
 
 <main class="plugin-content">

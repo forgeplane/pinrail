@@ -8,14 +8,15 @@
      come from the package, so `review.payload` is your payload. -->
 <script setup lang="ts">
 import { Check, X } from "@lucide/vue";
-import { ref, shallowRef, watchEffect } from "vue";
+import { ref, watchEffect } from "vue";
 import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
 import { draftOf, view, type Decision, type Draft, type Payload } from "./view";
 
 const props = defineProps<{ plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision> }>();
 const { Pinrail } = window;
-const review = shallowRef(props.init.review);
-const readonly = ref(props.init.readonly);
+// the app closes the view once the decision is accepted: what it shows is
+// the review as init handed it over
+const { review, readonly } = props.init;
 const draft = ref<Draft>(draftOf(props.init.draft));
 const errors = ref("");
 
@@ -27,13 +28,6 @@ view.collect = () => {
   }
   return { ok };
 };
-view.violations = (list) => {
-  errors.value = list.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-};
-view.submitted = () => {
-  review.value = props.plugin.review!;
-  readonly.value = true;
-};
 
 function pick(value: boolean) {
   draft.value = { ok: draft.value.ok === value ? null : value };
@@ -43,7 +37,7 @@ function pick(value: boolean) {
 
 // what the app's hand-over button says follows the answer
 watchEffect(() => {
-  if (readonly.value) return;
+  if (readonly) return;
   const ok = draft.value.ok;
   props.plugin.handOverLabel(ok === null ? "Hand over" : `Hand over: ${ok ? "yes" : "no"}`);
 });

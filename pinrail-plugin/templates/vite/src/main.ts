@@ -27,12 +27,6 @@ const plugin = Pinrail.connect<Payload, Decision>({
     choice = kept && typeof kept.ok === "boolean" ? kept.ok : null;
     render();
   },
-  onSubmitted() {
-    render();
-  },
-  onViolations(errors) {
-    errorsEl().textContent = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-  },
   // the decision, or nothing while the view needs more from the person
   onCollect() {
     return handOver();

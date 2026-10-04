@@ -42,13 +42,6 @@ const plugin = Pinrail.connect<Payload, Decision>({
     const note = draft.note.trim();
     return note ? { verdict: draft.verdict, note } : { verdict: draft.verdict };
   },
-  onViolations(errors) {
-    error = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-    render();
-  },
-  onSubmitted() {
-    render();
-  },
 });
 
 function choose(verdict: Verdict) {
