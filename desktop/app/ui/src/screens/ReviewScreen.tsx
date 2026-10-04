@@ -1,4 +1,16 @@
-import { Ban, ClipboardCheck, ClipboardX, Clock, Copy, ExternalLink, Maximize2, Minimize2, Send } from "lucide-react";
+import {
+  Ban,
+  ClipboardCheck,
+  ClipboardX,
+  Clock,
+  Copy,
+  ExternalLink,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  Send,
+  TriangleAlert,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { ApiError, api } from "../api/client";
@@ -600,12 +612,13 @@ export function ReviewScreen() {
 
       {flash ? <p className="notice">{flash}</p> : null}
       {newerInstalled ? (
-        <p className="notice" data-plugin-newer>
-          The plugin changed since this review was opened.{" "}
-          <button type="button" className="settings-reset-link" onClick={reopen} data-plugin-reload>
-            Reload
+        <div className="notice notice-warning" role="status" data-plugin-newer>
+          <TriangleAlert size={16} aria-hidden />
+          <span>The plugin changed since this review was opened. Reload to see the review with the new version.</span>
+          <button type="button" className="chrome-button" onClick={reopen} data-plugin-reload>
+            <RefreshCw size={13} /> Reload
           </button>
-        </p>
+        </div>
       ) : null}
       {current?.refused && review.status === "pending" ? (
         <p className="notice" data-plugin-refused>

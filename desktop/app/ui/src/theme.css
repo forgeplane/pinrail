@@ -1046,6 +1046,25 @@ h1 {
   color: var(--accent);
   font-weight: 600;
 }
+.notice-warning {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-color: color-mix(in srgb, var(--sev-major) 55%, transparent);
+  background: color-mix(in srgb, var(--sev-major) 12%, transparent);
+  color: var(--text);
+  font-size: 13px;
+}
+.notice-warning > svg {
+  flex: none;
+  color: var(--sev-major);
+}
+.notice-warning > span {
+  flex: 1;
+}
+.notice-warning .chrome-button {
+  flex: none;
+}
 .notice-danger {
   border-color: color-mix(in srgb, var(--danger) 40%, transparent);
   background: color-mix(in srgb, var(--danger) 6%, transparent);
