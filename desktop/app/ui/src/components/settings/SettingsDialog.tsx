@@ -1,7 +1,7 @@
 // The settings dialog: a rail of sections, each a page of groups. Every
 // control applies as it changes; nothing to save. Esc closes.
 
-import { Bell, Blocks, Database, FolderOpen, Info, Keyboard, Palette, Settings, Settings2, X } from "lucide-react";
+import { Bell, Blocks, Bot, Database, FolderOpen, Info, Keyboard, Palette, Settings, Settings2, X } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { Select } from "../Select";
@@ -16,16 +16,18 @@ import { describeSystem, useNotificationStatus } from "../../state/notifications
 import { Tooltip } from "../Tooltip";
 import { Segmented, ShortcutRecorder, Toggle } from "./controls";
 import { SettingsGroup, SettingsPage, SettingsRow } from "./layout";
+import { AgentsSection } from "./AgentsSection";
 import { CliRow } from "./CliRow";
 import { UpdatesRows } from "./UpdatesRow";
 import { PluginsSection } from "./PluginsSection";
 
-export type SettingsSection = "general" | "appearance" | "shortcuts" | "plugins" | "data" | "about";
+export type SettingsSection = "general" | "appearance" | "shortcuts" | "agents" | "plugins" | "data" | "about";
 
 const SECTIONS: { key: SettingsSection; label: string; icon: ReactNode }[] = [
   { key: "general", label: "General", icon: <Settings2 size={15} /> },
   { key: "appearance", label: "Appearance", icon: <Palette size={15} /> },
   { key: "shortcuts", label: "Shortcuts", icon: <Keyboard size={15} /> },
+  { key: "agents", label: "Agents", icon: <Bot size={15} /> },
   { key: "plugins", label: "Plugins", icon: <Blocks size={15} /> },
   { key: "data", label: "Data", icon: <Database size={15} /> },
   { key: "about", label: "About", icon: <Info size={15} /> },
@@ -419,6 +421,12 @@ export function SettingsDialog({
                   </SettingsRow>
                 ))}
               </SettingsGroup>
+            </SettingsPage>
+          ) : null}
+
+          {section === "agents" ? (
+            <SettingsPage title="Agents">
+              <AgentsSection open={open && section === "agents"} />
             </SettingsPage>
           ) : null}
 

@@ -1,6 +1,7 @@
 //! The desktop app starts the review server on loopback and shows the shell.
 //! Closing the window hides it; the app lives in the menu bar until "Quit".
 
+mod agent_skills;
 mod cli_install;
 mod feedback;
 mod headless;
@@ -138,6 +139,62 @@ async fn send_feedback(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     let body = body.clone();
     tauri::async_runtime::spawn_blocking(move || {
         feedback::send(&feedback::endpoint(), &content_type, &body)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn home() -> Result<PathBuf, String> {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| "HOME is not set".to_string())
+}
+
+/// The agents found on this computer, and whether each has the `pinrail`
+/// skill.
+#[tauri::command]
+async fn agents_status(app: AppHandle) -> Result<Vec<agent_skills::AgentStatus>, String> {
+    let version = app.package_info().version.to_string();
+    tauri::async_runtime::spawn_blocking(move || Ok(agent_skills::status(&home()?, &version)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// The skill as this version writes it, for an agent the app does not know.
+#[tauri::command]
+fn agent_skill(app: AppHandle) -> String {
+    agent_skills::skill_text(&app.package_info().version.to_string())
+}
+
+/// Writes or updates the `pinrail` skill for an agent, then reports as
+/// `agents_status`.
+#[tauri::command]
+async fn connect_agent(
+    app: AppHandle,
+    id: String,
+) -> Result<Vec<agent_skills::AgentStatus>, String> {
+    let version = app.package_info().version.to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let home = home()?;
+        agent_skills::connect(&home, &id, &version)?;
+        Ok(agent_skills::status(&home, &version))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Removes the app's `pinrail` skill from an agent, then reports as
+/// `agents_status`.
+#[tauri::command]
+async fn disconnect_agent(
+    app: AppHandle,
+    id: String,
+) -> Result<Vec<agent_skills::AgentStatus>, String> {
+    let version = app.package_info().version.to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let home = home()?;
+        agent_skills::disconnect(&home, &id)?;
+        Ok(agent_skills::status(&home, &version))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -487,6 +544,10 @@ pub fn run() {
             set_autostart,
             cli_status,
             install_cli,
+            agents_status,
+            agent_skill,
+            connect_agent,
+            disconnect_agent,
             open_notices,
             save_attachment,
             update_status,
