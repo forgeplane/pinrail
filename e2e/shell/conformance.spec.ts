@@ -75,13 +75,10 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   expect(conformance.attachmentProblems(await received(frame))).toEqual([]);
   expect(conformance.refusedAttachmentProblems(await received(frame))).toEqual([]);
 
-  // a setting the schema allows comes back as settings; one it refuses, as violations
-  await send(frame, { type: "settings_set", patch: { mode: "b" } });
-  await expect
-    .poll(async () => (await received(frame)).find((m) => m.type === "settings")?.settings)
-    .toEqual({ mode: "b" });
-  await send(frame, { type: "settings_set", patch: { mode: "z" } });
-  await expect.poll(async () => (await received(frame)).some((m) => m.type === "violations")).toBe(true);
+  // a setting the schema allows is kept and heard; one it refuses, refused
+  await send(frame, { type: "settings_set", req: 21, patch: { mode: "b" } });
+  await send(frame, { type: "settings_set", req: 22, patch: { mode: "z" } });
+  await expect.poll(async () => conformance.settingsProblems(await received(frame))).toEqual([]);
 
   // a draft comes back in init after a reload
   await send(frame, { type: "draft", data: { step: 2 } });

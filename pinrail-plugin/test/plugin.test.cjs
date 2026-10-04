@@ -468,7 +468,7 @@ test("icon markup takes the name, the colour of its text, and nothing from a pay
   assert.match(Pinrail.icon(null), /data-icon=""/, "a missing name is not a crash");
 });
 
-test("settings arrive with init and again as a message; setSetting asks the shell", () => {
+test("settings arrive with init and again as a message", () => {
   const env = fakeEnv();
   const seen = [];
   const plugin = Pinrail.createPlugin(env, {
@@ -485,14 +485,45 @@ test("settings arrive with init and again as a message; setSetting asks the shel
     ["settings", { diff: "inline", wrap: true }],
   ]);
 
-  plugin.setSetting("diff", "split");
-  assert.deepEqual(env.last("settings_set").msg, { pinrail: 1, type: "settings_set", patch: { diff: "split" } });
-
   // a shell that says nothing, or nonsense, about settings leaves them empty
   env.deliver(init());
   assert.deepEqual(plugin.settings, {});
   env.deliver(shell({ type: "settings", settings: [1, 2] }));
   assert.deepEqual(plugin.settings, {});
+});
+
+test("setSetting resolves with the settings the app kept, or rejects with why not", async () => {
+  const env = fakeEnv();
+  const violations = [];
+  const plugin = Pinrail.createPlugin(env, { resize: "manual", onViolations: (e) => violations.push(e) });
+  env.deliver(init({ settings: { diff: "split", wrap: true } }));
+
+  const kept = plugin.setSetting("diff", "inline");
+  const asked = env.last("settings_set").msg;
+  assert.deepEqual(asked, { pinrail: 1, type: "settings_set", req: asked.req, patch: { diff: "inline" } });
+  env.deliver(shell({ type: "settings", req: asked.req, ok: true }));
+  assert.deepEqual(await kept, { diff: "inline", wrap: true });
+  assert.deepEqual(plugin.settings, { diff: "inline", wrap: true });
+
+  const refused = plugin.setSetting("diff", "sideways");
+  const second = env.last("settings_set").msg;
+  assert.notEqual(second.req, asked.req);
+  env.deliver(
+    shell({
+      type: "settings",
+      req: second.req,
+      ok: false,
+      errors: [{ path: "/diff", message: "is not one of inline, split" }],
+    }),
+  );
+  await assert.rejects(refused, (error) => {
+    assert.deepEqual(error.violations, [{ path: "/diff", message: "is not one of inline, split" }]);
+    assert.match(error.message, /\/diff: is not one of inline, split/);
+    return true;
+  });
+  assert.deepEqual(plugin.settings, { diff: "inline", wrap: true });
+  // a refused setting is no refused decision
+  assert.deepEqual(violations, []);
 });
 
 test("a forwarded key lands on the document; junk is ignored", () => {

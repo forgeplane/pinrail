@@ -25,7 +25,7 @@
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
  *   plugin.open("https://example.com"); // the app asks the person, then opens it in the browser
  *   plugin.settings;                  // the plugin's own settings, as the manifest declares them
- *   plugin.setSetting("diff", "split"); // asks the shell to keep one; it comes back as `settings`
+ *   await plugin.setSetting("diff", "split"); // asks the app to keep one: the settings, or why not
  *
  * Pinrail.icon("check") returns the plugin's own icons/check.svg, beside the
  * view, as markup that takes the colour of the text around it:
@@ -125,8 +125,10 @@
       settings: {},
       capabilities: [],
     };
-    // file requests waiting on the shell, by request number
+    // file requests and settings changes waiting on the app, by request
+    // number, which the two share
     const asked = new Map();
+    const changing = new Map();
     let nextAsk = 1;
     let stopObserving = null;
 
@@ -223,12 +225,31 @@
           });
           startResize();
           break;
-        case "settings":
-          // A change in Settings, or the answer to setSetting: the values
-          // as they stand now, every key the manifest declares.
+        case "settings": {
+          // the answer to setSetting, by its request number
+          if (typeof data.req === "number") {
+            const waiting = changing.get(data.req);
+            if (!waiting) break;
+            changing.delete(data.req);
+            if (data.ok) {
+              state.settings = Object.assign({}, state.settings, waiting.patch);
+              waiting.resolve(state.settings);
+            } else {
+              const errors = Array.isArray(data.errors) ? data.errors : [];
+              const error = new Error(
+                `the app did not keep the setting: ${errors.map((e) => `${e.path || "/"}: ${e.message}`).join("; ")}`,
+              );
+              error.violations = errors;
+              waiting.reject(error);
+            }
+            break;
+          }
+          // A change in Settings, or through this view: the values as they
+          // stand now, every key the manifest declares.
           state.settings = settingsOf(data.settings);
           call("onSettings", state.settings);
           break;
+        }
         case "violations":
           call("onViolations", Array.isArray(data.errors) ? data.errors : []);
           break;
@@ -345,11 +366,17 @@
       get settings() {
         return state.settings;
       },
-      /* Asks the shell to keep a setting of this plugin's; the shell checks
-         it against the manifest and answers with `settings` (or with
-         `violations` when it will not have it). */
+      /* Asks the app to keep a setting of this plugin's. The app checks it
+         against the manifest's settings schema: the promise resolves with
+         the settings as they now stand, or rejects with an error whose
+         `violations` say why the app would not keep it. */
       setSetting(key, value) {
-        post({ type: "settings_set", patch: { [key]: value } });
+        return new Promise((resolve, reject) => {
+          const req = nextAsk++;
+          const patch = { [key]: value };
+          changing.set(req, { resolve, reject, patch });
+          post({ type: "settings_set", req, patch });
+        });
       },
       /* Keeps the person's work in progress, at once, so a reload right
          after a choice keeps it. What JSON cannot hold, such as a cycle or

@@ -46,7 +46,7 @@ tarball attached to its GitHub release.
   plugin.status({label: "Hand over anyway"});   // the label of the shell's button
   plugin.readonly; plugin.review; plugin.previous;
   plugin.settings;                      // the plugin's settings, with every key the manifest declares
-  plugin.setSetting("diff", "split");   // asks the shell to store a value; it comes back as `settings`
+  await plugin.setSetting("diff", "split"); // asks the app to keep a value: the settings, or why not
 </script>
 ```
 
@@ -86,12 +86,13 @@ from the view itself. `plugin.settings` holds the current values, and
 again and never changes its draft. The manifest keys are described in
 [Settings and keys](../docs/building/settings-and-keys.md).
 
-A view stores a value with `plugin.setSetting(key, value)`. The shell adds
-the plugin's name, so a view can change only its own settings, and the app
-checks the value against the schema. A value the app accepts comes back as
-`settings`. A value it refuses comes back as `violations`, with the path
-under `/plugins/<name>`. As a result, a control in the view and the row in
-Settings change the same value.
+A view stores a value with `plugin.setSetting(key, value)`. The app adds
+the plugin's name, so a view can change only its own settings, and checks
+the value against the schema. The promise `setSetting` returns resolves with
+the settings when the app keeps the value, and rejects when it refuses it:
+the error's `violations` say why. Every open view of the plugin hears the
+new values through `onSettings`. As a result, a control in the view and the
+row in Settings change the same value.
 
 ## Plugin keyboard shortcuts
 

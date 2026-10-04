@@ -343,20 +343,38 @@ test("a file that arrives after the frame moved to another review is not sent", 
   assert.equal(posted.filter((p) => p.msg.type === "attachment").length, 0);
 });
 
-test("a settings change the host refuses comes back as violations", async () => {
+test("a settings change is answered by its request number: kept, or refused with the errors", async () => {
   const patches = [];
-  const { from, last } = host({
+  const { from, posted } = host({
     options: {
       setSettings: async (patch) => (patches.push(patch), patch.mode === "z" ? [{ path: "/mode", message: "no" }] : []),
     },
   });
   from({ type: "ready" });
-  from({ type: "settings_set", patch: { mode: "b" } });
-  from({ type: "settings_set", patch: [1] });
-  from({ type: "settings_set", patch: { mode: "z" } });
+  from({ type: "settings_set", req: 1, patch: { mode: "b" } });
+  from({ type: "settings_set", req: 2, patch: [1] });
+  from({ type: "settings_set", req: 3, patch: { mode: "z" } });
+  // one with no number is not the protocol's
+  from({ type: "settings_set", patch: { mode: "c" } });
   await tick();
   assert.deepEqual(patches, [{ mode: "b" }, { mode: "z" }]);
-  assert.deepEqual(last("violations").errors, [{ path: "/mode", message: "no" }]);
+  // in the order the requests were made: an answer may come before an earlier one
+  const answers = posted
+    .filter((p) => p.msg.type === "settings")
+    .map((p) => p.msg)
+    .sort((a, b) => a.req - b.req);
+  assert.deepEqual(answers, [
+    { pinrail: PROTOCOL, type: "settings", req: 1, ok: true },
+    {
+      pinrail: PROTOCOL,
+      type: "settings",
+      req: 2,
+      ok: false,
+      errors: [{ path: "", message: "a settings change is an object of settings" }],
+    },
+    { pinrail: PROTOCOL, type: "settings", req: 3, ok: false, errors: [{ path: "/mode", message: "no" }] },
+  ]);
+  assert.equal(posted.filter((p) => p.msg.type === "violations").length, 0, "violations are for a decision alone");
 });
 
 test("every message in and out reaches the observer, after the host is let go nothing does", () => {

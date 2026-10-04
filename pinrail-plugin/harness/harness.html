@@ -74,6 +74,13 @@ const host = connectFrame(frame, {
     settle({ decision });
     return { ok: true, decision };
   },
+  // as the app: a change the settings schema refuses is answered with the
+  // errors; one it allows is kept for the next init
+  setSettings: async (patch) => {
+    const errors = await window.__pinrailCheckSettings(patch);
+    if (!errors.length && pending) pending = Object.assign({}, pending, { settings: Object.assign({}, pending.settings, patch) });
+    return errors;
+  },
   onDefer: () => {
     heard();
     settle({ deferred: true });

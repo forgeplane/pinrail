@@ -210,10 +210,23 @@ export function createHost(options) {
     }
   }
 
-  async function answerSettings(patch) {
-    if (!isObject(patch) || !setSettings) return;
-    const violations = await setSettings(patch);
-    if (violations && violations.length) send({ type: "violations", errors: violations });
+  /* A change to the plugin's own settings, by request number: the answer
+     says whether it was kept, and with the errors when it was not. Everyone
+     hears the values as they now stand as `settings`, from the host. */
+  async function answerSettings(msg) {
+    const { req, patch } = msg;
+    if (typeof req !== "number") return;
+    const refuse = (errors) => send({ type: "settings", req, ok: false, errors });
+    if (!isObject(patch)) return refuse([{ path: "", message: "a settings change is an object of settings" }]);
+    if (!setSettings) return refuse([{ path: "", message: "this host keeps no settings" }]);
+    let violations;
+    try {
+      violations = await setSettings(patch);
+    } catch (error) {
+      violations = [{ path: "", message: error instanceof Error ? error.message : String(error) }];
+    }
+    if (violations && violations.length) refuse(violations);
+    else send({ type: "settings", req, ok: true });
   }
 
   /** A message from the view's window. */
@@ -257,7 +270,7 @@ export function createHost(options) {
         } else if (appKey) appKey(msg);
         break;
       case "settings_set":
-        void answerSettings(msg.patch);
+        void answerSettings(msg);
         break;
       case "submit":
         void answerSubmit(msg);

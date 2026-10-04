@@ -136,12 +136,27 @@ function decisionChecker(pluginDir) {
   delete doc.$schema;
   delete doc.$id;
   const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(doc);
-  return (data) =>
-    validate(data) ? [] : validate.errors.map((e) => ({ path: e.instancePath, message: e.message }));
+  return (data) => (validate(data) ? [] : validate.errors.map((e) => ({ path: e.instancePath, message: e.message })));
 }
 
-/* The decision checker of the plugin mounted last on each page: a page can
-   expose a function only once, and a test may mount more than one plugin. */
+/** Checks a change to the plugin's settings against the manifest's
+ *  settings_schema, as the core does: the violations, or none. */
+function settingsChecker(manifest) {
+  const schema = manifest.settings_schema;
+  if (!schema || typeof schema !== "object") {
+    return () => [{ path: "", message: "the manifest declares no settings" }];
+  }
+  const doc = { ...schema };
+  delete doc.$schema;
+  delete doc.$id;
+  // a change names some of the settings, not all of them
+  delete doc.required;
+  const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(doc);
+  return (patch) => (validate(patch) ? [] : validate.errors.map((e) => ({ path: e.instancePath, message: e.message })));
+}
+
+/* The checkers of the plugin mounted last on each page: a page can expose a
+   function only once, and a test may mount more than one plugin. */
 const checkers = new WeakMap();
 
 async function mountPlugin(page, pluginDir, opts) {
@@ -195,9 +210,10 @@ async function mountPlugin(page, pluginDir, opts) {
 
   // the hand-over checks a decision in Node, where the schema validator is
   if (!checkers.has(page)) {
-    await page.exposeFunction("__pinrailCheckDecision", (data) => checkers.get(page)(data));
+    await page.exposeFunction("__pinrailCheckDecision", (data) => checkers.get(page).decision(data));
+    await page.exposeFunction("__pinrailCheckSettings", (patch) => checkers.get(page).settings(patch));
   }
-  checkers.set(page, checkDecision);
+  checkers.set(page, { decision: checkDecision, settings: settingsChecker(manifest) });
 
   // a view a build writes is not there until it runs: say so, rather than
   // time out on a frame that got a 404

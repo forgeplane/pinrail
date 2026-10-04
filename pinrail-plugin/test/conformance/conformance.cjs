@@ -90,6 +90,25 @@ function secondReadyProblems(received, before) {
   return problems;
 }
 
+/** The answers to `settings_set` 21, which the settings schema allows,
+ *  and 22, which it refuses: `settings` with the same `req`, kept or
+ *  refused with the errors; the new value heard as `settings`; and no
+ *  `violations`, which are for a decision alone. */
+function settingsProblems(received) {
+  const problems = [];
+  const kept = received.find((m) => m.type === "settings" && m.req === 21);
+  const refused = received.find((m) => m.type === "settings" && m.req === 22);
+  if (!kept) problems.push("no answer to settings_set 21");
+  else if (kept.ok !== true) problems.push("a setting the schema allows was refused");
+  if (!refused) problems.push("no answer to settings_set 22");
+  else if (refused.ok !== false || !Array.isArray(refused.errors) || !refused.errors.length)
+    problems.push("a setting the schema refuses was not refused with its errors");
+  if (!received.some((m) => m.type === "settings" && m.req === undefined && m.settings && m.settings.mode === "b"))
+    problems.push("the kept value was not heard as settings");
+  if (received.some((m) => m.type === "violations")) problems.push("a refused setting came back as violations");
+  return problems;
+}
+
 /** Every `collect` carries a request number of its own. */
 function collectProblems(received) {
   const reqs = received.filter((m) => m.type === "collect").map((m) => m.req);
@@ -105,6 +124,7 @@ function collectProblems(received) {
 const lastRequest = (received) => received.filter((m) => m.type === "collect").at(-1)?.req;
 
 module.exports = {
+  settingsProblems,
   collectProblems,
   lastRequest,
   handshakeProblems,

@@ -169,7 +169,11 @@ export type ShellMessage =
   /** asks for the decision; the view answers `submit` or `defer` with this `req` */
   | { pinrail: Protocol; type: "collect"; req: number }
   | { pinrail: Protocol; type: "appearance"; theme: Theme }
+  /** the plugin's settings changed, in the app or through the view */
   | { pinrail: Protocol; type: "settings"; settings: Settings }
+  /** the answer to the view's `settings_set` with this `req` */
+  | { pinrail: Protocol; type: "settings"; req: number; ok: true }
+  | { pinrail: Protocol; type: "settings"; req: number; ok: false; errors: Violation[] }
   | ({ pinrail: Protocol; type: "key" } & Key);
 
 /** Plugin → shell, over `postMessage`. */
@@ -182,7 +186,7 @@ export type PluginMessage =
   | { pinrail: Protocol; type: "submit"; req: number; data: any }
   /** nothing to hand over for the `collect` with this `req` yet */
   | { pinrail: Protocol; type: "defer"; req: number }
-  | { pinrail: Protocol; type: "settings_set"; patch: Settings }
+  | { pinrail: Protocol; type: "settings_set"; req: number; patch: Settings }
   | {
       pinrail: Protocol;
       type: "key";
@@ -244,8 +248,9 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   status(status: { label?: string }): void;
   /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */
   open(url: string): void;
-  /** asks the shell to keep one setting; it comes back as `settings`, or as `violations` */
-  setSetting(key: string, value: string | number | boolean): void;
+  /** asks the app to keep one setting: the settings as they now stand, or
+   *  a rejection whose error carries the `violations` */
+  setSetting(key: string, value: string | number | boolean): Promise<Settings>;
   /** the files the review carries */
   readonly attachments: Attachment[];
   /** a file's bytes, from the shell; `round: "previous"` for the round this one revises */
