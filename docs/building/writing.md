@@ -231,10 +231,10 @@ The full list of messages is in [The protocol](/docs/building/protocol/).
 
 Your view does not draw a submit button. The app puts one below every review, in the same place for every plugin, and sends `collect` when the person presses it or presses <kbd>⌘↵</kbd>. Because the button always belongs to the app, no plugin can send a decision on a single click. The person makes their choices first, and then hands them over.
 
-Tell the button what it will do with `plugin.status`:
+Tell the button what it will do with `plugin.handOverLabel`:
 
 ```js
-plugin.status({ label: `Hand over ${choices.size} of ${plugin.review.payload.tickets.length}` });
+plugin.handOverLabel(`Hand over ${choices.size} of ${plugin.review.payload.tickets.length}`);
 ```
 
 ### When the review is read-only

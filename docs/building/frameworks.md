@@ -58,7 +58,7 @@ The page loads the SDK and its stylesheet from the app, and your code from the b
 
 ## 3. The view
 
-The view connects to the app once, with `Pinrail.connect`, and draws the review from what `onInit` hands it. It keeps the person's choice as a draft, tells the hand-over button what it will do with `status`, and returns its decision from `onCollect` when the person hands over:
+The view connects to the app once, with `Pinrail.connect`, and draws the review from what `onInit` hands it. It keeps the person's choice as a draft, tells the hand-over button what it will do with `handOverLabel`, and returns its decision from `onCollect` when the person hands over:
 
 ![TypeScript](example:ship-it/vanilla/src/main.ts)
 ![React](example:ship-it/react/src/main.tsx) ![React](example:ship-it/react/src/App.tsx)

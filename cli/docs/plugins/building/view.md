@@ -24,7 +24,7 @@ const plugin = Pinrail.connect({
   onSubmitted() {},                               // accepted: show it read-only
 });
 plugin.draft(value);                              // keeps what the person entered across reloads
-plugin.status({ label: "Hand over: yes" });       // the hand-over button's words
+plugin.handOverLabel("Hand over: yes");       // the hand-over button's words
 ```
 
 - `onInit` runs again, read-only, when the review ends while the view is open, for example when the agent withdraws it. Draw the view from scratch each time.

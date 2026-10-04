@@ -13,7 +13,7 @@ None of this is required. The stylesheet is a set of defaults, and your own styl
 
 What makes a view feel native, whatever it draws:
 
-- **The app owns the hand-over.** Do not draw a submit button, and do not repeat the review's title. The app shows the title above the view and the hand-over button below it, in the same place for every plugin. A header of your own, such as the one `Pinrail.layout()` draws, can name what the view lists and show counts. Tell the hand-over button what it will do with `plugin.status`, such as *Hand over 3 of 5*.
+- **The app owns the hand-over.** Do not draw a submit button, and do not repeat the review's title. The app shows the title above the view and the hand-over button below it, in the same place for every plugin. A header of your own, such as the one `Pinrail.layout()` draws, can name what the view lists and show counts. Tell the hand-over button what it will do with `plugin.handOverLabel`, such as *Hand over 3 of 5*.
 - **Dense and quiet.** Text at 13px, one accent colour, lines rather than boxes. What matters is the work being reviewed, not the frame around it.
 - **Keys for the common path.** Most plugins move with <kbd>j</kbd> and <kbd>k</kbd> and give a verdict with one key each. Declare them in the manifest so the app lists them in its keyboard help (see [Settings and keys](/docs/building/settings-and-keys/)).
 - **Read-only is a full view.** A decided review is read months later: render what was there and what was decided, without the controls.

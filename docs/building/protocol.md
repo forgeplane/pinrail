@@ -17,7 +17,7 @@ Every message is a JSON object with the protocol version and a type:
 }
 ```
 
-The view announces itself with `ready`, and the app answers with `init`. With the SDK, `Pinrail.connect` sends `ready`, and a document calls it once. From then on, either side can send. A view sends `ready` once: a second `ready` from the frame means another page has taken the view's place, and the app sends nothing more to that frame. The app accepts messages only from the view's own frame. The view should accept messages only from the app: it checks that `event.source` is `window.parent`, and after `init`, that `event.origin` equals the `shell_origin` that `init` gives.
+The view announces itself with `ready`, and the app answers with `init`. With the SDK, `Pinrail.connect` sends `ready`, and a document calls it once. From then on, either side can send. A view sends `ready` once: a second `ready` from the frame means another page has taken the view's place, and the app sends nothing more to that frame. The app accepts messages only from the view's own frame. The view should accept messages only from the app: it checks that `event.source` is `window.parent`, and after `init`, that `event.origin` equals the `app_origin` that `init` gives.
 
 ```mermaid title="A review's life, from the view's side"
 sequenceDiagram
@@ -40,7 +40,7 @@ sequenceDiagram
 
 | Type | Fields | When |
 |---|---|---|
-| `init` | `review`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | In answer to `ready`. It comes again, with `readonly: true`, when the review stops being pending while the view is open, for example when the agent withdraws it. After the view's own hand-over, `submitted` comes instead. |
+| `init` | `review`, `previous`, `readonly`, `draft`, `settings`, `app_origin`, `capabilities` | In answer to `ready`. It comes again, with `readonly: true`, when the review stops being pending while the view is open, for example when the agent withdraws it. After the view's own hand-over, `submitted` comes instead. |
 | `attachment` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `attachment`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
 | `collect` | `req` | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. The view answers with `submit` or `defer` and the same `req`. |
 | `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema. |
@@ -60,7 +60,7 @@ sequenceDiagram
 | `readonly` | boolean | `true` whenever the review is not pending. |
 | `draft` | any or `null` | What the view last posted as a draft for this review. |
 | `settings` | object | The plugin's own settings: every key the manifest declares, with its current value. |
-| `shell_origin` | string | The app's origin. Accept messages from it alone. |
+| `app_origin` | string | The app's origin. Accept messages from it alone. |
 | `capabilities` | string array | What the app can do beyond the messages on this page. It is empty in this version; a later addition is named here, so a view can tell whether the app it runs in has it. |
 
 `review` and `previous` have these fields, and no others:
@@ -130,7 +130,7 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | `ready` | | The view is listening. The app answers with `init`. |
 | `resize` | `height`: a number, or `"fill"` | Sizes the frame. A number is the content height in pixels and the page scrolls; `"fill"` gives the view the viewport's height and the view scrolls inside. |
 | `draft` | `data` | Keeps work in progress. It comes back in `init` as `draft`, for as long as the app keeps running. |
-| `status` | `label` | What the app's hand-over button should read, such as `Hand over 3 of 5`. |
+| `status` | `label` | What the app's hand-over button should read, such as `Hand over 3 of 5`. With the SDK, `plugin.handOverLabel` sends it. |
 | `submit` | `req`, `data` | The decision, in answer to the `collect` with the same `req`. Validated against the decision schema. |
 | `defer` | `req` | Nothing to hand over for the `collect` with the same `req` yet. |
 | `settings_set` | `req`, `patch` | Writes the plugin's own settings. The app answers with `settings` and the same `req`, and everyone hears the values as they now stand as `settings`. With the SDK, `plugin.setSetting` returns a promise of the settings. |
@@ -196,7 +196,7 @@ addEventListener("message", (event) => {
   const msg = event.data;
   if (event.source !== parent) return;              // only the app's window
   if (!msg || msg.pinrail !== 1) return;
-  if (msg.type === "init") shell = msg.shell_origin;
+  if (msg.type === "init") shell = msg.app_origin;
   if (event.origin !== shell) return;              // and only the app's origin
 
   switch (msg.type) {
