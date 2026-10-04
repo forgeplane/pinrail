@@ -1674,6 +1674,11 @@ h1 {
 .button-primary:hover {
   background: color-mix(in srgb, var(--button-bg) 85%, black);
 }
+/* on the button's own colour, an icon takes its text colour */
+.chrome-button.button-primary svg,
+.chrome-button.button-danger svg {
+  color: inherit;
+}
 .button-primary:disabled {
   opacity: 0.5;
 }
