@@ -92,7 +92,7 @@ watchEffect(() => {
   if (readonly.value) return;
   const verdict = draft.value.verdict;
   const label = verdict === "ship" ? `Ship ${review.value.payload.version}` : verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
-  props.plugin.status({ label });
+  props.plugin.handOverLabel(label);
 });
 
 const decided = computed(() => review.value.decision?.data);

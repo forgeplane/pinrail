@@ -93,7 +93,7 @@
   $effect(() => {
     if (readonly) return;
     const label = draft.verdict === "ship" ? `Ship ${review.payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
-    plugin.status({ label });
+    plugin.handOverLabel(label);
   });
 
   const decided = $derived(review.decision?.data);

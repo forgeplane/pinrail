@@ -155,7 +155,7 @@ export function createHost(options) {
       readonly: locked,
       draft: locked ? null : loadDraft(),
       settings: settings() ?? {},
-      shell_origin: origin,
+      app_origin: origin,
       capabilities: typeof capabilities === "function" ? capabilities() : capabilities,
     });
   }

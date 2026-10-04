@@ -222,7 +222,7 @@ function handOver() {
 }
 
 function syncStatus() {
-  plugin.status({ label: S.armed ? "Hand over anyway" : "Hand over" });
+  plugin.handOverLabel(S.armed ? "Hand over anyway" : "Hand over");
 }
 
 /* ---------- render ---------- */

@@ -71,5 +71,5 @@ function render() {
   if (plugin.readonly) return;
   document.getElementById("yes").onclick = () => pick(true);
   document.getElementById("no").onclick = () => pick(false);
-  plugin.status({ label: choice === null ? "Hand over" : `Hand over: ${choice ? "yes" : "no"}` });
+  plugin.handOverLabel(choice === null ? "Hand over" : `Hand over: ${choice ? "yes" : "no"}`);
 }

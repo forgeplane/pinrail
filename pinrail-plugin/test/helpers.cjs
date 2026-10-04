@@ -144,7 +144,7 @@ const init = (extra = {}) =>
         previous: null,
         readonly: false,
         draft: null,
-        shell_origin: "http://shell.test",
+        app_origin: "http://shell.test",
       },
       extra,
     ),

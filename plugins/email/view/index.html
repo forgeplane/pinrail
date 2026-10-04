@@ -635,7 +635,7 @@ function syncStatus() {
   if (t.send) parts.push(`send ${t.send}`);
   if (t.revise) parts.push(`revise ${t.revise}`);
   if (t.discard) parts.push(`discard ${t.discard}`);
-  plugin.status({ label: parts.length ? `Hand over: ${parts.join(", ")}` : "Hand over" });
+  plugin.handOverLabel(parts.length ? `Hand over: ${parts.join(", ")}` : "Hand over");
 }
 
 function select(i) {

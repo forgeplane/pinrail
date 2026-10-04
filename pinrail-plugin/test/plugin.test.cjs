@@ -22,7 +22,7 @@ test("init hands the review, previous, readonly and draft to onInit and pins the
   assert.equal(seen[0].readonly, false);
   assert.deepEqual(seen[0].draft, { a: 1 });
   // what the view posts from now on goes to the app's origin alone
-  plugin.status({ label: "Go" });
+  plugin.handOverLabel("Go");
   assert.equal(env.last("status").target, "http://shell.test");
 });
 
@@ -149,12 +149,12 @@ test("resize: auto observes after init, fill posts once, manual posts nothing", 
   assert.deepEqual(manual.last("resize").msg.height, 500);
 });
 
-test("status tells the shell what handing over would do", () => {
+test("handOverLabel tells the app what its hand-over button reads", () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
   env.deliver(init());
 
-  plugin.status({ label: "Hand over 3 decisions" });
+  plugin.handOverLabel("Hand over 3 decisions");
   assert.deepEqual(env.last("status").msg, { pinrail: 1, type: "status", label: "Hand over 3 decisions" });
   assert.equal(env.last("status").target, "http://shell.test");
 });
@@ -419,6 +419,7 @@ test("the plugin object has the members a view uses, and no others", () => {
     "attachmentUrl",
     "attachments",
     "draft",
+    "handOverLabel",
     "open",
     "previous",
     "readonly",
@@ -426,7 +427,6 @@ test("the plugin object has the members a view uses, and no others", () => {
     "review",
     "setSetting",
     "settings",
-    "status",
     "theme",
   ]);
 });

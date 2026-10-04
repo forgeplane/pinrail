@@ -22,7 +22,7 @@
  * reads the theme off the frame's URL and sets data-theme on the document, so
  * the view is in the shell's theme from the frame it first paints.
  *   plugin.draft(data);               // kept at once; it comes back in onInit
- *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
+ *   plugin.handOverLabel("…");        // what the app's hand-over button reads
  *   plugin.open("https://example.com"); // the app asks the person, then opens it in the browser
  *   plugin.settings;                  // the plugin's own settings, as the manifest declares them
  *   await plugin.setSetting("diff", "split"); // asks the app to keep one: the settings, or why not
@@ -117,7 +117,7 @@
     handlers = handlers || {};
     const resizeMode = handlers.resize || "auto";
     const state = {
-      shellOrigin: null,
+      appOrigin: null,
       review: null,
       previous: null,
       readonly: false,
@@ -131,7 +131,7 @@
     let nextAsk = 1;
     let stopObserving = null;
 
-    const post = (msg) => env.post(Object.assign({ pinrail: PROTOCOL }, msg), state.shellOrigin || "*");
+    const post = (msg) => env.post(Object.assign({ pinrail: PROTOCOL }, msg), state.appOrigin || "*");
     /* An error of the view's own code: its handler, or none, the console. */
     const report = (error) => {
       if (handlers.onError) handlers.onError(error);
@@ -202,13 +202,13 @@
 
     function handle(data, origin) {
       if (!data || data.pinrail !== PROTOCOL || typeof data.type !== "string") return;
-      if (state.shellOrigin && origin !== state.shellOrigin) return;
+      if (state.appOrigin && origin !== state.appOrigin) return;
       switch (data.type) {
         case "init":
           // the origin the browser vouches for; the one the message names
           // must agree with it
-          if (data.shell_origin && origin && data.shell_origin !== origin) return;
-          if (!state.shellOrigin) state.shellOrigin = origin || data.shell_origin || null;
+          if (data.app_origin && origin && data.app_origin !== origin) return;
+          if (!state.appOrigin) state.appOrigin = origin || data.app_origin || null;
           state.review = data.review;
           state.previous = data.previous || null;
           state.readonly = !!data.readonly;
@@ -393,8 +393,9 @@
       resize(height) {
         post({ type: "resize", height });
       },
-      status(status) {
-        post({ type: "status", label: (status || {}).label });
+      /** what the app's hand-over button reads, such as "Hand over 3 of 5" */
+      handOverLabel(text) {
+        post({ type: "status", label: String(text) });
       },
       /* Undoes what the client set up: its listeners, its timer and the
          observer. For tests, which make a client per case; a view keeps its

@@ -32,7 +32,7 @@
       } catch (e) {
         payload = null;
         app.innerHTML = `<div class="fatal" role="alert"><h1>Unable to show these questions</h1><p>${esc(e.message)}</p></div>`;
-        plugin.status({ label: "Questions need correction" });
+        plugin.handOverLabel("Questions need correction");
         return;
       }
       render();
@@ -232,13 +232,11 @@
       el?.focus({ preventScroll: true });
       if (el?.tagName === "TEXTAREA" && focus.start !== null) el.setSelectionRange(focus.start, focus.end);
     }
-    plugin.status({
-      label: plugin.readonly
+    plugin.handOverLabel(plugin.readonly
         ? "Feedback recorded"
         : Object.keys(invalid).length
           ? `Complete ${Object.keys(invalid).length} ${Object.keys(invalid).length === 1 ? "question" : "questions"}`
-          : `Hand over ${answered} ${answered === 1 ? "answer" : "answers"}`,
-    });
+          : `Hand over ${answered} ${answered === 1 ? "answer" : "answers"}`);
   }
   function save() {
     shellErrors = [];

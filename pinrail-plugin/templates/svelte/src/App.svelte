@@ -46,7 +46,7 @@
   // what the app's hand-over button says follows the answer
   $effect(() => {
     if (readonly) return;
-    plugin.status({ label: draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}` });
+    plugin.handOverLabel(draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}`);
   });
 
   const decided = $derived(review.decision?.data);

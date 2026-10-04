@@ -238,7 +238,7 @@
     const focus = active?.action ? { ...active } : null;
     if (!payload) {
       app.innerHTML = `<div class="fatal" role="alert">${icon("calendar-x")}<h1>This calendar needs another look</h1><p>${esc(error)}</p></div>`;
-      plugin.status({ label: "Calendar data needs correction" });
+      plugin.handOverLabel("Calendar data needs correction");
       return;
     }
     const selected = C.selectedSlots(payload, state),
@@ -319,15 +319,13 @@
       );
       target?.focus({ preventScroll: true });
     }
-    plugin.status({
-      label: plugin.readonly
+    plugin.handOverLabel(plugin.readonly
         ? "Decision recorded"
         : unresolved
           ? `Choose ${unresolved} more ${unresolved === 1 ? "item" : "items"}`
           : handedBack
             ? `Hand over · ${selected.length} selected, ${handedBack}`
-            : `Hand over ${selected.length} ${selected.length === 1 ? "selection" : "selections"}`,
-    });
+            : `Hand over ${selected.length} ${selected.length === 1 ? "selection" : "selections"}`);
   }
   app.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-action]");

@@ -45,7 +45,7 @@ function pick(value: boolean) {
 watchEffect(() => {
   if (readonly.value) return;
   const ok = draft.value.ok;
-  props.plugin.status({ label: ok === null ? "Hand over" : `Hand over: ${ok ? "yes" : "no"}` });
+  props.plugin.handOverLabel(ok === null ? "Hand over" : `Hand over: ${ok ? "yes" : "no"}`);
 });
 
 const markdown = (source: string) => Pinrail.markdown(source);

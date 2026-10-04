@@ -58,7 +58,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
   // what the app's hand-over button says follows the answer
   useEffect(() => {
     if (readonly) return;
-    plugin.status({ label: draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}` });
+    plugin.handOverLabel(draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}`);
   }, [plugin, readonly, draft.ok]);
 
   function pick(value: boolean) {

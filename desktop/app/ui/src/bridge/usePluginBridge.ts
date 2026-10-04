@@ -10,7 +10,7 @@
 //                    defer {req} | status {label} | settings_set {patch} |
 //                    key {key, code, metaKey, ctrlKey, shiftKey} |
 //                    attachment {req, name, round?: "previous"}
-//   shell -> plugin: init {review, previous, readonly, draft, settings, shell_origin,
+//   shell -> plugin: init {review, previous, readonly, draft, settings, app_origin,
 //                          capabilities} |
 //                    violations {errors} | submitted {decision} | collect {req} |
 //                    appearance {theme} | settings {settings} |

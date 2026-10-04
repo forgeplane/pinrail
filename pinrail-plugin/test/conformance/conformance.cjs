@@ -35,7 +35,7 @@ function handshakeProblems(received) {
   if (typeof init.readonly !== "boolean") problems.push("init.readonly is not a boolean");
   if (!("draft" in init)) problems.push("init has no draft");
   if (!isObject(init.settings)) problems.push("init.settings is not an object");
-  if (typeof init.shell_origin !== "string") problems.push("init.shell_origin is not a string");
+  if (typeof init.app_origin !== "string") problems.push("init.app_origin is not a string");
   if (!Array.isArray(init.capabilities)) problems.push("init.capabilities is not a list");
   return problems;
 }

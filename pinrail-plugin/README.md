@@ -43,7 +43,7 @@ tarball attached to its GitHub release.
     onError(error) { … },                          // optional: a handler threw, or a decision is not JSON
   });
   plugin.draft(data);                   // kept at once; it comes back in onInit
-  plugin.status({label: "Hand over anyway"});   // the label of the shell's button
+  plugin.handOverLabel("Hand over anyway");   // the label of the shell's button
   plugin.readonly; plugin.review; plugin.previous;
   plugin.settings;                      // the plugin's settings, with every key the manifest declares
   await plugin.setSetting("diff", "split"); // asks the app to keep a value: the settings, or why not
@@ -341,7 +341,7 @@ app would take the plugin and with 2 when it would refuse it.
 ## Types
 
 ```ts
-import type { Manifest, Init, Review, ShellMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
+import type { Manifest, Init, Review, AppMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
 ```
 
 `types.d.ts` describes the protocol: every manifest key the app reads, the

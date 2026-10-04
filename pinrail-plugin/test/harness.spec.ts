@@ -118,7 +118,7 @@ test("a view takes init only from the shell that holds its frame", async ({ page
     const sibling = document.createElement("iframe");
     sibling.srcdoc = `<script>
       parent.document.querySelector("iframe").contentWindow.postMessage(
-        { pinrail: 1, type: "init", review: { title: "Forged", payload: {} }, shell_origin: parent.location.origin },
+        { pinrail: 1, type: "init", review: { title: "Forged", payload: {} }, app_origin: parent.location.origin },
         "*",
       );
     </script>`;

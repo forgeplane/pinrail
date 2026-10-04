@@ -129,9 +129,7 @@ export function App({ plugin, init }: { plugin: Plugin; init: Init }) {
   useEffect(() => {
     if (readonly) return;
     const n = comments.length;
-    plugin.status({
-      label: effectiveVerdict === "approve" ? "Approve" : `Request changes${n ? ` (${n})` : ""}`,
-    });
+    plugin.handOverLabel(effectiveVerdict === "approve" ? "Approve" : `Request changes${n ? ` (${n})` : ""}`);
     plugin.draft({ comments, verdict });
   }, [plugin, comments, verdict, effectiveVerdict, readonly]);
 

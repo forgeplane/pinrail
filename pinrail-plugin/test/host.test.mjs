@@ -68,7 +68,7 @@ test("ready is answered with the appearance, then init with every field", () => 
   assert.equal(init.readonly, false);
   assert.deepEqual(init.draft, { step: 2 });
   assert.deepEqual(init.settings, { mode: "a" });
-  assert.equal(init.shell_origin, "http://app.test");
+  assert.equal(init.app_origin, "http://app.test");
   assert.deepEqual(init.capabilities, []);
 });
 

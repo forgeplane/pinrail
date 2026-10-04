@@ -1,6 +1,6 @@
 // The app's side of the plugin protocol: what every host of a view uses.
 
-import type { Attachment, Capability, Decision, PluginMessage, Review, ShellMessage, Theme, Violation } from "../types";
+import type { Attachment, Capability, Decision, PluginMessage, Review, AppMessage, Theme, Violation } from "../types";
 
 export const PROTOCOL: 1;
 export const CAPABILITIES: Capability[];
@@ -13,7 +13,7 @@ export const COLLECT_TIMEOUT_MS: number;
 export type HandOverResult = { ok: true; decision: Decision } | { ok: false; violations: Violation[] } | null;
 
 /** A message the host sends, before the envelope is added. */
-export type Outgoing = { type: ShellMessage["type"] } & Record<string, unknown>;
+export type Outgoing = { type: AppMessage["type"] } & Record<string, unknown>;
 
 /** A review as the host reads it: it sends the whole object to the view,
  *  and reads only its id and the files it lists. */
@@ -21,8 +21,8 @@ export type HostReview = { id: string; attachments?: Attachment[] | null };
 
 export type HostOptions = {
   /** posts a message into the view's frame */
-  post: (message: ShellMessage, transfer: Transferable[]) => void;
-  /** the host's own origin, given to the view as `shell_origin` */
+  post: (message: AppMessage, transfer: Transferable[]) => void;
+  /** the host's own origin, given to the view as `app_origin` */
   origin: string;
   /** the review on screen, read whenever it is needed */
   review: () => HostReview | null;
@@ -58,7 +58,7 @@ export type HostOptions = {
   /** another page took the view's place in the frame */
   onLeft?: () => void;
   /** every message, as it comes in from the view or goes out to it */
-  observe?: (direction: "in" | "out", message: ShellMessage | PluginMessage) => void;
+  observe?: (direction: "in" | "out", message: AppMessage | PluginMessage) => void;
   capabilities?: Capability[];
 };
 
@@ -72,7 +72,7 @@ export type Host = {
   collect(): boolean;
   appearance(theme: Theme): void;
   settings(values: Record<string, unknown>): void;
-  key(fields: Omit<Extract<ShellMessage, { type: "key" }>, "pinrail" | "type">): void;
+  key(fields: Omit<Extract<AppMessage, { type: "key" }>, "pinrail" | "type">): void;
   send(message: Outgoing, transfer?: Transferable[]): void;
   /** the review or its state changed */
   changed(): void;

@@ -82,7 +82,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
         : draft.verdict === "hold"
           ? "Hold the deploy"
           : "Choose ship or hold";
-    plugin.status({ label });
+    plugin.handOverLabel(label);
   }, [plugin, review, readonly, draft.verdict]);
 
   // s and h decide. The app forwards them too when it has the focus, as a

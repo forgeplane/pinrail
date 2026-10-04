@@ -31,7 +31,7 @@ export type Plugin = {
   readonly readonly: boolean;
   readonly theme: "dark" | "light";
   draft: (data: unknown) => void;
-  status: (status: { label: string }) => void;
+  handOverLabel: (text: string) => void;
   /** a file the review carries, by the name its payload gives it */
   attachment: (name: string) => Promise<ArrayBuffer>;
 };

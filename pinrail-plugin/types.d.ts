@@ -2,7 +2,7 @@
  * The pinrail plugin protocol, version 1, as TypeScript: the manifest the app
  * reads, the envelope a view is handed, and the messages both ways.
  *
- *   import type { Manifest, Init, ShellMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
+ *   import type { Manifest, Init, AppMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
  *
  * At run time a view has `Pinrail` on the window from /sdk/v1/pinrail-plugin.js;
  * `PinrailSdk` below is its shape.
@@ -151,8 +151,8 @@ export type Key = {
 };
 
 /** Shell → plugin, over `postMessage`. */
-export type ShellMessage =
-  | ({ pinrail: Protocol; type: "init"; shell_origin: string; capabilities?: Capability[] } & Init)
+export type AppMessage =
+  | ({ pinrail: Protocol; type: "init"; app_origin: string; capabilities?: Capability[] } & Init)
   | {
       pinrail: Protocol;
       type: "attachment";
@@ -244,8 +244,8 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   draft(data: unknown): void;
   /** only for `resize: "manual"` */
   resize(height: number | "fill"): void;
-  /** what the shell's hand-over button should read */
-  status(status: { label?: string }): void;
+  /** what the app's hand-over button reads, such as "Hand over 3 of 5" */
+  handOverLabel(text: string): void;
   /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */
   open(url: string): void;
   /** asks the app to keep one setting: the settings as they now stand, or

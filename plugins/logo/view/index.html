@@ -229,7 +229,7 @@ function status() {
   if (kept) parts.push(`${kept} kept`);
   if (dropped) parts.push(`${dropped} dropped`);
   const label = S.armed ? `Hand over with ${d.undecided.length} undecided` : parts.length ? `Hand over: ${parts.join(", ")}` : "Hand over";
-  plugin.status({ label });
+  plugin.handOverLabel(label);
 }
 
 function renderTop() {
@@ -477,7 +477,7 @@ const plugin = Pinrail.connect({
     S.armed = false;
     S.keepScroll = true;
     render();
-    plugin.status({ label: `Check: ${errors[0]?.message ?? "the decision"}` });
+    plugin.handOverLabel(`Check: ${errors[0]?.message ?? "the decision"}`);
   },
   onCollect() { return handOver(); },
 });

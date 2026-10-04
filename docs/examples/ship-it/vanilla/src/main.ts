@@ -66,7 +66,7 @@ function render() {
       : draft.verdict === "hold"
         ? "Hold the deploy"
         : "Choose ship or hold";
-  if (!plugin.readonly) plugin.status({ label: status });
+  if (!plugin.readonly) plugin.handOverLabel(status);
 
   const decided = decision?.data;
   app.innerHTML = `

@@ -1261,11 +1261,9 @@ function collect() {
 function syncStatus() {
   if (RO()) return;
   const undecided = D.proposals.filter((p) => !decided(p.id)).length;
-  plugin.status({
-    label: !S.showSubmit ? "Review and hand over"
+  plugin.handOverLabel(!S.showSubmit ? "Review and hand over"
       : S.confirmSubmitArm ? `Hand over, ${undecided} undecided`
-      : "Hand over",
-  });
+      : "Hand over");
 }
 
 // WebKit keeps a text field focused when a button elsewhere is clicked; a

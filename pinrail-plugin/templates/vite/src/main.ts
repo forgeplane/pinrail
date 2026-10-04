@@ -79,5 +79,5 @@ function render() {
   if (plugin.readonly) return;
   el<HTMLButtonElement>("yes").onclick = () => pick(true);
   el<HTMLButtonElement>("no").onclick = () => pick(false);
-  plugin.status({ label: choice === null ? "Hand over" : `Hand over: ${choice ? "yes" : "no"}` });
+  plugin.handOverLabel(choice === null ? "Hand over" : `Hand over: ${choice ? "yes" : "no"}`);
 }
