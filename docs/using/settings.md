@@ -47,7 +47,7 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 
 | Setting | What it does |
 |---|---|
-| **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **Grok CLI**, **OpenCode** | *Connect* adds a global skill named `pinrail` to the agent. *Update* rewrites it after Pinrail was updated, and *Remove* takes it away. |
+| **Antigravity CLI**, **Claude Code**, **Codex**, **Cursor**, **Grok CLI**, **OpenCode** | *Connect* adds a global skill named `pinrail` to the agent. *Update* rewrites it after Pinrail was updated, and *Remove* takes it away. |
 
 The skill tells an agent how to submit a review and read your decision. It does not tell the agent when to ask: a prompt, your instructions or another skill does that by telling the agent to use Pinrail.
 

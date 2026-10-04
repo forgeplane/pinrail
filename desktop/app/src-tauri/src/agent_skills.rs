@@ -50,10 +50,10 @@ const AGENTS: &[Agent] = &[
         reads: &[],
     },
     Agent {
-        id: "gemini",
-        name: "Gemini CLI",
+        id: "antigravity",
+        name: "Antigravity CLI",
         config: ".gemini",
-        skills: ".gemini/skills",
+        skills: ".gemini/config/skills",
         reads: &[],
     },
     Agent {
@@ -300,8 +300,11 @@ mod tests {
     #[test]
     fn an_agent_that_is_not_installed_is_not_connected() {
         let home = home_with(&[]);
-        let refused = connect(home.path(), "gemini", "1.0.0").unwrap_err();
-        assert!(refused.contains("Gemini CLI is not installed"), "{refused}");
+        let refused = connect(home.path(), "antigravity", "1.0.0").unwrap_err();
+        assert!(
+            refused.contains("Antigravity CLI is not installed"),
+            "{refused}"
+        );
         assert!(!home.path().join(".gemini").exists());
     }
 
@@ -374,6 +377,18 @@ mod tests {
             "{refused}"
         );
         assert!(!home.path().join(".config/opencode/skills/pinrail").exists());
+    }
+
+    #[test]
+    fn antigravity_keeps_its_skills_in_geminis_config_folder() {
+        let home = home_with(&[".gemini"]);
+        connect(home.path(), "antigravity", "1.0.0").unwrap();
+        let path = home.path().join(".gemini/config/skills/pinrail/SKILL.md");
+        assert_eq!(fs::read_to_string(path).unwrap(), skill_text("1.0.0"));
+        assert_eq!(
+            state(home.path(), "antigravity", "1.0.0").state,
+            State::Connected
+        );
     }
 
     #[test]
