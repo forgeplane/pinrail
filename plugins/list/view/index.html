@@ -229,7 +229,7 @@ function syncStatus() {
 const sevClass = (s) => ["blocker", "major", "minor", "nit"].includes(s) ? `sev-${s}` : "sev-other";
 
 function previousLine(id) {
-  const prev = Pinrail.previousVerdict(previous, id);
+  const prev = previousVerdict(previous, id);
   if (!prev) return "";
   const text = prev.action + (prev.note ? ": " + prev.note : "");
   return `<div class="previous"><b>previous round:</b> ${esc(text)}</div>`;
@@ -314,6 +314,18 @@ function bind() {
   });
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
   on("disarm", () => { S.armed = false; render(); });
+}
+
+/* What the previous round decided for an item: its decision's
+   `decisions: [{ id, action, note }]` and `undecided: [id]`. The previous
+   round may come from an earlier release, so its shape is checked. */
+function previousVerdict(previous, id) {
+  const data = previous && previous.decision && previous.decision.data;
+  if (!data || typeof data !== "object") return null;
+  const d = (Array.isArray(data.decisions) ? data.decisions : []).find((x) => x && x.id === id);
+  if (d) return { action: d.action, note: d.note || "" };
+  if (Array.isArray(data.undecided) && data.undecided.includes(id)) return { action: "undecided", note: "" };
+  return null;
 }
 </script>
 </body>

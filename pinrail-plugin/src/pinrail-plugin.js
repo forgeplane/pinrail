@@ -39,7 +39,8 @@
  *   view.content.innerHTML = …          // render into this
  *   view.title("4 items").meta(["acme-api", "7 days"]);
  *
- * The same code runs in Node for tests through Pinrail.createPlugin(env, handlers).
+ * The same code runs in Node for the package's tests, with an environment of
+ * their own.
  */
 (function (root) {
   "use strict";
@@ -47,7 +48,6 @@
   const PROTOCOL = 1;
   /** The key of a client's teardown, for tests. */
   const TEARDOWN = Symbol.for("pinrail.teardown");
-  const VERSION = "1.0.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
   /** What `asJson` answers for data that cannot be sent. */
@@ -104,29 +104,12 @@
   const markdownInline = (src) => render("renderInline", src);
 
   /* A file a review carries is named in its payload as
-     { "$attachment": "pivot.glb" }. ATTACHMENT_SCHEMA is that object as JSON
-     Schema, to paste into a payload schema's $defs; attachmentName reads the
-     name back out, or gives null for anything else. */
-  const ATTACHMENT_SCHEMA = Object.freeze({
-    type: "object",
-    additionalProperties: false,
-    required: ["$attachment"],
-    properties: { $attachment: { type: "string", minLength: 1, maxLength: 120 } },
-    description: "A file sent beside the payload, by its name on the review.",
-  });
+     { "$attachment": "pivot.glb" }. attachmentName reads the name back out,
+     or gives null for anything else. The package's
+     schemas/attachment.schema.json describes the object for a payload
+     schema. */
   function attachmentName(ref) {
     return ref && typeof ref === "object" && typeof ref.$attachment === "string" ? ref.$attachment : null;
-  }
-
-  /* What the superseded round decided for an item id, for views whose
-     decision has `decisions: [{id, action, note}]` and `undecided: [id]`. */
-  function previousVerdict(previous, id) {
-    const data = previous && previous.decision && previous.decision.data;
-    if (!data) return null;
-    const d = (data.decisions || []).find((x) => x.id === id);
-    if (d) return { action: d.action, note: d.note || "" };
-    if ((data.undecided || []).includes(id)) return { action: "undecided", note: "" };
-    return null;
   }
 
   // The skeleton a view built with layout(), so auto sizing can measure the
@@ -141,7 +124,6 @@
       review: null,
       previous: null,
       readonly: false,
-      initialised: false,
       theme: (env.initialTheme && env.initialTheme()) || "dark",
       settings: {},
       capabilities: [],
@@ -252,7 +234,6 @@
           state.readonly = !!data.readonly;
           state.settings = settingsOf(data.settings);
           state.capabilities = Array.isArray(data.capabilities) ? data.capabilities : [];
-          state.initialised = true;
           // every JSON value a view kept comes back as it was, false and 0 too
           call("onInit", {
             review: state.review,
@@ -379,12 +360,6 @@
       },
       get readonly() {
         return state.readonly;
-      },
-      get shellOrigin() {
-        return state.shellOrigin;
-      },
-      get initialised() {
-        return state.initialised;
       },
       get theme() {
         return state.theme;
@@ -664,18 +639,17 @@
   }
 
   const Pinrail = {
-    version: VERSION,
     protocol: PROTOCOL,
     connect,
-    createPlugin,
     layout,
     icon,
     escape,
     markdown,
     markdownInline,
-    previousVerdict,
     attachmentName,
-    ATTACHMENT_SCHEMA,
+    // the client with an environment of the caller's, for the package's
+    // own tests in Node; no view needs it
+    [Symbol.for("pinrail.createPlugin")]: createPlugin,
   };
 
   // Before anything else this file does, and before the view's own script

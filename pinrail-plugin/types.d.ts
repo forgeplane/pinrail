@@ -234,8 +234,6 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   readonly review: Review<Payload, Data> | null;
   readonly previous: Review<unknown, unknown> | null;
   readonly readonly: boolean;
-  readonly shellOrigin: string | null;
-  readonly initialised: boolean;
   readonly theme: Theme;
   readonly settings: Settings;
   /** debounced; `{ flush: true }` posts at once */
@@ -280,7 +278,6 @@ export type Layout = {
 
 /** `window.Pinrail`, from /sdk/v1/pinrail-plugin.js. */
 export type PinrailSdk = {
-  version: string;
   protocol: Protocol;
   connect<Payload = unknown, Data = unknown>(handlers: Handlers<Payload, Data>): Plugin<Payload, Data>;
   /** the standard skeleton the stylesheet expects: a header that stays put and a body that scrolls */
@@ -292,12 +289,8 @@ export type PinrailSdk = {
   markdown(source: string): string;
   /** the same, for one line: no paragraph around it */
   markdownInline(source: string): string;
-  /** what the previous round decided for an item id, for `decisions: [{id, action, note}]` shapes */
-  previousVerdict(previous: Review | null, id: string | number): { action: string; note: string } | null;
   /** the name in `{ "$attachment": name }`, or null for anything else */
   attachmentName(ref: unknown): string | null;
-  /** `{ "$attachment": name }` as JSON Schema, for a payload schema's $defs */
-  readonly ATTACHMENT_SCHEMA: Record<string, unknown>;
 };
 
 declare global {

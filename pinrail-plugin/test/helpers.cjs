@@ -8,7 +8,11 @@ const { sdkScript } = require("../lib/paths.cjs");
 // the script the app serves, parser and all, not the source half of it
 const sdkFile = path.join(__dirname, "..", "src", "pinrail-plugin.js");
 vm.runInThisContext(sdkScript(path.join(__dirname, "..")), { filename: sdkFile });
-const Pinrail = globalThis.Pinrail;
+// the client with a fake environment, which the global keeps off its
+// documented members
+const Pinrail = Object.assign(Object.create(globalThis.Pinrail), {
+  createPlugin: globalThis.Pinrail[Symbol.for("pinrail.createPlugin")],
+});
 
 function fakeEnv() {
   const env = {

@@ -135,10 +135,8 @@ the text, as it does for `Pinrail.icon`.
 The plugin's own icon is `icon.svg`, at the top of its folder. The app
 shows it, drawn the same way, wherever it names the plugin.
 
-The SDK also provides two helpers. `Pinrail.escape(s)` escapes text for use
-in HTML. `Pinrail.previousVerdict(previous, id)` returns the verdict on an
-item in the previous round, for decisions shaped as
-`{ decisions: [{ id, action, note }], undecided: [id] }`.
+The SDK also provides `Pinrail.escape(s)`, which escapes text for use in
+HTML.
 
 ## Markdown
 
@@ -351,8 +349,8 @@ review a view receives, the messages in both directions, and the shape of
 
 ## Versions
 
-The package's version is the SDK's version (`Pinrail.version`), and its
-major version is the protocol's: the `1.x` package is the SDK the app serves
+The package's version is the SDK's version, and its major version is the
+protocol's (`Pinrail.protocol`): the `1.x` package is the SDK the app serves
 at `/sdk/v1`. The app copies `src/` into the files it serves on every build,
 so the app and the package contain the same files at every commit.
 

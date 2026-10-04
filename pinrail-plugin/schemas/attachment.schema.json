@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pinrail.dev/schemas/attachment.schema.json",
+  "title": "A file sent beside the payload",
+  "description": "How a payload names a file the review carries: { \"$attachment\": \"<name>\" }, the name it has on the review. Paste it into a payload schema's $defs and refer to it with $ref.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$attachment"
+  ],
+  "properties": {
+    "$attachment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    }
+  }
+}

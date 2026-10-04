@@ -277,7 +277,7 @@ function renderSheet() {
   const m = P.marks[S.sel];
   const pal = palette();
   const v = verdictOf(m.id) || {};
-  const prev = Pinrail.previousVerdict(plugin.previous, m.id);
+  const prev = previousVerdict(plugin.previous, m.id);
   const ro = plugin.readonly ? "disabled" : "";
   const both = (fn) => `${fn(pal.light, "light")}${fn(pal.dark, "dark")}`;
   const sizes = [16, 20, 24, 32, 48, 64, 128];
@@ -541,6 +541,18 @@ document.addEventListener("keydown", (e) => {
   else return;
   e.preventDefault();
 });
+
+/* What the previous round decided for an item: its decision's
+   `decisions: [{ id, action, note }]` and `undecided: [id]`. The previous
+   round may come from an earlier release, so its shape is checked. */
+function previousVerdict(previous, id) {
+  const data = previous && previous.decision && previous.decision.data;
+  if (!data || typeof data !== "object") return null;
+  const d = (Array.isArray(data.decisions) ? data.decisions : []).find((x) => x && x.id === id);
+  if (d) return { action: d.action, note: d.note || "" };
+  if (Array.isArray(data.undecided) && data.undecided.includes(id)) return { action: "undecided", note: "" };
+  return null;
+}
 </script>
 </body>
 </html>

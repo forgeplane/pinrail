@@ -21,8 +21,9 @@ test("init hands the review, previous, readonly and draft to onInit and pins the
   assert.equal(seen[0].previous.id, "g_0");
   assert.equal(seen[0].readonly, false);
   assert.deepEqual(seen[0].draft, { a: 1 });
-  assert.equal(plugin.shellOrigin, "http://shell.test");
-  assert.equal(plugin.initialised, true);
+  // what the view posts from now on goes to the app's origin alone
+  plugin.status({ label: "Go" });
+  assert.equal(env.last("status").target, "http://shell.test");
 });
 
 test("messages without the protocol marker, or from another origin once pinned, are ignored", () => {
@@ -310,7 +311,7 @@ test("a theme change neither re-initialises the view nor disturbs a draft", () =
   assert.equal(plugin.readonly, false);
 });
 
-test("escape, markdown and previousVerdict", () => {
+test("escape and markdown", () => {
   assert.equal(Pinrail.escape(`<a href="x">&'`), "&lt;a href=&quot;x&quot;&gt;&amp;&#39;");
 
   // The parser is the package's own dependency here and the app's in a
@@ -321,12 +322,6 @@ test("escape, markdown and previousVerdict", () => {
   assert.equal(Pinrail.markdown("<script>alert(1)</script>"), "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>\n");
   // and an address a click would run is not made a link at all
   assert.equal(Pinrail.markdown("[x](javascript:alert(1))"), "<p>[x](javascript:alert(1))</p>\n");
-
-  const previous = { decision: { data: { decisions: [{ id: 1, action: "reject", note: "no" }], undecided: [2] } } };
-  assert.deepEqual(Pinrail.previousVerdict(previous, 1), { action: "reject", note: "no" });
-  assert.deepEqual(Pinrail.previousVerdict(previous, 2), { action: "undecided", note: "" });
-  assert.equal(Pinrail.previousVerdict(previous, 3), null);
-  assert.equal(Pinrail.previousVerdict(null, 1), null);
 });
 
 test("layout builds a body on its own, and a header when asked for one", () => {
@@ -390,9 +385,38 @@ test("layout can be put somewhere other than the body", () => {
   assert.equal(view.scroll.children[0], view.content);
 });
 
-test("the module exposes a version and the protocol number", () => {
-  assert.equal(Pinrail.protocol, 1);
-  assert.match(Pinrail.version, /^\d+\.\d+\.\d+$/);
+test("window.Pinrail has the members a view uses, and no others", () => {
+  // what the app serves stays for good: each member here is a promise
+  assert.deepEqual(Object.keys(globalThis.Pinrail).sort(), [
+    "attachmentName",
+    "connect",
+    "escape",
+    "icon",
+    "layout",
+    "markdown",
+    "markdownInline",
+    "protocol",
+  ]);
+  assert.equal(globalThis.Pinrail.protocol, 1);
+});
+
+test("the plugin object has the members a view uses, and no others", () => {
+  const plugin = Pinrail.createPlugin(fakeEnv(), { resize: "manual" });
+  assert.deepEqual(Object.keys(plugin).sort(), [
+    "attachment",
+    "attachmentUrl",
+    "attachments",
+    "draft",
+    "open",
+    "previous",
+    "readonly",
+    "resize",
+    "review",
+    "setSetting",
+    "settings",
+    "status",
+    "theme",
+  ]);
 });
 
 test("icon markup takes the name, the colour of its text, and nothing from a payload", () => {
@@ -473,10 +497,8 @@ test("a forwarded key lands on the document; junk is ignored", () => {
   assert.deepEqual(env.keys, expected);
 });
 
-test("the SDK announces the package's version", () => {
+test("the package's major version is the protocol's", () => {
   const pkg = require("../package.json");
-  assert.equal(Pinrail.version, pkg.version);
-  assert.equal(Pinrail.protocol, 1);
   assert.equal(pkg.version.split(".")[0], String(Pinrail.protocol));
 });
 
@@ -561,12 +583,16 @@ test("attachment refuses a name the review does not list, and a shell that canno
   await assert.rejects(older.attachment("a.glb"), /cannot hand files to a view; update the app/);
 });
 
-test("attachmentName reads a reference, and ATTACHMENT_SCHEMA describes one", () => {
+test("attachmentName reads a reference, and the package's schema describes one", () => {
   assert.equal(Pinrail.attachmentName({ $attachment: "pivot.glb" }), "pivot.glb");
   for (const not of [null, "attachment:pivot.glb", { $attachment: 7 }, {}])
     assert.equal(Pinrail.attachmentName(not), null);
-  assert.deepEqual(Pinrail.ATTACHMENT_SCHEMA.required, ["$attachment"]);
-  assert.equal(Object.isFrozen(Pinrail.ATTACHMENT_SCHEMA), true);
+  const Ajv2020 = require("ajv/dist/2020").default;
+  const schema = require("../schemas/attachment.schema.json");
+  const valid = new Ajv2020({ strict: false }).compile(schema);
+  assert.equal(valid({ $attachment: "pivot.glb" }), true);
+  assert.equal(valid({ $attachment: "" }), false);
+  assert.equal(valid({ $attachment: "a", extra: 1 }), false);
 });
 
 test("the script a view loads names no source map, which nothing serves", () => {

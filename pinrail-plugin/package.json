@@ -27,7 +27,8 @@
     "./sdk/v1/pinrail-plugin.js": "./src/pinrail-plugin.js",
     "./sdk/v1/pinrail-plugin.css": "./src/pinrail-plugin.css",
     "./package.json": "./package.json",
-    "./schemas/manifest.schema.json": "./schemas/manifest.schema.json"
+    "./schemas/manifest.schema.json": "./schemas/manifest.schema.json",
+    "./schemas/attachment.schema.json": "./schemas/attachment.schema.json"
   },
   "files": [
     "LICENSE",

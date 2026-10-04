@@ -281,7 +281,7 @@ The payload names each file by an object with one key, `$attachment`:
 }
 ```
 
-Describe that field in your payload schema with `Pinrail.ATTACHMENT_SCHEMA`, pasted into `$defs`:
+Describe that field in your payload schema with this object in `$defs`. The SDK package has it as `schemas/attachment.schema.json`:
 
 ```json title="schemas/payload.schema.json"
 "$defs": {
