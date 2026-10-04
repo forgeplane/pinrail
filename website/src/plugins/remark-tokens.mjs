@@ -1,5 +1,5 @@
-// The SDK stylesheet's colour tokens, as swatches in both themes, read from
-// pinrail-plugin/src/pinrail-plugin.css when the site builds so the page
+// The SDK's colour tokens, as swatches in both themes, read from
+// pinrail-plugin/src/tokens.css when the site builds so the page
 // cannot drift from it. Written as `![alt](tokens:)` in a docs page.
 import fs from "node:fs";
 import path from "node:path";
@@ -8,7 +8,7 @@ import { visit } from "unist-util-visit";
 
 const stylesheet = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../../../pinrail-plugin/src/pinrail-plugin.css",
+  "../../../pinrail-plugin/src/tokens.css",
 );
 
 const escape = (s) =>
@@ -19,66 +19,61 @@ const GROUPS = [
   [
     "Surfaces",
     [
-      ["--bg", "The page"],
-      ["--bg-panel", "Headers, footers, items"],
-      ["--bg-raised", "Something above the page: a card, a popover"],
-      ["--bg-hover", "Under the pointer"],
+      ["--pinrail-bg", "The page"],
+      ["--pinrail-bg-panel", "Headers, items"],
+      ["--pinrail-bg-raised", "Something above the page: a card, a popover"],
+      ["--pinrail-bg-hover", "Under the pointer"],
     ],
   ],
   [
     "Lines",
     [
-      ["--border", "Dividers and quiet outlines"],
-      ["--border-strong", "Controls and fields"],
+      ["--pinrail-border", "Dividers and quiet outlines"],
+      ["--pinrail-border-strong", "Controls and fields"],
     ],
   ],
   [
     "Text",
     [
-      ["--text", "What is read"],
-      ["--dim", "Secondary text"],
-      ["--faint", "Labels, hints, ids"],
+      ["--pinrail-text", "What is read"],
+      ["--pinrail-dim", "Secondary text"],
+      ["--pinrail-faint", "Labels, hints, ids"],
     ],
   ],
   [
     "Accent",
     [
-      ["--accent", "Links, focus, what is selected"],
-      ["--accent-bg", "Behind what is selected"],
-      ["--button-bg", "The one primary button"],
+      ["--pinrail-accent", "Links, focus, what is selected"],
+      ["--pinrail-accent-bg", "Behind what is selected"],
+      ["--pinrail-button-bg", "The one primary button"],
     ],
   ],
   [
-    "State",
+    "Tones",
     [
-      ["--ok", "Done, accepted"],
-      ["--danger", "Refused, destructive"],
-    ],
-  ],
-  [
-    "Severity",
-    [
-      ["--sev-blocker", "Blocker"],
-      ["--sev-major", "Major"],
-      ["--sev-minor", "Minor"],
-      ["--sev-nit", "Nit"],
+      ["--pinrail-danger", "Refused, destructive, a blocker"],
+      ["--pinrail-warning", "Needs attention"],
+      ["--pinrail-info", "Worth knowing"],
+      ["--pinrail-success", "Done, accepted"],
+      ["--pinrail-neutral", "Neither"],
     ],
   ],
   [
     "Diffs",
     [
-      ["--add-bg", "An added line"],
-      ["--add-gut", "Its gutter"],
-      ["--del-bg", "A removed line"],
-      ["--del-gut", "Its gutter"],
+      ["--pinrail-add-bg", "An added line"],
+      ["--pinrail-add-gut", "Its gutter"],
+      ["--pinrail-del-bg", "A removed line"],
+      ["--pinrail-del-gut", "Its gutter"],
     ],
   ],
 ];
 
-/** The tokens a block of the stylesheet sets, `--name: value;` each. */
+/** The tokens a block of the stylesheet sets, `--name: value;` each. A
+ *  token block holds no braces of its own, so it ends at the first `}`. */
 function tokensIn(css, selector) {
   const at = css.indexOf(`${selector} {`);
-  const block = css.slice(at, css.indexOf("\n}", at));
+  const block = css.slice(at, css.indexOf("}", at));
   return Object.fromEntries([...block.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
 }
 

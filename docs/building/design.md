@@ -6,7 +6,7 @@ description: "How a view looks like part of Pinrail: the design language, the SD
 A view sits inside the app, between the review's header and the hand-over button, so the person reads it as part of Pinrail. This page is how to make it look that way with little effort: the conventions the built-in plugins follow, and what the SDK stylesheet gives you.
 
 :::tip[All of this is optional]
-None of this is required. The stylesheet is a set of defaults, and your own styles come after it and win. Use its tokens and ignore its classes, restyle everything, or bring a design system of your own, as long as it ships inside the plugin folder (see [Your own fonts, styles and scripts](#your-own-fonts-styles-and-scripts)).
+None of this is required. The stylesheet is a set of defaults: every rule in it is in a cascade layer, so any rule of your own wins, whatever its specificity. Use its tokens and ignore its classes, restyle everything, or bring a design system of your own, as long as it ships inside the plugin folder (see [Your own fonts, styles and scripts](#your-own-fonts-styles-and-scripts)).
 :::
 
 ## The design language
@@ -27,6 +27,12 @@ What makes a view feel native, whatever it draws:
 
 It sets the base (type, links, focus rings, code, tables, narrow scrollbars), the colour tokens below in both themes, and a few classes for the shapes most views need. It also styles what `Pinrail.markdown` renders: headings, lists, quotes, tables and code.
 
+Every class it defines starts with `pinrail-`, every token with `--pinrail-`, and every rule is in the cascade layer `pinrail`. A component library's own names, such as `.btn` or `--border`, therefore keep their meaning beside it. A view that brings such a library and wants only the palette links the tokens alone:
+
+```html
+<link rel="stylesheet" href="/sdk/v1/tokens.css">
+```
+
 ### Colour tokens
 
 Style with the tokens rather than with colours, and your view follows the app in both themes with no palette of its own to keep in step.
@@ -35,16 +41,16 @@ Style with the tokens rather than with colours, and your view follows the app in
 
 ```css
 .card {
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: var(--pinrail-bg-raised);
+  border: 1px solid var(--pinrail-border);
+  color: var(--pinrail-text);
 }
 .card .hint {
-  color: var(--faint);
+  color: var(--pinrail-faint);
 }
 ```
 
-`--sans` is the app's typeface stack, Inter first, and `--mono` its monospace one.
+The five tones are the ones the manifest's summary uses: `--pinrail-danger`, `--pinrail-warning`, `--pinrail-info`, `--pinrail-success` and `--pinrail-neutral`. `--pinrail-sans` is the app's typeface stack, Inter first, and `--pinrail-mono` its monospace one.
 
 ### Layout
 
@@ -58,38 +64,37 @@ view.title("4 tickets").meta(["acme-api"]);  // the header keeps its listeners
 
 | Class | What it is |
 |---|---|
-| `.plugin-layout` | The whole view: the header, then the scrolling body. |
-| `.plugin-header` | The bar at the top, with `.plugin-title`, `.plugin-meta` and `.plugin-controls`, pushed to the right. |
-| `.plugin-scroll`, `.plugin-content` | The body that scrolls, and its padded content. |
-| `.plugin-subhead` | A heading in the body that stays while its section is on screen. |
-| `.plugin-footer` | A bar that stays at the bottom. |
-| `.spacer` | Pushes what follows it to the end of a row. |
+| `.pinrail-layout` | The whole view: the header, then the scrolling body. |
+| `.pinrail-header` | The bar at the top, with `.pinrail-title`, `.pinrail-meta` and `.pinrail-controls`, pushed to the right. |
+| `.pinrail-scroll`, `.pinrail-content` | The body that scrolls, and its padded content. |
+| `.pinrail-subhead` | A heading in the body that stays while its section is on screen. |
+| `.pinrail-spacer` | Pushes what follows it to the end of a row. |
 
 ### Pieces
 
 | Class | What it is |
 |---|---|
-| `.item`, with `.head`, `.id`, `.title`, `.body`, `.controls` | One thing the person says yes or no to. |
-| `.btn`, `.btn.primary`, `.btn.danger`, `.btn.ghost` | Buttons. `aria-pressed="true"` marks the chosen one of a set. |
-| `.field`, `.note` | Inputs and text areas. |
-| `.notice.ok`, `.notice.warn`, `.notice.danger` | Something to tell the person, in the app's three tones. |
-| `.sev.sev-blocker`, `.sev-major`, `.sev-minor`, `.sev-nit` | Severity chips, in the app's four levels. |
-| `.meta` | A small monospace chip: a branch, a line number, an id. |
-| `.eyebrow`, `.dim`, `.faint` | A small label above a section, and quieter text. |
-| `.empty` | What to show when there is nothing to show. |
-| `.errors` | Violations the app sent back, as they came. |
+| `.pinrail-item`, with `.pinrail-item-head`, `-id`, `-title`, `-body` and `-controls` | One thing the person says yes or no to. |
+| `.pinrail-btn`, with `.pinrail-btn-primary`, `-danger` or `-ghost` | Buttons. `aria-pressed="true"` marks the chosen one of a set. |
+| `.pinrail-field`, `.pinrail-note` | Inputs and text areas. |
+| `.pinrail-notice`, with `.pinrail-notice-success`, `-warning` or `-danger` | Something to tell the person. |
+| `.pinrail-tone`, with `.pinrail-tone-danger`, `-warning`, `-info`, `-success` or `-neutral` | A label in one of the five tones, such as a severity. |
+| `.pinrail-chip` | A small monospace chip: a branch, a line number, an id. |
+| `.pinrail-eyebrow`, `.pinrail-dim`, `.pinrail-faint` | A small label above a section, and quieter text. |
+| `.pinrail-empty` | What to show when there is nothing to show. |
+| `.pinrail-errors` | Errors to show as they came. |
 
 ```html
-<div class="item">
-  <div class="head">
-    <span class="id">#101</span>
-    <span class="sev sev-major">major</span>
-    <span class="title">Export times out past 50k rows</span>
+<div class="pinrail-item">
+  <div class="pinrail-item-head">
+    <span class="pinrail-item-id">#101</span>
+    <span class="pinrail-tone pinrail-tone-warning">major</span>
+    <span class="pinrail-item-title">Export times out past 50k rows</span>
   </div>
-  <div class="body">Seen in three tickets this week.</div>
-  <div class="controls">
-    <button class="btn" aria-pressed="true">Close</button>
-    <button class="btn">Keep</button>
+  <div class="pinrail-item-body">Seen in three tickets this week.</div>
+  <div class="pinrail-item-controls">
+    <button class="pinrail-btn" aria-pressed="true">Close</button>
+    <button class="pinrail-btn">Keep</button>
   </div>
 </div>
 ```
@@ -146,7 +151,7 @@ A view loads nothing from the network, but everything in the plugin folder is se
   src: url("fonts/fraunces.woff2") format("woff2");
 }
 .title {
-  font-family: "Fraunces", var(--sans);
+  font-family: "Fraunces", var(--pinrail-sans);
 }
 ```
 

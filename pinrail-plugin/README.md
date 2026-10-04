@@ -110,7 +110,7 @@ SVG files in `view/icons/`, and `Pinrail.icon(name)` returns the markup for
 `icons/<name>.svg`:
 
 ```js
-`<button class="btn">${Pinrail.icon("check")} Accept</button>`
+`<button class="pinrail-btn">${Pinrail.icon("check")} Accept</button>`
 ```
 
 The app uses [Lucide](https://lucide.dev) icons, so Lucide icons fit its
@@ -199,9 +199,7 @@ The header appears only when you pass `title`, `meta`, `controls` or
 than `<body>`.
 
 The content area scrolls instead of the document, so a heading with the
-`.plugin-subhead` class stays pinned under the header. Automatic sizing
-still reports the height the view needs, because it measures the header and
-the content area instead of the document.
+`.pinrail-subhead` class stays pinned under the header.
 
 ## Tests
 

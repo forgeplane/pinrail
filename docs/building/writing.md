@@ -180,11 +180,11 @@ The view is one HTML page. It loads the SDK from the app, answers the handshake,
 
   function render() {
     view.content.innerHTML = plugin.review.payload.tickets.map((t) => `
-      <div class="item">
-        <div class="head"><span class="id">#${t.id}</span><span class="title">${Pinrail.escape(t.title)}</span></div>
-        <div class="controls">
-          <button class="btn" data-id="${t.id}" data-action="close" aria-pressed="${choices.get(t.id) === "close"}">Close</button>
-          <button class="btn" data-id="${t.id}" data-action="keep" aria-pressed="${choices.get(t.id) === "keep"}">Keep</button>
+      <div class="pinrail-item">
+        <div class="pinrail-item-head"><span class="pinrail-item-id">#${t.id}</span><span class="pinrail-item-title">${Pinrail.escape(t.title)}</span></div>
+        <div class="pinrail-item-controls">
+          <button class="pinrail-btn" data-id="${t.id}" data-action="close" aria-pressed="${choices.get(t.id) === "close"}">Close</button>
+          <button class="pinrail-btn" data-id="${t.id}" data-action="keep" aria-pressed="${choices.get(t.id) === "keep"}">Keep</button>
         </div>
       </div>`).join("");
   }

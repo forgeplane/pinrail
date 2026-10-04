@@ -6,23 +6,25 @@ menu: []
 # Design
 
 `/sdk/v1/pinrail-plugin.css` gives the app's base, colours and classes in
-both themes. Style with its tokens, never with colours, and the view
-follows the app's theme.
+both themes; `/sdk/v1/tokens.css` gives the colours alone. Style with the
+tokens, never with colours, and the view follows the app's theme. Every
+rule is in the cascade layer `pinrail`, so any rule of the view's wins.
 
-- Colours: `--bg`, `--bg-panel`, `--bg-raised`, `--bg-hover`, `--border`,
-  `--border-strong`, `--text`, `--dim`, `--faint`, `--accent`,
-  `--accent-bg`, `--button-bg`, `--ok`, `--danger`, `--sev-blocker`,
-  `--sev-major`, `--sev-minor`, `--sev-nit`, and for diffs `--add-bg`,
-  `--add-gut`, `--del-bg`, `--del-gut`.
-- Type: `--sans` and `--mono`; text at 13px.
+- Colours: `--pinrail-` then `bg`, `bg-panel`, `bg-raised`, `bg-hover`,
+  `border`, `border-strong`, `text`, `dim`, `faint`, `accent`,
+  `accent-bg`, `button-bg`; the tones `danger`, `warning`, `info`,
+  `success`, `neutral`; for diffs `add-bg`, `add-gut`, `del-bg`, `del-gut`.
+- Type: `--pinrail-sans` and `--pinrail-mono`; text at 13px.
 - Layout: `Pinrail.layout({ title, meta, controls })` builds
-  `.plugin-header` and a scrolling `.plugin-content`; render into
+  `.pinrail-header` and a scrolling `.pinrail-content`; render into
   `layout.content`.
-- Pieces: `.item` with `.head`, `.id`, `.title`, `.body`, `.controls`;
-  `.btn`, `.btn.primary`, `.btn.danger`, `.btn.ghost`, with
-  `aria-pressed="true"` on the chosen one; `.field`, `.note`;
-  `.notice.ok`, `.notice.warn`, `.notice.danger`; `.sev.sev-major` and the
-  other levels; `.meta`, `.eyebrow`, `.dim`, `.faint`, `.empty`, `.errors`.
+- Pieces: `.pinrail-item` with `.pinrail-item-head`, `-id`, `-title`,
+  `-body`, `-controls`; `.pinrail-btn` with `-primary`, `-danger`,
+  `-ghost`, and `aria-pressed="true"` on the chosen one;
+  `.pinrail-field`, `.pinrail-note`; `.pinrail-notice` with `-success`,
+  `-warning`, `-danger`; `.pinrail-tone` with a tone, such as
+  `.pinrail-tone-warning`; `.pinrail-chip`, `.pinrail-eyebrow`,
+  `.pinrail-dim`, `.pinrail-faint`, `.pinrail-empty`, `.pinrail-errors`.
 - Themes: the root element has `data-theme="dark"` or `"light"`; key any
   colour of your own on it. `onAppearance(theme)` says when it changes.
 - Icons, without a build: `Pinrail.icon(name)` draws `icons/<name>.svg`
