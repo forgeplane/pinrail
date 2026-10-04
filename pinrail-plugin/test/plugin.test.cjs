@@ -459,10 +459,9 @@ test("settings arrive with init and again as a message; setSetting asks the shel
   assert.deepEqual(plugin.settings, {});
 });
 
-test("a forwarded key lands on the document and on onKey; junk is ignored", () => {
+test("a forwarded key lands on the document; junk is ignored", () => {
   const env = fakeEnv();
-  const seen = [];
-  Pinrail.createPlugin(env, { resize: "manual", onKey: (k) => seen.push(k) });
+  Pinrail.createPlugin(env, { resize: "manual" });
   env.deliver(init());
   env.deliver(shell({ type: "key", key: "j", code: "KeyJ" }));
   env.deliver(shell({ type: "key", key: "M", code: "KeyM", metaKey: true, shiftKey: true }));
@@ -472,7 +471,6 @@ test("a forwarded key lands on the document and on onKey; junk is ignored", () =
     { key: "M", code: "KeyM", metaKey: true, ctrlKey: false, altKey: false, shiftKey: true },
   ];
   assert.deepEqual(env.keys, expected);
-  assert.deepEqual(seen, expected);
 });
 
 test("the SDK announces the package's version", () => {
@@ -627,4 +625,65 @@ test("a decision or draft held in reactive state is sent as the plain data it ho
     { pinrail: sent[0].pinrail, type: "submit", req: 1, data: { ok: true, items: [1, 2] } },
     { pinrail: sent[0].pinrail, type: "draft", data: { step: 2 } },
   ]);
+});
+
+// ---------------------------------------------------------------- step 3's defects
+
+test("a draft of false, 0 or an empty string comes back as it was", () => {
+  for (const kept of [false, 0, ""]) {
+    const env = fakeEnv();
+    const seen = [];
+    Pinrail.createPlugin(env, { resize: "manual", onInit: (i) => seen.push(i.draft) });
+    env.deliver(init({ draft: kept }));
+    assert.deepEqual(seen, [kept]);
+  }
+});
+
+test("a forwarded key reaches the view once, as a keydown", () => {
+  const env = fakeEnv();
+  const handled = [];
+  Pinrail.createPlugin(env, { resize: "manual", onKey: (k) => handled.push(k.key) });
+  env.deliver(init());
+  env.deliver(shell({ type: "key", key: "j", code: "KeyJ" }));
+  assert.equal(env.keys.length, 1);
+  assert.deepEqual(handled, [], "onKey is gone: the keydown is the one way");
+});
+
+test("a handler that throws in onInit does not stop the client", () => {
+  const env = fakeEnv();
+  const errors = [];
+  Pinrail.createPlugin(env, {
+    onInit() {
+      throw new Error("the view broke");
+    },
+    onError: (e) => errors.push(e.message),
+  });
+  env.deliver(init());
+  // the client still starts reporting the view's size
+  assert.equal(env.observers.length, 1);
+  assert.deepEqual(errors, ["the view broke"]);
+});
+
+test("submitted replaces the review the view holds, and leaves the old object as it was", () => {
+  const env = fakeEnv();
+  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  env.deliver(init());
+  const held = plugin.review;
+  env.deliver(shell({ type: "submitted", decision: { decided_by: "a", data: { ok: true } } }));
+  assert.notEqual(plugin.review, held);
+  assert.equal(held.status, "pending");
+  assert.equal(held.decision, null);
+  assert.equal(plugin.review.status, "decided");
+  assert.deepEqual(plugin.review.decision.data, { ok: true });
+});
+
+test("the teardown leaves no listener or timer of the client behind", () => {
+  const env = fakeEnv();
+  const plugin = Pinrail.createPlugin(env, { onInit() {} });
+  env.deliver(init());
+  plugin.draft({ step: 1 });
+  assert.ok(env.active() > 0);
+  plugin[Symbol.for("pinrail.teardown")]();
+  assert.equal(env.active(), 0);
+  assert.equal(env.timers.length, 0);
 });

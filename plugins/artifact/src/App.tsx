@@ -31,17 +31,38 @@ type Editing = {
   box: Box;
 };
 
-let connected: Plugin | null = null;
+/** What the connection in main.tsx asks of the view on screen. */
+export const view = {
+  collect: (): Decision | undefined => undefined,
+  violations: (_errors: Violation[]) => {},
+  submitted: (_decided: { data: Record<string, unknown> } | null) => {},
+};
 
-export function App() {
-  const [init, setInit] = useState<Init | null>(null);
-  const [readonly, setReadonly] = useState(false);
-  const [decision, setDecision] = useState<Decision | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [verdict, setVerdict] = useState<Verdict | null>(null);
+/** Where the review starts: its decision when it ended, otherwise the draft,
+ *  whose shape an earlier release may have written differently. */
+function startOf(init: Init): { decision: Decision | null; comments: Comment[]; verdict: Verdict | null } {
+  const data = init.review.decision?.data as Decision | undefined;
+  if (init.readonly && data) return { decision: data, comments: data.comments ?? [], verdict: data.verdict };
+  const draft = init.draft;
+  if (draft && Array.isArray(draft.comments)) {
+    const verdict = draft.verdict === "approve" || draft.verdict === "revise" ? draft.verdict : null;
+    return { decision: null, comments: draft.comments as Comment[], verdict };
+  }
+  return { decision: null, comments: [], verdict: null };
+}
+
+export function App({ plugin, init }: { plugin: Plugin; init: Init }) {
+  const [start] = useState(() => startOf(init));
+  const [readonly, setReadonly] = useState(init.readonly);
+  const [decision, setDecision] = useState<Decision | null>(start.decision);
+  const [comments, setComments] = useState<Comment[]>(start.comments);
+  const [verdict, setVerdict] = useState<Verdict | null>(start.verdict);
   const [errors, setErrors] = useState<Violation[]>([]);
   const [selecting, setSelecting] = useState(false);
-  const [viewport, setViewport] = useState<Viewport>("desktop");
+  const [viewport, setViewport] = useState<Viewport>(() => {
+    const wanted = (init.review.payload as Payload).viewport;
+    return wanted && VIEWPORTS.some((v) => v.key === wanted) ? wanted : "desktop";
+  });
   const [panel, setPanel] = useState(true);
   const [hover, setHover] = useState<{ box: Box; label: string } | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -54,66 +75,35 @@ export function App() {
   const host = useRef<HTMLDivElement>(null);
   const layer = useRef<HTMLDivElement>(null);
   const mounted = useRef<{ root: ShadowRoot; body: HTMLElement } | null>(null);
-  const plugin = useRef<Plugin | null>(null);
   const latest = useRef({ comments, verdict, readonly });
   latest.current = { comments, verdict, readonly };
 
-  const payload = (init?.review.payload ?? null) as Payload | null;
+  const payload = init.review.payload as Payload;
   const effectiveVerdict: Verdict = verdict ?? (comments.length > 0 ? "revise" : "approve");
 
-  // one connection for the page, whatever React does with this component
-  useEffect(() => {
-    if (connected) {
-      plugin.current = connected;
-      return;
-    }
-    connected = window.Pinrail.connect({
-      resize: "fill",
-      onInit(init) {
-        setInit(init);
-        setReadonly(init.readonly);
-        const data = init.review.decision?.data as Decision | undefined;
-        if (init.readonly && data) {
-          setDecision(data);
-          setComments(data.comments ?? []);
-          setVerdict(data.verdict);
-        } else if (init.draft && Array.isArray(init.draft.comments)) {
-          setComments(init.draft.comments as Comment[]);
-          setVerdict((init.draft.verdict as Verdict | undefined) ?? null);
-        }
-        const wanted = (init.review.payload as Payload).viewport;
-        if (wanted && VIEWPORTS.some((v) => v.key === wanted)) setViewport(wanted);
-      },
-      onViolations(errors) {
-        setErrors(errors);
-      },
-      onSubmitted(decided) {
-        setReadonly(true);
-        setSelecting(false);
-        setEditing(null);
-        if (decided?.data) setDecision(decided.data as Decision);
-      },
-      onCollect() {
-        const { comments, verdict, readonly } = latest.current;
-        if (readonly) return;
-        const data: Decision = { verdict: verdict ?? (comments.length > 0 ? "revise" : "approve"), comments };
-        return data;
-      },
-    });
-    plugin.current = connected;
-  }, []);
+  view.violations = setErrors;
+  view.submitted = (decided) => {
+    setReadonly(true);
+    setSelecting(false);
+    setEditing(null);
+    if (decided?.data) setDecision(decided.data as Decision);
+  };
+  view.collect = () => {
+    const { comments, verdict, readonly } = latest.current;
+    if (readonly) return;
+    return { verdict: verdict ?? (comments.length > 0 ? "revise" : "approve"), comments };
+  };
 
   // the document, inline or from the file the review carries
   useEffect(() => {
-    if (!payload) return;
     if (typeof payload.html === "string") {
       setHtml(payload.html);
       return;
     }
     const name = window.Pinrail.attachmentName(payload.file);
-    if (!name || !plugin.current) return;
+    if (!name) return;
     let gone = false;
-    plugin.current
+    plugin
       .attachment(name)
       .then((bytes) => !gone && setHtml(new TextDecoder().decode(bytes)))
       .catch(
@@ -123,7 +113,7 @@ export function App() {
     return () => {
       gone = true;
     };
-  }, [payload]);
+  }, [payload, plugin]);
 
   // the artifact goes into its shadow root once the document is here
   useEffect(() => {
@@ -137,13 +127,13 @@ export function App() {
 
   // the shell hears what the button should say, and keeps the draft
   useEffect(() => {
-    if (!plugin.current || !init || readonly) return;
+    if (readonly) return;
     const n = comments.length;
-    plugin.current.status({
+    plugin.status({
       label: effectiveVerdict === "approve" ? "Approve" : `Request changes${n ? ` (${n})` : ""}`,
     });
-    plugin.current.draft({ comments, verdict });
-  }, [comments, verdict, effectiveVerdict, init, readonly]);
+    plugin.draft({ comments, verdict });
+  }, [plugin, comments, verdict, effectiveVerdict, readonly]);
 
   // pins follow their elements
   useEffect(() => {
@@ -263,13 +253,11 @@ export function App() {
   }, [editing, selecting, readonly]);
 
   const previous = useMemo(() => {
-    const data = init?.previous?.decision?.data as Decision | undefined;
+    const data = init.previous?.decision?.data as Decision | undefined;
     return data?.comments ?? [];
   }, [init]);
 
   const width = VIEWPORTS.find((v) => v.key === viewport)?.width ?? null;
-
-  if (!init || !payload) return <div className="plugin-content dim">waiting for the shell…</div>;
 
   return (
     <div className={`app ${selecting ? "is-selecting" : ""} ${readonly ? "is-readonly" : ""}`}>

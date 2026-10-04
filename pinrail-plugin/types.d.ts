@@ -258,8 +258,6 @@ export type Handlers<Payload = unknown, Data = unknown> = {
   onAppearance?(theme: Theme): void;
   /** the plugin's own settings changed */
   onSettings?(settings: Settings): void;
-  /** a declared shortcut, pressed while the app rather than the frame had focus */
-  onKey?(key: Key): void;
 };
 
 export type Plugin<Payload = unknown, Data = unknown> = {
@@ -335,6 +333,11 @@ export type PinrailSdk = {
 declare global {
   interface Window {
     Pinrail: PinrailSdk;
+  }
+  interface KeyboardEvent {
+    /** true on a keydown the SDK dispatched for a shortcut the person
+     *  pressed while the app, not the view, had the focus */
+    readonly pinrailForwarded?: true;
   }
   /** the SDK, as a view's script sees it */
   var Pinrail: PinrailSdk;

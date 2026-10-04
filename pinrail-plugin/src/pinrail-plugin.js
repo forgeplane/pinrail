@@ -15,7 +15,6 @@
  *     onSubmitted(decision) { … },    // the decision was accepted; render read-only
  *     onAppearance(theme) { … },      // optional; "dark" | "light", already applied
  *     onSettings(settings) { … },     // optional; the plugin's own settings changed
- *     onKey(key) { … },               // optional; a declared shortcut pressed while the shell had focus
  *     onError(error) { … },           // optional; a handler threw, or a decision is not JSON
  *   });
  *
@@ -46,6 +45,8 @@
   "use strict";
 
   const PROTOCOL = 1;
+  /** The key of a client's teardown, for tests. */
+  const TEARDOWN = Symbol.for("pinrail.teardown");
   const VERSION = "1.0.0";
   const THEMES = ["dark", "light"];
   const DRAFT_DEBOUNCE_MS = 150;
@@ -157,6 +158,21 @@
       if (handlers.onError) handlers.onError(error);
       else if (env.logError) env.logError(error);
     };
+    /* Runs one of the view's handlers. One that throws is reported, and the
+       client carries on with its own work. */
+    const call = (name, ...args) => {
+      if (!handlers[name]) return;
+      try {
+        handlers[name](...args);
+      } catch (error) {
+        report(error);
+      }
+    };
+    // what the client set up, undone by the teardown tests use
+    const undo = [];
+    const keep = (stop) => {
+      if (typeof stop === "function") undo.push(stop);
+    };
     /* Decisions and drafts reach the app as JSON, so they are sent as the
        plain data they hold, whatever a framework keeps them in: a Vue
        reactive object or a Svelte $state proxy cannot be posted as it is.
@@ -178,6 +194,7 @@
         post({ type: "resize", height: "fill" });
       } else if (resizeMode === "auto" && !stopObserving && env.observeSize) {
         stopObserving = env.observeSize((height) => post({ type: "resize", height }));
+        keep(stopObserving);
       }
     }
 
@@ -236,32 +253,31 @@
           state.settings = settingsOf(data.settings);
           state.capabilities = Array.isArray(data.capabilities) ? data.capabilities : [];
           state.initialised = true;
-          if (handlers.onInit)
-            handlers.onInit({
-              review: state.review,
-              previous: state.previous,
-              readonly: state.readonly,
-              draft: data.draft || null,
-              settings: state.settings,
-            });
+          // every JSON value a view kept comes back as it was, false and 0 too
+          call("onInit", {
+            review: state.review,
+            previous: state.previous,
+            readonly: state.readonly,
+            draft: data.draft === undefined ? null : data.draft,
+            settings: state.settings,
+          });
           startResize();
           break;
         case "settings":
           // A change in Settings, or the answer to setSetting: the values
           // as they stand now, every key the manifest declares.
           state.settings = settingsOf(data.settings);
-          if (handlers.onSettings) handlers.onSettings(state.settings);
+          call("onSettings", state.settings);
           break;
         case "violations":
-          if (handlers.onViolations) handlers.onViolations(Array.isArray(data.errors) ? data.errors : []);
+          call("onViolations", Array.isArray(data.errors) ? data.errors : []);
           break;
         case "submitted":
           state.readonly = true;
-          if (state.review) {
-            state.review.decision = data.decision || null;
-            state.review.status = "decided";
-          }
-          if (handlers.onSubmitted) handlers.onSubmitted(data.decision || null);
+          // a new object, so the one the view holds is never changed under it
+          if (state.review)
+            state.review = Object.assign({}, state.review, { decision: data.decision || null, status: "decided" });
+          call("onSubmitted", data.decision || null);
           break;
         case "appearance":
           // The shell owns the theme; the plugin follows it. `data-theme` on
@@ -269,7 +285,7 @@
           if (THEMES.includes(data.theme)) {
             state.theme = data.theme;
             if (env.applyTheme) env.applyTheme(data.theme);
-            if (handlers.onAppearance) handlers.onAppearance(data.theme);
+            call("onAppearance", data.theme);
           }
           break;
         case "collect":
@@ -288,30 +304,29 @@
           break;
         }
         case "key":
-          // One of the manifest's shortcuts, pressed while the shell rather
+          // One of the manifest's shortcuts, pressed while the app rather
           // than the frame had focus. It lands as a keydown on the document,
-          // so a view that already listens for its keys needs no change.
-          if (typeof data.key === "string") {
-            const key = {
+          // marked pinrailForwarded, so the listener a view already has for
+          // its keys handles both.
+          if (typeof data.key === "string" && env.dispatchKey)
+            env.dispatchKey({
               key: data.key,
               code: typeof data.code === "string" ? data.code : "",
               metaKey: !!data.metaKey,
               ctrlKey: !!data.ctrlKey,
               altKey: !!data.altKey,
               shiftKey: !!data.shiftKey,
-            };
-            if (env.dispatchKey) env.dispatchKey(key);
-            if (handlers.onKey) handlers.onKey(key);
-          }
+            });
           break;
       }
     }
 
-    env.listen(handle);
-    if (env.onLink) env.onLink(open);
+    keep(env.listen(handle));
+    if (env.onLink) keep(env.onLink(open));
     // the app's own keys on the review screen reach it from inside the view
     // too, ⌘/Ctrl+Enter among them: the app starts the hand-over
-    if (env.onAppKey) env.onAppKey((key) => post(Object.assign({ type: "key" }, key)));
+    if (env.onAppKey) keep(env.onAppKey((key) => post(Object.assign({ type: "key" }, key))));
+    keep(() => env.clearTimeout(draftTimer));
     post({ type: "ready" });
 
     /* The bytes of a file the review carries, from the shell: a view's
@@ -401,6 +416,12 @@
       },
       status(status) {
         post({ type: "status", label: (status || {}).label });
+      },
+      /* Undoes what the client set up: its listeners, its timer and the
+         observer. For tests, which make a client per case; a view keeps its
+         connection for as long as its page lives. */
+      [TEARDOWN]() {
+        for (const stop of undo.splice(0)) stop();
       },
     };
   }
@@ -536,10 +557,13 @@
       post: (msg, targetOrigin) => win.parent.postMessage(msg, targetOrigin),
       // only the frame's parent is the shell: another frame on the page
       // may post to this one too
-      listen: (fn) =>
-        win.addEventListener("message", (e) => {
+      listen: (fn) => {
+        const listener = (e) => {
           if (e.source === win.parent) fn(e.data, e.origin);
-        }),
+        };
+        win.addEventListener("message", listener);
+        return () => win.removeEventListener("message", listener);
+      },
       setTimeout: (fn, ms) => win.setTimeout(fn, ms),
       clearTimeout: (t) => win.clearTimeout(t),
       observeSize: (cb) => {
@@ -568,8 +592,8 @@
       // A view's frame is sandboxed without allow-popups, so a link in it
       // opens nothing on its own and navigating the frame away from the view
       // is not what a click means either. The shell opens it instead.
-      onLink: (fn) =>
-        doc.addEventListener("click", (e) => {
+      onLink: (fn) => {
+        const listener = (e) => {
           if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
           const anchor = e.target && e.target.closest ? e.target.closest("a[href]") : null;
           if (!anchor) return;
@@ -585,16 +609,26 @@
             e.preventDefault();
           }
           // anything else, a fragment into the view among it, behaves as written
-        }),
+        };
+        doc.addEventListener("click", listener);
+        return () => doc.removeEventListener("click", listener);
+      },
       // ? for the keys, [ and ] for the rounds: the app's, so a press the
       // view left alone, outside a text field, goes up to it. ⌘/Ctrl+Enter
       // goes up from anywhere, a text field too: it is the hand-over.
-      onAppKey: (fn) =>
-        win.addEventListener("keydown", (e) => {
+      onAppKey: (fn) => {
+        const listener = (e) => {
           if (e.defaultPrevented || e.pinrailForwarded) return;
           if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === "Enter") {
             e.preventDefault();
-            fn({ key: "Enter", code: e.code || "Enter", metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: false, shiftKey: false });
+            fn({
+              key: "Enter",
+              code: e.code || "Enter",
+              metaKey: e.metaKey,
+              ctrlKey: e.ctrlKey,
+              altKey: false,
+              shiftKey: false,
+            });
             return;
           }
           if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -602,7 +636,10 @@
           const el = e.target;
           if (el && el.closest && el.closest("input, textarea, select, [contenteditable]")) return;
           fn({ key: e.key, code: e.code || "", metaKey: false, ctrlKey: false, altKey: false, shiftKey: !!e.shiftKey });
-        }),
+        };
+        win.addEventListener("keydown", listener);
+        return () => win.removeEventListener("keydown", listener);
+      },
       logError: (error) => win.console.error(error),
       objectUrl: (bytes, type) => win.URL.createObjectURL(new win.Blob([bytes], { type })),
     };
@@ -611,10 +648,25 @@
   // the keys the app answers on the review screen, which a view passes up
   const APP_KEYS = ["?", "[", "]"];
 
+  /* A document connects once. A second connect() is a mistake to catch
+     where it happens: the app would take its second `ready` for another
+     page in the view's place, and stop answering. Connect where the page
+     starts, not in a component that can mount more than once. */
+  let connected = false;
+  function connect(handlers) {
+    if (connected) {
+      throw new Error(
+        "Pinrail.connect was called twice in this document: connect once, where the page starts, and keep the plugin it returns",
+      );
+    }
+    connected = true;
+    return createPlugin(browserEnv(root), handlers);
+  }
+
   const Pinrail = {
     version: VERSION,
     protocol: PROTOCOL,
-    connect: (handlers) => createPlugin(browserEnv(root), handlers),
+    connect,
     createPlugin,
     layout,
     icon,

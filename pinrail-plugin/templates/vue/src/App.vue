@@ -1,74 +1,58 @@
 <!-- __TITLE__: one question, yes or no, in Vue.
-     The SDK is connected once, when the view mounts; what it hands over (the
-     review, whether it is read-only, the draft) becomes reactive state. The
-     app's hand-over button (or ⌘/Ctrl+Enter) asks for the decision, and
-     onCollect returns it. Replace the template and onCollect with your own.
+     main.ts connects to the app and mounts this with what the app handed
+     over (the review, whether it is read-only, the draft). The app's
+     hand-over button (or ⌘/Ctrl+Enter) asks for the decision, and `view`
+     answers with it. Replace the template and the decision with your own.
 
      The SDK is on the window from the script tag in index.html; the types
      come from the package, so `review.payload` is your payload. -->
 <script setup lang="ts">
 import { Check, X } from "@lucide/vue";
-import { onMounted, ref, watchEffect } from "vue";
-import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
+import { ref, shallowRef, watchEffect } from "vue";
+import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
+import { draftOf, view, type Decision, type Draft, type Payload } from "./view";
 
-type Payload = { message: string };
-type Decision = { ok: boolean };
-/** what is kept between reloads: the decision so far, answer still open */
-type Draft = { ok: boolean | null };
-
+const props = defineProps<{ plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision> }>();
 const { Pinrail } = window;
-const review = ref<Review<Payload, Decision> | null>(null);
-const readonly = ref(false);
-const draft = ref<Draft>({ ok: null });
+const review = shallowRef(props.init.review);
+const readonly = ref(props.init.readonly);
+const draft = ref<Draft>(draftOf(props.init.draft));
 const errors = ref("");
-let plugin: Plugin<Payload, Decision>;
 
-onMounted(() => {
-  plugin = Pinrail.connect<Payload, Decision>({
-    onInit(init) {
-      review.value = init.review;
-      readonly.value = init.readonly;
-      const kept = init.draft as Draft | null;
-      if (kept) draft.value = { ok: typeof kept.ok === "boolean" ? kept.ok : null };
-    },
-    // the decision, or nothing while there is no answer to hand over
-    onCollect() {
-      const { ok } = draft.value;
-      if (ok === null) {
-        errors.value = "Choose yes or no first.";
-        return;
-      }
-      return { ok };
-    },
-    onViolations(list) {
-      errors.value = list.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-    },
-    onSubmitted() {
-      review.value = { ...plugin.review! };
-      readonly.value = true;
-    },
-  });
-});
+view.collect = () => {
+  const { ok } = draft.value;
+  if (ok === null) {
+    errors.value = "Choose yes or no first.";
+    return;
+  }
+  return { ok };
+};
+view.violations = (list) => {
+  errors.value = list.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
+};
+view.submitted = () => {
+  review.value = props.plugin.review!;
+  readonly.value = true;
+};
 
 function pick(value: boolean) {
   draft.value = { ok: draft.value.ok === value ? null : value };
   errors.value = "";
-  plugin.draft(draft.value, { flush: true });
+  props.plugin.draft(draft.value, { flush: true });
 }
 
 // what the app's hand-over button says follows the answer
 watchEffect(() => {
-  if (!review.value || readonly.value) return;
+  if (readonly.value) return;
   const ok = draft.value.ok;
-  plugin.status({ label: ok === null ? "Hand over" : `Hand over: ${ok ? "yes" : "no"}` });
+  props.plugin.status({ label: ok === null ? "Hand over" : `Hand over: ${ok ? "yes" : "no"}` });
 });
 
 const markdown = (source: string) => Pinrail.markdown(source);
 </script>
 
 <template>
-  <p v-if="!review" class="plugin-content dim">waiting for the shell…</p>
-  <main v-else class="plugin-content">
+  <main class="plugin-content">
     <div v-html="markdown(review.payload.message)"></div>
     <p v-if="readonly && review.decision" class="dim">
       Decided: <b>{{ review.decision.data?.ok ? "yes" : "no" }}</b>

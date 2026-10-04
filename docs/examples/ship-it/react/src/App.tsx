@@ -1,12 +1,13 @@
-// Ship it? in React. The SDK is connected once, when the view mounts; what it
-// hands over (the review, whether it is read-only, the draft) becomes state,
-// and the page renders from it. The SDK is on the window from the script tag
-// in index.html; the types come from the package.
+// Ship it? in React. main.tsx connects to the app and renders this with what
+// the app handed over (the review, whether it is read-only, the draft). The
+// app's hand-over button asks for the decision, and `view` answers with it.
+// The SDK is on the window from the script tag in index.html; the types come
+// from the package.
 import { CircleCheck, CircleX, Hand, Rocket } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
+import type { Init, Plugin, Violation } from "@forgeplane/pinrail-plugin/types";
 
-type Payload = {
+export type Payload = {
   service: string;
   version: string;
   environment: string;
@@ -14,72 +15,75 @@ type Payload = {
   checks: { name: string; passed: boolean; detail?: string }[];
 };
 type Verdict = "ship" | "hold";
-type Decision = { verdict: Verdict; note?: string };
+export type Decision = { verdict: Verdict; note?: string };
 /** what is kept while the person decides: a verdict may not be chosen yet */
 type Draft = { verdict: Verdict | null; note: string };
 
-const { Pinrail } = window;
+/** What the connection in main.tsx asks of the view on screen. */
+export const view = {
+  /** the decision, or nothing while there is no verdict to hand over */
+  collect: (): Decision | undefined => undefined,
+  violations: (_errors: Violation[]) => {},
+  submitted: () => {},
+};
 
-export function App() {
-  const [review, setReview] = useState<Review<Payload, Decision> | null>(null);
-  const [readonly, setReadonly] = useState(false);
-  const [draft, setDraft] = useState<Draft>({ verdict: null, note: "" });
+/** A draft kept by an earlier release may have another shape: use only what
+ *  reads as this one's. */
+function draftOf(kept: unknown): Draft {
+  const d = kept && typeof kept === "object" ? (kept as Partial<Draft>) : {};
+  return {
+    verdict: d.verdict === "ship" || d.verdict === "hold" ? d.verdict : null,
+    note: typeof d.note === "string" ? d.note : "",
+  };
+}
+
+export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision> }) {
+  const [review, setReview] = useState(init.review);
+  const [readonly, setReadonly] = useState(init.readonly);
+  const [draft, setDraft] = useState<Draft>(() => draftOf(init.draft));
   const [error, setError] = useState("");
-  const plugin = useRef<Plugin<Payload, Decision> | null>(null);
-  // the SDK's callbacks are made once, so they read the draft from here
+  // the connection calls `view` at any time, so it reads the draft from here
   const latest = useRef(draft);
   latest.current = draft;
 
-  useEffect(() => {
-    plugin.current = Pinrail.connect<Payload, Decision>({
-      onInit({ review, readonly, draft }) {
-        setReview(review);
-        setReadonly(readonly);
-        if (draft) setDraft(draft as Draft);
-      },
-      // the decision, or nothing while there is no verdict to hand over
-      onCollect() {
-        const { verdict, note } = latest.current;
-        if (!verdict) {
-          setError("Choose ship or hold first.");
-          return;
-        }
-        return note.trim() ? { verdict, note: note.trim() } : { verdict };
-      },
-      onViolations(errors) {
-        setError(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
-      },
-      onSubmitted() {
-        setReview({ ...plugin.current!.review! });
-        setReadonly(true);
-      },
-    });
-  }, []);
+  view.collect = () => {
+    const { verdict, note } = latest.current;
+    if (!verdict) {
+      setError("Choose ship or hold first.");
+      return;
+    }
+    return note.trim() ? { verdict, note: note.trim() } : { verdict };
+  };
+  view.violations = (errors) => setError(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
+  view.submitted = () => {
+    setReview(plugin.review!);
+    setReadonly(true);
+  };
 
   function choose(verdict: Verdict) {
     const next = { ...latest.current, verdict };
     setDraft(next);
     setError("");
-    plugin.current!.draft(next, { flush: true });
+    plugin.draft(next, { flush: true });
   }
 
   function writeNote(note: string) {
     const next = { ...latest.current, note };
     setDraft(next);
-    plugin.current!.draft(next);
+    plugin.draft(next);
   }
 
   // what the app's hand-over button says follows the choice
   useEffect(() => {
-    if (!review || readonly) return;
+    if (readonly) return;
     const label =
       draft.verdict === "ship"
         ? `Ship ${review.payload.version}`
         : draft.verdict === "hold"
           ? "Hold the deploy"
           : "Choose ship or hold";
-    plugin.current!.status({ label });
-  }, [review, readonly, draft.verdict]);
+    plugin.status({ label });
+  }, [plugin, review, readonly, draft.verdict]);
 
   // s and h decide. The app forwards them too when it has the focus, as a
   // keydown on the document itself, so the target is not always an element.
@@ -94,7 +98,6 @@ export function App() {
     return () => document.removeEventListener("keydown", onKey);
   }, [readonly]);
 
-  if (!review) return null;
   const { payload } = review;
   const decided = review.decision?.data;
   return (

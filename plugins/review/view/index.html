@@ -317,6 +317,8 @@ const plugin = Pinrail.connect({
     set(() => { S.errors = errors; S.confirmSubmitArm = false; S.showSubmit = true; });
   },
   onSubmitted(decision) {
+    // the decided review, a new object: the one from init stays as it was
+    REVIEW = plugin.review;
     RO_FLAG = true;
     loadDecision(decision && decision.data);
     set(() => { S.done = true; S.showSubmit = false; S.composer = null; S.noteOpen = {}; S.errors = null; });

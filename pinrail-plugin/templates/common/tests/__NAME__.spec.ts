@@ -10,6 +10,8 @@ const basic = () => fixture(path.join(dir, "fixtures", "basic.json"));
 test("renders the payload, and hands over the answer as the app does", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: basic() });
   await expect(plugin.frame.locator("p").first()).toContainText("3 commits");
+  // the view connects once, however often its components mount
+  expect((await plugin.messages()).filter((m) => m.type === "ready")).toHaveLength(1);
 
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over: yes");

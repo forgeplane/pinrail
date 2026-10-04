@@ -1,13 +1,12 @@
-<!-- Ship it? in Svelte. The SDK is connected once, when the view mounts; what
-     it hands over (the review, whether it is read-only, the draft) becomes
-     state, and the markup renders from it. The SDK is on the window from the
+<!-- Ship it? in Svelte. main.ts connects to the app and mounts this with what
+     the app handed over (the review, whether it is read-only, the draft),
+     and the `view` it fills in. The app's hand-over button asks for the
+     decision, and `view` answers with it. The SDK is on the window from the
      script tag in index.html; the types come from the package. -->
-<script lang="ts">
-  import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/svelte";
-  import { onMount } from "svelte";
-  import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
+<script lang="ts" module>
+  import type { Violation } from "@forgeplane/pinrail-plugin/types";
 
-  type Payload = {
+  export type Payload = {
     service: string;
     version: string;
     environment: string;
@@ -15,42 +14,60 @@
     checks: { name: string; passed: boolean; detail?: string }[];
   };
   type Verdict = "ship" | "hold";
-  type Decision = { verdict: Verdict; note?: string };
+  export type Decision = { verdict: Verdict; note?: string };
   /** what is kept while the person decides: a verdict may not be chosen yet */
   type Draft = { verdict: Verdict | null; note: string };
 
-  const { Pinrail } = window;
-  let review = $state<Review<Payload, Decision> | null>(null);
-  let readonly = $state(false);
-  let draft = $state<Draft>({ verdict: null, note: "" });
-  let error = $state("");
-  let plugin: Plugin<Payload, Decision>;
+  /** What the connection in main.ts asks of the view on screen. */
+  export type View = {
+    /** the decision, or nothing while there is no verdict to hand over */
+    collect: () => Decision | undefined;
+    violations: (errors: Violation[]) => void;
+    submitted: () => void;
+  };
 
-  onMount(() => {
-    plugin = Pinrail.connect<Payload, Decision>({
-      onInit(init) {
-        review = init.review;
-        readonly = init.readonly;
-        if (init.draft) draft = init.draft as Draft;
-      },
-      // the decision, or nothing while there is no verdict to hand over
-      onCollect() {
-        const { verdict, note } = draft;
-        if (!verdict) {
-          error = "Choose ship or hold first.";
-          return;
-        }
-        return note.trim() ? { verdict, note: note.trim() } : { verdict };
-      },
-      onViolations(errors) {
-        error = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-      },
-      onSubmitted() {
-        review = { ...plugin.review! };
-        readonly = true;
-      },
-    });
-  });
+  /** A draft kept by an earlier release may have another shape: use only
+   *  what reads as this one's. */
+  function draftOf(kept: unknown): Draft {
+    const d = kept && typeof kept === "object" ? (kept as Partial<Draft>) : {};
+    return {
+      verdict: d.verdict === "ship" || d.verdict === "hold" ? d.verdict : null,
+      note: typeof d.note === "string" ? d.note : "",
+    };
+  }
+</script>
+
+<script lang="ts">
+  import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/svelte";
+  import { untrack } from "svelte";
+  import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
+
+  let { plugin, init, view }: { plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision>; view: View } =
+    $props();
+
+  // the component is mounted afresh for each init, so it starts from it once
+  let review = $state(untrack(() => init.review));
+  let readonly = $state(untrack(() => init.readonly));
+  let draft = $state<Draft>(untrack(() => draftOf(init.draft)));
+  let error = $state("");
+  // the object main.ts calls, kept for the life of the page: filled in once
+  const handlers = untrack(() => view);
+
+  handlers.collect = () => {
+    const { verdict, note } = draft;
+    if (!verdict) {
+      error = "Choose ship or hold first.";
+      return;
+    }
+    return note.trim() ? { verdict, note: note.trim() } : { verdict };
+  };
+  handlers.violations = (errors) => {
+    error = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
+  };
+  handlers.submitted = () => {
+    review = plugin.review!;
+    readonly = true;
+  };
 
   function choose(verdict: Verdict) {
     draft.verdict = verdict;
@@ -74,12 +91,12 @@
 
   // what the app's hand-over button says follows the choice
   $effect(() => {
-    if (!review || readonly) return;
+    if (readonly) return;
     const label = draft.verdict === "ship" ? `Ship ${review.payload.version}` : draft.verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
     plugin.status({ label });
   });
 
-  const decided = $derived(review?.decision?.data);
+  const decided = $derived(review.decision?.data);
 </script>
 
 <svelte:document onkeydown={onKey} />

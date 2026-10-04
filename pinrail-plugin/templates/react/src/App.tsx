@@ -1,73 +1,73 @@
 // __TITLE__: one question, yes or no, in React.
-// The SDK is connected once, when the view mounts; what it hands over (the
-// review, whether it is read-only, the draft) becomes state. The app's
-// hand-over button (or ⌘/Ctrl+Enter) asks for the decision, and onCollect
-// returns it. Replace the markup and onCollect with your own.
+// main.tsx connects to the app and renders this with what the app handed
+// over (the review, whether it is read-only, the draft). The app's
+// hand-over button (or ⌘/Ctrl+Enter) asks for the decision, and `view`
+// answers with it. Replace the markup and the decision with your own.
 //
 // The SDK is on the window from the script tag in index.html; the types
 // come from the package, so `review.payload` is your payload.
 import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
+import type { Init, Plugin, Violation } from "@forgeplane/pinrail-plugin/types";
 
-type Payload = { message: string };
-type Decision = { ok: boolean };
+export type Payload = { message: string };
+export type Decision = { ok: boolean };
 /** what is kept between reloads: the decision so far, answer still open */
 type Draft = { ok: boolean | null };
 
 const { Pinrail } = window;
 
-export function App() {
-  const [review, setReview] = useState<Review<Payload, Decision> | null>(null);
-  const [readonly, setReadonly] = useState(false);
-  const [draft, setDraft] = useState<Draft>({ ok: null });
+/** What the connection in main.tsx asks of the view on screen. */
+export const view = {
+  /** the decision, or nothing while there is no answer to hand over */
+  collect: (): Decision | undefined => undefined,
+  violations: (_errors: Violation[]) => {},
+  submitted: () => {},
+};
+
+/** A draft kept by an earlier release may have another shape: use it only
+ *  when it reads as this one's. */
+const draftOf = (kept: unknown): Draft =>
+  kept && typeof kept === "object" && typeof (kept as Draft).ok === "boolean"
+    ? { ok: (kept as Draft).ok }
+    : { ok: null };
+
+export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision> }) {
+  const [review, setReview] = useState(init.review);
+  const [readonly, setReadonly] = useState(init.readonly);
+  const [draft, setDraft] = useState<Draft>(() => draftOf(init.draft));
   const [errors, setErrors] = useState("");
-  const plugin = useRef<Plugin<Payload, Decision> | null>(null);
-  // the SDK's callbacks are made once, so they read the draft from here
+  // the connection calls `view` at any time, so it reads the draft from here
   const latest = useRef(draft);
   latest.current = draft;
 
-  useEffect(() => {
-    plugin.current = Pinrail.connect<Payload, Decision>({
-      onInit({ review, readonly, draft }) {
-        setReview(review);
-        setReadonly(readonly);
-        const kept = draft as Draft | null;
-        if (kept) setDraft({ ok: typeof kept.ok === "boolean" ? kept.ok : null });
-      },
-      // the decision, or nothing while there is no answer to hand over
-      onCollect() {
-        const { ok } = latest.current;
-        if (ok === null) {
-          setErrors("Choose yes or no first.");
-          return;
-        }
-        return { ok };
-      },
-      onViolations(errors) {
-        setErrors(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
-      },
-      onSubmitted() {
-        setReview({ ...plugin.current!.review! });
-        setReadonly(true);
-      },
-    });
-  }, []);
+  view.collect = () => {
+    const { ok } = latest.current;
+    if (ok === null) {
+      setErrors("Choose yes or no first.");
+      return;
+    }
+    return { ok };
+  };
+  view.violations = (errors) => setErrors(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
+  view.submitted = () => {
+    setReview(plugin.review!);
+    setReadonly(true);
+  };
 
   // what the app's hand-over button says follows the answer
   useEffect(() => {
-    if (!review || readonly) return;
-    plugin.current!.status({ label: draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}` });
-  }, [review, readonly, draft.ok]);
+    if (readonly) return;
+    plugin.status({ label: draft.ok === null ? "Hand over" : `Hand over: ${draft.ok ? "yes" : "no"}` });
+  }, [plugin, readonly, draft.ok]);
 
   function pick(value: boolean) {
     const next = { ok: latest.current.ok === value ? null : value };
     setDraft(next);
     setErrors("");
-    plugin.current!.draft(next, { flush: true });
+    plugin.draft(next, { flush: true });
   }
 
-  if (!review) return <p className="plugin-content dim">waiting for the shell…</p>;
   const decided = review.decision?.data;
   return (
     <main className="plugin-content">

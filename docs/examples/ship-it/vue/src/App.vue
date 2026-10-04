@@ -1,13 +1,12 @@
-<!-- Ship it? in Vue. The SDK is connected once, when the view mounts; what it
-     hands over (the review, whether it is read-only, the draft) becomes
-     reactive state, and the template renders from it. The SDK is on the
-     window from the script tag in index.html; the types come from the package. -->
-<script setup lang="ts">
-import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/vue";
-import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
-import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
+<!-- Ship it? in Vue. main.ts connects to the app and mounts this with what
+     the app handed over (the review, whether it is read-only, the draft),
+     and the `view` it fills in. The app's hand-over button asks for the
+     decision, and `view` answers with it. The SDK is on the window from the
+     script tag in index.html; the types come from the package. -->
+<script lang="ts">
+import type { Violation } from "@forgeplane/pinrail-plugin/types";
 
-type Payload = {
+export type Payload = {
   service: string;
   version: string;
   environment: string;
@@ -15,54 +14,68 @@ type Payload = {
   checks: { name: string; passed: boolean; detail?: string }[];
 };
 type Verdict = "ship" | "hold";
-type Decision = { verdict: Verdict; note?: string };
+export type Decision = { verdict: Verdict; note?: string };
 /** what is kept while the person decides: a verdict may not be chosen yet */
 type Draft = { verdict: Verdict | null; note: string };
 
-const { Pinrail } = window;
-const review = ref<Review<Payload, Decision> | null>(null);
-const readonly = ref(false);
-const draft = ref<Draft>({ verdict: null, note: "" });
-const error = ref("");
-let plugin: Plugin<Payload, Decision>;
+/** What the connection in main.ts asks of the view on screen. */
+export type View = {
+  /** the decision, or nothing while there is no verdict to hand over */
+  collect: () => Decision | undefined;
+  violations: (errors: Violation[]) => void;
+  submitted: () => void;
+};
 
-onMounted(() => {
-  plugin = Pinrail.connect<Payload, Decision>({
-    onInit(init) {
-      review.value = init.review;
-      readonly.value = init.readonly;
-      if (init.draft) draft.value = init.draft as Draft;
-    },
-    // the decision, or nothing while there is no verdict to hand over
-    onCollect() {
-      const { verdict, note } = draft.value;
-      if (!verdict) {
-        error.value = "Choose ship or hold first.";
-        return;
-      }
-      return note.trim() ? { verdict, note: note.trim() } : { verdict };
-    },
-    onViolations(errors) {
-      error.value = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
-    },
-    onSubmitted() {
-      review.value = { ...plugin.review! };
-      readonly.value = true;
-    },
-  });
-  document.addEventListener("keydown", onKey);
-});
+/** A draft kept by an earlier release may have another shape: use only what
+ *  reads as this one's. */
+function draftOf(kept: unknown): Draft {
+  const d = kept && typeof kept === "object" ? (kept as Partial<Draft>) : {};
+  return {
+    verdict: d.verdict === "ship" || d.verdict === "hold" ? d.verdict : null,
+    note: typeof d.note === "string" ? d.note : "",
+  };
+}
+</script>
+
+<script setup lang="ts">
+import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/vue";
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from "vue";
+import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
+
+const props = defineProps<{ plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision>; view: View }>();
+const review = shallowRef(props.init.review);
+const readonly = ref(props.init.readonly);
+const draft = ref<Draft>(draftOf(props.init.draft));
+const error = ref("");
+
+props.view.collect = () => {
+  const { verdict, note } = draft.value;
+  if (!verdict) {
+    error.value = "Choose ship or hold first.";
+    return;
+  }
+  return note.trim() ? { verdict, note: note.trim() } : { verdict };
+};
+props.view.violations = (errors) => {
+  error.value = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
+};
+props.view.submitted = () => {
+  review.value = props.plugin.review!;
+  readonly.value = true;
+};
+
+onMounted(() => document.addEventListener("keydown", onKey));
 onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
 
 function choose(verdict: Verdict) {
   draft.value = { ...draft.value, verdict };
   error.value = "";
-  plugin.draft(draft.value, { flush: true });
+  props.plugin.draft(draft.value, { flush: true });
 }
 
 function writeNote(event: Event) {
   draft.value = { ...draft.value, note: (event.target as HTMLTextAreaElement).value };
-  plugin.draft(draft.value);
+  props.plugin.draft(draft.value);
 }
 
 // s and h decide. The app forwards them too when it has the focus, as a
@@ -76,17 +89,17 @@ function onKey(e: KeyboardEvent) {
 
 // what the app's hand-over button says follows the choice
 watchEffect(() => {
-  if (!review.value || readonly.value) return;
+  if (readonly.value) return;
   const verdict = draft.value.verdict;
   const label = verdict === "ship" ? `Ship ${review.value.payload.version}` : verdict === "hold" ? "Hold the deploy" : "Choose ship or hold";
-  plugin.status({ label });
+  props.plugin.status({ label });
 });
 
-const decided = computed(() => review.value?.decision?.data);
+const decided = computed(() => review.value.decision?.data);
 </script>
 
 <template>
-  <main v-if="review" class="plugin-content ship">
+  <main class="plugin-content ship">
     <p class="eyebrow">Deploy to {{ review.payload.environment }}</p>
     <h1>{{ review.payload.service }} <span class="meta">{{ review.payload.version }}</span></h1>
     <section>

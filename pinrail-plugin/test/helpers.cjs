@@ -26,8 +26,10 @@ function fakeEnv() {
     post(msg, target) {
       env.posted.push({ msg, target });
     },
+    // each registration can be undone, as the browser's can
     listen(fn) {
       env.listeners.push(fn);
+      return () => (env.listeners = env.listeners.filter((f) => f !== fn));
     },
     setTimeout(fn, ms) {
       const id = env.nextTimer++;
@@ -39,9 +41,11 @@ function fakeEnv() {
     },
     observeSize(cb) {
       env.observers.push(cb);
+      env.observing += 1;
       cb(321);
-      return () => {};
+      return () => (env.observing -= 1);
     },
+    observing: 0,
     applyTheme(theme) {
       env.themes.push(theme);
     },
@@ -53,17 +57,23 @@ function fakeEnv() {
     },
     onAppKey(fn) {
       env.appKeys.push(fn);
+      return () => (env.appKeys = env.appKeys.filter((f) => f !== fn));
     },
     logError(error) {
       env.errors.push(error);
     },
     onLink(fn) {
       env.links.push(fn);
+      return () => (env.links = env.links.filter((f) => f !== fn));
     },
     objectUrl(bytes, type) {
       return `blob:test/${type}/${bytes.byteLength}`;
     },
     // helpers
+    /** what the client still has set up: listeners and observers */
+    active() {
+      return env.listeners.length + env.appKeys.length + env.links.length + env.observing;
+    },
     deliver(data, origin = "http://shell.test") {
       env.listeners.forEach((fn) => fn(data, origin));
     },

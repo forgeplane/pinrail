@@ -134,7 +134,8 @@ const plugin = Pinrail.connect({
     render();
   },
   onViolations(errors) { S.errors = errors; S.armed = false; render(); },
-  onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); syncHeader(); render(); },
+  // the decided review is a new object: the one from init stays as it was
+  onSubmitted(decision) { review = plugin.review; readonly = true; loadDecision(decision && decision.data); syncHeader(); render(); },
   onCollect() { return handOver(); },
 });
 
