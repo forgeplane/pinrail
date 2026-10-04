@@ -1,23 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import net from "node:net";
 import path from "node:path";
+import { withDevShell } from "./dev-shell";
 import { scratch } from "./scratch.cjs";
 
 // `pinrail-plugin dev`, the shell in a browser: a plugin from create, with
 // its sample and a decided fixture beside it.
 const sdk = path.resolve(import.meta.dirname, "..");
 const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
-
-const freePort = () =>
-  new Promise<number>((resolve) => {
-    const server = net.createServer();
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address() as net.AddressInfo;
-      server.close(() => resolve(port));
-    });
-  });
 
 test("the menu offers the samples and the fixtures, marks a decided one, and loads the one chosen", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
@@ -33,13 +24,8 @@ test("the menu offers the samples and the fixtures, marks a decided one, and loa
     }),
   );
 
-  const port = await freePort();
-  const shell = spawn(process.execPath, [bin, "dev", dir, "--port", String(port), "--no-open"], { stdio: "pipe" });
-  try {
-    await expect
-      .poll(async () => (await fetch(`http://127.0.0.1:${port}/dev/manifest`).catch(() => null))?.status)
-      .toBe(200);
-    await page.goto(`http://127.0.0.1:${port}/`);
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
     const menu = page.locator("#fixture");
     // the sample first, as the one the app would show
     await expect(menu.locator("option")).toHaveText([sample.title, `${sample.title} (decided)`]);
@@ -51,9 +37,7 @@ test("the menu offers the samples and the fixtures, marks a decided one, and loa
     // the frame shows the same page for every fixture; choosing another still loads it again
     await menu.selectOption("samples/triage.json");
     await expect(view.getByRole("button", { name: "Yes" })).toBeVisible();
-  } finally {
-    shell.kill();
-  }
+  });
 });
 
 test("the view is set in the app's typeface, and nothing is fetched from off the machine", async ({ page }) => {
@@ -62,13 +46,8 @@ test("the view is set in the app's typeface, and nothing is fetched from off the
   const away: string[] = [];
   page.on("request", (r) => new URL(r.url()).hostname !== "127.0.0.1" && away.push(r.url()));
 
-  const port = await freePort();
-  const shell = spawn(process.execPath, [bin, "dev", dir, "--port", String(port), "--no-open"], { stdio: "pipe" });
-  try {
-    await expect
-      .poll(async () => (await fetch(`http://127.0.0.1:${port}/dev/manifest`).catch(() => null))?.status)
-      .toBe(200);
-    await page.goto(`http://127.0.0.1:${port}/`);
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
     await expect(page.frameLocator("#frame").getByRole("button", { name: "Yes" })).toBeVisible();
     const view = page.frames().find((f) => f.url().includes("/plugin/"))!;
 
@@ -78,7 +57,5 @@ test("the view is set in the app's typeface, and nothing is fetched from off the
     });
     expect(loaded).toBe(true);
     expect(away).toEqual([]);
-  } finally {
-    shell.kill();
-  }
+  });
 });
