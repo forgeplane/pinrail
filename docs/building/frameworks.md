@@ -102,7 +102,7 @@ A link follows the folder as it is, so rebuild as you change it, or keep `npm ru
 
 - **A forwarded key has no element as its target.** The app forwards a manifest shortcut pressed outside the frame as a `keydown` on your document, so check `event.target instanceof Element` before calling `closest` on it.
 - **Hand the SDK your state as it is.** Vue's refs and Svelte's `$state` are proxies, which a message to the app cannot carry, so the SDK sends a plain copy of a draft or a decision.
-- **Connect once.** Call `Pinrail.connect` when the view mounts, not on every render. Its callbacks are made once, so read the latest state from somewhere they can reach, such as a React ref.
+- **Connect once, where the page starts.** Call `Pinrail.connect` in the entry module, not in a component: a framework may mount a component more than once, and a second call throws. Render the component when `onInit` arrives. The connection's callbacks are made once, so they call into the component on screen, which reads its latest state from somewhere they can reach, such as a React ref.
 - **Leave the hand-over to the app.** Draw no submit button; the app asks for the decision from its own. See [Design and styling](/docs/building/design/#the-design-language).
 
 The four versions are in the repository under [`docs/examples/ship-it`](https://github.com/forgeplane/pinrail/tree/main/docs/examples/ship-it), each a whole plugin with its tests.

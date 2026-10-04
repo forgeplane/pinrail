@@ -40,7 +40,6 @@ tarball attached to its GitHub release.
     onCollect() { return decision(); },            // the app's hand-over button, or ⌘/Ctrl+Enter
     onAppearance(theme) { … },                     // optional: "dark" | "light"
     onSettings(settings) { render(); },            // optional: the plugin's settings changed
-    onKey(key) { … },                              // optional: a declared shortcut, pressed while the app has focus
     onError(error) { … },                          // optional: a handler threw, or a decision is not JSON
   });
   plugin.draft(data);                   // debounced by 150 ms; { flush: true } sends it at once
@@ -100,8 +99,8 @@ When the manifest declares `shortcuts`, the view receives those keys as
 `key` messages when the person presses them while the app, rather than the
 view's frame, has focus. The SDK dispatches each key as a `keydown` event on
 the document, marked with `pinrailForwarded`, so the view's existing key
-listener handles a forwarded key like a typed one. `onKey(key)` is called as
-well. The `shortcuts` key is described in
+listener handles a forwarded key like a typed one. The `shortcuts` key is
+described in
 [Settings and keys](../docs/building/settings-and-keys.md).
 
 ## Icons
