@@ -35,9 +35,9 @@ tarball attached to its GitHub release.
   const plugin = Pinrail.connect({
     resize: "auto",                     // "auto" (content height), "fill" (viewport), "manual"
     onInit({ review, previous, readonly, draft }) { render(); },
-    onViolations(errors) { showErrors(errors); },   // [{ path, message }]
-    onSubmitted(decision) { render(); },           // the view is now read-only
     onCollect() { return decision(); },            // the app's hand-over button, or ⌘/Ctrl+Enter
+    onViolations(errors) { markFields(errors); },  // optional: [{ path, message }], already listed by the app
+    onSubmitted(decision) { render(); },           // optional: the app closes the view after it
     onAppearance(theme) { … },                     // optional: "dark" | "light"
     onSettings(settings) { render(); },            // optional: the plugin's settings changed
     onError(error) { … },                          // optional: a handler threw, or a decision is not JSON
