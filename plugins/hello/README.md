@@ -1,11 +1,10 @@
 # hello
 
-The smallest complete plugin: one question, yes or no, with an optional
-comment. Read `index.html` to see every protocol message handled in a few
-lines, then copy the directory to start your own type.
+The smallest complete plugin: one question, yes or no. Read `index.html`
+to see every protocol message handled in a few lines, then copy the
+directory to start your own type.
 
-Payload: `{ "message": "..." }`. Decision: `{ "ok": true }`, optionally
-with `"comment"`.
+Payload: `{ "message": "..." }`. Decision: `{ "ok": true }`.
 
 Link the folder and send it a review:
 

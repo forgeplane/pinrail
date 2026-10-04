@@ -3,7 +3,7 @@
 A pinrail plugin: what the agent asks (`schemas/payload.schema.json`), what
 the person answers (`schemas/decision.schema.json`), and the view that
 turns one into the other (`view/index.html` and `view/view.js`). It starts as one yes-or-no
-question with a comment; make it yours from there.
+question; make it yours from there.
 
 ```sh
 npm install

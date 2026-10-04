@@ -3320,12 +3320,13 @@ async fn an_update_that_changes_the_schemas_leaves_earlier_reviews_as_they_were(
     body["payload"] = json!({"message": "before"});
     let before = submit(&app, body.clone()).await;
 
-    // the comment now required, without a new major
+    // a reason now required, without a new major
     let breaking = plugin_copy(&scratch.path().join("b"), "hello", "1.1.0");
     let path = breaking.join("schemas/decision.schema.json");
     let mut decision: Value =
         serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    decision["required"] = json!(["ok", "comment"]);
+    decision["properties"]["reason"] = json!({"type": "string"});
+    decision["required"] = json!(["ok", "reason"]);
     std::fs::write(&path, decision.to_string()).unwrap();
     let (status, row) = install(&app, &breaking, json!({})).await;
     assert_eq!(status, StatusCode::OK, "{row}");
@@ -3355,7 +3356,7 @@ async fn an_update_that_changes_the_schemas_leaves_earlier_reviews_as_they_were(
     );
     assert_eq!(decide(&before, json!({"ok": true})).await, StatusCode::OK);
     assert_eq!(
-        decide(&after, json!({"ok": true, "comment": "fine"})).await,
+        decide(&after, json!({"ok": true, "reason": "fine"})).await,
         StatusCode::OK
     );
 }

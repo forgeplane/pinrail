@@ -10,17 +10,16 @@ test("the answer is chosen here and handed over by the shell", async ({ page }) 
   await expect(plugin.frame.locator("p").first()).toHaveText(push().payload.message);
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over");
 
-  await plugin.frame.getByPlaceholder("comment (optional)").fill("after the rebase");
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over: yes");
   expect((await plugin.messages()).filter((m) => m.type === "submit")).toHaveLength(0);
 
   await plugin.collect();
-  expect(await plugin.nextSubmit()).toEqual({ ok: true, comment: "after the rebase" });
+  expect(await plugin.nextSubmit()).toEqual({ ok: true });
 });
 
-test("no without a comment hands over only ok", async ({ page }) => {
+test("no hands over ok as false", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: push() });
   await plugin.frame.getByRole("button", { name: "No" }).click();
   await plugin.collect();
@@ -45,32 +44,30 @@ test("handing over without an answer asks for one; violations are shown; submitt
   await plugin.sendSubmitted({
     decided_by: "alice",
     decided_at: "2026-09-11T10:00:00Z",
-    data: { ok: true, comment: "go" },
+    data: { ok: true },
   });
-  await expect(plugin.frame.locator("p").last()).toContainText("Decided: yes — go");
+  await expect(plugin.frame.locator("p").last()).toContainText("Decided: yes");
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveCount(0);
 });
 
-test("the answer and the comment survive a reload", async ({ page }) => {
+test("the answer survives a reload", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: push() });
   await plugin.frame.getByRole("button", { name: "No" }).click();
-  await plugin.frame.getByPlaceholder("comment (optional)").fill("keep this");
-  await expect.poll(() => plugin.lastDraft()).toEqual({ ok: false, comment: "keep this" });
+  await expect.poll(() => plugin.lastDraft()).toEqual({ ok: false });
 
   await plugin.reload();
   await plugin.reinit();
   await expect(plugin.frame.getByRole("button", { name: "No" })).toHaveAttribute("aria-pressed", "true");
-  await expect(plugin.frame.getByPlaceholder("comment (optional)")).toHaveValue("keep this");
 });
 
-test("follows the shell's theme without losing what was typed", async ({ page }) => {
+test("follows the shell's theme without losing the answer", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: push() });
-  const comment = plugin.frame.getByPlaceholder("comment (optional)");
-  await comment.fill("keep this");
+  const no = plugin.frame.getByRole("button", { name: "No" });
+  await no.click();
 
   await plugin.send({ type: "appearance", theme: "light" });
   await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "light");
-  await expect(comment).toHaveValue("keep this");
+  await expect(no).toHaveAttribute("aria-pressed", "true");
 
   await plugin.send({ type: "appearance", theme: "dark" });
   await expect(plugin.frame.locator("html")).toHaveAttribute("data-theme", "dark");

@@ -6,7 +6,6 @@
   "required": ["ok"],
   "additionalProperties": false,
   "properties": {
-    "ok": { "type": "boolean", "description": "The answer" },
-    "comment": { "type": "string", "description": "A word for the agent, when there is one" }
+    "ok": { "type": "boolean", "description": "The answer" }
   }
 }

@@ -1,4 +1,4 @@
-// __TITLE__: one question, yes or no, with an optional comment, in React.
+// __TITLE__: one question, yes or no, in React.
 // The SDK is connected once, when the view mounts; what it hands over (the
 // review, whether it is read-only, the draft) becomes state. The app's
 // hand-over button (or ⌘/Ctrl+Enter) sends `collect` and this view submits.
@@ -11,16 +11,16 @@ import { useEffect, useRef, useState } from "react";
 import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 type Payload = { message: string };
-type Decision = { ok: boolean; comment?: string };
+type Decision = { ok: boolean };
 /** what is kept between reloads: the decision so far, answer still open */
-type Draft = { ok: boolean | null; comment: string };
+type Draft = { ok: boolean | null };
 
 const { Pinrail } = window;
 
 export function App() {
   const [review, setReview] = useState<Review<Payload, Decision> | null>(null);
   const [readonly, setReadonly] = useState(false);
-  const [draft, setDraft] = useState<Draft>({ ok: null, comment: "" });
+  const [draft, setDraft] = useState<Draft>({ ok: null });
   const [errors, setErrors] = useState("");
   const plugin = useRef<Plugin<Payload, Decision> | null>(null);
   // the SDK's callbacks are made once, so they read the draft from here
@@ -33,12 +33,12 @@ export function App() {
         setReview(review);
         setReadonly(readonly);
         const kept = draft as Draft | null;
-        if (kept) setDraft({ ok: typeof kept.ok === "boolean" ? kept.ok : null, comment: kept.comment ?? "" });
+        if (kept) setDraft({ ok: typeof kept.ok === "boolean" ? kept.ok : null });
       },
       onCollect() {
-        const { ok, comment } = latest.current;
+        const { ok } = latest.current;
         if (ok === null) return setErrors("Choose yes or no first.");
-        plugin.current!.submit(comment.trim() ? { ok, comment: comment.trim() } : { ok });
+        plugin.current!.submit({ ok });
       },
       onViolations(errors) {
         setErrors(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));
@@ -57,16 +57,10 @@ export function App() {
   }, [review, readonly, draft.ok]);
 
   function pick(value: boolean) {
-    const next = { ...latest.current, ok: latest.current.ok === value ? null : value };
+    const next = { ok: latest.current.ok === value ? null : value };
     setDraft(next);
     setErrors("");
     plugin.current!.draft(next, { flush: true });
-  }
-
-  function writeComment(comment: string) {
-    const next = { ...latest.current, comment };
-    setDraft(next);
-    plugin.current!.draft(next);
   }
 
   if (!review) return <p className="plugin-content dim">waiting for the shell…</p>;
@@ -77,7 +71,6 @@ export function App() {
       {readonly && decided ? (
         <p className="dim">
           Decided: <b>{decided.ok ? "yes" : "no"}</b>
-          {decided.comment ? ` — ${decided.comment}` : null}
         </p>
       ) : readonly ? (
         // withdrawn or expired: nobody answered
@@ -92,14 +85,6 @@ export function App() {
               <X /> No
             </button>
           </div>
-          <input
-            className="field"
-            id="comment"
-            placeholder="comment (optional)"
-            aria-label="comment"
-            value={draft.comment}
-            onChange={(e) => writeComment(e.target.value)}
-          />
           <div id="errors" className="errors">
             {errors}
           </div>

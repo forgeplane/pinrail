@@ -8,10 +8,6 @@
     "ok": {
       "type": "boolean",
       "description": "The person's answer: true for yes."
-    },
-    "comment": {
-      "type": "string",
-      "description": "What the person added, if anything."
     }
   }
 }

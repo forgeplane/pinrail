@@ -3,7 +3,7 @@
 A pinrail plugin: what the agent asks (`schemas/payload.schema.json`), what
 the person answers (`schemas/decision.schema.json`), and the view that
 turns one into the other (`src/`, in React, built by Vite into `view/`). It starts as
-one yes-or-no question with a comment; make it yours from there.
+one yes-or-no question; make it yours from there.
 
 ```sh
 npm install

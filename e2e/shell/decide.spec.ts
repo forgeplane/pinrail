@@ -94,19 +94,18 @@ test("the answer chosen in the view is handed over and becomes the decision", as
   });
   const view = await open(page, id, "#yes");
 
-  await view.locator("#comment").fill("after the rebase");
   await view.locator("#yes").click();
   const handover = page.locator("[data-handover]");
   await expect(handover).toContainText("Hand over: yes");
   await handover.click();
 
   await expect.poll(async () => (await review(page.request, id)).status).toBe("decided");
-  expect((await review(page.request, id)).decision?.data).toEqual({ ok: true, comment: "after the rebase" });
+  expect((await review(page.request, id)).decision?.data).toEqual({ ok: true });
   // the app returns to the inbox; opened again, the review shows what was
   // decided, with nothing left to hand over
   await expect(page).toHaveURL(/#\/$/);
   const again = await open(page, id, "p >> nth=-1");
-  await expect(again.locator("p").last()).toContainText("Decided: yes — after the rebase");
+  await expect(again.locator("p").last()).toContainText("Decided: yes");
   await expect(handover).toHaveCount(0);
 });
 
@@ -158,15 +157,13 @@ test("a choice survives a reload of the app", async ({ page }) => {
   });
   const view = await open(page, id, "#no");
   await view.locator("#no").click();
-  await view.locator("#comment").fill("not yet");
   // the shell keeps the view's draft for the session; reload once it has it
   await expect
     .poll(() => page.evaluate((key) => sessionStorage.getItem(key), `pinrail:draft:${id}`))
-    .toBe(JSON.stringify({ ok: false, comment: "not yet" }));
+    .toBe(JSON.stringify({ ok: false }));
 
   await page.reload();
   await expect(view.locator("#no")).toHaveAttribute("aria-pressed", "true");
-  await expect(view.locator("#comment")).toHaveValue("not yet");
 });
 
 test("a review withdrawn elsewhere turns the open view read-only", async ({ page }) => {

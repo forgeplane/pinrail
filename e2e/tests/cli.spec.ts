@@ -190,10 +190,10 @@ test("a plugin pinrail-plugin create wrote installs as a link and decides a revi
 
     const payload = tmpFile("payload.json", JSON.stringify({ message: "Push it?" }));
     const created = pinrailJson(["submit", "triage", "--title", "Push the branch?", "--data", payload]);
-    pinrailJson(["decide", created.id, "--data", tmpFile("d.json", JSON.stringify({ ok: true, comment: "go" }))]);
+    pinrailJson(["decide", created.id, "--data", tmpFile("d.json", JSON.stringify({ ok: true }))]);
     const shown = pinrailJson(["show", created.id]);
     expect(shown.status).toBe("decided");
-    expect(shown.decision.data).toEqual({ ok: true, comment: "go" });
+    expect(shown.decision.data).toEqual({ ok: true });
 
     const refused = pinrail([
       "submit",

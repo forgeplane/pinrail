@@ -1,4 +1,4 @@
-// __TITLE__: one question, yes or no, with an optional comment. The answer
+// __TITLE__: one question, yes or no. The answer
 // is held here; the app's hand-over button (or ⌘/Ctrl+Enter) sends `collect`
 // and this view submits. Replace render() and handOver() with your own.
 //
@@ -12,9 +12,7 @@ import { createElement, Check, X, type IconNode } from "lucide";
 const svg = (icon: IconNode) => createElement(icon, { class: "lucide", "aria-hidden": "true" }).outerHTML;
 
 type Payload = { message: string };
-type Decision = { ok: boolean; comment?: string };
-/** what is kept between reloads: the decision so far, answer still open */
-type Draft = { ok: boolean | null; comment: string };
+type Decision = { ok: boolean };
 
 const { Pinrail } = window;
 const view = Pinrail.layout();
@@ -25,7 +23,7 @@ let choice: boolean | null = null;
 const plugin = Pinrail.connect<Payload, Decision>({
   onInit({ draft }: Init<Payload, Decision>) {
     choice = draft && typeof draft.ok === "boolean" ? draft.ok : null;
-    render(draft as Draft | null);
+    render();
   },
   onSubmitted() {
     render();
@@ -40,24 +38,22 @@ const plugin = Pinrail.connect<Payload, Decision>({
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const errorsEl = () => el<HTMLDivElement>("errors");
-const comment = () => el<HTMLInputElement>("comment").value.trim();
 
 function handOver() {
   if (choice === null) {
     errorsEl().textContent = "Choose yes or no first.";
     return;
   }
-  const note = comment();
-  plugin.submit(note ? { ok: choice, comment: note } : { ok: choice });
+  plugin.submit({ ok: choice });
 }
 
 function pick(value: boolean) {
   choice = choice === value ? null : value;
-  plugin.draft({ ok: choice, comment: comment() }, { flush: true });
-  render({ ok: choice, comment: comment() });
+  plugin.draft({ ok: choice }, { flush: true });
+  render();
 }
 
-function render(draft?: Draft | null) {
+function render() {
   const review = plugin.review!;
   const decided = review.decision?.data;
   view.content.className = "plugin-content";
@@ -67,18 +63,16 @@ function render(draft?: Draft | null) {
     Pinrail.markdown(review.payload.message) +
     (plugin.readonly
       ? decided
-        ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b>${decided.comment ? " — " + Pinrail.escape(decided.comment) : ""}</p>`
+        ? `<p class="dim">Decided: <b>${decided.ok ? "yes" : "no"}</b></p>`
         : // withdrawn or expired: nobody answered
           `<p class="dim">Closed without a decision (${Pinrail.escape(review.status)})</p>`
       : `<div class="choice">
          <button type="button" class="btn" id="yes" aria-pressed="${choice === true}">${svg(Check)} Yes</button>
          <button type="button" class="btn" id="no" aria-pressed="${choice === false}">${svg(X)} No</button>
        </div>
-       <input class="field" id="comment" placeholder="comment (optional)" aria-label="comment" value="${Pinrail.escape(draft?.comment ?? "")}">
        <div id="errors" class="errors" role="alert"></div>`);
   if (focused) document.getElementById(focused)?.focus();
   if (plugin.readonly) return;
-  el<HTMLInputElement>("comment").oninput = () => plugin.draft({ ok: choice, comment: comment() });
   el<HTMLButtonElement>("yes").onclick = () => pick(true);
   el<HTMLButtonElement>("no").onclick = () => pick(false);
   plugin.status({ label: choice === null ? "Hand over" : `Hand over: ${choice ? "yes" : "no"}` });

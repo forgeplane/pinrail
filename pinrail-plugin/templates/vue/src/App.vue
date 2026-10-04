@@ -1,4 +1,4 @@
-<!-- __TITLE__: one question, yes or no, with an optional comment, in Vue.
+<!-- __TITLE__: one question, yes or no, in Vue.
      The SDK is connected once, when the view mounts; what it hands over (the
      review, whether it is read-only, the draft) becomes reactive state. The
      app's hand-over button (or ⌘/Ctrl+Enter) sends `collect` and this view
@@ -12,14 +12,14 @@ import { onMounted, ref, watchEffect } from "vue";
 import type { Review, Plugin } from "@forgeplane/pinrail-plugin/types";
 
 type Payload = { message: string };
-type Decision = { ok: boolean; comment?: string };
+type Decision = { ok: boolean };
 /** what is kept between reloads: the decision so far, answer still open */
-type Draft = { ok: boolean | null; comment: string };
+type Draft = { ok: boolean | null };
 
 const { Pinrail } = window;
 const review = ref<Review<Payload, Decision> | null>(null);
 const readonly = ref(false);
-const draft = ref<Draft>({ ok: null, comment: "" });
+const draft = ref<Draft>({ ok: null });
 const errors = ref("");
 let plugin: Plugin<Payload, Decision>;
 
@@ -29,15 +29,15 @@ onMounted(() => {
       review.value = init.review;
       readonly.value = init.readonly;
       const kept = init.draft as Draft | null;
-      if (kept) draft.value = { ok: typeof kept.ok === "boolean" ? kept.ok : null, comment: kept.comment ?? "" };
+      if (kept) draft.value = { ok: typeof kept.ok === "boolean" ? kept.ok : null };
     },
     onCollect() {
-      const { ok, comment } = draft.value;
+      const { ok } = draft.value;
       if (ok === null) {
         errors.value = "Choose yes or no first.";
         return;
       }
-      plugin.submit(comment.trim() ? { ok, comment: comment.trim() } : { ok });
+      plugin.submit({ ok });
     },
     onViolations(list) {
       errors.value = list.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
@@ -50,14 +50,9 @@ onMounted(() => {
 });
 
 function pick(value: boolean) {
-  draft.value = { ...draft.value, ok: draft.value.ok === value ? null : value };
+  draft.value = { ok: draft.value.ok === value ? null : value };
   errors.value = "";
   plugin.draft(draft.value, { flush: true });
-}
-
-function writeComment(event: Event) {
-  draft.value = { ...draft.value, comment: (event.target as HTMLInputElement).value };
-  plugin.draft(draft.value);
 }
 
 // what the app's hand-over button says follows the answer
@@ -75,7 +70,7 @@ const markdown = (source: string) => Pinrail.markdown(source);
   <main v-else class="plugin-content">
     <div v-html="markdown(review.payload.message)"></div>
     <p v-if="readonly && review.decision" class="dim">
-      Decided: <b>{{ review.decision.data?.ok ? "yes" : "no" }}</b><template v-if="review.decision.data?.comment"> — {{ review.decision.data.comment }}</template>
+      Decided: <b>{{ review.decision.data?.ok ? "yes" : "no" }}</b>
     </p>
     <!-- withdrawn or expired: nobody answered -->
     <p v-else-if="readonly" class="dim">Closed without a decision ({{ review.status }})</p>
@@ -88,7 +83,6 @@ const markdown = (source: string) => Pinrail.markdown(source);
           <X /> No
         </button>
       </div>
-      <input class="field" id="comment" placeholder="comment (optional)" aria-label="comment" :value="draft.comment" @input="writeComment" />
       <div id="errors" class="errors">{{ errors }}</div>
     </template>
   </main>

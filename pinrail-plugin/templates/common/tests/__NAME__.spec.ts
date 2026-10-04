@@ -12,11 +12,10 @@ test("renders the payload, and hands over the answer when the shell collects", a
   await expect(plugin.frame.locator("p").first()).toContainText("3 commits");
 
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
-  await plugin.frame.getByPlaceholder("comment (optional)").fill("after the rebase");
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over: yes");
 
   await plugin.collect();
-  expect(await plugin.nextSubmit()).toEqual({ ok: true, comment: "after the rebase" });
+  expect(await plugin.nextSubmit()).toEqual({ ok: true });
 });
 
 test("asks for an answer before handing over, and shows what the app refuses", async ({ page }) => {
@@ -35,7 +34,7 @@ test("asks for an answer before handing over, and shows what the app refuses", a
 test("a decided review renders read-only", async ({ page }) => {
   const decided = {
     ...basic(),
-    decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: true, comment: "go" } },
+    decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: true } },
   };
   const plugin = await mountPlugin(page, dir, { review: decided, readonly: true });
   await expect(plugin.frame.locator("body")).toContainText("Decided: yes");
