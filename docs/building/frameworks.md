@@ -27,11 +27,11 @@ The plugin's manifest, and the schemas every framework's version shares:
 
 ## 1. Create the folder
 
-Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in each of these frameworks, a yes-or-no question to build on, with a sample to send and an `AGENTS.md` that directs a coding agent to `pinrail docs plugins/building`:
+Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in React or TypeScript, a yes-or-no question to build on, with a sample to send and an `AGENTS.md` that directs a coding agent to `pinrail docs plugins/building`. For Vue or Svelte, start from the TypeScript template and follow the Vue or Svelte version of this page:
 
 ```sh
 # from a checkout of github.com/forgeplane/pinrail
-node pinrail-plugin/bin/pinrail-plugin.mjs create push_check --template react    # or vite (TypeScript), vue, svelte
+node pinrail-plugin/bin/pinrail-plugin.mjs create push_check --template react    # or vite (TypeScript)
 ```
 
 This page builds Ship it? instead. Choose a framework, and every example on this page follows it:

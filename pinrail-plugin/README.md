@@ -225,9 +225,11 @@ anything:
 node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage                    # view/index.html and view/view.js, no build
 node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template vite    # src/ in TypeScript, built by Vite into view/
 node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template react   # the view in React, built by Vite
-node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template vue     # the view in Vue, built by Vite
-node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage --template svelte  # the view in Svelte, built by Vite
 ```
+
+For a view in Vue or Svelte, start from the Vite template and follow the
+Vue or Svelte version of
+[Building with a framework](https://pinrail.dev/docs/building/frameworks/).
 
 Run these commands from a checkout of this repository. For a plugin without
 a build step, `pinrail plugins new` creates the same folder without a
