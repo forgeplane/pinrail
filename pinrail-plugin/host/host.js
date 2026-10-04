@@ -21,6 +21,36 @@ export const COLLECT_TIMEOUT_MS = 60_000;
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
+/** A decision as a view sees it: what was decided, by whom, and when. */
+export function viewDecision(decision) {
+  if (!isObject(decision)) return null;
+  return { data: decision.data, decided_by: decision.decided_by ?? null, decided_at: decision.decided_at ?? null };
+}
+
+/**
+ * A review as a view receives it, built from the API's: the fields protocol
+ * 1 promises a view, and no others, so the API's review can change without
+ * breaking a view that is stored with a review. A field can be added here
+ * later; none can be taken away.
+ */
+export function viewReview(review) {
+  if (!isObject(review)) return null;
+  return {
+    id: review.id,
+    title: review.title,
+    status: review.status,
+    created_at: review.created_at ?? null,
+    payload: review.payload ?? null,
+    attachments: (review.attachments || []).map((a) => ({
+      name: a.name,
+      size: a.size,
+      media_type: a.media_type,
+      sha256: a.sha256,
+    })),
+    decision: viewDecision(review.decision),
+  };
+}
+
 /**
  * The app's side of one view, from its first `ready` until the host lets it
  * go. A host makes a new one, or calls `reload()`, each time it loads the
@@ -118,8 +148,8 @@ export function createHost(options) {
     const locked = readonly();
     send({
       type: "init",
-      review: current,
-      previous: previous(),
+      review: viewReview(current),
+      previous: viewReview(previous()),
       readonly: locked,
       draft: locked ? null : loadDraft(),
       settings: settings() ?? {},
@@ -174,7 +204,7 @@ export function createHost(options) {
     if (!result) return;
     if (result.ok) {
       handedOver = true;
-      send({ type: "submitted", decision: result.decision });
+      send({ type: "submitted", decision: viewDecision(result.decision) });
     } else {
       send({ type: "violations", errors: result.violations || [] });
     }

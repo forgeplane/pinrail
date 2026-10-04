@@ -142,28 +142,14 @@ test("a superseding review shows the previous round's verdicts; withdrawn reads 
   await expect(withdrawn.frame.locator("#submit-modal")).toHaveCount(0);
 });
 
-test("the header leaves out what the shell's own header already shows", async ({ page }) => {
+test("the header names the change, with a link to it", async ({ page }) => {
   const change = round2().payload.change;
-
-  // A review whose origin names the same change: the shell puts the ref and a
-  // link to it above the frame, so the view's header carries neither.
-  const shared = await mountPlugin(page, dir, {
-    review: { ...round2(), origin: { repo: "acme", workflow: "mr-review", ref: "42", url: change.url } },
-  });
-  const header = shared.frame.locator("header").first();
+  const plugin = await mountPlugin(page, dir, { review: round2() });
+  const header = plugin.frame.locator("header").first();
   await expect(header).toContainText("Dedup tickets on save");
   await expect(header).toContainText("fix/tickets-dedup");
-  await expect(header).not.toContainText("!42");
-  await expect(header.locator(`a[href="${change.url}"]`)).toHaveCount(0);
-
-  // A review whose origin says nothing about it: the view keeps both, because
-  // nothing else on the page is showing them.
-  const alone = await mountPlugin(page, dir, {
-    review: { ...round2(), origin: { repo: "acme", workflow: "nightly" } },
-  });
-  const own = alone.frame.locator("header").first();
-  await expect(own).toContainText("!42");
-  await expect(own.locator(`a[href="${change.url}"]`)).toHaveCount(1);
+  await expect(header).toContainText("!42");
+  await expect(header.locator(`a[href="${change.url}"]`)).toHaveCount(1);
 });
 
 test("the diff's bar holds how it reads and the bulk decisions; icons carry names only where there are no words", async ({

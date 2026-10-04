@@ -17,7 +17,9 @@ let choice = null;
 /** @type {import("../pinrail-plugin").Plugin<Payload, Decision>} */
 const plugin = Pinrail.connect({
   onInit({ draft }) {
-    choice = draft && typeof draft.ok === "boolean" ? draft.ok : null;
+    // a draft kept by an earlier release may have another shape
+    const kept = /** @type {{ ok?: unknown } | null} */ (draft);
+    choice = kept && typeof kept.ok === "boolean" ? kept.ok : null;
     render();
   },
   onSubmitted() {

@@ -1020,17 +1020,6 @@ function submitModalHtml() {
   return `<div style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.65);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;animation:fade 0.12s ease-out">
     <div id="submit-modal" style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
 }
-/* The shell's own header carries the review's origin: the repository, the
-   workflow, the ref and a link to it. This header says what the shell cannot
-   know, and leaves out whatever it can see is already up there. */
-function shellShows(field) {
-  const origin = (REVIEW && REVIEW.origin) || {};
-  const change = D.change;
-  if (field === "url") return !!origin.url && origin.url === change.url;
-  const bare = (value) => String(value == null ? "" : value).replace(/^[#!]/, "");
-  return !!origin.ref && bare(origin.ref) === bare(change.ref);
-}
-
 /* Toolbar icons sit beside their label, so they are decoration and the label
    is the name. The one button with no label of its own carries one instead. */
 const ico = (name) => Pinrail.icon(name, { size: 14 });
@@ -1048,10 +1037,10 @@ function headerHtml() {
     <button class="bare head-tree" data-act="toggle-tree">${Pinrail.icon(S.treeOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: S.treeOpen ? "Collapse the file tree" : "Show the file tree" })}</button>
     <div class="head-title">
       <h1>${esc(c.title)}</h1>
-      ${shellShows("ref") ? "" : `<span class="head-ref">${esc(c.ref)}</span>`}
+      <span class="head-ref">${esc(c.ref)}</span>
       <span class="head-branch">
         ${c.source ? `<span class="meta">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span class="arrow">→</span>` : ""}${c.target ? `<span class="meta">${esc(c.target)}</span>` : ""}
-        ${c.url && !shellShows("url") ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer">open ↗</a>` : ""}
+        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer">open ↗</a>` : ""}
       </span>
     </div>
     ${RO() ? `<span class="head-ro">${roLabel}</span>`

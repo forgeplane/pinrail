@@ -17,9 +17,6 @@ export type Settings = Record<string, string | number | boolean>;
 
 // ---------------------------------------------------------------- manifest
 
-/** A JSON Schema 2020-12 document, inline or by a relative `$ref` into the plugin's folder. */
-export type SchemaRef = { $ref: string } | Record<string, unknown>;
-
 export type Shortcut = {
   /** modifiers (`cmd`, `ctrl`, `alt`, `shift`, or `cmdorctrl`) joined by `+` in any order, then one key: `j`, `cmd+shift+f`, `escape` */
   keys: string;
@@ -102,54 +99,23 @@ export type AttachmentRef = { $attachment: string };
 
 export type Status = "pending" | "decided" | "withdrawn" | "expired" | "discarded";
 
-export type Origin = {
-  repo?: string | null;
-  workflow?: string | null;
-  run_id?: string | null;
-  ref?: string | null;
-  url?: string | null;
-};
-
 export type Decision<Data = unknown> = {
+  data: Data;
   decided_by: string;
   decided_at: string;
-  data: Data;
 };
 
-export type Summary = {
-  counts?: [string, number][];
-  subtitle?: string;
-};
-
-/** A review as the app hands it to a view: the envelope with its payload. */
+/** A review as the app hands it to a view: these fields and no others,
+ *  for as long as protocol 1 lasts. */
 export type Review<Payload = unknown, Data = unknown> = {
   id: string;
-  /** the plugin's name, such as `list` */
-  plugin: string;
-  /** the exact version it was submitted to, such as `1.2.0` */
-  plugin_version: string;
-  /** the bundle it was submitted to, which it renders with */
-  plugin_bundle: string | null;
   title: string;
-  origin: Origin;
-  requested_by: string | null;
-  created_at: string;
-  expires_at: string | null;
-  /** the id of the review this one is a new round of */
-  revises: string | null;
-  summary: Summary | null;
   status: Status;
-  decision: Decision<Data> | null;
-  /** the person's note to the agent, beside the decision */
-  agent_note: string | null;
-  withdrawn_at?: string | null;
-  withdrawn_reason?: string | null;
-  discarded_at?: string | null;
-  discarded_by?: string | null;
-  discarded_reason?: string | null;
+  created_at: string;
   payload: Payload;
   /** the files the review carries, by the names its payload uses */
-  attachments?: Attachment[];
+  attachments: Attachment[];
+  decision: Decision<Data> | null;
 };
 
 // ---------------------------------------------------------------- messages
@@ -157,12 +123,16 @@ export type Review<Payload = unknown, Data = unknown> = {
 /** What `onInit` receives. */
 export type Init<Payload = unknown, Data = unknown> = {
   review: Review<Payload, Data>;
-  /** the review this one revises, decided, or null */
-  previous: Review<Payload, Data> | null;
+  /** the review this one revises, decided, or null. It may come from an
+   *  earlier release of the plugin, so its payload and decision are
+   *  `unknown`: check their shape before using them. */
+  previous: Review<unknown, unknown> | null;
   /** true whenever the review is not pending; `review.status` says why */
   readonly: boolean;
-  /** what the view last posted as a draft, or null */
-  draft: any;
+  /** what the view last posted as a draft, or null. A pending review can
+   *  move to a newer release of the plugin, so a draft may have been kept
+   *  by an earlier one: check its shape before using it. */
+  draft: unknown;
   settings: Settings;
 };
 
@@ -262,7 +232,7 @@ export type Handlers<Payload = unknown, Data = unknown> = {
 
 export type Plugin<Payload = unknown, Data = unknown> = {
   readonly review: Review<Payload, Data> | null;
-  readonly previous: Review<Payload, Data> | null;
+  readonly previous: Review<unknown, unknown> | null;
   readonly readonly: boolean;
   readonly shellOrigin: string | null;
   readonly initialised: boolean;

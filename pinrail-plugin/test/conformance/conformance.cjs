@@ -5,6 +5,9 @@
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
+/** What a view's review holds, sorted. */
+const REVIEW_FIELDS = ["attachments", "created_at", "decision", "id", "payload", "status", "title"].join(", ");
+
 /** `appearance`, when a host sends one, comes before `init`; `init` carries
  *  every field of protocol 1. */
 function handshakeProblems(received) {
@@ -23,6 +26,9 @@ function handshakeProblems(received) {
       if (typeof review[key] !== "string") problems.push(`init.review.${key} is not a string`);
     if (!("payload" in review)) problems.push("init.review has no payload");
     if (!Array.isArray(review.attachments)) problems.push("init.review.attachments is not a list");
+    // the fields protocol 1 promises a view, and no others
+    const fields = Object.keys(review).sort().join(", ");
+    if (fields !== REVIEW_FIELDS) problems.push(`init.review has ${fields}, not ${REVIEW_FIELDS}`);
   }
   if (!(init.previous === null || isObject(init.previous)))
     problems.push("init.previous is neither null nor an object");

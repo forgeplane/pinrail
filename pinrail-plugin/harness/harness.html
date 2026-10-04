@@ -21,6 +21,13 @@ let lastSettingsSet = null;
 let pinnedHeight = null;
 // the test waiting on handOver(): resolved with what became of the request
 let waiting = null;
+// the test waiting on collect(): resolved once the view has answered
+let answered = null;
+const heard = () => {
+  const resolve = answered;
+  answered = null;
+  if (resolve) resolve(true);
+};
 const settle = (outcome) => {
   const resolve = waiting;
   waiting = null;
@@ -56,6 +63,7 @@ const host = connectFrame(frame, {
   // as the app, when a test asked: the decision checked against the
   // plugin's schema, then accepted or refused; otherwise the test answers
   handOver: async (data) => {
+    heard();
     if (!waiting) return null;
     const violations = await window.__pinrailCheckDecision(data);
     if (violations.length) {
@@ -66,7 +74,10 @@ const host = connectFrame(frame, {
     settle({ decision });
     return { ok: true, decision };
   },
-  onDefer: () => settle({ deferred: true }),
+  onDefer: () => {
+    heard();
+    settle({ deferred: true });
+  },
   // the app opens it; here it is only recorded
   open: (url) => (lastOpen = url),
   resize: (height) => {
@@ -86,7 +97,14 @@ window.__shell = {
   reinit(overrides) { pending = Object.assign({}, pending, { draft: lastDraft }, overrides || {}); host.init(); },
   send: (msg) => host.send(msg),
   /* the hand-over button: a request for the decision, numbered as the app numbers it */
-  collect: () => host.collect(),
+  collect: () =>
+    new Promise((resolve) => {
+      answered = resolve;
+      if (!host.collect()) {
+        answered = null;
+        resolve(false);
+      }
+    }),
   handOver: () =>
     new Promise((resolve) => {
       waiting = resolve;

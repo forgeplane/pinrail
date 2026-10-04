@@ -1,6 +1,6 @@
 // The app's side of the plugin protocol: what every host of a view uses.
 
-import type { Attachment, Capability, Decision, PluginMessage, ShellMessage, Theme, Violation } from "../types";
+import type { Attachment, Capability, Decision, PluginMessage, Review, ShellMessage, Theme, Violation } from "../types";
 
 export const PROTOCOL: 1;
 export const CAPABILITIES: Capability[];
@@ -87,6 +87,11 @@ export type Host = {
   /** a request for the decision is open */
   readonly collecting: boolean;
 };
+
+/** A review as a view receives it, built from the API's. */
+export function viewReview(review: unknown): Review | null;
+/** A decision as a view sees it. */
+export function viewDecision(decision: unknown): Decision | null;
 
 export function createHost(options: HostOptions): Host;
 

@@ -63,7 +63,7 @@ test("ready is answered with the appearance, then init with every field", () => 
   assert.deepEqual(types(), ["appearance", "init"]);
   const init = last("init");
   assert.equal(init.pinrail, PROTOCOL);
-  assert.deepEqual(init.review, review);
+  assert.deepEqual(init.review, { ...review, created_at: null, decision: null });
   assert.equal(init.previous, null);
   assert.equal(init.readonly, false);
   assert.deepEqual(init.draft, { step: 2 });
@@ -369,4 +369,42 @@ test("every message in and out reaches the observer, after the host is let go no
   from({ type: "status", label: "Again" });
   h.collect();
   assert.equal(posted.length, 2);
+});
+
+test("a view receives the review's stated fields and no others, for this round and the previous", () => {
+  const api = {
+    id: "r2",
+    title: "Round two",
+    status: "decided",
+    created_at: "2026-10-04T10:00:00Z",
+    payload: { n: 2 },
+    attachments: [{ name: "a.png", size: 3, media_type: "image/png", sha256: "abc", stored_at: "x" }],
+    decision: { data: { ok: true }, decided_by: "me", decided_at: "2026-10-04T11:00:00Z", summary: { counts: [] } },
+    origin: { repo: "acme" },
+    requested_by: "claude-code",
+    plugin: "list",
+    plugin_version: "1.0.0",
+    plugin_bundle: "hash",
+    agent_note: "a note",
+    revises: "r1",
+    expires_at: null,
+  };
+  const { from, last } = host({ state: { review: api, previous: { ...api, id: "r1", decision: null } } });
+  from({ type: "ready" });
+  const init = last("init");
+  const fields = ["id", "title", "status", "created_at", "payload", "attachments", "decision"];
+  assert.deepEqual(Object.keys(init.review), fields);
+  assert.deepEqual(Object.keys(init.previous), fields);
+  assert.deepEqual(init.review.attachments, [{ name: "a.png", size: 3, media_type: "image/png", sha256: "abc" }]);
+  assert.deepEqual(init.review.decision, { data: { ok: true }, decided_by: "me", decided_at: "2026-10-04T11:00:00Z" });
+  assert.equal(init.previous.decision, null);
+});
+
+test("submitted carries the decision as a view sees it", async () => {
+  const stored = { data: { ok: true }, decided_by: "me", decided_at: "now", summary: { counts: [] }, agent_note: "x" };
+  const { from, last, ask } = host({ options: { handOver: async () => ({ ok: true, decision: stored }) } });
+  from({ type: "ready" });
+  from({ type: "submit", req: ask(), data: { ok: true } });
+  await tick();
+  assert.deepEqual(last("submitted").decision, { data: { ok: true }, decided_by: "me", decided_at: "now" });
 });

@@ -47,9 +47,10 @@ export type MountedPlugin = {
   send(msg: Record<string, any>): Promise<void>;
   sendViolations(errors: { path: string; message: string }[]): Promise<void>;
   sendSubmitted(decision: Review["decision"]): Promise<void>;
-  /** the hand-over button: asks the view for its decision, as the app does;
-   *  false when there was nothing to ask, such as a read-only view. The
-   *  view's answer is in `nextSubmit()`, and the test replies to it. */
+  /** the hand-over button: asks the view for its decision, as the app does,
+   *  and waits for the view to answer; false when there was nothing to ask,
+   *  such as a read-only view. The view's answer is in `nextSubmit()`, and
+   *  the test replies to it. */
   collect(): Promise<boolean>;
   /** the whole hand-over, as the app does it: the decision the view
    *  returned, checked against the plugin's decision schema and accepted;

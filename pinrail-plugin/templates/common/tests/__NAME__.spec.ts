@@ -61,3 +61,10 @@ test("an answer pressed from the keyboard keeps the focus on its button", async 
   await expect(yes).toHaveAttribute("aria-pressed", "true");
   await expect(yes, "focus fell off the button").toBeFocused();
 });
+
+test("a draft of another shape, as an earlier release could have kept, leaves the view empty", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: basic(), draft: { verdict: "ship" } });
+  await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
+  await expect(plugin.frame.getByRole("button", { name: "No" })).toHaveAttribute("aria-pressed", "false");
+  expect(await plugin.handOver()).toEqual({ deferred: true });
+});
