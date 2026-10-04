@@ -131,6 +131,17 @@ A view with a build imports its icons from its framework's Lucide package instea
 
 The manifest's `icon` is an SVG file in the folder too, `icon.svg` in the scaffold, which the app shows wherever it names the plugin, drawn the same way. It is at most 32 KB. If the icon cannot be loaded, the app shows the plugin without an icon.
 
+## Markdown
+
+To render Markdown, load the SDK's Markdown script after the SDK:
+
+```html
+<script src="/sdk/v1/pinrail-plugin.js"></script>
+<script src="/sdk/v1/markdown.js"></script>
+```
+
+`Pinrail.markdown(text)` returns CommonMark as HTML, with headings, tables, block quotes, nested lists and code, and `Pinrail.markdownInline(text)` renders one line without a paragraph around it. Raw HTML in the source is escaped rather than passed through, because a view's frame runs inline scripts. A link whose scheme is not `http`, `https` or `mailto` keeps its text but loses its address, and the app asks the person before it opens any other link in their browser. The output has no classes, and the stylesheet styles its plain elements.
+
 ## Size
 
 The app gives the view the whole height of the review panel, whatever the view holds, so the hand-over button is in the same place for every plugin. A view whose content is taller scrolls inside its frame. `Pinrail.layout()` builds a header that stays in place over a body that scrolls.
