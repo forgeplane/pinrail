@@ -8,6 +8,7 @@ import claude from "../assets/agents/claude.svg?raw";
 import codex from "../assets/agents/codex.svg?raw";
 import cursor from "../assets/agents/cursor.svg?raw";
 import gemini from "../assets/agents/gemini.svg?raw";
+import grok from "../assets/agents/grok.svg?raw";
 import kimi from "../assets/agents/kimi.svg?raw";
 import opencode from "../assets/agents/opencode.svg?raw";
 
@@ -20,6 +21,7 @@ const AGENTS: Record<string, { label: string; svg: string }> = {
   gemini: { label: "Gemini CLI", svg: gemini },
   opencode: { label: "OpenCode", svg: opencode },
   kimi: { label: "Kimi", svg: kimi },
+  grok: { label: "Grok CLI", svg: grok },
 };
 
 /** The agent a requester names, when the app knows it. */

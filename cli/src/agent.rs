@@ -5,23 +5,25 @@
 //! agent's own markers. An agent none of these name asks as `pinrail-cli`.
 
 /// The name a review gives each agent Pinrail knows, as the app shows it.
-const KNOWN: [(&str, &str); 6] = [
+const KNOWN: [(&str, &str); 7] = [
     ("claude-code", "claude"),
     ("codex", "codex"),
     ("cursor", "cursor"),
     ("gemini-cli", "gemini"),
     ("opencode", "opencode"),
     ("kimi", "kimi"),
+    ("grok", "grok"),
 ];
 
 /// Each agent's own markers, in the order they are checked.
-const MARKERS: [(&str, &[&str]); 5] = [
+const MARKERS: [(&str, &[&str]); 6] = [
     ("claude-code", &["CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"]),
     ("codex", &["CODEX_THREAD_ID", "CODEX_SANDBOX", "CODEX_CI"]),
     // not CURSOR_TRACE_ID: the editor sets it in a person's terminals too
     ("cursor", &["CURSOR_AGENT"]),
     ("gemini-cli", &["GEMINI_CLI"]),
     ("opencode", &["OPENCODE", "OPENCODE_PID", "OPENCODE_CLIENT"]),
+    ("grok", &["GROK_AGENT", "GROK_SESSION_ID"]),
 ];
 
 pub fn detect() -> Option<String> {
@@ -102,6 +104,13 @@ mod tests {
             Some("gemini-cli")
         );
         assert_eq!(detect(&[("OPENCODE", "1")]).as_deref(), Some("opencode"));
+        assert_eq!(detect(&[("AI_AGENT", "Grok")]).as_deref(), Some("grok"));
+        assert_eq!(detect(&[("AGENT", "grok")]).as_deref(), Some("grok"));
+        assert_eq!(detect(&[("GROK_AGENT", "1")]).as_deref(), Some("grok"));
+        assert_eq!(
+            detect(&[("GROK_SESSION_ID", "abc")]).as_deref(),
+            Some("grok")
+        );
         // a person's own terminal in Cursor, and blank values, name nobody
         assert_eq!(
             detect(&[("CURSOR_TRACE_ID", "abc"), ("GEMINI_CLI", " ")]),

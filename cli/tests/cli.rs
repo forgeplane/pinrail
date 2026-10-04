@@ -121,6 +121,8 @@ fn pinrail() -> Command {
         .env_remove("OPENCODE")
         .env_remove("OPENCODE_PID")
         .env_remove("OPENCODE_CLIENT")
+        .env_remove("GROK_AGENT")
+        .env_remove("GROK_SESSION_ID")
         .env("PINRAIL_JSON", "1");
     cmd.stdin(Stdio::null());
     cmd

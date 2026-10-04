@@ -87,7 +87,7 @@ pinrail submit <plugin> --title <title> --data <file> [--wait]
 | `--timeout <seconds>` | With `--wait`: give up after this long, exit 4, and leave the review pending. |
 | `--decision-out <file>` | Also write the decision's data, as JSON, to a file. |
 | `--expires-at` | Close the review if nobody decides by then. |
-| `--requested-by` | Who is asking, shown on the review, with the agent's icon when the app knows it. Defaults to `PINRAIL_REQUESTED_BY`. Otherwise it is the coding agent the command runs under, as `AI_AGENT` or `AGENT` names it when either is set, or as found from the variables that `claude-code`, `codex`, `cursor`, `gemini-cli` and `opencode` set. `AGENT` counts only when it names an agent Pinrail knows, which also includes `kimi`. Without any of these, it is `pinrail-cli`. Name the job or role with `--origin workflow=…`. |
+| `--requested-by` | Who is asking, shown on the review, with the agent's icon when the app knows it. Defaults to `PINRAIL_REQUESTED_BY`. Otherwise it is the coding agent the command runs under, as `AI_AGENT` or `AGENT` names it when either is set, or as found from the variables that `claude-code`, `codex`, `cursor`, `gemini-cli`, `grok` and `opencode` set. `AGENT` counts only when it names an agent Pinrail knows, which also includes `kimi`. Without any of these, it is `pinrail-cli`. Name the job or role with `--origin workflow=…`. |
 
 Submitting the same review again while the first is still pending does not create a second one: the command answers the review already waiting, with its id. An agent that runs the command a second time, for example after its first attempt was stopped, waits on the same review, and the person decides it once.
 
