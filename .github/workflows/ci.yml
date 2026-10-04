@@ -206,17 +206,26 @@ jobs:
             plugins/artifact/package-lock.json
             plugins/model/package-lock.json
             docs/examples/ship-it/*/package-lock.json
+      # pinrail-plugin check runs `pinrail plugins check`, so the CLI goes
+      # on the PATH before anything checks a plugin
+      - name: Rust toolchain
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: pinrail-cli
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: cli
+      - name: Build the CLI
+        run: |
+          cargo build --manifest-path cli/Cargo.toml --locked
+          echo "$PWD/cli/target/debug" >> "$GITHUB_PATH"
       - name: pinrail-plugin tests
         working-directory: pinrail-plugin
         run: |
           npm ci
           npx playwright install --with-deps chromium
           npm test
-      - name: Check the sample plugins
-        run: |
-          for dir in plugins/*/; do
-            node pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
-          done
       - name: Build the artifact plugin
         working-directory: plugins/artifact
         run: |
@@ -228,19 +237,26 @@ jobs:
         run: |
           npm ci
           npm run build
+      # after the builds, which write the views that are not committed
+      - name: Check the sample plugins
+        run: |
+          for dir in plugins/*/; do
+            node pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
+          done
       - name: Plugin tests
         working-directory: plugins
         run: |
           npm ci
           npx playwright install --with-deps chromium
           npm test
-      # the docs' example plugin, one per framework: built, checked, tested
+      # the docs' example plugin, one per framework: built and tested, then
+      # checked, since the build writes the view
       - name: Example plugins
         working-directory: docs/examples/ship-it
         run: |
           for dir in vanilla react vue svelte; do
-            node ../../../pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
             (cd "$dir" && npm ci && npm test)
+            node ../../../pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
           done
           node --test same.test.mjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

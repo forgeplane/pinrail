@@ -45,14 +45,25 @@ jobs:
           declared=$(node -p 'require("./package.json").version')
           test "$declared" = "$tagged" || { echo "package.json says $declared, tag says $tagged"; exit 1; }
           echo "version=$tagged" >> "$GITHUB_OUTPUT"
+      # pinrail-plugin check runs `pinrail plugins check`, so the CLI goes
+      # on the PATH before anything checks a plugin
+      - name: Rust toolchain
+        run: rustup toolchain install
+      - name: Build the CLI
+        run: |
+          cargo build --manifest-path cli/Cargo.toml --locked
+          echo "$PWD/cli/target/debug" >> "$GITHUB_PATH"
       - name: The package's tests
         working-directory: pinrail-plugin
         run: |
           npm ci
           npx playwright install --with-deps chromium
           npm test
+      # the artifact and model plugins' builds write views that are not committed
       - name: The samples pass check
         run: |
+          (cd plugins/artifact && npm ci && npm run build)
+          (cd plugins/model && npm ci && npm run build)
           for dir in plugins/*/; do
             node pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
           done
