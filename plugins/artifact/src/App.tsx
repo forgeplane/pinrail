@@ -97,7 +97,7 @@ export function App() {
         const { comments, verdict, readonly } = latest.current;
         if (readonly) return;
         const data: Decision = { verdict: verdict ?? (comments.length > 0 ? "revise" : "approve"), comments };
-        connected!.submit(data);
+        return data;
       },
     });
     plugin.current = connected;

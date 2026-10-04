@@ -1,6 +1,6 @@
 // __TITLE__: one question, yes or no. The answer
-// is held here; the app's hand-over button (or ⌘/Ctrl+Enter) sends `collect`
-// and this view submits. Replace render() and handOver() with your own.
+// is held here; the app's hand-over button (or ⌘/Ctrl+Enter) asks for it,
+// and onCollect returns it. Replace render() and handOver() with your own.
 //
 // The SDK is on the window from the script tag in index.html; the types
 // come from the package, so `plugin.review.payload` is your payload.
@@ -31,20 +31,22 @@ const plugin = Pinrail.connect<Payload, Decision>({
   onViolations(errors) {
     errorsEl().textContent = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
   },
+  // the decision, or nothing while the view needs more from the person
   onCollect() {
-    handOver();
+    return handOver();
   },
 });
 
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const errorsEl = () => el<HTMLDivElement>("errors");
 
-function handOver() {
+/** The decision, or nothing while there is no answer to hand over. */
+function handOver(): Decision | undefined {
   if (choice === null) {
     errorsEl().textContent = "Choose yes or no first.";
     return;
   }
-  plugin.submit({ ok: choice });
+  return { ok: choice };
 }
 
 function pick(value: boolean) {

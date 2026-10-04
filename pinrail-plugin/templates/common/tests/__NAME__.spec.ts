@@ -7,20 +7,22 @@ import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
 const dir = path.resolve(__dirname, "..");
 const basic = () => fixture(path.join(dir, "fixtures", "basic.json"));
 
-test("renders the payload, and hands over the answer when the shell collects", async ({ page }) => {
+test("renders the payload, and hands over the answer as the app does", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: basic() });
   await expect(plugin.frame.locator("p").first()).toContainText("3 commits");
 
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over: yes");
 
-  await plugin.collect();
-  expect(await plugin.nextSubmit()).toEqual({ ok: true });
+  // asked for its decision, checked against the decision schema, accepted
+  const handed = await plugin.handOver();
+  expect(handed).toMatchObject({ decision: { data: { ok: true } } });
 });
 
 test("asks for an answer before handing over, and shows what the app refuses", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: basic() });
-  await plugin.collect();
+  // no answer yet: the view hands nothing over, and says why
+  expect(await plugin.handOver()).toEqual({ deferred: true });
   await expect(plugin.frame.locator("#errors")).toHaveText("Choose yes or no first.");
 
   await plugin.frame.getByRole("button", { name: "No" }).click();

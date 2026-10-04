@@ -1,8 +1,8 @@
 <!-- __TITLE__: one question, yes or no, in Vue.
      The SDK is connected once, when the view mounts; what it hands over (the
      review, whether it is read-only, the draft) becomes reactive state. The
-     app's hand-over button (or ⌘/Ctrl+Enter) sends `collect` and this view
-     submits. Replace the template and handOver with your own.
+     app's hand-over button (or ⌘/Ctrl+Enter) asks for the decision, and
+     onCollect returns it. Replace the template and onCollect with your own.
 
      The SDK is on the window from the script tag in index.html; the types
      come from the package, so `review.payload` is your payload. -->
@@ -31,13 +31,14 @@ onMounted(() => {
       const kept = init.draft as Draft | null;
       if (kept) draft.value = { ok: typeof kept.ok === "boolean" ? kept.ok : null };
     },
+    // the decision, or nothing while there is no answer to hand over
     onCollect() {
       const { ok } = draft.value;
       if (ok === null) {
         errors.value = "Choose yes or no first.";
         return;
       }
-      plugin.submit({ ok });
+      return { ok };
     },
     onViolations(list) {
       errors.value = list.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");

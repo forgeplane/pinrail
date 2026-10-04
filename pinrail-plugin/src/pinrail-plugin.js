@@ -3,24 +3,25 @@
  *
  * Served by the app at /sdk/v1/pinrail-plugin.js. A plugin loads it with one
  * script tag and calls Pinrail.connect(handlers); everything the protocol
- * requires (ready, origin pinning, resize, drafts, submitted, violations,
- * collect and the Cmd/Ctrl+Enter shortcut) is handled here.
+ * requires (ready, origin pinning, resize, drafts, the hand-over, submitted,
+ * violations and the Cmd/Ctrl+Enter shortcut) is handled here.
  *
  *   const plugin = Pinrail.connect({
  *     resize: "auto",                 // "auto" (content height), "fill" (viewport), or "manual"
  *     onInit({ review, previous, readonly, draft, settings }) { … },
+ *     onCollect() { return decision }, // the app's hand-over button, or Cmd/Ctrl+Enter:
+ *                                      // the decision, a promise of it, or nothing to hand over yet
  *     onViolations(errors) { … },     // [{ path, message }]
  *     onSubmitted(decision) { … },    // the decision was accepted; render read-only
- *     onCollect() { … },              // the shell's hand-over button, or Cmd/Ctrl+Enter
  *     onAppearance(theme) { … },      // optional; "dark" | "light", already applied
  *     onSettings(settings) { … },     // optional; the plugin's own settings changed
  *     onKey(key) { … },               // optional; a declared shortcut pressed while the shell had focus
+ *     onError(error) { … },           // optional; a handler threw, or a decision is not JSON
  *   });
  *
  * Load this with a plain <script src> tag, not a deferred or module one: it
  * reads the theme off the frame's URL and sets data-theme on the document, so
  * the view is in the shell's theme from the frame it first paints.
- *   plugin.submit(data);
  *   plugin.draft(data);               // debounced; { flush: true } posts at once
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
  *   plugin.open("https://example.com"); // the app asks the person, then opens it in the browser
@@ -151,6 +152,11 @@
     let stopObserving = null;
 
     const post = (msg) => env.post(Object.assign({ pinrail: PROTOCOL }, msg), state.shellOrigin || "*");
+    /* An error of the view's own code: its handler, or none, the console. */
+    const report = (error) => {
+      if (handlers.onError) handlers.onError(error);
+      else if (env.logError) env.logError(error);
+    };
     /* Decisions and drafts reach the app as JSON, so they are sent as the
        plain data they hold, whatever a framework keeps them in: a Vue
        reactive object or a Svelte $state proxy cannot be posted as it is.
@@ -182,9 +188,33 @@
       if (SAFE_HREF.test(url)) post({ type: "open", url: String(url) });
     }
 
-    function collect() {
-      if (state.readonly) return;
-      if (handlers.onCollect) handlers.onCollect();
+    /* The app asks for the decision, by a request number. The view's
+       onCollect returns it, or a promise of it, and the answer goes back as
+       `submit` with that number; nothing returned is `defer`, the view's
+       "not yet": a missing answer, or a preview to confirm first. A handler
+       that throws, or a decision JSON cannot hold, is reported through
+       onError and hands nothing over. */
+    async function collect(req) {
+      const defer = () => post({ type: "defer", req });
+      if (state.readonly || !handlers.onCollect) return defer();
+      let value;
+      try {
+        value = await handlers.onCollect();
+      } catch (error) {
+        report(error);
+        return defer();
+      }
+      if (value === undefined || value === null) return defer();
+      let data;
+      try {
+        data = JSON.parse(JSON.stringify(value));
+      } catch (error) {
+        report(new Error(`the decision is not JSON: ${error.message}`));
+        return defer();
+      }
+      // a draft still waiting is for a decision that is now being made
+      env.clearTimeout(draftTimer);
+      post({ type: "submit", req, data });
     }
 
     // The plugin's own settings, as the manifest declares them and the
@@ -243,7 +273,7 @@
           }
           break;
         case "collect":
-          collect();
+          if (typeof data.req === "number") void collect(data.req);
           break;
         case "attachment": {
           // the shell's answer to attachment(): the bytes, transferred, or why not
@@ -279,8 +309,8 @@
 
     env.listen(handle);
     if (env.onLink) env.onLink(open);
-    if (handlers.shortcut !== false && env.onShortcut) env.onShortcut(collect);
-    // the app's own keys on the review screen reach it from inside the view too
+    // the app's own keys on the review screen reach it from inside the view
+    // too, ⌘/Ctrl+Enter among them: the app starts the hand-over
     if (env.onAppKey) env.onAppKey((key) => post(Object.assign({ type: "key" }, key)));
     post({ type: "ready" });
 
@@ -347,12 +377,6 @@
       get settings() {
         return state.settings;
       },
-      submit(data) {
-        // a draft still waiting is for a decision that is now being made
-        env.clearTimeout(draftTimer);
-        const value = asJson(data, "decision");
-        if (value !== NOT_JSON) post({ type: "submit", data: value });
-      },
       /* Asks the shell to keep a setting of this plugin's; the shell checks
          it against the manifest and answers with `settings` (or with
          `violations` when it will not have it). */
@@ -378,7 +402,6 @@
       status(status) {
         post({ type: "status", label: (status || {}).label });
       },
-      collect,
     };
   }
 
@@ -564,22 +587,23 @@
           // anything else, a fragment into the view among it, behaves as written
         }),
       // ? for the keys, [ and ] for the rounds: the app's, so a press the
-      // view left alone, outside a text field, goes up to it
+      // view left alone, outside a text field, goes up to it. ⌘/Ctrl+Enter
+      // goes up from anywhere, a text field too: it is the hand-over.
       onAppKey: (fn) =>
         win.addEventListener("keydown", (e) => {
-          if (e.defaultPrevented || e.pinrailForwarded || e.metaKey || e.ctrlKey || e.altKey) return;
+          if (e.defaultPrevented || e.pinrailForwarded) return;
+          if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === "Enter") {
+            e.preventDefault();
+            fn({ key: "Enter", code: e.code || "Enter", metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: false, shiftKey: false });
+            return;
+          }
+          if (e.metaKey || e.ctrlKey || e.altKey) return;
           if (!APP_KEYS.includes(e.key)) return;
           const el = e.target;
           if (el && el.closest && el.closest("input, textarea, select, [contenteditable]")) return;
           fn({ key: e.key, code: e.code || "", metaKey: false, ctrlKey: false, altKey: false, shiftKey: !!e.shiftKey });
         }),
-      onShortcut: (fn) =>
-        win.addEventListener("keydown", (e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-            e.preventDefault();
-            fn();
-          }
-        }),
+      logError: (error) => win.console.error(error),
       objectUrl: (bytes, type) => win.URL.createObjectURL(new win.Blob([bytes], { type })),
     };
   }

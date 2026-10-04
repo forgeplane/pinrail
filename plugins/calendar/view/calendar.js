@@ -52,10 +52,11 @@
       state = C.restore(payload, plugin.review.decision?.data);
       render();
     },
+    // the app's hand-over: the decision, or nothing while it is incomplete
     onCollect() {
       if (!payload || plugin.readonly) return;
       try {
-        plugin.submit(C.decision(payload, state));
+        return C.decision(payload, state);
       } catch (e) {
         error = e.message;
         render();

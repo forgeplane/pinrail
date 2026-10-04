@@ -2,6 +2,8 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { Pinrail, fakeEnv, fakeDocument, shell, review, init } = require("./helpers.cjs");
 
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
 test("connect posts ready at once, to any origin", () => {
   const env = fakeEnv();
   Pinrail.createPlugin(env, {});
@@ -21,12 +23,6 @@ test("init hands the review, previous, readonly and draft to onInit and pins the
   assert.deepEqual(seen[0].draft, { a: 1 });
   assert.equal(plugin.shellOrigin, "http://shell.test");
   assert.equal(plugin.initialised, true);
-
-  plugin.submit({ ok: true });
-  assert.deepEqual(env.last("submit"), {
-    msg: { pinrail: 1, type: "submit", data: { ok: true } },
-    target: "http://shell.test",
-  });
 });
 
 test("messages without the protocol marker, or from another origin once pinned, are ignored", () => {
@@ -49,7 +45,7 @@ test("messages without the protocol marker, or from another origin once pinned, 
   assert.deepEqual(calls, ["init", "violations"]);
 });
 
-test("violations, submitted and collect dispatch; submitted flips read-only and records the decision", () => {
+test("violations, submitted and collect dispatch; submitted flips read-only and records the decision", async () => {
   const env = fakeEnv();
   const calls = [];
   const plugin = Pinrail.createPlugin(env, {
@@ -60,9 +56,11 @@ test("violations, submitted and collect dispatch; submitted flips read-only and 
   });
   env.deliver(init());
   env.deliver(shell({ type: "violations", errors: [{ path: "/x", message: "bad" }] }));
-  env.deliver(shell({ type: "collect" }));
+  env.deliver(shell({ type: "collect", req: 1 }));
+  await settle();
   env.deliver(shell({ type: "submitted", decision: { decided_by: "a", data: { ok: true } } }));
-  env.deliver(shell({ type: "collect" }));
+  env.deliver(shell({ type: "collect", req: 2 }));
+  await settle();
 
   assert.deepEqual(calls, [
     ["violations", [{ path: "/x", message: "bad" }]],
@@ -72,22 +70,27 @@ test("violations, submitted and collect dispatch; submitted flips read-only and 
   assert.equal(plugin.readonly, true);
   assert.equal(plugin.review.status, "decided");
   assert.deepEqual(plugin.review.decision.data, { ok: true });
+  // a decided review answers the app's request with nothing to hand over
+  assert.deepEqual(env.last("defer").msg, { pinrail: 1, type: "defer", req: 2 });
 });
 
-test("the keyboard shortcut collects unless read-only or disabled", () => {
+test("⌘/Ctrl+Enter is the app's: the view registers no shortcut of its own", () => {
   const env = fakeEnv();
-  let collected = 0;
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => collected++ });
+  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => ({ ok: true }) });
   env.deliver(init());
-  env.pressShortcut();
-  assert.equal(collected, 1);
-  env.deliver(init({ readonly: true }));
-  env.pressShortcut();
-  assert.equal(collected, 1);
-
-  const env2 = fakeEnv();
-  Pinrail.createPlugin(env2, { resize: "manual", shortcut: false, onCollect: () => collected++ });
-  assert.equal(env2.shortcuts.length, 0);
+  assert.equal(env.shortcuts.length, 0);
+  env.appKeys[0]({ key: "Enter", code: "Enter", metaKey: true, ctrlKey: false, altKey: false, shiftKey: false });
+  assert.deepEqual(env.last("key").msg, {
+    pinrail: 1,
+    type: "key",
+    key: "Enter",
+    code: "Enter",
+    metaKey: true,
+    ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
+  });
+  assert.equal(env.last("submit"), undefined, "the app starts the hand-over, not the view");
 });
 
 test("drafts are debounced, coalesced, flushable, and dropped when read-only", () => {
@@ -143,20 +146,111 @@ test("status tells the shell what handing over would do", () => {
   assert.equal(env.last("status").target, "http://shell.test");
 });
 
-test("collect is what the hand-over asks for, from the shell or the shortcut", () => {
+test("the decision onCollect returns answers the app's request, by its number", async () => {
+  const env = fakeEnv();
+  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => ({ ok: true }) });
+  env.deliver(init());
+  env.deliver(shell({ type: "collect", req: 7 }));
+  await settle();
+  assert.deepEqual(env.last("submit"), {
+    msg: { pinrail: 1, type: "submit", req: 7, data: { ok: true } },
+    target: "http://shell.test",
+  });
+});
+
+test("a promise of the decision is waited for", async () => {
+  const env = fakeEnv();
+  let confirm;
+  Pinrail.createPlugin(env, {
+    resize: "manual",
+    onCollect: () => new Promise((resolve) => (confirm = () => resolve({ ok: false }))),
+  });
+  env.deliver(init());
+  env.deliver(shell({ type: "collect", req: 3 }));
+  await settle();
+  assert.equal(env.last("submit"), undefined);
+  confirm();
+  await settle();
+  assert.deepEqual(env.last("submit").msg, { pinrail: 1, type: "submit", req: 3, data: { ok: false } });
+});
+
+test("nothing returned is defer: the view needs more from the person first", async () => {
+  const env = fakeEnv();
+  const answers = [undefined, null, Promise.resolve(undefined)];
+  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => answers.shift() });
+  env.deliver(init());
+  for (const req of [1, 2, 3]) {
+    env.deliver(shell({ type: "collect", req }));
+    await settle();
+  }
+  assert.deepEqual(
+    env.posted.map((p) => p.msg).filter((m) => m.type === "defer" || m.type === "submit"),
+    [1, 2, 3].map((req) => ({ pinrail: 1, type: "defer", req })),
+  );
+});
+
+test("a handler that throws, or a decision JSON cannot hold, reaches onError and hands nothing over", async () => {
+  const env = fakeEnv();
+  const errors = [];
+  const loop = { a: 1 };
+  loop.self = loop;
+  const answers = [
+    () => {
+      throw new Error("the view broke");
+    },
+    () => loop,
+    () => Promise.reject(new Error("the preview failed")),
+  ];
+  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => answers.shift()(), onError: (e) => errors.push(e) });
+  env.deliver(init());
+  for (const req of [1, 2, 3]) {
+    env.deliver(shell({ type: "collect", req }));
+    await settle();
+  }
+  assert.equal(env.last("submit"), undefined);
+  assert.deepEqual(
+    env.types().filter((t) => t === "defer"),
+    ["defer", "defer", "defer"],
+  );
+  assert.equal(errors[0].message, "the view broke");
+  assert.match(errors[1].message, /^the decision is not JSON/);
+  assert.equal(errors[2].message, "the preview failed");
+});
+
+test("without onError, an error goes to the console", async () => {
+  const env = fakeEnv();
+  Pinrail.createPlugin(env, {
+    resize: "manual",
+    onCollect: () => {
+      throw new Error("unhandled");
+    },
+  });
+  env.deliver(init());
+  env.deliver(shell({ type: "collect", req: 1 }));
+  await settle();
+  assert.equal(env.errors[0].message, "unhandled");
+});
+
+test("a read-only view answers defer without asking onCollect", async () => {
   const env = fakeEnv();
   let asked = 0;
-  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => asked++ });
+  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => (asked++, { ok: true }) });
+  env.deliver(init({ readonly: true }));
+  env.deliver(shell({ type: "collect", req: 1 }));
+  await settle();
+  assert.equal(asked, 0);
+  assert.deepEqual(env.last("defer").msg, { pinrail: 1, type: "defer", req: 1 });
+});
+
+test("a collect without a request number is not the protocol's, and is ignored", async () => {
+  const env = fakeEnv();
+  let asked = 0;
+  Pinrail.createPlugin(env, { resize: "manual", onCollect: () => (asked++, { ok: true }) });
   env.deliver(init());
-
   env.deliver(shell({ type: "collect" }));
-  env.pressShortcut();
-  assert.equal(asked, 2, "the button and the shortcut are the same request");
-
-  env.deliver(shell({ type: "submitted", decision: null }));
-  env.deliver(shell({ type: "collect" }));
-  env.pressShortcut();
-  assert.equal(asked, 2, "and neither reaches a decided review");
+  await settle();
+  assert.equal(asked, 0);
+  assert.equal(env.last("submit"), undefined);
 });
 
 test("the theme comes from the environment first, and the shell can still change it", () => {
@@ -501,39 +595,36 @@ test("the app's own keys, pressed in the view, go up to the app", () => {
   });
 });
 
-test("a draft still pending when the decision is submitted is never sent", () => {
+test("a draft still pending when the decision is handed over is never sent", async () => {
   const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  const plugin = Pinrail.createPlugin(env, { resize: "manual", onCollect: () => ({ ok: true }) });
   env.deliver(init());
   plugin.draft({ note: "half typed" });
-  plugin.submit({ ok: true });
+  env.deliver(shell({ type: "collect", req: 1 }));
+  await settle();
   for (const timer of env.timers.splice(0)) timer.fn();
   const types = env.posted.map((p) => p.msg.type);
   assert.equal(types.at(-1), "submit", types.join(", "));
   assert.ok(!types.slice(types.indexOf("submit")).includes("draft"), types.join(", "));
 });
 
-test("a decision or draft held in reactive state is sent as the plain data it holds", () => {
+test("a decision or draft held in reactive state is sent as the plain data it holds", async () => {
   const env = fakeEnv();
   // what a browser does with every message: a structured clone, which
   // refuses a Proxy such as Vue's reactive() or Svelte's $state
   env.post = (msg, target) => env.posted.push({ msg: structuredClone(msg), target });
-  const violations = [];
-  const plugin = Pinrail.createPlugin(env, { resize: "manual", onViolations: (e) => violations.push(e) });
-  env.deliver(init());
   const reactive = (value) => new Proxy(value, {});
-  plugin.submit(reactive({ ok: true, items: reactive([1, 2]), skipped: undefined }));
+  const plugin = Pinrail.createPlugin(env, {
+    resize: "manual",
+    onCollect: () => reactive({ ok: true, items: reactive([1, 2]), skipped: undefined }),
+  });
+  env.deliver(init());
+  env.deliver(shell({ type: "collect", req: 1 }));
+  await settle();
   plugin.draft(reactive({ step: 2 }), { flush: true });
   const sent = env.posted.map((p) => p.msg).filter((m) => m.type === "submit" || m.type === "draft");
   assert.deepEqual(sent, [
-    { pinrail: sent[0].pinrail, type: "submit", data: { ok: true, items: [1, 2] } },
+    { pinrail: sent[0].pinrail, type: "submit", req: 1, data: { ok: true, items: [1, 2] } },
     { pinrail: sent[0].pinrail, type: "draft", data: { step: 2 } },
   ]);
-
-  // what JSON cannot hold is refused as the app would, not thrown
-  const loop = { a: 1 };
-  loop.self = loop;
-  plugin.submit(loop);
-  assert.equal(violations.length, 1);
-  assert.equal(violations[0][0].path, "");
 });

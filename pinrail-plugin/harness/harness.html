@@ -6,8 +6,9 @@
 <script type="module">
 // A stand-in for the app, with the app's side of the protocol from
 // ../host/host.js, so a plugin can be exercised alone. It records every
-// message the plugin posts and lets a test send any message; a test answers
-// a submit itself, with sendSubmitted or sendViolations.
+// message the plugin posts and lets a test send any message. A test answers
+// a submit itself, with sendSubmitted or sendViolations, or asks handOver()
+// to hand over as the app does.
 import { CAPABILITIES, connectFrame } from "/_host.js";
 
 const frame = document.getElementById("plugin-frame");
@@ -18,6 +19,13 @@ let lastStatus = null;
 let lastOpen = null;
 let lastSettingsSet = null;
 let pinnedHeight = null;
+// the test waiting on handOver(): resolved with what became of the request
+let waiting = null;
+const settle = (outcome) => {
+  const resolve = waiting;
+  waiting = null;
+  if (resolve) resolve(outcome);
+};
 
 // "shift+a" -> the fields of the key message the app sends
 function keyMessage(combo) {
@@ -45,6 +53,20 @@ const host = connectFrame(frame, {
     if (!response.ok) throw new Error(`could not fetch ${listed.name}`);
     return response.arrayBuffer();
   },
+  // as the app, when a test asked: the decision checked against the
+  // plugin's schema, then accepted or refused; otherwise the test answers
+  handOver: async (data) => {
+    if (!waiting) return null;
+    const violations = await window.__pinrailCheckDecision(data);
+    if (violations.length) {
+      settle({ violations });
+      return { ok: false, violations };
+    }
+    const decision = { data, decided_by: "you", decided_at: new Date().toISOString() };
+    settle({ decision });
+    return { ok: true, decision };
+  },
+  onDefer: () => settle({ deferred: true }),
   // the app opens it; here it is only recorded
   open: (url) => (lastOpen = url),
   resize: (height) => {
@@ -63,6 +85,13 @@ window.__shell = {
   init(next) { pending = next; host.init(); },
   reinit(overrides) { pending = Object.assign({}, pending, { draft: lastDraft }, overrides || {}); host.init(); },
   send: (msg) => host.send(msg),
+  /* the hand-over button: a request for the decision, numbered as the app numbers it */
+  collect: () => host.collect(),
+  handOver: () =>
+    new Promise((resolve) => {
+      waiting = resolve;
+      if (!host.collect()) settle({ asked: false });
+    }),
   messages: () => log.slice(),
   lastDraft: () => lastDraft,
   lastStatus: () => lastStatus,

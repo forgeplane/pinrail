@@ -33,15 +33,17 @@ const plugin = Pinrail.connect({
   onViolations(errors) {
     document.getElementById("errors").textContent = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
   },
-  onCollect() { handOver(); },
+  // the app's hand-over button, or ⌘/Ctrl+Enter: the decision, or nothing yet
+  onCollect() { return handOver(); },
 });
 
+/** The decision, or nothing while there is no answer to hand over. */
 function handOver() {
   if (choice === null) {
     document.getElementById("errors").textContent = "Choose yes or no first.";
     return;
   }
-  plugin.submit({ ok: choice });
+  return { ok: choice };
 }
 
 function pick(value) {

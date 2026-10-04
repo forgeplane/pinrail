@@ -321,7 +321,7 @@ const plugin = Pinrail.connect({
     loadDecision(decision && decision.data);
     set(() => { S.done = true; S.showSubmit = false; S.composer = null; S.noteOpen = {}; S.errors = null; });
   },
-  onCollect() { collect(); },
+  onCollect() { return collect(); },
 });
 
 function draft() {
@@ -1013,7 +1013,7 @@ function submitModalHtml() {
     <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--border);position:sticky;bottom:0;background:var(--bg-raised)">
       <span style="flex:1;font-size:11.5px;color:var(--faint)">Your note to the agent travels with this.</span>
       <button class="ghost" data-act="close-submit" style="font-size:12.5px;padding:6px 12px">Keep reviewing</button>
-      <button class="primary" data-act="confirm-submit" style="padding:7px 16px">${S.confirmSubmitArm ? `Hand over anyway — ${undecidedList.length} left undecided` : `Hand over ${decEntries.length + yours} decision(s)`}</button>
+      <span data-handover-hint style="font-size:12.5px;font-weight:600">${S.confirmSubmitArm ? `Press Hand over again to send it, with ${undecidedList.length} left undecided` : `Press Hand over, or ⌘↵, to send ${decEntries.length + yours} decision(s)`}</span>
     </div>`;
   return `<div style="position:fixed;inset:0;background:oklch(0.1 0.01 250 / 0.65);z-index:60;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;animation:fade 0.12s ease-out">
     <div id="submit-modal" style="background:var(--bg-raised);border:1px solid var(--border-strong);border-radius:12px;width:640px;max-height:86vh;overflow-y:auto;box-shadow:0 20px 60px oklch(0 0 0 / 0.45)">${body}</div></div>`;
@@ -1238,20 +1238,22 @@ function bulk(action) {
     S.confirmBulk = null;
   });
 }
+/** The decision, or nothing while undecided proposals wait for a second
+ *  press to confirm. */
 function confirmSubmit() {
   captureDrafts();
   const undecidedCount = D.proposals.filter((p) => !decided(p.id)).length;
   if (!S.confirmSubmitArm && undecidedCount) { set(() => { S.confirmSubmitArm = true; }); return; }
   set(() => { S.errors = null; });
   handingOver = true;
-  plugin.submit(buildDecision());
+  return buildDecision();
 }
 /* The shell's hand-over button asks for the decision: the first press opens
    the summary of exactly what would go back, the next one confirms it. */
 function collect() {
   if (RO()) return;
   if (!S.showSubmit) { set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); return; }
-  confirmSubmit();
+  return confirmSubmit();
 }
 
 function syncStatus() {
@@ -1338,7 +1340,6 @@ document.addEventListener("click", (e) => {
     case "toggle-concerns": set(() => { S.concernsOpen = !S.concernsOpen; }); break;
     case "open-submit": set(() => { S.showSubmit = true; S.confirmSubmitArm = false; }); break;
     case "close-submit": set(() => { S.showSubmit = false; S.errors = null; }); break;
-    case "confirm-submit": confirmSubmit(); break;
   }
 });
 document.addEventListener("keydown", (e) => {

@@ -196,7 +196,8 @@ export type ShellMessage =
   | { pinrail: Protocol; type: "attachment"; req: number; ok: false; name?: string; error: string }
   | { pinrail: Protocol; type: "violations"; errors: Violation[] }
   | { pinrail: Protocol; type: "submitted"; decision: Decision }
-  | { pinrail: Protocol; type: "collect" }
+  /** asks for the decision; the view answers `submit` or `defer` with this `req` */
+  | { pinrail: Protocol; type: "collect"; req: number }
   | { pinrail: Protocol; type: "appearance"; theme: Theme }
   | { pinrail: Protocol; type: "settings"; settings: Settings }
   | ({ pinrail: Protocol; type: "key" } & Key);
@@ -207,7 +208,10 @@ export type PluginMessage =
   | { pinrail: Protocol; type: "resize"; height: number | "fill" }
   | { pinrail: Protocol; type: "draft"; data: any }
   | { pinrail: Protocol; type: "status"; label?: string }
-  | { pinrail: Protocol; type: "submit"; data: any }
+  /** the decision, in answer to the `collect` with this `req` */
+  | { pinrail: Protocol; type: "submit"; req: number; data: any }
+  /** nothing to hand over for the `collect` with this `req` yet */
+  | { pinrail: Protocol; type: "defer"; req: number }
   | { pinrail: Protocol; type: "settings_set"; patch: Settings }
   | {
       pinrail: Protocol;
@@ -219,6 +223,17 @@ export type PluginMessage =
       altKey: false;
       shiftKey: boolean;
     }
+  /** ⌘/Ctrl+Enter pressed inside the view: the app starts the hand-over */
+  | {
+      pinrail: Protocol;
+      type: "key";
+      key: "Enter";
+      code: string;
+      metaKey: boolean;
+      ctrlKey: boolean;
+      altKey: false;
+      shiftKey: false;
+    }
   /** open this link outside the app: http, https or mailto */
   | { pinrail: Protocol; type: "open"; url: string }
   /** the bytes of a file the review (or the round it revises) carries */
@@ -229,14 +244,16 @@ export type PluginMessage =
 export type Handlers<Payload = unknown, Data = unknown> = {
   /** "auto" (content height, the default), "fill" (the viewport) or "manual" */
   resize?: "auto" | "fill" | "manual";
-  /** false leaves ⌘/Ctrl+Enter to the view */
-  shortcut?: boolean;
   onInit?(init: Init<Payload, Data>): void;
   onViolations?(errors: Violation[]): void;
   /** the decision was accepted; render read-only */
   onSubmitted?(decision: Decision<Data> | null): void;
-  /** the shell's hand-over button, or ⌘/Ctrl+Enter */
-  onCollect?(): void;
+  /** The app's hand-over button, or ⌘/Ctrl+Enter: return the decision, or a
+   *  promise of it. Return nothing when the view needs more from the person
+   *  first, such as a missing answer or a preview to confirm. */
+  onCollect?(): Data | undefined | void | Promise<Data | undefined | void>;
+  /** a handler threw, or a decision JSON cannot hold; without it, the console */
+  onError?(error: Error): void;
   /** the theme changed; `data-theme` on the root element is already set */
   onAppearance?(theme: Theme): void;
   /** the plugin's own settings changed */
@@ -253,7 +270,6 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   readonly initialised: boolean;
   readonly theme: Theme;
   readonly settings: Settings;
-  submit(data: Data): void;
   /** debounced; `{ flush: true }` posts at once */
   draft(data: any, opts?: { flush?: boolean }): void;
   /** only for `resize: "manual"` */
@@ -264,7 +280,6 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   open(url: string): void;
   /** asks the shell to keep one setting; it comes back as `settings`, or as `violations` */
   setSetting(key: string, value: string | number | boolean): void;
-  collect(): void;
   /** the files the review carries */
   readonly attachments: Attachment[];
   /** a file's bytes, from the shell; `round: "previous"` for the round this one revises */

@@ -448,11 +448,13 @@ function setVerdict(action) {
   render();
 }
 
+/** The decision, or nothing while undecided candidates wait for a second
+ *  press to confirm. */
 function handOver() {
   const data = decisionData();
   if (data.undecided.length && !S.armed) { S.armed = true; status(); S.keepScroll = true; render(); return; }
   S.errors = null;
-  plugin.submit(data);
+  return data;
 }
 
 const plugin = Pinrail.connect({
@@ -477,7 +479,7 @@ const plugin = Pinrail.connect({
     render();
     plugin.status({ label: `Check: ${errors[0]?.message ?? "the decision"}` });
   },
-  onCollect() { handOver(); },
+  onCollect() { return handOver(); },
 });
 
 document.addEventListener("click", (e) => {

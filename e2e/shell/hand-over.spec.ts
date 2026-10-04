@@ -11,10 +11,9 @@ test("handing over a decision returns to the inbox", async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/reviews/${review.id}$`));
   const frame = page.frameLocator("#plugin-frame");
   await expect(frame.locator("body")).toContainText("One proposal.");
-  await frame.locator("body").evaluate(() => {
-    const data = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
-    parent.postMessage({ pinrail: 1, type: "submit", data }, "*");
-  });
+  // the person decides the proposal and hands over
+  await frame.locator('button[data-act="accept"]').first().click();
+  await page.locator("[data-handover]").click();
 
   await expect(page).toHaveURL(/#\/$/);
   await expect(page.getByText("Decision recorded")).toBeVisible();

@@ -127,16 +127,22 @@ function fixture(file) {
 }
 
 /** Checks a decision against the plugin's decision schema,
- *  `schemas/decision.schema.json`, as the core does: the first problem, or null. */
+ *  `schemas/decision.schema.json`, as the core does: the violations, as
+ *  `{ path, message }`, or none. */
 function decisionChecker(pluginDir) {
   const file = path.join(pluginDir, "schemas", "decision.schema.json");
-  if (!fs.existsSync(file)) return () => null;
+  if (!fs.existsSync(file)) return () => [];
   const doc = { ...JSON.parse(fs.readFileSync(file, "utf8")) };
   delete doc.$schema;
   delete doc.$id;
-  const validate = new Ajv2020({ allErrors: false, strict: false, validateFormats: false }).compile(doc);
-  return (data) => (validate(data) ? null : `${validate.errors[0].instancePath || "/"}: ${validate.errors[0].message}`);
+  const validate = new Ajv2020({ allErrors: true, strict: false, validateFormats: false }).compile(doc);
+  return (data) =>
+    validate(data) ? [] : validate.errors.map((e) => ({ path: e.instancePath, message: e.message }));
 }
+
+/* The decision checker of the plugin mounted last on each page: a page can
+   expose a function only once, and a test may mount more than one plugin. */
+const checkers = new WeakMap();
 
 async function mountPlugin(page, pluginDir, opts) {
   const sdk = sdkScript(root);
@@ -187,6 +193,12 @@ async function mountPlugin(page, pluginDir, opts) {
     });
   });
 
+  // the hand-over checks a decision in Node, where the schema validator is
+  if (!checkers.has(page)) {
+    await page.exposeFunction("__pinrailCheckDecision", (data) => checkers.get(page)(data));
+  }
+  checkers.set(page, checkDecision);
+
   // a view a build writes is not there until it runs: say so, rather than
   // time out on a frame that got a 404
   const entryFile = path.join(pluginDir, "view", "index.html");
@@ -219,7 +231,10 @@ async function mountPlugin(page, pluginDir, opts) {
       // what the app would refuse, as the core checks every hand-over
       if (valid) {
         const wrong = checkDecision(data);
-        if (wrong) throw new Error(`the decision does not pass decision_schema: ${wrong}\n${JSON.stringify(data)}`);
+        if (wrong.length) {
+          const first = `${wrong[0].path || "/"}: ${wrong[0].message}`;
+          throw new Error(`the decision does not pass decision_schema: ${first}\n${JSON.stringify(data)}`);
+        }
       }
       return data;
     },
@@ -241,7 +256,11 @@ async function mountPlugin(page, pluginDir, opts) {
     send,
     sendViolations: (errors) => send({ type: "violations", errors }),
     sendSubmitted: (decision) => send({ type: "submitted", decision }),
-    collect: () => send({ type: "collect" }),
+    // the hand-over button: asks the view for its decision, as the app does
+    collect: () => page.evaluate(() => window.__shell.collect()),
+    // the whole hand-over, as the app does it: the decision accepted, the
+    // violations of one the schema refuses, or the view's "not yet"
+    handOver: () => page.evaluate(() => window.__shell.handOver()),
     setFrameHeight: (px) => page.evaluate((h) => window.__shell.setFrameHeight(h), px),
     reinit: (overrides = {}) => page.evaluate((o) => window.__shell.reinit(o), overrides),
     reload: () => page.evaluate(() => window.__shell.reload()),

@@ -679,11 +679,13 @@ function setVerdict(action) {
   plugin.draft(S.verdicts, { flush: true });
   render();
 }
+/** The decision, or nothing while undecided candidates wait for a second
+ *  press to confirm. */
 function handOver() {
   const data = decisionData();
   if (data.undecided.length && !S.armed) { S.armed = true; status(); S.keepScroll = true; render(); return; }
   S.errors = null;
-  plugin.submit(data);
+  return data;
 }
 
 /* Orbit on drag, comment on a click that did not move. */
@@ -759,7 +761,7 @@ const plugin = Pinrail.connect({
     render();
     plugin.status({ label: `Check: ${errors[0]?.message ?? "the decision"}` });
   },
-  onCollect() { handOver(); },
+  onCollect() { return handOver(); },
   onAppearance() { dirty = true; },
 });
 loop();

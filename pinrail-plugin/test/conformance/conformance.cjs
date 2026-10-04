@@ -84,7 +84,23 @@ function secondReadyProblems(received, before) {
   return problems;
 }
 
+/** Every `collect` carries a request number of its own. */
+function collectProblems(received) {
+  const reqs = received.filter((m) => m.type === "collect").map((m) => m.req);
+  if (!reqs.length) return ["no collect"];
+  const problems = [];
+  if (!reqs.every((r) => Number.isInteger(r)))
+    problems.push(`a collect has no request number: ${JSON.stringify(reqs)}`);
+  if (new Set(reqs).size !== reqs.length) problems.push(`a request number was used twice: ${JSON.stringify(reqs)}`);
+  return problems;
+}
+
+/** The number of the last request for the decision the view received. */
+const lastRequest = (received) => received.filter((m) => m.type === "collect").at(-1)?.req;
+
 module.exports = {
+  collectProblems,
+  lastRequest,
   handshakeProblems,
   attachmentProblems,
   refusedAttachmentProblems,

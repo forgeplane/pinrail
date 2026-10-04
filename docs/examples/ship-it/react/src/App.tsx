@@ -37,10 +37,14 @@ export function App() {
         setReadonly(readonly);
         if (draft) setDraft(draft as Draft);
       },
+      // the decision, or nothing while there is no verdict to hand over
       onCollect() {
         const { verdict, note } = latest.current;
-        if (!verdict) return setError("Choose ship or hold first.");
-        plugin.current!.submit(note.trim() ? { verdict, note: note.trim() } : { verdict });
+        if (!verdict) {
+          setError("Choose ship or hold first.");
+          return;
+        }
+        return note.trim() ? { verdict, note: note.trim() } : { verdict };
       },
       onViolations(errors) {
         setError(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));

@@ -16,6 +16,9 @@ export const PROTOCOL = 1;
 /** What a host can do for a view beyond protocol 1's first messages. */
 export const CAPABILITIES = ["attachments"];
 
+/** How long a view has to answer a request for its decision. */
+export const COLLECT_TIMEOUT_MS = 60_000;
+
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
 /**
@@ -41,10 +44,15 @@ export function createHost(options) {
     label,
     resize,
     appKey,
+    handOverKey,
+    onDefer,
     onReady,
     onLeft,
     observe,
     capabilities = CAPABILITIES,
+    collectTimeout = COLLECT_TIMEOUT_MS,
+    setTimer = (fn, ms) => setTimeout(fn, ms),
+    clearTimer = (timer) => clearTimeout(timer),
   } = options;
 
   let ready = false;
@@ -54,6 +62,11 @@ export function createHost(options) {
   let left = false;
   let loads = 0;
   let disposed = false;
+  // The one request for the decision that is open: its number, and the
+  // timer that closes it. Only an answer with this number counts, once.
+  let request = 0;
+  let asking = null;
+  let deadline = null;
   // set before the decision goes out, so a second submit posted in the same
   // moment finds it
   let handingOver = false;
@@ -67,10 +80,32 @@ export function createHost(options) {
     post(message, transfer);
   };
 
+  /** Closes the open request: an answer to it, from now on, counts for
+   *  nothing. */
+  function close() {
+    asking = null;
+    if (deadline !== null) clearTimer(deadline);
+    deadline = null;
+  }
+
+  /** Asks the view for its decision; false when there is nothing to ask. */
+  function collect() {
+    if (!ready || readonly() || asking !== null || handingOver) return false;
+    request += 1;
+    const req = request;
+    asking = req;
+    deadline = setTimer(() => {
+      if (asking === req) close();
+    }, collectTimeout);
+    send({ type: "collect", req });
+    return true;
+  }
+
   function leave() {
     if (left) return;
     left = true;
     ready = false;
+    close();
     if (onLeft) onLeft();
   }
 
@@ -117,7 +152,12 @@ export function createHost(options) {
     }
   }
 
-  async function answerSubmit(data) {
+  async function answerSubmit(msg) {
+    // only the answer to the request that is open: one the app did not ask
+    // for, or that came too late, decides nothing
+    if (asking === null || msg.req !== asking) return;
+    close();
+    const data = msg.data;
     if (!handOver || readonly() || handingOver) return;
     handingOver = true;
     let result;
@@ -179,13 +219,25 @@ export function createHost(options) {
         void answerAttachment(msg);
         break;
       case "key":
-        if (appKey && typeof msg.key === "string") appKey(msg);
+        if (typeof msg.key !== "string") break;
+        // ⌘/Ctrl+Enter inside the view: the hand-over, which the app starts
+        if (msg.key === "Enter" && (msg.metaKey || msg.ctrlKey)) {
+          if (handOverKey) handOverKey();
+          else collect();
+        } else if (appKey) appKey(msg);
         break;
       case "settings_set":
         void answerSettings(msg.patch);
         break;
       case "submit":
-        void answerSubmit(msg.data);
+        void answerSubmit(msg);
+        break;
+      case "defer":
+        // the view has nothing to hand over for this request yet
+        if (asking !== null && msg.req === asking) {
+          close();
+          if (onDefer) onDefer();
+        }
         break;
     }
   }
@@ -193,10 +245,9 @@ export function createHost(options) {
   return {
     receive,
     init,
-    /** Asks the view for its decision, as the hand-over button does. */
-    collect() {
-      if (ready && !readonly() && !handingOver) send({ type: "collect" });
-    },
+    /** Asks the view for its decision, as the hand-over button does; false
+     *  when there is nothing to ask, such as while a request is open. */
+    collect,
     appearance(value) {
       if (ready) send({ type: "appearance", theme: value });
     },
@@ -214,6 +265,7 @@ export function createHost(options) {
      *  elsewhere is sent init again; one the view handed over was told so. */
     changed() {
       const now = readonly();
+      if (now) close();
       if (now && !wasReadonly && !handedOver) init();
       wasReadonly = now;
     },
@@ -224,12 +276,14 @@ export function createHost(options) {
     },
     /** The host loads the view's page again: what follows is the view anew. */
     reload() {
+      close();
       ready = false;
       left = false;
       loads = 0;
       handedOver = false;
     },
     dispose() {
+      close();
       disposed = true;
     },
     get ready() {
@@ -240,6 +294,10 @@ export function createHost(options) {
     },
     get handingOver() {
       return handingOver;
+    },
+    /** a request for the decision is open */
+    get collecting() {
+      return asking !== null;
     },
   };
 }

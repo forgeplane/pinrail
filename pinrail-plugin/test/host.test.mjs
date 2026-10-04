@@ -10,9 +10,18 @@ const review = { id: "r1", title: "A review", status: "pending", payload: { n: 1
 /** A host with recording callbacks, and the messages it posted. */
 function host(overrides = {}) {
   const posted = [];
-  const calls = { drafts: [], labels: [], opened: [], keys: [], left: 0 };
+  const calls = { drafts: [], labels: [], opened: [], keys: [], left: 0, deferred: 0 };
   const state = { review, previous: null, readonly: false, ...overrides.state };
+  // the time limit on a request, run by the test rather than the clock
+  const timers = new Set();
   const h = createHost({
+    setTimer: (fn) => {
+      const timer = { fn };
+      timers.add(timer);
+      return timer;
+    },
+    clearTimer: (timer) => timers.delete(timer),
+    onDefer: () => (calls.deferred += 1),
     post: (msg, transfer) => posted.push({ msg, transfer }),
     origin: "http://app.test",
     review: () => state.review,
@@ -31,7 +40,19 @@ function host(overrides = {}) {
   const types = () => posted.map((p) => p.msg.type);
   const last = (type) => posted.filter((p) => p.msg.type === type).at(-1)?.msg;
   const from = (msg) => h.receive({ pinrail: PROTOCOL, ...msg });
-  return { h, posted, calls, state, types, last, from };
+  /** Runs out the clock on every open request. */
+  const expire = () => {
+    for (const timer of [...timers]) {
+      timers.delete(timer);
+      timer.fn();
+    }
+  };
+  /** Asks for the decision, and the number the request went out with. */
+  const ask = () => {
+    h.collect();
+    return last("collect")?.req;
+  };
+  return { h, posted, calls, state, types, last, from, expire, ask };
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -112,75 +133,127 @@ test("drafts, labels, links and app keys reach the host's callbacks", () => {
   assert.deepEqual(calls.keys, ["?"]);
 });
 
-test("collect is asked only of a ready view that can still decide", () => {
+test("collect is asked only of a ready view that can still decide, one request at a time", () => {
   const ready = host();
   ready.from({ type: "ready" });
-  ready.h.collect();
-  assert.equal(ready.last("collect").type, "collect");
+  assert.equal(ready.h.collect(), true);
+  assert.equal(ready.last("collect").req, 1);
+  // while one is open, another press asks nothing
+  assert.equal(ready.h.collect(), false);
+  assert.equal(ready.posted.filter((p) => p.msg.type === "collect").length, 1);
 
   const locked = host({ state: { readonly: true } });
   locked.from({ type: "ready" });
-  locked.h.collect();
+  assert.equal(locked.h.collect(), false);
   assert.equal(locked.last("collect"), undefined);
 });
 
-test("a decision handed over is answered submitted, and a refused one with its violations", async () => {
+test("a submit nobody asked for decides nothing", async () => {
+  const handed = [];
+  const { from, last } = host({
+    options: { handOver: async (data) => (handed.push(data), { ok: true, decision: { data } }) },
+  });
+  from({ type: "ready" });
+  from({ type: "submit", data: { ok: true } });
+  from({ type: "submit", req: 1, data: { ok: true } });
+  await tick();
+  assert.deepEqual(handed, []);
+  assert.equal(last("submitted"), undefined);
+});
+
+test("the answer to the open request is handed over, and a refused one gets its violations", async () => {
   const outcomes = [
     { ok: false, violations: [{ path: "/ok", message: "is required" }] },
     { ok: true, decision: { data: { ok: true }, decided_by: "me", decided_at: "now" } },
   ];
   const handed = [];
-  const { from, last } = host({ options: { handOver: async (data) => (handed.push(data), outcomes.shift()) } });
+  const { from, last, ask } = host({ options: { handOver: async (data) => (handed.push(data), outcomes.shift()) } });
   from({ type: "ready" });
-  from({ type: "submit", data: {} });
+  from({ type: "submit", req: ask(), data: {} });
   await tick();
   assert.deepEqual(last("violations").errors, [{ path: "/ok", message: "is required" }]);
-  from({ type: "submit", data: { ok: true } });
+  // a refused decision closes its request: the next press asks again
+  const second = ask();
+  assert.equal(second, 2);
+  from({ type: "submit", req: second, data: { ok: true } });
   await tick();
   assert.deepEqual(last("submitted").decision.data, { ok: true });
   assert.deepEqual(handed, [{}, { ok: true }]);
 });
 
-test("a second submit while one is being handed over is ignored", async () => {
-  let release;
+test("defer closes the request with nothing handed over, and the next press asks again", async () => {
   const handed = [];
-  const { h, from } = host({
-    options: {
-      handOver: (data) => {
-        handed.push(data);
-        return new Promise((resolve) => (release = () => resolve({ ok: true, decision: { data } })));
-      },
-    },
+  const { h, from, calls, ask } = host({ options: { handOver: async (data) => (handed.push(data), { ok: true }) } });
+  from({ type: "ready" });
+  const first = ask();
+  from({ type: "defer", req: first });
+  assert.equal(calls.deferred, 1);
+  assert.equal(h.collecting, false);
+  // a defer for a request that is not open counts for nothing
+  from({ type: "defer", req: first });
+  assert.equal(calls.deferred, 1);
+  // a preview at the first press, the decision at the second
+  from({ type: "submit", req: ask(), data: { ok: true } });
+  await tick();
+  assert.deepEqual(handed, [{ ok: true }]);
+});
+
+test("a second answer to one request is ignored", async () => {
+  const handed = [];
+  const { from, ask } = host({
+    options: { handOver: async (data) => (handed.push(data), { ok: false, violations: [] }) },
   });
   from({ type: "ready" });
-  from({ type: "submit", data: 1 });
-  from({ type: "submit", data: 2 });
-  assert.equal(h.handingOver, true);
-  h.collect();
-  release();
+  const req = ask();
+  from({ type: "submit", req, data: 1 });
+  from({ type: "submit", req, data: 2 });
+  from({ type: "defer", req });
   await tick();
   assert.deepEqual(handed, [1]);
 });
 
-test("a read-only view hands nothing over, and a host without a hand-over leaves submit alone", async () => {
+test("an answer after the time limit, a reload or the review's end decides nothing, nor answers a later request", async () => {
   const handed = [];
-  const locked = host({
-    state: { readonly: true },
-    options: { handOver: async (d) => (handed.push(d), { ok: true }) },
-  });
-  locked.from({ type: "ready" });
-  locked.from({ type: "submit", data: 1 });
-  const bare = host();
-  bare.from({ type: "ready" });
-  bare.from({ type: "submit", data: 2 });
+  const late = host({ options: { handOver: async (data) => (handed.push(data), { ok: true }) } });
+  late.from({ type: "ready" });
+  const timedOut = late.ask();
+  late.expire();
+  assert.equal(late.h.collecting, false);
+  late.from({ type: "submit", req: timedOut, data: "late" });
+  // a later request has a number of its own
+  const next = late.ask();
+  assert.notEqual(next, timedOut);
+  late.from({ type: "submit", req: timedOut, data: "late again" });
+
+  const reloaded = host({ options: { handOver: async (data) => (handed.push(data), { ok: true }) } });
+  reloaded.from({ type: "ready" });
+  const before = reloaded.ask();
+  reloaded.h.reload();
+  reloaded.from({ type: "ready" });
+  reloaded.from({ type: "submit", req: before, data: "after reload" });
+
+  const ended = host({ options: { handOver: async (data) => (handed.push(data), { ok: true }) } });
+  ended.from({ type: "ready" });
+  const pending = ended.ask();
+  ended.state.readonly = true;
+  ended.h.changed();
+  ended.from({ type: "submit", req: pending, data: "after the end" });
   await tick();
   assert.deepEqual(handed, []);
+});
+
+test("a read-only view hands nothing over, and a host without a hand-over leaves submit alone", async () => {
+  const bare = host();
+  bare.from({ type: "ready" });
+  bare.from({ type: "submit", req: bare.ask(), data: 2 });
+  await tick();
   assert.equal(bare.last("submitted"), undefined);
   assert.equal(bare.last("violations"), undefined);
+  assert.equal(bare.h.collecting, false);
 });
 
 test("a hand-over that throws comes back as a violation", async () => {
-  const { from, last } = host({
+  const { from, last, ask } = host({
     options: {
       handOver: async () => {
         throw new Error("the server is gone");
@@ -188,9 +261,27 @@ test("a hand-over that throws comes back as a violation", async () => {
     },
   });
   from({ type: "ready" });
-  from({ type: "submit", data: 1 });
+  from({ type: "submit", req: ask(), data: 1 });
   await tick();
   assert.deepEqual(last("violations").errors, [{ path: "", message: "the server is gone" }]);
+});
+
+test("⌘/Ctrl+Enter inside the view starts the hand-over, and goes to the host when it has its own", () => {
+  const plain = host();
+  plain.from({ type: "ready" });
+  plain.from({ type: "key", key: "Enter", code: "Enter", metaKey: true, ctrlKey: false });
+  assert.equal(plain.last("collect").req, 1);
+  assert.deepEqual(plain.calls.keys, []);
+  // without a modifier it is no hand-over
+  plain.from({ type: "key", key: "Enter", code: "Enter", metaKey: false, ctrlKey: false });
+  assert.deepEqual(plain.calls.keys, ["Enter"]);
+
+  let pressed = 0;
+  const own = host({ options: { handOverKey: () => (pressed += 1) } });
+  own.from({ type: "ready" });
+  own.from({ type: "key", key: "Enter", code: "Enter", metaKey: false, ctrlKey: true });
+  assert.equal(pressed, 1);
+  assert.equal(own.last("collect"), undefined);
 });
 
 test("a review that becomes read-only from elsewhere is sent init again, but not one the view handed over", async () => {
@@ -202,7 +293,7 @@ test("a review that becomes read-only from elsewhere is sent init again, but not
 
   const decided = host({ options: { handOver: async (data) => ({ ok: true, decision: { data } }) } });
   decided.from({ type: "ready" });
-  decided.from({ type: "submit", data: 1 });
+  decided.from({ type: "submit", req: decided.ask(), data: 1 });
   await tick();
   decided.state.readonly = true;
   decided.h.changed();

@@ -6,12 +6,13 @@
 // event.source is its window.
 //
 // Every message is {pinrail: 1, type, ...}.
-//   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {data} |
-//                    status {label} | settings_set {patch} | key {key, code, shiftKey} |
+//   plugin -> shell: ready | resize {height | "fill"} | draft {data} | submit {req, data} |
+//                    defer {req} | status {label} | settings_set {patch} |
+//                    key {key, code, metaKey, ctrlKey, shiftKey} |
 //                    attachment {req, name, round?: "previous"}
 //   shell -> plugin: init {review, previous, readonly, draft, settings, shell_origin,
 //                          capabilities} |
-//                    violations {errors} | submitted {decision} | collect |
+//                    violations {errors} | submitted {decision} | collect {req} |
 //                    appearance {theme} | settings {settings} |
 //                    attachment {req, ok, name, media_type, size, bytes} | {req, ok: false, error}
 //
@@ -136,7 +137,9 @@ export function usePluginBridge(options: Options): Bridge {
   }, []);
 
   const collect = useCallback(() => {
-    if (latest.current.connected) host.current?.collect();
+    // not while a dialog is open: ⌘Enter in a plugin's setting field is no
+    // hand-over
+    if (latest.current.connected && !modalOpen()) host.current?.collect();
   }, []);
 
   // Listen first, then load the bundle: the plugin's "ready" can never be
@@ -224,6 +227,8 @@ export function usePluginBridge(options: Options): Bridge {
           }),
         );
       },
+      // ⌘/Ctrl+Enter pressed inside the view: the hand-over, as from the app
+      handOverKey: collect,
       // a view that never reports a size would otherwise sit behind the
       // loading cover for good
       onReady: () => {
@@ -234,9 +239,6 @@ export function usePluginBridge(options: Options): Bridge {
     host.current = connection;
 
     const onKey = (event: KeyboardEvent) => {
-      // not while a dialog is open: ⌘Enter in a plugin's setting field is
-      // no hand-over
-      if (modalOpen()) return;
       if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
         event.preventDefault();
         collect();

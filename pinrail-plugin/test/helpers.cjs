@@ -22,6 +22,7 @@ function fakeEnv() {
     themes: [],
     keys: [],
     appKeys: [],
+    errors: [],
     post(msg, target) {
       env.posted.push({ msg, target });
     },
@@ -53,6 +54,9 @@ function fakeEnv() {
     onAppKey(fn) {
       env.appKeys.push(fn);
     },
+    logError(error) {
+      env.errors.push(error);
+    },
     onLink(fn) {
       env.links.push(fn);
     },
@@ -73,9 +77,6 @@ function fakeEnv() {
     },
     last(type) {
       return [...env.posted].reverse().find((p) => p.msg.type === type);
-    },
-    pressShortcut() {
-      env.shortcuts.forEach((fn) => fn());
     },
     pressAppKey(key) {
       env.appKeys.forEach((fn) => fn(key));

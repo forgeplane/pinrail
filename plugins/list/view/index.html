@@ -135,7 +135,7 @@ const plugin = Pinrail.connect({
   },
   onViolations(errors) { S.errors = errors; S.armed = false; render(); },
   onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); syncHeader(); render(); },
-  onCollect() { handOver(); },
+  onCollect() { return handOver(); },
 });
 
 /* The header says how much there is and offers the bulk actions, until the
@@ -217,7 +217,7 @@ function handOver() {
   const t = tally();
   if (t.undecided > 0 && !S.armed) { S.armed = true; render(); return; }
   S.errors = null;
-  plugin.submit(decisionData());
+  return decisionData();
 }
 
 function syncStatus() {

@@ -244,7 +244,7 @@ const plugin = Pinrail.connect({
   },
   onViolations(errors) { S.errors = errors; S.armed = false; render(); },
   onSubmitted(decision) { readonly = true; loadDecision(decision && decision.data); render(); },
-  onCollect() { handOver(); },
+  onCollect() { return handOver(); },
 });
 
 /* ---------- state ---------- */
@@ -1048,7 +1048,7 @@ function handOver() {
     return;
   }
   S.armed = false;
-  plugin.submit(decisionData());
+  return decisionData();
 }
 </script>
 </body>

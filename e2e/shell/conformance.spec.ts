@@ -27,6 +27,15 @@ async function viewFrame(page: Page, after?: Frame): Promise<Frame> {
   return frame!;
 }
 
+/** Presses the hand-over and answers the request it makes with `data`, as
+ *  a view does. */
+async function answer(page: Page, frame: Frame, press: () => Promise<unknown>, data: unknown) {
+  const asked = (await received(frame)).filter((m) => m.type === "collect").length;
+  await press();
+  await expect.poll(async () => (await received(frame)).filter((m) => m.type === "collect").length).toBe(asked + 1);
+  await send(frame, { type: "submit", req: conformance.lastRequest(await received(frame)), data });
+}
+
 /** A review for the conformance view, with the file its payload names. */
 async function conformanceReview(page: Page, title = "Conformance"): Promise<string> {
   const bytes = fs.readFileSync(path.join(dir, "fixtures", "note.txt"));
@@ -83,8 +92,15 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   frame = await viewFrame(page);
   expect((await received(frame)).find((m) => m.type === "init")?.draft).toEqual({ step: 2 });
 
+  // a submit nobody asked for decides nothing
+  await send(frame, { type: "submit", req: 1, data: { ok: true } });
+  await page.waitForTimeout(500);
+  expect((await received(frame)).filter((m) => m.type === "violations" || m.type === "submitted")).toEqual([]);
+  expect((await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json()).status).toBe("pending");
+
   // a decision the schema refuses gets violations; one it accepts, submitted
-  await send(frame, { type: "submit", data: { ok: "yes" } });
+  const handover = () => page.locator("[data-handover]").click();
+  await answer(page, frame, handover, { ok: "yes" });
   await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
   // the app closes the view as it returns to the inbox, so what the view
   // is told from here on is read from its console
@@ -96,7 +112,8 @@ test("the app hosts a view as the protocol says", async ({ page }) => {
   await frame.evaluate(() =>
     window.addEventListener("message", (e) => console.log(`view got ${JSON.stringify(e.data)}`)),
   );
-  await send(frame, { type: "submit", data: { ok: true } });
+  await answer(page, frame, handover, { ok: true });
+  expect(conformance.collectProblems(await received(frame))).toEqual([]);
   // the view that handed the review over is told submitted, and not init
   // again, before the app returns to the inbox
   await expect(page).toHaveURL(/#\/$/);
@@ -131,7 +148,7 @@ test("a decision that lands after moving to another review stays with its own", 
     await held;
     await route.continue();
   });
-  await send(frame, { type: "submit", data: { ok: true } });
+  await answer(page, frame, () => page.locator("[data-handover]").click(), { ok: true });
   await sent;
   await page.evaluate((id) => (location.hash = `#/reviews/${id}`), second);
   await expect(page.locator(".crumb-title")).toHaveText("Conformance: second");
@@ -218,10 +235,17 @@ test("the preview hosts a view as the protocol says, and decides nothing", async
   expect(conformance.attachmentProblems(await received(frame))).toEqual([]);
   expect(conformance.refusedAttachmentProblems(await received(frame))).toEqual([]);
 
-  await send(frame, { type: "submit", data: { ok: "yes" } });
+  // a submit nobody asked for checks nothing
+  await send(frame, { type: "submit", req: 1, data: { ok: true } });
+  await page.waitForTimeout(500);
+  await expect(page.locator("#result")).toBeHidden();
+
+  const check = () => page.locator("#handover").click();
+  await answer(page, frame, check, { ok: "yes" });
   await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
-  await send(frame, { type: "submit", data: { ok: true } });
+  await answer(page, frame, check, { ok: true });
   await expect(page.locator("body")).toContainText("The decision passes");
+  expect(conformance.collectProblems(await received(frame))).toEqual([]);
   expect((await received(frame)).some((m) => m.type === "submitted")).toBe(false);
   const review = await (await page.request.get(`${core}/api/v1/reviews/${id}`)).json();
   expect(review.status).toBe("pending");

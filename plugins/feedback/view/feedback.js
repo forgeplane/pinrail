@@ -37,10 +37,11 @@
       }
       render();
     },
+    // the app's hand-over: the decision, or nothing while answers are missing
     onCollect() {
       if (!payload || plugin.readonly) return;
       try {
-        plugin.submit(C.decision(payload, state));
+        return C.decision(payload, state);
       } catch {
         showErrors = true;
         render();

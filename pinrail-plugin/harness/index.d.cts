@@ -47,8 +47,20 @@ export type MountedPlugin = {
   send(msg: Record<string, any>): Promise<void>;
   sendViolations(errors: { path: string; message: string }[]): Promise<void>;
   sendSubmitted(decision: Review["decision"]): Promise<void>;
-  /** asks the view to hand over, as the shell's button does */
-  collect(): Promise<void>;
+  /** the hand-over button: asks the view for its decision, as the app does;
+   *  false when there was nothing to ask, such as a read-only view. The
+   *  view's answer is in `nextSubmit()`, and the test replies to it. */
+  collect(): Promise<boolean>;
+  /** the whole hand-over, as the app does it: the decision the view
+   *  returned, checked against the plugin's decision schema and accepted;
+   *  the violations of one the schema refuses; `deferred` when the view
+   *  returned nothing; `asked: false` when there was nothing to ask */
+  handOver(): Promise<
+    | { decision: { data: any; decided_by: string; decided_at: string } }
+    | { violations: { path: string; message: string }[] }
+    | { deferred: true }
+    | { asked: false }
+  >;
   /** holds the frame at a height, so a view taller than that has to scroll */
   setFrameHeight(px: number): Promise<void>;
   /** re-sends init with the last draft, as the shell does after a reload */

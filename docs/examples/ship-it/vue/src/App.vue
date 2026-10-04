@@ -33,13 +33,14 @@ onMounted(() => {
       readonly.value = init.readonly;
       if (init.draft) draft.value = init.draft as Draft;
     },
+    // the decision, or nothing while there is no verdict to hand over
     onCollect() {
       const { verdict, note } = draft.value;
       if (!verdict) {
         error.value = "Choose ship or hold first.";
         return;
       }
-      plugin.submit(note.trim() ? { verdict, note: note.trim() } : { verdict });
+      return note.trim() ? { verdict, note: note.trim() } : { verdict };
     },
     onViolations(errors) {
       error.value = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");

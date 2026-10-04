@@ -23,16 +23,15 @@ export type Handlers = {
   onViolations?: (errors: Violation[]) => void;
   onSubmitted?: (decision: { data: Record<string, unknown> } | null) => void;
   onAppearance?: (theme: "dark" | "light") => void;
-  onCollect?: () => void;
+  /** the app's hand-over: the decision, or nothing to hand over yet */
+  onCollect?: () => unknown;
 };
 
 export type Plugin = {
   readonly readonly: boolean;
   readonly theme: "dark" | "light";
-  submit: (data: unknown) => void;
   draft: (data: unknown, opts?: { flush?: boolean }) => void;
   status: (status: { label: string }) => void;
-  collect: () => void;
   /** a file the review carries, by the name its payload gives it */
   attachment: (name: string) => Promise<ArrayBuffer>;
 };

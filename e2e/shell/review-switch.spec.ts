@@ -172,9 +172,38 @@ test("discarding a review returns to the inbox, where the others wait", async ({
   await expect(rows).toContainText("Notice: the second");
 });
 
-test("a view that posts its hand-over twice decides the review once", async ({ page }) => {
-  // a click and a key press on one button, say: the second must not reach
-  // the server, which would refuse it and flash an error after a success
+test("a submit the app did not ask for decides nothing", async ({ page }) => {
+  // a view hands over in answer to the app's request: one that posts a
+  // decision of its own accord, numbered or not, decides nothing
+  await clearInbox(page.request);
+  const review = await createReview(page.request, {
+    plugin: "list",
+    title: "Unasked: one review",
+    payload: {
+      intro: "Nobody asked.",
+      groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
+    },
+  });
+  const decisions: string[] = [];
+  page.on("request", (r) => r.url().endsWith(`/reviews/${review.id}/decision`) && decisions.push(r.method()));
+
+  await page.goto(`/#/reviews/${review.id}`);
+  const frame = page.frameLocator("#plugin-frame");
+  await expect(frame.locator("body")).toContainText("Nobody asked.");
+  await frame.locator("body").evaluate(() => {
+    const data = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
+    parent.postMessage({ pinrail: 1, type: "submit", data }, "*");
+    parent.postMessage({ pinrail: 1, type: "submit", req: 1, data }, "*");
+  });
+  await page.waitForTimeout(500);
+  expect(decisions).toEqual([]);
+  const now = await (await page.request.get(`${core}/api/v1/reviews/${review.id}`)).json();
+  expect(now.status).toBe("pending");
+});
+
+test("a view that answers one request twice decides the review once", async ({ page }) => {
+  // the second answer must not reach the server, which would refuse it and
+  // flash an error after a success
   await clearInbox(page.request);
   const review = await createReview(page.request, {
     plugin: "list",
@@ -190,14 +219,23 @@ test("a view that posts its hand-over twice decides the review once", async ({ p
   await page.goto(`/#/reviews/${review.id}`);
   const frame = page.frameLocator("#plugin-frame");
   await expect(frame.locator("body")).toContainText("Hand over twice.");
+  // the person decides, so the view answers the request with its decision;
+  // a second answer to the same request comes right after it
+  await frame.locator('button[data-act="accept"][data-id="1"]').click();
   await frame.locator("body").evaluate(() => {
-    const data = { decisions: [{ id: 1, action: "accept" }], undecided: [] };
-    parent.postMessage({ pinrail: 1, type: "submit", data }, "*");
-    parent.postMessage({ pinrail: 1, type: "submit", data }, "*");
+    const data = { decisions: [{ id: 1, action: "reject" }], undecided: [] };
+    window.addEventListener("message", (event) => {
+      if (event.data?.type !== "collect") return;
+      const req = event.data.req;
+      setTimeout(() => parent.postMessage({ pinrail: 1, type: "submit", req, data }, "*"), 0);
+    });
   });
+  await page.locator("[data-handover]").click();
   await expect(page.getByText("Decision recorded")).toBeVisible();
   await page.waitForTimeout(500);
   expect(decisions, "the hand-over was sent twice").toHaveLength(1);
+  const decided = await (await page.request.get(`${core}/api/v1/reviews/${review.id}`)).json();
+  expect(decided.decision.data.decisions).toEqual([{ id: 1, action: "accept" }]);
 });
 
 test("an error that is not JSON still says what the server answered", async ({ page }) => {

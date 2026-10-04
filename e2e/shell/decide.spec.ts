@@ -49,7 +49,7 @@ function probe(): string {
   const plugin = Pinrail.connect({
     onInit() {},
     onViolations(errors) { document.getElementById("errors").textContent = errors.map((e) => (e.path || "/") + ": " + e.message).join("\\n"); },
-    onCollect() { plugin.submit({ ok: "yes" }); },
+    onCollect() { return { ok: "yes" }; },
   });
 </script>`,
   );
@@ -121,6 +121,23 @@ test("⌘Enter hands over from the shell", async ({ page }) => {
 
   await page.keyboard.press("ControlOrMeta+Enter");
   await expect.poll(async () => (await review(page.request, id)).decision?.data).toEqual({ ok: false });
+});
+
+test("⌘Enter hands over once from inside the view", async ({ page }) => {
+  const { id } = await createReview(page.request, {
+    plugin: "hello",
+    title: "Decide: keys in the view",
+    payload: { message: "Deploy?" },
+  });
+  const decisions: string[] = [];
+  page.on("request", (r) => r.url().endsWith(`/reviews/${id}/decision`) && decisions.push(r.method()));
+  const view = await open(page, id, "#yes");
+  // the focus stays in the view, on the answer just chosen
+  await view.locator("#yes").click();
+
+  await page.keyboard.press("ControlOrMeta+Enter");
+  await expect.poll(async () => (await review(page.request, id)).decision?.data).toEqual({ ok: true });
+  expect(decisions).toEqual(["POST"]);
 });
 
 test("a decision the core refuses is shown with its violations and decides nothing", async ({ page }) => {

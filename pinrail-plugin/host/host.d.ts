@@ -4,6 +4,8 @@ import type { Attachment, Capability, Decision, PluginMessage, ShellMessage, The
 
 export const PROTOCOL: 1;
 export const CAPABILITIES: Capability[];
+/** how long a view has to answer a request for its decision */
+export const COLLECT_TIMEOUT_MS: number;
 
 /** What a host does with a decision the view handed over: accepted, with the
  *  decision as stored, or refused, with what is wrong. Nothing to tell the
@@ -43,6 +45,15 @@ export type HostOptions = {
   resize?: (height: number | "fill") => void;
   /** one of the app's own keys, pressed inside the view */
   appKey?: (message: Extract<PluginMessage, { type: "key" }>) => void;
+  /** ⌘/Ctrl+Enter pressed inside the view; without it, the host asks for
+   *  the decision itself */
+  handOverKey?: () => void;
+  /** the view has nothing to hand over for the open request yet */
+  onDefer?: () => void;
+  /** how long the view has to answer a request, in milliseconds */
+  collectTimeout?: number;
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (timer: unknown) => void;
   onReady?: () => void;
   /** another page took the view's place in the frame */
   onLeft?: () => void;
@@ -56,7 +67,9 @@ export type Host = {
   receive(message: unknown): void;
   /** sends `init` again, as the review stands */
   init(): void;
-  collect(): void;
+  /** asks the view for its decision; false when there is nothing to ask,
+   *  such as while a request is open */
+  collect(): boolean;
   appearance(theme: Theme): void;
   settings(values: Record<string, unknown>): void;
   key(fields: Omit<Extract<ShellMessage, { type: "key" }>, "pinrail" | "type">): void;
@@ -71,6 +84,8 @@ export type Host = {
   readonly ready: boolean;
   readonly left: boolean;
   readonly handingOver: boolean;
+  /** a request for the decision is open */
+  readonly collecting: boolean;
 };
 
 export function createHost(options: HostOptions): Host;

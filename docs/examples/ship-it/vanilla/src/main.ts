@@ -32,13 +32,15 @@ const plugin = Pinrail.connect<Payload, Decision>({
     if (kept) draft = kept as Draft;
     render();
   },
+  // the decision, or nothing while there is no verdict to hand over
   onCollect() {
     if (!draft.verdict) {
       error = "Choose ship or hold first.";
-      return render();
+      render();
+      return;
     }
     const note = draft.note.trim();
-    plugin.submit(note ? { verdict: draft.verdict, note } : { verdict: draft.verdict });
+    return note ? { verdict: draft.verdict, note } : { verdict: draft.verdict };
   },
   onViolations(errors) {
     error = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");

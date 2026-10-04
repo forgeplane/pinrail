@@ -105,12 +105,25 @@ test("the dev shell hosts a view as the app does", async ({ page }) => {
     frame = await devFrame(page);
     expect((await received(frame)).find((m) => m.type === "init")?.draft).toEqual({ step: 2 });
 
-    await send({ type: "submit", data: { ok: "yes" } });
+    // a submit nobody asked for decides nothing
+    await send({ type: "submit", req: 1, data: { ok: true } });
+    await page.waitForTimeout(500);
+    expect((await received(frame)).filter((m) => m.type === "violations" || m.type === "submitted")).toEqual([]);
+
+    // the Collect button is the app's hand-over: the view answers its request
+    const answer = async (data: unknown) => {
+      const asked = (await received(frame)).filter((m) => m.type === "collect").length;
+      await page.locator("#collect").click();
+      await expect.poll(async () => (await received(frame)).filter((m) => m.type === "collect").length).toBe(asked + 1);
+      await send({ type: "submit", req: conformance.lastRequest(await received(frame)), data });
+    };
+    await answer({ ok: "yes" });
     await expect.poll(async () => conformance.violationsProblems(await received(frame))).toEqual([]);
-    await send({ type: "submit", data: { ok: true } });
+    await answer({ ok: true });
     await expect
       .poll(async () => (await received(frame)).find((m) => m.type === "submitted")?.decision?.data)
       .toEqual({ ok: true });
+    expect(conformance.collectProblems(await received(frame))).toEqual([]);
 
     // another page in the view's place speaks first: it gets nothing
     const before = (await received(frame)).length;

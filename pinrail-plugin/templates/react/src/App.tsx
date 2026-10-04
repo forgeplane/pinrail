@@ -1,8 +1,8 @@
 // __TITLE__: one question, yes or no, in React.
 // The SDK is connected once, when the view mounts; what it hands over (the
 // review, whether it is read-only, the draft) becomes state. The app's
-// hand-over button (or ⌘/Ctrl+Enter) sends `collect` and this view submits.
-// Replace the markup and handOver with your own.
+// hand-over button (or ⌘/Ctrl+Enter) asks for the decision, and onCollect
+// returns it. Replace the markup and onCollect with your own.
 //
 // The SDK is on the window from the script tag in index.html; the types
 // come from the package, so `review.payload` is your payload.
@@ -35,10 +35,14 @@ export function App() {
         const kept = draft as Draft | null;
         if (kept) setDraft({ ok: typeof kept.ok === "boolean" ? kept.ok : null });
       },
+      // the decision, or nothing while there is no answer to hand over
       onCollect() {
         const { ok } = latest.current;
-        if (ok === null) return setErrors("Choose yes or no first.");
-        plugin.current!.submit({ ok });
+        if (ok === null) {
+          setErrors("Choose yes or no first.");
+          return;
+        }
+        return { ok };
       },
       onViolations(errors) {
         setErrors(errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n"));

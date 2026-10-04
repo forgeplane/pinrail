@@ -1,8 +1,8 @@
 // @ts-check
 /// <reference path="../pinrail-plugin.d.ts" />
 // __TITLE__: one question, yes or no. The answer
-// is held here; the app's hand-over button (or ⌘/Ctrl+Enter) sends `collect`
-// and this view submits. Replace render() and handOver() with your own.
+// is held here; the app's hand-over button (or ⌘/Ctrl+Enter) asks for it,
+// and onCollect returns it. Replace render() and handOver() with your own.
 "use strict";
 
 // the shapes the schemas give, so the editor knows them too
@@ -26,17 +26,19 @@ const plugin = Pinrail.connect({
   onViolations(errors) {
     document.getElementById("errors").textContent = errors.map((e) => `${e.path || "/"}: ${e.message}`).join("\n");
   },
+  // the decision, or nothing while the view needs more from the person
   onCollect() {
-    handOver();
+    return handOver();
   },
 });
 
+/** The decision, or nothing while there is no answer to hand over. */
 function handOver() {
   if (choice === null) {
     document.getElementById("errors").textContent = "Choose yes or no first.";
     return;
   }
-  plugin.submit({ ok: choice });
+  return { ok: choice };
 }
 
 function pick(value) {

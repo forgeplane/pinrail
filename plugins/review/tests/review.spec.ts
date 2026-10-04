@@ -77,7 +77,7 @@ test("keyboard: a / x / j decide and move, s opens the summary, collect confirms
   await page.keyboard.press("a");
   await expect(f.locator("header")).toContainText("0 undecided");
   await page.keyboard.press("s");
-  await expect(f.locator("#submit-modal")).toContainText("Hand over 3 decision(s)");
+  await expect(f.locator("#submit-modal")).toContainText("Press Hand over, or ⌘↵, to send 3 decision(s)");
   await plugin.collect();
   const data = await plugin.nextSubmit();
   expect(data.undecided).toEqual([]);

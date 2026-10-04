@@ -28,7 +28,7 @@ function wrongDecision(): string {
     `<!doctype html>
 <meta charset="utf-8">
 <script src="/sdk/v1/pinrail-plugin.js"></script>
-<script>const plugin = Pinrail.connect({ onCollect() { plugin.submit({ ok: "yes" }); } });</script>`,
+<script>Pinrail.connect({ onCollect() { return { ok: "yes" }; } });</script>`,
   );
   return dir;
 }
@@ -39,6 +39,15 @@ test("a decision that fails the plugin's decision_schema fails nextSubmit", asyn
   await expect(plugin.nextSubmit()).rejects.toThrow("does not pass decision_schema: /ok: must be boolean");
   // a test about a refusal can still read it
   expect(await plugin.nextSubmit(0, { valid: false })).toEqual({ ok: "yes" });
+});
+
+test("handOver refuses a decision that fails decision_schema, as the app does, and tells the view", async ({
+  page,
+}) => {
+  const plugin = await mountPlugin(page, wrongDecision(), { review: reviewFrom({ title: "Wrong", payload: {} }) });
+  const handed = await plugin.handOver();
+  expect(handed).toEqual({ violations: [{ path: "/ok", message: "must be boolean" }] });
+  await expect.poll(async () => (await plugin.messages()).filter((m) => m.type === "submit").length).toBe(1);
 });
 
 test("a view that loads its script by an absolute path fails here as in the app", async ({ page }) => {
