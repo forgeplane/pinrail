@@ -54,7 +54,7 @@ const plugin = Pinrail.connect<Payload, Decision>({
 function choose(verdict: Verdict) {
   draft = { ...draft, verdict };
   error = "";
-  plugin.draft(draft, { flush: true });
+  plugin.draft(draft);
   render();
 }
 

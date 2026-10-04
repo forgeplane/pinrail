@@ -42,7 +42,7 @@ tarball attached to its GitHub release.
     onSettings(settings) { render(); },            // optional: the plugin's settings changed
     onError(error) { … },                          // optional: a handler threw, or a decision is not JSON
   });
-  plugin.draft(data);                   // debounced by 150 ms; { flush: true } sends it at once
+  plugin.draft(data);                   // kept at once; it comes back in onInit
   plugin.status({label: "Hand over anyway"});   // the label of the shell's button
   plugin.readonly; plugin.review; plugin.previous;
   plugin.settings;                      // the plugin's settings, with every key the manifest declares

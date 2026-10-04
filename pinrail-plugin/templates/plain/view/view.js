@@ -45,7 +45,7 @@ function handOver() {
 
 function pick(value) {
   choice = choice === value ? null : value;
-  plugin.draft({ ok: choice }, { flush: true });
+  plugin.draft({ ok: choice });
   render();
 }
 

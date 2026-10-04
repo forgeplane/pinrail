@@ -65,7 +65,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
     const next = { ok: latest.current.ok === value ? null : value };
     setDraft(next);
     setErrors("");
-    plugin.draft(next, { flush: true });
+    plugin.draft(next);
   }
 
   const decided = review.decision?.data;

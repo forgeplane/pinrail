@@ -38,7 +38,7 @@ view.submitted = () => {
 function pick(value: boolean) {
   draft.value = { ok: draft.value.ok === value ? null : value };
   errors.value = "";
-  props.plugin.draft(draft.value, { flush: true });
+  props.plugin.draft(draft.value);
 }
 
 // what the app's hand-over button says follows the answer

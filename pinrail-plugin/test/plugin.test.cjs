@@ -94,24 +94,36 @@ test("⌘/Ctrl+Enter is the app's: the view registers no shortcut of its own", (
   assert.equal(env.last("submit"), undefined, "the app starts the hand-over, not the view");
 });
 
-test("drafts are debounced, coalesced, flushable, and dropped when read-only", () => {
+test("a draft is posted at once, as it is, and not at all once read-only", () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { resize: "manual" });
   env.deliver(init());
 
   plugin.draft({ n: 1 });
   plugin.draft({ n: 2 });
-  assert.equal(env.types().filter((t) => t === "draft").length, 0);
-  env.tick();
-  assert.deepEqual(env.last("draft").msg.data, { n: 2 });
-
-  plugin.draft({ n: 3 }, { flush: true });
-  assert.deepEqual(env.last("draft").msg.data, { n: 3 });
-  assert.equal(env.timers.length, 0);
+  assert.deepEqual(
+    env.posted.filter((p) => p.msg.type === "draft").map((p) => p.msg.data),
+    [{ n: 1 }, { n: 2 }],
+  );
+  assert.equal(env.timers.length, 0, "nothing waits to be sent");
 
   env.deliver(shell({ type: "submitted", decision: null }));
-  plugin.draft({ n: 4 }, { flush: true });
-  assert.deepEqual(env.last("draft").msg.data, { n: 3 });
+  plugin.draft({ n: 3 });
+  assert.deepEqual(env.last("draft").msg.data, { n: 2 });
+});
+
+test("a draft JSON cannot hold throws where the view kept it, and sends nothing", () => {
+  const env = fakeEnv();
+  const plugin = Pinrail.createPlugin(env, { resize: "manual" });
+  env.deliver(init());
+  const loop = { a: 1 };
+  loop.self = loop;
+  assert.throws(() => plugin.draft(loop), /a draft must be a JSON value/);
+  assert.throws(() => plugin.draft(undefined), /not undefined/);
+  assert.equal(env.last("draft"), undefined);
+  // false, 0 and "" are JSON, and are kept
+  plugin.draft(false);
+  assert.equal(env.last("draft").msg.data, false);
 });
 
 test("resize: auto observes after init, fill posts once, manual posts nothing", () => {
@@ -301,7 +313,7 @@ test("a theme change neither re-initialises the view nor disturbs a draft", () =
   let inits = 0;
   const plugin = Pinrail.createPlugin(env, { resize: "manual", onInit: () => inits++ });
   env.deliver(init());
-  plugin.draft({ n: 1 }, { flush: true });
+  plugin.draft({ n: 1 });
 
   env.deliver(shell({ type: "appearance", theme: "light" }));
 
@@ -619,19 +631,6 @@ test("the app's own keys, pressed in the view, go up to the app", () => {
   });
 });
 
-test("a draft still pending when the decision is handed over is never sent", async () => {
-  const env = fakeEnv();
-  const plugin = Pinrail.createPlugin(env, { resize: "manual", onCollect: () => ({ ok: true }) });
-  env.deliver(init());
-  plugin.draft({ note: "half typed" });
-  env.deliver(shell({ type: "collect", req: 1 }));
-  await settle();
-  for (const timer of env.timers.splice(0)) timer.fn();
-  const types = env.posted.map((p) => p.msg.type);
-  assert.equal(types.at(-1), "submit", types.join(", "));
-  assert.ok(!types.slice(types.indexOf("submit")).includes("draft"), types.join(", "));
-});
-
 test("a decision or draft held in reactive state is sent as the plain data it holds", async () => {
   const env = fakeEnv();
   // what a browser does with every message: a structured clone, which
@@ -645,7 +644,7 @@ test("a decision or draft held in reactive state is sent as the plain data it ho
   env.deliver(init());
   env.deliver(shell({ type: "collect", req: 1 }));
   await settle();
-  plugin.draft(reactive({ step: 2 }), { flush: true });
+  plugin.draft(reactive({ step: 2 }));
   const sent = env.posted.map((p) => p.msg).filter((m) => m.type === "submit" || m.type === "draft");
   assert.deepEqual(sent, [
     { pinrail: sent[0].pinrail, type: "submit", req: 1, data: { ok: true, items: [1, 2] } },
@@ -707,7 +706,6 @@ test("the teardown leaves no listener or timer of the client behind", () => {
   const env = fakeEnv();
   const plugin = Pinrail.createPlugin(env, { onInit() {} });
   env.deliver(init());
-  plugin.draft({ step: 1 });
   assert.ok(env.active() > 0);
   plugin[Symbol.for("pinrail.teardown")]();
   assert.equal(env.active(), 0);

@@ -72,7 +72,7 @@
   function choose(verdict: Verdict) {
     draft.verdict = verdict;
     error = "";
-    plugin.draft(draft, { flush: true });
+    plugin.draft(draft);
   }
 
   function writeNote(event: Event) {

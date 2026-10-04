@@ -420,7 +420,7 @@ function addPart() {
   S.armed = false;
   S.errors = null;
   S.keepScroll = true;
-  plugin.draft(S.verdicts, { flush: true });
+  plugin.draft(S.verdicts);
   render();
 }
 
@@ -444,7 +444,7 @@ function setVerdict(action) {
   S.armed = false;
   S.errors = null;
   S.keepScroll = true;
-  plugin.draft(S.verdicts, { flush: true });
+  plugin.draft(S.verdicts);
   render();
 }
 
@@ -497,7 +497,7 @@ document.addEventListener("click", (e) => {
   if (remove) {
     const id = P.marks[S.sel].id, v = verdictOf(id);
     S.verdicts[id] = { ...v, comments: v.comments.filter((_, i) => i !== Number(remove.dataset.removePart)) };
-    S.keepScroll = true; plugin.draft(S.verdicts, { flush: true }); return render();
+    S.keepScroll = true; plugin.draft(S.verdicts); return render();
   }
   const pick = e.target.closest("[data-pick]");
   if (pick) return select(Number(pick.dataset.pick));

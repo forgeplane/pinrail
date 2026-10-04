@@ -70,7 +70,7 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onKey));
 function choose(verdict: Verdict) {
   draft.value = { ...draft.value, verdict };
   error.value = "";
-  props.plugin.draft(draft.value, { flush: true });
+  props.plugin.draft(draft.value);
 }
 
 function writeNote(event: Event) {

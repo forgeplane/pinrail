@@ -112,7 +112,7 @@
     // the week keeps the day in view, and the day opens on the week's first
     if (next === "day" && mode === "week") cursor = Math.floor(cursor / 7) * 7;
     mode = next;
-    if (!plugin.readonly) plugin.draft({ ...state, mode }, { flush: true });
+    if (!plugin.readonly) plugin.draft({ ...state, mode });
     plugin.setSetting?.("view", mode);
     render();
   }
@@ -130,7 +130,7 @@
   }
   function save(message) {
     error = "";
-    plugin.draft({ ...state, mode }, { flush: true });
+    plugin.draft({ ...state, mode });
     render();
     document.getElementById("announcement").textContent = message;
   }

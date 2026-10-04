@@ -50,6 +50,15 @@ test("handing over without an answer asks for one; violations are shown; submitt
   await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveCount(0);
 });
 
+test("a choice survives a reload that comes right after it", async ({ page }) => {
+  // a draft is kept at once: a reload straight after the click loses nothing
+  const plugin = await mountPlugin(page, dir, { review: push() });
+  await plugin.frame.getByRole("button", { name: "Yes" }).click();
+  await plugin.reload();
+  await plugin.reinit();
+  await expect(plugin.frame.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "true");
+});
+
 test("the answer survives a reload", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: push() });
   await plugin.frame.getByRole("button", { name: "No" }).click();

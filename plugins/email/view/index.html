@@ -289,7 +289,7 @@ const draftData = () => ({
     marks: S.marks[d.id], note: S.note[d.id],
   }])),
 });
-const postDraft = () => plugin.draft(draftData(), { flush: true });
+const postDraft = () => plugin.draft(draftData());
 const saveDraft = () => plugin.draft(draftData());
 
 function decisionData() {

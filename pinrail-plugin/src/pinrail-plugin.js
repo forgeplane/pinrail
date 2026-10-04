@@ -21,7 +21,7 @@
  * Load this with a plain <script src> tag, not a deferred or module one: it
  * reads the theme off the frame's URL and sets data-theme on the document, so
  * the view is in the shell's theme from the frame it first paints.
- *   plugin.draft(data);               // debounced; { flush: true } posts at once
+ *   plugin.draft(data);               // kept at once; it comes back in onInit
  *   plugin.status({ label: "…" });    // what the shell's hand-over button should read
  *   plugin.open("https://example.com"); // the app asks the person, then opens it in the browser
  *   plugin.settings;                  // the plugin's own settings, as the manifest declares them
@@ -49,9 +49,6 @@
   /** The key of a client's teardown, for tests. */
   const TEARDOWN = Symbol.for("pinrail.teardown");
   const THEMES = ["dark", "light"];
-  const DRAFT_DEBOUNCE_MS = 150;
-  /** What `asJson` answers for data that cannot be sent. */
-  const NOT_JSON = {};
 
   function escape(s) {
     return String(s ?? "").replace(
@@ -131,7 +128,6 @@
     // file requests waiting on the shell, by request number
     const asked = new Map();
     let nextAsk = 1;
-    let draftTimer = null;
     let stopObserving = null;
 
     const post = (msg) => env.post(Object.assign({ pinrail: PROTOCOL }, msg), state.shellOrigin || "*");
@@ -154,21 +150,6 @@
     const undo = [];
     const keep = (stop) => {
       if (typeof stop === "function") undo.push(stop);
-    };
-    /* Decisions and drafts reach the app as JSON, so they are sent as the
-       plain data they hold, whatever a framework keeps them in: a Vue
-       reactive object or a Svelte $state proxy cannot be posted as it is.
-       What JSON cannot hold, such as a cycle, is refused as the app would
-       refuse it, through onViolations. */
-    const asJson = (data, what) => {
-      if (data === undefined) return undefined;
-      try {
-        return JSON.parse(JSON.stringify(data));
-      } catch (error) {
-        if (handlers.onViolations)
-          handlers.onViolations([{ path: "", message: `the ${what} is not JSON: ${error.message}` }]);
-        return NOT_JSON;
-      }
     };
 
     function startResize() {
@@ -211,8 +192,6 @@
         report(new Error(`the decision is not JSON: ${error.message}`));
         return defer();
       }
-      // a draft still waiting is for a decision that is now being made
-      env.clearTimeout(draftTimer);
       post({ type: "submit", req, data });
     }
 
@@ -307,7 +286,6 @@
     // the app's own keys on the review screen reach it from inside the view
     // too, ⌘/Ctrl+Enter among them: the app starts the hand-over
     if (env.onAppKey) keep(env.onAppKey((key) => post(Object.assign({ type: "key" }, key))));
-    keep(() => env.clearTimeout(draftTimer));
     post({ type: "ready" });
 
     /* The bytes of a file the review carries, from the shell: a view's
@@ -373,16 +351,20 @@
       setSetting(key, value) {
         post({ type: "settings_set", patch: { [key]: value } });
       },
-      draft(data, opts) {
+      /* Keeps the person's work in progress, at once, so a reload right
+         after a choice keeps it. What JSON cannot hold, such as a cycle or
+         undefined, is a mistake in the view: it throws here, at the line
+         that kept it. */
+      draft(data) {
         if (state.readonly) return;
-        env.clearTimeout(draftTimer);
-        const value = asJson(data, "draft");
-        if (value === NOT_JSON) return;
-        const send = () => {
-          if (!state.readonly) post({ type: "draft", data: value });
-        };
-        if (opts && opts.flush) send();
-        else draftTimer = env.setTimeout(send, DRAFT_DEBOUNCE_MS);
+        if (data === undefined) throw new TypeError("Pinrail: a draft must be a JSON value, not undefined");
+        let value;
+        try {
+          value = JSON.parse(JSON.stringify(data));
+        } catch (error) {
+          throw new TypeError(`Pinrail: a draft must be a JSON value: ${error.message}`);
+        }
+        post({ type: "draft", data: value });
       },
       /** asks the app to open a link in the system browser, as a click on one in the view does; the app asks the person first unless they allowed the site */
       open,

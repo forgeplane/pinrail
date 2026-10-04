@@ -236,8 +236,8 @@ export type Plugin<Payload = unknown, Data = unknown> = {
   readonly readonly: boolean;
   readonly theme: Theme;
   readonly settings: Settings;
-  /** debounced; `{ flush: true }` posts at once */
-  draft(data: any, opts?: { flush?: boolean }): void;
+  /** keeps work in progress at once; it comes back in `init`. Throws for a value JSON cannot hold. */
+  draft(data: unknown): void;
   /** only for `resize: "manual"` */
   resize(height: number | "fill"): void;
   /** what the shell's hand-over button should read */

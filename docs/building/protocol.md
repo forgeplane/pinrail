@@ -215,7 +215,7 @@ const post = (msg) => parent.postMessage({ pinrail: 1, ...msg }, shell ?? "*");
 post({ type: "ready" });
 ```
 
-Without the SDK, your view must also do the following: size the frame on every change, debounce drafts, apply the theme before the first paint, forward links with `open`, and forward <kbd>⌘↵</kbd> to the app as `key`.
+Without the SDK, your view must also do the following: size the frame on every change, apply the theme before the first paint, forward links with `open`, and forward <kbd>⌘↵</kbd> to the app as `key`.
 
 ## Versions
 

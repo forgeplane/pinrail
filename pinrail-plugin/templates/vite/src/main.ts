@@ -53,7 +53,7 @@ function handOver(): Decision | undefined {
 
 function pick(value: boolean) {
   choice = choice === value ? null : value;
-  plugin.draft({ ok: choice }, { flush: true });
+  plugin.draft({ ok: choice });
   render();
 }
 

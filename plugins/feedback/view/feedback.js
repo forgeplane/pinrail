@@ -242,7 +242,7 @@
   }
   function save() {
     shellErrors = [];
-    plugin.draft(state, { flush: true });
+    plugin.draft(state);
     if (!composing) render();
   }
   function change(event) {

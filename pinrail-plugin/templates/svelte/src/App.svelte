@@ -40,7 +40,7 @@
   function pick(value: boolean) {
     draft.ok = draft.ok === value ? null : value;
     errors = "";
-    plugin.draft(draft, { flush: true });
+    plugin.draft(draft);
   }
 
   // what the app's hand-over button says follows the answer

@@ -162,7 +162,7 @@ function counts() {
 /* Drafts: a click posts at once, so a reload right after it loses nothing;
    typing is debounced so every keystroke does not cross the bridge. */
 const draftData = () => ({ decisions: S.decisions });
-const postDraft = () => plugin.draft(draftData(), { flush: true });
+const postDraft = () => plugin.draft(draftData());
 const draft = () => plugin.draft(draftData());
 
 /* ---------- state ---------- */

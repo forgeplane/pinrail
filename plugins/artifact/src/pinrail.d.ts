@@ -30,7 +30,7 @@ export type Handlers = {
 export type Plugin = {
   readonly readonly: boolean;
   readonly theme: "dark" | "light";
-  draft: (data: unknown, opts?: { flush?: boolean }) => void;
+  draft: (data: unknown) => void;
   status: (status: { label: string }) => void;
   /** a file the review carries, by the name its payload gives it */
   attachment: (name: string) => Promise<ArrayBuffer>;

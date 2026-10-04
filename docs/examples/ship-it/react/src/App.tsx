@@ -64,7 +64,7 @@ export function App({ plugin, init }: { plugin: Plugin<Payload, Decision>; init:
     const next = { ...latest.current, verdict };
     setDraft(next);
     setError("");
-    plugin.draft(next, { flush: true });
+    plugin.draft(next);
   }
 
   function writeNote(note: string) {
