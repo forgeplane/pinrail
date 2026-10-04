@@ -128,13 +128,7 @@ The manifest's `icon` is an SVG file in the folder too, `icon.svg` in the scaffo
 
 ## Size
 
-A view sizes itself to its content by default, and the review page scrolls. A workbench, such as a diff with its own panes, asks for the whole height instead and scrolls inside:
-
-```js
-Pinrail.connect({ resize: "fill", onInit, onCollect });
-```
-
-`min_height` in the manifest is the least height the app gives the view.
+The app gives the view the whole height of the review panel, whatever the view holds, so the hand-over button is in the same place for every plugin. A view whose content is taller scrolls inside its frame. `Pinrail.layout()` builds a header that stays in place over a body that scrolls.
 
 ## Your own fonts, styles and scripts
 

@@ -44,5 +44,6 @@ plugin.handOverLabel("Hand over: yes");       // the hand-over button's words
 - Links: `plugin.open(url)`. The app asks the person before it opens a
   link, unless they allowed that site for the plugin. Rendering: `Pinrail.markdown(text)`,
   `Pinrail.escape(text)`, `Pinrail.icon(name)`.
-- A view that scrolls itself: `Pinrail.connect({ resize: "fill", … })`.
+- The view fills the review panel's height and scrolls inside its frame;
+  `Pinrail.layout()` keeps a header in place over a body that scrolls.
 - Every call with its arguments is in `pinrail-plugin.d.ts`.

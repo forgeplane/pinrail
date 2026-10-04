@@ -26,7 +26,6 @@ sequenceDiagram
   V->>S: ready
   S->>V: appearance { theme }
   S->>V: init { review, previous, readonly, draft, settings }
-  V->>S: resize { height }
   V->>S: draft { data }
   V->>S: status { label }
   Note over S,V: the person hands over
@@ -128,7 +127,6 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | Type | Fields | Effect |
 |---|---|---|
 | `ready` | | The view is listening. The app answers with `init`. |
-| `resize` | `height`: a number, or `"fill"` | Sizes the frame. A number is the content height in pixels and the page scrolls; `"fill"` gives the view the viewport's height and the view scrolls inside. |
 | `draft` | `data` | Keeps work in progress. It comes back in `init` as `draft`, for as long as the app keeps running. |
 | `status` | `label` | What the app's hand-over button should read, such as `Hand over 3 of 5`. With the SDK, `plugin.handOverLabel` sends it. |
 | `submit` | `req`, `data` | The decision, in answer to the `collect` with the same `req`. Validated against the decision schema. |
@@ -137,10 +135,6 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | One of the app's own keys on the review screen, <kbd>?</kbd>, <kbd>[</kbd> or <kbd>]</kbd>, pressed in the view outside a text field and left alone by it, or <kbd>⌘↵</kbd> pressed anywhere in the view. The SDK sends it; the app acts on it as if pressed in its window, and <kbd>⌘↵</kbd> starts the hand-over. |
 | `open` | `url` | Asks the app to open a link in the person's browser. Only `http`, `https` and `mailto` addresses are considered. The app asks the person first, unless they allowed the address's origin for this plugin. It always asks about a `mailto` address and an address longer than 2,000 characters, and it ignores `open` messages that arrive while it is asking. |
 | `attachment` | `req`, `name`, and `round: "previous"` for a file of the round this one revises | Asks for the bytes of a file the review carries. The app answers with `attachment` and the same `req`. |
-
-### `resize`
-
-`resize` with `"fill"` suits a workbench, such as a diff with its own scrolling panes. The code review plugin works this way.
 
 ### `attachment`
 
@@ -215,7 +209,7 @@ const post = (msg) => parent.postMessage({ pinrail: 1, ...msg }, shell ?? "*");
 post({ type: "ready" });
 ```
 
-Without the SDK, your view must also do the following: size the frame on every change, apply the theme before the first paint, forward links with `open`, and forward <kbd>⌘↵</kbd> to the app as `key`.
+Without the SDK, your view must also do the following: apply the theme before the first paint, forward links with `open`, and forward <kbd>⌘↵</kbd> to the app as `key`.
 
 ## Versions
 

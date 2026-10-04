@@ -80,8 +80,7 @@ When the plugin is installed, Pinrail copies these entries and nothing else. Sou
   "version": "0.1.0",
   "title": "Ticket triage",
   "description": "Support tickets sorted into keep, merge or close.",
-  "use_when": "You triaged a queue of support tickets and need a person to confirm each call before you act on it.",
-  "min_height": 200
+  "use_when": "You triaged a queue of support tickets and need a person to confirm each call before you act on it."
 }
 ```
 
@@ -92,7 +91,6 @@ When the plugin is installed, Pinrail copies these entries and nothing else. Sou
 | `title` | What the app calls the plugin in its lists and settings. |
 | `description` | A sentence on what the plugin is for. |
 | `use_when` | The situation an agent should ask with this plugin in. Agents read it in `pinrail plugins` when they choose a plugin. |
-| `min_height` | The smallest height, in pixels, the app gives the view. |
 
 Write `use_when` for an agent deciding between plugins: name the moment, not the feature. *You triaged a queue of support tickets and need a person to confirm each call* tells an agent when to reach for the plugin; *Ticket triage view* does not.
 
