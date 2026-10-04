@@ -43,6 +43,16 @@ See [Notifications](/docs/using/notifications/) for more, including muting one p
 
 The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using/inbox/#keys).
 
+## Agents
+
+| Setting | What it does |
+|---|---|
+| **Claude Code**, **Codex**, **Cursor**, **Gemini CLI**, **OpenCode** | *Connect* adds a global skill named `pinrail` to the agent. *Update* rewrites it after Pinrail was updated, and *Remove* takes it away. |
+
+The skill tells an agent how to submit a review and read your decision. It does not tell the agent when to ask: a prompt, your instructions or another skill does that by telling the agent to use Pinrail.
+
+Pinrail lists the agents it knows and finds each one by its configuration folder, such as `~/.claude` for Claude Code. It writes the skill to the agent's global skills folder, such as `~/.claude/skills/pinrail/SKILL.md`. Pinrail marks the skill as its own, and it never changes or removes a `pinrail` skill that you wrote yourself. OpenCode also reads Claude Code's skills, so when Claude Code is connected, OpenCode uses that skill and needs none of its own.
+
 ## Plugins
 
 ![Settings, Plugins: the installed plugins with where each came from.](screenshot:settings-plugins "Five plugins: two built in, three installed from GitHub.")
@@ -75,7 +85,7 @@ Click a row to open its details:
 | **Port** | The port Pinrail's server listens on, `4747` by default, from 1024 to 65535. The change takes effect after a restart, and the `pinrail` command follows it on its own. |
 | **Keep reviews for** | *Forever*, 30 days, 90 days or a year. Ended reviews older than this are deleted from your history, with the files they carried. |
 | **Files sent with reviews** | How many files agents have sent beside reviews, and the space they take. |
-| **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`. |
+| **Install the CLI** | Puts the `pinrail` command into `~/.local/bin`, so agents can run it. |
 
 ## About
 
