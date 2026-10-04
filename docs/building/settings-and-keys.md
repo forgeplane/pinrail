@@ -78,7 +78,7 @@ flowchart LR
   A -->|"settings"| V2["every other open view"]
 ```
 
-A view can only write its own plugin's settings. A value the schema refuses comes back as `violations`, with a path under `/plugins/<name>`, such as `/plugins/list/wrap` for the List plugin.
+A view can only write its own plugin's settings. `setSetting` returns a promise: it resolves with the settings once the app keeps the value, and it rejects when the schema refuses it, with the reasons in the error's `violations`.
 
 ### Where the values live
 

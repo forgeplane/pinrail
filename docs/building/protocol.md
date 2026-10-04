@@ -43,10 +43,10 @@ sequenceDiagram
 | `init` | `review`, `previous`, `readonly`, `draft`, `settings`, `shell_origin`, `capabilities` | In answer to `ready`. It comes again, with `readonly: true`, when the review stops being pending while the view is open, for example when the agent withdraws it. After the view's own hand-over, `submitted` comes instead. |
 | `attachment` | `req`, `ok`, and `name`, `media_type`, `size`, `bytes`; or `error` | The answer to the view's `attachment`, with the same `req`. `bytes` is an `ArrayBuffer`, transferred. |
 | `collect` | `req` | The person pressed the hand-over button, or <kbd>⌘↵</kbd>. The view answers with `submit` or `defer` and the same `req`. |
-| `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema, or a `settings_set` failed the plugin's settings schema. Settings errors have paths under `/plugins/<name>`, such as `/plugins/list/wrap`, so a view can tell them apart. |
+| `violations` | `errors: [{ path, message }]` | A submitted decision failed the decision schema. |
 | `submitted` | `decision` | The decision was accepted. The app then returns to the inbox and closes the view, so there is no need to show the decision. When the person opens the review again, `init` comes with `readonly: true` and the decision. |
 | `appearance` | `theme: "dark" \| "light"` | Before `init`, and whenever the app's theme changes. |
-| `settings` | `settings` | The plugin's own settings changed, in the app or from a view. |
+| `settings` | `settings`; or `req`, `ok`, and `errors` when not `ok` | The plugin's own settings changed, in the app or from a view. With `req`, the answer to the view's `settings_set`: `ok: true` when the app kept the change, or `ok: false` and the errors when the settings schema refused it. |
 | `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | A shortcut the manifest declares, pressed while the app, not the frame, had focus. |
 
 ### `init`
@@ -133,7 +133,7 @@ A shortcut you declare in the manifest reaches your view even when the person pr
 | `status` | `label` | What the app's hand-over button should read, such as `Hand over 3 of 5`. |
 | `submit` | `req`, `data` | The decision, in answer to the `collect` with the same `req`. Validated against the decision schema. |
 | `defer` | `req` | Nothing to hand over for the `collect` with the same `req` yet. |
-| `settings_set` | `patch` | Writes the plugin's own settings. Everyone hears the result as `settings`. |
+| `settings_set` | `req`, `patch` | Writes the plugin's own settings. The app answers with `settings` and the same `req`, and everyone hears the values as they now stand as `settings`. With the SDK, `plugin.setSetting` returns a promise of the settings. |
 | `key` | `key`, `code`, `metaKey`, `ctrlKey`, `altKey`, `shiftKey` | One of the app's own keys on the review screen, <kbd>?</kbd>, <kbd>[</kbd> or <kbd>]</kbd>, pressed in the view outside a text field and left alone by it, or <kbd>⌘↵</kbd> pressed anywhere in the view. The SDK sends it; the app acts on it as if pressed in its window, and <kbd>⌘↵</kbd> starts the hand-over. |
 | `open` | `url` | Asks the app to open a link in the person's browser. Only `http`, `https` and `mailto` addresses are considered. The app asks the person first, unless they allowed the address's origin for this plugin. It always asks about a `mailto` address and an address longer than 2,000 characters, and it ignores `open` messages that arrive while it is asking. |
 | `attachment` | `req`, `name`, and `round: "previous"` for a file of the round this one revises | Asks for the bytes of a file the review carries. The app answers with `attachment` and the same `req`. |

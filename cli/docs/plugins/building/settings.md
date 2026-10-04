@@ -13,7 +13,7 @@ Plugins*.
 
 ```js
 plugin.settings.diff;                  // the current value, from init and every change
-plugin.setSetting("diff", "split");    // the app checks it and tells every open view
+await plugin.setSetting("diff", "split"); // the app checks it and tells every open view
 ```
 
 `onSettings(settings)` says when they change.
