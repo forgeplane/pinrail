@@ -23,8 +23,8 @@ struct Agent {
     name: &'static str,
     config: &'static str,
     skills: &'static str,
-    /// another agent whose skills this one reads as well
-    reads: Option<&'static str>,
+    /// other agents whose skills this one reads as well
+    reads: &'static [&'static str],
 }
 
 const AGENTS: &[Agent] = &[
@@ -33,28 +33,28 @@ const AGENTS: &[Agent] = &[
         name: "Claude Code",
         config: ".claude",
         skills: ".claude/skills",
-        reads: None,
+        reads: &[],
     },
     Agent {
         id: "codex",
         name: "Codex",
         config: ".codex",
         skills: ".codex/skills",
-        reads: None,
+        reads: &[],
     },
     Agent {
         id: "cursor",
         name: "Cursor",
         config: ".cursor",
         skills: ".cursor/skills",
-        reads: None,
+        reads: &[],
     },
     Agent {
         id: "gemini",
         name: "Gemini CLI",
         config: ".gemini",
         skills: ".gemini/skills",
-        reads: None,
+        reads: &[],
     },
     Agent {
         id: "opencode",
@@ -63,7 +63,16 @@ const AGENTS: &[Agent] = &[
         skills: ".config/opencode/skills",
         // OpenCode reads ~/.claude/skills too: a second copy would be a
         // second skill of the same name
-        reads: Some("claude"),
+        reads: &["claude"],
+    },
+    Agent {
+        id: "grok",
+        name: "Grok CLI",
+        config: ".grok",
+        skills: ".grok/skills",
+        // Grok reads ~/.claude/skills and ~/.cursor/skills too, unless the
+        // person turns that off
+        reads: &["claude", "cursor"],
     },
 ];
 
@@ -137,8 +146,9 @@ pub fn status(home: &Path, version: &str) -> Vec<AgentStatus> {
         .map(|(agent, &state)| {
             let reader = agent
                 .reads
-                .and_then(|id| AGENTS.iter().position(|a| a.id == id))
-                .filter(|&i| own[i] != State::Absent);
+                .iter()
+                .filter_map(|id| AGENTS.iter().position(|a| a.id == *id))
+                .find(|&i| own[i] != State::Absent);
             let (state, covered_by) = match reader {
                 Some(i) if state == State::Absent => (State::Covered, Some(AGENTS[i].name)),
                 _ => (state, None),
@@ -364,6 +374,25 @@ mod tests {
             "{refused}"
         );
         assert!(!home.path().join(".config/opencode/skills/pinrail").exists());
+    }
+
+    #[test]
+    fn grok_is_found_by_its_folder_and_covered_by_claude_code_or_cursor() {
+        let home = home_with(&[".grok", ".cursor"]);
+        let grok = state(home.path(), "grok", "1.0.0");
+        assert!(grok.found);
+        assert_eq!(grok.state, State::Absent);
+        assert!(grok.skill.ends_with(".grok/skills/pinrail/SKILL.md"));
+
+        connect(home.path(), "cursor", "1.0.0").unwrap();
+        let grok = state(home.path(), "grok", "1.0.0");
+        assert_eq!(grok.state, State::Covered);
+        assert_eq!(grok.covered_by, Some("Cursor"));
+        assert!(connect(home.path(), "grok", "1.0.0").is_err());
+
+        disconnect(home.path(), "cursor").unwrap();
+        connect(home.path(), "grok", "1.0.0").unwrap();
+        assert_eq!(state(home.path(), "grok", "1.0.0").state, State::Connected);
     }
 
     #[test]
