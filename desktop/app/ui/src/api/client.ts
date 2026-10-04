@@ -101,18 +101,18 @@ export const api = {
   markViewed: (id: string) => request<void>("POST", `/api/v1/reviews/${seg(id)}/viewed`),
   events: (id: string) => request<ReviewEvent[]>("GET", `/api/v1/reviews/${seg(id)}/events`),
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
-  /** what installing a source would do; the source is fetched and dropped */
+  /** what installing a folder or a zip would do, installing nothing */
   inspectPlugin: (body: InstallRequest) => request<Inspection>("POST", "/api/v1/plugins/inspect", body),
-  /** starts an install; the job says how it goes */
+  /** installs a folder or a zip; the plugin's row */
   installPlugin: (body: InstallRequest) => request<Plugin>("POST", "/api/v1/plugins/install", body),
   /** opens a review for the app's frame, moving a pending one to the installed version when it takes it */
   reviewView: async (id: string) => {
     const view = await request<ReviewView>("POST", `/api/v1/reviews/${seg(id)}/view`);
     return { ...view, url: `${await serverUrl()}${view.url}` };
   },
-  /** drops the installation and the lines no review renders with */
+  /** drops the installation; the bundles reviews render with stay with them */
   removePlugin: (name: string) =>
-    request<{ removed: string; linked: boolean; lines_kept: string[] }>("DELETE", `/api/v1/plugins/${seg(name)}`),
+    request<{ removed: string; link: boolean; version: string }>("DELETE", `/api/v1/plugins/${seg(name)}`),
   settings: () => request<ServerSettings>("GET", "/api/v1/settings"),
   patchSettings: (patch: Record<string, unknown>) => request<ServerSettings>("PATCH", "/api/v1/settings", patch),
   /** the review rendered as markdown by the core, for the clipboard */

@@ -2,7 +2,7 @@
 // source, a look at what it is before it is installed, and what installing
 // replaces. Install is the consent.
 
-import { FolderOpen, X } from "lucide-react";
+import { FileArchive, FolderOpen, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri, type InstallRequest } from "../../api/client";
 import type { Inspection, Plugin } from "../../api/types";
@@ -166,9 +166,17 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
     if (stage.at === "seen") setStage({ at: "source" });
   };
 
-  const choose = async () => {
+  // a folder, or a zip of one
+  const choose = async (zip: boolean) => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ directory: true, multiple: false, title: "Choose the plugin folder" });
+    const picked = zip
+      ? await open({
+          directory: false,
+          multiple: false,
+          title: "Choose the plugin's zip",
+          filters: [{ name: "Plugin zip", extensions: ["zip"] }],
+        })
+      : await open({ directory: true, multiple: false, title: "Choose the plugin folder" });
     if (typeof picked === "string") {
       setSource(picked);
       setStage({ at: "source" });
@@ -217,17 +225,30 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
               }}
             />
             {native ? (
-              <Tooltip label="Choose a folder">
-                <button
-                  type="button"
-                  className="bar-button"
-                  onClick={choose}
-                  aria-label="Choose a folder"
-                  disabled={busy}
-                >
-                  <FolderOpen size={15} />
-                </button>
-              </Tooltip>
+              <>
+                <Tooltip label="Choose a folder">
+                  <button
+                    type="button"
+                    className="bar-button"
+                    onClick={() => choose(false)}
+                    aria-label="Choose a folder"
+                    disabled={busy}
+                  >
+                    <FolderOpen size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Choose a zip">
+                  <button
+                    type="button"
+                    className="bar-button"
+                    onClick={() => choose(true)}
+                    aria-label="Choose a zip"
+                    disabled={busy}
+                  >
+                    <FileArchive size={15} />
+                  </button>
+                </Tooltip>
+              </>
             ) : null}
             <button
               type="button"

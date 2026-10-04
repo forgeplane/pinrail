@@ -81,10 +81,7 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
         {installing ? (
           <InstallPanel key={installing.source ?? ""} initial={installing.source} onClose={() => setInstalling(null)} />
         ) : (
-          <SettingsRow
-            label="Install a plugin"
-            description="From a folder on this machine, a repository, or a GitHub release"
-          >
+          <SettingsRow label="Install a plugin" description="From a folder or a zip on this computer">
             <button type="button" className="chrome-button" onClick={() => setInstalling({})} data-install-open>
               <PackagePlus size={14} /> Install…
             </button>

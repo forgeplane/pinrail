@@ -39,6 +39,10 @@ test("the Plugins section lists what is installed and has no directories", async
   await expect(page.locator('[data-plugin-row="list"]')).toBeVisible();
   await expect(page.locator(".settings-group h3", { hasText: "Directories" })).toHaveCount(0);
   await expect(page.locator("[data-install-open]")).toBeEnabled();
+  // a plugin comes from disk: no repositories or releases
+  const install = page.locator(".settings-row", { has: page.locator("[data-install-open]") });
+  await expect(install).toContainText("From a folder or a zip on this computer");
+  await expect(install).not.toContainText(/repository|release/i);
 });
 
 test("a folder is looked at before it is installed, and its row says where it came from", async ({ page }) => {

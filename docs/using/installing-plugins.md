@@ -7,7 +7,7 @@ Pinrail installs one plugin at a time, from the app or from the command line. Yo
 
 ## From the app
 
-Open *Settings › Plugins* and choose *Install…*. Paste the path of a folder or a zip, or choose a folder, then choose *Inspect*. Pinrail shows you:
+Open *Settings › Plugins* and choose *Install…*. Paste the path of a folder or a zip, or choose one with the folder or zip button, then choose *Inspect*. Pinrail shows you:
 
 - the plugin the manifest describes, and its version;
 - where it comes from;
