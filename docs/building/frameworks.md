@@ -18,7 +18,7 @@ A plugin with a view of a screen or two needs no framework and no build: an HTML
 - **An HTML page at `view/index.html`.** The build writes the page there, and the page's scripts and styles beside it in `view/`.
 - **A build you run before installing.** Pinrail installs a plugin as it is and runs nothing, so run the build, such as `npm run build`, before you install or link the folder, and before you zip it for a release. The release workflow of [Publishing a plugin](/docs/building/publishing/) runs it for you.
 - **Relative paths.** The app serves the plugin under a path of its own, so the build must refer to its files relatively: with Vite, `base: "./"`.
-- **The SDK from the app.** Load `/sdk/v1/pinrail-plugin.js` and its stylesheet with tags in the page; don't bundle them. The package gives your code the types: `@forgeplane/pinrail-plugin/types`.
+- **The SDK from the app.** Load `/sdk/v1/pinrail-plugin.js`, its stylesheet and, to render Markdown, `/sdk/v1/markdown.js` with tags in the page; don't bundle them. The package gives your code the types: `@forgeplane/pinrail-plugin/types`.
 - **Everything else bundled.** The frame loads nothing from the network, so the framework itself, fonts and images go into the build.
 
 The plugin's manifest, and the schemas every framework's version shares:

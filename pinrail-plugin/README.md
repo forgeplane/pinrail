@@ -3,12 +3,11 @@
 The `@forgeplane/pinrail-plugin` package contains everything you need to
 write a Pinrail plugin:
 
-- **The SDK**, `src/pinrail-plugin.js`, and its stylesheet. The app serves
-  the SDK at `/sdk/v1/pinrail-plugin.js`, bundled with the markdown-it
-  parser. A view loads it with a single script tag, and the SDK handles the
-  protocol for it: the `ready` message, origin pinning, resizing, drafts,
-  the hand-over, the `submitted` and `violations` messages, and the
-  ⌘/Ctrl+Enter shortcut.
+- **The SDK**, `src/pinrail-plugin.js`, its stylesheet, and its Markdown
+  renderer. The app serves the SDK at `/sdk/v1/pinrail-plugin.js`. A view
+  loads it with a single script tag, and the SDK handles the protocol for
+  it: the `ready` message, origin pinning, drafts, the hand-over, the
+  `submitted` and `violations` messages, and the ⌘/Ctrl+Enter shortcut.
 - **`pinrail-plugin create`** creates a new plugin folder.
 - **`pinrail-plugin dev`** runs a plugin in the browser, without the app.
 - **`pinrail-plugin test`** runs a plugin's tests in the test harness.
@@ -140,7 +139,14 @@ HTML.
 
 ## Markdown
 
-A view can render Markdown directly:
+A view that renders Markdown loads the SDK's Markdown script after the SDK:
+
+```html
+<script src="/sdk/v1/pinrail-plugin.js"></script>
+<script src="/sdk/v1/markdown.js"></script>
+```
+
+It can then render Markdown directly:
 
 ```js
 const plugin = Pinrail.connect({
@@ -149,9 +155,10 @@ const plugin = Pinrail.connect({
 ```
 
 `Pinrail.markdown(s)` and `Pinrail.markdownInline(s)` are available as soon
-as the SDK loads. The script that the app serves includes the
-[markdown-it](https://github.com/markdown-it/markdown-it) parser, so a view
-does not need to load another file.
+as both scripts load. The Markdown script includes the
+[markdown-it](https://github.com/markdown-it/markdown-it) parser. Without
+it, `Pinrail.markdown` throws an error that names the script to add, and a
+view that renders no Markdown does not load the parser.
 
 A view's frame is sandboxed and cannot open links itself. When the person
 clicks a link in rendered Markdown, the SDK sends a message to the app
