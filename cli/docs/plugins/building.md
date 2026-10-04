@@ -11,6 +11,10 @@ changes, or stop, and what an incomplete answer means. Then build the
 controls that produce it. A view that shows the right material but returns
 another kind of answer does not do the job.
 
+The app lets the person add a note to the agent with any decision, so do
+not add a comment field for the whole review. Add a note field only to a
+part that is answered on its own, such as an item or a passage.
+
 ```sh
 pinrail plugins new <name> --dir <path>   # scaffold it; no build, nothing installed
 # make it yours: the decision and payload schemas, the view, the samples
@@ -24,7 +28,7 @@ pinrail withdraw <id>                     # when you are done with the sample
 - `--link` registers the folder with the app, which serves it from there
   and lists it in the person's plugins; `pinrail plugins remove <name>`
   undoes it. Linking a plugin the person's task needs is part of that
-  task. `plugins new --link` scaffolds and links in one step.
+  task.
 - A manifest needs `name` and `version`. Always give `use_when` too, the
   moment an agent should ask with the plugin, specific: agents choose by
   it.
@@ -43,20 +47,16 @@ pinrail withdraw <id>                     # when you are done with the sample
 - An opened pending review moves to a new release that takes its
   payload; an ended one keeps its release. A move can change the
   decision schema: on a decision you did not expect, describe the
-  plugin again. Agents rely on the version: a release
-  whose schemas no longer accept what the previous one took needs a new
-  major version (`2.0.0`, or `0.4.0` after `0.3.x`).
+  plugin again. A release whose schemas refuse what the previous one
+  took needs a new major version (`2.0.0`, or `0.4.0` after `0.3.x`).
   `pinrail plugins check <dir> --since <previous release dir>` lists such
   breaks.
 - `summary` in the manifest declares what the app counts for the inbox
   and history: arrays of the payload (`request`) and of the decision
   (`outcome`), by a field such as `severity` or `action`, each value with
-  a label and a tone. Without it, a review shows no summary. The format
-  is in the `manifest` brief's schema.
-- Read the schemas, not prose about them: your plugin's own are
-  `schemas/payload.schema.json` and `schemas/decision.schema.json`, JSON
-  Schema 2020-12; an installed plugin's are in
-  `pinrail plugins describe <plugin>`.
+  a label and a tone. The format is in the `manifest` brief.
+- The schemas are JSON Schema 2020-12. Read them, not prose about them:
+  an installed plugin's are in `pinrail plugins describe <plugin>`.
 - The preview's hand-over checks the decision against the decision schema
   and decides nothing. A change to the view shows the next time the
   preview is opened; a change to the manifest or a schema of a linked
