@@ -19,7 +19,7 @@ function scaffold(name: string, template: "plain" | "vite" | "react"): string {
 }
 
 async function decides(page: any, dir: string) {
-  const plugin = await mountPlugin(page, dir, { review: fixture(path.join(dir, "fixtures", "basic.json")) });
+  const plugin = await mountPlugin(page, dir, { review: fixture(path.join(dir, "samples", `${path.basename(dir)}.json`)) });
   await expect(plugin.frame.locator("p").first()).toContainText("3 commits");
   await plugin.frame.getByRole("button", { name: "Yes" }).click();
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over: yes");

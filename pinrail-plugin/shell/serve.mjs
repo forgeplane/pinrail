@@ -146,21 +146,35 @@ function sendFile(res, file, headers = {}) {
   });
 }
 
+/** The folders whose reviews the shell offers: the samples the app sends,
+ *  then the fixtures kept for development and tests. */
+const REVIEW_DIRS = ["samples", "fixtures"];
+
+/** The reviews the shell offers, named by their path in the plugin folder. */
 function fixtures(pluginDir) {
-  const dir = path.join(pluginDir, "fixtures");
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith(".json"))
-    .sort()
-    .map((f) => {
-      try {
-        const g = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
-        return { name: f, title: g.title ?? f, decided: !!g.decision };
-      } catch {
-        return { name: f, title: `${f} (invalid JSON)`, decided: false, broken: true };
-      }
-    });
+  return REVIEW_DIRS.flatMap((sub) => {
+    const dir = path.join(pluginDir, sub);
+    if (!fs.existsSync(dir)) return [];
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith(".json"))
+      .sort()
+      .map((f) => {
+        const name = `${sub}/${f}`;
+        try {
+          const g = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+          return { name, title: g.title ?? name, decided: !!g.decision };
+        } catch {
+          return { name, title: `${name} (invalid JSON)`, decided: false, broken: true };
+        }
+      });
+  });
+}
+
+/** The file of a review the shell offers, by its name, or null. */
+function fixtureFile(pluginDir, name) {
+  const sub = REVIEW_DIRS.find((d) => decodeURIComponent(name).startsWith(`${d}/`));
+  return sub ? under(path.join(pluginDir, sub), decodeURIComponent(name).slice(sub.length + 1)) : null;
 }
 
 /** The newest change under the plugin directory, so the page can reload. */
@@ -229,7 +243,7 @@ export function serve(argv) {
     if (p === "/dev/fixtures")
       return send(res, 200, JSON.stringify(fixtures(pluginDir)), { "content-type": "application/json" });
     if (p.startsWith("/dev/fixtures/")) {
-      const file = under(path.join(pluginDir, "fixtures"), p.slice("/dev/fixtures/".length));
+      const file = fixtureFile(pluginDir, p.slice("/dev/fixtures/".length));
       if (!file) return send(res, 404, "no such fixture");
       // the files a fixture lists by path, as the app lists them: name, size, type, hash
       try {
@@ -246,7 +260,7 @@ export function serve(argv) {
     // a file a fixture carries, fetched by the shell for the view that asked
     if (p.startsWith("/dev/attachments/")) {
       const [fixtureName, ...rest] = p.slice("/dev/attachments/".length).split("/").map(decodeURIComponent);
-      const file = under(path.join(pluginDir, "fixtures"), fixtureName);
+      const file = fixtureFile(pluginDir, fixtureName);
       try {
         const fixture = file && JSON.parse(fs.readFileSync(file, "utf8"));
         const entry = fixture && resolveAttachments(fixture.attachments, path.dirname(file)).files[rest.join("/")];

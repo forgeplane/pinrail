@@ -357,7 +357,7 @@ setInterval(async () => {
   document.title = `${manifest.name} · pinrail plugin shell`;
   fixtures = await (await fetch("/dev/fixtures")).json();
   const sel = $("fixture"), prev = $("previous");
-  if (fixtures.length === 0) sel.append(new Option("no fixtures/ directory: empty payload", ""));
+  if (fixtures.length === 0) sel.append(new Option("no samples/ or fixtures/: empty payload", ""));
   // a decided fixture says so, since its title is often the pending one's
   for (const f of fixtures) {
     const label = f.decided ? `${f.title} (decided)` : f.title;

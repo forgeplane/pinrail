@@ -9,7 +9,7 @@ one yes-or-no question; make it yours from there.
 npm install
 npx playwright install chromium       # once, for the tests
 npm run watch                         # rebuilds view/ on every change…
-npx pinrail-plugin dev                 # …and the view is in a browser, on fixtures/basic.json, reloading
+npx pinrail-plugin dev                 # …and the view is in a browser, on samples/__NAME__.json, reloading
 npm test                              # builds, then tests/ under the harness, no app needed
 npm run check                         # what the app would say of the folder
 pinrail plugins install . --link       # the app follows this folder; keep the watch running
@@ -28,8 +28,7 @@ manifest.json       name, version and title
 src/                index.html, main.tsx and App.tsx: the view in React, typed against pinrail-plugin/types
 view/               the build; the app serves it in a sandboxed frame (not versioned)
 schemas/            payload and decision, JSON Schema 2020-12
-fixtures/           payloads to develop and test with
-samples/            reviews to look at: pinrail submit __NAME__ --sample
+samples/            reviews to look at and test with: pinrail submit __NAME__ --sample
 tests/              the Playwright spec the harness runs
 ```
 

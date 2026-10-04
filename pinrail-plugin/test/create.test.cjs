@@ -31,7 +31,6 @@ test("the plain template is a whole plugin, named throughout", async () => {
     "AGENTS.md",
     "CLAUDE.md",
     "README.md",
-    "fixtures/basic.json",
     "icon.svg",
     "manifest.json",
     "package.json",

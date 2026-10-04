@@ -8,7 +8,7 @@ question; make it yours from there.
 ```sh
 npm install
 npx playwright install chromium       # once, for the tests
-npx pinrail-plugin dev                 # the view in a browser, on fixtures/basic.json, reloading on change
+npx pinrail-plugin dev                 # the view in a browser, on samples/__NAME__.json, reloading on change
 npm test                              # tests/ under the harness, no app needed
 npm run check                         # what the app would say of the folder
 pinrail plugins install . --link       # the app follows this folder as you change it
@@ -26,10 +26,9 @@ pinrail submit __NAME__ --sample --wait
 manifest.json       name, version, title, and when an agent should ask with it
 view/index.html     the view the app serves, in a sandboxed frame
 view/view.js        its script, checked against pinrail-plugin.d.ts
-samples/            reviews to look at: pinrail submit __NAME__ --sample
+samples/            reviews to look at and test with: pinrail submit __NAME__ --sample
 AGENTS.md           how the plugin works, for the agent that helps you build it
 schemas/            payload and decision, JSON Schema 2020-12
-fixtures/           payloads to develop and test with
 tests/              the Playwright spec the harness runs
 ```
 

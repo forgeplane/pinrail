@@ -6,7 +6,7 @@ import path from "node:path";
 import { scratch } from "./scratch.cjs";
 
 // `pinrail-plugin dev`, the shell in a browser: a plugin from create, with
-// a pending fixture and a decided one beside it.
+// its sample and a decided fixture beside it.
 const sdk = path.resolve(import.meta.dirname, "..");
 const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
 
@@ -19,15 +19,16 @@ const freePort = () =>
     });
   });
 
-test("the fixture menu marks a decided fixture, and choosing one loads it", async ({ page }) => {
+test("the menu offers the samples and the fixtures, marks a decided one, and loads the one chosen", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
   execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
-  const basic = JSON.parse(fs.readFileSync(path.join(dir, "fixtures", "basic.json"), "utf8"));
-  // the decided round sorts first, and has the pending one's title
+  const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
+  // a decided round, with the pending one's title
+  fs.mkdirSync(path.join(dir, "fixtures"));
   fs.writeFileSync(
-    path.join(dir, "fixtures", "a-decided.json"),
+    path.join(dir, "fixtures", "decided.json"),
     JSON.stringify({
-      ...basic,
+      ...sample,
       decision: { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: false } },
     }),
   );
@@ -40,13 +41,15 @@ test("the fixture menu marks a decided fixture, and choosing one loads it", asyn
       .toBe(200);
     await page.goto(`http://127.0.0.1:${port}/`);
     const menu = page.locator("#fixture");
-    await expect(menu.locator("option")).toHaveText([`${basic.title} (decided)`, basic.title]);
-
+    // the sample first, as the one the app would show
+    await expect(menu.locator("option")).toHaveText([sample.title, `${sample.title} (decided)`]);
     const view = page.frameLocator("#frame");
-    await menu.selectOption("a-decided.json");
+    await expect(view.getByRole("button", { name: "Yes" })).toBeVisible();
+
+    await menu.selectOption("fixtures/decided.json");
     await expect(view.locator("body")).toContainText("Decided: no");
     // the frame shows the same page for every fixture; choosing another still loads it again
-    await menu.selectOption("basic.json");
+    await menu.selectOption("samples/triage.json");
     await expect(view.getByRole("button", { name: "Yes" })).toBeVisible();
   } finally {
     shell.kill();

@@ -124,7 +124,7 @@ export function create(argv) {
   console.log(`
 next:
   cd ${shown} && npm install && npx playwright install chromium
-  npx pinrail-plugin dev                 the view in a browser, on fixtures/basic.json${template && template !== "plain" ? "\n  npm run watch                         rebuilds view/ as you edit src/" : ""}
+  npx pinrail-plugin dev                 the view in a browser, on samples/${name}.json${template && template !== "plain" ? "\n  npm run watch                         rebuilds view/ as you edit src/" : ""}
   npm test                              tests/ under the harness
   npx pinrail-plugin check               what the app would say of the folder
   pinrail plugins install . --link       the app serves the folder live`);
