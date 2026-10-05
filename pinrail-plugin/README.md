@@ -108,12 +108,17 @@ plugin's `samples/*.json` and `fixtures/*.json` files. Keep in `fixtures/`
 the reviews that should not ship with the plugin, such as a decided review
 or an edge case. The page can also hand a decided review over as the
 previous round, switch between read-only and editable and between the
-themes, ask for the decision as the hand-over button does, and answer with
-violations. A log shows every message the view sends. A change to any file
-in the plugin reloads the view with its last draft.
+themes, and answer a hand-over with violations. A log shows every message
+the view sends. A change to any file in the plugin reloads the view with its
+last draft.
+
+Under the view sits the app's composer: the note to the agent, and the
+hand-over button with the label the view gives it, which asks the view for
+its decision as the app's button does.
 
 To review a view, turn on **Select** (or press `I`) and click any part of
-it: instead of reaching the view, the click opens a comment on that element.
+it, or of the composer: instead of reaching it, the click opens a comment on
+that element.
 Comments are kept in the browser for the plugin, grouped by the review and
 mode you made them in, and marked on the view with numbered pins. **Copy
 comments** puts them on the clipboard as Markdown, with each element's

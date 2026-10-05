@@ -71,6 +71,22 @@
   #comment-pop textarea { width: 100%; min-height: 64px; margin-top: 8px; font: inherit; color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; resize: vertical; }
   #comment-pop .row { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 8px; }
   #comment-pop .row span { color: var(--faint); font-size: 11px; margin-right: auto; }
+  /* The app's composer, as the review screen draws it under the view: the
+     note to the agent and the hand-over button with the view's label. */
+  .stage.fill { display: flex; flex-direction: column; }
+  .stage.fill iframe { flex: 1 1 auto; height: auto; min-height: 0; }
+  #composer { flex: none; margin: 8px 12px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--raised); }
+  #composer:focus-within { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent); }
+  #composer textarea { display: block; width: 100%; padding: 9px 12px 4px; border: 0; background: none; color: var(--text); font: inherit; resize: none; min-height: 34px; outline: none; }
+  #composer textarea::placeholder { color: var(--faint); }
+  #composer .bar-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 6px 6px 12px; }
+  #composer .hint { font-size: 11.5px; color: var(--faint); }
+  #handover { display: inline-flex; align-items: center; gap: 7px; padding: 5px 8px 5px 12px; border: 0; border-radius: 6px; background: var(--button); color: #fff; font-weight: 600; font-size: 12.5px; }
+  #handover:hover { filter: brightness(1.08); }
+  #handover kbd { font-size: 10px; padding: 0 4px; border: 0; margin: 0; background: rgb(255 255 255 / 0.18); color: rgb(255 255 255 / 0.9); }
+  #handover .keys { display: inline-flex; gap: 2px; margin-left: 2px; }
+  #composer.hidden, .stage.json #composer { display: none; }
+  body.selecting #composer [data-shell-part]:hover { outline: 2px solid #e5694f; outline-offset: 1px; cursor: crosshair; }
   #payload { display: none; margin: 0; height: 100%; overflow: auto; padding: 16px 18px; font: 12.5px/1.6 var(--mono); color: var(--text); white-space: pre-wrap; word-break: break-word; }
   .stage.json #frame { display: none; }
   .stage.json #payload { display: block; }
@@ -89,7 +105,6 @@
   <select id="previous" title="A decided fixture handed over as the previous round"><option value="">no previous round</option></select>
   <label class="check"><input type="checkbox" id="readonly"> read-only</label>
   <button id="reinit" title="Send init again, with the last draft">Re-init</button>
-  <button id="collect" class="primary" title="What the app's hand-over button does">Collect</button>
   <span class="spacer"></span>
   <button id="show-payload" title="Show the review's payload as JSON in place of the view">Payload</button>
   <button id="select" title="Pick a part of the view to comment on">Select<kbd>I</kbd></button>
@@ -98,7 +113,15 @@
   <button id="theme" title="Switch theme">Theme</button>
 </div>
 <div class="main">
-  <div class="stage fill" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe><pre id="payload" aria-label="Payload"></pre></div>
+  <div class="stage fill" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe><pre id="payload" aria-label="Payload"></pre>
+    <div id="composer">
+      <textarea rows="1" aria-label="Note to the agent" placeholder="Add a note for the agent…" data-shell-part="note to the agent"></textarea>
+      <div class="bar-row">
+        <span class="hint">The note travels with your decision</span>
+        <button type="button" id="handover" title="Hand over to the agent" data-shell-part="hand-over button"><span id="handover-label">Hand over</span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg><span class="keys" aria-hidden="true"><kbd>⌘</kbd><kbd>↵</kbd></span></button>
+      </div>
+    </div>
+  </div>
   <aside class="side">
     <h2 class="with">Comments <button class="link" id="clear-comments" title="Delete every comment">Clear</button></h2>
     <div id="comments"><div class="empty">Turn on Select, then click a part of the view to comment on it.</div></div>
@@ -174,7 +197,8 @@ const host = connectFrame(frame, {
   theme: () => theme,
   loadDraft: () => draft,
   saveDraft: (data) => { draft = data; keepDraft(draft); show("s-draft", draft); },
-  label: (text) => show("s-status", text),
+  // the label goes on the hand-over button, as in the app
+  label: (text) => { show("s-status", text); $("handover-label").textContent = text || "Hand over"; },
   // in the app the system browser opens it; here, a tab
   open: (url) => window.open(url, "_blank", "noreferrer"),
   // as the app: a change the settings schema refuses comes back as
@@ -299,6 +323,7 @@ async function loadFixture(name) {
   reload();
   drawComments();
   drawPayload();
+  syncComposer();
 }
 
 async function loadPrevious(name) {
@@ -316,9 +341,8 @@ function reload() {
 
 $("fixture").addEventListener("change", (e) => loadFixture(e.target.value));
 $("previous").addEventListener("change", (e) => loadPrevious(e.target.value));
-$("readonly").addEventListener("change", () => { sendInit(); drawComments(); });
+$("readonly").addEventListener("change", () => { sendInit(); drawComments(); syncComposer(); });
 $("reinit").addEventListener("click", sendInit);
-$("collect").addEventListener("click", () => host.collect());
 $("send-violations").addEventListener("click", () => {
   let errors;
   try { errors = JSON.parse($("violations").value || "[]"); } catch { alert("violations must be a JSON array of {path, message}"); return; }
@@ -334,10 +358,11 @@ function accept() {
   draft = null;
   keepDraft(null);
   review = { ...review, status: "decided", decision: { decided_by: "dev", decided_at: new Date().toISOString(), data: lastSubmit } };
+  syncComposer();
   return review.decision;
 }
 $("send-submitted").addEventListener("click", () => {
-  if (lastSubmit == null) { alert("nothing was submitted yet: press Collect first"); return; }
+  if (lastSubmit == null) { alert("nothing was submitted yet: hand over first"); return; }
   post({ type: "submitted", decision: accept() });
 });
 $("theme").addEventListener("click", () => {
@@ -391,6 +416,7 @@ const selectKeyFree = () => !(manifest.shortcuts || []).some((s) => s.keys === "
 const elementName = (c) => `${c.tag}${c.text ? ` "${c.text}"` : ""}`;
 function setSelecting(on) {
   selecting = on;
+  document.body.classList.toggle("selecting", on);
   $("select").classList.toggle("on", on);
   toView({ type: "select", on, key: selectKeyFree() ? "i" : null });
   if (!on) closePop();
@@ -430,7 +456,8 @@ function drawComments() {
 }
 function openPop(pick) {
   picked = pick;
-  const f = frame.getBoundingClientRect();
+  // the view's picks are placed within its frame; the shell's own are on the page
+  const f = pick.inShell ? { left: 0, top: 0 } : frame.getBoundingClientRect();
   pop.querySelector(".el").textContent = `${elementName(pick)} · ${pick.selector}`;
   pop.querySelector(".ctx").textContent = contextNow();
   pop.querySelector("textarea").value = "";
@@ -468,6 +495,29 @@ function markdown() {
   return lines.join("\n") + "\n";
 }
 $("select").addEventListener("click", () => setSelecting(!selecting));
+// the composer's parts, picked while selecting, rather than used
+$("composer").addEventListener(
+  "click",
+  (e) => {
+    const part = e.target.closest("[data-shell-part]");
+    if (!selecting || !part) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = part.getBoundingClientRect();
+    openPop({
+      inShell: true,
+      tag: part.localName,
+      text: part.localName === "button" ? $("handover-label").textContent : "",
+      selector: `app › ${part.dataset.shellPart}`,
+      rect: { left: r.left, top: r.top, right: r.right, bottom: r.bottom },
+    });
+  },
+  true,
+);
+$("composer").addEventListener("focusin", (e) => { if (selecting) e.target.blur(); });
+$("handover").addEventListener("click", () => { if (!selecting) host.collect(); });
+// a review that cannot be decided has no composer, as in the app
+const syncComposer = () => $("composer").classList.toggle("hidden", readonly());
 $("pop-add").addEventListener("click", addComment);
 $("pop-cancel").addEventListener("click", closePop);
 pop.querySelector("textarea").addEventListener("keydown", (e) => {
@@ -533,6 +583,12 @@ setInterval(async () => {
     $("watch").classList.add("on");
     if (stamp !== null && now !== stamp) reload();
     stamp = now;
+    const kept = comments.filter((c) => (c.at ?? 0) > commentsCleared);
+    if (kept.length !== comments.length) {
+      comments = kept;
+      saveComments();
+      drawComments();
+    }
   } catch { $("watch").classList.remove("on"); }
 }, 1000);
 
@@ -573,9 +629,3 @@ setInterval(async () => {
 </script>
 </body>
 </html>
-    const kept = comments.filter((c) => (c.at ?? 0) > commentsCleared);
-    if (kept.length !== comments.length) {
-      comments = kept;
-      saveComments();
-      drawComments();
-    }

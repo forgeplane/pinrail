@@ -108,10 +108,10 @@ test("the dev shell hosts a view as the app does", async ({ page }) => {
     await page.waitForTimeout(500);
     expect((await received(frame)).filter((m) => m.type === "violations" || m.type === "submitted")).toEqual([]);
 
-    // the Collect button is the app's hand-over: the view answers its request
+    // the composer's hand-over button asks, as the app's does: the view answers its request
     const answer = async (data: unknown) => {
       const asked = (await received(frame)).filter((m) => m.type === "collect").length;
-      await page.locator("#collect").click();
+      await page.locator("#handover").click();
       await expect.poll(async () => (await received(frame)).filter((m) => m.type === "collect").length).toBe(asked + 1);
       await send({ type: "submit", req: conformance.lastRequest(await received(frame)), data });
     };

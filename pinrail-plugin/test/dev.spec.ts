@@ -156,3 +156,36 @@ test("a request to the dev server clears the page's comments, as an agent does o
     await expect(page.locator("#comments .comment")).toHaveCount(0);
   });
 });
+
+test("the app's composer sits under the view, hands over, and takes comments of its own", async ({ page }) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    const view = page.frameLocator("#frame");
+    await view.getByRole("button", { name: "Yes" }).click();
+    const handOver = page.locator("#handover");
+    // the label the view gives, as on the app's button
+    await expect(handOver).toContainText(await page.locator("#s-status").innerText());
+
+    // with Select on, the button is commented on, not pressed
+    await page.locator("#select").click();
+    await handOver.click();
+    const pop = page.locator("#comment-pop");
+    await expect(pop.locator(".el")).toContainText("app › hand-over button");
+    await pop.locator("textarea").fill("Say what is handed over.");
+    await pop.getByRole("button", { name: "Comment" }).click();
+    await expect(page.locator("#comments .comment .el")).toHaveText(/button "[^"]+"/);
+    await expect(page.locator("#s-submit")).toHaveText("—");
+
+    // pressed, it asks the view for the decision as the app's button does
+    await page.locator("#select").click();
+    await handOver.click();
+    await expect(page.locator("#s-submit")).not.toHaveText("—");
+
+    // a review that cannot be decided has no composer, as in the app
+    await page.locator("#readonly").check();
+    await expect(page.locator("#composer")).toBeHidden();
+  });
+});
