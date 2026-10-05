@@ -1415,6 +1415,62 @@ table .pr-keys {
   }
 }
 
+/* The search at the top of the sidebar, held in place above it: the
+   sidebar starts below the search, so only the pages scroll. The sidebar
+   itself stays the element that scrolls, because Starlight keeps its
+   scroll position from page to page. */
+:root {
+  --pr-sidebar-search-height: 3.5rem;
+}
+.sidebar-search {
+  position: fixed;
+  top: var(--sl-nav-height);
+  inset-inline-start: 0;
+  z-index: 1;
+  width: 100%;
+  height: var(--pr-sidebar-search-height);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sl-sidebar-pad-x);
+  background: var(--sl-color-black);
+}
+.sidebar-search site-search {
+  flex: 1;
+}
+.sidebar-pane {
+  inset-block-start: calc(var(--sl-nav-height) + var(--pr-sidebar-search-height));
+  scrollbar-width: thin;
+  scrollbar-color: var(--sl-color-gray-5) transparent;
+}
+@media (min-width: 50rem) {
+  .sidebar-search {
+    width: var(--sl-sidebar-width);
+    background: var(--sl-color-bg-sidebar);
+    border-inline-end: 1px solid var(--sl-color-hairline-shade);
+  }
+}
+.sidebar-search button[data-open-modal] {
+  width: 100%;
+  max-width: none;
+  height: 2.25rem;
+  padding-inline: 0.75rem 0.5rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+  background-color: var(--sl-color-black);
+  color: var(--sl-color-gray-2);
+  font-size: var(--sl-text-sm);
+}
+.sidebar-search button[data-open-modal]:hover {
+  border-color: var(--sl-color-gray-2);
+  color: var(--sl-color-white);
+}
+.sidebar-search button[data-open-modal] > span {
+  display: block;
+}
+.sidebar-search button[data-open-modal] > :last-child {
+  margin-inline-start: auto;
+}
+
 /* Search results: tighter than Starlight's defaults, so more of them fit
    in the dialog. Starlight sizes them with these variables. */
 #starlight__search {

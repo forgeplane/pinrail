@@ -47,6 +47,8 @@ export default defineConfig({
       // the docs live beside the code, so Starlight's asides and heading links must reach them there
       markdown: { processedDirs: ["../docs"] },
       components: {
+        Header: "./src/components/docs/Header.astro",
+        Sidebar: "./src/components/docs/Sidebar.astro",
         SiteTitle: "./src/components/docs/SiteTitle.astro",
         ThemeSelect: "./src/components/docs/ThemeToggle.astro",
         Pagination: "./src/components/docs/Pagination.astro",
