@@ -1,0 +1,15 @@
+{
+  "plugin": "markdown",
+  "title": "Retry policy for webhook deliveries",
+  "origin": {
+    "repo": "northwind/api",
+    "workflow": "design"
+  },
+  "requested_by": "claude",
+  "age": "18m",
+  "payload": {
+    "path": "docs/retries.md",
+    "context": "First draft. Mostly the **Design** section needs a look.",
+    "markdown": "# Retry policy for webhook deliveries\n\nHow the delivery worker retries a webhook that fails, and when it gives up.\n\n## Goals\n\n- A slow customer endpoint must not stall other deliveries.\n- A delivery is tried at most eight times over about an hour.\n- Every give-up is logged with the last status.\n\n## Design\n\nThe worker takes a delivery from the queue and posts it once. A failure\nre-enqueues the delivery with a `run_at` in the future instead of sleeping.\n\n```mermaid\nflowchart LR\n  Q[(queue)] --> W[worker]\n  W -->|2xx| D[done]\n  W -->|retryable| R[re-enqueue with run_at]\n  R --> Q\n  W -->|8th failure| G[give up and log]\n```\n\n### Backoff\n\n| Attempt | Delay |\n|---|---|\n| 1 | 1 s |\n| 2 | 2 s |\n| 3 | 4 s |\n| 8 | 128 s |\n\nJitter of up to 20 % spreads retries from many workers.\n\n```ts\nconst delay = Math.min(2 ** attempt, 128) * (0.8 + Math.random() * 0.4);\n```\n\n## Open questions\n\n1. Should a `Retry-After` header override the backoff?\n2. Do we alert on a customer whose deliveries all fail?\n"
+  }
+}

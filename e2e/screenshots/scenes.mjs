@@ -209,6 +209,45 @@ export const scenes = [
     },
   },
   {
+    // a change asked for on a section and a question on the diagram
+    name: "markdown",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["23-markdown-retries"]);
+      await f.locator(".diagram svg").waitFor({ timeout: 15_000 });
+      const comment = async (open, kind, text) => {
+        await open();
+        if (kind === "question") await f.getByRole("radio", { name: "Question" }).click();
+        await f.locator("#compose-body").fill(text);
+        await f.locator("#compose-body").press("Enter");
+        await settle(page, 150);
+      };
+      await comment(
+        async () => {
+          await f.locator(".rendered h3").hover();
+          await f.locator(".rendered h3 [data-comment-section]").click();
+        },
+        "change",
+        "Show the delays up to the eighth try, so the hour adds up.",
+      );
+      await comment(
+        async () => {
+          // the button shows on hover, which the app's frame does not
+          // always register here: hover for the look, then press it
+          await f.locator(".diagram").scrollIntoViewIfNeeded();
+          await f.locator(".diagram").hover();
+          await f.locator("[data-comment-diagram]").evaluate((button) => button.click());
+        },
+        "question",
+        "Where does Retry-After come in?",
+      );
+      // the Design section at the top: its diagram, with the question on it
+      await f.locator(".rendered h2", { hasText: "Design" }).evaluate((el) => el.scrollIntoView({ block: "start" }));
+      await settle(page, 600);
+      await shot("markdown");
+      await shot("markdown-view", page.locator("#plugin-frame"));
+    },
+  },
+  {
     // two comments pinned, a third element picked and its comment being typed
     name: "artifact",
     async run({ page, app, reviews, shot }) {
