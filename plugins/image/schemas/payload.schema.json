@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Image review request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["subject", "images"],
+  "$defs": {
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["$attachment"],
+      "properties": {
+        "$attachment": { "type": "string", "minLength": 1, "maxLength": 120 }
+      },
+      "description": "A file sent beside the payload with --attach, by its name."
+    }
+  },
+  "properties": {
+    "notes": {
+      "type": "string",
+      "maxLength": 10000,
+      "description": "Markdown: what this round is, and what to look at."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "What the images are of, e.g. Tern empty-inbox illustration."
+        },
+        "use": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Where the image will be seen, e.g. 320 px wide in the empty inbox, light and dark."
+        }
+      }
+    },
+    "favorite": {
+      "type": "boolean",
+      "description": "Whether the person can mark one image as their favourite. The default is true when the review has more than one image, and false when it has only one. Set it to false when each image only needs to be kept or dropped."
+    },
+    "backdrop": {
+      "enum": ["checker", "light", "dark"],
+      "description": "What shows through transparent pixels at first. Default checker; the reviewer can switch."
+    },
+    "images": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "file"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 40 },
+          "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "file": {
+            "$ref": "#/$defs/attachment",
+            "description": "The image as a file sent with --attach: PNG, JPEG, WebP or SVG. An SVG is shown as a picture; its scripts and links never run."
+          },
+          "reasoning": {
+            "type": "string",
+            "maxLength": 4000,
+            "description": "Markdown: the idea behind this one, and what to look for."
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 8000,
+            "description": "The prompt it was made from, shown as it is."
+          },
+          "details": {
+            "type": "object",
+            "maxProperties": 12,
+            "additionalProperties": { "type": ["string", "number", "boolean"] },
+            "description": "Short facts about how it was made, shown as chips: model, seed, steps, style."
+          },
+          "alt": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "What the image shows, for a screen reader."
+          }
+        }
+      }
+    }
+  }
+}

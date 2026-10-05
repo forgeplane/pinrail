@@ -1,0 +1,29 @@
+{
+  "name": "image",
+  "version": "1.0.0",
+  "title": "Image review",
+  "description": "A round of generated images or illustrations, sent as PNG, JPEG, WebP or SVG files, each large on a stage to zoom and pan. Pick a favourite, keep or drop the rest, and box or pin a spot on an image to ask for a change there.",
+  "use_when": "You generated candidate images or illustrations (a spot illustration, a hero, a product shot, an icon set) and need a person to pick one, shortlist or drop the rest, and mark the areas to fix, remove or redraw, in coordinates an image-editing or inpainting step can act on.",
+  "attachments": {
+    "accept": [".png", ".jpg", ".jpeg", ".webp", ".svg", "image/png", "image/jpeg", "image/webp", "image/svg+xml"],
+    "max_size": 26214400,
+    "max_count": 16
+  },
+  "shortcuts": [
+    { "keys": "j", "does": "Next image" },
+    { "keys": "k", "does": "Previous image" },
+    { "keys": "p", "does": "Pin a comment at the centre of the view", "group": "Regions" },
+    { "keys": "b", "does": "Box what is in view (zoom in first)", "group": "Regions" },
+    { "keys": "=", "does": "Zoom in", "group": "Stage" },
+    { "keys": "-", "does": "Zoom out", "group": "Stage" },
+    { "keys": "0", "does": "Fit the image", "group": "Stage" },
+    { "keys": "1", "does": "Actual pixels", "group": "Stage" },
+    { "keys": "arrowleft", "does": "Pan; the other arrows likewise", "group": "Stage" },
+    { "keys": "h", "does": "Drag to pan rather than to mark", "group": "Stage" },
+    { "keys": "g", "does": "Next backdrop: checker, light, dark", "group": "Stage" },
+    { "keys": "c", "does": "Compare with the previous round", "group": "Stage" },
+    { "keys": "f", "does": "Make this image the favourite", "group": "Verdicts" },
+    { "keys": "s", "does": "Keep this image on the shortlist", "group": "Verdicts" },
+    { "keys": "x", "does": "Drop this image", "group": "Verdicts" }
+  ]
+}

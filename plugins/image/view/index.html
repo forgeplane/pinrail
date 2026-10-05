@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Image review</title>
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
+<style>
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; }
+  .shell { display: flex; flex-direction: column; height: 100%; }
+  .top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 12px 20px; border-bottom: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); }
+  .top h1 { margin: 0; font-size: 15px; font-weight: 600; }
+  .top .subject { color: var(--pinrail-dim); font-size: 12.5px; }
+  .tally { margin-left: auto; display: flex; gap: 12px; font-size: 12px; color: var(--pinrail-dim); }
+  .tally b { color: var(--pinrail-text); font-variant-numeric: tabular-nums; }
+  .work { flex: 1; display: grid; grid-template-columns: 248px 1fr; min-height: 0; }
+  /* one image: no list of images beside it */
+  .work.single { grid-template-columns: 1fr; }
+
+  /* checkerboards and backdrops, for what shows through transparent pixels */
+  .bd-checker { background-color: #fff; background-image: conic-gradient(#e3e5e9 25%, #fff 0 50%, #e3e5e9 0 75%, #fff 0); background-size: 16px 16px; }
+  [data-theme="dark"] .bd-checker { background-color: #2a2c31; background-image: conic-gradient(#35373d 25%, #2a2c31 0 50%, #35373d 0 75%, #2a2c31 0); }
+  .bd-light { background: #fff; }
+  .bd-dark { background: #111214; }
+
+  /* the rail: every image, small */
+  .rail { overflow-y: auto; border-right: 1px solid var(--pinrail-border); padding: 12px; display: grid; gap: 6px; align-content: start; background: var(--pinrail-bg-panel); }
+  .rail-label { margin: 4px 6px 6px; font: 600 10.5px var(--pinrail-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--pinrail-faint); }
+  .pick { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px 10px; width: 100%; padding: 8px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--pinrail-text); text-align: left; cursor: pointer; font: inherit; }
+  .pick:hover { background: var(--pinrail-bg-hover); }
+  .pick[aria-current="true"] { background: var(--pinrail-bg-raised); border-color: var(--pinrail-border-strong); }
+  .pick:focus-visible { outline: 2px solid var(--pinrail-accent); outline-offset: 1px; }
+  .pick-name { font-size: 13px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-left: 2px; }
+  .thumb { position: relative; grid-column: 1 / -1; aspect-ratio: 4 / 3; border-radius: 7px; overflow: hidden; display: grid; place-items: center; box-shadow: inset 0 0 0 1px var(--pinrail-border); }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .thumb .wait { font: 11px var(--pinrail-mono); color: var(--pinrail-faint); }
+  .thumb .count { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 99px; background: var(--pinrail-accent); color: var(--pinrail-bg); font: 700 10px var(--pinrail-mono); }
+  .pick-meta { grid-column: 1 / -1; font: 11px var(--pinrail-mono); color: var(--pinrail-faint); padding-left: 2px; margin-top: -2px; }
+
+  .verdict-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 99px; font: 600 10.5px var(--pinrail-mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+  .v-favorite { background: color-mix(in oklab, #d4a017 22%, transparent); color: color-mix(in oklab, #b8860b 80%, var(--pinrail-text)); }
+  .v-keep { background: var(--pinrail-accent-bg); color: var(--pinrail-accent); }
+  .v-drop { background: color-mix(in oklab, var(--pinrail-faint) 18%, transparent); color: var(--pinrail-faint); }
+  .v-none, .v-undecided { color: var(--pinrail-faint); background: none; padding-inline: 0; }
+
+  .sheet { overflow-y: auto; min-height: 0; }
+  .sheet-inner { max-width: 1180px; margin: 0 auto; padding: 22px 28px 28px; display: grid; gap: 18px; }
+  /* the round's notes, across the whole width under the header, always in view */
+  .notes { flex: none; max-height: 28vh; overflow-y: auto; color: var(--pinrail-dim); font-size: 13px; line-height: 1.6; padding: 10px 20px 10px 17px; border-bottom: 1px solid var(--pinrail-border); border-left: 3px solid var(--pinrail-accent); background: var(--pinrail-bg-panel); }
+  .notes p { margin: 0 0 6px; } .notes p:last-child { margin: 0; }
+  /* the image's name, and the verdict on it at the right */
+  .image-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
+  .image-head .choices { margin-left: auto; }
+  .image-head h2 { margin: 0; font-size: 22px; letter-spacing: -0.02em; }
+  .image-id { font: 12px var(--pinrail-mono); color: var(--pinrail-faint); }
+  .previous { flex-basis: 100%; font-size: 12.5px; color: var(--pinrail-dim); }
+  .reasoning { color: var(--pinrail-dim); font-size: 14px; line-height: 1.65; margin-top: -6px; }
+  .reasoning p { margin: 0 0 8px; } .reasoning p:last-child { margin: 0; }
+  .label { margin: 0 0 8px; font: 600 10.5px var(--pinrail-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--pinrail-faint); }
+
+  /* the stage */
+  .stage { position: relative; height: clamp(380px, 60vh, 680px); border-radius: 14px; overflow: hidden; background: var(--pinrail-bg-raised); box-shadow: inset 0 0 0 1px var(--pinrail-border); touch-action: none; user-select: none; -webkit-user-select: none; outline: none; }
+  .stage:focus-visible { box-shadow: inset 0 0 0 2px var(--pinrail-accent); }
+  .stage.marking { cursor: crosshair; }
+  .stage.panning { cursor: grab; }
+  .stage.dragging { cursor: grabbing; }
+  .stage .art { position: absolute; left: 0; top: 0; transform-origin: 0 0; max-width: none; box-shadow: 0 0 0 1px var(--pinrail-border), 0 10px 30px -14px rgba(0,0,0,.35); pointer-events: none; }
+  .stage .art.pixels { image-rendering: pixelated; }
+  .bar { position: absolute; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 10px; background: color-mix(in oklab, var(--pinrail-bg-raised) 88%, transparent); backdrop-filter: blur(8px); box-shadow: 0 0 0 1px var(--pinrail-border), 0 6px 18px -10px rgba(0,0,0,.35); z-index: 2; }
+  .bar.zoom { top: 12px; left: 12px; }
+  .bar.tools { top: 12px; right: 12px; }
+  .bar button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 0; border-radius: 7px; background: none; color: var(--pinrail-dim); font: 500 12px var(--pinrail-sans); cursor: pointer; white-space: nowrap; }
+  .bar button:hover { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
+  .bar button[aria-pressed="true"] { background: var(--pinrail-bg); color: var(--pinrail-text); box-shadow: 0 0 0 1px var(--pinrail-border-strong); }
+  .bar button:disabled { opacity: .45; cursor: default; }
+  .bar button kbd { font: 10.5px var(--pinrail-mono); color: var(--pinrail-faint); }
+  .bar .pct { min-width: 44px; text-align: center; font: 11.5px var(--pinrail-mono); color: var(--pinrail-text); font-variant-numeric: tabular-nums; }
+  .bar .sep { width: 1px; align-self: stretch; margin: 3px 3px; background: var(--pinrail-border); }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--pinrail-border-strong); background-size: 6px 6px; }
+  .foot { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; gap: 14px; align-items: center; font: 11.5px var(--pinrail-mono); color: var(--pinrail-dim); pointer-events: none; z-index: 1; }
+  .foot > span { padding: 2px 7px; border-radius: 6px; background: color-mix(in oklab, var(--pinrail-bg-raised) 82%, transparent); }
+  .foot .hint { margin-left: auto; font-family: var(--pinrail-sans); }
+  .banner { position: absolute; top: 58px; left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 99px; background: var(--pinrail-text); color: var(--pinrail-bg); font: 600 11.5px var(--pinrail-sans); z-index: 2; pointer-events: none; }
+  .broken, .reading { position: absolute; inset: 0; display: grid; place-items: center; padding: 20px; text-align: center; color: var(--pinrail-dim); font-size: 13px; }
+  .broken b { display: block; color: var(--pinrail-text); margin-bottom: 4px; }
+
+  /* regions on the image */
+  .marks { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+  .region { position: absolute; border: 2px solid var(--pinrail-accent); border-radius: 3px; background: color-mix(in oklab, var(--pinrail-accent) 12%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--pinrail-bg) 70%, transparent); pointer-events: auto; cursor: pointer; }
+  .region.lit, .pin.lit { border-color: var(--pinrail-text); background: color-mix(in oklab, var(--pinrail-accent) 26%, transparent); }
+  .region.draft { border-style: dashed; background: color-mix(in oklab, var(--pinrail-accent) 8%, transparent); pointer-events: none; }
+  .region.past, .pin.past { border-style: dashed; border-color: var(--pinrail-faint); background: none; pointer-events: none; }
+  .region .num { position: absolute; left: -2px; top: -22px; }
+  .num, .pin { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: var(--pinrail-accent); color: var(--pinrail-bg); font: 700 11px var(--pinrail-mono); }
+  .pin { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border-radius: 50%; box-shadow: 0 0 0 2px var(--pinrail-bg), 0 2px 8px rgba(0,0,0,.3); pointer-events: auto; cursor: pointer; }
+  .pin.new, .region.new .num { background: var(--pinrail-text); }
+  .region.new { border-color: var(--pinrail-text); }
+  .region.past .num { background: var(--pinrail-bg-raised); color: var(--pinrail-faint); border: 1px dashed var(--pinrail-faint); }
+  .pin.past { background: var(--pinrail-bg-raised); color: var(--pinrail-faint); border: 1px dashed var(--pinrail-faint); box-shadow: none; }
+
+  .pop { position: absolute; width: 300px; display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: var(--pinrail-bg-raised); box-shadow: 0 0 0 1px var(--pinrail-border-strong), 0 14px 34px -12px rgba(0,0,0,.45); z-index: 3; cursor: default; }
+  .pop-head { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; color: var(--pinrail-dim); min-width: 0; }
+  .pop-head b { color: var(--pinrail-text); font-weight: 600; }
+  .pop-head .where { font: 11px var(--pinrail-mono); color: var(--pinrail-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pop textarea { width: 100%; min-height: 64px; resize: vertical; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--pinrail-border); background: var(--pinrail-bg); color: var(--pinrail-text); font: 13px/1.5 var(--pinrail-sans); box-sizing: border-box; }
+  .pop textarea:focus { outline: none; border-color: var(--pinrail-accent); }
+  .pop-actions { display: flex; gap: 6px; justify-content: flex-end; align-items: center; }
+  .pop-actions .k { margin-right: auto; font: 11px var(--pinrail-mono); color: var(--pinrail-faint); }
+  .pinrail-btn { padding: 5px 11px; border-radius: 7px; border: 1px solid var(--pinrail-border-strong); background: var(--pinrail-bg); color: var(--pinrail-text); font: 600 12px var(--pinrail-sans); cursor: pointer; }
+  .pinrail-btn-primary { background: var(--pinrail-accent); border-color: var(--pinrail-accent); color: var(--pinrail-bg); }
+  .pinrail-btn.quiet { border-color: transparent; background: none; color: var(--pinrail-dim); font-weight: 500; }
+
+  /* regions and facts under the stage */
+  .below { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: start; }
+  .regions { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .regions li { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 10px; padding: 9px 12px; border-radius: 10px; background: var(--pinrail-bg-raised); border: 1px solid var(--pinrail-border); font-size: 13.5px; }
+  .regions li.lit { border-color: var(--pinrail-accent); }
+  .regions .where { font: 11.5px var(--pinrail-mono); color: var(--pinrail-faint); }
+  .regions .acts { display: flex; gap: 4px; }
+  .pinrail-empty { color: var(--pinrail-faint); font-size: 13px; padding: 10px 2px; text-align: left; }
+  .facts { display: grid; gap: 10px; font-size: 12.5px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chips span { padding: 2px 7px; border-radius: 6px; border: 1px solid var(--pinrail-border); font: 11px var(--pinrail-mono); color: var(--pinrail-dim); }
+  .chips span b { color: var(--pinrail-text); font-weight: 500; }
+  .prompt summary { cursor: pointer; color: var(--pinrail-dim); font-size: 12.5px; }
+  .prompt p { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--pinrail-bg-raised); font: 12px/1.55 var(--pinrail-mono); color: var(--pinrail-dim); white-space: pre-wrap; }
+
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .choice { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 9px; border: 1px solid var(--pinrail-border-strong); background: var(--pinrail-bg); color: var(--pinrail-text); font: 600 13px var(--pinrail-sans); cursor: pointer; }
+  .choice kbd { font: 11px var(--pinrail-mono); color: var(--pinrail-faint); }
+  .choice[aria-pressed="true"][data-action="favorite"] { background: color-mix(in oklab, #d4a017 22%, var(--pinrail-bg)); border-color: #d4a017; }
+  .choice[aria-pressed="true"][data-action="keep"] { background: var(--pinrail-accent-bg); border-color: var(--pinrail-accent); color: var(--pinrail-accent); }
+  .choice[aria-pressed="true"][data-action="drop"] { background: var(--pinrail-bg-hover); color: var(--pinrail-faint); }
+  .choice:disabled { opacity: .6; cursor: default; }
+  /* the note on an image: a button until written, then the note as text */
+  .add-note { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 2px 0; border: 0; background: none; color: var(--pinrail-dim); font: 12.5px var(--pinrail-sans); cursor: pointer; }
+  .add-note:hover { color: var(--pinrail-text); }
+  .image-note { padding: 8px 12px; border-left: 2px solid var(--pinrail-faint); background: color-mix(in oklab, var(--pinrail-text) 6%, var(--pinrail-bg-panel)); color: var(--pinrail-text); font-size: 13.5px; line-height: 1.55; overflow-wrap: anywhere; }
+  .image-note > :first-child { margin-top: 0; } .image-note > :last-child { margin-bottom: 0; }
+  .image-note.is-editable { cursor: text; }
+  .image-note.is-editable:hover { border-left-color: var(--pinrail-accent); }
+  #note { width: 100%; min-height: 44px; resize: vertical; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--pinrail-border); background: var(--pinrail-bg-raised); color: var(--pinrail-text); font: 13.5px/1.5 var(--pinrail-sans); box-sizing: border-box; }
+
+  @media (max-width: 820px) {
+    .work { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .rail { grid-auto-flow: column; grid-auto-columns: 170px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--pinrail-border); }
+    .rail-label { display: none; }
+    .below { grid-template-columns: 1fr; }
+    .foot .hint { display: none; }
+  }
+</style>
+</head>
+<body>
+<script src="/sdk/v1/pinrail-plugin.js"></script>
+<script src="/sdk/v1/markdown.js"></script>
+<div class="shell" id="app"><div class="top"><h1>Loading…</h1></div></div>
+<script>
+const esc = Pinrail.escape;
+const ACTIONS = { favorite: "Favourite", keep: "Keep", drop: "Drop" };
+/* Whether the round asks for a favourite: when the payload says so, and
+   otherwise when there is more than one image to choose between. */
+const favourite = () => (P.favorite == null ? P.images.length > 1 : P.favorite === true);
+/* The verdicts this round offers. */
+const offered = () => Object.entries(ACTIONS).filter(([a]) => a !== "favorite" || favourite());
+const KEYS = { favorite: "f", keep: "s", drop: "x" };
+const BACKDROPS = { checker: "Checker", light: "Light", dark: "Dark" };
+const FORMATS = { "image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WebP", "image/svg+xml": "SVG" };
+const round4 = (n) => Math.round(n * 1e4) / 1e4;
+const round1 = (n) => Math.round(n * 10) / 10;
+// whole pixels, or hundredths on a drawing too small for them (a 24-unit icon)
+const pxRound = (n, e) => Math.max(e.width, e.height) >= 200 ? Math.round(n) : Math.round(n * 100) / 100;
+
+let P = null;
+const S = { sel: 0, verdicts: {}, armed: false, errors: null, noteOpen: null, pressing: false, backdrop: "checker", pan: false, space: false, compare: false, picking: null, lit: null, keepScroll: false, flash: null };
+const images = [];   // per payload image: { url, width, height, ox, oy, type, bytes, error }
+const past = {};     // the previous round's image, by id: the same shape, or null
+
+/* Reading an image: the file the review carries, handed over by the app.
+   An SVG is shown through <img>, where it can draw and nothing else: no
+   scripts, no links, nothing fetched. Its size and coordinates are its
+   viewBox's, so a region maps onto its own drawing. */
+async function read(ref, opts) {
+  const name = Pinrail.attachmentName(ref);
+  const listed = (opts?.round === "previous" ? plugin.previous?.attachments : plugin.attachments)?.find((a) => a.name === name);
+  const bytes = await plugin.attachment(name, opts);
+  const type = sniff(bytes, listed?.media_type, name);
+  if (!FORMATS[type]) throw new Error(`${name} is not a PNG, JPEG, WebP or SVG`);
+  let box = null;
+  if (type === "image/svg+xml") box = svgBox(new TextDecoder().decode(bytes));
+  const url = URL.createObjectURL(new Blob([bytes], { type }));
+  const img = new Image();
+  img.src = url;
+  try { await img.decode(); } catch { URL.revokeObjectURL(url); throw new Error(`${name} could not be decoded as ${FORMATS[type]}`); }
+  const width = box ? box.width : img.naturalWidth, height = box ? box.height : img.naturalHeight;
+  if (!width || !height) { URL.revokeObjectURL(url); throw new Error(`${name} has no size`); }
+  return { url, width, height, ox: box ? box.x : 0, oy: box ? box.y : 0, type, bytes: bytes.byteLength, name };
+}
+function sniff(bytes, listed, name) {
+  const b = new Uint8Array(bytes.slice(0, 16));
+  const at = (i, s) => [...s].every((c, k) => b[i + k] === c.charCodeAt(0));
+  if (b[0] === 0x89 && at(1, "PNG")) return "image/png";
+  if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
+  if (at(0, "RIFF") && at(8, "WEBP")) return "image/webp";
+  if (listed === "image/svg+xml" || /\.svg$/i.test(name)) return "image/svg+xml";
+  return listed || "application/octet-stream";
+}
+function svgBox(text) {
+  const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+  const svg = doc.documentElement;
+  if (!svg || svg.localName !== "svg") throw new Error("not an SVG drawing");
+  const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  if (vb.length === 4 && vb.every(Number.isFinite) && vb[2] > 0 && vb[3] > 0) return { x: vb[0], y: vb[1], width: vb[2], height: vb[3] };
+  const num = (a) => { const m = /^\s*([\d.]+)\s*(px)?\s*$/.exec(svg.getAttribute(a) || ""); return m ? Number(m[1]) : 0; };
+  return { x: 0, y: 0, width: num("width") || 300, height: num("height") || 150 };
+}
+const fmtBytes = (n) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
+const fmtN = (n) => Number.isInteger(n) ? String(n) : String(round1(n));
+
+/* ---------------------------------------------------------------- stage
+
+   One stage element, kept across renders: the image is transformed in it,
+   and the regions are drawn over it in screen space, so their lines stay
+   sharp at any zoom. `V` maps image units to stage pixels. */
+const stage = document.createElement("section");
+stage.className = "stage";
+stage.tabIndex = 0;
+stage.innerHTML = `<img class="art" alt="" draggable="false"><div class="marks"></div><div class="pop-slot"></div>`;
+const art = stage.querySelector(".art");
+const marks = stage.querySelector(".marks");
+const V = { s: 1, x: 0, y: 0, fit: true, w: 1, h: 1 };
+let shownKey = null;
+
+function shownImage() {
+  if (S.compare) return past[P.images[S.sel].id] || null;
+  return images[S.sel] || null;
+}
+function fitScale(e) {
+  const W = stage.clientWidth, H = stage.clientHeight;
+  return Math.min((W - 48) / e.width, (H - 96) / e.height);
+}
+function fit() {
+  const e = shownImage();
+  if (!e?.url) return;
+  const s = fitScale(e);
+  V.s = s; V.fit = true;
+  V.x = (stage.clientWidth - e.width * s) / 2;
+  V.y = (stage.clientHeight - e.height * s) / 2;
+  apply();
+}
+function zoomAt(k, cx, cy) {
+  const e = shownImage();
+  if (!e?.url) return;
+  const f = fitScale(e);
+  const s = Math.min(Math.max(V.s * k, Math.min(f, 1) / 4), Math.max(f, 1) * 16);
+  if (cx === undefined) { cx = stage.clientWidth / 2; cy = stage.clientHeight / 2; }
+  V.x = cx - (cx - V.x) * (s / V.s);
+  V.y = cy - (cy - V.y) * (s / V.s);
+  V.s = s; V.fit = false;
+  apply();
+}
+function actual() {
+  const e = shownImage();
+  if (!e?.url) return;
+  // one image pixel to one screen pixel; an SVG at its own size
+  zoomAt(1 / V.s / (e.type === "image/svg+xml" ? 1 : devicePixelRatio || 1));
+}
+function panBy(dx, dy) { V.x += dx; V.y += dy; V.fit = false; apply(); }
+function apply() {
+  const e = shownImage();
+  art.style.transform = `translate(${V.x}px, ${V.y}px) scale(${V.s})`;
+  art.classList.toggle("pixels", V.s * (devicePixelRatio || 1) >= 3 && e?.type !== "image/svg+xml");
+  const pct = stage.querySelector(".pct");
+  if (pct) pct.textContent = `${Math.round(V.s * 100)}%`;
+  placeMarks();
+}
+const toImage = (cx, cy) => { const r = stage.getBoundingClientRect(); return { x: (cx - r.left - V.x) / V.s, y: (cy - r.top - V.y) / V.s }; };
+const toStage = (ix, iy) => ({ x: V.x + ix * V.s, y: V.y + iy * V.s });
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+
+/* Put the stage's image in place, when the image or the round shown changed. */
+function stageImage() {
+  const e = shownImage();
+  const key = `${S.sel}:${S.compare}:${e?.url || ""}`;
+  art.className = `art bd-${S.backdrop}`;
+  art.hidden = !e?.url;
+  art.alt = P.images[S.sel].alt || "";
+  if (key === shownKey) return apply();
+  shownKey = key;
+  if (!e?.url) return;
+  art.width = e.width;
+  art.height = e.height;
+  art.style.width = `${e.width}px`;
+  art.style.height = `${e.height}px`;
+  art.src = e.url;
+  requestAnimationFrame(fit);
+}
+new ResizeObserver(() => { if (V.fit) fit(); else apply(); }).observe(stage);
+
+/* The regions: a region is kept in the image's own units while it is being
+   drawn and shown; it becomes fractions and pixels in the decision. */
+function regionsOf(id) { return S.verdicts[id]?.regions || []; }
+function pastRegions(id) {
+  const d = plugin.previous?.decision?.data?.decisions?.find((x) => x.id === id);
+  return d?.regions || [];
+}
+function unitsOf(r, e) {
+  // a region as it is kept (fractions) to image units
+  return r.shape === "box"
+    ? { x: r.x * e.width, y: r.y * e.height, w: r.width * e.width, h: r.height * e.height }
+    : { x: r.x * e.width, y: r.y * e.height };
+}
+function placeMarks() {
+  const e = shownImage();
+  if (!e?.url) { marks.innerHTML = ""; return; }
+  const id = P.images[S.sel].id;
+  const list = S.compare ? pastRegions(id).map((r) => ({ r, past: true })) : regionsOf(id).map((r) => ({ r }));
+  if (S.picking && !S.compare) list.push({ r: S.picking, fresh: true });
+  if (S.drawing) list.push({ r: S.drawing, draft: true });
+  marks.innerHTML = list.map(({ r, past, fresh, draft }, i) => {
+    const u = unitsOf(r, e);
+    const a = toStage(u.x, u.y);
+    const label = fresh ? "+" : i + 1;
+    const lit = S.lit === i && !fresh && !draft ? " lit" : "";
+    const cls = `${past ? " past" : ""}${fresh ? " new" : ""}${draft ? " draft" : ""}${lit}`;
+    const at = fresh || draft || past ? "" : ` data-region="${i}"`;
+    if (r.shape === "point") return `<span class="pin${cls}"${at} style="left:${a.x}px;top:${a.y}px" title="${esc(r.note || "")}">${label}</span>`;
+    const b = toStage(u.x + u.w, u.y + u.h);
+    return `<span class="region${cls}"${at} style="left:${a.x}px;top:${a.y}px;width:${b.x - a.x}px;height:${b.y - a.y}px" title="${esc(r.note || "")}">${draft ? "" : `<span class="num">${label}</span>`}</span>`;
+  }).join("");
+  placePop();
+}
+function placePop() {
+  const pop = document.getElementById("pop");
+  const e = shownImage();
+  if (!pop || !S.picking || !e) return;
+  const u = unitsOf(S.picking, e);
+  const right = toStage(u.x + (u.w || 0), u.y);
+  const left = toStage(u.x, u.y);
+  const W = stage.clientWidth, H = stage.clientHeight;
+  let x = right.x + 16, y = right.y - 10;
+  if (x + 300 > W - 8) x = left.x - 316;
+  x = clamp(x, 8, W - 308);
+  y = clamp(y, 56, H - pop.offsetHeight - 40);
+  pop.style.left = `${x}px`;
+  pop.style.top = `${y}px`;
+}
+
+/* A region as it goes back: fractions of the image, and the same in its
+   pixels (an SVG's viewBox units), rounded to what a person can mean. */
+function regionOut(r, e) {
+  const out = { shape: r.shape, x: round4(r.x), y: round4(r.y) };
+  const px = { x: pxRound(e.ox + r.x * e.width, e), y: pxRound(e.oy + r.y * e.height, e) };
+  if (r.shape === "box") {
+    out.width = round4(r.width); out.height = round4(r.height);
+    px.width = pxRound(r.width * e.width, e); px.height = pxRound(r.height * e.height, e);
+  }
+  return { ...out, px, note: r.note };
+}
+function describe(r, e) {
+  const o = regionOut(r, e);
+  return r.shape === "box"
+    ? `box ${o.px.x},${o.px.y} · ${o.px.width}×${o.px.height} px · ${Math.round(r.width * 100)}×${Math.round(r.height * 100)}%`
+    : `point ${o.px.x},${o.px.y} px · ${Math.round(r.x * 100)}%, ${Math.round(r.y * 100)}%`;
+}
+
+function startRegion(r) {
+  if (plugin.readonly || S.compare) return;
+  S.picking = r;
+  S.keepScroll = true;
+  render();
+}
+function addRegion() {
+  const note = document.getElementById("region-note")?.value.trim();
+  if (!note || !S.picking) return;
+  const id = P.images[S.sel].id;
+  const v = S.verdicts[id] || { action: null };
+  S.verdicts[id] = { ...v, regions: [...(v.regions || []), { ...S.picking, note }] };
+  S.picking = null;
+  S.armed = false;
+  S.keepScroll = true;
+  plugin.draft(S.verdicts);
+  render();
+  stage.focus({ preventScroll: true });
+}
+function cancelRegion() { S.picking = null; S.keepScroll = true; render(); stage.focus({ preventScroll: true }); }
+function removeRegion(i) {
+  const id = P.images[S.sel].id, v = S.verdicts[id];
+  S.verdicts[id] = { ...v, regions: v.regions.filter((_, k) => k !== i) };
+  S.lit = null; S.keepScroll = true;
+  plugin.draft(S.verdicts);
+  render();
+}
+function showRegion(i) {
+  const e = shownImage();
+  const r = regionsOf(P.images[S.sel].id)[i];
+  if (!e || !r) return;
+  const u = unitsOf(r, e);
+  const w = Math.max(u.w || 0, e.width / 6), h = Math.max(u.h || 0, e.height / 6);
+  const s = clamp(Math.min(stage.clientWidth * 0.6 / w, stage.clientHeight * 0.6 / h), fitScale(e), fitScale(e) * 8);
+  V.s = s; V.fit = false;
+  V.x = stage.clientWidth / 2 - (u.x + (u.w || 0) / 2) * s;
+  V.y = stage.clientHeight / 2 - (u.y + (u.h || 0) / 2) * s;
+  S.lit = i;
+  apply();
+  document.querySelectorAll(".regions li").forEach((li, k) => li.classList.toggle("lit", k === i));
+}
+
+/* From the keyboard: a pin at the centre of what is in view, or a box
+   around it once zoomed in. */
+function pointAtCentre() {
+  const e = shownImage();
+  if (!e?.url || S.compare) return;
+  const c = toImage(stage.getBoundingClientRect().left + stage.clientWidth / 2, stage.getBoundingClientRect().top + stage.clientHeight / 2);
+  startRegion({ shape: "point", x: clamp(c.x / e.width, 0, 1), y: clamp(c.y / e.height, 0, 1) });
+}
+function boxInView() {
+  const e = shownImage();
+  if (!e?.url || S.compare) return;
+  const r = stage.getBoundingClientRect();
+  const a = toImage(r.left + 24, r.top + 56), b = toImage(r.right - 24, r.bottom - 40);
+  const x0 = clamp(a.x / e.width, 0, 1), y0 = clamp(a.y / e.height, 0, 1), x1 = clamp(b.x / e.width, 0, 1), y1 = clamp(b.y / e.height, 0, 1);
+  if ((x1 - x0) * (y1 - y0) > 0.9) return flash("Zoom in on a part first: b boxes what is in view");
+  startRegion({ shape: "box", x: x0, y: y0, width: x1 - x0, height: y1 - y0 });
+}
+function flash(text) {
+  S.flash = text;
+  const hint = stage.querySelector(".hint");
+  if (hint) hint.textContent = text;
+  clearTimeout(flash.t);
+  flash.t = setTimeout(() => { S.flash = null; const h = stage.querySelector(".hint"); if (h) h.textContent = hintText(); }, 2600);
+}
+const hintText = () => S.flash || (plugin.readonly || S.compare
+  ? "Drag to pan · scroll to zoom"
+  : S.pan ? "Drag to pan · h to mark again" : "Drag a box or click a spot · scroll to zoom · space-drag to pan");
+
+/* Pointer: a drag draws a box, a click drops a pin, and with space held,
+   the hand tool, the middle button or on a read-only round, a drag pans. */
+let drag = null;
+stage.addEventListener("pointerdown", (ev) => {
+  if (ev.target.closest(".bar, .pop") || !shownImage()?.url) return;
+  const region = ev.target.closest("[data-region]");
+  if (region) { const i = Number(region.dataset.region); showRegionInList(i); return; }
+  if (ev.button !== 0 && ev.button !== 1) return;
+  ev.preventDefault();
+  stage.focus({ preventScroll: true });
+  const panning = S.space || S.pan || ev.button === 1 || plugin.readonly || S.compare;
+  drag = { panning, x: ev.clientX, y: ev.clientY, vx: V.x, vy: V.y, at: toImage(ev.clientX, ev.clientY), moved: false };
+  stage.setPointerCapture(ev.pointerId);
+  if (panning) stage.classList.add("dragging");
+});
+stage.addEventListener("pointermove", (ev) => {
+  const e = shownImage();
+  if (e?.url) {
+    const p = toImage(ev.clientX, ev.clientY);
+    const inside = p.x >= 0 && p.y >= 0 && p.x <= e.width && p.y <= e.height;
+    const at = stage.querySelector(".at");
+    if (at) at.textContent = inside ? `${fmtN(Math.round(e.ox + p.x))}, ${fmtN(Math.round(e.oy + p.y))}` : "";
+  }
+  if (!drag) return;
+  if (Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y) > 4) drag.moved = true;
+  if (!drag.moved) return;
+  if (drag.panning) { V.x = drag.vx + ev.clientX - drag.x; V.y = drag.vy + ev.clientY - drag.y; V.fit = false; return apply(); }
+  S.drawing = boxBetween(drag.at, toImage(ev.clientX, ev.clientY), e);
+  placeMarks();
+});
+stage.addEventListener("pointerup", (ev) => {
+  if (!drag) return;
+  const d = drag;
+  drag = null;
+  stage.classList.remove("dragging");
+  if (d.panning) return;
+  const e = shownImage();
+  S.drawing = null;
+  if (d.moved) {
+    const box = boxBetween(d.at, toImage(ev.clientX, ev.clientY), e);
+    if (box.width * e.width * V.s >= 6 && box.height * e.height * V.s >= 6) return startRegion(box);
+    return placeMarks();
+  }
+  const p = d.at;
+  if (p.x >= 0 && p.y >= 0 && p.x <= e.width && p.y <= e.height) return startRegion({ shape: "point", x: p.x / e.width, y: p.y / e.height });
+  if (S.picking) cancelRegion();
+});
+stage.addEventListener("pointercancel", () => { drag = null; S.drawing = null; stage.classList.remove("dragging"); placeMarks(); });
+function boxBetween(a, b, e) {
+  const x0 = clamp(Math.min(a.x, b.x), 0, e.width), x1 = clamp(Math.max(a.x, b.x), 0, e.width);
+  const y0 = clamp(Math.min(a.y, b.y), 0, e.height), y1 = clamp(Math.max(a.y, b.y), 0, e.height);
+  return { shape: "box", x: x0 / e.width, y: y0 / e.height, width: (x1 - x0) / e.width, height: (y1 - y0) / e.height };
+}
+stage.addEventListener("wheel", (ev) => {
+  if (!shownImage()?.url || ev.target.closest(".pop")) return;
+  ev.preventDefault();
+  const r = stage.getBoundingClientRect();
+  zoomAt(Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0015)), ev.clientX - r.left, ev.clientY - r.top);
+}, { passive: false });
+stage.addEventListener("pointerover", (ev) => {
+  const el = ev.target.closest?.("[data-region]");
+  const i = el ? Number(el.dataset.region) : null;
+  if (i === S.lit) return;
+  S.lit = i;
+  marks.querySelectorAll("[data-region]").forEach((m) => m.classList.toggle("lit", Number(m.dataset.region) === i));
+  document.querySelectorAll(".regions li").forEach((li, k) => li.classList.toggle("lit", k === i));
+});
+function showRegionInList(i) {
+  S.lit = i;
+  placeMarks();
+  const li = document.querySelectorAll(".regions li")[i];
+  document.querySelectorAll(".regions li").forEach((x, k) => x.classList.toggle("lit", k === i));
+  li?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+/* ---------------------------------------------------------------- verdicts */
+
+const verdictOf = (id) => S.verdicts[id] || null;
+const shown = (v) => v && !v.action && (v.regions || []).length ? { ...v, action: "keep" } : v;
+const chip = (v) => v && v.action && ACTIONS[v.action]
+  ? `<span class="verdict-chip v-${v.action}">${v.action === "favorite" ? "★ " : ""}${ACTIONS[v.action]}</span>`
+  : `<span class="verdict-chip v-none">${v?.action === "undecided" ? "undecided" : "—"}</span>`;
+
+function decisionData() {
+  const decisions = [], undecided = [];
+  for (const [i, m] of P.images.entries()) {
+    const v = verdictOf(m.id);
+    const note = v && v.note ? v.note.trim() : "";
+    const e = images[i];
+    const regions = e?.url ? (v?.regions || []) : [];
+    const action = (v && v.action) || (regions.length ? "keep" : null);
+    if (!action) { undecided.push(m.id); continue; }
+    const d = { id: m.id, action };
+    if (note) d.note = note;
+    if (regions.length) {
+      d.size = { width: round1(e.width), height: round1(e.height) };
+      d.regions = regions.map((r) => regionOut(r, e));
+    }
+    decisions.push(d);
+  }
+  return { decisions, undecided };
+}
+
+/* What the next hand-over needs confirmed, or why the app refused the last
+   one: the SDK's confirmation bar, under the work area. */
+const confirm = Pinrail.confirmationBar();
+const keepDeciding = document.createElement("button");
+keepDeciding.type = "button";
+keepDeciding.className = "pinrail-btn pinrail-btn-ghost";
+keepDeciding.textContent = "Keep deciding";
+keepDeciding.addEventListener("click", () => { S.armed = false; S.errors = null; status(); });
+
+function status() {
+  if (plugin.readonly) { confirm.confirmation(null); return; }
+  const d = decisionData();
+  const fav = d.decisions.find((x) => x.action === "favorite");
+  const kept = d.decisions.filter((x) => x.action === "keep").length;
+  const dropped = d.decisions.filter((x) => x.action === "drop").length;
+  const parts = [];
+  if (fav) parts.push(`★ ${P.images.find((m) => m.id === fav.id)?.name ?? fav.id}`);
+  if (kept) parts.push(`${kept} kept`);
+  if (dropped) parts.push(`${dropped} dropped`);
+  const label = S.armed ? `Hand over with ${d.undecided.length} undecided` : parts.length ? `Hand over: ${parts.join(", ")}` : "Hand over";
+  plugin.handOverLabel(label);
+  const n = d.undecided.length;
+  confirm.confirmation(
+    S.errors?.length
+      ? { tone: "danger", text: `The app refused the decision: ${S.errors.map((e) => `${e.path || "/"}: ${e.message}`).join("; ")}`, actions: [keepDeciding] }
+      : S.armed && n
+        ? { text: `${n} ${n === 1 ? "image" : "images"} left undecided. They go back to the agent as undecided. Hand over again to confirm.`, actions: [keepDeciding] }
+        : null,
+  );
+}
+
+function select(i) {
+  S.sel = (i + P.images.length) % P.images.length;
+  S.picking = null; S.compare = false; S.lit = null;
+  render();
+  document.querySelector(`[data-pick="${S.sel}"]`)?.scrollIntoView({ block: "nearest" });
+}
+function setVerdict(action) {
+  if (plugin.readonly) return;
+  const id = P.images[S.sel].id;
+  const cur = verdictOf(id);
+  if (cur?.action === action) S.verdicts[id] = { ...cur, action: null };
+  else {
+    if (action === "favorite") for (const [other, v] of Object.entries(S.verdicts)) if (v.action === "favorite") S.verdicts[other] = { ...v, action: "keep" };
+    S.verdicts[id] = { ...(cur || {}), action };
+  }
+  S.armed = false;
+  S.keepScroll = true;
+  plugin.draft(S.verdicts);
+  render();
+}
+function handOver() {
+  S.errors = null;
+  if (S.picking) {
+    const note = document.getElementById("region-note")?.value.trim();
+    if (note) addRegion(); else cancelRegion();
+  }
+  const data = decisionData();
+  if (data.undecided.length && !S.armed) { S.armed = true; status(); return; }
+  return data;
+}
+
+/* ---------------------------------------------------------------- render */
+
+function renderTop() {
+  const d = decisionData();
+  const count = (a) => d.decisions.filter((x) => x.action === a).length;
+  return `<div class="top">
+      <h1>${esc(plugin.review.title || "Image review")}</h1>
+      <span class="subject">${esc(P.subject.name)}${P.subject.use ? ` · ${esc(P.subject.use)}` : ""}</span>
+      <div class="tally" aria-live="polite">
+        ${favourite() ? `<span><b>${count("favorite")}</b> favourite</span>` : ""}<span><b>${count("keep")}</b> kept</span><span><b>${count("drop")}</b> dropped</span><span><b>${d.undecided.length}</b> undecided</span>
+      </div>
+    </div>`;
+}
+
+function renderPick(m, i) {
+  const e = images[i];
+  const n = regionsOf(m.id).length;
+  return `<button type="button" class="pick" data-pick="${i}" aria-current="${i === S.sel}" aria-label="${esc(m.name)}">
+      <span class="thumb bd-${S.backdrop}">${e?.url ? `<img src="${e.url}" alt="">` : `<span class="wait">${e?.error ? "can't read it" : "…"}</span>`}${n ? `<span class="count">${Pinrail.icon("message-square", { size: 10 })}${n}</span>` : ""}</span>
+      <span class="pick-name">${esc(m.name)}</span>${chip(shown(verdictOf(m.id)))}
+      ${e?.url ? `<span class="pick-meta">${fmtN(e.width)}×${fmtN(e.height)} · ${FORMATS[e.type]}</span>` : ""}
+    </button>`;
+}
+function renderRail() {
+  return `<nav class="rail" aria-label="Images">
+      <p class="rail-label">${P.images.length} image${P.images.length === 1 ? "" : "s"}</p>
+      ${P.images.map(renderPick).join("")}
+    </nav>`;
+}
+
+function renderStageChrome() {
+  const m = P.images[S.sel];
+  const e = shownImage();
+  const hasPast = !!plugin.previous?.payload?.images?.some?.((x) => x.id === m.id);
+  const cur = images[S.sel];
+  let body = "";
+  if (S.compare && e?.error) body = `<div class="broken"><span><b>The previous round's image could not be read.</b>${esc(String(e.error.message || e.error))}</span></div>`;
+  else if (S.compare && !e) body = `<div class="reading">Reading the previous round…</div>`;
+  else if (cur?.error && !S.compare) body = `<div class="broken"><span><b>This image could not be read.</b>${esc(String(cur.error.message || cur.error))}</span></div>`;
+  else if (!cur) body = `<div class="reading">Reading the image…</div>`;
+  const ok = !!e?.url;
+  return `${body}
+    ${ok ? `<div class="bar zoom" role="group" aria-label="Zoom">
+      <button type="button" data-zoom="out" title="Zoom out (-)" aria-label="Zoom out">${Pinrail.icon("minus", { size: 14 })}</button>
+      <span class="pct" aria-live="polite">${Math.round(V.s * 100)}%</span>
+      <button type="button" data-zoom="in" title="Zoom in (=)" aria-label="Zoom in">${Pinrail.icon("plus", { size: 14 })}</button>
+      <span class="sep"></span>
+      <button type="button" data-zoom="fit" title="Fit (0)">Fit <kbd>0</kbd></button>
+      <button type="button" data-zoom="actual" title="Actual pixels (1)">1:1 <kbd>1</kbd></button>
+    </div>
+    <div class="bar tools" role="group" aria-label="Stage">
+      ${plugin.readonly ? "" : `<button type="button" data-tool="pan" aria-pressed="${S.pan}" title="Drag to pan rather than to mark (h)">${Pinrail.icon("hand", { size: 14 })}<kbd>h</kbd></button><span class="sep"></span>`}
+      ${Object.entries(BACKDROPS).map(([k, l]) => `<button type="button" data-backdrop="${k}" aria-pressed="${S.backdrop === k}" title="${l} backdrop (g)" aria-label="${l} backdrop"><span class="swatch bd-${k}"></span></button>`).join("")}
+      ${hasPast ? `<span class="sep"></span><button type="button" data-compare aria-pressed="${S.compare}" title="Compare with the previous round (c)">Previous <kbd>c</kbd></button>` : ""}
+    </div>
+    ${S.compare ? `<div class="banner">Previous round${pastRegions(m.id).length ? ` · ${pastRegions(m.id).length} region${pastRegions(m.id).length === 1 ? "" : "s"} asked for` : ""}</div>` : ""}
+    <div class="foot"><span>${fmtN(e.width)} × ${fmtN(e.height)}${e.type === "image/svg+xml" ? "" : " px"} · ${FORMATS[e.type]} · ${fmtBytes(e.bytes)}</span><span class="at" aria-hidden="true"></span><span class="hint">${esc(hintText())}</span></div>` : ""}
+    ${S.picking ? `<div class="pop" id="pop" role="dialog" aria-label="Comment on this ${S.picking.shape}">
+        <div class="pop-head"><b>${S.picking.shape === "box" ? "Box" : "Point"}</b><span class="where">${esc(describe(S.picking, e))}</span></div>
+        <textarea id="region-note" aria-label="What to change here" placeholder="What should change here? e.g. remove this, the hands look wrong, warmer light"></textarea>
+        <div class="pop-actions"><span class="k">↵ add · esc</span><button type="button" class="pinrail-btn quiet" data-pop="cancel">Cancel</button><button type="button" class="pinrail-btn pinrail-btn-primary" data-pop="add">Comment</button></div>
+      </div>` : ""}`;
+}
+
+function renderSheet() {
+  const m = P.images[S.sel];
+  const e = images[S.sel];
+  const v = verdictOf(m.id) || {};
+  const prev = previousVerdict(plugin.previous, m.id);
+  const prevRegions = pastRegions(m.id).length;
+  const ro = plugin.readonly ? "disabled" : "";
+  const regions = regionsOf(m.id);
+  const details = Object.entries(m.details || {});
+  return `<main class="sheet" id="sheet" aria-labelledby="image-name"><div class="sheet-inner">
+      <header class="image-head">
+        <h2 id="image-name">${esc(m.name)}</h2>
+        <span class="image-id">${esc(m.id)}${P.images.length > 1 ? ` · ${S.sel + 1} of ${P.images.length}` : ""}</span>
+        <div class="choices" role="group" aria-label="Your verdict on ${esc(m.name)}">
+          ${offered().map(([a, label]) => `<button type="button" class="choice" data-action="${a}" aria-pressed="${v.action === a}" ${ro}>${a === "favorite" ? "★ " : ""}${label} <kbd>${KEYS[a]}</kbd></button>`).join("")}
+        </div>
+        ${prev ? `<div class="previous">Last round: ${chip(prev)} ${prev.note ? "— " + esc(prev.note) : ""}${prevRegions ? ` · ${prevRegions} region${prevRegions === 1 ? "" : "s"} asked for` : ""}</div>` : ""}
+      </header>
+      ${!plugin.readonly && S.noteOpen === m.id
+        ? `<textarea id="note" aria-label="Note on ${esc(m.name)}" placeholder="${v.action === "drop" ? "Why it goes" : "What to change in the image as a whole"}">${esc(v.note || "")}</textarea>`
+        : v.note?.trim()
+          ? plugin.readonly
+            ? `<div class="image-note">${Pinrail.markdown(v.note)}</div>`
+            : `<div class="image-note is-editable" role="button" tabindex="0" data-edit-note title="Edit the note">${Pinrail.markdown(v.note)}</div>`
+          : plugin.readonly
+            ? ""
+            : `<button type="button" class="add-note" data-edit-note>${Pinrail.icon("message-square", { size: 13 })} Add a note</button>`}
+      ${m.reasoning ? `<div class="reasoning">${Pinrail.markdown(m.reasoning)}</div>` : ""}
+      <div id="stage-slot"></div>
+      <section class="below">
+        <div><p class="label">Regions to change</p>
+          ${regions.length && e?.url ? `<ol class="regions">${regions.map((r, i) => `
+            <li class="${S.lit === i ? "lit" : ""}"><span class="num">${i + 1}</span><span>${esc(r.note)}<br><span class="where">${esc(describe(r, e))}</span></span>
+              <span class="acts"><button type="button" class="pinrail-btn quiet" data-show="${i}">Show</button>${plugin.readonly ? "" : `<button type="button" class="pinrail-btn quiet" data-remove="${i}">Remove</button>`}</span></li>`).join("")}</ol>`
+            : `<p class="pinrail-empty">${plugin.readonly ? "None." : "Drag a box over part of the image, or click a spot, to ask for a change there. From the keyboard: p pins the centre of the view, b boxes what is in view."}</p>`}
+        </div>
+        <div class="facts">
+          ${details.length ? `<div><p class="label">How it was made</p><div class="chips">${details.map(([k, val]) => `<span>${esc(k)} <b>${esc(String(val))}</b></span>`).join("")}</div></div>` : ""}
+          ${m.prompt ? `<details class="prompt"><summary>Prompt</summary><p>${esc(m.prompt)}</p></details>` : ""}
+          <div><p class="label">File</p><div class="chips"><span>${esc(Pinrail.attachmentName(m.file) || "")}</span>${e?.url ? `<span>${fmtBytes(e.bytes)}</span>` : ""}</div></div>
+        </div>
+      </section>
+    </div></main>`;
+}
+
+function render() {
+  S.rendering = true;
+  try { draw(); } finally { S.rendering = false; }
+}
+function draw() {
+  const sheet = document.getElementById("sheet");
+  const scroll = sheet ? sheet.scrollTop : 0;
+  const railEl = document.querySelector(".rail");
+  const railScroll = railEl ? railEl.scrollTop : 0;
+  const focusNote = document.activeElement?.id === "note";
+  const draftNote = document.getElementById("region-note")?.value;
+  document.getElementById("app").innerHTML = `${renderTop()}${P.notes ? `<div class="notes">${Pinrail.markdown(P.notes)}</div>` : ""}<div class="work${P.images.length === 1 ? " single" : ""}">${P.images.length === 1 ? "" : renderRail()}${renderSheet()}</div>`;
+  document.getElementById("app").append(confirm.element);
+  if (S.keepScroll) document.getElementById("sheet").scrollTop = scroll;
+  const rail = document.querySelector(".rail");
+  if (rail) rail.scrollTop = railScroll;
+  S.keepScroll = false;
+  // the stage keeps its image and zoom; only its chrome is drawn again
+  stage.querySelectorAll(":scope > :not(.art, .marks)").forEach((n) => n.remove());
+  stage.insertAdjacentHTML("beforeend", renderStageChrome());
+  stage.classList.toggle("marking", !plugin.readonly && !S.compare && !S.pan);
+  stage.classList.toggle("panning", plugin.readonly || S.compare || S.pan);
+  stage.setAttribute("aria-label", `${P.images[S.sel].name}${S.compare ? ", previous round" : ""}. ${plugin.readonly ? "" : "Drag a box or click a spot to comment."}`);
+  document.getElementById("stage-slot").replaceWith(stage);
+  stageImage();
+  if (S.picking) {
+    const ta = document.getElementById("region-note");
+    if (draftNote) ta.value = draftNote;
+    requestAnimationFrame(() => { placePop(); ta?.focus({ preventScroll: true }); });
+  }
+  if (focusNote || S.focusNoteNext) {
+    const box = document.getElementById("note");
+    box?.focus();
+    if (S.focusNoteNext && box) box.setSelectionRange(box.value.length, box.value.length);
+    S.focusNoteNext = false;
+  }
+  status();
+}
+
+async function loadPast(id) {
+  if (id in past) return;
+  past[id] = null;
+  const m = plugin.previous?.payload?.images?.find((x) => x.id === id);
+  try { past[id] = await read(m.file, { round: "previous" }); } catch (error) { past[id] = { error }; }
+  if (S.compare && P.images[S.sel].id === id) { shownKey = null; render(); }
+}
+function toggleCompare() {
+  const m = P.images[S.sel];
+  if (!plugin.previous?.payload?.images?.some?.((x) => x.id === m.id)) return;
+  S.compare = !S.compare;
+  S.picking = null;
+  S.keepScroll = true;
+  if (S.compare) loadPast(m.id);
+  render();
+}
+
+let rounds = 0;
+const plugin = Pinrail.connect({
+  async onInit({ review, draft }) {
+    P = review.payload;
+    S.verdicts = {};
+    S.sel = 0; S.picking = null; S.compare = false; shownKey = null;
+    S.backdrop = P.backdrop || "checker";
+    const decided = review.decision?.data;
+    if (decided) {
+      for (const d of decided.decisions || []) S.verdicts[d.id] = { action: d.action, note: d.note || "", regions: (d.regions || []).map(({ px, ...r }) => r) };
+    } else if (draft && typeof draft === "object") S.verdicts = draft;
+    images.forEach((e) => e?.url && URL.revokeObjectURL(e.url));
+    images.length = 0;
+    render();
+    // the view is up at once; each image fills in as it is read
+    const round = ++rounds;
+    await Promise.all(P.images.map(async (m, i) => {
+      let entry;
+      try { entry = await read(m.file); } catch (error) { entry = { error }; }
+      if (round !== rounds) return;
+      images[i] = entry;
+      if (i === S.sel) { S.keepScroll = true; render(); }
+      else document.querySelector(`[data-pick="${i}"]`)?.replaceWith(pickFor(m, i));
+    }));
+  },
+  onSubmitted() { render(); },
+  onViolations(errors) { S.errors = errors; S.armed = false; status(); },
+  onCollect() { return handOver(); },
+});
+function pickFor(m, i) {
+  const t = document.createElement("template");
+  t.innerHTML = renderPick(m, i).trim();
+  return t.content.firstChild;
+}
+
+document.addEventListener("click", (ev) => {
+  if (!P) return;
+  const t = ev.target.closest ? ev.target : null;
+  if (!t) return;
+  const pop = t.closest("[data-pop]");
+  if (pop) return pop.dataset.pop === "add" ? addRegion() : cancelRegion();
+  const zoom = t.closest("[data-zoom]");
+  if (zoom) return ({ in: () => zoomAt(1.4), out: () => zoomAt(1 / 1.4), fit, actual })[zoom.dataset.zoom]();
+  const bd = t.closest("[data-backdrop]");
+  if (bd) { S.backdrop = bd.dataset.backdrop; S.keepScroll = true; return render(); }
+  if (t.closest("[data-tool]")) { S.pan = !S.pan; S.keepScroll = true; return render(); }
+  if (t.closest("[data-compare]")) return toggleCompare();
+  // a link in a note is followed, not taken as a click to edit it
+  if (t.closest("[data-edit-note]") && !t.closest("a") && !plugin.readonly) return openNote();
+  const show = t.closest("[data-show]");
+  if (show) return showRegion(Number(show.dataset.show));
+  const remove = t.closest("[data-remove]");
+  if (remove) return removeRegion(Number(remove.dataset.remove));
+  const pick = t.closest("[data-pick]");
+  if (pick) return select(Number(pick.dataset.pick));
+  const choice = t.closest("[data-action]");
+  if (choice) return setVerdict(choice.dataset.action);
+});
+document.addEventListener("pointerover", (ev) => {
+  const li = ev.target.closest?.(".regions li");
+  if (!li) return;
+  const i = [...li.parentNode.children].indexOf(li);
+  if (i === S.lit) return;
+  S.lit = i;
+  placeMarks();
+});
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "note" || plugin.readonly) return;
+  const id = P.images[S.sel].id;
+  S.verdicts[id] = { ...(verdictOf(id) || { action: null }), note: ev.target.value };
+  S.armed = false;
+  plugin.draft(S.verdicts);
+});
+document.addEventListener("keyup", (ev) => {
+  if (ev.key === " " && S.space) { S.space = false; stage.classList.toggle("panning", plugin.readonly || S.compare || S.pan); }
+});
+/* The note on an image: written on request, shown as text once written, and
+   edited again by a click on it. Leaving the box shows it again, or drops it
+   when empty; while the pointer is down the page is not redrawn, so the click
+   that took the focus still lands. */
+function openNote() {
+  S.noteOpen = P.images[S.sel].id;
+  S.focusNoteNext = true;
+  S.keepScroll = true;
+  render();
+}
+function closeNote() {
+  if (S.noteOpen == null) return;
+  const id = S.noteOpen;
+  S.noteOpen = null;
+  const v = S.verdicts[id];
+  if (v && !(v.note || "").trim()) {
+    const { note, ...rest } = v;
+    S.verdicts[id] = rest;
+    plugin.draft(S.verdicts);
+  }
+  S.keepScroll = true;
+  render();
+}
+document.addEventListener("pointerdown", () => { S.pressing = true; }, true);
+document.addEventListener("pointerup", () => { S.pressing = false; }, true);
+document.addEventListener("focusout", (ev) => {
+  if (ev.target.id !== "note" || S.noteOpen == null || S.rendering) return;
+  if (S.pressing) document.addEventListener("click", () => setTimeout(closeNote), { once: true });
+  else closeNote();
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.target.id === "note" && ev.key === "Escape") { ev.preventDefault(); ev.target.blur(); return; }
+  if (ev.target.matches?.("div[data-edit-note]") && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); openNote(); return; }
+  if (ev.target.id === "region-note") {
+    if (ev.key === "Enter" && !ev.shiftKey && !ev.metaKey && !ev.ctrlKey) { ev.preventDefault(); addRegion(); }
+    if (ev.key === "Escape") { ev.preventDefault(); cancelRegion(); }
+    return;
+  }
+  if (!P || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (ev.target.closest && ev.target.closest("textarea, input, summary")) return;
+  const key = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
+  const step = 80;
+  if (key === " ") { if (ev.target.closest?.("button")) return; S.space = true; stage.classList.add("panning"); }
+  else if (key === "j") select(S.sel + 1);
+  else if (key === "k") select(S.sel - 1);
+  else if (key === "f") { if (favourite()) setVerdict("favorite"); }
+  else if (key === "s") setVerdict("keep");
+  else if (key === "x") setVerdict("drop");
+  else if (key === "p") pointAtCentre();
+  else if (key === "b") boxInView();
+  else if (key === "=" || key === "+") zoomAt(1.4);
+  else if (key === "-" || key === "_") zoomAt(1 / 1.4);
+  else if (key === "0") fit();
+  else if (key === "1") actual();
+  else if (key === "ArrowLeft") panBy(step, 0);
+  else if (key === "ArrowRight") panBy(-step, 0);
+  else if (key === "ArrowUp") panBy(0, step);
+  else if (key === "ArrowDown") panBy(0, -step);
+  else if (key === "h" && !plugin.readonly) { S.pan = !S.pan; S.keepScroll = true; render(); }
+  else if (key === "g") { const ks = Object.keys(BACKDROPS); S.backdrop = ks[(ks.indexOf(S.backdrop) + 1) % ks.length]; S.keepScroll = true; render(); }
+  else if (key === "c") toggleCompare();
+  else if (key === "Escape" && S.picking) cancelRegion();
+  else return;
+  ev.preventDefault();
+});
+
+/* What the previous round decided for an item: its decision's
+   `decisions: [{ id, action, note }]` and `undecided: [id]`. The previous
+   round may come from an earlier release, so its shape is checked. */
+function previousVerdict(previous, id) {
+  const data = previous && previous.decision && previous.decision.data;
+  if (!data || typeof data !== "object") return null;
+  const d = (Array.isArray(data.decisions) ? data.decisions : []).find((x) => x && x.id === id);
+  if (d) return { action: d.action, note: d.note || "" };
+  if (Array.isArray(data.undecided) && data.undecided.includes(id)) return { action: "undecided", note: "" };
+  return null;
+}
+</script>
+</body>
+</html>

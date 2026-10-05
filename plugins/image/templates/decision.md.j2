@@ -1,0 +1,45 @@
+{#- The decision as an agent reads it back: the favourite first, then what is
+    kept and what is dropped, each image by name and file with the reviewer's
+    note and the regions to change, in fractions of the image and in pixels. -#}
+{%- macro image(item) -%}
+- **{{ item.payload.name if item.payload else item.id }}** (`{{ item.id }}`
+{%- if item.payload and item.payload.file %}, `{{ item.payload.file["$attachment"] }}`{% endif %}
+{%- if item.size %}, {{ item.size.width }}×{{ item.size.height }}{% endif %})
+{%- if item.note %}
+  > {{ item.note }}
+{%- endif %}
+{%- for r in item.regions or [] %}
+{%- if r.shape == "box" %}
+  - box x {{ r.x }}, y {{ r.y }}, {{ r.width }} × {{ r.height }} (px {{ r.px.x }},{{ r.px.y }} {{ r.px.width }}×{{ r.px.height }}): {{ r.note }}
+{%- else %}
+  - point x {{ r.x }}, y {{ r.y }} (px {{ r.px.x }},{{ r.px.y }}): {{ r.note }}
+{%- endif %}
+{%- endfor %}
+{%- endmacro -%}
+{%- set favourite = items | selectattr("action", "equalto", "favorite") | list -%}
+{%- set kept = items | selectattr("action", "equalto", "keep") | list -%}
+{%- set dropped = items | selectattr("action", "equalto", "drop") | list -%}
+{%- if favourite %}
+## Favourite
+{% for item in favourite %}
+{{ image(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if kept %}
+## Kept on the shortlist
+{% for item in kept %}
+{{ image(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if dropped %}
+## Dropped
+{% for item in dropped %}
+{{ image(item) }}
+{%- endfor %}
+{% endif -%}
+{%- if items | selectattr("regions") | list %}
+Regions are fractions of the image's width and height from its top left, and the same in the image's own pixels.
+{% endif -%}
+{%- if data.undecided %}
+Undecided: {% for id in data.undecided %}`{{ id }}`{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif -%}

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Image review decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decisions", "undecided"],
+  "$defs": {
+    "unit": { "type": "number", "minimum": 0, "maximum": 1 },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shape", "x", "y", "px", "note"],
+      "properties": {
+        "shape": { "enum": ["box", "point"], "description": "box: an area to change. point: a spot to change." },
+        "x": { "$ref": "#/$defs/unit", "description": "The box's left edge, or the point, as a fraction of the image's width from its left." },
+        "y": { "$ref": "#/$defs/unit", "description": "The box's top edge, or the point, as a fraction of the image's height from its top." },
+        "width": { "$ref": "#/$defs/unit", "description": "The box's width, as a fraction of the image's width." },
+        "height": { "$ref": "#/$defs/unit", "description": "The box's height, as a fraction of the image's height." },
+        "px": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "description": "The same region in the image's own pixels, origin top left. For an SVG, in the units of its viewBox.",
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "width": { "type": "number", "minimum": 0 },
+            "height": { "type": "number", "minimum": 0 }
+          }
+        },
+        "note": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "What to change there." }
+      },
+      "if": { "properties": { "shape": { "const": "box" } } },
+      "then": {
+        "required": ["width", "height"],
+        "properties": { "px": { "required": ["width", "height"] } }
+      },
+      "else": {
+        "properties": { "width": false, "height": false, "px": { "properties": { "width": false, "height": false } } }
+      }
+    }
+  },
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "description": "A verdict per image the reviewer decided. At most one favourite.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "action"],
+        "dependentRequired": { "regions": ["size"] },
+        "properties": {
+          "id": { "type": "string" },
+          "action": { "enum": ["favorite", "keep", "drop"], "description": "favorite: the one to take forward. keep: still on the shortlist. drop: set it aside." },
+          "note": { "type": "string", "maxLength": 4000, "description": "What to change in the image as a whole, or why it was dropped." },
+          "size": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["width", "height"],
+            "description": "The image's size in pixels (an SVG's in viewBox units): what the regions' px are measured in.",
+            "properties": {
+              "width": { "type": "number", "exclusiveMinimum": 0 },
+              "height": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          },
+          "regions": {
+            "type": "array",
+            "description": "Changes asked for on parts of the image, each on a box or a point.",
+            "items": { "$ref": "#/$defs/region" }
+          }
+        }
+      }
+    },
+    "undecided": { "type": "array", "items": { "type": "string" }, "description": "Images left without a verdict." }
+  }
+}

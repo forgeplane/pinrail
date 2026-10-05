@@ -1,0 +1,56 @@
+{
+  "title": "Empty inbox illustration — round 2",
+  "origin": {
+    "repo": "tern/web",
+    "workflow": "illustration"
+  },
+  "payload": {
+    "notes": "Round 2: the plane with the three regions fixed, and the mailbox with its post grounded. Press **c** to compare with round 1.",
+    "subject": {
+      "name": "Tern empty-inbox illustration",
+      "use": "320 px wide above \"You're all caught up\", light and dark"
+    },
+    "images": [
+      {
+        "id": "A",
+        "name": "Paper plane",
+        "file": {
+          "$attachment": "paper-plane-r2.png"
+        },
+        "reasoning": "The stray cloud and trail are gone, and the nose points at the sun.",
+        "prompt": "Flat vector spot illustration, a paper plane looping over soft rolling hills, dotted trail, low sun, two clouds, cream background, navy line work, teal and sand palette, no text",
+        "details": {
+          "model": "flux-1.1-pro",
+          "seed": 48211,
+          "steps": 28,
+          "style": "flat vector"
+        },
+        "alt": "A paper plane loops over teal hills under a yellow sun, trailing a dotted line."
+      },
+      {
+        "id": "B",
+        "name": "Mailbox garden",
+        "file": {
+          "$attachment": "mailbox.jpg"
+        },
+        "reasoning": "An empty mailbox that has turned into a planter: nothing waiting, and that is fine. The bird gives it a face.",
+        "prompt": "Flat vector spot illustration, a coral mailbox on a wooden post with flowers growing out of it, a small navy bird on the roof, flag up, soft mint circle behind, cream background",
+        "details": {
+          "model": "flux-1.1-pro",
+          "seed": 90117,
+          "steps": 28,
+          "style": "flat vector"
+        },
+        "alt": "A coral mailbox on a post, flowers growing beside it and a navy bird on its roof."
+      }
+    ]
+  },
+  "attachments": {
+    "paper-plane-r2.png": {
+      "path": "tern/paper-plane-r2.png"
+    },
+    "mailbox.jpg": {
+      "path": "tern/mailbox.jpg"
+    }
+  }
+}

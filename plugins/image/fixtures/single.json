@@ -1,0 +1,37 @@
+{
+  "title": "Paper plane illustration — one image",
+  "origin": {
+    "repo": "tern/web",
+    "workflow": "illustration"
+  },
+  "payload": {
+    "notes": "One illustration to look over before it ships: the **paper plane** for the empty inbox.",
+    "subject": {
+      "name": "Tern empty-inbox illustration",
+      "use": "320 px wide above \"You're all caught up\", light and dark"
+    },
+    "images": [
+      {
+        "id": "A",
+        "name": "Paper plane",
+        "file": {
+          "$attachment": "paper-plane.png"
+        },
+        "reasoning": "Mail as something that **flies off and is done**. The loop says *it went somewhere*, the sun keeps the empty state cheerful rather than bare.",
+        "prompt": "Flat vector spot illustration, a paper plane looping over soft rolling hills, dotted trail, low sun, two clouds, cream background, navy line work, teal and sand palette, no text",
+        "details": {
+          "model": "flux-1.1-pro",
+          "seed": 48211,
+          "steps": 28,
+          "style": "flat vector"
+        },
+        "alt": "A paper plane loops over teal hills under a yellow sun, trailing a dotted line."
+      }
+    ]
+  },
+  "attachments": {
+    "paper-plane.png": {
+      "path": "tern/paper-plane.png"
+    }
+  }
+}
