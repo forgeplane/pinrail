@@ -83,6 +83,8 @@ npm test                   # build, then the tests under the harness
 
 :::note[pinrail-plugin check: what the app would say]
 `pinrail-plugin check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. Run the build first, so that `view/index.html` is there. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
+
+The command also checks the plugin's recorded decisions, the `fixtures/<name>.decided.json` files that tests use to show a decided review. Each one's payload and decision must pass the plugin's schemas. When a `<name>.decided.md` file is beside a recorded decision, the Markdown that the app renders for an agent from it must equal that file, so a change to the plugin's template or schemas cannot change what agents read without you noticing. `--update-fixtures` writes these files from what the app renders. Review the difference before you commit it.
 :::
 
 A test mounts the built view alone and drives it the way a person would. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:
