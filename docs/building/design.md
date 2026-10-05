@@ -3,7 +3,7 @@ title: Design and styling
 description: "How a view looks like part of Pinrail: the design language, the SDK stylesheet's tokens and classes, themes, type, icons, and bringing your own fonts, styles and scripts."
 ---
 
-A view sits inside the app, between the review's header and the hand-over button, so the person reads it as part of Pinrail. This page is how to make it look that way with little effort: the conventions the built-in plugins follow, and what the SDK stylesheet gives you.
+A view sits inside the app, between the review's header and the hand-over button, so the person reads it as part of Pinrail. This page is how to make it look that way with little effort: the conventions the official plugins follow, and what the SDK stylesheet gives you.
 
 :::tip[All of this is optional]
 None of this is required. The stylesheet is a set of defaults: every rule in it is in a cascade layer, so any rule of your own wins, whatever its specificity. Use its tokens and ignore its classes, restyle everything, or bring a design system of your own, as long as it ships inside the plugin folder (see [Your own fonts, styles and scripts](#your-own-fonts-styles-and-scripts)).
@@ -45,7 +45,7 @@ A review screen has five parts. The app draws two of them around the view, and `
 | 4 | Confirmation bar | `view.confirmation()`, as `.pinrail-confirmation` | What the person must confirm before the next hand-over, such as items left undecided. It is hidden until the view asks for it. |
 | 5 | Composer | The app | The note to the agent and the hand-over button. The view sets the button's label with `plugin.handOverLabel`. |
 
-These positions are a convention, not a rule. The built-in plugins follow them so that every review reads the same way, and `Pinrail.layout()` builds them for you. A view that needs another arrangement can skip `Pinrail.layout()` and lay out its frame as it likes, or use the layout and restyle any part of it. Only parts 1 and 5 are fixed, because the app draws them outside the view.
+These positions are a convention, not a rule. The official plugins follow them so that every review reads the same way, and `Pinrail.layout()` builds them for you. A view that needs another arrangement can skip `Pinrail.layout()` and lay out its frame as it likes, or use the layout and restyle any part of it. Only parts 1 and 5 are fixed, because the app draws them outside the view.
 
 ## The stylesheet
 

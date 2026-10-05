@@ -40,12 +40,9 @@ pinrail plugins                      # every plugin, a line each: when to use it
 pinrail plugins describe <plugin>    # its payload schema and an example
 ```
 
-Two come with every install:
-
-- `list`: items (findings, proposed changes, tasks) the person accepts or
-  rejects one by one.
-- `feedback`: questions or choices only the person can answer, before you
-  go on.
+Most people have `list`, for items to accept or reject one by one, and
+`feedback`, for questions only the person can answer. A missing plugin is
+refused with how to install it: ask the person.
 
 ## Rules
 

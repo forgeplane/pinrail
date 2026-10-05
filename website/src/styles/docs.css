@@ -363,7 +363,7 @@ starlight-file-tree {
   border-radius: 50%;
   background: currentColor;
 }
-.pr-badge.built-in {
+.pr-badge.recommended {
   --pr-badge: #7fc095;
 }
 .pr-badge.optional {
@@ -375,7 +375,7 @@ starlight-file-tree {
 .pr-badge.plain::before {
   display: none;
 }
-:root[data-theme="light"] .pr-badge.built-in {
+:root[data-theme="light"] .pr-badge.recommended {
   --pr-badge: #2f7a4b;
 }
 

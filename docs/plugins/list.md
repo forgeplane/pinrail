@@ -3,13 +3,13 @@ title: List
 description: "Items grouped under headings, each accepted or rejected with a note. The general-purpose plugin for findings, tasks and proposed actions."
 sidebar:
   badge:
-    text: Built in
+    text: Recommended
     variant: success
 ---
 
-<div class="pr-badges"><span class="pr-badge built-in">Built in</span><span class="pr-badge plain">plugin: list</span></div>
+<div class="pr-badges"><span class="pr-badge recommended">Recommended</span><span class="pr-badge plain">plugin: list</span></div>
 
-The list plugin shows a set of items, grouped under headings, and asks for a verdict on each: accept or reject, with an optional note. It is the general-purpose plugin, and the one to reach for first. It ships with the app, so every agent can use it with nothing to install.
+The list plugin shows a set of items, grouped under headings, and asks for a verdict on each: accept or reject, with an optional note. It is the general-purpose plugin, and the one to reach for first. It comes with the app, and the setup installs it.
 
 ![The list plugin: dependency upgrades grouped as safe, needs a look and hold, with three accepted, one held back with a reason, and a note being written on a major upgrade.](screenshot:list "Dependency upgrades: the safe ones accepted, one held back, a note on the major upgrade.")
 

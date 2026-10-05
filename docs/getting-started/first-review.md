@@ -21,7 +21,7 @@ sequenceDiagram
 
 ## 1. Write a payload
 
-Every review belongs to a plugin. The built-in [List](/docs/plugins/list/) plugin shows items grouped under headings and asks for a verdict on each. Save this as `triage.json`:
+Every review belongs to a plugin. The [List](/docs/plugins/list/) plugin, which the setup installs, shows items grouped under headings and asks for a verdict on each. If you skipped the setup, install it first with `pinrail plugins install list`. Save this as `triage.json`:
 
 ```json title="triage.json"
 {

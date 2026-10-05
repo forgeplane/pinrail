@@ -57,13 +57,12 @@ Pinrail lists the agents it knows and finds each one by its configuration folder
 
 ## Plugins
 
-![Settings, Plugins: the installed plugins with where each came from.](screenshot:settings-plugins "Five plugins: two built in, three installed from GitHub.")
+![Settings, Plugins: the installed plugins with where each came from.](screenshot:settings-plugins "The installed plugins, each with where it came from.")
 
 Every installed plugin has a row with its icon, its title and whether it is ready. When a plugin is broken, hover over **broken** to see why. Every row has a **Notify** button, which turns notifications for that plugin's reviews on or off. The other buttons on a row depend on how the plugin was installed:
 
-- An installed copy has **Remove**. To upgrade it, install the new version.
+- An official plugin, and an installed copy, have **Remove**. An official plugin also shows **Update** when an app update brings a newer version. To upgrade any other plugin, install the new version.
 - A linked folder has **Install a copy** and **Remove**.
-- A built-in plugin has neither.
 - In the app, every row also has **Show in Finder**, or **Show in the file manager** on Linux.
 
 See [Installing plugins](/docs/using/installing-plugins/) for what each of them does.

@@ -53,20 +53,23 @@ and decision is kept, so history can be reopened and rendered again.
 ## Plugins
 
 A plugin defines one kind of review: the payload an agent sends, the
-decision you give back, and the view you decide in. Two plugins are built
-into the app, `list` and `feedback`. The other official plugins are optional:
-download the zip of the ones you need from the releases page of
-[pinrail-plugins](https://github.com/forgeplane/pinrail-plugins), where
-they are developed, and install each with `pinrail plugins install <zip>`.
+decision you give back, and the view you decide in. Five official plugins
+come with the app, and the setup installs `list` and `feedback`; install the
+others in *Settings › Plugins* or with `pinrail plugins install <name>`.
+More official plugins are developed in
+[pinrail-plugins](https://github.com/forgeplane/pinrail-plugins), and are
+installed from their folder or zip.
 Anyone can write a plugin for what their agents do, such as triaging alerts,
 approving a deploy or choosing between designs, and share it for others to
 install.
 
 | Plugin | For |
 |---|---|
-| `list` (built in) | items grouped under headings, each accepted or rejected with a note |
-| `feedback` (built in) | questions answered in one pass: choices, yes or no, and free text |
-| [`review`](https://github.com/forgeplane/pinrail-plugins/tree/main/review) | a code review: the diff and the agent's proposed comments |
+| [`list`](plugins/list) | items grouped under headings, each accepted or rejected with a note |
+| [`feedback`](plugins/feedback) | questions answered in one pass: choices, yes or no, and free text |
+| [`code-review`](plugins/code-review) | a code review: the diff and the agent's proposed comments |
+| [`image`](plugins/image) | generated images to choose between, with boxes and pins on what to change |
+| [`markdown`](plugins/markdown) | a document to read and comment on, section by section |
 | [`email`](https://github.com/forgeplane/pinrail-plugins/tree/main/email) | draft emails to edit, send, revise or discard |
 | [`artifact`](https://github.com/forgeplane/pinrail-plugins/tree/main/artifact) | an HTML page to comment on, element by element |
 | [`calendar`](https://github.com/forgeplane/pinrail-plugins/tree/main/calendar) | times to arrange around a calendar, one suggested slot picked per item |

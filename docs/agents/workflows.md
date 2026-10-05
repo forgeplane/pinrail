@@ -43,7 +43,7 @@ flowchart LR
 
 `--decision-out <file>` writes the decision's data, the part the plugin defines, to a file, so a step that already reads a decisions file keeps working. It is always JSON, and it is written only when the review was decided.
 
-For the built-in [List](/docs/plugins/list/) plugin, acting on accepted items is a line of `jq`:
+For the [List](/docs/plugins/list/) plugin, acting on accepted items is a line of `jq`:
 
 ```sh
 jq -r '.decisions[] | select(.action == "accept") | .id' decision.json | while read -r id; do

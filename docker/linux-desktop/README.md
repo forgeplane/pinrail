@@ -34,7 +34,8 @@ docker exec -u pinrail pinrail-linux pinrail submit list --sample
 ```
 
 `--sample` sends the review a plugin ships to show what it looks like.
-The `list` and `feedback` plugins come with the app. To send your own
+The `list` and `feedback` plugins come with the app; install one first with
+`pinrail plugins install list` if the setup did not. To send your own
 review instead:
 
 ```sh

@@ -3,13 +3,13 @@ title: Feedback
 description: "Questions an agent wants answered before it goes on, grouped and conditional, answered in one pass."
 sidebar:
   badge:
-    text: Built in
+    text: Recommended
     variant: success
 ---
 
-<div class="pr-badges"><span class="pr-badge built-in">Built in</span><span class="pr-badge plain">plugin: feedback</span></div>
+<div class="pr-badges"><span class="pr-badge recommended">Recommended</span><span class="pr-badge plain">plugin: feedback</span></div>
 
-The feedback plugin is how an agent asks you questions. It sends a short form: choices, yes-or-no questions, free text and acknowledgments, in groups, with follow-up questions that appear only when an earlier answer calls for them. You answer everything in one pass and hand it back. It ships with the app, so there is nothing to install.
+The feedback plugin is how an agent asks you questions. It sends a short form: choices, yes-or-no questions, free text and acknowledgments, in groups, with follow-up questions that appear only when an earlier answer calls for them. You answer everything in one pass and hand it back. It comes with the app, and the setup installs it.
 
 ![The feedback plugin: questions about paginating an orders API, with the recommended answers chosen and a comment being written on the first.](screenshot:feedback "Questions before a change to an API: the agent's recommendations, the answers, and a comment.")
 

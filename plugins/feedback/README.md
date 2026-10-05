@@ -8,8 +8,8 @@ agent and the workflow that reads them.
 
 ## Asking
 
-It ships with the app: the binary carries it and writes it out at every
-start, so there is nothing to install. The payload inside any fixture here is
+It comes with the app, and the setup installs it; `pinrail plugins install
+feedback` installs it otherwise. The payload inside any fixture here is
 a working request (a fixture file wraps one in a review):
 
 ```sh

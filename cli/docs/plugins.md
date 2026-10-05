@@ -26,6 +26,7 @@ plugin is installed under each name.
 If none returns the decision you need, build one for the task:
 `pinrail docs plugins/building`. Installing someone else's plugin,
 upgrading it or removing it is the person's call: do it only when they
-ask (`pinrail plugins install <folder or zip>`,
+ask (`pinrail plugins install <name>` for an official plugin,
+`pinrail plugins install <folder or zip>` for any other,
 `pinrail plugins remove <name>`). Installing runs nothing; a plugin
 with a build step is built before it is installed.

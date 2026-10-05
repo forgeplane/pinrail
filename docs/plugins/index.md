@@ -3,32 +3,30 @@ title: Plugins
 description: "The plugins that come with Pinrail, what each is for, and how to pick one for the decision your agent needs."
 ---
 
-Every review uses a plugin, and the plugin decides what the person sees and what the agent gets back. Pinrail comes with two built-in plugins that are always available, and six optional ones that you install when your agents need them.
+Every review uses a plugin, and the plugin decides what the person sees and what the agent gets back. Five official plugins come with the app. The setup installs the two it recommends, and you install the others when your agents need them.
 
 ## Which plugin to use
 
 | When your agent needs a person to… | Use | |
 |---|---|---|
-| Accept or reject a set of findings, tasks or proposed actions | [List](/docs/plugins/list/) | <span class="pr-badge built-in">Built in</span> |
-| Answer questions before it goes on: choices, preferences, confirmations | [Feedback](/docs/plugins/feedback/) | <span class="pr-badge built-in">Built in</span> |
+| Accept or reject a set of findings, tasks or proposed actions | [List](/docs/plugins/list/) | <span class="pr-badge recommended">Recommended</span> |
+| Answer questions before it goes on: choices, preferences, confirmations | [Feedback](/docs/plugins/feedback/) | <span class="pr-badge recommended">Recommended</span> |
 | Review the comments it wants to post on a pull or merge request | [Code review](/docs/plugins/code-review/) | <span class="pr-badge optional">Optional</span> |
 | Choose between images or illustrations it generated, and mark what to change on them | [Image review](/docs/plugins/image/) | <span class="pr-badge optional">Optional</span> |
 | Read a plan, spec or document it wrote, and ask for changes or explanations | [Markdown review](/docs/plugins/markdown/) | <span class="pr-badge optional">Optional</span> |
 | Edit emails, choose calendar slots, or review designed pages, logos or 3D models | [More plugins](/docs/plugins/more/) | |
 
-When nothing fits exactly, start with **List**. Almost any batch of proposed actions reads well as grouped items with a verdict each, and your agent can use it today, with nothing to install. When the decision needs a view of its own, [build a plugin](/docs/building/writing/).
+When nothing fits exactly, start with **List**. Almost any batch of proposed actions reads well as grouped items with a verdict each, and the setup installs it. When the decision needs a view of its own, [build a plugin](/docs/building/writing/).
 
-## Built in and optional
+## Installing and updating
 
-<span class="pr-badge built-in">Built in</span> plugins ship inside the app. They are always installed, always at the version that matches your app, and cannot be removed or replaced.
-
-<span class="pr-badge optional">Optional</span> plugins are installed one at a time, from the app or the command line. Download a plugin's zip from [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), then install it:
+<span class="pr-badge recommended">Recommended</span> plugins are the ones the setup installs. <span class="pr-badge optional">Optional</span> plugins come with the app too, and you install them when you need them. Install either kind in *Settings › Plugins*, where the *Install* field lists the plugins not yet installed, or from the command line:
 
 ```sh
-pinrail plugins install ~/Downloads/<name>-<version>.zip
+pinrail plugins install markdown
 ```
 
-To upgrade a plugin, install the zip of its new version the same way. See [Installing plugins](/docs/using/installing-plugins/).
+A newer version of a plugin arrives with an app update. *Settings › Plugins* then shows *Update* on the plugin's row, and nothing changes until you choose it. Any plugin can be removed. See [Installing plugins](/docs/using/installing-plugins/).
 
 ## How every plugin page is laid out
 

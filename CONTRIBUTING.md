@@ -22,8 +22,8 @@ change in behaviour, open an issue first.
 
 Plugins live in their own repositories, and people install them from there.
 This repository does not accept new plugins: the `plugins/` folder holds the
-two plugins the app carries, `list` and `feedback`, and `hello` and
-`sampler`, which the tests use. To write your own, see
+official plugins the app carries, `list`, `feedback`, `code-review`, `image`
+and `markdown`, and `hello` and `sampler`, which the tests use. To write your own, see
 [Writing a plugin](https://pinrail.dev/docs/building/writing/).
 
 The official plugins are developed in

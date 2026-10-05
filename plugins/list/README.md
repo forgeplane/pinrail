@@ -5,8 +5,8 @@ rejects each item, optionally with a note, and any item left without a
 verdict is reported in `undecided`. Anything else the person wants to say
 goes in the review's note to the agent.
 
-The plugin is built into the app, so every agent can use it without
-installing anything. It is also the most complete example of the plugin
+The plugin comes with the app, and the setup installs it. It is also the
+most complete example of the plugin
 protocol, with drafts, read-only rendering and the previous round's
 verdicts.
 

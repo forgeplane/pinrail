@@ -59,23 +59,17 @@ A plugin you install is ready for agents as soon as it is installed. Your instru
 
 ## The plugins that come with Pinrail
 
-Two plugins are built into the app and always available:
+Five official plugins come with the app. The setup installs the two it recommends, `list` and `feedback`, and you install the others in *Settings › Plugins* or with `pinrail plugins install <name>`. A newer version arrives with an app update, and *Settings › Plugins* offers to update an installed plugin to it.
 
 | Plugin | For |
 |---|---|
 | `list` | Items grouped under headings, each accepted or rejected with an optional note. The general-purpose choice for findings, tasks and proposed actions. |
 | `feedback` | Questions an agent wants answered before it goes on: choices, free text and acknowledgments, grouped and conditional, answered in one pass. |
+| `code-review` | A code review: the diff, the agent's proposed comments on the lines they concern, your verdicts and your own comments. |
+| `image` | Generated images or illustrations, each large on a stage: pick a favourite, keep or drop the rest, and box or pin what to change. |
+| `markdown` | A document an agent wrote, such as a plan or a spec, read with its diagrams and commented on with changes and questions. |
 
-Six more official plugins are optional. Download the zip of each one you need from [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), and install it with `pinrail plugins install <zip>` or from *Settings › Plugins*:
-
-| Plugin | For |
-|---|---|
-| `review` | A code review: the diff, the agent's proposed comments on the lines they concern, your verdicts and your own comments. |
-| `email` | Emails an agent wants to send: edit them with the changes showing, comment on a passage, and send, revise or discard each one. |
-| `artifact` | An HTML page an agent designed: pick elements the way browser developer tools do, comment on them, and the agent gets the selectors back. |
-| `calendar` | Times to arrange around what is already booked: one suggested slot per item, with conflicting suggestions stepping aside, or the item left for the agent. |
-| `logo` | Candidate logo marks, seen at every size, as app icons and in a menu bar: pick a favourite, keep or drop the rest, and ask for changes to parts of a mark. |
-| `model` | Candidate 3D models on a stage to orbit, under studio light, daylight or at night: pick a favourite, keep or drop the rest, and ask for changes to parts of a model. |
+More official plugins, for emails, calendars, designed pages, logos and 3D models, are listed in [More plugins](/docs/plugins/more/).
 
 ## Writing your own plugin
 

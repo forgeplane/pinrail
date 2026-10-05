@@ -1,13 +1,13 @@
 ---
 title: Installing plugins
-description: "Install a plugin from a folder or a zip, upgrade it, and know what installing does on your machine."
+description: "Install an official plugin, or one from a folder or a zip, upgrade it, and know what installing does on your machine."
 ---
 
-Pinrail installs one plugin at a time, from the app or from the command line. You give Pinrail a source, which is a plugin's folder or a zip of it on your computer, and it shows you what it found before it installs anything.
+Pinrail installs one plugin at a time, from the app or from the command line. The official plugins that come with the app install by name. For any other plugin, you give Pinrail a source, which is a plugin's folder or a zip of it on your computer, and it shows you what it found before it installs anything.
 
 ## From the app
 
-Open *Settings › Plugins*. In the *Install* field, paste the path of a folder or a zip, or choose one with *Folder…* or *Zip…*. Pinrail inspects the source as soon as you choose it or stop typing, and shows you:
+Open *Settings › Plugins*. With the *Install* field empty, it lists the official plugins that are not installed, each with *Install*, and typing a word searches them. For any other plugin, paste the path of a folder or a zip in the same field, or choose one with *Folder…* or *Zip…*. Pinrail inspects the source as soon as you choose it or stop typing, and shows you:
 
 - the plugin the manifest describes, and its version;
 - where it comes from;
@@ -22,11 +22,12 @@ To serve a folder live while you work on it, open the menu beside *Install* and 
 ## From the command line
 
 ```sh
-pinrail plugins install <folder or zip>
+pinrail plugins install <name, folder or zip>
 ```
 
 | Source | Installs |
 |---|---|
+| `markdown` | The official plugin of that name, from the app. A folder of that name in the current directory is installed instead. |
 | `~/code/triage` | A folder on this machine, copied into the app. |
 | `~/code/triage --link` | The same folder, served directly while you work on it. |
 | `~/Downloads/triage-1.2.0.zip` | A zip of a plugin, such as one attached to a release. |
@@ -73,7 +74,7 @@ flowchart LR
   r3(["pending reviews, once opened"]) -.-> c
 ```
 
-To upgrade a plugin, install the new version from its folder or its zip. The new version replaces the installed one for new reviews, and for the pending reviews it accepts.
+An official plugin is upgraded by the app: when an app update brings a newer version, *Settings › Plugins* shows *Update* on its row. To upgrade any other plugin, install the new version from its folder or its zip. The new version replaces the installed one for new reviews, and for the pending reviews it accepts.
 
 - **A newer version** replaces the installed one.
 - **An older version** also replaces it. The install panel says that the version is older before you install it, and the command line says so afterwards, for example *Replaced review 1.3.0 with the older 1.2.0*.
@@ -101,7 +102,7 @@ To change one of the plugins that come with Pinrail, link your copy of it under 
 pinrail plugins install ./list --link
 ```
 
-The link takes the plugin's place, so its reviews render with your folder. Removing the link removes the installation, and Pinrail installs its own copy again the next time it starts.
+The link takes the plugin's place, so its reviews render with your folder. Removing the link removes the installation. To use the official version again, install it by name.
 
 ## Removing a plugin
 
@@ -109,7 +110,7 @@ The link takes the plugin's place, so its reviews render with your folder. Remov
 pinrail plugins remove ticket_triage
 ```
 
-Removing a plugin stops new reviews from using it. Existing reviews keep the versions they were made with, so your history stays readable. The plugins that come with Pinrail cannot be removed.
+Removing a plugin stops new reviews from using it. Existing reviews keep the versions they were made with, so your history stays readable.
 
 ## What runs on your machine
 
