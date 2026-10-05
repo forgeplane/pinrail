@@ -338,9 +338,7 @@ export const scenes = [
       await page.locator(".inbox-repo").first().waitFor();
       await page.keyboard.press("Meta+,");
       await page.locator('[data-section="plugins"]').click();
-      await page.getByRole("button", { name: /Install…/ }).click();
       await page.getByRole("textbox", { name: "Source", exact: true }).fill(dir);
-      await page.locator("[data-install-look]").click();
       await page.getByText("ticket_triage").first().waitFor();
       await settle(page, 500);
       await shot("install");

@@ -172,11 +172,11 @@ export function SettingsDialog({
       .catch(() => setInfo(null));
     const onKey = (e: KeyboardEvent) => {
       // Esc while recording a shortcut is the recorder's, and in the
-      // install panel's field it closes the panel, not the dialog
+      // install panel it clears the source or closes the menu first
       if (
         e.key === "Escape" &&
         !document.querySelector(".shortcut-recorder.is-recording") &&
-        !document.activeElement?.closest("[data-install-panel]")
+        !document.activeElement?.matches("[data-install-source]:not(:placeholder-shown), .install-menu *")
       ) {
         e.stopPropagation();
         onClose();

@@ -1,26 +1,24 @@
 // Installing a plugin, in place in the Plugins section: one field for the
-// source, a look at what it is before it is installed, and what installing
-// replaces. Install is the consent.
+// source, looked at as soon as there is one, then what it is and what
+// installing replaces. Install is the consent; linking instead of copying
+// is chosen from the same button.
 
-import { FolderOpen, X } from "lucide-react";
+import { ChevronDown, FileArchive, FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { ApiError, api, inTauri, type InstallRequest } from "../../api/client";
+import { ApiError, api, inTauri } from "../../api/client";
 import type { Inspection, Plugin } from "../../api/types";
 import { takes } from "../../lib/format";
 import { PluginIcon } from "../PluginIcon";
-import { Tooltip } from "../Tooltip";
-import { Toggle } from "./controls";
 
 type Stage =
-  | { at: "source" }
+  | { at: "empty" }
   | { at: "looking" }
   | { at: "seen"; seen: Inspection }
   | { at: "installing"; seen: Inspection }
-  | { at: "done"; plugin: Plugin }
   | { at: "failed"; seen: Inspection; error: string };
 
-/** A zip, which is installed as it is and cannot be linked. */
-const isZip = (source: string) => /\.zip$/i.test(source.trim());
+/** How long typing pauses before the source is looked at. */
+const PAUSE = 600;
 
 const failure = (e: unknown) =>
   e instanceof ApiError
@@ -31,17 +29,10 @@ const failure = (e: unknown) =>
 
 /** Where the plugin comes from, in one line. */
 function Origin({ seen }: { seen: Inspection }) {
-  if (seen.source_kind === "folder") {
-    return (
-      <p>
-        {seen.link ? "Linked from the folder " : "From the folder "}
-        <span className="mono">{seen.source}</span>
-      </p>
-    );
-  }
   return (
     <p>
-      From the zip <span className="mono">{seen.source}</span>
+      {seen.source_kind === "folder" ? "From the folder " : "From the zip "}
+      <span className="mono">{seen.source}</span>
     </p>
   );
 }
@@ -54,10 +45,6 @@ function Consequences({ seen }: { seen: Inspection }) {
       {seen.source_kind === "archive" ? (
         <p className="install-runs" data-runs="nothing">
           <b>Nothing runs on your computer.</b> The bundle is unpacked, checked and used as it is.
-        </p>
-      ) : seen.link ? (
-        <p className="install-runs" data-runs="nothing">
-          <b>Nothing is copied.</b> Pinrail serves the folder directly, so changes appear the next time the view opens.
         </p>
       ) : (
         <p className="install-runs" data-runs="nothing">
@@ -111,75 +98,149 @@ function Consequences({ seen }: { seen: Inspection }) {
   );
 }
 
-export function InstallPanel({ initial, onClose }: { initial?: string; onClose: () => void }) {
+/** Install, with linking the folder in a menu beside it. */
+function InstallButton({ seen, onInstall }: { seen: Inspection; onInstall: (link: boolean) => void }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const label = seen.installed?.unchanged ? "Install again" : seen.installed ? "Replace" : "Install";
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    };
+    window.addEventListener("mousedown", onPointer);
+    return () => window.removeEventListener("mousedown", onPointer);
+  }, [open]);
+
+  const choose = (link: boolean) => {
+    setOpen(false);
+    onInstall(link);
+  };
+
+  // a zip is always unpacked and copied: there is nothing to link
+  if (seen.source_kind !== "folder") {
+    return (
+      <button
+        type="button"
+        className="chrome-button button-primary"
+        onClick={() => onInstall(false)}
+        data-install-confirm
+      >
+        {label}
+      </button>
+    );
+  }
+  return (
+    <div
+      ref={box}
+      className="install-split"
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="chrome-button button-primary"
+        onClick={() => onInstall(false)}
+        data-install-confirm
+      >
+        {label}
+      </button>
+      <button
+        type="button"
+        className="chrome-button button-primary install-split-more"
+        aria-label="More ways to install"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <ChevronDown size={14} />
+      </button>
+      {open ? (
+        <div className="install-menu" role="menu">
+          <button type="button" role="menuitem" autoFocus onClick={() => choose(false)}>
+            <span>Install a copy</span>
+            <span className="faint">Pinrail keeps its own copy of the folder.</span>
+          </button>
+          <button type="button" role="menuitem" onClick={() => choose(true)} data-install-link>
+            <span>Link to the folder</span>
+            <span className="faint">Nothing is copied. Changes to the folder appear the next time the view opens.</span>
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function InstallPanel({ initial, onInstalled }: { initial?: string; onInstalled: (plugin: Plugin) => void }) {
   const [source, setSource] = useState(initial ?? "");
-  const [link, setLink] = useState(false);
-  const [stage, setStage] = useState<Stage>({ at: "source" });
+  const [stage, setStage] = useState<Stage>({ at: "empty" });
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const panel = useRef<HTMLDivElement>(null);
-  const actions = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLDivElement>(null);
+  // only the latest look counts: an earlier one may answer after it
+  const looks = useRef(0);
+  const pause = useRef<number | undefined>(undefined);
   const native = inTauri();
 
-  useEffect(() => {
-    field.current?.focus();
-    panel.current?.scrollIntoView({ block: "nearest" });
-  }, []);
-
-  // what a look or an install adds sits below the field: bring it into view
-  useEffect(() => {
-    if (stage.at !== "source") actions.current?.scrollIntoView({ block: "nearest" });
-  }, [stage.at]);
-
-  const request = (): InstallRequest => ({ source: source.trim(), link: link && !isZip(source) });
-
-  const look = async () => {
-    if (!source.trim() || stage.at === "looking") return;
+  const look = async (from: string) => {
+    window.clearTimeout(pause.current);
+    const trimmed = from.trim();
+    const n = ++looks.current;
     setError(null);
+    if (!trimmed) {
+      setStage({ at: "empty" });
+      return;
+    }
     setStage({ at: "looking" });
     try {
-      setStage({ at: "seen", seen: await api.inspectPlugin(request()) });
+      const seen = await api.inspectPlugin({ source: trimmed, link: false });
+      if (n === looks.current) setStage({ at: "seen", seen });
     } catch (e) {
+      if (n !== looks.current) return;
       setError(failure(e));
-      setStage({ at: "source" });
+      setStage({ at: "empty" });
     }
   };
 
-  // the source given from a row is looked at right away
+  // a source given from a row is looked at right away, and shown
   useEffect(() => {
-    if (initial) look();
+    if (!initial) return;
+    look(initial);
+    field.current?.focus();
+    panel.current?.scrollIntoView({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the source the panel opened with
   }, []);
 
-  const install = async (seen: Inspection) => {
+  useEffect(() => () => window.clearTimeout(pause.current), []);
+
+  // what a look adds sits below the field: bring it into view
+  useEffect(() => {
+    if (stage.at === "seen") card.current?.scrollIntoView({ block: "nearest" });
+  }, [stage.at]);
+
+  const edit = (value: string) => {
+    setSource(value);
+    looks.current++;
     setError(null);
-    setStage({ at: "installing", seen });
-    try {
-      setStage({ at: "done", plugin: await api.installPlugin(request()) });
-    } catch (e) {
-      setStage({ at: "failed", seen, error: failure(e) });
-    }
+    setStage({ at: "empty" });
+    window.clearTimeout(pause.current);
+    if (value.trim()) pause.current = window.setTimeout(() => look(value), PAUSE);
   };
 
-  const setLinked = (v: boolean) => {
-    setLink(v);
-    if (stage.at === "seen") setStage({ at: "source" });
+  const clear = () => {
+    window.clearTimeout(pause.current);
+    looks.current++;
+    setSource("");
+    setError(null);
+    setStage({ at: "empty" });
   };
 
-  // one button: a native menu asks whether to choose a folder or a zip,
-  // since a dialog that takes both does not exist on every platform
-  const chooseFrom = async () => {
-    const { Menu } = await import("@tauri-apps/api/menu");
-    const menu = await Menu.new({
-      items: [
-        { id: "folder", text: "Choose a Folder…", action: () => void choose(false) },
-        { id: "zip", text: "Choose a Zip…", action: () => void choose(true) },
-      ],
-    });
-    await menu.popup();
-  };
-
-  // a folder, or a zip of one
   const choose = async (zip: boolean) => {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const picked = zip
@@ -192,136 +253,92 @@ export function InstallPanel({ initial, onClose }: { initial?: string; onClose: 
       : await open({ directory: true, multiple: false, title: "Choose the plugin folder" });
     if (typeof picked === "string") {
       setSource(picked);
-      setStage({ at: "source" });
+      look(picked);
     }
   };
 
-  const busy = stage.at === "looking" || stage.at === "installing";
+  const install = async (seen: Inspection, link: boolean) => {
+    setError(null);
+    setStage({ at: "installing", seen });
+    try {
+      const plugin = await api.installPlugin({ source: seen.source, link });
+      clear();
+      onInstalled(plugin);
+    } catch (e) {
+      setStage({ at: "failed", seen, error: failure(e) });
+    }
+  };
+
+  const busy = stage.at === "installing";
   const seen = "seen" in stage ? stage.seen : null;
 
   return (
     <div ref={panel} className="install-panel" data-install-panel>
-      <div className="install-panel-head">
-        <div className="settings-label">{stage.at === "done" ? "Installed" : "Install a plugin"}</div>
-        <Tooltip label="Close">
-          <button type="button" className="bar-button" onClick={onClose} aria-label="Close the install" disabled={busy}>
-            <X size={15} />
-          </button>
-        </Tooltip>
+      <div className="install-source">
+        <input
+          ref={field}
+          className="settings-input install-source-field"
+          type="text"
+          aria-label="Source"
+          placeholder={native ? "Paste a path, or choose a folder or a zip" : "/path/to/plugin or /path/to/plugin.zip"}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          value={source}
+          disabled={busy}
+          onChange={(e) => edit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") look(source);
+            if (e.key === "Escape" && source) {
+              e.stopPropagation();
+              clear();
+            }
+          }}
+          data-install-source
+        />
+        {native ? (
+          <>
+            <button type="button" className="chrome-button" onClick={() => choose(false)} disabled={busy}>
+              <FolderOpen size={14} /> Folder…
+            </button>
+            <button type="button" className="chrome-button" onClick={() => choose(true)} disabled={busy}>
+              <FileArchive size={14} /> Zip…
+            </button>
+          </>
+        ) : null}
       </div>
 
-      {stage.at === "source" || stage.at === "looking" || stage.at === "seen" ? (
-        <>
-          <div className="install-source">
-            <input
-              ref={field}
-              className="settings-input install-source-field"
-              type="text"
-              aria-label="Source"
-              placeholder="/path/to/plugin or /path/to/plugin.zip"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              value={source}
-              disabled={busy}
-              onChange={(e) => {
-                setSource(e.target.value);
-                if (stage.at === "seen") setStage({ at: "source" });
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") look();
-                if (e.key === "Escape" && !busy) {
-                  e.stopPropagation();
-                  onClose();
-                }
-              }}
-            />
-            {native ? (
-              <Tooltip label="Choose a folder or a zip">
-                <button
-                  type="button"
-                  className="bar-button"
-                  onClick={chooseFrom}
-                  aria-label="Choose a folder or a zip"
-                  disabled={busy}
-                >
-                  <FolderOpen size={15} />
-                </button>
-              </Tooltip>
-            ) : null}
-            <button
-              type="button"
-              className="chrome-button"
-              onClick={look}
-              disabled={busy || !source.trim()}
-              data-install-look
-            >
-              {stage.at === "looking" ? "Inspecting…" : "Inspect"}
-            </button>
-          </div>
-          {source.trim() && !isZip(source) ? (
-            <div className="install-link">
-              <Toggle label="Link instead of copying" checked={link} disabled={busy} onChange={setLinked} />
-              <span onClick={() => !busy && setLinked(!link)}>
-                Link instead of copying
-                <span className="faint"> (changes to the folder appear immediately)</span>
-              </span>
-            </div>
-          ) : null}
-          {error ? <p className="notice notice-danger install-error">{error}</p> : null}
-        </>
+      {stage.at === "looking" ? (
+        <p className="dim install-wait" data-install-looking>
+          Inspecting…
+        </p>
       ) : null}
+      {error ? <p className="notice notice-danger install-error">{error}</p> : null}
 
-      {seen && stage.at !== "done" ? (
-        <div className="install-seen" data-install-seen>
+      {seen ? (
+        <div ref={card} className="install-seen" data-install-seen>
           <div className="install-seen-head">
             <span className="settings-row-icon">
               <PluginIcon icon={seen.icon} size={16} strokeWidth={1.75} />
             </span>
-            <div>
+            <div className="install-seen-name">
               <div className="install-seen-title">{seen.title}</div>
               <div className="faint mono">
                 {seen.name} · {seen.version}
               </div>
             </div>
+            {stage.at === "installing" ? (
+              <span className="dim install-wait">Installing…</span>
+            ) : (
+              <InstallButton seen={seen} onInstall={(link) => install(seen, link)} />
+            )}
           </div>
           <Origin seen={seen} />
           <Consequences seen={seen} />
+          {stage.at === "failed" ? <p className="notice notice-danger install-error">{stage.error}</p> : null}
         </div>
       ) : null}
-
-      {stage.at === "failed" ? <p className="notice notice-danger install-error">{stage.error}</p> : null}
-
-      {stage.at === "done" ? (
-        <p className="install-done" data-install-done>
-          <b>{stage.plugin.title || stage.plugin.name}</b> {stage.plugin.version} is ready. Reviews for this plugin now
-          open with this version.
-        </p>
-      ) : null}
-
-      <div ref={actions} className="dialog-actions install-actions">
-        {stage.at === "seen" ? (
-          <button
-            type="button"
-            className="chrome-button button-primary"
-            onClick={() => install(stage.seen)}
-            data-install-confirm
-          >
-            {stage.seen.link ? "Link" : stage.seen.installed?.unchanged ? "Install again" : "Install"}
-          </button>
-        ) : stage.at === "failed" ? (
-          <button type="button" className="chrome-button" onClick={() => setStage({ at: "seen", seen: stage.seen })}>
-            Back
-          </button>
-        ) : stage.at === "done" ? (
-          <button type="button" className="chrome-button button-primary" onClick={onClose} data-install-close>
-            Done
-          </button>
-        ) : stage.at === "installing" ? (
-          <span className="dim install-wait">Installing…</span>
-        ) : null}
-      </div>
     </div>
   );
 }

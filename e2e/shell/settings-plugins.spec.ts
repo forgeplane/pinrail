@@ -27,7 +27,6 @@ async function servedView(page: Page, name: string): Promise<string> {
 async function openInstall(page: Page) {
   await page.goto("/#/plugins");
   await expect(page.locator("[data-settings]")).toBeVisible();
-  await page.locator("[data-install-open]").click();
   const panel = page.locator("[data-install-panel]");
   await expect(panel).toBeVisible();
   return panel;
@@ -38,18 +37,17 @@ test("the Plugins section lists what is installed and has no directories", async
   await expect(page.locator("[data-settings]")).toBeVisible();
   await expect(page.locator('[data-plugin-row="list"]')).toBeVisible();
   await expect(page.locator(".settings-group h3", { hasText: "Directories" })).toHaveCount(0);
-  await expect(page.locator("[data-install-open]")).toBeEnabled();
-  // a plugin comes from disk: no repositories or releases
-  const install = page.locator(".settings-row", { has: page.locator("[data-install-open]") });
-  await expect(install).toContainText("From a folder or a zip on this computer");
-  await expect(install).not.toContainText(/repository|release/i);
+  // a plugin comes from disk: the source field is there at once, for a path
+  const source = page.locator("[data-install-panel]").getByLabel("Source");
+  await expect(source).toBeEnabled();
+  await expect(source).toHaveAttribute("placeholder", "/path/to/plugin or /path/to/plugin.zip");
 });
 
 test("a folder is looked at before it is installed, and its row says where it came from", async ({ page }) => {
   const source = pluginCopy("hello", "greeter", "1.2.0");
   const dialog = await openInstall(page);
+  // a pause in typing is enough: the folder is looked at without a click
   await dialog.getByLabel("Source").fill(source);
-  await dialog.locator("[data-install-look]").click();
 
   const seen = dialog.locator("[data-install-seen]");
   await expect(seen).toContainText("greeter · 1.2.0");
@@ -57,11 +55,15 @@ test("a folder is looked at before it is installed, and its row says where it ca
   await expect(seen.locator('[data-runs="nothing"]')).toContainText("Nothing runs on your computer");
   await expect(seen.locator("[data-replaces]")).toHaveCount(0);
 
+  await expect(dialog.locator("[data-install-confirm]")).toHaveText("Install");
   await dialog.locator("[data-install-confirm]").click();
-  await expect(dialog.locator("[data-install-done]")).toContainText("1.2.0 is ready");
-  await dialog.locator("[data-install-close]").click();
 
+  // the app says so, the field is ready for the next one, and the row is marked
+  await expect(page.locator("[data-toast]").filter({ hasText: "Hello 1.2.0 is installed" })).toHaveCount(1);
+  await expect(dialog.getByLabel("Source")).toHaveValue("");
+  await expect(seen).toHaveCount(0);
   const row = page.locator('[data-plugin-row="greeter"]');
+  await expect(row).toHaveClass(/is-fresh/);
   await expect(row).toContainText("ready");
   await row.getByRole("button", { name: "Details of greeter" }).click();
   await expect(row.locator("[data-plugin-details]")).toContainText(`Copied from ${source}`);
@@ -76,19 +78,19 @@ test("a folder is looked at before it is installed, and its row says where it ca
   // the same version again says what it replaces
   const again = await openInstall(page);
   await again.getByLabel("Source").fill(source);
-  await again.locator("[data-install-look]").click();
   await expect(again.locator('[data-replaces="unchanged"]')).toContainText(
     "greeter 1.2.0 is already installed, from this source, and the source has not changed",
   );
+  await expect(again.locator("[data-install-confirm]")).toHaveText("Install again");
   // once the folder changes, installing the same version again copies it again
   fs.writeFileSync(path.join(source, "view/index.html"), "<html>second</html>");
-  await again.locator("[data-install-look]").click();
+  await again.getByLabel("Source").press("Enter");
   await expect(again.locator('[data-replaces="same"]')).toContainText(
     "greeter 1.2.0 is already installed. Installing replaces it for new reviews",
   );
+  await expect(again.locator("[data-install-confirm]")).toHaveText("Replace");
   await again.locator("[data-install-confirm]").click();
-  await expect(again.locator("[data-install-done]")).toContainText("1.2.0 is ready");
-  await again.locator("[data-install-close]").click();
+  await expect(again.locator("[data-install-seen]")).toHaveCount(0);
   expect(await servedView(page, "greeter")).toBe("<html>second</html>");
 
   // removing asks once, in the row, then the row goes
@@ -110,7 +112,6 @@ test("a plugin whose view is not built is refused with what to do", async ({ pag
   fs.rmSync(path.join(source, "view/index.html"));
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(source);
-  await dialog.locator("[data-install-look]").click();
   await expect(dialog.locator(".install-error")).toContainText(
     "view/index.html not found; build the plugin first, so that its view is in the folder",
   );
@@ -121,13 +122,12 @@ test("a link serves the folder live and offers to install a copy", async ({ page
   const source = pluginCopy("hello", "wip", "1.0.0");
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(source);
-  await dialog.getByRole("switch", { name: "Link instead of copying" }).click();
-  await dialog.locator("[data-install-look]").click();
-  await expect(dialog.locator('[data-runs="nothing"]')).toContainText("Nothing is copied");
-  await expect(dialog.locator("[data-install-confirm]")).toHaveText("Link");
-  await dialog.locator("[data-install-confirm]").click();
-  await expect(dialog.locator("[data-install-done]")).toBeVisible();
-  await dialog.locator("[data-install-close]").click();
+  await expect(dialog.locator("[data-install-seen]")).toContainText("wip · 1.0.0");
+  // linking is the other way to install, in the button's menu
+  await dialog.getByRole("button", { name: "More ways to install" }).click();
+  await expect(dialog.getByRole("menu")).toContainText("Changes to the folder appear the next time the view opens");
+  await dialog.locator("[data-install-link]").click();
+  await expect(dialog.locator("[data-install-seen]")).toHaveCount(0);
 
   const row = page.locator('[data-plugin-row="wip"]');
   await expect(row).toContainText("linked");
@@ -141,8 +141,7 @@ test("a link serves the folder live and offers to install a copy", async ({ page
     "wip 1.0.0 is already installed, as a link to this folder",
   );
   await copy.locator("[data-install-confirm]").click();
-  await expect(copy.locator("[data-install-done]")).toBeVisible();
-  await copy.locator("[data-install-close]").click();
+  await expect(copy.locator("[data-install-seen]")).toHaveCount(0);
   await expect(row).toContainText(`Copied from ${source}`);
 });
 
@@ -177,15 +176,17 @@ test("what is not a plugin is refused before anything runs", async ({ page }) =>
   const empty = scratch("pinrail-empty-");
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(empty);
-  await dialog.locator("[data-install-look]").click();
   await expect(dialog.locator(".install-error")).toContainText("manifest.json");
   await expect(dialog.locator("[data-install-confirm]")).toHaveCount(0);
 
-  // Esc in the field closes the panel, not the settings around it
+  // Esc in the field clears it first, and leaves the settings open
   await dialog.getByLabel("Source").press("Escape");
-  await expect(dialog).toHaveCount(0);
+  await expect(dialog.getByLabel("Source")).toHaveValue("");
+  await expect(dialog.locator(".install-error")).toHaveCount(0);
   await expect(page.locator("[data-settings]")).toBeVisible();
-  await expect(page.locator("[data-install-open]")).toBeVisible();
+  // once it is empty, Esc closes the settings
+  await dialog.getByLabel("Source").press("Escape");
+  await expect(page.locator("[data-settings]")).toHaveCount(0);
 });
 
 test("the buttons in a plugin's note do not fold its settings", async ({ page }) => {
@@ -205,18 +206,16 @@ test("the buttons in a plugin's note do not fold its settings", async ({ page })
   await expect(row, "Keep folded the settings open").not.toHaveClass(/is-open/);
 });
 
-test("an install the app could not do says why, and the panel can go back", async ({ page }) => {
+test("an install the app could not do says why, and can be tried again", async ({ page }) => {
   const source = pluginCopy("hello", "wobbly", "1.0.0");
   await page.route(`${core}/api/v1/plugins/install`, (route) =>
     route.fulfill({ status: 500, contentType: "text/plain", body: "the server is restarting" }),
   );
   const dialog = await openInstall(page);
   await dialog.getByLabel("Source").fill(source);
-  await dialog.locator("[data-install-look]").click();
   await dialog.locator("[data-install-confirm]").click();
 
   await expect(dialog.locator(".install-error")).toContainText("request failed (500)");
-  await expect(page.locator('[aria-label="Close the install"]')).toBeEnabled();
-  await dialog.getByRole("button", { name: "Back" }).click();
-  await expect(dialog.locator("[data-install-confirm]")).toBeVisible();
+  await expect(dialog.getByLabel("Source")).toHaveValue(source);
+  await expect(dialog.locator("[data-install-confirm]")).toBeEnabled();
 });

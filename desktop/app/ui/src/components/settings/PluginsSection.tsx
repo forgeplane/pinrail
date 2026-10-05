@@ -1,6 +1,6 @@
 // The Plugins section: the registered plugins, each with where it came
 // from, a Notify toggle and its own settings folded under it; and the way
-// in, the install dialog.
+// in, the install panel.
 
 import {
   Bell,
@@ -38,8 +38,10 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
   const live = useLive();
   const { settings, update } = useSettings();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
-  /** the install panel, with the source it opens on */
-  const [installing, setInstalling] = useState<{ source?: string } | null>(null);
+  /** a source for the install panel to open on, from a row; `n` remounts it for each */
+  const [copying, setCopying] = useState<{ source: string; n: number } | null>(null);
+  /** the plugin just installed, marked in the list for a moment */
+  const [fresh, setFresh] = useState<string | null>(null);
   const notify = useToast();
   const native = inTauri();
   const muted = settings.notifications.muted_plugins;
@@ -73,20 +75,25 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
     update({ notifications: { muted_plugins: next } });
   };
 
+  useEffect(() => {
+    if (!fresh) return;
+    const timer = window.setTimeout(() => setFresh(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [fresh]);
+
+  const installed = (plugin: Plugin) => {
+    notify(`${plugin.title || plugin.name} ${plugin.version} is installed`);
+    setCopying(null);
+    setFresh(plugin.name);
+    load().catch(() => {});
+  };
+
   const broken = plugins.filter((p) => !p.usable).length;
 
   return (
     <SettingsPage title="Plugins">
       <SettingsGroup caption="Install">
-        {installing ? (
-          <InstallPanel key={installing.source ?? ""} initial={installing.source} onClose={() => setInstalling(null)} />
-        ) : (
-          <SettingsRow label="Install a plugin" description="From a folder or a zip on this computer">
-            <button type="button" className="chrome-button" onClick={() => setInstalling({})} data-install-open>
-              <PackagePlus size={14} /> Install…
-            </button>
-          </SettingsRow>
-        )}
+        <InstallPanel key={copying?.n ?? 0} initial={copying?.source} onInstalled={installed} />
       </SettingsGroup>
 
       <SettingsGroup
@@ -106,12 +113,13 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
             muted={muted.includes(p.name)}
             stored={settings.plugins[p.name] ?? {}}
             open={focus === p.name}
+            fresh={fresh === p.name}
             onReveal={() => reveal(p.install?.link ? p.install.source : p.path)}
             onNotify={(on) => setNotify(p.name, on)}
             links={allowedOrigins(p)}
             onForgetLink={(origin) => forgetLink(p, origin)}
             onChange={(values) => update({ plugins: { [p.name]: values } })}
-            onCopy={() => setInstalling({ source: p.install?.source ?? p.path })}
+            onCopy={() => setCopying((c) => ({ source: p.install?.source ?? p.path, n: (c?.n ?? 0) + 1 }))}
             onMessage={notify}
             onOpenReview={onOpenReview}
           />
@@ -148,6 +156,7 @@ function PluginEntry({
   muted,
   stored,
   open: openAtStart,
+  fresh,
   onReveal,
   onNotify,
   links,
@@ -162,6 +171,8 @@ function PluginEntry({
   muted: boolean;
   stored: Record<string, unknown>;
   open: boolean;
+  /** just installed: marked, and scrolled to */
+  fresh: boolean;
   onReveal: () => void;
   onNotify: (on: boolean) => void;
   links: string[];
@@ -184,6 +195,10 @@ function PluginEntry({
       box.current?.scrollIntoView({ block: "start" });
     }
   }, [openAtStart]);
+
+  useEffect(() => {
+    if (fresh) box.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [fresh]);
 
   const resetAll = () => onChange(Object.fromEntries(entries.map(([key, property]) => [key, property.default])));
   const toggle = () => setOpen((o) => !o);
@@ -264,7 +279,7 @@ function PluginEntry({
   return (
     <div
       ref={box}
-      className={`settings-plugin ${open ? "is-open" : ""}`}
+      className={`settings-plugin ${open ? "is-open" : ""} ${fresh ? "is-fresh" : ""}`}
       data-plugin-settings={p.name}
       data-plugin-row={p.name}
     >
