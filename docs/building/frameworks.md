@@ -10,7 +10,7 @@ This page builds one plugin, **Ship it?**, in four ways. An agent is about to de
 ![Ship it?, built with React: a deploy of payments-api v2.4.1 with a failing canary check, Ship chosen and a note to the agent written.](screenshot:ship-it "Ship it?: the changes going out, the checks, and the choice, with the hand-over button saying what it will do.")
 
 :::tip[Simple plugins stay simple]
-A plugin with a view of a screen or two needs no framework and no build: an HTML page with an inline script is enough, and there is nothing to install, build or keep up to date. The [List](/docs/plugins/list/) and [Logo](/docs/plugins/logo/) plugins' views are plain HTML. Reach for a framework when the view has enough state and pieces to need one.
+A plugin with a view of a screen or two needs no framework and no build: an HTML page with an inline script is enough, and there is nothing to install, build or keep up to date. The [List](/docs/plugins/list/) and [Image review](/docs/plugins/image/) plugins' views are plain HTML. Reach for a framework when the view has enough state and pieces to need one.
 :::
 
 ## What the app needs from a build

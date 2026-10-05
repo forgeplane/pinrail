@@ -125,11 +125,7 @@ export default defineConfig({
             "docs/plugins/code-review",
             "docs/plugins/image",
             "docs/plugins/markdown",
-            "docs/plugins/email",
-            "docs/plugins/artifact",
-            "docs/plugins/calendar",
-            "docs/plugins/logo",
-            "docs/plugins/model",
+            "docs/plugins/more",
           ],
         },
         {

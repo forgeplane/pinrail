@@ -134,20 +134,20 @@ A dry run checks the title, the origin and the payload against the plugin's sche
 
 ### Sending files
 
-Some plugins take files beside the payload. The plugin's payload schema says where each file goes, and `pinrail plugins describe <name>` shows it with the kinds and sizes the plugin accepts; a plugin that declares none refuses a submission with files. Build the payload as the schema says, and send each file it names with `--attach`. A schema marks a file's place with an object whose one key, `$attachment`, holds the file's name. For the [3D model](/docs/plugins/model/) plugin:
+Some plugins take files beside the payload. The plugin's payload schema says where each file goes, and `pinrail plugins describe <name>` shows it with the kinds and sizes the plugin accepts; a plugin that declares none refuses a submission with files. Build the payload as the schema says, and send each file it names with `--attach`. A schema marks a file's place with an object whose one key, `$attachment`, holds the file's name. For the [Image review](/docs/plugins/image/) plugin:
 
 ```sh
-pinrail submit model --title "Halden desk lamp — round 1" --data models.json \
-  --attach out/pivot.glb --attach out/v2.glb=column.glb --wait
+pinrail submit image --title "Empty inbox illustration — round 1" --data images.json \
+  --attach out/paper-plane.png --attach out/v2.png=mailbox.png --wait
 ```
 
-```json title="models.json"
+```json title="images.json"
 {
-  "models": [
+  "images": [
     {
-      "id": "L1",
-      "name": "Pivot",
-      "file": { "$attachment": "pivot.glb" }
+      "id": "A",
+      "name": "Paper plane",
+      "file": { "$attachment": "paper-plane.png" }
     }
   ]
 }
@@ -159,7 +159,7 @@ The files come back with `pinrail attachments`:
 
 ```sh
 pinrail attachments list <id>                        # name, size, media type and hash of each
-pinrail attachments get <id> pivot.glb -o pivot.glb  # save one; -o - writes it to stdout
+pinrail attachments get <id> paper-plane.png -o paper-plane.png  # save one; -o - writes it to stdout
 ```
 
 ## Waiting
