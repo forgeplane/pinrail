@@ -324,7 +324,7 @@ test("layout builds a body on its own, and a header when asked for one", () => {
   assert.equal(bare.body.className, "pinrail-layout");
   assert.deepEqual(
     bare.body.children.map((n) => n.className),
-    ["pinrail-scroll"],
+    ["pinrail-scroll", "pinrail-confirmation"],
   );
   assert.deepEqual(plain.scroll.children, [plain.content], "the body scrolls, the document does not");
 
@@ -332,7 +332,7 @@ test("layout builds a body on its own, and a header when asked for one", () => {
   const view = Pinrail.layout({ document: doc, title: "5 items" });
   assert.deepEqual(
     doc.body.children.map((n) => n.className),
-    ["pinrail-header", "pinrail-scroll"],
+    ["pinrail-header", "pinrail-scroll", "pinrail-confirmation"],
   );
   assert.deepEqual(
     view.header.children.map((n) => n.className),
@@ -372,7 +372,7 @@ test("layout can be put somewhere other than the body", () => {
   assert.deepEqual(doc.body.children, []);
   assert.deepEqual(
     host.children.map((n) => n.className),
-    ["pinrail-header", "pinrail-scroll"],
+    ["pinrail-header", "pinrail-scroll", "pinrail-confirmation"],
   );
   assert.equal(host.children[1], view.scroll);
   assert.equal(view.scroll.children[0], view.content);
@@ -724,4 +724,29 @@ test("the teardown leaves no listener or timer of the client behind", () => {
   plugin[Symbol.for("pinrail.teardown")]();
   assert.equal(env.active(), 0);
   assert.equal(env.timers.length, 0);
+});
+
+test("layout's confirmation bar asks before the next hand-over, in the tone the view picks", () => {
+  const doc = fakeDocument();
+  const view = Pinrail.layout({ document: doc, header: true });
+  const bar = view.confirmationBar;
+  assert.equal(bar.hidden, true, "nothing to confirm until the view asks");
+
+  const keep = doc.createElement("button");
+  assert.equal(view.confirmation({ text: "2 left undecided.", actions: [keep] }), view, "it chains");
+  assert.equal(bar.hidden, false);
+  assert.equal(bar.className, "pinrail-confirmation pinrail-confirmation-warning", "warning unless told otherwise");
+  const [text, actions] = bar.children;
+  assert.equal(text.textContent, "2 left undecided.");
+  assert.deepEqual(actions.children, [keep]);
+
+  view.confirmation({ text: "Nothing will be sent.", tone: "danger" });
+  assert.equal(bar.className, "pinrail-confirmation pinrail-confirmation-danger");
+  assert.deepEqual(actions.children, []);
+  view.confirmation({ text: "x", tone: "loud" });
+  assert.equal(bar.className, "pinrail-confirmation pinrail-confirmation-warning", "an unknown tone is a warning");
+
+  view.confirmation(null);
+  assert.equal(bar.hidden, true);
+  assert.equal(text.textContent, "");
 });

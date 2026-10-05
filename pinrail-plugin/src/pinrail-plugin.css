@@ -184,6 +184,46 @@
     min-height: 0;
     overflow-y: auto;
   }
+  /* what the view asks the person to confirm before the next hand-over,
+     under the body and above the app's hand-over button */
+  .pinrail-confirmation {
+    --pinrail-confirmation-tone: var(--pinrail-warning);
+    flex: none;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 22px;
+    border-top: 1px solid color-mix(in oklab, var(--pinrail-confirmation-tone) 40%, var(--pinrail-border));
+    background: color-mix(in oklab, var(--pinrail-confirmation-tone) 10%, var(--pinrail-bg-panel));
+    color: var(--pinrail-text);
+    font-size: 12.5px;
+  }
+  .pinrail-confirmation[hidden] {
+    display: none;
+  }
+  .pinrail-confirmation::before {
+    content: "";
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--pinrail-confirmation-tone);
+  }
+  .pinrail-confirmation-info {
+    --pinrail-confirmation-tone: var(--pinrail-info);
+  }
+  .pinrail-confirmation-danger {
+    --pinrail-confirmation-tone: var(--pinrail-danger);
+  }
+  .pinrail-confirmation-text {
+    flex: 1 1 240px;
+    min-width: 0;
+  }
+  .pinrail-confirmation-actions {
+    display: inline-flex;
+    gap: 6px;
+  }
   .pinrail-header {
     flex: none;
     position: sticky;

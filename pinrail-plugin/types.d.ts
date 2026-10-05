@@ -270,9 +270,19 @@ export type Layout = {
   scroll: HTMLElement;
   /** render into this */
   content: HTMLElement;
+  /** the bar under the body that confirmation() fills */
+  confirmationBar: HTMLElement;
   title(text: string | null): Layout;
   meta(items: string | (HTMLElement | string)[] | null): Layout;
   controls(items: HTMLElement | (HTMLElement | string)[] | null): Layout;
+  /** what to confirm before the next hand-over, in a bar under the body; null hides it */
+  confirmation(
+    value: {
+      text: string;
+      tone?: "warning" | "info" | "danger";
+      actions?: HTMLElement | (HTMLElement | string)[];
+    } | null,
+  ): Layout;
 };
 
 /** `window.Pinrail`, from /sdk/v1/pinrail-plugin.js. */

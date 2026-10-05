@@ -370,6 +370,8 @@
    * Ask for a header by passing any of title, meta or controls (or
    * `header: true`); without them you get a content element and nothing else.
    */
+  const CONFIRMATION_TONES = ["warning", "info", "danger"];
+
   function layout(options) {
     options = options || {};
     const doc = options.document || (typeof document === "undefined" ? null : document);
@@ -422,10 +424,22 @@
     scroll.append(content);
     into.append(scroll);
 
+    // What the view asks the person to confirm before the next hand-over,
+    // such as items left undecided: a bar under the body, above the app's
+    // hand-over button, the same in every plugin. Hidden until asked for.
+    const bar = make("div", "pinrail-confirmation");
+    bar.hidden = true;
+    bar.role = "status";
+    const barText = make("span", "pinrail-confirmation-text");
+    const barActions = make("span", "pinrail-confirmation-actions");
+    bar.append(barText, barActions);
+    into.append(bar);
+
     const view = {
       header,
       scroll,
       content,
+      confirmationBar: bar,
       title(value) {
         if (titleNode) titleNode.textContent = value == null ? "" : String(value);
         return view;
@@ -436,6 +450,23 @@
       },
       controls(value) {
         if (controlsNode) fill(controlsNode, value);
+        return view;
+      },
+      /* { text, tone, actions } shows the bar: a warning unless `tone` is
+         "info" or "danger", with the actions, such as a button that keeps
+         the person deciding, at its end. null hides it. */
+      confirmation(value) {
+        if (!value) {
+          bar.hidden = true;
+          barText.textContent = "";
+          fill(barActions, null);
+          return view;
+        }
+        const tone = CONFIRMATION_TONES.includes(value.tone) ? value.tone : "warning";
+        bar.className = `pinrail-confirmation pinrail-confirmation-${tone}`;
+        barText.textContent = value.text == null ? "" : String(value.text);
+        fill(barActions, value.actions);
+        bar.hidden = false;
         return view;
       },
     };
