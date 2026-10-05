@@ -449,7 +449,7 @@ function addComment() {
   const comment = pop.querySelector("textarea").value.trim();
   if (!picked || !comment) return;
   const n = comments.reduce((m, c) => Math.max(m, c.n), 0) + 1;
-  comments.push({ n, context: contextNow(), tag: picked.tag, text: picked.text, selector: picked.selector, comment });
+  comments.push({ n, at: Date.now(), context: contextNow(), tag: picked.tag, text: picked.text, selector: picked.selector, comment });
   saveComments();
   closePop();
   drawComments();
@@ -524,10 +524,12 @@ $("show-payload").addEventListener("click", () => {
   if (on) { setSelecting(false); drawPayload(); }
 });
 
-// files change, the view reloads; the draft comes back with the next init
+// files change, the view reloads; the draft comes back with the next init.
+// Comments cleared from outside, by an agent that made the changes they
+// asked for, are cleared here too.
 setInterval(async () => {
   try {
-    const { stamp: now } = await (await fetch("/dev/stamp")).json();
+    const { stamp: now, commentsCleared } = await (await fetch("/dev/stamp")).json();
     $("watch").classList.add("on");
     if (stamp !== null && now !== stamp) reload();
     stamp = now;
@@ -571,3 +573,9 @@ setInterval(async () => {
 </script>
 </body>
 </html>
+    const kept = comments.filter((c) => (c.at ?? 0) > commentsCleared);
+    if (kept.length !== comments.length) {
+      comments = kept;
+      saveComments();
+      drawComments();
+    }

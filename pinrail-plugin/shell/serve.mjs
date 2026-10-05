@@ -4,7 +4,8 @@
  * directory under the app's CSP, the SDK beside it, and a page that plays
  * the shell — pick a fixture, see the view, collect a decision, read what
  * the view posts, and select parts of the view to comment on. Files are
- * watched; a change reloads the view.
+ * watched; a change reloads the view. A POST to /dev/clear-comments clears
+ * the page's comments, for an agent that has made the changes they asked.
  *
  *   pinrail-plugin dev ./plugins/hello [--port 4790] [--no-open]
  *
@@ -203,6 +204,11 @@ export function serve(argv) {
     process.exit(2);
   }
 
+  // when the comments were last cleared from outside the page, by an agent
+  // that has made the changes they asked for; the page drops every comment
+  // made before then, whenever it hears of it
+  let commentsCleared = 0;
+
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
     const origin = `http://${req.headers.host}`;
@@ -267,8 +273,12 @@ export function serve(argv) {
       });
       return;
     }
+    if (p === "/dev/clear-comments" && req.method === "POST") {
+      commentsCleared = Date.now();
+      return send(res, 204, "");
+    }
     if (p === "/dev/stamp")
-      return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir }), {
+      return send(res, 200, JSON.stringify({ stamp: stamp(pluginDir), dir: pluginDir, commentsCleared }), {
         "content-type": "application/json",
       });
     // the stylesheet imports ./fonts.css, which names its faces in ./files/

@@ -132,3 +132,27 @@ test("the payload switch shows the review's payload as coloured JSON in place of
     await expect(json).toBeHidden();
   });
 });
+
+test("a request to the dev server clears the page's comments, as an agent does once it has made the changes", async ({
+  page,
+}) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    const yes = page.frameLocator("#frame").getByRole("button", { name: "Yes" });
+    await expect(yes).toBeVisible();
+    await page.locator("#select").click();
+    await yes.click();
+    await page.locator("#comment-pop textarea").fill("Make Yes the primary button.");
+    await page.locator("#comment-pop").getByRole("button", { name: "Comment" }).click();
+    await expect(page.locator("#comments .comment")).toHaveCount(1);
+
+    const cleared = await fetch(new URL("/dev/clear-comments", url), { method: "POST" });
+    expect(cleared.status).toBe(204);
+    await expect(page.locator("#comments .comment")).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator("#comments .comment")).toHaveCount(0);
+  });
+});

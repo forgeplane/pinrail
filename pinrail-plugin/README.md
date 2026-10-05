@@ -117,8 +117,14 @@ it: instead of reaching the view, the click opens a comment on that element.
 Comments are kept in the browser for the plugin, grouped by the review and
 mode you made them in, and marked on the view with numbered pins. **Copy
 comments** puts them on the clipboard as Markdown, with each element's
-selector, to paste to the agent that works on the plugin. **Payload** shows
-the review's payload as JSON in place of the view.
+selector, to paste to the agent that works on the plugin. Once it has made
+the changes, the agent clears them with a request to the shell:
+
+```sh
+curl -X POST http://127.0.0.1:4790/dev/clear-comments
+```
+
+**Payload** shows the review's payload as JSON in place of the view.
 
 ### test
 
