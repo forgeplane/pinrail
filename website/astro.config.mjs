@@ -123,6 +123,7 @@ export default defineConfig({
             "docs/plugins/list",
             "docs/plugins/feedback",
             "docs/plugins/code-review",
+            "docs/plugins/image",
             "docs/plugins/email",
             "docs/plugins/artifact",
             "docs/plugins/calendar",

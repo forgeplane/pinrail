@@ -47,8 +47,8 @@ To see it before any agent asks with it, send its sample: `pinrail submit code-r
 ```md title="AGENTS.md"
 ## Before posting review comments
 
-Never post review comments directly. Submit them to Pinrail as a `review` and
-wait for my decision:
+Never post review comments directly. Submit them to Pinrail with the
+`code-review` plugin and wait for my decision:
 
 1. Write the payload: the change, each file's unified diff (as `git diff`
    prints it), and one proposal per comment, anchored on `file` and `line`.
