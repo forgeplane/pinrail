@@ -234,8 +234,22 @@ body {
   border-color: var(--pinrail-success);
   background: var(--pinrail-success);
 }
+/* a required question still to answer reads in full colour, marked with
+   an asterisk, so it stands out from the optional ones */
+.rail-question.is-required {
+  color: var(--pinrail-text);
+}
 .rail-question.is-required .rail-dot {
   border-color: var(--pinrail-accent);
+}
+.rail-required {
+  flex: none;
+  margin-left: -6px;
+  color: var(--pinrail-accent);
+  font-weight: 600;
+}
+.rail-question.is-error .rail-required {
+  color: var(--pinrail-danger);
 }
 .rail-question.is-error .rail-dot {
   border-color: var(--pinrail-danger);
@@ -289,9 +303,8 @@ body {
 
 .request-description {
   margin: 0 0 24px;
-  padding: 12px 14px;
-  border: 1px dashed var(--pinrail-border);
-  border-radius: 10px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--pinrail-accent);
   color: var(--pinrail-dim);
   font-size: 13px;
   line-height: 1.65;
@@ -338,27 +351,25 @@ body {
   margin-bottom: 0;
 }
 
-/* One question, as a card: the prompt across the top, and under it, in one
-   column, the agent's recommendation, the answer and the comment. */
+/* One question, a row of the group: the prompt across the top, and under
+   it, in one column, the agent's recommendation, the answer and the
+   comment. A rule separates it from the next. */
 .question {
   min-width: 0;
-  margin: 0 0 10px;
-  padding: 16px 18px 18px;
-  border: 1px solid var(--pinrail-border);
-  border-radius: 12px;
-  background: var(--pinrail-bg-panel);
+  margin: 0;
+  padding: 14px 0 16px 12px;
+  border: 0;
+  border-top: 1px solid var(--pinrail-border);
+  border-left: 2px solid transparent;
+  border-radius: 0;
   scroll-margin-top: 16px;
 }
-.question.is-answered {
-  border-color: color-mix(in oklab, var(--pinrail-success) 28%, var(--pinrail-border));
-}
 .question.is-error {
-  border-color: color-mix(in oklab, var(--pinrail-danger) 55%, transparent);
+  border-left-color: var(--pinrail-danger);
 }
 /* the question j and k are on */
 .question.is-current {
-  border-color: var(--pinrail-accent);
-  box-shadow: 0 0 0 1px var(--pinrail-accent);
+  border-left-color: var(--pinrail-accent);
 }
 .question legend {
   display: flex;
@@ -408,9 +419,6 @@ body {
   gap: 12px;
 }
 .requirement {
-  padding: 1px 7px;
-  border-radius: 99px;
-  border: 1px solid var(--pinrail-border);
   font: 500 10px var(--pinrail-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -419,7 +427,6 @@ body {
 }
 .requirement.is-required {
   color: var(--pinrail-accent);
-  border-color: color-mix(in oklab, var(--pinrail-accent) 35%, transparent);
 }
 .clear-answer {
   display: inline-flex;
@@ -470,37 +477,30 @@ body {
 
 /* --------------------------------------------------------------- answers */
 
-/* the options fill the row, as many to a line as fit */
+/* the options, one to a row, with a rule between them */
 .choices {
   display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-.choices.described {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 .choice {
   display: flex;
   align-items: flex-start;
   gap: 11px;
-  padding: 11px 13px;
-  border: 1px solid var(--pinrail-border);
-  border-radius: 10px;
-  background: var(--pinrail-bg);
+  padding: 8px 10px;
+  border-top: 1px solid var(--pinrail-border);
   cursor: pointer;
 }
+.choice:first-child {
+  border-top: 0;
+}
 .choice:hover {
-  border-color: var(--pinrail-border-strong);
   background: var(--pinrail-bg-hover);
 }
 .choice:has(:focus-visible) {
   outline: 2px solid var(--pinrail-accent);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 .choice.is-selected {
-  border-color: var(--pinrail-accent);
   background: var(--pinrail-accent-bg);
-  box-shadow: inset 0 0 0 1px var(--pinrail-accent);
 }
 .choice-copy {
   display: block;
@@ -527,14 +527,21 @@ body {
   display: inline-flex;
   padding: 1px 6px;
   border-radius: 4px;
-  border: 1px solid color-mix(in oklab, var(--pinrail-accent) 35%, transparent);
+  background: var(--pinrail-accent-bg);
   color: var(--pinrail-accent);
   font-size: 9.5px;
   font-weight: 500;
   letter-spacing: 0.02em;
 }
+/* yes and no, side by side */
 .boolean-choices {
-  grid-template-columns: repeat(2, minmax(120px, 180px));
+  display: flex;
+  gap: 4px;
+}
+.boolean-choices .choice {
+  border-top: 0;
+  border-radius: 6px;
+  padding: 5px 12px 5px 8px;
 }
 
 input[type="radio"],
@@ -549,6 +556,10 @@ input[type="checkbox"] {
 input:disabled {
   cursor: default;
 }
+/* an option past the question's limit */
+.choice.is-waiting {
+  color: var(--pinrail-faint);
+}
 .choice:has(input:disabled),
 .acknowledgment:has(input:disabled) {
   cursor: default;
@@ -562,32 +573,29 @@ input:disabled {
   align-items: flex-start;
   gap: 11px;
   max-width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--pinrail-border);
-  border-radius: 10px;
-  background: var(--pinrail-bg);
+  padding: 6px 12px 6px 8px;
+  border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
 }
 .acknowledgment:hover {
-  border-color: var(--pinrail-border-strong);
+  background: var(--pinrail-bg-hover);
 }
 .acknowledgment.is-selected {
-  border-color: var(--pinrail-accent);
   background: var(--pinrail-accent-bg);
-  box-shadow: inset 0 0 0 1px var(--pinrail-accent);
 }
 
 .text-answer {
   display: block;
   width: 100%;
-  min-height: 110px;
-  padding: 11px 13px;
-  border-radius: 10px;
+  min-height: 90px;
+  max-height: 320px;
+  padding: 9px 11px;
+  border-radius: 6px;
   background: var(--pinrail-bg);
   font-size: 13px;
   line-height: 1.65;
-  resize: vertical;
+  resize: none;
 }
 .text-limit {
   margin-top: 4px;
@@ -595,6 +603,11 @@ input:disabled {
   text-align: right;
   color: var(--pinrail-faint);
   font-size: 10px;
+}
+.question-comment:focus-visible,
+.text-answer:focus-visible {
+  outline: none;
+  border-color: var(--pinrail-accent);
 }
 textarea:disabled {
   opacity: 1;
@@ -609,10 +622,9 @@ textarea:disabled {
   display: flex;
   align-items: center;
   gap: 10px 16px;
-  padding: 11px 14px;
-  border-radius: 10px;
+  padding: 8px 12px;
+  border-left: 2px solid var(--pinrail-accent);
   background: var(--pinrail-accent-bg);
-  border: 1px solid color-mix(in oklab, var(--pinrail-accent) 22%, transparent);
 }
 .agent-copy {
   flex: 1;
@@ -673,44 +685,48 @@ textarea:disabled {
 }
 .agent-card.is-taken {
   background: none;
-  border-style: dashed;
+  border-left-color: var(--pinrail-border-strong);
 }
 
-.question-actions {
-  display: flex;
-  align-items: center;
-}
-.question-actions button {
+.comment-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 100%;
-  padding: 4px 0;
+  gap: 4px;
+  padding: 0;
   border: 0;
   background: none;
-  color: var(--pinrail-dim);
-  font-size: 12px;
-}
-.question-actions button:hover {
-  color: var(--pinrail-text);
-}
-.comment-toggle .pinrail-icon {
-  flex: none;
-}
-.comment-toggle.has-comment[aria-expanded="false"] {
-  color: var(--pinrail-text);
-}
-.comment-preview {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
   color: var(--pinrail-faint);
-  font-style: italic;
+  font-size: 11px;
+  font-weight: 500;
 }
-.comment-preview::before {
-  content: "— ";
-  font-style: normal;
+.comment-toggle:hover {
+  color: var(--pinrail-text);
+}
+/* a comment written, shown as text; a click on it opens it for editing */
+.comment-view {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 0;
+  border-left: 2px solid var(--pinrail-faint);
+  background: color-mix(in oklab, var(--pinrail-text) 6%, var(--pinrail-bg-panel));
+  color: var(--pinrail-text);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.comment-view > :first-child {
+  margin-top: 0;
+}
+.comment-view > :last-child {
+  margin-bottom: 0;
+}
+.comment-view.is-editable {
+  cursor: text;
+}
+.comment-view.is-editable:hover {
+  border-left-color: var(--pinrail-accent);
 }
 
 .comment-wrap {
@@ -746,12 +762,13 @@ textarea:disabled {
   display: block;
   width: 100%;
   min-height: 72px;
-  padding: 9px 11px;
-  border-radius: 9px;
+  max-height: 240px;
+  padding: 8px 10px;
+  border-radius: 6px;
   background: var(--pinrail-bg);
   font-size: 12.5px;
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
 }
 
 /* what the round before decided, for a question being asked again */
@@ -782,25 +799,28 @@ textarea:disabled {
 
 /* ------------------------------------------------------ errors and notes */
 
+/* a strip in the danger tone, like the agent's recommendation in its own */
 .question-error {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   margin: 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--pinrail-danger);
+  background: var(--pinrail-del-bg);
   color: var(--pinrail-danger);
-  font-size: 12px;
+  font-size: 12.5px;
+  font-weight: 500;
 }
-.is-error .choice,
-.is-error .text-answer,
-.is-error .acknowledgment {
+.is-error .text-answer {
   border-color: color-mix(in oklab, var(--pinrail-danger) 45%, var(--pinrail-border));
 }
 
 .validation-banner {
   margin-bottom: 18px;
   padding: 11px 13px;
-  border-radius: 10px;
   font-size: 12.5px;
-  border: 1px solid color-mix(in oklab, var(--pinrail-danger) 35%, transparent);
+  border-left: 2px solid var(--pinrail-danger);
   background: var(--pinrail-del-bg);
   color: var(--pinrail-danger);
 }

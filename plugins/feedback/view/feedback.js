@@ -6,13 +6,24 @@
     md = Pinrail.markdown,
     ico = (name) => Pinrail.icon(name, { size: 14 });
   const app = document.getElementById("app");
+  // the layout's confirmation bar, as Pinrail.layout() builds it, which says
+  // what is missing after a hand-over that could not go
+  const bar = document.createElement("div");
+  bar.className = "pinrail-confirmation pinrail-confirmation-warning";
+  bar.setAttribute("role", "status");
+  bar.hidden = true;
+  bar.innerHTML =
+    '<div class="pinrail-confirmation-text"></div><div class="pinrail-confirmation-actions"><button type="button" class="pinrail-btn pinrail-btn-ghost" data-first-error="1">Go to the first</button></div>';
   let payload,
     state,
     previous,
     showErrors = false,
     shellErrors = [],
+    // the questions whose comment is open for editing; the rest show it as text
     opened = new Set(),
-    composing = false;
+    composing = false,
+    rendering = false,
+    pressing = false;
   // the rail of groups: shown by default, and the choice is the shell's to
   // keep, so it holds for the next set of questions too
   let railOpen = true;
@@ -27,7 +38,7 @@
       try {
         payload = C.validate(review.payload);
         state = C.restore(payload, review.decision?.data || draft);
-        opened = withComments();
+        opened = new Set();
       } catch (e) {
         payload = null;
         app.innerHTML = `<div class="fatal" role="alert"><h1>Unable to show these questions</h1><p>${esc(e.message)}</p></div>`;
@@ -44,9 +55,7 @@
       } catch {
         showErrors = true;
         render();
-        const first = app.querySelector('[aria-invalid="true"]');
-        first?.focus();
-        first?.scrollIntoView({ block: "center" });
+        firstError();
       }
     },
     onViolations(errors) {
@@ -57,7 +66,7 @@
     onSubmitted() {
       if (!payload) return;
       state = C.restore(payload, plugin.review.decision?.data);
-      opened = withComments();
+      opened = new Set();
       shellErrors = [];
       showErrors = false;
       render();
@@ -67,10 +76,6 @@
       render();
     },
   });
-  // a comment already written starts open; after that, open is the person's call
-  function withComments() {
-    return new Set(Object.keys(state.comments).filter((id) => state.comments[id]));
-  }
   function applySettings(settings) {
     if (typeof settings?.rail_open === "boolean") railOpen = settings.rail_open;
   }
@@ -98,6 +103,8 @@
           ]
         : q.options;
     const multiple = q.type === "multiple_choice";
+    // at its limit, a question's other options wait until one is unticked
+    const full = multiple && q.max_selections && (value || []).length >= q.max_selections;
     return `<div class="choices ${q.type === "boolean" ? "boolean-choices" : options.some((o) => o.description) ? "described" : ""}">${options
       .map((o, index) => {
         const optionValue = q.type === "boolean" ? o.id === "true" : o.id;
@@ -105,9 +112,22 @@
         const rec =
           q.recommendation &&
           (multiple ? q.recommendation.answer.includes(o.id) : q.recommendation.answer === optionValue);
-        return `<label class="choice ${selected ? "is-selected" : ""}"><input id="answer-${q.id}-${index}" type="${multiple ? "checkbox" : "radio"}" name="question-${q.id}" value="${esc(o.id)}" data-answer="${q.id}" ${selected ? "checked" : ""} ${disabled} ${invalid} aria-describedby="${describedBy}"><span class="choice-copy"><span class="choice-label">${esc(o.label)}${rec ? '<span class="rec-label">Recommended</span>' : ""}</span>${o.description ? `<span class="choice-description">${esc(o.description)}</span>` : ""}</span></label>`;
+        return `<label class="choice ${selected ? "is-selected" : ""} ${full && !selected && !plugin.readonly ? "is-waiting" : ""}"><input id="answer-${q.id}-${index}" type="${multiple ? "checkbox" : "radio"}" name="question-${q.id}" value="${esc(o.id)}" data-answer="${q.id}" ${selected ? "checked" : ""} ${disabled || (full && !selected ? "disabled" : "")} ${invalid} aria-describedby="${describedBy}"><span class="choice-copy"><span class="choice-label">${esc(o.label)}${rec ? '<span class="rec-label">Recommended</span>' : ""}</span>${o.description ? `<span class="choice-description">${esc(o.description)}</span>` : ""}</span></label>`;
       })
       .join("")}</div>`;
+  }
+  // what to do, and for a choice of several, its limits and how many are chosen
+  function hint(q, value) {
+    if (q.type !== "multiple_choice") return instructions[q.type];
+    const max = q.max_selections,
+      chosen = (value || []).length;
+    return [
+      max ? `Select up to ${max}` : instructions.multiple_choice,
+      q.min_selections ? `at least ${q.min_selections}` : "",
+      max && chosen ? `${chosen} of ${max} chosen` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
   }
   function question(q, number, conditional) {
     const value = state.values[q.id],
@@ -129,14 +149,14 @@
         ? `<details class="previous"><summary>Previous response</summary><p>${esc(C.describe(q, old.answer))}</p>${old.comment ? `<blockquote>${esc(old.comment)}</blockquote>` : ""}</details>`
         : "",
       q.type !== "text" && (!plugin.readonly || note)
-        ? `<div class="question-actions">${commentToggle(q, note, expanded)}</div><div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? "" : "hidden"}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico("trash-2")} Remove comment</button>` : ""}</div><textarea id="comment-${q.id}" class="pinrail-field question-comment" data-comment="${q.id}" rows="3" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? "disabled" : ""}>${esc(note)}</textarea></div>`
+        ? `${note && !expanded ? (plugin.readonly ? `<div class="comment-view">${md(note)}</div>` : `<div class="comment-view is-editable" role="button" tabindex="0" data-comment-edit="${q.id}" title="Edit the comment">${md(note)}</div>`) : ""}<div id="comment-wrap-${q.id}" class="comment-wrap" ${expanded ? "" : "hidden"}><div class="comment-head"><label for="comment-${q.id}">Comment on this question</label>${note && !plugin.readonly ? `<button type="button" class="remove-comment" id="remove-comment-${q.id}" data-remove-comment="${q.id}">${ico("trash-2")} Remove comment</button>` : ""}</div><textarea id="comment-${q.id}" class="pinrail-field question-comment" data-comment="${q.id}" rows="3" placeholder="Add context, a caveat, or a different suggestion…" ${plugin.readonly ? "disabled" : ""}>${esc(note)}</textarea></div>`
         : "",
     ].join("");
-    return `<fieldset id="question-${q.id}" class="question is-${status} ${current === q.id ? "is-current" : ""}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Pinrail.icon("check", { size: 12 }) : String(number).padStart(2, "0")}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Pinrail.icon("rotate-ccw", { size: 11 })} Clear answer</button>` : ""}<span class="requirement ${q.required ? "is-required" : ""}">${q.required ? "Required" : "Optional"}</span></span></legend>
+    return `<fieldset id="question-${q.id}" class="question is-${status} ${current === q.id ? "is-current" : ""}" data-question="${q.id}"><legend><span class="question-number" aria-hidden="true">${has ? Pinrail.icon("check", { size: 12 }) : String(number).padStart(2, "0")}</span><span id="prompt-${q.id}" class="question-prompt">${esc(q.prompt)}</span><span class="question-meta">${q.type !== "text" && !plugin.readonly && !note && !expanded ? `<button type="button" class="comment-toggle" id="comment-toggle-${q.id}" data-comment-edit="${q.id}">${Pinrail.icon("message-square-plus", { size: 11 })} Add a comment</button>` : ""}${value !== undefined && !plugin.readonly ? `<button type="button" class="clear-answer" id="clear-${q.id}" data-clear="${q.id}">${Pinrail.icon("rotate-ccw", { size: 11 })} Clear answer</button>` : ""}<span class="requirement ${q.required ? "is-required" : ""}">${q.required ? "Required" : "Optional"}</span></span></legend>
       <div class="question-body">
         ${q.description ? `<div class="question-description" id="desc-${q.id}">${md(q.description)}</div>` : ""}
         ${agent}
-        <div id="hint-${q.id}" class="question-hint"><span>${instructions[q.type]}${q.type === "multiple_choice" && (q.min_selections || q.max_selections) ? ` · ${q.min_selections ? "min " + q.min_selections : ""}${q.min_selections && q.max_selections ? ", " : ""}${q.max_selections ? "max " + q.max_selections : ""}` : ""}</span>${conditional ? `<span class="followup">${ico("corner-down-right")} Follow-up</span>` : ""}${plugin.readonly ? `<span class="answer-state">${has ? "Answered" : "Not answered"}</span>` : ""}</div>
+        <div id="hint-${q.id}" class="question-hint"><span>${hint(q, value)}</span>${conditional ? `<span class="followup">${ico("corner-down-right")} Follow-up</span>` : ""}${plugin.readonly ? `<span class="answer-state">${has ? "Answered" : "Not answered"}</span>` : ""}</div>
         ${controls(q, error)}
         ${error ? `<p class="question-error" id="error-${q.id}">${ico("circle-alert")} ${esc(error)}</p>` : ""}
         ${after}
@@ -145,17 +165,23 @@
   }
   /* Open, it folds the comment away; folded, it shows the start of what was
      written so the comment is not lost from sight. */
-  function commentToggle(q, note, expanded) {
-    const label = expanded
-      ? `${ico("chevron-up")} Hide comment`
-      : note
-        ? `${ico("message-square")} Comment <span class="comment-preview">${esc(note)}</span>`
-        : `${ico("message-square-plus")} Add a comment`;
-    return `<button type="button" class="comment-toggle ${note ? "has-comment" : ""}" id="comment-toggle-${q.id}" data-comment-toggle="${q.id}" aria-expanded="${expanded}" aria-controls="comment-wrap-${q.id}">${label}</button>`;
-  }
 
   function render() {
     if (!payload) return;
+    rendering = true;
+    try {
+      draw();
+    } finally {
+      rendering = false;
+    }
+  }
+  // a comment's box or a free-text answer takes the height of what is in it,
+  // up to its max-height, past which it scrolls
+  function grow(el) {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  }
+  function draw() {
     const scrolls = [".workspace", "#questions", ".sidebar", ".sidebar nav"].map((selector) => {
       const el = app.querySelector(selector);
       return { selector, top: el?.scrollTop || 0, left: el?.scrollLeft || 0 };
@@ -189,7 +215,7 @@
                     : q.required
                       ? "required"
                       : "open";
-              return `<li><button type="button" class="rail-question is-${st}" data-jump-question="${q.id}" tabindex="-1"><span class="rail-dot"></span><span class="rail-prompt">${esc(q.prompt)}</span></button></li>`;
+              return `<li><button type="button" class="rail-question is-${st}" data-jump-question="${q.id}" tabindex="-1"><span class="rail-dot"></span><span class="rail-prompt">${esc(q.prompt)}</span>${st === "required" || st === "error" ? '<span class="rail-required" aria-hidden="true">*</span><span class="sr-only">, required</span>' : ""}</button></li>`;
             })
             .join("")}</ul></div>`;
         })
@@ -200,7 +226,6 @@
         ${payload.description ? `<div class="request-description">${md(payload.description)}</div>` : ""}
         ${previous ? '<div class="revision-note">Revised request. Previous responses are shown for context; choose your answers for this round.</div>' : ""}
         ${shellErrors.length ? `<div class="validation-banner" role="alert" tabindex="-1">${shellErrors.map((e) => `${esc(e.path || "Response")}: ${esc(e.message)}`).join("<br>")}</div>` : ""}
-        ${showErrors && Object.keys(invalid).length ? `<div class="validation-banner" role="alert">${ico("circle-alert")} Complete ${Object.keys(invalid).length} highlighted ${Object.keys(invalid).length === 1 ? "question" : "questions"} before handing over.</div>` : ""}
         ${shownGroups
           .map(
             (g, i) =>
@@ -223,6 +248,11 @@
       }
       app.querySelector(".sidebar").hidden = !railOpen;
     } else app.innerHTML = html;
+    if (!bar.isConnected) app.append(bar);
+    for (const el of app.querySelectorAll(".question-comment, .text-answer")) if (el.offsetParent) grow(el);
+    const missing = Object.keys(invalid).length;
+    bar.hidden = !(showErrors && missing && !plugin.readonly);
+    bar.firstChild.textContent = `Complete ${missing} highlighted ${missing === 1 ? "question" : "questions"} before handing over.`;
     for (const { selector, top, left } of scrolls) {
       app.querySelector(selector)?.scrollTo({ top, left, behavior: "instant" });
     }
@@ -238,6 +268,12 @@
           ? `Complete ${Object.keys(invalid).length} ${Object.keys(invalid).length === 1 ? "question" : "questions"}`
           : `Hand over ${answered} ${answered === 1 ? "answer" : "answers"}`,
     );
+  }
+  // the first answer still missing, in sight and focused
+  function firstError() {
+    const first = app.querySelector('[aria-invalid="true"]');
+    first?.focus({ preventScroll: true });
+    first?.scrollIntoView({ block: "center" });
   }
   function save() {
     shellErrors = [];
@@ -303,7 +339,43 @@
     const q = e.target.closest?.(".question");
     if (q && q.dataset.question !== current) mark(q.dataset.question);
   });
+  // leaving a comment's box shows the comment as text again, or drops it
+  // when it is empty. While the pointer is down the page is not redrawn, so
+  // the click that took the focus still lands where it was aimed.
+  app.addEventListener("pointerdown", (e) => {
+    pressing = true;
+    // Remove comment acts on the box without taking the focus from it
+    if (e.target.closest?.("[data-remove-comment]")) e.preventDefault();
+  });
+  document.addEventListener("pointerup", () => {
+    pressing = false;
+  });
+  app.addEventListener("focusout", (e) => {
+    const wrap = e.target.closest?.(".comment-wrap");
+    const id = wrap?.id.slice("comment-wrap-".length);
+    // moving within the box and its Remove comment button keeps it open
+    if (!id || rendering || !opened.has(id) || wrap.contains(e.relatedTarget)) return;
+    const close = () => {
+      if (!opened.delete(id)) return;
+      if (!(state.comments[id] || "").trim()) delete state.comments[id];
+      plugin.draft(state);
+      render();
+    };
+    if (pressing) document.addEventListener("click", () => setTimeout(close), { once: true });
+    else close();
+  });
+  app.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.("div[data-comment-edit]")) {
+      e.preventDefault();
+      e.target.click();
+    }
+    if (e.key === "Escape" && e.target.dataset?.comment) {
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
   app.addEventListener("input", (e) => {
+    if (e.target.tagName === "TEXTAREA") grow(e.target);
     if (e.target.tagName === "TEXTAREA") change(e);
   });
   app.addEventListener("change", (e) => {
@@ -317,8 +389,14 @@
     change(e);
   });
   app.addEventListener("click", (e) => {
-    const button = e.target.closest("button");
+    // a link in a comment is followed, not taken as a click to edit it
+    if (e.target.closest("a")) return;
+    const button = e.target.closest("button, [data-comment-edit]");
     if (!button || !payload) return;
+    if (button.dataset.firstError) {
+      firstError();
+      return;
+    }
     if (button.dataset.rail) {
       railOpen = !railOpen;
       plugin.setSetting("rail_open", railOpen);
@@ -335,12 +413,13 @@
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    const id = button.dataset.commentToggle;
-    if (id) {
-      if (opened.has(id)) opened.delete(id);
-      else opened.add(id);
+    const id = button.dataset.commentEdit;
+    if (id && !plugin.readonly) {
+      opened.add(id);
       render();
-      if (opened.has(id)) document.getElementById("comment-" + id)?.focus({ preventScroll: true });
+      const box = document.getElementById("comment-" + id);
+      box?.focus({ preventScroll: true });
+      box?.setSelectionRange(box.value.length, box.value.length);
       return;
     }
     if (plugin.readonly) return;

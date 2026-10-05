@@ -65,7 +65,7 @@ test("a required answer stops the hand-over; what goes over is exactly what was 
   const f = plugin.frame;
 
   await plugin.collect();
-  await expect(f.getByRole("alert")).toContainText("highlighted");
+  await expect(f.locator(".pinrail-confirmation")).toContainText("highlighted");
   expect((await plugin.messages()).filter((m: any) => m.type === "submit")).toHaveLength(0);
 
   await rollback(f);
@@ -87,6 +87,50 @@ test("a required answer stops the hand-over; what goes over is exactly what was 
   await plugin.sendSubmitted({ data: await plugin.nextSubmit() });
   await expect(q(f, "approach").getByRole("radio").first()).toBeDisabled();
   await expect(f.locator(".header-count")).toContainText("Read-only");
+});
+
+test("missing answers are named in the layout's confirmation bar, which leads to the first", async ({ page }) => {
+  const plugin = await mount(page);
+  const f = plugin.frame;
+  const bar = f.locator(".pinrail-confirmation");
+  await expect(bar).toBeHidden();
+
+  await plugin.collect();
+  await expect(bar).toBeVisible();
+  await expect(bar).toHaveClass(/pinrail-confirmation-warning/);
+  await expect(bar).toContainText("Complete 2 highlighted questions before handing over.");
+  await expect(f.locator(".validation-banner")).toHaveCount(0);
+
+  await f.locator("#questions").evaluate((el: HTMLElement) => el.scrollTo(0, el.scrollHeight));
+  await bar.getByRole("button", { name: "Go to the first" }).click();
+  await expect(q(f, "approach").getByRole("radio").first()).toBeFocused();
+
+  await rollback(f);
+  await expect(bar).toBeHidden();
+});
+
+test("the rail marks the required questions still to answer", async ({ page }) => {
+  const plugin = await mount(page);
+  const rail = plugin.frame.locator(".sidebar nav");
+  await expect(rail.getByRole("button", { name: /^How should I proceed\?.*required$/ })).toBeVisible();
+  await expect(rail.getByRole("button", { name: "Anything else I should know?", exact: true })).toBeVisible();
+
+  await rollback(plugin.frame);
+  await expect(rail.getByRole("button", { name: "How should I proceed?", exact: true })).toBeVisible();
+  await expect(rail.locator(".rail-required")).toHaveCount(0);
+});
+
+test("at its limit, a question's other options wait until one is unticked", async ({ page }) => {
+  const plugin = await mount(page, "02-launch.json");
+  const channels = q(plugin.frame, "launch_channels");
+  for (const name of ["Personal invitation emails", "Product announcement", "Guided demo"]) {
+    await channels.getByRole("checkbox", { name: new RegExp(name) }).check();
+  }
+  await expect(channels.getByRole("checkbox", { name: /Social posts/ })).toBeDisabled();
+  await expect(channels).toContainText("3 of 3 chosen");
+
+  await channels.getByRole("checkbox", { name: /Guided demo/ }).uncheck();
+  await expect(channels.getByRole("checkbox", { name: /Social posts/ })).toBeEnabled();
 });
 
 test("an answer a condition hid never reaches the decision, and a draft comes back", async ({ page }) => {
@@ -298,39 +342,101 @@ test("the rail can be folded away, and the shell is asked to remember it", async
   await expect.poll(() => plugin.lastSettingsSet()).toEqual({ rail_open: true });
 });
 
-test("a comment folds away, and each thing on a question clears on its own", async ({ page }) => {
+test("a comment shows as Markdown, and a click on it edits it", async ({ page }) => {
   const plugin = await mount(page);
   const f = plugin.frame;
   const approach = q(f, "approach");
-  const comment = approach.getByLabel("Comment on this question");
+  const box = approach.getByLabel("Comment on this question");
+  const shown = approach.locator(".comment-view");
 
   await approach.getByRole("radio", { name: /Roll back to release/ }).check();
   await approach.getByRole("button", { name: "Add a comment" }).click();
-  await comment.fill("because of the logs");
+  await expect(box).toBeFocused();
+  await box.fill("because of **the logs**\n\n- and the replay");
 
   // with both an answer and a comment, both can be taken off
   await expect(approach.getByRole("button", { name: "Clear answer" })).toBeVisible();
   await expect(approach.getByRole("button", { name: "Remove comment" })).toBeVisible();
 
-  // folded, the comment stays in sight on the toggle
-  await approach.getByRole("button", { name: "Hide comment" }).click();
-  await expect(comment).toBeHidden();
-  await expect(approach.locator(".comment-preview")).toHaveText("because of the logs");
-  await approach.getByRole("button", { name: /because of the logs/ }).click();
-  await expect(comment).toBeVisible();
+  // leaving the box shows the comment, whole and formatted, and nothing offers a second one
+  await f.locator(".request-description").click();
+  await expect(box).toBeHidden();
+  await expect(shown.locator("strong")).toHaveText("the logs");
+  await expect(shown.locator("li")).toHaveText("and the replay");
+  await expect(approach.getByRole("button", { name: "Add a comment" })).toHaveCount(0);
+
+  await shown.click();
+  await expect(box).toBeFocused();
+  await expect(box).toHaveValue("because of **the logs**\n\n- and the replay");
+  await box.press("Escape");
+  await expect(box).toBeHidden();
+
+  // from the keyboard too
+  await shown.focus();
+  await shown.press("Enter");
+  await expect(box).toBeFocused();
+  await box.press("Escape");
+
+  // a click elsewhere while editing still lands where it was aimed
+  await shown.click();
+  await approach.getByRole("radio", { name: /Keep investigating/ }).click();
+  await expect(approach.getByRole("radio", { name: /Keep investigating/ })).toBeChecked();
+  await expect(box).toBeHidden();
 
   // clearing the answer leaves the comment, which still has something to say
   await approach.getByRole("button", { name: "Clear answer" }).click();
-  await expect(approach.getByRole("radio", { name: /Roll back to release/ })).not.toBeChecked();
   await expect(approach.getByRole("button", { name: "Clear answer" })).toHaveCount(0);
-  await expect(comment).toHaveValue("because of the logs");
+  await expect(shown).toContainText("because of the logs");
 
+  await shown.click();
   await approach.getByRole("button", { name: "Remove comment" }).click();
-  await expect(comment).toBeHidden();
+  await expect(box).toBeHidden();
+  await expect(shown).toHaveCount(0);
   await expect(approach.getByRole("button", { name: "Add a comment" })).toBeFocused();
   await expect
     .poll(async () => JSON.stringify(await plugin.lastDraft()))
     .toBe(JSON.stringify({ values: {}, comments: {} }));
+});
+
+test("a comment's box grows as it is typed in, up to a limit, then scrolls", async ({ page }) => {
+  const plugin = await mount(page);
+  const approach = q(plugin.frame, "approach");
+  await approach.getByRole("button", { name: "Add a comment" }).click();
+  const box = approach.getByLabel("Comment on this question");
+  const size = () => box.evaluate((el: HTMLElement) => [el.clientHeight, el.scrollHeight]);
+  const [empty] = await size();
+
+  await box.fill("line\n".repeat(6));
+  const [six, sixContent] = await size();
+  expect(six).toBeGreaterThan(empty);
+  expect(sixContent).toBeLessThanOrEqual(six);
+
+  await box.fill("line\n".repeat(40));
+  const [many, manyContent] = await size();
+  expect(many).toBeLessThan(260);
+  expect(manyContent).toBeGreaterThan(many);
+});
+
+test("a comment left empty is dropped", async ({ page }) => {
+  const plugin = await mount(page);
+  const approach = q(plugin.frame, "approach");
+  await approach.getByRole("button", { name: "Add a comment" }).click();
+  await approach.getByLabel("Comment on this question").fill("   ");
+  await approach.getByLabel("Comment on this question").press("Escape");
+  await expect(approach.locator(".comment-view")).toHaveCount(0);
+  await expect(approach.getByRole("button", { name: "Add a comment" })).toBeVisible();
+});
+
+test("a long comment wraps rather than widening the page", async ({ page }) => {
+  const plugin = await mount(page);
+  const approach = q(plugin.frame, "approach");
+  await approach.getByRole("button", { name: "Add a comment" }).click();
+  await approach.getByLabel("Comment on this question").fill("a-long-comment-".repeat(40));
+  await approach.getByLabel("Comment on this question").press("Escape");
+  await expect(approach.locator(".comment-view")).toBeVisible();
+  const scroll = plugin.frame.locator(".questions-scroll");
+  const width = await scroll.evaluate((el: HTMLElement) => [el.scrollWidth, el.clientWidth]);
+  expect(width[0]).toBe(width[1]);
 });
 
 test("the agent's recommendation is one click away, and says so once it is the answer", async ({ page }) => {
