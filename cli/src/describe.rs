@@ -123,8 +123,8 @@ pub fn listing(listed: &Value) -> String {
     for plugin in rows {
         let text = |v: &Value| v.as_str().unwrap_or_default().to_string();
         let install = &plugin["install"];
-        let from = if install["source_kind"] == "app" {
-            "comes with the app".to_string()
+        let from = if install["source_kind"] == "index" {
+            "official plugin".to_string()
         } else if install["link"] == true {
             format!("linked, {}", text(&install["source"]))
         } else {

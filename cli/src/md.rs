@@ -195,10 +195,14 @@ pub fn plugins_result(value: &Value) -> String {
         .as_str()
         .filter(|_| plugin.get("install").is_some())
     {
-        let from = plugin["install"]["source"]
-            .as_str()
-            .map(|s| format!(" from {s}"))
-            .unwrap_or_default();
+        let from = if plugin["install"]["source_kind"] == "index" {
+            ", an official plugin".to_string()
+        } else {
+            plugin["install"]["source"]
+                .as_str()
+                .map(|s| format!(" from {s}"))
+                .unwrap_or_default()
+        };
         if let (Some(was), true) = (plugin["replaced_version"].as_str(), plugin["older"] == true) {
             return format!(
                 "Replaced {name} {was} with the older {}{from}.\n",

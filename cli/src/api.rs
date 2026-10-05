@@ -207,6 +207,13 @@ impl Client {
         self.post("/api/v1/plugins/install", Some(&body))
     }
 
+    /// Installs the official plugin an id names, `forgeplane/<name>` or a
+    /// bare name; the plugin's row.
+    pub fn plugins_install_official(&self, id: &str) -> Result<Value> {
+        let body = serde_json::json!({ "id": id });
+        self.post("/api/v1/plugins/install", Some(&body))
+    }
+
     pub fn plugins_remove(&self, name: &str) -> Result<Value> {
         self.delete(&format!("/api/v1/plugins/{}", segment(name)))
     }

@@ -1900,8 +1900,8 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     let server = MockServer::start(Box::new(|_, path, _| {
         let body = r#"{"plugins":[
             {"name":"model","title":"3D model review","version":"2.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,
-             "install":{"source_kind":"app"},"attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
-            {"name":"list","title":"List","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"install":{"source_kind":"app"},"attachments":null}]}"#;
+             "install":{"source_kind":"index","source":"forgeplane/model"},"attachments":{"accept":[".glb","model/gltf-binary"],"max_size":52428800,"max_count":12}},
+            {"name":"list","title":"List","version":"1.0.0","payload_schema":{},"decision_schema":{},"example":null,"markdown":true,"install":{"source_kind":"index","source":"forgeplane/list"},"attachments":null}]}"#;
         match path {
             "/api/v1/plugins" => (200, body.into()),
             // describe answers with the one plugin asked for
@@ -1919,7 +1919,7 @@ fn plugins_and_describe_say_what_files_a_plugin_takes_and_how_to_send_them() {
     let (code, stdout, stderr) = run(&server, &["plugins", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert!(
-        stdout.contains("- model · 2.0.0 · comes with the app · ready\n  Takes files: .glb.\n"),
+        stdout.contains("- model · 2.0.0 · official plugin · ready\n  Takes files: .glb.\n"),
         "{stdout}"
     );
     assert_eq!(stdout.matches("Takes files").count(), 1);
@@ -2164,7 +2164,7 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
     let server = MockServer::start(Box::new(|_, path, _| {
         assert_eq!(path, "/api/v1/plugins");
         (200, r#"{"plugins":[
-            {"name":"list","version":"1.0.0","install":{"source_kind":"app"},"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
+            {"name":"list","version":"1.0.0","install":{"source_kind":"index","source":"forgeplane/list"},"error":null,"description":"Proposed actions to accept or reject.","use_when":"You have changes to propose."},
             {"name":"review","version":"2.1.0","install":{"source_kind":"folder","link":true,"source":"/src/review"},"error":null},
             {"name":"odd","version":"0.1.0","install":{"source_kind":"archive","link":false,"source":"/src/odd.zip"},"error":"view/index.html not found"}]}"#.into())
     }));
@@ -2173,7 +2173,7 @@ fn plugins_as_markdown_is_a_line_a_plugin() {
     assert_eq!(
         stdout,
         "3 plugins installed. pinrail plugins describe <name> shows a plugin's payload schema and an example, and --decision-schema shows what it returns.\n\n\
-         - list · 1.0.0 · comes with the app · ready\n\
+         - list · 1.0.0 · official plugin · ready\n\
          \x20 Proposed actions to accept or reject.\n\
          \x20 Use when: You have changes to propose.\n\
          - review · 2.1.0 · linked, /src/review · ready\n\
@@ -2253,6 +2253,62 @@ fn installing_an_older_version_says_so() {
     assert_eq!(
         stdout,
         "Installed review 1.3.0 from /dl/review-1.3.0.zip.\n"
+    );
+}
+
+#[test]
+fn plugins_install_installs_an_official_plugin_by_name_unless_a_folder_has_it() {
+    let dir = tempdir();
+    std::fs::create_dir_all(dir.join("work/review")).unwrap();
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
+        ("POST", "/api/v1/plugins/install") => {
+            let body: serde_json::Value = serde_json::from_str(body).unwrap();
+            seen.lock().unwrap().push(body.clone());
+            let name = body["id"]
+                .as_str()
+                .unwrap_or("review")
+                .rsplit('/')
+                .next()
+                .unwrap()
+                .to_string();
+            (
+                200,
+                format!(
+                    r#"{{"name":"{name}","version":"1.0.0","install":{{"source_kind":"index","source":"forgeplane/{name}"}}}}"#
+                ),
+            )
+        }
+        other => panic!("unexpected {other:?}"),
+    }));
+    let work = dir.join("work");
+    let (code, stdout, stderr) = run_in(
+        &server,
+        &work,
+        &["plugins", "install", "list", "--markdown"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(stdout, "Installed list 1.0.0, an official plugin.\n");
+    let (code, _, stderr) = run_in(
+        &server,
+        &work,
+        &["plugins", "install", "forgeplane/feedback"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    // a folder of the name is a folder
+    let (code, _, stderr) = run_in(&server, &work, &["plugins", "install", "review"]);
+    assert_eq!(code, 0, "{stderr}");
+    let sent = sent.lock().unwrap();
+    assert_eq!(sent[0], serde_json::json!({"id": "list"}));
+    assert_eq!(sent[1], serde_json::json!({"id": "forgeplane/feedback"}));
+    assert!(
+        sent[2]["source"]
+            .as_str()
+            .unwrap()
+            .ends_with("/work/review"),
+        "{}",
+        sent[2]
     );
 }
 

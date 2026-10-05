@@ -478,12 +478,16 @@ struct PluginsArgs {
 
 #[derive(Subcommand)]
 enum PluginsCommand {
-    /// Install a plugin from a folder or a zip
+    /// Install an official plugin by name, or a plugin from a folder or a zip
     ///
-    /// Installing again, from the same place or another, replaces the
-    /// installed plugin: this is how a plugin is upgraded.
+    /// An official plugin, such as `list`, is installed from the plugins the
+    /// app carries, at the newest version it has. A name is taken as a folder
+    /// when a folder of that name exists here. Installing again, from the
+    /// same place or another, replaces the installed plugin: this is how a
+    /// plugin is upgraded.
     Install {
-        /// The plugin's folder, or a zip of it
+        /// An official plugin's name, such as `list`, or a plugin's folder, or
+        /// a zip of it
         source: String,
         /// Serve the folder directly instead of copying it, while you develop
         /// the plugin
@@ -1061,14 +1065,21 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(PluginsCommand::Install { source, link }) => {
                     // a folder or a zip that exists is sent as its full
                     // path, `..` resolved, the way the app records and shows it
-                    let source = match std::fs::canonicalize(&source) {
-                        Ok(p) if p.is_dir() || p.is_file() => p.to_string_lossy().into_owned(),
-                        _ => source,
-                    };
-                    client.plugins_install(&InstallRequest {
-                        source: &source,
-                        link,
-                    })?
+                    match std::fs::canonicalize(&source) {
+                        Ok(p) if p.is_dir() || p.is_file() => {
+                            client.plugins_install(&InstallRequest {
+                                source: &p.to_string_lossy(),
+                                link,
+                            })?
+                        }
+                        _ if !link && is_official_id(&source) => {
+                            client.plugins_install_official(&source)?
+                        }
+                        _ => client.plugins_install(&InstallRequest {
+                            source: &source,
+                            link,
+                        })?,
+                    }
                 }
                 Some(PluginsCommand::Remove { name }) => client.plugins_remove(&name)?,
                 Some(
@@ -1427,6 +1438,15 @@ fn is_inline_json(spec: &str) -> bool {
 }
 
 /// Where a refusal about a plugin points: the list of those installed.
+/// Whether `text` names an official plugin rather than a path: a plugin's
+/// name, such as `list`, or `forgeplane/<name>`.
+fn is_official_id(text: &str) -> bool {
+    let name = text.strip_prefix("forgeplane/").unwrap_or(text);
+    let mut chars = name.chars();
+    chars.next().is_some_and(|c| c.is_ascii_lowercase())
+        && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+}
+
 const INSTALLED_HINT: &str = "Installed plugins: pinrail plugins";
 
 /// The JSON a flag gives: inline, from a file, or from stdin with `-`.
