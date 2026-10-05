@@ -1482,32 +1482,178 @@ table .pr-keys {
   --sl-search-page-icon-size: 1.125rem;
   --sl-search-tree-diagram-size: 1.5rem;
 }
-/* the field: 44px high in place of 64px, with the icon and the clear
-   button sized and centred to match */
-#starlight__search .pagefind-ui__search-input {
-  height: 44px;
-  padding: 0 48px 0 40px;
+/* The dialog in the shape of a command palette: the field runs edge to
+   edge above a divider, the results and the empty state scroll below it,
+   and the keys sit in a footer. */
+site-search dialog[open] {
+  flex-direction: column;
+}
+site-search .dialog-frame {
+  padding: 0;
+  gap: 0;
+}
+#starlight__search .pagefind-ui__form {
+  border-bottom: 1px solid var(--sl-color-hairline);
+}
+#starlight__search .pagefind-ui__search-input,
+#starlight__search .pagefind-ui__search-input:focus {
+  height: 52px;
+  padding: 0 52px 0 46px;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
   font-size: 1rem;
 }
+/* Lucide's search icon, in the line weight of the others */
 #starlight__search .pagefind-ui__form::before {
-  top: 14px;
-  left: 14px;
+  top: 18px;
+  left: 18px;
   width: 16px;
   height: 16px;
+  --pr-search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.34-4.34'/%3E%3C/svg%3E");
+  -webkit-mask-image: var(--pr-search-icon);
+  mask-image: var(--pr-search-icon);
 }
 #starlight__search .pagefind-ui__search-clear {
-  top: 3px;
+  top: 7px;
+  right: 6px;
   height: 38px;
   width: 40px;
 }
-/* the Cancel button beside the field on narrow screens */
-button[data-close-modal] {
-  height: 44px;
+#starlight__search .pagefind-ui__drawer {
+  padding: 0 0.75rem 0.75rem;
 }
+/* The results drawn as the empty state draws its pages: flat rows on the
+   dialog, the matches tinted with the accent, and the selected row tinted. */
 #starlight__search .pagefind-ui__message {
   height: auto;
-  padding: 0.5rem 0;
-  font-size: 0.8rem;
+  margin: 0.75rem 0.5rem 0.25rem;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--sl-color-gray-3);
+}
+#starlight__search .pagefind-ui__result-inner {
+  gap: 0;
+}
+#starlight__search .pagefind-ui__result-title:not(:where(.pagefind-ui__result-nested *)),
+#starlight__search .pagefind-ui__result-nested {
+  border-radius: 6px;
+  background-color: transparent;
+}
+#starlight__search .pagefind-ui__result-link {
+  --pagefind-ui-text: var(--sl-color-white);
+}
+#starlight__search .pagefind-ui__result-nested .pagefind-ui__result-link {
+  font-weight: 500;
+}
+#starlight__search .pagefind-ui__result-nested::before {
+  background: var(--sl-color-hairline-light);
+}
+#starlight__search .pagefind-ui__result-excerpt {
+  color: var(--sl-color-gray-3);
+}
+#starlight__search mark {
+  padding: 0;
+  border-radius: 0;
+  background-color: color-mix(in oklab, var(--sl-color-accent) 22%, transparent);
+  color: var(--sl-color-white);
+  font-weight: 500;
+}
+::highlight(pr-search-match) {
+  background-color: color-mix(in oklab, var(--sl-color-accent) 22%, transparent);
+}
+/* clearing the field is a quiet control, not an alert */
+#starlight__search .pagefind-ui__search-clear::before {
+  background-color: var(--sl-color-gray-3);
+}
+#starlight__search .pagefind-ui__search-clear:hover::before {
+  background-color: var(--sl-color-white);
+}
+/* a result under the pointer or the arrow keys, tinted as in the empty state */
+#starlight__search .pagefind-ui__result-title:not(:where(.pagefind-ui__result-nested *)):is(:hover, .is-active),
+#starlight__search .pagefind-ui__result-nested:is(:hover, .is-active) {
+  outline: none;
+  background-color: color-mix(in oklab, var(--sl-color-white) 7%, transparent);
+}
+/* the Cancel button beside the field on narrow screens */
+button[data-close-modal] {
+  height: 52px;
+  padding-inline: 1rem;
+}
+
+/* what the dialog shows before anything is typed (src/components/docs/Search.astro) */
+.pr-search-empty {
+  padding: 0.25rem 0.75rem 0.75rem;
+}
+.pr-search-heading {
+  margin: 0.75rem 0.5rem 0.25rem;
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-3);
+}
+.pr-search-empty a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  color: var(--sl-color-white);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.pr-search-empty a svg {
+  flex: none;
+  color: var(--sl-color-gray-3);
+}
+.pr-search-empty a:hover,
+.pr-search-empty a.is-active {
+  background: color-mix(in oklab, var(--sl-color-white) 7%, transparent);
+}
+.pr-search-empty a.is-active::after {
+  content: "↵";
+  margin-inline-start: auto;
+  color: var(--sl-color-gray-3);
+}
+.pr-search-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pr-search-path,
+.pr-search-detail {
+  color: var(--sl-color-gray-3);
+}
+.pr-search-detail {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.pr-search-footer {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid var(--sl-color-hairline);
+  font-size: 0.75rem;
+  color: var(--sl-color-gray-3);
+}
+.pr-search-footer span {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.pr-search-footer kbd {
+  min-width: 1.25rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--sl-color-hairline-light);
+  border-radius: 4px;
+  font: inherit;
+  text-align: center;
+}
+/* no keyboard on a phone, so no keys to show */
+@media (max-width: 50rem) {
+  .pr-search-footer {
+    display: none;
+  }
 }
 #starlight__search .pagefind-ui__result-title {
   font-size: 0.95rem;

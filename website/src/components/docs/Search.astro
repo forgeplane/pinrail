@@ -1,0 +1,187 @@
+---
+// Starlight's search, with what the dialog shows before anything is typed:
+// a few suggested pages, then every page under its section. The arrow keys
+// move through these, or through the results once there is a query, and
+// Enter opens the one selected.
+import Default from "@astrojs/starlight/components/Search.astro";
+
+/** The pages to suggest, by address, in this order. */
+const SUGGESTED = [
+  "/docs/getting-started/first-review/",
+  "/docs/agents/instructing/",
+  "/docs/using/installing-plugins/",
+  "/docs/building/writing/",
+];
+
+/** Each section's icon, from Lucide as the app draws its icons. */
+const ICONS: Record<string, string> = {
+  "Getting started":
+    '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/>',
+  Concepts:
+    '<path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/>',
+  "Using Pinrail": '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>',
+  "For agents":
+    '<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  Plugins:
+    '<path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/>',
+  "Building plugins":
+    '<path d="m15 12-9.373 9.373a1 1 0 0 1-3.001-3L12 9"/><path d="m18 15 4-4"/><path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172v-.344a2 2 0 0 0-.586-1.414l-1.657-1.657A6 6 0 0 0 12.516 3H9l1.243 1.243A6 6 0 0 1 12 8.485V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/>',
+};
+const PAGE =
+  '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>';
+
+type Entry = { type: "link"; label: string; href: string } | { type: "group"; label: string; entries: Entry[] };
+type Page = { label: string; href: string; section: string[] };
+
+/** Every page in the sidebar, with the sections above it. */
+const flatten = (entries: Entry[], section: string[] = []): Page[] =>
+  entries.flatMap((e) =>
+    e.type === "link" ? [{ label: e.label, href: e.href, section }] : flatten(e.entries, [...section, e.label]),
+  );
+const pages = flatten(Astro.locals.starlightRoute.sidebar as Entry[]);
+const suggested = SUGGESTED.map((href) => pages.find((p) => p.href === href)).filter((p): p is Page => !!p);
+const icon = (paths: string) =>
+  `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+---
+
+<Default />
+
+<template id="pr-search-empty">
+  <div class="pr-search-empty">
+    <p class="pr-search-heading">Suggested</p>
+    {
+      suggested.map((p) => (
+        <a href={p.href}>
+          <Fragment set:html={icon(PAGE)} />
+          <span class="pr-search-label">{p.label}</span>
+          <span class="pr-search-detail">{p.section.join(" › ")}</span>
+        </a>
+      ))
+    }
+    <p class="pr-search-heading">Pages</p>
+    {
+      pages.map((p) => (
+        <a href={p.href}>
+          <Fragment set:html={icon(ICONS[p.section[0]] ?? PAGE)} />
+          <span class="pr-search-label">
+            {p.section.map((s) => (
+              <span class="pr-search-path">{s} › </span>
+            ))}
+            {p.label}
+          </span>
+        </a>
+      ))
+    }
+  </div>
+</template>
+
+<template id="pr-search-footer">
+  <div class="pr-search-footer" aria-hidden="true">
+    <span>Select <kbd>↑</kbd><kbd>↓</kbd></span>
+    <span>Open <kbd>↵</kbd></span>
+    <span>Close <kbd>Esc</kbd></span>
+  </div>
+</template>
+
+<script>
+  const dialog = document.querySelector<HTMLDialogElement>("site-search dialog");
+  const frame = dialog?.querySelector(".dialog-frame");
+  const emptyTemplate = document.querySelector<HTMLTemplateElement>("#pr-search-empty");
+  const footerTemplate = document.querySelector<HTMLTemplateElement>("#pr-search-footer");
+
+  if (dialog && frame && emptyTemplate && footerTemplate) {
+    frame.append(emptyTemplate.content.cloneNode(true));
+    dialog.append(footerTemplate.content.cloneNode(true));
+    const empty = frame.querySelector<HTMLElement>(".pr-search-empty")!;
+    let active = -1;
+
+    const query = () => dialog.querySelector<HTMLInputElement>(".pagefind-ui__search-input")?.value.trim() ?? "";
+
+    /** What the arrow keys move through: the suggestions and pages, or the results. */
+    const items = (): HTMLAnchorElement[] =>
+      empty.hidden
+        ? [...dialog.querySelectorAll<HTMLAnchorElement>(".pagefind-ui__result-link")]
+        : [...empty.querySelectorAll("a")];
+
+    /** The row a selected link is drawn on. */
+    const rowOf = (link: HTMLElement) =>
+      link.closest<HTMLElement>(".pagefind-ui__result-nested") ??
+      link.closest<HTMLElement>(".pagefind-ui__result-title") ??
+      link;
+
+    const select = (index: number) => {
+      dialog.querySelectorAll(".is-active").forEach((el) => el.classList.remove("is-active"));
+      const list = items();
+      active = list.length ? Math.max(0, Math.min(index, list.length - 1)) : -1;
+      if (active < 0) return;
+      const row = rowOf(list[active]);
+      row.classList.add("is-active");
+      row.scrollIntoView({ block: "nearest" });
+    };
+
+    const sync = () => {
+      empty.hidden = query() !== "";
+      dialog.querySelectorAll(".is-active").forEach((el) => el.classList.remove("is-active"));
+      active = -1;
+    };
+
+    dialog.addEventListener("input", sync);
+    // the clear button empties the field without an input event
+    dialog.addEventListener("click", () => setTimeout(sync));
+    new MutationObserver(() => dialog.open && sync()).observe(dialog, { attributes: true, attributeFilter: ["open"] });
+
+    dialog.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        select(active + (e.key === "ArrowDown" ? 1 : -1));
+      } else if (e.key === "Enter" && active >= 0) {
+        const link = items()[active];
+        if (!link) return;
+        e.preventDefault();
+        link.click();
+      }
+    });
+
+    // a suggestion or a page closes the dialog as a result does
+    empty.addEventListener("click", (e) => {
+      if ((e.target as Element).closest("a")) dialog.close();
+    });
+
+    // The words searched for, marked in the titles of the results: Pagefind
+    // marks them only in the excerpts. A CSS highlight marks the text without
+    // changing the elements Pagefind keeps updating; a browser without the
+    // API shows the titles unmarked.
+    const results = dialog.querySelector("#starlight__search");
+    if (results && "highlights" in CSS) {
+      const mark = () => {
+        const terms = query().toLowerCase().split(/\s+/).filter(Boolean);
+        const ranges: Range[] = [];
+        if (terms.length) {
+          const walker = document.createTreeWalker(results, NodeFilter.SHOW_TEXT, {
+            acceptNode: (node) =>
+              node.parentElement?.closest(".pagefind-ui__result-link")
+                ? NodeFilter.FILTER_ACCEPT
+                : NodeFilter.FILTER_REJECT,
+          });
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const text = node.textContent!.toLowerCase();
+            for (const term of terms) {
+              for (let at = text.indexOf(term); at >= 0; at = text.indexOf(term, at + term.length)) {
+                const range = new Range();
+                range.setStart(node, at);
+                range.setEnd(node, at + term.length);
+                ranges.push(range);
+              }
+            }
+          }
+        }
+        CSS.highlights.set("pr-search-match", new Highlight(...ranges));
+      };
+      let pending = 0;
+      new MutationObserver(() => {
+        cancelAnimationFrame(pending);
+        pending = requestAnimationFrame(mark);
+      }).observe(results, { childList: true, subtree: true, characterData: true });
+    }
+  }
+</script>
