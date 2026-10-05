@@ -3,10 +3,11 @@
 # .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), each
 # with the pinrail CLI inside (/usr/bin/pinrail in the Linux packages, beside the
 # app as pinrail-desktop; pinrail-cli in the macOS bundle) and the third-party
-# notices as THIRD_PARTY_NOTICES.txt, a build provenance attestation for each
-# installer, and a SHA256SUMS file. The update bundles are signed with the
-# updater key, and latest.json lists them for the app's updater, which reads
-# it from the latest published release.
+# notices as THIRD_PARTY_NOTICES.txt, the CLI on its own for each platform
+# (pinrail-cli-<target>.tar.gz), a build provenance attestation for each
+# installer and CLI archive, and a SHA256SUMS file. The update bundles are
+# signed with the updater key, and latest.json lists them for the app's
+# updater, which reads it from the latest published release.
 # The draft is published by hand after a smoke test. The tag has to name
 # the version in desktop/Cargo.toml and tauri.conf.json.
 #
@@ -324,6 +325,36 @@ jobs:
           status=0
           timeout 15 xvfb-run -a pinrail-desktop || status=$?
           test "$status" -eq 124 || { echo "the app window exited with $status before the timeout"; exit 1; }
+      # The CLI on its own, for machines without the app, such as a plugin's
+      # CI running `pinrail plugins check`. On macOS it is the copy inside
+      # the app, which the bundle's signing and notarization cover; on Linux,
+      # the sidecar the packages carry. The name has no version, so that
+      # releases/latest/download/<name> stays the same from one release to
+      # the next.
+      - name: Package the CLI on its own
+        env:
+          TRIPLE: ${{ matrix.triple }}
+          # macOS tar leaves out its ._ metadata files
+          COPYFILE_DISABLE: 1
+        run: |
+          set -eu
+          if [ "$RUNNER_OS" = macOS ]; then
+            app=$(find desktop/target/universal-apple-darwin/release/bundle/macos -maxdepth 1 -name '*.app' | head -1)
+            binary="$app/Contents/MacOS/pinrail-cli"
+          else
+            binary="desktop/app/src-tauri/binaries/pinrail-$TRIPLE"
+          fi
+          staging=$(mktemp -d)
+          cp "$binary" "$staging/pinrail"
+          cp LICENSE NOTICE desktop/app/notices/THIRD_PARTY_NOTICES.txt "$staging/"
+          "$staging/pinrail" --version
+          mkdir -p cli-dist
+          tar -czf "cli-dist/pinrail-cli-$TRIPLE.tar.gz" -C "$staging" .
+      - name: Upload the CLI
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" cli-dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --clobber
       # Attestations are refused to a private repository on the free plan,
       # so they wait for the repository to be public rather than failing a
       # signed, notarized build over a signature nobody can check yet.
@@ -331,7 +362,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') && !github.event.repository.private
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: ${{ matrix.bundles }}
+          subject-path: |
+            ${{ matrix.bundles }}
+            cli-dist/*.tar.gz
 
   checksums:
     if: startsWith(github.ref, 'refs/tags/v')
