@@ -98,7 +98,7 @@ release.
 
 ```sh
 npx pinrail-plugin dev .                       # in a plugin folder that has the package installed
-mise run dev:plugin plugins/artifact          # in this repository
+mise run dev:plugin plugins/hello             # in this repository
                                               # options: --port N (default 4790), --no-open
 ```
 

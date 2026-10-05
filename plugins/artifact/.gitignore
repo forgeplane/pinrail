@@ -1,3 +1,0 @@
-node_modules/
-# the build: npm run build writes view/, the manifest's entry and its assets
-/view/

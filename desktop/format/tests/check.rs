@@ -490,9 +490,9 @@ fn a_plugin_without_samples_is_told_in_a_note() {
     assert_eq!(Plugin::check(&sampled)["notes"], json!([]));
 }
 
-/// Every official plugin is taken whole, with nothing dropped.
+/// Every plugin in plugins/ is taken whole, with nothing dropped.
 #[test]
-fn every_official_plugin_is_taken_with_nothing_dropped() {
+fn every_plugin_here_is_taken_with_nothing_dropped() {
     let plugins = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
     let mut seen = 0;
     for dir in std::fs::read_dir(&plugins)
@@ -512,5 +512,5 @@ fn every_official_plugin_is_taken_with_nothing_dropped() {
         );
         seen += 1;
     }
-    assert!(seen >= 9, "only {seen} plugins found");
+    assert!(seen >= 4, "only {seen} plugins found");
 }

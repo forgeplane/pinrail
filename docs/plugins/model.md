@@ -21,14 +21,14 @@ The model plugin is for choosing between 3D models an agent made: a product, a p
 
 ## Install
 
-Download `model-<version>.zip` from the plugin's latest release on [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), then install it:
+Download `model-<version>.zip` from the plugin's latest release on [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), then install it:
 
 ```sh
 pinrail plugins install ~/Downloads/model-<version>.zip
 ```
 
 :::note
-This plugin's view bundles three.js. The zip on the release holds the built view. To install the plugin from a clone of the repository instead, build it first with `npm ci && npm run build` in `plugins/model`.
+This plugin's view bundles three.js. The zip on the release holds the built view. To install the plugin from a clone of [its repository](https://github.com/forgeplane/pinrail-plugins) instead, build it first with `npm ci && npm run build` in its `model` folder.
 :::
 
 ## What you see

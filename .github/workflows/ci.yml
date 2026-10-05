@@ -128,7 +128,6 @@ jobs:
             desktop/app/package-lock.json
             e2e/package-lock.json
             pinrail-plugin/package-lock.json
-            plugins/artifact/package-lock.json
       # the version rust-toolchain.toml pins, with rustfmt and clippy
       - name: Rust toolchain
         run: rustup toolchain install
@@ -157,13 +156,6 @@ jobs:
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets --locked
           cargo clippy --manifest-path desktop/Cargo.toml --workspace --all-targets --locked
-      # the core's tests load every official plugin, and the artifact
-      # plugin's view is what its build writes
-      - name: Build the artifact plugin
-        working-directory: plugins/artifact
-        run: |
-          npm ci
-          npm run build
       - name: Rust tests
         run: |
           cargo test --manifest-path cli/Cargo.toml --locked
@@ -206,8 +198,6 @@ jobs:
           cache-dependency-path: |
             plugins/package-lock.json
             pinrail-plugin/package-lock.json
-            plugins/artifact/package-lock.json
-            plugins/model/package-lock.json
             docs/examples/ship-it/*/package-lock.json
       # pinrail-plugin check runs `pinrail plugins check`, so the CLI goes
       # on the PATH before anything checks a plugin
@@ -229,18 +219,6 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm test
-      - name: Build the artifact plugin
-        working-directory: plugins/artifact
-        run: |
-          npm ci
-          npm run build
-      # the 3D model plugin's view imports three.js from a bundle its build writes
-      - name: Build the model plugin
-        working-directory: plugins/model
-        run: |
-          npm ci
-          npm run build
-      # after the builds, which write the views that are not committed
       - name: Check the sample plugins
         run: |
           for dir in plugins/*/; do

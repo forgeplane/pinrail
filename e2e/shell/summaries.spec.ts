@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import fs from "node:fs";
 import path from "node:path";
 import { clearInbox, createReview, decide, linkPlugin } from "./helpers";
 
@@ -59,17 +58,15 @@ test("once decided, the header and history say what was decided", async ({ page 
 });
 
 test("a plugin's declared verdict names how the review ended", async ({ page }) => {
-  // the calendar plugin declares its verdict: approve reads "approved"
-  const dir = path.resolve(__dirname, "../../plugins/calendar");
-  await linkPlugin(page.request, dir, "calendar");
-  const fixture = JSON.parse(fs.readFileSync(path.join(dir, "fixtures/03-personal.decided.json"), "utf8"));
+  // the sampler plugin declares its verdict: approve reads "approved"
+  await linkPlugin(page.request, path.resolve(__dirname, "../../plugins/sampler"), "sampler");
   const tag = `verdict${Date.now()}`;
   const { id } = await createReview(page.request, {
-    title: `${tag} week`,
-    plugin: "calendar",
-    payload: fixture.payload,
+    title: `${tag} notes`,
+    plugin: "sampler",
+    payload: { note: "Check the version." },
   });
-  await decide(page.request, id, fixture.decision.data);
+  await decide(page.request, id, { verdict: "approve" });
 
   await page.goto(`/#/history?q=${tag}`);
   const badge = page.locator("[data-history-row]", { hasText: tag }).locator(".status-badge");

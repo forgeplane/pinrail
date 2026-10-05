@@ -6,7 +6,9 @@
 // fixture a round answers. `age` and `decided` are how long before NOW, as
 // "4m", "2h" or "3d". `attachments` names files the review carries by path,
 // relative to the fixture, `{ "pivot.glb": { "path": "…" } }`: each is
-// uploaded first. The optional plugins are installed from plugins/ first.
+// uploaded first. The plugins they use beyond the built-in ones are
+// installed first, from a checkout of forgeplane/pinrail-plugins beside this
+// repository, or from PINRAIL_PLUGINS_DIR, with artifact and model built.
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -36,9 +38,17 @@ export function fixtures() {
 /** The plugins the fixtures use beyond the built-in ones. */
 const OPTIONAL = ["review", "email", "artifact", "logo", "calendar", "model"];
 
-/** Installs one of the official plugins; artifact's view must be built first. */
+/** Where the official plugins are checked out. */
+const officialPlugins = (app) => process.env.PINRAIL_PLUGINS_DIR ?? path.join(app.root, "..", "pinrail-plugins");
+
+/** Installs one of the official plugins; artifact's and model's views must be built first. */
 async function install(app, name) {
-  const source = path.join(app.root, "plugins", name);
+  const source = path.join(officialPlugins(app), name);
+  if (!fs.existsSync(path.join(source, "manifest.json"))) {
+    throw new Error(
+      `${source} is not a plugin: check out forgeplane/pinrail-plugins beside this repository, or set PINRAIL_PLUGINS_DIR, and build artifact and model there`,
+    );
+  }
   await app.api("POST", "/api/v1/plugins/install", { source });
 }
 

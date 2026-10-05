@@ -11,7 +11,10 @@ import { fileURLToPath } from "node:url";
 import { visit } from "unist-util-visit";
 import { kbdHtml } from "./remark-kbd.mjs";
 
-const plugins = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../plugins");
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+// the official plugins: a checkout of forgeplane/pinrail-plugins beside this
+// repository, or the folder PINRAIL_PLUGINS_DIR names
+const plugins = process.env.PINRAIL_PLUGINS_DIR ?? path.resolve(repo, "../pinrail-plugins");
 
 const escape = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -222,8 +225,13 @@ function manifestPanel(m) {
  *  view a ```json block, so the site's code viewer draws it as every other
  *  JSON on the page, with its colours and its copy button. */
 function contract(name, alt) {
-  // a sample plugin by its name, or an example by its path under docs/examples
-  const dir = name.includes("/") ? path.join(plugins, "../docs/examples", name) : path.join(plugins, name);
+  // an official plugin by its name, or an example by its path under docs/examples
+  const dir = name.includes("/") ? path.join(repo, "docs/examples", name) : path.join(plugins, name);
+  if (!fs.existsSync(path.join(dir, "manifest.json"))) {
+    throw new Error(
+      `contract:${name}: ${dir} is not a plugin. Check out forgeplane/pinrail-plugins beside this repository, or set PINRAIL_PLUGINS_DIR.`,
+    );
+  }
   const manifest = read(dir, "manifest.json");
   const payload = read(dir, "schemas/payload.schema.json");
   const decision = read(dir, "schemas/decision.schema.json");

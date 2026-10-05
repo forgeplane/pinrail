@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "required": ["note"],
+  "additionalProperties": false,
+  "properties": {
+    "note": {
+      "type": "string",
+      "description": "What the person should look for in the files."
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/attachment" }
+    }
+  },
+  "$defs": {
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["$attachment"],
+      "properties": {
+        "$attachment": { "type": "string", "minLength": 1, "maxLength": 120 }
+      },
+      "description": "A file sent beside the payload with --attach, by its name."
+    }
+  }
+}

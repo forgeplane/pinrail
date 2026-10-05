@@ -169,15 +169,15 @@ mod tests {
     #[test]
     fn a_sample_names_the_files_it_sends() {
         // every plugin's sample loads: tests/check.rs goes through them all
-        let model = Plugin::load(&plugins_dir().join("model"));
-        let sample = model.sample(None).unwrap();
-        assert_eq!(sample.name, "model");
-        assert_eq!(sample.files.len(), 4);
+        let sampler = Plugin::load(&plugins_dir().join("sampler"));
+        let sample = sampler.sample(None).unwrap();
+        assert_eq!(sample.name, "sampler");
+        assert_eq!(sample.files.len(), 2);
         assert!(
             sample
                 .files
                 .iter()
-                .all(|f| f.media_type == "model/gltf-binary" && f.path.is_file())
+                .all(|f| f.media_type == "text/plain" && f.path.is_file())
         );
     }
 

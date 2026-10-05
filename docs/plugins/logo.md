@@ -21,7 +21,7 @@ The logo plugin is for choosing between marks an agent drew: a logo, an app icon
 
 ## Install
 
-Download `logo-<version>.zip` from the plugin's latest release on [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), then install it:
+Download `logo-<version>.zip` from the plugin's latest release on [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), then install it:
 
 ```sh
 pinrail plugins install ~/Downloads/logo-<version>.zip

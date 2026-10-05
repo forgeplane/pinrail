@@ -24,7 +24,7 @@ When nothing fits exactly, start with **List**. Almost any batch of proposed act
 
 <span class="pr-badge built-in">Built in</span> plugins ship inside the app. They are always installed, always at the version that matches your app, and cannot be removed or replaced.
 
-<span class="pr-badge optional">Optional</span> plugins are installed one at a time, from the app or the command line. Download a plugin's zip from [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), then install it:
+<span class="pr-badge optional">Optional</span> plugins are installed one at a time, from the app or the command line. Download a plugin's zip from [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), then install it:
 
 ```sh
 pinrail plugins install ~/Downloads/<name>-<version>.zip

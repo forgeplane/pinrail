@@ -21,14 +21,18 @@ change in behaviour, open an issue first.
 ## Plugins
 
 Plugins live in their own repositories, and people install them from there.
-This repository does not accept new plugins: the `plugins/` folder only holds
-the official plugins that ship with the app. To write your own, see
+This repository does not accept new plugins: the `plugins/` folder holds the
+two plugins the app carries, `list` and `feedback`, and `hello` and
+`sampler`, which the tests use. To write your own, see
 [Writing a plugin](https://pinrail.dev/docs/building/writing/).
 
-To work on an official plugin's view in the running app, link its folder:
+The official plugins are developed in
+[forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins).
+To work on one's view in the running app, link its folder from a checkout of
+that repository:
 
 ```sh
-pinrail plugins install plugins/review --link
+pinrail plugins install ../pinrail-plugins/review --link
 ```
 
 The link takes the place of the installed plugin of that name, including

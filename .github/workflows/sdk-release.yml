@@ -59,11 +59,8 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm test
-      # the artifact and model plugins' builds write views that are not committed
       - name: The samples pass check
         run: |
-          (cd plugins/artifact && npm ci && npm run build)
-          (cd plugins/model && npm ci && npm run build)
           for dir in plugins/*/; do
             node pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
           done

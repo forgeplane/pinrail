@@ -334,13 +334,13 @@ async fn a_sample_is_sent_as_a_review_with_its_files() {
     assert_eq!(review.requested_by.as_deref(), Some("sample"));
 
     // a linked plugin's sample, with the files it names stored
-    let model = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/model");
-    link(&app, &model).await.unwrap();
-    let review = app.send_sample("model", &json!({})).unwrap();
-    assert_eq!(review.title, "Halden desk lamp");
+    let sampler = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/sampler");
+    link(&app, &sampler).await.unwrap();
+    let review = app.send_sample("sampler", &json!({})).unwrap();
+    assert_eq!(review.title, "Release notes for 2.4");
     let mut names: Vec<&str> = review.attachments.iter().map(|a| a.name.as_str()).collect();
     names.sort();
-    assert_eq!(names, ["arc.glb", "column.glb", "pivot.glb", "tripod.glb"]);
+    assert_eq!(names, ["changes.txt", "notes.txt"]);
     for attachment in &review.attachments {
         assert!(app.attachments().path(&attachment.sha256).is_file());
     }

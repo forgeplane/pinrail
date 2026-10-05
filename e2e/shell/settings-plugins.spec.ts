@@ -192,7 +192,7 @@ test("what is not a plugin is refused before anything runs", async ({ page }) =>
 test("the buttons in a plugin's note do not fold its settings", async ({ page }) => {
   // Remove and Keep sit inside the row's note, which opens the settings
   // when clicked: pressing them must do only what they say
-  const source = pluginCopy("calendar", "planner", "1.0.0");
+  const source = pluginCopy("hello", "planner", "1.0.0");
   const installed = await page.request.post(`${core}/api/v1/plugins/install`, { data: { source, link: true } });
   expect(installed.status(), await installed.text()).toBe(200);
   await page.goto("/#/plugins");

@@ -53,7 +53,7 @@ jobs:
       # the lock files are enough: npm audit needs no install
       - name: npm advisories
         run: |
-          for dir in desktop/app pinrail-plugin plugins/artifact plugins/model; do
+          for dir in desktop/app pinrail-plugin; do
             echo "::group::$dir"
             (cd "$dir" && npm audit --omit=dev --audit-level=high) || failed=1
             echo "::endgroup::"

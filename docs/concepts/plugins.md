@@ -66,7 +66,7 @@ Two plugins are built into the app and always available:
 | `list` | Items grouped under headings, each accepted or rejected with an optional note. The general-purpose choice for findings, tasks and proposed actions. |
 | `feedback` | Questions an agent wants answered before it goes on: choices, free text and acknowledgments, grouped and conditional, answered in one pass. |
 
-Six more official plugins are optional. Download the zip of each one you need from [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), and install it with `pinrail plugins install <zip>` or from *Settings › Plugins*:
+Six more official plugins are optional. Download the zip of each one you need from [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), and install it with `pinrail plugins install <zip>` or from *Settings › Plugins*:
 
 | Plugin | For |
 |---|---|

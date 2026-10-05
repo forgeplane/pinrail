@@ -1,0 +1,1 @@
+v2.4.0: retry card captures once on a gateway timeout.

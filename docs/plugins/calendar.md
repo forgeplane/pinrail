@@ -23,7 +23,7 @@ The calendar plugin is for deciding when things happen. The agent has found cand
 
 ## Install
 
-Download `calendar-<version>.zip` from the plugin's latest release on [Pinrail's releases page](https://github.com/forgeplane/pinrail/releases), then install it:
+Download `calendar-<version>.zip` from the plugin's latest release on [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), then install it:
 
 ```sh
 pinrail plugins install ~/Downloads/calendar-<version>.zip

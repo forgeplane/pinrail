@@ -5,7 +5,7 @@
  * the shell — pick a fixture, see the view, collect a decision, read what
  * the view posts. Files are watched; a change reloads the view.
  *
- *   pinrail-plugin dev ./plugins/artifact [--port 4790] [--no-open]
+ *   pinrail-plugin dev ./plugins/hello [--port 4790] [--no-open]
  *
  * Node, and the icon set the package depends on; nothing else.
  */

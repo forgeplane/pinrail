@@ -55,8 +55,9 @@ and decision is kept, so history can be reopened and rendered again.
 A plugin defines one kind of review: the payload an agent sends, the
 decision you give back, and the view you decide in. Two plugins are built
 into the app, `list` and `feedback`. The other official plugins are optional:
-download the zip of the ones you need from the releases page, and install
-each with `pinrail plugins install <zip>`.
+download the zip of the ones you need from the releases page of
+[pinrail-plugins](https://github.com/forgeplane/pinrail-plugins), where
+they are developed, and install each with `pinrail plugins install <zip>`.
 Anyone can write a plugin for what their agents do, such as triaging alerts,
 approving a deploy or choosing between designs, and share it for others to
 install.
@@ -65,12 +66,12 @@ install.
 |---|---|
 | `list` (built in) | items grouped under headings, each accepted or rejected with a note |
 | `feedback` (built in) | questions answered in one pass: choices, yes or no, and free text |
-| [`review`](plugins/review/README.md) | a code review: the diff and the agent's proposed comments |
-| [`email`](plugins/email/README.md) | draft emails to edit, send, revise or discard |
-| [`artifact`](plugins/artifact/README.md) | an HTML page to comment on, element by element |
-| [`calendar`](plugins/calendar/README.md) | times to arrange around a calendar, one suggested slot picked per item |
-| [`logo`](plugins/logo/README.md) | candidate logo marks and icons, seen at every size, with a favourite picked |
-| [`model`](plugins/model/README.md) | candidate 3D models to orbit under studio light, with changes asked for on their parts |
+| [`review`](https://github.com/forgeplane/pinrail-plugins/tree/main/review) | a code review: the diff and the agent's proposed comments |
+| [`email`](https://github.com/forgeplane/pinrail-plugins/tree/main/email) | draft emails to edit, send, revise or discard |
+| [`artifact`](https://github.com/forgeplane/pinrail-plugins/tree/main/artifact) | an HTML page to comment on, element by element |
+| [`calendar`](https://github.com/forgeplane/pinrail-plugins/tree/main/calendar) | times to arrange around a calendar, one suggested slot picked per item |
+| [`logo`](https://github.com/forgeplane/pinrail-plugins/tree/main/logo) | candidate logo marks and icons, seen at every size, with a favourite picked |
+| [`model`](https://github.com/forgeplane/pinrail-plugins/tree/main/model) | candidate 3D models to orbit under studio light, with changes asked for on their parts |
 
 A plugin is a manifest, two JSON schemas and an HTML view.
 `pinrail plugins new <name>` creates one. The

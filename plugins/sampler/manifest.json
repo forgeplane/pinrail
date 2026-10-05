@@ -1,0 +1,23 @@
+{
+  "name": "sampler",
+  "version": "1.0.0",
+  "title": "Sampler",
+  "description": "A note with text files to read, approved or sent back: a test fixture for plugins that take files and declare a verdict.",
+  "use_when": "You need a person to read one or more text files and approve them or ask for changes.",
+  "attachments": {
+    "accept": [".txt", "text/plain"],
+    "max_size": 1048576,
+    "max_count": 4
+  },
+  "summary": {
+    "outcome": {
+      "verdict": {
+        "at": "/verdict",
+        "values": {
+          "approve": { "label": "approved", "tone": "success" },
+          "revise": { "label": "changes requested", "tone": "warning" }
+        }
+      }
+    }
+  }
+}

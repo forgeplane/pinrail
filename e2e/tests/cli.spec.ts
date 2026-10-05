@@ -272,15 +272,15 @@ test("files sent with --attach travel with the review and come back byte for byt
   }
 });
 
-test("plugins lists the built-in and the installed sample plugins", async () => {
+test("plugins lists the built-in and the installed test plugins", async () => {
   const plugins = pinrailJson(["plugins"]);
-  // the samples this suite installs, and the built-in ones that are always there
+  // the test plugins this suite installs, and the built-in ones that are always there
   expect(plugins.plugins.map((p: any) => p.name)).toEqual(
-    expect.arrayContaining(["artifact", "email", "feedback", "hello", "list", "review"]),
+    expect.arrayContaining(["feedback", "hello", "list", "sampler"]),
   );
   // a plugin only installs if it loads, so every one of them is usable
   for (const p of plugins.plugins) expect(p.usable, `${p.name}: ${p.error}`).toBe(true);
-  // the three that are developed in place are links; artifact was built and copied
+  // hello is a link; sampler was copied
   const kinds = Object.fromEntries(plugins.plugins.map((p: any) => [p.name, p.install?.link]));
-  expect(kinds).toMatchObject({ email: true, hello: true, review: true, artifact: false });
+  expect(kinds).toMatchObject({ hello: true, sampler: false });
 });

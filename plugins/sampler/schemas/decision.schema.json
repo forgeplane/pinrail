@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "required": ["verdict"],
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "enum": ["approve", "revise"],
+      "description": "approve when the files are fine, revise to send them back."
+    }
+  }
+}

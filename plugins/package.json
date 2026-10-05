@@ -1,7 +1,7 @@
 {
   "name": "pinrail-plugins",
   "private": true,
-  "description": "The sample plugins' tests, and the built-in plugin's, under the pinrail-plugin harness",
+  "description": "The tests of the plugins the app's build and tests use, under the pinrail-plugin harness",
   "license": "Apache-2.0",
   "scripts": {
     "test": "node --test */tests/*.test.cjs && NODE_PATH=node_modules playwright test"

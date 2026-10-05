@@ -1,0 +1,11 @@
+{
+  "title": "Release notes for 2.4",
+  "payload": {
+    "note": "Check that both files name the same version.",
+    "files": [{ "$attachment": "notes.txt" }, { "$attachment": "changes.txt" }]
+  },
+  "attachments": {
+    "notes.txt": "notes.txt",
+    "changes.txt": "changes.txt"
+  }
+}

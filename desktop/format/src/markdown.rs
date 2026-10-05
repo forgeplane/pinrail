@@ -670,14 +670,19 @@ mod tests {
     }
 
     #[test]
-    fn the_review_plugins_decided_fixture_renders() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../plugins/review/fixtures/dedup-round-1.decided.json");
-        let fixture: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    fn a_round_renders_its_verdicts_notes_and_what_is_undecided() {
         let review = json!({
-            "id": "r_1", "plugin": "review", "plugin_version": 1, "title": fixture["title"],
+            "id": "r_1", "plugin": "review", "plugin_version": 1, "title": "Dedup tickets on save",
             "origin": {"repo": "acme/api", "workflow": "pr-review"},
-            "status": "decided", "decision": fixture["decision"], "agent_note": null
+            "status": "decided", "agent_note": null,
+            "decision": {
+                "decided_by": "alice", "decided_at": "2026-09-10T09:00:00Z",
+                "data": {
+                    "decisions": [{"id": 18, "action": "reject", "note": "dont nitpick"}],
+                    "comments": [],
+                    "undecided": [19, 20]
+                }
+            }
         });
         let md = render(&review, Some((1, 2)), None);
         assert!(
@@ -745,22 +750,23 @@ Undecided: #19, #20
     }
 
     #[test]
-    fn the_review_plugins_template_names_the_proposals_from_the_payload() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins/review");
-        let fixture: Value = serde_json::from_str(
-            &std::fs::read_to_string(root.join("fixtures/dedup-round-1.decided.json")).unwrap(),
-        )
-        .unwrap();
-        let template = std::fs::read_to_string(root.join("templates/decision.md.j2")).unwrap();
-        crate::compile_template(&template).unwrap();
+    fn a_plugins_template_replaces_the_generic_body() {
         let review = json!({
-            "id": "r_1", "plugin": "review", "plugin_version": 1, "title": fixture["title"],
-            "origin": {"repo": "acme/api"}, "status": "decided",
-            "payload": fixture["payload"], "decision": fixture["decision"], "agent_note": "dont nitpick the docs"
+            "id": "r_1", "plugin": "review", "plugin_version": 1, "title": "Dedup tickets on save",
+            "origin": {"repo": "acme/api"}, "status": "decided", "agent_note": null,
+            "payload": {"proposals": [{"id": 18, "title": "reversing twice is a no-op"}]},
+            "decision": {
+                "decided_by": "alice", "decided_at": "2026-09-10T09:00:00Z",
+                "data": {"decisions": [{"id": 18, "action": "reject", "note": "dont nitpick"}]}
+            }
         });
-        let md = render(&review, None, Some(&template));
-        assert!(md.contains("\n## Proposals\n\n- **#18 rejected** `lib/acme/tickets.ex:149` — reversing twice is a no-op with a cost (major)\n  > dont nitpick\n"), "{md}");
-        assert!(md.contains("\nUndecided: #19, #20\n"), "{md}");
+        let template = "## Proposals\n\n{% for item in items %}- **#{{ item.id }} {{ item.action }}ed** {{ item.payload.title }}\n{% endfor %}";
+        crate::compile_template(template).unwrap();
+        let md = render(&review, None, Some(template));
+        assert!(
+            md.contains("\n## Proposals\n\n- **#18 rejected** reversing twice is a no-op\n"),
+            "{md}"
+        );
         assert!(
             !md.contains("## Decisions"),
             "the template replaces the generic body: {md}"

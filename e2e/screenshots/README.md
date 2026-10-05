@@ -24,9 +24,12 @@ scene, removes nothing.
 
 1. `app.mjs` starts a clean app: the desktop core headless on a scratch data
    directory in `e2e/.state`, and the shell from vite against it.
-2. `seed.mjs` installs the optional plugins from `plugins/` and creates each
-   fixture in `fixtures/` through the API, with its decision, discard or
-   withdrawal.
+2. `seed.mjs` installs the official plugins the fixtures use from a checkout
+   of [forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins)
+   beside this repository, `../pinrail-plugins`, or from the folder that
+   `PINRAIL_PLUGINS_DIR` names. Build `artifact` and `model` there first
+   (`npm ci && npm run build` in each). It then creates each fixture in
+   `fixtures/` through the API, with its decision, discard or withdrawal.
 3. The core is stopped and its database pinned: every time counts back from
    a fixed moment, ids, the person deciding and the plugins' sources are
    fixed values, and the core starts again.
