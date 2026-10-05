@@ -406,7 +406,6 @@
   .pinrail-item-body {
     margin-top: 6px;
     color: var(--pinrail-dim);
-    max-width: 80ch;
   }
   .pinrail-item-body p {
     margin: 4px 0;
