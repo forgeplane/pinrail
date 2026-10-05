@@ -97,3 +97,18 @@ test("tokens.css alone gives the palette, and no rule for any element", async ({
   expect(await style(f, "body", "margin-top")).toBe("8px");
   expect(await style(f, "body", "font-family")).not.toContain("Inter");
 });
+
+test.describe("with motion reduced", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("a style set from script applies at once, so what measures it reads the new value", async ({ page }) => {
+    // with every transition merely shortened, any property change animated,
+    // and a diagram library measuring its labels read the old size
+    const plugin = await mountPlugin(page, fields(), { review: reviewFrom({ title: "Styles", payload: {} }) });
+    const size = await plugin.frame.locator("#start").evaluate((el) => {
+      el.style.fontSize = "40px";
+      return getComputedStyle(el).fontSize;
+    });
+    expect(size).toBe("40px");
+  });
+});

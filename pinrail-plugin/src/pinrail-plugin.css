@@ -511,7 +511,10 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
-      transition-duration: 0.01ms !important;
+      /* none at all, not merely shortened: every property transitions by
+         default, so a short transition still delays a style set from
+         script, and whatever measures it reads the old value */
+      transition-duration: 0s !important;
       scroll-behavior: auto !important;
     }
   }
