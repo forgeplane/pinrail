@@ -10,6 +10,7 @@ pub mod attachments;
 pub mod bundle;
 pub mod compat;
 pub mod manifest;
+pub mod markdown;
 pub mod sample;
 pub mod schema;
 pub mod summary;

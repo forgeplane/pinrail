@@ -9,7 +9,8 @@ publish = false
 
 [dependencies]
 jsonschema = { version = "0.56", default-features = false }
-minijinja = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+minijinja = { version = "2", features = ["fuel"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 sha2 = "0.10"

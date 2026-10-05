@@ -17,7 +17,7 @@ pub mod docs;
 pub mod error;
 pub mod events;
 pub mod id;
-pub mod markdown;
+pub use pinrail_format::markdown;
 pub mod plugins;
 pub mod reviews;
 pub use pinrail_format::schema;

@@ -752,7 +752,7 @@ Undecided: #19, #20
         )
         .unwrap();
         let template = std::fs::read_to_string(root.join("templates/decision.md.j2")).unwrap();
-        pinrail_format::compile_template(&template).unwrap();
+        crate::compile_template(&template).unwrap();
         let review = json!({
             "id": "r_1", "plugin": "review", "plugin_version": 1, "title": fixture["title"],
             "origin": {"repo": "acme/api"}, "status": "decided",
@@ -768,7 +768,7 @@ Undecided: #19, #20
 
         // a template that fails to compile is reported; one that fails to
         // render falls back to the generic body
-        assert!(pinrail_format::compile_template("{% if %}").is_err());
+        assert!(crate::compile_template("{% if %}").is_err());
         let md = render(&review, None, Some("{{ items | nosuchfilter }}"));
         assert!(md.contains("## Decisions"), "{md}");
     }
@@ -789,7 +789,7 @@ Undecided: #19, #20
             // the plugin as the app loads it: its template, and the schemas
             // a fixture must pass, since it shows what the plugin sends and
             // gets back
-            let loaded = crate::plugins::Plugin::load(&dir);
+            let loaded = crate::Plugin::load(&dir);
             assert_eq!(loaded.error, None, "{}", dir.display());
             let manifest = Value::Object(loaded.manifest.clone());
             let template = loaded.decision_template.clone();

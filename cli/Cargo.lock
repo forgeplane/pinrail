@@ -909,6 +909,7 @@ dependencies = [
 name = "pinrail-format"
 version = "0.2.0"
 dependencies = [
+ "chrono",
  "jsonschema",
  "minijinja",
  "serde",
