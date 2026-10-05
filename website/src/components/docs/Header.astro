@@ -2,10 +2,11 @@
 // The docs' header without the search, which sits at the top of the
 // sidebar instead: the title on the left, the social links and the theme
 // toggle on the right.
-import LanguageSelect from "virtual:starlight/components/LanguageSelect";
-import SiteTitle from "virtual:starlight/components/SiteTitle";
-import SocialIcons from "virtual:starlight/components/SocialIcons";
-import ThemeSelect from "virtual:starlight/components/ThemeSelect";
+// the site's own title and theme toggle, which replace Starlight's
+import LanguageSelect from "@astrojs/starlight/components/LanguageSelect.astro";
+import SocialIcons from "@astrojs/starlight/components/SocialIcons.astro";
+import SiteTitle from "./SiteTitle.astro";
+import ThemeSelect from "./ThemeToggle.astro";
 ---
 
 <div class="header">
