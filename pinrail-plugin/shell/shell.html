@@ -40,6 +40,8 @@
   .side h2 { margin: 0; padding: 10px 12px 6px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
   .state { padding: 0 12px 10px; display: grid; gap: 6px; border-bottom: 1px solid var(--line); }
   .state div { display: grid; grid-template-columns: 60px 1fr; gap: 8px; font-size: 12px; }
+  /* a panel with nothing to list says so across its width */
+  .state div.empty { display: block; padding: 0 0 4px; }
   .state span { color: var(--faint); }
   .state code, .log code { font: 11.5px var(--mono); white-space: pre-wrap; word-break: break-word; color: var(--text); }
   .log { flex: 1; overflow-y: auto; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
@@ -126,9 +128,9 @@
     <h2 class="with">Comments <button class="link" id="clear-comments" title="Delete every comment">Clear</button></h2>
     <div id="comments"><div class="empty">Turn on Select, then click a part of the view to comment on it.</div></div>
     <h2>Settings</h2>
-    <div class="state" id="settings"><div class="empty" style="padding:0 0 4px">The manifest declares none.</div></div>
+    <div class="state" id="settings"><div class="empty">The manifest declares none.</div></div>
     <h2>Shortcuts</h2>
-    <div class="state" id="shortcuts"><div class="empty" style="padding:0 0 4px">The manifest declares none; declared keys reach the view from this page too.</div></div>
+    <div class="state" id="shortcuts"><div class="empty">The manifest declares none; declared keys reach the view from this page too.</div></div>
     <h2>State</h2>
     <div class="state">
       <div><span>status</span><code id="s-status">—</code></div>

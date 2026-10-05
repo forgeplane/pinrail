@@ -189,3 +189,23 @@ test("the app's composer sits under the view, hands over, and takes comments of 
     await expect(page.locator("#composer")).toBeHidden();
   });
 });
+
+test("a plugin with no settings or shortcuts says so across the side panel", async ({ page }) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    for (const id of ["#settings", "#shortcuts"]) {
+      const said = page.locator(`${id} .empty`);
+      await expect(said).toContainText("The manifest declares none");
+      // the sentence runs across the panel, not down the 60-pixel label column of a row
+      const text = await said.evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return range.getBoundingClientRect().width;
+      });
+      expect(text).toBeGreaterThan(100);
+    }
+  });
+});
