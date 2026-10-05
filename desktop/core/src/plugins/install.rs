@@ -12,8 +12,11 @@
 //! A source is one string: a folder, or a zip on disk. It is parsed
 //! before anything is touched, so a bad one fails at once.
 //!
+//! An official plugin is installed by its id, `forgeplane/<name>`, from the
+//! catalog the app carries, as one will be from the registry's index.
+//!
 //! A plugin is installed under its manifest's name, and replaces whatever
-//! was installed under it: a folder, a zip, a link or the app's own copy.
+//! was installed under it: a folder, a zip, a link or an official plugin.
 
 use std::path::{Path, PathBuf};
 
@@ -85,20 +88,54 @@ pub fn install(
     result
 }
 
+/// Installs the official plugin `id` names, `forgeplane/<name>` or a bare
+/// name, at the highest version a catalog offers. Returns its record and
+/// the version it replaced, if any; the registry has been reloaded with it.
+/// The record is what an install from the registry's index makes: the
+/// `index` source kind and the id.
+pub fn install_offered(
+    db: &Db,
+    registry: &Registry,
+    id: &str,
+) -> Result<(InstallRecord, Option<String>), Error> {
+    let entry = registry
+        .offered(id)
+        .ok_or_else(|| Error::invalid("/id", format!("no official plugin is named {id}")))?
+        .clone();
+    if let Some(needed) = entry.needs() {
+        return Err(Error::invalid(
+            "/id",
+            format!(
+                "{} {} needs Pinrail {needed} or later",
+                entry.id(),
+                entry.version
+            ),
+        ));
+    }
+    let bundle = registry.bundles().store_files(&entry.files)?;
+    let _changing = registry.changing();
+    let now = crate::reviews::iso(Utc::now());
+    let record = InstallRecord {
+        name: entry.name.clone(),
+        kind: "index".into(),
+        source: entry.id(),
+        link: false,
+        bundle: bundle.hash,
+        installed_at: now.clone(),
+        updated_at: now,
+    };
+    let before = installed_version(registry, &record.name);
+    Ok((commit(db, registry, record)?, before))
+}
+
 /// Removes an installed plugin: its installation. The bundles reviews
 /// were submitted to stay with them, so they still render; the rest go
-/// with the sweep. The plugins the app ships cannot be removed.
+/// with the sweep.
 pub fn remove(db: &Db, registry: &Registry, name: &str) -> Result<Value, Error> {
     let _changing = registry.changing();
     let record = db
         .install(name)?
         .ok_or_else(|| Error::NotFound(format!("plugin {name}")))?;
-    if record.kind == "app" {
-        return Err(Error::invalid(
-            "/name",
-            format!("{name} ships with Pinrail and cannot be removed"),
-        ));
-    }
     let version = registry
         .get(name)
         .map(|p| p.version.clone())
@@ -185,9 +222,9 @@ fn summarize(
                 "source": r.source,
                 "link": r.linked(),
                 "unchanged": unchanged,
-                // the sites it may open stay with a plugin from disk; the
-                // app's own copy is another plugin
-                "links_kept": r.kind != "app",
+                // the sites it may open stay with a plugin from disk; an
+                // official plugin is another plugin
+                "links_kept": r.kind != "index",
             }))
         }
     };

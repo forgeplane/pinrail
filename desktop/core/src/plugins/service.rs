@@ -70,13 +70,18 @@ impl PluginService {
     /// The sample of a usable plugin, the one named or else its first, or
     /// why there is none to send.
     pub fn sample(&self, name: &str, which: Option<&str>) -> Result<super::Sample, Error> {
-        let plugin = self
-            .registry
-            .get(name)
-            .filter(|p| p.usable())
-            .ok_or_else(|| {
-                Error::invalid("/plugin", format!("no usable plugin is named {name}"))
-            })?;
+        let plugin = match self.registry.get(name) {
+            Some(plugin) if plugin.usable() => plugin,
+            None if self.registry.offered(name).is_some() => {
+                return Err(self.registry.missing(name));
+            }
+            _ => {
+                return Err(Error::invalid(
+                    "/plugin",
+                    format!("no usable plugin is named {name}"),
+                ));
+            }
+        };
         if let Some(sample) = plugin.sample(which) {
             return Ok(sample.clone());
         }
@@ -102,6 +107,12 @@ impl PluginService {
             .iter()
             .map(|p| {
                 let mut row = p.to_json();
+                // the version a catalog offers it at, when that is newer
+                row["update"] = self
+                    .registry
+                    .update_for(&p.name)
+                    .map(|entry| entry.version.clone())
+                    .into();
                 // the plugin's settings as they stand: defaults under the stored values
                 row["settings"] = p
                     .has_settings()
@@ -111,6 +122,31 @@ impl PluginService {
             })
             .collect::<Vec<_>>();
         json!({ "plugins": plugins })
+    }
+
+    /// The official plugins the app can install, as the registry's
+    /// compiled index lists them, each with the version installed, if any.
+    pub fn catalog(&self) -> Value {
+        let plugins: Vec<Value> = self
+            .registry
+            .catalog()
+            .into_iter()
+            .map(|entry| {
+                let mut row = entry.to_json();
+                row["installed"] = self
+                    .registry
+                    .get(&entry.name)
+                    .filter(|p| {
+                        p.install
+                            .as_ref()
+                            .is_some_and(|i| i.source_kind == "index" && i.source == entry.id())
+                    })
+                    .map(|p| p.version.clone())
+                    .into();
+                row
+            })
+            .collect();
+        json!({ "format": 1, "plugins": plugins })
     }
 
     /// The plugin a review renders with; see [`Registry::fetch_review`].
@@ -154,11 +190,34 @@ impl PluginService {
     pub async fn install(&self, source: &str, options: InstallOptions) -> Result<Value, Error> {
         let worker = self.clone();
         let source = source.to_string();
-        let (record, before) = tokio::task::spawn_blocking(move || {
+        let installed = tokio::task::spawn_blocking(move || {
             install::install(&worker.db, &worker.registry, &source, options)
         })
         .await
-        .map_err(|error| Error::Internal(error.to_string()))??;
+        .map_err(|error| Error::Internal(error.to_string()))?;
+        self.installed(installed)
+    }
+
+    /// Installs the official plugin `id` names, or updates it to the
+    /// highest version a catalog offers; the plugin's row, as
+    /// [`PluginService::install`] answers.
+    pub async fn install_offered(&self, id: &str) -> Result<Value, Error> {
+        let worker = self.clone();
+        let id = id.to_string();
+        let installed = tokio::task::spawn_blocking(move || {
+            install::install_offered(&worker.db, &worker.registry, &id)
+        })
+        .await
+        .map_err(|error| Error::Internal(error.to_string()))?;
+        self.installed(installed)
+    }
+
+    /// An install's answer: the plugin's row, with the version it replaced.
+    fn installed(
+        &self,
+        installed: Result<(crate::db::InstallRecord, Option<String>), Error>,
+    ) -> Result<Value, Error> {
+        let (record, before) = installed?;
         self.announce()?;
         let mut row = self
             .registry

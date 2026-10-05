@@ -186,10 +186,11 @@ function pinDatabase(file, plan) {
   const oldest = Math.max(0, ...entries.map(([, t]) => t.created));
   const installedAt = iso(NOW - oldest - 3_600_000);
   db.prepare("UPDATE plugin_installs SET installed_at = ?, updated_at = ?").run(installedAt, installedAt);
-  // installed from the zip a reader downloads, not copied from this checkout
+  // installed from the zip a reader downloads, not copied from this checkout;
+  // the official plugins keep their source
   for (const { name, version } of db
     .prepare(
-      "SELECT i.name, b.version FROM plugin_installs i JOIN plugin_bundles b ON b.hash = i.bundle WHERE i.source_kind <> 'app'",
+      "SELECT i.name, b.version FROM plugin_installs i JOIN plugin_bundles b ON b.hash = i.bundle WHERE i.source_kind <> 'index'",
     )
     .all()) {
     db.prepare("UPDATE plugin_installs SET source_kind = 'archive', source = ? WHERE name = ?").run(

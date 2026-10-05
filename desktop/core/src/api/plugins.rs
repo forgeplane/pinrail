@@ -21,6 +21,7 @@ pub fn routes() -> Router<ApiState> {
     Router::new()
         .route("/api/v1/plugins", get(index))
         .route("/api/v1/plugins/describe", get(describe_all))
+        .route("/api/v1/plugins/catalog", get(catalog))
         .route("/api/v1/plugins/inspect", post(inspect))
         .route("/api/v1/plugins/install", post(install))
         .route("/api/v1/plugins/{name}", delete(remove))
@@ -48,6 +49,12 @@ async fn sample(
     };
     let review = state.send_sample(&name, &overrides)?;
     Ok((StatusCode::CREATED, Json(review.to_json(true))).into_response())
+}
+
+/// The official plugins the app can install, in the shape of the
+/// registry's compiled index.
+async fn catalog(State(state): State<Arc<Pinrail>>) -> Json<Value> {
+    Json(state.plugins().catalog())
 }
 
 async fn describe_all(State(state): State<Arc<Pinrail>>) -> Result<Json<Value>, ApiError> {
@@ -79,14 +86,22 @@ async fn inspect(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<
     Ok(Json(state.plugins().inspect(&source, options).await?))
 }
 
-/// Installs the plugin a folder or a zip holds; the plugin's row.
+/// Installs the plugin a folder or a zip holds, `{source, link?}`, or the
+/// official plugin an id names, `{id}`, at the highest version offered;
+/// the plugin's row.
 async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
+    if let Some(id) = parse_body(&body)?.get("id") {
+        let id = id
+            .as_str()
+            .ok_or_else(|| Error::invalid("/id", "is not a string"))?;
+        return Ok(Json(state.plugins().install_offered(id).await?));
+    }
     let (source, options) = install_request(&body)?;
     Ok(Json(state.plugins().install(&source, options).await?))
 }
 
 /// Removes an installed plugin; the reviews made with it keep the bundles
-/// they were submitted to. A plugin the app ships cannot be removed.
+/// they were submitted to.
 async fn remove(
     State(state): State<Arc<Pinrail>>,
     Path(name): Path<String>,

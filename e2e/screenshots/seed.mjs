@@ -6,9 +6,10 @@
 // fixture a round answers. `age` and `decided` are how long before NOW, as
 // "4m", "2h" or "3d". `attachments` names files the review carries by path,
 // relative to the fixture, `{ "pivot.glb": { "path": "…" } }`: each is
-// uploaded first. The plugins they use beyond the built-in ones are
-// installed first, from a checkout of forgeplane/pinrail-plugins beside this
-// repository, or from PINRAIL_PLUGINS_DIR, with artifact and model built.
+// uploaded first. The plugins they use are installed first: the official
+// ones the app carries by their ids, and the rest from a checkout of
+// forgeplane/pinrail-plugins beside this repository, or from
+// PINRAIL_PLUGINS_DIR, with artifact and model built.
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -35,7 +36,10 @@ export function fixtures() {
     }));
 }
 
-/** The plugins the fixtures use beyond the built-in ones. */
+/** The official plugins the app carries that the fixtures use. */
+const CARRIED = ["forgeplane/list", "forgeplane/feedback"];
+
+/** The plugins the fixtures use from forgeplane/pinrail-plugins. */
 const OPTIONAL = ["review", "email", "artifact", "logo", "calendar", "model"];
 
 /** Where the official plugins are checked out. */
@@ -75,6 +79,10 @@ async function upload(app, spec) {
 
 /** Seeds every fixture and pins the run. Returns fixture key → review id. */
 export async function seed(app) {
+  for (const id of CARRIED) {
+    console.log(`screenshots: installing ${id}`);
+    await app.api("POST", "/api/v1/plugins/install", { id });
+  }
   for (const name of OPTIONAL) {
     console.log(`screenshots: installing ${name}`);
     await install(app, name);

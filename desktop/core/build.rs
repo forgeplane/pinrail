@@ -1,6 +1,7 @@
-// The built-in plugins are plugins like any other: they live in `plugins/`
-// with the rest. The crate cannot reach outside itself for files it embeds,
-// so their bundles are copied here at build time and embedded from there.
+// The official plugins the app offers are plugins like any other: they live
+// in `plugins/` with the test fixtures. The crate cannot reach outside itself
+// for files it embeds, so their bundles are copied here at build time and
+// embedded from there, as the catalog the person installs from.
 // What a plugin ships is what an install would copy: the entries of the
 // bundle layout, without hidden files.
 //
@@ -24,21 +25,21 @@ const LAYOUT: &[&str] = &[
     "samples",
 ];
 
-/// The plugins every server has, by their folder in `plugins/`.
-const BUILTIN: &[&str] = &["list", "feedback"];
+/// The plugins the app's catalog offers, by their folder in `plugins/`.
+const CATALOG: &[&str] = &["list", "feedback"];
 
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let builtin = out.join("builtin");
+    let catalog = out.join("catalog");
 
     migrations(&manifest.join("migrations"), &out.join("migrations.rs"));
 
-    let _ = fs::remove_dir_all(&builtin);
-    for name in BUILTIN {
+    let _ = fs::remove_dir_all(&catalog);
+    for name in CATALOG {
         let source = manifest.join("../../plugins").join(name);
         println!("cargo:rerun-if-changed={}", source.display());
-        copy(&source, &builtin.join(name), true);
+        copy(&source, &catalog.join(name), true);
     }
 }
 

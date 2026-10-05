@@ -10,98 +10,12 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, RwLock};
 
 use chrono::Utc;
-use include_dir::{Dir, include_dir};
 
-use super::bundles::{Bundles, Files};
+use super::bundles::Bundles;
+use super::catalog::{self, Catalog, Entry};
 use super::manifest::{Install, Plugin};
 use crate::db::{Db, InstallRecord};
 use crate::error::Error;
-
-/// The plugins that ship with the app. They live in `plugins/` with the
-/// others; build.rs copies their bundles here for the binary to carry.
-static BUILTIN: Dir = include_dir!("$OUT_DIR/builtin");
-
-/// The files of each plugin the app carries, by its folder: paths relative
-/// to the plugin, and their bytes.
-pub(crate) fn bundled() -> Vec<(String, Files)> {
-    fn files(dir: &Dir, root: &Path, out: &mut Vec<(String, Vec<u8>)>) {
-        for file in dir.files() {
-            let path = file.path().strip_prefix(root).unwrap_or(file.path());
-            out.push((
-                path.to_string_lossy().replace('\\', "/"),
-                file.contents().to_vec(),
-            ));
-        }
-        for child in dir.dirs() {
-            files(child, root, out);
-        }
-    }
-    BUILTIN
-        .dirs()
-        .map(|plugin| {
-            let mut out = Vec::new();
-            files(plugin, plugin.path(), &mut out);
-            (plugin.path().to_string_lossy().into_owned(), out)
-        })
-        .collect()
-}
-
-/// Stores the plugins the app carries as bundles and installs each under
-/// its name, with `app` as its source, when nothing is installed under
-/// that name; one installed from disk, or linked, is left alone. An app's
-/// copy is replaced when this release of the app carries a newer version,
-/// or the same version with other files, so the copy always matches the SDK
-/// the app serves; a downgrade of the app leaves a newer one in place.
-/// Reviews keep the bundle they were submitted to.
-pub(crate) fn store_bundled(db: &Db, bundles: &Bundles) -> Result<(), Error> {
-    store_releases(db, bundles, bundled())
-}
-
-/// `store_bundled` for the given plugins, as each release of the app
-/// carries its own.
-pub(crate) fn store_releases(
-    db: &Db,
-    bundles: &Bundles,
-    plugins: Vec<(String, Files)>,
-) -> Result<(), Error> {
-    let now = crate::reviews::iso(Utc::now());
-    for (_, files) in plugins {
-        let bundle = bundles.store_files(&files)?;
-        let installed = db.install(&bundle.name)?;
-        let record = match installed {
-            None => InstallRecord {
-                name: bundle.name.clone(),
-                kind: "app".into(),
-                source: String::new(),
-                link: false,
-                bundle: bundle.hash.clone(),
-                installed_at: now.clone(),
-                updated_at: now.clone(),
-            },
-            Some(install) if install.kind == "app" => {
-                let replaces = db.bundle(&install.bundle)?.is_none_or(|current| {
-                    let (ours, theirs) = (
-                        pinrail_format::semver(&bundle.version),
-                        pinrail_format::semver(&current.version),
-                    );
-                    ours > theirs || (ours == theirs && bundle.hash != install.bundle)
-                });
-                if !replaces {
-                    continue;
-                }
-                InstallRecord {
-                    bundle: bundle.hash.clone(),
-                    updated_at: now.clone(),
-                    ..install
-                }
-            }
-            // installed from disk, or linked, in the app's copy's place
-            Some(_) => continue,
-        };
-        db.record_install(&record)?;
-    }
-    Ok(())
-}
 
 #[derive(Debug, Default)]
 struct RegistryState {
@@ -139,11 +53,20 @@ pub struct Registry {
     changes: Mutex<()>,
     /// Each linked folder as last captured, by name.
     captured: Mutex<BTreeMap<String, Captured>>,
+    /// What can be installed by id, and the versions installs from it can
+    /// be updated to: the app's own catalog, and later the registry's.
+    catalogs: Vec<Catalog>,
 }
 
 impl Registry {
-    /// Loads every installation the database records.
-    pub fn open(db: Arc<Db>, bundles: Bundles, plugins_dir: PathBuf) -> Result<Registry, Error> {
+    /// Loads every installation the database records. Nothing is
+    /// installed from the catalogs: the person chooses what to install.
+    pub fn open(
+        db: Arc<Db>,
+        bundles: Bundles,
+        plugins_dir: PathBuf,
+        catalogs: Vec<Catalog>,
+    ) -> Result<Registry, Error> {
         let registry = Registry {
             db,
             bundles,
@@ -152,9 +75,37 @@ impl Registry {
             by_bundle: Mutex::default(),
             changes: Mutex::default(),
             captured: Mutex::default(),
+            catalogs,
         };
         registry.reload()?;
         Ok(registry)
+    }
+
+    /// The entry `id` names, `forgeplane/<name>` or a bare name, at the
+    /// highest version any catalog offers.
+    pub fn offered(&self, id: &str) -> Option<&Entry> {
+        catalog::best(&self.catalogs, id)
+    }
+
+    /// Every plugin the catalogs offer, each at its highest version.
+    pub fn catalog(&self) -> Vec<&Entry> {
+        catalog::listing(&self.catalogs)
+    }
+
+    /// The version `name` can be updated to: the highest any catalog
+    /// offers, when it was installed from one and that version is higher.
+    /// A plugin from a folder, a zip or a link is not updated from a
+    /// catalog.
+    pub fn update_for(&self, name: &str) -> Option<&Entry> {
+        let plugin = self.get(name)?;
+        let install = plugin.install.as_ref()?;
+        if install.source_kind != "index" {
+            return None;
+        }
+        self.offered(&install.source).filter(|entry| {
+            entry.needs().is_none()
+                && pinrail_format::semver(&entry.version) > pinrail_format::semver(&plugin.version)
+        })
     }
 
     pub fn bundles(&self) -> &Bundles {
@@ -200,7 +151,22 @@ impl Registry {
                     p.error.clone().unwrap_or_default()
                 ),
             )),
-            None => Err(Error::invalid("/plugin", format!("unknown plugin {name}"))),
+            None => Err(self.missing(name)),
+        }
+    }
+
+    /// Why no plugin named `name` can be used: unknown, or an official
+    /// plugin that is not installed, with how to install it.
+    pub fn missing(&self, name: &str) -> Error {
+        match self.offered(name) {
+            Some(entry) if !name.contains('/') => Error::invalid(
+                "/plugin",
+                format!(
+                    "plugin {name} is not installed; install it with `pinrail plugins install {}`, or in Settings › Plugins",
+                    entry.name
+                ),
+            ),
+            _ => Error::invalid("/plugin", format!("unknown plugin {name}")),
         }
     }
 
@@ -472,133 +438,48 @@ fn folder_state(dir: &Path) -> Vec<(String, u64, u128)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugins::carried;
 
-    fn open(dir: &Path, db: Arc<Db>) -> Registry {
+    fn open(dir: &Path, db: Arc<Db>, catalogs: Vec<Catalog>) -> Registry {
         let bundles = Bundles::open(&dir.join("bundles"), db.clone()).unwrap();
-        store_bundled(&db, &bundles).unwrap();
-        Registry::open(db, bundles, dir.to_path_buf()).unwrap()
+        Registry::open(db, bundles, dir.to_path_buf(), catalogs).unwrap()
     }
 
-    fn installs(db: &Db) -> Vec<(String, String, bool)> {
-        db.installs()
-            .unwrap()
-            .into_iter()
-            .map(|i| (i.name, i.kind, i.link))
-            .collect()
-    }
-
-    #[test]
-    fn the_bundled_plugins_are_stored_and_installed_from_the_app() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = Arc::new(Db::in_memory().unwrap());
-        let r = open(tmp.path(), db.clone());
-        assert_eq!(
-            installs(&db),
-            vec![
-                ("feedback".into(), "app".into(), false),
-                ("list".into(), "app".into(), false),
-            ]
-        );
-        let list = r.fetch("list").unwrap();
-        assert_eq!(list.name, "list");
-        assert_eq!(list.version, "1.0.0");
-        let bundle = list.install.as_ref().unwrap().bundle.clone().unwrap();
-        assert_eq!(list.path, r.bundles().path(&bundle));
-        assert_eq!(r.fetch_bundle(&bundle).unwrap().version, "1.0.0");
-        assert!(r.fetch_bundle(&"0".repeat(64)).is_err());
-        // a name with a publisher is no name
-        assert!(r.fetch("forgeplane/list").is_err());
-
-        // a second start finds them stored: nothing changes
-        let before = db.installs().unwrap();
-        store_bundled(&db, r.bundles()).unwrap();
-        assert_eq!(db.installs().unwrap(), before);
-    }
-
-    #[test]
-    fn a_bundled_plugin_ships_its_bundle_and_nothing_else() {
-        use pinrail_format::bundle::{Listing, Taken};
-        for (folder, files) in bundled() {
-            let source = Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../plugins")
-                .join(&folder);
-            let bundle = Listing::of_folder(&source, Taken::FromSource).unwrap();
-            let shipped = Listing::from_files(
-                files.iter().map(|(p, b)| (p.as_str(), b.as_slice())),
-                Taken::AsBundle,
-            );
-            assert_eq!(shipped, Ok(bundle), "{folder}");
+    /// The list plugin's files in a folder, as `name` at `version`.
+    fn list_folder(at: &Path, name: &str, version: &str) -> PathBuf {
+        let (_, files) = carried().into_iter().find(|(f, _)| f == "list").unwrap();
+        for (path, bytes) in files {
+            let target = at.join(&path);
+            std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+            let bytes = if path == "manifest.json" {
+                String::from_utf8(bytes)
+                    .unwrap()
+                    .replace("\"list\"", &format!("\"{name}\""))
+                    .replace("\"1.0.0\"", &format!("\"{version}\""))
+                    .into_bytes()
+            } else {
+                bytes
+            };
+            std::fs::write(target, bytes).unwrap();
         }
+        at.to_path_buf()
     }
 
-    /// An older release the app carries does not replace a newer one that
-    /// came with an earlier app.
-    #[test]
-    fn a_bundled_release_is_installed_only_when_newer() {
+    /// The catalog with list at `version`.
+    fn catalog_with_list(version: &str) -> Catalog {
         let tmp = tempfile::tempdir().unwrap();
-        let db = Arc::new(Db::in_memory().unwrap());
-        let r = open(tmp.path(), db.clone());
-        let shipped = r
-            .fetch("list")
-            .unwrap()
-            .install
-            .as_ref()
-            .unwrap()
-            .bundle
-            .clone()
-            .unwrap();
-
-        let newer = tmp.path().join("newer");
-        copy_dir(&r.bundles().path(&shipped), &newer);
-        let manifest = newer.join("manifest.json");
-        let text = std::fs::read_to_string(&manifest).unwrap();
-        std::fs::write(&manifest, text.replace("\"1.0.0\"", "\"1.9.0\"")).unwrap();
-        let stored = r.bundles().store(&newer).unwrap();
-        let install = db.install("list").unwrap().unwrap();
-        db.record_install(&InstallRecord {
-            bundle: stored.hash.clone(),
-            ..install
-        })
+        let folder = list_folder(tmp.path(), "list", version);
+        let listing = pinrail_format::bundle::Listing::of_folder(
+            &folder,
+            pinrail_format::bundle::Taken::FromSource,
+        )
         .unwrap();
-
-        store_bundled(&db, r.bundles()).unwrap();
-        r.reload().unwrap();
-        let list = r.fetch("list").unwrap();
-        assert_eq!(list.version, "1.9.0");
-        assert_eq!(list.install.as_ref().unwrap().bundle, Some(stored.hash));
-    }
-
-    #[test]
-    fn a_bundled_release_of_the_same_version_with_other_files_replaces_the_apps_copy() {
-        let tmp = tempfile::tempdir().unwrap();
-        let db = Arc::new(Db::in_memory().unwrap());
-        let r = open(tmp.path(), db.clone());
-        let shipped = db.install("list").unwrap().unwrap().bundle;
-
-        // the next build of the app, whose list view changed but not its version
-        let changed: Vec<(String, Files)> = bundled()
-            .into_iter()
-            .filter(|(folder, _)| folder == "list")
-            .map(|(folder, files)| {
-                let files = files
-                    .into_iter()
-                    .map(|(path, bytes)| match path.as_str() {
-                        "view/index.html" => (path, b"<!doctype html><p>changed</p>".to_vec()),
-                        _ => (path, bytes),
-                    })
-                    .collect();
-                (folder, files)
-            })
+        let files = listing
+            .files
+            .iter()
+            .map(|f| (f.path.clone(), std::fs::read(folder.join(&f.path)).unwrap()))
             .collect();
-        store_releases(&db, r.bundles(), changed).unwrap();
-        r.reload().unwrap();
-
-        let list = r.fetch("list").unwrap();
-        assert_eq!(list.version, "1.0.0");
-        let now = list.install.as_ref().unwrap().bundle.clone().unwrap();
-        assert_ne!(now, shipped);
-        let view = std::fs::read_to_string(r.bundles().path(&now).join("view/index.html")).unwrap();
-        assert!(view.contains("changed"));
+        Catalog::of(vec![("list".into(), files)])
     }
 
     /// Links a folder that holds a plugin, as an install stores it.
@@ -616,35 +497,59 @@ mod tests {
         .unwrap();
     }
 
-    /// A plugin from disk under the name of one the app carries takes its
-    /// place, and the app leaves it there at the next start.
     #[test]
-    fn a_plugin_from_disk_takes_the_name_of_the_apps_own() {
+    fn an_official_plugin_is_installed_from_the_catalog_by_its_id() {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::in_memory().unwrap());
-        let r = open(tmp.path(), db.clone());
-        let folder = tmp.path().join("list");
-        copy_dir(&r.fetch("list").unwrap().path, &folder);
+        let r = open(tmp.path(), db.clone(), vec![Catalog::builtin()]);
+        assert!(db.installs().unwrap().is_empty());
+        assert!(r.fetch("list").is_err());
+
+        crate::plugins::install::install_offered(&db, &r, "forgeplane/list").unwrap();
+        let list = r.fetch("list").unwrap();
+        assert_eq!(list.version, "1.0.0");
+        let install = list.install.as_ref().unwrap();
+        assert_eq!(
+            (install.source_kind.as_str(), install.source.as_str()),
+            ("index", "forgeplane/list")
+        );
+        let bundle = install.bundle.clone().unwrap();
+        assert_eq!(bundle, r.offered("list").unwrap().hash);
+        assert_eq!(list.path, r.bundles().path(&bundle));
+        assert_eq!(r.fetch_bundle(&bundle).unwrap().version, "1.0.0");
+        assert!(r.fetch_bundle(&"0".repeat(64)).is_err());
+        // a name with a publisher is no name
+        assert!(r.fetch("forgeplane/list").is_err());
+        // another publisher's, or one no catalog offers, cannot be installed
+        for id in ["acme/list", "nothing"] {
+            assert!(
+                crate::plugins::install::install_offered(&db, &r, id).is_err(),
+                "{id}"
+            );
+        }
+    }
+
+    /// A plugin from disk under an official plugin's name is the person's
+    /// own: no catalog updates it.
+    #[test]
+    fn a_plugin_from_disk_is_not_updated_from_a_catalog() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = Arc::new(Db::in_memory().unwrap());
+        let r = open(tmp.path(), db.clone(), vec![catalog_with_list("2.0.0")]);
+        let folder = list_folder(&tmp.path().join("mine"), "list", "1.0.0");
         link(&r, &db, "list", &folder);
         r.reload().unwrap();
-
-        store_bundled(&db, r.bundles()).unwrap();
-        r.reload().unwrap();
-        let linked = r.fetch("list").unwrap();
-        assert!(linked.install.as_ref().unwrap().link);
-        assert_eq!(installs(&db)[1], ("list".into(), "folder".into(), true));
+        assert!(r.fetch("list").unwrap().install.as_ref().unwrap().link);
+        assert!(r.update_for("list").is_none());
     }
 
     #[test]
     fn a_broken_plugin_is_listed_with_its_error() {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::in_memory().unwrap());
-        let r = open(tmp.path(), db.clone());
-        let folder = tmp.path().join("broken");
-        copy_dir(&r.fetch("list").unwrap().path, &folder);
-        let manifest = folder.join("manifest.json");
-        let text = std::fs::read_to_string(&manifest).unwrap();
-        std::fs::write(&manifest, text.replace("\"list\"", "\"broken\"")).unwrap();
+        let r = open(tmp.path(), db.clone(), vec![Catalog::builtin()]);
+        crate::plugins::install::install_offered(&db, &r, "list").unwrap();
+        let folder = list_folder(&tmp.path().join("broken"), "broken", "1.0.0");
         link(&r, &db, "broken", &folder);
         r.reload().unwrap();
         // its view goes from the folder
@@ -660,17 +565,5 @@ mod tests {
         assert!(r.fetch("broken").is_err());
         // the rest still loads
         assert!(r.fetch("list").is_ok());
-    }
-
-    fn copy_dir(from: &Path, to: &Path) {
-        std::fs::create_dir_all(to).unwrap();
-        for entry in std::fs::read_dir(from).unwrap().flatten() {
-            let target = to.join(entry.file_name());
-            if entry.path().is_dir() {
-                copy_dir(&entry.path(), &target);
-            } else {
-                std::fs::write(&target, std::fs::read(entry.path()).unwrap()).unwrap();
-            }
-        }
     }
 }

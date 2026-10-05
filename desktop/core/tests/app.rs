@@ -9,6 +9,12 @@ use serde_json::{Value, json};
 fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
     let dir = tempfile::tempdir().unwrap();
     let app = Pinrail::open(Config::new(dir.path(), 0)).unwrap();
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(app.plugins().install_offered("list"))
+        .unwrap();
+    // what follows the install, which announces itself
+    let start = app.events().after(0, 10).unwrap().last().unwrap().event_id;
     let review = app
         .reviews()
         .submit(
@@ -25,7 +31,7 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
         .withdraw(&review.id, Some("No longer needed"))
         .unwrap();
 
-    let notices = app.events().after(0, 10).unwrap();
+    let notices = app.events().after(start, 10).unwrap();
     assert_eq!(
         notices.iter().map(|n| n.kind.as_str()).collect::<Vec<_>>(),
         vec!["created", "settings_changed", "withdrawn"]

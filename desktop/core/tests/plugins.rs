@@ -252,14 +252,15 @@ async fn linking_and_removal_record_and_announce_changes() {
     ));
 }
 
-/// A plugin linked under the name of one the app carries takes its place,
-/// keeps it across a restart, and the app's own comes back once it is
-/// removed.
+/// A plugin linked under the name of an official one takes its place and
+/// keeps it across a restart; once it is removed, the official one is
+/// installed again by choice.
 #[tokio::test]
 async fn a_plugin_of_an_official_name_takes_its_place() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path().join("data"), 0);
     let app = Pinrail::open(config.clone()).unwrap();
+    app.plugins().install_offered("list").await.unwrap();
     let official = app
         .reviews()
         .submit(
@@ -284,7 +285,7 @@ async fn a_plugin_of_an_official_name_takes_its_place() {
         ("list", "2.0.0")
     );
 
-    // the start that stores the app's own leaves it in its place
+    // a restart leaves it in its place
     drop(app);
     let reopened = Pinrail::open(config.clone()).unwrap();
     let described = reopened.plugins().describe(Some("list")).unwrap();
@@ -295,7 +296,7 @@ async fn a_plugin_of_an_official_name_takes_its_place() {
         reopened.plugins().describe(Some("list")),
         Err(Error::NotFound(_))
     ));
-    // the review made with the app's copy renders with it
+    // the review made with the official plugin renders with it
     let kept = reopened
         .plugins()
         .fetch_review("list", official.plugin_bundle.as_deref())
@@ -303,6 +304,15 @@ async fn a_plugin_of_an_official_name_takes_its_place() {
     assert_eq!(kept.version, "1.0.0");
     drop(reopened);
     let again = Pinrail::open(config).unwrap();
+    assert!(matches!(
+        again.plugins().describe(Some("list")),
+        Err(Error::NotFound(_))
+    ));
+    again
+        .plugins()
+        .install_offered("forgeplane/list")
+        .await
+        .unwrap();
     let described = again.plugins().describe(Some("list")).unwrap();
     assert_eq!(described["plugins"][0]["version"], "1.0.0");
 }
@@ -362,8 +372,9 @@ fn copy_without_node_modules(from: &Path, to: &Path) {
 async fn a_sample_is_sent_as_a_review_with_its_files() {
     let dir = tempfile::tempdir().unwrap();
     let app = Pinrail::open(Config::new(dir.path().join("data"), 0)).unwrap();
+    app.plugins().install_offered("list").await.unwrap();
 
-    // a built-in plugin's sample, the title given
+    // an official plugin's sample, the title given
     let review = app
         .send_sample("list", &json!({ "title": "Try Pinrail" }))
         .unwrap();

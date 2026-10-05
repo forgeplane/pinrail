@@ -6,13 +6,15 @@
 //! or a manifest.
 
 pub(crate) mod bundles;
-mod install;
+mod catalog;
+pub(crate) mod install;
 mod registry;
 mod service;
 
 use pinrail_format::{manifest, sample, summary};
 
 pub use bundles::Bundles;
+pub use catalog::Catalog;
 pub use install::Options as InstallOptions;
 /// The manifest's JSON Schema, for the docs' manifest reference.
 #[cfg(feature = "docs")]
@@ -22,8 +24,8 @@ pub use sample::Sample;
 pub use service::PluginService;
 pub use summary::Declaration as SummaryDeclaration;
 
+#[cfg(test)]
+pub(crate) use catalog::carried;
 pub(crate) use install::tidy;
 pub(crate) use manifest::version_of;
-pub(crate) use registry::{Registry, store_bundled};
-#[cfg(test)]
-pub(crate) use registry::{bundled, store_releases};
+pub(crate) use registry::Registry;

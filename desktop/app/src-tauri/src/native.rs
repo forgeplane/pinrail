@@ -801,6 +801,10 @@ mod tests {
     fn the_tray_counts_every_pending_review_and_lists_the_oldest() {
         let dir = tempfile::tempdir().unwrap();
         let state = Pinrail::open(pinrail_core::Config::new(dir.path(), 0)).unwrap();
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(state.plugins().install_offered("list"))
+            .unwrap();
         for n in 0..502 {
             let body = serde_json::json!({
                 "plugin": "list", "title": format!("review {n}"), "payload": {"groups": []}

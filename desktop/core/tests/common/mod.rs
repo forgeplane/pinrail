@@ -23,12 +23,42 @@ pub struct App {
     pub router: Router,
 }
 
+/// An app with `list` and `feedback` installed from its catalog, as the
+/// person would choose them.
 pub fn app() -> App {
     app_with(|_| {})
 }
 
-/// An app whose configuration the test adjusts first.
+/// An app with nothing installed, as it first opens.
+pub fn app_without_plugins() -> App {
+    open(|_| {})
+}
+
+/// An app whose configuration the test adjusts first, with `list` and
+/// `feedback` installed.
 pub fn app_with(adjust: impl FnOnce(&mut Config)) -> App {
+    let app = open(adjust);
+    install(&app, &["forgeplane/list", "forgeplane/feedback"]);
+    app
+}
+
+/// Installs official plugins from the app's catalog. The install is
+/// awaited on a runtime of its own, so a test's runtime can call this.
+pub fn install(app: &App, ids: &[&str]) {
+    let state = app.state.clone();
+    let ids: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
+    std::thread::spawn(move || {
+        tokio::runtime::Runtime::new().unwrap().block_on(async {
+            for id in ids {
+                state.plugins().install_offered(&id).await.unwrap();
+            }
+        })
+    })
+    .join()
+    .unwrap();
+}
+
+fn open(adjust: impl FnOnce(&mut Config)) -> App {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::new(dir.path(), 0);
     config.user = "tester".into();

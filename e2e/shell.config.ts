@@ -15,6 +15,8 @@ const data = path.join(__dirname, ".state", "shell-data");
 
 export default defineConfig({
   testDir: path.join(__dirname, "shell"),
+  // after the web servers: the official plugins the specs use
+  globalSetup: "./shell/global-setup.ts",
   workers: 1,
   fullyParallel: false,
   timeout: 60_000,

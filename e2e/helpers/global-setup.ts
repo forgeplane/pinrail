@@ -88,4 +88,15 @@ export default async function globalSetup() {
   };
   install("hello", ["--link"], 120_000);
   install("sampler", [], 120_000);
+
+  // the official plugins the tests use, installed by name as a person would
+  for (const name of ["list", "feedback"]) {
+    const done = spawnSync(cli, ["plugins", "install", name], {
+      cwd: run,
+      env: cliEnv(state),
+      encoding: "utf8",
+      timeout: 120_000,
+    });
+    if (done.status !== 0) throw new Error(`pinrail plugins install ${name} failed:\n${done.stdout}\n${done.stderr}`);
+  }
 }

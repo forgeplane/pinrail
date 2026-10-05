@@ -13,7 +13,7 @@ use crate::attachments::{Attachments, UploadError};
 use crate::db::Db;
 use crate::error::Error;
 use crate::events::Events;
-use crate::plugins::{self as plugin_store, Bundles, PluginService, Registry};
+use crate::plugins::{self as plugin_store, Bundles, Catalog, PluginService, Registry};
 use crate::reviews::Reviews;
 use crate::settings::SettingsService;
 
@@ -114,24 +114,29 @@ impl Pinrail {
         self.reviews.submit(&body, None)
     }
 
-    /// Locks the data directory, opens the database, stores the plugins the
-    /// app carries, loads the installed ones and wires the services
-    /// together. The caller decides how the application is held: serving it
-    /// over HTTP wants an `Arc`, a one-off operation does not.
+    /// Locks the data directory, opens the database, loads the installed
+    /// plugins with the catalog of those the app carries, and wires the
+    /// services together. The caller decides how the application is held:
+    /// serving it over HTTP wants an `Arc`, a one-off operation does not.
     ///
     /// A directory another Pinrail has open is refused with
     /// [`Error::InUse`] before anything in it is touched.
     pub fn open(config: Config) -> Result<Self, Error> {
+        Self::open_with(config, vec![Catalog::builtin()])
+    }
+
+    /// [`Pinrail::open`] with these catalogs to install and update from.
+    pub(crate) fn open_with(config: Config, catalogs: Vec<Catalog>) -> Result<Self, Error> {
         private_dir(&config.data_dir)?;
         let lock = lock_data_dir(&config.data_dir)?;
         let db = Arc::new(Db::open(&config.db_path())?);
         plugin_store::tidy(&config.plugins_dir())?;
         let bundles = Bundles::open(&config.plugin_bundles_dir(), db.clone())?;
-        plugin_store::store_bundled(&db, &bundles)?;
         let registry = Arc::new(Registry::open(
             db.clone(),
             bundles.clone(),
             config.plugins_dir(),
+            catalogs,
         )?);
         let events = Events::new(db.clone());
         let settings =
@@ -221,25 +226,27 @@ fn private_dir(dir: &std::path::Path) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::plugins::{bundled, store_releases};
+    use crate::plugins::carried;
     use serde_json::json;
 
-    /// The list plugin as a later app would ship it: 2.0.0, a new line,
-    /// whose decisions have another shape.
-    fn list_2() -> Vec<(String, crate::plugins::bundles::Files)> {
-        bundled()
+    /// The app's catalog with `list` at another version; `new_line` also
+    /// gives its decisions another shape, as a new major version may.
+    fn with_list(version: &str, new_line: bool) -> Catalog {
+        let plugins = carried()
             .into_iter()
-            .filter(|(folder, _)| folder == "list")
             .map(|(folder, files)| {
+                if folder != "list" {
+                    return (folder, files);
+                }
                 let files = files
                     .into_iter()
                     .map(|(path, bytes)| match path.as_str() {
                         "manifest.json" => {
                             let text = String::from_utf8(bytes).unwrap();
-                            let bytes = text.replace("\"1.0.0\"", "\"2.0.0\"").into_bytes();
-                            (path, bytes)
+                            let bumped = text.replace("\"1.0.0\"", &format!("\"{version}\""));
+                            (path, bumped.into_bytes())
                         }
-                        "schemas/decision.schema.json" => (
+                        "schemas/decision.schema.json" if new_line => (
                             path,
                             json!({"type": "object", "required": ["verdict"]})
                                 .to_string()
@@ -250,54 +257,106 @@ mod tests {
                     .collect();
                 (folder, files)
             })
-            .collect()
+            .collect();
+        Catalog::of(plugins)
     }
 
-    /// The next start of the app, with `plugins` among the ones it ships.
-    fn start_with(
-        config: &Config,
-        plugins: Vec<(String, crate::plugins::bundles::Files)>,
-    ) -> Pinrail {
-        let db = Db::open(&config.db_path()).unwrap();
-        let bundles = Bundles::open(
-            &config.plugin_bundles_dir(),
-            Arc::new(Db::open(&config.db_path()).unwrap()),
-        )
-        .unwrap();
-        store_releases(&db, &bundles, plugins).unwrap();
-        drop((db, bundles));
-        Pinrail::open(config.clone()).unwrap()
+    fn install(app: &Pinrail, id: &str) -> Value {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(app.plugins().install_offered(id))
+            .unwrap()
     }
 
-    /// A review renders and decides with the release it was submitted to
-    /// when the app ships the next, whatever that changes, and new reviews
-    /// use the new release, also after an older app opened the data.
+    fn row(app: &Pinrail, name: &str) -> Value {
+        app.plugins().listing(&json!({}))["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == name)
+            .cloned()
+            .unwrap_or(Value::Null)
+    }
+
+    /// The app carries its official plugins and installs none of them:
+    /// the person chooses.
     #[test]
-    fn a_review_keeps_its_release_when_the_app_ships_the_next() {
+    fn nothing_is_installed_until_the_person_chooses_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = Pinrail::open(Config::new(dir.path(), 0)).unwrap();
+        assert_eq!(app.plugins().listing(&json!({}))["plugins"], json!([]));
+        let catalog = app.plugins().catalog();
+        assert_eq!(catalog["format"], 1);
+        let offered: Vec<(&str, &Value)> = catalog["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| (p["id"].as_str().unwrap(), &p["installed"]))
+            .collect();
+        assert_eq!(
+            offered,
+            [
+                ("forgeplane/feedback", &Value::Null),
+                ("forgeplane/list", &Value::Null)
+            ]
+        );
+
+        let installed = install(&app, "forgeplane/list");
+        assert_eq!(installed["install"]["source_kind"], "index");
+        assert_eq!(installed["install"]["source"], "forgeplane/list");
+        assert_eq!(app.plugins().catalog()["plugins"][1]["installed"], "1.0.0");
+        // an agent asking with it is told how to install it
+        for error in [
+            app.reviews()
+                .submit(
+                    &json!({"plugin": "feedback", "title": "Not installed", "payload": {}}),
+                    None,
+                )
+                .unwrap_err(),
+            app.send_sample("feedback", &json!({})).unwrap_err(),
+        ] {
+            assert!(
+                error
+                    .to_string()
+                    .contains("pinrail plugins install feedback"),
+                "{error}"
+            );
+        }
+    }
+
+    /// The next app carries list 2.0.0: it is offered as an update, not
+    /// applied. Once the person updates, new reviews use it, and each review
+    /// keeps the release it was submitted to. An older app opening the data
+    /// again offers nothing and changes nothing.
+    #[test]
+    fn a_newer_release_in_the_next_app_is_offered_as_an_update() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::new(dir.path(), 0);
         let app = Pinrail::open(config.clone()).unwrap();
+        install(&app, "list");
         let payload = json!({"groups": [{"title": "g", "items": [{"id": 1, "title": "one"}]}]});
-        let old = app
-            .reviews()
-            .submit(
-                &json!({"plugin": "list", "title": "With 1.0.0", "payload": payload}),
-                None,
-            )
-            .unwrap();
+        let submit = |app: &Pinrail, title: &str| {
+            app.reviews()
+                .submit(
+                    &json!({"plugin": "list", "title": title, "payload": payload}),
+                    None,
+                )
+                .unwrap()
+        };
+        let old = submit(&app, "With 1.0.0");
         assert_eq!(old.plugin_version, "1.0.0");
+        assert_eq!(row(&app, "list")["update"], Value::Null);
         drop(app);
 
-        // the next app ships list 2.0.0; then an older app opens the data
-        drop(start_with(&config, list_2()));
-        let app = Pinrail::open(config).unwrap();
-        let new = app
-            .reviews()
-            .submit(
-                &json!({"plugin": "list", "title": "With 2.0.0", "payload": payload}),
-                None,
-            )
-            .unwrap();
+        let app = Pinrail::open_with(config.clone(), vec![with_list("2.0.0", true)]).unwrap();
+        assert_eq!(row(&app, "list")["update"], "2.0.0");
+        assert_eq!(submit(&app, "Still 1.0.0").plugin_version, "1.0.0");
+
+        let updated = install(&app, "list");
+        assert_eq!(updated["version"], "2.0.0");
+        assert_eq!(updated["replaced_version"], "1.0.0");
+        assert_eq!(row(&app, "list")["update"], Value::Null);
+        let new = submit(&app, "With 2.0.0");
         assert_eq!(new.plugin_version, "2.0.0");
         assert_ne!(new.plugin_bundle, old.plugin_bundle);
 
@@ -313,55 +372,43 @@ mod tests {
             .fetch_review(&old.plugin, old.plugin_bundle.as_deref())
             .unwrap();
         assert_eq!(rendered.version, "1.0.0");
+        drop(app);
+
+        let app = Pinrail::open(config).unwrap();
+        assert_eq!(row(&app, "list")["version"], "2.0.0");
+        assert_eq!(row(&app, "list")["update"], Value::Null);
     }
 
-    /// A patch the app ships is what new reviews use; the reviews made
-    /// before keep the release they were made with.
+    /// The update is the highest version any catalog offers, as it will be
+    /// with the registry's index beside the app's catalog; a plugin a
+    /// catalog drops stays installed.
     #[test]
-    fn a_newer_bundled_release_is_for_new_reviews() {
+    fn the_highest_version_of_any_catalog_is_the_update() {
         let dir = tempfile::tempdir().unwrap();
         let config = Config::new(dir.path(), 0);
         let app = Pinrail::open(config.clone()).unwrap();
-        let review = app
-            .reviews()
-            .submit(
-                &json!({"plugin": "list", "title": "Before", "payload": {"groups": []}}),
-                None,
-            )
-            .unwrap();
+        let from_one = install(&app, "list")["install"].clone();
         drop(app);
 
-        let patched: Vec<_> = bundled()
-            .into_iter()
-            .filter(|(folder, _)| folder == "list")
-            .map(|(folder, files)| {
-                let files = files
-                    .into_iter()
-                    .map(|(path, bytes)| {
-                        if path == "manifest.json" {
-                            let text = String::from_utf8(bytes).unwrap();
-                            (path, text.replace("\"1.0.0\"", "\"1.0.1\"").into_bytes())
-                        } else {
-                            (path, bytes)
-                        }
-                    })
-                    .collect();
-                (folder, files)
-            })
-            .collect();
-        let app = start_with(&config, patched);
-        let new = app
-            .reviews()
-            .submit(
-                &json!({"plugin": "list", "title": "After", "payload": {"groups": []}}),
-                None,
-            )
-            .unwrap();
-        assert_eq!(new.plugin_version, "1.0.1");
-        let kept = app
-            .plugins()
-            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())
-            .unwrap();
-        assert_eq!(kept.version, "1.0.0");
+        // the same release from another catalog makes the same record
+        let app = Pinrail::open_with(config.clone(), vec![with_list("1.0.0", false)]).unwrap();
+        let from_other = install(&app, "forgeplane/list")["install"].clone();
+        for key in ["source_kind", "source", "bundle", "link"] {
+            assert_eq!(from_one[key], from_other[key], "{key}");
+        }
+        drop(app);
+
+        let catalogs = vec![
+            Catalog::builtin(),
+            with_list("1.4.0", false),
+            with_list("1.2.0", false),
+        ];
+        let app = Pinrail::open_with(config.clone(), catalogs).unwrap();
+        assert_eq!(row(&app, "list")["update"], "1.4.0");
+        drop(app);
+
+        let app = Pinrail::open_with(config, vec![]).unwrap();
+        assert_eq!(row(&app, "list")["version"], "1.0.0");
+        assert_eq!(row(&app, "list")["update"], Value::Null);
     }
 }

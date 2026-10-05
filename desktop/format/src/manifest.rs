@@ -641,6 +641,18 @@ pub fn icon_markup(dir: &Path, file: &str) -> Result<String, String> {
         ));
     }
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{file}: cannot read ({e})"))?;
+    svg_markup(file, &text)
+}
+
+/// The markup of an icon's text, from its `<svg>` on: an XML declaration
+/// or a comment before it is dropped.
+pub fn svg_markup(file: &str, text: &str) -> Result<String, String> {
+    if text.len() as u64 > ICON_MAX_BYTES {
+        return Err(format!(
+            "{file}: {} bytes; an icon is at most {ICON_MAX_BYTES}",
+            text.len()
+        ));
+    }
     let svg = text.trim();
     // an XML declaration or a comment may come first; the root is <svg>
     let start = svg

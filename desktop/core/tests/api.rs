@@ -745,7 +745,7 @@ async fn expired_reviews_read_as_expired_and_are_swept_once() {
 
 #[tokio::test]
 async fn plugins_are_listed_and_installed_one_by_one() {
-    let app = app();
+    let app = common::app_without_plugins();
     let names = |body: &Value| -> Vec<String> {
         body["plugins"]
             .as_array()
@@ -756,12 +756,39 @@ async fn plugins_are_listed_and_installed_one_by_one() {
     };
     let (status, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(
-        names(&body),
-        vec!["feedback", "list"],
-        "a fresh app has the ones it ships"
-    );
+    assert_eq!(names(&body), Vec::<String>::new(), "a fresh app has none");
+
+    // the official plugins it carries, installed by their ids
+    let (status, catalog) = call(&app, "GET", "/api/v1/plugins/catalog", None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(catalog["format"], 1);
+    assert_eq!(catalog["plugins"][1]["id"], "forgeplane/list");
+    assert_eq!(catalog["plugins"][1]["installed"], Value::Null);
+    for id in ["forgeplane/list", "feedback"] {
+        let (status, row) = call(
+            &app,
+            "POST",
+            "/api/v1/plugins/install",
+            Some(json!({"id": id})),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "{row}");
+        assert_eq!(row["install"]["source_kind"], "index");
+    }
+    let (status, refused) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/install",
+        Some(json!({"id": "acme/list"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
+    let (_, catalog) = call(&app, "GET", "/api/v1/plugins/catalog", None).await;
+    assert_eq!(catalog["plugins"][1]["installed"], "1.0.0");
+    let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
+    assert_eq!(names(&body), vec!["feedback", "list"]);
     assert_eq!(body["plugins"][0]["usable"], true);
+    assert_eq!(body["plugins"][0]["update"], Value::Null);
 
     // one plugin, named by its own folder, served live from where it sits
     let samples: PathBuf = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../plugins");
@@ -774,7 +801,7 @@ async fn plugins_are_listed_and_installed_one_by_one() {
         .installs()
         .unwrap()
         .into_iter()
-        .filter(|r| r.kind != "app")
+        .filter(|r| r.kind != "index")
         .collect();
     assert_eq!(links.len(), 1, "one install, one record");
     assert!(links.iter().all(|r| r.linked() && r.name == "hello"));
@@ -793,9 +820,9 @@ async fn plugins_are_listed_and_installed_one_by_one() {
             .unwrap()
             .iter()
             .find(|p| p["name"] == "list")
-            .unwrap()["install"]["source_kind"]
-            == "app",
-        "the official one comes with the app"
+            .unwrap()["install"]["source"]
+            == "forgeplane/list",
+        "the official one comes from the catalog"
     );
 
     // a source that is not there is refused, naming the field
@@ -3048,16 +3075,18 @@ async fn removing_drops_the_installation_and_reviews_keep_their_bundles() {
     assert_eq!(status, StatusCode::OK, "{row}");
     let bundle = row["install"]["bundle"].as_str().unwrap().to_string();
 
-    // a plugin the app ships cannot be removed
+    // an official plugin is removed like any other, and installed again
     let (status, body) = call(&app, "DELETE", "/api/v1/plugins/list", None).await;
-    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
-    assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("ships with Pinrail"),
-        "{body}"
-    );
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert!(db(&app).install("list").unwrap().is_none());
+    let (status, body) = call(
+        &app,
+        "POST",
+        "/api/v1/plugins/install",
+        Some(json!({"id": "forgeplane/list"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
 
     // no review was made with it: the bundle goes with the next sweep
     let (status, answer) = call(&app, "DELETE", "/api/v1/plugins/hello", None).await;
@@ -3400,11 +3429,11 @@ async fn an_update_that_changes_the_schemas_leaves_earlier_reviews_as_they_were(
     );
 }
 
-/// Working on a plugin the app carries: a link under its name takes its
-/// place, so its pending reviews move to the folder, and removing the link
+/// Working on an official plugin: a link under its name takes its place,
+/// so its pending reviews move to the folder, and removing the link
 /// removes the installation.
 #[tokio::test]
-async fn a_link_takes_the_place_of_the_apps_own_plugin_until_it_is_removed() {
+async fn a_link_takes_the_place_of_an_official_plugin_until_it_is_removed() {
     let app = app();
     let scratch = tempfile::tempdir().unwrap();
     let published = current_bundle(&app, "list").unwrap();
@@ -3421,7 +3450,7 @@ async fn a_link_takes_the_place_of_the_apps_own_plugin_until_it_is_removed() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{seen}");
-    assert_eq!(seen["installed"]["source_kind"], "app");
+    assert_eq!(seen["installed"]["source_kind"], "index");
     assert_eq!(seen["installed"]["links_kept"], false);
 
     let (status, row) = install(&app, &mine, json!({"link": true})).await;
@@ -3445,7 +3474,7 @@ async fn a_link_takes_the_place_of_the_apps_own_plugin_until_it_is_removed() {
     assert_eq!(answer["link"], true);
     assert_eq!(current_bundle(&app, "list"), None);
     // the pending review moved to the folder when it was opened, and keeps
-    // it; the app's bundle, which nothing uses now, goes with the sweep
+    // it; the official bundle, which nothing uses now, goes with the sweep
     let later = chrono::Utc::now() + chrono::Duration::minutes(1);
     app.state.bundles().sweep(later).unwrap();
     assert!(!app.state.bundles().path(&published).is_dir());
