@@ -12,14 +12,8 @@ import { visit } from "unist-util-visit";
 import { kbdHtml } from "./remark-kbd.mjs";
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-// the official plugins the app carries are in plugins/; the others are in a
-// checkout of forgeplane/pinrail-plugins beside this repository, or the
-// folder PINRAIL_PLUGINS_DIR names, until they move here too
-const plugins = process.env.PINRAIL_PLUGINS_DIR ?? path.resolve(repo, "../pinrail-plugins");
-const official = (name) => {
-  const here = path.join(repo, "plugins", name);
-  return fs.existsSync(path.join(here, "manifest.json")) ? here : path.join(plugins, name);
-};
+// an official plugin, from plugins/
+const official = (name) => path.join(repo, "plugins", name);
 
 const escape = (s) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -234,7 +228,7 @@ function contract(name, alt) {
   const dir = name.includes("/") ? path.join(repo, "docs/examples", name) : official(name);
   if (!fs.existsSync(path.join(dir, "manifest.json"))) {
     throw new Error(
-      `contract:${name}: ${dir} is not a plugin. Check out forgeplane/pinrail-plugins beside this repository, or set PINRAIL_PLUGINS_DIR.`,
+      `contract:${name}: ${dir} is not a plugin: give an official plugin's name, or a path under docs/examples.`,
     );
   }
   const manifest = read(dir, "manifest.json");

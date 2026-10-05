@@ -1,13 +1,9 @@
 # The website: built on a pull request that touches it, and deployed to the
-# `pinrail` Cloudflare Worker on a push to main that touches website/ or
-# docs/. The site also reads the official plugins' manifests and schemas,
-# from forgeplane/pinrail-plugins, and the reference pages the CLI and the
-# core generate before every build; a change there reaches the site when it
-# is deployed by hand, from the Actions tab.
-#
-# While forgeplane/pinrail-plugins is private, its checkout needs the
-# PINRAIL_PLUGINS_READ_TOKEN secret: a fine-grained token with read access to
-# its contents.
+# `pinrail` Cloudflare Worker on a push to main that touches website/, docs/
+# or plugins/. The plugin pages read the official plugins' manifests and
+# schemas from plugins/. The reference pages the CLI and the core generate
+# before every build reach the site with the next deploy, or one started by
+# hand from the Actions tab.
 name: website
 
 on:
@@ -16,11 +12,13 @@ on:
     paths:
       - website/**
       - docs/**
+      - plugins/**
       - .github/workflows/website.yml
   pull_request:
     paths:
       - website/**
       - docs/**
+      - plugins/**
       - .github/workflows/website.yml
   workflow_dispatch:
 
@@ -48,19 +46,9 @@ jobs:
   site:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      # the checkout of forgeplane/pinrail-plugins below
-      PINRAIL_PLUGINS_DIR: ${{ github.workspace }}/.pinrail-plugins
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          persist-credentials: false
-      # the official plugins, whose manifests and schemas the plugin pages show
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: forgeplane/pinrail-plugins
-          token: ${{ secrets.PINRAIL_PLUGINS_READ_TOKEN }}
-          path: .pinrail-plugins
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
