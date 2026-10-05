@@ -19,6 +19,34 @@ What makes a view feel native, whatever it draws:
 - **Read-only is a full view.** A decided review is read months later: render what was there and what was decided, without the controls.
 - **A brand's colours stay in the content.** A plugin that shows something in its own palette, as the Logo plugin shows marks in the brand's colours, paints that inside its content; the chrome around it keeps the app's tokens.
 
+## The anatomy of a view
+
+A review screen has five parts. The app draws two of them around the view, and `Pinrail.layout()` draws the three inside it:
+
+<figure class="pr-anatomy not-content" aria-label="The parts of a review screen">
+  <div class="pr-anatomy-app"><span class="pr-anatomy-n">1</span><b>Sentry triage</b><span>acme-api · 5 minutes ago</span></div>
+  <div class="pr-anatomy-view">
+    <div class="pr-anatomy-header"><span class="pr-anatomy-n">2</span><b>4 items</b><span class="pr-anatomy-chip">1 accepted</span><span class="pr-anatomy-chip">3 undecided</span><span class="pr-anatomy-push">Accept all</span></div>
+    <div class="pr-anatomy-middle">
+      <div class="pr-anatomy-side">Your own sidebar, if the view needs one</div>
+      <div class="pr-anatomy-body"><span class="pr-anatomy-n">3</span><div><b>The view's content</b><p>It scrolls; the parts above and below it stay in place.</p></div></div>
+    </div>
+    <div class="pr-anatomy-confirm"><span class="pr-anatomy-n">4</span>3 left undecided. Hand over again to confirm.<span class="pr-anatomy-push">Keep deciding</span></div>
+  </div>
+  <div class="pr-anatomy-app pr-anatomy-composer"><span class="pr-anatomy-n">5</span><span>Add a note for the agent…</span><span class="pr-anatomy-push pr-anatomy-handover">Hand over with 3 undecided</span></div>
+  <figcaption>The app draws 1 and 5. <code>Pinrail.layout()</code> draws 2, 3 and 4 inside the view's frame.</figcaption>
+</figure>
+
+| | Part | Drawn by | What goes there |
+|---|---|---|---|
+| 1 | Review bar | The app | The review's title and where it comes from. Do not repeat them in the view. |
+| 2 | Header | `Pinrail.layout()`, as `.pinrail-header` | What the view lists, its counts, and controls that act on all of it, such as *Accept all*. It stays in place while the body scrolls. |
+| 3 | Body | `Pinrail.layout()`, as `.pinrail-scroll` and `.pinrail-content` | The view's content, which scrolls. A sidebar of the view's own, such as the item list in the List and Code review plugins, goes beside it. |
+| 4 | Confirmation bar | `view.confirmation()`, as `.pinrail-confirmation` | What the person must confirm before the next hand-over, such as items left undecided. It is hidden until the view asks for it. |
+| 5 | Composer | The app | The note to the agent and the hand-over button. The view sets the button's label with `plugin.handOverLabel`. |
+
+These positions are a convention, not a rule. The built-in plugins follow them so that every review reads the same way, and `Pinrail.layout()` builds them for you. A view that needs another arrangement can skip `Pinrail.layout()` and lay out its frame as it likes, or use the layout and restyle any part of it. Only parts 1 and 5 are fixed, because the app draws them outside the view.
+
 ## The stylesheet
 
 ```html
@@ -54,7 +82,7 @@ The five tones are the ones the manifest's summary uses: `--pinrail-danger`, `--
 
 ### Layout
 
-`Pinrail.layout()` builds the skeleton the stylesheet expects: a header that stays put and a body that scrolls.
+`Pinrail.layout()` builds the skeleton the stylesheet expects: a header that stays put, a body that scrolls, and a confirmation bar under the body that stays hidden until the view asks for it. See [The anatomy of a view](#the-anatomy-of-a-view).
 
 ```js
 const view = Pinrail.layout({ title: "5 tickets", meta: ["acme-api"], controls: [closeAll] });
@@ -62,11 +90,22 @@ view.content.innerHTML = rows;               // re-render the body freely
 view.title("4 tickets").meta(["acme-api"]);  // the header keeps its listeners
 ```
 
+When a hand-over needs a second look, such as items left undecided, hold the first one back, say why in the confirmation bar, and let the next hand-over through. Say on the hand-over button what will happen:
+
+```js
+plugin.handOverLabel(`Hand over with ${n} undecided`);
+view.confirmation({ text: `${n} left undecided. Hand over again to confirm.`, actions: [keepDeciding] });
+view.confirmation(null);  // nothing left to confirm
+```
+
+The bar is a warning unless you pass `tone: "info"` or `tone: "danger"`. Its actions are buttons of your own, such as one that takes the person back to deciding.
+
 | Class | What it is |
 |---|---|
 | `.pinrail-layout` | The whole view: the header, then the scrolling body. |
 | `.pinrail-header` | The bar at the top, with `.pinrail-title`, `.pinrail-meta` and `.pinrail-controls`, pushed to the right. |
 | `.pinrail-scroll`, `.pinrail-content` | The body that scrolls, and its padded content. |
+| `.pinrail-confirmation` | The bar under the body that `view.confirmation()` fills, with `.pinrail-confirmation-warning`, `-info` or `-danger`. |
 | `.pinrail-subhead` | A heading in the body that stays while its section is on screen. |
 | `.pinrail-spacer` | Pushes what follows it to the end of a row. |
 

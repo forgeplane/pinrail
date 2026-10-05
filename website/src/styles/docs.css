@@ -1666,3 +1666,103 @@ button[data-close-modal] {
   font-size: 0.8rem;
   line-height: 1.45;
 }
+
+/* The anatomy of a view (docs/building/design.md): a review screen drawn
+   in the page's own colours, its five parts numbered. */
+.pr-anatomy {
+  margin: 1.25rem 0 0.5rem;
+  border: 1px solid var(--sl-color-hairline-light);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 0.8rem;
+  color: var(--sl-color-gray-2);
+  background: var(--sl-color-black);
+}
+.pr-anatomy b {
+  color: var(--sl-color-white);
+  font-weight: 600;
+}
+.pr-anatomy-app,
+.pr-anatomy-header,
+.pr-anatomy-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.pr-anatomy-app {
+  background: var(--sl-color-gray-6);
+}
+.pr-anatomy-view {
+  margin: 0 12px;
+  border: 1px dashed var(--sl-color-gray-4);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--sl-color-black);
+}
+.pr-anatomy-header {
+  border-bottom: 1px solid var(--sl-color-hairline-light);
+}
+.pr-anatomy-middle {
+  display: flex;
+  min-height: 92px;
+}
+.pr-anatomy-side {
+  width: 26%;
+  padding: 10px 12px;
+  border-right: 1px solid var(--sl-color-hairline-light);
+  color: var(--sl-color-gray-3);
+  font-style: italic;
+}
+.pr-anatomy-body {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.pr-anatomy-body p {
+  margin: 2px 0 0;
+}
+.pr-anatomy-confirm {
+  border-top: 1px solid color-mix(in oklab, var(--sl-color-orange) 40%, var(--sl-color-hairline-light));
+  background: color-mix(in oklab, var(--sl-color-orange) 12%, var(--sl-color-black));
+}
+.pr-anatomy-composer {
+  margin-top: 8px;
+}
+.pr-anatomy-chip {
+  padding: 0 7px;
+  border-radius: 99px;
+  background: var(--sl-color-gray-6);
+  font-size: 0.72rem;
+}
+.pr-anatomy-push {
+  margin-left: auto;
+  padding: 2px 9px;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.pr-anatomy-handover {
+  border-color: transparent;
+  background: var(--sl-color-accent);
+  color: var(--sl-color-black);
+  font-weight: 600;
+}
+.pr-anatomy-n {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sl-color-accent);
+  color: var(--sl-color-black);
+  font: 600 0.68rem/1 var(--sl-font-mono);
+}
+.pr-anatomy figcaption {
+  padding: 8px 12px;
+  color: var(--sl-color-gray-3);
+  font-size: 0.75rem;
+}
