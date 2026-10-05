@@ -132,6 +132,28 @@ impl Catalog {
         Catalog::of(carried())
     }
 
+    /// A catalog of the plugin folders in `dir`, each as a bundle holds it.
+    /// A folder that is not a plugin is left out.
+    pub fn of_dir(dir: &std::path::Path) -> std::io::Result<Catalog> {
+        let mut plugins = Vec::new();
+        for entry in std::fs::read_dir(dir)?.flatten() {
+            let folder = entry.path();
+            if !folder.join("manifest.json").is_file() {
+                continue;
+            }
+            let Ok(listing) = Listing::of_folder(&folder, Taken::FromSource) else {
+                continue;
+            };
+            let files = listing
+                .files
+                .iter()
+                .map(|f| Ok((f.path.clone(), std::fs::read(folder.join(&f.path))?)))
+                .collect::<std::io::Result<Files>>()?;
+            plugins.push((entry.file_name().to_string_lossy().into_owned(), files));
+        }
+        Ok(Catalog::of(plugins))
+    }
+
     /// A catalog of these plugins' files, each by its folder. A plugin
     /// whose files are not a bundle is left out.
     pub fn of(plugins: Vec<(String, Files)>) -> Catalog {
@@ -161,6 +183,20 @@ pub fn best<'a>(catalogs: &'a [Catalog], id: &str) -> Option<&'a Entry> {
         .flat_map(|c| c.entries.iter())
         .filter(|e| e.name == name)
         .max_by(|a, b| pinrail_format::semver(&a.version).cmp(&pinrail_format::semver(&b.version)))
+}
+
+/// The entry for `id` at exactly `version`, from whichever catalog offers
+/// it.
+pub fn at<'a>(catalogs: &'a [Catalog], id: &str, version: &str) -> Option<&'a Entry> {
+    let name = match id.split_once('/') {
+        Some((PUBLISHER, name)) => name,
+        Some(_) => return None,
+        None => id,
+    };
+    catalogs
+        .iter()
+        .flat_map(|c| c.entries.iter())
+        .find(|e| e.name == name && e.version == version)
 }
 
 /// Every plugin the catalogs offer, each at its highest version, by name.
@@ -270,5 +306,27 @@ mod tests {
             .map(|e| (e.name.as_str(), e.version.as_str()))
             .collect();
         assert_eq!(names, [("feedback", "1.0.0"), ("list", "1.2.0")]);
+        assert_eq!(at(&catalogs, "list", "0.9.0").unwrap().version, "0.9.0");
+        assert!(at(&catalogs, "list", "1.1.0").is_none());
+    }
+
+    /// A folder of plugin folders, as tests give one, offers each in the
+    /// version its manifest says, and skips what is not a plugin.
+    #[test]
+    fn a_folder_of_plugins_is_a_catalog() {
+        let dir = tempfile::tempdir().unwrap();
+        for (folder, files) in carried() {
+            for (path, bytes) in files {
+                let target = dir.path().join(&folder).join(path);
+                std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+                std::fs::write(target, bytes).unwrap();
+            }
+        }
+        std::fs::create_dir_all(dir.path().join("not-a-plugin")).unwrap();
+        let catalog = Catalog::of_dir(dir.path()).unwrap();
+        let names: Vec<&str> = catalog.entries().iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["feedback", "list"]);
+        let builtin = Catalog::builtin();
+        assert_eq!(catalog.entries()[1].hash, builtin.entries()[1].hash);
     }
 }

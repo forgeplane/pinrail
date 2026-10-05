@@ -69,8 +69,32 @@ test("the official plugins not installed are listed, found by name, and installe
   await expect(row).toBeVisible();
   await row.locator(".settings-plugin-toggle").click();
   await expect(row).toContainText("Installed from Pinrail's plugins as forgeplane/feedback");
-  // nothing left to install, so nothing is listed
-  await expect(panel.locator("[data-official-plugins]")).toHaveCount(0);
+  // installed, it is no longer offered
+  await expect(panel.locator('[data-official="feedback"]')).toHaveCount(0);
+});
+
+test("an official plugin is offered the newer version the app carries, and updated from its row", async ({ page }) => {
+  // notes is offered at 1.0.0 and 1.1.0; 1.0.0 is installed
+  const installed = await page.request.post(`${core}/api/v1/plugins/install`, {
+    data: { id: "forgeplane/notes", version: "1.0.0" },
+  });
+  expect(installed.status(), await installed.text()).toBe(200);
+  await page.goto("/#/plugins");
+  const row = page.locator('[data-plugin-row="notes"]');
+  await expect(row).toContainText("1.0.0");
+  const update = row.locator('[data-plugin-update="notes"]');
+  await expect(update).toHaveText("Update to 1.1.0");
+
+  // the search says so too
+  const panel = page.locator("[data-install-panel]");
+  await panel.getByLabel("Source").fill("notes");
+  await expect(panel.locator('[data-official-install="notes"]')).toHaveText("Update to 1.1.0");
+
+  await update.click();
+  await expect(row).toContainText("1.1.0");
+  await expect(update).toHaveCount(0);
+  await expect(panel.locator('[data-official="notes"] [data-official-installed]')).toHaveText("Installed");
+  expect((await page.request.delete(`${core}/api/v1/plugins/notes`)).status()).toBe(200);
 });
 
 test("a folder is looked at before it is installed, and its row says where it came from", async ({ page }) => {

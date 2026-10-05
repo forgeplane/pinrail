@@ -16,6 +16,10 @@ pub struct Config {
     pub user: String,
     /// The directory served at `/sdk/v1/`; none means the SDK is not served.
     pub sdk_dir: Option<PathBuf>,
+    /// A folder of plugin folders offered as official plugins beside the
+    /// ones the app carries, each in the version its manifest says. For
+    /// tests, which need a catalog with versions the app does not carry.
+    pub catalog_dir: Option<PathBuf>,
     /// The most one uploaded attachment may be, in bytes.
     pub max_attachment_bytes: u64,
 }
@@ -54,6 +58,7 @@ impl Config {
             port,
             user: "pinrail".to_string(),
             sdk_dir: None,
+            catalog_dir: None,
             max_attachment_bytes: MAX_ATTACHMENT_BYTES,
         }
     }

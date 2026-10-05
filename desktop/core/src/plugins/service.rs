@@ -204,10 +204,20 @@ impl PluginService {
     /// highest version a catalog offers; the plugin's row, as
     /// [`PluginService::install`] answers.
     pub async fn install_offered(&self, id: &str) -> Result<Value, Error> {
+        self.install_offered_at(id, None).await
+    }
+
+    /// [`PluginService::install_offered`] at exactly `version`, when given.
+    pub async fn install_offered_at(
+        &self,
+        id: &str,
+        version: Option<&str>,
+    ) -> Result<Value, Error> {
         let worker = self.clone();
         let id = id.to_string();
+        let version = version.map(str::to_string);
         let installed = tokio::task::spawn_blocking(move || {
-            install::install_offered(&worker.db, &worker.registry, &id)
+            install::install_offered(&worker.db, &worker.registry, &id, version.as_deref())
         })
         .await
         .map_err(|error| Error::Internal(error.to_string()))?;

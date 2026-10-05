@@ -87,14 +87,20 @@ async fn inspect(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<
 }
 
 /// Installs the plugin a folder or a zip holds, `{source, link?}`, or the
-/// official plugin an id names, `{id}`, at the highest version offered;
-/// the plugin's row.
+/// official plugin an id names, `{id, version?}`, at that version or the
+/// highest offered; the plugin's row.
 async fn install(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
-    if let Some(id) = parse_body(&body)?.get("id") {
+    let request = parse_body(&body)?;
+    if let Some(id) = request.get("id") {
         let id = id
             .as_str()
             .ok_or_else(|| Error::invalid("/id", "is not a string"))?;
-        return Ok(Json(state.plugins().install_offered(id).await?));
+        let version = match request.get("version") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(version)) => Some(version.as_str()),
+            Some(_) => return Err(Error::invalid("/version", "is not a string").into()),
+        };
+        return Ok(Json(state.plugins().install_offered_at(id, version).await?));
     }
     let (source, options) = install_request(&body)?;
     Ok(Json(state.plugins().install(&source, options).await?))

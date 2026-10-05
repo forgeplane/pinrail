@@ -12,9 +12,13 @@ pub struct Options {
     pub port: Option<u16>,
     pub data_dir: Option<PathBuf>,
     pub sdk_dir: Option<PathBuf>,
+    /// plugin folders offered beside the app's official plugins, for tests
+    pub catalog_dir: Option<PathBuf>,
 }
 
-/// Parses `--headless [--port N] [--data-dir D] [--sdk-dir S]`. Returns
+/// Parses `--headless [--port N] [--data-dir D] [--sdk-dir S]
+/// [--catalog-dir C]`, the last for tests: the plugin folders in C are
+/// offered as official plugins beside the ones the app carries. Returns
 /// `None` when `--headless` is absent, so the app starts normally.
 pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
     if !args.iter().any(|a| a == "--headless") {
@@ -39,6 +43,10 @@ pub fn parse(args: &[String]) -> Result<Option<Options>, String> {
             "--sdk-dir" => {
                 options.sdk_dir = Some(iter.next().ok_or("--sdk-dir needs a value")?.into());
             }
+            "--catalog-dir" => {
+                options.catalog_dir =
+                    Some(iter.next().ok_or("--catalog-dir needs a value")?.into());
+            }
             other => return Err(format!("unknown argument {other}")),
         }
     }
@@ -60,6 +68,7 @@ fn config(options: Options, exe: &std::path::Path) -> Config {
     if config.sdk_dir.is_none() {
         config.sdk_dir = crate::sdk_dir(exe);
     }
+    config.catalog_dir = options.catalog_dir;
     config
 }
 
@@ -130,6 +139,22 @@ async fn shutdown_signal() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_catalog_folder_is_taken_from_its_flag() {
+        let args = |rest: &[&str]| {
+            let mut all = vec!["Pinrail".to_string(), "--headless".to_string()];
+            all.extend(rest.iter().map(|a| a.to_string()));
+            all
+        };
+        let options = parse(&args(&["--catalog-dir", "/tmp/catalog"]))
+            .unwrap()
+            .unwrap();
+        assert_eq!(options.catalog_dir, Some(PathBuf::from("/tmp/catalog")));
+        let config = config(options, std::path::Path::new("/nowhere/Pinrail"));
+        assert_eq!(config.catalog_dir, Some(PathBuf::from("/tmp/catalog")));
+        assert!(parse(&args(&["--catalog-dir"])).is_err());
+    }
 
     #[test]
     fn a_headless_server_serves_the_sdk_its_bundle_ships() {

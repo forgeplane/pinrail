@@ -89,19 +89,28 @@ pub fn install(
 }
 
 /// Installs the official plugin `id` names, `forgeplane/<name>` or a bare
-/// name, at the highest version a catalog offers. Returns its record and
-/// the version it replaced, if any; the registry has been reloaded with it.
-/// The record is what an install from the registry's index makes: the
-/// `index` source kind and the id.
+/// name, at `version`, or else the highest version a catalog offers.
+/// Returns its record and the version it replaced, if any; the registry has
+/// been reloaded with it. The record is what an install from the
+/// registry's index makes: the `index` source kind and the id.
 pub fn install_offered(
     db: &Db,
     registry: &Registry,
     id: &str,
+    version: Option<&str>,
 ) -> Result<(InstallRecord, Option<String>), Error> {
-    let entry = registry
-        .offered(id)
-        .ok_or_else(|| Error::invalid("/id", format!("no official plugin is named {id}")))?
-        .clone();
+    let entry = match version {
+        Some(version) => registry.offered_at(id, version).ok_or_else(|| {
+            Error::invalid(
+                "/version",
+                format!("no official plugin {id} is offered at {version}"),
+            )
+        })?,
+        None => registry
+            .offered(id)
+            .ok_or_else(|| Error::invalid("/id", format!("no official plugin is named {id}")))?,
+    }
+    .clone();
     if let Some(needed) = entry.needs() {
         return Err(Error::invalid(
             "/id",

@@ -122,7 +122,11 @@ impl Pinrail {
     /// A directory another Pinrail has open is refused with
     /// [`Error::InUse`] before anything in it is touched.
     pub fn open(config: Config) -> Result<Self, Error> {
-        Self::open_with(config, vec![Catalog::builtin()])
+        let mut catalogs = vec![Catalog::builtin()];
+        if let Some(dir) = &config.catalog_dir {
+            catalogs.push(Catalog::of_dir(dir)?);
+        }
+        Self::open_with(config, catalogs)
     }
 
     /// [`Pinrail::open`] with these catalogs to install and update from.
@@ -411,5 +415,22 @@ mod tests {
         let app = Pinrail::open_with(config, vec![]).unwrap();
         assert_eq!(row(&app, "list")["version"], "1.0.0");
         assert_eq!(row(&app, "list")["update"], Value::Null);
+    }
+
+    /// A version a catalog offers can be asked for by its number, an older
+    /// one too; one no catalog offers is refused.
+    #[test]
+    fn an_offered_version_is_installed_when_asked_for() {
+        let dir = tempfile::tempdir().unwrap();
+        let catalogs = vec![Catalog::builtin(), with_list("1.4.0", false)];
+        let app = Pinrail::open_with(Config::new(dir.path(), 0), catalogs).unwrap();
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let at = |version: &str| {
+            runtime.block_on(app.plugins().install_offered_at("list", Some(version)))
+        };
+        assert_eq!(at("1.0.0").unwrap()["version"], "1.0.0");
+        assert_eq!(row(&app, "list")["update"], "1.4.0");
+        assert!(at("1.2.0").is_err());
+        assert_eq!(at("1.4.0").unwrap()["version"], "1.4.0");
     }
 }

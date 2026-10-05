@@ -87,6 +87,11 @@ impl Registry {
         catalog::best(&self.catalogs, id)
     }
 
+    /// The entry `id` names at exactly `version`, from any catalog.
+    pub fn offered_at(&self, id: &str, version: &str) -> Option<&Entry> {
+        catalog::at(&self.catalogs, id, version)
+    }
+
     /// Every plugin the catalogs offer, each at its highest version.
     pub fn catalog(&self) -> Vec<&Entry> {
         catalog::listing(&self.catalogs)
@@ -505,7 +510,7 @@ mod tests {
         assert!(db.installs().unwrap().is_empty());
         assert!(r.fetch("list").is_err());
 
-        crate::plugins::install::install_offered(&db, &r, "forgeplane/list").unwrap();
+        crate::plugins::install::install_offered(&db, &r, "forgeplane/list", None).unwrap();
         let list = r.fetch("list").unwrap();
         assert_eq!(list.version, "1.0.0");
         let install = list.install.as_ref().unwrap();
@@ -523,7 +528,7 @@ mod tests {
         // another publisher's, or one no catalog offers, cannot be installed
         for id in ["acme/list", "nothing"] {
             assert!(
-                crate::plugins::install::install_offered(&db, &r, id).is_err(),
+                crate::plugins::install::install_offered(&db, &r, id, None).is_err(),
                 "{id}"
             );
         }
@@ -548,7 +553,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         let db = Arc::new(Db::in_memory().unwrap());
         let r = open(tmp.path(), db.clone(), vec![Catalog::builtin()]);
-        crate::plugins::install::install_offered(&db, &r, "list").unwrap();
+        crate::plugins::install::install_offered(&db, &r, "list", None).unwrap();
         let folder = list_folder(&tmp.path().join("broken"), "broken", "1.0.0");
         link(&r, &db, "broken", &folder);
         r.reload().unwrap();
