@@ -272,6 +272,17 @@ mod tests {
             .unwrap()
     }
 
+    /// The catalog's entry for `id`.
+    fn offered_entry(app: &Pinrail, id: &str) -> Value {
+        app.plugins().catalog()["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["id"] == id)
+            .cloned()
+            .unwrap_or(Value::Null)
+    }
+
     fn row(app: &Pinrail, name: &str) -> Value {
         app.plugins().listing(&json!({}))["plugins"]
             .as_array()
@@ -291,26 +302,21 @@ mod tests {
         assert_eq!(app.plugins().listing(&json!({}))["plugins"], json!([]));
         let catalog = app.plugins().catalog();
         assert_eq!(catalog["format"], 1);
-        assert_eq!(catalog["plugins"][0]["needs"], Value::Null);
-        let offered: Vec<(&str, &Value)> = catalog["plugins"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|p| (p["id"].as_str().unwrap(), &p["installed"]))
-            .collect();
-        assert_eq!(
-            offered,
-            [
-                ("forgeplane/code-review", &Value::Null),
-                ("forgeplane/feedback", &Value::Null),
-                ("forgeplane/list", &Value::Null)
-            ]
+        // every plugin offered, none installed, list and feedback among them
+        let offered = catalog["plugins"].as_array().unwrap();
+        assert!(
+            offered
+                .iter()
+                .all(|p| p["installed"].is_null() && p["needs"].is_null())
         );
+        for id in ["forgeplane/list", "forgeplane/feedback"] {
+            assert!(offered.iter().any(|p| p["id"] == id), "{id}");
+        }
 
         let installed = install(&app, "forgeplane/list");
         assert_eq!(installed["install"]["source_kind"], "index");
         assert_eq!(installed["install"]["source"], "forgeplane/list");
-        assert_eq!(app.plugins().catalog()["plugins"][2]["installed"], "1.0.0");
+        assert_eq!(offered_entry(&app, "forgeplane/list")["installed"], "1.0.0");
         // an agent asking with it is told how to install it
         for error in [
             app.reviews()

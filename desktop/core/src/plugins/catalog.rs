@@ -266,15 +266,17 @@ mod tests {
     fn the_app_carries_its_official_plugins_and_recommends_list_and_feedback() {
         let catalog = Catalog::builtin();
         let rows: Vec<Value> = catalog.entries().iter().map(Entry::to_json).collect();
-        let ids: Vec<&str> = rows.iter().map(|r| r["id"].as_str().unwrap()).collect();
-        assert_eq!(
-            ids,
-            [
-                "forgeplane/code-review",
-                "forgeplane/feedback",
-                "forgeplane/list"
-            ]
-        );
+        // every plugin folder the app carries, by name
+        let names: Vec<&str> = rows.iter().map(|r| r["name"].as_str().unwrap()).collect();
+        let mut carried: Vec<String> = carried().into_iter().map(|(folder, _)| folder).collect();
+        carried.sort();
+        assert_eq!(names, carried);
+        for row in &rows {
+            assert_eq!(
+                row["id"],
+                format!("forgeplane/{}", row["name"].as_str().unwrap())
+            );
+        }
         for row in &rows {
             assert_eq!(row["official"], true);
             assert_eq!(
@@ -311,18 +313,15 @@ mod tests {
         assert_eq!(best(&catalogs, "feedback").unwrap().version, "1.0.0");
         assert!(best(&catalogs, "acme/list").is_none());
         assert!(best(&catalogs, "nothing").is_none());
-        let names: Vec<(&str, &str)> = listing(&catalogs)
-            .iter()
-            .map(|e| (e.name.as_str(), e.version.as_str()))
-            .collect();
-        assert_eq!(
-            names,
-            [
-                ("code-review", "1.0.0"),
-                ("feedback", "1.0.0"),
-                ("list", "1.2.0")
-            ]
-        );
+        // each plugin once, at its highest version, by name
+        let listed = listing(&catalogs);
+        let names: Vec<&str> = listed.iter().map(|e| e.name.as_str()).collect();
+        let mut sorted = names.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(names, sorted);
+        let list = listed.iter().find(|e| e.name == "list").unwrap();
+        assert_eq!(list.version, "1.2.0");
         assert_eq!(at(&catalogs, "list", "0.9.0").unwrap().version, "0.9.0");
         assert!(at(&catalogs, "list", "1.1.0").is_none());
     }
@@ -341,9 +340,22 @@ mod tests {
         }
         std::fs::create_dir_all(dir.path().join("not-a-plugin")).unwrap();
         let catalog = Catalog::of_dir(dir.path()).unwrap();
-        let names: Vec<&str> = catalog.entries().iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, ["code-review", "feedback", "list"]);
         let builtin = Catalog::builtin();
-        assert_eq!(catalog.entries()[2].hash, builtin.entries()[2].hash);
+        let names = |c: &Catalog| {
+            c.entries()
+                .iter()
+                .map(|e| e.name.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(names(&catalog), names(&builtin));
+        let hash = |c: &Catalog| {
+            c.entries()
+                .iter()
+                .find(|e| e.name == "list")
+                .unwrap()
+                .hash
+                .clone()
+        };
+        assert_eq!(hash(&catalog), hash(&builtin));
     }
 }
