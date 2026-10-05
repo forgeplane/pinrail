@@ -276,13 +276,21 @@ export type Layout = {
   meta(items: string | (HTMLElement | string)[] | null): Layout;
   controls(items: HTMLElement | (HTMLElement | string)[] | null): Layout;
   /** what to confirm before the next hand-over, in a bar under the body; null hides it */
-  confirmation(
-    value: {
-      text: string;
-      tone?: "warning" | "info" | "danger";
-      actions?: HTMLElement | (HTMLElement | string)[];
-    } | null,
-  ): Layout;
+  confirmation(value: Confirmation | null): Layout;
+};
+
+/** What the confirmation bar asks before the next hand-over. */
+export type Confirmation = {
+  text: string;
+  tone?: "warning" | "info" | "danger";
+  actions?: HTMLElement | (HTMLElement | string)[];
+};
+
+/** The confirmation bar on its own, for a view with a layout of its own to place. */
+export type ConfirmationBar = {
+  /** the bar, to place below what scrolls; hidden until confirmation() asks */
+  element: HTMLElement;
+  confirmation(value: Confirmation | null): ConfirmationBar;
 };
 
 /** `window.Pinrail`, from /sdk/v1/pinrail-plugin.js. */
@@ -291,6 +299,8 @@ export type PinrailSdk = {
   connect<Payload = unknown, Data = unknown>(handlers: Handlers<Payload, Data>): Plugin<Payload, Data>;
   /** the standard skeleton the stylesheet expects: a header that stays put and a body that scrolls */
   layout(options?: LayoutOptions): Layout;
+  /** the layout's confirmation bar, for a view with a layout of its own */
+  confirmationBar(options?: { document?: Document }): ConfirmationBar;
   /** the plugin's own `icons/<name>.svg`, beside the view, as markup that takes the text's colour */
   icon(name: string, opts?: { label?: string; size?: number | string; class?: string }): string;
   escape(text: string): string;

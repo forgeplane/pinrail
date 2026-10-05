@@ -382,6 +382,7 @@ test("window.Pinrail has the members a view uses, and no others", () => {
   // what the app serves stays for good: each member here is a promise
   assert.deepEqual(Object.keys(globalThis.Pinrail).sort(), [
     "attachmentName",
+    "confirmationBar",
     "connect",
     "escape",
     "icon",
@@ -749,4 +750,19 @@ test("layout's confirmation bar asks before the next hand-over, in the tone the 
   view.confirmation(null);
   assert.equal(bar.hidden, true);
   assert.equal(text.textContent, "");
+});
+
+test("a view with a layout of its own places the same confirmation bar where it wants it", () => {
+  const doc = fakeDocument();
+  const confirm = Pinrail.confirmationBar({ document: doc });
+  const bar = confirm.element;
+  assert.equal(bar.className, "pinrail-confirmation");
+  assert.equal(bar.hidden, true);
+  const keep = doc.createElement("button");
+  assert.equal(confirm.confirmation({ text: "1 left undecided.", actions: [keep] }), confirm, "it chains");
+  assert.equal(bar.hidden, false);
+  assert.equal(bar.className, "pinrail-confirmation pinrail-confirmation-warning");
+  assert.deepEqual(bar.children[1].children, [keep]);
+  confirm.confirmation(null);
+  assert.equal(bar.hidden, true);
 });

@@ -372,30 +372,77 @@
    */
   const CONFIRMATION_TONES = ["warning", "info", "danger"];
 
+  const documentOf = (options, name) => {
+    const doc = (options && options.document) || (typeof document === "undefined" ? null : document);
+    if (!doc) throw new Error(`Pinrail.${name} needs a document`);
+    return doc;
+  };
+
+  const elementIn = (doc) => (tag, className) => {
+    const node = doc.createElement(tag);
+    node.className = className;
+    return node;
+  };
+
+  /* Strings as spans, elements as they are, in place of what `node` held. */
+  const fillIn = (doc) => (node, value) => {
+    const items = value == null ? [] : [].concat(value);
+    node.replaceChildren();
+    for (const item of items) {
+      if (typeof item === "string") {
+        const span = doc.createElement("span");
+        span.textContent = item;
+        node.append(span);
+      } else if (item) {
+        node.append(item);
+      }
+    }
+  };
+
+  /*
+   * What the view asks the person to confirm before the next hand-over, such
+   * as items left undecided: a bar under the body, above the app's hand-over
+   * button, the same in every plugin. Pinrail.layout() places one; a view
+   * with a layout of its own places `element` itself, below what scrolls.
+   * Hidden until `confirmation({ text, tone, actions })` asks: a warning
+   * unless `tone` is "info" or "danger", with the actions, such as a button
+   * that keeps the person deciding, at its end. null hides it.
+   */
+  function confirmationBar(options) {
+    const doc = documentOf(options, "confirmationBar");
+    const make = elementIn(doc);
+    const fill = fillIn(doc);
+    const element = make("div", "pinrail-confirmation");
+    element.hidden = true;
+    element.role = "status";
+    const text = make("span", "pinrail-confirmation-text");
+    const actions = make("span", "pinrail-confirmation-actions");
+    element.append(text, actions);
+    const bar = {
+      element,
+      confirmation(value) {
+        if (!value) {
+          element.hidden = true;
+          text.textContent = "";
+          fill(actions, null);
+          return bar;
+        }
+        const tone = CONFIRMATION_TONES.includes(value.tone) ? value.tone : "warning";
+        element.className = `pinrail-confirmation pinrail-confirmation-${tone}`;
+        text.textContent = value.text == null ? "" : String(value.text);
+        fill(actions, value.actions);
+        element.hidden = false;
+        return bar;
+      },
+    };
+    return bar;
+  }
+
   function layout(options) {
     options = options || {};
-    const doc = options.document || (typeof document === "undefined" ? null : document);
-    if (!doc) throw new Error("Pinrail.layout needs a document");
-
-    const make = (tag, className) => {
-      const node = doc.createElement(tag);
-      node.className = className;
-      return node;
-    };
-
-    const fill = (node, value) => {
-      const items = value == null ? [] : [].concat(value);
-      node.replaceChildren();
-      for (const item of items) {
-        if (typeof item === "string") {
-          const span = doc.createElement("span");
-          span.textContent = item;
-          node.append(span);
-        } else if (item) {
-          node.append(item);
-        }
-      }
-    };
+    const doc = documentOf(options, "layout");
+    const make = elementIn(doc);
+    const fill = fillIn(doc);
 
     const into = options.into || doc.body;
     into.className = into.className ? into.className + " pinrail-layout" : "pinrail-layout";
@@ -424,22 +471,14 @@
     scroll.append(content);
     into.append(scroll);
 
-    // What the view asks the person to confirm before the next hand-over,
-    // such as items left undecided: a bar under the body, above the app's
-    // hand-over button, the same in every plugin. Hidden until asked for.
-    const bar = make("div", "pinrail-confirmation");
-    bar.hidden = true;
-    bar.role = "status";
-    const barText = make("span", "pinrail-confirmation-text");
-    const barActions = make("span", "pinrail-confirmation-actions");
-    bar.append(barText, barActions);
-    into.append(bar);
+    const bar = confirmationBar({ document: doc });
+    into.append(bar.element);
 
     const view = {
       header,
       scroll,
       content,
-      confirmationBar: bar,
+      confirmationBar: bar.element,
       title(value) {
         if (titleNode) titleNode.textContent = value == null ? "" : String(value);
         return view;
@@ -452,21 +491,9 @@
         if (controlsNode) fill(controlsNode, value);
         return view;
       },
-      /* { text, tone, actions } shows the bar: a warning unless `tone` is
-         "info" or "danger", with the actions, such as a button that keeps
-         the person deciding, at its end. null hides it. */
+      /* The confirmation bar: see confirmationBar(). */
       confirmation(value) {
-        if (!value) {
-          bar.hidden = true;
-          barText.textContent = "";
-          fill(barActions, null);
-          return view;
-        }
-        const tone = CONFIRMATION_TONES.includes(value.tone) ? value.tone : "warning";
-        bar.className = `pinrail-confirmation pinrail-confirmation-${tone}`;
-        barText.textContent = value.text == null ? "" : String(value.text);
-        fill(barActions, value.actions);
-        bar.hidden = false;
+        bar.confirmation(value);
         return view;
       },
     };
@@ -619,6 +646,7 @@
     protocol: PROTOCOL,
     connect,
     layout,
+    confirmationBar,
     icon,
     escape,
     markdown,
