@@ -2418,6 +2418,7 @@ fn plugins_check_compares_recorded_decisions_with_their_markdown() {
         "view/index.html",
         "fixtures/triage-round-1.decided.json",
         "fixtures/triage-round-1.decided.md",
+        "fixtures/triage-round-1.decided.summary.json",
     ] {
         let to = dir.join(f);
         std::fs::create_dir_all(to.parent().unwrap()).unwrap();
@@ -2450,6 +2451,20 @@ fn plugins_check_compares_recorded_decisions_with_their_markdown() {
     let (code, _, stderr) = checked(&["--update-fixtures"]);
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(std::fs::read_to_string(&md).unwrap(), expected);
+
+    // so does the summary the app sums up from the decision
+    let summary = dir.join("fixtures/triage-round-1.decided.summary.json");
+    let expected = std::fs::read_to_string(&summary).unwrap();
+    std::fs::write(&summary, r#"{"request": null, "outcome": null}"#).unwrap();
+    let (code, _, stderr) = checked(&[]);
+    assert_eq!(code, 2);
+    assert!(
+        stderr.contains("pinrail: fixture fixtures/triage-round-1.decided.json: fixtures/triage-round-1.decided.summary.json does not match what the app sums up"),
+        "{stderr}"
+    );
+    let (code, _, stderr) = checked(&["--update-fixtures"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(std::fs::read_to_string(&summary).unwrap(), expected);
 
     // a decision the plugin's schema refuses is a fixture that misleads
     let json = dir.join("fixtures/triage-round-1.decided.json");

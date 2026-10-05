@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub mod attachments;
 pub mod bundle;
 pub mod compat;
+pub mod fixtures;
 pub mod manifest;
 pub mod markdown;
 pub mod sample;

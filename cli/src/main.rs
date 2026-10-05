@@ -952,7 +952,7 @@ fn run(cli: Cli) -> Result<u8> {
                     .with_context(|| format!("{} is not a folder here", since.display()))?;
                 verdict["since"] = pinrail_format::compat::since(&since, &dir);
             }
-            let fixtures = pinrail_format::markdown::check_decided_fixtures(&dir, update_fixtures);
+            let fixtures = pinrail_format::fixtures::check(&dir, update_fixtures);
             let fixtures_wrong = fixtures["problems"]
                 .as_array()
                 .is_some_and(|p| !p.is_empty());
