@@ -6,14 +6,14 @@
     md = Pinrail.markdown,
     ico = (name) => Pinrail.icon(name, { size: 14 });
   const app = document.getElementById("app");
-  // the layout's confirmation bar, as Pinrail.layout() builds it, which says
-  // what is missing after a hand-over that could not go
-  const bar = document.createElement("div");
-  bar.className = "pinrail-confirmation pinrail-confirmation-warning";
-  bar.setAttribute("role", "status");
-  bar.hidden = true;
-  bar.innerHTML =
-    '<div class="pinrail-confirmation-text"></div><div class="pinrail-confirmation-actions"><button type="button" class="pinrail-btn pinrail-btn-ghost" data-first-error="1">Go to the first</button></div>';
+  // the SDK's confirmation bar, which says what is missing after a
+  // hand-over that could not go, with a way to the first of it
+  const confirm = Pinrail.confirmationBar();
+  const toFirst = document.createElement("button");
+  toFirst.type = "button";
+  toFirst.className = "pinrail-btn pinrail-btn-ghost";
+  toFirst.dataset.firstError = "1";
+  toFirst.textContent = "Go to the first";
   let payload,
     state,
     previous,
@@ -248,11 +248,17 @@
       }
       app.querySelector(".sidebar").hidden = !railOpen;
     } else app.innerHTML = html;
-    if (!bar.isConnected) app.append(bar);
+    if (!confirm.element.isConnected) app.append(confirm.element);
     for (const el of app.querySelectorAll(".question-comment, .text-answer")) if (el.offsetParent) grow(el);
     const missing = Object.keys(invalid).length;
-    bar.hidden = !(showErrors && missing && !plugin.readonly);
-    bar.firstChild.textContent = `Complete ${missing} highlighted ${missing === 1 ? "question" : "questions"} before handing over.`;
+    confirm.confirmation(
+      showErrors && missing && !plugin.readonly
+        ? {
+            text: `Complete ${missing} highlighted ${missing === 1 ? "question" : "questions"} before handing over.`,
+            actions: [toFirst],
+          }
+        : null,
+    );
     for (const { selector, top, left } of scrolls) {
       app.querySelector(selector)?.scrollTo({ top, left, behavior: "instant" });
     }
