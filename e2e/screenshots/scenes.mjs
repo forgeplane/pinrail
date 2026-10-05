@@ -20,6 +20,23 @@ async function openReview(page, app, id) {
 
 const settle = (page, ms = 350) => page.waitForTimeout(ms);
 
+/** The agents Settings › Agents lists, as the desktop app reports them. */
+const AGENTS = [
+  ["claude", "Claude Code", true, ".claude/skills", "connected", null],
+  ["codex", "Codex", true, ".codex/skills", "absent", null],
+  ["cursor", "Cursor", true, ".cursor/skills", "connected", null],
+  ["antigravity", "Antigravity CLI", false, ".gemini/config/skills", "absent", null],
+  ["opencode", "OpenCode", true, ".config/opencode/skills", "covered", "Claude Code"],
+  ["grok", "Grok CLI", false, ".grok/skills", "absent", null],
+].map(([id, name, found, skills, state, covered_by]) => ({
+  id,
+  name,
+  found,
+  skill: `/Users/you/${skills}/pinrail/SKILL.md`,
+  state,
+  covered_by,
+}));
+
 /** Writes a note on a code review proposal, opening the field when a verdict did not. */
 async function note(f, id, text) {
   if (!(await f.locator(`[data-note-ta="${id}"]`).count()))
@@ -342,6 +359,28 @@ export const scenes = [
       await page.getByText("ticket_triage").first().waitFor();
       await settle(page, 500);
       await shot("install");
+    },
+  },
+  {
+    // the browser has no native side to find agents: the scene answers the
+    // one call the section makes with agents in each state it shows
+    name: "settings-agents",
+    async run({ page, app, shot }) {
+      await page.goto(`${app.ui}/#/`);
+      await page.locator(".inbox-repo").first().waitFor();
+      await page.evaluate((agents) => {
+        window.__TAURI_INTERNALS__ = {
+          invoke: async (command) => {
+            if (command === "agents_status") return agents;
+            throw new Error(`${command} is not answered in screenshots`);
+          },
+        };
+      }, AGENTS);
+      await page.keyboard.press("Meta+,");
+      await page.locator('[data-section="agents"]').click();
+      await page.locator("[data-agent]").first().waitFor();
+      await settle(page, 500);
+      await shot("settings-agents");
     },
   },
   ...["general", "appearance", "shortcuts", "plugins"].map((section) => ({
