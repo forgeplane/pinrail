@@ -143,7 +143,8 @@ const choicesOf = (property: SettingProperty): { value: string; label: string }[
 /** Where a plugin came from: how, in words, and from where. */
 function originOf(p: Plugin): { how: string; where: string | null } {
   const i = p.install;
-  if (!i || i.source_kind === "app") return { how: "Built into Pinrail", where: null };
+  if (!i) return { how: "Built into Pinrail", where: null };
+  if (i.source_kind === "index") return { how: "Installed from Pinrail's plugins as", where: i.source };
   if (i.link) return { how: "Linked to", where: i.source };
   if (i.source_kind === "archive") return { how: "Installed from the zip", where: i.source };
   return { how: "Copied from", where: i.source };
@@ -239,8 +240,8 @@ function PluginEntry({
   };
 
   const linked = p.install?.link ?? false;
-  // installed by the person, from a source; the plugins Pinrail ships are not
-  const ownInstall = p.install && p.install.source_kind !== "app" ? p.install : null;
+  // installed by the person: every installed plugin, official or not
+  const ownInstall = p.install;
   const origin = originOf(p);
   // asked before a removal, in place of whatever the line says
   const ask = removing ? (

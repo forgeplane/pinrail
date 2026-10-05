@@ -61,8 +61,8 @@ function Consequences({ seen }: { seen: Inspection }) {
         <p
           className="install-replaces"
           data-replaces={
-            installed.source_kind === "app"
-              ? "app"
+            installed.source_kind === "index"
+              ? "official"
               : installed.link
                 ? "link"
                 : installed.unchanged
@@ -75,8 +75,8 @@ function Consequences({ seen }: { seen: Inspection }) {
           <b>
             {seen.name} {installed.version} is already installed
           </b>
-          {installed.source_kind === "app"
-            ? `, as the copy that comes with Pinrail. This plugin takes its place for new reviews; existing reviews keep the version they were made with.`
+          {installed.source_kind === "index"
+            ? `, as the official plugin. This plugin takes its place for new reviews; existing reviews keep the version they were made with.`
             : installed.link
               ? installed.source === seen.source
                 ? `, as a link to this folder. Installing makes a copy and removes the link.`

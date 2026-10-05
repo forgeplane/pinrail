@@ -22,9 +22,9 @@ describe("link permissions", () => {
     }
   });
 
-  it("are not carried between the app's own copy and a plugin from disk", () => {
+  it("are not carried between an official plugin and a plugin from disk", () => {
     const fromDisk = allowing(undefined, sourceOf(plugin({})), request.origin!);
-    const app = plugin({ source_kind: "app", source: "" });
+    const app = plugin({ source_kind: "index", source: "forgeplane/list" });
     expect(allowedWithoutAsking(request, fromDisk, sourceOf(app))).toBe(false);
     const fromApp = allowing(undefined, sourceOf(app), request.origin!);
     expect(allowedWithoutAsking(request, fromApp, sourceOf(plugin({})))).toBe(false);

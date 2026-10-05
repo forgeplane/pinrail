@@ -116,9 +116,9 @@ export type Plugin = {
 
 /** Where an installed plugin came from, and the bundle new reviews use. */
 export type PluginInstall = {
-  /** `app` for a plugin the app carries, else a folder or a zip on disk */
-  source_kind: "app" | "folder" | "archive";
-  /** the folder or the zip, as a full path; empty for the app's own */
+  /** `index` for an official plugin, installed by its id; else a folder or a zip on disk */
+  source_kind: "index" | "folder" | "archive";
+  /** the official plugin's id, such as `forgeplane/list`, or the folder or the zip as a full path */
   source: string;
   /** served live from its folder rather than copied */
   link: boolean;
@@ -162,7 +162,7 @@ export type Inspection = {
   /** what is installed under the name already, which installing replaces */
   installed: {
     version: string;
-    source_kind: "app" | "folder" | "archive";
+    source_kind: "index" | "folder" | "archive";
     source: string;
     link: boolean;
     unchanged: boolean;
