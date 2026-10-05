@@ -224,6 +224,10 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm test
+      # the plugins with a build of their own, which the check and their
+      # tests read as the app would
+      - name: Build the plugins
+        run: sh scripts/build-plugins.sh
       - name: Check the sample plugins
         run: |
           for dir in plugins/*/; do
@@ -235,9 +239,6 @@ jobs:
         run: |
           node --test scripts/plugin-versions.test.mjs
           node scripts/plugin-versions.mjs
-      # the plugins with a build of their own, which their tests load
-      - name: Build the plugins
-        run: sh scripts/build-plugins.sh
       - name: Plugin tests
         working-directory: plugins
         run: |
