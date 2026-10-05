@@ -13,6 +13,7 @@ Every review uses a plugin, and the plugin decides what the person sees and what
 | Answer questions before it goes on: choices, preferences, confirmations | [Feedback](/docs/plugins/feedback/) | <span class="pr-badge built-in">Built in</span> |
 | Review the comments it wants to post on a pull or merge request | [Code review](/docs/plugins/code-review/) | <span class="pr-badge optional">Optional</span> |
 | Choose between images or illustrations it generated, and mark what to change on them | [Image review](/docs/plugins/image/) | <span class="pr-badge optional">Optional</span> |
+| Read a plan, spec or document it wrote, and ask for changes or explanations | [Markdown review](/docs/plugins/markdown/) | <span class="pr-badge optional">Optional</span> |
 | Read, edit and approve emails before they are sent | [Email](/docs/plugins/email/) | <span class="pr-badge optional">Optional</span> |
 | Comment on a page, mockup or template it designed | [Artifact](/docs/plugins/artifact/) | <span class="pr-badge optional">Optional</span> |
 | Choose times for appointments, meetings or interviews it found | [Calendar](/docs/plugins/calendar/) | <span class="pr-badge optional">Optional</span> |
