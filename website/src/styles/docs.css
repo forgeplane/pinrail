@@ -1414,3 +1414,53 @@ table .pr-keys {
     display: none;
   }
 }
+
+/* Search results: tighter than Starlight's defaults, so more of them fit
+   in the dialog. Starlight sizes them with these variables. */
+#starlight__search {
+  --sl-search-result-spacing: 0.5rem;
+  --sl-search-result-pad-block: 0.45rem;
+  --sl-search-result-nested-pad-block: 0.4rem;
+  --sl-search-result-pad-inline-start: 2.5rem;
+  --sl-search-result-pad-inline-end: 0.875rem;
+  --sl-search-page-icon-size: 1.125rem;
+  --sl-search-tree-diagram-size: 1.5rem;
+}
+/* the field: 44px high in place of 64px, with the icon and the clear
+   button sized and centred to match */
+#starlight__search .pagefind-ui__search-input {
+  height: 44px;
+  padding: 0 48px 0 40px;
+  font-size: 1rem;
+}
+#starlight__search .pagefind-ui__form::before {
+  top: 14px;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+}
+#starlight__search .pagefind-ui__search-clear {
+  top: 3px;
+  height: 38px;
+  width: 40px;
+}
+/* the Cancel button beside the field on narrow screens */
+button[data-close-modal] {
+  height: 44px;
+}
+#starlight__search .pagefind-ui__message {
+  height: auto;
+  padding: 0.5rem 0;
+  font-size: 0.8rem;
+}
+#starlight__search .pagefind-ui__result-title {
+  font-size: 0.95rem;
+}
+#starlight__search .pagefind-ui__result-nested .pagefind-ui__result-title {
+  font-size: 0.875rem;
+}
+#starlight__search .pagefind-ui__result-excerpt {
+  margin-top: 0.125rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
