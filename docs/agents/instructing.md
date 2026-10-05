@@ -15,13 +15,39 @@ flowchart LR
   A -->|"carries on with it"| N["the next step"]
 ```
 
+## Start with the Pinrail skill
+
+In *Settings › Agents*, choose *Connect* next to your agent. Pinrail installs a global skill named `pinrail` that teaches the agent how to use Pinrail: how to submit a review and wait for it, how to read your decision, how to send a new round when you ask for changes, and what to do when you discard a review. See [Settings](/docs/using/settings/#agents).
+
+![Settings, Agents: the agents Pinrail found on this computer, with the pinrail skill connected to some of them.](screenshot:settings-agents "Claude Code and Cursor are connected, OpenCode uses Claude Code's skill, and Codex is ready to connect.")
+
+The skill is generic. It does not tell the agent when to ask or which plugin to use, because that depends on your work and usually differs from one project to another. You add those instructions yourself.
+
+The best place for them is a skill in the project. The agent reads a skill when the task matches the skill's description, and a skill in the repository applies to everyone who works there. Your skill only needs to name the moment to ask, the plugin to use, and what to do with your answer. The `pinrail` skill covers everything else.
+
+```md title=".claude/skills/review-comments/SKILL.md"
+---
+name: review-comments
+description: Use before posting review comments on a pull request in this repository.
+---
+
+Before you post review comments, ask me through Pinrail with the `review`
+plugin and wait for my decision. Don't ask in chat.
+
+- Send one proposal per comment, anchored on its file and line.
+- Post only the comments I accept, and apply my notes to them first.
+  Never post undecided comments.
+```
+
+This example is for Claude Code. Other agents that support skills keep a project's skills in a folder of their own, which their documentation names. For an agent without skills, or one where you have not connected the `pinrail` skill, write the full instructions described below in its instructions file.
+
 ## Where instructions go
 
 Put them wherever your agent already reads its standing instructions. The words are the same for every agent; only the file changes.
 
 | Agent | Where |
 |---|---|
-| Claude Code | `CLAUDE.md` in the repository, or a skill |
+| Claude Code | A skill in `.claude/skills/` in the repository, or `CLAUDE.md` |
 | Codex, Cursor, OpenCode, and others | `AGENTS.md` in the repository |
 | Gemini CLI | `GEMINI.md` |
 | A CI job or script | The prompt or the script itself. See [Scripts and CI](/docs/agents/workflows/). |
@@ -47,7 +73,7 @@ The decision comes back as a short document the agent reads like any other text:
 
 ## A template
 
-Start from this and fill in the parts in angle brackets. The [plugin pages](/docs/plugins/) each have a version tailored to that plugin.
+Start from this and fill in the parts in angle brackets. The [plugin pages](/docs/plugins/) each have a version tailored to that plugin. The template spells out every step for an agent that does not have the `pinrail` skill. With the skill connected, you can leave out the last line and steps 4 and 5, because the skill already covers them.
 
 ```md title="AGENTS.md"
 ## Ask before <the step>
@@ -57,12 +83,9 @@ Don't ask in chat and don't go ahead without an answer.
 
 1. Write <what you're proposing> to a JSON file for the `<plugin>` plugin:
    <one sentence on the payload's shape>. Run
-   `pinrail plugins describe <plugin>` for the schema and an example, and
-   check the file by running the command below with `--dry-run` in place
-   of `--wait`.
+   `pinrail plugins describe <plugin>` for the schema and an example.
 2. Run:
    pinrail submit <plugin> --title "<a title I'll recognise>" \
-     --origin repo=<owner/repo>,ref=<branch or PR> \
      --data <file>.json --wait
 3. Act on the decision: <which verdicts to act on, and how to use notes>.
    Treat anything undecided as not approved.
@@ -73,6 +96,8 @@ Don't ask in chat and don't go ahead without an answer.
 
 `pinrail docs` explains Pinrail itself, if you need more.
 ```
+
+The agent does not need to say where the review comes from. Inside a git checkout, `pinrail submit` fills in the repository and the branch itself, and the app groups the review under that project.
 
 ## Handle every outcome
 
@@ -145,4 +170,4 @@ Ask your agent to do the step, and watch for the review in your inbox. If it doe
 
 - **The agent went ahead without asking.** Make the "when" more specific, and move it higher in the file.
 - **The command failed.** Run `pinrail list` yourself. If it cannot reach the app, see [Finding the app](/docs/agents/cli/#finding-the-app).
-- **Exit 2.** The payload did not match the plugin's schema. The error names the field. Tell the agent to check its payload with `--dry-run` before it asks, and to read the schema from `pinrail plugins describe <plugin>`.
+- **Exit 2.** The payload did not match the plugin's schema. The error names the field, so the agent can fix the payload and submit it again. Tell the agent to read the schema from `pinrail plugins describe <plugin>` before it writes the payload.

@@ -53,7 +53,7 @@ wait for my decision:
 1. Write the payload: the change, each file's unified diff (as `git diff`
    prints it), and one proposal per comment, anchored on `file` and `line`.
    Give each proposal a stable integer `id`.
-2. Run: `pinrail submit review --title "<PR title>" --origin repo=<owner/repo>,ref=<PR number>,url=<PR URL> --data review.json --wait`
+2. Run: `pinrail submit review --title "<PR title>" --data review.json --wait`
 3. Post only accepted proposals. Apply an accept note as a revision before
    posting. Never post undecided proposals.
 4. Consider my line `comments` and address them in your next round.

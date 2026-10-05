@@ -45,6 +45,8 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 
 ## Agents
 
+![Settings, Agents: the agents Pinrail found on this computer, with the pinrail skill connected to some of them.](screenshot:settings-agents)
+
 | Setting | What it does |
 |---|---|
 | **Antigravity CLI**, **Claude Code**, **Codex**, **Cursor**, **Grok CLI**, **OpenCode** | *Connect* adds a global skill named `pinrail` to the agent. *Update* rewrites it after Pinrail was updated, and *Remove* takes it away. |
