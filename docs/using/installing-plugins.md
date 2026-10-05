@@ -7,15 +7,17 @@ Pinrail installs one plugin at a time, from the app or from the command line. Yo
 
 ## From the app
 
-Open *Settings › Plugins* and choose *Install…*. Paste the path of a folder or a zip, or choose one with the folder button, which offers a folder or a zip, then choose *Inspect*. Pinrail shows you:
+Open *Settings › Plugins*. In the *Install* field, paste the path of a folder or a zip, or choose one with *Folder…* or *Zip…*. Pinrail inspects the source as soon as you choose it or stop typing, and shows you:
 
 - the plugin the manifest describes, and its version;
 - where it comes from;
 - what is already installed under the same name, and whether this version is older.
 
-To serve a folder live while you work on it, turn on *Link instead of copying*. Choose *Install*, or *Link*, to confirm. Nothing is copied before that.
+Choose *Install* to confirm. When a plugin of the same name is already installed, the button says *Replace* or *Install again*. Nothing is copied before you confirm. When the plugin is installed, Pinrail says so and highlights it in the list.
 
-![The install dialog, previewing a plugin from a folder before it is installed: its name, version and source.](screenshot:install "The install dialog shows what the manifest declares, where the plugin comes from, and what installing it replaces.")
+To serve a folder live while you work on it, open the menu beside *Install* and choose *Link to the folder*.
+
+![The install panel, previewing a plugin from a folder before it is installed: its name, version and source.](screenshot:install "The install panel shows what the manifest declares, where the plugin comes from, and what installing it replaces.")
 
 ## From the command line
 
@@ -52,7 +54,7 @@ Installing runs nothing on your computer and connects to nothing.
 
 A plugin is known by the `name` in its manifest, such as `review`. Agents, commands, settings and reviews all use that name. Where a plugin came from, a folder, a zip or the app itself, is shown on its row but is not part of its name.
 
-One plugin is installed under each name. Installing a plugin under a name that is already installed replaces what is there, and the install dialog says what it replaces before you confirm. This also applies to the plugins that come with Pinrail: a plugin you install under the name `list` takes the place of Pinrail's own.
+One plugin is installed under each name. Installing a plugin under a name that is already installed replaces what is there, and the install panel says what it replaces before you confirm. This also applies to the plugins that come with Pinrail: a plugin you install under the name `list` takes the place of Pinrail's own.
 
 The plugin's settings belong to its name, so they stay when you install a new version. The sites it may open without asking also stay when you install it again from a folder or a zip. They do not carry over between the copy that comes with Pinrail and a plugin from disk under the same name, because that name then means another plugin.
 
@@ -74,7 +76,7 @@ flowchart LR
 To upgrade a plugin, install the new version from its folder or its zip. The new version replaces the installed one for new reviews, and for the pending reviews it accepts.
 
 - **A newer version** replaces the installed one.
-- **An older version** also replaces it. The install dialog says that the version is older before you install it, and the command line says so afterwards, for example *Replaced review 1.3.0 with the older 1.2.0*.
+- **An older version** also replaces it. The install panel says that the version is older before you install it, and the command line says so afterwards, for example *Replaced review 1.3.0 with the older 1.2.0*.
 - **A version is kept** for as long as a review made with it is kept.
 
 ## Developing with a linked folder

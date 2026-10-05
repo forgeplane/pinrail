@@ -74,7 +74,7 @@ Click a row to open its details:
 - **Send a sample**: sends the review the plugin ships to show itself, and opens it. Plugins without a sample don't have the button.
 - **Settings**: the plugin's own settings, when it has any. The code review plugin, for example, lets you choose between an inline and a side-by-side diff.
 
-*Install…* at the top installs a new plugin, and *Reload* reads every plugin from disk again.
+The *Install* field at the top installs a new plugin, and *Reload* reads every plugin from disk again.
 
 ## Data
 
