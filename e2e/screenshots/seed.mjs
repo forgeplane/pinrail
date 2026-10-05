@@ -37,7 +37,7 @@ export function fixtures() {
 }
 
 /** The official plugins the app carries that the fixtures use. */
-const CARRIED = ["forgeplane/list", "forgeplane/feedback", "forgeplane/code-review"];
+const CARRIED = ["forgeplane/list", "forgeplane/feedback", "forgeplane/code-review", "forgeplane/image"];
 
 /** The plugins the fixtures use from forgeplane/pinrail-plugins. */
 const OPTIONAL = ["email", "artifact", "logo", "calendar", "model"];

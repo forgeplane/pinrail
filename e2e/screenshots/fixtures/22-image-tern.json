@@ -1,0 +1,94 @@
+{
+  "plugin": "image",
+  "title": "Empty inbox illustration — round 1",
+  "origin": {
+    "repo": "tern/web",
+    "workflow": "illustration"
+  },
+  "requested_by": "claude",
+  "age": "25m",
+  "payload": {
+    "notes": "Round 1 of the **empty inbox** illustration for Tern: four directions. It sits 320 px wide above *You're all caught up*, in both themes. Box or pin anything to fix: those regions go straight to the inpainting pass.",
+    "subject": {
+      "name": "Tern empty-inbox illustration",
+      "use": "320 px wide above \"You're all caught up\", light and dark"
+    },
+    "images": [
+      {
+        "id": "A",
+        "name": "Paper plane",
+        "file": {
+          "$attachment": "paper-plane.png"
+        },
+        "reasoning": "Mail as something that **flies off and is done**. The loop says *it went somewhere*, the sun keeps the empty state cheerful rather than bare.",
+        "prompt": "Flat vector spot illustration, a paper plane looping over soft rolling hills, dotted trail, low sun, two clouds, cream background, navy line work, teal and sand palette, no text",
+        "details": {
+          "model": "flux-1.1-pro",
+          "seed": 48211,
+          "steps": 28,
+          "style": "flat vector"
+        },
+        "alt": "A paper plane loops over teal hills under a yellow sun, trailing a dotted line."
+      },
+      {
+        "id": "B",
+        "name": "Mailbox garden",
+        "file": {
+          "$attachment": "mailbox.jpg"
+        },
+        "reasoning": "An empty mailbox that has turned into a planter: nothing waiting, and that is fine. The bird gives it a face.",
+        "prompt": "Flat vector spot illustration, a coral mailbox on a wooden post with flowers growing out of it, a small navy bird on the roof, flag up, soft mint circle behind, cream background",
+        "details": {
+          "model": "flux-1.1-pro",
+          "seed": 90117,
+          "steps": 28,
+          "style": "flat vector"
+        },
+        "alt": "A coral mailbox on a post, flowers growing beside it and a navy bird on its roof."
+      },
+      {
+        "id": "C",
+        "name": "Hammock",
+        "file": {
+          "$attachment": "hammock.webp"
+        },
+        "reasoning": "The inbox is resting. A night scene, so it stands out from the other three; check it in the light theme.",
+        "prompt": "Flat vector spot illustration, a sleeping envelope in a coral hammock between two palm trees at night, crescent moon, stars, floating z letters, navy sky",
+        "details": {
+          "model": "flux-1.1-pro",
+          "seed": 3307,
+          "steps": 28,
+          "style": "flat vector"
+        },
+        "alt": "An envelope with closed eyes sleeps in a hammock between two palms under a crescent moon."
+      },
+      {
+        "id": "D",
+        "name": "Tern",
+        "file": {
+          "$attachment": "tern.svg"
+        },
+        "reasoning": "The brand's own bird carrying the last letter away. Drawn as SVG, so it stays sharp at any size and is the cheapest to edit.",
+        "details": {
+          "source": "hand-drawn SVG",
+          "viewBox": "960 × 720"
+        },
+        "alt": "A white tern glides over layered waves with a letter in its beak."
+      }
+    ]
+  },
+  "attachments": {
+    "paper-plane.png": {
+      "path": "../../../plugins/image/fixtures/tern/paper-plane.png"
+    },
+    "mailbox.jpg": {
+      "path": "../../../plugins/image/fixtures/tern/mailbox.jpg"
+    },
+    "hammock.webp": {
+      "path": "../../../plugins/image/fixtures/tern/hammock.webp"
+    },
+    "tern.svg": {
+      "path": "../../../plugins/image/fixtures/tern/tern.svg"
+    }
+  }
+}

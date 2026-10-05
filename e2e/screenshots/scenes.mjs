@@ -171,6 +171,44 @@ export const scenes = [
     },
   },
   {
+    // the favourite boxed and pinned where it should change, another kept,
+    // one dropped, and a note on the favourite as a whole
+    name: "image",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["22-image-tern"]);
+      await f.locator(".stage .art").waitFor();
+      const verdict = async (index, action) => {
+        await f.locator(".pick").nth(index).click();
+        await f.locator(`.choice[data-action="${action}"]`).click();
+        await settle(page, 150);
+      };
+      await verdict(1, "keep");
+      await verdict(2, "drop");
+      await verdict(0, "favorite");
+      // a box over the cut-off cloud, and a pin on the plane's nose
+      const art = await f.locator(".stage .art").boundingBox();
+      const at = (x, y) => [art.x + art.width * x, art.y + art.height * y];
+      await page.mouse.move(...at(0.9, 0.4));
+      await page.mouse.down();
+      await page.mouse.move(...at(0.99, 0.55), { steps: 6 });
+      await page.mouse.up();
+      await f.locator("#region-note").fill("Remove this cloud: it is cut off by the edge");
+      await f.locator("#region-note").press("Enter");
+      await page.mouse.click(...at(0.86, 0.3));
+      await f.locator("#region-note").fill("Tilt the nose up a little, towards the sun");
+      await f.locator("#region-note").press("Enter");
+      await f.getByRole("button", { name: "Add a note" }).click();
+      await f.locator("#note").fill("The direction. Keep the palette **exactly** as it is.");
+      await f.locator("#note").press("Escape");
+      await f.locator("#sheet").evaluate((el) => {
+        el.scrollTop = 0;
+      });
+      await settle(page, 600);
+      await shot("image");
+      await shot("image-view", page.locator("#plugin-frame"));
+    },
+  },
+  {
     // two comments pinned, a third element picked and its comment being typed
     name: "artifact",
     async run({ page, app, reviews, shot }) {
