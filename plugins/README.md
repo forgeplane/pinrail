@@ -1,19 +1,23 @@
 # Plugins
 
-This folder holds the plugins that the app's build and tests use. Pinrail's
-official plugins are developed in
+This folder holds Pinrail's official plugins that the app carries, and the
+plugins its tests use. The app carries the official plugins as a catalog:
+none is installed until the person chooses it, with
+`pinrail plugins install <name>`. The official
+plugins that are not here yet are in
 [forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins).
 
 | Plugin | What it is for |
 |---|---|
-| [`list`](list/README.md) | Built into the app: a list of proposed actions, each accepted or rejected. |
-| [`feedback`](feedback/README.md) | Built into the app: questions an agent wants answered before it continues. |
+| [`list`](list/README.md) | Official: a list of proposed actions, each accepted or rejected. |
+| [`feedback`](feedback/README.md) | Official: questions an agent wants answered before it continues. |
 | [`hello`](hello/README.md) | The smallest complete plugin, used in tests and as an example to copy. |
 | [`sampler`](sampler/README.md) | A test fixture: a plugin that takes files and declares a verdict. |
 
-The core embeds `list` and `feedback` when it is built. Their copies in
-forgeplane/pinrail-plugins are the ones released, and a change to one is
-made in both places until the app installs them from there.
+The core embeds the official plugins when it is built; the list is
+`CATALOG` in `desktop/core/build.rs`. An installed copy is offered an update
+when a newer app carries a higher version, so a change to an official plugin
+between two releases of the app also raises the version in its manifest.
 
 ## Tests
 

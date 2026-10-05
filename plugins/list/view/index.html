@@ -1,360 +1,686 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>list review</title>
-<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
-<style>
-  /* Tokens, base and the shared pieces (.pinrail-item, .pinrail-tone,
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>list review</title>
+    <link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css" />
+    <style>
+      /* Tokens, base and the shared pieces (.pinrail-item, .pinrail-tone,
      .pinrail-btn, .pinrail-note, .pinrail-chip, .pinrail-empty,
      .pinrail-notice) come from the SDK stylesheet. What is left is
      this view's own: the groups, the verdict column and the running tally. */
-  /* The agent's summary, in a box of its own that folds away once read. */
-  .summary-box { margin: 0 0 20px; border-left: 3px solid var(--pinrail-accent); background: var(--pinrail-bg-raised); }
-  .summary-box summary { cursor: pointer; padding: 8px 12px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pinrail-faint); list-style: none; display: flex; align-items: center; gap: 6px; }
-  .summary-box summary::-webkit-details-marker { display: none; }
-  .summary-box summary .pinrail-icon { transition: transform .12s; }
-  .summary-box[open] summary .pinrail-icon { transform: rotate(90deg); }
-  .summary-body { padding: 0 14px 10px; color: var(--pinrail-text); }
-  .summary-body p:first-child { margin-top: 0; }
-  .summary-body p:last-child { margin-bottom: 0; }
+      /* The agent's summary, in a box of its own that folds away once read. */
+      .summary-box {
+        margin: 0 0 20px;
+        border-left: 3px solid var(--pinrail-accent);
+        background: var(--pinrail-bg-raised);
+      }
+      .summary-box summary {
+        cursor: pointer;
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--pinrail-faint);
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .summary-box summary::-webkit-details-marker {
+        display: none;
+      }
+      .summary-box summary .pinrail-icon {
+        transition: transform 0.12s;
+      }
+      .summary-box[open] summary .pinrail-icon {
+        transform: rotate(90deg);
+      }
+      .summary-body {
+        padding: 0 14px 10px;
+        color: var(--pinrail-text);
+      }
+      .summary-body p:first-child {
+        margin-top: 0;
+      }
+      .summary-body p:last-child {
+        margin-bottom: 0;
+      }
 
-
-  /* A group is a rule with its name sitting on it, so the eye finds the
+      /* A group is a rule with its name sitting on it, so the eye finds the
      boundaries without reading. */
-  h2.group {
-    font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--pinrail-faint); margin: 26px 0 0; display: flex; align-items: center; gap: 10px;
-  }
-  h2.group:first-of-type { margin-top: 0; }
-  h2.group .count {
-    font-size: 10.5px; font-weight: 600; letter-spacing: 0; color: var(--pinrail-faint);
-    background: var(--pinrail-bg-raised); border-radius: 999px; padding: 1px 7px;
-  }
-  h2.group::after { content: ""; flex: 1; height: 1px; background: var(--pinrail-border); }
+      h2.group {
+        font: inherit;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--pinrail-faint);
+        margin: 26px 0 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      h2.group:first-of-type {
+        margin-top: 0;
+      }
+      h2.group .count {
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0;
+        color: var(--pinrail-faint);
+        background: var(--pinrail-bg-raised);
+        border-radius: 999px;
+        padding: 1px 7px;
+      }
+      h2.group::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--pinrail-border);
+      }
 
-  /* The sidebar: each group, and each item under it with a circle in its
+      /* The sidebar: each group, and each item under it with a circle in its
      severity's tone, filled in that tone once accepted, and left empty with
      its title struck through when rejected. A click goes to the item. It
      folds away from the header, and on its own in a narrow frame. */
-  .columns { flex: 1 1 auto; min-height: 0; display: flex; }
-  .columns > .pinrail-scroll { flex: 1 1 auto; min-width: 0; }
-  .rail { width: 264px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); }
-  .rail.closed { display: none; }
-  @media (max-width: 720px) { .rail { display: none; } }
-  .rail-head { flex: none; padding: 12px 14px 6px; }
-  .rail-body { flex: 1; overflow-y: auto; padding: 0 8px 20px; }
-  .tree-group, .tree-item { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 7px; width: 100%; padding: 4px 8px; border-radius: 6px; }
-  .tree-group:hover, .tree-item:hover { background: var(--pinrail-bg-hover); }
-  .tree-group:focus-visible, .tree-item:focus-visible { outline: 2px solid var(--pinrail-accent); outline-offset: -2px; }
-  .tree-group { margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pinrail-faint); }
-  .tree-group .caret { display: inline-flex; transition: transform .12s; }
-  .tree-group .caret.open { transform: rotate(90deg); }
-  .tree-group .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tree-item { padding-left: 26px; font-size: 12.5px; color: var(--pinrail-dim); }
-  .tree-item:hover { color: var(--pinrail-text); }
-  .tree-item .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tree-item .n, .tree-group .n { flex: none; font: 10.5px var(--pinrail-mono); color: var(--pinrail-faint); letter-spacing: 0; }
-  .tree-item .dot { --tone: var(--pinrail-neutral); flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--tone); }
-  .dot.tone-danger { --tone: var(--pinrail-danger); }
-  .dot.tone-warning { --tone: var(--pinrail-warning); }
-  .dot.tone-info { --tone: var(--pinrail-info); }
-  .dot.tone-success { --tone: var(--pinrail-success); }
-  .tree-item.accepted .dot { background: var(--tone); }
-  .tree-item.accepted .t, .tree-item.rejected .t { color: var(--pinrail-faint); }
-  .tree-item.rejected .t { text-decoration: line-through; }
-  .rail-toggle { all: unset; cursor: pointer; display: inline-flex; padding: 4px; margin-right: 2px; border-radius: 5px; color: var(--pinrail-faint); }
-  .rail-toggle:hover { color: var(--pinrail-text); background: var(--pinrail-bg-hover); }
-  .rail-toggle:focus-visible { outline: 2px solid var(--pinrail-accent); outline-offset: 1px; }
-  .pinrail-item.flash { background: var(--pinrail-accent-bg); transition: background .6s; }
+      .columns {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+      }
+      .columns > .pinrail-scroll {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .rail {
+        width: 264px;
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border-right: 1px solid var(--pinrail-border);
+        background: var(--pinrail-bg-panel);
+      }
+      .rail.closed {
+        display: none;
+      }
+      @media (max-width: 720px) {
+        .rail {
+          display: none;
+        }
+      }
+      .rail-head {
+        flex: none;
+        padding: 12px 14px 6px;
+      }
+      .rail-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 8px 20px;
+      }
+      .tree-group,
+      .tree-item {
+        all: unset;
+        box-sizing: border-box;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        width: 100%;
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      .tree-group:hover,
+      .tree-item:hover {
+        background: var(--pinrail-bg-hover);
+      }
+      .tree-group:focus-visible,
+      .tree-item:focus-visible {
+        outline: 2px solid var(--pinrail-accent);
+        outline-offset: -2px;
+      }
+      .tree-group {
+        margin-top: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--pinrail-faint);
+      }
+      .tree-group .caret {
+        display: inline-flex;
+        transition: transform 0.12s;
+      }
+      .tree-group .caret.open {
+        transform: rotate(90deg);
+      }
+      .tree-group .name {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tree-item {
+        padding-left: 26px;
+        font-size: 12.5px;
+        color: var(--pinrail-dim);
+      }
+      .tree-item:hover {
+        color: var(--pinrail-text);
+      }
+      .tree-item .t {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .tree-item .n,
+      .tree-group .n {
+        flex: none;
+        font: 10.5px var(--pinrail-mono);
+        color: var(--pinrail-faint);
+        letter-spacing: 0;
+      }
+      .tree-item .dot {
+        --tone: var(--pinrail-neutral);
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1.5px solid var(--tone);
+      }
+      .dot.tone-danger {
+        --tone: var(--pinrail-danger);
+      }
+      .dot.tone-warning {
+        --tone: var(--pinrail-warning);
+      }
+      .dot.tone-info {
+        --tone: var(--pinrail-info);
+      }
+      .dot.tone-success {
+        --tone: var(--pinrail-success);
+      }
+      .tree-item.accepted .dot {
+        background: var(--tone);
+      }
+      .tree-item.accepted .t,
+      .tree-item.rejected .t {
+        color: var(--pinrail-faint);
+      }
+      .tree-item.rejected .t {
+        text-decoration: line-through;
+      }
+      .rail-toggle {
+        all: unset;
+        cursor: pointer;
+        display: inline-flex;
+        padding: 4px;
+        margin-right: 2px;
+        border-radius: 5px;
+        color: var(--pinrail-faint);
+      }
+      .rail-toggle:hover {
+        color: var(--pinrail-text);
+        background: var(--pinrail-bg-hover);
+      }
+      .rail-toggle:focus-visible {
+        outline: 2px solid var(--pinrail-accent);
+        outline-offset: 1px;
+      }
+      .pinrail-item.flash {
+        background: var(--pinrail-accent-bg);
+        transition: background 0.6s;
+      }
 
-  /* The group's rule is the divider for the item under it: two hairlines a
+      /* The group's rule is the divider for the item under it: two hairlines a
      few pixels apart read as a mistake. */
-  h2.group + .pinrail-item { border-top: 0; }
+      h2.group + .pinrail-item {
+        border-top: 0;
+      }
 
-  /* Every item keeps a gutter on the left. It is empty until the item is
+      /* Every item keeps a gutter on the left. It is empty until the item is
      decided, and then it carries the verdict's colour, so a decided list
      can be read down the edge without reading a word of it. */
-  .pinrail-item { padding: 14px 0 14px 16px; position: relative; }
-  .pinrail-item::before {
-    content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 3px;
-    border-radius: 999px; background: transparent;
-  }
-  .pinrail-item.accepted::before { background: var(--pinrail-success); }
-  .pinrail-item.rejected::before { background: var(--pinrail-danger); }
+      .pinrail-item {
+        padding: 14px 0 14px 16px;
+        position: relative;
+      }
+      .pinrail-item::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 12px;
+        bottom: 12px;
+        width: 3px;
+        border-radius: 999px;
+        background: transparent;
+      }
+      .pinrail-item.accepted::before {
+        background: var(--pinrail-success);
+      }
+      .pinrail-item.rejected::before {
+        background: var(--pinrail-danger);
+      }
 
-  /* The verdict is shown when there is one. Undecided is the state every
+      /* The verdict is shown when there is one. Undecided is the state every
      item starts in, and saying so on every row says nothing. */
-  .verdict { margin-left: auto; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
-  .verdict.accept { color: var(--pinrail-success); background: color-mix(in oklab, var(--pinrail-success) 12%, transparent); }
-  .verdict.reject { color: var(--pinrail-danger); background: color-mix(in oklab, var(--pinrail-danger) 12%, transparent); }
-  .verdict.undecided { display: none; }
-  .previous { margin-top: 6px; font-size: 11.5px; color: var(--pinrail-faint); }
-  .previous b { color: var(--pinrail-dim); font-weight: 600; }
+      .verdict {
+        margin-left: auto;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+      .verdict.accept {
+        color: var(--pinrail-success);
+        background: color-mix(in oklab, var(--pinrail-success) 12%, transparent);
+      }
+      .verdict.reject {
+        color: var(--pinrail-danger);
+        background: color-mix(in oklab, var(--pinrail-danger) 12%, transparent);
+      }
+      .verdict.undecided {
+        display: none;
+      }
+      .previous {
+        margin-top: 6px;
+        font-size: 11.5px;
+        color: var(--pinrail-faint);
+      }
+      .previous b {
+        color: var(--pinrail-dim);
+        font-weight: 600;
+      }
 
-  /* Accept and reject are one choice, so they are one control: joined, and
+      /* Accept and reject are one choice, so they are one control: joined, and
      coloured only once chosen. */
-  .choice { display: inline-flex; flex: none; }
-  .choice .pinrail-btn { border-radius: 0; margin: 0; }
-  .choice .pinrail-btn:first-child { border-radius: 6px 0 0 6px; }
-  .choice .pinrail-btn:last-child { border-radius: 0 6px 6px 0; margin-left: -1px; }
-  .pinrail-btn.accept.on { background: color-mix(in oklab, var(--pinrail-success) 16%, var(--pinrail-bg)); border-color: var(--pinrail-success); color: var(--pinrail-success); }
-  .pinrail-btn.reject.on { background: color-mix(in oklab, var(--pinrail-danger) 13%, var(--pinrail-bg)); border-color: var(--pinrail-danger); color: var(--pinrail-danger); }
-  .choice .pinrail-btn.on { position: relative; z-index: 1; }
+      .choice {
+        display: inline-flex;
+        flex: none;
+      }
+      .choice .pinrail-btn {
+        border-radius: 0;
+        margin: 0;
+      }
+      .choice .pinrail-btn:first-child {
+        border-radius: 6px 0 0 6px;
+      }
+      .choice .pinrail-btn:last-child {
+        border-radius: 0 6px 6px 0;
+        margin-left: -1px;
+      }
+      .pinrail-btn.accept.on {
+        background: color-mix(in oklab, var(--pinrail-success) 16%, var(--pinrail-bg));
+        border-color: var(--pinrail-success);
+        color: var(--pinrail-success);
+      }
+      .pinrail-btn.reject.on {
+        background: color-mix(in oklab, var(--pinrail-danger) 13%, var(--pinrail-bg));
+        border-color: var(--pinrail-danger);
+        color: var(--pinrail-danger);
+      }
+      .choice .pinrail-btn.on {
+        position: relative;
+        z-index: 1;
+      }
 
-  /* The note takes the row, and the verdict sits at its right end. */
-  .pinrail-item-controls { width: 100%; }
-  textarea.pinrail-note { flex: 1 1 260px; min-height: 30px; padding: 5px 9px; }
-  .note-ro { flex: 1 1 260px; font-size: 12.5px; padding: 4px 0; white-space: pre-wrap; }
-  .note-ro .label { color: var(--pinrail-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-right: 6px; }
+      /* The note takes the row, and the verdict sits at its right end. */
+      .pinrail-item-controls {
+        width: 100%;
+      }
+      textarea.pinrail-note {
+        flex: 1 1 260px;
+        min-height: 30px;
+        padding: 5px 9px;
+      }
+      .note-ro {
+        flex: 1 1 260px;
+        font-size: 12.5px;
+        padding: 4px 0;
+        white-space: pre-wrap;
+      }
+      .note-ro .label {
+        color: var(--pinrail-faint);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 6px;
+      }
 
-  /* The running total lives in the header, in the colours the gutters use. */
-  .pinrail-meta .count { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 9px; border-radius: 999px; background: var(--pinrail-bg-raised); color: var(--pinrail-dim); font-size: 11.5px; }
-  .pinrail-meta .count b { font-size: 12.5px; color: var(--pinrail-text); }
-  .pinrail-meta .count.accept b { color: var(--pinrail-success); }
-  .pinrail-meta .count.reject b { color: var(--pinrail-danger); }
-  .pinrail-meta .count.left b { color: var(--pinrail-warning); }
-  .pinrail-header .pinrail-btn .pinrail-icon { margin-right: 5px; }
+      /* The running total lives in the header, in the colours the gutters use. */
+      .pinrail-meta .count {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 5px;
+        padding: 2px 9px;
+        border-radius: 999px;
+        background: var(--pinrail-bg-raised);
+        color: var(--pinrail-dim);
+        font-size: 11.5px;
+      }
+      .pinrail-meta .count b {
+        font-size: 12.5px;
+        color: var(--pinrail-text);
+      }
+      .pinrail-meta .count.accept b {
+        color: var(--pinrail-success);
+      }
+      .pinrail-meta .count.reject b {
+        color: var(--pinrail-danger);
+      }
+      .pinrail-meta .count.left b {
+        color: var(--pinrail-warning);
+      }
+      .pinrail-header .pinrail-btn .pinrail-icon {
+        margin-right: 5px;
+      }
 
-  .pinrail-errors { margin-top: 10px; }
-  .done { margin-bottom: 16px; }
-</style>
-</head>
-<body>
-<script src="/sdk/v1/pinrail-plugin.js"></script>
-<script src="/sdk/v1/markdown.js"></script>
-<script>
-"use strict";
-/* The built-in list review: items grouped under headings, accept / reject /
+      .pinrail-errors {
+        margin-top: 10px;
+      }
+      .done {
+        margin-bottom: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="/sdk/v1/pinrail-plugin.js"></script>
+    <script src="/sdk/v1/markdown.js"></script>
+    <script>
+      "use strict";
+      /* The built-in list review: items grouped under headings, accept / reject /
    note per item, and an honest `undecided` list. Anything else the person
    wants to say goes in the review's own note to the agent. The SDK handles
    the protocol; this file renders and keeps the decision state. */
 
-const esc = Pinrail.escape, markdown = Pinrail.markdown;
+      const esc = Pinrail.escape,
+        markdown = Pinrail.markdown;
 
-/* The header and its controls are built once and stay put; the body is
+      /* The header and its controls are built once and stay put; the body is
    rewritten on every change. */
-const view = Pinrail.layout({ header: true });
-// the sidebar beside the scrolling list, and its toggle at the head of the header
-const columns = document.createElement("div");
-columns.className = "columns";
-const rail = document.createElement("nav");
-rail.className = "rail";
-rail.setAttribute("aria-label", "items");
-view.scroll.replaceWith(columns);
-columns.append(rail, view.scroll);
-const railToggle = document.createElement("button");
-railToggle.type = "button";
-railToggle.className = "rail-toggle";
-view.header.prepend(railToggle);
-view.content.className = "pinrail-content pinrail-empty";
-view.content.textContent = "waiting for the shell…";
+      const view = Pinrail.layout({ header: true });
+      // the sidebar beside the scrolling list, and its toggle at the head of the header
+      const columns = document.createElement("div");
+      columns.className = "columns";
+      const rail = document.createElement("nav");
+      rail.className = "rail";
+      rail.setAttribute("aria-label", "items");
+      view.scroll.replaceWith(columns);
+      columns.append(rail, view.scroll);
+      const railToggle = document.createElement("button");
+      railToggle.type = "button";
+      railToggle.className = "rail-toggle";
+      view.header.prepend(railToggle);
+      view.content.className = "pinrail-content pinrail-empty";
+      view.content.textContent = "waiting for the shell…";
 
-const control = (icon, label, onclick) => {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "pinrail-btn pinrail-btn-ghost";
-  button.innerHTML = `${Pinrail.icon(icon)}${esc(label)}`;
-  button.onclick = onclick;
-  return button;
-};
+      const control = (icon, label, onclick) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "pinrail-btn pinrail-btn-ghost";
+        button.innerHTML = `${Pinrail.icon(icon)}${esc(label)}`;
+        button.onclick = onclick;
+        return button;
+      };
 
-const acceptRest = control("check-check", "Accept all undecided", () => {
-  for (const id of itemIds()) if (!(S.decisions[id] && S.decisions[id].action)) S.decisions[id] = { ...(S.decisions[id] || {}), action: "accept" };
-  S.armed = false;
-  postDraft();
-  render();
-});
+      const acceptRest = control("check-check", "Accept all undecided", () => {
+        for (const id of itemIds())
+          if (!(S.decisions[id] && S.decisions[id].action))
+            S.decisions[id] = { ...(S.decisions[id] || {}), action: "accept" };
+        S.armed = false;
+        postDraft();
+        render();
+      });
 
-const keepDeciding = document.createElement("button");
-keepDeciding.type = "button";
-keepDeciding.className = "pinrail-btn pinrail-btn-ghost";
-keepDeciding.textContent = "Keep deciding";
-keepDeciding.onclick = () => { S.armed = false; render(); };
+      const keepDeciding = document.createElement("button");
+      keepDeciding.type = "button";
+      keepDeciding.className = "pinrail-btn pinrail-btn-ghost";
+      keepDeciding.textContent = "Keep deciding";
+      keepDeciding.onclick = () => {
+        S.armed = false;
+        render();
+      };
 
-const clearAll = control("eraser", "Clear", () => {
-  S.decisions = {};
-  S.armed = false;
-  postDraft();
-  render();
-});
-let review = null, previous = null, readonly = false;
-const S = { decisions: {}, armed: false, errors: null, summaryOpen: true, railOpen: true, railFolded: {} };
+      const clearAll = control("eraser", "Clear", () => {
+        S.decisions = {};
+        S.armed = false;
+        postDraft();
+        render();
+      });
+      let review = null,
+        previous = null,
+        readonly = false;
+      const S = { decisions: {}, armed: false, errors: null, summaryOpen: true, railOpen: true, railFolded: {} };
 
-const plugin = Pinrail.connect({
-  onInit(init) {
-    review = init.review; previous = init.previous; readonly = init.readonly;
-    S.errors = null; S.armed = false;
-    if (readonly) loadDecision(review.decision && review.decision.data);
-    else if (init.draft && init.draft.decisions) S.decisions = init.draft.decisions;
-    else S.decisions = {};
-    syncHeader();
-    render();
-  },
-  onViolations(errors) { S.errors = errors; S.armed = false; render(); },
-  // the decided review is a new object: the one from init stays as it was
-  onSubmitted(decision) { review = plugin.review; readonly = true; loadDecision(decision && decision.data); syncHeader(); render(); },
-  onCollect() { return handOver(); },
-});
+      const plugin = Pinrail.connect({
+        onInit(init) {
+          review = init.review;
+          previous = init.previous;
+          readonly = init.readonly;
+          S.errors = null;
+          S.armed = false;
+          if (readonly) loadDecision(review.decision && review.decision.data);
+          else if (init.draft && init.draft.decisions) S.decisions = init.draft.decisions;
+          else S.decisions = {};
+          syncHeader();
+          render();
+        },
+        onViolations(errors) {
+          S.errors = errors;
+          S.armed = false;
+          render();
+        },
+        // the decided review is a new object: the one from init stays as it was
+        onSubmitted(decision) {
+          review = plugin.review;
+          readonly = true;
+          loadDecision(decision && decision.data);
+          syncHeader();
+          render();
+        },
+        onCollect() {
+          return handOver();
+        },
+      });
 
-/* The header says how much there is and offers the bulk actions, until the
+      /* The header says how much there is and offers the bulk actions, until the
    review is decided and there is nothing left to act on. */
-function syncHeader() {
-  view.title(`${itemIds().length} items`).controls(readonly ? [] : [acceptRest, clearAll]);
-  counts();
-}
+      function syncHeader() {
+        view.title(`${itemIds().length} items`).controls(readonly ? [] : [acceptRest, clearAll]);
+        counts();
+      }
 
-/* The running total, in the header beside the count of items: the verdicts
+      /* The running total, in the header beside the count of items: the verdicts
    as they stand, in the colours the gutters use. */
-function counts() {
-  const t = tally();
-  const pill = (kind, n, label) => {
-    const span = document.createElement("span");
-    span.className = `count ${kind}`;
-    span.innerHTML = `<b>${n}</b>${esc(label)}`;
-    return span;
-  };
-  view.meta([pill("accept", t.accept, "accepted"), pill("reject", t.reject, "rejected"), pill("left", t.undecided, "undecided")]);
-}
+      function counts() {
+        const t = tally();
+        const pill = (kind, n, label) => {
+          const span = document.createElement("span");
+          span.className = `count ${kind}`;
+          span.innerHTML = `<b>${n}</b>${esc(label)}`;
+          return span;
+        };
+        view.meta([
+          pill("accept", t.accept, "accepted"),
+          pill("reject", t.reject, "rejected"),
+          pill("left", t.undecided, "undecided"),
+        ]);
+      }
 
-/* Drafts: a click posts at once, so a reload right after it loses nothing;
+      /* Drafts: a click posts at once, so a reload right after it loses nothing;
    typing is debounced so every keystroke does not cross the bridge. */
-const draftData = () => ({ decisions: S.decisions });
-const postDraft = () => plugin.draft(draftData());
-const draft = () => plugin.draft(draftData());
+      const draftData = () => ({ decisions: S.decisions });
+      const postDraft = () => plugin.draft(draftData());
+      const draft = () => plugin.draft(draftData());
 
-/* ---------- state ---------- */
-const items = () => (review.payload.groups || []).flatMap((g) => g.items);
-const itemIds = () => items().map((i) => i.id);
+      /* ---------- state ---------- */
+      const items = () => (review.payload.groups || []).flatMap((g) => g.items);
+      const itemIds = () => items().map((i) => i.id);
 
-function loadDecision(data) {
-  S.decisions = {};
-  if (!data) return;
-  for (const d of data.decisions || []) S.decisions[d.id] = { action: d.action, note: d.note || "" };
-}
+      function loadDecision(data) {
+        S.decisions = {};
+        if (!data) return;
+        for (const d of data.decisions || []) S.decisions[d.id] = { action: d.action, note: d.note || "" };
+      }
 
-function decisionData() {
-  const decisions = [], undecided = [];
-  for (const id of itemIds()) {
-    const d = S.decisions[id];
-    if (d && d.action) {
-      const out = { id, action: d.action };
-      if (d.note && d.note.trim()) out.note = d.note.trim();
-      decisions.push(out);
-    } else {
-      undecided.push(id);
-    }
-  }
-  return { decisions, undecided };
-}
+      function decisionData() {
+        const decisions = [],
+          undecided = [];
+        for (const id of itemIds()) {
+          const d = S.decisions[id];
+          if (d && d.action) {
+            const out = { id, action: d.action };
+            if (d.note && d.note.trim()) out.note = d.note.trim();
+            decisions.push(out);
+          } else {
+            undecided.push(id);
+          }
+        }
+        return { decisions, undecided };
+      }
 
-function tally() {
-  let accept = 0, reject = 0, undecided = 0;
-  for (const id of itemIds()) {
-    const d = S.decisions[id];
-    if (d && d.action === "accept") accept++; else if (d && d.action === "reject") reject++; else undecided++;
-  }
-  return { accept, reject, undecided };
-}
+      function tally() {
+        let accept = 0,
+          reject = 0,
+          undecided = 0;
+        for (const id of itemIds()) {
+          const d = S.decisions[id];
+          if (d && d.action === "accept") accept++;
+          else if (d && d.action === "reject") reject++;
+          else undecided++;
+        }
+        return { accept, reject, undecided };
+      }
 
-function setAction(id, action) {
-  const cur = S.decisions[id] || { action: null, note: "" };
-  S.decisions[id] = { ...cur, action: cur.action === action ? null : action };
-  S.armed = false;
-  postDraft(); render();
-}
+      function setAction(id, action) {
+        const cur = S.decisions[id] || { action: null, note: "" };
+        S.decisions[id] = { ...cur, action: cur.action === action ? null : action };
+        S.armed = false;
+        postDraft();
+        render();
+      }
 
-function setNote(id, note) {
-  S.decisions[id] = { ...(S.decisions[id] || { action: null }), note };
-  draft();
-}
+      function setNote(id, note) {
+        S.decisions[id] = { ...(S.decisions[id] || { action: null }), note };
+        draft();
+      }
 
-/* The shell's hand-over button asks for the decision. Items left undecided
+      /* The shell's hand-over button asks for the decision. Items left undecided
    are reported as such, so say so once and let the next press confirm. */
-function handOver() {
-  if (readonly) return;
-  const t = tally();
-  if (t.undecided > 0 && !S.armed) { S.armed = true; render(); return; }
-  S.errors = null;
-  return decisionData();
-}
+      function handOver() {
+        if (readonly) return;
+        const t = tally();
+        if (t.undecided > 0 && !S.armed) {
+          S.armed = true;
+          render();
+          return;
+        }
+        S.errors = null;
+        return decisionData();
+      }
 
-function syncStatus() {
-  plugin.handOverLabel(S.armed ? `Hand over with ${tally().undecided} undecided` : "Hand over");
-}
+      function syncStatus() {
+        plugin.handOverLabel(S.armed ? `Hand over with ${tally().undecided} undecided` : "Hand over");
+      }
 
-/* ---------- render ---------- */
-/* The severities this plugin takes, in the SDK's tones. */
-/* A severity's tone: the payload's own `severities` first, then the names
+      /* ---------- render ---------- */
+      /* The severities this plugin takes, in the SDK's tones. */
+      /* A severity's tone: the payload's own `severities` first, then the names
    every list knows; any other severity is neutral. */
-const TONES = { blocker: "danger", major: "warning", minor: "info", nit: "neutral" };
-const toneOf = (s) => (review.payload.severities || {})[s] || TONES[s] || "neutral";
-const toneClass = (s) => `pinrail-tone-${toneOf(s)}`;
+      const TONES = { blocker: "danger", major: "warning", minor: "info", nit: "neutral" };
+      const toneOf = (s) => (review.payload.severities || {})[s] || TONES[s] || "neutral";
+      const toneClass = (s) => `pinrail-tone-${toneOf(s)}`;
 
-function renderRail() {
-  railToggle.innerHTML = Pinrail.icon(S.railOpen ? "panel-left-close" : "panel-left-open");
-  railToggle.title = S.railOpen ? "Hide the items" : "Show the items";
-  railToggle.setAttribute("aria-label", railToggle.title);
-  railToggle.onclick = () => { S.railOpen = !S.railOpen; renderRail(); };
-  rail.classList.toggle("closed", !S.railOpen);
-  const before = rail.querySelector(".rail-body")?.scrollTop ?? 0;
-  let rows = "";
-  (review.payload.groups || []).forEach((g, gi) => {
-    const open = !S.railFolded[gi];
-    rows += `<button type="button" class="tree-group" data-fold="${gi}" aria-expanded="${open}">
+      function renderRail() {
+        railToggle.innerHTML = Pinrail.icon(S.railOpen ? "panel-left-close" : "panel-left-open");
+        railToggle.title = S.railOpen ? "Hide the items" : "Show the items";
+        railToggle.setAttribute("aria-label", railToggle.title);
+        railToggle.onclick = () => {
+          S.railOpen = !S.railOpen;
+          renderRail();
+        };
+        rail.classList.toggle("closed", !S.railOpen);
+        const before = rail.querySelector(".rail-body")?.scrollTop ?? 0;
+        let rows = "";
+        (review.payload.groups || []).forEach((g, gi) => {
+          const open = !S.railFolded[gi];
+          rows += `<button type="button" class="tree-group" data-fold="${gi}" aria-expanded="${open}">
       <span class="caret${open ? " open" : ""}">${Pinrail.icon("chevron-right", { size: 12 })}</span>
       <span class="name">${esc(g.title)}</span><span class="n">${g.items.length}</span></button>`;
-    if (!open) return;
-    for (const item of g.items) {
-      const d = S.decisions[item.id] || {};
-      const state = d.action === "accept" ? "accepted" : d.action === "reject" ? "rejected" : "";
-      rows += `<button type="button" class="tree-item ${state}" data-jump="${item.id}" title="${esc(item.title)}">
+          if (!open) return;
+          for (const item of g.items) {
+            const d = S.decisions[item.id] || {};
+            const state = d.action === "accept" ? "accepted" : d.action === "reject" ? "rejected" : "";
+            rows += `<button type="button" class="tree-item ${state}" data-jump="${item.id}" title="${esc(item.title)}">
         <span class="dot tone-${item.severity ? toneOf(item.severity) : "neutral"}"></span>
         <span class="t">${esc(item.title)}</span><span class="n">#${esc(item.id)}</span></button>`;
-    }
-  });
-  rail.innerHTML = `<div class="rail-head pinrail-eyebrow">Items</div><div class="rail-body">${rows}</div>`;
-  rail.querySelector(".rail-body").scrollTop = before;
-  rail.querySelectorAll("[data-fold]").forEach((b) => (b.onclick = () => {
-    S.railFolded[b.dataset.fold] = !S.railFolded[b.dataset.fold];
-    renderRail();
-  }));
-  rail.querySelectorAll("[data-jump]").forEach((b) => (b.onclick = () => {
-    const el = view.content.querySelector(`.pinrail-item[data-id="${b.dataset.jump}"]`);
-    if (!el) return;
-    el.scrollIntoView({ block: "start", behavior: "smooth" });
-    el.classList.add("flash");
-    setTimeout(() => el.classList.remove("flash"), 900);
-  }));
-}
+          }
+        });
+        rail.innerHTML = `<div class="rail-head pinrail-eyebrow">Items</div><div class="rail-body">${rows}</div>`;
+        rail.querySelector(".rail-body").scrollTop = before;
+        rail.querySelectorAll("[data-fold]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              S.railFolded[b.dataset.fold] = !S.railFolded[b.dataset.fold];
+              renderRail();
+            }),
+        );
+        rail.querySelectorAll("[data-jump]").forEach(
+          (b) =>
+            (b.onclick = () => {
+              const el = view.content.querySelector(`.pinrail-item[data-id="${b.dataset.jump}"]`);
+              if (!el) return;
+              el.scrollIntoView({ block: "start", behavior: "smooth" });
+              el.classList.add("flash");
+              setTimeout(() => el.classList.remove("flash"), 900);
+            }),
+        );
+      }
 
-function previousLine(id) {
-  const prev = previousVerdict(previous, id);
-  if (!prev) return "";
-  const text = prev.action + (prev.note ? ": " + prev.note : "");
-  return `<div class="previous"><b>previous round:</b> ${esc(text)}</div>`;
-}
+      function previousLine(id) {
+        const prev = previousVerdict(previous, id);
+        if (!prev) return "";
+        const text = prev.action + (prev.note ? ": " + prev.note : "");
+        return `<div class="previous"><b>previous round:</b> ${esc(text)}</div>`;
+      }
 
-function renderItem(item) {
-  const d = S.decisions[item.id] || { action: null, note: "" };
-  const cls = d.action === "accept" ? "accepted" : d.action === "reject" ? "rejected" : "";
-  const meta = item.meta && typeof item.meta === "object"
-    ? Object.entries(item.meta).map(([k, v]) => `<span class="pinrail-chip">${esc(k)}: ${esc(String(v))}</span>`).join("")
-    : "";
-  const verdict = d.action || "undecided";
-  const head = `<div class="pinrail-item-head"><span class="pinrail-item-id">#${esc(item.id)}</span>
+      function renderItem(item) {
+        const d = S.decisions[item.id] || { action: null, note: "" };
+        const cls = d.action === "accept" ? "accepted" : d.action === "reject" ? "rejected" : "";
+        const meta =
+          item.meta && typeof item.meta === "object"
+            ? Object.entries(item.meta)
+                .map(([k, v]) => `<span class="pinrail-chip">${esc(k)}: ${esc(String(v))}</span>`)
+                .join("")
+            : "";
+        const verdict = d.action || "undecided";
+        const head = `<div class="pinrail-item-head"><span class="pinrail-item-id">#${esc(item.id)}</span>
       ${item.severity ? `<span class="pinrail-tone ${toneClass(item.severity)}">${esc(item.severity)}</span>` : ""}
       <span class="pinrail-item-title">${esc(item.title)}</span>${meta}
       <span class="verdict ${verdict}">${verdict}</span></div>
     ${item.body ? `<div class="pinrail-item-body">${markdown(item.body)}</div>` : ""}
     ${previousLine(item.id)}`;
-  if (readonly) {
-    const note = d.note ? `<div class="pinrail-item-controls"><div class="note-ro"><span class="label">${d.action === "reject" ? "reason" : "note"}</span>${esc(d.note)}</div></div>` : "";
-    return `<div class="pinrail-item ${cls}" data-id="${item.id}">${head}${note}</div>`;
-  }
-  const placeholder = d.action === "reject" ? "reason for the agent (optional)" : d.action === "accept" ? "note for the agent (optional)" : "note (optional)";
-  return `<div class="pinrail-item ${cls}" data-id="${item.id}">${head}
+        if (readonly) {
+          const note = d.note
+            ? `<div class="pinrail-item-controls"><div class="note-ro"><span class="label">${d.action === "reject" ? "reason" : "note"}</span>${esc(d.note)}</div></div>`
+            : "";
+          return `<div class="pinrail-item ${cls}" data-id="${item.id}">${head}${note}</div>`;
+        }
+        const placeholder =
+          d.action === "reject"
+            ? "reason for the agent (optional)"
+            : d.action === "accept"
+              ? "note for the agent (optional)"
+              : "note (optional)";
+        return `<div class="pinrail-item ${cls}" data-id="${item.id}">${head}
     <div class="pinrail-item-controls">
       <textarea class="pinrail-note" rows="1" data-note="${item.id}" placeholder="${placeholder}" aria-label="note for item ${esc(item.id)}">${esc(d.note || "")}</textarea>
       <span class="choice" role="group" aria-label="decide item ${esc(item.id)}">
@@ -363,73 +689,81 @@ function renderItem(item) {
       </span>
     </div>
   </div>`;
-}
-
-
-function render() {
-  const groups = review.payload.groups || [];
-  const t = tally();
-  let html = "";
-  if (readonly) {
-    const dec = review.decision;
-    html += dec
-      ? `<div class="done pinrail-notice pinrail-notice-success">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
-      : `<div class="done pinrail-notice pinrail-notice-success">Closed without a decision (${esc(review.status)}). Read-only.</div>`;
-  }
-  if (review.payload.summary) {
-    html += `<details class="summary-box"${S.summaryOpen ? " open" : ""}><summary>${Pinrail.icon("chevron-right", { size: 12 })}Summary</summary><div class="summary-body">${markdown(review.payload.summary)}</div></details>`;
-  }
-  if (!groups.length) html += `<div class="pinrail-empty">Nothing to decide.</div>`;
-  for (const g of groups) {
-    html += `<h2 class="group pinrail-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
-    for (const item of g.items) html += renderItem(item);
-  }
-  if (S.errors && S.errors.length) {
-    html += `<div class="pinrail-errors pinrail-notice pinrail-notice-danger" id="errors" role="alert">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
-  }
-  // items left undecided are confirmed in the layout's bar, before the next hand-over
-  view.confirmation(!readonly && S.armed
-    ? {
-        text: `${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.`,
-        actions: [keepDeciding],
       }
-    : null);
-  view.content.className = "pinrail-content";
-  // the redraw replaces every button: the one that had focus gets it back
-  const had = document.activeElement?.closest?.("button[data-act]");
-  const again = had ? `button[data-act="${had.dataset.act}"][data-id="${had.dataset.id}"]` : null;
-  view.content.innerHTML = html;
-  if (again) view.content.querySelector(again)?.focus();
-  // the summary stays folded or open across redraws, read-only or not
-  const box = view.content.querySelector("details.summary-box");
-  if (box) box.ontoggle = () => (S.summaryOpen = box.open);
-  renderRail();
-  bind();
-  counts();
-  if (!readonly) syncStatus();
-}
 
-function bind() {
-  if (readonly) return;
-  const app = view.content;
-  app.querySelectorAll("button[data-act]").forEach((b) => b.onclick = () => setAction(+b.dataset.id, b.dataset.act));
-  app.querySelectorAll("textarea[data-note]").forEach((t) => {
-    t.oninput = () => setNote(+t.dataset.note, t.value);
-    t.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey && !(e.metaKey || e.ctrlKey)) { e.preventDefault(); t.blur(); } };
-  });
-}
+      function render() {
+        const groups = review.payload.groups || [];
+        const t = tally();
+        let html = "";
+        if (readonly) {
+          const dec = review.decision;
+          html += dec
+            ? `<div class="done pinrail-notice pinrail-notice-success">Decided${dec.decided_by ? ` by <b>${esc(dec.decided_by)}</b>` : ""}: <b>${t.accept}</b> accepted, <b>${t.reject}</b> rejected, <b>${t.undecided}</b> undecided.</div>`
+            : `<div class="done pinrail-notice pinrail-notice-success">Closed without a decision (${esc(review.status)}). Read-only.</div>`;
+        }
+        if (review.payload.summary) {
+          html += `<details class="summary-box"${S.summaryOpen ? " open" : ""}><summary>${Pinrail.icon("chevron-right", { size: 12 })}Summary</summary><div class="summary-body">${markdown(review.payload.summary)}</div></details>`;
+        }
+        if (!groups.length) html += `<div class="pinrail-empty">Nothing to decide.</div>`;
+        for (const g of groups) {
+          html += `<h2 class="group pinrail-subhead">${esc(g.title)}<span class="count">${g.items.length}</span></h2>`;
+          for (const item of g.items) html += renderItem(item);
+        }
+        if (S.errors && S.errors.length) {
+          html += `<div class="pinrail-errors pinrail-notice pinrail-notice-danger" id="errors" role="alert">${S.errors.map((e) => `${esc(e.path || "/")}: ${esc(e.message)}`).join("\n")}</div>`;
+        }
+        // items left undecided are confirmed in the layout's bar, before the next hand-over
+        view.confirmation(
+          !readonly && S.armed
+            ? {
+                text: `${t.undecided} left undecided — they go back marked undecided. Hand over again to confirm.`,
+                actions: [keepDeciding],
+              }
+            : null,
+        );
+        view.content.className = "pinrail-content";
+        // the redraw replaces every button: the one that had focus gets it back
+        const had = document.activeElement?.closest?.("button[data-act]");
+        const again = had ? `button[data-act="${had.dataset.act}"][data-id="${had.dataset.id}"]` : null;
+        view.content.innerHTML = html;
+        if (again) view.content.querySelector(again)?.focus();
+        // the summary stays folded or open across redraws, read-only or not
+        const box = view.content.querySelector("details.summary-box");
+        if (box) box.ontoggle = () => (S.summaryOpen = box.open);
+        renderRail();
+        bind();
+        counts();
+        if (!readonly) syncStatus();
+      }
 
-/* What the previous round decided for an item: its decision's
+      function bind() {
+        if (readonly) return;
+        const app = view.content;
+        app
+          .querySelectorAll("button[data-act]")
+          .forEach((b) => (b.onclick = () => setAction(+b.dataset.id, b.dataset.act)));
+        app.querySelectorAll("textarea[data-note]").forEach((t) => {
+          t.oninput = () => setNote(+t.dataset.note, t.value);
+          t.onkeydown = (e) => {
+            if (e.key === "Enter" && !e.shiftKey && !(e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              t.blur();
+            }
+          };
+        });
+      }
+
+      /* What the previous round decided for an item: its decision's
    `decisions: [{ id, action, note }]` and `undecided: [id]`. The previous
    round may come from an earlier release, so its shape is checked. */
-function previousVerdict(previous, id) {
-  const data = previous && previous.decision && previous.decision.data;
-  if (!data || typeof data !== "object") return null;
-  const d = (Array.isArray(data.decisions) ? data.decisions : []).find((x) => x && x.id === id);
-  if (d) return { action: d.action, note: d.note || "" };
-  if (Array.isArray(data.undecided) && data.undecided.includes(id)) return { action: "undecided", note: "" };
-  return null;
-}
-</script>
-</body>
+      function previousVerdict(previous, id) {
+        const data = previous && previous.decision && previous.decision.data;
+        if (!data || typeof data !== "object") return null;
+        const d = (Array.isArray(data.decisions) ? data.decisions : []).find((x) => x && x.id === id);
+        if (d) return { action: d.action, note: d.note || "" };
+        if (Array.isArray(data.undecided) && data.undecided.includes(id)) return { action: "undecided", note: "" };
+        return null;
+      }
+    </script>
+  </body>
 </html>
