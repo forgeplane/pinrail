@@ -112,6 +112,27 @@ export type Plugin = {
   sample_errors?: string[];
   /** how it got here; null for a bundle loaded for a review */
   install: PluginInstall | null;
+  /** the newer version an official plugin can be updated to, if any */
+  update?: string | null;
+};
+
+/** An official plugin the app carries, as the registry's index lists one. */
+export type CatalogEntry = {
+  /** `forgeplane/<name>` */
+  id: string;
+  name: string;
+  version: string;
+  title: string;
+  description: string | null;
+  use_when: string | null;
+  icon: string | null;
+  official: boolean;
+  /** selected by the setup */
+  recommended: boolean;
+  /** the version installed from here, if any */
+  installed: string | null;
+  /** the Pinrail version it needs, when this one is older */
+  needs: string | null;
 };
 
 /** Where an installed plugin came from, and the bundle new reviews use. */

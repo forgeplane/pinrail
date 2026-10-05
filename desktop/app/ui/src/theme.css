@@ -2895,6 +2895,46 @@ h1 {
   font-size: 12.5px;
   align-self: center;
 }
+/* the official plugins the field finds, or those not installed */
+.install-official {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+}
+.install-official-caption {
+  padding: 8px 14px 4px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.install-official-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+}
+.install-official-row + .install-official-row {
+  border-top: 1px solid var(--border);
+}
+.install-official-row.is-unavailable {
+  opacity: 0.55;
+}
+.install-official-text {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+.install-official-text .mono {
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.settings-plugin-update {
+  white-space: nowrap;
+}
 
 /* the setup wizard: a rail of steps beside the current one */
 .welcome-dialog {

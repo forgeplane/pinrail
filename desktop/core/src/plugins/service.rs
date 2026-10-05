@@ -125,7 +125,8 @@ impl PluginService {
     }
 
     /// The official plugins the app can install, as the registry's
-    /// compiled index lists them, each with the version installed, if any.
+    /// compiled index lists them, each with the version installed, if any,
+    /// and the Pinrail version it needs when this one is older.
     pub fn catalog(&self) -> Value {
         let plugins: Vec<Value> = self
             .registry
@@ -143,6 +144,7 @@ impl PluginService {
                     })
                     .map(|p| p.version.clone())
                     .into();
+                row["needs"] = entry.needs().into();
                 row
             })
             .collect();

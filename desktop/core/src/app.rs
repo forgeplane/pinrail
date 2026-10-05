@@ -287,6 +287,7 @@ mod tests {
         assert_eq!(app.plugins().listing(&json!({}))["plugins"], json!([]));
         let catalog = app.plugins().catalog();
         assert_eq!(catalog["format"], 1);
+        assert_eq!(catalog["plugins"][0]["needs"], Value::Null);
         let offered: Vec<(&str, &Value)> = catalog["plugins"]
             .as_array()
             .unwrap()

@@ -3,6 +3,7 @@
 // the default port.
 
 import type {
+  CatalogEntry,
   Info,
   Inspection,
   Notice,
@@ -69,10 +70,7 @@ async function errorBody(response: Response): Promise<unknown> {
 /** An id or a name as one path segment. */
 const seg = encodeURIComponent;
 
-export type InstallRequest = {
-  source: string;
-  link?: boolean;
-};
+export type InstallRequest = { source: string; link?: boolean } | { id: string };
 
 const query = (params: Record<string, string | undefined>) => {
   const q = new URLSearchParams();
@@ -103,8 +101,10 @@ export const api = {
   plugins: () => request<{ plugins: Plugin[] }>("GET", "/api/v1/plugins"),
   /** what installing a folder or a zip would do, installing nothing */
   inspectPlugin: (body: InstallRequest) => request<Inspection>("POST", "/api/v1/plugins/inspect", body),
-  /** installs a folder or a zip; the plugin's row */
+  /** installs a folder or a zip, or an official plugin by its id; the plugin's row */
   installPlugin: (body: InstallRequest) => request<Plugin>("POST", "/api/v1/plugins/install", body),
+  /** the official plugins the app carries, each with the version installed */
+  catalog: () => request<{ format: number; plugins: CatalogEntry[] }>("GET", "/api/v1/plugins/catalog"),
   /** opens a review for the app's frame, moving a pending one to the installed version when it takes it */
   reviewView: async (id: string) => {
     const view = await request<ReviewView>("POST", `/api/v1/reviews/${seg(id)}/view`);

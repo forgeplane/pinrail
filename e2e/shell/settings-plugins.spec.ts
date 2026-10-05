@@ -37,10 +37,40 @@ test("the Plugins section lists what is installed and has no directories", async
   await expect(page.locator("[data-settings]")).toBeVisible();
   await expect(page.locator('[data-plugin-row="list"]')).toBeVisible();
   await expect(page.locator(".settings-group h3", { hasText: "Directories" })).toHaveCount(0);
-  // a plugin comes from disk: the source field is there at once, for a path
+  // one field, there at once, for an official plugin's name or a path
   const source = page.locator("[data-install-panel]").getByLabel("Source");
   await expect(source).toBeEnabled();
-  await expect(source).toHaveAttribute("placeholder", "/path/to/plugin or /path/to/plugin.zip");
+  await expect(source).toHaveAttribute(
+    "placeholder",
+    "Search official plugins, or paste the path of a folder or a zip",
+  );
+});
+
+test("the official plugins not installed are listed, found by name, and installed in one click", async ({ page }) => {
+  // feedback removed, as a person who never chose it has it
+  expect((await page.request.delete(`${core}/api/v1/plugins/feedback`)).status()).toBe(200);
+  const panel = await openInstall(page);
+  const official = panel.locator("[data-official-plugins]");
+  await expect(official).toContainText("Official plugins");
+  await expect(official.locator('[data-official="feedback"]')).toBeVisible();
+  await expect(official.locator('[data-official="list"]')).toHaveCount(0);
+
+  // words search them all, the installed ones said to be installed
+  const field = panel.getByLabel("Source");
+  await field.fill("action");
+  await expect(official.locator('[data-official="list"] [data-official-installed]')).toHaveText("Installed");
+  await expect(official.locator('[data-official="feedback"]')).toHaveCount(0);
+  await field.fill("nothing like it");
+  await expect(panel.locator("[data-official-none]")).toContainText("No official plugin matches “nothing like it”");
+  await field.fill("");
+
+  await official.locator('[data-official-install="feedback"]').click();
+  const row = page.locator('[data-plugin-row="feedback"]');
+  await expect(row).toBeVisible();
+  await row.locator(".settings-plugin-toggle").click();
+  await expect(row).toContainText("Installed from Pinrail's plugins as forgeplane/feedback");
+  // nothing left to install, so nothing is listed
+  await expect(panel.locator("[data-official-plugins]")).toHaveCount(0);
 });
 
 test("a folder is looked at before it is installed, and its row says where it came from", async ({ page }) => {

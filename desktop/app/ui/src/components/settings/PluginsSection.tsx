@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
-import type { Plugin, SettingProperty } from "../../api/types";
+import type { CatalogEntry, Plugin, SettingProperty } from "../../api/types";
 import { takes } from "../../lib/format";
 import { REVEAL } from "../../lib/keys";
 import { sourceOf } from "../../lib/links";
@@ -38,6 +38,8 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
   const live = useLive();
   const { settings, update } = useSettings();
   const [plugins, setPlugins] = useState<Plugin[]>([]);
+  /** the official plugins the app carries, to install or update */
+  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   /** a source for the install panel to open on, from a row; `n` remounts it for each */
   const [copying, setCopying] = useState<{ source: string; n: number } | null>(null);
   /** the plugin just installed, marked in the list for a moment */
@@ -47,8 +49,9 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
   const muted = settings.notifications.muted_plugins;
 
   const load = useCallback(async () => {
-    const { plugins } = await api.plugins();
+    const [{ plugins }, { plugins: offered }] = await Promise.all([api.plugins(), api.catalog()]);
     setPlugins(plugins);
+    setCatalog(offered);
   }, []);
 
   useEffect(() => {
@@ -93,7 +96,7 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
   return (
     <SettingsPage title="Plugins">
       <SettingsGroup caption="Install">
-        <InstallPanel key={copying?.n ?? 0} initial={copying?.source} onInstalled={installed} />
+        <InstallPanel key={copying?.n ?? 0} initial={copying?.source} catalog={catalog} onInstalled={installed} />
       </SettingsGroup>
 
       <SettingsGroup
@@ -120,6 +123,7 @@ export function PluginsSection({ focus, onOpenReview }: { focus: string | null; 
             onForgetLink={(origin) => forgetLink(p, origin)}
             onChange={(values) => update({ plugins: { [p.name]: values } })}
             onCopy={() => setCopying((c) => ({ source: p.install?.source ?? p.path, n: (c?.n ?? 0) + 1 }))}
+            onUpdated={installed}
             onMessage={notify}
             onOpenReview={onOpenReview}
           />
@@ -164,6 +168,7 @@ function PluginEntry({
   onForgetLink,
   onChange,
   onCopy,
+  onUpdated,
   onMessage,
   onOpenReview,
 }: {
@@ -180,6 +185,8 @@ function PluginEntry({
   onForgetLink: (origin: string) => void;
   onChange: (values: Record<string, unknown>) => void;
   onCopy: () => void;
+  /** an official plugin was updated to the version the app carries */
+  onUpdated: (plugin: Plugin) => void;
   onMessage: (text: string, tone?: "ok" | "danger") => void;
   onOpenReview: (id: string) => void;
 }) {
@@ -219,6 +226,23 @@ function PluginEntry({
           : `The ${p.title || p.name} sample could not be sent`,
         "danger",
       );
+    }
+  };
+
+  // an official plugin, to the newer version the app carries
+  const [updating, setUpdating] = useState(false);
+  const updateNow = async () => {
+    if (!p.install) return;
+    setUpdating(true);
+    try {
+      onUpdated(await api.installPlugin({ id: p.install.source }));
+    } catch (e) {
+      onMessage(
+        e instanceof ApiError ? (e.violations[0]?.message ?? e.message) : `${p.title || p.name} could not be updated`,
+        "danger",
+      );
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -309,6 +333,17 @@ function PluginEntry({
         note={note}
         onClick={toggle}
       >
+        {p.update && p.install?.source_kind === "index" ? (
+          <button
+            type="button"
+            className="chrome-button settings-plugin-update"
+            onClick={updateNow}
+            disabled={updating}
+            data-plugin-update={p.name}
+          >
+            {updating ? "Updating…" : `Update to ${p.update}`}
+          </button>
+        ) : null}
         {native ? (
           <Tooltip label={REVEAL}>
             <button type="button" className="bar-button" onClick={onReveal} aria-label={`Reveal ${p.name}`}>

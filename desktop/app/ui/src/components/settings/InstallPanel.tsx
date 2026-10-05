@@ -1,13 +1,15 @@
-// Installing a plugin, in place in the Plugins section: one field for the
-// source, looked at as soon as there is one, then what it is and what
-// installing replaces. Install is the consent; linking instead of copying
-// is chosen from the same button.
+// Installing a plugin, in place in the Plugins section. One field either
+// searches the official plugins the app carries, listed below it, or takes
+// the path of a folder or a zip, looked at as soon as there is one, then
+// what it is and what installing replaces. Install is the consent; linking
+// instead of copying is chosen from the same button.
 
 import { ChevronDown, FileArchive, FolderOpen } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api, inTauri } from "../../api/client";
-import type { Inspection, Plugin } from "../../api/types";
+import type { CatalogEntry, Inspection, Plugin } from "../../api/types";
 import { takes } from "../../lib/format";
+import { isPath, matching } from "../../lib/catalog";
 import { PluginIcon } from "../PluginIcon";
 
 type Stage =
@@ -26,6 +28,65 @@ const failure = (e: unknown) =>
     : e instanceof Error
       ? e.message
       : "Something went wrong";
+
+/** The official plugins the field finds, each with what installing it does. */
+function OfficialPlugins({
+  entries,
+  query,
+  installing,
+  onInstall,
+}: {
+  entries: CatalogEntry[];
+  query: string;
+  installing: string | null;
+  onInstall: (entry: CatalogEntry) => void;
+}) {
+  const found = matching(entries, query);
+  if (!found.length) {
+    return query.trim() ? (
+      <p className="dim" data-official-none>
+        No official plugin matches “{query.trim()}”. To install another plugin, give the path of its folder or zip.
+      </p>
+    ) : null;
+  }
+  return (
+    <div className="install-official" data-official-plugins>
+      {query.trim() ? null : <div className="install-official-caption">Official plugins</div>}
+      {found.map((e) => (
+        <div key={e.id} className={`install-official-row ${e.needs ? "is-unavailable" : ""}`} data-official={e.name}>
+          <span className="settings-row-icon">
+            <PluginIcon icon={e.icon} size={16} strokeWidth={1.75} />
+          </span>
+          <div className="install-official-text">
+            <div className="install-seen-title">
+              {e.title} <span className="faint mono">{e.version}</span>
+            </div>
+            {e.description ? <div className="dim">{e.description}</div> : null}
+          </div>
+          {e.needs ? (
+            <span className="faint install-wait">Needs Pinrail {e.needs}</span>
+          ) : installing === e.id ? (
+            <span className="dim install-wait">Installing…</span>
+          ) : e.installed === e.version ? (
+            <span className="dim install-wait" data-official-installed>
+              Installed
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={`chrome-button ${e.installed ? "" : "button-primary"}`}
+              onClick={() => onInstall(e)}
+              disabled={installing !== null}
+              data-official-install={e.name}
+            >
+              {e.installed ? `Update to ${e.version}` : "Install"}
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** Where the plugin comes from, in one line. */
 function Origin({ seen }: { seen: Inspection }) {
@@ -176,8 +237,19 @@ function InstallButton({ seen, onInstall }: { seen: Inspection; onInstall: (link
   );
 }
 
-export function InstallPanel({ initial, onInstalled }: { initial?: string; onInstalled: (plugin: Plugin) => void }) {
+export function InstallPanel({
+  initial,
+  catalog,
+  onInstalled,
+}: {
+  initial?: string;
+  /** the official plugins the app carries */
+  catalog: CatalogEntry[];
+  onInstalled: (plugin: Plugin) => void;
+}) {
   const [source, setSource] = useState(initial ?? "");
+  /** the official plugin being installed, by its id */
+  const [installing, setInstalling] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>({ at: "empty" });
   const [error, setError] = useState<string | null>(null);
   const field = useRef<HTMLInputElement>(null);
@@ -230,7 +302,8 @@ export function InstallPanel({ initial, onInstalled }: { initial?: string; onIns
     setError(null);
     setStage({ at: "empty" });
     window.clearTimeout(pause.current);
-    if (value.trim()) pause.current = window.setTimeout(() => look(value), PAUSE);
+    // words search the official plugins below, as they are typed
+    if (value.trim() && isPath(value.trim())) pause.current = window.setTimeout(() => look(value), PAUSE);
   };
 
   const clear = () => {
@@ -269,7 +342,22 @@ export function InstallPanel({ initial, onInstalled }: { initial?: string; onIns
     }
   };
 
-  const busy = stage.at === "installing";
+  const installOfficial = async (entry: CatalogEntry) => {
+    setError(null);
+    setInstalling(entry.id);
+    try {
+      const plugin = await api.installPlugin({ id: entry.id });
+      clear();
+      onInstalled(plugin);
+    } catch (e) {
+      setError(failure(e));
+    } finally {
+      setInstalling(null);
+    }
+  };
+
+  const busy = stage.at === "installing" || installing !== null;
+  const searching = !isPath(source.trim());
   const seen = "seen" in stage ? stage.seen : null;
 
   return (
@@ -279,8 +367,12 @@ export function InstallPanel({ initial, onInstalled }: { initial?: string; onIns
           ref={field}
           className="settings-input install-source-field"
           type="text"
-          aria-label="Source"
-          placeholder={native ? "Paste a path, or choose a folder or a zip" : "/path/to/plugin or /path/to/plugin.zip"}
+          aria-label="Search official plugins, or give a source path"
+          placeholder={
+            native
+              ? "Search official plugins, paste a path, or choose a folder or a zip"
+              : "Search official plugins, or paste the path of a folder or a zip"
+          }
           autoComplete="off"
           autoCorrect="off"
           autoCapitalize="off"
@@ -289,7 +381,7 @@ export function InstallPanel({ initial, onInstalled }: { initial?: string; onIns
           disabled={busy}
           onChange={(e) => edit(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") look(source);
+            if (e.key === "Enter" && isPath(source.trim())) look(source);
             if (e.key === "Escape" && source) {
               e.stopPropagation();
               clear();
@@ -315,6 +407,10 @@ export function InstallPanel({ initial, onInstalled }: { initial?: string; onIns
         </p>
       ) : null}
       {error ? <p className="notice notice-danger install-error">{error}</p> : null}
+
+      {searching ? (
+        <OfficialPlugins entries={catalog} query={source} installing={installing} onInstall={installOfficial} />
+      ) : null}
 
       {seen ? (
         <div ref={card} className="install-seen" data-install-seen>
