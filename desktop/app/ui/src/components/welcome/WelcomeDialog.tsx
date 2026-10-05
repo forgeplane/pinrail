@@ -1,12 +1,14 @@
-// Setting Pinrail up, as a short wizard: the pinrail command, a first
-// review, notifications, and words for an agent's instructions. Each step
+// Setting Pinrail up, as a short wizard: the pinrail command, the plugins
+// to install, a first review, notifications, and words for an agent's
+// instructions. Each step
 // ticks itself in the rail when it is done, and none has to be. Pinrail
 // opens it until it is finished or skipped; the command palette brings it
 // back.
 
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { inTauri } from "../../api/client";
+import { ApiError, api, inTauri } from "../../api/client";
+import type { CatalogEntry } from "../../api/types";
 import { copyText } from "../../lib/clipboard";
 import { openExternal } from "../../lib/native";
 import { useLive } from "../../state/live";
@@ -18,11 +20,11 @@ import { useCli, type CliStatus } from "../settings/CliRow";
 import { WaitMark } from "../WaitMark";
 import { TRAY } from "../../lib/keys";
 
-// the list plugin is built in, so its sample is there on every install
+// the list plugin's sample, once the plugins step installed list
 const TRY = "pinrail submit list --sample --wait";
 
 /** Prompts that leave the how to the agent: `pinrail docs` teaches it
- * the rest. Both work with the built-in list plugin. */
+ * the rest. Both work with the list plugin. */
 const TRY_NOW =
   "Find the TODOs in this repository and ask me through Pinrail which to tackle first. Run `pinrail docs` to see how.";
 const HABIT =
@@ -31,7 +33,117 @@ const HABIT =
 const BUILD = "https://pinrail.dev/docs/building/writing/";
 const PATH_LINE = `export PATH="$HOME/.local/bin:$PATH"`;
 
-const STEPS = ["The command", "A first review", "Notifications", "Your agent"] as const;
+const STEPS = ["The command", "Plugins", "A first review", "Notifications", "Your agent"] as const;
+
+/** The step the setup comes back to once its first review is decided. */
+export const FIRST_REVIEW = STEPS.indexOf("A first review");
+
+const failure = (e: unknown) =>
+  e instanceof ApiError
+    ? (e.violations[0]?.message ?? e.message)
+    : e instanceof Error
+      ? e.message
+      : "It did not install";
+
+/** Where one plugin's install stands. */
+type Progress = "installing" | "installed" | { error: string };
+
+/** The official plugins the app carries, to choose from: those it
+ *  recommends are selected, and each is installed once Install is clicked. */
+function PluginsStep({ catalog, onInstalled }: { catalog: CatalogEntry[] | null; onInstalled: () => void }) {
+  const [chosen, setChosen] = useState<Set<string> | null>(null);
+  const [progress, setProgress] = useState<Record<string, Progress>>({});
+
+  // the recommended ones, selected once the catalog is known
+  useEffect(() => {
+    if (catalog && !chosen) {
+      setChosen(new Set(catalog.filter((e) => e.recommended && !e.installed && !e.needs).map((e) => e.id)));
+    }
+  }, [catalog, chosen]);
+
+  const busy = Object.values(progress).includes("installing");
+  const toInstall = (catalog ?? []).filter((e) => chosen?.has(e.id) && !e.installed && !e.needs);
+  const toggle = (id: string) =>
+    setChosen((c) => {
+      const next = new Set(c);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const install = async () => {
+    for (const e of toInstall) {
+      setProgress((p) => ({ ...p, [e.id]: "installing" }));
+      try {
+        await api.installPlugin({ id: e.id });
+        setProgress((p) => ({ ...p, [e.id]: "installed" }));
+      } catch (error) {
+        setProgress((p) => ({ ...p, [e.id]: { error: failure(error) } }));
+      }
+    }
+    onInstalled();
+  };
+
+  return (
+    <>
+      <h2>Choose your plugins</h2>
+      <p>
+        Each plugin is one kind of review an agent can ask you for. The recommended ones cover most of what agents ask.
+        You can add or remove plugins later in Settings › Plugins.
+      </p>
+      <div className="welcome-plugins" data-welcome-plugins>
+        {(catalog ?? []).map((e) => {
+          const state = progress[e.id];
+          return (
+            <label
+              key={e.id}
+              className={`welcome-plugin ${e.needs ? "is-unavailable" : ""}`}
+              data-welcome-plugin={e.name}
+            >
+              <input
+                type="checkbox"
+                checked={!!e.installed || !!chosen?.has(e.id)}
+                disabled={!!e.installed || !!e.needs || busy}
+                onChange={() => toggle(e.id)}
+              />
+              <span className="welcome-plugin-text">
+                <span className="welcome-plugin-title">
+                  {e.title}
+                  {e.recommended ? <span className="welcome-plugin-chip">Recommended</span> : null}
+                </span>
+                {(e.description ?? e.use_when) ? <span className="dim">{e.description ?? e.use_when}</span> : null}
+              </span>
+              <span className="welcome-plugin-state">
+                {e.needs ? (
+                  <span className="faint">Needs Pinrail {e.needs}</span>
+                ) : state === "installing" ? (
+                  <span className="dim">Installing…</span>
+                ) : e.installed ? (
+                  <span className="ok with-icon">
+                    <Check size={12} strokeWidth={3} /> Installed
+                  </span>
+                ) : typeof state === "object" ? (
+                  <span className="danger">{state.error}</span>
+                ) : null}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+      <div className="welcome-actions">
+        <button
+          type="button"
+          className="chrome-button button-primary"
+          onClick={install}
+          disabled={busy || toInstall.length === 0}
+          data-welcome-install
+        >
+          {busy ? "Installing…" : toInstall.length === 1 ? "Install 1 plugin" : `Install ${toInstall.length} plugins`}
+        </button>
+      </div>
+    </>
+  );
+}
 
 /** The app's mark: pin, slash, pin. */
 function Mark() {
@@ -302,9 +414,9 @@ function AgentStep({ onCopied, onPlugins }: { onCopied: () => void; onPlugins: (
         <CopyButton text={HABIT} dark onCopied={onCopied} />
       </div>
       <p className="welcome-next">
-        Pinrail comes with two plugins, <b>list</b> and <b>feedback</b>.{" "}
+        Add more plugins in{" "}
         <button type="button" className="welcome-link" onClick={onPlugins}>
-          Add more
+          Settings › Plugins
         </button>{" "}
         for code reviews, emails and designs, or{" "}
         <button type="button" className="welcome-link" onClick={() => openExternal(BUILD)}>
@@ -337,6 +449,29 @@ export function WelcomeDialog({
   const [sample, setSample] = useState<string | null>(at.sample ?? null);
   const [told, setTold] = useState(false);
 
+  // the official plugins the app carries, with what is installed
+  const [catalog, setCatalog] = useState<CatalogEntry[] | null>(null);
+  const loadCatalog = () =>
+    api
+      .catalog()
+      .then(({ plugins }) => setCatalog(plugins))
+      .catch(() => {});
+  useEffect(() => {
+    void loadCatalog();
+  }, [live.plugins]);
+  const listInstalled = !!catalog?.find((e) => e.name === "list")?.installed;
+  const [installingList, setInstallingList] = useState<string | null>(null);
+  const installList = async () => {
+    setInstallingList("installing");
+    try {
+      await api.installPlugin({ id: "forgeplane/list" });
+      setInstallingList(null);
+      void loadCatalog();
+    } catch (e) {
+      setInstallingList(failure(e));
+    }
+  };
+
   // the dialog holds the keyboard: Esc skips, and no key reaches the screen
   // behind it; buttons, Tab and copying still work, being the browser's own
   useEffect(() => {
@@ -361,6 +496,7 @@ export function WelcomeDialog({
   const status = system.status;
   const done = [
     !!cli.status?.runs && (!cli.status.bundled || cli.status.installed),
+    !!catalog?.some((e) => e.installed),
     !!sample,
     // without macOS's word (Linux, a development build) notifications just work
     settings.notifications.enabled && system.known && (!status || status.shows),
@@ -398,7 +534,9 @@ export function WelcomeDialog({
           <div className="welcome-content" key={step}>
             {step === 0 ? <CommandStep cli={cli} /> : null}
 
-            {step === 1 ? (
+            {step === 1 ? <PluginsStep catalog={catalog} onInstalled={() => void loadCatalog()} /> : null}
+
+            {step === FIRST_REVIEW ? (
               <>
                 <h2>Send yourself a review</h2>
                 <p>
@@ -411,7 +549,22 @@ export function WelcomeDialog({
                   </div>
                   <CopyButton text={TRY} dark />
                 </div>
-                {at.decided && sample === at.sample ? (
+                {!listInstalled && !sample && catalog ? (
+                  <div className="welcome-wait" role="status" data-welcome-needs-list>
+                    <span>The first review uses the list plugin, which is not installed.</span>
+                    <button
+                      type="button"
+                      className="chrome-button"
+                      onClick={installList}
+                      disabled={installingList === "installing"}
+                    >
+                      {installingList === "installing" ? "Installing…" : "Install list"}
+                    </button>
+                    {installingList && installingList !== "installing" ? (
+                      <span className="danger">{installingList}</span>
+                    ) : null}
+                  </div>
+                ) : at.decided && sample === at.sample ? (
                   <div className="welcome-wait is-done" role="status">
                     <span className="welcome-wait-mark">
                       <Check size={12} strokeWidth={3} />
@@ -451,11 +604,11 @@ export function WelcomeDialog({
               </>
             ) : null}
 
-            {step === 2 ? (
+            {step === 3 ? (
               <NotificationsStep system={system} request={request} openSystemSettings={openSystemSettings} />
             ) : null}
 
-            {step === 3 ? <AgentStep onCopied={() => setTold(true)} onPlugins={onPlugins} /> : null}
+            {step === 4 ? <AgentStep onCopied={() => setTold(true)} onPlugins={onPlugins} /> : null}
           </div>
 
           <footer className="welcome-foot">

@@ -35,7 +35,7 @@ import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
 import { PluginIcon } from "./PluginIcon";
 import { UpdateNotice } from "./UpdateNotice";
-import { WelcomeDialog, type WelcomeAt } from "./welcome/WelcomeDialog";
+import { FIRST_REVIEW, WelcomeDialog, type WelcomeAt } from "./welcome/WelcomeDialog";
 
 /** How many waiting reviews the sidebar lists before pointing at the inbox. */
 const WAITING_SHOWN = 5;
@@ -167,7 +167,7 @@ export function Layout({ children }: { children: ReactNode }) {
   };
   useEffect(() => {
     if (!away || !live.connected || live.pending.some((r) => r.id === away)) return;
-    setWelcome({ step: 1, sample: away, decided: true });
+    setWelcome({ step: FIRST_REVIEW, sample: away, decided: true });
     setAway(null);
   }, [away, live.connected, live.pending]);
 
