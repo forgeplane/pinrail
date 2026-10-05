@@ -209,3 +209,27 @@ test("a plugin with no settings or shortcuts says so across the side panel", asy
     }
   });
 });
+
+test("a setting sits on one row, its label beside a control of normal size", async ({ page }) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
+  manifest.settings_schema = {
+    type: "object",
+    properties: { open: { type: "boolean", title: "Group list open", default: true } },
+  };
+  fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify(manifest));
+
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    const label = page.locator("#settings span", { hasText: "Group list open" });
+    const box = page.getByRole("checkbox", { name: "Group list open" });
+    await expect(box).toBeVisible();
+    const l = (await label.boundingBox())!;
+    const b = (await box.boundingBox())!;
+    // one line of label, a checkbox the size of one, on the same row
+    expect(l.height).toBeLessThan(24);
+    expect(b.height).toBeLessThan(24);
+    expect(Math.abs(l.y + l.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
+  });
+});
