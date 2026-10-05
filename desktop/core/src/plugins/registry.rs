@@ -115,6 +115,9 @@ struct RegistryState {
 /// since, which the next use captures.
 #[derive(Debug, Default)]
 struct Captured {
+    /// The folder this describes: a plugin linked again from another folder
+    /// starts afresh.
+    folder: String,
     seen: Vec<(String, u64, u128)>,
     problem: Option<String>,
     noticed: Option<Vec<(String, u64, u128)>>,
@@ -233,6 +236,15 @@ impl Registry {
     /// they name.
     pub fn reload(&self) -> Result<usize, Error> {
         let installs = self.db.installs()?;
+        // what was captured of a folder no installation links any more
+        self.captured
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .retain(|name, c| {
+                installs
+                    .iter()
+                    .any(|i| &i.name == name && i.linked() && i.source == c.folder)
+            });
         let mut plugins = BTreeMap::new();
         for install in &installs {
             plugins.insert(install.name.clone(), Arc::new(self.load(install)?));
@@ -263,7 +275,8 @@ impl Registry {
         else {
             return Ok(false);
         };
-        let folder = PathBuf::from(&install.source);
+        let source = install.source.clone();
+        let folder = PathBuf::from(&source);
         let seen = folder_state(&folder);
         let before = {
             let captured = self.captured.lock().unwrap_or_else(|e| e.into_inner());
@@ -294,6 +307,7 @@ impl Registry {
             .insert(
                 name.to_string(),
                 Captured {
+                    folder: source,
                     seen,
                     problem,
                     noticed: None,

@@ -166,6 +166,44 @@ async fn a_review_keeps_its_release_through_updates_and_removal() {
 }
 
 #[tokio::test]
+async fn a_plugin_linked_again_from_another_folder_is_read_from_that_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = Config::new(dir.path().join("data"), 0);
+    let first = plugin(&dir.path().join("first"), "hello", "1.0.0");
+    let second = plugin(&dir.path().join("second"), "hello", "1.0.0");
+    let app = Pinrail::open(config).unwrap();
+    let error = |app: &Pinrail| {
+        app.plugins().listing(&json!({}))["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == "hello")
+            .unwrap()["error"]
+            .clone()
+    };
+
+    // linked, then its folder goes, as when a repository moves
+    link(&app, &first).await.unwrap();
+    std::fs::remove_dir_all(&first).unwrap();
+    app.plugins().reload_if_links_changed().unwrap();
+    app.plugins().describe(None).unwrap();
+    assert!(
+        error(&app)
+            .as_str()
+            .is_some_and(|e| e.contains("manifest.json")),
+        "the gone folder is the plugin's problem: {}",
+        error(&app)
+    );
+
+    // removed, and linked from where it lives now
+    app.plugins().remove("hello").unwrap();
+    link(&app, &second).await.unwrap();
+    app.plugins().reload_if_links_changed().unwrap();
+    assert_eq!(error(&app), Value::Null, "the old folder's problem stayed");
+    app.plugins().describe(Some("hello")).unwrap();
+}
+
+#[tokio::test]
 async fn linking_and_removal_record_and_announce_changes() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path().join("data"), 0);
