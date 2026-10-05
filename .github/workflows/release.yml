@@ -182,6 +182,9 @@ jobs:
           # a cache written under a tag is visible to that tag alone, so a
           # release restores and does not save
           save-if: ${{ github.ref == 'refs/heads/main' }}
+      # the plugins with a build of their own, whose view/ the core embeds
+      - name: Build the plugins
+        run: sh scripts/build-plugins.sh
       - name: Install the shell's dependencies
         working-directory: desktop/app
         run: npm ci

@@ -80,6 +80,9 @@ jobs:
           workspaces: |
             desktop
             cli
+      # the plugins with a build of their own, whose view/ the core embeds
+      - name: Build the plugins
+        run: sh scripts/build-plugins.sh
       - name: Install
         working-directory: website
         run: |

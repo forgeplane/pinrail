@@ -146,6 +146,9 @@ jobs:
           workspaces: |
             desktop
             cli
+      # the plugins with a build of their own, whose view/ the core embeds
+      - name: Build the plugins
+        run: sh scripts/build-plugins.sh
       # the app crate embeds dist/ at compile time
       - name: Build the shell
         working-directory: desktop/app
@@ -224,6 +227,9 @@ jobs:
           for dir in plugins/*/; do
             node pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
           done
+      # the plugins with a build of their own, which their tests load
+      - name: Build the plugins
+        run: sh scripts/build-plugins.sh
       - name: Plugin tests
         working-directory: plugins
         run: |

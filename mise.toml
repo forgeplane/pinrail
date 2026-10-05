@@ -10,6 +10,7 @@ run = [
   "cd desktop/app && npm ci && npm run build",
   "cd pinrail-plugin && npm ci",
   "cd plugins && npm ci",
+  "sh scripts/build-plugins.sh",
   "cd e2e && npm ci && npx playwright install chromium",
 ]
 
@@ -26,6 +27,11 @@ run = "npm test"
 [tasks."dev:plugin"]
 description = "One plugin in a browser shell, without the app: mise run dev:plugin plugins/hello"
 run = "node {{config_root}}/pinrail-plugin/bin/pinrail-plugin.mjs dev {{arg(name='plugin')}}"
+
+[tasks."plugins:build"]
+description = "Build the plugins in plugins/ that have a build of their own, such as markdown: the app embeds their view/"
+dir = "{{config_root}}"
+run = "sh scripts/build-plugins.sh"
 
 [tasks."test:plugins"]
 description = "The plugins in plugins/ alone, under the pinrail-plugin harness"

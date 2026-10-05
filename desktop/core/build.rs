@@ -39,6 +39,12 @@ fn main() {
     for name in CATALOG {
         let source = manifest.join("../../plugins").join(name);
         println!("cargo:rerun-if-changed={}", source.display());
+        // a plugin with a build of its own has no view until it is built
+        if !source.join("view/index.html").is_file() {
+            panic!(
+                "plugins/{name}/view/index.html is missing: build the plugins first, with `mise run plugins:build` or scripts/build-plugins.sh"
+            );
+        }
         copy(&source, &catalog.join(name), true);
     }
 }

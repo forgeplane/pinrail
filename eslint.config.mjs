@@ -25,7 +25,7 @@ export default tseslint.config(
     files: [
       "desktop/app/ui/**",
       "plugins/*/view/**",
-      "plugins/artifact/src/**",
+      "plugins/*/src/**",
       "pinrail-plugin/src/**",
       "pinrail-plugin/host/**",
       "pinrail-plugin/shell/inspector.js",
@@ -39,7 +39,7 @@ export default tseslint.config(
   // a plugin view's scripts share the page: the SDK's Pinrail global, and
   // a module check so the same file loads under Node for its tests
   {
-    files: ["plugins/*/view/**", "pinrail-plugin/templates/*/view/**", "pinrail-plugin/src/**"],
+    files: ["plugins/*/view/**", "plugins/*/src/**", "pinrail-plugin/templates/*/view/**", "pinrail-plugin/src/**"],
     languageOptions: { globals: { Pinrail: "readonly", module: "readonly" } },
     // a plain view's types come from a triple-slash reference to the SDK's
     rules: { "@typescript-eslint/triple-slash-reference": "off" },
