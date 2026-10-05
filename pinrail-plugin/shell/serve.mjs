@@ -3,7 +3,8 @@
  * A shell for one plugin, in a browser, without the app: serves the plugin
  * directory under the app's CSP, the SDK beside it, and a page that plays
  * the shell — pick a fixture, see the view, collect a decision, read what
- * the view posts. Files are watched; a change reloads the view.
+ * the view posts, and select parts of the view to comment on. Files are
+ * watched; a change reloads the view.
  *
  *   pinrail-plugin dev ./plugins/hello [--port 4790] [--no-open]
  *
@@ -100,6 +101,17 @@ function violations(pluginDir, kind, data) {
     return { path: prefix + at, message };
   });
 }
+
+/**
+ * The view's pages, with the inspector the shell's Select drives added at
+ * their end, inline, since the view's CSP allows inline scripts and none
+ * from the shell's own paths.
+ */
+const inspector = fs.readFileSync(path.join(here, "inspector.js"), "utf8");
+const withInspector = (html) => {
+  const tag = `<script data-pinrail-review>${inspector}</script>`;
+  return /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, tag + "</body>") : html + tag;
+};
 
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { "cache-control": "no-cache", ...headers });
@@ -274,9 +286,16 @@ export function serve(argv) {
       return sendFile(res, path.join(sdkSrc, path.basename(p)), { "access-control-allow-origin": "*" });
     if (p.startsWith("/plugin/")) {
       const file = under(pluginDir, p.slice("/plugin/".length));
-      return file
-        ? sendFile(res, file, { "content-security-policy": csp(origin), "access-control-allow-origin": "*" })
-        : send(res, 404, "not found");
+      if (!file) return send(res, 404, "not found");
+      const headers = { "content-security-policy": csp(origin), "access-control-allow-origin": "*" };
+      if (path.extname(file).toLowerCase() === ".html") {
+        return send(res, 200, withInspector(fs.readFileSync(file, "utf8")), {
+          "content-type": mime[".html"],
+          "x-content-type-options": "nosniff",
+          ...headers,
+        });
+      }
+      return sendFile(res, file, headers);
     }
     return send(res, 404, "not found");
   });

@@ -61,3 +61,74 @@ test("the view is set in the app's typeface, and nothing is fetched from off the
     expect(away).toEqual([]);
   });
 });
+
+test("select picks an element of the view to comment on, and the comments are copied as Markdown", async ({
+  page,
+  context,
+}) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    const view = page.frameLocator("#frame");
+    const yes = view.getByRole("button", { name: "Yes" });
+    await expect(yes).toBeVisible();
+
+    // selecting, a click picks the element and the view does not see it
+    await page.locator("#select").click();
+    await yes.click();
+    const pop = page.locator("#comment-pop");
+    await expect(pop).toBeVisible();
+    await expect(pop.locator(".el")).toContainText('button "Yes"');
+    await pop.locator("textarea").fill("Make Yes the primary button.");
+    await pop.getByRole("button", { name: "Comment" }).click();
+    await expect(page.locator("#s-draft")).toHaveText("—");
+
+    const list = page.locator("#comments .comment");
+    await expect(list).toHaveCount(1);
+    await expect(list.first()).toContainText("Make Yes the primary button.");
+    await expect(view.locator("[data-pinrail-review-pin]")).toHaveText("1");
+
+    // copied as Markdown, under the review and mode it was made in
+    await page.locator("#copy").click();
+    const copied = await page.evaluate(() => navigator.clipboard.readText());
+    expect(copied).toContain("# Review of triage");
+    expect(copied).toContain(`## ${sample.title} · pending · dark`);
+    expect(copied).toMatch(/1\. `button` "Yes" \(`[^`]+`\)\n {3}Make Yes the primary button\./);
+
+    // not selecting, the view takes clicks again
+    await page.locator("#select").click();
+    await yes.click();
+    await expect(page.locator("#s-draft")).not.toHaveText("—");
+
+    // the comments outlive a reload
+    await page.reload();
+    await expect(page.locator("#comments .comment")).toHaveCount(1);
+  });
+});
+
+test("the payload switch shows the review's payload as coloured JSON in place of the view", async ({ page }) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
+
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    await expect(page.frameLocator("#frame").getByRole("button", { name: "Yes" })).toBeVisible();
+
+    await page.locator("#show-payload").click();
+    const json = page.locator("#payload");
+    await expect(json).toBeVisible();
+    await expect(page.locator("#frame")).toBeHidden();
+    // the payload alone, pretty printed, its keys and values marked for colour
+    expect(JSON.parse((await json.textContent()) ?? "")).toEqual(sample.payload);
+    await expect(json.locator(".json-key").first()).toBeVisible();
+
+    await page.locator("#show-payload").click();
+    await expect(page.locator("#frame")).toBeVisible();
+    await expect(json).toBeHidden();
+  });
+});

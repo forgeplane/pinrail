@@ -112,6 +112,14 @@ themes, ask for the decision as the hand-over button does, and answer with
 violations. A log shows every message the view sends. A change to any file
 in the plugin reloads the view with its last draft.
 
+To review a view, turn on **Select** (or press `I`) and click any part of
+it: instead of reaching the view, the click opens a comment on that element.
+Comments are kept in the browser for the plugin, grouped by the review and
+mode you made them in, and marked on the view with numbered pins. **Copy
+comments** puts them on the clipboard as Markdown, with each element's
+selector, to paste to the agent that works on the plugin. **Payload** shows
+the review's payload as JSON in place of the view.
+
 ### test
 
 `pinrail-plugin test [dir]` runs the plugin's `tests/*.spec.ts` with the

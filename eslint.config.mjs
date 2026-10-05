@@ -28,6 +28,7 @@ export default tseslint.config(
       "plugins/artifact/src/**",
       "pinrail-plugin/src/**",
       "pinrail-plugin/host/**",
+      "pinrail-plugin/shell/inspector.js",
       "pinrail-plugin/templates/*/src/**",
       "pinrail-plugin/templates/*/view/**",
       "docs/examples/*/*/src/**",

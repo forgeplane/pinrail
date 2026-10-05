@@ -53,6 +53,33 @@
   .send .row { display: flex; gap: 6px; }
   .empty { color: var(--faint); padding: 14px 12px; font-size: 12px; }
   .warn { color: var(--danger); font-size: 12px; }
+  kbd { font: 10.5px var(--mono); border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 4px; color: var(--faint); margin-left: 6px; }
+  button.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+  .count { font-size: 11px; color: var(--faint); margin-left: 4px; }
+  .side h2.with { display: flex; justify-content: space-between; align-items: center; }
+  button.link { border: 0; background: none; padding: 0; color: var(--faint); font: 11px var(--sans); letter-spacing: 0; text-transform: none; }
+  button.link:hover { background: none; color: var(--text); }
+  #comments { max-height: 38%; overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 4px; border-bottom: 1px solid var(--line); flex: none; }
+  #comments .ctx { font-size: 11.5px; color: var(--dim); padding: 6px 4px 0; }
+  .comment { position: relative; padding: 6px 22px 6px 32px; border-radius: 6px; background: var(--raised); font-size: 12px; white-space: pre-wrap; }
+  .comment .n, #comment-pop .n { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: #e5694f; color: #fff; font: 600 10px/18px var(--sans); text-align: center; }
+  .comment .n { position: absolute; left: 7px; top: 7px; }
+  .comment .el, #comment-pop .el { font: 11px var(--mono); color: var(--accent); word-break: break-word; white-space: normal; }
+  .comment .x { position: absolute; right: 4px; top: 3px; border: 0; background: none; color: var(--faint); padding: 0 4px; }
+  #comment-pop { position: fixed; z-index: 10; width: 340px; display: none; background: var(--panel); border: 1px solid var(--line-strong); border-radius: 9px; box-shadow: 0 14px 34px -10px rgba(0, 0, 0, 0.6); padding: 10px; }
+  #comment-pop .ctx { color: var(--dim); font-size: 11.5px; margin-top: 2px; }
+  #comment-pop textarea { width: 100%; min-height: 64px; margin-top: 8px; font: inherit; color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; resize: vertical; }
+  #comment-pop .row { display: flex; justify-content: flex-end; align-items: center; gap: 6px; margin-top: 8px; }
+  #comment-pop .row span { color: var(--faint); font-size: 11px; margin-right: auto; }
+  #payload { display: none; margin: 0; height: 100%; overflow: auto; padding: 16px 18px; font: 12.5px/1.6 var(--mono); color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  .stage.json #frame { display: none; }
+  .stage.json #payload { display: block; }
+  .json-key { color: var(--accent); }
+  .json-string { color: var(--ok); }
+  .json-number { color: #d4ac6a; }
+  [data-theme="light"] .json-number { color: #9a6a1c; }
+  .json-literal { color: var(--danger); }
+  .json-punct { color: var(--faint); }
 </style>
 </head>
 <body>
@@ -64,12 +91,17 @@
   <button id="reinit" title="Send init again, with the last draft">Re-init</button>
   <button id="collect" class="primary" title="What the app's hand-over button does">Collect</button>
   <span class="spacer"></span>
+  <button id="show-payload" title="Show the review's payload as JSON in place of the view">Payload</button>
+  <button id="select" title="Pick a part of the view to comment on">Select<kbd>I</kbd></button>
+  <button id="copy" title="Copy every comment as Markdown, to paste to an agent">Copy comments<span class="count" id="comment-count"></span></button>
   <span class="dot" id="watch" title="reloads the view when a file in the plugin changes"></span>
   <button id="theme" title="Switch theme">Theme</button>
 </div>
 <div class="main">
-  <div class="stage fill" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe></div>
+  <div class="stage fill" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe><pre id="payload" aria-label="Payload"></pre></div>
   <aside class="side">
+    <h2 class="with">Comments <button class="link" id="clear-comments" title="Delete every comment">Clear</button></h2>
+    <div id="comments"><div class="empty">Turn on Select, then click a part of the view to comment on it.</div></div>
     <h2>Settings</h2>
     <div class="state" id="settings"><div class="empty" style="padding:0 0 4px">The manifest declares none.</div></div>
     <h2>Shortcuts</h2>
@@ -90,6 +122,12 @@
       </div>
     </div>
   </aside>
+</div>
+<div id="comment-pop" role="dialog" aria-label="Comment">
+  <div class="el"></div>
+  <div class="ctx"></div>
+  <textarea aria-label="Comment" placeholder="What should change here?"></textarea>
+  <div class="row"><span>⌘↵ comment · Esc</span><button id="pop-cancel">Cancel</button><button id="pop-add" class="primary">Comment</button></div>
 </div>
 <script type="module">
 // The app's side of the protocol, from ../host/host.js as the app runs it:
@@ -259,6 +297,8 @@ async function loadFixture(name) {
   review = reviewFrom(partial, manifest.name);
   localStorage.setItem("pinrail-shell:fixture:" + manifest.name, name);
   reload();
+  drawComments();
+  drawPayload();
 }
 
 async function loadPrevious(name) {
@@ -276,7 +316,7 @@ function reload() {
 
 $("fixture").addEventListener("change", (e) => loadFixture(e.target.value));
 $("previous").addEventListener("change", (e) => loadPrevious(e.target.value));
-$("readonly").addEventListener("change", sendInit);
+$("readonly").addEventListener("change", () => { sendInit(); drawComments(); });
 $("reinit").addEventListener("click", sendInit);
 $("collect").addEventListener("click", () => host.collect());
 $("send-violations").addEventListener("click", () => {
@@ -305,6 +345,7 @@ $("theme").addEventListener("click", () => {
   localStorage.setItem(THEME_KEY, theme);
   document.documentElement.dataset.theme = theme;
   host.appearance(theme);
+  drawComments();
 });
 
 // The manifest's shortcuts, pressed while this page rather than the frame
@@ -327,6 +368,162 @@ window.addEventListener("keydown", (e) => {
   host.key({ key: e.key, code: e.code, metaKey: e.metaKey, ctrlKey: e.ctrlKey, altKey: e.altKey, shiftKey: e.shiftKey });
 });
 
+// Comments on parts of the view. With Select on, the inspector the server
+// adds to the view outlines the element under the pointer, and a click
+// picks it instead of reaching the view; the comment is kept with the
+// review and mode it was made in, per plugin in localStorage. The view's
+// pins mark the comments made in what it shows now. Copy comments puts them
+// all on the clipboard as Markdown, to paste to an agent.
+const COMMENTS_KEY = () => "pinrail-shell:comments:" + manifest.name;
+let comments = [], selecting = false, picked = null;
+const pop = $("comment-pop");
+function loadComments() {
+  try { comments = JSON.parse(localStorage.getItem(COMMENTS_KEY()) || "[]"); } catch { comments = []; }
+}
+function saveComments() {
+  try { localStorage.setItem(COMMENTS_KEY(), JSON.stringify(comments)); } catch { /* kept until the page reloads */ }
+}
+const mode = () => (review && review.status !== "pending" ? "decided" : $("readonly").checked ? "read-only" : "pending");
+const contextNow = () => `${review ? review.title : "no review"} · ${mode()} · ${theme}`;
+const toView = (msg) => frame.contentWindow && frame.contentWindow.postMessage({ pinrailReview: 1, ...msg }, "*");
+// I is Select's key, unless the plugin declares it for itself
+const selectKeyFree = () => !(manifest.shortcuts || []).some((s) => s.keys === "i");
+const elementName = (c) => `${c.tag}${c.text ? ` "${c.text}"` : ""}`;
+function setSelecting(on) {
+  selecting = on;
+  $("select").classList.toggle("on", on);
+  toView({ type: "select", on, key: selectKeyFree() ? "i" : null });
+  if (!on) closePop();
+}
+function drawComments() {
+  $("comment-count").textContent = comments.length ? String(comments.length) : "";
+  const box = $("comments");
+  box.replaceChildren();
+  if (!comments.length) {
+    box.innerHTML = '<div class="empty">Turn on Select, then click a part of the view to comment on it.</div>';
+  }
+  let ctx = null;
+  for (const c of comments) {
+    if (c.context !== ctx) {
+      ctx = c.context;
+      const head = document.createElement("div");
+      head.className = "ctx";
+      head.textContent = ctx;
+      box.append(head);
+    }
+    const row = document.createElement("div");
+    row.className = "comment";
+    row.innerHTML = '<span class="n"></span><div class="el"></div><div class="tx"></div><button class="x" title="Delete">×</button>';
+    row.querySelector(".n").textContent = c.n;
+    row.querySelector(".el").textContent = elementName(c);
+    row.querySelector(".el").title = c.selector;
+    row.querySelector(".tx").textContent = c.comment;
+    row.querySelector(".x").addEventListener("click", () => {
+      comments = comments.filter((o) => o !== c);
+      saveComments();
+      drawComments();
+    });
+    box.append(row);
+  }
+  const now = contextNow();
+  toView({ type: "pins", pins: comments.filter((c) => c.context === now).map((c) => ({ n: c.n, selector: c.selector })) });
+}
+function openPop(pick) {
+  picked = pick;
+  const f = frame.getBoundingClientRect();
+  pop.querySelector(".el").textContent = `${elementName(pick)} · ${pick.selector}`;
+  pop.querySelector(".ctx").textContent = contextNow();
+  pop.querySelector("textarea").value = "";
+  pop.style.display = "block";
+  const left = Math.min(Math.max(8, f.left + pick.rect.left), innerWidth - pop.offsetWidth - 8);
+  let top = f.top + pick.rect.bottom + 6;
+  if (top + pop.offsetHeight > innerHeight - 8) top = Math.max(8, f.top + pick.rect.top - pop.offsetHeight - 6);
+  Object.assign(pop.style, { left: left + "px", top: top + "px" });
+  pop.querySelector("textarea").focus();
+}
+function closePop() {
+  picked = null;
+  pop.style.display = "none";
+}
+function addComment() {
+  const comment = pop.querySelector("textarea").value.trim();
+  if (!picked || !comment) return;
+  const n = comments.reduce((m, c) => Math.max(m, c.n), 0) + 1;
+  comments.push({ n, context: contextNow(), tag: picked.tag, text: picked.text, selector: picked.selector, comment });
+  saveComments();
+  closePop();
+  drawComments();
+}
+function markdown() {
+  const lines = [`# Review of ${manifest.name} ${manifest.version}`];
+  let ctx = null;
+  for (const c of comments) {
+    if (c.context !== ctx) {
+      ctx = c.context;
+      lines.push("", `## ${ctx}`, "");
+    }
+    lines.push(`${c.n}. \`${c.tag}\`${c.text ? ` "${c.text}"` : ""} (\`${c.selector}\`)`);
+    for (const line of c.comment.split("\n")) lines.push(`   ${line}`);
+  }
+  return lines.join("\n") + "\n";
+}
+$("select").addEventListener("click", () => setSelecting(!selecting));
+$("pop-add").addEventListener("click", addComment);
+$("pop-cancel").addEventListener("click", closePop);
+pop.querySelector("textarea").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addComment(); }
+  if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closePop(); }
+});
+$("copy").addEventListener("click", async () => {
+  if (!comments.length) return;
+  await navigator.clipboard.writeText(markdown());
+  const count = $("comment-count");
+  count.textContent = "copied";
+  setTimeout(() => (count.textContent = String(comments.length)), 1500);
+});
+$("clear-comments").addEventListener("click", () => {
+  comments = [];
+  saveComments();
+  drawComments();
+});
+window.addEventListener("message", (e) => {
+  if (e.source !== frame.contentWindow || !e.data || !e.data.pinrailReview) return;
+  const msg = e.data;
+  // a view loaded again gets Select's state and its pins again
+  if (msg.type === "loaded") { setSelecting(selecting); drawComments(); }
+  if (msg.type === "pick") openPop(msg);
+  if (msg.type === "key" && msg.key === "i") setSelecting(!selecting);
+  if (msg.type === "key" && msg.key === "Escape") picked ? closePop() : setSelecting(false);
+});
+window.addEventListener("keydown", (e) => {
+  const tag = e.target && e.target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "i" && selectKeyFree()) { e.preventDefault(); setSelecting(!selecting); }
+  if (e.key === "Escape" && (selecting || picked)) { e.preventDefault(); picked ? closePop() : setSelecting(false); }
+});
+
+// The payload the agent sent, in place of the view: pretty printed, with
+// keys, strings, numbers and literals in colours of their own.
+function jsonHtml(value) {
+  const text = JSON.stringify(value ?? null, null, 2);
+  return escapeHtml(text).replace(
+    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}\[\],]/g,
+    (m, str, colon, literal) => {
+      if (str) return colon ? `<span class="json-key">${str}</span><span class="json-punct">${colon}</span>` : `<span class="json-string">${str}</span>`;
+      if (literal) return `<span class="json-literal">${m}</span>`;
+      if (/^[{}\[\],]$/.test(m)) return `<span class="json-punct">${m}</span>`;
+      return `<span class="json-number">${m}</span>`;
+    },
+  );
+}
+const drawPayload = () => { $("payload").innerHTML = jsonHtml(review ? review.payload : null); };
+$("show-payload").addEventListener("click", () => {
+  const on = stage.classList.toggle("json");
+  $("show-payload").classList.toggle("on", on);
+  $("show-payload").textContent = on ? "View" : "Payload";
+  if (on) { setSelecting(false); drawPayload(); }
+});
+
 // files change, the view reloads; the draft comes back with the next init
 setInterval(async () => {
   try {
@@ -339,6 +536,8 @@ setInterval(async () => {
 
 (async () => {
   manifest = await (await fetch("/dev/manifest")).json();
+  loadComments();
+  if (!selectKeyFree()) document.querySelector("#select kbd").remove();
   try { stored = JSON.parse(localStorage.getItem(SETTINGS_KEY()) || "{}"); } catch { stored = {}; }
   drawSettings();
   if (Array.isArray(manifest.shortcuts) && manifest.shortcuts.length) {
