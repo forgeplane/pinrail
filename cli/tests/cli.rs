@@ -2403,6 +2403,68 @@ fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
     );
 }
 
+/// A plugin's recorded decisions, `fixtures/<name>.decided.json`, rendered
+/// as the app renders them and compared with the `.decided.md` beside each:
+/// a difference refuses the check, and --update-fixtures rewrites the file.
+#[test]
+fn plugins_check_compares_recorded_decisions_with_their_markdown() {
+    let list = repo_plugin("list");
+    let dir = tempdir();
+    for f in [
+        "manifest.json",
+        "schemas/payload.schema.json",
+        "schemas/decision.schema.json",
+        "templates/decision.md.j2",
+        "view/index.html",
+        "fixtures/triage-round-1.decided.json",
+        "fixtures/triage-round-1.decided.md",
+    ] {
+        let to = dir.join(f);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::copy(list.join(f), to).unwrap();
+    }
+    let checked = |args: &[&str]| {
+        let mut all = vec!["plugins", "check", dir.to_str().unwrap()];
+        all.extend_from_slice(args);
+        run_offline(&all)
+    };
+
+    let (code, stdout, stderr) = checked(&[]);
+    assert_eq!(code, 0, "{stderr}");
+    let verdict: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(verdict["fixtures"]["checked"], 1, "{verdict}");
+    assert_eq!(verdict["fixtures"]["problems"], serde_json::json!([]));
+
+    // the expected Markdown no longer matches what the app renders
+    let md = dir.join("fixtures/triage-round-1.decided.md");
+    let expected = std::fs::read_to_string(&md).unwrap();
+    std::fs::write(&md, expected.replacen("# ", "# Not ", 1)).unwrap();
+    let (code, stdout, stderr) = checked(&["--markdown"]);
+    assert_eq!(code, 2, "{stderr}");
+    assert!(
+        stdout.contains("- fixture fixtures/triage-round-1.decided.json: fixtures/triage-round-1.decided.md does not match what the app renders, from line 1"),
+        "{stdout}"
+    );
+
+    // rewritten from the rendering, it matches again
+    let (code, _, stderr) = checked(&["--update-fixtures"]);
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(std::fs::read_to_string(&md).unwrap(), expected);
+
+    // a decision the plugin's schema refuses is a fixture that misleads
+    let json = dir.join("fixtures/triage-round-1.decided.json");
+    let mut fixture: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&json).unwrap()).unwrap();
+    fixture["decision"]["data"] = serde_json::json!({"unexpected": true});
+    std::fs::write(&json, fixture.to_string()).unwrap();
+    let (code, _, stderr) = checked(&[]);
+    assert_eq!(code, 2);
+    assert!(
+        stderr.contains("pinrail: fixture fixtures/triage-round-1.decided.json: the decision is not what the plugin's schema accepts"),
+        "{stderr}"
+    );
+}
+
 /// A release checked against the one before it: what its schemas no longer
 /// accept of what that one took, which only a version that announces a
 /// breaking change may do.

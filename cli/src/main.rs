@@ -538,8 +538,12 @@ enum PluginsCommand {
     /// Check a plugin folder without installing it
     ///
     /// The command reports why the app would refuse the folder, and each
-    /// feature the app would drop. It exits with 0 if the app would accept
-    /// the plugin, and with 2 if not.
+    /// feature the app would drop. It also checks the plugin's recorded
+    /// decisions, fixtures/<name>.decided.json: their payload and decision
+    /// must pass the plugin's schemas, and when <name>.decided.md is beside
+    /// one, the Markdown the app renders from it must equal that file. It
+    /// exits with 0 if the app would accept the plugin and every recorded
+    /// decision checks out, and with 2 if not.
     Check {
         /// The plugin's folder
         #[arg(default_value = ".")]
@@ -549,6 +553,11 @@ enum PluginsCommand {
         /// semantic versioning allows only in a version that announces it
         #[arg(long, value_name = "DIR")]
         since: Option<PathBuf>,
+        /// Write each recorded decision's <name>.decided.md from what the app
+        /// renders, creating it if it is missing, before comparing. Review the
+        /// difference before you commit it
+        #[arg(long)]
+        update_fixtures: bool,
     },
 }
 
@@ -925,7 +934,12 @@ fn run(cli: Cli) -> Result<u8> {
             Ok(0)
         }
         Command::Plugins(PluginsArgs {
-            command: Some(PluginsCommand::Check { dir, since }),
+            command:
+                Some(PluginsCommand::Check {
+                    dir,
+                    since,
+                    update_fixtures,
+                }),
         }) => {
             let dir = dir
                 .canonicalize()
@@ -937,6 +951,13 @@ fn run(cli: Cli) -> Result<u8> {
                     .canonicalize()
                     .with_context(|| format!("{} is not a folder here", since.display()))?;
                 verdict["since"] = pinrail_format::compat::since(&since, &dir);
+            }
+            let fixtures = pinrail_format::markdown::check_decided_fixtures(&dir, update_fixtures);
+            let fixtures_wrong = fixtures["problems"]
+                .as_array()
+                .is_some_and(|p| !p.is_empty());
+            if fixtures["checked"] != 0 {
+                verdict["fixtures"] = fixtures;
             }
             // a break that the version does not announce
             let breaks_line = verdict["since"]["claims_compatible"] == true
@@ -963,6 +984,17 @@ fn run(cli: Cli) -> Result<u8> {
                         out::terminal_safe(p["message"].as_str().unwrap_or_default())
                     );
                 }
+                for f in verdict["fixtures"]["problems"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                {
+                    eprintln!(
+                        "pinrail: fixture {}: {}",
+                        out::terminal_safe(f["file"].as_str().unwrap_or_default()),
+                        out::terminal_safe(f["message"].as_str().unwrap_or_default())
+                    );
+                }
                 if breaks_line {
                     for b in verdict["since"]["breaks"].as_array().into_iter().flatten() {
                         eprintln!(
@@ -976,11 +1008,13 @@ fn run(cli: Cli) -> Result<u8> {
                     }
                 }
             }
-            Ok(if verdict["usable"] == true && !breaks_line {
-                0
-            } else {
-                EXIT_REFUSED
-            })
+            Ok(
+                if verdict["usable"] == true && !breaks_line && !fixtures_wrong {
+                    0
+                } else {
+                    EXIT_REFUSED
+                },
+            )
         }
         Command::Plugins(PluginsArgs {
             command:

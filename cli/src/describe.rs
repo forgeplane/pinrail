@@ -58,6 +58,17 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
     for n in verdict["notes"].as_array().into_iter().flatten() {
         out.push_str(&format!("\n- note: {}", text(&n["message"])));
     }
+    let fixtures = verdict["fixtures"]["problems"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default();
+    for f in &fixtures {
+        out.push_str(&format!(
+            "\n- fixture {}: {}",
+            text(&f["file"]),
+            text(&f["message"])
+        ));
+    }
     let since = &verdict["since"];
     let breaks = since["breaks"].as_array().cloned().unwrap_or_default();
     if since["claims_compatible"] == true {
@@ -89,6 +100,7 @@ pub fn verdict(verdict: &Value, dir: &str) -> String {
             .as_array()
             .is_some_and(|a| !a.is_empty())
         || verdict["notes"].as_array().is_some_and(|a| !a.is_empty())
+        || !fixtures.is_empty()
         || (since.is_object() && since["claims_compatible"] != true)
     {
         out.push('\n');
