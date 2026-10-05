@@ -25,7 +25,7 @@ HTML page to comment on element by element. You accept, reject, edit or
 comment, then hand the decision over. The CLI returns it to the agent.
 
 ```sh
-pinrail submit review --title "Dedup tickets on save" \
+pinrail submit code-review --title "Dedup tickets on save" \
   --origin repo=acme/api,workflow=pr-review,ref=42 \
   --data proposals.json --wait
 ```

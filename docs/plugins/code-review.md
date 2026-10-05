@@ -7,7 +7,7 @@ sidebar:
     variant: default
 ---
 
-<div class="pr-badges"><span class="pr-badge optional">Optional</span><span class="pr-badge plain">plugin: review</span></div>
+<div class="pr-badges"><span class="pr-badge optional">Optional</span><span class="pr-badge plain">plugin: code-review</span></div>
 
 The code review plugin puts a reviewing agent's comments in front of you before they reach a pull or merge request. You see the diff, with each proposed comment on the line it is about, and decide which ones are worth posting. Your notes improve the ones you keep and explain the ones you reject, so the agent's next review is better than its last.
 
@@ -23,24 +23,24 @@ It works with any forge. The agent maps its pull or merge request into the paylo
 
 ## Install
 
-Download `review-<version>.zip` from the plugin's latest release on [the official plugins' releases page](https://github.com/forgeplane/pinrail-plugins/releases), then install it:
+The plugin comes with the app. Install it in *Settings › Plugins*, or from the command line:
 
 ```sh
-pinrail plugins install ~/Downloads/review-<version>.zip
+pinrail plugins install code-review
 ```
 
 ## What you see
 
 - **A file tree** with a count of proposals per file, in the order the agent suggests reading them or by path.
-- **The diff**, inline or side by side, with folding and a one-line summary per file.
+- **The diff**, inline or side by side, with folding and a short summary of what changed in each file.
 - **Proposals on their lines**, each with severity, markdown body, and `suggestion` blocks shown as the change they would make. Accept, reject, or add a note.
 - **Reply threads**, with the whole conversation so far.
 - **Your own comments**, from any line of the diff.
-- **A summary before hand-over** showing exactly what goes back.
+- **A confirmation before hand-over** when proposals are left undecided. They are not posted, and the agent is told they were left undecided.
 
 The layout choices are saved as [plugin settings](/docs/building/settings-and-keys/), so they hold for your next review. Press <kbd>?</kbd> for the keys.
 
-To see it before any agent asks with it, send its sample: `pinrail submit review --sample`, or **Send a sample** in its details in *Settings › Plugins*.
+To see it before any agent asks with it, send its sample: `pinrail submit code-review --sample`, or **Send a sample** in its details in *Settings › Plugins*.
 
 ## Asking from your agent
 
@@ -53,7 +53,7 @@ wait for my decision:
 1. Write the payload: the change, each file's unified diff (as `git diff`
    prints it), and one proposal per comment, anchored on `file` and `line`.
    Give each proposal a stable integer `id`.
-2. Run: `pinrail submit review --title "<PR title>" --data review.json --wait`
+2. Run: `pinrail submit code-review --title "<PR title>" --data review.json --wait`
 3. Post only accepted proposals. Apply an accept note as a revision before
    posting. Never post undecided proposals.
 4. Consider my line `comments` and address them in your next round.
@@ -110,4 +110,4 @@ wait for my decision:
 
 The plugin's manifest, and the schemas a payload and a decision are checked against, read from the plugin's own files.
 
-![The Code review plugin's contract](contract:review)
+![The Code review plugin's contract](contract:code-review)

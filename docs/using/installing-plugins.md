@@ -27,9 +27,9 @@ pinrail plugins install <folder or zip>
 
 | Source | Installs |
 |---|---|
-| `~/code/pinrail-plugins/review` | A folder on this machine, copied into the app. |
-| `~/code/pinrail-plugins/review --link` | The same folder, served directly while you work on it. |
-| `~/Downloads/review-1.2.0.zip` | A zip of a plugin, such as one attached to a release. |
+| `~/code/triage` | A folder on this machine, copied into the app. |
+| `~/code/triage --link` | The same folder, served directly while you work on it. |
+| `~/Downloads/triage-1.2.0.zip` | A zip of a plugin, such as one attached to a release. |
 
 To install a plugin that is published on a website, download its zip first, then install the zip.
 

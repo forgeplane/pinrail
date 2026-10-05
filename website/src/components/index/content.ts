@@ -48,7 +48,7 @@ export const agents = [
 export const views = [
   {
     name: "Code review",
-    plugin: "review",
+    plugin: "code-review",
     image: review,
     detail:
       "The diff, with the agent's proposed comments on the lines they are about. Accept one with a note, reject the next with a reason.",
@@ -134,7 +134,7 @@ export const samples = [
 // the titles and projects are the fixtures' the views were made from.
 export const demo = [
   {
-    plugin: "review",
+    plugin: "code-review",
     short: "Code review",
     icon: "git-pull-request",
     title: "Retry failed webhook deliveries with exponential backoff",

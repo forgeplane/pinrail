@@ -54,8 +54,8 @@ The repository's plugins are in the container at `/work/plugins`. Install
 one, then send its sample:
 
 ```sh
-docker exec -u pinrail pinrail-linux pinrail plugins install /work/plugins/review
-docker exec -u pinrail pinrail-linux pinrail submit review --sample
+docker exec -u pinrail pinrail-linux pinrail plugins install /work/plugins/code-review
+docker exec -u pinrail pinrail-linux pinrail submit code-review --sample
 ```
 
 A plugin with a build step, such as `artifact`, is built before it is

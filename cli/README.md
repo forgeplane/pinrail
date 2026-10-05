@@ -6,7 +6,7 @@ app, and the command returns the decision: as Markdown for an agent to read,
 or as JSON for a script.
 
 ```sh
-pinrail submit review --title "Dedup tickets on save" --data proposals.json --wait
+pinrail submit code-review --title "Dedup tickets on save" --data proposals.json --wait
 ```
 
 The CLI keeps no state of its own. It is a small Rust binary that sends HTTP

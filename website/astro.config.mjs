@@ -122,7 +122,7 @@ export default defineConfig({
             { label: "Overview", slug: "docs/plugins" },
             "docs/plugins/list",
             "docs/plugins/feedback",
-            "docs/plugins/review",
+            "docs/plugins/code-review",
             "docs/plugins/email",
             "docs/plugins/artifact",
             "docs/plugins/calendar",

@@ -10,7 +10,7 @@ A review is a single request from an agent for your decision on work that it is 
 | Part | What it is |
 |---|---|
 | **Title** | What the review is about, as it appears in your inbox. |
-| **Plugin** | The kind of review: [List](/docs/plugins/list/), [Code review](/docs/plugins/review/), and so on. It decides the view and the shape of the decision. |
+| **Plugin** | The kind of review: [List](/docs/plugins/list/), [Code review](/docs/plugins/code-review/), and so on. It decides the view and the shape of the decision. |
 | **Payload** | The work to decide on: the items, the diff, the drafts. Checked against the plugin's schema when the review is created. |
 | **Attachments** | Files sent with the payload, for a plugin that accepts them, such as a 3D model, a PDF or photos. They are stored with the review and deleted with it. The app lists them as *files*. |
 | **Origin** | Where it comes from: a repository, a workflow, a run, a branch or pull request, a link. The inbox groups and filters by it. |

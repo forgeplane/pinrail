@@ -100,6 +100,14 @@ view.confirmation(null);  // nothing left to confirm
 
 The bar is a warning unless you pass `tone: "info"` or `tone: "danger"`. Its actions are buttons of your own, such as one that takes the person back to deciding.
 
+A view that builds its own layout places the same bar itself, below the part that scrolls:
+
+```js
+const bar = Pinrail.confirmationBar();
+document.getElementById("app").append(bar.element);
+bar.confirmation({ text: "2 left undecided. Hand over again to confirm." });
+```
+
 | Class | What it is |
 |---|---|
 | `.pinrail-layout` | The whole view: the header, then the scrolling body. |

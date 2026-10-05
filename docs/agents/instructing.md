@@ -135,7 +135,7 @@ pinrail show <id>    # where the review stands, and its decision
 When you ask for changes, the agent makes them and submits a new round that names the one it answers:
 
 ```sh
-pinrail submit review --title "Dedup tickets on save — round 2" --revises <id> --data review.json --wait
+pinrail submit code-review --title "Dedup tickets on save — round 2" --revises <id> --data review.json --wait
 ```
 
 The app shows the new round with your previous verdicts beside each item, so you only review what changed. Every round is kept. `pinrail rounds <id>` prints them all, oldest first.
@@ -145,7 +145,7 @@ The app shows the new round with your previous verdicts beside each item, so you
 Questions that belong together go in one review: the `feedback` plugin takes several groups of questions answered in one pass, and `list` groups items under headings. When the questions are independent, or need different plugins, the agent submits each one without `--wait`, then waits on them:
 
 ```sh
-a=$(pinrail submit review --title "Dedup tickets on save" --data review.json --json | jq -r .id)
+a=$(pinrail submit code-review --title "Dedup tickets on save" --data review.json --json | jq -r .id)
 b=$(pinrail submit email --title "Renewal emails" --data drafts.json --json | jq -r .id)
 
 pinrail wait "$a"   # returns when this one is decided

@@ -20,7 +20,7 @@ The list plugin shows a set of items, grouped under headings, and asks for a ver
 - **Findings.** Security or dependency audit results, lint findings, flaky tests to quarantine.
 - **Batch changes.** Records to update, files to delete, branches to prune, invitations to send.
 
-If the items need a richer view, such as a diff for each, look at [Code review](/docs/plugins/review/) or [build a plugin](/docs/building/writing/).
+If the items need a richer view, such as a diff for each, look at [Code review](/docs/plugins/code-review/) or [build a plugin](/docs/building/writing/).
 
 ## What you see
 

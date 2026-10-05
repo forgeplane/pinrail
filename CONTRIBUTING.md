@@ -32,7 +32,7 @@ To work on one's view in the running app, link its folder from a checkout of
 that repository:
 
 ```sh
-pinrail plugins install ../pinrail-plugins/review --link
+pinrail plugins install plugins/code-review --link
 ```
 
 The link takes the place of the installed plugin of that name, including

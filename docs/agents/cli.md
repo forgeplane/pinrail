@@ -6,7 +6,7 @@ description: "The pinrail command, in use: submitting a review, waiting for the 
 `pinrail` is the command an agent uses to ask a person before it acts. It sends a review to the Pinrail app on your machine, waits while you decide, and prints the decision: as markdown for an agent to read, or as JSON for a script to branch on.
 
 ```sh
-pinrail submit review --title "Dedup tickets on save — round 1" \
+pinrail submit code-review --title "Dedup tickets on save — round 1" \
   --origin repo=acme/api,workflow=review,ref=42 \
   --data proposals.json --wait
 ```
@@ -47,7 +47,7 @@ Two steps tell an agent everything it needs to ask through Pinrail: first which 
 
 ```sh
 pinrail plugins                       # every plugin, a line each
-pinrail plugins describe review       # one plugin, in full
+pinrail plugins describe code-review       # one plugin, in full
 ```
 
 `pinrail plugins` lists each plugin in a line with what it is, **when to use it**, in the plugin author's words, and the files it takes, beside its version, where it comes from and whether it works.
@@ -127,7 +127,7 @@ The review arrives like any other; decide it and the command prints your decisio
 ### Checking a payload first
 
 ```sh
-pinrail submit review --title "Dedup tickets on save" --data review.json --dry-run
+pinrail submit code-review --title "Dedup tickets on save" --data review.json --dry-run
 ```
 
 A dry run checks the title, the origin and the payload against the plugin's schema, exactly as a submission would, and nothing reaches the inbox. When something is wrong it exits 2 and prints each violation with a JSON pointer to it, such as `/payload/proposals/0/line`, so the agent can fix the payload before a person sees it.
