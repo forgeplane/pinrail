@@ -292,7 +292,8 @@ test("the button to comment on a selection sits at the end of the selection", as
       return { x: last.right, y: last.bottom };
     });
   const pick = await f.locator("#pick").evaluate((el) => el.getBoundingClientRect().toJSON());
-  expect(Math.abs(pick.left - end.x), JSON.stringify({ pick, end })).toBeLessThan(40);
+  // centred on where the selection ends, whatever width the font gives it
+  expect(Math.abs(pick.left + pick.width / 2 - end.x), JSON.stringify({ pick, end })).toBeLessThan(4);
   expect(pick.top - end.y, JSON.stringify({ pick, end })).toBeGreaterThanOrEqual(0);
   expect(pick.top - end.y).toBeLessThan(20);
 });
