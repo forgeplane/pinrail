@@ -1,7 +1,7 @@
 {
-  "title": "Sentry triage \u2014 5 proposed actions",
+  "title": "Sentry triage — 5 proposed actions",
   "payload": {
-    "intro": "Sentry triage for **acme-api** and **acme-worker**, last 7 days. Accept an action to have the agent apply it; reject with a reason to teach it.",
+    "summary": "Sentry triage for **acme-api** and **acme-worker**, last 7 days. Accept an action to have the agent apply it; reject with a reason to teach it.",
     "groups": [
       {
         "title": "acme-api",
@@ -9,7 +9,7 @@
           {
             "id": 101,
             "severity": "blocker",
-            "title": "track: Ecto.StaleEntryError in Tickets.close/1 (312\u00d7)",
+            "title": "track: Ecto.StaleEntryError in Tickets.close/1 (312×)",
             "body": "Two workers close the same ticket; the second update hits a stale row.",
             "meta": {
               "issue": "ACME-API-9F2",

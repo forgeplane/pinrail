@@ -48,7 +48,7 @@ fn violations(body: &Value) -> Vec<(String, String)> {
 
 fn list_payload() -> Value {
     json!({
-        "intro": "Two proposals from **round 1**.",
+        "summary": "Two proposals from **round 1**.",
         "groups": [{
             "title": "lib/acme/tickets.ex",
             "items": [
@@ -187,10 +187,10 @@ async fn submit_returns_every_field_of_the_envelope() {
 async fn payload_violations_keep_their_recorded_wording() {
     let app = app();
     for (name, payload) in [
-        ("create-payload-invalid", json!({"intro": 1})),
+        ("create-payload-invalid", json!({"summary": 1})),
         (
             "create-additional-property",
-            json!({"groups": [], "extra": 1, "intro": "x"}),
+            json!({"groups": [], "extra": 1, "summary": "x"}),
         ),
         (
             "create-nested-invalid",

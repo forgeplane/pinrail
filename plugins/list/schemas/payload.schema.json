@@ -7,9 +7,22 @@
   ],
   "additionalProperties": false,
   "properties": {
-    "intro": {
+    "summary": {
       "type": "string",
-      "description": "markdown shown above the list"
+      "description": "markdown shown above the list, in a box the person can fold away"
+    },
+    "severities": {
+      "type": "object",
+      "description": "the tone each severity this payload uses is shown in, by name, over the built-in blocker, major, minor and nit; a severity named nowhere is neutral",
+      "additionalProperties": {
+        "enum": [
+          "danger",
+          "warning",
+          "info",
+          "success",
+          "neutral"
+        ]
+      }
     },
     "groups": {
       "type": "array",
@@ -49,7 +62,15 @@
                   "description": "markdown"
                 },
                 "meta": {
-                  "type": "object"
+                  "type": "object",
+                  "description": "shown as key: value chips",
+                  "additionalProperties": {
+                    "type": [
+                      "string",
+                      "number",
+                      "boolean"
+                    ]
+                  }
                 }
               }
             }

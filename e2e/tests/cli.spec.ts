@@ -88,12 +88,12 @@ test("wait times out with exit 4 and the review stays pending", async () => {
 });
 
 test("a refused request exits 2 with the violations on stderr", async () => {
-  const r = pinrail(["submit", "list", "--title", "bad", "--data", tmpFile("p.json", '{"intro": 1}')]);
+  const r = pinrail(["submit", "list", "--title", "bad", "--data", tmpFile("p.json", '{"summary": 1}')]);
   expect(r.code).toBe(2);
   expect(r.stdout).toBe("");
   const body = JSON.parse(r.stderr.replace(/^pinrail: /, ""));
   expect(body.error).toBe("invalid");
-  expect(body.violations.map((v: any) => v.path)).toEqual(["/payload", "/payload/intro"]);
+  expect(body.violations.map((v: any) => v.path)).toEqual(["/payload", "/payload/summary"]);
 
   const bad = pinrail(["decide", "r_nope", "--data", tmpFile("d.json", "{}")]);
   expect(bad.code).toBe(2);

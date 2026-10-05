@@ -10,8 +10,8 @@ const issues = () => fixture(path.join(dir, "fixtures", "issues.json"));
 test("renders groups, items, markdown and meta chips", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: triage() });
   const f = plugin.frame;
-  await expect(f.locator(".intro")).toContainText("Sentry triage for acme-api");
-  await expect(f.locator(".intro strong")).toHaveText(["acme-api", "acme-worker"]);
+  await expect(f.locator(".summary-box")).toContainText("Sentry triage for acme-api");
+  await expect(f.locator(".summary-box strong")).toHaveText(["acme-api", "acme-worker"]);
   await expect(f.locator("h2.group")).toHaveText(["acme-api2", "acme-worker2"]);
   await expect(f.locator('[data-id="101"] .pinrail-tone')).toHaveText("blocker");
   await expect(f.locator('[data-id="101"] .pinrail-chip')).toHaveText(["issue: ACME-API-9F2", "count: 312"]);
@@ -25,7 +25,7 @@ test("accept, reject with a note, accept the rest; the decision is exactly that"
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
   await f.locator('[data-id="102"] button', { hasText: "Reject" }).click();
   await f.getByLabel("note for item 102").fill("deploys are fine, fix the rollout instead");
-  await f.getByRole("button", { name: "accept all undecided" }).click();
+  await f.getByRole("button", { name: "Accept all undecided" }).click();
   await expect(f.locator(".pinrail-meta .count")).toHaveText(["3accepted", "1rejected", "0undecided"]);
   await plugin.collect();
   expect(await plugin.nextSubmit()).toEqual({
@@ -44,8 +44,8 @@ test("undecided items need a confirmation and are reported as undecided", async 
   const f = plugin.frame;
   await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
   await plugin.collect();
-  await expect(f.locator(".footer")).toContainText("3 left undecided");
-  await expect.poll(() => plugin.lastStatus()).toBe("Hand over anyway");
+  await expect(f.locator(".pinrail-confirmation")).toContainText("3 left undecided");
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over with 3 undecided");
   expect((await plugin.messages()).filter((m) => m.type === "submit")).toHaveLength(0);
 
   await plugin.collect();
@@ -80,11 +80,13 @@ test("the header and the group heading stay while the body scrolls under them", 
 test("keeping deciding takes the warning back", async ({ page }) => {
   const plugin = await mountPlugin(page, dir, { review: triage() });
   await plugin.collect();
-  await expect(plugin.frame.locator(".footer")).toContainText("4 left undecided");
-  await plugin.frame.getByRole("button", { name: "keep deciding" }).click();
+  await expect(plugin.frame.locator(".pinrail-confirmation")).toContainText("4 left undecided");
+  await expect.poll(() => plugin.lastStatus()).toBe("Hand over with 4 undecided");
+  await plugin.frame.getByRole("button", { name: "Keep deciding" }).click();
+  await expect(plugin.frame.locator(".pinrail-confirmation")).toBeHidden();
   await expect.poll(() => plugin.lastStatus()).toBe("Hand over");
 
-  await plugin.frame.getByRole("button", { name: "accept all undecided" }).click();
+  await plugin.frame.getByRole("button", { name: "Accept all undecided" }).click();
   await plugin.collect();
   expect((await plugin.nextSubmit()).undecided).toEqual([]);
 });
@@ -119,7 +121,8 @@ test("violations show in the frame; submitted flips to read-only with verdicts",
   await expect(f.locator(".done")).toContainText("Decided by alice: 0 accepted, 1 rejected, 3 undecided.");
   await expect(f.locator('[data-id="101"] .verdict')).toHaveText("reject");
   await expect(f.locator('[data-id="101"] .note-ro')).toContainText("nope");
-  await expect(f.locator("button")).toHaveCount(0);
+  // nothing to decide is left, though the sidebar still goes to each item
+  await expect(f.locator(".pinrail-content button")).toHaveCount(0);
 });
 
 test("a superseding review shows the previous round's verdicts; a withdrawn one reads as closed", async ({ page }) => {
@@ -144,7 +147,7 @@ test("an item's body is markdown, whatever the agent wrote in it", async ({ page
   await expect(f.locator('[data-id="1"] .pinrail-item-body h3').first()).toHaveText("Where");
   await expect(f.locator('[data-id="1"] .pinrail-item-body table td').first()).toContainText("lib/checkout/refund.ex");
   await expect(f.locator('[data-id="1"] .pinrail-item-body pre')).toContainText("Checkout.Refund.split");
-  await expect(f.locator(".intro blockquote")).toContainText("Nothing is filed until you hand over.");
+  await expect(f.locator(".summary-box blockquote")).toContainText("Nothing is filed until you hand over.");
   // a link keeps its text and goes nowhere the frame can follow
   await expect(f.locator('[data-id="2"] .pinrail-item-body a')).toHaveAttribute("rel", "noreferrer");
 });
@@ -159,4 +162,64 @@ test("a verdict pressed from the keyboard keeps the focus on its button", async 
   await f.locator("body").press("Enter");
   await expect(f.locator(`button[data-act="accept"][data-id="${id}"]`)).toHaveAttribute("aria-pressed", "true");
   await expect(f.locator(`button[data-act="accept"][data-id="${id}"]`), "focus fell off the button").toBeFocused();
+});
+
+test("a payload names the tone of its own severities, over the built-in ones", async ({ page }) => {
+  const review = triage();
+  review.payload.severities = { blocker: "info", critical: "danger" };
+  review.payload.groups[0].items[0].severity = "blocker";
+  review.payload.groups[0].items[1].severity = "critical";
+  review.payload.groups[1].items[0].severity = "unheard-of";
+  const plugin = await mountPlugin(page, dir, { review });
+  const f = plugin.frame;
+  await expect(f.locator('[data-id="101"] .pinrail-tone')).toHaveClass(/pinrail-tone-info/);
+  await expect(f.locator('[data-id="102"] .pinrail-tone')).toHaveClass(/pinrail-tone-danger/);
+  await expect(f.locator('[data-id="104"] .pinrail-tone')).toHaveClass(/pinrail-tone-neutral/);
+});
+
+test("the summary folds away and stays folded while the person decides", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: triage() });
+  const f = plugin.frame;
+  const body = f.locator(".summary-box .summary-body");
+  await expect(body).toBeVisible();
+  await f.locator(".summary-box summary").click();
+  await expect(body).toBeHidden();
+  await f.locator('[data-id="101"] button', { hasText: "Accept" }).click();
+  await expect(f.locator('.pinrail-item[data-id="101"]')).toHaveClass(/accepted/);
+  await expect(body).toBeHidden();
+});
+
+test("the sidebar lists each group's items, marks their verdicts, and goes to one", async ({ page }) => {
+  const plugin = await mountPlugin(page, dir, { review: triage() });
+  const f = plugin.frame;
+  const rail = f.locator("nav.rail");
+  await expect(rail.locator(".tree-group .name")).toHaveText(["acme-api", "acme-worker"]);
+  await expect(rail.locator(".tree-item")).toHaveCount(4);
+  await expect(rail.locator('[data-jump="101"] .dot')).toHaveClass(/tone-danger/);
+
+  await f.locator('.pinrail-item[data-id="101"] button', { hasText: "Accept" }).click();
+  await f.locator('.pinrail-item[data-id="102"] button', { hasText: "Reject" }).click();
+  await expect(rail.locator('[data-jump="101"]')).toHaveClass(/accepted/);
+  await expect(rail.locator('[data-jump="102"]')).toHaveClass(/rejected/);
+  await expect(rail.locator('[data-jump="102"] .t')).toHaveCSS("text-decoration-line", "line-through");
+  // accepted fills the circle in its severity's colour; rejected leaves it empty
+  const dot = (id: number) =>
+    rail.locator(`[data-jump="${id}"] .dot`).evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { fill: style.backgroundColor, ring: style.borderTopColor };
+    });
+  const accepted = await dot(101);
+  expect(accepted.fill).toBe(accepted.ring);
+  expect((await dot(102)).fill).toBe("rgba(0, 0, 0, 0)");
+
+  // a group folds away in the sidebar, and the sidebar itself hides
+  await rail.locator('[data-fold="0"]').click();
+  await expect(rail.locator(".tree-item")).toHaveCount(2);
+  await rail.locator('[data-fold="0"]').click();
+  await rail.locator('[data-jump="105"]').click();
+  await expect(f.locator('.pinrail-item[data-id="105"]')).toBeInViewport();
+  await f.getByRole("button", { name: "Hide the items" }).click();
+  await expect(rail).toBeHidden();
+  await f.getByRole("button", { name: "Show the items" }).click();
+  await expect(rail).toBeVisible();
 });

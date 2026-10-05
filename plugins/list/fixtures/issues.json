@@ -1,7 +1,7 @@
 {
   "title": "Open these in the tracker? — 4 suggestions",
   "payload": {
-    "intro": "From the **audit of `acme/checkout`** (commit `4f1a9c2`). Each item below would be filed in the tracker as written. Reject with a reason and the agent files none of it.\n\n> Nothing is filed until you hand over.",
+    "summary": "From the **audit of `acme/checkout`** (commit `4f1a9c2`). Each item below would be filed in the tracker as written. Reject with a reason and the agent files none of it.\n\n> Nothing is filed until you hand over.",
     "groups": [
       {
         "title": "Correctness",
@@ -11,7 +11,10 @@
             "severity": "blocker",
             "title": "Refund rounds the wrong way on split payments",
             "body": "`Checkout.Refund.split/2` divides with `Float.round/2` before it allocates the remainder, so a refund of a 3-way split is a cent short.\n\n### Where\n\n| file | line | note |\n| --- | ---: | --- |\n| `lib/checkout/refund.ex` | 88 | rounds each share |\n| `lib/checkout/refund.ex` | 96 | sums the rounded shares |\n\n### Reproducing it\n\n```elixir\niex> Checkout.Refund.split(Money.new(1000), 3)\n[%Money{amount: 333}, %Money{amount: 333}, %Money{amount: 333}]\n# 999, not 1000\n```\n\nThe fix is to allocate the remainder to the first shares, as `Money.allocate/2` already does.",
-            "meta": { "area": "payments", "found_by": "tests" }
+            "meta": {
+              "area": "payments",
+              "found_by": "tests"
+            }
           },
           {
             "id": 2,
@@ -29,7 +32,9 @@
             "severity": "minor",
             "title": "Two modules parse the same CSV shape",
             "body": "`Checkout.Import.Legacy` and `Checkout.Import.V2` both carry a parser for the same export, and they disagree about empty cells:\n\n- **Legacy** reads `\"\"` as `nil`\n- **V2** reads `\"\"` as `\"\"`\n  - which makes `Enum.reject(&is_nil/1)` a no-op downstream\n\nOne parser, one answer. Nothing calls Legacy since the March migration.",
-            "meta": { "area": "import" }
+            "meta": {
+              "area": "import"
+            }
           },
           {
             "id": 4,

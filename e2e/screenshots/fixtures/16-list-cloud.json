@@ -8,7 +8,7 @@
   "requested_by": "cost-agent",
   "age": "5h",
   "payload": {
-    "intro": "Resources with no traffic for 30 days. Deleting all of them saves about **$1,840 a month**.",
+    "summary": "Resources with no traffic for 30 days. Deleting all of them saves about **$1,840 a month**.",
     "groups": [
       {
         "title": "Storage",

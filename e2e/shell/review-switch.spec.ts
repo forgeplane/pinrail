@@ -27,7 +27,7 @@ test("switching to a review of another plugin loads that plugin's view, and only
     plugin: "list",
     title: "Switch: a list",
     payload: {
-      intro: "Two proposals from the list plugin.",
+      summary: "Two proposals from the list plugin.",
       groups: [
         {
           title: "lib/acme/tickets.ex",
@@ -78,7 +78,7 @@ test("a review clicked past does not come back when its fetch lands late", async
     plugin: "list",
     title: "Quick: second",
     payload: {
-      intro: "The second review, a list.",
+      summary: "The second review, a list.",
       groups: [{ title: "a.ex", items: [{ id: 1, severity: "minor", title: "one" }] }],
     },
   });
@@ -115,8 +115,8 @@ test("Copy as markdown copies the review on screen, after moving from another", 
   // kept the id of the first would quietly copy the wrong review into a
   // merge request or a thread.
   await clearInbox(page.request);
-  const payload = (intro: string) => ({
-    intro,
+  const payload = (summary: string) => ({
+    summary,
     groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
   });
   const first = await createReview(page.request, {
@@ -144,8 +144,8 @@ test("Copy as markdown copies the review on screen, after moving from another", 
 
 test("discarding a review returns to the inbox, where the others wait", async ({ page }) => {
   await clearInbox(page.request);
-  const payload = (intro: string) => ({
-    intro,
+  const payload = (summary: string) => ({
+    summary,
     groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
   });
   const first = await createReview(page.request, {
@@ -180,7 +180,7 @@ test("a submit the app did not ask for decides nothing", async ({ page }) => {
     plugin: "list",
     title: "Unasked: one review",
     payload: {
-      intro: "Nobody asked.",
+      summary: "Nobody asked.",
       groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
     },
   });
@@ -209,7 +209,7 @@ test("a view that answers one request twice decides the review once", async ({ p
     plugin: "list",
     title: "Twice: one review",
     payload: {
-      intro: "Hand over twice.",
+      summary: "Hand over twice.",
       groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
     },
   });
@@ -245,7 +245,7 @@ test("an error that is not JSON still says what the server answered", async ({ p
     plugin: "list",
     title: "Not JSON: one review",
     payload: {
-      intro: "Never shown.",
+      summary: "Never shown.",
       groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
     },
   });

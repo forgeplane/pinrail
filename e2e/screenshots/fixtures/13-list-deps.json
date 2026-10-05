@@ -8,7 +8,7 @@
   "requested_by": "renovate-agent",
   "age": "12m",
   "payload": {
-    "intro": "Nine outdated packages in **web-app**. I ran the test suite against each upgrade on its own branch.",
+    "summary": "Nine outdated packages in **web-app**. I ran the test suite against each upgrade on its own branch.",
     "groups": [
       {
         "title": "Safe: tests pass, no API changes",

@@ -11,7 +11,7 @@ export const core = `http://127.0.0.1:${corePort}`;
 
 /** A list review with one proposal, for when the content does not matter. */
 export const onePayload = {
-  intro: "One proposal.",
+  summary: "One proposal.",
   groups: [{ title: "lib/acme/tickets.ex", items: [{ id: 1, severity: "minor", title: "moduledoc typo" }] }],
 };
 

@@ -8,7 +8,7 @@ import { clearInbox, createReview, decide, linkPlugin } from "./helpers";
 // verdicts by action.
 
 const payload = {
-  intro: "Three proposals.",
+  summary: "Three proposals.",
   groups: [
     {
       title: "lib/acme/tickets.ex",

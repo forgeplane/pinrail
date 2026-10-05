@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext } from "@playwright/test";
 import { clearInbox, core, createReview, decide } from "./helpers";
 
 const payload = {
-  intro: "Two proposals.",
+  summary: "Two proposals.",
   groups: [
     {
       title: "lib/acme/tickets.ex",

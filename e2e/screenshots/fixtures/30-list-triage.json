@@ -9,7 +9,7 @@
   "age": "2d",
   "decided": "2d",
   "payload": {
-    "intro": "Five issues from the last 24 hours.",
+    "summary": "Five issues from the last 24 hours.",
     "groups": [
       {
         "title": "Mute",

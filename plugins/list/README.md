@@ -14,7 +14,7 @@ verdicts.
 
 ```json
 {
-  "intro": "markdown shown above the list",
+  "summary": "markdown shown above the list",
   "groups": [
     {
       "title": "lib/acme/tickets.ex",
@@ -27,9 +27,19 @@ verdicts.
 }
 ```
 
-`id` is the workflow's own integer and is never renumbered. `severity` is
-free text; `blocker`, `major`, `minor` and `nit` get colours. `meta` is shown
-as key: value chips.
+`id` is the workflow's own integer and is never renumbered. `summary`,
+optional, is Markdown shown above the list in a box the person can fold
+away. `severity` is free text: `blocker`, `major`, `minor` and `nit` have
+colours of their own, and `severities` gives others, or changes those, by
+naming the tone each one is shown in:
+
+```json
+"severities": { "critical": "danger", "high": "warning", "low": "info", "fixed": "success" }
+```
+
+The tones are `danger`, `warning`, `info`, `success` and `neutral`. A
+severity that neither names is neutral. `body` is Markdown. `meta` is shown
+as `key: value` chips, and its values are strings, numbers or booleans.
 
 ## Decision
 

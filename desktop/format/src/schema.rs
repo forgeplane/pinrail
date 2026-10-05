@@ -218,14 +218,14 @@ mod tests {
     fn violations_keep_their_wording_and_order() {
         let s = payload_schema();
         assert_eq!(
-            s.validate(&json!({ "intro": 1 })),
+            s.validate(&json!({ "summary": 1 })),
             vec![
                 Violation::new("", "property 'groups' is required"),
-                Violation::new("/intro", "value is not of type string"),
+                Violation::new("/summary", "value is not of type string"),
             ]
         );
         assert_eq!(
-            s.validate(&json!({ "groups": [], "extra": 1, "intro": "x" })),
+            s.validate(&json!({ "groups": [], "extra": 1, "summary": "x" })),
             vec![
                 Violation::new(
                     "",

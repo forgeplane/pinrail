@@ -1,0 +1,52 @@
+{
+  "title": "Release blockers for 2.4 — Markdown in every part",
+  "payload": {
+    "summary": "Three changes before **2.4** ships. Each one says what goes wrong and what the agent will do.\n\nAccept the ones to apply; reject with a reason to skip one.",
+    "severities": {
+      "critical": "danger"
+    },
+    "groups": [
+      {
+        "title": "payments-api",
+        "items": [
+          {
+            "id": 201,
+            "severity": "blocker",
+            "title": "Retry card captures once on a gateway timeout",
+            "body": "A timeout from the gateway leaves the capture **unknown**: the money may or may not have moved.\n\nThe agent will:\n\n1. look the capture up by its idempotency key;\n2. retry only when the gateway has no record of it;\n3. log both outcomes with the `capture_id`.\n\n```elixir\ndef capture(charge) do\n  case Gateway.capture(charge, timeout: 5_000) do\n    {:error, :timeout} -> reconcile(charge)\n    other -> other\n  end\nend\n```\n\nSee the [gateway's guide](https://example.com/gateway/timeouts) for how keys work.",
+            "meta": {
+              "file": "lib/payments/capture.ex",
+              "line": 88,
+              "tests": true
+            }
+          },
+          {
+            "id": 202,
+            "severity": "critical",
+            "title": "Add the refunds index on ledger_entries",
+            "body": "The refunds report scans the whole table, which takes **40 s** at month end.\n\n```sql\nCREATE INDEX CONCURRENTLY ledger_entries_refunds_idx\n  ON ledger_entries (account_id, inserted_at)\n  WHERE kind = 'refund';\n```\n\n> `CONCURRENTLY` keeps the table writable, but the migration must run outside a transaction.",
+            "meta": {
+              "table": "ledger_entries",
+              "rows": "18.2M"
+            }
+          }
+        ]
+      },
+      {
+        "title": "web-app",
+        "items": [
+          {
+            "id": 203,
+            "severity": "minor",
+            "title": "Show the refund's status on the order page",
+            "body": "Support asks customers for screenshots because the page does not say whether a refund went through.\n\n- *Pending* in grey\n- *Refunded* in green, with the date\n- *Failed* in red, with the gateway's reason\n\nRun the page's tests with:\n\n```sh\nnpm test -- order-page\n```",
+            "meta": {
+              "component": "OrderStatus",
+              "team": "checkout"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

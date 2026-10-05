@@ -8,7 +8,7 @@
   "requested_by": "claude",
   "age": "3h",
   "payload": {
-    "intro": "Flags that have been at 100% for more than 60 days.",
+    "summary": "Flags that have been at 100% for more than 60 days.",
     "groups": [
       {
         "title": "At 100% everywhere",

@@ -27,7 +27,7 @@ const listOf = (title: string, count: number) => ({
   plugin: "list",
   title,
   payload: {
-    intro: `${count} proposals.`,
+    summary: `${count} proposals.`,
     groups: [
       {
         title: "lib/acme/tickets.ex",
@@ -67,7 +67,8 @@ test("a tall view scrolls inside its frame, and its header stays in place", asyn
 
   const header = frame.locator(".pinrail-header");
   const before = (await header.boundingBox())!;
-  const last = frame.getByText("item 60", { exact: true });
+  // the item in the list's body, not its row in the sidebar
+  const last = frame.locator(".pinrail-content").getByText("item 60", { exact: true });
   await expect(last).not.toBeInViewport();
   await last.scrollIntoViewIfNeeded();
   await expect(last).toBeInViewport();

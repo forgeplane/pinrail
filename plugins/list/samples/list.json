@@ -1,7 +1,7 @@
 {
   "title": "Sentry triage — 5 proposed actions",
   "payload": {
-    "intro": "Sentry triage for **acme-api** and **acme-worker**, last 7 days. Accept an action to have the agent apply it; reject with a reason to teach it.",
+    "summary": "Sentry triage for **acme-api** and **acme-worker**, last 7 days. Accept an action to have the agent apply it; reject with a reason to teach it.",
     "groups": [
       {
         "title": "acme-api",

@@ -22,7 +22,7 @@ test("a review's preview shows its view and checks its hand-over, deciding nothi
 
   // the list asks again while items are undecided, through the button's label
   await page.locator("#handover").click();
-  await expect(page.locator("#handover")).toHaveText("Check: Hand over anyway");
+  await expect(page.locator("#handover")).toHaveText("Check: Hand over with 4 undecided");
   await page.locator("#handover").click();
   await expect(page.locator("#result p")).toHaveText(/^The decision passes\./);
   const shown = JSON.parse(await page.locator("#result pre").innerText());
