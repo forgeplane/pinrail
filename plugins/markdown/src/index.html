@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Markdown review</title>
+<link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
+<script src="/sdk/v1/pinrail-plugin.js"></script>
+<style>
+  html, body { height: 100%; }
+  body { margin: 0; overflow: hidden; }
+  .shell { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+  /* the outline's toggle, an icon at the start of the header */
+  .outline-toggle { display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: -6px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--pinrail-dim); cursor: pointer; }
+  .outline-toggle:hover { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
+
+  /* the bar: what is reviewed, the mode, and the tally */
+  .top { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 10px 16px; border-bottom: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); }
+  .top h1 { margin: 0; font: 600 14px var(--pinrail-mono); }
+  .modes { display: inline-flex; border: 1px solid var(--pinrail-border); border-radius: 7px; overflow: hidden; }
+  .modes button { border: 0; background: none; color: var(--pinrail-dim); font: 500 12px var(--pinrail-sans); padding: 4px 10px; cursor: pointer; }
+  .modes button + button { border-left: 1px solid var(--pinrail-border); }
+  .modes button[aria-pressed="true"] { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
+  .tally { margin-left: auto; font-size: 12px; color: var(--pinrail-dim); }
+  .tally b { color: var(--pinrail-text); font-variant-numeric: tabular-nums; }
+  .context { flex-basis: 100%; font-size: 12.5px; color: var(--pinrail-dim); }
+  .context p { margin: 2px 0; }
+
+  .work { display: grid; grid-template-columns: 230px minmax(0, 1fr) 340px; min-height: 0; }
+  .work.no-outline { grid-template-columns: minmax(0, 1fr) 340px; }
+  .work.no-outline .outline { display: none; }
+
+  /* the outline: every heading, with its comments */
+  .outline { overflow: auto; padding: 12px 8px 24px; border-right: 1px solid var(--pinrail-border); font-size: 12.5px; }
+  .outline h2 { margin: 0 8px 8px; font: 600 10px var(--pinrail-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--pinrail-faint); }
+  .outline a { display: flex; align-items: baseline; gap: 6px; padding: 3px 8px; border-radius: 6px; color: var(--pinrail-dim); text-decoration: none; cursor: pointer; }
+  .outline a:hover { background: var(--pinrail-bg-hover); color: var(--pinrail-text); }
+  .outline a.here { color: var(--pinrail-text); background: var(--pinrail-bg-raised); }
+  .outline a .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .outline a .count { font: 600 10.5px var(--pinrail-mono); color: var(--pinrail-accent); }
+
+  /* the document: rendered, raw, or both */
+  .docs { position: relative; display: grid; grid-template-columns: 1fr; min-height: 0; min-width: 0; }
+  .pane { position: relative; overflow: auto; min-width: 0; }
+  .pane[hidden] { display: none; }
+
+  .rendered { padding: 20px 36px 80px; line-height: 1.6; font-size: 14px; max-width: 920px; }
+  .rendered h1, .rendered h2, .rendered h3, .rendered h4 { position: relative; line-height: 1.3; margin: 1.6em 0 .6em; }
+  .rendered h1 { font-size: 22px; } .rendered h2 { font-size: 18px; } .rendered h3 { font-size: 15px; } .rendered h4 { font-size: 14px; }
+  .rendered table { border-collapse: collapse; margin: 12px 0; font-size: 13px; display: block; overflow-x: auto; }
+  .rendered th, .rendered td { border: 1px solid var(--pinrail-border); padding: 5px 9px; text-align: left; vertical-align: top; }
+  .rendered th { background: var(--pinrail-bg-raised); }
+  .rendered code { font: 12.5px var(--pinrail-mono); background: var(--pinrail-bg-raised); padding: 1px 4px; border-radius: 4px; }
+  .rendered pre { background: var(--pinrail-bg-raised); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+  .rendered pre code { background: none; padding: 0; }
+  .rendered blockquote { margin: 10px 0; padding: 2px 14px; border-left: 3px solid var(--pinrail-border-strong); color: var(--pinrail-dim); }
+  .rendered a { color: var(--pinrail-accent); }
+  .rendered [data-line-start] { scroll-margin-top: 16px; }
+
+  /* what is commented, and what was just picked */
+  /* what has comments: a bar in the margin, clear of the text */
+  .rendered { position: relative; }
+  .bars { position: absolute; inset: 0 auto 0 0; width: 0; pointer-events: none; }
+  .bars span { position: absolute; left: 20px; width: 3px; border-radius: 2px; background: color-mix(in srgb, var(--pinrail-accent) 75%, transparent); }
+  .rendered .targeted, .raw-line.targeted { background: color-mix(in oklab, var(--pinrail-accent) 10%, transparent); }
+  .rendered .flash, .raw-line.flash { animation: flash 1.2s ease-out; }
+  @keyframes flash { from { background: color-mix(in oklab, var(--pinrail-accent) 22%, transparent); } to { background: transparent; } }
+
+  /* commenting on a heading or a diagram: a button that shows on hover */
+  .target-btn { position: absolute; display: none; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--pinrail-border); border-radius: 12px; background: var(--pinrail-bg-panel); color: var(--pinrail-dim); font: 500 11px var(--pinrail-sans); cursor: pointer; -webkit-user-select: none; user-select: none; }
+  .target-btn:hover { color: var(--pinrail-text); border-color: var(--pinrail-border-strong); }
+  .rendered h1 .target-btn, .rendered h2 .target-btn, .rendered h3 .target-btn, .rendered h4 .target-btn, .rendered h5 .target-btn, .rendered h6 .target-btn { right: 0; top: 50%; transform: translateY(-50%); }
+  .rendered :is(h1, h2, h3, h4, h5, h6):hover .target-btn, .diagram:hover .target-btn { display: inline-flex; }
+  [data-readonly="true"] .target-btn { display: none !important; }
+
+  .diagram { position: relative; margin: 14px 0; padding: 14px; border: 1px solid var(--pinrail-border); border-radius: 10px; background: var(--pinrail-bg); overflow-x: auto; text-align: center; }
+  .diagram .target-btn { right: 8px; top: 8px; }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram-error { text-align: left; color: var(--pinrail-danger); white-space: pre-wrap; font: 12px var(--pinrail-mono); }
+
+  /* the raw source, a numbered line each */
+  .raw { padding: 12px 0 80px; font: 12.5px/1.55 var(--pinrail-mono); }
+  .raw-line { display: grid; grid-template-columns: 52px 1fr; }
+  .raw-line .ln { color: var(--pinrail-faint); text-align: right; padding-right: 12px; -webkit-user-select: none; user-select: none; }
+  .raw-line .src { white-space: pre-wrap; word-break: break-word; padding-right: 16px; }
+  .raw-line.commented { background: color-mix(in oklab, var(--pinrail-accent) 9%, transparent); }
+  .raw-line.commented .ln { color: var(--pinrail-accent); }
+
+  /* a selection: the button to comment on it */
+  .pick { position: absolute; z-index: 5; display: inline-flex; padding: 3px 10px; border: 0; border-radius: 12px; background: var(--pinrail-accent); color: var(--pinrail-bg); font: 600 11.5px var(--pinrail-sans); cursor: pointer; box-shadow: 0 4px 14px -6px rgba(0, 0, 0, .5); }
+  .pick[hidden] { display: none; }
+
+  /* the comments */
+  .side { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; border-left: 1px solid var(--pinrail-border); background: var(--pinrail-bg-panel); }
+  .side-head { padding: 12px 14px 8px; display: flex; align-items: center; gap: 8px; }
+  .side-head h2 { margin: 0; font: 600 10px var(--pinrail-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--pinrail-faint); flex: 1; }
+  .list { overflow: auto; padding: 0 12px 12px; display: grid; gap: 8px; align-content: start; }
+  .card { border: 1px solid var(--pinrail-border); border-radius: 9px; padding: 8px 10px; background: var(--pinrail-bg); cursor: pointer; }
+  .card:hover { border-color: var(--pinrail-border-strong); }
+  .where { display: flex; gap: 6px; align-items: baseline; font-size: 11px; color: var(--pinrail-dim); }
+  .where .kind { font: 600 10px var(--pinrail-mono); text-transform: uppercase; letter-spacing: .06em; color: var(--pinrail-accent); }
+  .where .lines { margin-left: auto; font: 10.5px var(--pinrail-mono); color: var(--pinrail-faint); white-space: nowrap; }
+  .where .section { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .quote { margin: 6px 0 0; padding-left: 8px; border-left: 2px solid var(--pinrail-border-strong); color: var(--pinrail-dim); font-size: 12px; max-height: 3.6em; overflow: hidden; }
+  .card .body { margin: 6px 0 0; font-size: 13px; white-space: pre-wrap; word-break: break-word; }
+  .card .actions { display: flex; gap: 10px; margin-top: 6px; }
+  .card .actions button { border: 0; background: none; padding: 0; color: var(--pinrail-dim); font: 500 11.5px var(--pinrail-sans); cursor: pointer; }
+  .card .actions button:hover { color: var(--pinrail-text); }
+  .pinrail-empty { color: var(--pinrail-faint); font-size: 12.5px; padding: 4px 2px; }
+  .previous { margin-top: 6px; border-top: 1px solid var(--pinrail-border); padding-top: 8px; }
+  .previous summary { cursor: pointer; font-size: 12px; color: var(--pinrail-dim); }
+
+  /* writing a comment: a dialog under what it is about, in the pane */
+  .dialog { position: absolute; z-index: 6; width: min(420px, calc(100% - 16px)); box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px; border: 1px solid var(--pinrail-border-strong); border-radius: 12px; background: var(--pinrail-bg-panel); box-shadow: 0 1px 0 color-mix(in srgb, var(--pinrail-accent) 50%, transparent) inset, 0 16px 40px -16px rgba(0, 0, 0, .55); font-size: 13px; line-height: 1.4; }
+  .dialog[hidden] { display: none; }
+  /* the kind of a comment: a change, or a question */
+  .kinds { display: inline-flex; justify-self: start; padding: 2px; border-radius: 8px; background: var(--pinrail-bg-hover); }
+  .kinds label { position: relative; display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 6px; color: var(--pinrail-dim); font-size: 12px; cursor: pointer; }
+  .kinds label.on { background: var(--pinrail-bg-raised); color: var(--pinrail-text); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+  /* the radio itself, invisible over its label, so a click on the label is on it */
+  .kinds input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .kinds label:has(input:focus-visible) { outline: 2px solid var(--pinrail-accent); }
+  .question-tag { padding: 0 6px; border-radius: 4px; background: var(--pinrail-accent-bg); color: var(--pinrail-accent); font: 600 10.5px var(--pinrail-sans); }
+  .card.is-question { border-left: 3px solid var(--pinrail-accent); }
+  .dialog .quote { margin: 0; max-height: none; font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .dialog textarea { width: 100%; box-sizing: border-box; min-height: 64px; padding: 8px 10px; resize: vertical; border: 1px solid var(--pinrail-border); border-radius: 8px; background: var(--pinrail-bg); color: var(--pinrail-text); font: 13px/1.45 var(--pinrail-sans); outline: none; transition: border-color .12s, box-shadow .12s; }
+  .dialog textarea:focus { border-color: var(--pinrail-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pinrail-accent) 22%, transparent); }
+  .dialog .foot { display: flex; align-items: center; gap: 6px; }
+  .dialog .foot .pinrail-btn { padding: 4px 12px; font-size: 12.5px; }
+  .dialog .hint { flex: 1; min-width: 0; font-size: 11px; color: var(--pinrail-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dialog kbd { font: 10.5px var(--pinrail-mono); padding: 0 4px; border: 1px solid var(--pinrail-border); border-bottom-width: 2px; border-radius: 4px; color: var(--pinrail-dim); background: var(--pinrail-bg); }
+
+  .verdict { padding: 10px 12px 12px; border-top: 1px solid var(--pinrail-border); display: grid; gap: 8px; }
+  .verdict:empty { display: none; }
+  .decided { font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <header class="top">
+    <button type="button" class="outline-toggle" id="outline-toggle" hidden></button>
+    <h1 id="path"></h1>
+    <div class="modes" role="group" aria-label="Show the document">
+      <button type="button" data-mode="rendered" aria-pressed="true">Rendered</button>
+      <button type="button" data-mode="raw" aria-pressed="false">Raw</button>
+    </div>
+    <span class="tally" id="tally"></span>
+    <div class="context" id="context" hidden></div>
+  </header>
+  <div class="work" id="work">
+    <nav class="outline" id="outline" aria-label="Outline"><h2>Outline</h2><div id="outline-items"></div></nav>
+    <div class="docs" id="docs">
+      <div class="pane" id="rendered-pane"><article class="rendered" id="rendered"></article></div>
+      <div class="pane" id="raw-pane" hidden><div class="raw" id="raw"></div></div>
+      <button type="button" class="pick" id="pick" hidden>Comment</button>
+      <div class="dialog" id="dialog" role="dialog" aria-label="Comment" hidden></div>
+    </div>
+    <aside class="side">
+      <div class="side-head"><h2>Comments</h2></div>
+      <div class="list" id="list"></div>
+      <div class="verdict" id="verdict"></div>
+    </aside>
+  </div>
+</div>
+<script type="module" src="./view.js"></script>
+</body>
+</html>

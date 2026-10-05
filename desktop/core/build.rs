@@ -26,7 +26,7 @@ const LAYOUT: &[&str] = &[
 ];
 
 /// The plugins the app's catalog offers, by their folder in `plugins/`.
-const CATALOG: &[&str] = &["list", "feedback", "code-review", "image"];
+const CATALOG: &[&str] = &["list", "feedback", "code-review", "image", "markdown"];
 
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());

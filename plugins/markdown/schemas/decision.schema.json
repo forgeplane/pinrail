@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Markdown review decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "verdict",
+    "comments"
+  ],
+  "properties": {
+    "verdict": {
+      "enum": [
+        "approve",
+        "request_changes",
+        "questions"
+      ],
+      "description": "approve: the person made no comments, and the document can stand as it is. request_changes: at least one comment is a change. Apply the changes, answer the questions, and send the next version with --revises. questions: every comment is a question. Answer them without changing the document, and send it again with --revises."
+    },
+    "comments": {
+      "type": "array",
+      "description": "Each comment, in the order of the document.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "target",
+          "body"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "kind": {
+            "enum": [
+              "change",
+              "question"
+            ],
+            "description": "change: something to change in the document. question: something for you to explain."
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "description": "What the person said."
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "start_line",
+              "end_line"
+            ],
+            "description": "What the comment is about, as lines of the payload's markdown.",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "section",
+                  "diagram",
+                  "text"
+                ],
+                "description": "section: a heading and everything under it. diagram: a mermaid block. text: a passage the person selected."
+              },
+              "start_line": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "The first line, counted from 1."
+              },
+              "end_line": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "The last line, inclusive."
+              },
+              "section": {
+                "type": "string",
+                "maxLength": 1000,
+                "description": "The headings the target sits under, outermost first, joined with ' › '."
+              },
+              "quote": {
+                "type": "string",
+                "maxLength": 2000,
+                "description": "For text: the passage selected, as the person saw it. For a diagram: its first line."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

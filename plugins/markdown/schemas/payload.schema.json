@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Markdown review",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "markdown": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000000,
+      "description": "The document, as its file holds it. Diagrams are ```mermaid fenced blocks. Raw HTML is shown as text. Give either this or file."
+    },
+    "file": {
+      "$ref": "#/$defs/attachment",
+      "description": "The document as a Markdown file sent with --attach, in place of markdown. Give either this or markdown."
+    },
+    "path": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Where the file lives, as you would name it to the person, such as docs/design.md."
+    },
+    "context": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "What you want the person to look at, or what changed since the last round. Shown above the document; Markdown."
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "markdown"
+      ]
+    },
+    {
+      "required": [
+        "file"
+      ]
+    }
+  ],
+  "$defs": {
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$attachment"
+      ],
+      "properties": {
+        "$attachment": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "description": "A file sent beside the payload with --attach, by its name."
+    }
+  }
+}

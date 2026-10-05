@@ -1,0 +1,57 @@
+{
+  "name": "markdown",
+  "version": "1.0.0",
+  "title": "Markdown review",
+  "description": "A Markdown document, rendered with its diagrams and as its raw source, with its outline. Comment on a section, a diagram or a selected passage, and approve it or ask for changes.",
+  "use_when": "You wrote or changed a Markdown document (a design document, a README, a spec, release notes) and need a person to read it and say what to change, section by section or on a passage, before you go on.",
+  "attachments": {
+    "accept": [
+      ".md",
+      ".markdown",
+      "text/markdown",
+      "text/plain"
+    ],
+    "max_size": 2000000,
+    "max_count": 1
+  },
+  "summary": {
+    "outcome": {
+      "counts": [
+        {
+          "items": "/comments",
+          "label": "comment",
+          "plural": "comments",
+          "tone": "info"
+        }
+      ],
+      "verdict": {
+        "at": "/verdict",
+        "values": {
+          "approve": {
+            "label": "approved",
+            "tone": "success"
+          },
+          "request_changes": {
+            "label": "changes requested",
+            "tone": "warning"
+          },
+          "questions": {
+            "label": "questions to answer",
+            "tone": "info"
+          }
+        }
+      }
+    }
+  },
+  "settings_schema": {
+    "type": "object",
+    "properties": {
+      "outline_open": {
+        "type": "boolean",
+        "title": "Outline open",
+        "description": "Start with the document's outline beside it",
+        "default": true
+      }
+    }
+  }
+}

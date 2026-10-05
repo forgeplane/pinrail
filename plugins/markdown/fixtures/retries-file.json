@@ -1,0 +1,15 @@
+{
+  "title": "Retry policy for webhook deliveries — as a file",
+  "payload": {
+    "path": "docs/retries.md",
+    "context": "First draft. Mostly the **Design** section needs a look.",
+    "file": {
+      "$attachment": "retries.md"
+    }
+  },
+  "attachments": {
+    "retries.md": {
+      "path": "retries/retries.md"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "pinrail-plugin-markdown",
+  "private": true,
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch"
+  },
+  "dependencies": {
+    "markdown-it": "^14",
+    "mermaid": "^11"
+  },
+  "devDependencies": {
+    "vite": "^7"
+  }
+}

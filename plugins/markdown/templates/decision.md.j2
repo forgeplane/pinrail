@@ -1,0 +1,12 @@
+{#- The decision as an agent reads it back: the verdict, then each comment
+    with what it is about and where. -#}
+{%- set name = review.payload.path if review.payload.path else "the document" -%}
+**{{ "Approved" if data.verdict == "approve" else "Questions to answer" if data.verdict == "questions" else "Changes requested" }}**: {{ name }}
+{%- if data.comments %}
+
+## Comments
+{% for c in data.comments %}
+{{ loop.index }}. {% if c.kind == "question" %}**Question** on a {% endif %}**{{ c.target.kind }}**{% if c.target.section %} in *{{ c.target.section }}*{% endif %}, lines {{ c.target.start_line }}–{{ c.target.end_line }}{% if c.target.quote %}: “{{ c.target.quote }}”{% endif %}
+   {{ c.body }}
+{%- endfor %}
+{% endif -%}
