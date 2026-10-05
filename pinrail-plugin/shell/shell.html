@@ -97,9 +97,14 @@
   #handover .keys { display: inline-flex; gap: 2px; margin-left: 2px; }
   #composer.hidden, .stage.json #composer { display: none; }
   body.selecting #composer [data-shell-part]:hover { outline: 2px solid #e5694f; outline-offset: 1px; cursor: crosshair; }
-  #payload { display: none; margin: 0; height: 100%; overflow: auto; padding: 16px 18px; font: 12.5px/1.6 var(--mono); color: var(--text); white-space: pre-wrap; word-break: break-word; }
+  /* the JSON in place of the view: the payload, or a schema, by its tab */
+  #json { display: none; flex-direction: column; height: 100%; min-height: 0; }
   .stage.json #frame { display: none; }
-  .stage.json #payload { display: block; }
+  .stage.json #json { display: flex; }
+  #json-tabs { display: flex; gap: 4px; padding: 10px 18px 0; border-bottom: 1px solid var(--border); }
+  #json-tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 4px 8px 6px; color: var(--dim); }
+  #json-tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+  #payload { flex: 1; min-height: 0; margin: 0; overflow: auto; padding: 16px 18px; font: 12.5px/1.6 var(--mono); color: var(--text); white-space: pre-wrap; word-break: break-word; }
   .json-key { color: var(--accent); }
   .json-string { color: var(--ok); }
   .json-number { color: #d4ac6a; }
@@ -116,14 +121,14 @@
   <label class="check"><input type="checkbox" id="readonly"> read-only</label>
   <button id="reinit" title="Send init again, with the last draft">Re-init</button>
   <span class="spacer"></span>
-  <button id="show-payload" title="Show the review's payload as JSON in place of the view">Payload</button>
+  <button id="show-payload" title="Show the payload and the schemas as JSON in place of the view">JSON</button>
   <button id="select" title="Pick a part of the view to comment on">Select<kbd>I</kbd></button>
   <button id="copy" title="Copy every comment as Markdown, to paste to an agent">Copy comments<span class="count" id="comment-count"></span></button>
   <span class="dot" id="watch" title="reloads the view when a file in the plugin changes"></span>
   <button id="theme" title="Switch theme">Theme</button>
 </div>
 <div class="main">
-  <div class="stage fill" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe><pre id="payload" aria-label="Payload"></pre>
+  <div class="stage fill" id="stage"><iframe id="frame" sandbox="allow-scripts" title="plugin"></iframe><div id="json"><div id="json-tabs" role="tablist" aria-label="JSON"><button type="button" role="tab" data-json="payload" aria-selected="true">Payload</button><button type="button" role="tab" data-json="payload-schema" aria-selected="false">Payload schema</button><button type="button" role="tab" data-json="decision-schema" aria-selected="false">Decision schema</button></div><pre id="payload" role="tabpanel" aria-label="JSON"></pre></div>
     <div id="composer">
       <textarea rows="1" aria-label="Note to the agent" placeholder="Add a note for the agent…" data-shell-part="note to the agent"></textarea>
       <div class="bar-row">
@@ -576,12 +581,31 @@ function jsonHtml(value) {
     },
   );
 }
-const drawPayload = () => { $("payload").innerHTML = jsonHtml(review ? review.payload : null); };
+// the JSON the tab names: the review's payload, or the schema the payload
+// or the decision is held to, read again each time so an edit shows
+let jsonTab = "payload";
+async function drawPayload() {
+  const tab = jsonTab;
+  let value = review ? review.payload : null;
+  if (tab !== "payload") {
+    const kind = tab === "payload-schema" ? "payload" : "decision";
+    const answer = await fetch("/dev/schemas/" + kind);
+    value = await answer.json();
+  }
+  if (tab === jsonTab) $("payload").innerHTML = jsonHtml(value);
+}
 $("show-payload").addEventListener("click", () => {
   const on = stage.classList.toggle("json");
   $("show-payload").classList.toggle("on", on);
-  $("show-payload").textContent = on ? "View" : "Payload";
+  $("show-payload").textContent = on ? "View" : "JSON";
   if (on) { setSelecting(false); drawPayload(); }
+});
+$("json-tabs").addEventListener("click", (e) => {
+  const tab = e.target.closest("[data-json]");
+  if (!tab) return;
+  jsonTab = tab.dataset.json;
+  for (const b of $("json-tabs").querySelectorAll("[data-json]")) b.setAttribute("aria-selected", String(b === tab));
+  drawPayload();
 });
 
 // files change, the view reloads; the draft comes back with the next init.

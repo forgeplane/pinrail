@@ -129,7 +129,7 @@ the changes, the agent clears them with a request to the shell:
 curl -X POST http://127.0.0.1:4790/dev/clear-comments
 ```
 
-**Payload** shows the review's payload as JSON in place of the view.
+**JSON** shows, in place of the view, the review's payload and the schemas the payload and the decision are held to, each on a tab of its own.
 
 ### test
 

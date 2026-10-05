@@ -127,6 +127,17 @@ test("the payload switch shows the review's payload as coloured JSON in place of
     expect(JSON.parse((await json.textContent()) ?? "")).toEqual(sample.payload);
     await expect(json.locator(".json-key").first()).toBeVisible();
 
+    // and the schemas the payload and the decision are held to
+    const schema = (kind: string) =>
+      JSON.parse(fs.readFileSync(path.join(dir, "schemas", `${kind}.schema.json`), "utf8"));
+    await page.getByRole("tab", { name: "Decision schema" }).click();
+    await expect(page.getByRole("tab", { name: "Decision schema" })).toHaveAttribute("aria-selected", "true");
+    await expect.poll(async () => JSON.parse((await json.textContent()) ?? "null")).toEqual(schema("decision"));
+    await page.getByRole("tab", { name: "Payload schema" }).click();
+    await expect.poll(async () => JSON.parse((await json.textContent()) ?? "null")).toEqual(schema("payload"));
+    await page.getByRole("tab", { name: "Payload", exact: true }).click();
+    await expect.poll(async () => JSON.parse((await json.textContent()) ?? "null")).toEqual(sample.payload);
+
     await page.locator("#show-payload").click();
     await expect(page.locator("#frame")).toBeVisible();
     await expect(json).toBeHidden();

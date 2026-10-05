@@ -226,6 +226,18 @@ export function serve(argv) {
         return send(res, 500, JSON.stringify({ error: String(e) }), { "content-type": "application/json" });
       }
     }
+    // the schemas the payload and the decision are held to
+    const schema = /^\/dev\/schemas\/(payload|decision)$/.exec(p);
+    if (schema) {
+      try {
+        const text = fs.readFileSync(path.join(pluginDir, "schemas", `${schema[1]}.schema.json`));
+        return send(res, 200, text, { "content-type": "application/json" });
+      } catch {
+        return send(res, 404, JSON.stringify({ error: `no schemas/${schema[1]}.schema.json` }), {
+          "content-type": "application/json",
+        });
+      }
+    }
     if (p === "/dev/fixtures")
       return send(res, 200, JSON.stringify(fixtures(pluginDir)), { "content-type": "application/json" });
     if (p.startsWith("/dev/fixtures/")) {
