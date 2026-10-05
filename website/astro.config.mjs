@@ -11,7 +11,7 @@ import remarkVideo from "./src/plugins/remark-video.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
 import remarkPageSlug from "./src/plugins/remark-page-slug.mjs";
 import remarkContract from "./src/plugins/remark-contract.mjs";
-import remarkTokens from "./src/plugins/remark-tokens.mjs";
+import remarkTokens, { stylesheetDigest } from "./src/plugins/remark-tokens.mjs";
 import remarkExamples from "./src/plugins/remark-examples.mjs";
 
 export default defineConfig({
@@ -30,7 +30,7 @@ export default defineConfig({
         remarkVideo,
         remarkKbd,
         remarkContract,
-        remarkTokens,
+        [remarkTokens, { stylesheet: stylesheetDigest }],
         remarkExamples,
       ],
     }),
