@@ -24,15 +24,16 @@ Use feedback when the agent needs *information* from you. When it needs a *verdi
 
 ## What you see
 
-- **Groups** of numbered questions, each question a card that fills the panel. A rail on the left lists every group and its questions, with a dot for where each stands, and jumps to any of them.
-- **The agent's recommendation**, marked on the option it suggests and set out beside the question with its reasoning. Nothing is preselected: the answer is yours, and *Use this answer* takes the recommendation in one click.
+- **Groups** of numbered questions, one after another. A rail on the left lists every group and its questions, with a dot for where each stands and an asterisk on each required question still to answer, and jumps to any of them.
+- **The agent's recommendation**, marked on the option it suggests and set out above the options with its reasoning. Nothing is preselected: the answer is yours, and *Use this answer* takes the recommendation in one click.
 - **Follow-up questions** that appear when an earlier answer calls for them, and hide again if you change it.
-- **A comment** on any choice question, to qualify your answer.
+- **Limits** on a multiple-choice question. Once you have chosen as many options as it allows, the others are disabled until you untick one.
+- **A comment** on any choice question, to qualify your answer. Comments support Markdown. A comment shows as formatted text, and clicking it opens it for editing.
 - **Your previous answers**, for reference, when the agent asks again in a new round.
 
 Keys: <kbd>j</kbd> / <kbd>k</kbd> move to the next and previous question and put the focus on its answer, so the arrow keys or space answer it.
 
-The app asks you to complete required questions before you hand over.
+If you hand over with required questions unanswered, a bar above the hand-over button says how many are left, and *Go to the first* takes you to the first of them.
 
 To see it before any agent asks with it, send its sample: `pinrail submit feedback --sample`, or **Send a sample** in its details in *Settings › Plugins*.
 
