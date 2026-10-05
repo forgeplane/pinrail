@@ -1,0 +1,3092 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>review review</title>
+    <link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css" />
+    <style>
+      /* Tokens, base, .pinrail-eyebrow, .pinrail-chip and the scrollbars come from the
+   SDK stylesheet. What is left is this view's own: a workbench needs more
+   controls than a list does. */
+      html,
+      body {
+        height: 100%;
+      }
+      :root {
+        --ui: 13px;
+        --code-size: 12.5px;
+      }
+      #app {
+        font-family: var(--pinrail-sans);
+        font-size: var(--ui);
+        color: var(--pinrail-text);
+        background: var(--pinrail-bg);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      @keyframes fade {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      button.ghost {
+        all: unset;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        font-size: 11.5px;
+        color: var(--pinrail-dim);
+        border: 1px solid var(--pinrail-border);
+        border-radius: 6px;
+        padding: 4px 10px;
+        white-space: nowrap;
+      }
+      button.ghost:hover {
+        color: var(--pinrail-text);
+        border-color: var(--pinrail-border-strong);
+      }
+      button.bare {
+        all: unset;
+        cursor: pointer;
+      }
+      button.link {
+        all: unset;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        color: var(--pinrail-accent);
+        font-size: 12px;
+        padding: 3px 7px;
+        border-radius: 5px;
+      }
+      button.link:hover {
+        background: var(--pinrail-bg-hover);
+      }
+      button.primary {
+        all: unset;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12.5px;
+        color: oklch(0.99 0 0);
+        background: var(--pinrail-accent);
+        border-radius: 6px;
+        padding: 5px 16px;
+        white-space: nowrap;
+      }
+      button.primary:hover {
+        filter: brightness(1.1);
+      }
+      button.accept-btn {
+        all: unset;
+        flex: none;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 26px;
+        padding: 0 9px 0 7px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 11.5px;
+        color: var(--pinrail-success);
+        background: color-mix(in oklab, var(--pinrail-success) 13%, transparent);
+      }
+      button.accept-btn:hover {
+        background: color-mix(in oklab, var(--pinrail-success) 22%, transparent);
+      }
+      button.reject-btn {
+        all: unset;
+        flex: none;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 26px;
+        padding: 0 9px 0 7px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 11.5px;
+        color: var(--pinrail-danger);
+        background: color-mix(in oklab, var(--pinrail-danger) 11%, transparent);
+      }
+      button.reject-btn:hover {
+        background: color-mix(in oklab, var(--pinrail-danger) 20%, transparent);
+      }
+      button.undo-btn {
+        all: unset;
+        cursor: pointer;
+        color: var(--pinrail-dim);
+        font-size: 12px;
+        padding: 2px 8px;
+        border: 1px solid var(--pinrail-border);
+        border-radius: 5px;
+      }
+      button.undo-btn:hover {
+        border-color: var(--pinrail-border-strong);
+        color: var(--pinrail-text);
+      }
+      button.save-btn {
+        all: unset;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 12px;
+        color: var(--pinrail-accent);
+        border: 1px solid color-mix(in oklab, var(--pinrail-accent) 45%, transparent);
+        padding: 6px 12px;
+        border-radius: 6px;
+      }
+      button.save-btn:hover {
+        background: var(--pinrail-accent-bg);
+      }
+      button.dim-btn {
+        all: unset;
+        cursor: pointer;
+        font-size: 12px;
+        color: var(--pinrail-dim);
+        padding: 6px 8px;
+      }
+      button.dim-btn:hover {
+        color: var(--pinrail-text);
+      }
+      button.tiny {
+        all: unset;
+        cursor: pointer;
+        font-size: 11.5px;
+        color: var(--pinrail-dim);
+        flex: none;
+      }
+      button.tiny:hover {
+        color: var(--pinrail-text);
+      }
+      button.tiny.danger:hover {
+        color: var(--pinrail-danger);
+      }
+      button.seg {
+        all: unset;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        font-size: 11.5px;
+        padding: 4px 10px;
+        color: var(--pinrail-faint);
+      }
+      button.seg.on {
+        color: var(--pinrail-text);
+        background: var(--pinrail-bg-hover);
+      }
+      button.toggle {
+        all: unset;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        font-size: 11.5px;
+        padding: 4px 8px;
+        border: 1px solid var(--pinrail-border);
+        border-radius: 6px;
+        color: var(--pinrail-dim);
+        white-space: nowrap;
+      }
+      button.toggle:hover {
+        color: var(--pinrail-text);
+        border-color: var(--pinrail-border-strong);
+      }
+      button.toggle.on {
+        color: var(--pinrail-accent);
+        background: var(--pinrail-accent-bg);
+        border-color: color-mix(in oklab, var(--pinrail-accent) 40%, transparent);
+      }
+      /* the rail: files, and each file's findings under it with where they stand */
+      .rail {
+        width: 284px;
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border-right: 1px solid var(--pinrail-border);
+        background: var(--pinrail-bg-panel);
+      }
+      .rail-head {
+        flex: none;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 44px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--pinrail-border);
+      }
+      .pane {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .diff-bar {
+        flex: none;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 44px;
+        padding: 0 20px 0 24px;
+        border-bottom: 1px solid var(--pinrail-border);
+        background: var(--pinrail-bg);
+      }
+      .rail-head .pinrail-eyebrow {
+        white-space: nowrap;
+      }
+      .rail-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 8px 24px;
+      }
+      .grow {
+        flex: 1;
+      }
+      .tree-row {
+        all: unset;
+        box-sizing: border-box;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        width: 100%;
+        padding: 5px 8px;
+        border-radius: 6px;
+      }
+      .tree-row:hover {
+        background: var(--pinrail-bg-hover);
+      }
+      .tree-dir {
+        margin-top: 6px;
+        font-size: 11.5px;
+        color: var(--pinrail-faint);
+      }
+      .tree-dir {
+        gap: 5px;
+      }
+      .tree-dir .caret {
+        flex: none;
+        display: inline-flex;
+        color: var(--pinrail-faint);
+        transition: transform 0.12s ease;
+      }
+      .tree-dir .caret.open {
+        transform: rotate(90deg);
+      }
+      .tree-dir > .pinrail-icon {
+        flex: none;
+        color: var(--pinrail-faint);
+      }
+      .tree-dir:hover,
+      .tree-dir:hover .caret,
+      .tree-dir:hover > .pinrail-icon {
+        color: var(--pinrail-dim);
+      }
+      .tree-loose {
+        cursor: default;
+      }
+      .tree-loose:hover {
+        background: none;
+      }
+      .tree-loose > .pinrail-icon {
+        flex: none;
+        margin-left: 15px;
+      }
+      .tree-dir .path {
+        font-family: var(--pinrail-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tree-file {
+        padding-left: 20px;
+      }
+      .tree-file .name {
+        min-width: 0;
+        font: 12px var(--pinrail-mono);
+        color: var(--pinrail-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tree-file.quiet .name {
+        color: var(--pinrail-faint);
+      }
+      .tree-file.on .name {
+        color: var(--pinrail-accent);
+        font-weight: 600;
+      }
+      .tree-file .count {
+        flex: none;
+        padding: 0 6px;
+        border-radius: 99px;
+        font: 600 10.5px var(--pinrail-mono);
+        color: var(--pinrail-dim);
+        background: var(--pinrail-bg-hover);
+      }
+      .tree-file .count.done {
+        color: var(--pinrail-success);
+        background: color-mix(in oklab, var(--pinrail-success) 14%, transparent);
+      }
+      .tree-file .churn {
+        flex: none;
+        font: 10.5px var(--pinrail-mono);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .tree-file .plus {
+        color: var(--pinrail-success);
+      }
+      .tree-file .minus {
+        color: var(--pinrail-danger);
+      }
+      .tree-finding {
+        all: unset;
+        box-sizing: border-box;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 3px 8px 3px 30px;
+        border-radius: 6px;
+        font-size: 12px;
+        color: var(--pinrail-dim);
+      }
+      .tree-finding:hover {
+        background: var(--pinrail-bg-hover);
+        color: var(--pinrail-text);
+      }
+      .tree-finding.focus {
+        background: var(--pinrail-accent-bg);
+        color: var(--pinrail-text);
+      }
+      .tree-finding .t {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .tree-finding .n {
+        flex: none;
+        font: 10.5px var(--pinrail-mono);
+        color: var(--pinrail-faint);
+      }
+      .tree-finding.mine-row > .pinrail-icon {
+        flex: none;
+        color: var(--pinrail-accent);
+      }
+      .tree-finding.mine-row .t {
+        color: var(--pinrail-text);
+      }
+      .tree-finding .has-note {
+        flex: none;
+        display: inline-flex;
+        color: var(--pinrail-accent);
+      }
+      .tree-finding .dot {
+        flex: none;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        border: 1.5px solid var(--pinrail-neutral);
+      }
+      .tree-finding .dot.is-blocker {
+        border-color: var(--pinrail-danger);
+      }
+      .tree-finding .dot.is-major {
+        border-color: var(--pinrail-warning);
+      }
+      .tree-finding .dot.is-minor {
+        border-color: var(--pinrail-info);
+      }
+      .tree-finding.accepted .dot {
+        border-color: var(--pinrail-success);
+        background: var(--pinrail-success);
+      }
+      .tree-finding.rejected .dot {
+        border-color: var(--pinrail-danger);
+        background: var(--pinrail-danger);
+      }
+      .tree-finding.accepted .t,
+      .tree-finding.rejected .t {
+        color: var(--pinrail-faint);
+      }
+      .tree-finding.rejected .t {
+        text-decoration: line-through;
+      }
+      textarea.ta {
+        flex: 1;
+        resize: vertical;
+        background: var(--pinrail-bg);
+        border: 1px solid var(--pinrail-border-strong);
+        border-radius: 6px;
+        padding: 7px 10px;
+        font-size: 12.5px;
+        outline: none;
+        min-height: 20px;
+        color: var(--pinrail-text);
+      }
+      textarea.ta:focus {
+        border-color: var(--pinrail-accent);
+      }
+      /* diff rows: one class each, so three thousand rows cost bytes, not kilobytes */
+      .diff-row {
+        display: grid;
+      }
+      .diff-row.inline {
+        grid-template-columns: 44px 44px 18px 1fr;
+      }
+      .diff-row.split {
+        grid-template-columns: 40px 1fr 40px 1fr;
+      }
+      .diff-row.inline.add {
+        background: var(--rv-add);
+      }
+      .diff-row.inline.del {
+        background: var(--rv-del);
+      }
+      .diff-row .ln {
+        text-align: right;
+        padding: 0 8px 0 4px;
+        color: color-mix(in oklab, var(--pinrail-faint) 85%, transparent);
+        user-select: none;
+        position: relative;
+        font-variant-numeric: tabular-nums;
+      }
+      .diff-row.inline.add .ln,
+      .diff-row.split .ln.add {
+        color: color-mix(in oklab, var(--pinrail-success) 72%, transparent);
+      }
+      .diff-row.inline.del .ln,
+      .diff-row.split .ln.del {
+        color: color-mix(in oklab, var(--pinrail-danger) 72%, transparent);
+      }
+      .diff-row .sign {
+        text-align: center;
+        user-select: none;
+      }
+      .diff-row.add .sign {
+        color: var(--pinrail-success);
+      }
+      .diff-row.del .sign {
+        color: var(--pinrail-danger);
+      }
+      .diff-row .code {
+        white-space: pre-wrap;
+        word-break: break-word;
+        padding-right: 12px;
+        color: var(--pinrail-text);
+      }
+      /* a wrapped line carries on two characters in, so it never reads as a new one */
+      .diff-row .code {
+        tab-size: 4;
+      }
+      .diff-row.inline .code {
+        padding-left: calc((var(--i, 0) + 2) * 1ch);
+        text-indent: calc((var(--i, 0) + 2) * -1ch);
+      }
+      .diff-row.split .code {
+        padding: 0 12px 0 calc(24px + (var(--i, 0) + 2) * 1ch);
+        text-indent: calc((var(--i, 0) + 2) * -1ch);
+      }
+      /* no sign column side by side: the + sits in the room before the code */
+      .diff-row.split .addbtn {
+        transform: translateX(3px);
+      }
+      .diff-row.split .addbtn:hover {
+        transform: translateX(3px) scale(1.12);
+      }
+      .diff-row.split .code.l {
+        border-right: 1px solid var(--pinrail-border);
+      }
+      .diff-row.split .code.add,
+      .diff-row.split .ln.add {
+        background: var(--rv-add);
+      }
+      .diff-row.split .code.del,
+      .diff-row.split .ln.del {
+        background: var(--rv-del);
+      }
+      .hunk {
+        padding: 2px 12px 2px 106px;
+        font-size: 11px;
+        color: var(--pinrail-faint);
+        background: color-mix(in oklab, var(--pinrail-accent) 5%, var(--pinrail-bg-panel));
+      }
+      .hunk:not(:first-child) {
+        border-top: 1px solid var(--pinrail-border);
+      }
+      .hunk.split {
+        padding-left: 52px;
+      }
+      /* each file section is laid out and painted on its own, and skipped while
+   off screen: a change in one file never costs the others, and scrolling
+   twenty files costs what the two on screen do */
+      [data-filesec] {
+        content-visibility: auto;
+        contain: content;
+      }
+      .diff-row .addbtn {
+        opacity: 0;
+        transition: opacity 0.08s;
+        pointer-events: none;
+      }
+      .diff-row:hover .addbtn,
+      .addbtn:focus-visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .addbtn {
+        all: unset;
+        box-sizing: border-box;
+        position: absolute;
+        left: 100%;
+        top: 1.5px;
+        transform: translateX(1px);
+        z-index: 2;
+        display: grid;
+        place-items: center;
+        width: 17px;
+        height: 17px;
+        border-radius: 5px;
+        background: var(--pinrail-accent);
+        color: oklch(0.99 0 0);
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+      }
+      .addbtn:hover {
+        transform: translateX(1px) scale(1.12);
+      }
+      /* your own comment on a line, and the box you write it in */
+      .mine {
+        font: var(--ui) var(--pinrail-sans);
+        padding: 9px 16px 11px;
+        border-top: 1px solid var(--pinrail-border);
+        border-bottom: 1px solid var(--pinrail-border);
+        background: var(--pinrail-bg-raised);
+        box-shadow: inset 3px 0 0 var(--pinrail-accent);
+      }
+      .mine-head {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 26px;
+        color: var(--pinrail-accent);
+      }
+      .mine-label {
+        font: 600 10px var(--pinrail-mono);
+        letter-spacing: 0.07em;
+      }
+      .mine-at {
+        font: 11px var(--pinrail-mono);
+        color: var(--pinrail-dim);
+      }
+      .mine-for,
+      .mine-hint {
+        font-size: 11px;
+        color: var(--pinrail-faint);
+      }
+      .mine-text,
+      button.mine-text {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        text-align: left;
+        cursor: text;
+        margin-top: 2px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        color: var(--pinrail-text);
+      }
+      .mine.editing {
+        background: color-mix(in oklab, var(--pinrail-accent) 5%, var(--pinrail-bg-raised));
+      }
+      .mine.editing textarea.note-ta {
+        margin-top: 4px;
+        font-size: 13px;
+      }
+      button.icon-btn.ok {
+        color: var(--pinrail-accent);
+      }
+      /* a finding: what the agent would post, and your call on it */
+      .card {
+        font-size: var(--ui);
+        background: var(--pinrail-bg-raised);
+        overflow: hidden;
+      }
+      .card.boxed {
+        border: 1px solid var(--pinrail-border);
+        border-radius: 10px;
+      }
+      .card.flush {
+        border-top: 1px solid var(--pinrail-border);
+        border-bottom: 1px solid var(--pinrail-border);
+      }
+      /* the bar down a finding's left edge says where it stands; focus is a tint */
+      .card {
+        --bar: var(--pinrail-border-strong);
+        box-shadow: inset 3px 0 0 var(--bar);
+      }
+      .card.accepted {
+        --bar: var(--pinrail-success);
+      }
+      .card.rejected {
+        --bar: var(--pinrail-danger);
+      }
+      /* the finding the keys act on: an accent ring round it, over its decision bar */
+      /* the ring runs along the top, the right and the bottom, so the left edge
+   keeps the decision's bar */
+      .card.focused {
+        position: relative;
+        z-index: 1;
+        background: color-mix(in oklab, var(--pinrail-accent) 8%, var(--pinrail-bg-raised));
+        box-shadow:
+          inset 3px 0 0 var(--bar),
+          inset 0 2px 0 var(--pinrail-accent),
+          inset -2px 0 0 var(--pinrail-accent),
+          inset 0 -2px 0 var(--pinrail-accent),
+          0 4px 18px -8px color-mix(in oklab, var(--pinrail-accent) 45%, transparent);
+      }
+      .card.boxed.focused {
+        border-color: var(--pinrail-accent);
+      }
+      .card .grow {
+        flex: 1;
+      }
+      .card .id {
+        flex: none;
+        font: 11px var(--pinrail-mono);
+        color: var(--pinrail-faint);
+      }
+      .sev {
+        flex: none;
+        padding: 2px 8px;
+        border-radius: 99px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--pinrail-neutral);
+        background: color-mix(in oklab, var(--pinrail-neutral) 16%, transparent);
+      }
+      .sev.is-blocker {
+        color: var(--pinrail-danger);
+        background: color-mix(in oklab, var(--pinrail-danger) 16%, transparent);
+      }
+      .sev.is-major {
+        color: var(--pinrail-warning);
+        background: color-mix(in oklab, var(--pinrail-warning) 16%, transparent);
+      }
+      .sev.is-minor {
+        color: var(--pinrail-info);
+        background: color-mix(in oklab, var(--pinrail-info) 16%, transparent);
+      }
+      button.icon-btn {
+        all: unset;
+        flex: none;
+        display: inline-grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        color: var(--pinrail-dim);
+        cursor: pointer;
+      }
+      button.icon-btn:hover {
+        color: var(--pinrail-text);
+        background: var(--pinrail-bg-hover);
+      }
+      button.icon-btn:focus-visible {
+        outline: 2px solid var(--pinrail-accent);
+        outline-offset: 1px;
+      }
+      button.file-fold {
+        display: inline-flex;
+        color: var(--pinrail-faint);
+        transition: transform 0.12s ease;
+      }
+      button.file-fold.open {
+        transform: rotate(90deg);
+      }
+      button.file-fold:hover {
+        color: var(--pinrail-text);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 26px;
+        padding: 10px 16px 0;
+      }
+      .card.folded .card-head {
+        padding-bottom: 10px;
+      }
+      .card-name,
+      button.card-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        flex-wrap: wrap;
+      }
+      button.card-toggle {
+        cursor: pointer;
+        border-radius: 6px;
+        margin: -3px -6px;
+        padding: 3px 6px;
+      }
+      button.card-toggle:hover {
+        background: var(--pinrail-bg-hover);
+      }
+      button.card-toggle .caret {
+        display: inline-flex;
+        color: var(--pinrail-faint);
+        transition: transform 0.12s ease;
+      }
+      button.card-toggle .caret.open {
+        transform: rotate(90deg);
+      }
+      .card.rejected .card-title {
+        color: var(--pinrail-dim);
+      }
+      .card.rejected.folded .card-title {
+        text-decoration: line-through;
+      }
+      .card-title {
+        min-width: 0;
+        font-weight: 600;
+        font-size: 13.5px;
+        color: var(--pinrail-text);
+      }
+      .card .tag {
+        flex: none;
+        padding: 1px 8px;
+        border-radius: 99px;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: var(--pinrail-accent);
+        border: 1px solid color-mix(in oklab, var(--pinrail-accent) 40%, transparent);
+      }
+      .card .resolves {
+        flex: none;
+        font-size: 11px;
+        color: var(--pinrail-success);
+      }
+      .verdict {
+        flex: none;
+        padding: 2px 9px;
+        border-radius: 99px;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+      }
+      .verdict.accept {
+        color: var(--pinrail-success);
+        background: color-mix(in oklab, var(--pinrail-success) 14%, transparent);
+      }
+      .verdict.reject {
+        color: var(--pinrail-danger);
+        background: color-mix(in oklab, var(--pinrail-danger) 13%, transparent);
+      }
+      .verdict.none {
+        color: var(--pinrail-warning);
+        background: color-mix(in oklab, var(--pinrail-warning) 14%, transparent);
+      }
+      .card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        margin: 8px 16px 14px;
+        line-height: 1.6;
+        color: var(--pinrail-text);
+      }
+      .card.rejected .card-body {
+        color: var(--pinrail-dim);
+      }
+      .card-body p {
+        margin: 0;
+      }
+      .md-text > :last-child {
+        margin-bottom: 0;
+      }
+      .md-text p,
+      .md-text ul,
+      .md-text ol {
+        margin: 0 0 6px;
+      }
+      .md-text ul,
+      .md-text ol {
+        padding-left: 18px;
+      }
+      .code-block {
+        margin: 0;
+        padding: 9px 12px;
+        border: 1px solid var(--pinrail-border);
+        border-radius: 6px;
+        background: var(--pinrail-bg);
+        font: var(--code-size)/1.55 var(--pinrail-mono);
+        white-space: pre-wrap;
+        overflow-x: auto;
+        color: var(--pinrail-text);
+      }
+      .sugg {
+        border: 1px solid var(--pinrail-border-strong);
+        border-radius: 7px;
+        overflow: hidden;
+      }
+      .sugg-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 5px 12px;
+        border-bottom: 1px solid var(--pinrail-border);
+        background: var(--pinrail-bg);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: var(--pinrail-dim);
+      }
+      .sugg-row {
+        display: grid;
+        grid-template-columns: 40px 18px 1fr;
+        font: var(--code-size)/1.6 var(--pinrail-mono);
+      }
+      .sugg-row.add {
+        background: var(--pinrail-add-bg);
+      }
+      .sugg-row.del {
+        background: var(--pinrail-del-bg);
+      }
+      .sugg-row .ln {
+        text-align: right;
+        padding: 0 8px 0 4px;
+        color: var(--pinrail-faint);
+        user-select: none;
+        font-variant-numeric: tabular-nums;
+      }
+      .sugg-row.add .ln {
+        background: var(--pinrail-add-gut);
+      }
+      .sugg-row.del .ln {
+        background: var(--pinrail-del-gut);
+      }
+      .sugg-row .sign {
+        text-align: center;
+        user-select: none;
+      }
+      .sugg-row.add .sign {
+        color: var(--pinrail-success);
+      }
+      .sugg-row.del .sign {
+        color: var(--pinrail-danger);
+      }
+      .sugg-row .code {
+        white-space: pre-wrap;
+        word-break: break-word;
+        padding-right: 12px;
+        color: var(--pinrail-text);
+      }
+      .note {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin: 0 16px 12px;
+        padding: 7px 10px;
+        border-radius: 7px;
+        background: var(--pinrail-bg);
+        border: 1px solid var(--pinrail-border);
+      }
+      .note.accept {
+        background: var(--pinrail-accent-bg);
+        border-color: color-mix(in oklab, var(--pinrail-accent) 25%, transparent);
+      }
+      .note.reject {
+        background: color-mix(in oklab, var(--pinrail-danger) 7%, var(--pinrail-bg));
+        border-color: color-mix(in oklab, var(--pinrail-danger) 22%, transparent);
+      }
+      .note-text,
+      button.note-text {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--pinrail-text);
+        text-align: left;
+        cursor: text;
+      }
+      .note-text .line {
+        display: block;
+      }
+      .note-label {
+        font: 600 9.5px var(--pinrail-mono);
+        letter-spacing: 0.08em;
+        color: var(--pinrail-faint);
+      }
+      .note.accept .note-label {
+        color: var(--pinrail-accent);
+      }
+      .note.reject .note-label {
+        color: var(--pinrail-danger);
+      }
+      button.note.editing {
+        border-color: color-mix(in oklab, var(--pinrail-accent) 55%, transparent);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--pinrail-accent) 12%, transparent);
+      }
+      .note-label {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .note-hint {
+        margin-left: auto;
+        font: 11px var(--pinrail-sans);
+        letter-spacing: 0;
+        color: var(--pinrail-faint);
+        text-transform: none;
+      }
+      textarea.note-ta {
+        all: unset;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 21px;
+        resize: none;
+        overflow: hidden;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--pinrail-text);
+        white-space: pre-wrap;
+      }
+      textarea.note-ta::placeholder {
+        color: var(--pinrail-faint);
+      }
+      .note-del {
+        flex: none;
+        color: var(--pinrail-faint);
+        padding: 2px;
+        border-radius: 4px;
+      }
+      button.note-del:hover {
+        color: var(--pinrail-danger);
+      }
+      .thread {
+        margin: 10px 16px 0;
+        border: 1px solid var(--pinrail-border);
+        border-radius: 8px;
+        background: var(--pinrail-bg);
+        overflow: hidden;
+      }
+      button.thread-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 7px 11px;
+        font-size: 11.5px;
+        color: var(--pinrail-faint);
+      }
+      button.thread-head .caret {
+        display: inline-flex;
+        transition: transform 0.12s;
+      }
+      button.thread-head .caret.open {
+        transform: rotate(90deg);
+      }
+      .thread-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+      }
+      .thread-body {
+        max-height: 340px;
+        overflow-y: auto;
+      }
+      .thread-msg {
+        padding: 8px 12px;
+        border-top: 1px solid var(--pinrail-border);
+      }
+      .thread-who {
+        margin-bottom: 3px;
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--pinrail-accent);
+      }
+      .thread-msg.ours .thread-who {
+        color: var(--pinrail-faint);
+      }
+      .thread-text {
+        font-size: 12px;
+        line-height: 1.55;
+        color: var(--pinrail-dim);
+      }
+      .previous {
+        margin: 8px 16px 0;
+        font-size: 11.5px;
+        color: var(--pinrail-faint);
+      }
+      .previous-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+      }
+      .previous-verdict {
+        font-weight: 600;
+      }
+      .previous-verdict.accept {
+        color: var(--pinrail-success);
+      }
+      .previous-verdict.reject {
+        color: var(--pinrail-danger);
+      }
+      /* a file: its header stays in view while its diff scrolls under it */
+      section.file {
+        margin-bottom: 18px;
+        border: 1px solid var(--pinrail-border);
+        border-radius: 10px;
+        background: var(--pinrail-bg-raised);
+      }
+      .file-head {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 40px;
+        padding: 0 14px 0 10px;
+        border-bottom: 1px solid var(--pinrail-border);
+        border-radius: 10px 10px 0 0;
+        background: var(--pinrail-bg-panel);
+      }
+      .file-head.folded {
+        border-bottom: 0;
+        border-radius: 10px;
+      }
+      .file-path {
+        min-width: 0;
+        font: 12.5px var(--pinrail-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .file-path .dir {
+        color: var(--pinrail-faint);
+      }
+      .file-path .base {
+        color: var(--pinrail-text);
+        font-weight: 600;
+      }
+      .file-badge {
+        flex: none;
+        padding: 1px 7px;
+        border-radius: 99px;
+        font-size: 9.5px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: var(--pinrail-dim);
+        background: var(--pinrail-bg-hover);
+      }
+      .file-badge.is-added {
+        color: var(--pinrail-success);
+        background: color-mix(in oklab, var(--pinrail-success) 13%, transparent);
+      }
+      .file-badge.is-deleted {
+        color: var(--pinrail-danger);
+        background: color-mix(in oklab, var(--pinrail-danger) 12%, transparent);
+      }
+      .file-churn {
+        flex: none;
+        font: 11px var(--pinrail-mono);
+        font-variant-numeric: tabular-nums;
+      }
+      .file-churn .plus {
+        color: var(--pinrail-success);
+      }
+      .file-churn .minus {
+        color: var(--pinrail-danger);
+      }
+      .file-count {
+        flex: none;
+        padding: 1px 8px;
+        border-radius: 99px;
+        font: 600 10.5px var(--pinrail-mono);
+        color: var(--pinrail-dim);
+        background: var(--pinrail-bg-hover);
+      }
+      .file-count.done {
+        color: var(--pinrail-success);
+        background: color-mix(in oklab, var(--pinrail-success) 14%, transparent);
+      }
+      /* what changed in the file: a line or two of markdown */
+      .file-summary {
+        padding: 7px 14px 7px 38px;
+        border-bottom: 1px solid var(--pinrail-border);
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--pinrail-dim);
+      }
+      .file-diff {
+        overflow: hidden;
+        border-radius: 0 0 10px 10px;
+        font: var(--code-size)/1.6 var(--pinrail-mono);
+      }
+      /* findings on the file or on the change as a whole: full width and flush,
+   like those on a line */
+      .file-unanchored {
+        border-top: 1px solid var(--pinrail-border);
+      }
+      .file-unanchored-head {
+        padding: 8px 14px;
+        font-size: 11px;
+        color: var(--pinrail-faint);
+      }
+      .file-unanchored .card.flush,
+      section.file > .card.flush {
+        border-bottom: 0;
+      }
+      section.file > .card.flush:last-child,
+      .file-unanchored:last-child .card.flush:last-child {
+        border-radius: 0 0 10px 10px;
+      }
+      /* unwrapped: long lines keep to one row and the file scrolls sideways; the
+   numbers stay put, and what sits between the rows stays in view */
+      .in-diff {
+        font-family: var(--pinrail-sans);
+      }
+      .file-diff.nowrap {
+        overflow-x: auto;
+        container-type: inline-size;
+      }
+      .file-diff.nowrap > div {
+        width: max-content;
+        min-width: 100%;
+      }
+      .file-diff.nowrap .diff-row.inline {
+        width: max-content;
+        min-width: 100%;
+      }
+      .file-diff.nowrap .diff-row .code {
+        white-space: pre;
+        padding-left: 0;
+        text-indent: 0;
+      }
+      .file-diff.nowrap .diff-row.inline .ln,
+      .file-diff.nowrap .diff-row.inline .sign {
+        position: sticky;
+        z-index: 2;
+        background: var(--pinrail-bg-raised);
+      }
+      .file-diff.nowrap .diff-row.inline .ln:nth-child(1) {
+        left: 0;
+      }
+      .file-diff.nowrap .diff-row.inline .ln:nth-child(2) {
+        left: 44px;
+        z-index: 3;
+      }
+      .file-diff.nowrap .diff-row.inline .ln:nth-child(1):has(.addbtn) {
+        z-index: 4;
+      }
+      .addbtn.past-new {
+        left: calc(100% + 44px);
+      }
+      .file-diff.nowrap .diff-row.inline .sign {
+        left: 88px;
+      }
+      .file-diff.nowrap .diff-row.inline.add :is(.ln, .sign) {
+        background: color-mix(in oklab, var(--pinrail-success) 9%, var(--pinrail-bg-raised));
+      }
+      .file-diff.nowrap .diff-row.inline.del :is(.ln, .sign) {
+        background: color-mix(in oklab, var(--pinrail-danger) 8%, var(--pinrail-bg-raised));
+      }
+      .file-diff.nowrap :is(.in-diff, .mine, .hunk) {
+        position: sticky;
+        left: 0;
+        z-index: 3;
+        width: 100cqw;
+        box-sizing: border-box;
+      }
+      button.tool.on {
+        color: var(--pinrail-accent);
+      }
+      button.tool:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      /* calmer diff colours: the tint on the row, the colour in the sign and the number */
+      .file-diff {
+        --rv-add: color-mix(in oklab, var(--pinrail-add-bg) 75%, transparent);
+        --rv-del: color-mix(in oklab, var(--pinrail-del-bg) 75%, transparent);
+      }
+      /* the header: the change and how far along its review is */
+      .head {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 11px 18px;
+        border-bottom: 1px solid var(--pinrail-border);
+        background: var(--pinrail-bg-panel);
+        flex: none;
+      }
+      button.head-tree {
+        color: var(--pinrail-faint);
+        padding: 2px 4px;
+        margin-right: -8px;
+      }
+      button.head-tree:hover {
+        color: var(--pinrail-text);
+      }
+      .head-title {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+        flex: 1 1 0;
+        overflow: hidden;
+      }
+      .head-title h1 {
+        min-width: 0;
+      }
+      .head-title h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .head-ref {
+        flex: none;
+        font: 11px var(--pinrail-mono);
+        color: var(--pinrail-faint);
+      }
+      .head-branch {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11.5px;
+        color: var(--pinrail-dim);
+        white-space: nowrap;
+      }
+      .head-branch .arrow {
+        color: var(--pinrail-faint);
+      }
+      .head-ro {
+        flex: none;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        color: var(--pinrail-accent);
+        border: 1px solid color-mix(in oklab, var(--pinrail-accent) 40%, transparent);
+        border-radius: 99px;
+        padding: 3px 12px;
+      }
+      .tally {
+        flex: none;
+        display: flex;
+        gap: 14px;
+        font-size: 12px;
+        color: var(--pinrail-dim);
+        white-space: nowrap;
+      }
+      .tally b {
+        color: var(--pinrail-text);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .tally .t-ok b {
+        color: var(--pinrail-success);
+      }
+      .tally .t-no b {
+        color: var(--pinrail-danger);
+      }
+      .seg-group {
+        display: flex;
+        margin-right: 4px;
+        border: 1px solid var(--pinrail-border);
+        border-radius: 7px;
+        overflow: hidden;
+      }
+      .seg-group .seg + .seg {
+        border-left: 1px solid var(--pinrail-border);
+      }
+      button.tool {
+        all: unset;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        padding: 5px 8px;
+        border-radius: 6px;
+        font-size: 11.5px;
+        color: var(--pinrail-dim);
+        white-space: nowrap;
+      }
+      button.tool:hover {
+        background: var(--pinrail-bg-hover);
+        color: var(--pinrail-text);
+      }
+      button.tool.armed.accept {
+        color: var(--pinrail-success);
+        background: color-mix(in oklab, var(--pinrail-success) 12%, transparent);
+      }
+      button.tool.armed.reject {
+        color: var(--pinrail-danger);
+        background: color-mix(in oklab, var(--pinrail-danger) 12%, transparent);
+      }
+      .head-progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -1px;
+        height: 2px;
+      }
+      .head-progress span {
+        display: block;
+        height: 100%;
+        background: var(--pinrail-accent);
+        transition: width 160ms ease-out;
+      }
+      /* the brief: what the agent says the change is, and its concerns on a click */
+      .brief {
+        max-width: 980px;
+        margin-bottom: 18px;
+        border: 1px solid color-mix(in oklab, var(--pinrail-accent) 22%, transparent);
+        border-radius: 10px;
+        background: var(--pinrail-accent-bg);
+        overflow: hidden;
+      }
+      .brief-line {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 11px 14px;
+      }
+      .brief-line > svg {
+        flex: none;
+        margin-top: 3px;
+        color: var(--pinrail-accent);
+      }
+      .brief-text {
+        flex: 1;
+        min-width: 0;
+        font-size: 12.5px;
+        line-height: 1.55;
+        color: var(--pinrail-text);
+      }
+      .brief-text b {
+        display: block;
+        margin-bottom: 1px;
+        font: 600 10.5px var(--pinrail-mono);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--pinrail-accent);
+      }
+      .brief-pills {
+        flex: none;
+        display: flex;
+        gap: 6px;
+        margin-top: 1px;
+      }
+      button.toggle.warn {
+        color: var(--pinrail-warning);
+        border-color: color-mix(in oklab, var(--pinrail-warning) 40%, transparent);
+      }
+      button.toggle.warn.on {
+        background: color-mix(in oklab, var(--pinrail-warning) 14%, transparent);
+        border-color: color-mix(in oklab, var(--pinrail-warning) 70%, transparent);
+      }
+      .brief-concerns,
+      .brief-details {
+        padding: 10px 14px 12px 38px;
+        border-top: 1px solid color-mix(in oklab, var(--pinrail-accent) 16%, transparent);
+        background: var(--pinrail-bg-raised);
+        line-height: 1.6;
+      }
+      .brief-concerns {
+        box-shadow: inset 3px 0 0 var(--pinrail-warning);
+      }
+      .brief-concerns .pinrail-eyebrow {
+        color: var(--pinrail-warning);
+        margin-bottom: 4px;
+      }
+      .brief-details {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .brief-details .pinrail-eyebrow {
+        margin-bottom: 4px;
+      }
+      .md.dim {
+        font-size: 12px;
+        color: var(--pinrail-dim);
+      }
+      .errors {
+        margin: 0 22px 12px 22px;
+        padding: 9px 12px;
+        border: 1px solid color-mix(in oklab, var(--pinrail-danger) 45%, transparent);
+        border-radius: 8px;
+        background: color-mix(in oklab, var(--pinrail-danger) 8%, transparent);
+        font-family: var(--pinrail-mono);
+        font-size: 12px;
+        color: var(--pinrail-danger);
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script src="/sdk/v1/pinrail-plugin.js"></script>
+    <script src="/sdk/v1/markdown.js"></script>
+    <script>
+      "use strict";
+      /* The review review: a change's diff with the agent's proposed comments
+   anchored on lines, the reviewer's verdicts and their own comments. A port
+   of a hand-written review page onto the pinrail plugin protocol; nothing
+   forge-specific remains. */
+
+      /* ---------- bridge ---------- */
+      let REVIEW = null,
+        PREVIOUS = null,
+        RO_FLAG = false;
+      const RO = () => RO_FLAG;
+
+      const plugin = Pinrail.connect({
+        onInit(init) {
+          REVIEW = init.review;
+          PREVIOUS = init.previous;
+          RO_FLAG = init.readonly;
+          applySettings(init.settings);
+          boot(init.draft);
+        },
+        onSettings(settings) {
+          // changed in the app's Settings, or the answer to a pill here
+          set(() => applySettings(settings));
+        },
+        onViolations(errors) {
+          // violations answer a hand-over; one that comes without (a setting the
+          // app would not keep) is not the decision's, and opens nothing
+          if (!handingOver) return;
+          handingOver = false;
+          set(() => {
+            S.errors = errors;
+            S.confirmSubmitArm = false;
+          });
+        },
+        onSubmitted(decision) {
+          // the decided review, a new object: the one from init stays as it was
+          REVIEW = plugin.review;
+          RO_FLAG = true;
+          loadDecision(decision && decision.data);
+          set(() => {
+            S.done = true;
+            S.composer = null;
+            S.noteOpen = {};
+            S.errors = null;
+          });
+        },
+        onCollect() {
+          return collect();
+        },
+      });
+
+      function draft() {
+        if (RO() || !D) return;
+        plugin.draft({
+          decisions: S.decisions,
+          manualComments: S.manualComments,
+          mseq,
+        });
+      }
+
+      /* ---------- state ---------- */
+      let D = null; // adapted payload
+      let PARSED = []; // per-file parsed rows/splitRows/add/del
+      let SEGMENTS = {}; // proposal id -> md segments
+      const S = {
+        decisions: {},
+        focusedId: null,
+        diffMode: "inline",
+        wrap: true,
+        folded: {},
+        treeOpen: true,
+        findingsOnly: false,
+        briefOpen: false,
+        concernsOpen: false,
+        composer: null,
+        manualComments: [],
+        confirmBulk: null,
+        done: false,
+        errors: null,
+        collapsedDirs: {},
+        activeFile: null,
+        noteOpen: {},
+        expanded: {},
+        confirmSubmitArm: false,
+        orderMode: "semantic",
+      };
+      let mseq = 0,
+        bulkT = null,
+        handingOver = false;
+      const esc = Pinrail.escape;
+
+      /* What the next hand-over needs confirmed, or why the app refused the
+   last one: the SDK's confirmation bar, under the panes. */
+      const confirm = Pinrail.confirmationBar();
+      const keepReviewing = document.createElement("button");
+      keepReviewing.type = "button";
+      keepReviewing.className = "pinrail-btn pinrail-btn-ghost";
+      keepReviewing.textContent = "Keep reviewing";
+      keepReviewing.addEventListener("click", () =>
+        set(() => {
+          S.confirmSubmitArm = false;
+          S.errors = null;
+        }),
+      );
+
+      function adapt(payload) {
+        const files = (payload.files || []).map((f) => ({
+          path: f.path,
+          oldPath: f.old_path || null,
+          status: f.status || "modified",
+          summary: f.summary || "",
+          rank: f.rank ?? null,
+          diff: (f.diff || "")
+            .replace(/\n$/, "")
+            .split("\n")
+            .filter((l, i, a) => !(i === a.length - 1 && l === "")),
+        }));
+        const proposals = (payload.proposals || []).map((p) => ({
+          id: p.id,
+          kind: p.kind || "comment",
+          severity: p.severity || "minor",
+          title: p.title || "",
+          body: p.body || "",
+          file: p.file || null,
+          line: p.line ?? null,
+          side: p.side || "new",
+          resolves: !!p.resolves,
+          thread: p.thread || null,
+        }));
+        return { change: payload.change || {}, overview: payload.overview || {}, files, proposals };
+      }
+
+      function loadDecision(data) {
+        S.decisions = {};
+        S.manualComments = [];
+        if (!data) return;
+        for (const d of data.decisions || []) S.decisions[d.id] = { action: d.action, note: d.note || undefined };
+        S.manualComments = (data.comments || []).map((c, i) => ({
+          id: "m" + (i + 1),
+          file: c.file,
+          line: c.line,
+          side: c.side || "new",
+          body: c.body,
+        }));
+      }
+
+      /* What the previous round decided for an item: its decision's
+   `decisions: [{ id, action, note }]` and `undecided: [id]`. The previous
+   round may come from an earlier release, so its shape is checked. */
+      function verdictIn(previous, id) {
+        const data = previous && previous.decision && previous.decision.data;
+        if (!data || typeof data !== "object") return null;
+        const d = (Array.isArray(data.decisions) ? data.decisions : []).find((x) => x && x.id === id);
+        if (d) return { action: d.action, note: d.note || "" };
+        if (Array.isArray(data.undecided) && data.undecided.includes(id)) return { action: "undecided", note: "" };
+        return null;
+      }
+      const previousVerdict = (id) => verdictIn(PREVIOUS, id);
+
+      /* ---------- markdown ---------- */
+      // The SDK renders the markdown; the view only splits out the fenced blocks
+      // it draws itself, ```suggestion above all.
+      const inlineHtml = (text) => Pinrail.markdownInline(text || "");
+      function mdSegments(body) {
+        const segs = [];
+        const re = /```([^\n`]*)\n([\s\S]*?)```/g;
+        let last = 0,
+          m;
+        const pushText = (t) => {
+          if (t.trim()) segs.push({ kind: "para", html: Pinrail.markdown(t) });
+        };
+        while ((m = re.exec(body))) {
+          if (m.index > last) pushText(body.slice(last, m.index));
+          const info = m[1].trim();
+          const text = m[2].replace(/\n$/, "");
+          if (info.startsWith("suggestion")) {
+            // range modifier: ```suggestion:-A+B replaces lines anchor-A .. anchor+B
+            const mod = info.match(/^suggestion(?::?-(\d+))?(?:\+(\d+))?/);
+            segs.push({
+              kind: "suggestion",
+              text,
+              above: mod && mod[1] ? parseInt(mod[1], 10) : 0,
+              below: mod && mod[2] ? parseInt(mod[2], 10) : 0,
+            });
+          } else {
+            segs.push({ kind: "code", text });
+          }
+          last = re.lastIndex;
+        }
+        if (last < body.length) pushText(body.slice(last));
+        return segs;
+      }
+      function mdBlockHtml(body) {
+        return mdSegments(body || "")
+          .map((seg) => {
+            if (seg.kind === "para") return `<div class="md-text">${seg.html}</div>`;
+            return `<pre style="margin:0 0 6px 0;background:var(--pinrail-bg-panel);border:1px solid var(--pinrail-border);border-radius:5px;padding:6px 9px;font-family:var(--pinrail-mono);font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap">${esc(seg.text)}</pre>`;
+          })
+          .join("");
+      }
+
+      /* ---------- diff parsing ---------- */
+      function parseDiff(lines) {
+        const rows = [];
+        let o = 0,
+          n = 0;
+        for (const line of lines) {
+          if (line.startsWith("@@")) {
+            const m = line.match(/-(\d+)(?:,\d+)? \+(\d+)/);
+            if (m) {
+              o = parseInt(m[1], 10);
+              n = parseInt(m[2], 10);
+            }
+            rows.push({ kind: "hunk", text: line });
+          } else if (line.startsWith("\\ No newline")) {
+            continue;
+          } else {
+            const p = line[0],
+              text = line.slice(1);
+            if (p === "+") rows.push({ kind: "add", new: n++, text });
+            else if (p === "-") rows.push({ kind: "del", old: o++, text });
+            else rows.push({ kind: "ctx", old: o++, new: n++, text });
+          }
+        }
+        return rows;
+      }
+      function buildSplit(rows) {
+        const out = [];
+        let i = 0;
+        while (i < rows.length) {
+          const r = rows[i];
+          if (r.kind === "hunk") {
+            out.push({ kind: "hunk", text: r.text });
+            i++;
+            continue;
+          }
+          if (r.kind === "ctx") {
+            out.push({ kind: "line", l: r, r: r });
+            i++;
+            continue;
+          }
+          const dels = [],
+            adds = [];
+          while (i < rows.length && rows[i].kind === "del") dels.push(rows[i++]);
+          while (i < rows.length && rows[i].kind === "add") adds.push(rows[i++]);
+          const len = Math.max(dels.length, adds.length);
+          for (let k = 0; k < len; k++) out.push({ kind: "line", l: dels[k] || null, r: adds[k] || null });
+        }
+        return out;
+      }
+
+      /* ---------- ordering ---------- */
+      const anchorsRow = (p, r) => r.kind !== "hunk" && (p.side === "old" ? r.old === p.line : r.new === p.line);
+      function unplaceable(p) {
+        if (!p.file) return true;
+        return !D.files.some((f) => f.path === p.file);
+      }
+      function orderedFiles() {
+        const idx = D.files.map((f, i) => i);
+        if (S.orderMode === "path") return idx.sort((a, b) => D.files[a].path.localeCompare(D.files[b].path));
+        return idx.sort((a, b) => (D.files[a].rank ?? a) - (D.files[b].rank ?? b));
+      }
+      function orderedIds() {
+        if (!D) return [];
+        const ids = [];
+        orderedFiles().forEach((i) => {
+          const f = D.files[i];
+          D.proposals
+            .filter((p) => p.file === f.path)
+            .sort((a, b) => (a.line || 1e9) - (b.line || 1e9))
+            .forEach((p) => ids.push(p.id));
+        });
+        D.proposals.filter(unplaceable).forEach((p) => ids.push(p.id));
+        return ids;
+      }
+      const decided = (id) => {
+        const d = S.decisions[id];
+        return !!(d && d.action);
+      };
+
+      /* ---------- data prep ---------- */
+      function prep() {
+        PARSED = D.files.map((f) => {
+          const rows = parseDiff(f.diff);
+          return {
+            rows,
+            splitRows: buildSplit(rows),
+            add: rows.filter((r) => r.kind === "add").length,
+            del: rows.filter((r) => r.kind === "del").length,
+          };
+        });
+        SEGMENTS = {};
+        D.proposals.forEach((p) => {
+          const segs = mdSegments(p.body);
+          segs.forEach((seg) => {
+            if (seg.kind === "suggestion" && p.file && p.line != null) {
+              const fi = D.files.findIndex((f) => f.path === p.file);
+              if (fi !== -1) {
+                const start = p.line - (seg.above || 0),
+                  end = p.line + (seg.below || 0);
+                const old = [];
+                for (let ln = start; ln <= end; ln++) {
+                  const row = PARSED[fi].rows.find((r) => r.kind !== "hunk" && r.new === ln);
+                  if (row) old.push({ line: ln, text: row.text });
+                }
+                if (old.length) {
+                  seg.oldLines = old;
+                  seg.line = start;
+                }
+              }
+            }
+          });
+          SEGMENTS[p.id] = segs;
+        });
+      }
+
+      /* ---------- state mutation ---------- */
+      function captureDrafts() {
+        const c = document.getElementById("composer-ta");
+        if (c && S.composer) S.composer.text = c.value;
+        document.querySelectorAll("[data-note-ta]").forEach((el) => {
+          S.noteOpen[el.getAttribute("data-note-ta")] = { open: true, draft: el.value };
+        });
+      }
+      function set(mut) {
+        captureDrafts();
+        mut();
+        render();
+        draft();
+      }
+
+      /* The plugin's settings, as the manifest declares them: how the diff is
+   laid out, how files are ordered, whether only files with findings show,
+   and whether the tree starts open. The toolbar pills and the V and O keys
+   change the same settings through the shell, so a choice here is the
+   choice in Settings, for every review from now on. */
+      function applySettings(settings) {
+        const s = settings || {};
+        if (s.diff === "inline" || s.diff === "split") S.diffMode = s.diff;
+        if (typeof s.wrap === "boolean") S.wrap = s.wrap;
+        if (s.order === "semantic" || s.order === "path") S.orderMode = s.order;
+        if (typeof s.findings_only === "boolean") S.findingsOnly = s.findings_only;
+        if (typeof s.tree_open === "boolean") S.treeOpen = s.tree_open;
+        if (D && !D.files.some((f) => f.rank != null)) S.orderMode = "path";
+      }
+      function keep(key, value) {
+        plugin.setSetting(key, value);
+      }
+
+      function decide(id, action, advance) {
+        set(() => {
+          S.decisions[id] = { ...(S.decisions[id] || {}), action };
+          delete S.expanded[id];
+          if (action === "reject" && !S.decisions[id].note) {
+            S.noteOpen[id] = { open: true, draft: "" };
+            S.focusNote = id;
+          } else delete S.noteOpen[id];
+        });
+        if (advance) advanceFocus(id);
+      }
+      function undo(id) {
+        set(() => {
+          delete S.decisions[id];
+          delete S.noteOpen[id];
+          delete S.expanded[id];
+          S.focusedId = id;
+        });
+      }
+      function setNote(id, note) {
+        set(() => {
+          const cur = S.decisions[id] || {};
+          S.decisions[id] = { ...cur, note: note || undefined };
+          delete S.noteOpen[id];
+          // a note just written stays in view
+          if (note) S.expanded[id] = true;
+        });
+        // stay on the finding: a note is not a verdict, and the next one can wait
+      }
+      function unfoldFor(id) {
+        const p = D.proposals.find((x) => x.id === id);
+        if (p && p.file && S.folded[p.file]) delete S.folded[p.file];
+      }
+      function advanceFocus(fromId) {
+        const ids = orderedIds();
+        const undecidedIds = ids.filter((id) => !decided(id));
+        if (!undecidedIds.length) {
+          set(() => {
+            S.focusedId = null;
+          });
+          return;
+        }
+        const start = ids.indexOf(fromId);
+        let next = undecidedIds.find((id) => ids.indexOf(id) > start);
+        if (next == null) next = undecidedIds[0];
+        set(() => {
+          S.focusedId = next;
+          unfoldFor(next);
+        });
+        scrollToCard(next);
+      }
+      /* j and k go to the next and previous undecided proposal, round and
+   round; J and K, and j and k once nothing is left undecided or the review
+   is read-only, go through all of them. */
+      function moveFocus(dir, all = false) {
+        const order = orderedIds();
+        const undecided = RO() ? [] : order.filter((id) => !decided(id));
+        const pool = all || !undecided.length ? order : undecided;
+        if (!pool.length) return;
+        // from where the focus is in the whole order, the next one in the pool
+        const at = order.indexOf(S.focusedId);
+        let next = null;
+        for (let step = 1; step <= order.length && at !== -1; step++) {
+          const id = order[(at + dir * step + order.length * step) % order.length];
+          if (pool.includes(id)) {
+            next = id;
+            break;
+          }
+        }
+        if (next == null) next = dir > 0 ? pool[0] : pool[pool.length - 1];
+        set(() => {
+          S.focusedId = next;
+          unfoldFor(next);
+        });
+        scrollToCard(next);
+      }
+      /* Sections off screen are skipped until scrolled to, so their place is an
+   estimate: scroll, let the browser lay the target out, then correct. */
+      /* A finding opened or folded stays where it was on screen: its header is
+   measured before and after, and the scroll takes up any difference,
+   whatever else the redraw moved. */
+      let pinning = 0;
+      function inPlace(id, change) {
+        if (id == null) {
+          change();
+          return;
+        }
+        const main = document.getElementById("main");
+        const head = () => document.querySelector(`#card-${CSS.escape(String(id))} .card-head`);
+        const before = head() && main ? head().getBoundingClientRect().top : null;
+        const mine = ++pinning; // a later action's pin replaces this one
+        change();
+        if (before == null) return;
+        let left = null; // where the last pin left the scroll
+        const settle = () => {
+          const m = document.getElementById("main"),
+            h = head();
+          if (mine !== pinning || !m || !h) return;
+          if (left != null && Math.abs(m.scrollTop - left) > 1) return; // scrolled since, by the person
+          m.scrollTop += h.getBoundingClientRect().top - before;
+          left = m.scrollTop;
+        };
+        settle();
+        requestAnimationFrame(settle);
+        // once more after the key or click has fully played out in the browser
+        setTimeout(settle, 120);
+      }
+      function scrollTo(el, offset) {
+        const c = document.getElementById("main");
+        if (!el || !c) return;
+        const place = () => {
+          const er = el.getBoundingClientRect(),
+            cr = c.getBoundingClientRect();
+          c.scrollTop += er.top - cr.top - offset(cr);
+        };
+        place();
+        requestAnimationFrame(place);
+      }
+      function scrollToCard(id) {
+        scrollTo(document.getElementById("card-" + id), (cr) => cr.height / 3.2);
+      }
+      function jumpToFile(path) {
+        scrollTo(document.querySelector(`[data-filesec="${CSS.escape(path)}"]`), () => 6);
+        S.activeFile = path;
+        highlightTree(path);
+      }
+
+      /* ---------- decision ---------- */
+      function buildDecision() {
+        const ids = orderedIds();
+        return {
+          decisions: ids.filter(decided).map((id) => {
+            const dec = S.decisions[id];
+            const o = { id, action: dec.action };
+            if (dec.note) o.note = dec.note;
+            return o;
+          }),
+          comments: S.manualComments.map((m) => ({ file: m.file, line: m.line, side: m.side, body: m.body })),
+          undecided: ids.filter((id) => !decided(id)),
+        };
+      }
+
+      /* ---------- render: proposal card ---------- */
+      function sevChip(sev) {
+        return `<span class="sev is-${esc(sev)}">${esc(sev)}</span>`;
+      }
+      function noteSegsHtml(note) {
+        return note
+          .split(/\n+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((l) => `<span class="line">${inlineHtml(l)}</span>`)
+          .join("");
+      }
+      function noteBlockHtml(p, dec) {
+        const note = dec && dec.note;
+        if (!note) return "";
+        const kind = dec.action === "accept" ? "accept" : dec.action === "reject" ? "reject" : "";
+        const label =
+          dec.action === "accept"
+            ? "NOTE TO THE AGENT"
+            : dec.action === "reject"
+              ? "REJECTION REASON"
+              : "NOTE — SAVED WITH YOUR DECISION";
+        const text = `<span class="note-label">${label}</span>${noteSegsHtml(note)}`;
+        return `<div class="note ${kind}">${
+          RO()
+            ? `<span class="note-text">${text}</span>`
+            : `<button class="bare note-text" data-act="open-note" data-id="${p.id}" title="Click to edit">${text}</button>
+    <button class="bare note-del" data-act="del-note" data-id="${p.id}" title="Delete note">${Pinrail.icon("x", { size: 13 })}</button>`
+        }</div>`;
+      }
+      function noteEditorHtml(p, dec) {
+        const st = S.noteOpen[p.id];
+        if (!st || !st.open || RO()) return "";
+        // the note itself, made editable where it sits
+        const action = dec && dec.action;
+        const kind = action === "accept" ? "accept" : action === "reject" ? "reject" : "";
+        const label =
+          action === "accept"
+            ? "NOTE TO THE AGENT"
+            : action === "reject"
+              ? "REJECTION REASON"
+              : "NOTE — SAVED WITH YOUR DECISION";
+        const ph =
+          action === "accept"
+            ? "What should the agent change before posting? e.g. shorten this, drop the second paragraph"
+            : action === "reject"
+              ? "Why reject? It becomes a lesson future reviews follow, e.g. out of scope for this change"
+              : "A note to the agent, saved with whichever decision you make";
+        return `<div class="note editing ${kind}">
+    <span class="note-text">
+      <span class="note-label">${label}<span class="note-hint">Enter to save · Esc to cancel</span></span>
+      <textarea class="note-ta" data-note-ta="${p.id}" rows="1" placeholder="${esc(ph)}" aria-label="note for proposal ${p.id}">${esc(st.draft || "")}</textarea>
+    </span>
+    <button class="icon-btn" data-act="save-note" data-id="${p.id}" title="Save">${Pinrail.icon("check", { size: 15, label: "Save" })}</button>
+  </div>`;
+      }
+      function threadBlockHtml(p) {
+        const tc = p.thread;
+        if (!tc || !tc.comments || !tc.comments.length) return "";
+        const key = "t" + p.id;
+        const theirs = tc.comments.filter((n) => !n.ours);
+        // threads with the developer's responses start open — that is what the decision hinges on
+        const open = key in S.expanded ? !!S.expanded[key] : theirs.length > 0;
+        const header = `<button class="bare thread-head" data-act="toggle-thread" data-id="${p.id}" data-open="${open ? 1 : 0}">
+    <span class="caret${open ? " open" : ""}">${Pinrail.icon("chevron-right", { size: 12 })}</span>
+    <span class="thread-label">THREAD${tc.round != null ? ` · ROUND ${esc(tc.round)}` : ""}</span>
+    <span>${tc.comments.length} comment${tc.comments.length === 1 ? "" : "s"}${theirs.length ? ` (${theirs.length} from the developer)` : ""}</span>
+  </button>`;
+        const body = open
+          ? `<div class="thread-body">${tc.comments
+              .map(
+                (n) => `<div class="thread-msg${n.ours ? " ours" : ""}">
+      <div class="thread-who">@${esc(n.author || "?")} · ${n.ours ? "us" : "developer"}</div>
+      <div class="thread-text">${mdBlockHtml(n.body)}</div>
+    </div>`,
+              )
+              .join("")}</div>`
+          : "";
+        return `<div class="thread">${header}${body}</div>`;
+      }
+      function segmentsHtml(p) {
+        return (SEGMENTS[p.id] || [])
+          .map((seg) => {
+            if (seg.kind === "para") return `<div class="md-text">${seg.html}</div>`;
+            if (seg.kind === "code") return `<pre class="code-block">${esc(seg.text)}</pre>`;
+            const row = (cls, sign, ln, text) =>
+              `<div class="sugg-row ${cls}"><span class="ln">${ln}</span><span class="sign">${sign}</span><span class="code">${esc(text)}</span></div>`;
+            const delRows = (seg.oldLines || []).map((o) => row("del", "−", o.line, o.text)).join("");
+            const addRows = seg.text
+              .split("\n")
+              .map((t, i) => row("add", "+", seg.line != null ? seg.line + i : "", t))
+              .join("");
+            return `<div class="sugg">
+      <div class="sugg-head">SUGGESTED CHANGE</div>
+      ${delRows}${addRows}
+    </div>`;
+          })
+          .join("");
+      }
+      function previousHtml(p) {
+        const prev = previousVerdict(p.id);
+        if (!prev) return "";
+        const kind = prev.action === "accept" ? "accept" : prev.action === "reject" ? "reject" : "none";
+        return `<div class="previous"><span class="previous-label">PREVIOUS ROUND</span> <span class="previous-verdict ${kind}">${esc(prev.action)}</span>${prev.note ? ` — ${esc(prev.note)}` : ""}</div>`;
+      }
+      /* A proposal. Anchored on a diff row it is `flush`: full width, flush with
+   the rows above and below like a forge's own thread, a rule top and
+   bottom, the focus as a bar down its left edge. Elsewhere — a file's
+   unanchored comments, the change-wide ones — it is a card. */
+      // a control with no words: the icon carries its name and the tooltip says it
+      const iconBtn = (act, id, icon, name) =>
+        `<button class="icon-btn" data-act="${act}" data-id="${id}" title="${esc(name)}">${Pinrail.icon(icon, { size: 15, label: name })}</button>`;
+      function cardHtml(p, flush = false) {
+        const dec = S.decisions[p.id] || null;
+        const action = dec && dec.action;
+        const isAccepted = action === "accept",
+          isRejected = action === "reject",
+          isPending = !action;
+        // a decided card folds to its head row; the row stays put either way
+        const foldable = !RO() && !isPending;
+        const note = (dec && dec.note) || "";
+        const noteEd = noteEditorHtml(p, dec);
+        // the note folds with the rest; writing one opens the finding
+        const collapsed = foldable && !S.expanded[p.id] && !noteEd;
+        const focused = S.focusedId === p.id;
+        const state = isAccepted ? "accepted" : isRejected ? "rejected" : "pending";
+        const verdict = isAccepted
+          ? ["✓ ACCEPTED", "accept"]
+          : isRejected
+            ? ["✕ REJECTED", "reject"]
+            : RO()
+              ? ["UNDECIDED", "none"]
+              : null;
+        const name =
+          `${sevChip(p.severity)}<span class="card-title">${inlineHtml(p.title)}</span><span class="id">#${p.id}</span>` +
+          (p.kind === "reply" ? `<span class="tag">REPLY</span>` : "") +
+          (p.resolves ? `<span class="resolves">will resolve thread ✓</span>` : "");
+        const lead = foldable
+          ? `<button class="bare card-toggle" data-act="${collapsed ? "expand" : "collapse"}" data-id="${p.id}" aria-expanded="${collapsed ? "false" : "true"}" title="${collapsed ? "Show the comment" : "Fold"}">
+        <span class="caret${collapsed ? "" : " open"}">${Pinrail.icon("chevron-right", { size: 13 })}</span>${name}</button>`
+          : `<span class="card-name">${name}</span>`;
+        const decide =
+          !RO() && isPending
+            ? `<button class="accept-btn" data-act="accept" data-id="${p.id}" title="Accept (a)">${Pinrail.icon("check", { size: 13 })}Accept</button>
+    <button class="reject-btn" data-act="reject" data-id="${p.id}" title="Reject (x)">${Pinrail.icon("x", { size: 13 })}Reject</button>
+    ${iconBtn("open-note", p.id, note ? "message-square-text" : "message-square-plus", note ? "Edit the note" : "Add instruction")}`
+            : "";
+        const tail = [
+          decide,
+          verdict
+            ? `<span class="verdict ${verdict[1]}"${RO() ? ` data-verdict="${p.id}"` : ""}>${RO() ? verdict[0].replace(/^[✓✕] /, "") : verdict[0]}</span>`
+            : "",
+          // always there, so the verdict beside it never moves
+          foldable
+            ? iconBtn(
+                "open-note",
+                p.id,
+                note ? "message-square-text" : "message-square-plus",
+                note ? "Edit the note" : isAccepted ? "Ask for changes" : "Say why",
+              )
+            : "",
+          foldable ? iconBtn("undo", p.id, "undo-2", "Undo") : "",
+        ].join("");
+        const head = `<div class="card-head">${lead}<span class="grow"></span>${tail}</div>`;
+        if (collapsed) {
+          return `<div id="card-${p.id}" data-card="${p.id}" class="card ${flush ? "flush" : "boxed"} ${state}${focused ? " focused" : ""} folded">${head}</div>`;
+        }
+        return `<div id="card-${p.id}" data-card="${p.id}" class="card ${flush ? "flush" : "boxed"} ${state}${focused ? " focused" : ""}">${head}
+    ${threadBlockHtml(p)}${previousHtml(p)}
+    <div class="card-body">${segmentsHtml(p)}</div>
+    ${noteEd || (note ? noteBlockHtml(p, dec) : "")}</div>`;
+      }
+
+      /* ---------- render: reviewer's comments / composer ---------- */
+      const anchorOf = (x) => `${x.file.split("/").pop()}:${x.line}${x.side === "old" ? " (old)" : ""}`;
+      function manualHtml(m) {
+        const mineBtn = (act, icon, name) =>
+          `<button class="icon-btn" data-act="${act}" data-mid="${m.id}" title="${name}">${Pinrail.icon(icon, { size: 14, label: name })}</button>`;
+        const controls = RO()
+          ? ""
+          : mineBtn("edit-manual", "pencil", "Edit") + mineBtn("del-manual", "trash-2", "Delete");
+        return `<div class="mine" data-comment="${m.id}">
+    <div class="mine-head">${Pinrail.icon("message-square", { size: 13 })}<span class="mine-label">YOUR COMMENT</span><span class="mine-at">${esc(anchorOf(m))}</span><span class="mine-for">for the agent to assess</span><span class="grow"></span>${controls}</div>
+    ${RO() ? `<div class="mine-text">${esc(m.body)}</div>` : `<button class="bare mine-text" data-act="edit-manual" data-mid="${m.id}" title="Click to edit">${esc(m.body)}</button>`}
+  </div>`;
+      }
+      function composerHtml() {
+        const c = S.composer;
+        return `<div class="mine editing">
+    <div class="mine-head">${Pinrail.icon("message-square", { size: 13 })}<span class="mine-label">YOUR COMMENT</span><span class="mine-at">${esc(anchorOf(c))}</span><span class="grow"></span><span class="mine-hint">Enter to ${c.editId != null ? "save" : "add"} · Esc to cancel</span>
+      <button class="icon-btn" data-act="cancel-composer" title="Cancel">${Pinrail.icon("x", { size: 15, label: "Cancel" })}</button>
+      <button class="icon-btn ok" data-act="save-composer" title="${c.editId != null ? "Save" : "Add comment"}">${Pinrail.icon("check", { size: 15, label: c.editId != null ? "Save" : "Add comment" })}</button></div>
+    <textarea class="note-ta" id="composer-ta" rows="1" placeholder="What should the agent look at here? e.g. is this bucket cleanup handled anywhere?" aria-label="your comment">${esc(c.text || "")}</textarea>
+  </div>`;
+      }
+
+      /* ---------- render: file sections ---------- */
+      function rowAttachments(f, newLn, oldLn, pad) {
+        const at = (x) =>
+          x.file === f.path &&
+          ((x.side !== "old" && newLn != null && x.line === newLn) ||
+            (x.side === "old" && oldLn != null && x.line === oldLn));
+        const anchoredCards = D.proposals.filter(at);
+        const manual = S.manualComments.filter(at);
+        const comp = S.composer && !RO() && at(S.composer);
+        let html = "";
+        anchoredCards.forEach((p) => {
+          html += `<div class="in-diff">${cardHtml(p, true)}</div>`;
+        });
+        // a comment being edited is written where it stands, not in a box of its own
+        const editing = comp && S.composer.editId != null;
+        manual.forEach((m) => {
+          html += editing && S.composer.editId === m.id ? composerHtml() : manualHtml(m);
+        });
+        if (comp && !editing) html += composerHtml();
+        return html;
+      }
+      /* One "+" for the whole diff: it moves to the line-number cell of the row
+   under the pointer, so three thousand rows carry a number each and not a
+   button each. Rows say which lines they are; the section says which file. */
+      function ensureAddBtn() {
+        let btn = document.getElementById("addbtn");
+        if (!btn) {
+          btn = document.createElement("button");
+          btn.id = "addbtn";
+          btn.className = "addbtn";
+          btn.innerHTML = Pinrail.icon("plus", { size: 12 });
+          btn.setAttribute("data-act", "open-composer");
+        }
+        return btn;
+      }
+      document.addEventListener("mouseover", (e) => {
+        if (RO() || !D) return;
+        const row = e.target.closest && e.target.closest(".diff-row");
+        if (!row) return;
+        const sec = row.closest("[data-filesec]");
+        if (!sec) return;
+        const newLn = row.getAttribute("data-n"),
+          oldLn = row.getAttribute("data-o");
+        const side = newLn ? "new" : oldLn ? "old" : null;
+        if (!side) return;
+        const cells = row.querySelectorAll(".ln");
+        const cell = side === "new" ? cells[cells.length - 1] : cells[0];
+        const btn = ensureAddBtn();
+        btn.setAttribute("data-file", sec.getAttribute("data-filesec"));
+        btn.setAttribute("data-line", side === "new" ? newLn : oldLn);
+        btn.setAttribute("data-side", side);
+        // inline, an old line's + skips the new number, so it sits where every other one does
+        btn.classList.toggle("past-new", side === "old" && row.classList.contains("inline"));
+        const label = `comment on ${sec.getAttribute("data-filesec")}:${side === "new" ? newLn : oldLn}${side === "old" ? " old" : ""}`;
+        btn.setAttribute("aria-label", label);
+        btn.title = side === "new" ? "Add your comment on this line" : "Comment on the old line";
+        if (btn.parentNode !== cell) cell.appendChild(btn);
+      });
+      /* The rows of a file come in hunks, and each hunk is a region of its own
+   (see render): a verdict or a composer on one line re-renders its hunk,
+   not the file. */
+      let HUNKS = new Map(); // hunk region key -> html, filled while rendering
+      function hunked(f, rows, rowHtml) {
+        let n = 0,
+          chunk = [],
+          out = "";
+        const flush = () => {
+          if (!chunk.length) return;
+          const key = `hunk:${f.path}:${n++}`;
+          const html = `<div data-region="${esc(key)}">${chunk.join("")}</div>`;
+          HUNKS.set(key, html);
+          out += `<!--region:${esc(key)}-->`;
+          chunk = [];
+        };
+        for (const r of rows) {
+          if (r.kind === "hunk") flush();
+          chunk.push(rowHtml(r));
+        }
+        flush();
+        return out;
+      }
+      /* A line long enough to wrap carries on two characters past its own
+   indentation; a short one carries nothing. */
+      const hang = (text) => {
+        if (!text || text.length < 48) return "";
+        const lead = text.match(/^[ \t]*/)[0].replace(/\t/g, "    ").length;
+        return lead ? ` style="--i:${lead}"` : "";
+      };
+      function inlineRowsHtml(f, fi) {
+        const P = PARSED[fi];
+        return hunked(f, P.rows, (r) => {
+          if (r.kind === "hunk") return `<div class="hunk">${esc(r.text)}</div>`;
+          const isAdd = r.kind === "add",
+            isDel = r.kind === "del";
+          return (
+            `<div class="diff-row inline${isAdd ? " add" : isDel ? " del" : ""}"${r.new != null ? ` data-n="${r.new}"` : ""}${r.old != null ? ` data-o="${r.old}"` : ""}><span class="ln">${r.old ?? ""}</span><span class="ln">${r.new ?? ""}</span><span class="sign">${isAdd ? "+" : isDel ? "−" : ""}</span><span class="code"${hang(r.text)}>${esc(r.text)}</span></div>` +
+            rowAttachments(f, r.new ?? null, r.old ?? null, 106)
+          );
+        });
+      }
+      function splitRowsHtml(f, fi) {
+        const P = PARSED[fi];
+        return hunked(f, P.splitRows, (r) => {
+          if (r.kind === "hunk") return `<div class="hunk split">${esc(r.text)}</div>`;
+          const l = r.l,
+            rr = r.r;
+          const lDel = l && l.kind === "del",
+            rAdd = rr && rr.kind === "add";
+          const newLn = rr && rr.new != null ? rr.new : null;
+          const oldLn = l && l.old != null ? l.old : null;
+          return (
+            `<div class="diff-row split"${newLn != null ? ` data-n="${newLn}"` : ""}${lDel && oldLn != null ? ` data-o="${oldLn}"` : ""}><span class="ln${lDel ? " del" : ""}">${oldLn ?? ""}</span><span class="code l${lDel ? " del" : ""}"${hang(l && l.text)}>${esc(l ? l.text : "")}</span><span class="ln${rAdd ? " add" : ""}">${newLn ?? ""}</span><span class="code${rAdd ? " add" : ""}"${hang(rr && rr.text)}>${esc(rr ? rr.text : "")}</span></div>` +
+            rowAttachments(f, newLn, lDel ? oldLn : null, 52)
+          );
+        });
+      }
+      function fileSectionHtml(f, fi) {
+        const P = PARSED[fi];
+        const fProps = D.proposals.filter((p) => p.file === f.path);
+        const unanchored = fProps.filter((p) => p.line == null || !P.rows.some((r) => anchorsRow(p, r)));
+        const folded = !!S.folded[f.path];
+        const total = fProps.length,
+          fDecided = fProps.filter((p) => decided(p.id)).length;
+        const badge =
+          f.status === "added" ? "NEW" : f.status === "renamed" ? "RENAMED" : f.status === "deleted" ? "DELETED" : null;
+        const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/") + 1) : "";
+        const base = f.path.split("/").pop();
+        const body = folded
+          ? ""
+          : `<div class="file-diff${!S.wrap && S.diffMode === "inline" ? " nowrap" : ""}">${S.diffMode === "inline" ? inlineRowsHtml(f, fi) : splitRowsHtml(f, fi)}</div>`;
+        const summary = f.summary && !folded ? `<div class="file-summary md">${mdBlockHtml(f.summary)}</div>` : "";
+        const un = unanchored.length
+          ? `<div class="file-unanchored">
+      <div class="file-unanchored-head">On the file, not a line · posts as a file-level comment</div>
+      ${unanchored.map((p) => cardHtml(p, true)).join("")}</div>`
+          : "";
+        const rowsShown = folded ? 0 : S.diffMode === "inline" ? P.rows.length : P.splitRows.length;
+        const estimate = 44 + rowsShown * 20 + (f.summary ? 34 : 0) + fProps.length * 140;
+        // the header is a region of its own, like a hunk: a verdict changes its
+        // counts without re-rendering the diff under it
+        const headKey = `hunk:${f.path}:head`;
+        HUNKS.set(
+          headKey,
+          `<div data-region="${esc(headKey)}" class="file-head${folded ? " folded" : ""}">
+      <button class="bare file-fold${folded ? "" : " open"}" data-act="fold-file" data-file="${esc(f.path)}" aria-label="fold ${esc(f.path)}" aria-expanded="${folded ? "false" : "true"}">${Pinrail.icon("chevron-right", { size: 13 })}</button>
+      <span class="file-path"><span class="dir">${esc(dir)}</span><span class="base">${esc(base)}</span></span>
+      ${badge ? `<span class="file-badge is-${f.status}">${badge}</span>` : ""}
+      <span class="file-churn"><span class="plus">+${P.add}</span> <span class="minus">−${P.del}</span></span>
+      <span class="grow"></span>
+      ${total ? `<span class="file-count${fDecided === total ? " done" : ""}">${fDecided}/${total} decided</span>` : ""}
+    </div>`,
+        );
+        return `<section data-filesec="${esc(f.path)}" class="file${folded ? " folded" : ""}" style="contain-intrinsic-size:auto ${estimate}px">
+    <!--region:${esc(headKey)}-->
+    ${summary}${body}${un}
+  </section>`;
+      }
+
+      /* ---------- render: tree ---------- */
+      function treeHtml() {
+        const order = orderedFiles();
+        const ids = orderedIds();
+        const dirs = [];
+        order.forEach((i) => {
+          const f = D.files[i];
+          const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+          let g = dirs.find((x) => x.dir === dir);
+          if (!g) {
+            g = { dir, files: [] };
+            dirs.push(g);
+          }
+          g.files.push(i);
+        });
+        // each finding under its file, in reading order, with where it stands
+        const findingRow = (p) => {
+          const action = S.decisions[p.id] && S.decisions[p.id].action;
+          const state = action === "accept" ? "accepted" : action === "reject" ? "rejected" : "open";
+          return `<button class="tree-finding ${state}${S.focusedId === p.id ? " focus" : ""}" data-act="jump-card" data-id="${esc(String(p.id))}" title="${esc(p.title)}">
+      <span class="dot is-${esc(p.severity || "nit")}"></span><span class="t">${esc(p.title.replace(/`/g, ""))}</span>${S.decisions[p.id] && S.decisions[p.id].note ? `<span class="has-note" title="Has a note">${Pinrail.icon("message-square-text", { size: 12 })}</span>` : ""}<span class="n">#${esc(String(p.id))}</span></button>`;
+        };
+        const mineRow = (
+          m,
+        ) => `<button class="tree-finding mine-row" data-act="jump-comment" data-mid="${m.id}" title="Your comment on line ${m.line}: ${esc(m.body)}">
+      ${Pinrail.icon("message-square", { size: 12 })}<span class="t">${esc(m.body)}</span><span class="n">L${m.line}</span></button>`;
+        let rows = "";
+        // with the findings filter on, a file is shown only with something to decide or
+        // a comment of yours; a folder only with a file shown
+        const shown = (i) =>
+          !S.findingsOnly ||
+          D.proposals.some((p) => p.file === D.files[i].path) ||
+          S.manualComments.some((m) => m.file === D.files[i].path);
+        dirs.forEach((g) => {
+          if (!g.files.some(shown)) return;
+          const collapsed = !!S.collapsedDirs[g.dir];
+          if (g.dir)
+            rows += `<button class="tree-row tree-dir" data-act="toggle-dir" data-dir="${esc(g.dir)}">
+      <span class="caret${collapsed ? "" : " open"}">${Pinrail.icon("chevron-right", { size: 12 })}</span>${Pinrail.icon(collapsed ? "folder" : "folder-open", { size: 13 })}<span class="path">${esc(g.dir)}/</span></button>`;
+          if (collapsed) return;
+          g.files.forEach((i) => {
+            const f = D.files[i],
+              P = PARSED[i];
+            const fProps = D.proposals
+              .filter((p) => p.file === f.path)
+              .sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+            const mine = S.manualComments.filter((m) => m.file === f.path);
+            if (S.findingsOnly && !fProps.length && !mine.length) return;
+            // the file's findings and your own comments, by the line they are on
+            const at = (x) => (x.line == null ? Infinity : x.line);
+            const items = [
+              ...fProps.map((p, k) => ({ line: at(p), k, html: findingRow(p) })),
+              ...mine.map((m, k) => ({ line: at(m), k: 1e6 + k, html: mineRow(m) })),
+            ].sort((a, b) => a.line - b.line || a.k - b.k);
+            const total = fProps.length,
+              fDecided = fProps.filter((p) => decided(p.id)).length;
+            rows += `<button class="tree-row tree-file${S.activeFile === f.path ? " on" : ""}${total ? "" : " quiet"}" data-act="jump-file" data-file="${esc(f.path)}">
+        <span class="name">${esc(f.path.split("/").pop())}</span>
+        <span class="grow"></span>
+        ${total ? `<span class="count${fDecided === total ? " done" : ""}">${fDecided}/${total}</span>` : ""}
+        <span class="churn"><span class="plus">+${P.add}</span> <span class="minus">−${P.del}</span></span>
+      </button>${items.map((x) => x.html).join("")}`;
+          });
+        });
+        // findings on no file, as the diff shows them after the last file
+        const loose = D.proposals.filter(unplaceable).sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        if (loose.length)
+          rows += `<div class="tree-row tree-dir tree-loose">${Pinrail.icon("git-pull-request", { size: 13 })}<span class="path">Not on a file</span></div>${loose.map(findingRow).join("")}`;
+        const hasRanks = D.files.some((f) => f.rank != null);
+        return `<aside class="rail">
+    <div class="rail-head">
+      <span class="pinrail-eyebrow">FILES · ${D.files.length}</span>
+      <span class="grow"></span>
+      ${hasRanks ? `<button class="toggle ${S.orderMode === "semantic" ? "on" : ""}" data-act="toggle-order" title="Semantic reading order vs alphabetical">${ico(S.orderMode === "semantic" ? "list-ordered" : "arrow-down-a-z")}${S.orderMode === "semantic" ? "semantic" : "a→z"}</button>` : ""}
+      <button class="toggle ${S.findingsOnly ? "on" : ""}" data-act="toggle-findings-only" title="Show only files with findings">${ico("funnel")}findings</button>
+    </div>
+    <div class="rail-body">${rows}</div>
+  </aside>`;
+      }
+
+      /* ---------- render: summary, modals, header ---------- */
+      /* The brief: one line under the header — the summary, an amber chip for
+   the concerns, Details — and a panel that drops down with the full
+   summary, the concerns and the description. Read once, out of the way. */
+      function briefHtml() {
+        const ov = D.overview;
+        const full = (ov.summary || "").trim();
+        const line =
+          full
+            .split("\n")
+            .map((l) => l.trim())
+            .find(Boolean) || D.change.title;
+        const longer = full.length > line.length;
+        const hasDetails = longer || !!D.change.description;
+        // the chip opens the concerns alone, right under the line; the description
+        // chip opens the rest of the summary and the description — the line is
+        // never repeated
+        const concerns =
+          S.concernsOpen && ov.concerns
+            ? `<div class="brief-concerns">
+      <div class="pinrail-eyebrow">REVIEW CONCERNS</div><div class="md">${mdBlockHtml(ov.concerns)}</div>
+    </div>`
+            : "";
+        const details =
+          S.briefOpen && hasDetails
+            ? `<div class="brief-details">
+      ${longer ? `<div class="md">${mdBlockHtml(full)}</div>` : ""}
+      ${D.change.description ? `<div><div class="pinrail-eyebrow">DESCRIPTION</div><div class="md dim">${mdBlockHtml(D.change.description)}</div></div>` : ""}
+    </div>`
+            : "";
+        return `<div id="brief" class="brief">
+    <div class="brief-line">
+      ${Pinrail.icon("sparkles", { size: 14 })}
+      <span class="brief-text"><b>The agent's summary</b><span>${inlineHtml(line)}</span></span>
+      <span class="brief-pills">
+        ${ov.concerns ? `<button class="toggle warn${S.concernsOpen ? " on" : ""}" data-act="toggle-concerns" aria-expanded="${S.concernsOpen ? "true" : "false"}">${ico("triangle-alert")}concerns</button>` : ""}
+        ${hasDetails ? `<button class="toggle${S.briefOpen ? " on" : ""}" data-act="toggle-brief" title="${longer ? "The full summary and the description" : "The change's description"}" aria-expanded="${S.briefOpen ? "true" : "false"}">${ico("file-text")}description</button>` : ""}
+      </span>
+    </div>${concerns}${details}</div>`;
+      }
+
+      /* Toolbar icons sit beside their label, so they are decoration and the label
+   is the name. The one button with no label of its own carries one instead. */
+      const ico = (name) => Pinrail.icon(name, { size: 14 });
+
+      function headerHtml() {
+        const props = D.proposals;
+        const count = (a) => props.filter((p) => S.decisions[p.id] && S.decisions[p.id].action === a).length;
+        const decidedCount = props.filter((p) => decided(p.id)).length;
+        const undecidedList = props.filter((p) => !decided(p.id));
+        const pct = props.length ? Math.round((decidedCount / props.length) * 100) : 0;
+        const c = D.change;
+        const status = REVIEW.status;
+        const roLabel = status === "decided" ? "READ-ONLY · DECIDED" : `READ-ONLY · ${String(status).toUpperCase()}`;
+        return `<header class="head">
+    <button class="bare head-tree" data-act="toggle-tree">${Pinrail.icon(S.treeOpen ? "panel-left-close" : "panel-left-open", { size: 15, label: S.treeOpen ? "Collapse the file tree" : "Show the file tree" })}</button>
+    <div class="head-title">
+      <h1>${esc(c.title)}</h1>
+      <span class="head-ref">${esc(c.ref)}</span>
+      <span class="head-branch">
+        ${c.source ? `<span class="pinrail-chip">${esc(c.source)}</span>` : ""}${c.source && c.target ? `<span class="arrow">→</span>` : ""}${c.target ? `<span class="pinrail-chip">${esc(c.target)}</span>` : ""}
+        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noreferrer">open ↗</a>` : ""}
+      </span>
+    </div>
+    ${
+      RO()
+        ? `<span class="head-ro">${roLabel}</span>`
+        : `<div class="tally" title="${decidedCount} of ${props.length} decided"><span class="t-ok"><b>${count("accept")}</b> accepted</span><span class="t-no"><b>${count("reject")}</b> rejected</span><span><b>${undecidedList.length}</b> undecided</span></div>`
+    }
+    ${RO() ? "" : `<div class="head-progress" aria-hidden="true"><span style="width:${pct}%"></span></div>`}
+  </header>`;
+      }
+
+      /* The diff's own bar: how it reads, level with the rail's head. */
+      function toolbarHtml() {
+        const allFolded = D.files.every((f) => S.folded[f.path]);
+        const undecided = D.proposals.filter((p) => !decided(p.id)).length;
+        // decisions on every finding still open below
+        const bulk = (kind, verb, icon) => {
+          const armed = S.confirmBulk === kind;
+          return `<button class="tool${armed ? ` armed ${kind}` : ""}" data-act="bulk-${kind}">${ico(icon)}${armed ? `Really ${verb.toLowerCase()} ${undecided}?` : `${verb} remaining (${undecided})`}</button>`;
+        };
+        return `<div class="diff-bar" role="toolbar" aria-label="The diff">
+    <div class="seg-group">
+      <button class="seg ${S.diffMode === "inline" ? "on" : ""}" data-act="set-inline" title="Inline diff">${Pinrail.icon("rows-3", { size: 14, label: "Inline diff" })}</button>
+      <button class="seg ${S.diffMode === "split" ? "on" : ""}" data-act="set-split" title="Split diff">${Pinrail.icon("columns-2", { size: 14, label: "Split diff" })}</button>
+    </div>
+    <button class="tool" data-act="fold-all">${ico(allFolded ? "unfold-vertical" : "fold-vertical")}${allFolded ? "Unfold all" : "Fold all"}</button>
+    <button class="tool${S.wrap ? " on" : ""}" data-act="toggle-wrap" aria-pressed="${S.wrap ? "true" : "false"}" ${S.diffMode === "split" ? `disabled title="Side by side always wraps, so the two sides stay level"` : `title="Wrap long lines, or scroll sideways (w)"`}>${ico("wrap-text")}Wrap</button>
+    <span class="grow"></span>
+    ${!RO() && undecided ? `${bulk("accept", "Accept", "list-check")}${bulk("reject", "Reject", "list-x")}` : ""}
+  </div>`;
+      }
+
+      /* ---------- render root ---------- */
+      /* The document is a set of regions — header, tree, summary, one section per
+   file, the unanchored cards, the modals — each rendered to a string. A
+   change re-renders the strings and swaps only the regions whose string
+   differs, so accepting a comment touches one file's section rather than
+   three thousand diff rows. The whole document is rebuilt only when its
+   shape changes: the tree opens or closes, files reorder, the round is
+   done. */
+      let RENDERED = null; // { shape, regions: Map(key -> html), hunks: Map(key -> html) }
+      function region(key, html) {
+        // the region's root carries its key; an empty region keeps a placeholder
+        if (!html) return `<span data-region="${esc(key)}" hidden></span>`;
+        return html.replace(/^\s*<([a-z0-9]+)/i, `<$1 data-region="${esc(key)}"`);
+      }
+      // a file region holds markers where its hunks go; composing fills them in
+      const compose = (html) => html.replace(/<!--region:([^>]*)-->/g, (_, key) => HUNKS.get(key) || "");
+      const hunkFile = (key) => "file:" + key.slice("hunk:".length, key.lastIndexOf(":"));
+      function render() {
+        const app = document.getElementById("app");
+        if (!D) {
+          app.innerHTML = `<div style="padding:40px;color:var(--pinrail-dim);font-family:var(--pinrail-sans)">waiting for the shell…</div>`;
+          RENDERED = null;
+          return;
+        }
+        const main = document.getElementById("main");
+        const scrollTop = main ? main.scrollTop : 0;
+        const focusEl = document.activeElement;
+        const focusDesc =
+          focusEl && focusEl.id === "composer-ta"
+            ? { id: "composer-ta" }
+            : focusEl && focusEl.hasAttribute && focusEl.hasAttribute("data-note-ta")
+              ? { note: focusEl.getAttribute("data-note-ta") }
+              : null;
+
+        const globalUn = D.proposals.filter(unplaceable);
+        const order = orderedFiles();
+        const regions = new Map();
+        HUNKS = new Map();
+        regions.set("header", region("header", headerHtml()));
+        regions.set("tree", region("tree", S.treeOpen ? treeHtml() : ""));
+        regions.set("toolbar", region("toolbar", toolbarHtml()));
+        regions.set("brief", region("brief", briefHtml()));
+        for (const i of order)
+          regions.set(`file:${D.files[i].path}`, region(`file:${D.files[i].path}`, fileSectionHtml(D.files[i], i)));
+        regions.set(
+          "unanchored",
+          region(
+            "unanchored",
+            globalUn.length
+              ? `<section class="file">
+          <div class="file-head">
+            <span style="font-size:12.5px;font-weight:600">Not anchored to any file</span>
+            <span style="font-size:11px;color:var(--pinrail-faint)">replies go to their thread; the rest post on the change as a whole</span>
+          </div>
+          ${globalUn.map((p) => cardHtml(p, true)).join("")}
+        </section>`
+              : "",
+          ),
+        );
+        const shape = JSON.stringify([
+          S.treeOpen,
+          S.done,
+          order.map((i) => D.files[i].path),
+          globalUn.map((p) => p.id),
+        ]);
+
+        if (RENDERED && RENDERED.shape === shape) {
+          // the same shape: swap only what changed — a region, or a hunk inside one
+          let missing = false;
+          const swapped = new Set();
+          for (const [key, html] of regions) {
+            if (RENDERED.regions.get(key) === html) continue;
+            const el = app.querySelector(`[data-region="${CSS.escape(key)}"]`);
+            if (!el) {
+              missing = true;
+              break;
+            }
+            el.outerHTML = compose(html);
+            swapped.add(key);
+          }
+          if (!missing) {
+            for (const [key, html] of HUNKS) {
+              if (RENDERED.hunks.get(key) === html || swapped.has(hunkFile(key))) continue;
+              const el = app.querySelector(`[data-region="${CSS.escape(key)}"]`);
+              if (!el) {
+                missing = true;
+                break;
+              }
+              el.outerHTML = html;
+            }
+          }
+          if (!missing) {
+            RENDERED = { shape, regions, hunks: HUNKS };
+            restoreFocus(focusDesc);
+            syncStatus();
+            return;
+          }
+        }
+
+        const banner = S.done
+          ? `<div id="done-banner" style="flex:none;padding:7px 16px;background:color-mix(in oklab, var(--pinrail-success) 12%, var(--pinrail-bg-panel));border-bottom:1px solid color-mix(in oklab, var(--pinrail-success) 35%, var(--pinrail-border));font-size:12.5px;color:var(--pinrail-success);font-weight:500">✓ Decisions submitted. The workflow receives exactly what you approved.</div>`
+          : "";
+        app.innerHTML = `${regions.get("header")}${banner}
+  <div style="display:flex;flex:1;min-height:0">
+    ${regions.get("tree")}
+    <div class="pane">
+    ${regions.get("toolbar")}
+    <div id="main" style="flex:1;overflow-y:auto;min-width:0;min-height:0">
+      <div style="padding:16px 24px 420px 24px">
+        ${regions.get("brief")}
+        ${order.map((i) => compose(regions.get(`file:${D.files[i].path}`))).join("")}
+        ${regions.get("unanchored")}
+      </div>
+    </div>
+    </div>
+  </div>`;
+        app.append(confirm.element);
+        RENDERED = { shape, regions, hunks: HUNKS };
+        const nm = document.getElementById("main");
+        if (nm) {
+          nm.scrollTop = scrollTop;
+          nm.addEventListener("scroll", spy, { passive: true });
+        }
+        restoreFocus(focusDesc);
+        syncStatus();
+      }
+      // a note field grows with what is written in it
+      function fitNote(el) {
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+      }
+      document.addEventListener("input", (e) => {
+        if (e.target.matches && e.target.matches("[data-note-ta], #composer-ta")) fitNote(e.target);
+      });
+      function restoreFocus(focusDesc) {
+        document.querySelectorAll("[data-note-ta], #composer-ta").forEach(fitNote);
+        let toFocus = null;
+        if (focusDesc)
+          toFocus = focusDesc.id
+            ? document.getElementById(focusDesc.id)
+            : document.querySelector(`[data-note-ta="${focusDesc.note}"]`);
+        else if (S.composer) toFocus = document.getElementById("composer-ta");
+        // a note field takes the cursor when it has just been opened, not on every
+        // redraw: one left open further up must not pull the page back to it
+        else if (S.focusNote != null) toFocus = document.querySelector(`[data-note-ta="${S.focusNote}"]`);
+        S.focusNote = null;
+        // putting the cursor back where it was never scrolls; a field just opened may
+        if (toFocus && toFocus !== document.activeElement) {
+          toFocus.focus({ preventScroll: !!focusDesc });
+          const v = toFocus.value;
+          toFocus.value = "";
+          toFocus.value = v;
+        }
+      }
+
+      /* ---------- scrollspy ---------- */
+      let spyPending = false;
+      function spy() {
+        if (spyPending) return;
+        spyPending = true;
+        requestAnimationFrame(() => {
+          spyPending = false;
+          const c = document.getElementById("main");
+          if (!c) return;
+          const cr = c.getBoundingClientRect();
+          let best = null,
+            bestTop = -Infinity;
+          c.querySelectorAll("[data-filesec]").forEach((el) => {
+            const t = el.getBoundingClientRect().top - cr.top;
+            if (t <= 80 && t > bestTop) {
+              bestTop = t;
+              best = el.getAttribute("data-filesec");
+            }
+          });
+          if (best && best !== S.activeFile) {
+            S.activeFile = best;
+            highlightTree(best);
+          }
+        });
+      }
+      function highlightTree(path) {
+        document
+          .querySelectorAll('[data-act="jump-file"]')
+          .forEach((el) => el.classList.toggle("on", el.getAttribute("data-file") === path));
+      }
+
+      /* ---------- actions ---------- */
+      function saveComposer() {
+        const ta = document.getElementById("composer-ta");
+        const text = ta ? ta.value.trim() : "";
+        const c = S.composer;
+        if (!c || !text) return;
+        set(() => {
+          if (c.editId != null)
+            S.manualComments = S.manualComments.map((m) => (m.id === c.editId ? { ...m, body: text } : m));
+          else S.manualComments.push({ id: "m" + ++mseq, file: c.file, line: c.line, side: c.side, body: text });
+          S.composer = null;
+        });
+      }
+      function bulk(action) {
+        const undecidedList = D.proposals.filter((p) => !decided(p.id));
+        if (S.confirmBulk !== action) {
+          set(() => {
+            S.confirmBulk = action;
+          });
+          clearTimeout(bulkT);
+          bulkT = setTimeout(
+            () =>
+              set(() => {
+                S.confirmBulk = null;
+              }),
+            3000,
+          );
+          return;
+        }
+        set(() => {
+          undecidedList.forEach((p) => {
+            S.decisions[p.id] = { ...(S.decisions[p.id] || {}), action };
+          });
+          S.confirmBulk = null;
+        });
+      }
+      /** The decision, or nothing while undecided proposals wait for a second
+       *  press to confirm. */
+      function confirmSubmit() {
+        captureDrafts();
+        const undecidedCount = D.proposals.filter((p) => !decided(p.id)).length;
+        if (!S.confirmSubmitArm && undecidedCount) {
+          set(() => {
+            S.confirmSubmitArm = true;
+          });
+          return;
+        }
+        set(() => {
+          S.errors = null;
+        });
+        handingOver = true;
+        return buildDecision();
+      }
+      /* The shell's hand-over button asks for the decision: it goes at once,
+   unless proposals are left undecided, which the first press asks about. */
+      function collect() {
+        if (RO()) return;
+        return confirmSubmit();
+      }
+
+      function syncStatus() {
+        if (RO()) {
+          confirm.confirmation(null);
+          return;
+        }
+        const undecided = D.proposals.filter((p) => !decided(p.id)).length;
+        const armed = S.confirmSubmitArm && undecided > 0;
+        plugin.handOverLabel(armed ? `Hand over with ${undecided} undecided` : "Hand over");
+        if (S.errors && S.errors.length) {
+          confirm.confirmation({
+            tone: "danger",
+            text: `The app refused the decision: ${S.errors.map((e) => `${e.path || "/"}: ${e.message}`).join("; ")}`,
+            actions: [keepReviewing],
+          });
+        } else if (armed) {
+          confirm.confirmation({
+            text: `${undecided} ${undecided === 1 ? "proposal" : "proposals"} left undecided. They will not be posted, and the agent is told they were left undecided. Hand over again to confirm.`,
+            actions: [keepReviewing],
+          });
+        } else {
+          confirm.confirmation(null);
+        }
+      }
+
+      // WebKit keeps a text field focused when a button elsewhere is clicked; a
+      // press outside the field lets go of it, so a redraw never returns to it
+      document.addEventListener(
+        "mousedown",
+        (e) => {
+          const a = document.activeElement;
+          if (a && a.matches && a.matches("textarea, input") && !a.contains(e.target)) a.blur();
+        },
+        true,
+      );
+      document.addEventListener("click", (e) => {
+        const cardEl = e.target.closest("[data-card]");
+        const cardId = cardEl ? parseInt(cardEl.getAttribute("data-card"), 10) : null;
+        const t = e.target.closest("[data-act]");
+        if (!t) {
+          const ov = e.target.closest("[data-act-overlay]");
+          if (ov && e.target === ov) return;
+          if (cardId != null && S.focusedId !== cardId)
+            set(() => {
+              S.focusedId = cardId;
+            });
+          return;
+        }
+        if (cardId != null) S.focusedId = cardId;
+        const act = t.getAttribute("data-act");
+        const id = t.hasAttribute("data-id") ? parseInt(t.getAttribute("data-id"), 10) : null;
+        switch (act) {
+          // a click stays on the finding; the a key moves on, for going through them in order
+          case "accept":
+            inPlace(id, () => decide(id, "accept", false));
+            break;
+          case "reject":
+            inPlace(id, () => decide(id, "reject", false));
+            break;
+          case "undo":
+            undo(id);
+            break;
+          case "expand":
+            inPlace(id, () =>
+              set(() => {
+                S.expanded[id] = true;
+              }),
+            );
+            break;
+          case "collapse":
+            inPlace(id, () =>
+              set(() => {
+                delete S.expanded[id];
+              }),
+            );
+            break;
+          case "toggle-thread": {
+            const k = "t" + t.getAttribute("data-id");
+            const cur = t.getAttribute("data-open") === "1";
+            inPlace(id, () =>
+              set(() => {
+                S.expanded[k] = !cur;
+              }),
+            );
+            break;
+          }
+          case "open-note":
+            set(() => {
+              S.noteOpen[id] = { open: true, draft: (S.decisions[id] && S.decisions[id].note) || "" };
+              S.focusNote = id;
+            });
+            break;
+          case "save-note": {
+            const ta = document.querySelector(`[data-note-ta="${id}"]`);
+            setNote(id, ta ? ta.value.trim() : "");
+            break;
+          }
+          case "del-note":
+            setNote(id, "");
+            break;
+          case "open-composer": {
+            const file = t.getAttribute("data-file");
+            const line = parseInt(t.getAttribute("data-line"), 10);
+            const side = t.getAttribute("data-side") || "new";
+            set(() => {
+              S.composer = { file, line, side, text: "", editId: null };
+            });
+            break;
+          }
+          case "save-composer":
+            inPlace(S.focusedId, saveComposer);
+            break;
+          case "cancel-composer":
+            inPlace(S.focusedId, () =>
+              set(() => {
+                S.composer = null;
+              }),
+            );
+            break;
+          case "edit-manual": {
+            const m = S.manualComments.find((x) => x.id === t.getAttribute("data-mid"));
+            if (m)
+              set(() => {
+                S.composer = { file: m.file, line: m.line, side: m.side, text: m.body, editId: m.id };
+              });
+            break;
+          }
+          case "del-manual":
+            set(() => {
+              S.manualComments = S.manualComments.filter((x) => x.id !== t.getAttribute("data-mid"));
+            });
+            break;
+          case "fold-file": {
+            const f = t.getAttribute("data-file");
+            set(() => {
+              S.folded[f] = !S.folded[f];
+            });
+            break;
+          }
+          case "fold-all": {
+            const all = D.files.every((f) => S.folded[f.path]);
+            set(() => {
+              S.folded = {};
+              if (!all)
+                D.files.forEach((f) => {
+                  S.folded[f.path] = true;
+                });
+            });
+            break;
+          }
+          case "jump-file":
+            jumpToFile(t.getAttribute("data-file"));
+            break;
+          case "jump-comment": {
+            const el = document.querySelector(`[data-comment="${CSS.escape(t.getAttribute("data-mid"))}"]`);
+            if (el) scrollTo(el, (cr) => cr.height / 3.2);
+            break;
+          }
+          case "jump-card": {
+            const p = D.proposals.find((x) => String(x.id) === t.getAttribute("data-id"));
+            if (p) {
+              set(() => {
+                S.focusedId = p.id;
+                unfoldFor(p.id);
+              });
+              scrollToCard(p.id);
+            }
+            break;
+          }
+          case "toggle-dir": {
+            const d = t.getAttribute("data-dir");
+            set(() => {
+              S.collapsedDirs[d] = !S.collapsedDirs[d];
+            });
+            break;
+          }
+          case "toggle-tree":
+            set(() => {
+              S.treeOpen = !S.treeOpen;
+            });
+            keep("tree_open", S.treeOpen);
+            break;
+          case "toggle-findings-only":
+            set(() => {
+              S.findingsOnly = !S.findingsOnly;
+            });
+            keep("findings_only", S.findingsOnly);
+            break;
+          case "toggle-order":
+            set(() => {
+              S.orderMode = S.orderMode === "semantic" ? "path" : "semantic";
+            });
+            keep("order", S.orderMode);
+            break;
+          case "set-inline":
+            set(() => {
+              S.diffMode = "inline";
+            });
+            keep("diff", "inline");
+            break;
+          case "set-split":
+            set(() => {
+              S.diffMode = "split";
+            });
+            keep("diff", "split");
+            break;
+          case "toggle-wrap":
+            set(() => {
+              S.wrap = !S.wrap;
+            });
+            keep("wrap", S.wrap);
+            break;
+          case "bulk-accept":
+            bulk("accept");
+            break;
+          case "bulk-reject":
+            bulk("reject");
+            break;
+          case "toggle-brief":
+            set(() => {
+              S.briefOpen = !S.briefOpen;
+            });
+            break;
+          case "toggle-concerns":
+            set(() => {
+              S.concernsOpen = !S.concernsOpen;
+            });
+            break;
+        }
+      });
+      document.addEventListener("keydown", (e) => {
+        if (!D) return;
+        const tag = e.target && e.target.tagName;
+        const typing =
+          tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target && e.target.isContentEditable);
+        if (e.key === "Escape") {
+          // the key is ours: nothing else acts on it, and the field it was typed in
+          // lets go of focus before it goes
+          e.preventDefault();
+          if (typing && e.target.blur) e.target.blur();
+          if (typing && e.target.hasAttribute && e.target.hasAttribute("data-note-ta")) {
+            const id = e.target.getAttribute("data-note-ta");
+            inPlace(id, () =>
+              set(() => {
+                delete S.noteOpen[id];
+              }),
+            );
+            return;
+          }
+          inPlace(S.focusedId, () =>
+            set(() => {
+              S.composer = null;
+              S.confirmBulk = null;
+              S.confirmSubmitArm = false;
+            }),
+          );
+          return;
+        }
+        if (typing) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            if (e.target.id === "composer-ta") {
+              e.preventDefault();
+              inPlace(S.focusedId, saveComposer);
+            } else if (e.target.hasAttribute("data-note-ta")) {
+              e.preventDefault();
+              const id = parseInt(e.target.getAttribute("data-note-ta"), 10);
+              setNote(id, e.target.value.trim());
+            }
+          }
+          return;
+        }
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        const fid = S.focusedId;
+        switch (e.key) {
+          case "j":
+          case "J":
+            e.preventDefault();
+            moveFocus(1, e.key === "J");
+            break;
+          case "k":
+          case "K":
+            e.preventDefault();
+            moveFocus(-1, e.key === "K");
+            break;
+          case "a":
+            if (!RO() && fid != null) {
+              e.preventDefault();
+              decide(fid, "accept", true);
+            }
+            break;
+          case "x":
+            if (!RO() && fid != null) {
+              e.preventDefault();
+              decide(fid, "reject", false);
+            }
+            break;
+          case "c":
+            if (!RO() && fid != null) {
+              // the note to the agent on the focused finding, written in place
+              e.preventDefault();
+              inPlace(fid, () =>
+                set(() => {
+                  S.noteOpen[fid] = { open: true, draft: (S.decisions[fid] && S.decisions[fid].note) || "" };
+                  S.focusNote = fid;
+                  S.expanded[fid] = true;
+                }),
+              );
+            }
+            break;
+          case "v":
+            e.preventDefault();
+            set(() => {
+              S.diffMode = S.diffMode === "inline" ? "split" : "inline";
+            });
+            keep("diff", S.diffMode);
+            break;
+          case "w":
+            if (S.diffMode === "inline") {
+              e.preventDefault();
+              set(() => {
+                S.wrap = !S.wrap;
+              });
+              keep("wrap", S.wrap);
+            }
+            break;
+          case "o":
+            e.preventDefault();
+            set(() => {
+              S.orderMode = S.orderMode === "semantic" ? "path" : "semantic";
+            });
+            keep("order", S.orderMode);
+            break;
+        }
+      });
+
+      /* ---------- boot ---------- */
+      function boot(draftData) {
+        D = adapt(REVIEW.payload);
+        if (!D.files.some((f) => f.rank != null)) S.orderMode = "path";
+        prep();
+        S.done = RO() && !!REVIEW.decision;
+        S.composer = null;
+        S.noteOpen = {};
+        S.errors = null;
+        if (RO()) {
+          loadDecision(REVIEW.decision && REVIEW.decision.data);
+        } else if (draftData && draftData.decisions) {
+          S.decisions = draftData.decisions || {};
+          S.manualComments = draftData.manualComments || [];
+          mseq = draftData.mseq || S.manualComments.length;
+        } else {
+          S.decisions = {};
+          S.manualComments = [];
+        }
+        const ids = orderedIds();
+        S.focusedId = RO() ? null : (ids.find((id) => !decided(id)) ?? (ids.length ? ids[0] : null));
+        render();
+      }
+      render();
+    </script>
+  </body>
+</html>

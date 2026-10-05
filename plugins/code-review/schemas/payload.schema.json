@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "review payload",
+  "description": "A change under review: its diff, the reviewer agent's overview, and the comments it proposes to post. Forge-agnostic: the requester maps its merge/pull request in, and maps the decision back out.",
+  "type": "object",
+  "required": ["change", "files", "proposals"],
+  "additionalProperties": false,
+  "properties": {
+    "change": {
+      "type": "object",
+      "required": ["ref", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "ref": { "type": "string", "description": "the change's identifier as people write it: 42, !42, #42" },
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "description": { "type": "string", "description": "markdown" },
+        "source": { "type": "string", "description": "source branch" },
+        "target": { "type": "string", "description": "target branch" }
+      }
+    },
+    "overview": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string", "description": "what the change does and why, markdown" },
+        "concerns": { "type": "string", "description": "what the review focused on, markdown" }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "diff"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string" },
+          "old_path": { "type": ["string", "null"] },
+          "status": { "enum": ["added", "deleted", "modified", "renamed"], "default": "modified" },
+          "summary": {
+            "type": "string",
+            "description": "a short summary of what changed in this file, in markdown; one line is best"
+          },
+          "rank": { "type": "integer", "description": "semantic reading order; omit for path order" },
+          "diff": { "type": "string", "description": "unified diff hunks for this file, as git diff prints them" }
+        }
+      }
+    },
+    "proposals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer", "description": "the workflow's own id; never renumbered" },
+          "kind": { "enum": ["comment", "reply"], "default": "comment" },
+          "severity": { "enum": ["blocker", "major", "minor", "nit"], "default": "minor" },
+          "title": { "type": "string" },
+          "body": { "type": "string", "description": "markdown; ```suggestion blocks render as a proposed change" },
+          "file": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"] },
+          "side": { "enum": ["new", "old"], "default": "new", "description": "which side of the diff `line` counts on" },
+          "resolves": { "type": "boolean", "default": false, "description": "a reply that would resolve its thread" },
+          "thread": {
+            "type": "object",
+            "description": "for replies: the conversation so far, so it renders without the forge",
+            "required": ["comments"],
+            "additionalProperties": false,
+            "properties": {
+              "round": { "type": "integer" },
+              "comments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["body"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "author": { "type": "string" },
+                    "body": { "type": "string" },
+                    "ours": { "type": "boolean", "default": false }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

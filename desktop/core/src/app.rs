@@ -301,6 +301,7 @@ mod tests {
         assert_eq!(
             offered,
             [
+                ("forgeplane/code-review", &Value::Null),
                 ("forgeplane/feedback", &Value::Null),
                 ("forgeplane/list", &Value::Null)
             ]
@@ -309,7 +310,7 @@ mod tests {
         let installed = install(&app, "forgeplane/list");
         assert_eq!(installed["install"]["source_kind"], "index");
         assert_eq!(installed["install"]["source"], "forgeplane/list");
-        assert_eq!(app.plugins().catalog()["plugins"][1]["installed"], "1.0.0");
+        assert_eq!(app.plugins().catalog()["plugins"][2]["installed"], "1.0.0");
         // an agent asking with it is told how to install it
         for error in [
             app.reviews()

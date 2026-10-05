@@ -263,14 +263,24 @@ mod tests {
     }
 
     #[test]
-    fn the_app_carries_list_and_feedback_as_official_plugins() {
+    fn the_app_carries_its_official_plugins_and_recommends_list_and_feedback() {
         let catalog = Catalog::builtin();
         let rows: Vec<Value> = catalog.entries().iter().map(Entry::to_json).collect();
         let ids: Vec<&str> = rows.iter().map(|r| r["id"].as_str().unwrap()).collect();
-        assert_eq!(ids, ["forgeplane/feedback", "forgeplane/list"]);
+        assert_eq!(
+            ids,
+            [
+                "forgeplane/code-review",
+                "forgeplane/feedback",
+                "forgeplane/list"
+            ]
+        );
         for row in &rows {
             assert_eq!(row["official"], true);
-            assert_eq!(row["recommended"], true);
+            assert_eq!(
+                row["recommended"],
+                row["name"] == "list" || row["name"] == "feedback"
+            );
             assert!(row["icon"].as_str().unwrap().starts_with("<svg"));
             assert!(row["use_when"].is_string());
             assert_eq!(row["sha256"].as_str().unwrap().len(), 64);
@@ -305,7 +315,14 @@ mod tests {
             .iter()
             .map(|e| (e.name.as_str(), e.version.as_str()))
             .collect();
-        assert_eq!(names, [("feedback", "1.0.0"), ("list", "1.2.0")]);
+        assert_eq!(
+            names,
+            [
+                ("code-review", "1.0.0"),
+                ("feedback", "1.0.0"),
+                ("list", "1.2.0")
+            ]
+        );
         assert_eq!(at(&catalogs, "list", "0.9.0").unwrap().version, "0.9.0");
         assert!(at(&catalogs, "list", "1.1.0").is_none());
     }
@@ -325,8 +342,8 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("not-a-plugin")).unwrap();
         let catalog = Catalog::of_dir(dir.path()).unwrap();
         let names: Vec<&str> = catalog.entries().iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, ["feedback", "list"]);
+        assert_eq!(names, ["code-review", "feedback", "list"]);
         let builtin = Catalog::builtin();
-        assert_eq!(catalog.entries()[1].hash, builtin.entries()[1].hash);
+        assert_eq!(catalog.entries()[2].hash, builtin.entries()[2].hash);
     }
 }

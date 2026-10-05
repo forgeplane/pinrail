@@ -1,0 +1,26 @@
+{#- The decision as an agent reads it back: each proposal by file and line
+    with the reviewer's verdict and note, then the comments. The head
+    (title, origin, who decided, the reviewer's note) is printed by the app
+    before this. -#}
+{%- set proposals = items | selectattr("action") | list -%}
+{%- if proposals %}
+## Proposals
+{% for item in proposals %}
+- **#{{ item.id }} {{ item.action | verb }}**{% if item.payload %} `{{ item.payload.file }}:{{ item.payload.line }}` — {{ item.payload.title }}{% if item.payload.severity %} ({{ item.payload.severity }}){% endif %}{% endif %}
+{%- if item.note %}
+  > {{ item.note }}
+{%- endif %}
+{%- if item.action == "accept" and item.payload and item.payload.suggested_change %}
+  - the suggested change is applied
+{%- endif %}
+{%- endfor %}
+{% endif -%}
+{%- if data.comments %}
+## Comments
+{% for c in data.comments %}
+- `{{ c.file }}:{{ c.line }}` — {{ c.body }}
+{%- endfor %}
+{% endif -%}
+{%- if data.undecided %}
+Undecided: {% for id in data.undecided %}#{{ id }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif -%}

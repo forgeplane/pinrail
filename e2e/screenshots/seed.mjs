@@ -37,10 +37,10 @@ export function fixtures() {
 }
 
 /** The official plugins the app carries that the fixtures use. */
-const CARRIED = ["forgeplane/list", "forgeplane/feedback"];
+const CARRIED = ["forgeplane/list", "forgeplane/feedback", "forgeplane/code-review"];
 
 /** The plugins the fixtures use from forgeplane/pinrail-plugins. */
-const OPTIONAL = ["review", "email", "artifact", "logo", "calendar", "model"];
+const OPTIONAL = ["email", "artifact", "logo", "calendar", "model"];
 
 /** Where the official plugins are checked out. */
 const officialPlugins = (app) => process.env.PINRAIL_PLUGINS_DIR ?? path.join(app.root, "..", "pinrail-plugins");

@@ -1,5 +1,5 @@
 {
-  "plugin": "review",
+  "plugin": "code-review",
   "title": "Rate limit the public API per key — round 2",
   "origin": {
     "repo": "northwind/api",

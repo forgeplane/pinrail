@@ -762,8 +762,8 @@ async fn plugins_are_listed_and_installed_one_by_one() {
     let (status, catalog) = call(&app, "GET", "/api/v1/plugins/catalog", None).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(catalog["format"], 1);
-    assert_eq!(catalog["plugins"][1]["id"], "forgeplane/list");
-    assert_eq!(catalog["plugins"][1]["installed"], Value::Null);
+    assert_eq!(catalog["plugins"][2]["id"], "forgeplane/list");
+    assert_eq!(catalog["plugins"][2]["installed"], Value::Null);
     for id in ["forgeplane/list", "feedback"] {
         let (status, row) = call(
             &app,
@@ -784,7 +784,7 @@ async fn plugins_are_listed_and_installed_one_by_one() {
     .await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{refused}");
     let (_, catalog) = call(&app, "GET", "/api/v1/plugins/catalog", None).await;
-    assert_eq!(catalog["plugins"][1]["installed"], "1.0.0");
+    assert_eq!(catalog["plugins"][2]["installed"], "1.0.0");
     let (_, body) = call(&app, "GET", "/api/v1/plugins", None).await;
     assert_eq!(names(&body), vec!["feedback", "list"]);
     assert_eq!(body["plugins"][0]["usable"], true);

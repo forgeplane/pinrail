@@ -1,0 +1,99 @@
+{
+  "title": "Dedup tickets on save \u2014 round 1",
+  "payload": {
+    "change": {
+      "ref": "!42",
+      "title": "Dedup tickets on save",
+      "url": "https://example.com/changes/42",
+      "description": "Keeps the **first** write per id.\n\nCloses #12.",
+      "source": "fix/tickets-dedup",
+      "target": "main"
+    },
+    "overview": {
+      "summary": "Dedups tickets before the bulk insert and backfills the new bucket column.",
+      "concerns": "Ordering of the dedup, and whether the backfill runs on read or on write."
+    },
+    "files": [
+      {
+        "path": "lib/acme/tickets.ex",
+        "status": "modified",
+        "summary": "do_save/2 drops repeated ids before the bulk insert.",
+        "rank": 1,
+        "diff": "@@ -145,9 +145,11 @@ defmodule Acme.Tickets do\n   def do_save(items) do\n     items\n-    |> Enum.uniq_by(& &1.id)\n-    |> Enum.reverse()\n+    |> Enum.reverse()\n+    |> Enum.uniq_by(& &1.id)\n+    |> Enum.reverse()\n     |> Repo.insert_all()\n   end\n \n   defp normalise(item), do: item"
+      },
+      {
+        "path": "priv/repo/migrations/20260911_add_bucket.exs",
+        "status": "added",
+        "summary": "Adds the bucket column and backfills it in batches.",
+        "rank": 2,
+        "diff": "@@ -1,6 +1,8 @@\n defmodule Acme.Repo.Migrations.AddBucket do\n   use Ecto.Migration\n \n   def change do\n-    alter table(:tickets), do: add(:bucket, :string)\n+    alter table(:tickets), do: add(:bucket, :string, default: \"main\")\n+    execute(\"UPDATE tickets SET bucket = COALESCE(bucket, 'main')\", \"\")\n   end\n end"
+      }
+    ],
+    "proposals": [
+      {
+        "id": 18,
+        "kind": "comment",
+        "severity": "major",
+        "title": "reversing twice is a no-op with a cost",
+        "body": "The second `Enum.reverse/1` undoes the first, so `uniq_by` still keeps the last write.\n\n```suggestion\n    |> Enum.uniq_by(& &1.id)\n```",
+        "file": "lib/acme/tickets.ex",
+        "line": 149,
+        "side": "new"
+      },
+      {
+        "id": 19,
+        "kind": "reply",
+        "severity": "minor",
+        "title": "COALESCE hides a real NULL",
+        "body": "Agreed with the backfill, but the default should stay off until it ran.",
+        "file": "priv/repo/migrations/20260911_add_bucket.exs",
+        "line": 6,
+        "side": "new",
+        "resolves": true,
+        "thread": {
+          "round": 1,
+          "comments": [
+            {
+              "author": "reviewer-bot",
+              "body": "A default on the column masks rows the backfill missed.",
+              "ours": true
+            },
+            {
+              "author": "alice",
+              "body": "Fair, I added the backfill. Good enough?",
+              "ours": false
+            }
+          ]
+        }
+      },
+      {
+        "id": 20,
+        "kind": "comment",
+        "severity": "nit",
+        "title": "typo in the module doc",
+        "body": "\"recieve\" \u2192 \"receive\".",
+        "file": "lib/acme/docs.md",
+        "line": 3,
+        "side": "new"
+      }
+    ]
+  },
+  "decision": {
+    "decided_by": "alice",
+    "decided_at": "2026-09-10T09:00:00Z",
+    "data": {
+      "decisions": [
+        {
+          "id": 18,
+          "action": "reject",
+          "note": "dont nitpick"
+        }
+      ],
+      "comments": [],
+      "undecided": [
+        19,
+        20
+      ]
+    }
+  }
+}

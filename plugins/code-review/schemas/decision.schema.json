@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "review decision",
+  "type": "object",
+  "required": ["decisions", "comments", "undecided"],
+  "additionalProperties": false,
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "integer" },
+          "action": { "enum": ["accept", "reject"] },
+          "note": { "type": "string", "description": "accept: revise the comment per this before posting; reject: the reason, a lesson for the agent" }
+        }
+      }
+    },
+    "comments": {
+      "type": "array",
+      "description": "the reviewer's own line comments; handed to the agent to assess, not posted verbatim",
+      "items": {
+        "type": "object",
+        "required": ["file", "line", "side", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string" },
+          "line": { "type": "integer" },
+          "side": { "enum": ["new", "old"] },
+          "body": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "undecided": {
+      "type": "array",
+      "items": { "type": "integer" },
+      "description": "proposal ids left without a verdict; the requester must not post them"
+    }
+  }
+}

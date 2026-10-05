@@ -1,5 +1,5 @@
 {
-  "plugin": "review",
+  "plugin": "code-review",
   "title": "Upgrade TypeScript to 5.9",
   "origin": {
     "repo": "northwind/web-app",
