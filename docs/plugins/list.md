@@ -24,12 +24,14 @@ If the items need a richer view, such as a diff for each, look at [Code review](
 
 ## What you see
 
+- **A summary** from the agent, when it gives one, in a box you can fold away.
 - **Groups** with their headings, and each item's title, description and details.
-- **Severity**, when the agent gives one. `blocker`, `major`, `minor` and `nit` are colour-coded; anything else shows as written.
+- **Severity**, when the agent gives one. `blocker`, `major`, `minor` and `nit` have colours of their own, and the agent can give other severities a colour too; anything else shows in grey.
+- **A sidebar** with each group's items. An item's circle fills once you accept it, and a rejected item is struck through. Click an item to go to it.
 - **Accept** or **Reject** on each item, with a note. On an accepted item the note is a revision instruction; on a rejected one, the reason.
 - **Earlier verdicts.** When the review is a new round, each item shows the verdict you gave it last time.
 
-Anything you leave undecided is reported as undecided, and the app asks for confirmation before you hand over with items left.
+Anything you leave undecided is reported as undecided. When you hand over with items left, the list asks you to confirm first, and the hand-over button says how many go back undecided.
 
 To see it before any agent asks with it, send its sample: `pinrail submit list --sample`, or **Send a sample** in its details in *Settings › Plugins*.
 
@@ -43,7 +45,7 @@ Paste this into your agent's instructions and adjust the first line to the momen
 Before you close, mute or change more than one item, ask me with Pinrail's
 `list` plugin and wait for my decision:
 
-1. Write the items to a JSON file: `{ "intro": "…", "groups": [{ "title": "…",
+1. Write the items to a JSON file: `{ "summary": "…", "groups": [{ "title": "…",
    "items": [{ "id": 1, "severity": "major", "title": "…", "body": "…" }] }] }`.
    Give each item a stable integer `id` and say in `body` what you will do.
 2. Run: `pinrail submit list --title "<what this is>" --data items.json --wait`
@@ -58,7 +60,7 @@ See [Instructing an agent](/docs/agents/instructing/) for where these instructio
 
 ```json title="items.json"
 {
-  "intro": "Sentry triage for **acme-api**, last 7 days.",
+  "summary": "Sentry triage for **acme-api**, last 7 days.",
   "groups": [
     {
       "title": "Mute",
@@ -81,12 +83,13 @@ See [Instructing an agent](/docs/agents/instructing/) for where these instructio
 
 | Field | Meaning |
 |---|---|
-| `intro` | Markdown shown above the list. Optional. |
+| `summary` | Markdown shown above the list, in a box the person can fold away. Optional. |
 | `groups[].title` | The heading items are grouped under. |
 | `items[].id` | The agent's own integer. Never renumbered, so verdicts from one round match the next. |
-| `items[].severity` | Free text. `blocker`, `major`, `minor` and `nit` are colour-coded. |
+| `severities` | The colour each severity this payload uses is shown in, such as `{ "critical": "danger", "low": "info" }`. The colours are `danger`, `warning`, `info`, `success` and `neutral`. Optional. |
+| `items[].severity` | Free text. `blocker`, `major`, `minor` and `nit` have colours of their own, which `severities` can change. Any other severity is grey unless `severities` names it. |
 | `items[].title`, `items[].body` | What the item is. `body` is markdown. |
-| `items[].meta` | Extra details, shown as `key: value` chips. |
+| `items[].meta` | Extra details, shown as `key: value` chips. Each value is a string, a number or a boolean. |
 
 ## What comes back
 

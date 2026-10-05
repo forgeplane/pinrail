@@ -25,7 +25,7 @@ Every review belongs to a plugin. The built-in [List](/docs/plugins/list/) plugi
 
 ```json title="triage.json"
 {
-  "intro": "Sentry triage for **acme-api**, last 7 days.",
+  "summary": "Sentry triage for **acme-api**, last 7 days.",
   "groups": [
     {
       "title": "acme-api",
