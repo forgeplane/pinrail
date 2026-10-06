@@ -69,6 +69,12 @@ body,
 #root {
   height: 100%;
 }
+/* the page never scrolls, only the panes in it: a scroll past a pane's end
+   stops there, rather than bouncing the whole window on macOS */
+html,
+body {
+  overscroll-behavior: none;
+}
 body {
   margin: 0;
   background: var(--bg);
