@@ -9,8 +9,11 @@
 // fixtures/ through the API, and pinned: every time and id is rewritten to
 // a fixed value, and the browser's clock is frozen at the same moment. Each
 // scene then runs once per theme and saves <name>-light.png and
-// <name>-dark.png into website/public/screenshots (or --out), for the docs;
-// the ones the landing pages use are copied into website/src/assets too.
+// <name>-dark.png where they are used: into website/public/screenshots when
+// a docs page shows it as screenshot:<name>, and into
+// website/src/assets/screenshots when the scene marks it `site: true`, for
+// the landing pages, where Astro optimizes it. A shot used by neither fails
+// the run. With --out, every shot goes into that folder instead.
 //
 // made.json records the files a full run made. The next full run that
 // succeeds removes the ones it no longer makes, such as a renamed scene's;
@@ -52,9 +55,22 @@ const flag = (name) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const out = path.resolve(flag("--out") ?? path.join(root, "website", "public", "screenshots"));
-// shots the landing pages use go here as well, where Astro optimizes them
+const elsewhere = flag("--out");
+const out = path.resolve(elsewhere ?? path.join(root, "website", "public", "screenshots"));
+// shots the landing pages use go here, where Astro optimizes them
 const siteAssets = path.join(root, "website", "src", "assets", "screenshots");
+
+/** The shots the docs show, as `![…](screenshot:<name>)`. */
+function docsShots(dir = path.join(root, "docs")) {
+  const names = new Set();
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true, recursive: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+    const text = fs.readFileSync(path.join(entry.parentPath, entry.name), "utf8");
+    for (const [, name] of text.matchAll(/\]\(screenshot:([a-z0-9-]+)/g)) names.add(name);
+  }
+  return names;
+}
+const inDocs = docsShots();
 const only = flag("--only");
 const chosen = scenes.filter((s) => !only || s.name.startsWith(only));
 if (!chosen.length) throw new Error(`no scene starts with ${only}`);
@@ -84,22 +100,22 @@ try {
     for (const scene of chosen) {
       const page = await context.newPage();
       await page.clock.setFixedTime(NOW);
-      // `site: true` copies the shot into the website's assets as well
+      // `site: true` saves the shot into the website's assets, for the landing pages
       const shot = async (name, target = page, { site = false, ...options } = {}) => {
+        const folders = elsewhere ? [out] : [...(inDocs.has(name) ? [out] : []), ...(site ? [siteAssets] : [])];
+        if (!folders.length) throw new Error(`${name} is shown by no docs page, and not marked site: true`);
         await page.evaluate(() => document.fonts.ready);
         await scrub(page, [
           [app.data, "~/.local/share/pinrail"],
           [app.code, "~/code"],
         ]);
-        const file = path.join(out, `${name}-${theme}.png`);
+        const [file, ...copies] = folders.map((folder) => path.join(folder, `${name}-${theme}.png`));
         await target.screenshot({ path: file, animations: "disabled", caret: "hide", ...options });
-        made.add(path.relative(root, file));
-        if (site) {
-          const copy = path.join(siteAssets, path.basename(file));
-          fs.copyFileSync(file, copy);
-          made.add(path.relative(root, copy));
+        for (const copy of copies) fs.copyFileSync(file, copy);
+        for (const each of [file, ...copies]) {
+          made.add(path.relative(root, each));
+          console.log(`screenshots: ${path.relative(root, each)}`);
         }
-        console.log(`screenshots: ${path.relative(root, file)}`);
       };
       try {
         await scene.run({ page, app, reviews, theme, shot });
@@ -119,7 +135,7 @@ if (failed) process.exit(1);
 
 // a full run into the website, every scene made: what an earlier run made
 // and this one did not goes, and the record is this run's
-if (!only && !flag("--out")) {
+if (!only && !elsewhere) {
   const before = fs.existsSync(record) ? JSON.parse(fs.readFileSync(record, "utf8")) : [];
   for (const file of before) if (!made.has(file)) fs.rmSync(path.join(root, file), { force: true });
   fs.writeFileSync(record, JSON.stringify([...made].sort(), null, 2) + "\n");

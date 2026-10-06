@@ -120,7 +120,6 @@ export const scenes = [
         el.scrollTop = 0;
       });
       await settle(page, 600);
-      await shot("model");
       await shot("model-view", page.locator("#plugin-frame"), { site: true });
     },
   },
@@ -159,7 +158,6 @@ export const scenes = [
       });
       await settle(page, 600);
       await shot("image");
-      await shot("image-view", page.locator("#plugin-frame"));
     },
   },
   {
@@ -198,7 +196,6 @@ export const scenes = [
       await f.locator(".rendered h2", { hasText: "Design" }).evaluate((el) => el.scrollIntoView({ block: "start" }));
       await settle(page, 600);
       await shot("markdown");
-      await shot("markdown-view", page.locator("#plugin-frame"));
     },
   },
   {
@@ -232,7 +229,6 @@ export const scenes = [
         scroller?.scrollBy({ top: -24, behavior: "instant" });
       });
       await settle(page);
-      await shot("artifact");
       await shot("artifact-view", page.locator("#plugin-frame"), { site: true });
     },
   },
@@ -277,7 +273,6 @@ export const scenes = [
       await f.locator("#pick button").click();
       await f.locator("[data-mark-text]").fill("Ask for a yes: “Shall I turn it on for Quarry?”");
       await settle(page);
-      await shot("email");
       await shot("email-view", page.locator("#plugin-frame"), { site: true });
     },
   },
@@ -349,13 +344,6 @@ export const scenes = [
       await page.waitForLoadState("networkidle");
       await settle(page, 400);
       await shot("palette");
-      // then narrowed to one review: filled into the input itself, and
-      // waited for until the other sections are gone
-      await input.fill("webhook");
-      await page.getByText("Recent decisions").waitFor({ state: "detached" });
-      await page.waitForLoadState("networkidle");
-      await settle(page, 400);
-      await shot("palette-search");
     },
   },
   {
@@ -451,13 +439,9 @@ export const scenes = [
       await setup.locator('[data-welcome-agent="claude"]').waitFor();
       await settle(page, 500);
       await shot("setup-connect");
-      await setup.locator('[data-welcome-step="Try it"]').click();
-      await setup.locator("[data-welcome-try]").first().waitFor();
-      await settle(page, 500);
-      await shot("setup-try");
     },
   },
-  ...["general", "appearance", "shortcuts", "plugins"].map((section) => ({
+  ...["general", "plugins"].map((section) => ({
     name: `settings-${section}`,
     async run({ page, app, shot }) {
       await page.goto(`${app.ui}/#/`);
