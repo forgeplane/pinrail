@@ -54,6 +54,9 @@ pub struct Plugin {
     /// that does not load was dropped.
     pub samples: Vec<crate::sample::Sample>,
     pub sample_errors: Vec<String>,
+    /// How the payload schema's file fields disagree with `attachments`
+    /// and with the SDK's attachment schema; the plugin works regardless.
+    pub attachment_errors: Vec<String>,
     /// Top-level manifest keys the schema does not define: a typo, or a key
     /// a newer Pinrail reads. Kept, and warned about by a check.
     pub unknown_keys: Vec<String>,
@@ -209,6 +212,7 @@ impl Plugin {
                 use_when: None,
                 samples: Vec::new(),
                 sample_errors: Vec::new(),
+                attachment_errors: Vec::new(),
                 unknown_keys: Vec::new(),
                 attachments: None,
                 install: None,
@@ -376,6 +380,11 @@ impl Plugin {
             None | Some(Value::Null) => None,
             Some(block) => Some(crate::attachments::AttachmentRules::parse(block)?),
         };
+        let attachment_errors = std::fs::read_to_string(dir.join(PAYLOAD_SCHEMA))
+            .ok()
+            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+            .map(|schema| crate::attachments::file_field_warnings(attachments.is_some(), &schema))
+            .unwrap_or_default();
 
         Ok(Plugin {
             title: manifest
@@ -404,6 +413,7 @@ impl Plugin {
             use_when,
             samples,
             sample_errors,
+            attachment_errors,
             unknown_keys,
             attachments,
             install: None,
@@ -575,6 +585,11 @@ impl Plugin {
                 .iter()
                 .map(|message| serde_json::json!({ "key": "samples", "message": message })),
         )
+        .chain(
+            self.attachment_errors
+                .iter()
+                .map(|message| serde_json::json!({ "key": "attachments", "message": message })),
+        )
         .chain(self.unknown_keys.iter().map(|key| {
             let message = PLACED
                 .iter()
@@ -618,6 +633,7 @@ impl Plugin {
             "samples": self.sample_names(),
             "sample_errors": self.sample_errors,
             "attachments": self.manifest.get("attachments"),
+            "attachment_errors": self.attachment_errors,
             "install": self.install.as_ref().map(Install::to_json),
         })
     }
@@ -1637,5 +1653,69 @@ mod tests {
             p.effective_settings(&Value::Null),
             serde_json::json!({"wrap": false})
         );
+    }
+
+    /// The manifest's `attachments` and the payload schema's file fields go
+    /// together: files with no field to name them, a field the app could
+    /// never fill, and a field that takes other names than the app are each
+    /// a warning. The plugin still works.
+    #[test]
+    fn attachments_and_the_payload_schemas_file_fields_are_checked_together() {
+        use serde_json::json;
+        let tmp = tempfile::tempdir().unwrap();
+        let copy = |max: u64| {
+            json!({
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["$attachment"],
+                "properties": { "$attachment": { "type": "string", "minLength": 1, "maxLength": max } },
+                "description": "A file sent beside the payload with --attach, by its name."
+            })
+        };
+        let with_field = |definition: serde_json::Value| {
+            json!({
+                "type": "object",
+                "properties": { "file": { "$ref": "#/$defs/attachment" } },
+                "$defs": { "attachment": definition }
+            })
+        };
+        let takes_files = json!({ "attachments": { "accept": ["image/*"] } });
+        let warning = |payload: serde_json::Value, extra: serde_json::Value, folder: &str| {
+            let dir = with_manifest(tmp.path(), folder, manifest(extra));
+            std::fs::write(dir.join(PAYLOAD_SCHEMA), payload.to_string()).unwrap();
+            let p = Plugin::load(&dir);
+            assert!(p.usable(), "{folder}: {:?}", p.error);
+            p.verdict()["warnings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|w| w["key"] == "attachments")
+                .map(|w| w["message"].as_str().unwrap().to_string())
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(
+            warning(with_field(copy(120)), takes_files.clone(), "whole"),
+            Vec::<String>::new()
+        );
+
+        let unnamed = warning(json!({ "type": "object" }), takes_files.clone(), "unnamed");
+        assert_eq!(unnamed.len(), 1);
+        assert!(
+            unnamed[0].contains("no field of the payload schema names a file"),
+            "{unnamed:?}"
+        );
+
+        let undeclared = warning(with_field(copy(120)), json!({}), "undeclared");
+        assert_eq!(undeclared.len(), 1);
+        assert!(
+            undeclared[0].contains("the manifest declares no attachments"),
+            "{undeclared:?}"
+        );
+
+        let differs = warning(with_field(copy(200)), takes_files, "differs");
+        assert_eq!(differs.len(), 1);
+        assert!(differs[0].contains("/$defs/attachment"), "{differs:?}");
+        assert!(differs[0].contains("attachment.schema.json"), "{differs:?}");
     }
 }

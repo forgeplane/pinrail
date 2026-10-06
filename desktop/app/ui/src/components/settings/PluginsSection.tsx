@@ -299,6 +299,8 @@ function PluginEntry({
       <span className="danger">Settings ignored: {p.settings_error}</span>
     ) : p.sample_errors?.length ? (
       <span className="danger">Sample ignored: {p.sample_errors.join("; ")}</span>
+    ) : p.attachment_errors?.length ? (
+      <span className="danger">Files: {p.attachment_errors.join("; ")}</span>
     ) : null);
 
   return (

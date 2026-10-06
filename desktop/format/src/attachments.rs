@@ -1,5 +1,6 @@
 //! What a plugin takes beside a payload, from its manifest's `attachments`,
-//! and the media type of a file by its name.
+//! the media type of a file by its name, and how the payload schema's file
+//! fields agree with both.
 
 use serde_json::Value;
 
@@ -8,6 +9,85 @@ pub const MAX_COUNT: usize = 32;
 /// The most one attached file may be, 100 MB: a model, a recording, a
 /// document with its images.
 pub const MAX_ATTACHMENT_BYTES: u64 = 100 * 1024 * 1024;
+
+/// The SDK's schema of a reference to an attached file,
+/// `{ "$attachment": "<name>" }`, which a payload schema copies for each of
+/// its file fields.
+pub const ATTACHMENT_SCHEMA: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/attachment.schema.json"));
+
+/// Where in a payload schema a file field is defined, as JSON Pointers:
+/// every object with an `$attachment` property.
+fn file_fields(schema: &Value, at: String, out: &mut Vec<(String, Value)>) {
+    match schema {
+        Value::Object(map) => {
+            if map
+                .get("properties")
+                .and_then(|p| p.get("$attachment"))
+                .is_some()
+            {
+                out.push((at.clone(), schema.clone()));
+            }
+            for (key, value) in map {
+                let key = key.replace('~', "~0").replace('/', "~1");
+                file_fields(value, format!("{at}/{key}"), out);
+            }
+        }
+        Value::Array(items) => {
+            for (i, value) in items.iter().enumerate() {
+                file_fields(value, format!("{at}/{i}"), out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// What decides which names a definition accepts: all but its title and
+/// description.
+fn rules(definition: &Value) -> Value {
+    let mut rules = definition.clone();
+    if let Some(map) = rules.as_object_mut() {
+        for key in ["$schema", "$id", "title", "description"] {
+            map.remove(key);
+        }
+    }
+    rules
+}
+
+/// How the payload schema's file fields agree with the manifest, which
+/// `declared` says takes files, and with the SDK's attachment schema. Each
+/// disagreement is a sentence for `pinrail plugins check` and Settings; the
+/// plugin works either way.
+pub fn file_field_warnings(declared: bool, payload_schema: &Value) -> Vec<String> {
+    let mut fields = Vec::new();
+    file_fields(payload_schema, String::new(), &mut fields);
+    let mut warnings = Vec::new();
+    if declared && fields.is_empty() {
+        warnings.push(
+            "the manifest declares attachments, but no field of the payload schema names a file: \
+             describe one with a copy of the SDK's attachment.schema.json"
+                .to_string(),
+        );
+    }
+    if !declared && !fields.is_empty() {
+        let at: Vec<&str> = fields.iter().map(|(at, _)| at.as_str()).collect();
+        warnings.push(format!(
+            "the payload schema names a file at {}, but the manifest declares no attachments, \
+             so the app refuses every file",
+            at.join(", ")
+        ));
+    }
+    let sdk =
+        rules(&serde_json::from_str(ATTACHMENT_SCHEMA).expect("attachment.schema.json is JSON"));
+    for (at, field) in &fields {
+        if rules(field) != sdk {
+            warnings.push(format!(
+                "{at} takes other file names than the app: make it a copy of the SDK's attachment.schema.json"
+            ));
+        }
+    }
+    warnings
+}
 
 /// What a plugin takes, from its manifest's `attachments`: kinds as file
 /// extensions (`.glb`) or media types (`model/gltf-binary`, `image/*`), and

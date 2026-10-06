@@ -292,6 +292,8 @@ Describe that field in your payload schema with this object in `$defs`. The SDK 
 }
 ```
 
+`pinrail plugins check` warns when the payload schema and the manifest disagree: when the manifest declares `attachments` but no field names a file, when a field names a file but the manifest declares no `attachments`, and when a field's definition is not a copy of the SDK's.
+
 The app refuses a submission whose payload names a file it did not receive, or a file of a kind your plugin does not take, so a view never meets a missing file.
 
 The view still cannot fetch. It asks the app for the bytes:

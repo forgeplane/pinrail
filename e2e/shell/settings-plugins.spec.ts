@@ -273,3 +273,15 @@ test("an install the app could not do says why, and can be tried again", async (
   await expect(dialog.getByLabel("Source")).toHaveValue(source);
   await expect(dialog.locator("[data-install-confirm]")).toBeEnabled();
 });
+
+test("a plugin that takes files but names none in its payload says so on its row", async ({ page }) => {
+  const source = pluginCopy("hello", "fileless", "1.0.0", { attachments: { accept: ["image/*"] } });
+  await linkPlugin(page.request, source, "fileless");
+  try {
+    await page.goto("/#/plugins");
+    const row = page.locator('[data-plugin-row="fileless"]');
+    await expect(row).toContainText("Files: the manifest declares attachments, but no field of the payload schema");
+  } finally {
+    await page.request.delete(`${core}/api/v1/plugins/fileless`);
+  }
+});

@@ -110,6 +110,8 @@ export type Plugin = {
   samples?: string[];
   /** why each sample that did not load was dropped */
   sample_errors?: string[];
+  /** how the payload schema's file fields disagree with the manifest's attachments */
+  attachment_errors?: string[];
   /** how it got here; null for a bundle loaded for a review */
   install: PluginInstall | null;
   /** the newer version an official plugin can be updated to, if any */
