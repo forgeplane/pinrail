@@ -554,6 +554,17 @@ enum PluginsCommand {
         #[arg(long)]
         link: bool,
     },
+    /// Print one of the plugin SDK's JSON Schemas
+    ///
+    /// The manifest's schema, which every plugin's manifest.json is checked
+    /// against, or the attachment schema, which a payload schema copies to
+    /// describe a field that names an attached file. They are the schemas
+    /// this command was built with, and need no app.
+    Schema {
+        /// Which schema to print
+        #[arg(value_enum, default_value = "manifest")]
+        which: SdkSchema,
+    },
     /// Check a plugin folder without installing it
     ///
     /// The command reports why the app would refuse the folder, and each
@@ -578,6 +589,15 @@ enum PluginsCommand {
         #[arg(long)]
         update_fixtures: bool,
     },
+}
+
+/// The SDK's JSON Schemas that `plugins schema` prints.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum SdkSchema {
+    /// The schema of a plugin's manifest.json
+    Manifest,
+    /// The schema of a reference to an attached file in a payload
+    Attachment,
 }
 
 /// What a submit or a wait exits with: what an agent acts on.
@@ -710,6 +730,20 @@ fn run(cli: Cli) -> Result<u8> {
     if let Command::Serve = cli.command {
         let info = server::ensure_running(cli.url.as_deref())?;
         output.data(&info, md::server);
+        return Ok(0);
+    }
+
+    // the SDK's schemas are in the command itself, printed as they are
+    if let Command::Plugins(PluginsArgs {
+        command: Some(PluginsCommand::Schema { which }),
+    }) = &cli.command
+    {
+        let text = match which {
+            SdkSchema::Manifest => include_str!("../../sdk/schemas/manifest.schema.json"),
+            SdkSchema::Attachment => include_str!("../../sdk/schemas/attachment.schema.json"),
+        };
+        print!("{}", text.trim_end());
+        println!();
         return Ok(0);
     }
 
@@ -1140,7 +1174,8 @@ fn run(cli: Cli) -> Result<u8> {
                 Some(
                     PluginsCommand::Describe { .. }
                     | PluginsCommand::Check { .. }
-                    | PluginsCommand::New { .. },
+                    | PluginsCommand::New { .. }
+                    | PluginsCommand::Schema { .. },
                 ) => {
                     unreachable!()
                 }

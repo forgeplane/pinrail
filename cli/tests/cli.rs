@@ -2443,6 +2443,33 @@ fn repo_plugin(name: &str) -> std::path::PathBuf {
 
 /// The check is the format's own, run by the command: no app is needed,
 /// and the exit code is the verdict.
+/// The SDK's schemas, as the command was built with them: the manifest's
+/// by default, and the one a payload schema copies for a file field.
+#[test]
+fn plugins_schema_prints_the_sdks_schemas_without_the_app() {
+    for (args, id) in [
+        (
+            &["plugins", "schema"][..],
+            "https://pinrail.dev/schemas/manifest.schema.json",
+        ),
+        (
+            &["plugins", "schema", "attachment"][..],
+            "https://pinrail.dev/schemas/attachment.schema.json",
+        ),
+    ] {
+        let (code, stdout, stderr) = run_offline(args);
+        assert_eq!(code, 0, "{stderr}");
+        let schema: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(schema["$id"], id);
+    }
+    let (code, stdout, _) = run_offline(&["plugins", "schema", "--markdown"]);
+    assert_eq!(code, 0);
+    assert!(
+        stdout.trim_start().starts_with('{'),
+        "JSON either way: {stdout}"
+    );
+}
+
 #[test]
 fn plugins_check_needs_no_app_and_exits_by_its_verdict() {
     let list = repo_plugin("list");
