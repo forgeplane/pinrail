@@ -1,7 +1,8 @@
 # Pinrail plugin SDK
 
-The `pinrail-sdk` package contains everything you need to
-write a Pinrail plugin:
+This folder holds the plugin SDK: the script and stylesheet every plugin
+view loads from the app, and the `pinrail-sdk` package, which a plugin's
+author uses to work on a view and test it. The package contains:
 
 - **The SDK**, `src/pinrail-plugin.js`, with its stylesheet and its
   Markdown renderer. The app serves them at `/sdk/v1/`, and a view loads
@@ -32,7 +33,7 @@ From a checkout of this repository:
 ```sh
 pinrail plugins new ticket_triage --playwright --sdk "file:$PWD/sdk"
 cd ticket_triage && npm install && npx playwright install chromium
-npx pinrail-sdk dev          # the view in a browser, on its sample
+npx pinrail-sdk dev             # the view in a browser, on its sample
 npm test                        # the plugin's tests, under the harness
 pinrail plugins check .         # what the app would say of the folder
 pinrail plugins install . --link
@@ -127,16 +128,67 @@ expect(await plugin.handOver()).toMatchObject({ decision: { data: { ok: true } }
 checks it against the decision schema, and returns the accepted decision,
 the violations, or `{ deferred: true }` when the view returned nothing.
 
-## Developing the package
+## What is in this folder
+
+| Path | What it is |
+|---|---|
+| `src/` | The SDK a view loads: `pinrail-plugin.js`, `pinrail-plugin.css`, `tokens.css` and `markdown.js` |
+| `host/` | The app's side of the protocol, which every host of a view runs: the app's window, its preview page, the dev shell and the harness |
+| `schemas/` | The JSON Schemas of a plugin's manifest and of an attached file |
+| `types.d.ts` | The protocol and the manifest as TypeScript types, exported as `pinrail-sdk/types` |
+| `shell/` | The dev shell: its server, its page, and the script that lets *Select* pick a part of the view |
+| `harness/` | The test harness, exported as `pinrail-sdk/testing` |
+| `bin/` | The `pinrail-sdk` command |
+| `lib/` | `paths.cjs`, which finds the package's files and builds `markdown.js`, for the dev shell, the harness and the app's build |
+| `scripts/` | The build of `dist/markdown.js`, run before the package is packed |
+| `test/` | The package's own tests |
+
+## Where the SDK's files go
+
+`src/` is the only copy of the SDK. Nothing else in the repository holds
+one, and each user of the SDK takes it from here:
+
+- **The app.** Its build, `desktop/app/scripts/build-sdk.mjs`, run by
+  `npm run dev` and `npm run build`, copies `src/` into
+  `desktop/app/sdk/v1/`, which is not versioned. It also bundles the
+  Markdown parser into `markdown.js`, and adds the typeface the stylesheet
+  uses. The app carries that folder and serves it at `/sdk/v1/`.
+- **The dev shell and the harness** serve `src/` itself, at the same
+  paths, so a view behaves in them as in the app.
+- **The npm package** carries `src/`, with `markdown.js` bundled into
+  `dist/` when it is packed.
+
+The other shared files are used in the same way. The app bundles
+`host/host.js` into its window and embeds it in its preview page. The
+app's plugin checks and the CLI embed `schemas/manifest.schema.json` when
+they are built, and the CLI writes `types.d.ts` into every new plugin as
+`pinrail-plugin.d.ts`.
+
+## The package's tests
 
 ```sh
 npm test    # the unit tests, then the browser tests
 ```
 
+- **Unit tests, under Node:** the SDK's script against a fake host
+  (`plugin.test.cjs`), the app's side of the protocol (`host.test.mjs`),
+  the types, which must accept a correct view and refuse a wrong one
+  (`types.test.cjs`, `types.compile.test.cjs`), and the package as npm
+  packs it (`package.test.mjs`).
+- **Browser tests, with Playwright:** the SDK in a real view's frame,
+  which has an opaque origin: connecting, keys, attached files, Markdown
+  and the stylesheet. Then the harness, which must hold a plugin to what
+  the app would; the conformance view, which every host must answer the
+  same way; and the dev shell.
+
+The app's own end-to-end tests run the same conformance view against the
+app, so the app and the harness are held to one standard.
+
+## Versions
+
 The package's version is the SDK's version, and its major version is the
-protocol's (`Pinrail.protocol`): the `1.x` package is the SDK the app serves
-at `/sdk/v1`. The app copies `src/` into the files it serves on every build,
-so the app and the package contain the same files at every commit.
+protocol's (`Pinrail.protocol`): the `1.x` package is the SDK the app
+serves at `/sdk/v1`.
 
 ## License
 
