@@ -17,3 +17,37 @@ test("Agents lists the skills, and the command line stays in Data", async ({ pag
   await expect(body.getByRole("heading", { name: "Command line" })).toBeVisible();
   await expect(body.getByText("Install the CLI")).toBeVisible();
 });
+
+// A long message, such as an outdated skill's with its folder, wraps inside
+// the card rather than widening the section past the dialog.
+test("Agents fits its width, whatever an agent's message says", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await page.goto("/#/");
+  await page.locator(".app-main").waitFor();
+  await page.evaluate(() => {
+    const agent = (id: string, name: string, skills: string) => ({
+      id,
+      name,
+      found: true,
+      skill: `/Users/someone-with-a-long-name/${skills}/pinrail/SKILL.md`,
+      state: "outdated",
+      covered_by: null,
+    });
+    const agents = [
+      agent("claude", "Claude Code", ".claude/skills"),
+      agent("antigravity", "Antigravity CLI", ".gemini/config/skills"),
+    ];
+    (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {
+      invoke: async (command: string) => {
+        if (command === "agents_status") return agents;
+        throw new Error(`${command} is not answered here`);
+      },
+    };
+  });
+  await page.keyboard.press("ControlOrMeta+,");
+  await page.locator('[data-section="agents"]').click();
+  await page.locator('[data-agent="antigravity"]').waitFor();
+  const body = page.locator(".settings-body");
+  const overflow = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});

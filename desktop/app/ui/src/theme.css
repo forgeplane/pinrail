@@ -2381,6 +2381,8 @@ h1 {
 }
 .agent-list {
   display: grid;
+  /* a column no wider than the section, however long a message is */
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
 .agent-card {
@@ -2437,9 +2439,7 @@ h1 {
   margin-top: 1px;
   font-size: 12px;
   color: var(--dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .agent-note {
   margin-top: 3px;
