@@ -5,8 +5,9 @@
 // save the plugin's view alone as <name>-view as well, for the website.
 // `site: true` marks the shots the landing pages use.
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 
 /** Opens a review and waits for its plugin's view to draw. */
@@ -19,6 +20,16 @@ async function openReview(page, app, id) {
 }
 
 const settle = (page, ms = 350) => page.waitForTimeout(ms);
+
+/** A port nothing listens on. */
+const freePort = () =>
+  new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
 
 /** The agents Settings › Agents lists, as the desktop app reports them. */
 const AGENTS = [
@@ -439,6 +450,40 @@ export const scenes = [
       await setup.locator('[data-welcome-agent="claude"]').waitFor();
       await settle(page, 500);
       await shot("setup-connect");
+    },
+  },
+  {
+    // `pinrail-sdk dev` on Ship it?, the React plugin the docs build: Ship
+    // chosen and a note written, so the shell shows the status and the draft
+    name: "dev-shell",
+    async run({ page, app, theme, shot }) {
+      const dir = path.join(app.root, "docs", "examples", "ship-it", "react");
+      if (!fs.existsSync(path.join(dir, "view", "index.html"))) {
+        throw new Error(`${dir} has no view: run npm ci && npm run build there`);
+      }
+      const port = await freePort();
+      const bin = path.join(app.root, "sdk", "bin", "pinrail-sdk.mjs");
+      const shell = spawn(process.execPath, [bin, "dev", dir, "--port", String(port), "--no-open"], {
+        stdio: "ignore",
+      });
+      try {
+        const url = `http://127.0.0.1:${port}/`;
+        for (let i = 0; !(await fetch(`${url}dev/manifest`).catch(() => null))?.ok; i++) {
+          if (i > 100) throw new Error("pinrail-sdk dev did not start");
+          await settle(page, 100);
+        }
+        // the shell keeps its own theme, dark until it is switched
+        await page.addInitScript((theme) => localStorage.setItem("pinrail-shell:theme", theme), theme);
+        await page.goto(url);
+        const view = page.frameLocator("#frame");
+        await view.getByRole("group", { name: "Verdict" }).getByRole("button", { name: /Ship/ }).click();
+        await view.locator("textarea").fill("Watch the canary for an hour after it goes out");
+        await page.waitForLoadState("networkidle");
+        await settle(page, 600);
+        await shot("dev-shell");
+      } finally {
+        shell.kill();
+      }
     },
   },
   ...["general", "plugins"].map((section) => ({
