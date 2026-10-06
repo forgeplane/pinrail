@@ -122,7 +122,7 @@ function AgentCard({
   } else if (agent.state === "outdated") {
     where_ = (
       <>
-        The skill in <span className="mono">{skill}</span> is from another version of Pinrail
+        The skill in <span className="mono">{skill}</span> differs from this version of Pinrail's
       </>
     );
     side = (

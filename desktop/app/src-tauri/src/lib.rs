@@ -153,31 +153,26 @@ fn home() -> Result<PathBuf, String> {
 /// The agents found on this computer, and whether each has the `pinrail`
 /// skill.
 #[tauri::command]
-async fn agents_status(app: AppHandle) -> Result<Vec<agent_skills::AgentStatus>, String> {
-    let version = app.package_info().version.to_string();
-    tauri::async_runtime::spawn_blocking(move || Ok(agent_skills::status(&home()?, &version)))
+async fn agents_status() -> Result<Vec<agent_skills::AgentStatus>, String> {
+    tauri::async_runtime::spawn_blocking(move || Ok(agent_skills::status(&home()?)))
         .await
         .map_err(|e| e.to_string())?
 }
 
 /// The skill as this version writes it, for an agent the app does not know.
 #[tauri::command]
-fn agent_skill(app: AppHandle) -> String {
-    agent_skills::skill_text(&app.package_info().version.to_string())
+fn agent_skill() -> String {
+    agent_skills::skill_to_copy()
 }
 
 /// Writes or updates the `pinrail` skill for an agent, then reports as
 /// `agents_status`.
 #[tauri::command]
-async fn connect_agent(
-    app: AppHandle,
-    id: String,
-) -> Result<Vec<agent_skills::AgentStatus>, String> {
-    let version = app.package_info().version.to_string();
+async fn connect_agent(id: String) -> Result<Vec<agent_skills::AgentStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let home = home()?;
-        agent_skills::connect(&home, &id, &version)?;
-        Ok(agent_skills::status(&home, &version))
+        agent_skills::connect(&home, &id)?;
+        Ok(agent_skills::status(&home))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -186,15 +181,11 @@ async fn connect_agent(
 /// Removes the app's `pinrail` skill from an agent, then reports as
 /// `agents_status`.
 #[tauri::command]
-async fn disconnect_agent(
-    app: AppHandle,
-    id: String,
-) -> Result<Vec<agent_skills::AgentStatus>, String> {
-    let version = app.package_info().version.to_string();
+async fn disconnect_agent(id: String) -> Result<Vec<agent_skills::AgentStatus>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let home = home()?;
         agent_skills::disconnect(&home, &id)?;
-        Ok(agent_skills::status(&home, &version))
+        Ok(agent_skills::status(&home))
     })
     .await
     .map_err(|e| e.to_string())?

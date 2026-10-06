@@ -49,11 +49,11 @@ The section also lists the app's keyboard shortcuts. See [The inbox](/docs/using
 
 | Setting | What it does |
 |---|---|
-| **Antigravity CLI**, **Claude Code**, **Codex**, **Cursor**, **Grok CLI**, **OpenCode** | *Connect* adds a global skill named `pinrail` to the agent. *Update* rewrites it after Pinrail was updated, and *Remove* takes it away. |
+| **Antigravity CLI**, **Claude Code**, **Codex**, **Cursor**, **Grok CLI**, **OpenCode** | *Connect* adds a global skill named `pinrail` to the agent. *Update* appears when an update of Pinrail changed the skill, and rewrites it. *Remove* takes the skill away. |
 
-The skill tells an agent how to submit a review and read your decision. It does not tell the agent when to ask: a prompt, your instructions or another skill does that by telling the agent to use Pinrail.
+The skill tells an agent how to submit a review and read your decision, and how to build a plugin. It holds the same guides that `pinrail docs` prints. It does not tell the agent when to ask: a prompt, your instructions or another skill does that by telling the agent to use Pinrail.
 
-Pinrail lists the agents it knows and finds each one by its configuration folder, such as `~/.claude` for Claude Code. It writes the skill to the agent's global skills folder, such as `~/.claude/skills/pinrail/SKILL.md`. Pinrail marks the skill as its own, and it never changes or removes a `pinrail` skill that you wrote yourself. OpenCode also reads Claude Code's skills, and Grok CLI reads both Claude Code's and Cursor's, so an agent that reads a connected agent's skill uses it and needs none of its own.
+Pinrail lists the agents it knows and finds each one by its configuration folder, such as `~/.claude` for Claude Code. It writes the skill to the agent's global skills folder, such as `~/.claude/skills/pinrail`, as a `SKILL.md` file and the guides it links to in a `references` folder. Pinrail marks the skill as its own, and it never changes or removes a `pinrail` skill that you wrote yourself. OpenCode also reads Claude Code's skills, and Grok CLI reads both Claude Code's and Cursor's, so an agent that reads a connected agent's skill uses it and needs none of its own.
 
 ## Plugins
 

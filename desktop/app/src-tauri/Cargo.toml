@@ -20,6 +20,7 @@ path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+sha2 = "0.10"
 
 [dependencies]
 ureq = { version = "3", features = ["json"] }

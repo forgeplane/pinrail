@@ -333,7 +333,7 @@ function AgentsSection() {
             ) : a.state === "covered" ? (
               <span className="welcome-pill is-ok">Uses {a.covered_by}'s skill</span>
             ) : a.state === "outdated" ? (
-              <span className="welcome-pill">From another version</span>
+              <span className="welcome-pill">Needs an update</span>
             ) : a.state === "theirs" ? (
               <span className="welcome-pill">Has a skill of your own</span>
             ) : busy === a.id ? (

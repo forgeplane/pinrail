@@ -29,7 +29,7 @@ The CLI holds no state and makes no decisions of its own. The answer goes to std
 
 ## Built-in guidance for agents
 
-You do not have to explain Pinrail to your agent. The `pinrail docs` command provides short, focused briefs, and each one ends with pointers to related briefs. An agent reads only what its task needs, so its context stays small. The briefs come from the Pinrail you have installed, so they always match it.
+You do not have to explain Pinrail to your agent. The `pinrail docs` command provides short, focused briefs, and each one ends with pointers to related briefs. An agent reads only what its task needs, so its context stays small. The briefs come from the Pinrail you have installed, so they always match it. They are the same files as the `pinrail` skill that [Settings › Agents](/docs/using/settings/#agents) adds to an agent, so an agent with the skill reads them as files.
 
 ```sh
 pinrail docs                          # what Pinrail is, the loop, the rules, and a menu
