@@ -5,6 +5,33 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
+use clap::ValueEnum;
+
+/// How the view is written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum Template {
+    /// HTML and JavaScript in view/, with no build
+    Plain,
+    /// TypeScript in src/, built by Vite into view/
+    Vite,
+    /// React in src/, built by Vite into view/
+    React,
+}
+
+impl Template {
+    fn layer(self) -> &'static str {
+        match self {
+            Template::Plain => "plain",
+            Template::Vite => "vite",
+            Template::React => "react",
+        }
+    }
+
+    /// Whether the view is built from src/ before the app can serve it.
+    pub fn builds(self) -> bool {
+        self != Template::Plain
+    }
+}
 
 /// Each file of the templates: its path under `templates/`, such as
 /// `plain/view/view.js`, and its text.
@@ -14,14 +41,22 @@ const TEMPLATES: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/templates
 const TYPES: &str = include_str!("../../pinrail-plugin/types.d.ts");
 
 /// The files a template writes: each one's path in the plugin folder, with
-/// the plugin's name still `__NAME__`, and its text.
-fn files(template: &str) -> Vec<(String, &'static str)> {
+/// the plugin's name still `__NAME__`, and its text. A template's
+/// `_gitignore` is written as `.gitignore`, which the templates' own
+/// folder cannot hold without ignoring files itself.
+fn files(template: Template) -> Vec<(String, &'static str)> {
     let mut out = Vec::new();
-    for layer in ["common", template] {
+    for layer in ["common", template.layer()] {
         let prefix = format!("{layer}/");
         for (path, text) in TEMPLATES {
             if let Some(rel) = path.strip_prefix(&prefix) {
-                out.push((rel.to_string(), *text));
+                let rel = match rel.strip_suffix("_gitignore") {
+                    Some(folder) if folder.is_empty() || folder.ends_with('/') => {
+                        format!("{folder}.gitignore")
+                    }
+                    _ => rel.to_string(),
+                };
+                out.push((rel, *text));
             }
         }
     }
@@ -48,7 +83,7 @@ pub fn title_of(name: &str) -> String {
 
 /// Writes the plugin into `dir`, which must be new or empty; the files
 /// written, relative to it.
-pub fn write(name: &str, dir: &Path) -> Result<Vec<PathBuf>> {
+pub fn write(name: &str, dir: &Path, template: Template) -> Result<Vec<PathBuf>> {
     if !valid(name) {
         bail!(
             "a plugin's name is a lowercase letter, then lowercase letters, digits, _ or -: {name:?}"
@@ -64,16 +99,14 @@ pub fn write(name: &str, dir: &Path) -> Result<Vec<PathBuf>> {
     }
     let title = title_of(name);
     let mut written = Vec::new();
-    for (to, template) in files("plain") {
+    for (to, text) in files(template) {
         let to = to.replace("__NAME__", name);
         let target = dir.join(&to);
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("creating {}", parent.display()))?;
         }
-        let text = template
-            .replace("__NAME__", name)
-            .replace("__TITLE__", &title);
+        let text = text.replace("__NAME__", name).replace("__TITLE__", &title);
         std::fs::write(&target, text).with_context(|| format!("writing {}", target.display()))?;
         written.push(PathBuf::from(&to));
     }
@@ -88,7 +121,7 @@ mod tests {
     fn a_new_plugin_is_whole_and_named_throughout() {
         let root = std::env::temp_dir().join(format!("pinrail-new-{}", std::process::id()));
         let dir = root.join("ticket_triage");
-        let written = write("ticket_triage", &dir).unwrap();
+        let written = write("ticket_triage", &dir, Template::Plain).unwrap();
         let mut names: Vec<_> = written
             .iter()
             .map(|f| f.to_string_lossy().into_owned())
@@ -140,12 +173,79 @@ mod tests {
         );
 
         assert!(
-            write("ticket_triage", &dir)
+            write("ticket_triage", &dir, Template::Plain)
                 .unwrap_err()
                 .to_string()
                 .contains("is not empty")
         );
-        assert!(write("Ticket", &root.join("x")).is_err());
+        assert!(write("Ticket", &root.join("x"), Template::Plain).is_err());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// A view built by Vite, typed by the SDK's types in the folder, so
+    /// building it needs no SDK package.
+    #[test]
+    fn the_vite_and_react_templates_build_their_view_from_src() {
+        let root = std::env::temp_dir().join(format!("pinrail-new-built-{}", std::process::id()));
+        for (template, sources) in [
+            (Template::Vite, &["src/index.html", "src/main.ts"][..]),
+            (
+                Template::React,
+                &["src/App.tsx", "src/index.html", "src/main.tsx"][..],
+            ),
+        ] {
+            let dir = root.join(format!("{template:?}"));
+            let written = write("ticket_triage", &dir, template).unwrap();
+            let mut names: Vec<_> = written
+                .iter()
+                .map(|f| f.to_string_lossy().into_owned())
+                .collect();
+            names.sort();
+            let mut expected = vec![
+                ".gitignore",
+                "README.md",
+                "icon.svg",
+                "manifest.json",
+                "package.json",
+                "pinrail-plugin.d.ts",
+                "samples/ticket_triage.json",
+                "schemas/decision.schema.json",
+                "schemas/payload.schema.json",
+                "tsconfig.json",
+                "vite.config.ts",
+            ];
+            expected.extend(sources);
+            expected.sort();
+            assert_eq!(names, expected, "{template:?}");
+            assert!(!dir.join("view").exists(), "the build writes view/");
+
+            let read = |file: &str| std::fs::read_to_string(dir.join(file)).unwrap();
+            for file in &names {
+                assert!(
+                    !read(file).contains("__NAME__") && !read(file).contains("__TITLE__"),
+                    "{file}"
+                );
+            }
+            let package: serde_json::Value = serde_json::from_str(&read("package.json")).unwrap();
+            assert_eq!(package["name"], "pinrail-plugin-ticket_triage");
+            assert!(package["scripts"]["build"].is_string());
+            assert!(
+                !read("package.json").contains("pinrail-plugin\":"),
+                "no SDK package"
+            );
+            let tsconfig: serde_json::Value = serde_json::from_str(&read("tsconfig.json")).unwrap();
+            assert_eq!(
+                tsconfig["include"],
+                serde_json::json!(["src", "pinrail-plugin.d.ts"])
+            );
+            let main = if template == Template::React {
+                "src/App.tsx"
+            } else {
+                "src/main.ts"
+            };
+            assert!(read(main).contains(r#"from "../pinrail-plugin""#), "{main}");
+            assert!(read(".gitignore").contains("/view/"));
+        }
         std::fs::remove_dir_all(root).unwrap();
     }
 }

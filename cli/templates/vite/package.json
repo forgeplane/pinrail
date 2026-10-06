@@ -1,0 +1,16 @@
+{
+  "name": "pinrail-plugin-__NAME__",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "watch": "vite build --watch"
+  },
+  "dependencies": {
+    "lucide": "^1"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "vite": "^7"
+  }
+}

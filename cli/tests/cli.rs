@@ -2376,7 +2376,33 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     assert_eq!(code, 0);
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["linked"], false);
+    assert_eq!(json["template"], "plain");
     assert_eq!(json["next"][1], "pinrail plugins check other");
+
+    // a view built from src/ is not there to link until it is built: the
+    // command says so, and writes nothing
+    let (code, stdout, _) = run_in(
+        &server,
+        &dir,
+        &["plugins", "new", "built", "--template", "react"],
+    );
+    assert_eq!(code, 0);
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["template"], "react");
+    assert!(
+        json["next"][1]
+            .as_str()
+            .unwrap()
+            .starts_with("npm install, then npm run build")
+    );
+    let (code, _, stderr) = run_in(
+        &server,
+        &dir,
+        &["plugins", "new", "linked", "--template", "vite", "--link"],
+    );
+    assert_eq!(code, 1);
+    assert!(stderr.contains("--link needs a view"), "{stderr}");
+    assert!(!dir.join("linked").exists());
 }
 
 /// The command with no app to talk to and no address given: nothing

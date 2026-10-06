@@ -186,7 +186,8 @@ jobs:
           if-no-files-found: ignore
 
   # The plugins alone under the harness, and the pinrail-plugin package:
-  # its unit tests, what create writes, and check over the samples.
+  # its unit tests, what create and `pinrail plugins new` write, and check
+  # over the samples.
   plugins:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -218,6 +219,18 @@ jobs:
         run: |
           cargo build --manifest-path cli/Cargo.toml --locked
           echo "$PWD/cli/target/debug" >> "$GITHUB_PATH"
+      # what `pinrail plugins new` writes, in each template, builds where it
+      # has a build and passes the check before a line of it is changed
+      - name: New plugins
+        run: |
+          for template in plain vite react; do
+            dir="$RUNNER_TEMP/new/$template"
+            pinrail plugins new "new_$template" --template "$template" --dir "$dir"
+            if [ "$template" != plain ]; then
+              (cd "$dir" && npm install --no-audit --no-fund && npm run build)
+            fi
+            pinrail plugins check "$dir"
+          done
       - name: pinrail-plugin tests
         working-directory: pinrail-plugin
         run: |

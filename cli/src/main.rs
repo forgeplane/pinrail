@@ -22,7 +22,7 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use clap::{Args, FromArgMatches, Parser, Subcommand};
+use clap::{Args, FromArgMatches, Parser, Subcommand, ValueEnum};
 use serde_json::{Value, json};
 
 use api::{ApiError, Client, InstallRequest};
@@ -522,10 +522,13 @@ enum PluginsCommand {
         #[arg(long, group = "part")]
         decision_schema: bool,
     },
-    /// Create a new plugin that needs no build step
+    /// Create a new plugin
     ///
     /// The new folder contains a manifest, schemas, a sample review, a view,
-    /// and the SDK's types. --link installs the plugin as a link right away.
+    /// and the SDK's types. The plain template's view needs no build; the
+    /// vite and react templates write the view in src/, which npm run build
+    /// turns into view/. --link installs the plugin as a link right away,
+    /// which needs a view, so it takes the plain template only.
     New {
         /// The plugin's name, which starts with a lowercase letter followed by
         /// letters, digits, _ or -
@@ -533,6 +536,9 @@ enum PluginsCommand {
         /// The folder to write the plugin to [default: ./<name>]
         #[arg(long)]
         dir: Option<PathBuf>,
+        /// How the view is written
+        #[arg(long, value_enum, default_value = "plain")]
+        template: scaffold::Template,
         /// Install the plugin as a link after writing it, so the app serves the
         /// folder directly
         #[arg(long)]
@@ -699,11 +705,25 @@ fn run(cli: Cli) -> Result<u8> {
 
     // a new plugin is written here; only --link needs the app
     if let Command::Plugins(PluginsArgs {
-        command: Some(PluginsCommand::New { name, dir, link }),
+        command:
+            Some(PluginsCommand::New {
+                name,
+                dir,
+                template,
+                link,
+            }),
     }) = &cli.command
     {
         let dir = dir.clone().unwrap_or_else(|| PathBuf::from(name));
-        scaffold::write(name, &dir)?;
+        // a view with a build has nothing for the app to serve yet
+        if *link && template.builds() {
+            anyhow::bail!(
+                "--link needs a view, and this template builds its view from src/: \
+                 write the plugin without --link, run npm install and npm run build \
+                 in it, then pinrail plugins install <dir> --link"
+            );
+        }
+        scaffold::write(name, &dir, *template)?;
         // the folder as it was named, for the prompt a person pastes
         let given = dir.display().to_string();
         let dir = dir.canonicalize()?;
@@ -715,12 +735,15 @@ fn run(cli: Cli) -> Result<u8> {
             })?;
         }
         // what comes next, for whoever ran it, most often an agent
-        let mut next = vec![
-            format!(
-                "Make the plugin in {given} what is needed: the decision schema first, around the action you will take on the answer, then the payload schema, the samples and the view, kept in step."
-            ),
-            format!("pinrail plugins check {given}"),
-        ];
+        let mut next = vec![format!(
+            "Make the plugin in {given} what is needed: the decision schema first, around the action you will take on the answer, then the payload schema, the samples and the view, kept in step."
+        )];
+        if template.builds() {
+            next.push(format!(
+                "npm install, then npm run build in {given}, which writes view/ from src/. npm run watch rebuilds it on every change."
+            ));
+        }
+        next.push(format!("pinrail plugins check {given}"));
         if !*link {
             next.push(format!(
                 "pinrail plugins install {given} --link, so the app serves it live."
@@ -732,6 +755,7 @@ fn run(cli: Cli) -> Result<u8> {
         let written = json!({
             "name": name,
             "dir": dir.to_string_lossy(),
+            "template": template.to_possible_value().map(|v| v.get_name().to_string()),
             "linked": link,
             "next": next,
             "docs": "pinrail docs plugins/building",
