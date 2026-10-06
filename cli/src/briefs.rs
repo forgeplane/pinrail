@@ -172,7 +172,8 @@ pub fn render(brief: &Brief) -> String {
     let body = brief
         .body
         .trim_end()
-        .replace("{{manifest_schema}}", MANIFEST_SCHEMA.trim_end());
+        .replace("{{manifest_schema}}", MANIFEST_SCHEMA.trim_end())
+        .replace("{{sdk_version}}", &crate::scaffold::sdk_version());
     let mut out = commands_for_links(brief.file, &body);
     out.push('\n');
     out
@@ -384,6 +385,25 @@ mod tests {
             ),
             "[a] b [c](https://x.md) `pinrail docs asking`"
         );
+    }
+
+    /// The dev shell is run at the SDK's version this command was built
+    /// with, so the view behaves there as in the app.
+    #[test]
+    fn the_dev_shell_brief_names_the_sdk_version_of_this_build() {
+        let brief = render(&find(Some("plugins/building/dev-shell")).unwrap());
+        let command = format!(
+            "npx pinrail-sdk@{} dev <path> --no-open",
+            crate::scaffold::sdk_version()
+        );
+        assert!(brief.contains(&command), "{brief}");
+        for brief in all() {
+            assert!(
+                !render(&brief).contains("{{"),
+                "{}: a placeholder left",
+                brief.path
+            );
+        }
     }
 
     #[test]

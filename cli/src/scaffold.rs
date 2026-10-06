@@ -53,12 +53,21 @@ pub struct Options<'a> {
     pub sdk: Option<&'a str>,
 }
 
+/// The version of the SDK package this command was built with, which the
+/// app it comes with serves.
+pub fn sdk_version() -> String {
+    let package: serde_json::Value =
+        serde_json::from_str(SDK_PACKAGE).expect("the SDK's package.json is JSON");
+    package["version"]
+        .as_str()
+        .expect("the SDK has a version")
+        .to_string()
+}
+
 /// The SDK package of the version this command was built with, as the
 /// tarball attached to its release.
 fn sdk_dependency() -> String {
-    let package: serde_json::Value =
-        serde_json::from_str(SDK_PACKAGE).expect("the SDK's package.json is JSON");
-    let version = package["version"].as_str().expect("the SDK has a version");
+    let version = sdk_version();
     format!(
         "https://github.com/forgeplane/pinrail/releases/download/sdk-v{version}/pinrail-sdk-{version}.tgz"
     )

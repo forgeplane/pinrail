@@ -334,17 +334,17 @@ Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both t
 
 ## Work on the view in the dev shell
 
-The plugin SDK's dev shell shows the view in a browser, inside a stand-in for the app, and reloads it whenever a file of the plugin changes. It is the quickest way to shape a view, on your own or with a coding agent. The SDK is not published to npm, so run the dev shell from a checkout of the Pinrail repository:
+The plugin SDK's dev shell shows the view in a browser, inside a stand-in for the app, and reloads it whenever a file of the plugin changes. It is the quickest way to shape a view, on your own or with a coding agent. It needs Node, and nothing installed in the plugin's folder:
 
 ```sh
-git clone https://github.com/forgeplane/pinrail
-cd pinrail/pinrail-plugin && npm install
-node bin/pinrail-sdk.mjs dev ~/code/ticket_triage
+npx pinrail-sdk@1 dev ~/code/ticket_triage
 ```
+
+Version 1 of the SDK is the one Pinrail serves to plugin views. An agent with Pinrail's skill runs the exact version that came with your Pinrail.
 
 The bar at the top picks the review the view opens with, from `samples/` and `fixtures/`, and switches between read-only and the light and dark themes. The panel on the right plays the app's part, with the hand-over, the plugin's settings, and what the view sent.
 
-To ask an agent for changes, turn on *Select*, or press <kbd>I</kbd>, click the part of the view to change, and write what should change there. *Copy comments* puts every comment on the clipboard as Markdown, with the part of the view each one is about, to paste to the agent. The agent revises the view, the dev shell reloads it, and the agent clears the comments for the next round. An agent with Pinrail's skill knows this loop, and can start the dev shell and give you its address.
+To ask an agent for changes, turn on *Select*, or press <kbd>I</kbd>, click the part of the view to change, and write what should change there. *Copy comments* puts every comment on the clipboard as Markdown, with the part of the view each one is about, to paste to the agent. The agent revises the view, and the dev shell reloads it. Clear the comments in the shell, and comment again for the next round. An agent with Pinrail's skill knows this loop, and can start the dev shell and give you its address.
 
 ## Run it
 

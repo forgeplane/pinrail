@@ -1,8 +1,9 @@
 // The agent skill the app installs is the `skill/` folder at the top of the
 // repository, the same files `pinrail docs` prints. This embeds them as
-// they are installed: the manifest's schema put into the brief that shows
-// it, and a SHA-256 of all the files put into SKILL.md's front matter, so
-// the app can tell an agent's copy is outdated by that alone.
+// they are installed: the manifest's schema and the SDK's version put into
+// the briefs that show them, and a SHA-256 of all the files put into
+// SKILL.md's front matter, so the app can tell an agent's copy is outdated
+// by that alone.
 
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -16,6 +17,9 @@ fn main() {
     println!("cargo:rerun-if-changed={}", skill.display());
     println!("cargo:rerun-if-changed={}", schema_path.display());
     let schema = fs::read_to_string(&schema_path).unwrap();
+    let sdk_package = repo.join("pinrail-plugin/package.json");
+    println!("cargo:rerun-if-changed={}", sdk_package.display());
+    let sdk_version = version_of(&fs::read_to_string(&sdk_package).unwrap());
 
     let mut files = Vec::new();
     walk(&skill, &skill, &mut files);
@@ -24,7 +28,10 @@ fn main() {
         .into_iter()
         .map(|(rel, file)| {
             let text = fs::read_to_string(file).unwrap();
-            (rel, text.replace("{{manifest_schema}}", schema.trim_end()))
+            let text = text
+                .replace("{{manifest_schema}}", schema.trim_end())
+                .replace("{{sdk_version}}", &sdk_version);
+            (rel, text)
         })
         .collect();
 
@@ -63,6 +70,20 @@ fn main() {
     fs::write(out.join("skill_sha.rs"), format!("{sha:?}")).unwrap();
 
     tauri_build::build()
+}
+
+/// The `version` of a package.json, read without a JSON parser in the
+/// build's dependencies.
+fn version_of(package: &str) -> String {
+    let after = package
+        .split("\"version\"")
+        .nth(1)
+        .expect("the SDK's package.json has a version");
+    after
+        .split('"')
+        .nth(1)
+        .expect("the SDK's version is a string")
+        .to_string()
 }
 
 /// Every file under `dir`, as its path in the skill, such as

@@ -351,6 +351,16 @@ mod tests {
             .unwrap()
             .1;
         assert!(!manifest.contains("{{manifest_schema}}"));
+        // the build fills in every placeholder, the SDK's version among them
+        for (path, text) in FILES {
+            assert!(!text.contains("{{"), "{path}: a placeholder left");
+        }
+        let dev_shell = FILES
+            .iter()
+            .find(|(p, _)| *p == "references/plugins/building/dev-shell.md")
+            .unwrap()
+            .1;
+        assert!(dev_shell.contains("npx pinrail-sdk@1."), "{dev_shell}");
         assert!(manifest.contains("\"$schema\""), "{manifest}");
         // every link between the files leads to one of them
         for (path, text) in FILES {

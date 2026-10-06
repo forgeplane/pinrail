@@ -78,7 +78,7 @@ The docs describe the SDK in full:
 ### dev
 
 ```sh
-npx pinrail-sdk dev .                       # in a plugin folder that has the package installed
+npx pinrail-sdk@1 dev .                       # in any plugin folder, with nothing installed
 mise run dev:plugin plugins/hello             # in this repository
                                               # options: --port N (default 4790), --no-open
 ```
@@ -104,11 +104,7 @@ Comments are kept in the browser for the plugin, grouped by the review and
 mode you made them in, and marked on the view with numbered pins. **Copy
 comments** puts them on the clipboard as Markdown, with each element's
 selector, to paste to the agent that works on the plugin. Once it has made
-the changes, the agent clears them with a request to the shell:
-
-```sh
-curl -X POST http://127.0.0.1:4790/dev/clear-comments
-```
+the changes, **Clear** empties the list for the next round.
 
 **JSON** shows, in place of the view, the review's payload and the schemas the payload and the decision are held to, each on a tab of its own.
 

@@ -7,23 +7,16 @@ the person can comment on any part of the view for you to revise.
 
 ## Start it
 
-The SDK is not published to npm, so run it from a checkout of the Pinrail
-repository. The first time, install its dependencies:
+Serve the plugin with the SDK of the same version as this Pinrail, and
+give the person the address it prints, `http://127.0.0.1:4790` unless you
+pass `--port`:
 
 ```sh
-git clone https://github.com/forgeplane/pinrail
-cd pinrail/pinrail-plugin && npm install
+npx pinrail-sdk@{{sdk_version}} dev <path> --no-open
 ```
 
-Then serve the plugin, and give the person the address it prints,
-`http://127.0.0.1:4790` unless you pass `--port`:
-
-```sh
-node <checkout>/pinrail-plugin/bin/pinrail-sdk.mjs dev <path> --no-open
-```
-
-In a plugin with tests, which has the SDK package installed,
-`npx pinrail-sdk dev` does the same.
+It needs Node, and nothing installed in the folder. Keep it running while
+you work: it reloads the view on every change.
 
 ## What it shows
 
@@ -43,12 +36,7 @@ writes what should change there. Each comment keeps the element it is
 about. *Copy comments* puts all of them on the clipboard as Markdown, and
 the person pastes them to you.
 
-Make the changes, and the view reloads by itself. Then clear the comments,
-so the next round starts empty:
-
-```sh
-curl -X POST http://127.0.0.1:4790/dev/clear-comments
-```
-
-Repeat until the person is satisfied with the view, then try the plugin
+Make the changes, and the view reloads by itself. The person then clears
+the comments in the shell, so the next round starts empty, and comments
+again. Repeat until the person is satisfied with the view, then try the plugin
 in the app.
