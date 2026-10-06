@@ -1,5 +1,5 @@
 {
-  "plugin": "model",
+  "plugin": "model-3d",
   "title": "Halden desk lamp — round 1",
   "origin": {
     "repo": "halden/lamp",
@@ -110,16 +110,16 @@
   },
   "attachments": {
     "pivot.glb": {
-      "path": "../../../../pinrail-plugins/model/fixtures/halden/pivot.glb"
+      "path": "../../../../pinrail-plugins/model-3d/fixtures/halden/pivot.glb"
     },
     "arc.glb": {
-      "path": "../../../../pinrail-plugins/model/fixtures/halden/arc.glb"
+      "path": "../../../../pinrail-plugins/model-3d/fixtures/halden/arc.glb"
     },
     "column.glb": {
-      "path": "../../../../pinrail-plugins/model/fixtures/halden/column.glb"
+      "path": "../../../../pinrail-plugins/model-3d/fixtures/halden/column.glb"
     },
     "tripod.glb": {
-      "path": "../../../../pinrail-plugins/model/fixtures/halden/tripod.glb"
+      "path": "../../../../pinrail-plugins/model-3d/fixtures/halden/tripod.glb"
     }
   }
 }
