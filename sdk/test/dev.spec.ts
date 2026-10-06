@@ -260,3 +260,29 @@ test("the fixtures menu lists reviews, not the summaries recorded beside them", 
     expect((await options.allTextContents()).join("\n")).not.toContain("summary");
   });
 });
+
+test("the bar stays on one line at the app's window size, however long the reviews' titles", async ({ page }) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  plainPlugin("triage", dir);
+  const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
+  const long = "Ship payments-api v2.4.1 to production, after the canary has run";
+  fs.writeFileSync(path.join(dir, "samples", "triage.json"), JSON.stringify({ ...sample, title: long }));
+  fs.mkdirSync(path.join(dir, "fixtures"), { recursive: true });
+  const decided = { decided_by: "you", decided_at: "2026-09-16T09:00:00Z", data: { ok: true } };
+  fs.writeFileSync(
+    path.join(dir, "fixtures", "round.decided.json"),
+    JSON.stringify({ ...sample, title: long, decision: decided }),
+  );
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    await expect(page.locator("#previous option")).toHaveCount(2);
+    // one line: the first item and the last share a middle
+    const middle = async (selector: string) => {
+      const box = (await page.locator(selector).boundingBox())!;
+      return box.y + box.height / 2;
+    };
+    expect(Math.abs((await middle("#theme")) - (await middle("#name")))).toBeLessThan(2);
+  });
+});

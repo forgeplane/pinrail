@@ -21,6 +21,8 @@
   body { display: flex; flex-direction: column; background: var(--bg); color: var(--text); font: 13px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
   .bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); flex: none; flex-wrap: wrap; }
   .bar b { font-weight: 600; margin-right: 4px; }
+  /* a long review title would push the bar onto two lines; the open menu shows it whole */
+  .bar select { max-width: 18rem; text-overflow: ellipsis; }
   .bar .v { color: var(--faint); font: 11.5px var(--mono); margin-right: 8px; }
   select, button, input[type=text] { font: inherit; color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; }
   button { cursor: pointer; }
