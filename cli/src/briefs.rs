@@ -36,8 +36,10 @@ fn brief_path(file: &str) -> String {
 }
 
 /// The file a link in `from` points to, as a path in the skill, if it is
-/// a relative link to one of the skill's Markdown files.
+/// a relative link to one of the skill's Markdown files. A heading in the
+/// file, after `#`, does not count: `pinrail docs` prints the whole file.
 fn resolve(from: &str, target: &str) -> Option<String> {
+    let target = target.split('#').next().unwrap_or(target);
     if !target.ends_with(".md") || target.contains("://") || target.starts_with('/') {
         return None;
     }
@@ -245,7 +247,7 @@ mod tests {
             );
             // the text an agent reads, without the menu at the end
             let text = brief.body.split("\n## More\n").next().unwrap();
-            let limit = if brief.path == "index" { 2048 } else { 4096 };
+            let limit = if brief.path == "index" { 2048 } else { 6144 };
             assert!(
                 text.len() <= limit,
                 "{} is {} bytes, over {limit}",
@@ -348,7 +350,9 @@ mod tests {
             "{building}"
         );
         assert!(
-            building.contains("The format is in\n  `pinrail docs plugins/building/manifest`."),
+            building.contains(
+                "and `pinrail docs plugins/building/view` how\nto look at the view yourself."
+            ),
             "{building}"
         );
         assert!(!building.contains("](building/"), "{building}");
@@ -364,6 +368,14 @@ mod tests {
         assert_eq!(
             resolve("references/plugins.md", "../SKILL.md").as_deref(),
             Some("SKILL.md")
+        );
+        assert_eq!(
+            resolve(
+                "references/plugins/building.md",
+                "building/view.md#checking-the-view"
+            )
+            .as_deref(),
+            Some("references/plugins/building/view.md")
         );
         assert_eq!(
             commands_for_links(

@@ -1,6 +1,7 @@
 # The view
 
-The view loads the SDK from the app and talks to it only through it:
+The view is a web page in `view/index.html`. It loads the SDK from the
+app, and talks to the app only through it:
 
 ```html
 <link rel="stylesheet" href="/sdk/v1/pinrail-plugin.css">
@@ -8,39 +9,53 @@ The view loads the SDK from the app and talks to it only through it:
 <script src="view.js"></script>
 ```
 
-The calls, as a sketch: `decision` is what the person's controls built,
-shaped by your decision schema, and `value` whatever state you keep.
+## The contract
 
 ```js
 const plugin = Pinrail.connect({
   onInit({ review, readonly, draft, settings }) {}, // review.payload is what the agent sent
-  onCollect() { return decision; },               // the app's hand-over button, or ⌘/Ctrl+Enter
+  onCollect() { return decision; },                 // the person pressed the hand-over
 });
-plugin.draft(value);                              // keeps what the person entered across reloads
-plugin.handOverLabel("Hand over: yes");       // the hand-over button's words
+plugin.draft(value);                  // keeps what the person entered across reloads
+plugin.handOverLabel("Hand over: yes"); // the words on the hand-over button
 ```
 
-- A view needs `onInit` and `onCollect`. The app lists a refused
-  decision's violations under the view and closes the view once a
-  decision is accepted. `onViolations(errors)` and `onSubmitted()` remain
-  for a view that marks the field at fault or redraws itself.
-- `onInit` runs again, read-only, when the review ends while the view is open, for example when the agent withdraws it. Draw the view from scratch each time.
-- The app draws the hand-over button; the view never draws its own.
-  `onCollect` returns the decision, or a promise of it. It returns
-  nothing when the view needs more from the person first, and the next
-  press asks again.
-- `plugin.readonly` is true for a review that is no longer pending: show
-  `review.decision.data` and offer no editing.
-- The frame loads nothing from outside the plugin folder: the payload
+- `onInit` draws the review. It runs again, read-only, when the review
+  ends while the view is open, for example when the agent withdraws it,
+  so draw the view from scratch each time.
+- The app draws the hand-over button, and the view never draws its own.
+  `onCollect` returns the decision, shaped by the decision schema, or a
+  promise of it. It returns nothing while the view needs more from the
+  person, and the next press asks again.
+- The app checks the decision against the schema. It lists a refused
+  decision's violations under the view, and closes the view once a
+  decision is accepted. A view that marks the field at fault itself can
+  use `onViolations(errors)`, and one that redraws itself `onSubmitted()`.
+- `plugin.readonly` is true for a review that is no longer pending. Show
+  `review.decision.data`, and offer no editing.
+- Every call and its arguments are in `pinrail-plugin.d.ts`.
+
+## What the view can use
+
+- The frame loads nothing from outside the plugin folder, so the payload
   carries everything the view shows.
-- Files: declare `attachments` in the manifest, name them in the payload
-  as `{ "$attachment": "<name>" }`, and show them with
+- Files: declare `attachments` in the manifest, name each one in the
+  payload as `{ "$attachment": "<name>" }`, and show it with
   `await plugin.attachmentUrl(name)`.
 - Links: `plugin.open(url)`. The app asks the person before it opens a
   link, unless they allowed that site for the plugin.
 - Rendering: `Pinrail.escape(text)`, `Pinrail.icon(name)`, and
-  `Pinrail.markdown(text)` once the view also loads
+  `Pinrail.markdown(text)` once the page also loads
   `<script src="/sdk/v1/markdown.js"></script>` after the SDK.
-- The view fills the review panel's height and scrolls inside its frame;
-  `Pinrail.layout()` keeps a header in place over a body that scrolls.
-- Every call with its arguments is in `pinrail-plugin.d.ts`.
+- Layout: the view fills the review panel's height and scrolls inside its
+  frame. `Pinrail.layout()` keeps a header in place over a body that
+  scrolls.
+
+## Checking the view
+
+The view runs in a sandboxed frame with an opaque origin, so a browser
+tool that reads the page's DOM or accessibility tree sees the frame as
+empty, even when the view is drawn. To check the view, take a screenshot,
+or drive the preview with Playwright and reach inside with
+`page.frameLocator("iframe")`. An empty frame in your tool does not mean
+that the view is broken.

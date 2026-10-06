@@ -1,36 +1,54 @@
 # Design
 
-`/sdk/v1/pinrail-plugin.css` gives the app's base, colours and classes in
-both themes; `/sdk/v1/tokens.css` gives the colours alone. Style with the
-tokens, never with colours, and the view follows the app's theme. Every
-rule is in the cascade layer `pinrail`, so any rule of the view's wins.
+A view looks like part of the app when it uses the app's stylesheet,
+`/sdk/v1/pinrail-plugin.css`. It gives the base styles, the colours and the
+classes, in the light and the dark theme. `/sdk/v1/tokens.css` gives the
+colours alone. Every rule is in the cascade layer `pinrail`, so any rule of
+the view's own wins.
 
-- Colours: `--pinrail-` then `bg`, `bg-panel`, `bg-raised`, `bg-hover`,
-  `border`, `border-strong`, `text`, `dim`, `faint`, `accent`,
-  `accent-bg`, `button-bg`; the tones `danger`, `warning`, `info`,
-  `success`, `neutral`; for diffs `add-bg`, `add-gut`, `del-bg`, `del-gut`.
-- Type: `--pinrail-sans` and `--pinrail-mono`; text at 13px.
-- Layout: `Pinrail.layout({ title, meta, controls })` builds
-  `.pinrail-header` and a scrolling `.pinrail-content`; render into
-  `layout.content`.
-- Pieces: `.pinrail-item` with `.pinrail-item-head`, `-id`, `-title`,
-  `-body`, `-controls`; `.pinrail-btn` with `-primary`, `-danger`,
-  `-ghost`, and `aria-pressed="true"` on the chosen one;
-  `.pinrail-field`, `.pinrail-note`; `.pinrail-notice` with `-success`,
-  `-warning`, `-danger`; `.pinrail-tone` with a tone, such as
-  `.pinrail-tone-warning`; `.pinrail-chip`, `.pinrail-eyebrow`,
-  `.pinrail-dim`, `.pinrail-faint`, `.pinrail-empty`, `.pinrail-errors`.
-- Themes: the root element has `data-theme="dark"` or `"light"`; key any
+## Colours and type
+
+Style with the tokens, never with colour values, and the view follows the
+app's theme.
+
+- Colours: `--pinrail-` followed by `bg`, `bg-panel`, `bg-raised`,
+  `bg-hover`, `border`, `border-strong`, `text`, `dim`, `faint`, `accent`,
+  `accent-bg` or `button-bg`. The tones are `danger`, `warning`, `info`,
+  `success` and `neutral`, and diffs have `add-bg`, `add-gut`, `del-bg`
+  and `del-gut`.
+- Type: `--pinrail-sans` and `--pinrail-mono`, with text at 13px.
+- Themes: the root element has `data-theme="dark"` or `"light"`. Key any
   colour of your own on it. `onAppearance(theme)` says when it changes.
-- Icons, without a build: `Pinrail.icon(name)` draws `icons/<name>.svg`
-  from `view/icons/`, in the text's colour. Bring the ones you use; the
-  app's are Lucide, from `lucide-static`, which fit best.
-- Icons, with a build: import them from `lucide-react`, `@lucide/vue`,
-  `@lucide/svelte`, or `lucide` (`createElement(icon, { class: "lucide" })`);
-  the stylesheet sizes an `svg.lucide` to the text.
-- The manifest's `icon` is an SVG file in the folder, either way.
-- The app draws the title and the hand-over: the view draws neither.
-- Dense and quiet: one accent, lines rather than boxes. A decided review
-  shows what was there and what was decided, without controls.
-- Fonts, styles and images of your own go in the plugin folder, by
-  relative path.
+
+## Layout and classes
+
+- `Pinrail.layout({ title, meta, controls })` builds a fixed
+  `.pinrail-header` over a scrolling `.pinrail-content`. Render into
+  `layout.content`.
+- Items: `.pinrail-item`, with `.pinrail-item-head`, `-id`, `-title`,
+  `-body` and `-controls`.
+- Buttons: `.pinrail-btn`, with `-primary`, `-danger` or `-ghost`. Mark the
+  chosen one with `aria-pressed="true"`.
+- Fields and notices: `.pinrail-field`, `.pinrail-note`, and
+  `.pinrail-notice` with `-success`, `-warning` or `-danger`.
+- Text: `.pinrail-tone` with a tone, such as `.pinrail-tone-warning`, and
+  `.pinrail-chip`, `.pinrail-eyebrow`, `.pinrail-dim`, `.pinrail-faint`,
+  `.pinrail-empty` and `.pinrail-errors`.
+
+The app draws the review's title and the hand-over button, so the view
+draws neither. Keep the view dense and quiet, with one accent colour and
+lines rather than boxes. A decided review shows what was there and what
+was decided, without controls.
+
+## Icons, fonts and images
+
+- Without a build, `Pinrail.icon(name)` draws `view/icons/<name>.svg` in
+  the text's colour. Bring the icons you use. The app's icons are Lucide,
+  from `lucide-static`, and fit best.
+- With a build, import icons from `lucide-react`, `@lucide/vue`,
+  `@lucide/svelte`, or `lucide` with
+  `createElement(icon, { class: "lucide" })`. The stylesheet sizes an
+  `svg.lucide` to the text.
+- The plugin's own icon is `icon.svg` in the folder, either way.
+- Put fonts, styles and images of your own in the plugin folder, and refer
+  to them by relative path.
