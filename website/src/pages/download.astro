@@ -52,13 +52,24 @@ import { downloads, releases, repo } from "../components/index/content";
           <p>Open it and drag Pinrail to Applications. Signed and notarized by Apple.</p>
         </article>
 
-        <article class="dl-card">
+        <article class="dl-card" data-download-card="linux">
           <h2><LinuxIcon size={22} />Linux</h2>
-          <p class="dl-needs">x86-64 · Ubuntu 22.04, Debian 12, Fedora 36 or newer</p>
-          <div class="dl-formats">
-            <a class="primary big" href={downloads.appimage}>AppImage</a>
-            <a class="ghost big" href={downloads.deb}>.deb</a>
-            <a class="ghost big" href={downloads.rpm}>.rpm</a>
+          <p class="dl-needs">x86-64 and ARM64 · Ubuntu 22.04, Debian 12, Fedora 36 or newer</p>
+          <div class="dl-arch" data-download-arch="x86-64">
+            <h3>x86-64</h3>
+            <div class="dl-formats">
+              <a class="primary big" href={downloads.appimage}>AppImage</a>
+              <a class="ghost big" href={downloads.deb}>.deb</a>
+              <a class="ghost big" href={downloads.rpm}>.rpm</a>
+            </div>
+          </div>
+          <div class="dl-arch" data-download-arch="arm64">
+            <h3>ARM64</h3>
+            <div class="dl-formats">
+              <a class="primary big" href={downloads.appimageArm}>AppImage</a>
+              <a class="ghost big" href={downloads.debArm}>.deb</a>
+              <a class="ghost big" href={downloads.rpmArm}>.rpm</a>
+            </div>
           </div>
           <dl class="dl-commands">
             <dt>AppImage, any distribution</dt>
@@ -68,6 +79,7 @@ import { downloads, releases, repo } from "../components/index/content";
             <dt>Fedora and RHEL</dt>
             <dd><code>sudo dnf install ./pinrail-app-x86_64.rpm</code></dd>
           </dl>
+          <p class="dl-arm-names">On ARM64 the files are <code>pinrail-app-aarch64.AppImage</code>, <code>pinrail-app-arm64.deb</code> and <code>pinrail-app-aarch64.rpm</code>, each named as its system names the architecture. <code>uname -m</code> prints yours.</p>
         </article>
 
         <article class="dl-card is-soon">
@@ -107,10 +119,13 @@ import { downloads, releases, repo } from "../components/index/content";
   .dl-card .dl-needs { font: 12.5px/1.4 var(--mono); color: var(--faint); }
   .dl-card.is-soon { opacity: 0.8; }
   .dl-formats { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dl-arch { display: flex; flex-direction: column; gap: 6px; }
+  .dl-arch h3 { margin: 0; font: 600 12px var(--mono); letter-spacing: 0.04em; color: var(--faint); }
+  .dl-card .dl-arm-names { font-size: 13px; }
   .dl-commands { margin: 4px 0 0; width: 100%; }
   .dl-commands dt { margin-top: 8px; font: 12px var(--mono); color: var(--faint); }
   .dl-commands dd { margin: 3px 0 0; }
-  .dl-commands code, .dl-after code, .c-lede code {
+  .dl-commands code, .dl-arm-names code, .dl-after code, .c-lede code {
     font: 12.5px var(--mono); padding: 2px 6px; border-radius: 5px; background: color-mix(in oklab, var(--ink) 7%, transparent);
     overflow-wrap: anywhere;
   }

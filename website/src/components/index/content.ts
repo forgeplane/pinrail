@@ -32,6 +32,10 @@ export const downloads = {
   appimage: `${latest}/pinrail-app-amd64.AppImage`,
   deb: `${latest}/pinrail-app-amd64.deb`,
   rpm: `${latest}/pinrail-app-x86_64.rpm`,
+  // Linux on ARM64, in each format's own name for the architecture
+  appimageArm: `${latest}/pinrail-app-aarch64.AppImage`,
+  debArm: `${latest}/pinrail-app-arm64.deb`,
+  rpmArm: `${latest}/pinrail-app-aarch64.rpm`,
 };
 /** Every download, one system a card. */
 export const downloadPage = "/download/";

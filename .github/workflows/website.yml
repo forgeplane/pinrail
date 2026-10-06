@@ -82,6 +82,10 @@ jobs:
       - name: Build
         working-directory: website
         run: npm run build
+      # the download button picks the visitor's build, on the built site
+      - name: Test
+        working-directory: website
+        run: npm test
       # the site's pages and components, type-checked
       - name: Type check
         working-directory: website

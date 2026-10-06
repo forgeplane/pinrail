@@ -1,18 +1,22 @@
 ---
 // The download button for the visitor's system: the page carries one for
 // each, and the script below, run as the page is read, shows the one that
-// fits, so there is no flash of the wrong one. Without script the macOS
-// one shows; the download page has every one.
+// fits, so there is no flash of the wrong one. On Linux the browser's
+// platform names the architecture, "Linux x86_64" or "Linux aarch64", so an
+// ARM64 machine gets its own build; one that says neither gets x86-64, and
+// 32-bit ARM, which Pinrail does not build for, the download page. Without
+// script the macOS one shows; the download page has every one.
 import AppleIcon from "./AppleIcon.astro";
 import LinuxIcon from "./LinuxIcon.astro";
 import WindowsIcon from "./WindowsIcon.astro";
 import { downloadPage, downloads } from "./index/content";
 ---
 <span class="dl" data-dl>
-  <a class="primary big dl-mac" href={downloads.mac}><AppleIcon />Download for macOS</a>
-  <a class="primary big dl-linux" href={downloads.appimage}><LinuxIcon />Download for Linux</a>
-  <a class="primary big dl-windows" href={downloadPage} aria-label="Windows is coming soon: see every download"><WindowsIcon />Windows: coming soon</a>
-  <a class="primary big dl-other" href={downloadPage}>Download</a>
+  <a data-download="mac" class="primary big dl-mac" href={downloads.mac}><AppleIcon />Download for macOS</a>
+  <a data-download="linux" class="primary big dl-linux" href={downloads.appimage}><LinuxIcon />Download for Linux</a>
+  <a data-download="linux-arm" class="primary big dl-linux-arm" href={downloads.appimageArm}><LinuxIcon />Download for Linux on ARM64</a>
+  <a data-download="windows" class="primary big dl-windows" href={downloadPage} aria-label="Windows is coming soon: see every download"><WindowsIcon />Windows: coming soon</a>
+  <a data-download="other" class="primary big dl-other" href={downloadPage}>Download</a>
 </span>
 <script is:inline>
   (() => {
@@ -20,7 +24,11 @@ import { downloadPage, downloads } from "./index/content";
     const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || "";
     // a phone or tablet gets the install page; an iPad says it is a Mac
     const touch = /android|iphone|ipad|ipod/i.test(ua) || (/mac/i.test(platform) && navigator.maxTouchPoints > 1);
-    const os = touch ? "other" : /mac/i.test(platform) ? "mac" : /win/i.test(platform) ? "windows" : /linux/i.test(platform) ? "linux" : "other";
+    // userAgentData's platform is "Linux" alone; navigator.platform and the
+    // user agent carry the architecture
+    const arch = `${navigator.platform || ""} ${ua}`;
+    const linux = /aarch64|arm64|armv8/i.test(arch) ? "linux-arm" : /armv[67]/i.test(arch) ? "other" : "linux";
+    const os = touch ? "other" : /mac/i.test(platform) ? "mac" : /win/i.test(platform) ? "windows" : /linux/i.test(platform) ? linux : "other";
     for (const el of document.querySelectorAll("[data-dl]")) el.setAttribute("data-os", os);
   })();
 </script>
@@ -30,6 +38,7 @@ import { downloadPage, downloads } from "./index/content";
   .dl:not([data-os]) > .dl-mac,
   .dl[data-os="mac"] > .dl-mac,
   .dl[data-os="linux"] > .dl-linux,
+  .dl[data-os="linux-arm"] > .dl-linux-arm,
   .dl[data-os="windows"] > .dl-windows,
   .dl[data-os="other"] > .dl-other { display: inline-flex; }
   .dl-windows { opacity: 0.72; }

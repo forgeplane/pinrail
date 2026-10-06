@@ -7,6 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
+    "test": "playwright test",
     "docs:generate": "node ../scripts/docs-generate.mjs",
     "predev": "npm run docs:generate",
     "prebuild": "npm run docs:generate"
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@playwright/test": "^1.63.0",
     "starlight-links-validator": "^0.26.0",
     "typescript": "^6.0.3",
     "wrangler": "^4.142.0"
