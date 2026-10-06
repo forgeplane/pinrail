@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
 
 const dir = path.resolve(__dirname, "..");
 const review = (name: string) => fixture(path.join(dir, "fixtures", name));

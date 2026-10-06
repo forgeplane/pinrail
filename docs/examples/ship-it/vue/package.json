@@ -5,16 +5,16 @@
   "scripts": {
     "build": "vue-tsc --noEmit && vite build",
     "watch": "vite build --watch",
-    "dev": "pinrail-plugin dev",
-    "check": "pinrail-plugin check",
-    "test": "npm run build && pinrail-plugin test"
+    "dev": "pinrail-sdk dev",
+    "check": "pinrail-sdk check",
+    "test": "npm run build && pinrail-sdk test"
   },
   "dependencies": {
     "vue": "^3.5",
     "@lucide/vue": "^1"
   },
   "devDependencies": {
-    "@forgeplane/pinrail-plugin": "file:../../../../pinrail-plugin",
+    "pinrail-sdk": "file:../../../../pinrail-plugin",
     "@playwright/test": "^1.56",
     "@vitejs/plugin-vue": "^6",
     "typescript": "^5",

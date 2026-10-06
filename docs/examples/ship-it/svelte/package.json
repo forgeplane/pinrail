@@ -5,12 +5,12 @@
   "scripts": {
     "build": "svelte-check --fail-on-warnings && vite build",
     "watch": "vite build --watch",
-    "dev": "pinrail-plugin dev",
-    "check": "pinrail-plugin check",
-    "test": "npm run build && pinrail-plugin test"
+    "dev": "pinrail-sdk dev",
+    "check": "pinrail-sdk check",
+    "test": "npm run build && pinrail-sdk test"
   },
   "devDependencies": {
-    "@forgeplane/pinrail-plugin": "file:../../../../pinrail-plugin",
+    "pinrail-sdk": "file:../../../../pinrail-plugin",
     "@playwright/test": "^1.56",
     "@sveltejs/vite-plugin-svelte": "^6",
     "svelte": "^5",

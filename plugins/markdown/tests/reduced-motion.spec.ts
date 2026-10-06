@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
 
 // With the system set to reduce motion, as many people have it, a diagram
 // still draws at its size.

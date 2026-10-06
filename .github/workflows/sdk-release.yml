@@ -1,15 +1,16 @@
-# A tag sdk-v<version> (sdk-v1.0.0) releases the pinrail-plugin package from
+# A tag sdk-v<version> (sdk-v1.0.0) releases the pinrail-sdk package from
 # pinrail-plugin/: its tests and the samples' check run, the tag has to name the
 # package's version, and the tarball npm pack writes is attached to a GitHub
 # release of the same tag. That tarball is what a scaffolded plugin depends
 # on until the package is on npm:
 #
-#   https://github.com/forgeplane/pinrail/releases/download/sdk-v1.0.0/pinrail-plugin-1.0.0.tgz
+#   https://github.com/forgeplane/pinrail/releases/download/sdk-v1.0.0/pinrail-sdk-1.0.0.tgz
 #
 # Publishing to npm is the last job, and runs only once the repository
-# variable PUBLISH_PINRAIL_PLUGIN is "npm" (Settings › Variables) and the
-# NPM_TOKEN secret is set; pinrail-plugin/lib/create.mjs then switches the
-# scaffold's dependency to a caret range.
+# variable PUBLISH_PINRAIL_SDK is "npm" (Settings › Variables) and the
+# NPM_TOKEN secret is set. Once the package is on npm, the dependency that
+# `pinrail plugins new --playwright` writes (cli/src/scaffold.rs) should name
+# its version there rather than the release's tarball.
 name: sdk release
 
 on:
@@ -45,7 +46,7 @@ jobs:
           declared=$(node -p 'require("./package.json").version')
           test "$declared" = "$tagged" || { echo "package.json says $declared, tag says $tagged"; exit 1; }
           echo "version=$tagged" >> "$GITHUB_OUTPUT"
-      # pinrail-plugin check runs `pinrail plugins check`, so the CLI goes
+      # pinrail-sdk check runs `pinrail plugins check`, so the CLI goes
       # on the PATH before anything checks a plugin
       - name: Rust toolchain
         run: rustup toolchain install
@@ -62,7 +63,7 @@ jobs:
       - name: The samples pass check
         run: |
           for dir in plugins/*/; do
-            node pinrail-plugin/bin/pinrail-plugin.mjs check "$dir"
+            node pinrail-plugin/bin/pinrail-sdk.mjs check "$dir"
           done
       # npm names a scoped package's tarball after its scope too; the
       # scaffolds depend on the name without it
@@ -70,18 +71,18 @@ jobs:
         working-directory: pinrail-plugin
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: mv "$(npm pack --json | jq -r '.[0].filename')" "pinrail-plugin-$VERSION.tgz"
+        run: mv "$(npm pack --json | jq -r '.[0].filename')" "pinrail-sdk-$VERSION.tgz"
       # the app's updater and the download links read this repository's
       # latest release, which must stay the app's
       - name: Release the tarball
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
-        run: gh release create "$GITHUB_REF_NAME" "pinrail-plugin/pinrail-plugin-$VERSION.tgz" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "" --latest=false
+        run: gh release create "$GITHUB_REF_NAME" "pinrail-plugin/pinrail-sdk-$VERSION.tgz" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "" --latest=false
 
   npm:
     needs: tarball
-    if: vars.PUBLISH_PINRAIL_PLUGIN == 'npm'
+    if: vars.PUBLISH_PINRAIL_SDK == 'npm'
     runs-on: ubuntu-latest
     permissions:
       contents: read

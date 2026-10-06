@@ -1,4 +1,4 @@
-// `pinrail-plugin test [dir] [playwright args]`: the plugin's tests/ under
+// `pinrail-sdk test [dir] [playwright args]`: the plugin's tests/ under
 // the harness. Playwright comes from the plugin's own dependencies (or the
 // folder this runs in); the config is the plugin's playwright.config when it
 // has one, the package's otherwise.
@@ -39,7 +39,7 @@ export function runTests(argv) {
   dir = path.resolve(dir);
 
   if (!fs.existsSync(path.join(dir, "manifest.json"))) {
-    console.error(`no manifest.json in ${dir}\nusage: pinrail-plugin test [dir] [playwright arguments]`);
+    console.error(`no manifest.json in ${dir}\nusage: pinrail-sdk test [dir] [playwright arguments]`);
     process.exit(2);
   }
   if (!fs.existsSync(path.join(dir, "tests"))) {

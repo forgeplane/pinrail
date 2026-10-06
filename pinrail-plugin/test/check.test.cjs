@@ -5,9 +5,9 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { scratch } = require("./scratch.cjs");
 
-const bin = path.resolve(__dirname, "..", "bin", "pinrail-plugin.mjs");
+const bin = path.resolve(__dirname, "..", "bin", "pinrail-sdk.mjs");
 
-/** pinrail-plugin check with a pinrail command that prints its arguments and exits 2. */
+/** pinrail-sdk check with a pinrail command that prints its arguments and exits 2. */
 function withPinrail(args, { pinrail = true } = {}) {
   const dir = scratch("pinrail-check-bin-");
   if (pinrail) {

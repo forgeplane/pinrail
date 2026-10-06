@@ -37,7 +37,7 @@ function draftOf(kept: unknown): Draft {
 <script setup lang="ts">
 import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/vue";
 import { onBeforeUnmount, onMounted, ref, watchEffect } from "vue";
-import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
+import type { Init, Plugin } from "pinrail-sdk/types";
 
 const props = defineProps<{ plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision>; view: View }>();
 // the app closes the view once the decision is accepted: what it shows is

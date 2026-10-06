@@ -3,7 +3,7 @@
  * the SDK served at /sdk/v1/pinrail-plugin.js and the same CSP the app uses,
  * so a plugin can be tested alone: no pinrail server, no CLI.
  *
- *   import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+ *   import { fixture, mountPlugin } from "pinrail-sdk/testing";
  */
 const fs = require("node:fs");
 const path = require("node:path");

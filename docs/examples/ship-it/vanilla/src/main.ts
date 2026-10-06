@@ -2,7 +2,7 @@
 // payload with template strings, and drawn again whenever the choice changes.
 // The SDK is on the window from the script tag in index.html; the types come
 // from the package.
-import type { Init } from "@forgeplane/pinrail-plugin/types";
+import type { Init } from "pinrail-sdk/types";
 import { createElement, CircleCheck, CircleX, Hand, Rocket, type IconNode } from "lucide";
 
 /** A Lucide icon as markup, for the HTML this view builds as a string; the

@@ -11,8 +11,8 @@
     "skipLibCheck": true,
     "types": ["vite/client"],
     "paths": {
-      "@forgeplane/pinrail-plugin/host": ["../../pinrail-plugin/host/host.d.ts"],
-      "@forgeplane/pinrail-plugin/types": ["../../pinrail-plugin/types.d.ts"]
+      "pinrail-sdk/host": ["../../pinrail-plugin/host/host.d.ts"],
+      "pinrail-sdk/types": ["../../pinrail-plugin/types.d.ts"]
     }
   },
   "include": ["ui/src"]

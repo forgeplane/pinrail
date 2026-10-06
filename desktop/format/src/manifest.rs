@@ -553,7 +553,7 @@ impl Plugin {
             .unwrap_or(Value::Null)
     }
 
-    /// What the app makes of the folder, as `pinrail-plugin check --json`
+    /// What the app makes of the folder, as `pinrail-sdk check --json`
     /// says it: usable or not, why it would be refused, and each feature it
     /// would drop, keyed by the manifest key.
     pub fn verdict(&self) -> Value {
@@ -665,7 +665,7 @@ pub fn svg_markup(file: &str, text: &str) -> Result<String, String> {
 }
 
 /// The manifest held to its JSON Schema, `manifest.schema.json` in the
-/// pinrail-plugin package, which build.rs copies in: the one description of a
+/// pinrail-sdk package, which build.rs copies in: the one description of a
 /// manifest, shared with authors' editors and the docs.
 pub use shape::{FEATURES, SCHEMA};
 
@@ -677,7 +677,7 @@ mod shape {
 
     use crate::schema::Schema;
 
-    /// The schema's text, as the pinrail-plugin package ships it.
+    /// The schema's text, as the pinrail-sdk package ships it.
     pub const SCHEMA: &str = include_str!(concat!(env!("OUT_DIR"), "/manifest.schema.json"));
 
     /// Keys whose violation costs the plugin that feature, not its place.

@@ -48,7 +48,7 @@ The app suites run the app's UI from Vite against a headless server
 | `shell/linux-keys.spec.ts` | on Linux, Settings names keys as a Linux keyboard does |
 
 Each plugin's behaviour on its own is tested in the plugin's `tests/`
-folder, under the `pinrail-plugin` harness. Run those with
+folder, under the `pinrail-sdk` harness. Run those with
 `mise run test:plugins`.
 
 ## Running the tests

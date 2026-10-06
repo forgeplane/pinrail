@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { reviewFrom, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { reviewFrom, mountPlugin } from "pinrail-sdk/testing";
 import { scratch } from "./scratch.cjs";
 
 // A document connects to the app once.

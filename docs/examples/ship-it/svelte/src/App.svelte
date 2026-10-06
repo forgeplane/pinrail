@@ -37,7 +37,7 @@
 <script lang="ts">
   import { CircleCheck, CircleX, Hand, Rocket } from "@lucide/svelte";
   import { untrack } from "svelte";
-  import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
+  import type { Init, Plugin } from "pinrail-sdk/types";
 
   let { plugin, init, view }: { plugin: Plugin<Payload, Decision>; init: Init<Payload, Decision>; view: View } =
     $props();

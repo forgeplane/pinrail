@@ -20,13 +20,13 @@ dir = "{{config_root}}/cli"
 run = "cargo test"
 
 [tasks."test:sdk"]
-description = "The pinrail-plugin package: unit tests, and what create writes under the harness"
+description = "The pinrail-sdk package: unit tests, then the harness and the dev shell in a browser"
 dir = "{{config_root}}/pinrail-plugin"
 run = "npm test"
 
 [tasks."dev:plugin"]
 description = "One plugin in a browser shell, without the app: mise run dev:plugin plugins/hello"
-run = "node {{config_root}}/pinrail-plugin/bin/pinrail-plugin.mjs dev {{arg(name='plugin')}}"
+run = "node {{config_root}}/pinrail-plugin/bin/pinrail-sdk.mjs dev {{arg(name='plugin')}}"
 
 [tasks."plugins:build"]
 description = "Build the plugins in plugins/ that have a build of their own, such as markdown: the app embeds their view/"
@@ -34,7 +34,7 @@ dir = "{{config_root}}"
 run = "sh scripts/build-plugins.sh"
 
 [tasks."test:plugins"]
-description = "The plugins in plugins/ alone, under the pinrail-plugin harness"
+description = "The plugins in plugins/ alone, under the pinrail-sdk harness"
 dir = "{{config_root}}/plugins"
 run = "npm test"
 

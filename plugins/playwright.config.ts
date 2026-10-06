@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-// Each plugin's tests/*.spec.ts, mounted under the pinrail-plugin harness.
+// Each plugin's tests/*.spec.ts, mounted under the pinrail-sdk harness.
 // No server, no CLI.
 export default defineConfig({
   testDir: __dirname,

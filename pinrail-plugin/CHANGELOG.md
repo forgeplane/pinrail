@@ -6,17 +6,17 @@ change to the protocol is a new major and a new path.
 
 ## 1.0.0
 
-The first release of the plugin SDK, `@forgeplane/pinrail-plugin`. It
+The first release of the plugin SDK, `pinrail-sdk`. It
 provides:
 
 - The script and stylesheet that plugin views load from the app at
   `/sdk/v1`: the messages with the app, drafts, the hand-over, Markdown
   rendering, icons, links, attached files and forwarded shortcuts.
-- `pinrail-plugin dev`, which runs a view in a browser without the app.
-- `pinrail-plugin test`, which runs a plugin's tests under the harness.
-- `pinrail-plugin check`, which reports what the app would refuse in a
+- `pinrail-sdk dev`, which runs a view in a browser without the app.
+- `pinrail-sdk test`, which runs a plugin's tests under the harness.
+- `pinrail-sdk check`, which reports what the app would refuse in a
   plugin folder.
-- `@forgeplane/pinrail-plugin/testing`, the test harness: `mountPlugin`,
+- `pinrail-sdk/testing`, the test harness: `mountPlugin`,
   `fixture` and `reviewFrom`.
-- `@forgeplane/pinrail-plugin/types`, the manifest, the review, the
+- `pinrail-sdk/types`, the manifest, the review, the
   messages and `window.Pinrail` as TypeScript types.

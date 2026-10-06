@@ -82,7 +82,7 @@ with `npx playwright install chromium` from `e2e/`.
   with the SDK's, so it needs Node; set `PINRAIL_SKIP_NODE=1` to skip it.
 - **CLI:** `mise run test:cli`. The `pinrail` command against a scripted
   HTTP server, with no app running.
-- **Plugin SDK:** `mise run test:sdk`. Unit tests of `pinrail-plugin` under
+- **Plugin SDK:** `mise run test:sdk`. Unit tests of `pinrail-sdk` under
   Node, then browser tests of its harness and its `dev` server.
 - **Official plugins:** `mise run test:plugins`. Each plugin in `plugins/`
   on its own, in the SDK's test harness. The plugins that have a build are

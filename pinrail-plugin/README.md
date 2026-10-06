@@ -1,6 +1,6 @@
 # Pinrail plugin SDK
 
-The `@forgeplane/pinrail-plugin` package contains everything you need to
+The `pinrail-sdk` package contains everything you need to
 write a Pinrail plugin:
 
 - **The SDK**, `src/pinrail-plugin.js`, with its stylesheet and its
@@ -8,13 +8,13 @@ write a Pinrail plugin:
   them with tags in its page. The SDK handles the protocol for the view:
   the handshake, drafts, the hand-over, settings, forwarded keys and the
   theme.
-- **`pinrail-plugin dev`** runs a plugin in the browser, without the app.
-- **`pinrail-plugin test`** runs a plugin's tests in the test harness.
-- **`pinrail-plugin check`** reports what the app would report for a
+- **`pinrail-sdk dev`** runs a plugin in the browser, without the app.
+- **`pinrail-sdk test`** runs a plugin's tests in the test harness.
+- **`pinrail-sdk check`** reports what the app would report for a
   plugin folder, by running `pinrail plugins check`.
-- **`@forgeplane/pinrail-plugin/testing`** is a Playwright harness that
+- **`pinrail-sdk/testing`** is a Playwright harness that
   mounts a plugin on its own.
-- **`@forgeplane/pinrail-plugin/types`** describes the protocol and the
+- **`pinrail-sdk/types`** describes the protocol and the
   manifest in TypeScript.
 
 You need the package only while you write a plugin. An installed plugin
@@ -25,7 +25,7 @@ built by Vite, and `--playwright` adds a first test, which uses this
 package's harness.
 
 The package is not published on npm. Install it from this repository
-(`"@forgeplane/pinrail-plugin": "file:../../pinrail-plugin"`) or from the
+(`"pinrail-sdk": "file:../../pinrail-plugin"`) or from the
 tarball attached to its GitHub release.
 
 ## Quick start
@@ -35,7 +35,7 @@ From a checkout of this repository:
 ```sh
 pinrail plugins new ticket_triage --playwright --sdk "file:$PWD/pinrail-plugin"
 cd ticket_triage && npm install && npx playwright install chromium
-npx pinrail-plugin dev          # the view in a browser, on its sample
+npx pinrail-sdk dev          # the view in a browser, on its sample
 npm test                        # the plugin's tests, under the harness
 pinrail plugins check .         # what the app would say of the folder
 pinrail plugins install . --link
@@ -81,7 +81,7 @@ The docs describe the SDK in full:
 ### dev
 
 ```sh
-npx pinrail-plugin dev .                       # in a plugin folder that has the package installed
+npx pinrail-sdk dev .                       # in a plugin folder that has the package installed
 mise run dev:plugin plugins/hello             # in this repository
                                               # options: --port N (default 4790), --no-open
 ```
@@ -117,13 +117,13 @@ curl -X POST http://127.0.0.1:4790/dev/clear-comments
 
 ### test
 
-`pinrail-plugin test [dir]` runs the plugin's `tests/*.spec.ts` with the
+`pinrail-sdk test [dir]` runs the plugin's `tests/*.spec.ts` with the
 Playwright from the plugin's own dependencies. Other arguments are passed
 to Playwright, such as `-g "hands over"` or `--headed`. A test mounts the
 view alone, without the app or the CLI:
 
 ```ts
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
 
 const plugin = await mountPlugin(page, pluginDir, { review: fixture("samples/ticket_triage.json") });
 await plugin.frame.getByRole("button", { name: "Yes" }).click();
@@ -136,7 +136,7 @@ the violations, or `{ deferred: true }` when the view returned nothing.
 
 ### check
 
-`pinrail-plugin check [dir]` runs `pinrail plugins check [dir]`, which
+`pinrail-sdk check [dir]` runs `pinrail plugins check [dir]`, which
 checks a plugin folder with the app's own rules, without the app running.
 A **problem** means that the app would refuse the folder, and a **warning**
 that it would install the plugin without one feature. `--json` prints the

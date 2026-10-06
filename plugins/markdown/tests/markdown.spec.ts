@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
 
 // The view alone, under the harness: the retry policy document, with a
 // mermaid diagram, a table and a code block.
@@ -13,9 +13,7 @@ const source: string = round().payload.markdown;
 const lineOf = (start: string) => source.split("\n").findIndex((l) => l.startsWith(start)) + 1;
 
 // the schemas, checked the way the app checks them
-const sdk = createRequire(
-  fs.realpathSync(path.join(dir, "..", "node_modules", "@forgeplane", "pinrail-plugin", "package.json")),
-);
+const sdk = createRequire(fs.realpathSync(path.join(dir, "..", "node_modules", "pinrail-sdk", "package.json")));
 const Ajv2020 = sdk("ajv/dist/2020").default;
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 const read = (f: string) => JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));

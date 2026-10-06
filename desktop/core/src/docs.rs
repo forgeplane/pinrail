@@ -68,7 +68,7 @@ pub fn manifest_page() -> String {
         let _ = writeln!(page, "{what}\n");
     }
     page.push_str(
-        "Pinrail checks every manifest against its JSON Schema, `manifest.schema.json` in the `pinrail-plugin` package, \
+        "Pinrail checks every manifest against its JSON Schema, `manifest.schema.json` in the `pinrail-sdk` package, \
          before it loads or installs a plugin. Point your editor at it with `$schema` to check a manifest as you write it. \
          For a walk through writing one, see [Writing a plugin](/docs/building/writing/).\n\n\
          | Key | Required | Value | What it does |\n|---|---|---|---|\n",

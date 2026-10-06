@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
-      "@forgeplane/pinrail-plugin/host": path.resolve(__dirname, "..", "..", "pinrail-plugin", "host", "host.js"),
+      "pinrail-sdk/host": path.resolve(__dirname, "..", "..", "pinrail-plugin", "host", "host.js"),
     },
   },
   test: {

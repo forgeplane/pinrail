@@ -60,7 +60,7 @@ fn sdk_dependency() -> String {
         serde_json::from_str(SDK_PACKAGE).expect("the SDK's package.json is JSON");
     let version = package["version"].as_str().expect("the SDK has a version");
     format!(
-        "https://github.com/forgeplane/pinrail/releases/download/sdk-v{version}/pinrail-plugin-{version}.tgz"
+        "https://github.com/forgeplane/pinrail/releases/download/sdk-v{version}/pinrail-sdk-{version}.tgz"
     )
 }
 
@@ -383,10 +383,10 @@ mod tests {
                     .unwrap()
                     .to_string();
             assert!(
-                dev["@forgeplane/pinrail-plugin"]
+                dev["pinrail-sdk"]
                     .as_str()
                     .unwrap()
-                    .ends_with(&format!("sdk-v{version}/pinrail-plugin-{version}.tgz")),
+                    .ends_with(&format!("sdk-v{version}/pinrail-sdk-{version}.tgz")),
                 "{dev}"
             );
             let gitignore = read(".gitignore");

@@ -339,7 +339,7 @@ The plugin SDK's dev shell shows the view in a browser, inside a stand-in for th
 ```sh
 git clone https://github.com/forgeplane/pinrail
 cd pinrail/pinrail-plugin && npm install
-node bin/pinrail-plugin.mjs dev ~/code/ticket_triage
+node bin/pinrail-sdk.mjs dev ~/code/ticket_triage
 ```
 
 The bar at the top picks the review the view opens with, from `samples/` and `fixtures/`, and switches between read-only and the light and dark themes. The panel on the right plays the app's part, with the hand-over, the plugin's settings, and what the view sent.

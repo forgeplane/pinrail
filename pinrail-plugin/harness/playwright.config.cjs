@@ -1,4 +1,4 @@
-// The configuration `pinrail-plugin test` uses for a plugin without one of
+// The configuration `pinrail-sdk test` uses for a plugin without one of
 // its own: the plugin's tests/, headless, a trace kept for a failure.
 const path = require("node:path");
 

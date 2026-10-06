@@ -1,10 +1,10 @@
-// `pinrail-plugin dev` on a free port, for the tests that open it.
+// `pinrail-sdk dev` on a free port, for the tests that open it.
 import { expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 
-const bin = path.resolve(import.meta.dirname, "..", "bin", "pinrail-plugin.mjs");
+const bin = path.resolve(import.meta.dirname, "..", "bin", "pinrail-sdk.mjs");
 
 const freePort = () =>
   new Promise<number>((resolve) => {

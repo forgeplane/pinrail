@@ -7,7 +7,7 @@
  * watched; a change reloads the view. A POST to /dev/clear-comments clears
  * the page's comments, for an agent that has made the changes they asked.
  *
- *   pinrail-plugin dev ./plugins/hello [--port 4790] [--no-open]
+ *   pinrail-sdk dev ./plugins/hello [--port 4790] [--no-open]
  *
  * Node, and the icon set the package depends on; nothing else.
  */
@@ -186,7 +186,7 @@ function stamp(pluginDir) {
  * a directory (default "."), --port N, --no-open (or --open, the default).
  */
 export function serve(argv) {
-  const usage = "usage: pinrail-plugin dev <plugin directory> [--port N] [--no-open]";
+  const usage = "usage: pinrail-sdk dev <plugin directory> [--port N] [--no-open]";
   let parsed;
   try {
     parsed = parseArgs({
@@ -195,7 +195,7 @@ export function serve(argv) {
       options: { port: { type: "string" }, "no-open": { type: "boolean" } },
     });
   } catch (error) {
-    console.error(`pinrail-plugin dev: ${error.message}\n${usage}`);
+    console.error(`pinrail-sdk dev: ${error.message}\n${usage}`);
     process.exit(2);
   }
   const pluginDir = path.resolve(parsed.positionals[0] ?? ".");

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
 
 // The view alone, under the harness: no app, no CLI.
 const dir = path.resolve(__dirname, "..");
@@ -23,7 +23,7 @@ const near = (n: number) => expect.closeTo(n, 1);
 
 // Every decision a test takes is also held to the schema the app holds it to;
 // ajv comes with the plugin toolkit.
-const Ajv2020 = createRequire(require.resolve("@forgeplane/pinrail-plugin/testing"))("ajv/dist/2020");
+const Ajv2020 = createRequire(require.resolve("pinrail-sdk/testing"))("ajv/dist/2020");
 const schema = JSON.parse(fs.readFileSync(path.join(dir, "schemas", "decision.schema.json"), "utf8"));
 const validate = new (Ajv2020.default ?? Ajv2020)({ allErrors: true, strict: false }).compile(schema);
 function valid(decision: any): any {

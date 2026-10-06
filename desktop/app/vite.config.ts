@@ -29,7 +29,7 @@ const host = path.resolve(__dirname, "..", "..", "pinrail-plugin", "host");
 // on a package under a licence outside ALLOWED.
 export default defineConfig({
   root: "ui",
-  resolve: { alias: { "@forgeplane/pinrail-plugin/host": path.join(host, "host.js") } },
+  resolve: { alias: { "pinrail-sdk/host": path.join(host, "host.js") } },
   plugins: [
     react(),
     {

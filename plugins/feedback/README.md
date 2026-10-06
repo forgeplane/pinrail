@@ -106,4 +106,4 @@ and what a decision is made of, and is tested on its own in
 controls; `view/feedback.css` styles them with the SDK's tokens. Everything is
 local: a view has no network.
 
-`pnpm exec pinrail-plugin dev feedback` opens it in a browser without the app.
+`pnpm exec pinrail-sdk dev feedback` opens it in a browser without the app.

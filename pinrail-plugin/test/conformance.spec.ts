@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
 import conformance from "./conformance/conformance.cjs";
 
 const dir = fileURLToPath(new URL("./conformance", import.meta.url));
@@ -50,7 +50,7 @@ test("the harness hosts a view as the app does", async ({ page }) => {
   expect(conformance.secondReadyProblems(await received(frame), before)).toEqual([]);
 });
 
-const bin = fileURLToPath(new URL("../bin/pinrail-plugin.mjs", import.meta.url));
+const bin = fileURLToPath(new URL("../bin/pinrail-sdk.mjs", import.meta.url));
 const freePort = () =>
   new Promise<number>((resolve) => {
     const server = net.createServer();

@@ -5,7 +5,7 @@
 // from the package.
 import { CircleCheck, CircleX, Hand, Rocket } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Init, Plugin } from "@forgeplane/pinrail-plugin/types";
+import type { Init, Plugin } from "pinrail-sdk/types";
 
 export type Payload = {
   service: string;

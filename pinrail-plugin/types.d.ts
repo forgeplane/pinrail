@@ -2,7 +2,7 @@
  * The pinrail plugin protocol, version 1, as TypeScript: the manifest the app
  * reads, the envelope a view is handed, and the messages both ways.
  *
- *   import type { Manifest, Init, AppMessage, PluginMessage } from "@forgeplane/pinrail-plugin/types";
+ *   import type { Manifest, Init, AppMessage, PluginMessage } from "pinrail-sdk/types";
  *
  * At run time a view has `Pinrail` on the window from /sdk/v1/pinrail-plugin.js;
  * `PinrailSdk` below is its shape.

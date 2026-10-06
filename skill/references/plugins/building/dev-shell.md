@@ -19,11 +19,11 @@ Then serve the plugin, and give the person the address it prints,
 `http://127.0.0.1:4790` unless you pass `--port`:
 
 ```sh
-node <checkout>/pinrail-plugin/bin/pinrail-plugin.mjs dev <path> --no-open
+node <checkout>/pinrail-plugin/bin/pinrail-sdk.mjs dev <path> --no-open
 ```
 
 In a plugin with tests, which has the SDK package installed,
-`npx pinrail-plugin dev` does the same.
+`npx pinrail-sdk dev` does the same.
 
 ## What it shows
 

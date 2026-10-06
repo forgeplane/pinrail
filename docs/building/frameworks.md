@@ -18,7 +18,7 @@ A plugin with a view of a screen or two needs no framework and no build: an HTML
 - **An HTML page at `view/index.html`.** The build writes the page there, and the page's scripts and styles beside it in `view/`.
 - **A build you run before installing.** Pinrail installs a plugin as it is and runs nothing, so run the build, such as `npm run build`, before you install or link the folder, and before you zip it for a release. The release workflow of [Publishing a plugin](/docs/building/publishing/) runs it for you.
 - **Relative paths.** The app serves the plugin under a path of its own, so the build must refer to its files relatively: with Vite, `base: "./"`.
-- **The SDK from the app.** Load `/sdk/v1/pinrail-plugin.js`, its stylesheet and, to render Markdown, `/sdk/v1/markdown.js` with tags in the page; don't bundle them. The package gives your code the types: `@forgeplane/pinrail-plugin/types`.
+- **The SDK from the app.** Load `/sdk/v1/pinrail-plugin.js`, its stylesheet and, to render Markdown, `/sdk/v1/markdown.js` with tags in the page; don't bundle them. The package gives your code the types: `pinrail-sdk/types`.
 - **Everything else bundled.** The frame loads nothing from the network, so the framework itself, fonts and images go into the build.
 
 The plugin's manifest, and the schemas every framework's version shares:
@@ -69,19 +69,19 @@ The view connects to the app once, with `Pinrail.connect`, and draws the review 
 ```sh
 npm install
 npm run watch              # rebuilds view/ as you save…
-npx pinrail-plugin dev     # …and shows it in a browser, on the fixtures
-npx pinrail-plugin check   # what the app would say of the folder
+npx pinrail-sdk dev     # …and shows it in a browser, on the fixtures
+npx pinrail-sdk check   # what the app would say of the folder
 npm test                   # build, then the tests under the harness
 ```
 
-:::tip[pinrail-plugin dev: a stand-in for the app]
-`pinrail-plugin dev` opens the view in a browser inside a stand-in for the app, and reloads it when the build changes. The bar at the top picks a fixture, a decided one as the previous round, or read-only, and plays the app's side: *Collect* is the hand-over button, *Theme* switches light and dark. On the right: the settings and keys the manifest declares, what the view last sent as its status, draft and decision, every message in both directions, and violations or a decision to send back. *Select* lets you comment on any part of the view and copy the comments to an agent, as [Writing a plugin](/docs/building/writing/#work-on-the-view-in-the-dev-shell) describes.
+:::tip[pinrail-sdk dev: a stand-in for the app]
+`pinrail-sdk dev` opens the view in a browser inside a stand-in for the app, and reloads it when the build changes. The bar at the top picks a fixture, a decided one as the previous round, or read-only, and plays the app's side: *Collect* is the hand-over button, *Theme* switches light and dark. On the right: the settings and keys the manifest declares, what the view last sent as its status, draft and decision, every message in both directions, and violations or a decision to send back. *Select* lets you comment on any part of the view and copy the comments to an agent, as [Writing a plugin](/docs/building/writing/#work-on-the-view-in-the-dev-shell) describes.
 
-![pinrail-plugin dev with Ship it?: the view on the left with Ship chosen, and on the right the shortcuts s and h, the status Ship v2.4.1, the draft, and the draft and status messages the view sent.](screenshot:dev-shell "pinrail-plugin dev: the view, what it sent, and the app's side of the conversation to play.")
+![pinrail-sdk dev with Ship it?: the view on the left with Ship chosen, and on the right the shortcuts s and h, the status Ship v2.4.1, the draft, and the draft and status messages the view sent.](screenshot:dev-shell "pinrail-sdk dev: the view, what it sent, and the app's side of the conversation to play.")
 :::
 
-:::note[pinrail-plugin check: what the app would say]
-`pinrail-plugin check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. Run the build first, so that `view/index.html` is there. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
+:::note[pinrail-sdk check: what the app would say]
+`pinrail-sdk check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. Run the build first, so that `view/index.html` is there. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
 
 The command also checks the plugin's recorded decisions, the `fixtures/<name>.decided.json` files that tests use to show a decided review. Each one's payload and decision must pass the plugin's schemas. When a `<name>.decided.md` file is beside a recorded decision, the Markdown that the app renders for an agent from it must equal that file, so a change to the plugin's template or schemas cannot change what agents read without you noticing. `--update-fixtures` writes these files from what the app renders. Review the difference before you commit it.
 :::

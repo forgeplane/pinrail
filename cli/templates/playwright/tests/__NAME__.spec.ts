@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import path from "node:path";
-import { fixture, mountPlugin } from "@forgeplane/pinrail-plugin/testing";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
 
 // The view alone, under the harness: no app, no CLI. `mountPlugin` serves
 // this folder as the app would and plays the shell's side of the protocol.

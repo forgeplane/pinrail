@@ -1,13 +1,13 @@
 {
   "name": "pinrail-plugins",
   "private": true,
-  "description": "The tests of the plugins the app's build and tests use, under the pinrail-plugin harness",
+  "description": "The tests of the plugins the app's build and tests use, under the pinrail-sdk harness",
   "license": "Apache-2.0",
   "scripts": {
     "test": "node --test */tests/*.test.cjs && NODE_PATH=node_modules playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "@forgeplane/pinrail-plugin": "file:../pinrail-plugin"
+    "pinrail-sdk": "file:../pinrail-plugin"
   }
 }

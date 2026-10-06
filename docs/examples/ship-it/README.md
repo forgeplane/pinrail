@@ -19,7 +19,7 @@ that everything but the view's code is the same in all four.
 cd react
 npm install
 npm test                                  # build, then the test under the harness
-npx pinrail-plugin dev                    # the view in a browser, on the fixtures
+npx pinrail-sdk dev                    # the view in a browser, on the fixtures
 pinrail plugins install . --link          # in the app
 ```
 

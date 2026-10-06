@@ -1,4 +1,4 @@
-// The manifest's JSON Schema belongs to the pinrail-plugin package, where
+// The manifest's JSON Schema belongs to the pinrail-sdk package, where
 // authors get it; the format holds every manifest to the same file.
 
 use std::path::PathBuf;

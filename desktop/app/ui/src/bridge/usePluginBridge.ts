@@ -24,7 +24,7 @@
 // way it can reach the view before the view paints.
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { connectFrame, type Host } from "@forgeplane/pinrail-plugin/host";
+import { connectFrame, type Host } from "pinrail-sdk/host";
 import { api } from "../api/client";
 import type { Decision, Review, Violation } from "../api/types";
 import { currentTheme } from "../lib/theme";

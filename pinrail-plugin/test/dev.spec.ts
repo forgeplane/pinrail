@@ -5,7 +5,7 @@ import { withDevShell } from "./dev-shell";
 import { plainPlugin } from "./plain-plugin.cjs";
 import { scratch } from "./scratch.cjs";
 
-// `pinrail-plugin dev`, the shell in a browser: a plain plugin as
+// `pinrail-sdk dev`, the shell in a browser: a plain plugin as
 // `pinrail plugins new` writes it, with its sample and a decided fixture
 // beside it.
 
