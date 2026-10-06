@@ -186,8 +186,8 @@ jobs:
           if-no-files-found: ignore
 
   # The plugins alone under the harness, and the pinrail-plugin package:
-  # its unit tests, what create and `pinrail plugins new` write, and check
-  # over the samples.
+  # its unit tests, what `pinrail plugins new` writes, and check over the
+  # samples.
   plugins:
     runs-on: ubuntu-latest
     timeout-minutes: 30

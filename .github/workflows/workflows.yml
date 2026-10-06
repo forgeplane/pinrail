@@ -9,11 +9,9 @@ on:
     branches: [main]
     paths:
       - .github/**
-      - pinrail-plugin/templates/common/.github/**
   pull_request:
     paths:
       - .github/**
-      - pinrail-plugin/templates/common/.github/**
   workflow_dispatch:
 
 permissions:
@@ -38,7 +36,7 @@ jobs:
           curl -fsSL -o actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint.tar.gz" | sha256sum -c
           tar -xzf actionlint.tar.gz actionlint
-          ./actionlint .github/workflows/*.yml pinrail-plugin/templates/common/.github/workflows/*.yml
+          ./actionlint .github/workflows/*.yml
       - uses: taiki-e/install-action@76c2e6406e52637deed7160d77bded76bd83e06e # v2.87.14
         with:
           tool: zizmor
@@ -47,4 +45,4 @@ jobs:
       - name: zizmor
         env:
           GH_TOKEN: ${{ github.token }}
-        run: zizmor .github/workflows pinrail-plugin/templates/common/.github/workflows
+        run: zizmor .github/workflows

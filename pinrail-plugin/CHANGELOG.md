@@ -12,9 +12,6 @@ provides:
 - The script and stylesheet that plugin views load from the app at
   `/sdk/v1`: the messages with the app, drafts, the hand-over, Markdown
   rendering, icons, links, attached files and forwarded shortcuts.
-- `pinrail-plugin create <name>`, which creates a plugin from the `plain`,
-  `vite`, `react`, `vue` or `svelte` template, with its schemas, view,
-  fixture, test, README and release workflow.
 - `pinrail-plugin dev`, which runs a view in a browser without the app.
 - `pinrail-plugin test`, which runs a plugin's tests under the harness.
 - `pinrail-plugin check`, which reports what the app would refuse in a

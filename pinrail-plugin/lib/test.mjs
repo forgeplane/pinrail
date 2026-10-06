@@ -43,7 +43,7 @@ export function runTests(argv) {
     process.exit(2);
   }
   if (!fs.existsSync(path.join(dir, "tests"))) {
-    console.error(`no tests/ in ${dir}: pinrail-plugin create writes one to start from`);
+    console.error(`no tests/ in ${dir}: pinrail plugins new --playwright writes one to start from`);
     process.exit(2);
   }
   const cli = playwrightCli(dir);

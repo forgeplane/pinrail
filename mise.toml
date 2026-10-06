@@ -115,8 +115,8 @@ run = "git ls-files -z '*.md' ':!docs' ':!website' ':!**/fixtures/**' | xargs -0
 description = "The GitHub workflows: actionlint (with shellcheck) and zizmor; needs all three"
 dir = "{{config_root}}"
 run = [
-  "actionlint .github/workflows/*.yml pinrail-plugin/templates/common/.github/workflows/*.yml",
-  "zizmor --offline .github/workflows pinrail-plugin/templates/common/.github/workflows",
+  "actionlint .github/workflows/*.yml",
+  "zizmor --offline .github/workflows",
 ]
 
 [tasks.test]

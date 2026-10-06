@@ -39,10 +39,8 @@
     "harness",
     "host",
     "lib",
-    "licenses",
     "shell",
     "src",
-    "templates",
     "types.d.ts",
     "schemas"
   ],

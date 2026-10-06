@@ -8,7 +8,6 @@ write a Pinrail plugin:
   them with tags in its page. The SDK handles the protocol for the view:
   the handshake, drafts, the hand-over, settings, forwarded keys and the
   theme.
-- **`pinrail-plugin create`** creates a new plugin folder.
 - **`pinrail-plugin dev`** runs a plugin in the browser, without the app.
 - **`pinrail-plugin test`** runs a plugin's tests in the test harness.
 - **`pinrail-plugin check`** reports what the app would report for a
@@ -19,10 +18,11 @@ write a Pinrail plugin:
   manifest in TypeScript.
 
 You need the package only while you write a plugin. An installed plugin
-loads the SDK from the app, never from `node_modules`. A plugin without a
-build step does not need the package at all: `pinrail plugins new` writes
-the plain template with the SDK's types beside it, and `pinrail plugins
-check` and the browser preview replace `check` and `dev`.
+loads the SDK from the app, never from `node_modules`. The `pinrail`
+command creates a plugin: `pinrail plugins new` writes one with the SDK's
+types beside it, `--template vite` or `--template react` writes a view
+built by Vite, and `--playwright` adds a first test, which uses this
+package's harness.
 
 The package is not published on npm. Install it from this repository
 (`"@forgeplane/pinrail-plugin": "file:../../pinrail-plugin"`) or from the
@@ -33,11 +33,11 @@ tarball attached to its GitHub release.
 From a checkout of this repository:
 
 ```sh
-node pinrail-plugin/bin/pinrail-plugin.mjs create ticket_triage
+pinrail plugins new ticket_triage --playwright --sdk "file:$PWD/pinrail-plugin"
 cd ticket_triage && npm install && npx playwright install chromium
 npx pinrail-plugin dev          # the view in a browser, on its sample
 npm test                        # the plugin's tests, under the harness
-npx pinrail-plugin check        # what the app would say of the folder
+pinrail plugins check .         # what the app would say of the folder
 pinrail plugins install . --link
 ```
 
@@ -77,22 +77,6 @@ The docs describe the SDK in full:
 `types.d.ts` declares every call with its arguments.
 
 ## Commands
-
-### create
-
-```sh
-node pinrail-plugin/bin/pinrail-plugin.mjs create <name>                    # view/index.html and view/view.js, no build
-node pinrail-plugin/bin/pinrail-plugin.mjs create <name> --template vite    # src/ in TypeScript, built by Vite into view/
-node pinrail-plugin/bin/pinrail-plugin.mjs create <name> --template react   # the view in React, built by Vite
-```
-
-The folder runs under `dev`, passes its own tests and installs with
-`--link` before you change anything. It holds the manifest, the schemas,
-the view, a sample in `samples/<name>.json`, a test, and a release
-workflow. `--dir` creates the folder somewhere other than `./<name>`, and
-`--sdk` sets where `package.json` installs this package from. By
-default, it uses the tarball attached to the SDK's GitHub
-release.
 
 ### dev
 
@@ -162,7 +146,7 @@ plugin and with 2 when it would refuse it.
 ## Developing the package
 
 ```sh
-npm test    # the unit tests, then the browser tests, including what create writes
+npm test    # the unit tests, then the browser tests
 ```
 
 The package's version is the SDK's version, and its major version is the
@@ -173,7 +157,4 @@ so the app and the package contain the same files at every commit.
 ## License
 
 The package is licensed under the Apache License 2.0; see `LICENSE` and
-`NOTICE`. The files that `pinrail-plugin create` writes into a new plugin come
-from `templates/`, which is licensed under MIT No Attribution
-(`templates/LICENSE`). You can license a plugin made from them however you
-like, with no notice to keep.
+`NOTICE`.

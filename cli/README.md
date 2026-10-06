@@ -52,3 +52,8 @@ suite.
 ## License
 
 Apache License 2.0. See [`LICENSE`](../LICENSE) and [`NOTICE`](../NOTICE).
+
+The files that `pinrail plugins new` writes into a new plugin come from
+[`templates/`](templates/), which is licensed under MIT No Attribution
+([`templates/LICENSE`](templates/LICENSE)). You can license a plugin made
+from them however you like, with no notice to keep.

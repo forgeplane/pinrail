@@ -27,11 +27,10 @@ The plugin's manifest, and the schemas every framework's version shares:
 
 ## 1. Create the folder
 
-Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in React or TypeScript, a yes-or-no question to build on, with a sample to send. For Vue or Svelte, start from the TypeScript template and follow the Vue or Svelte version of this page:
+Every version is a Vite project whose build writes `view/`. To start one of your own, `pinrail plugins new` writes a working plugin in React or TypeScript, a yes-or-no question to build on, with a sample to send. `--playwright` adds a first test. For Vue or Svelte, start from the TypeScript template and follow the Vue or Svelte version of this page:
 
 ```sh
-# from a checkout of github.com/forgeplane/pinrail
-node pinrail-plugin/bin/pinrail-plugin.mjs create push_check --template react    # or vite (TypeScript)
+pinrail plugins new push_check --template react    # or --template vite, in TypeScript
 ```
 
 This page builds Ship it? instead. Choose a framework, and every example on this page follows it:
@@ -41,7 +40,7 @@ This page builds Ship it? instead. Choose a framework, and every example on this
 ![Vue](example:ship-it/vue/package.json) ![Vue](example:ship-it/vue/vite.config.ts)
 ![Svelte](example:ship-it/svelte/package.json) ![Svelte](example:ship-it/svelte/vite.config.ts)
 
-A plugin written by `create` takes the SDK from the SDK's GitHub release. The examples on this page take it from the Pinrail repository instead. The SDK is not published to npm.
+A plugin written by `pinrail plugins new` takes the SDK's types from `pinrail-plugin.d.ts` in its folder, and needs the SDK package only for its tests. The examples on this page take the package from the Pinrail repository, because the SDK is not published to npm.
 
 The manifest is the same for every framework. Its `build` is the command an install runs:
 

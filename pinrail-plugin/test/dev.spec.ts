@@ -1,20 +1,19 @@
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { withDevShell } from "./dev-shell";
+import { plainPlugin } from "./plain-plugin.cjs";
 import { scratch } from "./scratch.cjs";
 
-// `pinrail-plugin dev`, the shell in a browser: a plugin from create, with
-// its sample and a decided fixture beside it.
-const sdk = path.resolve(import.meta.dirname, "..");
-const bin = path.join(sdk, "bin", "pinrail-plugin.mjs");
+// `pinrail-plugin dev`, the shell in a browser: a plain plugin as
+// `pinrail plugins new` writes it, with its sample and a decided fixture
+// beside it.
 
 test("the menu offers the samples and the fixtures, marks a decided one, and loads the one chosen", async ({
   page,
 }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
   const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
   // a decided round, with the pending one's title
   fs.mkdirSync(path.join(dir, "fixtures"));
@@ -44,7 +43,7 @@ test("the menu offers the samples and the fixtures, marks a decided one, and loa
 
 test("the view is set in the app's typeface, and nothing is fetched from off the machine", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "typeface");
-  execFileSync(process.execPath, [bin, "create", "typeface", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("typeface", dir);
   const away: string[] = [];
   page.on("request", (r) => new URL(r.url()).hostname !== "127.0.0.1" && away.push(r.url()));
 
@@ -67,7 +66,7 @@ test("select picks an element of the view to comment on, and the comments are co
   context,
 }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
   const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 
@@ -112,7 +111,7 @@ test("select picks an element of the view to comment on, and the comments are co
 
 test("the payload switch shows the review's payload as coloured JSON in place of the view", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
   const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
 
   await withDevShell(dir, async (url) => {
@@ -148,7 +147,7 @@ test("a request to the dev server clears the page's comments, as an agent does o
   page,
 }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
 
   await withDevShell(dir, async (url) => {
     await page.goto(url);
@@ -170,7 +169,7 @@ test("a request to the dev server clears the page's comments, as an agent does o
 
 test("the app's composer sits under the view, hands over, and takes comments of its own", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
 
   await withDevShell(dir, async (url) => {
     await page.goto(url);
@@ -203,7 +202,7 @@ test("the app's composer sits under the view, hands over, and takes comments of 
 
 test("a plugin with no settings or shortcuts says so across the side panel", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
 
   await withDevShell(dir, async (url) => {
     await page.goto(url);
@@ -223,7 +222,7 @@ test("a plugin with no settings or shortcuts says so across the side panel", asy
 
 test("a setting sits on one row, its label beside a control of normal size", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
   manifest.settings_schema = {
     type: "object",
@@ -247,7 +246,7 @@ test("a setting sits on one row, its label beside a control of normal size", asy
 
 test("the fixtures menu lists reviews, not the summaries recorded beside them", async ({ page }) => {
   const dir = path.join(scratch("pinrail-dev-"), "triage");
-  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  plainPlugin("triage", dir);
   const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
   fs.mkdirSync(path.join(dir, "fixtures"), { recursive: true });
   fs.writeFileSync(path.join(dir, "fixtures", "round.decided.json"), JSON.stringify({ ...sample, title: "Round 1" }));

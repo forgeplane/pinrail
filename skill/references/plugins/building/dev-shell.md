@@ -22,8 +22,8 @@ Then serve the plugin, and give the person the address it prints,
 node <checkout>/pinrail-plugin/bin/pinrail-plugin.mjs dev <path> --no-open
 ```
 
-In a plugin made with the SDK's `create` command, `npx pinrail-plugin dev`
-does the same.
+In a plugin with tests, which has the SDK package installed,
+`npx pinrail-plugin dev` does the same.
 
 ## What it shows
 

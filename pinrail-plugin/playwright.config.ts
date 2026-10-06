@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-// The package's own Playwright spec: what `pinrail-plugin create` writes,
-// mounted under the harness. The unit tests are Node's, in test/*.test.cjs.
+// The package's own Playwright specs: the harness, the dev shell and the
+// SDK in a browser. The unit tests are Node's, in test/*.test.cjs.
 export default defineConfig({
   testDir: "test",
   testMatch: /\.spec\.ts$/,

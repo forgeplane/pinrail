@@ -19,7 +19,7 @@ pinrail plugins install ~/Downloads/ticket-triage-1.2.0.zip
 
 ## Publish with GitHub Actions
 
-The workflow below publishes a release when you push a tag. The SDK's `create` command writes it into every plugin it creates, as `.github/workflows/release.yml`. `pinrail plugins new` does not, so copy it into that file yourself. Then push a tag:
+The workflow below publishes a release when you push a tag. `pinrail plugins new` does not write it, so copy it into `.github/workflows/release.yml` yourself. Then push a tag:
 
 ```sh
 git tag v0.2.0

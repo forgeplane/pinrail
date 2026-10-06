@@ -11,8 +11,10 @@ pinrail plugins new <name> --dir <path>
 ```
 
 This writes a working plugin that asks one yes-or-no question. It needs
-no build and installs nothing. For a view in React, Vue, Svelte or
-TypeScript, see [Frameworks](building/frameworks.md).
+no build and installs nothing. For a view in React or TypeScript, built
+by Vite, add `--template react` or `--template vite`, and see
+[Frameworks](building/frameworks.md). `--playwright` adds a first test of
+the view, which `npm test` runs with Playwright under the SDK's harness.
 
 ## 2. The files
 

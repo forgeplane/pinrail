@@ -1,25 +1,22 @@
 # Frameworks
 
 A view can be built with React, Vue, Svelte or TypeScript, as long as the
-build writes an HTML page and its files into the plugin folder. The plugin
-SDK's `create` command writes a working plugin in React or TypeScript,
-with a Vite build, a test and a release workflow. For Vue or Svelte, start
-from the TypeScript plugin, and follow the matching version of the Ship it?
-example in `docs/examples/ship-it/`.
-
-The SDK is not published to npm, so run it from a checkout of the Pinrail
-repository:
+build writes an HTML page and its files into the plugin folder.
+`pinrail plugins new` writes a working plugin in React or TypeScript, with
+a Vite build:
 
 ```sh
-git clone https://github.com/forgeplane/pinrail
-node pinrail/pinrail-plugin/bin/pinrail-plugin.mjs create <name> --template react   # or vite
+pinrail plugins new <name> --template react --dir <path>   # or --template vite, in TypeScript
 ```
 
-The new plugin's `package.json` takes the SDK from its GitHub release. To
-use your checkout instead, add `--sdk file:<path to pinrail/pinrail-plugin>`.
+For Vue or Svelte, start from the TypeScript plugin, and follow the
+matching version of the Ship it? example in `docs/examples/ship-it/` of
+the Pinrail repository.
 
-The folder has the same files as one from `pinrail plugins new`, and the
-same steps follow, with these differences for the view:
+The view is in `src/`, and takes the SDK's types from
+`pinrail-plugin.d.ts` in the folder. Run `npm install` once, then
+`npm run build`, or `npm run watch` while you work. The same steps follow
+as for a plain plugin, with these differences for the view:
 
 - The build writes the page to `view/index.html`, with its scripts and
   styles beside it in `view/`.
