@@ -163,16 +163,12 @@ fn commands_for_links(file: &str, body: &str) -> String {
     out
 }
 
-/// The manifest's JSON Schema, as the SDK ships it and the core checks it.
-const MANIFEST_SCHEMA: &str = include_str!("../../sdk/schemas/manifest.schema.json");
-
 /// The brief as it prints: its text, the links to other briefs as the
 /// commands that print them.
 pub fn render(brief: &Brief) -> String {
     let body = brief
         .body
         .trim_end()
-        .replace("{{manifest_schema}}", MANIFEST_SCHEMA.trim_end())
         .replace("{{sdk_version}}", &crate::scaffold::sdk_version());
     let mut out = commands_for_links(brief.file, &body);
     out.push('\n');
@@ -248,7 +244,7 @@ mod tests {
             );
             // the text an agent reads, without the menu at the end
             let text = brief.body.split("\n## More\n").next().unwrap();
-            let limit = if brief.path == "index" { 2048 } else { 6144 };
+            let limit = if brief.path == "index" { 8192 } else { 20480 };
             assert!(
                 text.len() <= limit,
                 "{} is {} bytes, over {limit}",
@@ -345,45 +341,35 @@ mod tests {
 
     #[test]
     fn a_link_to_another_brief_prints_as_its_command() {
-        let building = render(&find(Some("plugins/building")).unwrap());
+        let root = render(&find(None).unwrap());
         assert!(
-            building.contains("- `pinrail docs plugins/building/manifest`: The JSON Schema"),
-            "{building}"
+            root.contains("`pinrail docs building` describes."),
+            "{root}"
         );
+        assert!(!root.contains("](references/"), "{root}");
+        // a link to a heading in the same brief stays as it is
         assert!(
-            building.contains(
-                "and `pinrail docs plugins/building/view` how\nto look at the view yourself."
-            ),
-            "{building}"
-        );
-        assert!(!building.contains("](building/"), "{building}");
-        let plugins = render(&find(Some("plugins")).unwrap());
-        assert!(
-            plugins.contains("see `pinrail docs plugins/building`."),
-            "{plugins}"
+            root.contains("[choosing a plugin](#choosing-a-plugin)"),
+            "{root}"
         );
         assert_eq!(
-            find(Some("plugins/building/view")).unwrap().summary,
-            "The SDK's contract: init, hand-over, violations, drafts, read-only."
+            find(Some("building")).unwrap().summary,
+            "Make a plugin: create it, design its decision, work on its view with the person, test it, and try it in the app."
         );
         assert_eq!(
-            resolve("references/plugins.md", "../SKILL.md").as_deref(),
+            resolve("references/building.md", "../SKILL.md").as_deref(),
             Some("SKILL.md")
         );
         assert_eq!(
-            resolve(
-                "references/plugins/building.md",
-                "building/view.md#checking-the-view"
-            )
-            .as_deref(),
-            Some("references/plugins/building/view.md")
+            resolve("SKILL.md", "references/building.md#8-test-it").as_deref(),
+            Some("references/building.md")
         );
         assert_eq!(
             commands_for_links(
                 "SKILL.md",
-                "[a] b [c](https://x.md) [d](references/asking.md)"
+                "[a] b [c](https://x.md) [d](references/building.md)"
             ),
-            "[a] b [c](https://x.md) `pinrail docs asking`"
+            "[a] b [c](https://x.md) `pinrail docs building`"
         );
     }
 
@@ -391,7 +377,7 @@ mod tests {
     /// with, so the view behaves there as in the app.
     #[test]
     fn the_dev_shell_brief_names_the_sdk_version_of_this_build() {
-        let brief = render(&find(Some("plugins/building/dev-shell")).unwrap());
+        let brief = render(&find(Some("building")).unwrap());
         let command = format!(
             "npx pinrail-sdk@{} dev <path> --no-open",
             crate::scaffold::sdk_version()
@@ -410,10 +396,10 @@ mod tests {
     fn the_root_ends_with_its_menu() {
         let root = render(&find(None).unwrap());
         assert!(
-            root.contains("## More\n\n- `pinrail docs asking`: "),
+            root.contains("## More\n\n- `pinrail docs building`: "),
             "{root}"
         );
         assert!(tree().lines().next().unwrap().starts_with("pinrail docs: "));
-        assert!(not_found("askin").contains("nearest: asking"));
+        assert!(not_found("build").contains("nearest: building"));
     }
 }

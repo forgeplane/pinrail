@@ -49,7 +49,7 @@ ticket_triage/
 └── README.md                what the plugin is, and how to try it
 ```
 
-To let a coding agent build the plugin, connect the agent in [Settings › Agents](/docs/using/settings/#agents), then hand it the folder and describe the plugin you want. Pinrail's skill includes the guide to building a plugin, which explains each file, how the view talks to the app, and how to try the plugin. An agent without the skill reads the same guide with `pinrail docs plugins/building`.
+To let a coding agent build the plugin, connect the agent in [Settings › Agents](/docs/using/settings/#agents), then hand it the folder and describe the plugin you want. Pinrail's skill includes the guide to building a plugin, which explains each file, how the view talks to the app, and how to try the plugin. An agent without the skill reads the same guide with `pinrail docs building`.
 
 :::note[With a framework, or tests]
 To build the view with React, Vue or Svelte, or to test it in a browser without the app, use the plugin SDK from a checkout of the Pinrail repository. See [Building with a framework](/docs/building/frameworks/).
@@ -363,7 +363,7 @@ Every review has a preview at `<server>/preview/reviews/<id>`, by default `http:
 
 The preview shows the review as the app does: your view, given the review, with the hand-over button. It is meant for plugin development, especially for an agent with a browser tool, which can see the view it built and try the hand-over. In the preview, the hand-over checks the decision against the decision schema but does not decide the review. A valid decision is shown as the agent would receive it, and an invalid one is returned to the view. Only the person can decide a review, in the app.
 
-`pinrail docs plugins/building` gives the same to an agent, briefly, from the Pinrail you have installed.
+`pinrail docs building` gives the same to an agent, briefly, from the Pinrail you have installed.
 
 To see it with a payload of your own, send a fixture. `pinrail plugins new` does not create a `fixtures/` folder, so first create `fixtures/basic.json` with the content shown under [Test it](#test-it). Then run:
 

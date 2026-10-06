@@ -1,9 +1,8 @@
 // The agent skill the app installs is the `skill/` folder at the top of the
 // repository, the same files `pinrail docs` prints. This embeds them as
-// they are installed: the manifest's schema and the SDK's version put into
-// the briefs that show them, and a SHA-256 of all the files put into
-// SKILL.md's front matter, so the app can tell an agent's copy is outdated
-// by that alone.
+// they are installed: the SDK's version put into the brief that runs the
+// dev shell, and a SHA-256 of all the files put into SKILL.md's front
+// matter, so the app can tell an agent's copy is outdated by that alone.
 
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -13,10 +12,7 @@ fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let repo = manifest.join("../../..");
     let skill = repo.join("skill");
-    let schema_path = repo.join("sdk/schemas/manifest.schema.json");
     println!("cargo:rerun-if-changed={}", skill.display());
-    println!("cargo:rerun-if-changed={}", schema_path.display());
-    let schema = fs::read_to_string(&schema_path).unwrap();
     let sdk_package = repo.join("sdk/package.json");
     println!("cargo:rerun-if-changed={}", sdk_package.display());
     let sdk_version = version_of(&fs::read_to_string(&sdk_package).unwrap());
@@ -28,9 +24,7 @@ fn main() {
         .into_iter()
         .map(|(rel, file)| {
             let text = fs::read_to_string(file).unwrap();
-            let text = text
-                .replace("{{manifest_schema}}", schema.trim_end())
-                .replace("{{sdk_version}}", &sdk_version);
+            let text = text.replace("{{sdk_version}}", &sdk_version);
             (rel, text)
         })
         .collect();

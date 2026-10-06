@@ -29,15 +29,15 @@ The CLI holds no state and makes no decisions of its own. The answer goes to std
 
 ## Built-in guidance for agents
 
-You do not have to explain Pinrail to your agent. The `pinrail docs` command provides short, focused briefs, and each one ends with pointers to related briefs. An agent reads only what its task needs, so its context stays small. The briefs come from the Pinrail you have installed, so they always match it. They are the same files as the `pinrail` skill that [Settings › Agents](/docs/using/settings/#agents) adds to an agent, so an agent with the skill reads them as files.
+You do not have to explain Pinrail to your agent. The `pinrail docs` command prints two guides, written for an agent at work: one on using Pinrail, and one on building a plugin, which an agent reads only when its task is to build one. The guides come from the Pinrail you have installed, so they always match it. They are the same files as the `pinrail` skill that [Settings › Agents](/docs/using/settings/#agents) adds to an agent, so an agent with the skill reads them as files.
 
 ```sh
-pinrail docs                          # what Pinrail is, the loop, the rules, and a menu
-pinrail docs plugins/building         # one brief, and the briefs under it
-pinrail docs --tree                   # the whole map
+pinrail docs                          # using Pinrail: asking, the answer, choosing a plugin
+pinrail docs building                 # building a plugin
+pinrail docs --tree                   # both, with what each covers
 ```
 
-`pinrail docs` starts with a screen: what Pinrail is, the one command an agent runs to ask, what to do with the answer, and the rules that apply every time. Its menu leads to short briefs, written for an agent at work rather than a person reading: asking and its exit codes, finding a plugin, writing a standing rule for itself, and building a plugin, down to the view's contract, the design language and the manifest's schema. `pinrail --help` points there, and so does a new plugin's `README.md`.
+`pinrail docs` covers what Pinrail is, the command an agent runs to ask, its options and exit codes, what to do with the answer, files and revisions, choosing a plugin, and writing a standing rule for itself. `pinrail docs building` goes from a new plugin to a review in the person's inbox: the files, the decision, the view's contract, the dev shell, tests, the design language, settings and keys, and frameworks. `pinrail --help` points there, and so does a new plugin's `README.md`.
 
 The other commands follow the same approach. `pinrail plugins` lists the plugins a line each before `describe` gives one in full; `pinrail plugins new` ends with the next commands to run; `submit` says where the review is. An agent starts from `pinrail docs`, or from the plugin its instructions name, and finds the rest as it goes.
 

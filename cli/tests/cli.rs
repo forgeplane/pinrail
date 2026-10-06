@@ -2370,7 +2370,7 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
         ),
         "{stdout}"
     );
-    assert!(stdout.contains("How a plugin works: pinrail docs plugins/building\n"));
+    assert!(stdout.contains("How a plugin works: pinrail docs building\n"));
 
     let (code, stdout, _) = run_in(&server, &dir, &["plugins", "new", "other"]);
     assert_eq!(code, 0);

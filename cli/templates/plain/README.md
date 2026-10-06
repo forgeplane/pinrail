@@ -9,5 +9,5 @@ question; make it yours from there.
 pinrail plugins check .             # what the app would refuse, and why
 pinrail plugins install . --link    # the app follows this folder as you change it
 pinrail submit __NAME__ --sample    # a real review of its sample, in the inbox
-pinrail docs plugins/building       # how a plugin works, and how to build one
+pinrail docs building               # how a plugin works, and how to build one
 ```

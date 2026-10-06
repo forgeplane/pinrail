@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use serde::Serialize;
 
 /// The skill's files as the app writes them: each one's path in the
-/// skill's folder, such as `references/asking.md`, and its text.
+/// skill's folder, such as `references/building.md`, and its text.
 const FILES: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/skill_files.rs"));
 /// The SHA-256 of the files, which SKILL.md's front matter carries.
 const SHA: &str = include!(concat!(env!("OUT_DIR"), "/skill_sha.rs"));
@@ -331,37 +331,26 @@ mod tests {
     fn the_skill_to_copy_names_the_commands_for_its_references() {
         let text = skill_to_copy();
         assert!(
-            text.contains("- `pinrail docs asking`: Submit a review"),
+            text.contains("- `pinrail docs building`: Make a plugin"),
             "{text}"
         );
         assert!(!text.contains("references/"), "{text}");
     }
 
     #[test]
-    fn the_skill_carries_its_references_with_the_manifest_schema_in_place() {
+    fn the_skill_carries_its_building_guide_with_the_sdk_version_in_place() {
         let paths: Vec<_> = FILES.iter().map(|(p, _)| *p).collect();
-        assert!(paths.contains(&"references/asking.md"), "{paths:?}");
-        assert!(
-            paths.contains(&"references/plugins/building.md"),
-            "{paths:?}"
-        );
-        let manifest = FILES
-            .iter()
-            .find(|(p, _)| *p == "references/plugins/building/manifest.md")
-            .unwrap()
-            .1;
-        assert!(!manifest.contains("{{manifest_schema}}"));
+        assert_eq!(paths, ["SKILL.md", "references/building.md"]);
         // the build fills in every placeholder, the SDK's version among them
         for (path, text) in FILES {
             assert!(!text.contains("{{"), "{path}: a placeholder left");
         }
-        let dev_shell = FILES
+        let building = FILES
             .iter()
-            .find(|(p, _)| *p == "references/plugins/building/dev-shell.md")
+            .find(|(p, _)| *p == "references/building.md")
             .unwrap()
             .1;
-        assert!(dev_shell.contains("npx pinrail-sdk@1."), "{dev_shell}");
-        assert!(manifest.contains("\"$schema\""), "{manifest}");
+        assert!(building.contains("npx pinrail-sdk@1."), "{building}");
         // every link between the files leads to one of them
         for (path, text) in FILES {
             let folder = Path::new(path).parent().unwrap();
@@ -414,7 +403,7 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), skill_text());
         let building = home
             .path()
-            .join(".codex/skills/pinrail/references/plugins/building.md");
+            .join(".codex/skills/pinrail/references/building.md");
         assert!(building.is_file());
         assert_eq!(state(home.path(), "codex").state, State::Connected);
         assert!(
@@ -472,7 +461,7 @@ mod tests {
         // a reference changed by hand does not make the skill outdated, nor
         // does any other change that keeps the hash
         let dir = home.path().join(".claude/skills/pinrail");
-        fs::write(dir.join("references/asking.md"), "# Asking\n").unwrap();
+        fs::write(dir.join("references/building.md"), "# Building\n").unwrap();
         assert_eq!(state(home.path(), "claude").state, State::Connected);
     }
 

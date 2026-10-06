@@ -273,9 +273,9 @@ enum Command {
     Serve,
     /// Print the briefs on using Pinrail as an agent
     ///
-    /// Without a path, the command prints the main brief and a menu of the
-    /// other briefs. With a path, such as `pinrail docs plugins`, it prints
-    /// that brief.
+    /// Without a path, the command prints the main brief, which is
+    /// Pinrail's agent skill, and a menu of the other briefs. With a path,
+    /// such as `pinrail docs building`, it prints that brief.
     Docs {
         /// The brief to print, as the menu names it [default: the main brief]
         path: Option<String>,
@@ -824,7 +824,7 @@ fn run(cli: Cli) -> Result<u8> {
             "playwright": playwright,
             "linked": link,
             "next": next,
-            "docs": "pinrail docs plugins/building",
+            "docs": "pinrail docs building",
         });
         output.data(&written, md::scaffolded);
         return Ok(0);

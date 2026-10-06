@@ -12,7 +12,7 @@ npm run watch                       # rebuilds view/ on every change
 pinrail plugins check .             # what the app would refuse, and why
 pinrail plugins install . --link    # the app follows this folder; keep the watch running
 pinrail submit __NAME__ --sample    # a real review of its sample, in the inbox
-pinrail docs plugins/building       # how a plugin works, and how to build one
+pinrail docs building               # how a plugin works, and how to build one
 ```
 
 Pinrail installs a plugin as it is and runs nothing, so build the view
