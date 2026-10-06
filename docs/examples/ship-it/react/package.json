@@ -6,8 +6,7 @@
     "build": "tsc --noEmit && vite build",
     "watch": "vite build --watch",
     "dev": "pinrail-sdk dev",
-    "check": "pinrail-sdk check",
-    "test": "npm run build && pinrail-sdk test"
+    "test": "npm run build && playwright test"
   },
   "dependencies": {
     "react": "^19",

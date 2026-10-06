@@ -46,8 +46,8 @@ jobs:
           declared=$(node -p 'require("./package.json").version')
           test "$declared" = "$tagged" || { echo "package.json says $declared, tag says $tagged"; exit 1; }
           echo "version=$tagged" >> "$GITHUB_OUTPUT"
-      # pinrail-sdk check runs `pinrail plugins check`, so the CLI goes
-      # on the PATH before anything checks a plugin
+      # `pinrail plugins check` checks the plugins, so the CLI goes on the
+      # PATH before anything checks one
       - name: Rust toolchain
         run: rustup toolchain install
       - name: Build the CLI
@@ -63,7 +63,7 @@ jobs:
       - name: The samples pass check
         run: |
           for dir in plugins/*/; do
-            node pinrail-plugin/bin/pinrail-sdk.mjs check "$dir"
+            pinrail plugins check "$dir"
           done
       # npm names a scoped package's tarball after its scope too; the
       # scaffolds depend on the name without it

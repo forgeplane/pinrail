@@ -9,9 +9,6 @@ write a Pinrail plugin:
   the handshake, drafts, the hand-over, settings, forwarded keys and the
   theme.
 - **`pinrail-sdk dev`** runs a plugin in the browser, without the app.
-- **`pinrail-sdk test`** runs a plugin's tests in the test harness.
-- **`pinrail-sdk check`** reports what the app would report for a
-  plugin folder, by running `pinrail plugins check`.
 - **`pinrail-sdk/testing`** is a Playwright harness that
   mounts a plugin on its own.
 - **`pinrail-sdk/types`** describes the protocol and the
@@ -115,12 +112,12 @@ curl -X POST http://127.0.0.1:4790/dev/clear-comments
 
 **JSON** shows, in place of the view, the review's payload and the schemas the payload and the decision are held to, each on a tab of its own.
 
-### test
+### Tests
 
-`pinrail-sdk test [dir]` runs the plugin's `tests/*.spec.ts` with the
-Playwright from the plugin's own dependencies. Other arguments are passed
-to Playwright, such as `-g "hands over"` or `--headed`. A test mounts the
-view alone, without the app or the CLI:
+A plugin's tests are Playwright specs in `tests/`, run with
+`playwright test` and the plugin's own `playwright.config.ts`, which
+`pinrail plugins new --playwright` writes. A test mounts the view alone,
+without the app or the CLI:
 
 ```ts
 import { fixture, mountPlugin } from "pinrail-sdk/testing";
@@ -133,15 +130,6 @@ expect(await plugin.handOver()).toMatchObject({ decision: { data: { ok: true } }
 `handOver()` hands over as the app does: it asks the view for its decision,
 checks it against the decision schema, and returns the accepted decision,
 the violations, or `{ deferred: true }` when the view returned nothing.
-
-### check
-
-`pinrail-sdk check [dir]` runs `pinrail plugins check [dir]`, which
-checks a plugin folder with the app's own rules, without the app running.
-A **problem** means that the app would refuse the folder, and a **warning**
-that it would install the plugin without one feature. `--json` prints the
-results as JSON. The command exits with 0 when the app would take the
-plugin and with 2 when it would refuse it.
 
 ## Developing the package
 

@@ -69,8 +69,8 @@ The view connects to the app once, with `Pinrail.connect`, and draws the review 
 ```sh
 npm install
 npm run watch              # rebuilds view/ as you save…
-npx pinrail-sdk dev     # …and shows it in a browser, on the fixtures
-npx pinrail-sdk check   # what the app would say of the folder
+npx pinrail-sdk dev        # …and shows it in a browser, on the fixtures
+pinrail plugins check .    # what the app would say of the folder
 npm test                   # build, then the tests under the harness
 ```
 
@@ -80,8 +80,8 @@ npm test                   # build, then the tests under the harness
 ![pinrail-sdk dev with Ship it?: the view on the left with Ship chosen, and on the right the shortcuts s and h, the status Ship v2.4.1, the draft, and the draft and status messages the view sent.](screenshot:dev-shell "pinrail-sdk dev: the view, what it sent, and the app's side of the conversation to play.")
 :::
 
-:::note[pinrail-sdk check: what the app would say]
-`pinrail-sdk check` runs `pinrail plugins check`, which reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. Run the build first, so that `view/index.html` is there. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
+:::note[pinrail plugins check: what the app would say]
+`pinrail plugins check` reads the folder the way the app does when you install it, without the app running, and reports two kinds of result. **Problems** prevent installation: a malformed manifest, a schema that is not valid JSON Schema, or a missing `view/index.html`. Run the build first, so that `view/index.html` is there. **Warnings** disable one feature and leave the plugin working: settings or shortcuts that break their rules, a sample that does not pass the payload schema, or a template that cannot be read. `--json` prints the result for a script or CI.
 
 The command also checks the plugin's recorded decisions, the `fixtures/<name>.decided.json` files that tests use to show a decided review. Each one's payload and decision must pass the plugin's schemas. When a `<name>.decided.md` file is beside a recorded decision, the Markdown that the app renders for an agent from it must equal that file, so a change to the plugin's template or schemas cannot change what agents read without you noticing. `--update-fixtures` writes these files from what the app renders. Review the difference before you commit it.
 :::

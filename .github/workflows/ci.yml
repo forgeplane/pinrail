@@ -205,8 +205,8 @@ jobs:
             plugins/package-lock.json
             pinrail-plugin/package-lock.json
             docs/examples/ship-it/*/package-lock.json
-      # pinrail-sdk check runs `pinrail plugins check`, so the CLI goes
-      # on the PATH before anything checks a plugin
+      # `pinrail plugins check` checks the plugins, so the CLI goes on the
+      # PATH before anything checks one
       - name: Rust toolchain
         run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -255,7 +255,7 @@ jobs:
       - name: Check the sample plugins
         run: |
           for dir in plugins/*/; do
-            node pinrail-plugin/bin/pinrail-sdk.mjs check "$dir"
+            pinrail plugins check "$dir"
           done
       # an official plugin that changed since the last release has a new
       # version, or the app never offers it to the people who installed it
@@ -276,7 +276,7 @@ jobs:
         run: |
           for dir in vanilla react vue svelte; do
             (cd "$dir" && npm ci && npm test)
-            node ../../../pinrail-plugin/bin/pinrail-sdk.mjs check "$dir"
+            pinrail plugins check "$dir"
           done
           node --test same.test.mjs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

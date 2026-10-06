@@ -13,9 +13,6 @@ provides:
   `/sdk/v1`: the messages with the app, drafts, the hand-over, Markdown
   rendering, icons, links, attached files and forwarded shortcuts.
 - `pinrail-sdk dev`, which runs a view in a browser without the app.
-- `pinrail-sdk test`, which runs a plugin's tests under the harness.
-- `pinrail-sdk check`, which reports what the app would refuse in a
-  plugin folder.
 - `pinrail-sdk/testing`, the test harness: `mountPlugin`,
   `fixture` and `reviewFrom`.
 - `pinrail-sdk/types`, the manifest, the review, the

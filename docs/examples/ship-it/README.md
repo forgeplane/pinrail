@@ -19,10 +19,11 @@ that everything but the view's code is the same in all four.
 cd react
 npm install
 npm test                                  # build, then the test under the harness
-npx pinrail-sdk dev                    # the view in a browser, on the fixtures
+npx pinrail-sdk dev                       # the view in a browser, on the fixtures
+pinrail plugins check .                   # what the app would say of the folder
 pinrail plugins install . --link          # in the app
 ```
 
 Here the SDK comes from this repository (`file:../../../../pinrail-plugin`).
-A plugin written by the SDK's `create` command takes it from the SDK's
-GitHub release instead.
+A plugin written by `pinrail plugins new --playwright` takes it from the
+SDK's release instead.

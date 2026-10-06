@@ -553,7 +553,7 @@ impl Plugin {
             .unwrap_or(Value::Null)
     }
 
-    /// What the app makes of the folder, as `pinrail-sdk check --json`
+    /// What the app makes of the folder, as `pinrail plugins check --json`
     /// says it: usable or not, why it would be refused, and each feature it
     /// would drop, keyed by the manifest key.
     pub fn verdict(&self) -> Value {

@@ -2,9 +2,9 @@
 // The plugin author's command: one word, then the rest of the line.
 //
 //   pinrail-sdk dev [dir] [--port N] [--no-open]        the fake shell in a browser, reloading on change
-//   pinrail-sdk test [dir] [playwright arguments]       the plugin's tests/ under the harness
-//   pinrail-sdk check [dir] [--json]                    what the app would say, through `pinrail plugins check`
-import { spawnSync } from "node:child_process";
+//
+// A plugin is created, and checked, by the `pinrail` command; its tests run
+// with `playwright test`, under the harness this package exports.
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -15,35 +15,15 @@ const usage = `usage: pinrail-sdk <command> [options]
 
   dev [dir]       the fake shell in a browser, serving the plugin in dir (default .), reloading on change
                   --port N (default 4790), --no-open
-  test [dir]      the plugin's tests/ under the harness, with Playwright from its dependencies
-                  anything else on the line goes to Playwright: -g "hands over", --headed
-  check [dir]     what the app would say of the folder: problems that refuse it, warnings that cost a feature
-                  --json
 
-Then, in the app:  pinrail plugins install <dir> --link`;
+A new plugin:      pinrail plugins new <name> [--template plain|vite|react] [--playwright]
+What the app says: pinrail plugins check <dir>
+In the app:        pinrail plugins install <dir> --link`;
 
 switch (command) {
   case "dev": {
     const { serve } = await import(pathToFileURL(path.join(here, "..", "shell", "serve.mjs")).href);
     serve(rest);
-    break;
-  }
-  case "test": {
-    const { runTests } = await import(pathToFileURL(path.join(here, "..", "lib", "test.mjs")).href);
-    runTests(rest);
-    break;
-  }
-  case "check": {
-    // the app's own rules, as the pinrail command runs them; one
-    // implementation, not a copy of it here
-    const ran = spawnSync("pinrail", ["plugins", "check", ...rest], { stdio: "inherit" });
-    if (ran.error) {
-      console.error(
-        "pinrail-sdk check runs `pinrail plugins check`, and the pinrail command was not found. Install Pinrail and its command (Settings › Data › Command line), then try again.",
-      );
-      process.exit(1);
-    }
-    process.exit(ran.status ?? 1);
     break;
   }
   case undefined:
