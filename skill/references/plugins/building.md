@@ -1,8 +1,3 @@
----
-title: Building a plugin
-summary: Make a plugin: design its decision, scaffold it, check it, link it, try its sample.
-menu: [manifest, view, design, settings, frameworks]
----
 # Building a plugin
 
 Design the decision first: write `schemas/decision.schema.json` around the
@@ -54,7 +49,8 @@ pinrail withdraw <id>                     # when you are done with the sample
 - `summary` in the manifest declares what the app counts for the inbox
   and history: arrays of the payload (`request`) and of the decision
   (`outcome`), by a field such as `severity` or `action`, each value with
-  a label and a tone. The format is in the `manifest` brief.
+  a label and a tone. The format is in
+  [the manifest](building/manifest.md).
 - The schemas are JSON Schema 2020-12. Read them, not prose about them:
   an installed plugin's are in `pinrail plugins describe <plugin>`.
 - The preview's hand-over checks the decision against the decision schema
@@ -70,3 +66,11 @@ pinrail withdraw <id>                     # when you are done with the sample
   drawn. To check a view, take a screenshot, or drive the preview with
   Playwright and reach inside with `page.frameLocator("iframe")`. An
   empty frame in your tool does not mean the view is broken.
+
+## More
+
+- [The manifest](building/manifest.md): The JSON Schema every plugin's manifest is checked against.
+- [The view](building/view.md): The SDK's contract: init, hand-over, violations, drafts, read-only.
+- [Design](building/design.md): Look like the app: the stylesheet's tokens and classes, themes, icons.
+- [Settings and keys](building/settings.md): Options in Settings › Plugins, and keyboard shortcuts the app lists and forwards.
+- [Frameworks](building/frameworks.md): Views built with React, Vue, Svelte or TypeScript, created with the plugin SDK from a checkout of the Pinrail repository.

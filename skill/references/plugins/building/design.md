@@ -1,8 +1,3 @@
----
-title: Design
-summary: Look like the app: the stylesheet's tokens and classes, themes, icons.
-menu: []
----
 # Design
 
 `/sdk/v1/pinrail-plugin.css` gives the app's base, colours and classes in

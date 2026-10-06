@@ -1,8 +1,3 @@
----
-title: Asking
-summary: Submit a review, wait for the decision, read it, and handle every exit code.
-menu: []
----
 # Asking
 
 ```sh

@@ -1,8 +1,3 @@
----
-title: Plugins
-summary: Find the plugin that fits, and what is installed.
-menu: [building]
----
 # Plugins
 
 A plugin is one kind of review: what you send, what the person sees, and
@@ -24,9 +19,13 @@ A plugin is known by the `name` in its manifest, such as `list`; one
 plugin is installed under each name.
 
 If none returns the decision you need, build one for the task:
-`pinrail docs plugins/building`. Installing someone else's plugin,
+see [Building a plugin](plugins/building.md). Installing someone else's plugin,
 upgrading it or removing it is the person's call: do it only when they
 ask (`pinrail plugins install <name>` for an official plugin,
 `pinrail plugins install <folder or zip>` for any other,
 `pinrail plugins remove <name>`). Installing runs nothing; a plugin
 with a build step is built before it is installed.
+
+## More
+
+- [Building a plugin](plugins/building.md): Make a plugin: design its decision, scaffold it, check it, link it, try its sample.

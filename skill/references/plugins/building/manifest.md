@@ -1,8 +1,3 @@
----
-title: The manifest
-summary: The JSON Schema every plugin's manifest is checked against.
-menu: []
----
 # The manifest
 
 `manifest.json` is checked against this schema when the plugin is

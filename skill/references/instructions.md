@@ -1,8 +1,3 @@
----
-title: Instructions
-summary: Write yourself a standing rule or skill, so you ask at the right moment.
-menu: []
----
 # Instructions
 
 When the person wants you to ask before something, write it down where your
@@ -25,7 +20,7 @@ to see and returns the decision you need:
 - Don't bend the task to fit a schema. Don't make up an item or a comment
   just to have something to decide on.
 - If no plugin represents the decision, build one (see
-  `pinrail docs plugins/building`), then write the rule for it. That is a
+  [Building a plugin](plugins/building.md)), then write the rule for it. That is a
   normal step, not a last resort.
 
 Name the plugin and the payload's shape in the rule itself. Run

@@ -1,8 +1,3 @@
----
-title: Frameworks
-summary: "Views built with React, Vue, Svelte or TypeScript, created with the plugin SDK from a checkout of the Pinrail repository."
-menu: []
----
 # Frameworks
 
 A view can be built with React, Vue, Svelte or TypeScript, as long as the

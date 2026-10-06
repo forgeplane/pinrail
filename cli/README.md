@@ -26,7 +26,7 @@ how the review ended.
   option. It is generated from the code with `mise run docs:generate`.
 
 Agents can also read the same guidance from the command itself with
-`pinrail docs`, which prints the briefs kept in [`docs/`](docs/).
+`pinrail docs`, which prints the files of the agent skill in [`skill/`](../skill/).
 
 ## Installing
 

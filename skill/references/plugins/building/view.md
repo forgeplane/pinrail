@@ -1,8 +1,3 @@
----
-title: The view
-summary: The SDK's contract: init, hand-over, violations, drafts, read-only.
-menu: []
----
 # The view
 
 The view loads the SDK from the app and talks to it only through it:

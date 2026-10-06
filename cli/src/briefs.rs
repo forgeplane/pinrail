@@ -1,68 +1,118 @@
-//! `pinrail docs`: short briefs for an agent, like skills, built into the
-//! command from `cli/docs/`. The root says what Pinrail is and how to use
-//! it; every brief ends with a menu of the briefs under it, so an agent
+//! `pinrail docs`: short briefs for an agent, built into the command from
+//! the agent skill in `skill/`, the same files the app installs into an
+//! agent's skills. The root is the skill's SKILL.md, which says what
+//! Pinrail is and how to use it; the others are its references. Each file
+//! ends with a `## More` list of links to the files under it, so an agent
 //! reads the least it needs and opens a branch only when its task does.
+//! Printed here, every link to another file becomes the command that
+//! prints it.
 
 use serde_json::{Value, json};
 
-/// Each brief: its path (`asking/rounds`, `index` for the root) and source.
-const BRIEFS: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/briefs.rs"));
+/// Each file of the skill: its path in the skill, such as
+/// `references/asking.md`, and its source.
+const FILES: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/briefs.rs"));
 
 pub struct Brief {
-    pub path: &'static str,
+    /// `asking`, `plugins/building`, or `index` for the root
+    pub path: String,
+    /// where the file is in the skill, which its links are relative to
+    file: &'static str,
     pub title: String,
+    /// the line its parent's menu gives it; the skill's description for the root
     pub summary: String,
-    /// the children, in the order the menu shows them
-    pub menu: Vec<String>,
+    /// the children, in the order the menu shows them, each with its line
+    pub menu: Vec<(String, String)>,
     pub body: &'static str,
 }
 
-fn parse(path: &'static str, source: &'static str) -> Brief {
+/// The brief's path for a file of the skill.
+fn brief_path(file: &str) -> String {
+    if file == "SKILL.md" {
+        return "index".to_string();
+    }
+    let path = file.strip_prefix("references/").unwrap_or(file);
+    path.strip_suffix(".md").unwrap_or(path).to_string()
+}
+
+/// The file a link in `from` points to, as a path in the skill, if it is
+/// a relative link to one of the skill's Markdown files.
+fn resolve(from: &str, target: &str) -> Option<String> {
+    if !target.ends_with(".md") || target.contains("://") || target.starts_with('/') {
+        return None;
+    }
+    let mut parts: Vec<&str> = from.split('/').collect();
+    parts.pop();
+    for part in target.split('/') {
+        match part {
+            "." | "" => {}
+            ".." => {
+                parts.pop()?;
+            }
+            _ => parts.push(part),
+        }
+    }
+    Some(parts.join("/"))
+}
+
+/// The skill's `description`, from its front matter.
+fn description(head: &str) -> String {
+    head.lines()
+        .find_map(|line| line.strip_prefix("description:"))
+        .map(|d| d.trim().trim_matches('"').to_string())
+        .unwrap_or_default()
+}
+
+/// The links of the `## More` list at the end of a body, each as the file
+/// it points to and the text after it.
+fn menu(file: &str, body: &str) -> Vec<(String, String)> {
+    let Some((_, more)) = body.split_once("\n## More\n") else {
+        return Vec::new();
+    };
+    more.lines()
+        .filter_map(|line| {
+            let rest = line.strip_prefix("- [")?;
+            let (_, rest) = rest.split_once("](")?;
+            let (target, rest) = rest.split_once(')')?;
+            let summary = rest.strip_prefix(':').unwrap_or(rest).trim();
+            Some((brief_path(&resolve(file, target)?), summary.to_string()))
+        })
+        .collect()
+}
+
+fn parse(file: &'static str, source: &'static str) -> Brief {
     let (head, body) = source
         .strip_prefix("---\n")
         .and_then(|rest| rest.split_once("\n---\n"))
         .unwrap_or(("", source));
-    let mut brief = Brief {
-        path,
-        title: String::new(),
-        summary: String::new(),
-        menu: Vec::new(),
-        body: body.trim_start_matches('\n'),
-    };
-    for line in head.lines() {
-        let Some((key, value)) = line.split_once(':') else {
-            continue;
-        };
-        let value = value.trim().trim_matches('"');
-        match key.trim() {
-            "title" => brief.title = value.to_string(),
-            "summary" => brief.summary = value.to_string(),
-            "menu" => {
-                brief.menu = value
-                    .trim_matches(['[', ']'])
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|c| !c.is_empty())
-                    .map(|c| {
-                        if path == "index" {
-                            c.to_string()
-                        } else {
-                            format!("{path}/{c}")
-                        }
-                    })
-                    .collect()
-            }
-            _ => {}
-        }
+    let body = body.trim_start_matches('\n');
+    Brief {
+        path: brief_path(file),
+        file,
+        title: body
+            .lines()
+            .find_map(|l| l.strip_prefix("# "))
+            .unwrap_or_default()
+            .to_string(),
+        summary: description(head),
+        menu: menu(file, body),
+        body,
     }
-    brief
 }
 
 pub fn all() -> Vec<Brief> {
-    BRIEFS
+    let mut all: Vec<Brief> = FILES
         .iter()
-        .map(|(path, source)| parse(path, source))
-        .collect()
+        .map(|(file, source)| parse(file, source))
+        .collect();
+    // a child's summary is the line its parent's menu gives it
+    let lines: Vec<(String, String)> = all.iter().flat_map(|b| b.menu.clone()).collect();
+    for brief in &mut all {
+        if let Some((_, line)) = lines.iter().find(|(p, _)| *p == brief.path) {
+            brief.summary = line.clone();
+        }
+    }
+    all
 }
 
 /// The brief at `path` (none or empty for the root).
@@ -74,54 +124,81 @@ pub fn find(path: Option<&str>) -> Option<Brief> {
     all().into_iter().find(|b| b.path == wanted)
 }
 
+/// The command that prints a brief.
+fn command(path: &str) -> String {
+    if path == "index" {
+        "pinrail docs".to_string()
+    } else {
+        format!("pinrail docs {path}")
+    }
+}
+
+/// The body with each link to another file of the skill, `[text](file.md)`,
+/// replaced by the command that prints that file.
+fn commands_for_links(file: &str, body: &str) -> String {
+    let mut out = String::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(open) = rest.find('[') {
+        let link = rest[open + 1..].split_once("](").and_then(|(text, after)| {
+            let (target, _) = after.split_once(')')?;
+            let path = brief_path(&resolve(file, target)?);
+            let len = 1 + text.len() + 2 + target.len() + 1;
+            (!text.contains(['[', '\n'])).then_some((path, len))
+        });
+        match link {
+            Some((path, len)) => {
+                out.push_str(&rest[..open]);
+                out.push_str(&format!("`{}`", command(&path)));
+                rest = &rest[open + len..];
+            }
+            None => {
+                out.push_str(&rest[..=open]);
+                rest = &rest[open + 1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The manifest's JSON Schema, as the SDK ships it and the core checks it.
 const MANIFEST_SCHEMA: &str = include_str!("../../pinrail-plugin/schemas/manifest.schema.json");
 
-/// The brief as it prints: its text, then the menu of what is under it.
+/// The brief as it prints: its text, the links to other briefs as the
+/// commands that print them.
 pub fn render(brief: &Brief) -> String {
-    let mut out = brief
+    let body = brief
         .body
         .trim_end()
         .replace("{{manifest_schema}}", MANIFEST_SCHEMA.trim_end());
+    let mut out = commands_for_links(brief.file, &body);
     out.push('\n');
-    let children: Vec<Brief> = brief.menu.iter().filter_map(|p| find(Some(p))).collect();
-    if !children.is_empty() {
-        out.push_str("\n## More\n\n");
-        for child in &children {
-            out.push_str(&format!(
-                "- `pinrail docs {}`: {}\n",
-                child.path, child.summary
-            ));
-        }
-    }
     out
 }
 
 pub fn to_json(brief: &Brief) -> Value {
     json!({
-        "path": if brief.path == "index" { "" } else { brief.path },
+        "path": if brief.path == "index" { "" } else { brief.path.as_str() },
         "title": brief.title,
         "summary": brief.summary,
         "markdown": render(brief),
-        "children": brief.menu.iter().filter_map(|p| find(Some(p))).map(|c| json!({ "path": c.path, "summary": c.summary })).collect::<Vec<_>>(),
+        "children": brief.menu.iter().map(|(path, summary)| json!({ "path": path, "summary": summary })).collect::<Vec<_>>(),
     })
 }
 
 /// Every path and its line, indented by depth, from the root down.
 pub fn tree() -> String {
     fn walk(brief: &Brief, depth: usize, out: &mut String) {
-        let name = if brief.path == "index" {
-            "pinrail docs".to_string()
-        } else {
-            format!("pinrail docs {}", brief.path)
-        };
         out.push_str(&format!(
-            "{}{name}: {}\n",
+            "{}{}: {}\n",
             "  ".repeat(depth),
+            command(&brief.path),
             brief.summary
         ));
-        for child in brief.menu.iter().filter_map(|p| find(Some(p))) {
-            walk(&child, depth + 1, out);
+        for (child, _) in &brief.menu {
+            if let Some(child) = find(Some(child)) {
+                walk(&child, depth + 1, out);
+            }
         }
     }
     let mut out = String::new();
@@ -138,10 +215,10 @@ pub fn not_found(path: &str) -> String {
         .split(['/', '-', ' '])
         .filter(|w| !w.is_empty())
         .collect();
-    let near: Vec<&str> = BRIEFS
+    let near: Vec<String> = FILES
         .iter()
-        .map(|(p, _)| *p)
-        .filter(|p| *p != "index" && words.iter().any(|w| p.contains(w)))
+        .map(|(file, _)| brief_path(file))
+        .filter(|p| p != "index" && words.iter().any(|w| p.contains(w)))
         .collect();
     let mut out = format!("no brief at {path:?}");
     if !near.is_empty() {
@@ -166,14 +243,16 @@ mod tests {
                 "{}: title and summary",
                 brief.path
             );
+            // the text an agent reads, without the menu at the end
+            let text = brief.body.split("\n## More\n").next().unwrap();
             let limit = if brief.path == "index" { 2048 } else { 4096 };
             assert!(
-                brief.body.len() <= limit,
+                text.len() <= limit,
                 "{} is {} bytes, over {limit}",
                 brief.path,
-                brief.body.len()
+                text.len()
             );
-            for child in &brief.menu {
+            for (child, _) in &brief.menu {
                 assert!(
                     find(Some(child)).is_some(),
                     "{}: its menu names {child}, which is not there",
@@ -182,7 +261,8 @@ mod tests {
             }
             if brief.path != "index" {
                 assert!(
-                    all.iter().any(|b| b.menu.iter().any(|c| c == brief.path)),
+                    all.iter()
+                        .any(|b| b.menu.iter().any(|(c, _)| *c == brief.path)),
                     "{} is on no menu",
                     brief.path
                 );
@@ -258,6 +338,40 @@ mod tests {
             words.push(word);
         }
         words
+    }
+
+    #[test]
+    fn a_link_to_another_brief_prints_as_its_command() {
+        let building = render(&find(Some("plugins/building")).unwrap());
+        assert!(
+            building.contains("- `pinrail docs plugins/building/manifest`: The JSON Schema"),
+            "{building}"
+        );
+        assert!(
+            building.contains("The format is in\n  `pinrail docs plugins/building/manifest`."),
+            "{building}"
+        );
+        assert!(!building.contains("](building/"), "{building}");
+        let plugins = render(&find(Some("plugins")).unwrap());
+        assert!(
+            plugins.contains("see `pinrail docs plugins/building`."),
+            "{plugins}"
+        );
+        assert_eq!(
+            find(Some("plugins/building/view")).unwrap().summary,
+            "The SDK's contract: init, hand-over, violations, drafts, read-only."
+        );
+        assert_eq!(
+            resolve("references/plugins.md", "../SKILL.md").as_deref(),
+            Some("SKILL.md")
+        );
+        assert_eq!(
+            commands_for_links(
+                "SKILL.md",
+                "[a] b [c](https://x.md) [d](references/asking.md)"
+            ),
+            "[a] b [c](https://x.md) `pinrail docs asking`"
+        );
     }
 
     #[test]

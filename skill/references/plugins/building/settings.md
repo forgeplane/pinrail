@@ -1,8 +1,3 @@
----
-title: Settings and keys
-summary: Options in Settings › Plugins, and keyboard shortcuts the app lists and forwards.
-menu: []
----
 # Settings and keys
 
 Settings are a JSON Schema in the manifest's `settings_schema`, one level
