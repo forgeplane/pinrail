@@ -2359,7 +2359,7 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     let written = dir.join("triage").canonicalize().unwrap();
     assert!(
         stdout.starts_with(&format!(
-            "triage written to {}.\n\nNext:\n  1. Read AGENTS.md in triage",
+            "triage written to {}.\n\nNext:\n  1. Make the plugin in triage what is needed",
             written.display()
         )),
         "{stdout}"

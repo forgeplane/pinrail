@@ -21,6 +21,9 @@ Then, from an agent's session:
 pinrail submit __NAME__ --sample --wait
 ```
 
+`pinrail docs plugins/building` explains how a plugin works and how to
+build one. An agent with Pinrail's skill has the same guide.
+
 ## Layout
 
 ```

@@ -37,7 +37,7 @@ pinrail docs plugins/building         # one brief, and the briefs under it
 pinrail docs --tree                   # the whole map
 ```
 
-`pinrail docs` starts with a screen: what Pinrail is, the one command an agent runs to ask, what to do with the answer, and the rules that apply every time. Its menu leads to short briefs, written for an agent at work rather than a person reading: asking and its exit codes, finding a plugin, writing a standing rule for itself, and building a plugin, down to the view's contract, the design language and the manifest's schema. `pinrail --help` points there, and so does everything else an agent meets first: a new plugin's `AGENTS.md`, the prompts in the app's setup.
+`pinrail docs` starts with a screen: what Pinrail is, the one command an agent runs to ask, what to do with the answer, and the rules that apply every time. Its menu leads to short briefs, written for an agent at work rather than a person reading: asking and its exit codes, finding a plugin, writing a standing rule for itself, and building a plugin, down to the view's contract, the design language and the manifest's schema. `pinrail --help` points there, and so does a new plugin's `README.md`.
 
 The other commands follow the same approach. `pinrail plugins` lists the plugins a line each before `describe` gives one in full; `pinrail plugins new` ends with the next commands to run; `submit` says where the review is. An agent starts from `pinrail docs`, or from the plugin its instructions name, and finds the rest as it goes.
 
@@ -223,7 +223,7 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 | `pinrail export <dir>` | Write every review as JSON files under a directory. |
 | `pinrail serve` | Start the app's server if it is not running, and print its URL. |
 | `pinrail plugins` | List installed plugins, as a table or with `--json` as data, and [install or remove](/docs/using/installing-plugins/) them. |
-| `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, a view with the SDK's types, and an `AGENTS.md`. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
+| `pinrail plugins new <name> [--link]` | A new plugin that needs no build or npm: manifest, schemas, a sample, and a view with the SDK's types. `--link` installs it right away. See [Writing a plugin](/docs/building/writing/#create-the-folder). |
 | `pinrail plugins check [dir]` | What the app would make of a plugin folder, installing nothing: why it would refuse it, and each feature it would drop. It also checks the plugin's recorded decisions in `fixtures/` (see [Building with a framework](/docs/building/frameworks/)). Exits 0 when the app would take the plugin and every recorded decision checks out, 2 when not. Build a plugin that has a build step first, so that its view is there. It needs no running app. |
 | `pinrail plugins describe <name>` | What an agent needs to ask with a plugin; `--payload-schema`, `--example` or `--decision-schema` for one part alone. See [Learning what to ask](#learning-what-to-ask). |
 | `pinrail docs [path]` | The briefs for an agent: how to ask, and how to build a plugin. `--tree` lists them all. |

@@ -88,10 +88,10 @@ node pinrail-plugin/bin/pinrail-plugin.mjs create <name> --template react   # th
 
 The folder runs under `dev`, passes its own tests and installs with
 `--link` before you change anything. It holds the manifest, the schemas,
-the view, a sample in `samples/<name>.json`, a test, an `AGENTS.md` for a
-coding agent, and a release workflow. `--dir` creates the folder somewhere
-other than `./<name>`, and `--sdk` sets where `package.json` installs this
-package from. By default, it uses the tarball attached to the SDK's GitHub
+the view, a sample in `samples/<name>.json`, a test, and a release
+workflow. `--dir` creates the folder somewhere other than `./<name>`, and
+`--sdk` sets where `package.json` installs this package from. By
+default, it uses the tarball attached to the SDK's GitHub
 release.
 
 ### dev

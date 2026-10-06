@@ -51,14 +51,6 @@ const FILES: &[(&str, &str)] = &[
         include_str!("../../pinrail-plugin/templates/common/samples/__NAME__.json"),
     ),
     (
-        "AGENTS.md",
-        include_str!("../../pinrail-plugin/templates/common/AGENTS.md"),
-    ),
-    (
-        "CLAUDE.md",
-        include_str!("../../pinrail-plugin/templates/common/CLAUDE.md"),
-    ),
-    (
         "pinrail-plugin.d.ts",
         include_str!("../../pinrail-plugin/types.d.ts"),
     ),
@@ -78,8 +70,6 @@ pinrail plugins install . --link    # the app follows this folder as you change 
 pinrail submit __NAME__ --sample    # a real review of its sample, in the inbox
 pinrail docs plugins/building       # how a plugin works, and how to build one
 ```
-
-`AGENTS.md` explains the plugin to an agent helping you build it.
 "#;
 
 /// A plugin's name, as the manifest takes it.

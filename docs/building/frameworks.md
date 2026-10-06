@@ -27,7 +27,7 @@ The plugin's manifest, and the schemas every framework's version shares:
 
 ## 1. Create the folder
 
-Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in React or TypeScript, a yes-or-no question to build on, with a sample to send and an `AGENTS.md` that directs a coding agent to `pinrail docs plugins/building`. For Vue or Svelte, start from the TypeScript template and follow the Vue or Svelte version of this page:
+Every version is a Vite project whose build writes `view/`. To start one of your own, `create` writes a working plugin in React or TypeScript, a yes-or-no question to build on, with a sample to send. For Vue or Svelte, start from the TypeScript template and follow the Vue or Svelte version of this page:
 
 ```sh
 # from a checkout of github.com/forgeplane/pinrail

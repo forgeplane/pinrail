@@ -46,12 +46,10 @@ ticket_triage/
 ├── samples/
 │   └── ticket_triage.json   a review to look at
 ├── pinrail-plugin.d.ts      the SDK's types, for your editor
-├── README.md                what the plugin is, and how to try it
-├── AGENTS.md                directs a coding agent to the building guide
-└── CLAUDE.md                points Claude Code to AGENTS.md
+└── README.md                what the plugin is, and how to try it
 ```
 
-`AGENTS.md`, with a `CLAUDE.md` that points to it, directs a coding agent to `pinrail docs plugins/building`. That guide explains each file, how the view talks to the app, and how to try the plugin, so you can hand the folder to your agent and describe the plugin you want.
+To let a coding agent build the plugin, connect the agent in [Settings › Agents](/docs/using/settings/#agents), then hand it the folder and describe the plugin you want. Pinrail's skill includes the guide to building a plugin, which explains each file, how the view talks to the app, and how to try the plugin. An agent without the skill reads the same guide with `pinrail docs plugins/building`.
 
 :::note[With a framework, or tests]
 To build the view with React, Vue or Svelte, or to test it in a browser without the app, use the plugin SDK from a checkout of the Pinrail repository. See [Building with a framework](/docs/building/frameworks/).
@@ -70,7 +68,7 @@ Each of the files the app reads has a fixed place in the folder, so the manifest
 | `samples/` | Optional. Reviews to try the plugin with, one `<name>.json` file each, and the files they attach. |
 | `README.md`, `LICENSE` | Optional. What the plugin is, and the terms it is shared under. |
 
-When the plugin is installed, Pinrail copies these entries and nothing else. Sources, tests, fixtures, `node_modules/`, package and tool configuration, hidden files, `AGENTS.md` and `pinrail-plugin.d.ts` stay in your folder.
+When the plugin is installed, Pinrail copies these entries and nothing else. Sources, tests, fixtures, `node_modules/`, package and tool configuration, hidden files and `pinrail-plugin.d.ts` stay in your folder.
 
 ## The manifest
 

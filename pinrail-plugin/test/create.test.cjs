@@ -28,8 +28,6 @@ test("the plain template is a whole plugin, named throughout", async () => {
   assert.deepEqual(filesUnder(dir), [
     ".github/workflows/release.yml",
     ".gitignore",
-    "AGENTS.md",
-    "CLAUDE.md",
     "README.md",
     "icon.svg",
     "manifest.json",
@@ -66,15 +64,10 @@ test("the plain template is a whole plugin, named throughout", async () => {
     JSON.parse(fs.readFileSync(path.join(dir, "samples/ticket_triage.json"), "utf8")).title.length > 0,
     true,
   );
-  assert.equal(
-    fs.readFileSync(path.join(dir, "CLAUDE.md"), "utf8").trim(),
-    "@AGENTS.md",
-    "Claude Code reads the same brief",
-  );
   assert.match(
-    fs.readFileSync(path.join(dir, "AGENTS.md"), "utf8"),
+    fs.readFileSync(path.join(dir, "README.md"), "utf8"),
     /pinrail docs plugins\/building/,
-    "points the agent at the briefs",
+    "points at the guide to building a plugin",
   );
   for (const schema of ["schemas/payload.schema.json", "schemas/decision.schema.json"]) {
     assert.ok(fs.existsSync(path.join(dir, schema)), `${schema} exists`);

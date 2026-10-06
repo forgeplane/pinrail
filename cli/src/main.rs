@@ -525,8 +525,7 @@ enum PluginsCommand {
     /// Create a new plugin that needs no build step
     ///
     /// The new folder contains a manifest, schemas, a sample review, a view,
-    /// the SDK's types and an AGENTS.md file. --link installs the plugin as
-    /// a link right away.
+    /// and the SDK's types. --link installs the plugin as a link right away.
     New {
         /// The plugin's name, which starts with a lowercase letter followed by
         /// letters, digits, _ or -
@@ -718,7 +717,7 @@ fn run(cli: Cli) -> Result<u8> {
         // what comes next, for whoever ran it, most often an agent
         let mut next = vec![
             format!(
-                "Read AGENTS.md in {given}, then make the plugin what is needed: the decision schema first, around the action you will take on the answer, then the payload schema, example, sample and view, kept in step."
+                "Make the plugin in {given} what is needed: the decision schema first, around the action you will take on the answer, then the payload schema, the samples and the view, kept in step."
             ),
             format!("pinrail plugins check {given}"),
         ];
