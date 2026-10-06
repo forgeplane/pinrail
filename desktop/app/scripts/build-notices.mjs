@@ -91,7 +91,7 @@ const entries = [
   {
     name: "ISC License",
     id: "ISC",
-    text: fs.readFileSync(path.join(root, "pinrail-plugin", "licenses", "lucide-icons.txt"), "utf8"),
+    text: fs.readFileSync(path.join(root, "licenses", "lucide-icons.txt"), "utf8"),
     packages: ["Lucide icons, in the official plugins"],
   },
   // the font files the window draws in, imported as CSS
