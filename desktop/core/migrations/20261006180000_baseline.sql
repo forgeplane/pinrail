@@ -3,20 +3,26 @@
 
 CREATE TABLE reviews (
   id             TEXT PRIMARY KEY,
+  -- the plugin's name, as its manifest gives it
   plugin         TEXT NOT NULL,
-  plugin_version INTEGER NOT NULL,
   title          TEXT NOT NULL,
   origin         TEXT NOT NULL,
   requested_by   TEXT,
+  -- the request summary, derived from the plugin's declaration at submit
   summary        TEXT,
   revises        TEXT REFERENCES reviews(id) ON DELETE SET NULL,
   expires_at     TEXT,
   created_at     TEXT NOT NULL,
-  -- the exact release it was submitted to; the major above is what renders it
-  plugin_release TEXT
+  -- the plugin's version the review was submitted to
+  plugin_version TEXT,
+  -- the bundle the review renders and validates with
+  plugin_bundle  TEXT REFERENCES plugin_bundles(hash),
+  -- the agent's session the review was asked from, as the CLI found it
+  session        TEXT
 );
--- which reviews render from a plugin's major, before its entry is removed
-CREATE INDEX reviews_plugin ON reviews(plugin, plugin_version);
+CREATE INDEX reviews_plugin ON reviews(plugin);
+-- which reviews keep a bundle, for the sweep
+CREATE INDEX reviews_plugin_bundle ON reviews(plugin_bundle);
 -- A round has at most one newer round, so the rounds of a review form a
 -- single line. SQLite allows any number of NULLs in a unique index.
 CREATE UNIQUE INDEX reviews_revises ON reviews(revises);
@@ -46,24 +52,47 @@ CREATE TABLE outcomes (
   by         TEXT,
   reason     TEXT,
   data       TEXT,
-  agent_note TEXT
+  agent_note TEXT,
+  -- the outcome summary, derived from the plugin's declaration when the
+  -- review is decided
+  summary    TEXT
 );
 CREATE INDEX outcomes_kind ON outcomes(kind);
 
-CREATE TABLE installed_plugins (
+-- Every plugin bundle the app holds, stored once under bundles/<hash>/
+-- and never changed. stored_at is when it was last stored: the sweep
+-- leaves a bundle stored within the hour, which an install may be about
+-- to refer to.
+CREATE TABLE plugin_bundles (
+  hash      TEXT PRIMARY KEY,
+  name      TEXT NOT NULL,
+  version   TEXT NOT NULL,
+  manifest  TEXT NOT NULL,
+  size      INTEGER NOT NULL,
+  stored_at TEXT NOT NULL
+);
+
+-- The listing a bundle's hash was taken over, which can run to thousands
+-- of lines, in a table of its own.
+CREATE TABLE plugin_bundle_files (
+  hash    TEXT PRIMARY KEY REFERENCES plugin_bundles(hash) ON DELETE CASCADE,
+  listing TEXT NOT NULL
+);
+
+-- What the person has installed under each name, and where it came from.
+CREATE TABLE plugin_installs (
   name         TEXT PRIMARY KEY,
-  version      TEXT NOT NULL,
-  major        INTEGER NOT NULL,
-  kind         TEXT NOT NULL CHECK (kind IN ('path', 'git', 'release')),
+  -- an official plugin from a catalog, by its id; or a folder or a zip on disk
+  source_kind  TEXT NOT NULL CHECK (source_kind IN ('index', 'folder', 'archive')),
+  -- the catalog id, or the folder or the zip as a full path
   source       TEXT NOT NULL,
-  resolved     TEXT NOT NULL,
-  commit_id    TEXT,
-  asset_hash   TEXT,
-  hash         TEXT,
-  build_log    TEXT,
+  -- 1: the folder is followed, not copied
+  link         INTEGER NOT NULL DEFAULT 0
+               CHECK (link IN (0, 1) AND (link = 0 OR source_kind = 'folder')),
+  -- the bundle new reviews use; a link's is captured from its folder
+  bundle       TEXT NOT NULL REFERENCES plugin_bundles(hash),
   installed_at TEXT NOT NULL,
-  linked       INTEGER NOT NULL DEFAULT 0,
-  path         TEXT NOT NULL
+  updated_at   TEXT NOT NULL
 );
 
 -- Files uploaded beside reviews, one row per distinct content. The bytes
