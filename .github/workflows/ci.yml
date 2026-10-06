@@ -237,6 +237,17 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm test
+      # and with --playwright, its first test passes, against this checkout's
+      # SDK package
+      - name: New plugins with tests
+        run: |
+          for template in plain vite react; do
+            dir="$RUNNER_TEMP/tested/$template"
+            pinrail plugins new "tested_$template" --template "$template" --playwright \
+              --sdk "file:$PWD/pinrail-plugin" --dir "$dir"
+            (cd "$dir" && npm install --no-audit --no-fund && npm test)
+            pinrail plugins check "$dir"
+          done
       # the plugins with a build of their own, which the check and their
       # tests read as the app would
       - name: Build the plugins

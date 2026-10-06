@@ -527,8 +527,10 @@ enum PluginsCommand {
     /// The new folder contains a manifest, schemas, a sample review, a view,
     /// and the SDK's types. The plain template's view needs no build; the
     /// vite and react templates write the view in src/, which npm run build
-    /// turns into view/. --link installs the plugin as a link right away,
-    /// which needs a view, so it takes the plain template only.
+    /// turns into view/. --playwright adds a first test of the view, run
+    /// with Playwright under the SDK's harness. --link installs the plugin
+    /// as a link right away, which needs a view, so it takes the plain
+    /// template only.
     New {
         /// The plugin's name, which starts with a lowercase letter followed by
         /// letters, digits, _ or -
@@ -539,6 +541,14 @@ enum PluginsCommand {
         /// How the view is written
         #[arg(long, value_enum, default_value = "plain")]
         template: scaffold::Template,
+        /// Add a first test of the view, with package.json and Playwright's
+        /// configuration
+        #[arg(long)]
+        playwright: bool,
+        /// Where the tests' package.json takes the SDK package from, such as
+        /// file:../pinrail-plugin [default: the release of this version]
+        #[arg(long, hide = true)]
+        sdk: Option<String>,
         /// Install the plugin as a link after writing it, so the app serves the
         /// folder directly
         #[arg(long)]
@@ -710,6 +720,8 @@ fn run(cli: Cli) -> Result<u8> {
                 name,
                 dir,
                 template,
+                playwright,
+                sdk,
                 link,
             }),
     }) = &cli.command
@@ -723,7 +735,15 @@ fn run(cli: Cli) -> Result<u8> {
                  in it, then pinrail plugins install <dir> --link"
             );
         }
-        scaffold::write(name, &dir, *template)?;
+        scaffold::write(
+            name,
+            &dir,
+            &scaffold::Options {
+                template: *template,
+                playwright: *playwright,
+                sdk: sdk.as_deref(),
+            },
+        )?;
         // the folder as it was named, for the prompt a person pastes
         let given = dir.display().to_string();
         let dir = dir.canonicalize()?;
@@ -743,6 +763,17 @@ fn run(cli: Cli) -> Result<u8> {
                 "npm install, then npm run build in {given}, which writes view/ from src/. npm run watch rebuilds it on every change."
             ));
         }
+        if *playwright {
+            // a template with a build has npm install in its own step
+            let install = if template.builds() {
+                "npm install".to_string()
+            } else {
+                format!("npm install in {given}")
+            };
+            next.push(format!(
+                "{install}, then npx playwright install chromium once, for the browser the tests run in. npm test runs the tests in {given}/tests."
+            ));
+        }
         next.push(format!("pinrail plugins check {given}"));
         if !*link {
             next.push(format!(
@@ -756,6 +787,7 @@ fn run(cli: Cli) -> Result<u8> {
             "name": name,
             "dir": dir.to_string_lossy(),
             "template": template.to_possible_value().map(|v| v.get_name().to_string()),
+            "playwright": playwright,
             "linked": link,
             "next": next,
             "docs": "pinrail docs plugins/building",

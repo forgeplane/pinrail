@@ -40,28 +40,99 @@ const TEMPLATES: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/templates
 /// The SDK's types, beside a view without a build, for its editor.
 const TYPES: &str = include_str!("../../pinrail-plugin/types.d.ts");
 
-/// The files a template writes: each one's path in the plugin folder, with
-/// the plugin's name still `__NAME__`, and its text. A template's
+/// The SDK package's manifest, for the version a plugin's tests take.
+const SDK_PACKAGE: &str = include_str!("../../pinrail-plugin/package.json");
+
+/// What a new plugin is written with.
+pub struct Options<'a> {
+    pub template: Template,
+    /// tests under the SDK's harness, with Playwright
+    pub playwright: bool,
+    /// where the tests' package.json takes the SDK from, in place of its
+    /// release of the version this command was built with
+    pub sdk: Option<&'a str>,
+}
+
+/// The SDK package of the version this command was built with, as the
+/// tarball attached to its release.
+fn sdk_dependency() -> String {
+    let package: serde_json::Value =
+        serde_json::from_str(SDK_PACKAGE).expect("the SDK's package.json is JSON");
+    let version = package["version"].as_str().expect("the SDK has a version");
+    format!(
+        "https://github.com/forgeplane/pinrail/releases/download/sdk-v{version}/pinrail-plugin-{version}.tgz"
+    )
+}
+
+/// The files of one layer of the templates: each one's path in the plugin
+/// folder, with the plugin's name still `__NAME__`, and its text. A
 /// `_gitignore` is written as `.gitignore`, which the templates' own
 /// folder cannot hold without ignoring files itself.
-fn files(template: Template) -> Vec<(String, &'static str)> {
-    let mut out = Vec::new();
-    for layer in ["common", template.layer()] {
-        let prefix = format!("{layer}/");
-        for (path, text) in TEMPLATES {
-            if let Some(rel) = path.strip_prefix(&prefix) {
-                let rel = match rel.strip_suffix("_gitignore") {
-                    Some(folder) if folder.is_empty() || folder.ends_with('/') => {
-                        format!("{folder}.gitignore")
+fn layer(name: &str) -> Vec<(String, String)> {
+    let prefix = format!("{name}/");
+    TEMPLATES
+        .iter()
+        .filter_map(|(path, text)| {
+            let rel = path.strip_prefix(&prefix)?;
+            let rel = match rel.strip_suffix("_gitignore") {
+                Some(folder) if folder.is_empty() || folder.ends_with('/') => {
+                    format!("{folder}.gitignore")
+                }
+                _ => rel.to_string(),
+            };
+            Some((rel, text.to_string()))
+        })
+        .collect()
+}
+
+/// The files a plugin gets: the common layer, the template's, and with
+/// `--playwright` the testing layer, whose package.json, .gitignore and
+/// README part are added to the template's when it has them.
+fn files(options: &Options) -> Result<Vec<(String, String)>> {
+    let mut out = layer("common");
+    out.extend(layer(options.template.layer()));
+    out.push(("pinrail-plugin.d.ts".to_string(), TYPES.to_string()));
+    if options.playwright {
+        for (rel, text) in layer("playwright") {
+            match out.iter_mut().find(|(path, _)| *path == rel) {
+                Some((_, base)) if rel == "package.json" => *base = with_tests(base, &text)?,
+                Some((_, base)) if rel == ".gitignore" => {
+                    let missing: Vec<&str> = text
+                        .lines()
+                        .filter(|l| !base.lines().any(|b| b == *l))
+                        .collect();
+                    for line in missing {
+                        base.push_str(line);
+                        base.push('\n');
                     }
-                    _ => rel.to_string(),
-                };
-                out.push((rel, *text));
+                }
+                Some((_, base)) => base.push_str(&text),
+                None => out.push((rel, text)),
             }
         }
     }
-    out.push(("pinrail-plugin.d.ts".to_string(), TYPES));
-    out
+    Ok(out)
+}
+
+/// A template's package.json with the testing layer's script and
+/// development dependencies added. A view with a build is built first.
+fn with_tests(base: &str, testing: &str) -> Result<String> {
+    let mut base: serde_json::Value = serde_json::from_str(base)?;
+    let testing: serde_json::Value = serde_json::from_str(testing)?;
+    let test = testing["scripts"]["test"].as_str().unwrap_or_default();
+    let scripts = &mut base["scripts"];
+    scripts["test"] = if scripts.get("build").is_some() {
+        format!("npm run build && {test}").into()
+    } else {
+        test.into()
+    };
+    if let (Some(dev), Some(added)) = (
+        base["devDependencies"].as_object_mut(),
+        testing["devDependencies"].as_object(),
+    ) {
+        dev.extend(added.clone());
+    }
+    Ok(serde_json::to_string_pretty(&base)? + "\n")
 }
 
 /// A plugin's name, as the manifest takes it.
@@ -83,7 +154,7 @@ pub fn title_of(name: &str) -> String {
 
 /// Writes the plugin into `dir`, which must be new or empty; the files
 /// written, relative to it.
-pub fn write(name: &str, dir: &Path, template: Template) -> Result<Vec<PathBuf>> {
+pub fn write(name: &str, dir: &Path, options: &Options) -> Result<Vec<PathBuf>> {
     if !valid(name) {
         bail!(
             "a plugin's name is a lowercase letter, then lowercase letters, digits, _ or -: {name:?}"
@@ -98,15 +169,22 @@ pub fn write(name: &str, dir: &Path, template: Template) -> Result<Vec<PathBuf>>
         bail!("{} exists and is not empty", dir.display());
     }
     let title = title_of(name);
+    let sdk = options
+        .sdk
+        .map(str::to_string)
+        .unwrap_or_else(sdk_dependency);
     let mut written = Vec::new();
-    for (to, text) in files(template) {
+    for (to, text) in files(options)? {
         let to = to.replace("__NAME__", name);
         let target = dir.join(&to);
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("creating {}", parent.display()))?;
         }
-        let text = text.replace("__NAME__", name).replace("__TITLE__", &title);
+        let text = text
+            .replace("__NAME__", name)
+            .replace("__TITLE__", &title)
+            .replace("__SDK_DEP__", &sdk);
         std::fs::write(&target, text).with_context(|| format!("writing {}", target.display()))?;
         written.push(PathBuf::from(&to));
     }
@@ -117,11 +195,19 @@ pub fn write(name: &str, dir: &Path, template: Template) -> Result<Vec<PathBuf>>
 mod tests {
     use super::*;
 
+    fn plain() -> Options<'static> {
+        Options {
+            template: Template::Plain,
+            playwright: false,
+            sdk: None,
+        }
+    }
+
     #[test]
     fn a_new_plugin_is_whole_and_named_throughout() {
         let root = std::env::temp_dir().join(format!("pinrail-new-{}", std::process::id()));
         let dir = root.join("ticket_triage");
-        let written = write("ticket_triage", &dir, Template::Plain).unwrap();
+        let written = write("ticket_triage", &dir, &plain()).unwrap();
         let mut names: Vec<_> = written
             .iter()
             .map(|f| f.to_string_lossy().into_owned())
@@ -173,12 +259,12 @@ mod tests {
         );
 
         assert!(
-            write("ticket_triage", &dir, Template::Plain)
+            write("ticket_triage", &dir, &plain())
                 .unwrap_err()
                 .to_string()
                 .contains("is not empty")
         );
-        assert!(write("Ticket", &root.join("x"), Template::Plain).is_err());
+        assert!(write("Ticket", &root.join("x"), &plain()).is_err());
         std::fs::remove_dir_all(root).unwrap();
     }
 
@@ -195,7 +281,16 @@ mod tests {
             ),
         ] {
             let dir = root.join(format!("{template:?}"));
-            let written = write("ticket_triage", &dir, template).unwrap();
+            let written = write(
+                "ticket_triage",
+                &dir,
+                &Options {
+                    template,
+                    playwright: false,
+                    sdk: None,
+                },
+            )
+            .unwrap();
             let mut names: Vec<_> = written
                 .iter()
                 .map(|f| f.to_string_lossy().into_owned())
@@ -246,6 +341,84 @@ mod tests {
             assert!(read(main).contains(r#"from "../pinrail-plugin""#), "{main}");
             assert!(read(".gitignore").contains("/view/"));
         }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// --playwright adds the tests, and joins what the template has: one
+    /// package.json, one .gitignore, one README.
+    #[test]
+    fn playwright_adds_the_tests_to_any_template() {
+        let root = std::env::temp_dir().join(format!("pinrail-new-tests-{}", std::process::id()));
+        for template in [Template::Plain, Template::React] {
+            let dir = root.join(format!("{template:?}"));
+            let options = Options {
+                template,
+                playwright: true,
+                sdk: None,
+            };
+            let written = write("ticket_triage", &dir, &options).unwrap();
+            let names: Vec<_> = written
+                .iter()
+                .map(|f| f.to_string_lossy().into_owned())
+                .collect();
+            for file in [
+                "package.json",
+                ".gitignore",
+                "playwright.config.ts",
+                "tests/ticket_triage.spec.ts",
+            ] {
+                assert_eq!(
+                    names.iter().filter(|n| *n == file).count(),
+                    1,
+                    "{template:?}: {file}"
+                );
+            }
+            let read = |file: &str| std::fs::read_to_string(dir.join(file)).unwrap();
+            let package: serde_json::Value = serde_json::from_str(&read("package.json")).unwrap();
+            let dev = &package["devDependencies"];
+            assert!(dev["@playwright/test"].is_string());
+            let version =
+                serde_json::from_str::<serde_json::Value>(SDK_PACKAGE).unwrap()["version"]
+                    .as_str()
+                    .unwrap()
+                    .to_string();
+            assert!(
+                dev["@forgeplane/pinrail-plugin"]
+                    .as_str()
+                    .unwrap()
+                    .ends_with(&format!("sdk-v{version}/pinrail-plugin-{version}.tgz")),
+                "{dev}"
+            );
+            let gitignore = read(".gitignore");
+            assert_eq!(gitignore.matches("node_modules/").count(), 1, "{gitignore}");
+            assert!(gitignore.contains("test-results/"));
+            assert!(read("README.md").contains("## Tests\n"));
+            assert!(read("tests/ticket_triage.spec.ts").contains("mountPlugin"));
+            if template == Template::React {
+                assert_eq!(
+                    package["scripts"]["test"],
+                    "npm run build && playwright test"
+                );
+                assert_eq!(package["scripts"]["build"], "tsc --noEmit && vite build");
+                assert!(dev["vite"].is_string(), "the template's own stay");
+            } else {
+                assert_eq!(package["scripts"]["test"], "playwright test");
+                assert_eq!(package["name"], "pinrail-plugin-ticket_triage");
+            }
+        }
+        // the SDK from elsewhere, as the repository's own tests take it
+        let dir = root.join("local");
+        let options = Options {
+            template: Template::Plain,
+            playwright: true,
+            sdk: Some("file:../sdk"),
+        };
+        write("ticket_triage", &dir, &options).unwrap();
+        assert!(
+            std::fs::read_to_string(dir.join("package.json"))
+                .unwrap()
+                .contains(r#""file:../sdk""#)
+        );
         std::fs::remove_dir_all(root).unwrap();
     }
 }
