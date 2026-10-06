@@ -244,3 +244,19 @@ test("a setting sits on one row, its label beside a control of normal size", asy
     expect(Math.abs(l.y + l.height / 2 - (b.y + b.height / 2))).toBeLessThan(6);
   });
 });
+
+test("the fixtures menu lists reviews, not the summaries recorded beside them", async ({ page }) => {
+  const dir = path.join(scratch("pinrail-dev-"), "triage");
+  execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir, "--sdk", `file:${sdk}`], { stdio: "pipe" });
+  const sample = JSON.parse(fs.readFileSync(path.join(dir, "samples", "triage.json"), "utf8"));
+  fs.mkdirSync(path.join(dir, "fixtures"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "fixtures", "round.decided.json"), JSON.stringify({ ...sample, title: "Round 1" }));
+  fs.writeFileSync(path.join(dir, "fixtures", "round.decided.summary.json"), JSON.stringify({ request: null }));
+
+  await withDevShell(dir, async (url) => {
+    await page.goto(url);
+    const options = await page.locator("#fixture option").allTextContents();
+    expect(options).toContain("Round 1");
+    expect(options.join("\n")).not.toContain("summary");
+  });
+});

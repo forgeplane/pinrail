@@ -136,19 +136,22 @@ function fixtures(pluginDir) {
   return REVIEW_DIRS.flatMap((sub) => {
     const dir = path.join(pluginDir, sub);
     if (!fs.existsSync(dir)) return [];
-    return fs
-      .readdirSync(dir)
-      .filter((f) => f.endsWith(".json"))
-      .sort()
-      .map((f) => {
-        const name = `${sub}/${f}`;
-        try {
-          const g = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
-          return { name, title: g.title ?? name, decided: !!g.decision };
-        } catch {
-          return { name, title: `${name} (invalid JSON)`, decided: false, broken: true };
-        }
-      });
+    return (
+      fs
+        .readdirSync(dir)
+        // a decided fixture's summary, recorded beside it, is not a review
+        .filter((f) => f.endsWith(".json") && !f.endsWith(".summary.json"))
+        .sort()
+        .map((f) => {
+          const name = `${sub}/${f}`;
+          try {
+            const g = JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"));
+            return { name, title: g.title ?? name, decided: !!g.decision };
+          } catch {
+            return { name, title: `${name} (invalid JSON)`, decided: false, broken: true };
+          }
+        })
+    );
   });
 }
 
