@@ -525,12 +525,12 @@ enum PluginsCommand {
     /// Create a new plugin
     ///
     /// The new folder contains a manifest, schemas, a sample review, a view,
-    /// and the SDK's types. The plain template's view needs no build; the
-    /// vite and react templates write the view in src/, which npm run build
-    /// turns into view/. --playwright adds a first test of the view, run
-    /// with Playwright under the SDK's harness. --link installs the plugin
-    /// as a link right away, which needs a view, so it takes the plain
-    /// template only.
+    /// and the SDK's types. The plain template's view needs no build. The
+    /// typescript template, or ts, and the react template write the view in
+    /// src/, which npm run build turns into view/. --playwright adds a
+    /// first test of the view, run with Playwright under the SDK's harness.
+    /// --link installs the plugin as a link right away, which needs a view,
+    /// so it takes the plain template only.
     New {
         /// The plugin's name, which starts with a lowercase letter followed by
         /// letters, digits, _ or -

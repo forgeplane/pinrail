@@ -30,7 +30,7 @@ The plugin's manifest, and the schemas every framework's version shares:
 Every version is a Vite project whose build writes `view/`. To start one of your own, `pinrail plugins new` writes a working plugin in React or TypeScript, a yes-or-no question to build on, with a sample to send. `--playwright` adds a first test. For Vue or Svelte, start from the TypeScript template and follow the Vue or Svelte version of this page:
 
 ```sh
-pinrail plugins new push_check --template react    # or --template vite, in TypeScript
+pinrail plugins new push_check --template react    # or --template typescript
 ```
 
 This page builds Ship it? instead. Choose a framework, and every example on this page follows it:

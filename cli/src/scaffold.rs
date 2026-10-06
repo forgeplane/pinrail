@@ -12,8 +12,9 @@ use clap::ValueEnum;
 pub enum Template {
     /// HTML and JavaScript in view/, with no build
     Plain,
-    /// TypeScript in src/, built by Vite into view/
-    Vite,
+    /// TypeScript in src/, without a framework, built by Vite into view/
+    #[value(alias = "ts")]
+    Typescript,
     /// React in src/, built by Vite into view/
     React,
 }
@@ -22,7 +23,7 @@ impl Template {
     fn layer(self) -> &'static str {
         match self {
             Template::Plain => "plain",
-            Template::Vite => "vite",
+            Template::Typescript => "typescript",
             Template::React => "react",
         }
     }
@@ -277,13 +278,14 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
 
-    /// A view built by Vite, typed by the SDK's types in the folder, so
+    /// A view built by Vite, in TypeScript or React, typed by the SDK's
+    /// types in the folder, so
     /// building it needs no SDK package.
     #[test]
     fn the_vite_and_react_templates_build_their_view_from_src() {
         let root = std::env::temp_dir().join(format!("pinrail-new-built-{}", std::process::id()));
         for (template, sources) in [
-            (Template::Vite, &["src/index.html", "src/main.ts"][..]),
+            (Template::Typescript, &["src/index.html", "src/main.ts"][..]),
             (
                 Template::React,
                 &["src/App.tsx", "src/index.html", "src/main.tsx"][..],

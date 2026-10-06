@@ -16,7 +16,7 @@ const usage = `usage: pinrail-sdk <command> [options]
   dev [dir]       the fake shell in a browser, serving the plugin in dir (default .), reloading on change
                   --port N (default 4790), --no-open
 
-A new plugin:      pinrail plugins new <name> [--template plain|vite|react] [--playwright]
+A new plugin:      pinrail plugins new <name> [--template plain|typescript|react] [--playwright]
 What the app says: pinrail plugins check <dir>
 In the app:        pinrail plugins install <dir> --link`;
 

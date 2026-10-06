@@ -2389,6 +2389,16 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     assert_eq!(code, 0);
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["template"], "react");
+    // a view in TypeScript without a framework is `typescript`, or `ts`
+    let (code, stdout, _) = run_in(
+        &server,
+        &dir,
+        &["plugins", "new", "typed", "--template", "ts"],
+    );
+    assert_eq!(code, 0);
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["template"], "typescript");
+    assert!(dir.join("typed/src/main.ts").is_file());
     assert!(
         json["next"][1]
             .as_str()
@@ -2398,7 +2408,7 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     let (code, _, stderr) = run_in(
         &server,
         &dir,
-        &["plugins", "new", "linked", "--template", "vite", "--link"],
+        &["plugins", "new", "linked", "--template", "ts", "--link"],
     );
     assert_eq!(code, 1);
     assert!(stderr.contains("--link needs a view"), "{stderr}");

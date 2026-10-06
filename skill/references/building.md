@@ -14,8 +14,8 @@ pinrail plugins new <name> --dir <path>
 This writes a working plugin that asks one yes-or-no question. It needs
 no build and installs nothing. Two options change what it writes:
 
-- `--template vite` or `--template react` writes a view in TypeScript or
-  React in `src/`, built by Vite into `view/`. See
+- `--template typescript` (or `ts`) or `--template react` writes a view
+  in TypeScript or React in `src/`, built by Vite into `view/`. See
   [frameworks](#frameworks).
 - `--playwright` adds a first test of the view. See
   [test it](#8-test-it).
@@ -324,7 +324,7 @@ List the view's keyboard shortcuts in the manifest's `shortcuts`:
 
 A view can be built with React, Vue, Svelte or TypeScript, as long as the
 build writes an HTML page and its files into the plugin folder.
-`pinrail plugins new --template react` or `--template vite` writes a
+`pinrail plugins new --template react` or `--template typescript` writes a
 working plugin in React or TypeScript, with a Vite build. For Vue or
 Svelte, start from the TypeScript plugin, and follow the matching version
 of the Ship it? example in `docs/examples/ship-it/` of the Pinrail

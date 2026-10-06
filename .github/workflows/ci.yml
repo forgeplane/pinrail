@@ -223,7 +223,7 @@ jobs:
       # has a build and passes the check before a line of it is changed
       - name: New plugins
         run: |
-          for template in plain vite react; do
+          for template in plain typescript react; do
             dir="$RUNNER_TEMP/new/$template"
             pinrail plugins new "new_$template" --template "$template" --dir "$dir"
             if [ "$template" != plain ]; then
@@ -241,7 +241,7 @@ jobs:
       # SDK package
       - name: New plugins with tests
         run: |
-          for template in plain vite react; do
+          for template in plain typescript react; do
             dir="$RUNNER_TEMP/tested/$template"
             pinrail plugins new "tested_$template" --template "$template" --playwright \
               --sdk "file:$PWD/sdk" --dir "$dir"
