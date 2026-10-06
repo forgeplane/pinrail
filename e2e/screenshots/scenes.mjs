@@ -96,52 +96,6 @@ export const scenes = [
     },
   },
   {
-    // one time chosen, one item sent back for another time with a note; then
-    // the same plan in the day and the list views
-    name: "calendar",
-    async run({ page, app, reviews, shot }) {
-      const f = await openReview(page, app, reviews["18-calendar-week"]);
-      await f.getByRole("button", { name: "Week", exact: true }).click();
-      await f.locator('.event[data-option="doctor-mon"]').click();
-      const dinner = f.locator('[data-activity="dinner"]');
-      await dinner.getByRole("button", { name: "Another time" }).click();
-      await dinner.locator("textarea").fill("Friday evening works better");
-      await f.locator("#calendar-scroll").evaluate((el) => el.scrollTo({ top: 60, behavior: "instant" }));
-      await settle(page);
-      await shot("calendar-week");
-      await f.getByRole("button", { name: "Day", exact: true }).click();
-      await f.locator(".day-strip button").filter({ hasText: "22" }).click();
-      await f.locator("#calendar-scroll").evaluate((el) => el.scrollTo({ top: 420, behavior: "instant" }));
-      await settle(page);
-      await shot("calendar-day");
-      await f.getByRole("button", { name: "List", exact: true }).click();
-      await settle(page);
-      await shot("calendar-list");
-      await shot("calendar-view", page.locator("#plugin-frame"), { site: true });
-    },
-  },
-  {
-    // a verdict on three marks, the favourite with a change to one of its parts half written
-    name: "logo",
-    async run({ page, app, reviews, shot }) {
-      const f = await openReview(page, app, reviews["17-logo-tidemark"]);
-      const verdict = async (index, action, note) => {
-        await f.locator(".pick").nth(index).click();
-        await f.locator(`.choice[data-action="${action}"]`).click();
-        if (note) await f.locator("#note").fill(note);
-        await settle(page, 150);
-      };
-      await verdict(0, "keep");
-      await verdict(1, "drop", "Too close to every other ring mark");
-      await verdict(3, "favorite", "Pixel-tune it at 16 px");
-      await f.locator('.stage[data-stage="light"] svg rect').nth(2).click({ force: true });
-      await f.locator("#part-note").fill("Lower the line a little, below the middle");
-      await settle(page);
-      await shot("logo");
-      await shot("logo-view", page.locator("#plugin-frame"), { site: true });
-    },
-  },
-  {
     // the favourite on the stage, a change pinned to its base and another being written on its shade
     name: "model",
     async run({ page, app, reviews, shot }) {
