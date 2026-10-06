@@ -31,9 +31,6 @@ const SHIPPED = [
   "vite.config.mjs",
 ];
 
-/** Internal prereleases: nobody installed from them, so nothing upgrades from them. */
-const PRERELEASES = ["v0.1.0", "v0.2.0"];
-
 const semver = (text) => text.split(".").map(Number);
 const newer = (a, b) => {
   const [x, y] = [semver(a), semver(b)];
@@ -45,7 +42,7 @@ const newer = (a, b) => {
 function lastRelease(git) {
   const tags = git("tag", "--list", "v*")
     .split("\n")
-    .filter((t) => /^v\d+\.\d+\.\d+$/.test(t) && !PRERELEASES.includes(t));
+    .filter((t) => /^v\d+\.\d+\.\d+$/.test(t));
   return tags.sort((a, b) => (newer(a.slice(1), b.slice(1)) ? -1 : 1))[0] ?? null;
 }
 

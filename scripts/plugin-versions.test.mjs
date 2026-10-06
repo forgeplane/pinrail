@@ -59,13 +59,3 @@ test("a plugin new since the release, or no release yet, needs nothing", () => {
   r.commit("a new plugin");
   assert.deepEqual(unbumped(r.root, ["list", "markdown"]), []);
 });
-
-test("the internal prerelease tags are not releases to compare with", () => {
-  const r = repository();
-  r.manifest("list", "1.0.0");
-  r.commit("first");
-  r.git("tag", "v0.2.0");
-  r.write("plugins/list/view/index.html", "changed");
-  r.commit("changed");
-  assert.deepEqual(unbumped(r.root, ["list"]), []);
-});
