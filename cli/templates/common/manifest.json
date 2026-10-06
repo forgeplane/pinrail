@@ -1,0 +1,15 @@
+{
+  "name": "__NAME__",
+  "version": "0.1.0",
+  "title": "__TITLE__",
+  "description": "A yes-or-no question. Replace with what your plugin is for.",
+  "use_when": "Replace with the situation an agent should ask with this plugin in.",
+  "summary": {
+    "outcome": {
+      "verdict": {
+        "at": "/ok",
+        "values": { "true": { "label": "yes", "tone": "success" }, "false": { "label": "no", "tone": "danger" } }
+      }
+    }
+  }
+}

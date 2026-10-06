@@ -1,76 +1,33 @@
-//! `pinrail plugins new`: a plugin that needs no build and no npm, from the
-//! SDK's own `plain` and `common` templates, so the two scaffolds cannot
-//! drift. What needs Node is left out: the package, the Playwright harness,
-//! the release workflow, and the fixtures the sample stands in for.
+//! `pinrail plugins new`: a plugin folder from the templates in
+//! `templates/`, embedded at build. Every plugin gets the `common` layer,
+//! then the layer of its template.
 
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 
-/// Each file: where it lands, and the template it comes from.
-const FILES: &[(&str, &str)] = &[
-    (
-        "manifest.json",
-        include_str!("../../pinrail-plugin/templates/plain/manifest.json"),
-    ),
-    (
-        "view/index.html",
-        include_str!("../../pinrail-plugin/templates/plain/view/index.html"),
-    ),
-    (
-        "view/view.js",
-        include_str!("../../pinrail-plugin/templates/plain/view/view.js"),
-    ),
-    (
-        "icon.svg",
-        include_str!("../../pinrail-plugin/templates/plain/icon.svg"),
-    ),
-    (
-        "view/icons/check.svg",
-        include_str!("../../pinrail-plugin/templates/plain/view/icons/check.svg"),
-    ),
-    (
-        "view/icons/x.svg",
-        include_str!("../../pinrail-plugin/templates/plain/view/icons/x.svg"),
-    ),
-    // Lucide's icons carry their licence with them
-    (
-        "view/icons/LICENSE",
-        include_str!("../../pinrail-plugin/licenses/lucide-icons.txt"),
-    ),
-    (
-        "schemas/payload.schema.json",
-        include_str!("../../pinrail-plugin/templates/common/schemas/payload.schema.json"),
-    ),
-    (
-        "schemas/decision.schema.json",
-        include_str!("../../pinrail-plugin/templates/common/schemas/decision.schema.json"),
-    ),
-    (
-        "samples/__NAME__.json",
-        include_str!("../../pinrail-plugin/templates/common/samples/__NAME__.json"),
-    ),
-    (
-        "pinrail-plugin.d.ts",
-        include_str!("../../pinrail-plugin/types.d.ts"),
-    ),
-    ("README.md", README),
-];
+/// Each file of the templates: its path under `templates/`, such as
+/// `plain/view/view.js`, and its text.
+const TEMPLATES: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/templates.rs"));
 
-const README: &str = r#"# __TITLE__
+/// The SDK's types, beside a view without a build, for its editor.
+const TYPES: &str = include_str!("../../pinrail-plugin/types.d.ts");
 
-A Pinrail plugin: what an agent asks (`schemas/payload.schema.json`), what
-the person answers (`schemas/decision.schema.json`), and the view between
-them (`view/index.html` and `view/view.js`). It starts as one yes-or-no
-question; make it yours from there.
-
-```sh
-pinrail plugins check .             # what the app would refuse, and why
-pinrail plugins install . --link    # the app follows this folder as you change it
-pinrail submit __NAME__ --sample    # a real review of its sample, in the inbox
-pinrail docs plugins/building       # how a plugin works, and how to build one
-```
-"#;
+/// The files a template writes: each one's path in the plugin folder, with
+/// the plugin's name still `__NAME__`, and its text.
+fn files(template: &str) -> Vec<(String, &'static str)> {
+    let mut out = Vec::new();
+    for layer in ["common", template] {
+        let prefix = format!("{layer}/");
+        for (path, text) in TEMPLATES {
+            if let Some(rel) = path.strip_prefix(&prefix) {
+                out.push((rel.to_string(), *text));
+            }
+        }
+    }
+    out.push(("pinrail-plugin.d.ts".to_string(), TYPES));
+    out
+}
 
 /// A plugin's name, as the manifest takes it.
 fn valid(name: &str) -> bool {
@@ -107,7 +64,7 @@ pub fn write(name: &str, dir: &Path) -> Result<Vec<PathBuf>> {
     }
     let title = title_of(name);
     let mut written = Vec::new();
-    for (to, template) in FILES {
+    for (to, template) in files("plain") {
         let to = to.replace("__NAME__", name);
         let target = dir.join(&to);
         if let Some(parent) = target.parent() {
@@ -132,7 +89,28 @@ mod tests {
         let root = std::env::temp_dir().join(format!("pinrail-new-{}", std::process::id()));
         let dir = root.join("ticket_triage");
         let written = write("ticket_triage", &dir).unwrap();
-        assert_eq!(written.len(), FILES.len());
+        let mut names: Vec<_> = written
+            .iter()
+            .map(|f| f.to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(
+            names,
+            [
+                "README.md",
+                "icon.svg",
+                "manifest.json",
+                "pinrail-plugin.d.ts",
+                "samples/ticket_triage.json",
+                "schemas/decision.schema.json",
+                "schemas/payload.schema.json",
+                "view/icons/LICENSE",
+                "view/icons/check.svg",
+                "view/icons/x.svg",
+                "view/index.html",
+                "view/view.js",
+            ]
+        );
         for file in &written {
             let text = std::fs::read_to_string(dir.join(file)).unwrap();
             assert!(

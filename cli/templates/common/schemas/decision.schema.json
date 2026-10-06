@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "__TITLE__ decision",
+  "description": "What the view hands back; the app validates it before the agent sees it. Replace `ok` with what the agent has to act on.",
+  "type": "object",
+  "required": ["ok"],
+  "additionalProperties": false,
+  "properties": {
+    "ok": { "type": "boolean", "description": "The answer" }
+  }
+}
