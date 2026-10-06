@@ -25,11 +25,11 @@ const invoke = <T,>(command: string, args?: Record<string, unknown>) =>
   import("@tauri-apps/api/core").then(({ invoke }) => invoke<T>(command, args));
 
 /** The skill's folder, with ~ for the home folder. */
-const where = (skill: string) => skill.replace(/^\/(?:Users|home)\/[^/]+/, "~").replace(/\/SKILL\.md$/, "");
+export const where = (skill: string) => skill.replace(/^\/(?:Users|home)\/[^/]+/, "~").replace(/\/SKILL\.md$/, "");
 
 /** The agents while `open`, looked at again when the window comes back, and
  *  connecting or disconnecting one. */
-function useAgents(open: boolean) {
+export function useAgents(open: boolean) {
   const [agents, setAgents] = useState<AgentStatus[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<{ id: string | null; message: string } | null>(null);
@@ -63,7 +63,7 @@ function useAgents(open: boolean) {
 }
 
 /** The agent's mark, as the inbox shows it beside a review. */
-function Tile({ id }: { id: string }) {
+export function Tile({ id }: { id: string }) {
   return (
     <span className="agent-tile" aria-hidden="true">
       <AgentIcon requestedBy={id} size={18} />
