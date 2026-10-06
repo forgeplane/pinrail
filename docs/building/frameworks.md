@@ -76,7 +76,7 @@ npm test                   # build, then the tests under the harness
 ```
 
 :::tip[pinrail-plugin dev: a stand-in for the app]
-`pinrail-plugin dev` opens the view in a browser inside a stand-in for the app, and reloads it when the build changes. The bar at the top picks a fixture, a decided one as the previous round, or read-only, and plays the app's side: *Collect* is the hand-over button, *Theme* switches light and dark. On the right: the settings and keys the manifest declares, what the view last sent as its status, draft and decision, every message in both directions, and violations or a decision to send back.
+`pinrail-plugin dev` opens the view in a browser inside a stand-in for the app, and reloads it when the build changes. The bar at the top picks a fixture, a decided one as the previous round, or read-only, and plays the app's side: *Collect* is the hand-over button, *Theme* switches light and dark. On the right: the settings and keys the manifest declares, what the view last sent as its status, draft and decision, every message in both directions, and violations or a decision to send back. *Select* lets you comment on any part of the view and copy the comments to an agent, as [Writing a plugin](/docs/building/writing/#work-on-the-view-in-the-dev-shell) describes.
 
 ![pinrail-plugin dev with Ship it?: the view on the left with Ship chosen, and on the right the shortcuts s and h, the status Ship v2.4.1, the draft, and the draft and status messages the view sent.](screenshot:dev-shell "pinrail-plugin dev: the view, what it sent, and the app's side of the conversation to play.")
 :::

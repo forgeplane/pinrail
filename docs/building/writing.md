@@ -332,6 +332,20 @@ If a sample cannot be loaded, the plugin works without it, and its row in *Setti
 
 Link `/sdk/v1/pinrail-plugin.css` and your view gets the app's colours in both themes, its type, and classes for the usual shapes: a header, items, buttons, fields, notices. `Pinrail.icon(name)` draws one of the plugin's own icons, and `Pinrail.layout()` the header-and-body skeleton. To render Markdown, load `<script src="/sdk/v1/markdown.js"></script>` after the SDK and call `Pinrail.markdown(text)`. It is all optional, and your own fonts, styles and scripts can ship in the plugin folder: see [Design and styling](/docs/building/design/).
 
+## Work on the view in the dev shell
+
+The plugin SDK's dev shell shows the view in a browser, inside a stand-in for the app, and reloads it whenever a file of the plugin changes. It is the quickest way to shape a view, on your own or with a coding agent. The SDK is not published to npm, so run the dev shell from a checkout of the Pinrail repository:
+
+```sh
+git clone https://github.com/forgeplane/pinrail
+cd pinrail/pinrail-plugin && npm install
+node bin/pinrail-plugin.mjs dev ~/code/ticket_triage
+```
+
+The bar at the top picks the review the view opens with, from `samples/` and `fixtures/`, and switches between read-only and the light and dark themes. The panel on the right plays the app's part, with the hand-over, the plugin's settings, and what the view sent.
+
+To ask an agent for changes, turn on *Select*, or press <kbd>I</kbd>, click the part of the view to change, and write what should change there. *Copy comments* puts every comment on the clipboard as Markdown, with the part of the view each one is about, to paste to the agent. The agent revises the view, the dev shell reloads it, and the agent clears the comments for the next round. An agent with Pinrail's skill knows this loop, and can start the dev shell and give you its address.
+
 ## Run it
 
 A linked plugin follows its folder: send it its sample, and change the view as you look at it. When you change the folder, the review screen offers *Reload*, which opens the review with the folder as it is now. A change to the manifest, a schema or the template applies to the next submission, and to the review when you reload it. A manifest that breaks shows its error on the plugin's row in *Settings › Plugins* until you fix it.
