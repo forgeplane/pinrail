@@ -9,6 +9,7 @@ import remarkMermaid from "./src/plugins/remark-mermaid.mjs";
 import remarkScreenshots from "./src/plugins/remark-screenshots.mjs";
 import remarkVideo from "./src/plugins/remark-video.mjs";
 import remarkKbd from "./src/plugins/remark-kbd.mjs";
+import remarkTableNames from "./src/plugins/remark-table-names.mjs";
 import remarkPageSlug from "./src/plugins/remark-page-slug.mjs";
 import remarkContract from "./src/plugins/remark-contract.mjs";
 import remarkTokens, { stylesheetDigest } from "./src/plugins/remark-tokens.mjs";
@@ -29,6 +30,7 @@ export default defineConfig({
         remarkScreenshots,
         remarkVideo,
         remarkKbd,
+        remarkTableNames,
         remarkContract,
         [remarkTokens, { stylesheet: stylesheetDigest }],
         remarkExamples,

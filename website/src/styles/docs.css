@@ -301,6 +301,10 @@ starlight-file-tree {
 .sl-markdown-content table {
   font-size: 0.92rem;
 }
+/* a name in a table, such as visual-diff, is not broken at its hyphen */
+.sl-markdown-content code.pr-name {
+  white-space: nowrap;
+}
 .sl-markdown-content th {
   font: 600 0.72rem var(--sl-font-mono);
   letter-spacing: 0.08em;
