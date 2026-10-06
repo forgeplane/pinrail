@@ -27,8 +27,8 @@ scene, removes nothing.
 2. `seed.mjs` installs the official plugins the fixtures use from a checkout
    of [forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins)
    beside this repository, `../pinrail-plugins`, or from the folder that
-   `PINRAIL_PLUGINS_DIR` names. Build `artifact` and `model` there first
-   (`npm ci && npm run build` in each). It then creates each fixture in
+   `PINRAIL_PLUGINS_DIR` names. Build `plugins/artifact` and
+   `plugins/model-3d` there first (`npm ci && npm run build` in each). It then creates each fixture in
    `fixtures/` through the API, with its decision, discard or withdrawal.
 3. The core is stopped and its database pinned: every time counts back from
    a fixed moment, ids, the person deciding and the plugins' sources are
