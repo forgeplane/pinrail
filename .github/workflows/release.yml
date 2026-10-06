@@ -132,9 +132,11 @@ jobs:
               desktop/target/release/bundle/deb/*.deb
               desktop/target/release/bundle/rpm/*.rpm
     runs-on: ${{ matrix.runner }}
-    # notarization waits on Apple, so a stuck one fails within the hour
-    # rather than holding a runner for the default six
-    timeout-minutes: 60
+    # The universal macOS build compiles twice, about 20 minutes, then
+    # waits in Apple's notary queue, which can take most of an hour. Two
+    # hours leaves room for both, and a stuck notarization still fails
+    # well before the default six.
+    timeout-minutes: 120
     env:
       # a step cannot read a secret in its condition, only an environment
       # value: this says whether this run has what it takes to sign
