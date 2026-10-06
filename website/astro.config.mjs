@@ -135,6 +135,7 @@ export default defineConfig({
             "docs/building/design",
             "docs/building/settings-and-keys",
             "docs/building/frameworks",
+            "docs/building/testing",
             "docs/building/protocol",
             "docs/building/publishing",
           ],

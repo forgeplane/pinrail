@@ -394,7 +394,7 @@ A fixture is also a request that the app accepts as it is, files included, so yo
 pinrail submit ticket_triage --request fixtures/basic.json
 ```
 
-To test the view on its own, in a browser without the app, use the test harness of the plugin SDK. The tests mount the view, use it the way a person would, and read back exactly what it submits. See the [SDK's README](https://github.com/forgeplane/pinrail/tree/main/pinrail-plugin#readme).
+To test the view on its own, in a browser without the app, use the test harness of the plugin SDK. The tests mount the view, use it the way a person would, and read back exactly what it submits. See [Testing a plugin](/docs/building/testing/).
 
 ## Versions
 

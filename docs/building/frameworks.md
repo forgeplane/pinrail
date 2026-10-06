@@ -86,7 +86,7 @@ npm test                   # build, then the tests under the harness
 The command also checks the plugin's recorded decisions, the `fixtures/<name>.decided.json` files that tests use to show a decided review. Each one's payload and decision must pass the plugin's schemas. When a `<name>.decided.md` file is beside a recorded decision, the Markdown that the app renders for an agent from it must equal that file, so a change to the plugin's template or schemas cannot change what agents read without you noticing. `--update-fixtures` writes these files from what the app renders. Review the difference before you commit it.
 :::
 
-A test mounts the built view alone and drives it the way a person would. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:
+A test mounts the built view alone and drives it the way a person would, as [Testing a plugin](/docs/building/testing/) describes. Because it looks only at what the person sees (text, roles and labels), the same test passes for every framework:
 
 ![Test](example:ship-it/react/tests/ship_it.spec.ts)
 

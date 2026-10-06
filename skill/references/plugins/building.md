@@ -14,7 +14,8 @@ This writes a working plugin that asks one yes-or-no question. It needs
 no build and installs nothing. For a view in React or TypeScript, built
 by Vite, add `--template react` or `--template vite`, and see
 [Frameworks](building/frameworks.md). `--playwright` adds a first test of
-the view, which `npm test` runs with Playwright under the SDK's harness.
+the view, which `npm test` runs with Playwright under the SDK's harness;
+see [testing](building/testing.md).
 
 ## 2. The files
 
@@ -109,5 +110,6 @@ within a second.
 - [Design](building/design.md): Look like the app: the stylesheet's tokens and classes, themes, icons.
 - [The dev shell](building/dev-shell.md): The view in a browser, reloading as you change it, with comments from the person to revise it by.
 - [Settings and keys](building/settings.md): Options in Settings › Plugins, and keyboard shortcuts the app lists and forwards.
+- [Testing](building/testing.md): Tests of the view alone, with Playwright and the SDK's harness.
 - [The manifest](building/manifest.md): The JSON Schema every plugin's manifest is checked against.
 - [Frameworks](building/frameworks.md): Views built with React, Vue, Svelte or TypeScript, created with the plugin SDK from a checkout of the Pinrail repository.
