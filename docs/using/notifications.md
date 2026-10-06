@@ -32,7 +32,7 @@ The menu bar count always shows what is waiting, whatever you have paused or mut
 
 ## When notifications don't appear
 
-Pinrail asks your system for permission to show notifications during its first-run setup. If you skip that step, it asks when the first review arrives.
+Pinrail asks your system for permission to show notifications when you turn them on, in the setup or in *Settings › General*. If notifications are already on and your system has not been asked yet, Pinrail asks when the first review arrives.
 
 **On macOS**, open *System Settings › Notifications › Pinrail* and check that notifications are allowed, with the alert style you want. A Focus mode also holds notifications back until it ends. *Settings › General* in Pinrail shows what macOS reports, with a link to its settings when notifications are blocked.
 

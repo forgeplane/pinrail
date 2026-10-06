@@ -25,7 +25,13 @@ The macOS app and the AppImage update themselves. They download new versions in 
 
 ## The command
 
-The first time you open Pinrail, it shows a short setup. The setup installs the `pinrail` command, sends you a first review, asks for permission to show notifications, and gives you text to add to your agent's instructions. To open the setup again, press <kbd>⌘K</kbd> and choose *Set up Pinrail*.
+The first time you open Pinrail, it shows a short setup in three steps:
+
+1. *Connect* installs the `pinrail` command, adds Pinrail's skill to the agents you choose, and turns notifications on. It lists only the agents found on your computer. [Settings › Agents](/docs/using/settings/#agents) connects them later too.
+2. *Plugins* installs the plugins you choose. The two that Pinrail recommends are already selected.
+3. *Try it* gives you, for each installed plugin, a prompt to give your agent and a sample review to send yourself. This step opens once a plugin is installed.
+
+To open the setup again, press <kbd>⌘K</kbd> and choose *Set up Pinrail*.
 
 You can also install the command from **Settings › Data** with **Install the CLI**. It puts `pinrail` into `~/.local/bin`, so make sure that folder is on your `PATH`. With the `.deb` or `.rpm`, the command is already installed as `/usr/bin/pinrail`.
 

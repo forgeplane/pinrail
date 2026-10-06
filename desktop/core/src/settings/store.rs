@@ -139,7 +139,7 @@ const LEAVES: &[Leaf] = &[
         "/welcome/seen",
         Kind::Bool,
         || json!(false),
-        "Whether the welcome screen has been closed. While `false`, Pinrail opens on it.",
+        "Whether the setup has been finished or skipped. While `false`, Pinrail opens on it.",
     ),
 ];
 
