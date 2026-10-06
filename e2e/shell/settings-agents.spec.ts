@@ -51,3 +51,50 @@ test("Agents fits its width, whatever an agent's message says", async ({ page })
   const overflow = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("Update all updates every agent whose skill is outdated", async ({ page }) => {
+  await page.goto("/#/");
+  await page.locator(".app-main").waitFor();
+  await page.evaluate(() => {
+    const agent = (id: string, name: string, state: string) => ({
+      id,
+      name,
+      found: true,
+      skill: `/Users/you/.${id}/skills/pinrail/SKILL.md`,
+      state,
+      covered_by: null,
+    });
+    const agents = [
+      agent("claude", "Claude Code", "outdated"),
+      agent("codex", "Codex", "outdated"),
+      agent("cursor", "Cursor", "absent"),
+    ];
+    const w = window as unknown as Record<string, unknown>;
+    w.__connected = [] as string[];
+    w.__TAURI_INTERNALS__ = {
+      invoke: async (command: string, args: { id?: string }) => {
+        if (command === "agents_status") return agents;
+        if (command === "connect_agent") {
+          (w.__connected as string[]).push(args.id!);
+          agents.find((a) => a.id === args.id)!.state = "connected";
+          return agents;
+        }
+        throw new Error(`${command} is not answered here`);
+      },
+    };
+  });
+  await page.keyboard.press("ControlOrMeta+,");
+  await page.locator('[data-section="agents"]').click();
+  const updateAll = page.locator("[data-agents-update-all]");
+  await expect(updateAll).toHaveText("Update all 2");
+  await updateAll.click();
+  await expect(page.locator('[data-agent="codex"]')).toHaveAttribute("data-agent-state", "connected");
+  await expect(page.locator('[data-agent="claude"]')).toHaveAttribute("data-agent-state", "connected");
+  // an agent that was never connected stays as it was
+  await expect(page.locator('[data-agent="cursor"]')).toHaveAttribute("data-agent-state", "absent");
+  expect(await page.evaluate(() => (window as unknown as { __connected: string[] }).__connected)).toEqual([
+    "claude",
+    "codex",
+  ]);
+  await expect(updateAll).toHaveCount(0);
+});
