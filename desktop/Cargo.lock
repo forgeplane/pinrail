@@ -3330,7 +3330,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pinrail-core"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "axum",
  "chrono",
@@ -3356,7 +3356,7 @@ dependencies = [
 
 [[package]]
 name = "pinrail-desktop"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "block2",
  "chrono",
@@ -3388,7 +3388,7 @@ dependencies = [
 
 [[package]]
 name = "pinrail-format"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "jsonschema",
