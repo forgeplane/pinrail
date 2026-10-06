@@ -106,7 +106,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # Linux on x86-64, and on ARM64 once the repository is public,
+        # where GitHub's ARM64 runners are free; macos-latest is Apple silicon
+        os: ${{ fromJSON(github.event.repository.private && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest", "ubuntu-24.04-arm", "macos-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:

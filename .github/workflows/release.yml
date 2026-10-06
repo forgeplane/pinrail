@@ -1,6 +1,7 @@
 # A tag v<version> (v0.1.0) releases the desktop app: the full CI runs first,
 # then a draft GitHub Release gets a universal macOS build (.dmg, and the
-# .app.tar.gz the action adds) and Linux builds (.AppImage, .deb, .rpm), each
+# .app.tar.gz the action adds) and Linux builds for x86-64 and ARM64
+# (.AppImage, .deb, .rpm), each
 # with the pinrail CLI inside (/usr/bin/pinrail in the Linux packages, beside the
 # app as pinrail-desktop; pinrail-cli in the macOS bundle) and the third-party
 # notices as THIRD_PARTY_NOTICES.txt, the CLI on its own for each platform
@@ -114,6 +115,16 @@ jobs:
             runner: ubuntu-22.04
             triple: x86_64-unknown-linux-gnu
             # pinrail-desktop and /usr/bin/pinrail: the command is the CLI's
+            args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.linux.conf.json
+            targets: ""
+            bundles: |
+              desktop/target/release/bundle/appimage/*.AppImage
+              desktop/target/release/bundle/deb/*.deb
+              desktop/target/release/bundle/rpm/*.rpm
+          - name: linux-arm
+            # the same as linux, built on an ARM64 runner of the same Ubuntu
+            runner: ubuntu-22.04-arm
+            triple: aarch64-unknown-linux-gnu
             args: --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.release.linux.conf.json
             targets: ""
             bundles: |
@@ -263,7 +274,9 @@ jobs:
           # no version in the files' names, so the site links to
           # releases/latest/download/<name> and never goes stale; latest.json
           # names them the same: pinrail-app-universal.dmg, pinrail-app-amd64.AppImage,
-          # pinrail-app-amd64.deb, pinrail-app-x86_64.rpm
+          # pinrail-app-amd64.deb, pinrail-app-x86_64.rpm, and on ARM64
+          # pinrail-app-aarch64.AppImage, pinrail-app-arm64.deb and
+          # pinrail-app-aarch64.rpm
           releaseAssetNamePattern: "pinrail-app-[arch][ext]"
           # a flaky upload or a notarization hiccup costs a retry, not a release
           retryAttempts: 3
@@ -384,10 +397,10 @@ jobs:
           mkdir assets && cd assets
           gh release download "$GITHUB_REF_NAME" --repo "${{ github.repository }}"
           # what the updater reads: every platform, each with an address and
-          # a signature. Both builds add to one file, so a lost entry shows here.
+          # a signature. Every build adds to one file, so a lost entry shows here.
           jq -e '. as $j
             | ($j.version | length > 0)
-            and ([ "darwin-aarch64", "darwin-x86_64", "linux-x86_64" ]
+            and ([ "darwin-aarch64", "darwin-x86_64", "linux-x86_64", "linux-aarch64" ]
                  | all(. as $p | ($j.platforms[$p].signature // "" | length > 0)
                                  and ($j.platforms[$p].url // "" | length > 0)))
           ' latest.json > /dev/null || { echo "latest.json is missing a platform or a signature:"; cat latest.json; exit 1; }

@@ -17,6 +17,7 @@ Download it from [the download page](/download/), which has every system and for
 |---|---|
 | macOS 13 or later | [pinrail-app-universal.dmg](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-universal.dmg). Open it and drag Pinrail to Applications. |
 | Linux, x86-64 | [AppImage](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.AppImage) for any distribution (`chmod +x` it, then run it), [.deb](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-amd64.deb) (`sudo apt install ./pinrail-app-amd64.deb`) or [.rpm](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-x86_64.rpm) (`sudo dnf install ./pinrail-app-x86_64.rpm`). |
+| Linux, ARM64 | [AppImage](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-aarch64.AppImage), [.deb](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-arm64.deb) (`sudo apt install ./pinrail-app-arm64.deb`) or [.rpm](https://github.com/forgeplane/pinrail/releases/latest/download/pinrail-app-aarch64.rpm) (`sudo dnf install ./pinrail-app-aarch64.rpm`). |
 | Windows | Coming soon. |
 
 Open Pinrail. It starts a small server on your machine, at `127.0.0.1:4747`, which is how the `pinrail` command reaches it. Closing the window keeps the app running in the menu bar, or in the system tray on Linux, so agents can still ask while the window is closed.
