@@ -421,18 +421,21 @@ export const scenes = [
       const dir = path.join(app.code, "ticket_triage");
       fs.rmSync(dir, { recursive: true, force: true });
       fs.mkdirSync(app.code, { recursive: true });
-      execFileSync(
-        "node",
-        [path.join(app.root, "pinrail-plugin", "bin", "pinrail-plugin.mjs"), "create", "ticket_triage", "--dir", dir],
-        { stdio: "ignore" },
-      );
+      // written as a person would, by the command this checkout builds
+      const cli = path.join(app.root, "cli");
+      execFileSync("cargo", ["build", "--quiet", "--manifest-path", path.join(cli, "Cargo.toml")], {
+        stdio: "inherit",
+      });
+      execFileSync(path.join(cli, "target", "debug", "pinrail"), ["plugins", "new", "ticket_triage", "--dir", dir], {
+        stdio: "ignore",
+      });
       const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
       fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ ...manifest, icon: "ticket" }, null, 2));
       await page.goto(`${app.ui}/#/`);
       await page.locator(".inbox-repo").first().waitFor();
       await page.keyboard.press("Meta+,");
       await page.locator('[data-section="plugins"]').click();
-      await page.getByRole("textbox", { name: "Source", exact: true }).fill(dir);
+      await page.getByRole("textbox", { name: "Search official plugins, or give a source path" }).fill(dir);
       await page.getByText("ticket_triage").first().waitFor();
       await settle(page, 500);
       await shot("install");

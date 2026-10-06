@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { listPayload, startWaiter, submitListReview, tmpFile, pinrail, pinrailJson } from "../helpers/pinrail";
@@ -177,11 +176,10 @@ test("installing again replaces a plugin, and remove drops the record", async ()
   }
 });
 
-test("a plugin pinrail-plugin create wrote installs as a link and decides a review", async () => {
+test("a plugin pinrail plugins new wrote installs as a link and decides a review", async () => {
   try {
-    const bin = path.resolve(__dirname, "../../pinrail-plugin/bin/pinrail-plugin.mjs");
     const dir = path.join(path.dirname(tmpFile("x", "")), "triage");
-    execFileSync(process.execPath, [bin, "create", "triage", "--dir", dir], { stdio: "pipe" });
+    expect(pinrail(["plugins", "new", "triage", "--dir", dir]).code).toBe(0);
 
     const linked = pinrailJson(["plugins", "install", dir, "--link"]);
     expect(linked.name).toBe("triage");
