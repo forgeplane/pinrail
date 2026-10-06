@@ -10,10 +10,10 @@
 // a fixed value, and the browser's clock is frozen at the same moment. Each
 // scene then runs once per theme and saves <name>-light.png and
 // <name>-dark.png where they are used: into website/public/screenshots when
-// a docs page shows it as screenshot:<name>, and into
-// website/src/assets/screenshots when the scene marks it `site: true`, for
-// the landing pages, where Astro optimizes it. A shot used by neither fails
-// the run. With --out, every shot goes into that folder instead.
+// a docs page shows it as screenshot:<name>, and, in the light theme only,
+// into website/src/assets/screenshots when the scene marks it `site: true`,
+// for the landing pages, where Astro optimizes it. A shot used by neither
+// fails the run. With --out, every shot goes into that folder instead.
 //
 // made.json records the files a full run made. The next full run that
 // succeeds removes the ones it no longer makes, such as a renamed scene's;
@@ -100,10 +100,16 @@ try {
     for (const scene of chosen) {
       const page = await context.newPage();
       await page.clock.setFixedTime(NOW);
-      // `site: true` saves the shot into the website's assets, for the landing pages
+      // `site: true` saves the light shot into the website's assets, for the
+      // landing pages, which are light
       const shot = async (name, target = page, { site = false, ...options } = {}) => {
-        const folders = elsewhere ? [out] : [...(inDocs.has(name) ? [out] : []), ...(site ? [siteAssets] : [])];
-        if (!folders.length) throw new Error(`${name} is shown by no docs page, and not marked site: true`);
+        if (!elsewhere && !inDocs.has(name) && !site) {
+          throw new Error(`${name} is shown by no docs page, and not marked site: true`);
+        }
+        const folders = elsewhere
+          ? [out]
+          : [...(inDocs.has(name) ? [out] : []), ...(site && theme === "light" ? [siteAssets] : [])];
+        if (!folders.length) return;
         await page.evaluate(() => document.fonts.ready);
         await scrub(page, [
           [app.data, "~/.local/share/pinrail"],

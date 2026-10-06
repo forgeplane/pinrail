@@ -3,7 +3,7 @@
 // options?)`, which saves <name>-<theme>.png. The plugin scenes show a
 // decision under way: verdicts given, a note or a comment half written, and
 // save the plugin's view alone as <name>-view as well, for the website.
-// `site: true` marks the shots the landing pages use.
+// `site: true` marks the shots the landing pages use, in the light theme.
 
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
@@ -92,7 +92,7 @@ export const scenes = [
       await f.locator("#card-1").scrollIntoViewIfNeeded();
       await f.locator("#card-1").evaluate((el) => el.scrollIntoView({ block: "center" }));
       await settle(page);
-      await shot("review", page, { site: true });
+      await shot("review");
       await shot("review-view", page.locator("#plugin-frame"), { site: true });
     },
   },
