@@ -9,8 +9,8 @@ import { clearInbox, core, linkPlugin } from "./helpers";
 // an empty payload and decision beside them, and must agree on each.
 const root = path.resolve(__dirname, "..", "..");
 const sdk = createRequire(path.join(root, "sdk", "package.json"));
-const { schemaChecker } = sdk("./harness/schemas.cjs");
-const { resolveAttachments } = sdk("./harness/attachments.cjs");
+const { schemaChecker } = sdk("./lib/schemas.cjs");
+const { resolveAttachments } = sdk("./lib/attachments.cjs");
 
 type Fixture = { file: string; title: string; payload: unknown; decision?: { data: unknown }; attachments?: unknown };
 

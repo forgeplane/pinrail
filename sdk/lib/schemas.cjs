@@ -1,6 +1,7 @@
 /**
- * The harness's checks against a plugin's JSON Schemas, made as the core
- * makes them: draft 2020-12, every error reported, formats not checked.
+ * The checks against a plugin's JSON Schemas that the harness and the dev
+ * shell make, as the core makes them: draft 2020-12, every error reported,
+ * formats not checked.
  */
 const fs = require("node:fs");
 const path = require("node:path");

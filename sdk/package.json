@@ -14,8 +14,8 @@
   },
   "exports": {
     "./testing": {
-      "types": "./harness/index.d.cts",
-      "default": "./harness/index.cjs"
+      "types": "./testing/index.d.cts",
+      "default": "./testing/index.cjs"
     },
     "./types": {
       "types": "./types.d.ts"
@@ -36,11 +36,11 @@
     "CHANGELOG.md",
     "bin",
     "dist",
-    "harness",
     "host",
     "lib",
     "shell",
     "src",
+    "testing",
     "types.d.ts",
     "schemas"
   ],

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { mountPlugin } from "../harness/index.cjs";
+import { mountPlugin } from "../testing/index.cjs";
 import { scratch } from "./scratch.cjs";
 
 // A view with a text field, and a key of its own it keeps from the app.

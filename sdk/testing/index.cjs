@@ -8,8 +8,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { packageRoot, markdownScript } = require("../lib/paths.cjs");
-const { resolveAttachments } = require("./attachments.cjs");
-const { checker, schemaChecker } = require("./schemas.cjs");
+const { resolveAttachments } = require("../lib/attachments.cjs");
+const { checker, schemaChecker } = require("../lib/schemas.cjs");
 
 const ORIGIN = "http://plugin.test";
 

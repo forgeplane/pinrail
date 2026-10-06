@@ -19,7 +19,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import Ajv2020 from "ajv/dist/2020.js";
-import { resolveAttachments } from "../harness/attachments.cjs";
+import { resolveAttachments } from "../lib/attachments.cjs";
 import { packageRoot, markdownScript } from "../lib/paths.cjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));

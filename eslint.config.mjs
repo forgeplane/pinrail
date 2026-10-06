@@ -51,7 +51,7 @@ export default tseslint.config(
   },
   // tests, and the harness they use, also run functions inside the page
   {
-    files: ["**/tests/**", "**/test/**", "e2e/**", "sdk/harness/**"],
+    files: ["**/tests/**", "**/test/**", "e2e/**", "sdk/testing/**"],
     languageOptions: { globals: globals.browser },
     rules: { "@typescript-eslint/no-explicit-any": "off" },
   },

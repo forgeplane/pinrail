@@ -13,9 +13,9 @@ is the package's own, for a plugin's author.
 | `schemas/` | The JSON Schemas of a plugin's manifest and of a reference to an attached file | yes |
 | `types.d.ts` | The protocol and the manifest as TypeScript types | yes |
 | `shell/` | The dev shell: its server, its page, and the script that lets *Select* pick a part of the view | yes |
-| `harness/` | The test harness | yes |
+| `testing/` | The test harness, exported as `pinrail-sdk/testing` | yes |
 | `bin/` | The `pinrail-sdk` command | yes |
-| `lib/` | `paths.cjs`, which finds the package's files and builds `markdown.js`, for the dev shell, the harness and the app's build | yes |
+| `lib/` | What the dev shell and the harness share. `paths.cjs` finds the package's files and builds `markdown.js`, for the app's build as well. `schemas.cjs` checks a value against a plugin's schema as the app does. `attachments.cjs` lists a fixture's files as the app does. | yes |
 | `dist/` | `markdown.js` with its parser bundled, built when the package is packed; not versioned | yes |
 | `scripts/` | The build of `dist/markdown.js` | no |
 | `test/` | The package's own tests | no |
