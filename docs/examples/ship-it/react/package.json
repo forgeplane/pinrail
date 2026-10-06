@@ -14,7 +14,7 @@
     "lucide-react": "^1"
   },
   "devDependencies": {
-    "pinrail-sdk": "file:../../../../pinrail-plugin",
+    "pinrail-sdk": "file:../../../../sdk",
     "@playwright/test": "^1.56",
     "@types/react": "^19",
     "@types/react-dom": "^19",

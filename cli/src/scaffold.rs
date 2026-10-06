@@ -38,10 +38,10 @@ impl Template {
 const TEMPLATES: &[(&str, &str)] = include!(concat!(env!("OUT_DIR"), "/templates.rs"));
 
 /// The SDK's types, beside a view without a build, for its editor.
-const TYPES: &str = include_str!("../../pinrail-plugin/types.d.ts");
+const TYPES: &str = include_str!("../../sdk/types.d.ts");
 
 /// The SDK package's manifest, for the version a plugin's tests take.
-const SDK_PACKAGE: &str = include_str!("../../pinrail-plugin/package.json");
+const SDK_PACKAGE: &str = include_str!("../../sdk/package.json");
 
 /// What a new plugin is written with.
 pub struct Options<'a> {
@@ -334,7 +334,7 @@ mod tests {
             assert_eq!(package["name"], "pinrail-plugin-ticket_triage");
             assert!(package["scripts"]["build"].is_string());
             assert!(
-                !read("package.json").contains("pinrail-plugin\":"),
+                !read("package.json").contains("pinrail-sdk\":"),
                 "no SDK package"
             );
             let tsconfig: serde_json::Value = serde_json::from_str(&read("tsconfig.json")).unwrap();

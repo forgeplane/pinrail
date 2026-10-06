@@ -164,7 +164,7 @@ fn commands_for_links(file: &str, body: &str) -> String {
 }
 
 /// The manifest's JSON Schema, as the SDK ships it and the core checks it.
-const MANIFEST_SCHEMA: &str = include_str!("../../pinrail-plugin/schemas/manifest.schema.json");
+const MANIFEST_SCHEMA: &str = include_str!("../../sdk/schemas/manifest.schema.json");
 
 /// The brief as it prints: its text, the links to other briefs as the
 /// commands that print them.

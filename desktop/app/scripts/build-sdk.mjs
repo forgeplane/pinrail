@@ -1,5 +1,5 @@
 // Assembles the directory the server serves at /sdk/v1/: the plugin SDK from
-// pinrail-plugin/src, the optional markdown module, and the font the window
+// sdk/src, the optional markdown module, and the font the window
 // itself is drawn in. Plugins bring their own icons. The font comes from the same
 // package the shell bundles, so a plugin panel and the window around it are
 // set in one typeface. The app carries the files so it draws the same with no
@@ -8,10 +8,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { markdownScript } from "../../../pinrail-plugin/lib/paths.cjs";
+import { markdownScript } from "../../../sdk/lib/paths.cjs";
 
 const app = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const sdkSrc = path.resolve(app, "..", "..", "pinrail-plugin", "src");
+const sdkSrc = path.resolve(app, "..", "..", "sdk", "src");
 const font = path.resolve(app, "node_modules", "@fontsource-variable", "inter");
 const out = path.join(app, "sdk", "v1");
 

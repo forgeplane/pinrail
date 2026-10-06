@@ -8,7 +8,7 @@ import { clearInbox, core, linkPlugin } from "./helpers";
 // validator of its own. Both are given the official plugins' fixtures, and
 // an empty payload and decision beside them, and must agree on each.
 const root = path.resolve(__dirname, "..", "..");
-const sdk = createRequire(path.join(root, "pinrail-plugin", "package.json"));
+const sdk = createRequire(path.join(root, "sdk", "package.json"));
 const { schemaChecker } = sdk("./harness/schemas.cjs");
 const { resolveAttachments } = sdk("./harness/attachments.cjs");
 

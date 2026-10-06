@@ -78,7 +78,7 @@ install.
 
 A plugin is a manifest, two JSON schemas and an HTML view.
 `pinrail plugins new <name>` creates one. The
-[`pinrail-plugin`](pinrail-plugin/README.md) SDK runs a plugin in a browser
+[`sdk`](sdk/README.md) SDK runs a plugin in a browser
 without the app, tests it, and creates plugins whose views are built with a
 framework. To share a plugin, publish its repository or a GitHub release. The
 app installs a plugin from either, or from a folder, and serves a linked
@@ -91,7 +91,7 @@ folder directly while you work on it.
 | [`desktop/`](desktop/) | the app: a Rust core (API, storage, plugins), a Tauri shell and a React UI |
 | [`cli/`](cli/README.md) | the `pinrail` CLI agents call |
 | [`plugins/`](plugins/README.md) | the official plugins |
-| [`pinrail-plugin/`](pinrail-plugin/README.md) | the plugin SDK, development shell and test harness |
+| [`sdk/`](sdk/README.md) | the plugin SDK, development shell and test harness |
 | [`e2e/`](e2e/README.md) | end-to-end tests: the CLI and the app's UI against the headless core |
 | [`docs/`](docs/) | the documentation, published on the website |
 | [`website/`](website/) | the website |

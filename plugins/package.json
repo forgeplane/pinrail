@@ -8,6 +8,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
-    "pinrail-sdk": "file:../pinrail-plugin"
+    "pinrail-sdk": "file:../sdk"
   }
 }

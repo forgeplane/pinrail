@@ -33,7 +33,7 @@ pub fn routes() -> Router<ApiState> {
 /// The app's side of the plugin protocol, which the preview page runs: the
 /// same module the app, the SDK's development shell and its harness use.
 async fn preview_host() -> Response {
-    const HOST: &str = include_str!("../../../../pinrail-plugin/host/host.js");
+    const HOST: &str = include_str!("../../../../sdk/host/host.js");
     (
         [
             (

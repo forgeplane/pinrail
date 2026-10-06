@@ -1,5 +1,5 @@
 # A tag sdk-v<version> (sdk-v1.0.0) releases the pinrail-sdk package from
-# pinrail-plugin/: its tests and the samples' check run, the tag has to name the
+# sdk/: its tests and the samples' check run, the tag has to name the
 # package's version, and the tarball npm pack writes is attached to a GitHub
 # release of the same tag. That tarball is what a scaffolded plugin depends
 # on until the package is on npm:
@@ -40,7 +40,7 @@ jobs:
           package-manager-cache: false
       - name: The version, from the tag and the package
         id: version
-        working-directory: pinrail-plugin
+        working-directory: sdk
         run: |
           tagged="${GITHUB_REF_NAME#sdk-v}"
           declared=$(node -p 'require("./package.json").version')
@@ -55,7 +55,7 @@ jobs:
           cargo build --manifest-path cli/Cargo.toml --locked
           echo "$PWD/cli/target/debug" >> "$GITHUB_PATH"
       - name: The package's tests
-        working-directory: pinrail-plugin
+        working-directory: sdk
         run: |
           npm ci
           npx playwright install --with-deps chromium
@@ -68,7 +68,7 @@ jobs:
       # npm names a scoped package's tarball after its scope too; the
       # scaffolds depend on the name without it
       - name: Pack
-        working-directory: pinrail-plugin
+        working-directory: sdk
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: mv "$(npm pack --json | jq -r '.[0].filename')" "pinrail-sdk-$VERSION.tgz"
@@ -78,7 +78,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
-        run: gh release create "$GITHUB_REF_NAME" "pinrail-plugin/pinrail-sdk-$VERSION.tgz" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "" --latest=false
+        run: gh release create "$GITHUB_REF_NAME" "sdk/pinrail-sdk-$VERSION.tgz" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes "" --latest=false
 
   npm:
     needs: tarball
@@ -97,7 +97,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
           registry-url: https://registry.npmjs.org
-      - working-directory: pinrail-plugin
+      - working-directory: sdk
         run: |
           npm ci
           npm publish --provenance --access public

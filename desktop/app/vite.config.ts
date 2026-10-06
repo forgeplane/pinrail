@@ -21,7 +21,7 @@ const ALLOWED = [
 ];
 
 // The app's side of the plugin protocol, from the SDK package beside the app.
-const host = path.resolve(__dirname, "..", "..", "pinrail-plugin", "host");
+const host = path.resolve(__dirname, "..", "..", "sdk", "host");
 
 // The UI lives in ui/; Tauri loads the built files from dist/. A production
 // build also records every npm package that ends up in the bundle, with its

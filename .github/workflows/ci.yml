@@ -127,7 +127,7 @@ jobs:
           cache-dependency-path: |
             desktop/app/package-lock.json
             e2e/package-lock.json
-            pinrail-plugin/package-lock.json
+            sdk/package-lock.json
       # the version rust-toolchain.toml pins, with rustfmt and clippy
       - name: Rust toolchain
         run: rustup toolchain install
@@ -170,7 +170,7 @@ jobs:
         working-directory: e2e
         run: |
           npm ci
-          (cd ../pinrail-plugin && npm ci)
+          (cd ../sdk && npm ci)
           npx playwright install --with-deps chromium
       - name: CLI end to end
         working-directory: e2e
@@ -203,7 +203,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             plugins/package-lock.json
-            pinrail-plugin/package-lock.json
+            sdk/package-lock.json
             docs/examples/ship-it/*/package-lock.json
       # `pinrail plugins check` checks the plugins, so the CLI goes on the
       # PATH before anything checks one
@@ -232,7 +232,7 @@ jobs:
             pinrail plugins check "$dir"
           done
       - name: pinrail-sdk tests
-        working-directory: pinrail-plugin
+        working-directory: sdk
         run: |
           npm ci
           npx playwright install --with-deps chromium
@@ -244,7 +244,7 @@ jobs:
           for template in plain vite react; do
             dir="$RUNNER_TEMP/tested/$template"
             pinrail plugins new "tested_$template" --template "$template" --playwright \
-              --sdk "file:$PWD/pinrail-plugin" --dir "$dir"
+              --sdk "file:$PWD/sdk" --dir "$dir"
             (cd "$dir" && npm install --no-audit --no-fund && npm test)
             pinrail plugins check "$dir"
           done
@@ -285,6 +285,6 @@ jobs:
           name: plugin-traces
           path: |
             plugins/test-results
-            pinrail-plugin/test-results
+            sdk/test-results
             docs/examples/ship-it/*/test-results
           if-no-files-found: ignore

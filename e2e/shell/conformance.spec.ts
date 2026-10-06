@@ -5,10 +5,10 @@ import { expect, test, type Frame, type Page } from "@playwright/test";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import conformance from "../../pinrail-plugin/test/conformance/conformance.cjs";
+import conformance from "../../sdk/test/conformance/conformance.cjs";
 import { clearInbox, core, linkPlugin } from "./helpers";
 
-const dir = path.resolve(__dirname, "..", "..", "pinrail-plugin", "test", "conformance");
+const dir = path.resolve(__dirname, "..", "..", "sdk", "test", "conformance");
 const received = (frame: Frame) => frame.evaluate(() => (window as unknown as { received: any[] }).received);
 const send = (frame: Frame, message: object) =>
   frame.evaluate((m) => (window as unknown as { send: (m: object) => void }).send(m), message);

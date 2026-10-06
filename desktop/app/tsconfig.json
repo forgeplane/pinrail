@@ -11,8 +11,8 @@
     "skipLibCheck": true,
     "types": ["vite/client"],
     "paths": {
-      "pinrail-sdk/host": ["../../pinrail-plugin/host/host.d.ts"],
-      "pinrail-sdk/types": ["../../pinrail-plugin/types.d.ts"]
+      "pinrail-sdk/host": ["../../sdk/host/host.d.ts"],
+      "pinrail-sdk/types": ["../../sdk/types.d.ts"]
     }
   },
   "include": ["ui/src"]

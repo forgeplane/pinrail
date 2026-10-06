@@ -22,7 +22,7 @@ built by Vite, and `--playwright` adds a first test, which uses this
 package's harness.
 
 The package is not published on npm. Install it from this repository
-(`"pinrail-sdk": "file:../../pinrail-plugin"`) or from the
+(`"pinrail-sdk": "file:../../sdk"`) or from the
 tarball attached to its GitHub release.
 
 ## Quick start
@@ -30,7 +30,7 @@ tarball attached to its GitHub release.
 From a checkout of this repository:
 
 ```sh
-pinrail plugins new ticket_triage --playwright --sdk "file:$PWD/pinrail-plugin"
+pinrail plugins new ticket_triage --playwright --sdk "file:$PWD/sdk"
 cd ticket_triage && npm install && npx playwright install chromium
 npx pinrail-sdk dev          # the view in a browser, on its sample
 npm test                        # the plugin's tests, under the harness

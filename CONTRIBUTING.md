@@ -61,7 +61,7 @@ The repository contains:
 
 - `desktop/`: the desktop app
 - `cli/`: the `pinrail` command
-- `pinrail-plugin/`: the plugin SDK
+- `sdk/`: the plugin SDK
 - `plugins/`: the official plugins
 - `e2e/`: the end-to-end tests
 - `docs/`: the documentation

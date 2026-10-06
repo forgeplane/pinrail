@@ -24,6 +24,6 @@ pinrail plugins check .                   # what the app would say of the folder
 pinrail plugins install . --link          # in the app
 ```
 
-Here the SDK comes from this repository (`file:../../../../pinrail-plugin`).
+Here the SDK comes from this repository (`file:../../../../sdk`).
 A plugin written by `pinrail plugins new --playwright` takes it from the
 SDK's release instead.

@@ -13,7 +13,7 @@
     "@lucide/vue": "^1"
   },
   "devDependencies": {
-    "pinrail-sdk": "file:../../../../pinrail-plugin",
+    "pinrail-sdk": "file:../../../../sdk",
     "@playwright/test": "^1.56",
     "@vitejs/plugin-vue": "^6",
     "typescript": "^5",

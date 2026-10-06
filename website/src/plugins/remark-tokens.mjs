@@ -1,5 +1,5 @@
 // The SDK's colour tokens, as swatches in both themes, read from
-// pinrail-plugin/src/tokens.css when the site builds so the page
+// sdk/src/tokens.css when the site builds so the page
 // cannot drift from it. Written as `![alt](tokens:)` in a docs page.
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { visit } from "unist-util-visit";
 
-const stylesheet = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../pinrail-plugin/src/tokens.css");
+const stylesheet = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../sdk/src/tokens.css");
 
 /** The stylesheet's hash, given to the plugin as an option. Astro keeps a
  *  page's rendered HTML until the page or the site's config changes, and the

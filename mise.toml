@@ -8,7 +8,7 @@ dir = "{{config_root}}"
 run = [
   "npm ci",
   "cd desktop/app && npm ci && npm run build",
-  "cd pinrail-plugin && npm ci",
+  "cd sdk && npm ci",
   "cd plugins && npm ci",
   "sh scripts/build-plugins.sh",
   "cd e2e && npm ci && npx playwright install chromium",
@@ -21,12 +21,12 @@ run = "cargo test"
 
 [tasks."test:sdk"]
 description = "The pinrail-sdk package: unit tests, then the harness and the dev shell in a browser"
-dir = "{{config_root}}/pinrail-plugin"
+dir = "{{config_root}}/sdk"
 run = "npm test"
 
 [tasks."dev:plugin"]
 description = "One plugin in a browser shell, without the app: mise run dev:plugin plugins/hello"
-run = "node {{config_root}}/pinrail-plugin/bin/pinrail-sdk.mjs dev {{arg(name='plugin')}}"
+run = "node {{config_root}}/sdk/bin/pinrail-sdk.mjs dev {{arg(name='plugin')}}"
 
 [tasks."plugins:build"]
 description = "Build the plugins in plugins/ that have a build of their own, such as markdown: the app embeds their view/"
@@ -103,7 +103,7 @@ dir = "{{config_root}}"
 run = [
   "cargo deny --manifest-path desktop/Cargo.toml --config deny.toml check advisories",
   "cargo deny --manifest-path cli/Cargo.toml --config deny.toml check advisories",
-  "for d in desktop/app pinrail-plugin; do (cd $d && npm audit --omit=dev --audit-level=high) || exit 1; done",
+  "for d in desktop/app sdk; do (cd $d && npm audit --omit=dev --audit-level=high) || exit 1; done",
 ]
 
 [tasks.links]

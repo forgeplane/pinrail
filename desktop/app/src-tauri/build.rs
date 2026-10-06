@@ -13,11 +13,11 @@ fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let repo = manifest.join("../../..");
     let skill = repo.join("skill");
-    let schema_path = repo.join("pinrail-plugin/schemas/manifest.schema.json");
+    let schema_path = repo.join("sdk/schemas/manifest.schema.json");
     println!("cargo:rerun-if-changed={}", skill.display());
     println!("cargo:rerun-if-changed={}", schema_path.display());
     let schema = fs::read_to_string(&schema_path).unwrap();
-    let sdk_package = repo.join("pinrail-plugin/package.json");
+    let sdk_package = repo.join("sdk/package.json");
     println!("cargo:rerun-if-changed={}", sdk_package.display());
     let sdk_version = version_of(&fs::read_to_string(&sdk_package).unwrap());
 

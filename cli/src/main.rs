@@ -546,7 +546,7 @@ enum PluginsCommand {
         #[arg(long)]
         playwright: bool,
         /// Where the tests' package.json takes the SDK package from, such as
-        /// file:../pinrail-plugin [default: the release of this version]
+        /// file:../sdk [default: the release of this version]
         #[arg(long, hide = true)]
         sdk: Option<String>,
         /// Install the plugin as a link after writing it, so the app serves the

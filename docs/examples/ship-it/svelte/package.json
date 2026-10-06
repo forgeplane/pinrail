@@ -9,7 +9,7 @@
     "test": "npm run build && playwright test"
   },
   "devDependencies": {
-    "pinrail-sdk": "file:../../../../pinrail-plugin",
+    "pinrail-sdk": "file:../../../../sdk",
     "@playwright/test": "^1.56",
     "@sveltejs/vite-plugin-svelte": "^6",
     "svelte": "^5",

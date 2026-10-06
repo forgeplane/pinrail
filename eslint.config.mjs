@@ -26,9 +26,9 @@ export default tseslint.config(
       "desktop/app/ui/**",
       "plugins/*/view/**",
       "plugins/*/src/**",
-      "pinrail-plugin/src/**",
-      "pinrail-plugin/host/**",
-      "pinrail-plugin/shell/inspector.js",
+      "sdk/src/**",
+      "sdk/host/**",
+      "sdk/shell/inspector.js",
       "cli/templates/*/src/**",
       "cli/templates/*/view/**",
       "docs/examples/*/*/src/**",
@@ -39,7 +39,7 @@ export default tseslint.config(
   // a plugin view's scripts share the page: the SDK's Pinrail global, and
   // a module check so the same file loads under Node for its tests
   {
-    files: ["plugins/*/view/**", "plugins/*/src/**", "cli/templates/*/view/**", "pinrail-plugin/src/**"],
+    files: ["plugins/*/view/**", "plugins/*/src/**", "cli/templates/*/view/**", "sdk/src/**"],
     languageOptions: { globals: { Pinrail: "readonly", module: "readonly" } },
     // a plain view's types come from a triple-slash reference to the SDK's
     rules: { "@typescript-eslint/triple-slash-reference": "off" },
@@ -51,7 +51,7 @@ export default tseslint.config(
   },
   // tests, and the harness they use, also run functions inside the page
   {
-    files: ["**/tests/**", "**/test/**", "e2e/**", "pinrail-plugin/harness/**"],
+    files: ["**/tests/**", "**/test/**", "e2e/**", "sdk/harness/**"],
     languageOptions: { globals: globals.browser },
     rules: { "@typescript-eslint/no-explicit-any": "off" },
   },

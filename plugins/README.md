@@ -22,7 +22,7 @@ between two releases of the app also raises the version in its manifest.
 ## Tests
 
 Each plugin's `tests/` mount its view under the harness from
-[`pinrail-plugin`](../pinrail-plugin/README.md), with the payloads in its
+[`sdk`](../sdk/README.md), with the payloads in its
 `fixtures/`. Run them with:
 
 ```sh
