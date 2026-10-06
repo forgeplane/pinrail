@@ -460,6 +460,46 @@ export const scenes = [
       await shot("settings-agents");
     },
   },
+  {
+    // the setup over the inbox: the browser has no native side, so the
+    // scene answers the calls Connect makes, with the command installed
+    name: "setup",
+    async run({ page, app, shot }) {
+      await page.goto(`${app.ui}/#/`);
+      await page.locator(".inbox-repo").first().waitFor();
+      await page.evaluate((agents) => {
+        window.__TAURI_INTERNALS__ = {
+          invoke: async (command) => {
+            if (command === "agents_status") return agents;
+            if (command === "notification_status") return null;
+            if (command === "cli_status")
+              return {
+                mode: "link",
+                bundled: "/Applications/Pinrail.app/Contents/MacOS/pinrail",
+                link: "/Users/you/.local/bin/pinrail",
+                installed: true,
+                outdated: false,
+                occupied_by: null,
+                runs: "/Users/you/.local/bin/pinrail",
+                dir_on_path: true,
+              };
+            throw new Error(`${command} is not answered in screenshots`);
+          },
+        };
+      }, AGENTS);
+      await page.keyboard.press("Meta+k");
+      await page.getByRole("textbox").fill("Set up Pinrail");
+      await page.getByRole("option", { name: /Set up Pinrail/ }).click();
+      const setup = page.getByRole("dialog", { name: "Set up Pinrail" });
+      await setup.locator('[data-welcome-agent="claude"]').waitFor();
+      await settle(page, 500);
+      await shot("setup-connect");
+      await setup.locator('[data-welcome-step="Try it"]').click();
+      await setup.locator("[data-welcome-try]").first().waitFor();
+      await settle(page, 500);
+      await shot("setup-try");
+    },
+  },
   ...["general", "appearance", "shortcuts", "plugins"].map((section) => ({
     name: `settings-${section}`,
     async run({ page, app, shot }) {

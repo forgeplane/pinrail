@@ -31,6 +31,8 @@ The first time you open Pinrail, it shows a short setup in three steps:
 2. *Plugins* installs the plugins you choose. The two that Pinrail recommends are already selected.
 3. *Try it* gives you, for each installed plugin, a prompt to give your agent and a sample review to send yourself. This step opens once a plugin is installed.
 
+![The setup's first step: the pinrail command, the agents found on this computer, and notifications.](screenshot:setup-connect)
+
 To open the setup again, press <kbd>⌘K</kbd> and choose *Set up Pinrail*.
 
 You can also install the command from **Settings › Data** with **Install the CLI**. It puts `pinrail` into `~/.local/bin`, so make sure that folder is on your `PATH`. With the `.deb` or `.rpm`, the command is already installed as `/usr/bin/pinrail`.
