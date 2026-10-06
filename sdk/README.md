@@ -1,46 +1,92 @@
-# Pinrail plugin SDK
+# pinrail-sdk
 
-This folder holds the plugin SDK: the script and stylesheet every plugin
-view loads from the app, and the `pinrail-sdk` package, which a plugin's
-author uses to work on a view and test it. The package contains:
-
-- **The SDK**, `src/pinrail-plugin.js`, with its stylesheet and its
-  Markdown renderer. The app serves them at `/sdk/v1/`, and a view loads
-  them with tags in its page. The SDK handles the protocol for the view:
-  the handshake, drafts, the hand-over, settings, forwarded keys and the
-  theme.
-- **`pinrail-sdk dev`** runs a plugin in the browser, without the app.
-- **`pinrail-sdk/testing`** is a Playwright harness that
-  mounts a plugin on its own.
-- **`pinrail-sdk/types`** describes the protocol and the
-  manifest in TypeScript.
-
-You need the package only while you write a plugin. An installed plugin
-loads the SDK from the app, never from `node_modules`. The `pinrail`
-command creates a plugin: `pinrail plugins new` writes one with the SDK's
-types beside it, `--template vite` or `--template react` writes a view
-built by Vite, and `--playwright` adds a first test, which uses this
-package's harness.
-
-The package is not published on npm. Install it from this repository
-(`"pinrail-sdk": "file:../../sdk"`) or from the
-tarball attached to its GitHub release.
-
-## Quick start
-
-From a checkout of this repository:
+The plugin SDK of [Pinrail](https://pinrail.dev), for the author of a
+plugin: a dev shell to work on a view in the browser, a test harness to
+test it with Playwright, and the TypeScript types of the protocol and the
+manifest. A plugin is created, checked and installed with the `pinrail`
+command, which comes with the app:
 
 ```sh
-pinrail plugins new ticket_triage --playwright --sdk "file:$PWD/sdk"
+pinrail plugins new ticket_triage --playwright   # a plugin, with a first test
 cd ticket_triage && npm install && npx playwright install chromium
-npx pinrail-sdk dev             # the view in a browser, on its sample
-npm test                        # the plugin's tests, under the harness
-pinrail plugins check .         # what the app would say of the folder
-pinrail plugins install . --link
+npx pinrail-sdk@1 dev .                          # the view in a browser, on its sample
+npm test                                         # the plugin's tests, under the harness
+pinrail plugins check .                          # what the app would say of the folder
+pinrail plugins install . --link                 # the plugin, in the app
 ```
 
-The new plugin asks a yes-or-no question. Change its schemas, its view and
-its sample to make it your own.
+An installed plugin loads the SDK from the app, never from `node_modules`.
+You need this package only while you write a plugin.
+
+## What the package contains
+
+| Export or file | What it is |
+|---|---|
+| `pinrail-sdk` (command) | `pinrail-sdk dev`: the dev shell |
+| `pinrail-sdk/testing` | The test harness: `mountPlugin`, `fixture` and `reviewFrom` |
+| `pinrail-sdk/types` | The protocol, the review and the manifest as TypeScript types, `window.Pinrail` among them |
+| `pinrail-sdk/host` | The app's side of the protocol, which the dev shell and the harness run |
+| `pinrail-sdk/sdk/v1/pinrail-plugin.js` | The SDK a view loads, with `pinrail-plugin.css` and `tokens.css` beside it in `src/` |
+| `pinrail-sdk/sdk/v1/markdown.js` | The Markdown renderer, with its parser bundled |
+| `pinrail-sdk/schemas/manifest.schema.json` | The JSON Schema every plugin's manifest is checked against |
+| `pinrail-sdk/schemas/attachment.schema.json` | The JSON Schema of a reference to an attached file, to copy into a payload schema |
+
+The SDK files are the ones the app serves at `/sdk/v1/` in the same
+version, so a view behaves in the dev shell and the harness as it does in
+the app.
+
+## The dev shell
+
+```sh
+npx pinrail-sdk@1 dev [dir]    # options: --port N (default 4790), --no-open
+```
+
+`dev` serves the plugin in `dir` under the app's Content Security Policy,
+with the SDK beside it, in a page that plays the app's part. It needs
+nothing installed in the plugin's folder, and reloads the view, with its
+last draft, when a file of the plugin changes.
+
+- The bar picks the review the view opens with, from the plugin's
+  `samples/*.json` and `fixtures/*.json`. Keep in `fixtures/` the reviews
+  that should not ship with the plugin, such as a decided review or an
+  edge case. It can also hand a decided review over as the previous
+  round, and switch between read-only and editable and between the themes.
+- Under the view sits the app's composer: the note to the agent, and the
+  hand-over button with the label the view gives it.
+- The side panel shows the settings and keys the manifest declares, every
+  message the view sends, and what the view handed over, checked against
+  the decision schema. It can answer a hand-over with violations.
+- **JSON** shows the review's payload, the payload schema and the decision
+  schema in place of the view.
+- To review a view, turn on **Select**, or press <kbd>I</kbd>, and click a
+  part of it to comment on that part. **Copy comments** puts every comment
+  on the clipboard as Markdown, with each part's selector, to paste to the
+  agent that works on the plugin. **Clear** empties the list for the next
+  round.
+
+## The test harness
+
+A plugin's tests are Playwright specs in `tests/`, run with
+`playwright test`. `pinrail plugins new --playwright` writes a first test,
+with the configuration and the development dependencies, this package
+among them. A test mounts the view alone, without the app or the CLI:
+
+```ts
+import { expect, test } from "@playwright/test";
+import { fixture, mountPlugin } from "pinrail-sdk/testing";
+
+test("hands over the answer", async ({ page }) => {
+  const plugin = await mountPlugin(page, pluginDir, { review: fixture("samples/ticket_triage.json") });
+  await plugin.frame.getByRole("button", { name: "Yes" }).click();
+  expect(await plugin.handOver()).toMatchObject({ decision: { data: { ok: true } } });
+});
+```
+
+`handOver()` hands over as the app does: it asks the view for its
+decision, checks it against the decision schema, and returns the accepted
+decision, the violations, or `{ deferred: true }` when the view returned
+nothing. [Testing a plugin](https://pinrail.dev/docs/building/testing/)
+describes every call.
 
 ## The SDK in a view
 
@@ -56,139 +102,39 @@ its sample to make it your own.
 </script>
 ```
 
-The docs describe the SDK in full:
+A view takes its types from `pinrail-plugin.d.ts`, which
+`pinrail plugins new` writes into the plugin's folder. `pinrail-sdk/types`
+has the same types, for a project that installs the package. The docs
+describe the SDK in full:
 
-- [Writing a plugin](https://pinrail.dev/docs/building/writing/) covers
-  the manifest, the schemas, the view and its calls, and the tests.
-- [Design and styling](https://pinrail.dev/docs/building/design/) covers
-  the stylesheet's tokens and classes, `Pinrail.layout()`, icons and
-  themes.
-- [Settings and keys](https://pinrail.dev/docs/building/settings-and-keys/)
-  covers a plugin's own settings and keyboard shortcuts.
-- [Building with a framework](https://pinrail.dev/docs/building/frameworks/)
-  builds one plugin in React, Vue, Svelte and TypeScript.
-- [The protocol](https://pinrail.dev/docs/building/protocol/) lists every
+- [Writing a plugin](https://pinrail.dev/docs/building/writing/): the
+  manifest, the schemas, the view and its calls.
+- [Design and styling](https://pinrail.dev/docs/building/design/): the
+  stylesheet's tokens and classes, `Pinrail.layout()`, icons and themes.
+- [Settings and keys](https://pinrail.dev/docs/building/settings-and-keys/):
+  a plugin's own settings and keyboard shortcuts.
+- [Building with a framework](https://pinrail.dev/docs/building/frameworks/):
+  one plugin in React, Vue, Svelte and TypeScript.
+- [Testing a plugin](https://pinrail.dev/docs/building/testing/): the
+  harness in full.
+- [The protocol](https://pinrail.dev/docs/building/protocol/): every
   message, for a view written without the SDK.
-- [Publishing a plugin](https://pinrail.dev/docs/building/publishing/)
-  covers releases and installation.
-
-`types.d.ts` declares every call with its arguments.
-
-## Commands
-
-### dev
-
-```sh
-npx pinrail-sdk@1 dev .                       # in any plugin folder, with nothing installed
-mise run dev:plugin plugins/hello             # in this repository
-                                              # options: --port N (default 4790), --no-open
-```
-
-`dev` serves the view under the app's Content Security Policy, with the
-SDK beside it, in a page that plays the app's part. The page offers the
-plugin's `samples/*.json` and `fixtures/*.json` files. Keep in `fixtures/`
-the reviews that should not ship with the plugin, such as a decided review
-or an edge case. The page can also hand a decided review over as the
-previous round, switch between read-only and editable and between the
-themes, and answer a hand-over with violations. A log shows every message
-the view sends. A change to any file in the plugin reloads the view with its
-last draft.
-
-Under the view sits the app's composer: the note to the agent, and the
-hand-over button with the label the view gives it, which asks the view for
-its decision as the app's button does.
-
-To review a view, turn on **Select** (or press `I`) and click any part of
-it, or of the composer: instead of reaching it, the click opens a comment on
-that element.
-Comments are kept in the browser for the plugin, grouped by the review and
-mode you made them in, and marked on the view with numbered pins. **Copy
-comments** puts them on the clipboard as Markdown, with each element's
-selector, to paste to the agent that works on the plugin. Once it has made
-the changes, **Clear** empties the list for the next round.
-
-**JSON** shows, in place of the view, the review's payload and the schemas the payload and the decision are held to, each on a tab of its own.
-
-### Tests
-
-A plugin's tests are Playwright specs in `tests/`, run with
-`playwright test` and the plugin's own `playwright.config.ts`, which
-`pinrail plugins new --playwright` writes. A test mounts the view alone,
-without the app or the CLI:
-
-```ts
-import { fixture, mountPlugin } from "pinrail-sdk/testing";
-
-const plugin = await mountPlugin(page, pluginDir, { review: fixture("samples/ticket_triage.json") });
-await plugin.frame.getByRole("button", { name: "Yes" }).click();
-expect(await plugin.handOver()).toMatchObject({ decision: { data: { ok: true } } });
-```
-
-`handOver()` hands over as the app does: it asks the view for its decision,
-checks it against the decision schema, and returns the accepted decision,
-the violations, or `{ deferred: true }` when the view returned nothing.
-
-## What is in this folder
-
-| Path | What it is |
-|---|---|
-| `src/` | The SDK a view loads: `pinrail-plugin.js`, `pinrail-plugin.css`, `tokens.css` and `markdown.js` |
-| `host/` | The app's side of the protocol, which every host of a view runs: the app's window, its preview page, the dev shell and the harness |
-| `schemas/` | The JSON Schemas of a plugin's manifest and of an attached file |
-| `types.d.ts` | The protocol and the manifest as TypeScript types, exported as `pinrail-sdk/types` |
-| `shell/` | The dev shell: its server, its page, and the script that lets *Select* pick a part of the view |
-| `harness/` | The test harness, exported as `pinrail-sdk/testing` |
-| `bin/` | The `pinrail-sdk` command |
-| `lib/` | `paths.cjs`, which finds the package's files and builds `markdown.js`, for the dev shell, the harness and the app's build |
-| `scripts/` | The build of `dist/markdown.js`, run before the package is packed |
-| `test/` | The package's own tests |
-
-## Where the SDK's files go
-
-`src/` is the only copy of the SDK. Nothing else in the repository holds
-one, and each user of the SDK takes it from here:
-
-- **The app.** Its build, `desktop/app/scripts/build-sdk.mjs`, run by
-  `npm run dev` and `npm run build`, copies `src/` into
-  `desktop/app/sdk/v1/`, which is not versioned. It also bundles the
-  Markdown parser into `markdown.js`, and adds the typeface the stylesheet
-  uses. The app carries that folder and serves it at `/sdk/v1/`.
-- **The dev shell and the harness** serve `src/` itself, at the same
-  paths, so a view behaves in them as in the app.
-- **The npm package** carries `src/`, with `markdown.js` bundled into
-  `dist/` when it is packed.
-
-The other shared files are used in the same way. The app bundles
-`host/host.js` into its window and embeds it in its preview page. The
-app's plugin checks and the CLI embed `schemas/manifest.schema.json` when
-they are built, and the CLI writes `types.d.ts` into every new plugin as
-`pinrail-plugin.d.ts`.
-
-## The package's tests
-
-```sh
-npm test    # the unit tests, then the browser tests
-```
-
-- **Unit tests, under Node:** the SDK's script against a fake host
-  (`plugin.test.cjs`), the app's side of the protocol (`host.test.mjs`),
-  the types, which must accept a correct view and refuse a wrong one
-  (`types.test.cjs`, `types.compile.test.cjs`), and the package as npm
-  packs it (`package.test.mjs`).
-- **Browser tests, with Playwright:** the SDK in a real view's frame,
-  which has an opaque origin: connecting, keys, attached files, Markdown
-  and the stylesheet. Then the harness, which must hold a plugin to what
-  the app would; the conformance view, which every host must answer the
-  same way; and the dev shell.
-
-The app's own end-to-end tests run the same conformance view against the
-app, so the app and the harness are held to one standard.
+- [Publishing a plugin](https://pinrail.dev/docs/building/publishing/):
+  releases and installation.
 
 ## Versions
 
 The package's version is the SDK's version, and its major version is the
 protocol's (`Pinrail.protocol`): the `1.x` package is the SDK the app
 serves at `/sdk/v1`.
+
+## Developing the SDK
+
+The SDK lives in the `sdk/` folder of the
+[Pinrail repository](https://github.com/forgeplane/pinrail).
+[DEVELOPING.md](https://github.com/forgeplane/pinrail/blob/main/sdk/DEVELOPING.md)
+describes the folder, where its files go in the app, and the package's
+own tests.
 
 ## License
 
