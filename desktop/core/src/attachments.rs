@@ -641,4 +641,70 @@ mod tests {
             ]
         );
     }
+
+    /// The definitions of a reference to a file in a payload schema: every
+    /// object in it with an `$attachment` property.
+    fn file_fields(schema: &serde_json::Value, out: &mut Vec<serde_json::Value>) {
+        match schema {
+            serde_json::Value::Object(map) => {
+                if map
+                    .get("properties")
+                    .and_then(|p| p.get(REFERENCE))
+                    .is_some()
+                {
+                    out.push(schema.clone());
+                }
+                map.values().for_each(|v| file_fields(v, out));
+            }
+            serde_json::Value::Array(items) => items.iter().for_each(|v| file_fields(v, out)),
+            _ => {}
+        }
+    }
+
+    /// The parts of a definition that decide what it accepts, without its
+    /// title and description.
+    fn rules(definition: &serde_json::Value) -> serde_json::Value {
+        let mut rules = definition.clone();
+        if let Some(map) = rules.as_object_mut() {
+            for key in ["$schema", "$id", "title", "description"] {
+                map.remove(key);
+            }
+        }
+        rules
+    }
+
+    /// A plugin describes a file field with a copy of the SDK's attachment
+    /// schema, so every copy has to accept what the SDK's does, and the
+    /// SDK's has to agree with the names the app takes.
+    #[test]
+    fn the_plugins_copies_of_the_attachment_schema_match_the_sdks() {
+        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let read = |path: &std::path::Path| -> serde_json::Value {
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+        };
+        let sdk = read(&repo.join("sdk/schemas/attachment.schema.json"));
+
+        let limits = &sdk["properties"][REFERENCE];
+        let (min, max) = (
+            limits["minLength"].as_u64().unwrap() as usize,
+            limits["maxLength"].as_u64().unwrap() as usize,
+        );
+        assert!(is_name(&"a".repeat(min)) && !is_name(&"a".repeat(min.saturating_sub(1))));
+        assert!(is_name(&"a".repeat(max)) && !is_name(&"a".repeat(max + 1)));
+
+        let mut checked = 0;
+        for entry in std::fs::read_dir(repo.join("plugins")).unwrap() {
+            let schema = entry.unwrap().path().join("schemas/payload.schema.json");
+            if !schema.is_file() {
+                continue;
+            }
+            let mut fields = Vec::new();
+            file_fields(&read(&schema), &mut fields);
+            for field in fields {
+                assert_eq!(rules(&field), rules(&sdk), "{}", schema.display());
+                checked += 1;
+            }
+        }
+        assert!(checked > 0, "the official plugins take files");
+    }
 }
