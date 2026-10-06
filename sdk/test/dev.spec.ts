@@ -254,8 +254,9 @@ test("the fixtures menu lists reviews, not the summaries recorded beside them", 
 
   await withDevShell(dir, async (url) => {
     await page.goto(url);
-    const options = await page.locator("#fixture option").allTextContents();
-    expect(options).toContain("Round 1");
-    expect(options.join("\n")).not.toContain("summary");
+    // the menu fills once the page has the fixtures: wait for it
+    const options = page.locator("#fixture option");
+    await expect(options.filter({ hasText: "Round 1" })).toHaveCount(1);
+    expect((await options.allTextContents()).join("\n")).not.toContain("summary");
   });
 });
