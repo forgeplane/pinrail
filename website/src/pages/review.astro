@@ -13,7 +13,11 @@ import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
-import { agents, repo, samples, views } from "../components/index/content";
+import HeroDemo from "../components/index/HeroDemo.astro";
+import HowItWorks from "../components/index/HowItWorks.astro";
+import RoundDemo from "../components/index/RoundDemo.astro";
+import CliSession from "../components/index/CliSession.astro";
+import { codes, repo, samples, views } from "../components/index/content";
 
 const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"];
 ---
@@ -60,12 +64,13 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         <p class="preamble"><span class="hand">↓ you're the reviewer</span>An agent wrote this page and submitted it for review. Accept each section or send it back with a reason, then hand your decision back. <span class="keys">Keys: <kbd>J</kbd><kbd>K</kbd> move, <kbd>A</kbd> accept, <kbd>R</kbd> reject.</span></p>
 
         <!-- 101: the hero -->
-        <article class="item hero" data-id="101" data-title="Headline" tabindex="-1">
+        <article class="item hero wide" data-id="101" data-title="Headline" tabindex="-1">
           <div class="gutter"><span class="iid">#101</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
               <h1 class="hero-title"><span class="line">Before your agent</span><br />acts, <em><Typed words={["it asks.", "you look.", "you decide.", "you edit.", "you say stop."]} /></em></h1>
-              <p class="lede">Pinrail is a desktop inbox for the moments that matter: review comments about to be posted, emails about to be sent, a page about to ship. The agent submits its work, waits, and carries on with your decision.</p>
+              <p class="lede">Pinrail is a desktop inbox for the moments your agent needs you: review comments about to be posted, emails about to be sent, an illustration or a voice-over still taking shape.</p>
+              <div class="hero-window"><HeroDemo /></div>
             </div>
             <template data-round="2">
               <div class="content" data-round="2">
@@ -79,28 +84,13 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         </article>
 
         <!-- 102: the loop -->
-        <article class="item" data-id="102" data-title="How it works" tabindex="-1">
+        <article class="item wide" data-id="102" data-title="How it works" tabindex="-1">
           <div class="gutter"><span class="iid">#102</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
               <h2>One command in, one decision out.</h2>
-              <ol class="loop">
-                <li>
-                  <span class="step">1</span>
-                  <div class="step-text"><h3>The agent submits</h3><p>At a step its instructions say needs a person, it calls the CLI with a plugin, a title and a JSON payload. The command blocks.</p></div>
-                  <div class="step-art term-line"><span class="who">agent</span><code>$ pinrail submit code-review --data proposals.json --wait</code><span class="blink" aria-hidden="true">▍</span></div>
-                </li>
-                <li>
-                  <span class="step">2</span>
-                  <div class="step-text"><h3>You decide</h3><p>The app notifies you and shows the work in a view built for it. Accept, reject, edit, comment, then hand over.</p></div>
-                  <div class="step-art decide-line"><span class="who">you</span><span class="mini ok">✓ Accept</span><span class="mini no">✕ Reject</span><span class="mini">Note…</span><span class="mini dark">Hand back <kbd>⌘↵</kbd></span></div>
-                </li>
-                <li>
-                  <span class="step">3</span>
-                  <div class="step-text"><h3>It carries on</h3><p>The command returns your decision: markdown for an agent to read, JSON for a script, and an exit code that says how it ended.</p></div>
-                  <div class="step-art term-line"><span class="who">agent</span><code>{'{"decisions": [ … ], "undecided": []}'}</code><span class="exit">exit 0</span></div>
-                </li>
-              </ol>
+              <p>You tell the agent when to stop for you, in whatever instructions it follows. When it gets there, it asks through Pinrail and waits.</p>
+              <HowItWorks />
             </div>
             <template data-round="2">
               <div class="content" data-round="2">
@@ -109,7 +99,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               </div>
             </template>
           </div>
-          <aside class="note" data-round="1"><b>agent</b>Three steps. Reject this and I'll make it four.</aside>
+          <aside class="note" data-round="1"><b>agent</b>It plays itself. Reject it and I'll say it in one sentence.</aside>
           <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Fine. One sentence, no steps.</aside></template>
         </article>
 
@@ -155,8 +145,9 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           <div class="body">
             <div class="content" data-round="1">
               <h2>A no comes with a reason, and the reason comes back.</h2>
-              <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts, so you see what changed and why. Every round and every decision is kept, and can be opened again later.</p>
-              <p class="aside-hint">Try it: reject a section above and see what comes back.</p>
+              <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts and comments, so you see what changed and why, and a view can set the two rounds side by side to check each fix. Every round and every decision is kept, and can be opened again later.</p>
+              <RoundDemo />
+              <p class="aside-hint">Try it: send a section above back and see what comes back.</p>
             </div>
             <template data-round="2">
               <div class="content" data-round="2">
@@ -175,14 +166,9 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           <div class="body">
             <div class="content" data-round="1">
               <h2>“Stop” is a real answer.</h2>
-              <p>Discard a review with a reason and the waiting command exits 5. The agent stops the work the review was gating, reports why, and doesn't try again. The other endings have codes too:</p>
+              <p>Discard a review with a reason and the waiting command exits 5. The agent stops the work the review was gating, reports why, and doesn't try again. Every ending has its code:</p>
               <table class="codes">
-                <tbody>
-                  <tr><td>0</td><td>decided: your decision is on stdout</td></tr>
-                  <tr><td>3</td><td>withdrawn by the agent, or expired</td></tr>
-                  <tr><td>4</td><td><code>--timeout</code> ran out; still pending</td></tr>
-                  <tr class="stop"><td>5</td><td>discarded: stop the work</td></tr>
-                </tbody>
+                <tbody>{codes.map(([c, t]) => <tr class={c === "5" ? "stop" : undefined}><td>{c}</td><td>{t}</td></tr>)}</tbody>
               </table>
             </div>
             <template data-round="2">
@@ -196,30 +182,24 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Shorter this time.</aside></template>
         </article>
 
-        <!-- 106: yours -->
-        <article class="item" data-id="106" data-title="Local" tabindex="-1">
+        <!-- 106: the CLI -->
+        <article class="item" data-id="106" data-title="The CLI" tabindex="-1">
           <div class="gutter"><span class="iid">#106</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
-              <h2>On your machine, with your agents.</h2>
-              <ul class="facts">
-                <li><b>Local.</b> The app runs its server on loopback. Reviews and decisions stay on your computer.</li>
-                <li><b>Contained.</b> A plugin's view is sandboxed: it draws, talks to the app, and nothing else.</li>
-                <li><b>Any agent.</b> If it can run a command, it can ask through Pinrail. The agent's own instructions say when.</li>
-              </ul>
-              <ul class="agents" aria-label="Agents that work with Pinrail">
-                {agents.map((a) => <li><img src={`/agents/${a.icon}.svg`} width="18" height="18" alt="" />{a.name}</li>)}
-              </ul>
+              <h2>For an agent, and for a script.</h2>
+              <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
+              <CliSession />
             </div>
             <template data-round="2">
               <div class="content" data-round="2">
-                <h2>On your machine, with your agents.</h2>
-                <p>No account, no cloud. Any agent that can run a command can ask through it.</p>
+                <h2>For an agent, and for a script.</h2>
+                <p>One command: <code>pinrail submit … --wait</code>. It prints the decision, as Markdown for an agent or JSON for a script, and its exit code says how the review ended.</p>
               </div>
             </template>
           </div>
-          <aside class="note" data-round="1"><b>agent</b>I only claimed what I could point to in the repo.</aside>
-          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Cut to one line.</aside></template>
+          <aside class="note" data-round="1"><b>agent</b>That's a real session. The comments are made up.</aside>
+          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>No terminal this time.</aside></template>
         </article>
 
         <section class="handover" aria-labelledby="handover-title">
