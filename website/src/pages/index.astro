@@ -3,9 +3,9 @@
 // page you review, laid out as a landing page for people who'd rather read.
 import "../styles/index.css";
 import "../styles/index-classic.css";
-import Zoom from "../components/index/Zoom.astro";
 import HeroDemo from "../components/index/HeroDemo.astro";
 import HowItWorks from "../components/index/HowItWorks.astro";
+import ViewsCarousel from "../components/index/ViewsCarousel.astro";
 import { icons } from "../components/index/lucide";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
@@ -84,31 +84,13 @@ const codes = [
       </section>
 
       <section class="c-section" id="views" data-carousels>
-        <div class="c-carousel-head">
+        <ViewsCarousel items={shown}>
           <div class="c-head">
             <p class="kicker">02 · Views</p>
             <h2>A diff deserves a diff. <em>A picture deserves a pen.</em></h2>
             <p>Each kind of request is a plugin, with a view made for deciding it: the diff for a code review, the draft itself for an email, the image for a picture, the waveform for a voice take. What you say goes back with what it points at, down to the line, the pixel or the millisecond.</p>
           </div>
-          <div class="c-carousel-nav" aria-hidden="true">
-            <span class="c-count"><b data-carousel-at>1</b> / <span>{shown.length}</span></span>
-            <button type="button" class="c-arrow" data-carousel-step="-1" tabindex="-1">←</button>
-            <button type="button" class="c-arrow" data-carousel-step="1" tabindex="-1">→</button>
-          </div>
-        </div>
-        <div class="c-carousel" data-carousel tabindex="0" role="region" aria-roledescription="carousel" aria-label="Views: scroll sideways for more">
-          {shown.map((v, i) => (
-            <figure class:list={["c-slide", { "is-active": i === 0 }]} aria-roledescription="slide" aria-label={`${i + 1} of ${shown.length}: ${v.name}`}>
-              <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 90vw, 960px" />
-              <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
-            </figure>
-          ))}
-        </div>
-        <div class="c-progress" role="group" aria-label="Go to a view">
-          {shown.map((v, i) => (
-            <button type="button" data-carousel-go={i} aria-label={v.name} aria-current={i === 0 ? "true" : undefined}><span>{v.name}</span></button>
-          ))}
-        </div>
+        </ViewsCarousel>
         <div class="c-own">
           <code>pinrail plugins new my_plugin</code>
           <p><b>The next one is yours.</b> A plugin is a manifest, two JSON schemas and a web page, built with any web framework you like, or none at all. Storyboards, floor plans, moodboards, a map with a no-go zone scribbled on it: if your agent can make it, you can put it in front of your eyes and mark it up. The only limits are your imagination and your agent's.</p>
@@ -187,53 +169,6 @@ review · acme/api · pr-review · 42 · decided by maya at 2026-09-23 10:14
 
     <Lightbox />
 
-    <script>
-      // The views, in one carousel. Sideways scrolling (a trackpad, touch,
-      // shift and the wheel, or the arrow keys on the focused track) snaps
-      // slide by slide, and the arrows, the count and the progress bar follow.
-      const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
-      for (const section of document.querySelectorAll<HTMLElement>("[data-carousels]")) {
-        const at = section.querySelector("[data-carousel-at]")!;
-        const arrows = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-step]")];
-        const track = section.querySelector<HTMLElement>("[data-carousel]")!;
-        const slides = [...track.querySelectorAll<HTMLElement>(".c-slide")];
-        const marks = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-go]")];
-        const pad = () => parseFloat(getComputedStyle(track).scrollPaddingInlineStart) || 0;
-        let current = -1;
-        const go = (i: number) => {
-          const slide = slides[Math.max(0, Math.min(slides.length - 1, i))];
-          track.scrollTo({ left: slide.offsetLeft - pad(), behavior: smooth ? "smooth" : "auto" });
-        };
-        const show = (i: number) => {
-          if (i === current) return;
-          current = i;
-          slides.forEach((s, k) => s.classList.toggle("is-active", k === i));
-          marks.forEach((m, k) => (k === i ? m.setAttribute("aria-current", "true") : m.removeAttribute("aria-current")));
-          at.textContent = String(i + 1);
-          arrows[0].disabled = i <= 0;
-          arrows[1].disabled = i === slides.length - 1;
-        };
-        // the slide whose start is nearest the track's, or the last at the end
-        const follow = () => {
-          const x = track.scrollLeft + pad();
-          let i = slides.reduce((best, s, k) => (Math.abs(s.offsetLeft - x) < Math.abs(slides[best].offsetLeft - x) ? k : best), 0);
-          if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 2) i = slides.length - 1;
-          show(i);
-        };
-        let frame = 0;
-        track.addEventListener("scroll", () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(follow); }, { passive: true });
-        marks.forEach((m) => m.addEventListener("click", () => go(Number(m.dataset.carouselGo))));
-        arrows.forEach((a) => a.addEventListener("click", () => go(current + Number(a.dataset.carouselStep))));
-        // a slide peeking in comes forward on a click, rather than opening full size
-        slides.forEach((s, k) => s.addEventListener("click", (e) => {
-          if (k === current) return;
-          e.preventDefault();
-          e.stopPropagation();
-          go(k);
-        }, { capture: true }));
-        show(0);
-      }
-    </script>
 
     <footer class="colophon">
       <span>Pinrail · a person in the loop of your agents.<small>No cookies: Cloudflare counts visits anonymously.</small><small>Product names and logos belong to their owners and are shown only to say which agents Pinrail works with. Pinrail is not affiliated with them or endorsed by them.</small></span>
