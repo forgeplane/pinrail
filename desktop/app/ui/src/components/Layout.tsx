@@ -428,7 +428,6 @@ export function Layout({ children }: { children: ReactNode }) {
             </Tooltip>
           </span>
           {topbar?.crumb ?? <span className="topbar-title">{pageTitle(location.pathname)}</span>}
-          {topbar?.actions}
           <Tooltip label="Keyboard shortcuts" keys={["?"]}>
             <button type="button" className="bar-button" onClick={() => setHelp(true)} aria-label="Keyboard shortcuts">
               <Keyboard size={16} />

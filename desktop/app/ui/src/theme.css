@@ -1775,17 +1775,33 @@ h1 {
   flex-direction: column;
   gap: 14px;
 }
-/* one strip of what the plugin does not show; the rounds at its end */
+/* one strip of what the plugin does not show, the rounds at its end; the
+   facts wrap as the window narrows, and the buttons keep the top right */
 .review-strip {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 14px;
+  align-items: flex-start;
+  gap: 14px;
   font-size: 12px;
   color: var(--dim);
 }
+.strip-info {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  min-width: 0;
+}
 .strip-spacer {
   flex: 1;
+}
+/* what can be done with the review, at the strip's right end */
+.strip-actions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  margin: -3px -4px -3px 0;
 }
 /* the id and the button that copies it read as one item in the strip */
 .strip-id {

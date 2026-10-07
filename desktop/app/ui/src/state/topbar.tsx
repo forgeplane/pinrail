@@ -1,5 +1,5 @@
 // What a screen puts in the top bar: a breadcrumb in place of the page
-// name, and actions at the right end. Cleared when the screen leaves.
+// name. Cleared when the screen leaves.
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PluginShortcut } from "../api/types";
@@ -7,8 +7,6 @@ import type { PluginShortcut } from "../api/types";
 export type TopBarContent = {
   /** the breadcrumb, shown instead of the page title */
   crumb?: ReactNode;
-  /** controls before the shell's own buttons */
-  actions?: ReactNode;
   /** the plugin whose view is open, for the keyboard-shortcuts dialog */
   plugin?: { name: string; title: string; icon: string | null; shortcuts: PluginShortcut[] };
 };

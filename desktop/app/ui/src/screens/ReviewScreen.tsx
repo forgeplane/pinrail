@@ -409,8 +409,8 @@ export function ReviewScreen() {
     setCopiedId(null);
   }, [id]);
 
-  // the bar: where this came from, the title, its origin link; what can be
-  // done with the review at the right. Its outcome leads the page's own strip.
+  // the bar: where this came from, the title, its origin link. The review's
+  // outcome leads the page's own strip, and what can be done with it ends it.
   const originUrl = review?.origin.url ?? null;
   const crumb = useMemo(
     () =>
@@ -459,14 +459,14 @@ export function ReviewScreen() {
             </Tooltip>
           ) : null}
           <Tooltip
-            label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy as markdown"}
+            label={copied === "done" ? "Copied" : copied === "failed" ? "Could not copy" : "Copy decision as markdown"}
             side="bottom"
           >
             <button
               type="button"
               className={`bar-button copy-button ${copied === "done" ? "ok" : copied === "failed" ? "danger" : ""}`}
               onClick={copyMarkdown}
-              aria-label="Copy the review as markdown"
+              aria-label="Copy the decision as markdown"
               data-copy-markdown
             >
               {copied === "done" ? (
@@ -508,10 +508,7 @@ export function ReviewScreen() {
         : undefined,
     [plugin],
   );
-  const topbar = useMemo(
-    () => (review ? { crumb, actions, plugin: forPlugin } : null),
-    [review, crumb, actions, forPlugin],
-  );
+  const topbar = useMemo(() => (review ? { crumb, plugin: forPlugin } : null), [review, crumb, forPlugin]);
   useTopBar(topbar);
 
   const onNote = (value: string) => {
@@ -538,75 +535,80 @@ export function ReviewScreen() {
   return (
     <div className="review-page">
       <div className="review-strip">
-        <OutcomeBadge review={review} />
-        {/* what it asks while it waits, what was decided once it is */}
-        <SummaryCounts summary={review.status === "pending" ? review.summary : review.decision?.summary} />
-        <PluginBadge name={review.plugin} version={review.plugin_version} />
-        {review.attachments?.length ? <AttachmentsChip reviewId={review.id} attachments={review.attachments} /> : null}
-        {originText ? (
-          <span>
-            {originText}
-            {origin.ref ? <span className="mono faint"> #{origin.ref}</span> : null}
-          </span>
-        ) : null}
-        {review.requested_by ? (
-          <span className="with-icon">
-            <AgentIcon requestedBy={review.requested_by} /> {review.requested_by}
-          </span>
-        ) : null}
-        <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
-        {review.expires_at ? (
-          <span className="with-icon" title={stamp(review.expires_at)}>
-            <Clock size={13} /> expires {stamp(review.expires_at)}
-          </span>
-        ) : null}
-        <span className="strip-id">
-          <span className="mono faint copyable">{review.id}</span>
-          <Tooltip
-            label={copiedId === "done" ? "Copied" : copiedId === "failed" ? "Could not copy" : "Copy the id"}
-            side="bottom"
-          >
-            <button
-              type="button"
-              className={`id-copy ${copiedId === "done" ? "ok" : copiedId === "failed" ? "danger" : ""}`}
-              onClick={copyId}
-              aria-label="Copy the review id"
-              data-copy-id
+        <div className="strip-info">
+          <OutcomeBadge review={review} />
+          {/* what it asks while it waits, what was decided once it is */}
+          <SummaryCounts summary={review.status === "pending" ? review.summary : review.decision?.summary} />
+          <PluginBadge name={review.plugin} version={review.plugin_version} />
+          {review.attachments?.length ? (
+            <AttachmentsChip reviewId={review.id} attachments={review.attachments} />
+          ) : null}
+          {originText ? (
+            <span>
+              {originText}
+              {origin.ref ? <span className="mono faint"> #{origin.ref}</span> : null}
+            </span>
+          ) : null}
+          {review.requested_by ? (
+            <span className="with-icon">
+              <AgentIcon requestedBy={review.requested_by} /> {review.requested_by}
+            </span>
+          ) : null}
+          <span title={stamp(review.created_at)}>{age(review.created_at)} ago</span>
+          {review.expires_at ? (
+            <span className="with-icon" title={stamp(review.expires_at)}>
+              <Clock size={13} /> expires {stamp(review.expires_at)}
+            </span>
+          ) : null}
+          <span className="strip-id">
+            <span className="mono faint copyable">{review.id}</span>
+            <Tooltip
+              label={copiedId === "done" ? "Copied" : copiedId === "failed" ? "Could not copy" : "Copy the id"}
+              side="bottom"
             >
-              {copiedId === "done" ? (
-                <ClipboardCheck size={14} />
-              ) : copiedId === "failed" ? (
-                <ClipboardX size={14} />
-              ) : (
-                <Copy size={14} />
-              )}
-            </button>
-          </Tooltip>
-        </span>
-        <span className="strip-spacer" />
-        {rounds.length > 1 ? (
-          <span className="rounds" role="navigation" aria-label="Rounds">
-            <span className="rounds-cap">rounds</span>
-            {rounds.map((r, i) => {
-              // each round in the colour of its outcome, as the status badge shows it
-              const outcome = outcomeOf(r.id === review.id ? review : r);
-              const current = r.id === review.id;
-              return (
-                <Tooltip key={r.id} label={`${r.title} · ${outcome.label}`} side="bottom">
-                  <Link
-                    to={`/reviews/${r.id}`}
-                    state={location.state}
-                    className={`round-pill round-${outcome.tone}${current ? " is-current" : unopened.has(r.id) ? " is-waiting" : ""}`}
-                    aria-current={current ? "page" : undefined}
-                    data-outcome={outcome.tone}
-                  >
-                    <span>{i + 1}</span>
-                  </Link>
-                </Tooltip>
-              );
-            })}
+              <button
+                type="button"
+                className={`id-copy ${copiedId === "done" ? "ok" : copiedId === "failed" ? "danger" : ""}`}
+                onClick={copyId}
+                aria-label="Copy the review id"
+                data-copy-id
+              >
+                {copiedId === "done" ? (
+                  <ClipboardCheck size={14} />
+                ) : copiedId === "failed" ? (
+                  <ClipboardX size={14} />
+                ) : (
+                  <Copy size={14} />
+                )}
+              </button>
+            </Tooltip>
           </span>
-        ) : null}
+          <span className="strip-spacer" />
+          {rounds.length > 1 ? (
+            <span className="rounds" role="navigation" aria-label="Rounds">
+              <span className="rounds-cap">rounds</span>
+              {rounds.map((r, i) => {
+                // each round in the colour of its outcome, as the status badge shows it
+                const outcome = outcomeOf(r.id === review.id ? review : r);
+                const current = r.id === review.id;
+                return (
+                  <Tooltip key={r.id} label={`${r.title} · ${outcome.label}`} side="bottom">
+                    <Link
+                      to={`/reviews/${r.id}`}
+                      state={location.state}
+                      className={`round-pill round-${outcome.tone}${current ? " is-current" : unopened.has(r.id) ? " is-waiting" : ""}`}
+                      aria-current={current ? "page" : undefined}
+                      data-outcome={outcome.tone}
+                    >
+                      <span>{i + 1}</span>
+                    </Link>
+                  </Tooltip>
+                );
+              })}
+            </span>
+          ) : null}
+        </div>
+        <span className="strip-actions">{actions}</span>
       </div>
 
       {flash ? <p className="notice">{flash}</p> : null}

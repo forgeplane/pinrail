@@ -48,7 +48,7 @@ Leave an item without a verdict to see what happens: the app asks you to confirm
 
 Your decision reaches the agent as soon as you hand it over. The agent starts on the TODOs you accepted, follows your notes, and leaves the rejected ones alone.
 
-If you **discard** the review instead, with the *Discard* button in its bar, the agent is told to stop the work the review was about, and is given your reason.
+If you **discard** the review instead, with the *Discard* button at the right of its header, the agent is told to stop the work the review was about, and is given your reason.
 
 ## More to try
 

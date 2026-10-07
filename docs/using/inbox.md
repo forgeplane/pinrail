@@ -32,12 +32,12 @@ Quitting, restarting or updating Pinrail loses your drafts and any note to the a
 
 A review that includes attachments lists them above the view. Click *N files* to list each attachment with its name, size and type, and choose *Save…* to save one.
 
-If the whole review is wrong, **discard** it with the *Discard* button in the review's bar, or with <kbd>D</kbd> on it in the inbox list. The agent is told to stop and is given your reason. From the review's bar, Pinrail then returns to the inbox. See [Deciding and discarding](/docs/concepts/reviews/#deciding-and-discarding).
+If the whole review is wrong, **discard** it with the *Discard* button at the right of the review's header, or with <kbd>D</kbd> on it in the inbox list. The agent is told to stop and is given your reason. From the review's header, Pinrail then returns to the inbox. See [Deciding and discarding](/docs/concepts/reviews/#deciding-and-discarding).
 
 ![The discard dialog, with a reason for the agent typed in.](screenshot:discard "When you discard a review, nothing is decided, and the agent is told to stop and is given your reason.")
 
 :::tip[Focus on the view]
-<kbd>⌘⇧M</kbd> maximizes the plugin's view and hides everything else. Press it again to restore.
+<kbd>⌘⇧M</kbd>, or the *Maximize* button at the right of the review's header, maximizes the plugin's view and hides everything else. Press <kbd>⌘⇧M</kbd> or <kbd>Esc</kbd> to restore it. The button beside it copies the decision as Markdown, the way the agent receives it.
 :::
 
 ## Rounds
