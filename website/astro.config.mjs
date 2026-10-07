@@ -1,5 +1,6 @@
 // The site: the landing page at /, the docs under /docs from the markdown
 // in ../docs. Starlight renders the docs; the landing page is its own.
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import starlightLinksValidator from "starlight-links-validator";
@@ -17,7 +18,12 @@ import remarkExamples from "./src/plugins/remark-examples.mjs";
 
 export default defineConfig({
   site: "https://pinrail.dev",
-  vite: { plugins: [tailwindcss()] },
+  vite: {
+    plugins: [tailwindcss()],
+    // the dev server may serve the promo video from the repository's
+    // agent-docs, before it is on media.pinrail.dev (videos.mjs)
+    server: { fs: { allow: [".", fileURLToPath(new URL("../agent-docs/promo-video/out", import.meta.url))] } },
+  },
   // unified, so the docs' ```mermaid blocks become diagrams, screenshot:
   // images the app in the reader's theme, and contract: images a plugin's
   // manifest and schemas; Starlight adds its

@@ -559,6 +559,18 @@ h3 {
 .hero-window {
   margin-top: 28px;
 }
+.hero-window video.promo {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  background: var(--night);
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.5);
+}
+.reasons .chips[hidden] {
+  display: none;
+}
 
 .note {
   align-self: start;

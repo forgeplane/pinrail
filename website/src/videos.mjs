@@ -4,6 +4,14 @@
 // cut gets a new name.
 
 export const videos = {
+  // the minute-long promo: in development it plays from the repository's
+  // agent-docs, which are not committed; a build plays the uploaded copy
+  promo: {
+    src: "https://media.pinrail.dev/promo-v1.mp4",
+    poster: "https://media.pinrail.dev/promo-v1-poster.jpg",
+    local: "agent-docs/promo-video/out/pinrail-promo.mp4",
+    localPoster: "agent-docs/promo-video/out/poster.png",
+  },
   // the two-minute demo; its chapters are the times of its scenes, each with
   // a line on what it shows
   demo: {

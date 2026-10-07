@@ -4,7 +4,9 @@
 // an item to accept or send back with a reason, a rejection comes back as a
 // second round, the decision builds up as JSON beside the page, and handing it
 // back plays out in the agent's terminal.
+import path from "node:path";
 import "../styles/index.css";
+import { videos } from "../videos.mjs";
 import Zoom from "../components/index/Zoom.astro";
 import Download from "../components/Download.astro";
 import GitHubIcon from "../components/GitHubIcon.astro";
@@ -19,7 +21,11 @@ import RoundDemo from "../components/index/RoundDemo.astro";
 import CliSession from "../components/index/CliSession.astro";
 import { codes, repo, samples, views } from "../components/index/content";
 
-const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"];
+// The promo, for the hero's video round: in development from the
+// repository's agent-docs, in a build from media.pinrail.dev
+const promo = import.meta.env.DEV
+  ? { src: `/@fs${path.resolve("..", videos.promo.local)}`, poster: `/@fs${path.resolve("..", videos.promo.localPoster)}` }
+  : videos.promo;
 ---
 <!doctype html>
 <html lang="en">
@@ -72,7 +78,14 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               <p class="lede">Pinrail is a desktop inbox for the moments your agent needs you: review comments about to be posted, emails about to be sent, an illustration or a voice-over still taking shape.</p>
               <div class="hero-window"><HeroDemo /></div>
             </div>
-            <template data-round="2">
+            <template data-round="2" data-option="video" data-label="Show the promo video instead">
+              <div class="content" data-round="2">
+                <h1 class="hero-title"><span class="line">Before your agent</span><br />acts, <em>it asks.</em></h1>
+                <p class="lede">Pinrail is a desktop inbox for the moments your agent needs you: review comments about to be posted, emails about to be sent, an illustration or a voice-over still taking shape.</p>
+                <div class="hero-window"><video class="promo" src={promo.src} poster={promo.poster} controls playsinline preload="metadata"></video></div>
+              </div>
+            </template>
+            <template data-round="2" data-option="angle" data-label="Try another angle">
               <div class="content" data-round="2">
                 <h1>Your agents do the work. <em>You keep the final say.</em></h1>
                 <p class="lede">Agents stop at the steps you pick and wait in one inbox on your computer. You look at the actual work, decide, and your decision goes back to them as something they can act on.</p>
@@ -80,7 +93,8 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>I kept the headline short. There was a longer one about “revolutionizing human–AI collaboration”. You're welcome.</aside>
-          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Another angle, then: the division of labour instead of the mechanism.</aside></template>
+          <template data-note="2" data-option="video"><aside class="note" data-round="2"><b>agent</b>The minute-long promo, then, in place of the window. It starts when you press play.</aside></template>
+          <template data-note="2" data-option="angle"><aside class="note" data-round="2"><b>agent</b>Another angle, then: the division of labour instead of the mechanism.</aside></template>
         </article>
 
         <!-- 102: the loop -->
@@ -92,7 +106,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               <p>You tell the agent when to stop for you, in whatever instructions it follows. When it gets there, it asks through Pinrail and waits.</p>
               <HowItWorks />
             </div>
-            <template data-round="2">
+            <template data-round="2" data-option="sentence" data-label="Say it in one sentence">
               <div class="content" data-round="2">
                 <h2>One command in, one decision out.</h2>
                 <p class="plain">The agent runs <code>pinrail submit … --wait</code> and waits. You decide in the app. The command returns your decision, and the agent carries on with it.</p>
@@ -100,7 +114,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>It plays itself. Reject it and I'll say it in one sentence.</aside>
-          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Fine. One sentence, no steps.</aside></template>
+          <template data-note="2" data-option="sentence"><aside class="note" data-round="2"><b>agent</b>Fine. One sentence, no steps.</aside></template>
         </article>
 
         <!-- 103: the views -->
@@ -123,7 +137,21 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
                 </figure>
               </div>
             </div>
-            <template data-round="2">
+            <template data-round="2" data-option="five" data-label="Shorter, keep five">
+              <div class="content" data-round="2">
+                <h2>A diff deserves a diff.</h2>
+                <p>Each kind of request is a plugin, with a view made for deciding it. Five come with the app; more are ready to install.</p>
+                <div class="views">
+                  {views.map((v, i) => (
+                    <figure class="view" style={`--tilt:${[-1.2, 0.8, -0.6, 1.1, -0.9][i % 5]}deg`}>
+                      <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 700px) 90vw, 320px" />
+                      <figcaption><b>{v.name}</b>{v.detail}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </div>
+            </template>
+            <template data-round="2" data-option="list" data-label="Just the list">
               <div class="content" data-round="2">
                 <h2>A diff deserves a diff.</h2>
                 <dl class="plain-views">
@@ -136,7 +164,8 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>These are screenshots of the real app. I didn't draw them.</aside>
-          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>A plainer version: the whole list, no pictures.</aside></template>
+          <template data-note="2" data-option="five"><aside class="note" data-round="2"><b>agent</b>Five, the ones I was asked about most. The rest are a click away in the docs.</aside></template>
+          <template data-note="2" data-option="list"><aside class="note" data-round="2"><b>agent</b>A plainer version: the whole list, no pictures.</aside></template>
         </article>
 
         <!-- 104: rounds -->
@@ -149,7 +178,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               <RoundDemo />
               <p class="aside-hint">Try it: send a section above back and see what comes back.</p>
             </div>
-            <template data-round="2">
+            <template data-round="2" data-option="plainer" data-label="Say it plainer">
               <div class="content" data-round="2">
                 <h2>Say no. Say why. Get round two.</h2>
                 <p>A rejection carries its reason back to the agent. The next round shows up next to your earlier verdicts, and none of it is thrown away.</p>
@@ -157,7 +186,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>You may have noticed you're doing this right now.</aside>
-          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Round two of the section about round two.</aside></template>
+          <template data-note="2" data-option="plainer"><aside class="note" data-round="2"><b>agent</b>Round two of the section about round two.</aside></template>
         </article>
 
         <!-- 105: stop -->
@@ -171,7 +200,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
                 <tbody>{codes.map(([c, t]) => <tr class={c === "5" ? "stop" : undefined}><td>{c}</td><td>{t}</td></tr>)}</tbody>
               </table>
             </div>
-            <template data-round="2">
+            <template data-round="2" data-option="shorter" data-label="Shorter">
               <div class="content" data-round="2">
                 <h2>“Stop” is a real answer.</h2>
                 <p>Discard a review and the agent's command exits 5. It stops, tells you why, and leaves it there.</p>
@@ -179,7 +208,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>Please don't test this on the page. (The Discard button is at the top.)</aside>
-          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>Shorter this time.</aside></template>
+          <template data-note="2" data-option="shorter"><aside class="note" data-round="2"><b>agent</b>Shorter this time.</aside></template>
         </article>
 
         <!-- 106: the CLI -->
@@ -191,7 +220,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
               <CliSession />
             </div>
-            <template data-round="2">
+            <template data-round="2" data-option="plain" data-label="No terminal">
               <div class="content" data-round="2">
                 <h2>For an agent, and for a script.</h2>
                 <p>One command: <code>pinrail submit … --wait</code>. It prints the decision, as Markdown for an agent or JSON for a script, and its exit code says how the review ended.</p>
@@ -199,7 +228,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>That's a real session. The comments are made up.</aside>
-          <template data-note="2"><aside class="note" data-round="2"><b>agent</b>No terminal this time.</aside></template>
+          <template data-note="2" data-option="plain"><aside class="note" data-round="2"><b>agent</b>No terminal this time.</aside></template>
         </article>
 
         <section class="handover" aria-labelledby="handover-title">
@@ -247,12 +276,12 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
 
     <form class="reasons" hidden aria-label="Why send this back?">
       <p class="reasons-q">What should the agent know?</p>
-      <div class="chips">{reasons.map((r) => <button type="button" class="chip" data-reason={r}>{r}</button>)}</div>
+      <div class="chips" data-chips></div>
       <div class="reason-row">
         <input type="text" name="note" placeholder="Or say it in your own words…" autocomplete="off" />
         <button type="submit" class="primary">Send back</button>
       </div>
-      <p class="reasons-fine">In the app, the agent answers after you hand over. Here it's fast-forwarded.</p>
+      <p class="reasons-fine">The agent reads your reasons when you hand back, and answers with the next round.</p>
     </form>
 
     <Lightbox />
@@ -263,7 +292,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
     </footer>
 
     <script>
-      type Verdict = { action: "accept" | "reject"; note?: string };
+      type Verdict = { action: "accept" | "reject"; note?: string; option?: string };
       type Item = { el: HTMLElement; id: number; title: string; round: number; verdict?: Verdict; history: string[] };
 
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -292,16 +321,35 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         item.el.addEventListener("pointerdown", () => { current = items.indexOf(item); mark(); });
       }
 
+      // A verdict is recorded and nothing more: the agent answers a sent-back
+      // section in the next round, after the decision is handed back.
       function decide(item: Item, verdict: Verdict) {
         item.verdict = verdict;
         closeReasons();
         render();
-        if (verdict.action === "reject" && item.round === 1) revise(item, verdict.note || "no reason given");
-        else next();
+        next();
       }
+
+      // The versions the agent has ready for a section's next round, each with
+      // the reason that asks for it: these are the chips.
+      const options = (item: Item) =>
+        item.round > 1
+          ? []
+          : [...item.el.querySelectorAll<HTMLTemplateElement>('template[data-round="2"]')].map((t) => ({ id: t.dataset.option!, label: t.dataset.label! }));
 
       function askWhy(item: Item) {
         reasonFor = item;
+        const chips = reasons.querySelector<HTMLElement>("[data-chips]")!;
+        chips.replaceChildren(...options(item).map((o) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "chip";
+          chip.dataset.reason = o.label;
+          chip.dataset.option = o.id;
+          chip.textContent = o.label;
+          return chip;
+        }));
+        chips.hidden = !chips.children.length;
         item.el.querySelector(".verdict")!.after(reasons);
         reasons.hidden = false;
         reasons.reset();
@@ -310,25 +358,26 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
       function closeReasons() { reasons.hidden = true; reasonFor = null; }
       reasons.addEventListener("click", (e) => {
         const chip = (e.target as HTMLElement).closest<HTMLElement>("[data-reason]");
-        if (chip && reasonFor) decide(reasonFor, { action: "reject", note: chip.dataset.reason });
+        if (chip && reasonFor) decide(reasonFor, { action: "reject", note: chip.dataset.reason, option: chip.dataset.option });
       });
       reasons.addEventListener("submit", (e) => {
         e.preventDefault();
         if (!reasonFor) return;
         const note = reasons.querySelector<HTMLInputElement>("input")!.value.trim();
-        decide(reasonFor, { action: "reject", note: note || undefined });
+        // a reason in the person's own words: the agent's first version answers it
+        decide(reasonFor, { action: "reject", note: note || undefined, option: options(reasonFor)[0]?.id });
       });
       reasons.addEventListener("keydown", (e) => { if (e.key === "Escape") { const it = reasonFor; closeReasons(); it?.el.focus(); } });
 
       // Round two: the agent takes the reason and sends the section again,
       // with the first round's verdict kept beside it.
-      function revise(item: Item, note: string) {
+      function revise(item: Item, option: string, note: string) {
         const el = item.el;
         el.classList.add("revising");
         setTimeout(() => {
           const body = el.querySelector(".body")!;
-          const tpl = el.querySelector<HTMLTemplateElement>('template[data-round="2"]')!;
-          const noteTpl = el.querySelector<HTMLTemplateElement>('template[data-note="2"]')!;
+          const tpl = el.querySelector<HTMLTemplateElement>(`template[data-round="2"][data-option="${option}"]`)!;
+          const noteTpl = el.querySelector<HTMLTemplateElement>(`template[data-note="2"][data-option="${option}"]`)!;
           body.querySelector('.content[data-round="1"]')!.replaceWith(tpl.content.cloneNode(true));
           el.querySelector('.note[data-round="1"]')!.replaceWith(noteTpl.content.cloneNode(true));
           item.history.push(`Round 1: sent back — “${note}”`);
@@ -342,7 +391,7 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           el.classList.add("arrived");
           setTimeout(() => el.classList.remove("arrived"), 1200);
           render();
-        }, reduce ? 0 : 1100);
+        }, reduce ? 0 : 600);
       }
 
       function next() {
@@ -426,6 +475,12 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         finish();
       }
 
+      // Each hand-back plays out in the agent's terminal, which keeps every
+      // round. A section sent back with a version still to come is revised:
+      // the agent submits the next draft with --revises, and the page shows
+      // it to review. With none to revise, the agent carries on and it ends.
+      let draft = 1;
+      const reviewId = (n: number) => `r_01K5Q${"9ABCDEFGH"[n - 1]}`;
       async function finish() {
         closeReasons();
         document.body.dataset.phase = "handed";
@@ -434,16 +489,18 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
         const wrap = document.querySelector<HTMLElement>(".terminal-wrap")!;
         const term = document.querySelector<HTMLElement>("[data-term]")!;
         wrap.hidden = false;
-        term.textContent = "";
+        if (draft === 1) term.textContent = "";
+        else term.append("\n");
         wrap.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
 
         const d = decision();
-        const byId = new Map(items.map((it) => [it.id, it]));
         const accepted = d.decisions.filter((r) => r.action === "accept");
-        const rejected = d.decisions.filter((r) => r.action === "reject");
+        const rejected = items.filter((it) => it.verdict?.action === "reject");
+        const toRevise = rejected.filter((it) => it.verdict!.option && it.round === 1);
         const now = new Date();
         const pad = (n: number) => String(n).padStart(2, "0");
         const at = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        const title = `Landing page, draft ${draft}`;
         // the lines the list plugin prints, one per item in the page's order
         const itemLines = items.flatMap((it): [string, string, number][] => {
           const v = it.verdict;
@@ -451,10 +508,10 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           const line: [string, string, number] = [v.action === "accept" ? "ok" : "no", `- **#${it.id} ${v.action === "accept" ? "accepted" : "rejected"}** — ${it.title}`, 70];
           return v.note ? [line, ["out", `  > ${v.note}`, 40]] : [line];
         });
+        const submit = `pinrail submit list --title "${title}" \\\n    --data page.json --wait`;
         const lines: [string, string, number][] = [
-          ["cmd", `pinrail submit list --title "Landing page, draft 1" \\\n    --data page.json --wait`, 420],
-          ["dim", "pinrail: review r_01K5Q9 submitted; waiting for a decision", 700],
-          ["out", "r_01K5Q9 · decided · Landing page, draft 1", 60],
+          ...(draft === 1 ? [["cmd", submit, 420] as [string, string, number], ["dim", `pinrail: review ${reviewId(draft)} submitted; waiting for a decision`, 700] as [string, string, number]] : []),
+          ["out", `${reviewId(draft)} · decided · ${title}`, 60],
           ["out", `list · decided by you at ${at}`, 60],
           ["out", "", 20],
           ["out", "## Landing page", 40],
@@ -462,8 +519,16 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           ...itemLines,
           ["cmd", "echo $?", 380],
           ["out", "0", 300],
-          ["agent", agentReply(accepted.length, rejected.map((r) => byId.get(r.id)!.title), d.undecided.length), 500],
         ];
+        if (toRevise.length) {
+          lines.push(
+            ["agent", `Revising ${toRevise.map((it) => it.title).join(", ")}, as you asked. The rest stays as you left it.`, 700],
+            ["cmd", `pinrail submit list --title "Landing page, draft ${draft + 1}" \\\n    --revises ${reviewId(draft)} --data page.json --wait`, 420],
+            ["dim", `pinrail: review ${reviewId(draft + 1)} submitted; waiting for a decision`, 600],
+          );
+        } else {
+          lines.push(["agent", agentReply(accepted.length, rejected.map((it) => it.title), d.undecided.length), 500]);
+        }
         for (const [kind, text, pause] of lines) {
           const line = document.createElement("span");
           line.className = `t-${kind}`;
@@ -475,7 +540,21 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
           } else line.textContent = prefix + text;
           await wait(reduce ? 0 : pause);
         }
-        document.querySelector<HTMLElement>(".finale")!.hidden = false;
+        if (!toRevise.length) {
+          document.querySelector<HTMLElement>(".finale")!.hidden = false;
+          return;
+        }
+
+        // the next draft: the sections sent back come back revised, waiting
+        // on you again; the rest keep their verdicts
+        draft += 1;
+        document.querySelector(".review-name")!.textContent = `Landing page, draft ${draft}`;
+        document.querySelector("[data-saved]")!.textContent = "draft";
+        document.querySelector("[data-waiting]")!.textContent = "An agent is waiting on you";
+        document.body.dataset.phase = "reviewing";
+        for (const it of toRevise) revise(it, it.verdict!.option!, it.verdict!.note || "no reason given");
+        await wait(reduce ? 0 : 650);
+        focusItem(items.indexOf(toRevise[0]));
       }
       function agentReply(accepted: number, rejected: string[], undecided: number) {
         if (!accepted) return "Nothing approved, so nothing ships. I'll wait for the next instruction.";
