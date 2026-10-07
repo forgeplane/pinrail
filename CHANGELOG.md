@@ -20,6 +20,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 - On macOS 26, the button that shows and hides the sidebar no longer
   touches the window's close, minimize and zoom buttons.
+- The button that shows and hides the sidebar stays at the top when the
+  sidebar scrolls.
 
 ## [0.1.1]
 

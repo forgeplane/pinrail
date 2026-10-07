@@ -318,97 +318,99 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="sidebar-bar" data-tauri-drag-region>
             {sidebarButton}
           </div>
-          <nav className="app-nav" aria-label="Main">
-            {NAV.map(({ key, label, to, Icon, keys }) => (
-              <Fragment key={key}>
-                <Tooltip label={label} keys={keys} side="bottom">
-                  <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
-                    <span className="nav-label">
-                      <Icon size={15} strokeWidth={1.75} />
-                      {label}
-                    </span>
-                    {key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
+          <div className="sidebar-scroll">
+            <nav className="app-nav" aria-label="Main">
+              {NAV.map(({ key, label, to, Icon, keys }) => (
+                <Fragment key={key}>
+                  <Tooltip label={label} keys={keys} side="bottom">
+                    <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
+                      <span className="nav-label">
+                        <Icon size={15} strokeWidth={1.75} />
+                        {label}
+                      </span>
+                      {key === "inbox" ? <span className="nav-count">{live.pendingCount}</span> : null}
+                    </NavLink>
+                  </Tooltip>
+                  {key === "history" ? (
+                    <button type="button" className="nav-search" onClick={() => setPalette(true)}>
+                      <span className="nav-label">
+                        <Search size={15} strokeWidth={1.75} />
+                        Search
+                      </span>
+                      <span className="nav-keys">
+                        <kbd>{MOD}</kbd>
+                        <kbd>K</kbd>
+                      </span>
+                    </button>
+                  ) : null}
+                </Fragment>
+              ))}
+            </nav>
+            {waiting.length > 0 ? (
+              <section className="sidebar-waiting" aria-label="Waiting" data-waiting>
+                <h2>Waiting</h2>
+                {waiting.slice(0, WAITING_SHOWN).map((r) => (
+                  <Tooltip
+                    key={r.id}
+                    label={[r.origin.repo, r.origin.workflow].filter(Boolean).join(" · ") || r.plugin}
+                    side="top"
+                  >
+                    <NavLink to={`/reviews/${r.id}`} className="sidebar-review" data-waiting-review={r.id}>
+                      <PluginIcon icon={live.pluginIcon(r.plugin)} size={14} strokeWidth={1.75} />
+                      <span className="sidebar-review-title">{r.title}</span>
+                    </NavLink>
+                  </Tooltip>
+                ))}
+                {waiting.length > WAITING_SHOWN ? (
+                  <NavLink to="/" end className="sidebar-review sidebar-more">
+                    <span className="sidebar-review-title">{waiting.length - WAITING_SHOWN} more in the inbox</span>
                   </NavLink>
-                </Tooltip>
-                {key === "history" ? (
-                  <button type="button" className="nav-search" onClick={() => setPalette(true)}>
-                    <span className="nav-label">
-                      <Search size={15} strokeWidth={1.75} />
-                      Search
-                    </span>
-                    <span className="nav-keys">
-                      <kbd>{MOD}</kbd>
-                      <kbd>K</kbd>
-                    </span>
-                  </button>
                 ) : null}
-              </Fragment>
-            ))}
-          </nav>
-          {waiting.length > 0 ? (
-            <section className="sidebar-waiting" aria-label="Waiting" data-waiting>
-              <h2>Waiting</h2>
-              {waiting.slice(0, WAITING_SHOWN).map((r) => (
-                <Tooltip
-                  key={r.id}
-                  label={[r.origin.repo, r.origin.workflow].filter(Boolean).join(" · ") || r.plugin}
-                  side="top"
-                >
-                  <NavLink to={`/reviews/${r.id}`} className="sidebar-review" data-waiting-review={r.id}>
-                    <PluginIcon icon={live.pluginIcon(r.plugin)} size={14} strokeWidth={1.75} />
-                    <span className="sidebar-review-title">{r.title}</span>
+              </section>
+            ) : null}
+            {live.projects.length > 0 || live.unassigned > 0 ? (
+              <section className="sidebar-repositories" aria-label="Projects" data-projects>
+                <h2>Projects</h2>
+                {live.projects.map((project) => (
+                  <NavLink
+                    key={project}
+                    to={`/?repo=${encodeURIComponent(project)}`}
+                    className="sidebar-repo"
+                    data-project={project}
+                  >
+                    <FolderGit2 size={14} strokeWidth={1.75} />
+                    <span className="sidebar-review-title">{project}</span>
+                    <span className="nav-count">{perProject.get(project) ?? 0}</span>
                   </NavLink>
-                </Tooltip>
-              ))}
-              {waiting.length > WAITING_SHOWN ? (
-                <NavLink to="/" end className="sidebar-review sidebar-more">
-                  <span className="sidebar-review-title">{waiting.length - WAITING_SHOWN} more in the inbox</span>
-                </NavLink>
-              ) : null}
-            </section>
-          ) : null}
-          {live.projects.length > 0 || live.unassigned > 0 ? (
-            <section className="sidebar-repositories" aria-label="Projects" data-projects>
-              <h2>Projects</h2>
-              {live.projects.map((project) => (
-                <NavLink
-                  key={project}
-                  to={`/?repo=${encodeURIComponent(project)}`}
-                  className="sidebar-repo"
-                  data-project={project}
+                ))}
+                {live.unassigned > 0 ? (
+                  <NavLink to={`/?repo=${NO_PROJECT}`} className="sidebar-repo" data-project={NO_PROJECT}>
+                    <FolderGit2 size={14} strokeWidth={1.75} className="is-faint" />
+                    <span className="sidebar-review-title">No project</span>
+                    <span className="nav-count">{live.unassigned}</span>
+                  </NavLink>
+                ) : null}
+              </section>
+            ) : null}
+            <UpdateNotice onDetails={() => setSettings("about")} />
+            <button type="button" className="sidebar-feedback" onClick={() => setFeedback(true)}>
+              <MessageSquare size={15} strokeWidth={1.75} />
+              Send feedback
+            </button>
+            <div className="sidebar-bottom">
+              <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
+              <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
+              <Tooltip label="Settings" keys={[MOD, ","]} side="top">
+                <button
+                  type="button"
+                  className="bar-button sidebar-gear"
+                  onClick={() => setSettings("general")}
+                  aria-label="Settings"
                 >
-                  <FolderGit2 size={14} strokeWidth={1.75} />
-                  <span className="sidebar-review-title">{project}</span>
-                  <span className="nav-count">{perProject.get(project) ?? 0}</span>
-                </NavLink>
-              ))}
-              {live.unassigned > 0 ? (
-                <NavLink to={`/?repo=${NO_PROJECT}`} className="sidebar-repo" data-project={NO_PROJECT}>
-                  <FolderGit2 size={14} strokeWidth={1.75} className="is-faint" />
-                  <span className="sidebar-review-title">No project</span>
-                  <span className="nav-count">{live.unassigned}</span>
-                </NavLink>
-              ) : null}
-            </section>
-          ) : null}
-          <UpdateNotice onDetails={() => setSettings("about")} />
-          <button type="button" className="sidebar-feedback" onClick={() => setFeedback(true)}>
-            <MessageSquare size={15} strokeWidth={1.75} />
-            Send feedback
-          </button>
-          <div className="sidebar-bottom">
-            <span className={`connection-dot ${live.connected ? "is-on" : ""}`} />
-            <span>{live.connected ? "Connected" : "Reconnecting…"}</span>
-            <Tooltip label="Settings" keys={[MOD, ","]} side="top">
-              <button
-                type="button"
-                className="bar-button sidebar-gear"
-                onClick={() => setSettings("general")}
-                aria-label="Settings"
-              >
-                <Settings size={15} />
-              </button>
-            </Tooltip>
+                  <Settings size={15} />
+                </button>
+              </Tooltip>
+            </div>
           </div>
         </aside>
       ) : null}

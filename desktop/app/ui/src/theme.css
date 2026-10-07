@@ -230,15 +230,24 @@ h1 {
 .app-frame.sidebar-closed {
   grid-template-columns: 1fr;
 }
+/* the top strip stays put, and only what is below it scrolls: a strip
+   kept in place inside the scrolling area would still move as the
+   scrolling bounces at either end */
 .app-sidebar {
   background: var(--sidebar);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 0 10px 14px;
+  min-height: 0;
+}
+.sidebar-scroll {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 10px;
 }
 /* the window's top strip: a drag handle, room for the traffic lights */
 .sidebar-bar,
@@ -250,13 +259,12 @@ h1 {
 }
 .sidebar-bar {
   gap: 4px;
-  padding: 0 2px;
+  padding: 0 12px;
 }
 /* On macOS the window's buttons overlay the top left. The app measures
    where they end and where their middle is, which differ between macOS
    versions; the defaults are macOS 15's. The toggle starts 4px after the
-   last one in both bars, the sidebar's own 10px side padding included, and
-   sits on their line. */
+   last one in both bars, and sits on their line. */
 :root {
   --window-buttons-end: 66px;
   --window-buttons-middle: 20px;
@@ -266,7 +274,7 @@ h1 {
   padding-top: calc(2 * var(--window-buttons-middle) - 38px);
 }
 .has-overlay-bar .sidebar-bar {
-  padding-left: calc(var(--window-buttons-end) - 6px);
+  padding-left: calc(var(--window-buttons-end) + 4px);
 }
 .has-overlay-bar.sidebar-closed .app-topbar {
   padding-left: calc(var(--window-buttons-end) + 4px);
