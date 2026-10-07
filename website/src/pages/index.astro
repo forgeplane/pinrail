@@ -6,6 +6,8 @@ import "../styles/index-classic.css";
 import HeroDemo from "../components/index/HeroDemo.astro";
 import HowItWorks from "../components/index/HowItWorks.astro";
 import ViewsCarousel from "../components/index/ViewsCarousel.astro";
+import RoundDemo from "../components/index/RoundDemo.astro";
+import CliSession from "../components/index/CliSession.astro";
 import { icons } from "../components/index/lucide";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
@@ -14,18 +16,12 @@ import Download from "../components/Download.astro";
 import GitHubIcon from "../components/GitHubIcon.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
-import { agents, downloadPage, repo, samples, views } from "../components/index/content";
+import { agents, codes, downloadPage, repo, samples, views } from "../components/index/content";
 
 // every view in one carousel: those that decide what the agent does, then
 // those on what it makes
 const shown = [...views, ...samples];
 
-const codes = [
-  ["0", "Decided. The decision is on stdout, and in --decision-out if given."],
-  ["3", "Withdrawn by the agent, or expired, before anyone decided."],
-  ["4", "--timeout ran out. The review is still pending."],
-  ["5", "Discarded: stop the work this review was gating."],
-];
 ---
 <!doctype html>
 <html lang="en">
@@ -103,10 +99,7 @@ const codes = [
           <p class="kicker">03 · Rounds</p>
           <h2>A no comes with a reason, <em>and the reason comes back.</em></h2>
           <p>Send something back and the agent answers with a new round, submitted with <code>--revises</code>. It lands beside your earlier verdicts and comments, so you see what changed and why, and a view can set the two rounds side by side to check each fix. Every round and every decision is kept, and can be opened again later.</p>
-          <div class="round-demo" aria-hidden="true">
-            <div class="rd-row old"><span class="rd-tag">R1</span><s>Retry failed payments automatically.</s><span class="rd-verdict">✕ “could charge twice”</span></div>
-            <div class="rd-row"><span class="rd-tag new">R2</span>Retry failed payments with the idempotency key.<span class="rd-pending">awaiting you</span></div>
-          </div>
+          <RoundDemo />
         </div>
         <div>
           <p class="kicker">04 · Stop</p>
@@ -124,27 +117,7 @@ const codes = [
           <h2>For an agent, <em>and for a script.</em></h2>
           <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
         </div>
-        <div class="terminal">
-          <div class="term-bar"><span></span><span></span><span></span><b>agent — zsh</b></div>
-          <pre><span class="t-dim"># submit the proposed comments and wait for a person</span>
-<span class="t-cmd">$ pinrail submit code-review --title "Dedup tickets on save" \
-    --origin repo=acme/api,workflow=pr-review,ref=42 \
-    --data proposals.json --wait</span>
-<span class="t-dim">pinrail: review r_01K5Q8 submitted; waiting for a decision</span>
-r_01K5Q8 · decided · Dedup tickets on save
-review · acme/api · pr-review · 42 · decided by maya at 2026-09-23 10:14
-
-## Proposals
-
-<span class="t-ok">- **#18 accepted** `lib/acme/tickets.ex:149` — reversing twice is a no-op (major)</span>
-<span class="t-ok">- **#19 accepted** `priv/repo/add_hash.exs:6` — missing index on tickets.hash (minor)</span>
-  > mention the COALESCE
-<span class="t-no">- **#20 rejected** `lib/acme/tickets.ex:151` — prefer Enum.uniq_by/2 (nit)</span>
-  > fine as it is
-<span class="t-ok">- **#21 accepted** `test/acme/tickets_test.exs:40` — test for the empty list (minor)</span>
-<span class="t-cmd">$ echo $?</span>
-0</pre>
-        </div>
+        <CliSession />
       </section>
 
       <section class="c-section c-faq" id="faq">

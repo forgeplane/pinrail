@@ -108,54 +108,8 @@
   font-size: 26px;
   transform: rotate(4deg);
 }
-.window {
-  border-radius: 12px;
-  overflow: hidden;
-  background: #fff;
-  border: 1px solid var(--rule-strong);
-  box-shadow:
-    0 40px 80px -40px rgba(30, 20, 10, 0.55),
-    0 0 0 8px color-mix(in oklab, var(--sheet) 70%, transparent);
-  transform: perspective(1800px) rotateX(4deg);
-  transform-origin: top;
-  transition: transform 0.5s ease;
-}
-.window:hover {
-  transform: none;
-}
-.window-bar {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 14px;
-  background: #ebe7e0;
-  border-bottom: 1px solid var(--rule);
-}
-.window-bar span {
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: #ff5f57;
-}
-.window-bar span:nth-child(2) {
-  background: #febc2e;
-}
-.window-bar span:nth-child(3) {
-  background: #28c840;
-}
-.window-bar b {
-  flex: 1;
-  margin-right: 50px;
-  text-align: center;
-  font: 500 11px var(--mono);
-  color: var(--faint);
-}
-.window .zoom img {
-  width: 100%;
-  height: auto;
-}
 
-/* the hero's app window: the app's own light theme inside, not the page's */
+/* the hint above the hero's window, on its left */
 .shot-note.left {
   z-index: 2;
   top: -58px;
@@ -287,65 +241,9 @@
 .c-split h2 {
   font-size: clamp(30px, 3.2vw, 40px);
 }
-.round-demo {
-  margin-top: 24px;
-  border: 1px solid var(--rule);
-  border-radius: 12px;
-  background: var(--sheet);
-  overflow: hidden;
-  font-size: 16px;
-}
-.rd-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 14px 16px;
-}
-.rd-row + .rd-row {
-  border-top: 1px solid var(--rule);
-}
-.rd-row.old {
-  color: var(--faint);
-  background: color-mix(in oklab, var(--pen) 4%, var(--sheet));
-}
-.rd-row s {
-  text-decoration-color: var(--pen);
-  text-decoration-thickness: 1.5px;
-}
-.rd-tag {
-  padding: 1px 6px;
-  border: 1px solid var(--rule-strong);
-  border-radius: 4px;
-  font: 500 10.5px var(--mono);
-  color: var(--faint);
-}
-.rd-tag.new {
-  border-color: var(--agent);
-  color: var(--agent);
-}
-.rd-verdict {
-  margin-left: auto;
-  font: 22px/1 var(--hand);
-  color: var(--pen);
-}
-.rd-pending {
-  margin-left: auto;
-  font: 500 11px var(--mono);
-  color: var(--agent);
-}
 .c-split .codes {
   width: 100%;
   margin-top: 18px;
-}
-
-.c-cli .terminal pre {
-  margin: 0;
-  padding: 20px 22px 24px;
-  overflow-x: auto;
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: var(--night-fg);
 }
 
 /* Closing band */
@@ -443,16 +341,8 @@
   .c-shot {
     margin-top: 40px;
   }
-  .window {
-    transform: none;
-    box-shadow: 0 20px 40px -24px rgba(30, 20, 10, 0.5);
-  }
   .c-section {
     padding: 72px 16px 10px;
-  }
-  .c-cli .terminal pre {
-    font-size: 12px;
-    padding: 14px;
   }
   .c-final {
     padding: 70px 16px;

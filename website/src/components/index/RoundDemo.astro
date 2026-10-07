@@ -1,0 +1,9 @@
+---
+import "../../styles/round-demo.css";
+// Two rounds of one item: the first sent back with its reason, the second
+// waiting on you.
+---
+<div class="round-demo" aria-hidden="true">
+  <div class="rd-row old"><span class="rd-tag">R1</span><s>Retry failed payments automatically.</s><span class="rd-verdict">✕ “could charge twice”</span></div>
+  <div class="rd-row"><span class="rd-tag new">R2</span>Retry failed payments with the idempotency key.<span class="rd-pending">awaiting you</span></div>
+</div>

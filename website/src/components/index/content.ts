@@ -47,6 +47,14 @@ export const agents = [
   { name: "Kimi", icon: "kimi" },
 ];
 
+// How a waiting command ends, by its exit code; 5 is the person saying stop.
+export const codes = [
+  ["0", "Decided. The decision is on stdout, and in --decision-out if given."],
+  ["3", "Withdrawn by the agent, or expired, before anyone decided."],
+  ["4", "--timeout ran out. The review is still pending."],
+  ["5", "Discarded: stop the work this review was gating."],
+];
+
 export const views = [
   {
     name: "Code review",
