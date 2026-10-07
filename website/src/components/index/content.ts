@@ -6,8 +6,8 @@ import email from "../../assets/screenshots/email-view-light.png";
 import artifact from "../../assets/screenshots/artifact-view-light.png";
 import list from "../../assets/screenshots/list-view-light.png";
 import feedback from "../../assets/screenshots/feedback-view-light.png";
-// sample plugins made with the SDK, not shipped with the app; their views as
-// the experiments' scripts/site-shots.mjs makes them
+// the image plugin, and the official plugins audio, visual-diff and palette;
+// their views as the experiments' scripts/site-shots.mjs made them
 import image from "../../assets/samples/image-view-light.png";
 import audio from "../../assets/samples/audio-view-light.png";
 import compare from "../../assets/samples/compare-view-light.png";
@@ -53,6 +53,7 @@ export const views = [
   {
     name: "Code review",
     plugin: "code-review",
+    gist: "a diff and the agent's proposed comments",
     image: review,
     detail:
       "The diff, with the agent's proposed comments on the lines they are about. Accept one with a note, reject the next with a reason.",
@@ -61,6 +62,7 @@ export const views = [
   {
     name: "Email drafts",
     plugin: "email",
+    gist: "drafts to edit, send, revise or discard",
     image: email,
     detail:
       "Edit the draft itself and see your changes against it, leave an instruction on a passage, then send, revise or discard each one.",
@@ -69,6 +71,7 @@ export const views = [
   {
     name: "Pages & designs",
     plugin: "artifact",
+    gist: "a page to comment on, element by element",
     image: artifact,
     detail: "Click an element on the rendered page. Your comment goes back with the selector the agent needs.",
     alt: "Pinrail's artifact view: a landing page with comments pinned to elements and one being written.",
@@ -76,6 +79,7 @@ export const views = [
   {
     name: "Lists",
     plugin: "list",
+    gist: "items with a verdict and a note each",
     image: list,
     detail:
       "Findings, tasks, proposed actions: a verdict and a note on every item, grouped the way the agent sent them.",
@@ -84,6 +88,7 @@ export const views = [
   {
     name: "Questions",
     plugin: "feedback",
+    gist: "questions, with the agent's recommendations",
     image: feedback,
     detail:
       "When the agent needs your call before it starts: choices with its recommendation, follow-ups, and room to qualify an answer.",
@@ -95,14 +100,16 @@ export const samples = [
   {
     name: "Images & illustrations",
     plugin: "image",
+    gist: "images to box, pin and comment on",
     image,
     detail:
       "Box a region or pin a point and say what to change. Each one goes back in pixels and in fractions of the image, ready for an inpainting pass.",
-    alt: "A sample image plugin: four illustrations in a rail, one on the stage with two regions boxed and a note being written on a third.",
+    alt: "Pinrail's image view: four illustrations in a rail, one on the stage with two regions boxed and a note being written on a third.",
   },
   {
     name: "3D models",
-    plugin: "model",
+    plugin: "model-3d",
+    gist: "3D models to orbit, with comments on their parts",
     image: model,
     detail:
       "Orbit each model under studio light, from set views and the agent's own. Click a part and say what to change; it goes back by the part's name, with the angle you saw it from.",
@@ -111,26 +118,29 @@ export const samples = [
   {
     name: "Voice & audio",
     plugin: "audio",
+    gist: "takes to hear, with their waveforms and transcripts",
     image: audio,
     detail:
       "The waveform and the transcript in sync. Comment on a word or a stretch, mark what to cut, and hear the take without the cuts.",
-    alt: "A sample audio plugin: four voice takes, one open with its waveform, two comments, a cut and the transcript underneath.",
+    alt: "The audio view: four voice takes, one open with its waveform, two comments, a cut and the transcript underneath.",
   },
   {
     name: "Before & after",
-    plugin: "compare",
+    plugin: "visual-diff",
+    gist: "before and after, to check each fix",
     image: compare,
     detail:
       "Did the revision fix what you asked? Wipe, fade or diff the two, and mark each claimed fix fixed, partly or not fixed.",
-    alt: "A sample compare plugin: a pricing card with its changed areas boxed, and one requested fix marked not fixed.",
+    alt: "The before and after view: a pricing card with its changed areas boxed, and one requested fix marked not fixed.",
   },
   {
     name: "Colour systems",
     plugin: "palette",
+    gist: "palettes in light and dark, with their contrast",
     image: palette,
     detail:
       "Each palette on a sample screen, light and dark, with contrast measured. Click a colour to comment on its token or try a new value.",
-    alt: "A sample palette plugin: a colour system on an app screen in light and dark, beside three other palettes.",
+    alt: "The palette view: a colour system on an app screen in light and dark, beside three other palettes.",
   },
 ];
 

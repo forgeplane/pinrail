@@ -13,7 +13,7 @@ import ModeSwitch from "../components/index/ModeSwitch.astro";
 import Brand from "../components/Brand.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
-import { agents, repo, views } from "../components/index/content";
+import { agents, repo, samples, views } from "../components/index/content";
 
 const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"];
 ---
@@ -121,8 +121,8 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               <h2>A diff deserves a diff.</h2>
               <p>Each kind of request is a plugin, with a view made for deciding it. Five come with the app, and more are ready to install; this page is using <code>list</code>.</p>
               <div class="views">
-                {views.map((v, i) => (
-                  <figure class="view" style={`--tilt:${[-1.2, 0.8, -0.6, 1.1, -0.9][i]}deg`}>
+                {[...views, ...samples].map((v, i) => (
+                  <figure class="view" style={`--tilt:${[-1.2, 0.8, -0.6, 1.1, -0.9][i % 5]}deg`}>
                     <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 700px) 90vw, 320px" />
                     <figcaption><b>{v.name}</b>{v.detail}</figcaption>
                   </figure>
@@ -137,10 +137,9 @@ const reasons = ["Too long", "Say it plainer", "Not convinced", "Wrong emphasis"
               <div class="content" data-round="2">
                 <h2>A diff deserves a diff.</h2>
                 <dl class="plain-views">
-                  <div><dt>review</dt><dd>a diff and the agent's proposed comments</dd></div>
-                  <div><dt>email</dt><dd>drafts to edit, send, revise or discard</dd></div>
-                  <div><dt>artifact</dt><dd>a page to comment on, element by element</dd></div>
-                  <div><dt>list</dt><dd>items with a verdict and a note each</dd></div>
+                  {[...views, ...samples].map((v) => (
+                    <div><dt>{v.plugin}</dt><dd>{v.gist}</dd></div>
+                  ))}
                   <div><dt>yours</dt><dd>a manifest, two schemas and an HTML view</dd></div>
                 </dl>
               </div>

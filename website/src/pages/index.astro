@@ -45,10 +45,9 @@ const voices = [
   },
 ];
 
-const sets = [
-  { label: "Before it acts", items: views },
-  { label: "On what it makes", items: samples },
-];
+// every view in one carousel: those that decide what the agent does, then
+// those on what it makes
+const shown = [...views, ...samples];
 
 const codes = [
   ["0", "Decided. The decision is on stdout, and in --decision-out if given."],
@@ -121,33 +120,24 @@ const codes = [
             <p>Each kind of request is a plugin, with a view made for deciding it: the diff for a code review, the draft itself for an email, the image for a picture, the waveform for a voice take. What you say goes back with what it points at, down to the line, the pixel or the millisecond.</p>
           </div>
           <div class="c-carousel-nav" aria-hidden="true">
-            <span class="c-count"><b data-carousel-at>1</b> / <span data-carousel-total>{sets[0].items.length}</span></span>
+            <span class="c-count"><b data-carousel-at>1</b> / <span>{shown.length}</span></span>
             <button type="button" class="c-arrow" data-carousel-step="-1" tabindex="-1">←</button>
             <button type="button" class="c-arrow" data-carousel-step="1" tabindex="-1">→</button>
           </div>
         </div>
-        <div class="c-switch" role="tablist" aria-label="Kinds of view">
-          {sets.map((set, s) => (
-            <button type="button" role="tab" id={`views-tab-${s}`} aria-controls={`views-set-${s}`} aria-selected={s === 0 ? "true" : "false"} data-carousel-set={s}>{set.label}<span>{set.items.length}</span></button>
+        <div class="c-carousel" data-carousel tabindex="0" role="region" aria-roledescription="carousel" aria-label="Views: scroll sideways for more">
+          {shown.map((v, i) => (
+            <figure class:list={["c-slide", { "is-active": i === 0 }]} aria-roledescription="slide" aria-label={`${i + 1} of ${shown.length}: ${v.name}`}>
+              <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 90vw, 960px" />
+              <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
+            </figure>
           ))}
         </div>
-        {sets.map((set, s) => (
-          <div class="c-carousel-set" role="tabpanel" id={`views-set-${s}`} aria-labelledby={`views-tab-${s}`} data-set={s} hidden={s !== 0}>
-            <div class="c-carousel" data-carousel tabindex="0" role="region" aria-roledescription="carousel" aria-label={`${set.label}: scroll sideways for more`}>
-              {set.items.map((v, i) => (
-                <figure class:list={["c-slide", { "is-active": i === 0 }]} aria-roledescription="slide" aria-label={`${i + 1} of ${set.items.length}: ${v.name}`}>
-                  <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 800px) 90vw, 960px" />
-                  <figcaption><span class="plugin">{v.plugin}</span><b>{v.name}</b>{v.detail}</figcaption>
-                </figure>
-              ))}
-            </div>
-            <div class="c-progress" role="group" aria-label={`Go to a view: ${set.label}`}>
-              {set.items.map((v, i) => (
-                <button type="button" data-carousel-go={i} aria-label={v.name} aria-current={i === 0 ? "true" : undefined}><span>{v.name}</span></button>
-              ))}
-            </div>
-          </div>
-        ))}
+        <div class="c-progress" role="group" aria-label="Go to a view">
+          {shown.map((v, i) => (
+            <button type="button" data-carousel-go={i} aria-label={v.name} aria-current={i === 0 ? "true" : undefined}><span>{v.name}</span></button>
+          ))}
+        </div>
         <div class="c-own">
           <code>pinrail plugins new my_plugin</code>
           <p><b>Ten views so far. The next one is yours.</b> A plugin is a manifest, two JSON schemas and a web page, built with any web framework you like, or none at all. Storyboards, floor plans, moodboards, a map with a no-go zone scribbled on it: if your agent can make it, you can put it in front of your eyes and mark it up. The only limits are your imagination and your agent's.</p>
@@ -257,72 +247,50 @@ review · acme/api · pr-review · 42 · decided by maya at 2026-09-23 10:14
     <Lightbox />
 
     <script>
-      // The views: a carousel for each kind, one showing at a time. Sideways
-      // scrolling (a trackpad, touch, shift and the wheel, or the arrow keys
-      // on the focused track) snaps slide by slide; the switch picks the kind,
-      // and the arrows, the count and the progress bar follow the one showing.
+      // The views, in one carousel. Sideways scrolling (a trackpad, touch,
+      // shift and the wheel, or the arrow keys on the focused track) snaps
+      // slide by slide, and the arrows, the count and the progress bar follow.
       const smooth = !matchMedia("(prefers-reduced-motion: reduce)").matches;
       for (const section of document.querySelectorAll<HTMLElement>("[data-carousels]")) {
         const at = section.querySelector("[data-carousel-at]")!;
-        const total = section.querySelector("[data-carousel-total]")!;
         const arrows = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-step]")];
-        const switches = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-set]")];
-        const panels = [...section.querySelectorAll<HTMLElement>("[data-set]")];
-        let active = 0;
-
-        const carousels = panels.map((panel, n) => {
-          const track = panel.querySelector<HTMLElement>("[data-carousel]")!;
-          const slides = [...track.querySelectorAll<HTMLElement>(".c-slide")];
-          const marks = [...panel.querySelectorAll<HTMLButtonElement>("[data-carousel-go]")];
-          const pad = () => parseFloat(getComputedStyle(track).scrollPaddingInlineStart) || 0;
-          const c = { current: -1, go: (_: number) => {}, count: () => {} };
-          c.count = () => {
-            if (n !== active) return;
-            at.textContent = String(c.current + 1);
-            total.textContent = String(slides.length);
-            arrows[0].disabled = c.current <= 0;
-            arrows[1].disabled = c.current === slides.length - 1;
-          };
-          c.go = (i: number) => {
-            const slide = slides[Math.max(0, Math.min(slides.length - 1, i))];
-            track.scrollTo({ left: slide.offsetLeft - pad(), behavior: smooth ? "smooth" : "auto" });
-          };
-          const show = (i: number) => {
-            if (i === c.current) return;
-            c.current = i;
-            slides.forEach((s, k) => s.classList.toggle("is-active", k === i));
-            marks.forEach((m, k) => (k === i ? m.setAttribute("aria-current", "true") : m.removeAttribute("aria-current")));
-            c.count();
-          };
-          // the slide whose start is nearest the track's, or the last at the end
-          const follow = () => {
-            const x = track.scrollLeft + pad();
-            let i = slides.reduce((best, s, k) => (Math.abs(s.offsetLeft - x) < Math.abs(slides[best].offsetLeft - x) ? k : best), 0);
-            if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 2) i = slides.length - 1;
-            show(i);
-          };
-          let frame = 0;
-          track.addEventListener("scroll", () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(follow); }, { passive: true });
-          marks.forEach((m) => m.addEventListener("click", () => c.go(Number(m.dataset.carouselGo))));
-          // a slide peeking in comes forward on a click, rather than opening full size
-          slides.forEach((s, k) => s.addEventListener("click", (e) => {
-            if (k === c.current) return;
-            e.preventDefault();
-            e.stopPropagation();
-            c.go(k);
-          }, { capture: true }));
-          show(0);
-          return c;
-        });
-
-        arrows.forEach((a) => a.addEventListener("click", () => carousels[active].go(carousels[active].current + Number(a.dataset.carouselStep))));
-        switches.forEach((sw, n) => sw.addEventListener("click", () => {
-          active = n;
-          switches.forEach((x, k) => x.setAttribute("aria-selected", String(k === n)));
-          panels.forEach((p, k) => (p.hidden = k !== n));
-          carousels[n].count();
-        }));
-        carousels[0].count();
+        const track = section.querySelector<HTMLElement>("[data-carousel]")!;
+        const slides = [...track.querySelectorAll<HTMLElement>(".c-slide")];
+        const marks = [...section.querySelectorAll<HTMLButtonElement>("[data-carousel-go]")];
+        const pad = () => parseFloat(getComputedStyle(track).scrollPaddingInlineStart) || 0;
+        let current = -1;
+        const go = (i: number) => {
+          const slide = slides[Math.max(0, Math.min(slides.length - 1, i))];
+          track.scrollTo({ left: slide.offsetLeft - pad(), behavior: smooth ? "smooth" : "auto" });
+        };
+        const show = (i: number) => {
+          if (i === current) return;
+          current = i;
+          slides.forEach((s, k) => s.classList.toggle("is-active", k === i));
+          marks.forEach((m, k) => (k === i ? m.setAttribute("aria-current", "true") : m.removeAttribute("aria-current")));
+          at.textContent = String(i + 1);
+          arrows[0].disabled = i <= 0;
+          arrows[1].disabled = i === slides.length - 1;
+        };
+        // the slide whose start is nearest the track's, or the last at the end
+        const follow = () => {
+          const x = track.scrollLeft + pad();
+          let i = slides.reduce((best, s, k) => (Math.abs(s.offsetLeft - x) < Math.abs(slides[best].offsetLeft - x) ? k : best), 0);
+          if (track.scrollLeft >= track.scrollWidth - track.clientWidth - 2) i = slides.length - 1;
+          show(i);
+        };
+        let frame = 0;
+        track.addEventListener("scroll", () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(follow); }, { passive: true });
+        marks.forEach((m) => m.addEventListener("click", () => go(Number(m.dataset.carouselGo))));
+        arrows.forEach((a) => a.addEventListener("click", () => go(current + Number(a.dataset.carouselStep))));
+        // a slide peeking in comes forward on a click, rather than opening full size
+        slides.forEach((s, k) => s.addEventListener("click", (e) => {
+          if (k === current) return;
+          e.preventDefault();
+          e.stopPropagation();
+          go(k);
+        }, { capture: true }));
+        show(0);
       }
     </script>
 

@@ -951,51 +951,6 @@
   opacity: 0.3;
   cursor: default;
 }
-.c-switch {
-  display: inline-flex;
-  gap: 4px;
-  margin: -12px 0 26px;
-  padding: 4px;
-  border: 1px solid var(--rule-strong);
-  border-radius: 999px;
-  background: var(--sheet);
-}
-.c-switch button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border: 0;
-  border-radius: 999px;
-  background: none;
-  font: 600 13px var(--mono);
-  color: var(--ink-2);
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    color 0.2s;
-}
-.c-switch button span {
-  font-weight: 500;
-  color: var(--faint);
-}
-.c-switch button:hover {
-  color: var(--ink);
-}
-.c-switch button[aria-selected="true"] {
-  background: var(--ink);
-  color: var(--paper);
-}
-.c-switch button[aria-selected="true"] span {
-  color: color-mix(in oklab, var(--paper) 60%, transparent);
-}
-.c-switch button:focus-visible {
-  outline: 2px solid var(--pen);
-  outline-offset: 2px;
-}
-.c-carousel-set[hidden] {
-  display: none;
-}
 .c-carousel {
   --bleed: max(28px, calc(50vw - 562px));
   position: relative;
