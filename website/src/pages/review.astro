@@ -114,15 +114,26 @@ const firstFive = ["code-review", "email", "image", "audio", "video"].map((p) =>
                         <template data-round="2" data-option="diagram" data-label="As a diagram">
               <div class="content" data-round="2">
                 <h2>One command in, one decision out.</h2>
-                <ol class="loop-diagram" aria-label="The agent asks, you decide, the agent carries on">
-                  <li><span class="node">agent</span><small>pinrail submit … --wait</small></li>
-                  <li class="arrow" aria-hidden="true">→</li>
-                  <li><span class="node">Pinrail</span><small>the view for the work</small></li>
-                  <li class="arrow" aria-hidden="true">→</li>
-                  <li><span class="node you">you</span><small>accept, send back, comment</small></li>
-                  <li class="arrow" aria-hidden="true">→</li>
-                  <li><span class="node">agent</span><small>your decision, and an exit code</small></li>
-                </ol>
+                <div class="loop-diagram" role="img" aria-label="The agent submits and waits; Pinrail shows the work to you; you decide; the decision and an exit code go back to the agent">
+                  <div class="ld-card">
+                    <span class="ld-who">agent</span>
+                    <code>$ pinrail submit … --wait</code>
+                    <small>blocks until you decide</small>
+                  </div>
+                  <div class="ld-edge"><span>payload</span></div>
+                  <div class="ld-card">
+                    <span class="ld-who">Pinrail</span>
+                    <span class="ld-view"><i></i><i></i><i></i></span>
+                    <small>a view made for the work</small>
+                  </div>
+                  <div class="ld-edge"><span>notifies</span></div>
+                  <div class="ld-card you">
+                    <span class="ld-who">you</span>
+                    <span class="ld-acts"><b class="ok">✓ Accept</b><b class="no">✕ Send back</b></span>
+                    <small>with a note, a reason, a comment</small>
+                  </div>
+                  <div class="ld-return"><span>decision · exit 0</span></div>
+                </div>
               </div>
             </template>
             <template data-round="2" data-option="sentence" data-label="Say it in one sentence">
@@ -133,7 +144,7 @@ const firstFive = ["code-review", "email", "image", "audio", "video"].map((p) =>
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>It plays itself. Reject it and I'll say it in one sentence.</aside>
-          <template data-note="2" data-option="diagram"><aside class="note" data-round="2"><b>agent</b>Four boxes. The session is still on the home page.</aside></template>
+          <template data-note="2" data-option="diagram"><aside class="note" data-round="2"><b>agent</b>Three steps and the way back. The session is still on the home page.</aside></template>
           <template data-note="2" data-option="sentence"><aside class="note" data-round="2"><b>agent</b>Fine. One sentence, no steps.</aside></template>
         </article>
 

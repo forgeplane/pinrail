@@ -561,40 +561,190 @@ h3 {
 .hero-window {
   margin: 28px 0 44px;
 }
-/* How it works as four boxes */
+/* How it works as a loop: three steps across, the decision back below */
 .loop-diagram {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 10px;
-  margin: 22px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.loop-diagram li {
+  --edge: 78px;
   display: grid;
-  gap: 6px;
-  max-width: 150px;
+  grid-template-columns: 1fr var(--edge) 1fr var(--edge) 1fr;
+  align-items: stretch;
+  margin: 26px 0 30px;
 }
-.loop-diagram .node {
-  justify-self: start;
-  padding: 6px 12px;
-  border: 1.5px solid var(--ink);
-  border-radius: 8px;
-  font: 600 14px var(--mono);
+.ld-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 132px;
+  padding: 14px 16px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+  background: var(--sheet);
+  box-shadow: 0 14px 30px -24px rgba(30, 20, 10, 0.5);
 }
-.loop-diagram .node.you {
-  border-color: var(--pen);
+.ld-card.you {
+  border-color: color-mix(in oklab, var(--pen) 55%, transparent);
+}
+.ld-who {
+  font: 600 11px var(--mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.ld-card.you .ld-who {
   color: var(--pen);
 }
-.loop-diagram small {
-  font: 12px/1.4 var(--mono);
-  color: var(--faint);
+.ld-card code {
+  justify-self: start;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: var(--night);
+  color: var(--night-fg);
+  font-size: 12px;
+  white-space: nowrap;
 }
-.loop-diagram .arrow {
-  padding-top: 6px;
-  color: var(--faint);
+.ld-card small {
+  font-size: 14px;
+  line-height: 1.35;
+  color: var(--ink-2);
 }
+/* a window in miniature: a bar and two lines */
+.ld-view {
+  display: grid;
+  gap: 5px;
+  width: 92px;
+  padding: 7px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  background: #fff;
+}
+.ld-view i {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--rule-strong);
+}
+.ld-view i:first-child {
+  width: 40%;
+  background: var(--ink);
+}
+.ld-view i:last-child {
+  width: 70%;
+}
+.ld-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ld-acts b {
+  padding: 3px 8px;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  font: 600 12px var(--mono);
+}
+.ld-acts .ok {
+  color: var(--ok);
+}
+.ld-acts .no {
+  color: var(--pen);
+}
+.ld-edge {
+  align-self: center;
+  position: relative;
+  height: 1.5px;
+  margin: 0 8px;
+  background: var(--faint);
+}
+.ld-edge::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: -4px;
+  border: 4.5px solid transparent;
+  border-left: 7px solid var(--faint);
+  border-right: 0;
+}
+.ld-edge span {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  translate: -50% 0;
+  font: 500 11px var(--mono);
+  color: var(--faint);
+  white-space: nowrap;
+}
+/* the way back: from under "you" to under the agent, arriving upwards */
+.ld-return {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 34px;
+  margin: 0 calc((100% - 2 * var(--edge)) / 6);
+  border: 1.5px solid var(--pen);
+  border-top: 0;
+  border-radius: 0 0 14px 14px;
+}
+.ld-return::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: -2px;
+  border: 5px solid transparent;
+  border-bottom: 8px solid var(--pen);
+  border-top: 0;
+}
+.ld-return span {
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 0 10px;
+  background: var(--sheet);
+  font: 600 12px var(--mono);
+  color: var(--pen);
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .loop-diagram {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .ld-edge {
+    justify-self: center;
+    width: 1.5px;
+    height: 40px;
+    margin: 0;
+  }
+  .ld-edge::after {
+    right: -4px;
+    top: auto;
+    bottom: -1px;
+    border: 4.5px solid transparent;
+    border-top: 7px solid var(--faint);
+    border-bottom: 0;
+  }
+  .ld-edge span {
+    bottom: auto;
+    top: 50%;
+    left: 14px;
+    translate: 0 -50%;
+  }
+  .ld-return {
+    height: auto;
+    margin: 14px 0 0;
+    border: 0;
+    text-align: center;
+  }
+  .ld-return::before {
+    display: none;
+  }
+  .ld-return span {
+    position: static;
+    translate: none;
+    padding: 0;
+  }
+  .ld-return span::before {
+    content: "↩ back to the agent: ";
+  }
+}
+
 /* Two rounds of one item, side by side */
 .both-rounds {
   display: grid;
