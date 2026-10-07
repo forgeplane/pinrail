@@ -1,100 +1,164 @@
 # Pinrail
 
-Pinrail is a desktop app that puts a person in the loop of an agent's work.
-Before an agent does something that matters, like posting review comments,
-sending emails or shipping a page, it asks through Pinrail and waits. You see
-the review in the app, shown in a view made for its content. You decide, and
-the agent continues with your decision.
+[Website](https://pinrail.dev) · [Download](https://pinrail.dev/download/) ·
+[Documentation](https://pinrail.dev/docs/) ·
+[Plugins](https://github.com/forgeplane/pinrail-plugins)
 
-Two ideas shape it. **The agent decides when to ask**: its own instructions
-say which steps need a person and what to send, so Pinrail fits any agent that
-can run a command. **You decide what asking looks like**: every kind of
-review is a plugin, and anyone can write one for their own work.
+Pinrail is a desktop app where your coding agents ask you before they act.
+You review what an agent proposes in a view made for it, and the agent
+carries on with your decision.
 
-Status: early development.
+![Pinrail with a code review open: the agent's findings on the diff, one accepted with a note to the agent and one rejected with a reason, and the other waiting reviews in the sidebar](.github/assets/review.png)
+
+Pinrail works with any agent that can run a command, such as Claude Code,
+Codex, Cursor or OpenCode. It runs on macOS and Linux, and Windows support
+is coming. Pinrail is in early development, so expect rough edges and
+changes between releases.
+
+## Why
+
+Agents are good at doing the work, but some steps need a person: a comment
+posted under your name, an email to a customer, a change to production.
+Approving those steps in a chat means reading a wall of text and typing your
+answer back. Pinrail gives each of these moments a proper review:
+
+- **The agent decides when to ask.** Its instructions name the steps that
+  need you, so it asks at those steps and nowhere else.
+- **Each review has a view made for its content.** A code review shows the
+  diff with the agent's findings on it. A set of generated images shows the
+  images, and you draw a box on the part that should change.
+- **Your decision is structured.** The agent gets back what you accepted,
+  what you rejected and your notes, as Markdown it can act on or JSON for a
+  script.
+- **Everything stays on your machine.** The app serves its API on loopback
+  only, and keeps your reviews and decisions locally.
 
 ## How it works
 
-You tell the agent when to stop for you, in whatever instructions it follows:
-a skill, a project's agent file, a prompt. "Before posting review comments,
-submit them to Pinrail as a `review` and wait." When it reaches that step, the
-agent calls the `pinrail` CLI with a review: a plugin name, a title and a JSON
-payload. The app shows it in its inbox, notifies you, and renders it with
-that plugin's view: a diff with proposed comments, a set of draft emails, an
-HTML page to comment on element by element. You accept, reject, edit or
-comment, then hand the decision over. The CLI returns it to the agent.
-
-```sh
-pinrail submit code-review --title "Dedup tickets on save" \
-  --origin repo=acme/api,workflow=pr-review,ref=42 \
-  --data proposals.json --wait
+```mermaid
+sequenceDiagram
+  participant A as Your agent
+  participant P as Pinrail
+  A->>P: pinrail submit code-review --data review.json --wait
+  Note over A: waits
+  Note over P: you review and decide
+  P->>A: your decision
+  Note over A: carries on with it
 ```
 
-The command blocks until you decide, then prints the decision as markdown
-for the agent to act on (or JSON for a script), and exits with a code that
-says how the review ended: decided, discarded with an instruction to stop,
-withdrawn or expired, or still pending when its `--timeout` ran out.
+When the agent reaches a step that needs you, it runs the `pinrail` command
+with a review: the plugin to show it with, a title and a JSON payload.
 
-When you ask for changes, the agent submits a new round that revises the
-last one, and the app shows your previous verdicts beside it. Every round
-and decision is kept, so history can be reopened and rendered again.
+```sh
+pinrail submit code-review --title "Retry failed webhook deliveries" \
+  --data findings.json --wait
+```
 
-## The app
+Pinrail notifies you, and the review waits in your inbox, grouped by
+project.
 
-- **Inbox and history.** What is waiting, grouped by project, and everything
-  decided before. The sidebar keeps the oldest waiting reviews one click away
-  on every page.
-- **Notifications and the menu bar.** A new review raises a notification;
-  the menu bar shows the count. The window can close while the app keeps
-  listening.
-- **Local by design.** The app runs its server on loopback, and reviews and
-  decisions stay on your machine.
+![The inbox: reviews from several agents and projects, each with what it asks](.github/assets/inbox.png)
+
+You open it, and decide in the plugin's view. In the code review at the top
+of this page, you accept or reject each of the agent's findings, and write a
+note to the agent.
+
+When you hand the review over, the command prints your decision and exits,
+and the agent carries on:
+
+```txt
+r_01K5R2 · decided · Retry failed webhook deliveries
+code-review · decided by maya at 2026-09-23 10:14
+
+- **#1 accepted** `src/deliver.ts:42` — The worker sleeps for up to 31 seconds per delivery (major)
+  > Agreed. Re-enqueue with runAt = now + backoff(attempt)
+- **#4 rejected** `src/log.ts:18` — The give-up log should say why (nit)
+  > Fine as it is; the log already has the delivery id.
+
+Undecided: #2, #3, #5
+```
+
+The command's exit code says how the review ended: decided, discarded with
+an instruction to stop, withdrawn or expired. When you ask for changes, the
+agent submits a new round, and the app shows your earlier verdicts beside
+it.
+
+## Getting started
+
+1. **Install the app** from the [download page](https://pinrail.dev/download/)
+   or the [latest release](https://github.com/forgeplane/pinrail/releases/latest).
+   On macOS, it is signed and notarized.
+2. **Follow the setup** that opens the first time. It installs the `pinrail`
+   command, adds Pinrail's skill to the agents it finds on your computer,
+   and installs the recommended plugins.
+3. **Ask your agent** for something, in your own words:
+
+   ```txt
+   Ask me through Pinrail which TODOs in this repository to tackle first.
+   ```
+
+   Or ask it where Pinrail would help in your project:
+
+   ```txt
+   Look at this project and suggest where you should ask me through Pinrail before you act.
+   ```
+
+[Your first review](https://pinrail.dev/docs/getting-started/first-review/)
+walks through this, and
+[Instructing an agent](https://pinrail.dev/docs/agents/instructing/) shows
+how to make an agent ask at the steps you choose, every time.
 
 ## Plugins
 
-A plugin defines one kind of review: the payload an agent sends, the
-decision you give back, and the view you decide in. Five official plugins
-come with the app, and the setup installs `list` and `feedback`; install the
-others in *Settings › Plugins* or with `pinrail plugins install <name>`.
-More official plugins are developed in
-[pinrail-plugins](https://github.com/forgeplane/pinrail-plugins), and are
-installed from their folder or zip.
-Anyone can write a plugin for what their agents do, such as triaging alerts,
-approving a deploy or choosing between designs, and share it for others to
-install.
+Each kind of review is a plugin: the payload an agent sends, the decision
+you give back, and the view you decide in. Five core plugins come with the
+app:
 
-| Plugin | For |
+| Plugin | Review |
 |---|---|
-| [`list`](plugins/list) | items grouped under headings, each accepted or rejected with a note |
-| [`feedback`](plugins/feedback) | questions answered in one pass: choices, yes or no, and free text |
-| [`code-review`](plugins/code-review) | a code review: the diff and the agent's proposed comments |
-| [`image`](plugins/image) | generated images to choose between, with boxes and pins on what to change |
-| [`markdown`](plugins/markdown) | a document to read and comment on, section by section |
-| [`email`](https://github.com/forgeplane/pinrail-plugins/tree/main/email) | draft emails to edit, send, revise or discard |
-| [`artifact`](https://github.com/forgeplane/pinrail-plugins/tree/main/artifact) | an HTML page to comment on, element by element |
-| [`calendar`](https://github.com/forgeplane/pinrail-plugins/tree/main/calendar) | times to arrange around a calendar, one suggested slot picked per item |
-| [`logo`](https://github.com/forgeplane/pinrail-plugins/tree/main/logo) | candidate logo marks and icons, seen at every size, with a favourite picked |
-| [`model`](https://github.com/forgeplane/pinrail-plugins/tree/main/model) | candidate 3D models to orbit under studio light, with changes asked for on their parts |
+| [`code-review`](plugins/code-review) | A diff with the agent's proposed review comments, each accepted, rejected or edited. |
+| [`list`](plugins/list) | Items grouped under headings, each accepted or rejected with a note. |
+| [`feedback`](plugins/feedback) | Questions answered in one pass: choices, yes or no, and free text. |
+| [`markdown`](plugins/markdown) | A document, such as a plan or a spec, read and commented on section by section. |
+| [`image`](plugins/image) | Generated images to choose between, with boxes and pins on what to change. |
 
-A plugin is a manifest, two JSON schemas and an HTML view.
-`pinrail plugins new <name>` creates one. The
-[`sdk`](sdk/README.md) SDK runs a plugin in a browser
-without the app, tests it, and creates plugins whose views are built with a
-framework. To share a plugin, publish its repository or a GitHub release. The
-app installs a plugin from either, or from a folder, and serves a linked
-folder directly while you work on it.
+<table>
+  <tr>
+    <td><img src=".github/assets/image.png" alt="The image plugin: candidate illustrations, with a box drawn on the part to change"></td>
+    <td><img src=".github/assets/feedback.png" alt="The feedback plugin: questions with choices, yes or no, and a comment"></td>
+  </tr>
+</table>
+
+Sample plugins in
+[forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins)
+show what else a plugin can do. They cover HTML pages, emails, calendars,
+logos, colour palettes, 3D models, animations, audio, video, design
+canvases, before-and-after comparisons and trades. Each one is released as
+a zip, which you install in the app's *Settings › Plugins*.
+
+![The sample plugins in forgeplane/pinrail-plugins, each showing a review](.github/assets/plugins.png)
+
+### Writing a plugin
+
+A plugin is a manifest, two JSON schemas and an HTML view, with no build step
+needed. `pinrail plugins new <name>` creates one, and the plugin SDK,
+[`pinrail-sdk`](https://www.npmjs.com/package/pinrail-sdk), runs its view in a
+browser without the app and tests it with Playwright. Views can also be
+built with React, Vue, Svelte or any other framework. See
+[Writing a plugin](https://pinrail.dev/docs/building/writing/).
 
 ## Repository
 
 | Directory | Contents |
 |---|---|
-| [`desktop/`](desktop/) | the app: a Rust core (API, storage, plugins), a Tauri shell and a React UI |
-| [`cli/`](cli/README.md) | the `pinrail` CLI agents call |
-| [`plugins/`](plugins/README.md) | the official plugins |
-| [`sdk/`](sdk/README.md) | the plugin SDK, development shell and test harness |
-| [`e2e/`](e2e/README.md) | end-to-end tests: the CLI and the app's UI against the headless core |
-| [`docs/`](docs/) | the documentation, published on the website |
-| [`website/`](website/) | the website |
+| [`desktop/`](desktop/) | The app: a Rust core (API, storage, plugins), a Tauri shell and a React UI. |
+| [`cli/`](cli/README.md) | The `pinrail` command that agents run. |
+| [`plugins/`](plugins/README.md) | The core plugins. |
+| [`sdk/`](sdk/README.md) | The plugin SDK, its development shell and its test harness. |
+| [`skill/`](skill/) | The skill that teaches an agent to use Pinrail. |
+| [`e2e/`](e2e/README.md) | End-to-end tests of the CLI and the app's UI against the headless core. |
+| [`docs/`](docs/) | The documentation, published on the website. |
+| [`website/`](website/) | The website. |
 
 ## Development
 
@@ -108,8 +172,8 @@ mise run lint               # rustfmt, clippy, the type check and the licences, 
 ```
 
 [CONTRIBUTING.md](CONTRIBUTING.md) describes each test suite and how to run
-it. Read it before opening a pull request. To
-report a vulnerability, follow [SECURITY.md](SECURITY.md).
+it. Read it before you open a pull request. To report a vulnerability,
+follow [SECURITY.md](SECURITY.md).
 
 ## License
 
