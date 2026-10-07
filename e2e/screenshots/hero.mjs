@@ -50,6 +50,12 @@ const scenes = {
       await f.locator('[data-act="save-note"][data-id="4"]').click();
       await f.locator("#card-1 button", { hasText: "Accept" }).click();
       await note(1, "Agreed. Re-enqueue with runAt = now + backoff(attempt), and keep MAX_ATTEMPTS on the job");
+      // the room the view leaves below the last file, so it can scroll to the
+      // top when jumped to, would be blank at the foot of the picture
+      await f
+        .locator("#main > div")
+        .first()
+        .evaluate((el) => (el.style.paddingBottom = "24px"));
     },
   },
   // two regions on the plane, a third note being written
