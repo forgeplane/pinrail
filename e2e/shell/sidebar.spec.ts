@@ -89,6 +89,15 @@ test("more than five waiting points at the inbox", async ({ page }) => {
   await expect(waiting).toHaveCount(0);
 });
 
+test("a window too narrow for the sidebar gives its whole width to the page", async ({ page }) => {
+  await page.setViewportSize({ width: 740, height: 600 });
+  await page.goto("/#/history");
+  await expect(page.locator(".app-sidebar")).toBeHidden();
+  const shell = await page.locator(".app-shell").boundingBox();
+  expect(shell?.x).toBe(0);
+  expect(shell?.width).toBe(740);
+});
+
 test("⌘B hides the sidebar and shows it again", async ({ page }) => {
   await page.goto("/#/history");
   const toggle = page.locator("button.bar-button[aria-label$='sidebar']");

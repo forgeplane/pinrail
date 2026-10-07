@@ -2308,12 +2308,17 @@ h1 {
 
 /* plugins */
 
+/* too narrow for the sidebar: the page takes the whole width, and the top
+   bar makes room for the window's buttons, as when the sidebar is closed */
 @media (max-width: 760px) {
-  #root {
+  .app-frame {
     grid-template-columns: 1fr;
   }
   .app-sidebar {
     display: none;
+  }
+  .has-overlay-bar .app-topbar {
+    padding-left: 70px;
   }
 }
 
