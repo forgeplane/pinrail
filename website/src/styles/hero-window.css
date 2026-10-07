@@ -16,6 +16,9 @@
     sans-serif;
   color: var(--a-ink);
   text-align: left;
+  /* the layout follows the window's width, not the page's: the review
+     page shows it in a narrower column */
+  container-type: inline-size;
 }
 .demo svg {
   flex: none;
@@ -223,7 +226,9 @@
     animation: none;
   }
 }
-@media (max-width: 800px) {
+/* too narrow for the sidebar: the reviews become a row of pills, and the
+   view keeps a readable size and scrolls both ways */
+@container (max-width: 880px) {
   .demo-body {
     display: flex;
     flex-direction: column;
@@ -283,7 +288,7 @@
     overflow: auto;
   }
   .demo-scroll img {
-    width: 200%;
+    width: max(100%, 860px);
     max-width: none;
   }
   .demo-foot .demo-note {
@@ -291,6 +296,11 @@
   }
   .demo-foot {
     justify-content: flex-end;
+  }
+}
+@container (max-width: 480px) {
+  .demo-scroll img {
+    width: 200%;
   }
 }
 @keyframes demo-in {
