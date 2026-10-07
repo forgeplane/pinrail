@@ -132,3 +132,8 @@ run = "node scripts/docs-generate.mjs"
 description = "Screenshots of the app for the docs and the website, light and dark, from fixed fixtures: mise run screenshots -- --only inbox"
 dir = "{{config_root}}/e2e"
 run = "node screenshots/run.mjs"
+
+[tasks."screenshots:hero"]
+description = "The plugin views in the website's hero window, at the pane's width and their whole length: mise run screenshots:hero -- video"
+dir = "{{config_root}}/e2e"
+run = "node screenshots/hero.mjs"

@@ -14,13 +14,13 @@ import compare from "../../assets/samples/compare-view-light.png";
 import palette from "../../assets/samples/palette-view-light.png";
 import model from "../../assets/screenshots/model-view-light.png";
 // the hero window's views, each at the pane's width and its whole length, as
-// the experiments' scripts/hero-shots.mjs makes them
+// e2e/screenshots/hero.mjs makes them
 import demoReview from "../../assets/hero/review.png";
 import demoImage from "../../assets/hero/image.png";
 import demoFeedback from "../../assets/hero/feedback.png";
 import demoAudio from "../../assets/hero/audio.png";
 import demoList from "../../assets/hero/list.png";
-import demoEmail from "../../assets/hero/email.png";
+import demoVideo from "../../assets/hero/video.png";
 
 export const repo = "https://github.com/forgeplane/pinrail";
 export const releases = `${repo}/releases`;
@@ -200,15 +200,15 @@ export const demo = [
     alt: "The list view: dependency upgrades, the safe ones accepted, one held back with a reason.",
   },
   {
-    plugin: "email",
-    short: "Emails",
-    icon: "mail",
-    title: "Beta invitations for the analytics dashboard",
-    repo: "northwind/growth",
-    workflow: "outreach",
+    plugin: "video",
+    short: "Video",
+    icon: "clapperboard",
+    title: "Pinrail promo — the opening",
+    repo: "pinrail/promo",
+    workflow: "video",
     agent: "codex",
     age: "6m",
-    image: demoEmail,
-    alt: "The email view: three drafts, one to send, one edited in place against the agent's words.",
+    image: demoVideo,
+    alt: "The video view: the promo five seconds in, an area of the frame boxed and commented, and a second comment at the same moment.",
   },
 ];
