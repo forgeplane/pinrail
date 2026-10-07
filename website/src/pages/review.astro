@@ -4,6 +4,7 @@
 // an item to accept or send back with a reason, a rejection comes back as a
 // second round, the decision builds up as JSON beside the page, and handing it
 // back plays out in the agent's terminal.
+import SocialCard from "../components/SocialCard.astro";
 import path from "node:path";
 import "../styles/index.css";
 import { videos } from "../videos.mjs";
@@ -42,6 +43,7 @@ const firstFive = ["code-review", "email", "image", "audio", "video"].map((p) =>
     <meta name="theme-color" content="#f5f0e6" />
     <meta property="og:title" content="Pinrail — before your agent acts, it asks" />
     <meta property="og:description" content="An agent drafted this page and is waiting for your review." />
+    <SocialCard />
     <title>Pinrail — review this page</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

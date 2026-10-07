@@ -63,6 +63,11 @@ export default defineConfig({
       },
       head: [
         { tag: "script", attrs: { src: "/docs.js", defer: true } },
+        // the link preview's image; Starlight sets the page's own title and description
+        { tag: "meta", attrs: { property: "og:image", content: "https://pinrail.dev/og.png" } },
+        { tag: "meta", attrs: { property: "og:image:width", content: "1200" } },
+        { tag: "meta", attrs: { property: "og:image:height", content: "630" } },
+        { tag: "meta", attrs: { property: "og:image:alt", content: "Pinrail: put a person in front of your agents." } },
         {
           tag: "link",
           attrs: {

@@ -2,6 +2,7 @@
 // Every download, one system a card: what it runs on, the file, and the
 // line that installs it. The hero's button is the visitor's own; the cards
 // are there for another machine, another format, or to check what is out.
+import SocialCard from "../components/SocialCard.astro";
 import "../styles/index.css";
 import "../styles/index-classic.css";
 import Footer from "../components/Footer.astro";
@@ -22,6 +23,9 @@ import { downloads, releases, repo } from "../components/index/content";
     <meta name="description" content="Download Pinrail for macOS and Linux: the desktop inbox where agents wait for your decision, with the pinrail command inside it. Windows is coming." />
     <meta name="theme-color" content="#f5f0e6" />
     <title>Download Pinrail</title>
+    <meta property="og:title" content="Download Pinrail" />
+    <meta property="og:description" content="The desktop inbox where agents wait for your decision, for macOS and Linux." />
+    <SocialCard />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

@@ -1,0 +1,13 @@
+---
+// The image and card type that link previews in chat apps and social sites
+// show; without them, an app picks the largest image on the page.
+const site = Astro.site!;
+---
+<meta property="og:type" content="website" />
+<meta property="og:url" content={new URL(Astro.url.pathname, site).href} />
+<meta property="og:site_name" content="Pinrail" />
+<meta property="og:image" content={new URL("/og.png", site).href} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Pinrail: put a person in front of your agents." />
+<meta name="twitter:card" content="summary_large_image" />

@@ -1,6 +1,7 @@
 ---
 // Version 7, the usual way round: the same product and the same look as the
 // page you review, laid out as a landing page for people who'd rather read.
+import SocialCard from "../components/SocialCard.astro";
 import "../styles/index.css";
 import "../styles/index-classic.css";
 import HeroDemo from "../components/index/HeroDemo.astro";
@@ -33,6 +34,7 @@ const shown = [...views, ...samples];
     <meta name="theme-color" content="#f5f0e6" />
     <meta property="og:title" content="Pinrail — before your agent acts, it asks" />
     <meta property="og:description" content="A desktop inbox for agent work. Decide it, or mark it up, in a view made for it; your answer goes straight back." />
+    <SocialCard />
     <title>Pinrail — before your agent acts, it asks</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
