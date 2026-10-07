@@ -31,8 +31,8 @@ name: review-comments
 description: Use before posting review comments on a pull request in this repository.
 ---
 
-Before you post review comments, ask me through Pinrail with the `review`
-plugin and wait for my decision. Don't ask in chat.
+Before you post review comments, ask me through Pinrail with the
+`code-review` plugin and wait for my decision. Don't ask in chat.
 
 - Send one proposal per comment, anchored on its file and line.
 - Post only the comments I accept, and apply my notes to them first.

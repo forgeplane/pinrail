@@ -64,5 +64,5 @@ An empty list means that the command found the app. If the command cannot reach 
 
 ## Next
 
-- [Your first review](/docs/getting-started/first-review/): send a review yourself and decide it.
+- [Your first review](/docs/getting-started/first-review/): have your agent ask you something, and decide it.
 - [Instructing an agent](/docs/agents/instructing/): tell your agent when to ask.
