@@ -1237,20 +1237,34 @@ h3 {
   margin: 0 0 18px;
   color: var(--ink-2);
 }
+/* asking before a hand-back that leaves items undecided: a warning, in
+   place of the hand-back button it stands for */
 .confirm {
+  --warn: #9a6a1c;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 16px;
-  padding: 14px 16px;
+  padding: 14px 18px 16px;
+  border: 1px solid color-mix(in oklab, var(--warn) 40%, transparent);
+  border-left: 4px solid var(--warn);
   border-radius: 10px;
-  background: var(--pen-wash);
+  background: #fbf1dc;
 }
 .confirm p {
-  margin: 0 8px 0 0;
+  margin: 0 8px 4px 0;
   flex-basis: 100%;
   font-size: 16px;
+  color: #4a3510;
+}
+.confirm p::before {
+  content: "⚠";
+  margin-right: 8px;
+  color: var(--warn);
+}
+.handover:has(.confirm:not([hidden])) .big {
+  display: none;
 }
 [data-phase="handed"] .handover .big,
 [data-phase="handed"] .handover .confirm {
