@@ -69,7 +69,7 @@ Five official plugins come with the app. The setup installs the two it recommend
 | `image` | Generated images or illustrations, each large on a stage: pick a favourite, keep or drop the rest, and box or pin what to change. |
 | `markdown` | A document an agent wrote, such as a plan or a spec, read with its diagrams and commented on with changes and questions. |
 
-More official plugins, for emails, calendars, designed pages, logos and 3D models, are listed in [More plugins](/docs/plugins/more/).
+Sample plugins, for emails, calendars, designed pages, logos, 3D models and more, are listed in [Sample plugins](/docs/plugins/more/).
 
 ## Writing your own plugin
 

@@ -26,7 +26,7 @@ official plugins the app carries, `list`, `feedback`, `code-review`, `image`
 and `markdown`, and `hello` and `sampler`, which the tests use. To write your own, see
 [Writing a plugin](https://pinrail.dev/docs/building/writing/).
 
-The official plugins are developed in
+The sample plugins are developed in
 [forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins).
 To work on one's view in the running app, link its folder from a checkout of
 that repository:

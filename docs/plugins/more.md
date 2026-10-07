@@ -1,9 +1,9 @@
 ---
-title: More plugins
-description: "Official plugins that do not come with the app: for emails, calendars, designs, logos, 3D models, audio, video, animations, palettes, before and after images, and trades."
+title: Sample plugins
+description: "Sample plugins that do not come with the app: for emails, calendars, designs, logos, 3D models, audio, video, animations, palettes, before and after images, and trades."
 ---
 
-Besides the plugins that come with the app, more official plugins are developed in [forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins). They are not installed with Pinrail. Install the ones you need, as described below.
+Besides the plugins that come with the app, sample plugins in [forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins) show what else a plugin can do. They are not installed with Pinrail. Install the ones you need, as described below.
 
 | Plugin | Title | What it is for |
 |---|---|---|

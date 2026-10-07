@@ -14,7 +14,7 @@ Every review uses a plugin, and the plugin decides what the person sees and what
 | Review the comments it wants to post on a pull or merge request | [Code review](/docs/plugins/code-review/) | <span class="pr-badge optional">Optional</span> |
 | Choose between images or illustrations it generated, and mark what to change on them | [Image review](/docs/plugins/image/) | <span class="pr-badge optional">Optional</span> |
 | Read a plan, spec or document it wrote, and ask for changes or explanations | [Markdown review](/docs/plugins/markdown/) | <span class="pr-badge optional">Optional</span> |
-| Edit emails, choose calendar slots, or review designed pages, logos or 3D models | [More plugins](/docs/plugins/more/) | |
+| Edit emails, choose calendar slots, or review designed pages, logos or 3D models | [Sample plugins](/docs/plugins/more/) | |
 
 When nothing fits exactly, start with **List**. Almost any batch of proposed actions reads well as grouped items with a verdict each, and the setup installs it. When the decision needs a view of its own, [build a plugin](/docs/building/writing/).
 

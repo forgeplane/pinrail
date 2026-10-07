@@ -5,7 +5,7 @@
 //
 //   node screenshots/hero.mjs [name…]
 //
-// The app's plugins come from plugins/, the official ones from a checkout of
+// The app's plugins come from plugins/, the sample ones from a checkout of
 // forgeplane/pinrail-plugins beside this repository, or the folder that
 // PINRAIL_PLUGINS_DIR names.
 import fs from "node:fs";
@@ -16,7 +16,7 @@ import { root } from "./app.mjs";
 
 const require = createRequire(import.meta.url);
 const { fixture, mountPlugin } = require(path.join(root, "sdk", "testing", "index.cjs"));
-const official = path.join(process.env.PINRAIL_PLUGINS_DIR ?? path.join(root, "..", "pinrail-plugins"), "plugins");
+const samples = path.join(process.env.PINRAIL_PLUGINS_DIR ?? path.join(root, "..", "pinrail-plugins"), "plugins");
 const appFixture = (name) => path.join(root, "e2e", "screenshots", "fixtures", `${name}.json`);
 const out = path.join(root, "website", "src", "assets", "hero");
 const W = 1240;
@@ -105,8 +105,8 @@ const scenes = {
   },
   // a word and a stretch commented, a cut, the take favourited
   audio: {
-    plugin: path.join(official, "audio"),
-    review: path.join(official, "audio", "fixtures", "fieldnotes.json"),
+    plugin: path.join(samples, "audio"),
+    review: path.join(samples, "audio", "fixtures", "fieldnotes.json"),
     act: async (f, page) => {
       await f.locator(".mini canvas").nth(3).waitFor();
       await f.locator(".pick").nth(1).click();
@@ -135,8 +135,8 @@ const scenes = {
   },
   // five seconds in: an area of the frame commented, and a comment at the moment
   video: {
-    plugin: path.join(official, "video"),
-    review: path.join(official, "video", "samples", "video.json"),
+    plugin: path.join(samples, "video"),
+    review: path.join(samples, "video", "samples", "video.json"),
     act: async (f, page) => {
       await f.locator("#timeline[data-duration]").waitFor();
       // a click on the header gives the view the keyboard

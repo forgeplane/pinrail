@@ -24,7 +24,7 @@ scene, removes nothing.
 
 1. `app.mjs` starts a clean app: the desktop core headless on a scratch data
    directory in `e2e/.state`, and the shell from vite against it.
-2. `seed.mjs` installs the official plugins the fixtures use from a checkout
+2. `seed.mjs` installs the sample plugins the fixtures use from a checkout
    of [forgeplane/pinrail-plugins](https://github.com/forgeplane/pinrail-plugins)
    beside this repository, `../pinrail-plugins`, or from the folder that
    `PINRAIL_PLUGINS_DIR` names. Build `plugins/artifact` and

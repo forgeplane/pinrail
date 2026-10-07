@@ -48,13 +48,13 @@ const CARRIED = [
 /** The plugins the fixtures use from forgeplane/pinrail-plugins. */
 const OPTIONAL = ["email", "artifact", "logo", "calendar", "model-3d", "audio", "visual-diff", "video"];
 
-/** Where the official plugins are: the plugins folder of their checkout. */
-const officialPlugins = (app) =>
+/** Where the sample plugins are: the plugins folder of their checkout. */
+const samplePlugins = (app) =>
   path.join(process.env.PINRAIL_PLUGINS_DIR ?? path.join(app.root, "..", "pinrail-plugins"), "plugins");
 
-/** Installs one of the official plugins; artifact's and model-3d's views must be built first. */
+/** Installs one of the sample plugins; artifact's and model-3d's views must be built first. */
 async function install(app, name) {
-  const source = path.join(officialPlugins(app), name);
+  const source = path.join(samplePlugins(app), name);
   if (!fs.existsSync(path.join(source, "manifest.json"))) {
     throw new Error(
       `${source} is not a plugin: check out forgeplane/pinrail-plugins beside this repository, or set PINRAIL_PLUGINS_DIR, and build artifact and model-3d there`,
