@@ -68,13 +68,12 @@ jobs:
           for dir in plugins/*/; do
             pinrail plugins check "$dir"
           done
-      # npm names a scoped package's tarball after its scope too; the
-      # scaffolds depend on the name without it
+      # the scaffolds depend on the tarball by this name
       - name: Pack
         working-directory: sdk
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: mv "$(npm pack --json | jq -r '.[0].filename')" "pinrail-sdk-$VERSION.tgz"
+        run: test "$(npm pack --json | jq -r '.[0].filename')" = "pinrail-sdk-$VERSION.tgz"
       # the app's updater and the download links read this repository's
       # latest release, which must stay the app's
       - name: Release the tarball
