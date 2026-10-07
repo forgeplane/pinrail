@@ -19,6 +19,7 @@ import HeroDemo from "../components/index/HeroDemo.astro";
 import HowItWorks from "../components/index/HowItWorks.astro";
 import RoundDemo from "../components/index/RoundDemo.astro";
 import CliSession from "../components/index/CliSession.astro";
+import ViewsCarousel from "../components/index/ViewsCarousel.astro";
 import { codes, repo, samples, views } from "../components/index/content";
 
 // The promo, for the hero's video round: in development from the
@@ -26,6 +27,10 @@ import { codes, repo, samples, views } from "../components/index/content";
 const promo = import.meta.env.DEV
   ? { src: `/@fs${path.resolve("..", videos.promo.local)}`, poster: `/@fs${path.resolve("..", videos.promo.localPoster)}` }
   : videos.promo;
+
+// the views the review page shows first, in a carousel; the rest are an option
+const all = [...views, ...samples];
+const firstFive = ["code-review", "email", "image", "audio", "video"].map((p) => all.find((v) => v.plugin === p)!);
 ---
 <!doctype html>
 <html lang="en">
@@ -70,7 +75,7 @@ const promo = import.meta.env.DEV
         <p class="preamble"><span class="hand">↓ you're the reviewer</span>An agent wrote this page and submitted it for review. Accept each section or send it back with a reason, then hand your decision back. <span class="keys">Keys: <kbd>J</kbd><kbd>K</kbd> move, <kbd>A</kbd> accept, <kbd>R</kbd> reject.</span></p>
 
         <!-- 101: the hero -->
-        <article class="item hero wide" data-id="101" data-title="Headline" tabindex="-1">
+        <article class="item hero wide" data-id="101" data-first="Show the app window" data-title="Headline" tabindex="-1">
           <div class="gutter"><span class="iid">#101</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
@@ -98,7 +103,7 @@ const promo = import.meta.env.DEV
         </article>
 
         <!-- 102: the loop -->
-        <article class="item wide" data-id="102" data-title="How it works" tabindex="-1">
+        <article class="item wide" data-id="102" data-first="Play it out" data-title="How it works" tabindex="-1">
           <div class="gutter"><span class="iid">#102</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
@@ -106,6 +111,20 @@ const promo = import.meta.env.DEV
               <p>You tell the agent when to stop for you, in whatever instructions it follows. When it gets there, it asks through Pinrail and waits.</p>
               <HowItWorks />
             </div>
+                        <template data-round="2" data-option="diagram" data-label="As a diagram">
+              <div class="content" data-round="2">
+                <h2>One command in, one decision out.</h2>
+                <ol class="loop-diagram" aria-label="The agent asks, you decide, the agent carries on">
+                  <li><span class="node">agent</span><small>pinrail submit … --wait</small></li>
+                  <li class="arrow" aria-hidden="true">→</li>
+                  <li><span class="node">Pinrail</span><small>the view for the work</small></li>
+                  <li class="arrow" aria-hidden="true">→</li>
+                  <li><span class="node you">you</span><small>accept, send back, comment</small></li>
+                  <li class="arrow" aria-hidden="true">→</li>
+                  <li><span class="node">agent</span><small>your decision, and an exit code</small></li>
+                </ol>
+              </div>
+            </template>
             <template data-round="2" data-option="sentence" data-label="Say it in one sentence">
               <div class="content" data-round="2">
                 <h2>One command in, one decision out.</h2>
@@ -114,48 +133,48 @@ const promo = import.meta.env.DEV
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>It plays itself. Reject it and I'll say it in one sentence.</aside>
+          <template data-note="2" data-option="diagram"><aside class="note" data-round="2"><b>agent</b>Four boxes. The session is still on the home page.</aside></template>
           <template data-note="2" data-option="sentence"><aside class="note" data-round="2"><b>agent</b>Fine. One sentence, no steps.</aside></template>
         </article>
 
         <!-- 103: the views -->
-        <article class="item" data-id="103" data-title="Views" tabindex="-1">
+        <article class="item wide" data-id="103" data-first="Back to the carousel" data-title="Views" tabindex="-1">
           <div class="gutter"><span class="iid">#103</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
               <h2>A diff deserves a diff.</h2>
-              <p>Each kind of request is a plugin, with a view made for deciding it. Five come with the app, and more are ready to install; this page is using <code>list</code>.</p>
-              <div class="views">
-                {[...views, ...samples].map((v, i) => (
-                  <figure class="view" style={`--tilt:${[-1.2, 0.8, -0.6, 1.1, -0.9][i % 5]}deg`}>
-                    <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 700px) 90vw, 320px" />
-                    <figcaption><b>{v.name}</b>{v.detail}</figcaption>
-                  </figure>
-                ))}
-                <figure class="view own">
-                  <div class="own-body"><code>pinrail plugins new my_plugin</code><p>A manifest, two JSON schemas and an HTML page. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p></div>
-                  <figcaption><b>Your own</b>Run it in a browser without the app, then install it from a folder or a GitHub release.</figcaption>
-                </figure>
-              </div>
+              <p>Each kind of request is a plugin, with a view made for deciding it: the diff for a code review, the draft itself for an email, the image for a picture, the waveform for a voice take. This page is using <code>list</code>.</p>
+              <div class="review-carousel" data-carousels><ViewsCarousel items={firstFive} /></div>
             </div>
-            <template data-round="2" data-option="five" data-label="Shorter, keep five">
+            <template data-round="2" data-option="cards" data-label="Show them all as cards">
               <div class="content" data-round="2">
                 <h2>A diff deserves a diff.</h2>
-                <p>Each kind of request is a plugin, with a view made for deciding it. Five come with the app; more are ready to install.</p>
+                <p>All ten, side by side. Five come with the app; the others are a click away.</p>
                 <div class="views">
-                  {views.map((v, i) => (
+                  {all.map((v, i) => (
                     <figure class="view" style={`--tilt:${[-1.2, 0.8, -0.6, 1.1, -0.9][i % 5]}deg`}>
                       <Zoom src={v.image} alt={v.alt} caption={`${v.name}: ${v.detail}`} sizes="(max-width: 700px) 90vw, 320px" />
                       <figcaption><b>{v.name}</b>{v.detail}</figcaption>
                     </figure>
                   ))}
+                  <figure class="view own">
+                    <div class="own-body"><code>pinrail plugins new my_plugin</code><p>A manifest, two JSON schemas and an HTML page. Triage alerts, approve a deploy, answer an agent's questions: whatever your agents do.</p></div>
+                    <figcaption><b>Your own</b>Run it in a browser without the app, then install it from a folder or a GitHub release.</figcaption>
+                  </figure>
                 </div>
+              </div>
+            </template>
+            <template data-round="2" data-option="shorter" data-label="Shorter">
+              <div class="content" data-round="2">
+                <h2>A diff deserves a diff.</h2>
+                <p>A code review comes as a diff, an image as an image, a voice take as a waveform. What you say goes back with what it points at: the line, the pixel, the millisecond.</p>
               </div>
             </template>
             <template data-round="2" data-option="list" data-label="Just the list">
               <div class="content" data-round="2">
                 <h2>A diff deserves a diff.</h2>
                 <dl class="plain-views">
-                  {[...views, ...samples].map((v) => (
+                  {all.map((v) => (
                     <div><dt>{v.plugin}</dt><dd>{v.gist}</dd></div>
                   ))}
                   <div><dt>yours</dt><dd>a manifest, two schemas and an HTML view</dd></div>
@@ -163,13 +182,14 @@ const promo = import.meta.env.DEV
               </div>
             </template>
           </div>
-          <aside class="note" data-round="1"><b>agent</b>These are screenshots of the real app. I didn't draw them.</aside>
-          <template data-note="2" data-option="five"><aside class="note" data-round="2"><b>agent</b>Five, the ones I was asked about most. The rest are a click away in the docs.</aside></template>
+          <aside class="note" data-round="1"><b>agent</b>Five of the ten, screenshots of the real app. I didn't draw them.</aside>
+          <template data-note="2" data-option="cards"><aside class="note" data-round="2"><b>agent</b>All of them, then. Click one to see it full size.</aside></template>
+          <template data-note="2" data-option="shorter"><aside class="note" data-round="2"><b>agent</b>No pictures. You've seen them on the home page.</aside></template>
           <template data-note="2" data-option="list"><aside class="note" data-round="2"><b>agent</b>A plainer version: the whole list, no pictures.</aside></template>
         </article>
 
         <!-- 104: rounds -->
-        <article class="item" data-id="104" data-title="Rounds" tabindex="-1">
+        <article class="item" data-id="104" data-first="With the example" data-title="Rounds" tabindex="-1">
           <div class="gutter"><span class="iid">#104</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
@@ -178,6 +198,15 @@ const promo = import.meta.env.DEV
               <RoundDemo />
               <p class="aside-hint">Try it: send a section above back and see what comes back.</p>
             </div>
+                        <template data-round="2" data-option="both" data-label="Show both rounds">
+              <div class="content" data-round="2">
+                <h2>A no comes with a reason, and the reason comes back.</h2>
+                <div class="both-rounds">
+                  <figure><figcaption>Round 1 · sent back</figcaption><p><s>Retry failed payments automatically.</s></p><p class="why">✕ “could charge twice”</p></figure>
+                  <figure class="now"><figcaption>Round 2 · <code>--revises</code> round 1</figcaption><p>Retry failed payments with the idempotency key.</p><p class="why">answers “could charge twice”</p></figure>
+                </div>
+              </div>
+            </template>
             <template data-round="2" data-option="plainer" data-label="Say it plainer">
               <div class="content" data-round="2">
                 <h2>Say no. Say why. Get round two.</h2>
@@ -186,11 +215,12 @@ const promo = import.meta.env.DEV
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>You may have noticed you're doing this right now.</aside>
+          <template data-note="2" data-option="both"><aside class="note" data-round="2"><b>agent</b>Side by side, the way a view can show them.</aside></template>
           <template data-note="2" data-option="plainer"><aside class="note" data-round="2"><b>agent</b>Round two of the section about round two.</aside></template>
         </article>
 
         <!-- 105: stop -->
-        <article class="item" data-id="105" data-title="Stop" tabindex="-1">
+        <article class="item" data-id="105" data-first="With the exit codes" data-title="Stop" tabindex="-1">
           <div class="gutter"><span class="iid">#105</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
@@ -200,6 +230,19 @@ const promo = import.meta.env.DEV
                 <tbody>{codes.map(([c, t]) => <tr class={c === "5" ? "stop" : undefined}><td>{c}</td><td>{t}</td></tr>)}</tbody>
               </table>
             </div>
+                        <template data-round="2" data-option="happening" data-label="Show it happening">
+              <div class="content" data-round="2">
+                <h2>“Stop” is a real answer.</h2>
+                <div class="terminal cli-session"><div class="term-bar"><span></span><span></span><span></span><b>agent — zsh</b></div><pre><span class="t-cmd">$ pinrail submit list --title "Delete 1,284 inactive accounts" \
+    --data accounts.json --wait</span>
+<span class="t-dim">pinrail: review r_01K5R7 submitted; waiting for a decision</span>
+r_01K5R7 · discarded · Delete 1,284 inactive accounts
+<span class="t-no">Discarded by maya: legal hasn't signed off on the retention policy.</span>
+<span class="t-cmd">$ echo $?</span>
+<span class="t-no">5</span>
+<span class="t-dim">agent ▸ Stopping here. Nothing was deleted; I'll report the reason.</span></pre></div>
+              </div>
+            </template>
             <template data-round="2" data-option="shorter" data-label="Shorter">
               <div class="content" data-round="2">
                 <h2>“Stop” is a real answer.</h2>
@@ -208,11 +251,12 @@ const promo = import.meta.env.DEV
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>Please don't test this on the page. (The Discard button is at the top.)</aside>
+          <template data-note="2" data-option="happening"><aside class="note" data-round="2"><b>agent</b>That one really happens. Nothing gets deleted.</aside></template>
           <template data-note="2" data-option="shorter"><aside class="note" data-round="2"><b>agent</b>Shorter this time.</aside></template>
         </article>
 
         <!-- 106: the CLI -->
-        <article class="item" data-id="106" data-title="The CLI" tabindex="-1">
+        <article class="item wide" data-id="106" data-first="With the agent's session" data-title="The CLI" tabindex="-1">
           <div class="gutter"><span class="iid">#106</span><span class="round">R1</span><svg class="mark" viewBox="0 0 60 50" aria-hidden="true"><path class="tick" d="M6 28 L22 42 L54 6" /><path class="cross" d="M10 8 L50 44 M50 8 L10 44" /></svg></div>
           <div class="body">
             <div class="content" data-round="1">
@@ -220,6 +264,22 @@ const promo = import.meta.env.DEV
               <p>An agent reads the decision as markdown. A script keeps the JSON and branches on the exit code, and <code>--decision-out</code> writes the decision to a file for a workflow that already reads one.</p>
               <CliSession />
             </div>
+                        <template data-round="2" data-option="script" data-label="Show it for a script">
+              <div class="content" data-round="2">
+                <h2>For an agent, and for a script.</h2>
+                <p>A script reads the decision from a file and branches on the exit code.</p>
+                <div class="terminal cli-session"><div class="term-bar"><span></span><span></span><span></span><b>agent — zsh</b></div><pre><span class="t-dim"># deploy only what a person approved</span>
+<span class="t-cmd">$ pinrail submit list --title "Release 2.4.1" --data changes.json \
+    --wait --decision-out decision.json > /dev/null</span>
+<span class="t-cmd">$ case $? in
+    0) jq -r '.decisions[] | select(.action == "accept") | .id' decision.json \
+         | xargs ./deploy ;;
+    5) echo "stopped: a person said no" ;;
+    *) echo "no decision yet" ;;
+  esac</span>
+<span class="t-ok">deploying 3 of 4 changes</span></pre></div>
+              </div>
+            </template>
             <template data-round="2" data-option="plain" data-label="No terminal">
               <div class="content" data-round="2">
                 <h2>For an agent, and for a script.</h2>
@@ -228,6 +288,7 @@ const promo = import.meta.env.DEV
             </template>
           </div>
           <aside class="note" data-round="1"><b>agent</b>That's a real session. The comments are made up.</aside>
+          <template data-note="2" data-option="script"><aside class="note" data-round="2"><b>agent</b>The same call, for a shell script instead of me.</aside></template>
           <template data-note="2" data-option="plain"><aside class="note" data-round="2"><b>agent</b>No terminal this time.</aside></template>
         </article>
 
@@ -293,11 +354,11 @@ const promo = import.meta.env.DEV
 
     <script>
       type Verdict = { action: "accept" | "reject"; note?: string; option?: string };
-      type Item = { el: HTMLElement; id: number; title: string; round: number; verdict?: Verdict; history: string[] };
+      type Item = { el: HTMLElement; id: number; title: string; round: number; showing: string; verdict?: Verdict; history: string[] };
 
       const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const items: Item[] = [...document.querySelectorAll<HTMLElement>(".item")].map((el) => ({
-        el, id: Number(el.dataset.id), title: el.dataset.title!, round: 1, history: [],
+      const items: Item[] = [...document.querySelectorAll<HTMLElement>("article.item")].map((el) => ({
+        el, id: Number(el.dataset.id), title: el.dataset.title!, round: 1, showing: "first", history: [],
       }));
       const reasons = document.querySelector<HTMLFormElement>(".reasons")!;
       const json = document.querySelector<HTMLElement>("[data-json]")!;
@@ -330,12 +391,18 @@ const promo = import.meta.env.DEV
         next();
       }
 
-      // The versions the agent has ready for a section's next round, each with
-      // the reason that asks for it: these are the chips.
+      // Every version of a section the agent has: the first draft, kept as it
+      // is so its scripts still run, and the others as templates. The chips
+      // are each version but the one showing, so any round can go to any.
+      const firsts = new Map(items.map((it) => [it, {
+        content: it.el.querySelector<HTMLElement>('.content[data-round="1"]')!,
+        note: it.el.querySelector<HTMLElement>('.note[data-round="1"]')!,
+      }]));
       const options = (item: Item) =>
-        item.round > 1
-          ? []
-          : [...item.el.querySelectorAll<HTMLTemplateElement>('template[data-round="2"]')].map((t) => ({ id: t.dataset.option!, label: t.dataset.label! }));
+        [
+          { id: "first", label: item.el.dataset.first! },
+          ...[...item.el.querySelectorAll<HTMLTemplateElement>('template[data-round="2"]')].map((t) => ({ id: t.dataset.option!, label: t.dataset.label! })),
+        ].filter((o) => o.id !== item.showing);
 
       function askWhy(item: Item) {
         reasonFor = item;
@@ -376,17 +443,24 @@ const promo = import.meta.env.DEV
         el.classList.add("revising");
         setTimeout(() => {
           const body = el.querySelector(".body")!;
-          const tpl = el.querySelector<HTMLTemplateElement>(`template[data-round="2"][data-option="${option}"]`)!;
-          const noteTpl = el.querySelector<HTMLTemplateElement>(`template[data-note="2"][data-option="${option}"]`)!;
-          body.querySelector('.content[data-round="1"]')!.replaceWith(tpl.content.cloneNode(true));
-          el.querySelector('.note[data-round="1"]')!.replaceWith(noteTpl.content.cloneNode(true));
-          item.history.push(`Round 1: sent back — “${note}”`);
-          item.round = 2;
+          const first = firsts.get(item)!;
+          const content = option === "first"
+            ? first.content
+            : (el.querySelector<HTMLTemplateElement>(`template[data-round="2"][data-option="${option}"]`)!.content.firstElementChild!.cloneNode(true) as HTMLElement);
+          const aside = option === "first"
+            ? first.note
+            : (el.querySelector<HTMLTemplateElement>(`template[data-note="2"][data-option="${option}"]`)!.content.firstElementChild!.cloneNode(true) as HTMLElement);
+          body.querySelector(".content")!.replaceWith(content);
+          el.querySelector(".note")!.replaceWith(aside);
+          item.history.push(`Round ${item.round}: sent back — “${note}”`);
+          item.round += 1;
+          item.showing = option;
           item.verdict = undefined;
+          body.querySelector(".previous")?.remove();
           const prev = document.createElement("p");
           prev.className = "previous";
           prev.textContent = item.history.at(-1)!;
-          body.querySelector(".content")!.before(prev);
+          content.before(prev);
           el.classList.remove("revising");
           el.classList.add("arrived");
           setTimeout(() => el.classList.remove("arrived"), 1200);
@@ -480,7 +554,7 @@ const promo = import.meta.env.DEV
       // the agent submits the next draft with --revises, and the page shows
       // it to review. With none to revise, the agent carries on and it ends.
       let draft = 1;
-      const reviewId = (n: number) => `r_01K5Q${"9ABCDEFGH"[n - 1]}`;
+      const reviewId = (n: number) => `r_01K5Q${(8 + n).toString(36).toUpperCase()}`;
       async function finish() {
         closeReasons();
         document.body.dataset.phase = "handed";
@@ -496,7 +570,7 @@ const promo = import.meta.env.DEV
         const d = decision();
         const accepted = d.decisions.filter((r) => r.action === "accept");
         const rejected = items.filter((it) => it.verdict?.action === "reject");
-        const toRevise = rejected.filter((it) => it.verdict!.option && it.round === 1);
+        const toRevise = rejected.filter((it) => it.verdict!.option);
         const now = new Date();
         const pad = (n: number) => String(n).padStart(2, "0");
         const at = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;

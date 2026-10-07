@@ -559,6 +559,90 @@ h3 {
 .hero-window {
   margin-top: 28px;
 }
+/* How it works as four boxes */
+.loop-diagram {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.loop-diagram li {
+  display: grid;
+  gap: 6px;
+  max-width: 150px;
+}
+.loop-diagram .node {
+  justify-self: start;
+  padding: 6px 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 8px;
+  font: 600 14px var(--mono);
+}
+.loop-diagram .node.you {
+  border-color: var(--pen);
+  color: var(--pen);
+}
+.loop-diagram small {
+  font: 12px/1.4 var(--mono);
+  color: var(--faint);
+}
+.loop-diagram .arrow {
+  padding-top: 6px;
+  color: var(--faint);
+}
+/* Two rounds of one item, side by side */
+.both-rounds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 20px;
+}
+.both-rounds figure {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: var(--sheet);
+}
+.both-rounds figure.now {
+  border-color: var(--ink);
+}
+.both-rounds figcaption {
+  font: 500 12px var(--mono);
+  color: var(--faint);
+}
+.both-rounds p {
+  margin: 8px 0 0;
+}
+.both-rounds .why {
+  font-family: "Caveat", cursive;
+  font-size: 22px;
+  color: var(--pen);
+}
+.both-rounds .now .why {
+  color: var(--ok, #2e7d4f);
+}
+@media (max-width: 640px) {
+  .both-rounds {
+    grid-template-columns: 1fr;
+  }
+}
+/* the views carousel inside the manuscript: no bleed past the page */
+.review-carousel {
+  margin-top: 20px;
+}
+.review-carousel .c-carousel {
+  --bleed: 0px;
+}
+.review-carousel .c-carousel-head {
+  justify-content: flex-end;
+}
+.review-carousel .c-carousel-nav {
+  margin-bottom: 14px;
+}
 .hero-window video.promo {
   display: block;
   width: 100%;
