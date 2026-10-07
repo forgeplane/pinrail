@@ -16,6 +16,11 @@ The `pinrail` command ships inside the app and carries the app's version.
 - `pinrail plugins new --playwright` takes the plugin SDK from npm, as
   `pinrail-sdk`, rather than from the tarball on the SDK's GitHub release.
 
+### Fixed
+
+- On macOS 26, the button that shows and hides the sidebar no longer
+  touches the window's close, minimize and zoom buttons.
+
 ## [0.1.1]
 
 ### Changed

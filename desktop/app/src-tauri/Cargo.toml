@@ -44,7 +44,7 @@ pinrail-core = { path = "../../core" }
 [target.'cfg(target_os = "macos")'.dependencies]
 block2 = "0.6"
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSError", "NSBundle", "NSValue", "NSArray", "NSEnumerator"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSError", "NSBundle", "NSValue", "NSArray", "NSEnumerator", "NSGeometry"] }
 objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCenter", "UNNotificationRequest", "UNNotificationContent", "UNNotification", "UNNotificationResponse", "UNNotificationSound", "UNNotificationSettings", "block2"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

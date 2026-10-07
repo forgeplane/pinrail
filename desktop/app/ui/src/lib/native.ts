@@ -12,6 +12,26 @@ const OPEN_EVENT = "pinrail:open";
 export const overlayTitleBar = inTauri() && /Mac/i.test(navigator.platform);
 const COMMAND_EVENT = "pinrail:command";
 
+/**
+ * Places the title bar's controls beside the window's buttons, where the
+ * app measured them: their size and spacing differ between macOS versions.
+ * The stylesheet's defaults stand until then, and wherever the app cannot
+ * measure them.
+ */
+export async function placeWindowButtons() {
+  if (!overlayTitleBar) return;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const buttons = await invoke<{ end: number; middle: number } | null>("window_buttons");
+    if (!buttons) return;
+    const root = document.documentElement.style;
+    root.setProperty("--window-buttons-end", `${buttons.end}px`);
+    root.setProperty("--window-buttons-middle", `${buttons.middle}px`);
+  } catch (error) {
+    console.error("the window's buttons could not be measured", error);
+  }
+}
+
 /** The scheme of a link this app will follow. */
 export const EXTERNAL = /^(https?|mailto):/i;
 

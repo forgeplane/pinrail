@@ -10,6 +10,7 @@ mod native;
 mod notify_mac;
 mod startup;
 mod updater;
+mod window_buttons;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -33,6 +34,28 @@ struct ServerUrl(String);
 #[tauri::command]
 fn server_url(url: State<'_, ServerUrl>) -> String {
     url.0.clone()
+}
+
+/// Where the window's buttons are, for the shell to place its title bar's
+/// controls beside them: on macOS only, where they overlay the shell.
+#[tauri::command]
+async fn window_buttons(window: tauri::WebviewWindow) -> Option<window_buttons::WindowButtons> {
+    #[cfg(target_os = "macos")]
+    {
+        let (send, receive) = std::sync::mpsc::channel();
+        let measured = window.clone();
+        window
+            .run_on_main_thread(move || {
+                let _ = send.send(window_buttons::measure(&measured));
+            })
+            .ok()?;
+        receive.recv().ok().flatten()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window;
+        None
+    }
 }
 
 /// The route the shell should show, sent before it was listening.
@@ -543,7 +566,8 @@ pub fn run() {
             save_attachment,
             update_status,
             check_for_updates,
-            restart_to_update
+            restart_to_update,
+            window_buttons
         ])
         .build(tauri::generate_context!())
         .expect("pinrail could not start its window");

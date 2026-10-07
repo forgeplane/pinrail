@@ -252,18 +252,24 @@ h1 {
   gap: 4px;
   padding: 0 2px;
 }
-/* the toggle sits 70px from the window edge in both bars, the sidebar's own
-   10px side padding included, and a touch below centre to sit on the traffic
-   lights' line */
+/* On macOS the window's buttons overlay the top left. The app measures
+   where they end and where their middle is, which differ between macOS
+   versions; the defaults are macOS 15's. The toggle starts 4px after the
+   last one in both bars, the sidebar's own 10px side padding included, and
+   sits on their line. */
+:root {
+  --window-buttons-end: 66px;
+  --window-buttons-middle: 20px;
+}
 .has-overlay-bar .sidebar-bar,
 .has-overlay-bar .app-topbar {
-  padding-top: 2px;
+  padding-top: calc(2 * var(--window-buttons-middle) - 38px);
 }
 .has-overlay-bar .sidebar-bar {
-  padding-left: 60px;
+  padding-left: calc(var(--window-buttons-end) - 6px);
 }
 .has-overlay-bar.sidebar-closed .app-topbar {
-  padding-left: 70px;
+  padding-left: calc(var(--window-buttons-end) + 4px);
 }
 .bar-button {
   display: inline-flex;
@@ -2066,7 +2072,8 @@ h1 {
   box-shadow: 0 1px 0 var(--border);
 }
 .plugin-frame-wrap.has-overlay-bar .frame-bar {
-  padding-left: 78px;
+  padding-left: calc(var(--window-buttons-end) + 12px);
+  padding-top: calc(2 * var(--window-buttons-middle) - 38px);
 }
 .frame-bar-title {
   flex: 1;
@@ -2318,7 +2325,7 @@ h1 {
     display: none;
   }
   .has-overlay-bar .app-topbar {
-    padding-left: 70px;
+    padding-left: calc(var(--window-buttons-end) + 4px);
   }
 }
 
