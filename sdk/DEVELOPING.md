@@ -82,5 +82,7 @@ depend on the folder the same way, with a `file:` dependency.
 ## Releasing
 
 A tag `sdk-v<version>` releases the package: `.github/workflows/sdk-release.yml`
-runs its tests, attaches the tarball to a GitHub release, and publishes it
-to npm once the repository is set up for that.
+runs its tests and attaches the tarball to a GitHub release. The package
+is published to npm as [`pinrail-sdk`](https://www.npmjs.com/package/pinrail-sdk),
+which is where the plugins that `pinrail plugins new --playwright` writes
+take it from.

@@ -25,5 +25,5 @@ pinrail plugins install . --link          # in the app
 ```
 
 Here the SDK comes from this repository (`file:../../../../sdk`).
-A plugin written by `pinrail plugins new --playwright` takes it from the
-SDK's release instead.
+A plugin written by `pinrail plugins new --playwright` takes it from npm,
+as [`pinrail-sdk`](https://www.npmjs.com/package/pinrail-sdk), instead.

@@ -180,12 +180,14 @@ CLI. They use Playwright and the test harness of the SDK,
 `pinrail-sdk/testing`, which serves the folder as the app does and plays
 the app's side of the conversation.
 
-A plugin created with `--playwright` has `package.json`,
+A plugin created with `--playwright` has `package.json`, with Playwright
+and `pinrail-sdk` from npm as development dependencies,
 `playwright.config.ts` and a first test, `tests/<name>.spec.ts`. To add
-tests to a plugin that has none, create a plugin with `--playwright` in
-another folder, and copy its `playwright.config.ts`, `tests/`, and the
-`test` script and development dependencies of its `package.json`. Then,
-in the folder:
+tests to a plugin that has none, run
+`npm install --save-dev @playwright/test pinrail-sdk@^{{sdk_version}}` in
+it, create a plugin with `--playwright` in another folder, and copy its
+`playwright.config.ts`, `tests/`, and the `test` script of its
+`package.json`. Then, in the folder:
 
 ```sh
 npm install

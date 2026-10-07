@@ -65,13 +65,10 @@ pub fn sdk_version() -> String {
         .to_string()
 }
 
-/// The SDK package of the version this command was built with, as the
-/// tarball attached to its release.
+/// The SDK package on npm, from the version this command was built with
+/// up to the next major, which speaks the same protocol.
 fn sdk_dependency() -> String {
-    let version = sdk_version();
-    format!(
-        "https://github.com/forgeplane/pinrail/releases/download/sdk-v{version}/pinrail-sdk-{version}.tgz"
-    )
+    format!("^{}", sdk_version())
 }
 
 /// The files of one layer of the templates: each one's path in the plugin
@@ -393,13 +390,7 @@ mod tests {
                     .as_str()
                     .unwrap()
                     .to_string();
-            assert!(
-                dev["pinrail-sdk"]
-                    .as_str()
-                    .unwrap()
-                    .ends_with(&format!("sdk-v{version}/pinrail-sdk-{version}.tgz")),
-                "{dev}"
-            );
+            assert_eq!(dev["pinrail-sdk"], format!("^{version}"), "{dev}");
             let gitignore = read(".gitignore");
             assert_eq!(gitignore.matches("node_modules/").count(), 1, "{gitignore}");
             assert!(gitignore.contains("test-results/"));

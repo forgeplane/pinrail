@@ -17,9 +17,9 @@ npx playwright install chromium    # once, the browser the tests run in
 npm test
 ```
 
-`--playwright` adds a `package.json` with Playwright and the SDK as development dependencies, a `playwright.config.ts`, and a first test in `tests/ticket_triage.spec.ts`. With `--template typescript` or `--template react`, it adds them to the template's own `package.json`, and `npm test` builds the view before it runs the tests.
+`--playwright` adds a `package.json` with Playwright and the SDK, [`pinrail-sdk`](https://www.npmjs.com/package/pinrail-sdk) from npm, as development dependencies, a `playwright.config.ts`, and a first test in `tests/ticket_triage.spec.ts`. With `--template typescript` or `--template react`, it adds them to the template's own `package.json`, and `npm test` builds the view before it runs the tests.
 
-To add tests to a plugin that has none, create a plugin with `--playwright` in another folder and copy its `playwright.config.ts`, its `tests/` folder, and the `test` script and development dependencies of its `package.json`.
+To add tests to a plugin that has none, install the two packages, `npm install --save-dev @playwright/test pinrail-sdk`. Then create a plugin with `--playwright` in another folder, and copy its `playwright.config.ts`, its `tests/` folder, and the `test` script of its `package.json`.
 
 None of these files are installed with the plugin. Pinrail copies only the plugin's own files, as [Writing a plugin](/docs/building/writing/#create-the-folder) lists them.
 
