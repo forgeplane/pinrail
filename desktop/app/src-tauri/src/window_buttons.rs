@@ -16,6 +16,7 @@ pub struct WindowButtons {
 
 /// The buttons, from the zoom button's rectangle in window coordinates,
 /// which start at the bottom left, and the window's height.
+#[cfg(any(target_os = "macos", test))]
 fn from_zoom_button(x: f64, y: f64, width: f64, height: f64, window_height: f64) -> WindowButtons {
     WindowButtons {
         end: x + width,
