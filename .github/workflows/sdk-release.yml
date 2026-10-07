@@ -60,6 +60,9 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npm test
+      # a plugin with a build of its own has no view/ until it is built
+      - name: Build the plugins
+        run: sh scripts/build-plugins.sh
       - name: The samples pass check
         run: |
           for dir in plugins/*/; do
