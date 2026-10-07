@@ -11,6 +11,7 @@ import CliSession from "../components/index/CliSession.astro";
 import { icons } from "../components/index/lucide";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
+import Footer from "../components/Footer.astro";
 import Brand from "../components/Brand.astro";
 import Download from "../components/Download.astro";
 import GitHubIcon from "../components/GitHubIcon.astro";
@@ -143,9 +144,6 @@ const shown = [...views, ...samples];
     <Lightbox />
 
 
-    <footer class="colophon">
-      <span>Pinrail · a person in the loop of your agents.<small>No cookies: Cloudflare counts visits anonymously.</small><small>Product names and logos belong to their owners and are shown only to say which agents Pinrail works with. Pinrail is not affiliated with them or endorsed by them.</small></span>
-      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/review">Review version</a></nav>
-    </footer>
+    <Footer other={{ href: "/review", label: "Review version" }} />
   </body>
 </html>

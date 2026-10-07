@@ -12,6 +12,7 @@ import Download from "../components/Download.astro";
 import GitHubIcon from "../components/GitHubIcon.astro";
 import Lightbox from "../components/index/Lightbox.astro";
 import ModeSwitch from "../components/index/ModeSwitch.astro";
+import Footer from "../components/Footer.astro";
 import Brand from "../components/Brand.astro";
 import Typed from "../components/index/Typed.astro";
 import Faq from "../components/index/Faq.astro";
@@ -358,10 +359,7 @@ r_01K5R7 · discarded · Delete 1,284 inactive accounts
 
     <Lightbox />
 
-    <footer class="colophon">
-      <span>Pinrail · a person in the loop of your agents.<small>No cookies: Cloudflare counts visits anonymously.</small><small>Product names and logos belong to their owners and are shown only to say which agents Pinrail works with. Pinrail is not affiliated with them or endorsed by them.</small></span>
-      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/">Classic version</a></nav>
-    </footer>
+    <Footer other={{ href: "/", label: "Classic version" }} />
 
     <script>
       type Verdict = { action: "accept" | "reject"; note?: string; option?: string };

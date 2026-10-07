@@ -4,6 +4,7 @@
 // are there for another machine, another format, or to check what is out.
 import "../styles/index.css";
 import "../styles/index-classic.css";
+import Footer from "../components/Footer.astro";
 import Brand from "../components/Brand.astro";
 import Download from "../components/Download.astro";
 import AppleIcon from "../components/AppleIcon.astro";
@@ -96,10 +97,7 @@ import { downloads, releases, repo } from "../components/index/content";
       </section>
     </main>
 
-    <footer class="colophon">
-      <span>Pinrail · a person in the loop of your agents.<small>No cookies: Cloudflare counts visits anonymously.</small><small>Product names and logos belong to their owners and are shown only to say which agents Pinrail works with. Pinrail is not affiliated with them or endorsed by them.</small></span>
-      <nav><a href="/docs/">Docs</a><a href="/docs/building/writing/">Write a plugin</a><a href={repo}>GitHub</a><a href="/review">Review version</a></nav>
-    </footer>
+    <Footer other={{ href: "/review", label: "Review version" }} />
   </body>
 </html>
 

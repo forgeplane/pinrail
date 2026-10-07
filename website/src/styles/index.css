@@ -1620,7 +1620,11 @@ h3 {
 }
 .colophon nav {
   display: flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.colophon nav a {
+  white-space: nowrap;
 }
 .colophon a {
   text-decoration: none;
@@ -1635,6 +1639,15 @@ h3 {
 }
 .colophon a:hover {
   color: var(--ink);
+}
+.colophon .maker {
+  font-size: 12px;
+  opacity: 1;
+}
+.colophon .maker a {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+  text-underline-offset: 3px;
 }
 
 /* Narrower: notes go inline, the decision becomes a sheet at the bottom */
