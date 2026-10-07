@@ -1,0 +1,738 @@
+{
+  "plugin": "audio",
+  "title": "Field Notes intro — voice takes",
+  "origin": {
+    "repo": "fieldnotes/episodes",
+    "workflow": "voiceover"
+  },
+  "requested_by": "opencode",
+  "age": "19m",
+  "payload": {
+    "notes": "Four voices for the **Field Notes** intro, all reading the same script. It has to fit an eight-second slot, and *Linh Nguyen* must be said right (\"Linh Win\"). Mark what to fix on the waveform or on the words, and cut what should go.",
+    "script": "Welcome back to Field Notes. This week, Linh Nguyen walks us through the new harbour bridge, and why it took eleven years to build. Stay with us.",
+    "takes": [
+      {
+        "id": "samantha",
+        "name": "Samantha",
+        "file": {
+          "$attachment": "samantha.wav"
+        },
+        "details": [
+          "en-US",
+          "175 wpm",
+          "WAV"
+        ],
+        "reasoning": "The house voice from the last season. Clear and even, a little *newsreader*.",
+        "transcript": {
+          "segments": [
+            {
+              "id": "s1",
+              "text": "Welcome back to Field Notes.",
+              "start_ms": 10,
+              "end_ms": 1550,
+              "words": [
+                {
+                  "text": "Welcome",
+                  "start_ms": 10,
+                  "end_ms": 390
+                },
+                {
+                  "text": "back",
+                  "start_ms": 390,
+                  "end_ms": 680
+                },
+                {
+                  "text": "to",
+                  "start_ms": 680,
+                  "end_ms": 910
+                },
+                {
+                  "text": "Field",
+                  "start_ms": 910,
+                  "end_ms": 1190
+                },
+                {
+                  "text": "Notes.",
+                  "start_ms": 1190,
+                  "end_ms": 1550
+                }
+              ]
+            },
+            {
+              "id": "s2",
+              "text": "This week, Linh Nguyen walks us through the new harbour bridge, and why it took eleven years to build.",
+              "start_ms": 1830,
+              "end_ms": 6830,
+              "words": [
+                {
+                  "text": "This",
+                  "start_ms": 1830,
+                  "end_ms": 2110
+                },
+                {
+                  "text": "week,",
+                  "start_ms": 2110,
+                  "end_ms": 2360
+                },
+                {
+                  "text": "Linh",
+                  "start_ms": 2670,
+                  "end_ms": 2870
+                },
+                {
+                  "text": "Nguyen",
+                  "start_ms": 2870,
+                  "end_ms": 3130
+                },
+                {
+                  "text": "walks",
+                  "start_ms": 3130,
+                  "end_ms": 3390
+                },
+                {
+                  "text": "us",
+                  "start_ms": 3390,
+                  "end_ms": 3520
+                },
+                {
+                  "text": "through",
+                  "start_ms": 3520,
+                  "end_ms": 3860
+                },
+                {
+                  "text": "the",
+                  "start_ms": 3860,
+                  "end_ms": 4020
+                },
+                {
+                  "text": "new",
+                  "start_ms": 4020,
+                  "end_ms": 4190
+                },
+                {
+                  "text": "harbour",
+                  "start_ms": 4190,
+                  "end_ms": 4530
+                },
+                {
+                  "text": "bridge,",
+                  "start_ms": 4530,
+                  "end_ms": 4830
+                },
+                {
+                  "text": "and",
+                  "start_ms": 5070,
+                  "end_ms": 5250
+                },
+                {
+                  "text": "why",
+                  "start_ms": 5250,
+                  "end_ms": 5420
+                },
+                {
+                  "text": "it",
+                  "start_ms": 5420,
+                  "end_ms": 5610
+                },
+                {
+                  "text": "took",
+                  "start_ms": 5610,
+                  "end_ms": 5860
+                },
+                {
+                  "text": "eleven",
+                  "start_ms": 5860,
+                  "end_ms": 6140
+                },
+                {
+                  "text": "years",
+                  "start_ms": 6140,
+                  "end_ms": 6390
+                },
+                {
+                  "text": "to",
+                  "start_ms": 6430,
+                  "end_ms": 6590
+                },
+                {
+                  "text": "build.",
+                  "start_ms": 6590,
+                  "end_ms": 6830
+                }
+              ]
+            },
+            {
+              "id": "s3",
+              "text": "Stay with us.",
+              "start_ms": 7140,
+              "end_ms": 7900,
+              "words": [
+                {
+                  "text": "Stay",
+                  "start_ms": 7140,
+                  "end_ms": 7450
+                },
+                {
+                  "text": "with",
+                  "start_ms": 7450,
+                  "end_ms": 7730
+                },
+                {
+                  "text": "us.",
+                  "start_ms": 7730,
+                  "end_ms": 7900
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "daniel",
+        "name": "Daniel",
+        "file": {
+          "$attachment": "daniel.mp3"
+        },
+        "details": [
+          "en-GB",
+          "195 wpm",
+          "MP3"
+        ],
+        "reasoning": "British and brisk. Pushed to 195 words a minute to leave room in the slot; listen to whether **the name** survives the speed.",
+        "transcript": {
+          "segments": [
+            {
+              "id": "s1",
+              "text": "Welcome back to Field Notes.",
+              "start_ms": 0,
+              "end_ms": 1360,
+              "words": [
+                {
+                  "text": "Welcome",
+                  "start_ms": 0,
+                  "end_ms": 340
+                },
+                {
+                  "text": "back",
+                  "start_ms": 340,
+                  "end_ms": 640
+                },
+                {
+                  "text": "to",
+                  "start_ms": 640,
+                  "end_ms": 790
+                },
+                {
+                  "text": "Field",
+                  "start_ms": 790,
+                  "end_ms": 1040
+                },
+                {
+                  "text": "Notes.",
+                  "start_ms": 1040,
+                  "end_ms": 1360
+                }
+              ]
+            },
+            {
+              "id": "s2",
+              "text": "This week, Linh Nguyen walks us through the new harbour bridge, and why it took eleven years to build.",
+              "start_ms": 1560,
+              "end_ms": 5810,
+              "words": [
+                {
+                  "text": "This",
+                  "start_ms": 1560,
+                  "end_ms": 1760
+                },
+                {
+                  "text": "week,",
+                  "start_ms": 1760,
+                  "end_ms": 1960
+                },
+                {
+                  "text": "Linh",
+                  "start_ms": 2240,
+                  "end_ms": 2420
+                },
+                {
+                  "text": "Nguyen",
+                  "start_ms": 2420,
+                  "end_ms": 2650
+                },
+                {
+                  "text": "walks",
+                  "start_ms": 2650,
+                  "end_ms": 2890
+                },
+                {
+                  "text": "us",
+                  "start_ms": 2890,
+                  "end_ms": 3000
+                },
+                {
+                  "text": "through",
+                  "start_ms": 3000,
+                  "end_ms": 3270
+                },
+                {
+                  "text": "the",
+                  "start_ms": 3270,
+                  "end_ms": 3410
+                },
+                {
+                  "text": "new",
+                  "start_ms": 3410,
+                  "end_ms": 3560
+                },
+                {
+                  "text": "harbour",
+                  "start_ms": 3560,
+                  "end_ms": 3830
+                },
+                {
+                  "text": "bridge,",
+                  "start_ms": 3830,
+                  "end_ms": 4090
+                },
+                {
+                  "text": "and",
+                  "start_ms": 4270,
+                  "end_ms": 4430
+                },
+                {
+                  "text": "why",
+                  "start_ms": 4430,
+                  "end_ms": 4580
+                },
+                {
+                  "text": "it",
+                  "start_ms": 4580,
+                  "end_ms": 4750
+                },
+                {
+                  "text": "took",
+                  "start_ms": 4750,
+                  "end_ms": 4970
+                },
+                {
+                  "text": "eleven",
+                  "start_ms": 4970,
+                  "end_ms": 5220
+                },
+                {
+                  "text": "years",
+                  "start_ms": 5220,
+                  "end_ms": 5460
+                },
+                {
+                  "text": "to",
+                  "start_ms": 5460,
+                  "end_ms": 5580
+                },
+                {
+                  "text": "build.",
+                  "start_ms": 5580,
+                  "end_ms": 5810
+                }
+              ]
+            },
+            {
+              "id": "s3",
+              "text": "Stay with us.",
+              "start_ms": 6050,
+              "end_ms": 6730,
+              "words": [
+                {
+                  "text": "Stay",
+                  "start_ms": 6050,
+                  "end_ms": 6320
+                },
+                {
+                  "text": "with",
+                  "start_ms": 6320,
+                  "end_ms": 6570
+                },
+                {
+                  "text": "us.",
+                  "start_ms": 6580,
+                  "end_ms": 6730
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "moira",
+        "name": "Moira",
+        "file": {
+          "$attachment": "moira.m4a"
+        },
+        "details": [
+          "en-IE",
+          "170 wpm",
+          "AAC"
+        ],
+        "reasoning": "Warmer, and the slowest of the four. Runs past eight seconds, so something would have to go.",
+        "transcript": {
+          "segments": [
+            {
+              "id": "s1",
+              "text": "Welcome back to Field Notes.",
+              "start_ms": 0,
+              "end_ms": 1650,
+              "words": [
+                {
+                  "text": "Welcome",
+                  "start_ms": 0,
+                  "end_ms": 430
+                },
+                {
+                  "text": "back",
+                  "start_ms": 430,
+                  "end_ms": 780
+                },
+                {
+                  "text": "to",
+                  "start_ms": 780,
+                  "end_ms": 970
+                },
+                {
+                  "text": "Field",
+                  "start_ms": 970,
+                  "end_ms": 1300
+                },
+                {
+                  "text": "Notes.",
+                  "start_ms": 1300,
+                  "end_ms": 1650
+                }
+              ]
+            },
+            {
+              "id": "s2",
+              "text": "This week, Linh Nguyen walks us through the new harbour bridge, and why it took eleven years to build.",
+              "start_ms": 1940,
+              "end_ms": 7640,
+              "words": [
+                {
+                  "text": "This",
+                  "start_ms": 1940,
+                  "end_ms": 2180
+                },
+                {
+                  "text": "week,",
+                  "start_ms": 2180,
+                  "end_ms": 2420
+                },
+                {
+                  "text": "Linh",
+                  "start_ms": 2770,
+                  "end_ms": 3030
+                },
+                {
+                  "text": "Nguyen",
+                  "start_ms": 3030,
+                  "end_ms": 3370
+                },
+                {
+                  "text": "walks",
+                  "start_ms": 3370,
+                  "end_ms": 3680
+                },
+                {
+                  "text": "us",
+                  "start_ms": 3680,
+                  "end_ms": 3850
+                },
+                {
+                  "text": "through",
+                  "start_ms": 3850,
+                  "end_ms": 4250
+                },
+                {
+                  "text": "the",
+                  "start_ms": 4250,
+                  "end_ms": 4470
+                },
+                {
+                  "text": "new",
+                  "start_ms": 4470,
+                  "end_ms": 4680
+                },
+                {
+                  "text": "harbour",
+                  "start_ms": 4680,
+                  "end_ms": 5070
+                },
+                {
+                  "text": "bridge,",
+                  "start_ms": 5070,
+                  "end_ms": 5410
+                },
+                {
+                  "text": "and",
+                  "start_ms": 5650,
+                  "end_ms": 5850
+                },
+                {
+                  "text": "why",
+                  "start_ms": 5850,
+                  "end_ms": 6050
+                },
+                {
+                  "text": "it",
+                  "start_ms": 6050,
+                  "end_ms": 6270
+                },
+                {
+                  "text": "took",
+                  "start_ms": 6270,
+                  "end_ms": 6550
+                },
+                {
+                  "text": "eleven",
+                  "start_ms": 6550,
+                  "end_ms": 6880
+                },
+                {
+                  "text": "years",
+                  "start_ms": 6880,
+                  "end_ms": 7200
+                },
+                {
+                  "text": "to",
+                  "start_ms": 7200,
+                  "end_ms": 7360
+                },
+                {
+                  "text": "build.",
+                  "start_ms": 7360,
+                  "end_ms": 7640
+                }
+              ]
+            },
+            {
+              "id": "s3",
+              "text": "Stay with us.",
+              "start_ms": 7950,
+              "end_ms": 8830,
+              "words": [
+                {
+                  "text": "Stay",
+                  "start_ms": 7950,
+                  "end_ms": 8300
+                },
+                {
+                  "text": "with",
+                  "start_ms": 8300,
+                  "end_ms": 8620
+                },
+                {
+                  "text": "us.",
+                  "start_ms": 8620,
+                  "end_ms": 8830
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": "karen",
+        "name": "Karen",
+        "file": {
+          "$attachment": "karen.ogg"
+        },
+        "details": [
+          "en-AU",
+          "180 wpm",
+          "Opus"
+        ],
+        "reasoning": "The brightest read. Included as the outlier.",
+        "transcript": {
+          "segments": [
+            {
+              "id": "s1",
+              "text": "Welcome back to Field Notes.",
+              "start_ms": 10,
+              "end_ms": 1590,
+              "words": [
+                {
+                  "text": "Welcome",
+                  "start_ms": 10,
+                  "end_ms": 430
+                },
+                {
+                  "text": "back",
+                  "start_ms": 430,
+                  "end_ms": 750
+                },
+                {
+                  "text": "to",
+                  "start_ms": 750,
+                  "end_ms": 920
+                },
+                {
+                  "text": "Field",
+                  "start_ms": 920,
+                  "end_ms": 1230
+                },
+                {
+                  "text": "Notes.",
+                  "start_ms": 1230,
+                  "end_ms": 1590
+                }
+              ]
+            },
+            {
+              "id": "s2",
+              "text": "This week, Linh Nguyen walks us through the new harbour bridge, and why it took eleven years to build.",
+              "start_ms": 1840,
+              "end_ms": 6900,
+              "words": [
+                {
+                  "text": "This",
+                  "start_ms": 1840,
+                  "end_ms": 2090
+                },
+                {
+                  "text": "week,",
+                  "start_ms": 2090,
+                  "end_ms": 2310
+                },
+                {
+                  "text": "Linh",
+                  "start_ms": 2590,
+                  "end_ms": 2810
+                },
+                {
+                  "text": "Nguyen",
+                  "start_ms": 2810,
+                  "end_ms": 3110
+                },
+                {
+                  "text": "walks",
+                  "start_ms": 3110,
+                  "end_ms": 3370
+                },
+                {
+                  "text": "us",
+                  "start_ms": 3390,
+                  "end_ms": 3540
+                },
+                {
+                  "text": "through",
+                  "start_ms": 3540,
+                  "end_ms": 3900
+                },
+                {
+                  "text": "the",
+                  "start_ms": 3900,
+                  "end_ms": 4080
+                },
+                {
+                  "text": "new",
+                  "start_ms": 4080,
+                  "end_ms": 4270
+                },
+                {
+                  "text": "harbour",
+                  "start_ms": 4270,
+                  "end_ms": 4600
+                },
+                {
+                  "text": "bridge,",
+                  "start_ms": 4600,
+                  "end_ms": 4900
+                },
+                {
+                  "text": "and",
+                  "start_ms": 5110,
+                  "end_ms": 5290
+                },
+                {
+                  "text": "why",
+                  "start_ms": 5290,
+                  "end_ms": 5480
+                },
+                {
+                  "text": "it",
+                  "start_ms": 5480,
+                  "end_ms": 5660
+                },
+                {
+                  "text": "took",
+                  "start_ms": 5660,
+                  "end_ms": 5910
+                },
+                {
+                  "text": "eleven",
+                  "start_ms": 5910,
+                  "end_ms": 6210
+                },
+                {
+                  "text": "years",
+                  "start_ms": 6210,
+                  "end_ms": 6500
+                },
+                {
+                  "text": "to",
+                  "start_ms": 6500,
+                  "end_ms": 6640
+                },
+                {
+                  "text": "build.",
+                  "start_ms": 6640,
+                  "end_ms": 6900
+                }
+              ]
+            },
+            {
+              "id": "s3",
+              "text": "Stay with us.",
+              "start_ms": 7140,
+              "end_ms": 7910,
+              "words": [
+                {
+                  "text": "Stay",
+                  "start_ms": 7140,
+                  "end_ms": 7450
+                },
+                {
+                  "text": "with",
+                  "start_ms": 7450,
+                  "end_ms": 7730
+                },
+                {
+                  "text": "us.",
+                  "start_ms": 7730,
+                  "end_ms": 7910
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "attachments": {
+    "samantha.wav": {
+      "path": "../../../../pinrail-plugins/plugins/audio/fixtures/fieldnotes/samantha.wav",
+      "media_type": "audio/wav"
+    },
+    "daniel.mp3": {
+      "path": "../../../../pinrail-plugins/plugins/audio/fixtures/fieldnotes/daniel.mp3",
+      "media_type": "audio/mpeg"
+    },
+    "moira.m4a": {
+      "path": "../../../../pinrail-plugins/plugins/audio/fixtures/fieldnotes/moira.m4a",
+      "media_type": "audio/mp4"
+    },
+    "karen.ogg": {
+      "path": "../../../../pinrail-plugins/plugins/audio/fixtures/fieldnotes/karen.ogg",
+      "media_type": "audio/ogg"
+    }
+  }
+}

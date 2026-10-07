@@ -6,11 +6,10 @@ import email from "../../assets/screenshots/email-view-light.png";
 import artifact from "../../assets/screenshots/artifact-view-light.png";
 import list from "../../assets/screenshots/list-view-light.png";
 import feedback from "../../assets/screenshots/feedback-view-light.png";
-// the image plugin, and the official plugins audio and visual-diff; their
-// views as the experiments' scripts/site-shots.mjs made them
-import image from "../../assets/samples/image-view-light.png";
-import audio from "../../assets/samples/audio-view-light.png";
-import compare from "../../assets/samples/compare-view-light.png";
+import image from "../../assets/screenshots/image-view-light.png";
+import audio from "../../assets/screenshots/audio-view-light.png";
+import visualDiff from "../../assets/screenshots/visual-diff-view-light.png";
+import video from "../../assets/screenshots/video-view-light.png";
 import model from "../../assets/screenshots/model-view-light.png";
 // the hero window's views, each at the pane's width and its whole length, as
 // e2e/screenshots/hero.mjs makes them
@@ -103,7 +102,7 @@ export const samples = [
     image,
     detail:
       "Box a region or pin a point and say what to change. Each one goes back in pixels and in fractions of the image, ready for an inpainting pass.",
-    alt: "Pinrail's image view: four illustrations in a rail, one on the stage with two regions boxed and a note being written on a third.",
+    alt: "Pinrail's image view: four illustrations in a rail, the favourite on the stage with a region boxed and a point pinned.",
   },
   {
     name: "3D models",
@@ -127,7 +126,7 @@ export const samples = [
     name: "Before & after",
     plugin: "visual-diff",
     gist: "before and after, to check each fix",
-    image: compare,
+    image: visualDiff,
     detail:
       "Did the revision fix what you asked? Wipe, fade or diff the two, and mark each claimed fix fixed, partly or not fixed.",
     alt: "The before and after view: a pricing card with its changed areas boxed, and one requested fix marked not fixed.",
@@ -136,7 +135,7 @@ export const samples = [
     name: "Video",
     plugin: "video",
     gist: "a video to comment on at a moment, over a stretch or on an area",
-    image: demoVideo,
+    image: video,
     detail:
       "Comment at a moment, over a stretch, or on an area of a frame, on the picture or on the sound. Each comment goes back with its time, its frame and its scene.",
     alt: "The video view: a promo five seconds in, an area of the frame boxed and commented, and a second comment at the same moment.",

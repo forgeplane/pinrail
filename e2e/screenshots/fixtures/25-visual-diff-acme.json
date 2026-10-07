@@ -1,0 +1,146 @@
+{
+  "plugin": "visual-diff",
+  "title": "Acme checkout — round 2",
+  "origin": {
+    "repo": "acme/web",
+    "workflow": "design"
+  },
+  "requested_by": "claude",
+  "age": "52m",
+  "payload": {
+    "notes": "Round 2 of the **Acme** checkout pages. Each request is one of your comments from round 1, with what I changed for it. Check each one, and say if anything else broke.",
+    "pairs": [
+      {
+        "id": "pricing",
+        "name": "Pro plan card",
+        "before": {
+          "$attachment": "pricing-before.png"
+        },
+        "after": {
+          "$attachment": "pricing-after.png"
+        },
+        "pixel_ratio": 2,
+        "summary": "Price and button reworked; plan name set in small caps above the blurb.",
+        "requests": [
+          {
+            "id": "R1",
+            "text": "The price is smaller than the plan name. Make $29 the first thing you read.",
+            "region": {
+              "x": 0.1212,
+              "y": 0.0986,
+              "w": 0.7576,
+              "h": 0.2742
+            },
+            "after_region": {
+              "x": 0.1212,
+              "y": 0.2414,
+              "w": 0.7576,
+              "h": 0.1314
+            },
+            "claim": "Price at 44 px, extra bold; the plan name down to 12 px caps."
+          },
+          {
+            "id": "R2",
+            "text": "“Start free trial” is the same grey as “Compare plans”. It should be the obvious action.",
+            "region": {
+              "x": 0.1212,
+              "y": 0.6422,
+              "w": 0.7576,
+              "h": 0.1171
+            },
+            "after_region": {
+              "x": 0.1212,
+              "y": 0.6422,
+              "w": 0.7576,
+              "h": 0.1171
+            },
+            "claim": "A solid indigo button, full width."
+          },
+          {
+            "id": "R3",
+            "text": "“Unlimted projects” is misspelled.",
+            "region": {
+              "x": 0.1212,
+              "y": 0.3851,
+              "w": 0.7576,
+              "h": 0.0663
+            },
+            "after_region": {
+              "x": 0.1212,
+              "y": 0.3851,
+              "w": 0.7576,
+              "h": 0.0663
+            },
+            "claim": "Fixed the typo."
+          }
+        ]
+      },
+      {
+        "id": "signup",
+        "name": "Sign-up form",
+        "before": {
+          "$attachment": "signup-before.png"
+        },
+        "after": {
+          "$attachment": "signup-after.png"
+        },
+        "pixel_ratio": 2,
+        "summary": "Password rules added under the field, so the form is taller.",
+        "requests": [
+          {
+            "id": "R4",
+            "text": "Show the password rules before I type, not only after an error.",
+            "region": {
+              "x": 0.1212,
+              "y": 0.4779,
+              "w": 0.7576,
+              "h": 0.1126
+            },
+            "after_region": {
+              "x": 0.1212,
+              "y": 0.5181,
+              "w": 0.7576,
+              "h": 0.101
+            },
+            "claim": "The two rules sit under the field from the start."
+          },
+          {
+            "id": "R5",
+            "text": "The error text is hard to read on the pink background.",
+            "region": {
+              "x": 0.1212,
+              "y": 0.5818,
+              "w": 0.7576,
+              "h": 0.1014
+            },
+            "after_region": {
+              "x": 0.1212,
+              "y": 0.6191,
+              "w": 0.7576,
+              "h": 0.0923
+            },
+            "claim": "A darker red, semibold."
+          }
+        ]
+      }
+    ]
+  },
+  "attachments": {
+    "pricing-before.png": {
+      "path": "../../../../pinrail-plugins/plugins/visual-diff/fixtures/acme/pricing-before.png",
+      "media_type": "image/png"
+    },
+    "pricing-after.png": {
+      "path": "../../../../pinrail-plugins/plugins/visual-diff/fixtures/acme/pricing-after.png",
+      "media_type": "image/png"
+    },
+    "signup-before.png": {
+      "path": "../../../../pinrail-plugins/plugins/visual-diff/fixtures/acme/signup-before.png",
+      "media_type": "image/png"
+    },
+    "signup-after.png": {
+      "path": "../../../../pinrail-plugins/plugins/visual-diff/fixtures/acme/signup-after.png",
+      "media_type": "image/png"
+    }
+  }
+}

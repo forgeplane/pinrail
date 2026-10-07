@@ -169,6 +169,85 @@ export const scenes = [
       });
       await settle(page, 600);
       await shot("image");
+      await shot("image-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // a word and a stretch commented, a cut, the take favourited
+    name: "audio",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["24-audio-fieldnotes"]);
+      await f.locator(".mini canvas").nth(3).waitFor();
+      await f.locator(".pick").nth(1).click();
+      await f
+        .locator("[data-w]")
+        .filter({ hasText: /^Nguyen$/ })
+        .click();
+      await f.locator("body").press("c");
+      await f.locator("#mark-note").fill('Mispronounced: it is "Win", one syllable');
+      await f.locator("#mark-note").press("Enter");
+      const words = f.locator("[data-w]");
+      await words.nth(9).hover();
+      await page.mouse.down();
+      await words.nth(15).hover();
+      await page.mouse.up();
+      await f.locator("body").press("c");
+      await f.locator("#mark-note").fill("Too fast here; give the bridge a beat");
+      await f.locator("#mark-note").press("Enter");
+      await words.nth(5).hover();
+      await page.mouse.down();
+      await words.nth(6).hover();
+      await page.mouse.up();
+      await f.locator("body").press("Backspace");
+      await f.locator("body").press("f");
+      await words.nth(12).click();
+      await settle(page, 600);
+      await shot("audio-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // the first two requests fixed, the third not, with a note
+    name: "visual-diff",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["25-visual-diff-acme"]);
+      await f.locator(".pick .thumb img").nth(1).waitFor();
+      // the frame takes the keys from here
+      await f.locator("#pair-name").click();
+      await page.keyboard.press("f");
+      await page.keyboard.press("n");
+      await page.keyboard.press("f");
+      await page.keyboard.press("n");
+      await page.keyboard.press("x");
+      await f.locator('[data-note-for="2"]').fill("Still misspelled, now as “projcts”.");
+      // back to the top, where the two images are compared
+      await f.locator("html").evaluate(() => {
+        for (const el of document.querySelectorAll("*")) if (el.scrollTop) el.scrollTop = 0;
+      });
+      await settle(page, 600);
+      await shot("visual-diff-view", page.locator("#plugin-frame"), { site: true });
+    },
+  },
+  {
+    // five seconds in: an area of the frame commented, and a comment at the moment
+    name: "video",
+    async run({ page, app, reviews, shot }) {
+      const f = await openReview(page, app, reviews["26-video-promo"]);
+      await f.locator("#timeline[data-duration]").waitFor();
+      // a click on the header gives the view the keyboard
+      await f.locator(".top").click({ position: { x: 2, y: 2 } });
+      for (let i = 0; i < 5; i++) await page.keyboard.press("Shift+ArrowRight");
+      const b = await f.locator("#overlay").boundingBox();
+      await page.mouse.move(b.x + b.width * 0.6, b.y + b.height * 0.48);
+      await page.mouse.down();
+      await page.mouse.move(b.x + b.width * 0.88, b.y + b.height * 0.96, { steps: 6 });
+      await page.mouse.up();
+      await f.locator("#mark-note").fill("Smaller: the mark crowds the line it stops");
+      await f.locator("#mark-note").press("Enter");
+      await page.keyboard.press("c");
+      await f.locator("#mark-note").fill("Hold this a beat longer before the cut");
+      await f.locator("#mark-note").press("Enter");
+      await settle(page, 600);
+      await shot("video-view", page.locator("#plugin-frame"), { site: true });
     },
   },
   {

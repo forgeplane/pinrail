@@ -34,10 +34,14 @@
   "website/public/screenshots/shortcuts-dark.png",
   "website/public/screenshots/shortcuts-light.png",
   "website/src/assets/screenshots/artifact-view-light.png",
+  "website/src/assets/screenshots/audio-view-light.png",
   "website/src/assets/screenshots/email-view-light.png",
   "website/src/assets/screenshots/feedback-view-light.png",
+  "website/src/assets/screenshots/image-view-light.png",
   "website/src/assets/screenshots/inbox-light.png",
   "website/src/assets/screenshots/list-view-light.png",
   "website/src/assets/screenshots/model-view-light.png",
-  "website/src/assets/screenshots/review-view-light.png"
+  "website/src/assets/screenshots/review-view-light.png",
+  "website/src/assets/screenshots/video-view-light.png",
+  "website/src/assets/screenshots/visual-diff-view-light.png"
 ]

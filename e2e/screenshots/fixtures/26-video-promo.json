@@ -1,0 +1,48 @@
+{
+  "plugin": "video",
+  "title": "Pinrail promo — the opening",
+  "origin": {
+    "repo": "pinrail/promo",
+    "workflow": "video"
+  },
+  "requested_by": "codex",
+  "age": "6m",
+  "payload": {
+    "name": "The opening, 8 seconds",
+    "file": {
+      "$attachment": "pinrail-hook.mp4"
+    },
+    "notes": "The first eight seconds of the Pinrail promo: actions race along a rail, the mark is built across it, and the next action is **held**. Watch it, then comment at a moment, over a stretch, or on an area of a frame.",
+    "fps": 30,
+    "scenes": [
+      {
+        "id": "rush",
+        "name": "Actions race past",
+        "start_ms": 0,
+        "end_ms": 3500
+      },
+      {
+        "id": "stop",
+        "name": "The mark stops one",
+        "start_ms": 3500,
+        "end_ms": 5000
+      },
+      {
+        "id": "line",
+        "name": "Before it acts, it asks",
+        "start_ms": 5000,
+        "end_ms": 8000
+      }
+    ],
+    "details": [
+      "960×540",
+      "H.264"
+    ]
+  },
+  "attachments": {
+    "pinrail-hook.mp4": {
+      "path": "../../../../pinrail-plugins/plugins/video/samples/video/pinrail-hook.mp4",
+      "media_type": "video/mp4"
+    }
+  }
+}
