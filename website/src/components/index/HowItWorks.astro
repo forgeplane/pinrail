@@ -80,6 +80,9 @@ const phases = [0, 5600, 9800];
   for (const root of document.querySelectorAll<HTMLElement>("[data-hw]")) {
     const phases = root.dataset.phases!.split(",").map(Number);
     const lines = [...root.querySelectorAll<HTMLElement>(".hw-line")];
+    // the session keeps its height and follows its newest line
+    const pane = root.querySelector<HTMLElement>(".hw-lines")!;
+    new MutationObserver(() => { pane.scrollTop = pane.scrollHeight; }).observe(pane, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["class"] });
     const stepButtons = [...root.querySelectorAll<HTMLButtonElement>("[data-hw-step]")];
     const appWindow = root.querySelector<HTMLElement>("[data-hw-app]")!;
     const toast = root.querySelector<HTMLElement>("[data-hw-toast]")!;

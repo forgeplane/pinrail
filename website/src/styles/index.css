@@ -556,8 +556,10 @@ h3 {
     font-size: clamp(34px, calc((100cqi - 248px) * 0.114), 72px);
   }
 }
+/* the window leans back from its top edge, so its foot comes forward:
+   room below it keeps it off the verdict buttons */
 .hero-window {
-  margin-top: 28px;
+  margin: 28px 0 44px;
 }
 /* How it works as four boxes */
 .loop-diagram {

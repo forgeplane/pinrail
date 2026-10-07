@@ -69,9 +69,14 @@
   flex-direction: column;
   width: 100%;
 }
+/* a fixed height: a longer session scrolls, on a thin bar, and follows
+   its newest line */
 .hw-lines {
-  flex: 1;
-  min-height: 430px;
+  flex: none;
+  height: 460px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4a453e transparent;
   padding: 18px 22px 10px;
   font: 13px/1.7 var(--mono);
   color: var(--night-fg);
