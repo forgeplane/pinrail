@@ -574,6 +574,10 @@ r_01K5R7 · discarded · Delete 1,284 inactive accounts
         document.body.dataset.phase = "handed";
         document.querySelector("[data-saved]")!.textContent = "handed over";
         document.querySelector("[data-waiting]")!.textContent = "Decision handed back";
+        const heading = document.querySelector("#handover-title")!;
+        const summary = document.querySelector("[data-summary]")!;
+        heading.textContent = "Handed back.";
+        summary.textContent = "The agent is reading your decision in its terminal, below.";
         const wrap = document.querySelector<HTMLElement>(".terminal-wrap")!;
         const term = document.querySelector<HTMLElement>("[data-term]")!;
         wrap.hidden = false;
@@ -598,21 +602,21 @@ r_01K5R7 · discarded · Delete 1,284 inactive accounts
         });
         const submit = `pinrail submit list --title "${title}" \\\n    --data page.json --wait`;
         const lines: [string, string, number][] = [
-          ...(draft === 1 ? [["cmd", submit, 420] as [string, string, number], ["dim", `pinrail: review ${reviewId(draft)} submitted; waiting for a decision`, 700] as [string, string, number]] : []),
+          ...(draft === 1 ? [["cmd", submit, 250] as [string, string, number], ["dim", `pinrail: review ${reviewId(draft)} submitted; waiting for a decision`, 350] as [string, string, number]] : []),
           ["out", `${reviewId(draft)} · decided · ${title}`, 60],
           ["out", `list · decided by you at ${at}`, 60],
           ["out", "", 20],
           ["out", "## Landing page", 40],
           ["out", "", 20],
           ...itemLines,
-          ["cmd", "echo $?", 380],
-          ["out", "0", 300],
+          ["cmd", "echo $?", 200],
+          ["out", "0", 150],
         ];
         if (toRevise.length) {
           lines.push(
-            ["agent", `Revising ${toRevise.map((it) => it.title).join(", ")}, as you asked. The rest stays as you left it.`, 700],
-            ["cmd", `pinrail submit list --title "Landing page, draft ${draft + 1}" \\\n    --revises ${reviewId(draft)} --data page.json --wait`, 420],
-            ["dim", `pinrail: review ${reviewId(draft + 1)} submitted; waiting for a decision`, 600],
+            ["agent", `Revising ${toRevise.map((it) => it.title).join(", ")}, as you asked. The rest stays as you left it.`, 400],
+            ["cmd", `pinrail submit list --title "Landing page, draft ${draft + 1}" \\\n    --revises ${reviewId(draft)} --data page.json --wait`, 250],
+            ["dim", `pinrail: review ${reviewId(draft + 1)} submitted; waiting for a decision`, 300],
           );
         } else {
           lines.push(["agent", agentReply(accepted.length, rejected.map((it) => it.title), d.undecided.length), 500]);
@@ -624,11 +628,12 @@ r_01K5R7 · discarded · Delete 1,284 inactive accounts
           const prefix = kind === "cmd" ? "$ " : kind === "agent" ? "agent ▸ " : "";
           if (kind === "cmd" && !reduce) {
             line.textContent = prefix;
-            for (const ch of text) { line.textContent += ch; await wait(14); }
+            for (const ch of text) { line.textContent += ch; await wait(8); }
           } else line.textContent = prefix + text;
           await wait(reduce ? 0 : pause);
         }
         if (!toRevise.length) {
+          summary.textContent = "The agent has your decision, and the review is over.";
           document.querySelector<HTMLElement>(".finale")!.hidden = false;
           return;
         }
@@ -640,6 +645,8 @@ r_01K5R7 · discarded · Delete 1,284 inactive accounts
         document.querySelector("[data-saved]")!.textContent = "draft";
         document.querySelector("[data-waiting]")!.textContent = "An agent is waiting on you";
         document.body.dataset.phase = "reviewing";
+        heading.textContent = `Done reviewing draft ${draft}?`;
+        render();
         for (const it of toRevise) revise(it, it.verdict!.option!, it.verdict!.note || "no reason given");
         await wait(reduce ? 0 : 650);
         focusItem(items.indexOf(toRevise[0]));
