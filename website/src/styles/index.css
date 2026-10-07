@@ -1299,10 +1299,15 @@ h3 {
   font: 500 11px var(--mono);
   color: var(--night-dim);
 }
+/* one height through every round: a longer session scrolls, on a thin bar */
 [data-term] {
   margin: 0;
   padding: 18px 20px 22px;
-  min-height: 280px;
+  height: 420px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4a453e transparent;
   white-space: pre-wrap;
   font-size: 13.5px;
   line-height: 1.7;

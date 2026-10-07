@@ -564,6 +564,9 @@ r_01K5R7 · discarded · Delete 1,284 inactive accounts
       // round. A section sent back with a version still to come is revised:
       // the agent submits the next draft with --revises, and the page shows
       // it to review. With none to revise, the agent carries on and it ends.
+      // the agent's terminal keeps one height and follows its newest line
+      const termEl = document.querySelector<HTMLElement>("[data-term]")!;
+      new MutationObserver(() => { termEl.scrollTop = termEl.scrollHeight; }).observe(termEl, { subtree: true, childList: true, characterData: true });
       let draft = 1;
       const reviewId = (n: number) => `r_01K5Q${(8 + n).toString(36).toUpperCase()}`;
       async function finish() {
