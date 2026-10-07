@@ -4,7 +4,7 @@ The package's version is the SDK's, and its major is the protocol's:
 `1.x` speaks protocol 1, served by the app at `/sdk/v1`. A breaking
 change to the protocol is a new major and a new path.
 
-## 1.0.0
+## [1.0.0]
 
 The first release of the plugin SDK, `pinrail-sdk`. It
 provides:
@@ -17,3 +17,5 @@ provides:
   `fixture` and `reviewFrom`.
 - `pinrail-sdk/types`, the manifest, the review, the
   messages and `window.Pinrail` as TypeScript types.
+
+[1.0.0]: https://github.com/forgeplane/pinrail/releases/tag/sdk-v1.0.0
