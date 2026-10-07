@@ -37,11 +37,12 @@ const { beside = false } = Astro.props;
 </details>
 <details>
   <summary>Does anything leave my machine?</summary>
-  <div class="answer"><p>No. The app runs its server on loopback, and reviews and decisions stay on your computer. There's no account. Plugin views are sandboxed.</p></div>
+  <div class="answer"><p>No. The app runs its server on loopback, and reviews and decisions stay on your computer. There's no account. A plugin's view is sandboxed: it can draw and talk to the app, and nothing else.</p></div>
 </details>
 <details>
   <summary>What if I'm away when it asks?</summary>
   <div class="answer">
+    <p>A notification tells you when a review arrives, and the menu bar shows how many are waiting. The app keeps listening with its window closed.</p>
     <p>The agent waits, even through an app restart. With <code>--timeout</code> it stops waiting (exit 4) and the review stays in your inbox.</p>
     <p>Decide when you're back. The agent picks up your decision with the CLI whenever it next looks:</p>
     <pre class="cli-later"><span class="c">$</span> pinrail wait &lt;id&gt;   <i># your decision</i>
