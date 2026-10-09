@@ -330,12 +330,34 @@ fn tray_contents(state: &Pinrail) -> TrayContents {
 }
 
 /// The menu bar icon, and the same at 45% opacity while notifications are
-/// paused or off.
+/// paused or off. Both are black, which macOS recolours to suit the menu
+/// bar, as it does any template image.
 const TRAY_ICON: &[u8] = include_bytes!("../icons/tray.png");
 const TRAY_PAUSED_ICON: &[u8] = include_bytes!("../icons/tray-paused.png");
 
+/// The menu bar icon as this system shows it. Linux desktops show the
+/// image as it is, on a top bar that is dark in GNOME's light and dark
+/// styles alike, so the icon is drawn in white there.
+fn tray_image(bytes: &[u8]) -> tauri::Result<tauri::image::Image<'static>> {
+    let image = tauri::image::Image::from_bytes(bytes)?;
+    if cfg!(target_os = "linux") {
+        Ok(light(&image))
+    } else {
+        Ok(image.to_owned())
+    }
+}
+
+/// The image in white, with its alpha kept.
+fn light(image: &tauri::image::Image<'_>) -> tauri::image::Image<'static> {
+    let mut rgba = image.rgba().to_vec();
+    for pixel in rgba.chunks_mut(4) {
+        pixel[..3].fill(255);
+    }
+    tauri::image::Image::new_owned(rgba, image.width(), image.height())
+}
+
 pub fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
-    let icon = tauri::image::Image::from_bytes(TRAY_ICON)?;
+    let icon = tray_image(TRAY_ICON)?;
     let tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .icon_as_template(true)
@@ -451,7 +473,7 @@ fn show_tray(app: &AppHandle, contents: &TrayContents, notifications: &Notificat
     } else {
         TRAY_ICON
     };
-    if let Ok(image) = tauri::image::Image::from_bytes(icon) {
+    if let Ok(image) = tray_image(icon) {
         let _ = tray.set_icon(Some(image));
         let _ = tray.set_icon_as_template(true);
     }
@@ -789,6 +811,26 @@ fn close_notification(app: &AppHandle, review_id: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_light_menu_bar_icon_keeps_the_shape_in_white() {
+        for bytes in [TRAY_ICON, TRAY_PAUSED_ICON] {
+            let dark = tauri::image::Image::from_bytes(bytes).unwrap();
+            let light = light(&dark);
+            assert_eq!(
+                (light.width(), light.height()),
+                (dark.width(), dark.height())
+            );
+            let (dark, light) = (dark.rgba(), light.rgba());
+            assert!(dark.chunks(4).any(|p| p[3] > 0));
+            for (d, l) in dark.chunks(4).zip(light.chunks(4)) {
+                assert_eq!(l[3], d[3], "the alpha is kept");
+                if l[3] > 0 {
+                    assert_eq!(&l[..3], &[255, 255, 255]);
+                }
+            }
+        }
+    }
 
     #[test]
     fn a_notification_ends_when_its_review_is_opened_or_stops_waiting() {

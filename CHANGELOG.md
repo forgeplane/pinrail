@@ -16,6 +16,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 - A review's notification closes when you open the review in the window
   or it stops waiting. On Linux, notifications stayed in GNOME's list, and
   Ubuntu Dock kept counting them on the app's icon.
+- On Linux, the menu bar icon is white, so it can be seen on GNOME's dark
+  top bar.
 
 ## [0.1.2]
 
