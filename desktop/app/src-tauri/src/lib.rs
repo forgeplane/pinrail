@@ -6,6 +6,8 @@ mod cli_install;
 mod feedback;
 mod headless;
 mod native;
+#[cfg(target_os = "linux")]
+mod notify_linux;
 #[cfg(target_os = "macos")]
 mod notify_mac;
 mod startup;

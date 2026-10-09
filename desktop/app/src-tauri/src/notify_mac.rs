@@ -13,7 +13,7 @@ use block2::RcBlock;
 use objc2::rc::Retained;
 use objc2::runtime::{Bool, ProtocolObject};
 use objc2::{AnyThread, define_class, msg_send};
-use objc2_foundation::{NSBundle, NSError, NSObject, NSObjectProtocol, NSString};
+use objc2_foundation::{NSArray, NSBundle, NSError, NSObject, NSObjectProtocol, NSString};
 use objc2_user_notifications::{
     UNAlertStyle, UNAuthorizationOptions, UNAuthorizationStatus, UNMutableNotificationContent,
     UNNotification, UNNotificationPresentationOptions, UNNotificationRequest,
@@ -215,4 +215,11 @@ pub fn notify(title: &str, body: &str, review_id: Option<&str>, sound: bool) {
                 .addNotificationRequest_withCompletionHandler(&notification, Some(&done));
         }
     });
+}
+
+/// Removes the review's notification from Notification Center.
+pub fn close(review_id: &str) {
+    let identifier = NSString::from_str(&format!("{REVIEW_PREFIX}{review_id}"));
+    UNUserNotificationCenter::currentNotificationCenter()
+        .removeDeliveredNotificationsWithIdentifiers(&NSArray::from_retained_slice(&[identifier]));
 }

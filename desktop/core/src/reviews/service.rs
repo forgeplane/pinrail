@@ -507,11 +507,14 @@ impl Reviews {
         Ok(review)
     }
 
-    /// Logs that a person opened the review.
+    /// Logs that a person opened the review and announces it, so the
+    /// notification that announced the review can close.
     pub fn mark_viewed(&self, id: &str) -> Result<(), Error> {
         if self.db.exists(id)? {
-            self.db
-                .append_event(Some(id), events::VIEWED, Some(&self.user), &Value::Null)?;
+            let event_id =
+                self.db
+                    .append_event(Some(id), events::VIEWED, Some(&self.user), &Value::Null)?;
+            self.publish(event_id, events::VIEWED, &self.get(id)?);
         }
         Ok(())
     }

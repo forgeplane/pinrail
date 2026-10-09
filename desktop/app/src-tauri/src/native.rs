@@ -680,6 +680,11 @@ pub fn watch(app: AppHandle) {
                     if notice.kind == events::CREATED {
                         notify(&app, &notice);
                     }
+                    if ends_notification(&notice.kind)
+                        && let Some(id) = &notice.review_id
+                    {
+                        close_notification(&app, id);
+                    }
                     if notice.kind == events::SETTINGS_CHANGED
                         && let Some(keys) = &notice.keys
                         && let Some(native) = app.try_state::<Native>()
@@ -744,7 +749,7 @@ fn notify(app: &AppHandle, notice: &Notice) {
     }
     #[cfg(target_os = "linux")]
     {
-        notify_linux(app, title, &body, notice.review_id.clone(), settings.sound);
+        crate::notify_linux::notify(app, title, &body, notice.review_id.clone(), settings.sound);
         return;
     }
     #[allow(unreachable_code)]
@@ -759,43 +764,41 @@ fn notify(app: &AppHandle, notice: &Notice) {
     }
 }
 
-/// On Linux, a notification with a default action, which the notification
-/// server invokes when the person clicks it: the review then opens. A
-/// thread waits for the click and ends when the notification closes.
-#[cfg(target_os = "linux")]
-fn notify_linux(app: &AppHandle, title: &str, body: &str, review_id: Option<String>, sound: bool) {
-    let mut notification = notify_rust::Notification::new();
-    notification.summary(title).body(body).auto_icon();
-    if sound {
-        notification.sound_name("default");
+/// The notices after which a review's notification has done its work: the
+/// person opened the review, or it stopped waiting.
+fn ends_notification(kind: &str) -> bool {
+    matches!(
+        kind,
+        events::VIEWED | events::DECIDED | events::WITHDRAWN | events::DISCARDED | events::EXPIRED
+    )
+}
+
+/// Takes the review's notification off the screen and out of the
+/// system's list of notifications.
+#[allow(unused_variables)]
+fn close_notification(app: &AppHandle, review_id: &str) {
+    #[cfg(target_os = "macos")]
+    if crate::notify_mac::available() {
+        let id = review_id.to_string();
+        let _ = app.run_on_main_thread(move || crate::notify_mac::close(&id));
     }
-    if review_id.is_some() {
-        notification.action("default", "Open");
-    }
-    let handle = match notification.show() {
-        Ok(handle) => handle,
-        Err(error) => {
-            eprintln!("pinrail: notification not shown: {error}");
-            return;
-        }
-    };
-    let Some(id) = review_id else {
-        return;
-    };
-    let app = app.clone();
-    std::thread::spawn(move || {
-        handle.wait_for_action(|action| {
-            if action == "default" {
-                let opener = app.clone();
-                let _ = app.run_on_main_thread(move || open_review(&opener, &id));
-            }
-        });
-    });
+    #[cfg(target_os = "linux")]
+    crate::notify_linux::close(review_id);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_notification_ends_when_its_review_is_opened_or_stops_waiting() {
+        for kind in ["viewed", "decided", "withdrawn", "discarded", "expired"] {
+            assert!(ends_notification(kind), "{kind}");
+        }
+        for kind in ["created", "plugin_changed", "settings_changed"] {
+            assert!(!ends_notification(kind), "{kind}");
+        }
+    }
 
     #[test]
     fn the_tray_counts_every_pending_review_and_lists_the_oldest() {

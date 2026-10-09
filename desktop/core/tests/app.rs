@@ -71,6 +71,38 @@ fn event_history_hydrates_reviews_and_shared_notices_in_cursor_order() {
 }
 
 #[test]
+fn opening_a_review_is_announced_with_the_review() {
+    let dir = tempfile::tempdir().unwrap();
+    let app = Pinrail::open(Config::new(dir.path(), 0)).unwrap();
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(app.plugins().install_offered("list"))
+        .unwrap();
+    let review = app
+        .reviews()
+        .submit(
+            &json!({
+                "plugin": "list", "title": "Review these options",
+                "payload": {"groups": []}
+            }),
+            None,
+        )
+        .unwrap();
+    let mut notices = app.events().subscribe();
+
+    app.reviews().mark_viewed(&review.id).unwrap();
+
+    let notice = notices.try_recv().unwrap();
+    assert_eq!(notice.kind, "viewed");
+    assert_eq!(notice.review_id.as_deref(), Some(review.id.as_str()));
+    assert_eq!(notice.review, Some(review.to_json(false)));
+    // the same notice a client catching up reads
+    let stored = app.events().after(notice.event_id - 1, 10).unwrap();
+    assert_eq!(stored[0].event_id, notice.event_id);
+    assert_eq!(stored[0].kind, "viewed");
+}
+
+#[test]
 fn event_history_returns_storage_failures_to_the_caller() {
     let dir = tempfile::tempdir().unwrap();
     let config = Config::new(dir.path(), 0);

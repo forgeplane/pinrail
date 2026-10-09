@@ -9,6 +9,14 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
+## Unreleased
+
+### Fixed
+
+- A review's notification closes when you open the review in the window
+  or it stops waiting. On Linux, notifications stayed in GNOME's list, and
+  Ubuntu Dock kept counting them on the app's icon.
+
 ## [0.1.2]
 
 ### Changed
