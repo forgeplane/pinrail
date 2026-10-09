@@ -376,8 +376,37 @@ jobs:
       # Attestations are refused to a private repository on the free plan,
       # so they wait for the repository to be public rather than failing a
       # signed, notarized build over a signature nobody can check yet.
+      #
+      # Sigstore's transparency log sometimes answers 404 for an entry it
+      # has just written. A step that uses an action cannot be retried, so
+      # the attestation is tried up to three times, a little apart, before
+      # the job fails; a rerun would rebuild the whole platform.
       - name: Attest the build provenance
+        id: attest
         if: startsWith(github.ref, 'refs/tags/v') && !github.event.repository.private
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ matrix.bundles }}
+            cli-dist/*.tar.gz
+      - name: Wait before attesting again
+        if: steps.attest.outcome == 'failure'
+        run: sleep 30
+      - name: Attest the build provenance, second try
+        id: attest-again
+        if: steps.attest.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            ${{ matrix.bundles }}
+            cli-dist/*.tar.gz
+      - name: Wait before the last try
+        if: steps.attest-again.outcome == 'failure'
+        run: sleep 90
+      - name: Attest the build provenance, last try
+        if: steps.attest-again.outcome == 'failure'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
