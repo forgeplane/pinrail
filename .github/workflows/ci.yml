@@ -250,7 +250,9 @@ jobs:
             dir="$RUNNER_TEMP/tested/$template"
             pinrail plugins new "tested_$template" --template "$template" --playwright \
               --sdk "file:$PWD/sdk" --dir "$dir"
-            (cd "$dir" && npm install --no-audit --no-fund && npm test)
+            # the browser for the Playwright the plugin installed, which
+            # can be newer than the SDK's
+            (cd "$dir" && npm install --no-audit --no-fund && npx playwright install chromium && npm test)
             pinrail plugins check "$dir"
           done
       # the plugins with a build of their own, which the check and their
