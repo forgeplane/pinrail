@@ -28,6 +28,14 @@
 .topnav .links a:hover {
   color: var(--ink);
 }
+/* the link to the page you are on */
+.topnav .links a[aria-current] {
+  color: var(--pen);
+}
+/* a page without the Classic/Review switch keeps no room for it */
+.no-switch {
+  --switch-room: 28px;
+}
 
 .classic main {
   overflow-x: clip;
@@ -305,7 +313,7 @@
 }
 
 @media (max-width: 960px) {
-  .topnav .links a:not([href^="/docs"]) {
+  .topnav .links a:not([href^="/docs"], [aria-current]) {
     display: none;
   }
   .c-split {

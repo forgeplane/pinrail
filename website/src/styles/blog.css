@@ -21,10 +21,6 @@
   transform-origin: 0 50%;
 }
 
-.blog .topnav .links a[aria-current] {
-  color: var(--pen);
-}
-
 /* --- post header ---------------------------------------------------- */
 .blog .post-head,
 .blog .blog-head {
