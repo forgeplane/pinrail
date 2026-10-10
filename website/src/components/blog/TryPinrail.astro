@@ -1,13 +1,16 @@
 ---
-// The box at the end of every post.
+// The box at the end of every post, with the app's icon beside it.
 import { repo } from "../index/content";
 ---
 <aside class="cta">
-  <b>Try Pinrail</b>
-  <p>Free and open source under Apache 2.0, and in early development. Install it, send yourself a first review, and tell us where it gets in your way.</p>
-  <div class="links">
-    <a class="btn primary" href="/download/">Download</a>
-    <a class="btn" href="/docs/getting-started/first-review/">Your first review</a>
-    <a class="btn" href={repo}>GitHub</a>
+  <img class="cta-icon" src="/favicon.svg" width="56" height="56" alt="" />
+  <div>
+    <b>Try Pinrail</b>
+    <p>Free and open source under Apache 2.0, and in early development. Install it, send yourself a first review, and tell us where it gets in your way.</p>
+    <div class="links">
+      <a class="btn primary" href="/download/">Download</a>
+      <a class="btn" href="/docs/getting-started/first-review/">Your first review</a>
+      <a class="btn" href={repo}>GitHub</a>
+    </div>
   </div>
 </aside>

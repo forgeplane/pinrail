@@ -629,6 +629,10 @@
 
 /* --- the call to action at the end --------------------------------- */
 .prose .cta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 22px;
   margin-top: 3.4em;
   padding: 26px 28px;
   border: 1px solid var(--rule-strong);
@@ -636,6 +640,12 @@
   background: var(--sheet);
   font: 14px/1.7 var(--mono);
   color: var(--ink-2);
+}
+.cta-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px -10px color-mix(in oklab, var(--ink) 60%, transparent);
 }
 .prose .cta b {
   display: block;
@@ -765,6 +775,10 @@
   }
   .posts time {
     grid-column: 1 / -1;
+  }
+  .prose .cta {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
   .bandwidth .lane-flow {
     grid-template-columns: 3em minmax(0, 1fr) 2.2em;
