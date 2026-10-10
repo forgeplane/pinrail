@@ -16,7 +16,8 @@ interface Props { title: string; description: string; post?: Post["data"] }
 const { title, description, post } = Astro.props;
 const site = Astro.site!;
 const url = new URL(Astro.url.pathname, site).href;
-const image = new URL("/og.png", site).href;
+// a post has a card of its own (card.ts); every other page, the site's
+const image = new URL(post ? "og.png" : "/og.png", url).href;
 const article = post && {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
@@ -48,7 +49,7 @@ const article = post && {
     <meta property="og:image" content={image} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Pinrail: put a person in front of your agents." />
+    <meta property="og:image:alt" content={post ? post.title : "Pinrail: put a person in front of your agents."} />
     {post && <meta property="article:published_time" content={post.date} />}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@forgeplane" />
