@@ -1,0 +1,102 @@
+---
+// The frame of every blog page: the landing pages' bar and footer around
+// the blog's own reading layout. A post passes itself, which adds the
+// article's metadata for link previews and search engines.
+import "../../styles/index.css";
+import "../../styles/index-classic.css";
+import "../../styles/blog.css";
+import "../../styles/terminal.css";
+import Brand from "../Brand.astro";
+import Footer from "../Footer.astro";
+import Lightbox from "../index/Lightbox.astro";
+import { repo } from "../index/content";
+import type { Post } from "./posts";
+
+interface Props { title: string; description: string; post?: Post["data"] }
+const { title, description, post } = Astro.props;
+const site = Astro.site!;
+const url = new URL(Astro.url.pathname, site).href;
+const image = new URL("/og.png", site).href;
+const article = post && {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: post.title,
+  description: post.description,
+  datePublished: post.date,
+  url,
+  image,
+  author: { "@type": "Organization", name: "Forgeplane", url: "https://forgeplane.ai/" },
+  publisher: { "@type": "Organization", name: "Forgeplane", url: "https://forgeplane.ai/" },
+};
+---
+<!doctype html>
+<!-- light, as the landing pages are; the code blocks follow data-theme -->
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f5f0e6" />
+    <title>{title}</title>
+    <link rel="canonical" href={url} />
+    <link rel="alternate" type="application/atom+xml" title="Pinrail blog" href="/blog/feed.xml" />
+    <meta property="og:type" content={post ? "article" : "website"} />
+    <meta property="og:url" content={url} />
+    <meta property="og:site_name" content="Pinrail" />
+    <meta property="og:title" content={post?.title ?? title} />
+    <meta property="og:description" content={post?.dek ?? description} />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Pinrail: put a person in front of your agents." />
+    {post && <meta property="article:published_time" content={post.date} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@forgeplane" />
+    {article && <script type="application/ld+json" set:html={JSON.stringify(article)} />}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..800&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..600&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  </head>
+  <body class="classic blog">
+    <a href="#main" class="skip">Skip to content</a>
+    {post && <div class="progress" aria-hidden="true"></div>}
+
+    <header class="topnav">
+      <a class="brand" href="/" aria-label="Pinrail home"><Brand /></a>
+      <nav class="links" aria-label="Main">
+        <a href="/#how">How it works</a><a href="/#views">Views</a><a href="/blog/" aria-current={Astro.url.pathname.startsWith("/blog") ? "page" : undefined}>Blog</a><a href="/docs/">Docs</a><a href={repo}>GitHub ↗</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <slot />
+    </main>
+
+    <Footer other={{ href: "/review", label: "Review version" }} />
+    <Lightbox />
+
+    {post && (
+      <script>
+        // the reading progress along the top of the window
+        const bar = document.querySelector<HTMLElement>(".progress")!;
+        const article = document.querySelector<HTMLElement>("article")!;
+        let queued = false;
+        const draw = () => {
+          queued = false;
+          const total = article.offsetTop + article.offsetHeight - innerHeight;
+          bar.style.transform = `scaleX(${total > 0 ? Math.min(1, Math.max(0, scrollY / total)) : 0})`;
+        };
+        const queue = () => {
+          if (!queued) {
+            queued = true;
+            requestAnimationFrame(draw);
+          }
+        };
+        addEventListener("scroll", queue, { passive: true });
+        addEventListener("resize", queue);
+        draw();
+      </script>
+    )}
+  </body>
+</html>

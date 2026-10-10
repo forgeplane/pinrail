@@ -1,0 +1,18 @@
+---
+// One screenshot, or a pair side by side, as a numbered figure. Each image
+// opens full size on a click.
+import type { ImageMetadata } from "astro";
+import Figure from "./Figure.astro";
+import Zoom from "../index/Zoom.astro";
+
+interface Image { src: ImageMetadata; alt: string }
+type Props = { n: number; caption: string } & ({ src: ImageMetadata; alt: string } | { images: Image[] });
+const { n, caption, ...rest } = Astro.props;
+const images: Image[] = "images" in rest ? rest.images : [{ src: rest.src, alt: rest.alt }];
+const sizes = images.length > 1 ? "(max-width: 720px) 92vw, 480px" : "(max-width: 1040px) 92vw, 980px";
+---
+<Figure n={n} caption={caption} wide>
+  <div class:list={["shots", { pair: images.length > 1 }]}>
+    {images.map((image) => <Zoom src={image.src} alt={image.alt} caption={caption} sizes={sizes} />)}
+  </div>
+</Figure>

@@ -1,0 +1,30 @@
+---
+// Every post, newest first.
+import BlogPage from "../../components/blog/BlogPage.astro";
+import { allPosts, longDate, postUrl } from "../../components/blog/posts";
+
+const posts = await allPosts();
+---
+<BlogPage title="Blog · Pinrail" description="Writing on how people and agents work together, and on what we build into Pinrail for it.">
+  <header class="blog-head">
+    <p class="kicker">Blog</p>
+    <h1>Notes from the <em>review inbox</em></h1>
+    <p class="dek">How people and agents work together, and what we build into Pinrail for it.</p>
+    <p class="feed"><a href="/blog/feed.xml">Subscribe to the feed</a></p>
+  </header>
+
+  <ul class="posts">
+    {posts.map((post) => (
+      <li>
+        <a href={postUrl(post)}>
+          <time datetime={post.data.date}>{longDate(post.data.date)}</time>
+          <div>
+            <h2>{post.data.title}</h2>
+            <p>{post.data.dek}</p>
+          </div>
+          <span class="go" aria-hidden="true">→</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</BlogPage>

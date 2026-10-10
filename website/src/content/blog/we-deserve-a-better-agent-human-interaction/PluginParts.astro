@@ -1,0 +1,13 @@
+---
+// Figure 6: the three parts of a plugin, in the order a review passes
+// through them. Laid out in HTML rather than drawn, so it stacks on a phone.
+---
+<div class="diagram">
+  <div class="parts">
+    <div class="part"><b>Payload schema</b><span>What an agent may send. Anything else is refused before it reaches your inbox.</span><small>agent → Pinrail</small></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="part view"><b>View</b><span>One HTML page in a sandboxed frame. It draws the work and collects your decision.</span><small>you decide here</small></div>
+    <div class="arrow" aria-hidden="true">→</div>
+    <div class="part"><b>Decision schema</b><span>What goes back. The agent knows the shape of your answer before it asks.</span><small>Pinrail → agent</small></div>
+  </div>
+</div>

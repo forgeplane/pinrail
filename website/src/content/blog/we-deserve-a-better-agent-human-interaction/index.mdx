@@ -1,0 +1,184 @@
+---
+title: We deserve a better agent-human interaction
+dek: Agents learned to do the work. The moment where a person decides whether that work is right is still a text box and a yes.
+description: Why review needs views made for the work, why those views have to keep changing, and how Pinrail does it.
+date: "2026-10-10"
+kind: Thesis
+minutes: 9
+---
+
+import Figure from "../../../components/blog/Figure.astro";
+import Shot from "../../../components/blog/Shot.astro";
+import Pull from "../../../components/blog/Pull.astro";
+import Bandwidth from "./Bandwidth.astro";
+import PluginParts from "./PluginParts.astro";
+import TwoLoops from "./two-loops.svg";
+import review from "../../../assets/screenshots/review-view-light.png";
+import email from "../../../assets/screenshots/email-view-light.png";
+import model from "../../../assets/screenshots/model-view-light.png";
+import inbox from "../../../assets/screenshots/inbox-light.png";
+
+<p class="lead">An agent works for twenty minutes. It reads forty files, writes a migration and drafts eleven review comments. Then it stops, because someone told it to check with a person before it posts anything. What the person gets is a scroll of terminal output that ends in a question: *Shall I proceed?*</p>
+
+This goes one of two ways. You type `y`, because the summary looked reasonable and four other agents are waiting. Or you read all of it, find that comment seven is wrong and comment three is right but too harsh, and write a paragraph explaining which is which. You write it in prose, to a program, about items you can only point at by describing them.
+
+Both outcomes are bad, and anyone who works with agents goes through one or the other many times a day. We think this moment, when a person looks at what an agent made and says what should happen next, is the most important part of working with agents. It is also the least designed. This post explains why we think so, and what we are building for it.
+
+## Judgment is the scarce part
+
+Generation got cheap. An agent can produce a pull request, a batch of emails or three drafts of a landing page while you make coffee, and you can run as many agents as you can afford. The person who has to answer for the result did not get cheaper. There is still one of you, with the same hours of attention you had before.
+
+> Most of the cost of agentic work is now the cost of review. The tools have not followed. Enormous effort goes into what agents can do, and very little into the few minutes in which a person decides whether they should.
+
+## What is wrong with the loop today
+
+Look closely at how an agent asks a person something, and how the person answers.
+
+<dl class="ledger">
+  <div>
+    <dt>The work is flattened into a transcript.</dt>
+    <dd>A diff, a draft, a design and a list of findings all arrive the same way: as text in a scroll, mixed with the agent’s account of how it got there. You have to dig the thing you are judging out of the log of its making.</dd>
+  </div>
+  <div>
+    <dt>The answer has almost no bandwidth.</dt>
+    <dd><mark>The agent sends hundreds of lines and you send back one bit.</mark> Anything richer than yes or no has to be prose, and the agent has to guess what “the second one, but softer” refers to. Nothing in the work has an address, so you describe a location when you should be able to point at it.</dd>
+  </div>
+  <div>
+    <dt>Permission prompts ask about the wrong thing.</dt>
+    <dd>“Allow `git push`?” asks whether a command may run. It does not show what is being pushed. You approve the action without seeing the work, again and again, until you turn the prompts off.</dd>
+  </div>
+  <div>
+    <dt>It happens wherever the agent happens to be.</dt>
+    <dd>Each agent stops in its own terminal, tab or CI job, at its own time. No single place lists what is waiting for you, and an agent that has been blocked for an hour looks the same as one that is still working.</dd>
+  </div>
+  <div>
+    <dt>Nothing is kept.</dt>
+    <dd>Your decision scrolls away with the session. When the agent returns with a revision, what you said last time is not beside it. You review everything again, or you trust that it listened.</dd>
+  </div>
+</dl>
+
+<Figure n={1} wide caption="How much travels in each direction. The channel back to the agent is the narrow one.">
+  <Bandwidth />
+</Figure>
+
+People adapt in one of two ways. Some approve without reading, and the human in the loop becomes a formality. Others read everything, and become the slowest part of a system that is otherwise fast. These look like opposite failures, but they have one cause.
+
+> Each decision costs too much, so people either stop paying or pay with their whole day.
+
+## Every kind of work is judged in its own way
+
+None of this is new. Every craft in which one person checks another’s work ended up with its own instrument for doing it. Programmers have the diff, with comments on lines. Editors have tracked changes. Designers pin notes to the artboard, and film crews watch the dailies. Nobody reviews a logo in a diff tool, and taste has nothing to do with it. <mark>The shape of the work determines what a useful judgment about it looks like.</mark>
+
+The same holds when the author is an agent. A code review needs each proposed comment beside the line it concerns, and a verdict on each one. An email needs the draft itself to be editable, with your changes showing against what the agent wrote. A web page has to be rendered, so that you can click the element you mean. A 3D model has to be turned around.
+
+<Shot
+  n={2}
+  src={review}
+  alt="Pinrail’s code review view: a diff with the agent’s proposed comments on their lines, each with its own verdict."
+  caption="A code review. The agent’s proposed comments sit on the lines they are about, and each one gets its own verdict and note."
+/>
+
+The view is half of it. The other half is what goes back. <mark>A view made for the work can return a decision made for the agent</mark>: a verdict and a note for every comment, the edited text of the email, the selector of the element you clicked, the name of the part you want changed and the angle you saw it from. The agent receives data it can act on, and does not have to interpret a paragraph.
+
+<Shot
+  n={3}
+  images={[
+    { src: email, alt: "Pinrail’s email view: a draft edited in place with the changes showing." },
+    { src: model, alt: "Pinrail’s 3D model view: candidate models on a stage, with a comment on one part." },
+  ]}
+  caption="Two more kinds of review. Draft emails are edited in place and sent, revised or discarded. Candidate 3D models are orbited, and a change is asked for on a part."
+/>
+
+A “kind of work” is also much narrower than “code” or “email”. Reviewing dependency upgrades is unlike reviewing a refactor. Triaging your support queue is unlike triaging anyone else’s. The view that helps most is the one built for this decision, in this team, at this step of this workflow. That is what we mean by a hyperspecialized view.
+
+<Pull>The general-purpose approve button is the problem. The fix is a view for each kind of decision, and there are more kinds than anyone can ship.</Pull>
+
+## So the views have to evolve
+
+No vendor will ship a review interface for your alert triage or your quarterly pricing emails. If one did, your workflow would change within a month, and you would be filing a feature request against a tool that sits in the tightest loop of your day.
+
+Consider who is on the other side of this interface, though: an agent that writes software.
+
+> If a view is small enough, the agent that produces the work can also produce the view the work is judged in, and can change that view when you say it is not working.
+
+That puts a second loop around the first. You decide a review and notice friction: you keep opening the file to see the rest of the function, or you wish the list were grouped by owner. You say so. The agent edits the view, and the next review arrives in a better one. Over a few weeks the interface settles into the way you actually decide. No product team could have designed that in advance, because they would have had to watch you work.
+
+<Figure n={4} caption="The inner loop runs on every review. The outer loop runs whenever the view itself slows you down, and it changes what the inner loop looks like next time.">
+  <div class="diagram"><TwoLoops /></div>
+</Figure>
+
+For this to work in practice, and not leave you with a pile of broken tools, a view needs five properties.
+
+<dl class="traits">
+  <div><dt>Small</dt><dd>A whole view is a few files in a folder, not an application. An agent can write one in a single session, and it knows where the code lives when the view needs to change later.</dd></div>
+  <div><dt>Under contract</dt><dd>What the agent sends and what you send back are both checked against schemas, so a view can be rewritten without breaking the agent on either side of it.</dd></div>
+  <div><dt>Self-describing</dt><dd>An agent that has never seen a view can find out when to use it and what to send, without you explaining it.</dd></div>
+  <div><dt>Contained</dt><dd>Code that an agent wrote yesterday renders in front of you today. It must not be able to reach the network, your files or your other reviews.</dd></div>
+  <div><dt>Stable for history</dt><dd>A decision from three months ago still opens and reads correctly after the view has changed five times.</dd></div>
+</dl>
+
+## Pinrail
+
+[Pinrail](/) is what we built from these ideas. It is a desktop app, and at its centre is an inbox where your agents ask before they act.
+
+You tell an agent when to stop for you, in whatever instructions it already follows: a `CLAUDE.md`, an `AGENTS.md`, a skill, a prompt in a CI job.
+
+```md title="AGENTS.md"
+Before posting review comments, submit them to Pinrail
+as a `code-review` and wait for my decision.
+```
+
+When the agent reaches that step, it runs one command.
+
+```sh "pinrail submit" "--wait"
+pinrail submit code-review --title "Dedup tickets on save" \
+  --origin repo=acme/api,workflow=pr-review,ref=42 \
+  --data proposals.json --wait
+```
+
+The command blocks. The review appears in your inbox with a notification, drawn in the view for its kind. You accept, reject, edit and comment, then hand the decision over. The command prints that decision, as Markdown for an agent or JSON for a script, and exits with a code that says how the review ended: decided, discarded with an instruction to stop, withdrawn, or expired.
+
+<Shot
+  n={5}
+  src={inbox}
+  alt="The Pinrail inbox: reviews waiting from different agents and projects, each labelled with its plugin."
+  caption="One inbox for every agent and every project. Each row names the agent that is waiting, the workflow it is in and the kind of review it sent."
+/>
+
+That answers the failures listed above, one by one.
+
+- **The work arrives as work.** The agent sends a payload, and the view draws it. The transcript stays in the terminal.
+- **The answer is as rich as the question.** Every item gets its own verdict, note or edit, and the agent receives all of it in a shape it was told to expect.
+- **You review the work, at the moment that matters.** The agent’s own instructions name the steps that need a person, so you are asked about the comments before they are posted. You are not asked whether `curl` may run.
+- **There is one place to look.** Any agent that can run a command can ask: Claude Code, Codex, Cursor, Gemini CLI, OpenCode, a shell script. What is waiting is listed in one inbox, with a count in the menu bar.
+- **Everything is kept.** When you ask for changes, the agent submits a new round, and your previous verdicts are shown beside each item. Every round and every decision stays in the history and can be opened again.
+
+It also all runs on your machine. The app’s server listens on loopback only, reviews and decisions are stored in a directory that only your user can read, and there is no account and no cloud service.
+
+Each kind of review is a **plugin**, and this is where the five properties come in. A plugin is a manifest, two JSON Schemas and one HTML page.
+
+<Figure n={6} wide caption="A plugin. The agent never sees the view, and the view never talks to the agent. Pinrail sits between them and checks both sides.">
+  <PluginParts />
+</Figure>
+
+**Small.** `pinrail plugins new ticket_triage --link` writes a plugin that already runs, and installs it as a link. Hand the folder to your agent and describe the view you want; `pinrail docs building` gives it the building guide. A linked folder is served live, so the next review you open shows the change.
+
+**Under contract.** Pinrail validates every payload before it reaches your inbox and every decision before it reaches the agent. An agent can check a payload with `--dry-run` first, so a malformed one is fixed before you ever see it.
+
+**Self-describing.** Each plugin’s manifest says when to use it, in a sentence written for an agent, and ships an example payload. `pinrail plugins` lists what is installed, and `pinrail plugins describe` prints the schemas and the example. A plugin your agent wrote this morning is one that every other agent on your machine can use this afternoon.
+
+**Contained.** A view cannot use the network or store data, and it reads only what the app sends it for its own review. That is what makes it reasonable to run a view that was written an hour ago.
+
+**Stable for history.** A review that has ended keeps the exact version of the plugin it was decided with. It opens as you saw it when you decided, however much the plugin has changed since.
+
+Five official plugins come with the app. The setup installs `list`, for items that are each accepted or rejected, and `feedback`, for questions an agent needs answered before it starts. `code-review`, `image` and `markdown` are there to install when you need them. More [sample plugins](/docs/plugins/more/), for emails, calendars, designs, logos, 3D models, audio and video, are on GitHub. They are all plugins like the ones you would write yourself, and they are meant to be read, copied and changed.
+
+To be plain about the word “evolve”: Pinrail does not rewrite its views on its own. A person still starts the outer loop by saying what got in the way. Pinrail’s part is to make acting on that cheap. The change is a few files, an agent can make it, and nothing else breaks when it does.
+
+## What we are after
+
+> We do not want people to make fewer decisions about what their agents do. We want each decision to cost less and to carry more.
+
+It should take a minute where it used to take twenty, in a view that shows exactly what is being decided, and the agent should get back an answer it can act on without guessing.
+
+People still answer for what agents do. The moment in which they decide deserves as much engineering as the agents themselves have had, and we are building Pinrail to give it that.

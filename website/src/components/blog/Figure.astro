@@ -1,0 +1,10 @@
+---
+// A numbered figure in a post: whatever it holds, and a caption under it
+// that starts with its number. `wide` lets it run wider than the text.
+interface Props { n: number; caption: string; wide?: boolean }
+const { n, caption, wide = false } = Astro.props;
+---
+<figure class:list={["post-figure", { wide }]}>
+  <slot />
+  <figcaption><b>FIG {n}</b>{caption}</figcaption>
+</figure>

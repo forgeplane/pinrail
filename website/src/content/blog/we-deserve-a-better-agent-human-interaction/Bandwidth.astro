@@ -1,0 +1,49 @@
+---
+// Figure 1: what travels each way, today and with a view made for the work.
+// Laid out in HTML rather than drawn, so its lanes scroll on a phone.
+---
+<div class="diagram bandwidth" role="img" aria-label="Today the agent sends a transcript and the person answers with a single letter. With a view made for the work, the agent sends structured data and the person returns a decision on every item in one pass.">
+  <div class="lane today">
+    <div class="lane-title">Today: a transcript in, one bit back</div>
+    <div class="lane-flow">
+      <span class="actor">agent</span>
+      <div class="pipe noisy">
+        <span class="pill token">[stdout] reading 42 files...</span>
+        <span class="pill token">[exec] git diff +180 -40</span>
+        <span class="pill token prompt">Shall I proceed? (y/n)</span>
+      </div>
+      <span class="actor right">you</span>
+    </div>
+    <div class="lane-flow">
+      <span class="actor">agent</span>
+      <div class="pipe choked">
+        <span class="pipe-arrow">←</span>
+        <span class="pipe-line"></span>
+        <span class="packet"><strong>y</strong> <span>(1 bit, approved unseen)</span></span>
+      </div>
+      <span class="actor right">you</span>
+    </div>
+  </div>
+
+  <div class="lane new">
+    <div class="lane-title">With a view made for the work: typed data both ways</div>
+    <div class="lane-flow">
+      <span class="actor">agent</span>
+      <div class="pipe structured">
+        <span class="pill schema">payload.json</span>
+        <span class="pill schema">code-review: 3 comments + diff</span>
+      </div>
+      <span class="actor right">you</span>
+    </div>
+    <div class="lane-flow">
+      <span class="actor">agent</span>
+      <div class="pipe rich">
+        <span class="pipe-arrow">←</span>
+        <span class="pill answer">✓ #1 accepted</span>
+        <span class="pill answer">✎ #2 edited</span>
+        <span class="pill answer">pin at (0.42, 0.81)</span>
+      </div>
+      <span class="actor right">you</span>
+    </div>
+  </div>
+</div>

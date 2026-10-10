@@ -47,13 +47,14 @@ export default defineConfig({
     starlight({
       title: "Pinrail",
       description: "The inbox where your agents ask before they act.",
-      // a link to a page or heading that does not exist fails the build;
-      // the download page is the site's own, and the docs name the local
-      // server's address on purpose
-      plugins: [starlightLinksValidator({ exclude: ["/download/"], errorOnLocalLinks: false })],
-      customCss: ["./src/styles/docs.css"],
-      // the docs live beside the code, so Starlight's asides and heading links must reach them there
-      markdown: { processedDirs: ["../docs"] },
+      // a link to a page or heading that does not exist fails the build, in
+      // the docs and in blog posts; the landing and download pages are the
+      // site's own, and the docs name the local server's address on purpose
+      plugins: [starlightLinksValidator({ exclude: ["/", "/download/"], errorOnLocalLinks: false })],
+      customCss: ["./src/styles/docs.css", "./src/styles/terminal.css"],
+      // the docs live beside the code, so Starlight's asides and heading links
+      // must reach them there; blog posts get the same asides (:::note)
+      markdown: { processedDirs: ["../docs", "./src/content/blog"] },
       components: {
         Header: "./src/components/docs/Header.astro",
         Sidebar: "./src/components/docs/Sidebar.astro",

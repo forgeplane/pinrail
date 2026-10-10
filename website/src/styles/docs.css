@@ -312,34 +312,6 @@ starlight-file-tree {
   color: var(--sl-color-gray-3);
 }
 
-/* Terminals are dark in both themes, so they keep the dark theme's token
-   colours (--0) on the paper too, over bright plain text */
-.expressive-code .frame.is-terminal pre > code {
-  color: #efe9dd;
-  filter: brightness(1.35) saturate(1.2);
-}
-.expressive-code .frame.is-terminal .ec-line span[style^="--"] {
-  color: var(--0, inherit) !important;
-}
-.expressive-code .frame.is-terminal {
-  border-color: #34302b;
-}
-/* and traffic lights on the title bar */
-.expressive-code .frame.is-terminal .header::before {
-  -webkit-mask-image: none;
-  mask-image: none;
-  opacity: 1;
-  width: 2.7rem;
-  height: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background-color: transparent;
-  background-image:
-    radial-gradient(circle at 0.375rem 50%, #ff5f57 0.3rem, #e0443e 0.33rem, transparent 0.36rem),
-    radial-gradient(circle at 1.35rem 50%, #febc2e 0.3rem, #dea123 0.33rem, transparent 0.36rem),
-    radial-gradient(circle at 2.325rem 50%, #28c840 0.3rem, #1aab29 0.33rem, transparent 0.36rem);
-}
-
 /* Plugin pages: a badge under the title, and screenshots on a sheet */
 .pr-badges {
   display: flex;

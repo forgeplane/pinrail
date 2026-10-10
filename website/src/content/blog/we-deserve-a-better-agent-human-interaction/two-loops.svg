@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 340" class="two-loops" role="img" aria-label="Two loops. In the inner loop the agent submits work and you decide. In the outer loop you say what got in the way and the agent revises the view.">
+  <rect class="outer" x="40" y="40" width="400" height="260" rx="130" />
+  <polygon class="outer-head" points="433,164 447,164 440,178" />
+  <polygon class="outer-head" points="33,176 47,176 40,162" />
+  <rect class="inner" x="120" y="110" width="240" height="120" rx="60" />
+  <polygon class="inner-head" points="353,164 367,164 360,178" />
+  <polygon class="inner-head" points="113,176 127,176 120,162" />
+  <rect class="pad" x="138" y="28" width="204" height="24" />
+  <text x="240" y="45" text-anchor="middle">agent revises the view</text>
+  <rect class="pad" x="116" y="288" width="248" height="24" />
+  <text x="240" y="305" text-anchor="middle">you say what got in the way</text>
+  <rect class="pad" x="158" y="98" width="164" height="24" />
+  <text x="240" y="115" text-anchor="middle">agent submits work</text>
+  <rect class="pad" x="190" y="218" width="100" height="24" />
+  <text class="you" x="240" y="235" text-anchor="middle">you decide</text>
+  <text class="small" x="240" y="175" text-anchor="middle">EVERY REVIEW</text>
+  <text class="small" x="240" y="80" text-anchor="middle">WHEN THE VIEW IS IN THE WAY</text>
+</svg>

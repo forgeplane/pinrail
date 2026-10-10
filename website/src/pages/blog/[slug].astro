@@ -1,0 +1,35 @@
+---
+// A post: its header from the frontmatter, its body from the MDX, and the
+// box that ends every post.
+import { render } from "astro:content";
+import BlogPage from "../../components/blog/BlogPage.astro";
+import TryPinrail from "../../components/blog/TryPinrail.astro";
+import { allPosts, longDate, type Post } from "../../components/blog/posts";
+
+export async function getStaticPaths() {
+  return (await allPosts()).map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+const { post } = Astro.props as { post: Post };
+const { title, dek, description, date, kind, minutes } = post.data;
+const { Content } = await render(post);
+// the title's last word in the red pen, as on the landing page
+const at = title.lastIndexOf(" ");
+---
+<BlogPage title={`${title} · Pinrail`} description={`${dek} ${description}`} post={post.data}>
+  <article>
+    <header class="post-head">
+      <p class="post-meta">
+        <span class="tick" aria-hidden="true"></span><span>{kind}</span><span class="sep">/</span>
+        <time datetime={date}>{longDate(date)}</time><span class="sep">/</span>
+        <span>{minutes} min read</span>
+      </p>
+      <h1>{title.slice(0, at + 1)}<em>{title.slice(at + 1)}</em></h1>
+      <p class="dek">{dek}</p>
+    </header>
+    <div class="prose">
+      <Content />
+      <TryPinrail />
+    </div>
+  </article>
+</BlogPage>
