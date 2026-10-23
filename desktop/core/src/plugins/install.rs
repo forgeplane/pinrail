@@ -59,8 +59,8 @@ impl Source {
             ));
         }
         let expanded = match text.strip_prefix("~/") {
-            Some(rest) => std::env::var_os("HOME")
-                .map(|home| PathBuf::from(home).join(rest))
+            Some(rest) => crate::config::home_dir()
+                .map(|home| home.join(rest))
                 .unwrap_or_else(|| PathBuf::from(text)),
             None => PathBuf::from(text),
         };

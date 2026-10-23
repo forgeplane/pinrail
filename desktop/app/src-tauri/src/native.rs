@@ -709,7 +709,7 @@ pub fn watch(app: AppHandle) {
                     {
                         let state = native.state.clone();
                         tauri::async_runtime::spawn_blocking(move || {
-                            let Some(home) = std::env::var_os("HOME") else {
+                            let Some(home) = pinrail_core::config::home_dir() else {
                                 return;
                             };
                             let skill = crate::current_skill(&state);

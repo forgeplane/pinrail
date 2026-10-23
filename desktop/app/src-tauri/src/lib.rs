@@ -170,9 +170,7 @@ async fn send_feedback(request: tauri::ipc::Request<'_>) -> Result<(), String> {
 }
 
 fn home() -> Result<PathBuf, String> {
-    std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .ok_or_else(|| "HOME is not set".to_string())
+    pinrail_core::config::home_dir().ok_or_else(|| "HOME is not set".to_string())
 }
 
 /// The installed plugins as the agents' skill names them: each usable one,
@@ -317,9 +315,7 @@ async fn disconnect_agent(
 #[tauri::command]
 async fn cli_status() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .ok_or("HOME is not set")?;
+        let home = pinrail_core::config::home_dir().ok_or("HOME is not set")?;
         let bundled = cli_install::bundled();
         let mode = bundled.as_deref().map_or(cli_install::Mode::Link, |b| {
             cli_install::mode(b, cli_install::in_appimage())
@@ -390,9 +386,7 @@ fn save_copy(from: &Path, to: &Path) -> std::io::Result<()> {
 #[tauri::command]
 async fn install_cli() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let home = std::env::var_os("HOME")
-            .map(PathBuf::from)
-            .ok_or("HOME is not set")?;
+        let home = pinrail_core::config::home_dir().ok_or("HOME is not set")?;
         let bundled = cli_install::bundled()
             .ok_or("this build of Pinrail carries no CLI; the packaged app does")?;
         let mode = cli_install::mode(&bundled, cli_install::in_appimage());
@@ -599,10 +593,10 @@ pub fn run() {
                     == cli_install::Mode::Copy
             {
                 std::thread::spawn(move || {
-                    let Some(home) = std::env::var_os("HOME") else {
+                    let Some(home) = pinrail_core::config::home_dir() else {
                         return;
                     };
-                    let link = cli_install::link_path(&PathBuf::from(home));
+                    let link = cli_install::link_path(&home);
                     match cli_install::refresh(&bundled, &link) {
                         Ok(true) => eprintln!("pinrail: updated the CLI at {}", link.display()),
                         Ok(false) => {}

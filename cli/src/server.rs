@@ -25,13 +25,21 @@ pub fn default_url() -> String {
     format!("http://127.0.0.1:{port}")
 }
 
+/// `HOME`, or `USERPROFILE` where Windows sets only that.
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .filter(|h| !h.is_empty())
+        .map(PathBuf::from)
+}
+
 pub fn data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("PINRAIL_DATA_DIR") {
         return PathBuf::from(dir);
     }
     let base = std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
+        .or_else(|| home_dir().map(|h| h.join(".local/share")))
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("pinrail")
 }

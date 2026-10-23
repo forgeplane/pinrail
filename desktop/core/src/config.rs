@@ -27,6 +27,14 @@ pub struct Config {
 /// 100 MB: a model, a recording, a document with its images.
 pub use pinrail_format::attachments::MAX_ATTACHMENT_BYTES;
 
+/// The user's home folder: `HOME`, or `USERPROFILE` where Windows sets only that.
+pub fn home_dir() -> Option<PathBuf> {
+    env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
+        .filter(|h| !h.is_empty())
+        .map(PathBuf::from)
+}
+
 impl Config {
     /// Reads `PINRAIL_DATA_DIR`, `PINRAIL_PORT`, `PINRAIL_USER` and
     /// `PINRAIL_SDK_DIR` from the environment. The data dir falls back to
@@ -36,7 +44,7 @@ impl Config {
         let mut config = Self::from_vars(
             env::var_os("PINRAIL_DATA_DIR").map(PathBuf::from),
             env::var_os("XDG_DATA_HOME").map(PathBuf::from),
-            env::var_os("HOME").map(PathBuf::from),
+            home_dir(),
             env::var("PINRAIL_PORT").ok(),
         );
         config.port = resolve_port(
