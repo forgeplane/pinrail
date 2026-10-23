@@ -1,5 +1,5 @@
 import { Ban, Blocks, CheckCheck, FolderGit2, List, Search, SearchX } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
 import { EmptyState } from "../components/EmptyState";
@@ -48,7 +48,7 @@ function matches(review: Review, q: string) {
 export function Inbox() {
   const live = useLive();
   const navigate = useNavigate();
-  const [params, updateParams] = useUrlParams();
+  const [params, updateParams, currentParams] = useUrlParams();
   const { settings: prefs } = useSettings();
   // with the side panel, ?open= names the review shown beside the list
   const panelMode = prefs.inbox.open_in === "panel";
@@ -216,6 +216,17 @@ export function Inbox() {
     openInPanel(next && next.id !== openId ? next.id : null, { replace: true });
   }, [openId, openInPanel]);
   const closePanel = useCallback(() => openInPanel(null), [openInPanel]);
+  /**
+   * A plain click on a review's link in the panel mode: opens it in the side
+   * panel, replacing the history entry when the panel is open already. The
+   * address decides that, as a second click may come before the render that
+   * shows the first.
+   */
+  const openFromLink = (event: MouseEvent, id: string) => {
+    if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    openInPanel(id, { replace: currentParams().has("open") });
+  };
 
   // the element that holds the list and the side panel
   const split = useRef<HTMLDivElement>(null);
@@ -294,7 +305,7 @@ export function Inbox() {
     <Link
       key={review.id}
       to={hrefFor(review.id)}
-      replace={!!openId}
+      onClick={(event) => openFromLink(event, review.id)}
       className={`review-row ${here === focused ? "is-focused" : ""} ${review.id === openId ? "is-open" : ""}`}
       aria-current={review.id === openId ? "true" : undefined}
       onMouseEnter={() => !keyboard.current && setFocused(here)}

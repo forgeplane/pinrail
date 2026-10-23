@@ -1,5 +1,5 @@
 import { Archive, Blocks, CircleDot, FolderGit2, Search, SearchX } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import { api } from "../api/client";
 import type { ReviewListing } from "../api/types";
@@ -25,7 +25,7 @@ const SEARCH_DELAY_MS = 250;
 
 export function History() {
   const live = useLive();
-  const [params, updateParams] = useUrlParams();
+  const [params, updateParams, currentParams] = useUrlParams();
   const navigate = useNavigate();
   const { settings: prefs } = useSettings();
   const [data, setData] = useState<ReviewListing | null>(null);
@@ -147,9 +147,20 @@ export function History() {
     [updateParams],
   );
   const closePanel = useCallback(() => openInPanel(null), [openInPanel]);
+  /**
+   * A plain click on a review's link in the panel mode: opens it in the side
+   * panel, replacing the history entry when the panel is open already. The
+   * address decides that, as a second click may come before the render that
+   * shows the first.
+   */
+  const openFromLink = (event: MouseEvent, id: string) => {
+    if (!panelMode || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    openInPanel(id, { replace: currentParams().has("open") });
+  };
   /** Opens a review: in the side panel, or on its own page. */
   const open = (id: string) => {
-    if (panelMode) openInPanel(id, { replace: !!openId });
+    if (panelMode) openInPanel(id, { replace: currentParams().has("open") });
     else navigate(`/reviews/${id}`, { state: { from: "history" } });
   };
   // the element that holds the list and the side panel
@@ -343,7 +354,7 @@ export function History() {
                     <td>
                       <Link
                         to={hrefFor(r.id)}
-                        replace={!!openId}
+                        onClick={(event) => openFromLink(event, r.id)}
                         state={panelMode ? undefined : { from: "history" }}
                         className="history-title"
                       >

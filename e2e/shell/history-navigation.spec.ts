@@ -54,6 +54,28 @@ test("the history opens a review beside the list, steps with J and K, and closes
   await expect(page).toHaveURL(new RegExp(`#/history\\?q=${run}$`));
 });
 
+test("a second history row clicked before the panel shows replaces the first in the history", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = Date.now();
+  for (const title of [`Quick history first ${run}`, `Quick history second ${run}`]) {
+    const review = await createReview(page.request, { title });
+    await decide(page.request, review.id, { decisions: [], undecided: [1, 2] });
+  }
+
+  await page.goto("/#/");
+  await page.goto(`/#/history?q=${run}`);
+  const rows = page.getByTestId("history-row");
+  await expect(rows).toHaveCount(2);
+  // the title of one and the row of the other, in one task, so the screen cannot render between them
+  await rows.first().evaluate((first) => {
+    first.querySelector<HTMLElement>("a")!.click();
+    (first.nextElementSibling as HTMLElement).click();
+  });
+  await expect(page.getByTestId("review-panel")).toContainText("Quick history first");
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`#/history\\?q=${run}$`));
+});
+
 test("J and K beside the history move the highlight, not the row a scroll brings under the pointer", async ({
   page,
 }) => {

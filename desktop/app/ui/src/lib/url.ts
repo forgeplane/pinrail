@@ -5,8 +5,8 @@ import { useCallback, useRef } from "react";
 import { useSearchParams } from "react-router";
 
 /**
- * The query as the last render saw it, and a way to change it that also sees
- * the changes just made.
+ * The query as the last render saw it, a way to change it that also sees
+ * the changes just made, and a way to read the query with those changes.
  *
  * `useSearchParams` hands every render a snapshot and its setter merges into
  * that same snapshot, so two changes made before the router has re-rendered
@@ -35,7 +35,10 @@ export function useUrlParams() {
     [setParams],
   );
 
-  return [params, update] as const;
+  /** The query the URL holds or is about to hold, which a render may not show yet. */
+  const current = useCallback(() => latest.current, []);
+
+  return [params, update, current] as const;
 }
 
 /** Drops every filter: `updateParams(clearAll, { replace: true })`. */

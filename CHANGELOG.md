@@ -21,6 +21,8 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 ### Fixed
 
+- Going back from the side panel now closes it after two reviews were
+  clicked in quick succession, in the inbox and in the history.
 - Fix plugin views that compare with the previous round, such as the
   image plugin's comparison, in the app. They now receive the previous
   round with its payload.

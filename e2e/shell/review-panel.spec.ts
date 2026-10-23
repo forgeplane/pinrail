@@ -172,6 +172,26 @@ test("the panel is one step back however many reviews it went through", async ({
   await expect(panel(page)).toHaveCount(0);
 });
 
+test("a second row clicked before the panel shows replaces the first in the history", async ({ page }) => {
+  await clearInbox(page.request);
+  await createReview(page.request, { title: "Panel quick: oldest" });
+  await createReview(page.request, { title: "Panel quick: newest" });
+
+  await page.goto("/#/");
+  await expect(row(page, "Panel quick: oldest")).toBeVisible();
+  // both clicks in one task, so the inbox cannot render between them
+  await page.evaluate(() => {
+    const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="review-row"]')];
+    const find = (title: string) => rows.find((r) => r.textContent?.includes(title))!;
+    find("Panel quick: newest").click();
+    find("Panel quick: oldest").click();
+  });
+  await expect(panel(page).getByTestId("review-title")).toHaveText("Panel quick: oldest");
+  await page.locator("body").press("ControlOrMeta+BracketLeft");
+  await expect(page).toHaveURL(/#\/$/);
+  await expect(panel(page)).toHaveCount(0);
+});
+
 test("walking from the panel moves the highlight off the row under the pointer", async ({ page }) => {
   await clearInbox(page.request);
   await createReview(page.request, { title: "Panel highlight: oldest" });
