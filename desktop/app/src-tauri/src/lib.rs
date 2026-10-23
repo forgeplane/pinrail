@@ -169,8 +169,11 @@ async fn send_feedback(request: tauri::ipc::Request<'_>) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// The error when neither `HOME` nor `USERPROFILE` names the home folder.
+const NO_HOME: &str = "The home folder is not set. Set HOME, or USERPROFILE on Windows.";
+
 fn home() -> Result<PathBuf, String> {
-    pinrail_core::config::home_dir().ok_or_else(|| "HOME is not set".to_string())
+    pinrail_core::config::home_dir().ok_or_else(|| NO_HOME.to_string())
 }
 
 /// The installed plugins as the agents' skill names them: each usable one,
@@ -315,7 +318,7 @@ async fn disconnect_agent(
 #[tauri::command]
 async fn cli_status() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let home = pinrail_core::config::home_dir().ok_or("HOME is not set")?;
+        let home = pinrail_core::config::home_dir().ok_or(NO_HOME)?;
         let bundled = cli_install::bundled();
         let mode = bundled.as_deref().map_or(cli_install::Mode::Link, |b| {
             cli_install::mode(b, cli_install::in_appimage())
@@ -386,7 +389,7 @@ fn save_copy(from: &Path, to: &Path) -> std::io::Result<()> {
 #[tauri::command]
 async fn install_cli() -> Result<cli_install::Status, String> {
     tauri::async_runtime::spawn_blocking(|| {
-        let home = pinrail_core::config::home_dir().ok_or("HOME is not set")?;
+        let home = pinrail_core::config::home_dir().ok_or(NO_HOME)?;
         let bundled = cli_install::bundled()
             .ok_or("this build of Pinrail carries no CLI; the packaged app does")?;
         let mode = cli_install::mode(&bundled, cli_install::in_appimage());
