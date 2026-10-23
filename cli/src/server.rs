@@ -6,6 +6,7 @@
 //! command, `PINRAIL_SERVER_CMD`, run through `sh -c`: usually the desktop
 //! app's binary with `--headless`.
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::OnceLock;
@@ -27,10 +28,13 @@ pub fn default_url() -> String {
 
 /// `HOME`, or `USERPROFILE` where Windows sets only that.
 fn home_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .filter(|h| !h.is_empty())
-        .map(PathBuf::from)
+    home_from(std::env::var_os("HOME"), std::env::var_os("USERPROFILE"))
+}
+
+/// [`home_dir`] from the values of `HOME` and `USERPROFILE`.
+fn home_from(home: Option<OsString>, profile: Option<OsString>) -> Option<PathBuf> {
+    let set = |v: Option<OsString>| v.filter(|v| !v.is_empty());
+    set(home).or_else(|| set(profile)).map(PathBuf::from)
 }
 
 pub fn data_dir() -> PathBuf {
@@ -205,4 +209,26 @@ pub fn open_browser(url: &str) -> Result<()> {
         bail!("{program} exited with {status}");
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn home_is_home_then_userprofile_and_an_empty_one_counts_as_not_set() {
+        let home =
+            |h: Option<&str>, p: Option<&str>| home_from(h.map(Into::into), p.map(Into::into));
+        assert_eq!(
+            home(Some("/home/u"), Some(r"C:\Users\u")),
+            Some("/home/u".into())
+        );
+        assert_eq!(home(None, Some(r"C:\Users\u")), Some(r"C:\Users\u".into()));
+        assert_eq!(
+            home(Some(""), Some(r"C:\Users\u")),
+            Some(r"C:\Users\u".into())
+        );
+        assert_eq!(home(Some(""), Some("")), None);
+        assert_eq!(home(None, None), None);
+    }
 }
