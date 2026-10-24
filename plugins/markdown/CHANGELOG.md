@@ -24,6 +24,10 @@ carries it.
   the microphone and the cancel and add buttons at its end. Once the
   text wraps, the buttons move to a row under it, with the keys that add
   the comment and start a new line.
+- When the previous round has comments, the comments panel shows this
+  round's and the previous round's in two tabs, which stay at the top as
+  the list scrolls. Every comment has the same bar at its left, and a
+  long quote shows two lines and an ellipsis.
 
 ## [1.1.0] - Pinrail 0.3.0
 
