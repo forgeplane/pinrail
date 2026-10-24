@@ -9,7 +9,7 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
-## [Unreleased]
+## [0.4.1]
 
 ### Added
 
@@ -19,6 +19,20 @@ The `pinrail` command ships inside the app and carries the app's version.
   at their place, marked by whether their lines changed, so you can
   check how they were addressed without reading the document again.
 
+### Changed
+
+- The official plugins share one comment field: a box with the text,
+  the microphone and the add button at its end. Once the text wraps,
+  the buttons move to a row under it, with the keys that add the
+  comment and start a new line.
+- A saved comment in the official plugins has edit and delete buttons
+  at the right of its header, shown while the pointer is over it or the
+  focus is in it.
+- Comment fields in plugin views that use the SDK's comment field have
+  spell checking, autocorrection and automatic capitals off.
+- In the markdown plugin, the comments panel shows this round's and the
+  previous round's comments in two tabs.
+
 ### Fixed
 
 - Going back from the side panel now closes it after two reviews were
@@ -26,6 +40,11 @@ The `pinrail` command ships inside the app and carries the app's version.
 - Fix plugin views that compare with the previous round, such as the
   image plugin's comparison, in the app. They now receive the previous
   round with its payload.
+
+### Security
+
+- Updated tokio, whose `AsyncFd` constructors accepted a file descriptor
+  the caller might not own.
 
 ## [0.4.0]
 
@@ -222,6 +241,7 @@ The `pinrail` command ships inside the app and carries the app's version.
 
 Initial version of Pinrail.
 
+[0.4.1]: https://github.com/forgeplane/pinrail/releases/tag/v0.4.1
 [0.4.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.4.0
 [0.3.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.3.0
 [0.2.0]: https://github.com/forgeplane/pinrail/releases/tag/v0.2.0
