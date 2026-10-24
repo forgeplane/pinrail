@@ -1,6 +1,8 @@
 // Builds the pinrail CLI for a release bundle and puts it where Tauri looks
 // for a sidecar: src-tauri/binaries/<name>-<target triple>.
 //
+// On Windows the sidecar is pinrail-cli.exe, for the same reason as on macOS;
+// Settings copies it into ~/.local/bin as pinrail.exe.
 // On Linux the name is `pinrail`: the .deb and .rpm install it as
 // /usr/bin/pinrail, beside the app renamed pinrail-desktop
 // (tauri.release.linux.conf.json). On macOS it is `pinrail-cli`, since the
@@ -29,7 +31,7 @@ const host = () => /host: (\S+)/.exec(execFileSync("rustc", ["-vV"], { encoding:
 /** Builds for one target and returns the binary's path. */
 function build(target) {
   run("cargo", ["build", "--release", "--locked", "--manifest-path", path.join(cli, "Cargo.toml"), "--target", target]);
-  return path.join(cli, "target", target, "release", "pinrail");
+  return path.join(cli, "target", target, "release", target.includes("-windows-") ? "pinrail.exe" : "pinrail");
 }
 
 const target = process.argv[2] ?? host();
@@ -38,7 +40,7 @@ fs.mkdirSync(out, { recursive: true });
 
 /** Puts a built binary where Tauri looks for the sidecar of `triple`. */
 function place(from, triple) {
-  const to = path.join(out, `${name}-${triple}`);
+  const to = path.join(out, `${name}-${triple}${triple.includes("-windows-") ? ".exe" : ""}`);
   fs.copyFileSync(from, to);
   fs.chmodSync(to, 0o755);
   return to;
