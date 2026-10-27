@@ -803,7 +803,7 @@ fn run(cli: Cli) -> Result<u8> {
         )?;
         // the folder as it was named, for the prompt a person pastes
         let given = dir.display().to_string();
-        let dir = dir.canonicalize()?;
+        let dir = full_path(&dir)?;
         if *link {
             let base = server::resolve_url(cli.url.as_deref(), true)?;
             Client::new(&base).plugins_install(&InstallRequest {
@@ -1067,14 +1067,12 @@ fn run(cli: Cli) -> Result<u8> {
                     update_fixtures,
                 }),
         }) => {
-            let dir = dir
-                .canonicalize()
+            let dir = full_path(&dir)
                 .with_context(|| format!("{} is not a folder here", dir.display()))?;
             // the format's own check, the one the app loads plugins with
             let mut verdict = pinrail_format::Plugin::check(&dir);
             if let Some(since) = since {
-                let since = since
-                    .canonicalize()
+                let since = full_path(&since)
                     .with_context(|| format!("{} is not a folder here", since.display()))?;
                 verdict["since"] = pinrail_format::compat::since(&since, &dir);
             }
@@ -1202,7 +1200,7 @@ fn run(cli: Cli) -> Result<u8> {
                 }) => {
                     // a folder or a zip that exists is sent as its full
                     // path, `..` resolved, the way the app records and shows it
-                    let mut installed = match std::fs::canonicalize(&source) {
+                    let mut installed = match full_path(Path::new(&source)) {
                         Ok(p) if p.is_dir() || p.is_file() => {
                             client.plugins_install(&InstallRequest {
                                 source: &p.to_string_lossy(),
@@ -1424,6 +1422,22 @@ fn schema_hint(err: anyhow::Error, body: &Value) -> anyhow::Error {
     api.into()
 }
 
+/// The full path of `path`, `..` and links resolved, written as a person
+/// would: without the `\\?\` that Windows puts before a resolved path.
+fn full_path(path: &Path) -> std::io::Result<PathBuf> {
+    path.canonicalize().map(without_verbatim)
+}
+
+/// `path` without a leading `\\?\` when an ordinary drive path follows it.
+fn without_verbatim(path: PathBuf) -> PathBuf {
+    let plain = path
+        .to_string_lossy()
+        .strip_prefix(r"\\?\")
+        .filter(|rest| rest.as_bytes().get(1) == Some(&b':'))
+        .map(PathBuf::from);
+    plain.unwrap_or(path)
+}
+
 /// Who a review is from: who the flag or PINRAIL_REQUESTED_BY names, else
 /// the coding agent the CLI runs under, else the CLI itself.
 /// The agent's session, set on every submission without the agent asking.
@@ -1604,4 +1618,24 @@ fn read_json_arg(spec: &str) -> Result<Value> {
         std::fs::read_to_string(spec).with_context(|| format!("reading {spec}"))?
     };
     serde_json::from_str(&text).with_context(|| format!("{spec} is not valid JSON"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_resolved_drive_path_loses_its_verbatim_prefix() {
+        assert_eq!(
+            without_verbatim(PathBuf::from(r"\\?\C:\Users\u\review")),
+            PathBuf::from(r"C:\Users\u\review")
+        );
+        // a share, and a path that has no prefix, stay as they are
+        let share = PathBuf::from(r"\\?\UNC\server\share\review");
+        assert_eq!(without_verbatim(share.clone()), share);
+        assert_eq!(
+            without_verbatim(PathBuf::from("/home/u/review")),
+            PathBuf::from("/home/u/review")
+        );
+    }
 }
