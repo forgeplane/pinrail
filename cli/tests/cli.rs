@@ -2722,10 +2722,10 @@ fn plugins_check_compares_recorded_decisions_with_their_markdown() {
     std::fs::write(&md, expected.replacen("# ", "# Not ", 1)).unwrap();
     let (code, stdout, stderr) = checked(&["--markdown"]);
     assert_eq!(code, 2, "{stderr}");
-    assert!(
-        stdout.contains("- fixture fixtures/triage-round-1.decided.json: fixtures/triage-round-1.decided.md does not match what the app renders, from line 1"),
-        "{stdout}"
-    );
+    // with the system's separator, `\` on Windows
+    let problem = "- fixture fixtures/triage-round-1.decided.json: fixtures/triage-round-1.decided.md does not match what the app renders, from line 1"
+        .replace('/', std::path::MAIN_SEPARATOR_STR);
+    assert!(stdout.contains(&problem), "{stdout}");
 
     // rewritten from the rendering, it matches again
     let (code, _, stderr) = checked(&["--update-fixtures"]);
@@ -2738,10 +2738,9 @@ fn plugins_check_compares_recorded_decisions_with_their_markdown() {
     std::fs::write(&summary, r#"{"request": null, "outcome": null}"#).unwrap();
     let (code, _, stderr) = checked(&[]);
     assert_eq!(code, 2);
-    assert!(
-        stderr.contains("pinrail: fixture fixtures/triage-round-1.decided.json: fixtures/triage-round-1.decided.summary.json does not match what the app sums up"),
-        "{stderr}"
-    );
+    let problem = "pinrail: fixture fixtures/triage-round-1.decided.json: fixtures/triage-round-1.decided.summary.json does not match what the app sums up"
+        .replace('/', std::path::MAIN_SEPARATOR_STR);
+    assert!(stderr.contains(&problem), "{stderr}");
     let (code, _, stderr) = checked(&["--update-fixtures"]);
     assert_eq!(code, 0, "{stderr}");
     assert_eq!(std::fs::read_to_string(&summary).unwrap(), expected);
@@ -2755,7 +2754,10 @@ fn plugins_check_compares_recorded_decisions_with_their_markdown() {
     let (code, _, stderr) = checked(&[]);
     assert_eq!(code, 2);
     assert!(
-        stderr.contains("pinrail: fixture fixtures/triage-round-1.decided.json: the decision is not what the plugin's schema accepts"),
+        stderr.contains(
+            &"pinrail: fixture fixtures/triage-round-1.decided.json: the decision is not what the plugin's schema accepts"
+                .replace('/', std::path::MAIN_SEPARATOR_STR)
+        ),
         "{stderr}"
     );
 }
