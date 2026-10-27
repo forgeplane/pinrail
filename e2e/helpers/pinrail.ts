@@ -25,8 +25,25 @@ export function pinrail(args: string[], opts: { input?: string; env?: NodeJS.Pro
   const state = loadState();
   const run = invocation(args);
   const env = { ...run.env, ...opts.env };
-  const r = spawnSync(state.cli, run.args, { cwd, env, encoding: "utf8", input: opts.input });
-  return { code: r.status, stdout: r.stdout, stderr: r.stderr };
+  // The output goes to files, not pipes. On Windows, a server the command
+  // starts can inherit a pipe and keep the run waiting until the server exits.
+  const dir = scratch("pinrail-run-");
+  const out = path.join(dir, "stdout");
+  const err = path.join(dir, "stderr");
+  const stdout = fs.openSync(out, "w");
+  const stderr = fs.openSync(err, "w");
+  // a command that does not finish fails its test, instead of blocking the worker
+  const r = spawnSync(state.cli, run.args, {
+    cwd,
+    env,
+    input: opts.input,
+    stdio: ["pipe", stdout, stderr],
+    timeout: 90_000,
+  });
+  fs.closeSync(stdout);
+  fs.closeSync(stderr);
+  if (r.error) throw r.error;
+  return { code: r.status, stdout: fs.readFileSync(out, "utf8"), stderr: fs.readFileSync(err, "utf8") };
 }
 
 /** Runs the CLI and parses its stdout as JSON, failing loudly otherwise. */
