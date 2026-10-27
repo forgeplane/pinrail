@@ -324,12 +324,12 @@ async fn cli_status() -> Result<cli_install::Status, String> {
             cli_install::mode(b, cli_install::in_appimage())
         });
         let shell = cli_install::ask_login_shell();
-        Ok(cli_install::status(
+        Ok(cli_install::with_warning(cli_install::status(
             mode,
             bundled.as_deref(),
             &cli_install::link_path(&home),
             shell.as_ref(),
-        ))
+        )))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -395,13 +395,20 @@ async fn install_cli() -> Result<cli_install::Status, String> {
         let mode = cli_install::mode(&bundled, cli_install::in_appimage());
         let link = cli_install::link_path(&home);
         cli_install::install(mode, &bundled, &link)?;
+        #[cfg(windows)]
+        let warning = link
+            .parent()
+            .and_then(|dir| cli_install::add_to_user_path(dir).err());
+        #[cfg(not(windows))]
+        let warning = None;
+        cli_install::remember_warning(warning);
         let shell = cli_install::ask_login_shell();
-        Ok(cli_install::status(
+        Ok(cli_install::with_warning(cli_install::status(
             mode,
             Some(&bundled),
             &link,
             shell.as_ref(),
-        ))
+        )))
     })
     .await
     .map_err(|e| e.to_string())?

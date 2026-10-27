@@ -52,6 +52,11 @@ objc2-user-notifications = { version = "0.3", features = ["UNUserNotificationCen
 # notifications with a default action, so a click opens the review
 notify-rust = "4.18"
 
+[target.'cfg(windows)'.dependencies]
+# the user's PATH in the registry, and the message that tells programs it changed
+windows-registry = "0.5"
+windows-sys = { version = "0.61", features = ["Win32_UI_WindowsAndMessaging"] }
+
 [target.'cfg(unix)'.dependencies]
 # the user's id, to find their login shell when SHELL is not set
 rustix = { version = "1", features = ["process"] }
