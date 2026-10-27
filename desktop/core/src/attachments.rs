@@ -182,12 +182,7 @@ impl Attachments {
                     .is_ok_and(|at| at < hour_ago);
                 if old && self.db.blob_size(&name)?.is_none() {
                     let path = file.path();
-                    if let Ok(meta) = fs::metadata(&path) {
-                        let mut permissions = meta.permissions();
-                        #[allow(clippy::permissions_set_readonly_false)]
-                        permissions.set_readonly(false);
-                        let _ = fs::set_permissions(&path, permissions);
-                    }
+                    writable(&path);
                     let _ = fs::remove_file(&path);
                 }
             }
@@ -368,12 +363,7 @@ impl Attachments {
         let orphans = self.db.delete_orphan_blobs(before)?;
         for sha256 in &orphans {
             let path = self.path(sha256);
-            if let Ok(meta) = fs::metadata(&path) {
-                let mut permissions = meta.permissions();
-                #[allow(clippy::permissions_set_readonly_false)]
-                permissions.set_readonly(false);
-                let _ = fs::set_permissions(&path, permissions);
-            }
+            writable(&path);
             let _ = fs::remove_file(&path);
         }
         Ok(orphans.len())
@@ -465,6 +455,9 @@ impl Upload {
         let mut permissions = fs::metadata(&self.tmp)?.permissions();
         permissions.set_readonly(true);
         fs::set_permissions(&self.tmp, permissions)?;
+        // a copy already stored is replaced by this one, the same bytes:
+        // Windows renames over a file only when it is not read-only
+        writable(&target);
         fs::rename(&self.tmp, &target)?;
         // the file first, then the row: a stop between them leaves a file
         // no row names, which the next upload of it replaces
@@ -475,6 +468,17 @@ impl Upload {
             sha256: self.sha256.clone(),
             size: self.size,
         })
+    }
+}
+
+/// Makes a stored file writable, which Windows needs before it deletes or
+/// replaces it. A file that is not there is left as it is.
+fn writable(path: &Path) {
+    if let Ok(meta) = fs::metadata(path) {
+        let mut permissions = meta.permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        let _ = fs::set_permissions(path, permissions);
     }
 }
 
