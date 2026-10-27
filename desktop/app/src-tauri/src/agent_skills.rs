@@ -744,7 +744,11 @@ mod tests {
         assert_eq!(found, vec!["claude", "opencode"]);
         let claude = state(home.path(), "claude");
         assert_eq!(claude.state, State::Absent);
-        assert!(claude.skill.ends_with(".claude/skills/pinrail/SKILL.md"));
+        assert!(
+            Path::new(&claude.skill).ends_with(".claude/skills/pinrail/SKILL.md"),
+            "{}",
+            claude.skill
+        );
     }
 
     #[test]
