@@ -1191,6 +1191,11 @@ fn discovers_the_server_from_server_json_in_the_data_dir() {
     );
 }
 
+/// A server command for the system's shell: `sh` on Unix, `cmd` on Windows.
+fn for_shell(unix: &str, windows: &str) -> String {
+    if cfg!(windows) { windows } else { unix }.to_string()
+}
+
 #[test]
 fn create_auto_starts_the_server_with_the_configured_command() {
     // the "server" is a shell one-liner that writes server.json pointing at a mock
@@ -1203,9 +1208,15 @@ fn create_auto_starts_the_server_with_the_configured_command() {
     // a stale server.json from a previous run points at a dead port, so
     // discovery never depends on whatever happens to listen on 4747
     std::fs::write(dir.join("server.json"), r#"{"url":"http://127.0.0.1:9"}"#).unwrap();
-    let cmd = format!(
-        "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$PINRAIL_DATA_DIR/server.json\"; sleep 5",
-        server.url
+    let cmd = for_shell(
+        &format!(
+            "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$PINRAIL_DATA_DIR/server.json\"; sleep 5",
+            server.url
+        ),
+        &format!(
+            "ping -n 2 127.0.0.1 >NUL & echo {{\"url\":\"{}\"}}> \"%PINRAIL_DATA_DIR%\\server.json\" & ping -n 6 127.0.0.1 >NUL",
+            server.url
+        ),
     );
     let out = pinrail()
         .args(["submit", "list", "--title", "t", "--verbose"])
@@ -1248,7 +1259,10 @@ fn a_start_uses_any_server_that_comes_up_at_the_address() {
         .args(["plugins"])
         .env("PINRAIL_DATA_DIR", &dir)
         // this start's own server never comes up
-        .env("PINRAIL_SERVER_CMD", "sleep 30")
+        .env(
+            "PINRAIL_SERVER_CMD",
+            for_shell("sleep 30", "ping -n 31 127.0.0.1 >NUL"),
+        )
         .env("PINRAIL_PORT", port.to_string())
         .output()
         .unwrap();
@@ -1273,7 +1287,13 @@ fn a_start_command_that_exits_fails_at_once_and_keeps_the_log() {
     let out = pinrail()
         .args(["plugins"])
         .env("PINRAIL_DATA_DIR", &dir)
-        .env("PINRAIL_SERVER_CMD", "echo no such app >&2; exit 127")
+        .env(
+            "PINRAIL_SERVER_CMD",
+            for_shell(
+                "echo no such app >&2; exit 127",
+                "echo no such app 1>&2 & exit 127",
+            ),
+        )
         .env("PINRAIL_PORT", "9")
         .output()
         .unwrap();
@@ -1299,9 +1319,15 @@ fn listing_the_plugins_starts_the_server_too() {
     }));
     let dir = tempdir();
     std::fs::write(dir.join("server.json"), r#"{"url":"http://127.0.0.1:9"}"#).unwrap();
-    let cmd = format!(
-        "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$PINRAIL_DATA_DIR/server.json\"; sleep 5",
-        server.url
+    let cmd = for_shell(
+        &format!(
+            "sleep 0.3; printf '{{\"url\":\"{}\"}}' > \"$PINRAIL_DATA_DIR/server.json\"; sleep 5",
+            server.url
+        ),
+        &format!(
+            "ping -n 2 127.0.0.1 >NUL & echo {{\"url\":\"{}\"}}> \"%PINRAIL_DATA_DIR%\\server.json\" & ping -n 6 127.0.0.1 >NUL",
+            server.url
+        ),
     );
     let out = pinrail()
         .args(["plugins", "--verbose"])
