@@ -1,0 +1,3 @@
+# Text files keep LF line endings in every checkout, Windows included: the
+# CLI and the app embed Markdown and templates whose parsing expects them.
+* text=auto eol=lf
