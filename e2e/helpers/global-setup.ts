@@ -15,8 +15,10 @@ function freePort(): Promise<number> {
   });
 }
 
+const exe = process.platform === "win32" ? ".exe" : "";
+
 function buildCli(): string {
-  const cli = process.env.PINRAIL_CLI ?? path.join(root, "cli", "target", "debug", "pinrail");
+  const cli = process.env.PINRAIL_CLI ?? path.join(root, "cli", "target", "debug", `pinrail${exe}`);
   if (!process.env.PINRAIL_CLI) {
     console.log("e2e: building the CLI");
     execFileSync("cargo", ["build", "--quiet"], { cwd: path.join(root, "cli"), stdio: "inherit" });
@@ -27,7 +29,7 @@ function buildCli(): string {
 
 /** The desktop app, which the CLI starts headless as the server. */
 function buildDesktop(): string {
-  const bin = process.env.PINRAIL_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", "Pinrail");
+  const bin = process.env.PINRAIL_DESKTOP_BIN ?? path.join(root, "desktop", "target", "debug", `Pinrail${exe}`);
   if (!process.env.PINRAIL_DESKTOP_BIN) {
     console.log("e2e: building the desktop app");
     execFileSync("cargo", ["build", "--quiet", "-p", "pinrail-desktop"], {

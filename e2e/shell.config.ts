@@ -13,6 +13,8 @@ const root = path.resolve(__dirname, "..");
 const uiPort = 5199;
 const feedbackUrl = "https://feedback.test/v1/feedback";
 const data = path.join(__dirname, ".state", "shell-data");
+const exe = process.platform === "win32" ? ".exe" : "";
+const core = path.join(root, "desktop", "target", "debug", `Pinrail${exe}`);
 
 // An official plugin at two versions, which the app does not carry, so an
 // installed older one is offered the newer: notes, made from hello.
@@ -22,7 +24,7 @@ for (const version of ["1.0.0", "1.1.0"]) {
   const dir = path.join(catalog, `notes-${version}`);
   fs.cpSync(path.join(root, "plugins", "hello"), dir, {
     recursive: true,
-    filter: (src) => !/\/(tests|fixtures|node_modules)(\/|$)/.test(src),
+    filter: (src) => !/[\\/](tests|fixtures|node_modules)([\\/]|$)/.test(src),
   });
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, "manifest.json"), "utf8"));
   fs.writeFileSync(
@@ -47,7 +49,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && rm -rf "${data}" && mkdir -p "${data}" && echo '{"welcome":{"seen":true},"whats_new":{"seen":"999.0.0"}}' > "${data}/settings.json" && ./target/debug/Pinrail --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}"`,
+      // commands that sh and Windows' cmd both run
+      command: `cargo build -q -p pinrail-desktop && cargo build -q --manifest-path ../cli/Cargo.toml && node ../e2e/shell/reset-data.mjs "${data}" && "${core}" --headless --port ${corePort} --data-dir "${data}" --sdk-dir "${path.join(root, "desktop", "app", "sdk", "v1")}" --catalog-dir "${catalog}"`,
       cwd: path.join(root, "desktop"),
       env: { PINRAIL_SHELL_ORIGIN: `http://127.0.0.1:${uiPort}` },
       url: `http://127.0.0.1:${corePort}/api/v1/info`,
