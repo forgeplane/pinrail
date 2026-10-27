@@ -139,7 +139,7 @@ test("plugins install stores a bundle, and a link serves the folder live", async
   expect(installed.version).toBe("1.0.0");
   expect(installed.install.link).toBe(false);
   expect(installed.install.bundle).toMatch(/^[0-9a-f]{64}$/);
-  expect(installed.path).toMatch(new RegExp(`plugins/bundles/${installed.install.bundle}$`));
+  expect(installed.path).toMatch(new RegExp(`plugins[\\\\/]bundles[\\\\/]${installed.install.bundle}$`));
   expect(fs.existsSync(path.join(installed.path, "manifest.json"))).toBe(true);
 
   const linked = pinrailJson(["plugins", "install", hello, "--link"]);
