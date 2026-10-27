@@ -840,13 +840,10 @@ async fn plugins_are_listed_and_installed_one_by_one() {
     // a source that is not there is refused, naming the field
     let (status, body) = install(&app, Path::new("/nope/nowhere"), Value::Null).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert!(
-        body["message"]
-            .as_str()
-            .unwrap()
-            .contains("/source: /nope/nowhere is not a directory"),
-        "{body}"
-    );
+    // the folder as an absolute path: on Windows, on the current drive
+    let message = body["message"].as_str().unwrap();
+    assert!(message.contains("/source: "), "{body}");
+    assert!(message.contains("nowhere is not a directory"), "{body}");
 
     // nothing reads the plugins again on request
     let (status, _) = call(&app, "POST", "/api/v1/plugins/reload", None).await;
