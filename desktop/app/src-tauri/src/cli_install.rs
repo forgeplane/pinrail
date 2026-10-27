@@ -498,14 +498,21 @@ fn windows_view() -> Option<ShellView> {
         .flat_map(|raw| split_registry_path(&raw))
         .collect::<Vec<_>>();
     let extensions = std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".into());
-    let command = path.iter().find_map(|dir| {
+    let command = find_command(&path, &extensions);
+    Some(ShellView { path, command })
+}
+
+/// The first program called `pinrail` in the folders of `path`, tried with
+/// each extension of `extensions`, a list such as PATHEXT holds.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn find_command(path: &[PathBuf], extensions: &str) -> Option<PathBuf> {
+    path.iter().find_map(|dir| {
         extensions
             .split(';')
             .filter(|e| !e.is_empty())
             .map(|e| dir.join(format!("{PROGRAM}{e}")))
             .find(|p| p.is_file())
-    });
-    Some(ShellView { path, command })
+    })
 }
 
 /// The raw machine and user `Path` values, with their `%VARIABLES%`
@@ -570,10 +577,34 @@ pub fn add_to_user_path(dir: &Path) -> Result<bool, String> {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         HWND_BROADCAST, SMTO_ABORTIFHUNG, SendMessageTimeoutA, WM_SETTINGCHANGE,
     };
-    let fail = |e: String| format!("cannot add {} to the PATH: {e}", dir.display());
     let key = windows_registry::CURRENT_USER
         .create("Environment")
-        .map_err(|e| fail(e.to_string()))?;
+        .map_err(|e| format!("cannot add {} to the PATH: {e}", dir.display()))?;
+    if !add_to_path_in(&key, dir)? {
+        return Ok(false);
+    }
+    // tell Explorer and the rest that the environment changed, so that a
+    // terminal opened next sees it
+    // SAFETY: the message and the NUL-terminated string outlive the call.
+    unsafe {
+        SendMessageTimeoutA(
+            HWND_BROADCAST,
+            WM_SETTINGCHANGE,
+            0,
+            c"Environment".as_ptr() as isize,
+            SMTO_ABORTIFHUNG,
+            5000,
+            std::ptr::null_mut(),
+        );
+    }
+    Ok(true)
+}
+
+/// Puts `dir` at the end of the `Path` value in `key`, as [`add_to_user_path`]
+/// does in the user's environment. True when the value changed.
+#[cfg(windows)]
+fn add_to_path_in(key: &windows_registry::Key, dir: &Path) -> Result<bool, String> {
+    let fail = |e: String| format!("cannot add {} to the PATH: {e}", dir.display());
     // the value as written, with its %VARIABLES% unexpanded
     let raw = match key.get_value("Path") {
         Ok(value) => match value.ty() {
@@ -608,20 +639,6 @@ pub fn add_to_user_path(dir: &Path) -> Result<bool, String> {
     };
     key.set_expand_string("Path", &new)
         .map_err(|e| fail(e.to_string()))?;
-    // tell Explorer and the rest that the environment changed, so that a
-    // terminal opened next sees it
-    // SAFETY: the message and the NUL-terminated string outlive the call.
-    unsafe {
-        SendMessageTimeoutA(
-            HWND_BROADCAST,
-            WM_SETTINGCHANGE,
-            0,
-            c"Environment".as_ptr() as isize,
-            SMTO_ABORTIFHUNG,
-            5000,
-            std::ptr::null_mut(),
-        );
-    }
     Ok(true)
 }
 
@@ -869,6 +886,171 @@ mod tests {
             std::fs::read_to_string(&link)
                 .unwrap()
                 .contains("something else")
+        );
+    }
+
+    #[test]
+    fn the_command_is_found_with_the_first_extension_that_names_a_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (empty, tools) = (tmp.path().join("empty"), tmp.path().join("tools"));
+        std::fs::create_dir_all(&empty).unwrap();
+        std::fs::create_dir_all(&tools).unwrap();
+        std::fs::write(tools.join(format!("{PROGRAM}.cmd")), "").unwrap();
+        let path = [empty, tools.clone()];
+        assert_eq!(
+            find_command(&path, ".COM;.EXE;.BAT;.cmd;"),
+            Some(tools.join(format!("{PROGRAM}.cmd")))
+        );
+        assert_eq!(find_command(&path, ".COM;.EXE"), None);
+    }
+
+    /// A copy of one of Windows' own programs at `to`.
+    #[cfg(windows)]
+    fn system_program(name: &str, to: &Path) {
+        let root = std::env::var_os("SystemRoot").unwrap();
+        std::fs::copy(PathBuf::from(root).join("System32").join(name), to).unwrap();
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn a_copy_replaces_a_running_cli_and_the_next_install_removes_the_old_one() {
+        let tmp = tempfile::tempdir().unwrap();
+        let link = tmp.path().join(COMMAND);
+        system_program("PING.EXE", &link);
+        // the installed copy runs, as a `pinrail wait` would
+        let mut running = Command::new(&link)
+            .args(["-n", "30", "127.0.0.1"])
+            .stdout(Stdio::null())
+            .spawn()
+            .unwrap();
+        let bundled = tmp.path().join("bundled.exe");
+        system_program("WHOAMI.EXE", &bundled);
+
+        copy(&bundled, &link).unwrap();
+        assert!(same_contents(&bundled, &link));
+        assert!(
+            running.try_wait().unwrap().is_none(),
+            "the old copy still runs"
+        );
+        let old = link.with_file_name(format!(".{PROGRAM}.old"));
+        assert!(old.is_file(), "the running copy was moved aside");
+
+        running.kill().unwrap();
+        running.wait().unwrap();
+        copy(&bundled, &link).unwrap();
+        assert!(!old.exists(), "the next install removes the old copy");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn on_windows_install_copies_the_cli_and_leaves_another_file_alone() {
+        let tmp = tempfile::tempdir().unwrap();
+        let cli = bundle(tmp.path());
+        let link = link_path(&tmp.path().join("home"));
+        assert!(link.ends_with(r".local\bin\pinrail.exe"));
+        install(Mode::Copy, &cli, &link).unwrap();
+        assert!(status(Mode::Copy, Some(&cli), &link, None).installed);
+
+        let other = link_path(&tmp.path().join("other"));
+        std::fs::create_dir_all(other.parent().unwrap()).unwrap();
+        std::fs::write(&other, "not pinrail").unwrap();
+        let error = install(Mode::Copy, &cli, &other).unwrap_err();
+        assert!(error.contains("not the pinrail CLI"), "{error}");
+        assert_eq!(std::fs::read(&other).unwrap(), b"not pinrail");
+    }
+
+    /// A registry key of the test's own under the user's, removed afterwards.
+    #[cfg(windows)]
+    struct ScratchKey {
+        path: String,
+        key: windows_registry::Key,
+    }
+
+    #[cfg(windows)]
+    impl ScratchKey {
+        fn new(test: &str) -> Self {
+            let path = format!(r"Software\Pinrail\tests\{test}-{}", std::process::id());
+            let key = windows_registry::CURRENT_USER.create(&path).unwrap();
+            Self { path, key }
+        }
+    }
+
+    #[cfg(windows)]
+    impl Drop for ScratchKey {
+        fn drop(&mut self) {
+            let _ = windows_registry::CURRENT_USER.remove_tree(&self.path);
+        }
+    }
+
+    /// The folder the install puts on the PATH.
+    #[cfg(windows)]
+    fn local_bin() -> PathBuf {
+        PathBuf::from(std::env::var_os("USERPROFILE").unwrap()).join(r".local\bin")
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_folder_is_added_at_the_end_of_the_path_with_its_variables_kept() {
+        let scratch = ScratchKey::new("append");
+        let dir = local_bin();
+        // no value yet
+        assert_eq!(add_to_path_in(&scratch.key, &dir), Ok(true));
+        assert_eq!(
+            scratch.key.get_string("Path").unwrap(),
+            dir.to_string_lossy()
+        );
+
+        scratch
+            .key
+            .set_expand_string("Path", r"%SystemRoot%\tools;C:\bin;")
+            .unwrap();
+        assert_eq!(add_to_path_in(&scratch.key, &dir), Ok(true));
+        let value = scratch.key.get_value("Path").unwrap();
+        assert_eq!(value.ty(), windows_registry::Type::ExpandString);
+        assert_eq!(
+            String::try_from(value).unwrap(),
+            format!(r"%SystemRoot%\tools;C:\bin;{}", dir.display())
+        );
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn a_folder_already_on_the_path_is_not_added_again() {
+        let scratch = ScratchKey::new("present");
+        let dir = local_bin();
+        let written = [
+            dir.to_string_lossy().to_uppercase(),
+            format!(r"{}\", dir.display()),
+            r"%USERPROFILE%\.local\bin".to_string(),
+        ];
+        for entry in written {
+            let value = format!(r"C:\bin;{entry}");
+            scratch.key.set_expand_string("Path", &value).unwrap();
+            assert_eq!(add_to_path_in(&scratch.key, &dir), Ok(false), "{entry}");
+            assert_eq!(scratch.key.get_string("Path").unwrap(), value);
+        }
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn a_path_that_is_not_a_string_is_left_alone() {
+        let scratch = ScratchKey::new("number");
+        scratch.key.set_u32("Path", 7).unwrap();
+        let error = add_to_path_in(&scratch.key, &local_bin()).unwrap_err();
+        assert!(error.contains("not a string"), "{error}");
+        assert_eq!(scratch.key.get_u32("Path").unwrap(), 7);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn the_path_a_new_terminal_sees_is_read_from_the_registry() {
+        let view = windows_view().expect("the registry can be read");
+        assert!(
+            view.path
+                .iter()
+                .any(|p| p.to_string_lossy().to_lowercase().ends_with(r"\system32")),
+            "{:?}",
+            view.path
         );
     }
 
