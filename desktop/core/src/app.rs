@@ -1,7 +1,8 @@
 //! Application construction and operations shared by every interface.
 
 use std::fs::{File, OpenOptions, TryLockError};
-use std::io::{Read, Write};
+#[cfg(not(windows))]
+use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -191,13 +192,14 @@ fn update_official(db: &Db, registry: &Registry) {
 }
 
 /// Takes `pinrail.lock` in the data directory, and writes this process's id
-/// into it for the message another open shows. Opening cleans up what a
-/// stopped server left behind, which for a running one is its uploads and
-/// installs in progress, so only one application may have the directory
-/// open. The operating system releases the lock when the process ends,
-/// however it ends.
+/// into it for the message another open shows; on Windows, which lets no
+/// other process read a locked file, into `pinrail.pid` beside it. Opening
+/// cleans up what a stopped server left behind, which for a running one is
+/// its uploads and installs in progress, so only one application may have
+/// the directory open. The operating system releases the lock when the
+/// process ends, however it ends.
 fn lock_data_dir(dir: &Path) -> Result<File, Error> {
-    let mut file = OpenOptions::new()
+    let file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
@@ -214,21 +216,33 @@ fn lock_data_dir(dir: &Path) -> Result<File, Error> {
         }
         Err(TryLockError::Error(error)) => return Err(error.into()),
     }
-    file.set_len(0)?;
-    file.write_all(std::process::id().to_string().as_bytes())?;
+    #[cfg(not(windows))]
+    {
+        file.set_len(0)?;
+        (&file).write_all(std::process::id().to_string().as_bytes())?;
+    }
+    #[cfg(windows)]
+    std::fs::write(dir.join(HOLDER_FILE), std::process::id().to_string())?;
     Ok(file)
 }
 
+/// The file the process that holds the data directory's lock writes its id
+/// into: the lock file itself, or a file beside it on Windows.
+const HOLDER_FILE: &str = if cfg!(windows) {
+    "pinrail.pid"
+} else {
+    "pinrail.lock"
+};
+
 /// The process that holds the data directory's lock, as it wrote itself
-/// into the lock file: the one to stop when [`Pinrail::open`] answers
+/// into [`HOLDER_FILE`]: the one to stop when [`Pinrail::open`] answers
 /// [`Error::InUse`]. `None` when the file is missing or names no process.
 pub fn locked_by(dir: &Path) -> Option<u32> {
-    let mut holder = String::new();
-    File::open(dir.join("pinrail.lock"))
+    std::fs::read_to_string(dir.join(HOLDER_FILE))
         .ok()?
-        .read_to_string(&mut holder)
-        .ok()?;
-    holder.trim().parse().ok()
+        .trim()
+        .parse()
+        .ok()
 }
 
 /// Creates the data directory readable by its owner only, and closes an
