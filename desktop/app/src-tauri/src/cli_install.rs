@@ -286,10 +286,11 @@ fn copy(bundled: &Path, link: &Path) -> Result<(), String> {
 /// the next install otherwise.
 #[cfg(windows)]
 fn replace(partial: &Path, link: &Path) -> std::io::Result<()> {
+    let old = link.with_file_name(format!(".{PROGRAM}.old"));
+    // a copy an earlier install moved aside, once nothing runs it
+    let _ = std::fs::remove_file(&old);
     match std::fs::rename(partial, link) {
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied && link.is_file() => {
-            let old = link.with_file_name(format!(".{PROGRAM}.old"));
-            let _ = std::fs::remove_file(&old);
             std::fs::rename(link, &old)?;
             if let Err(e) = std::fs::rename(partial, link) {
                 let _ = std::fs::rename(&old, link);
