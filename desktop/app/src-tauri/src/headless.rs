@@ -167,6 +167,9 @@ mod tests {
                 contents.join("MacOS/Pinrail"),
                 contents.join("Resources/sdk/v1"),
             )
+        } else if cfg!(windows) {
+            // the NSIS installer puts the SDK beside the program
+            (root.path().join("Pinrail.exe"), root.path().join("sdk/v1"))
         } else {
             let usr = root.path().join("usr");
             (
