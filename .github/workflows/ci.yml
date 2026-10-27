@@ -1,6 +1,6 @@
 # Every push to main and every pull request that touches more than the site
 # and the prose: formatting, the dependencies' licences and sources, and the shell's type
-# check once, then on Linux and macOS clippy, the Rust tests, and the CLI
+# check once, then on Linux, macOS and Windows clippy, the Rust tests, and the CLI
 # and the shell driven end to end against the headless desktop core; the
 # plugins and the SDK package tested on their own. No release artifacts:
 # that is a workflow of its own.
@@ -108,10 +108,16 @@ jobs:
       fail-fast: false
       matrix:
         # Linux on x86-64, and on ARM64 once the repository is public,
-        # where GitHub's ARM64 runners are free; macos-latest is Apple silicon
-        os: ${{ fromJSON(github.event.repository.private && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest", "ubuntu-24.04-arm", "macos-latest"]') }}
+        # where GitHub's ARM64 runners are free; macos-latest is Apple
+        # silicon. Windows is tested here, though the release does not
+        # build it yet.
+        os: ${{ fromJSON(github.event.repository.private && '["ubuntu-latest", "macos-latest", "windows-latest"]' || '["ubuntu-latest", "ubuntu-24.04-arm", "macos-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    # the steps are written for a Unix shell, which is Git Bash on Windows
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -165,11 +171,15 @@ jobs:
         run: |
           cargo clippy --manifest-path cli/Cargo.toml --all-targets --locked
           cargo clippy --manifest-path desktop/Cargo.toml --workspace --all-targets --locked
+      # every test binary of both workspaces, so that one run shows every
+      # failure; the step fails at the end if any did
       - name: Rust tests
         run: |
-          cargo test --manifest-path cli/Cargo.toml --locked
-          cargo test --manifest-path desktop/Cargo.toml --workspace --locked
-          cargo test --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --locked --lib docs::
+          failed=0
+          cargo test --manifest-path cli/Cargo.toml --locked --no-fail-fast || failed=1
+          cargo test --manifest-path desktop/Cargo.toml --workspace --locked --no-fail-fast || failed=1
+          cargo test --manifest-path desktop/Cargo.toml -p pinrail-core --features docs --locked --lib docs:: || failed=1
+          exit $failed
       # the shell suite checks fixtures with the plugin SDK's harness, which
       # needs the package's own dependencies
       - name: Install Playwright
