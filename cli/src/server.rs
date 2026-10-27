@@ -3,8 +3,8 @@
 //! The running server writes `<data dir>/server.json`; that file, after
 //! `PINRAIL_URL` and `--url`, is how the CLI finds it, and `PINRAIL_PORT`
 //! decides the default when nothing is advertised. Starting one needs a
-//! command, `PINRAIL_SERVER_CMD`, run through `sh -c`: usually the desktop
-//! app's binary with `--headless`.
+//! command, `PINRAIL_SERVER_CMD`, run through `sh -c`, or `cmd /C` on
+//! Windows: usually the desktop app's binary with `--headless`.
 
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -126,6 +126,26 @@ pub fn ensure_running(explicit: Option<&str>) -> Result<Value> {
     start(&url)
 }
 
+/// `command` run by the system's shell: `sh -c` on Unix, `cmd /C` on Windows.
+fn shell(command: &str) -> Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // /S, and the command in quotes of its own: cmd then removes exactly
+        // those, and the quotes the command has, around a path with spaces,
+        // stay as they are
+        let mut cmd = Command::new("cmd");
+        cmd.raw_arg(format!("/S /C \"{command}\""));
+        cmd
+    }
+    #[cfg(not(windows))]
+    {
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", command]);
+        cmd
+    }
+}
+
 fn start(url: &str) -> Result<Value> {
     let Ok(command) = std::env::var("PINRAIL_SERVER_CMD") else {
         bail!("{}", not_answering(url));
@@ -142,9 +162,8 @@ fn start(url: &str) -> Result<Value> {
         .open(&log_path)
         .context("opening server.log")?;
 
-    let mut cmd = Command::new("sh");
-    cmd.args(["-c", &command])
-        .stdin(Stdio::null())
+    let mut cmd = shell(&command);
+    cmd.stdin(Stdio::null())
         .stdout(Stdio::from(log.try_clone()?))
         .stderr(Stdio::from(log))
         .env("PINRAIL_DATA_DIR", &dir);
@@ -153,6 +172,15 @@ fn start(url: &str) -> Result<Value> {
         use std::os::unix::process::CommandExt;
         // its own process group: it outlives this CLI invocation
         cmd.process_group(0);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // its own process group, so Ctrl+C in the terminal leaves it running,
+        // and no console window of its own
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW);
     }
     let mut child = cmd
         .spawn()

@@ -63,7 +63,8 @@ export function cliEnv(state: State = loadState()): NodeJS.ProcessEnv {
     // the SDK views load from /sdk/v1, as the shell's build writes it,
     // with its markdown parser and icons
     PINRAIL_SDK_DIR: path.join(root, "desktop", "app", "sdk", "v1"),
-    PINRAIL_SERVER_CMD: `exec "${state.desktopBin}" --headless --port ${state.port} --data-dir "${state.dataDir}"`,
+    // run by sh, or by cmd on Windows, which has no exec
+    PINRAIL_SERVER_CMD: `${process.platform === "win32" ? "" : "exec "}"${state.desktopBin}" --headless --port ${state.port} --data-dir "${state.dataDir}"`,
   };
   return env;
 }
