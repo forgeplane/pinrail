@@ -1391,6 +1391,17 @@ fn tempdir() -> TempDir {
     TempDir(dir)
 }
 
+/// The full path of `path` as the CLI writes it: resolved, and without the
+/// `\\?\` that Windows puts before a resolved drive path.
+fn full_path(path: &std::path::Path) -> std::path::PathBuf {
+    let resolved = path.canonicalize().unwrap();
+    let plain = resolved
+        .to_string_lossy()
+        .strip_prefix(r"\\?\")
+        .map(std::path::PathBuf::from);
+    plain.unwrap_or(resolved)
+}
+
 fn rand_suffix() -> u128 {
     use std::time::{SystemTime, UNIX_EPOCH};
     SystemTime::now()
@@ -2237,10 +2248,7 @@ fn plugins_install_sends_a_folder_as_its_full_path_with_dotdot_resolved() {
     let dir = tempdir();
     std::fs::create_dir_all(dir.join("work")).unwrap();
     std::fs::create_dir_all(dir.join("plugins/hello")).unwrap();
-    let expected = dir
-        .join("plugins/hello")
-        .canonicalize()
-        .unwrap()
+    let expected = full_path(&dir.join("plugins/hello"))
         .to_string_lossy()
         .to_string();
     let sent = Arc::new(Mutex::new(String::new()));
@@ -2459,13 +2467,12 @@ fn plugins_install_installs_an_official_plugin_by_name_unless_a_folder_has_it() 
     let sent = sent.lock().unwrap();
     assert_eq!(sent[0], serde_json::json!({"id": "list"}));
     assert_eq!(sent[1], serde_json::json!({"id": "forgeplane/feedback"}));
+    // its full path, as a person would write it: no `\\?\` on Windows
+    let source = sent[2]["source"].as_str().unwrap();
+    assert!(!source.starts_with(r"\\?\"), "{source}");
     assert!(
-        sent[2]["source"]
-            .as_str()
-            .unwrap()
-            .ends_with("/work/review"),
-        "{}",
-        sent[2]
+        std::path::Path::new(source).ends_with("work/review"),
+        "{source}"
     );
 }
 
@@ -2474,10 +2481,7 @@ fn plugins_install_sends_a_zip_as_its_full_path() {
     let dir = tempdir();
     std::fs::create_dir_all(dir.join("work")).unwrap();
     std::fs::write(dir.join("hello-1.0.0.zip"), "PK").unwrap();
-    let expected = dir
-        .join("hello-1.0.0.zip")
-        .canonicalize()
-        .unwrap()
+    let expected = full_path(&dir.join("hello-1.0.0.zip"))
         .to_string_lossy()
         .to_string();
     let sent = Arc::new(Mutex::new(Vec::new()));
@@ -2513,7 +2517,7 @@ fn plugins_new_prints_what_it_wrote_and_the_next_steps_on_stdout() {
     let (code, stdout, stderr) = run_in(&server, &dir, &["plugins", "new", "triage", "--markdown"]);
     assert_eq!(code, 0, "{stderr}");
     assert!(stderr.is_empty(), "{stderr}");
-    let written = dir.join("triage").canonicalize().unwrap();
+    let written = full_path(&dir.join("triage"));
     assert!(
         stdout.starts_with(&format!(
             "triage written to {}.\n\nNext:\n  1. Make the plugin in triage what is needed",
