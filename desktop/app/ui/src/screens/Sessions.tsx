@@ -202,7 +202,7 @@ export function SessionScreen() {
   );
   useTopBar(useMemo(() => ({ crumb }), [crumb]));
   return (
-    <div className="review-page">
+    <div className="review-page thread-page">
       <Thread key={`${agent}/${id}`} session={{ agent, id }} />
     </div>
   );

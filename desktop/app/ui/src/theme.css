@@ -2591,89 +2591,293 @@ body.is-resizing iframe {
   opacity: 0.7;
 }
 
-/* an agent session's thread: the questions it asked, as its messages, and
-   the reviews it sent, oldest first */
+/* an agent session's thread: a header across the page, the questions and
+   reviews it sent down the middle, oldest first, and what waits on the
+   person at the right; in the inbox's side panel, the timeline alone */
+/* the page holds still: only the timeline, and the panel at the right when
+   it is long, scroll */
+.app-main > .review-page.thread-page {
+  padding: 0;
+  overflow: hidden;
+}
+.review-page.thread-page {
+  min-height: 0;
+}
 .thread {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-width: 760px;
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
-  margin: 0 auto;
-}
-.thread.in-panel {
-  max-width: none;
 }
 .thread-head {
   display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 32px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.thread.in-panel .thread-head {
+  padding: 2px 0 12px;
+  gap: 10px;
+}
+.thread-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+.thread.in-panel .thread-avatar {
+  width: 28px;
+  height: 28px;
+}
+.thread-title {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.thread-title h1 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.thread.in-panel .thread-title h1 {
+  font-size: 14px;
+}
+.thread-in {
+  font-weight: 400;
+}
+.thread-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+}
+.thread-sub {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 14px;
+  gap: 4px 8px;
   font-size: 12px;
   color: var(--dim);
 }
-.thread-who {
+.thread-session {
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.thread-waiting {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.thread-waiting {
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--sev-major) 16%, transparent);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--sev-major) 14%, transparent);
   color: var(--sev-major);
   font-weight: 600;
+}
+.thread-waiting-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.thread-head-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: none;
+}
+.thread-counts {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--dim);
+  font-size: 12px;
+}
+.thread-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* the timeline, and under it the chat box that answers the questions */
+.thread-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+.thread-footer {
+  flex: none;
+  padding: 0 32px 18px;
+}
+.thread.in-panel .thread-footer {
+  padding: 0 0 4px;
+}
+.thread-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.thread-composer.is-idle .composer {
+  opacity: 0.6;
 }
 .thread-items {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 32px 0;
 }
-.thread-card {
+.thread-items > * {
+  flex: none;
+}
+/* room under the last message, which a scroll container's bottom padding
+   does not always give */
+.thread-items::after {
+  content: "";
+  flex: none;
+  height: 40px;
+}
+.thread.in-panel .thread-items {
+  padding: 16px 4px 0 0;
+}
+.thread-divider {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
-  border: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 12px;
+}
+.thread-divider::before,
+.thread-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.thread-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  flex: none;
+  overflow-y: auto;
+  width: 280px;
+  padding: 20px;
+  border-left: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.thread-aside section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.thread-aside h2 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.thread-aside p {
+  margin: 0;
+}
+.thread-aside-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--sev-major) 40%, var(--border));
   border-radius: 8px;
-  background: var(--bg-raised);
+  color: var(--text);
+  text-decoration: none;
+}
+.thread-aside-card:hover {
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+.thread-aside-card .text {
+  font-weight: 500;
+}
+.thread-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+.thread-facts dt {
+  color: var(--faint);
+}
+.thread-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* a review the session sent, in line with the messages */
+.thread-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 38px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   color: var(--text);
   font-size: 12.5px;
   text-decoration: none;
 }
 .thread-card:hover {
   border-color: var(--border-strong);
+  text-decoration: none;
 }
-.thread-card-title {
+.thread-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
   min-width: 0;
+}
+.thread-card-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
+  font-weight: 500;
 }
-.question-set {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.question-set.is-pending.is-active {
-  padding: 12px;
-  margin: -12px;
-  border-radius: 10px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sev-major) 45%, transparent);
-}
-.msg-pair {
-  display: flex;
-  flex-direction: column;
+.question-set .msg-col {
   gap: 8px;
 }
+/* one question: the agent's avatar, then who asked, the question in its
+   bubble and, once answered, the answer under it */
 .msg {
   display: flex;
-  gap: 10px;
-  max-width: 88%;
+  gap: 12px;
 }
 .msg-avatar {
   display: inline-flex;
@@ -2682,27 +2886,138 @@ body.is-resizing iframe {
   justify-content: center;
   width: 26px;
   height: 26px;
-  border-radius: 50%;
+  border-radius: 6px;
   background: var(--bg-raised);
   border: 1px solid var(--border);
+}
+.msg-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--dim);
+}
+.msg-meta .text {
+  color: var(--text);
+  font-weight: 500;
+}
+.msg-waiting {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--sev-major) 14%, transparent);
+  color: var(--sev-major);
+  font-size: 11.5px;
+}
+.msg-question-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .msg-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-width: 0;
-  padding: 9px 12px;
-  border-radius: 4px 12px 12px 12px;
-  background: var(--bg-raised);
+  gap: 10px;
+  padding: 10px 14px;
   border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-raised);
 }
-.msg-pair.is-current .msg-agent .msg-body {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+.msg-question-block.is-pending .msg-body {
+  border-color: color-mix(in srgb, var(--sev-major) 40%, var(--border));
+  cursor: default;
+}
+.msg-question-block.is-current .msg-body {
+  border-color: color-mix(in srgb, var(--sev-major) 75%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sev-major) 12%, transparent);
+}
+/* the question's place among several, as 2/3 */
+.msg-number {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  vertical-align: 1px;
+}
+/* in a narrow panel, the hint gives way before the buttons do */
+.thread-composer .composer-hint {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread-composer .handover-button {
+  flex: none;
+  white-space: nowrap;
+}
+/* what the person writes for one question, in its bubble: the answer, an
+   answer in their own words, or a note on their pick */
+.msg-reply {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.msg-reply:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.msg-reply textarea {
+  flex: 1;
+  overflow-y: hidden;
+  min-height: 24px;
+  max-height: 160px;
+  padding: 3px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  line-height: 1.45;
+  resize: none;
+}
+.msg-reply textarea:focus {
+  box-shadow: none;
+}
+.msg-reply textarea::placeholder {
+  color: var(--faint);
+}
+.msg-reply .composer-dictate {
+  margin: 0;
+}
+.set-comment {
+  margin-top: 2px;
+}
+.chip-clear {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.chip-clear:hover {
+  color: var(--text);
+  text-decoration: underline;
 }
 .msg-question {
   margin: 0;
-  font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 .msg-context {
   color: var(--dim);
@@ -2719,49 +3034,53 @@ body.is-resizing iframe {
   font-family: var(--mono);
   font-size: 11.5px;
 }
-.msg-person {
-  align-self: flex-end;
+.msg-answer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--dim);
 }
-.msg-person .msg-body {
-  border-radius: 12px 4px 12px 12px;
+.msg-answer-check {
+  color: var(--ok);
+}
+.msg-answer-text {
+  padding: 2px 8px;
+  border-radius: 5px;
   background: var(--accent-bg);
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-}
-.msg-person p {
-  margin: 0;
-  line-height: 1.45;
+  color: var(--text);
   white-space: pre-wrap;
 }
 .msg-own {
   font-style: italic;
 }
 .msg-note {
+  flex-basis: 100%;
+  margin: 0;
+  padding-left: 19px;
   color: var(--dim);
-  font-size: 12.5px;
-}
-.msg-when {
-  font-size: 11px;
 }
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 11px;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 14px;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  background: none;
+  border-radius: 6px;
+  background: var(--bg-hover);
   color: var(--text);
   font: inherit;
-  font-size: 12.5px;
   cursor: pointer;
 }
 .chip:hover {
-  background: var(--bg-hover);
+  border-color: var(--dim);
 }
 .chip.is-picked {
   border-color: var(--accent);
@@ -2776,48 +3095,6 @@ body.is-resizing iframe {
 .chip-star {
   color: var(--sev-major);
   fill: currentColor;
-}
-.reply {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  line-height: 1.45;
-  resize: vertical;
-}
-.reply-note {
-  font-size: 12.5px;
-}
-.msg-actions {
-  display: flex;
-  gap: 14px;
-  font-size: 12px;
-}
-.msg-actions .link-button {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--dim);
-  font: inherit;
-  cursor: pointer;
-}
-.msg-actions .link-button:hover {
-  color: var(--text);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.set-bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.set-age {
-  margin-right: auto;
-  font-size: 11.5px;
 }
 .set-ended {
   margin: 0;
