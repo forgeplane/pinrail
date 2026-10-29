@@ -12,7 +12,8 @@ use std::time::Duration;
 use chrono::{DateTime, Datelike, Utc};
 use serde_json::{Map, Value};
 
-use super::model::{Decision, Review, Source, Via, parse_datetime};
+use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
+use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{Db, Event, Filters, NotStored};
 use crate::error::{Error, Violation};
@@ -47,7 +48,9 @@ pub struct Reviews {
 /// A submission that passed every check, ready to store.
 struct Checked<'a> {
     attrs: &'a Map<String, Value>,
-    plugin: Arc<Plugin>,
+    kind: Kind,
+    /// the plugin that renders it; none for questions
+    plugin: Option<Arc<Plugin>>,
     payload: Value,
     attachments: Vec<ReviewAttachment>,
 }
@@ -109,15 +112,28 @@ impl Reviews {
     pub fn submit_once(&self, body: &Value, actor: Option<&str>) -> Result<(Review, bool), Error> {
         let Checked {
             attrs,
+            kind,
             plugin,
             payload,
             attachments,
         } = self.check(body, Presence::Stored)?;
+        let summary = match &plugin {
+            Some(plugin) => plugin
+                .summary
+                .request
+                .as_ref()
+                .and_then(|rules| rules.derive(&payload)),
+            None => questions::request_summary(&payload),
+        };
         let review = Review {
             id: crate::id::next(),
-            plugin: plugin.name.clone(),
-            plugin_version: plugin.version.clone(),
-            plugin_bundle: Some(self.bundle_of(&plugin)?),
+            kind,
+            plugin: plugin.as_ref().map(|p| p.name.clone()).unwrap_or_default(),
+            plugin_version: plugin
+                .as_ref()
+                .map(|p| p.version.clone())
+                .unwrap_or_default(),
+            plugin_bundle: plugin.as_deref().map(|p| self.bundle_of(p)).transpose()?,
             title: attrs["title"].as_str().unwrap_or_default().to_string(),
             origin: Review::normalize_origin(attrs.get("origin")),
             requested_by: attrs
@@ -137,11 +153,7 @@ impl Reviews {
                 .get("revises")
                 .and_then(Value::as_str)
                 .map(str::to_string),
-            summary: plugin
-                .summary
-                .request
-                .as_ref()
-                .and_then(|rules| rules.derive(&payload)),
+            summary,
             payload: Some(payload),
             decision: None,
             agent_note: None,
@@ -202,10 +214,10 @@ impl Reviews {
     }
 
     /// Runs every check a submission gets and stores nothing: the plugin
-    /// that would render the review, or the violations `submit` would give.
-    /// Attachments are checked as described, not for being uploaded, so a
-    /// dry run can come before the uploads.
-    pub fn validate(&self, body: &Value) -> Result<Arc<Plugin>, Error> {
+    /// that would render the review, none for questions, or the violations
+    /// `submit` would give. Attachments are checked as described, not for
+    /// being uploaded, so a dry run can come before the uploads.
+    pub fn validate(&self, body: &Value) -> Result<Option<Arc<Plugin>>, Error> {
         self.check(body, Presence::Described)
             .map(|checked| checked.plugin)
     }
@@ -214,31 +226,38 @@ impl Reviews {
         let Value::Object(attrs) = body else {
             return Err(Error::invalid("", "must be a JSON object"));
         };
-        self.envelope_violations(attrs)?;
-
-        let plugin_name = attrs["plugin"].as_str().unwrap_or_default();
-        self.capture(plugin_name)?;
-        let plugin = self.registry.fetch(plugin_name)?;
+        let kind = self.envelope_violations(attrs)?;
         let payload = attrs
             .get("payload")
             .cloned()
             .unwrap_or(Value::Object(Map::new()));
-        let violations: Vec<Violation> = plugin
-            .validate_payload(&payload)
-            .into_iter()
-            .map(|v| Violation::new(format!("/payload{}", v.path), v.message))
-            .collect();
+        let plugin = match kind {
+            Kind::Review => {
+                let plugin_name = attrs["plugin"].as_str().unwrap_or_default();
+                self.capture(plugin_name)?;
+                Some(self.registry.fetch(plugin_name)?)
+            }
+            Kind::Question => None,
+        };
+        let violations: Vec<Violation> = match &plugin {
+            Some(plugin) => plugin.validate_payload(&payload),
+            None => questions::check_payload(&payload),
+        }
+        .into_iter()
+        .map(|v| Violation::new(format!("/payload{}", v.path), v.message))
+        .collect();
         if !violations.is_empty() {
             return Err(Error::Invalid(violations));
         }
         let attachments = self.attachments.check(
             attrs.get("attachments"),
-            plugin.attachments.as_ref(),
+            plugin.as_ref().and_then(|p| p.attachments.as_ref()),
             &payload,
             presence,
         )?;
         Ok(Checked {
             attrs,
+            kind,
             plugin,
             payload,
             attachments,
@@ -329,22 +348,12 @@ impl Reviews {
         if shown.is_some() && shown != review.plugin_bundle.as_deref() {
             return Err(moved(id));
         }
-        let plugin = self
-            .registry
-            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
-        let violations = plugin.validate_decision(data);
-        if !violations.is_empty() {
-            return Err(Error::Invalid(violations));
-        }
+        let summary = self.judge(&review, data)?;
         let decision = Decision {
             decided_by: self.attributed(source),
             decided_at: Utc::now(),
             data: data.clone(),
-            summary: plugin
-                .summary
-                .outcome
-                .as_ref()
-                .and_then(|rules| rules.derive(data)),
+            summary,
             via: Some(source.via),
             session: source.session.clone(),
         };
@@ -371,6 +380,11 @@ impl Reviews {
     /// `refused` says why. An ended review keeps its version.
     pub fn open(&self, id: &str) -> Result<Opened, Error> {
         let review = self.get(id)?;
+        if review.kind == Kind::Question {
+            return Err(Error::NotFound(format!(
+                "a view for {id}: questions are shown with the app's own form"
+            )));
+        }
         let mut refused = None;
         if review.is_pending(Utc::now()) {
             self.capture(&review.plugin)?;
@@ -462,15 +476,38 @@ impl Reviews {
     }
 
     /// What `decide` would say of a decision, deciding nothing: the
-    /// review is there and the data passes its plugin's decision schema.
+    /// review is there and the data passes its plugin's decision schema,
+    /// or answers its questions.
     pub fn check_decision(&self, id: &str, data: &Value) -> Result<(), Error> {
         let review = self.get(id)?;
-        let plugin = self
-            .registry
-            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
-        let violations = plugin.validate_decision(data);
+        self.judge(&review, data).map(|_| ())
+    }
+
+    /// Checks a decision on `review`, by the plugin version it records or
+    /// against its questions, and gives the decision's summary.
+    fn judge(&self, review: &Review, data: &Value) -> Result<Option<Value>, Error> {
+        let (violations, summary) = match review.kind {
+            Kind::Question => {
+                let payload = review.payload.as_ref().unwrap_or(&Value::Null);
+                (
+                    questions::check_decision(payload, data),
+                    questions::outcome_summary(data),
+                )
+            }
+            Kind::Review => {
+                let plugin = self
+                    .registry
+                    .fetch_review(&review.plugin, review.plugin_bundle.as_deref())?;
+                let summary = plugin
+                    .summary
+                    .outcome
+                    .as_ref()
+                    .and_then(|rules| rules.derive(data));
+                (plugin.validate_decision(data), summary)
+            }
+        };
         if violations.is_empty() {
-            Ok(())
+            Ok(summary)
         } else {
             Err(Error::Invalid(violations))
         }
@@ -686,12 +723,41 @@ impl Reviews {
     }
 
     /// Envelope checks that run before the plugin's schema, all at once.
-    fn envelope_violations(&self, attrs: &Map<String, Value>) -> Result<(), Error> {
+    /// The envelope's violations, or the kind of review it submits.
+    fn envelope_violations(&self, attrs: &Map<String, Value>) -> Result<Kind, Error> {
         let mut violations = Vec::new();
-        for key in ["plugin", "title"] {
-            match attrs.get(key) {
+        let kind = match attrs.get("kind") {
+            None | Some(Value::Null) => Some(Kind::Review),
+            Some(value) => value.as_str().and_then(Kind::parse),
+        };
+        // an unknown kind is said alone: whether a plugin is needed depends on it
+        let required: &[&str] = match kind {
+            Some(Kind::Review) => &["plugin", "title"],
+            Some(Kind::Question) => &["title"],
+            None => {
+                violations.push(Violation::new("/kind", "must be review or question"));
+                &["title"]
+            }
+        };
+        let kind = kind.unwrap_or_default();
+        for key in required {
+            match attrs.get(*key) {
                 Some(Value::String(s)) if !s.is_empty() => {}
                 _ => violations.push(Violation::new(format!("/{key}"), "is required")),
+            }
+        }
+        if kind == Kind::Question {
+            if attrs.get("plugin").is_some_and(|p| !p.is_null()) {
+                violations.push(Violation::new(
+                    "/plugin",
+                    "is not taken by questions, which the app shows with its own form",
+                ));
+            }
+            if attrs.get("revises").is_some_and(|r| !r.is_null()) {
+                violations.push(Violation::new(
+                    "/revises",
+                    "is not taken by questions; withdraw them and ask again",
+                ));
             }
         }
         match attrs.get("expires_at") {
@@ -709,6 +775,7 @@ impl Reviews {
         // round revises the latest round, never one that has a newer round
         match attrs.get("revises") {
             None | Some(Value::Null) => {}
+            Some(_) if kind == Kind::Question => {}
             Some(Value::String(id)) => match self.db.plugin_of(id)? {
                 None => {
                     violations.push(Violation::new("/revises", format!("unknown review {id}")));
@@ -767,7 +834,7 @@ impl Reviews {
             }
         }
         if violations.is_empty() {
-            Ok(())
+            Ok(kind)
         } else {
             Err(Error::Invalid(violations))
         }

@@ -7,7 +7,7 @@ use std::path::Path;
 use chrono::{Duration, Utc};
 use pinrail_core::attachments::ReviewAttachment;
 use pinrail_core::db::{Db, Filters, LATEST_MIGRATION, NotStored};
-use pinrail_core::reviews::{Decision, Review, Source, Status};
+use pinrail_core::reviews::{Decision, Kind, Review, Source, Status};
 use serde_json::{Map, json};
 
 fn review(id: &str, expires_in: Option<Duration>) -> Review {
@@ -15,6 +15,7 @@ fn review(id: &str, expires_in: Option<Duration>) -> Review {
         attachments: Vec::new(),
         attachments_total: (0, 0),
         id: id.into(),
+        kind: Kind::Review,
         plugin: "list".into(),
         plugin_version: "1.0.0".into(),
         plugin_bundle: None,

@@ -177,4 +177,47 @@ mod tests {
             "{error}"
         );
     }
+
+    /// The reviews stored before questions are reviews of the kind
+    /// `review`, and only a question has no plugin.
+    #[test]
+    fn a_question_alone_has_no_plugin() {
+        let conn = Connection::open_in_memory().unwrap();
+        assert!(MIGRATIONS.iter().any(|m| m.1 == "review_kind"));
+        let before: Vec<Migration> = MIGRATIONS
+            .iter()
+            .filter(|m| m.1 != "review_kind")
+            .copied()
+            .collect();
+        run(&conn, &before).unwrap();
+        let insert = |id: &str, plugin: &str, kind: Option<&str>| {
+            let sql = match kind {
+                Some(_) => {
+                    "INSERT INTO reviews (id, plugin, title, origin, created_at, kind) \
+                            VALUES (?1, ?2, 't', '{}', '2026-10-29T00:00:00Z', ?3)"
+                }
+                None => {
+                    "INSERT INTO reviews (id, plugin, title, origin, created_at) \
+                         VALUES (?1, ?2, 't', '{}', '2026-10-29T00:00:00Z')"
+                }
+            };
+            match kind {
+                Some(kind) => conn.execute(sql, params![id, plugin, kind]),
+                None => conn.execute(sql, params![id, plugin]),
+            }
+        };
+        insert("r_old", "list", None).unwrap();
+        run(&conn, MIGRATIONS).unwrap();
+
+        let kind: String = conn
+            .query_row("SELECT kind FROM reviews WHERE id = 'r_old'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(kind, "review");
+        insert("r_question", "", Some("question")).unwrap();
+        assert!(insert("r_no_plugin", "", Some("review")).is_err());
+        assert!(insert("r_plugin_question", "list", Some("question")).is_err());
+        assert!(insert("r_other", "list", Some("message")).is_err());
+    }
 }

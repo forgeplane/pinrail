@@ -61,7 +61,11 @@ pub fn render_in(
 
     // where it sits: plugin · repo · workflow · ref · round n of m
     let origin = &review["origin"];
-    let mut place: Vec<String> = vec![review["plugin"].as_str().unwrap_or("").to_string()];
+    let what = match review["kind"].as_str() {
+        Some("question") => "questions",
+        _ => review["plugin"].as_str().unwrap_or(""),
+    };
+    let mut place: Vec<String> = vec![what.to_string()];
     for key in ["repo", "workflow", "ref"] {
         if let Some(v) = origin[key].as_str().filter(|s| !s.is_empty()) {
             place.push(v.to_string());

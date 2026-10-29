@@ -19,7 +19,7 @@ use super::parse_body;
 use crate::Pinrail;
 use crate::error::Error;
 use crate::markdown::Head;
-use crate::reviews::{Filters, Source, Status, Via};
+use crate::reviews::{Filters, Kind, Source, Status, Via};
 
 const DEFAULT_WAIT: u64 = 300;
 const MAX_WAIT: u64 = 600;
@@ -53,14 +53,16 @@ async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Respon
 }
 
 /// The checks a submission gets, with nothing stored: 200 naming the plugin
-/// version that would render it, or the 422 `submit` would answer.
+/// version that would render it, none for questions, or the 422 `submit`
+/// would answer.
 async fn validate(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Json<Value>, ApiError> {
     let body = parse_body(&body)?;
     let plugin = state.reviews().validate(&body)?;
     Ok(Json(json!({
         "valid": true,
-        "plugin": plugin.name,
-        "plugin_version": plugin.version,
+        "kind": if plugin.is_some() { Kind::Review } else { Kind::Question }.as_str(),
+        "plugin": plugin.as_ref().map(|p| p.name.clone()),
+        "plugin_version": plugin.as_ref().map(|p| p.version.clone()),
     })))
 }
 
@@ -145,11 +147,14 @@ async fn review_response(
                 .map(|i| (i + 1, rounds.len()))
         })
         .flatten();
-    let template = state
-        .plugins()
-        .fetch_review(&review.plugin, review.plugin_bundle.as_deref())
-        .ok()
-        .and_then(|p| p.decision_template.clone());
+    let template = match review.kind {
+        Kind::Question => Some(crate::reviews::questions::TEMPLATE.to_string()),
+        Kind::Review => state
+            .plugins()
+            .fetch_review(&review.plugin, review.plugin_bundle.as_deref())
+            .ok()
+            .and_then(|p| p.decision_template.clone()),
+    };
     let json = review.to_json(true);
     let text = tokio::task::spawn_blocking(move || {
         crate::markdown::render_in(&json, round, template.as_deref(), None, head)
@@ -366,9 +371,17 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
         }
     }
     let text = |key: &str| params.get(key).filter(|v| !v.is_empty()).cloned();
+    let kind = match text("kind") {
+        None => None,
+        Some(name) => Some(
+            Kind::parse(&name)
+                .ok_or_else(|| Error::invalid("/kind", format!("unknown kind {name}")))?,
+        ),
+    };
     Ok(Filters {
         statuses,
         plugin: text("plugin"),
+        kind,
         repo: text("repo"),
         workflow: text("workflow"),
         reference: text("ref"),

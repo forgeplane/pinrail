@@ -41,6 +41,32 @@ impl Status {
     }
 }
 
+/// What a review is: a plugin's review, or questions an agent asks with
+/// `pinrail ask`, which have no plugin and the app's own form.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Kind {
+    #[default]
+    Review,
+    Question,
+}
+
+impl Kind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Kind::Review => "review",
+            Kind::Question => "question",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "review" => Some(Kind::Review),
+            "question" => Some(Kind::Question),
+            _ => None,
+        }
+    }
+}
+
 /// Where a decision or a discard was made: in the app, with the `pinrail`
 /// CLI, or by another client of the API. It is what the client says, and
 /// the API has no authentication, so it is not proof; it makes an honest
@@ -116,7 +142,8 @@ pub struct Decision {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Review {
     pub id: String,
-    /// the plugin's name, such as `list`
+    pub kind: Kind,
+    /// the plugin's name, such as `list`; empty for questions
     pub plugin: String,
     /// the exact version it was submitted to, `1.2.3`
     pub plugin_version: String,
@@ -182,6 +209,7 @@ impl Review {
     pub fn to_json(&self, with_payload: bool) -> Value {
         let mut map = json!({
             "id": self.id,
+            "kind": self.kind.as_str(),
             "plugin": self.plugin,
             "plugin_version": self.plugin_version,
             "plugin_bundle": self.plugin_bundle,
@@ -279,6 +307,7 @@ mod tests {
             attachments: Vec::new(),
             attachments_total: (0, 0),
             id: "r_1".into(),
+            kind: Kind::Review,
             plugin: "list".into(),
             plugin_version: "1.0.0".into(),
             plugin_bundle: None,

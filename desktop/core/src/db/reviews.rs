@@ -7,12 +7,14 @@ use serde_json::{Map, Value};
 
 use super::Db;
 use super::events::insert_event;
-use crate::reviews::{Decision, Review, Status, Via, parse_datetime};
+use crate::reviews::{Decision, Kind, Review, Status, Via, parse_datetime};
 
 #[derive(Debug, Default, Clone)]
 pub struct Filters {
     pub statuses: Vec<Status>,
     pub plugin: Option<String>,
+    /// Only questions, or only plugins' reviews.
+    pub kind: Option<crate::reviews::Kind>,
     pub repo: Option<String>,
     pub workflow: Option<String>,
     pub reference: Option<String>,
@@ -191,8 +193,8 @@ fn insert_in(
     }
     {
         tx.execute(
-            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session)
-             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12)",
+            "INSERT INTO reviews (id, plugin, plugin_bundle, plugin_version, title, origin, requested_by, summary, revises, expires_at, created_at, session, kind)
+             VALUES (?1, ?2, ?3, ?11, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?12, ?13)",
             params![
                 review.id,
                 review.plugin,
@@ -204,8 +206,10 @@ fn insert_in(
                 review.revises,
                 review.expires_at.map(crate::reviews::iso),
                 crate::reviews::iso(review.created_at),
-                review.plugin_version,
+                // a question has no plugin, nor a version of one
+                Some(&review.plugin_version).filter(|v| !v.is_empty()),
                 review.session,
+                review.kind.as_str(),
             ],
         )?;
         tx.execute(
@@ -411,6 +415,10 @@ impl Db {
                 sql.push_str(&format!(" AND {column} = ?{n}"));
             }
         }
+        if let Some(kind) = filters.kind {
+            let n = push(kind.as_str());
+            sql.push_str(&format!(" AND r.kind = ?{n}"));
+        }
         // Every word somewhere among what a list shows: the title, the
         // plugin, who asked, where it came from, who decided. Not the
         // payload, which can be large and would match almost anything.
@@ -600,7 +608,8 @@ fn select(with_payload: bool) -> String {
     (SELECT coalesce(sum(a.size), 0) FROM review_attachments a WHERE a.review_id = r.id),
     o.summary,
     r.session,
-    o.via, o.session
+    o.via, o.session,
+    r.kind
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id{join}"
     )
@@ -695,6 +704,7 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
         attachments: Vec::new(),
         attachments_total,
         id: row.get(0)?,
+        kind: Kind::parse(&row.get::<_, String>(24)?).unwrap_or_default(),
         plugin: row.get(1)?,
         plugin_bundle: row.get(2)?,
         plugin_version: plugin_version.unwrap_or_default(),
