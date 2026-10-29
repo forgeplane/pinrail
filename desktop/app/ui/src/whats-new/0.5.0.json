@@ -1,0 +1,25 @@
+{
+  "version": "0.5.0",
+  "cards": [
+    {
+      "title": "Agents ask you questions",
+      "text": "An agent asks with pinrail ask, and its questions wait in your inbox. Pick a choice or answer in your own words, add a note to any answer, and send them back together.",
+      "image": "ask-thread",
+      "alt": "An agent session's thread: waiting questions with their choices, a note on the first answer, and the box for a comment to the agent",
+      "action": {
+        "label": "Open the inbox",
+        "to": "/"
+      }
+    },
+    {
+      "title": "Every agent session in one place",
+      "text": "The new Sessions page lists each agent session that asked you something or sent a review, those waiting for you first. A session opens as a thread of its questions and reviews.",
+      "image": "sessions",
+      "alt": "The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity",
+      "action": {
+        "label": "Open Sessions",
+        "to": "/sessions"
+      }
+    }
+  ]
+}

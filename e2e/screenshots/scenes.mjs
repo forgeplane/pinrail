@@ -207,6 +207,33 @@ export const scenes = [
       await shot("plugin-skills");
     },
   },
+
+  // What's new in 0.5.0
+  {
+    // questions an agent asked with pinrail ask, waiting in its session's thread
+    name: "ask-thread",
+    async run({ page, app, reviews, shot }) {
+      await card(page);
+      await page.goto(`${app.ui}/#/reviews/${reviews["40-ask-commit"]}`);
+      await page.getByTestId("question-set").last().waitFor();
+      await page.keyboard.press("2");
+      await page.getByRole("textbox", { name: /^Note on CI's rustfmt check/ }).fill("then run the CLI tests");
+      await page.locator("body").click({ position: { x: 5, y: 5 } });
+      await settle(page, 500);
+      await shot("ask-thread");
+    },
+  },
+  {
+    // the agents' sessions, those waiting for the person first
+    name: "sessions",
+    async run({ page, app, shot }) {
+      await card(page);
+      await page.goto(`${app.ui}/#/sessions`);
+      await page.getByTestId("session-row").first().waitFor();
+      await settle(page, 400);
+      await shot("sessions");
+    },
+  },
   {
     name: "inbox",
     async run({ page, app, shot }) {

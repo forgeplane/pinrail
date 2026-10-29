@@ -1,0 +1,19 @@
+{
+  "kind": "question",
+  "title": "Which Node version should CI test against?",
+  "origin": { "repo": "acme/web", "ref": "ci-matrix" },
+  "requested_by": "codex",
+  "session": "019a2b3c-8e1f-7d20-b5c4-6a9e0f3d2c18",
+  "age": "12m",
+  "payload": {
+    "questions": [
+      {
+        "id": "q1",
+        "question": "Which Node versions should CI test against?",
+        "answer": "choices",
+        "choices": ["20", "22", "24"],
+        "recommended": "22"
+      }
+    ]
+  }
+}

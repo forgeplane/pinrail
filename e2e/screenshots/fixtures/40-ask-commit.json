@@ -1,0 +1,31 @@
+{
+  "kind": "question",
+  "title": "Fix the rustfmt failure in a new commit or amend? and 2 more",
+  "origin": { "repo": "forgeplane/pinrail", "ref": "work-items" },
+  "requested_by": "claude-code",
+  "session": "7f3a9c21-5d4e-4b8a-9c11-2f6e8d0a4b37",
+  "age": "3m",
+  "payload": {
+    "questions": [
+      {
+        "id": "q1",
+        "question": "CI's rustfmt check fails on cli/src/main.rs. Fix it in a new commit, or amend and force-push?",
+        "answer": "choice",
+        "choices": ["New commit", "Amend and force-push"],
+        "recommended": "Amend and force-push",
+        "context": "The commit is already pushed to `work-items`, which **nobody else** uses yet."
+      },
+      {
+        "id": "q2",
+        "question": "Run the end-to-end suite before pushing?",
+        "answer": "yes-no",
+        "recommended": "yes"
+      },
+      {
+        "id": "q3",
+        "question": "Anything else to fold into the commit?",
+        "answer": "text"
+      }
+    ]
+  }
+}

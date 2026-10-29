@@ -1,0 +1,21 @@
+{
+  "kind": "question",
+  "title": "Should work item numbers be unique per project or across the whole database?",
+  "origin": { "repo": "forgeplane/pinrail", "ref": "work-items" },
+  "requested_by": "claude-code",
+  "session": "7f3a9c21-5d4e-4b8a-9c11-2f6e8d0a4b37",
+  "age": "40m",
+  "payload": {
+    "questions": [
+      {
+        "id": "q1",
+        "question": "Should work item numbers be unique per project or across the whole database?",
+        "answer": "choice",
+        "choices": ["Per project", "Across the database"],
+        "recommended": "Per project"
+      }
+    ]
+  },
+  "decision": { "answers": [{ "id": "q1", "choice": "Per project", "note": "like GitHub issues" }] },
+  "decided": "38m"
+}

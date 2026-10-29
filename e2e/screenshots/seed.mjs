@@ -1,8 +1,9 @@
 // Fills the app with the reviews in fixtures/, in the order and at the ages
 // they say, then pins every time and id. A fixture is
-// `{ plugin, title, origin, requested_by, age, payload }` and, for one that
-// has ended, `decision` (with an optional `note` to the agent), `discard` or
-// `withdraw` (the reason), with `decided` saying when. `revises` names the
+// `{ plugin, title, origin, requested_by, age, payload }`, with `kind` in
+// place of `plugin` for questions, and, for one that has ended, `decision`
+// (with an optional `note` to the agent), `discard` or `withdraw` (the
+// reason), with `decided` saying when. `revises` names the
 // fixture a round answers. `age` and `decided` are how long before NOW, as
 // "4m", "2h" or "3d". `attachments` names files the review carries by path,
 // relative to the fixture, `{ "pivot.glb": { "path": "…" } }`: each is
@@ -99,7 +100,8 @@ export async function seed(app) {
   const created = {};
   for (const f of fixtures()) {
     const review = await app.api("POST", "/api/v1/reviews", {
-      plugin: f.plugin,
+      // questions asked with `pinrail ask` have a kind and no plugin
+      ...(f.kind ? { kind: f.kind } : { plugin: f.plugin }),
       title: f.title,
       origin: f.origin,
       requested_by: f.requested_by,
