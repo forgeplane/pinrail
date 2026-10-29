@@ -55,6 +55,12 @@ describe("pick", () => {
     expect(pick(checks, { choices: ["lint", "tests"] }, "lint")).toEqual({ choices: ["tests"] });
   });
 
+  test("unpicks the choice picked, or the yes or no given", () => {
+    expect(pick(where, { choice: "staging", note: "n" }, "staging")).toEqual({ note: "n" });
+    expect(pick(keep, { yes: true }, "yes")).toEqual({});
+    expect(pick(keep, { yes: false }, "yes")).toEqual({ yes: true });
+  });
+
   test("answers yes or no", () => {
     expect(pick(keep, undefined, "yes")).toEqual({ yes: true });
     expect(pick(keep, { yes: true, note: "n" }, "no")).toEqual({ yes: false, note: "n" });

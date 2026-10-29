@@ -262,6 +262,10 @@ test("the question picked keeps its keys, and a key pick moves on to the next", 
   await page.keyboard.press("2");
   await expect(first.getByRole("radio", { name: "production" })).toHaveAttribute("aria-checked", "true");
   await expect(second.locator(".chip-key")).toHaveText(["Y", "N"]);
+  // a second click on the pick unpicks it
+  await first.getByRole("radio", { name: "production" }).click();
+  await expect(first.getByRole("radio", { name: "production" })).toHaveAttribute("aria-checked", "false");
+  await expect(page.getByTestId("send-answers")).toHaveText(/Send, 3 unanswered/);
 });
 
 test("an agent asking with pinrail ask gets the answers and the comment written in the app", async ({ page }) => {

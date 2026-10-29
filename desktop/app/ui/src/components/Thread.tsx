@@ -374,8 +374,11 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
   const picked = useCallback(
     (index: number, value: string, advance: boolean) => {
       const question = questions[index];
-      change(question.id, pick(question, drafts[question.id], value));
-      if (!advance || question.answer === "choices") return;
+      const next = pick(question, drafts[question.id], value);
+      change(question.id, next);
+      // an unpick stays on the question
+      const answered = unanswered([question], { [question.id]: next }) === 0;
+      if (!advance || !answered || question.answer === "choices") return;
       const after = questions.findIndex((q, i) => i > index && unanswered([q], { [q.id]: drafts[q.id] ?? {} }) === 1);
       if (after >= 0) setCurrent(after);
     },

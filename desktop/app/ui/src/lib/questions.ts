@@ -52,7 +52,8 @@ export function unanswered(questions: Question[], drafts: Record<string, Draft>)
 }
 
 /** The draft after the person picks `value`: a choice, a toggle among
- *  several, or yes or no. Picking leaves their own words. */
+ *  several, or yes or no. Picking what is picked already unpicks it, and
+ *  picking leaves their own words. */
 export function pick(question: Question, draft: Draft | undefined, value: string): Draft {
   const next: Draft = { ...draft };
   if (draft?.own) next.own = false;
@@ -64,10 +65,12 @@ export function pick(question: Question, draft: Draft | undefined, value: string
       break;
     }
     case "yes-no":
-      next.yes = value === "yes";
+      if (!draft?.own && draft?.yes === (value === "yes")) delete next.yes;
+      else next.yes = value === "yes";
       break;
     default:
-      next.choice = value;
+      if (!draft?.own && draft?.choice === value) delete next.choice;
+      else next.choice = value;
   }
   return next;
 }
