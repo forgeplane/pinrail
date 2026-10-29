@@ -316,3 +316,20 @@ test("an agent asking with pinrail ask gets the answers and the comment written 
       "Comment: thanks for asking\n",
   );
 });
+
+test("a question that takes several choices says so", async ({ page }) => {
+  await openReviewsIn(page.request, "page");
+  await clearInbox(page.request);
+  const { id } = await send(page.request, {
+    ...asked(fresh(), "Several: checks"),
+    payload: {
+      questions: [
+        { id: "q1", question: "Which checks?", answer: "choices", choices: ["lint", "tests"] },
+        { id: "q2", question: "Which one?", answer: "choice", choices: ["a", "b"] },
+      ],
+    },
+  });
+  await page.goto(`/#/reviews/${id}`);
+  await expect(question(page, "Which checks?")).toContainText("Select all that apply");
+  await expect(question(page, "Which one?")).not.toContainText("Select all that apply");
+});

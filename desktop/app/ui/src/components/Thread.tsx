@@ -589,6 +589,7 @@ function QuestionMessage({
                 ) : null}
                 {question.answer === "yes-no" ? (value === "yes" ? "Yes" : "No") : value}
                 {question.recommended === value ? (
+        {pending && question.answer === "choices" ? <span className="msg-hint">Select all that apply</span> : null}
                   <Star size={11} className="chip-star" aria-label="recommended" />
                 ) : null}
               </button>

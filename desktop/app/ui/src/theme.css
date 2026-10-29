@@ -3002,6 +3002,11 @@ body.is-resizing iframe {
 .set-comment {
   margin-top: 2px;
 }
+.msg-hint {
+  margin-bottom: -4px;
+  color: var(--faint);
+  font-size: 12px;
+}
 .chip-clear {
   padding: 0;
   border: 0;
