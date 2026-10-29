@@ -1,9 +1,9 @@
 ---
 title: The CLI
-description: "The pinrail command, in use: submitting a review, waiting for the decision, and everything around it."
+description: "The pinrail command, in use: asking questions, submitting a review, waiting for the decision, and everything around it."
 ---
 
-`pinrail` is the command an agent uses to ask a person before it acts. It sends a review to the Pinrail app on your machine, waits while you decide, and prints the decision: as markdown for an agent to read, or as JSON for a script to branch on.
+`pinrail` is the command an agent uses to ask a person before it acts. It sends questions or a review to the Pinrail app on your machine, waits while you answer, and prints the answer: as markdown for an agent to read, or as JSON for a script to branch on.
 
 ```sh
 pinrail submit code-review --title "Dedup tickets on save — round 1" \
@@ -67,6 +67,49 @@ Like `submit`, `describe` can start a server when none is running, if `PINRAIL_S
 :::tip[Point the agent at it]
 An agent that runs `pinrail plugins`, then `pinrail plugins describe <name>`, can choose a plugin, read that plugin in full, and write its payload without a person spelling any of it out.
 :::
+
+## Asking questions
+
+`pinrail ask` sends one or more short questions, waits for the answers and prints them. It needs no plugin and no payload file: each question is an argument, followed by its own options.
+
+```sh
+pinrail ask "Deploy to staging or production?" \
+  --choice staging --choice production --recommend staging \
+  --ask "Keep the old endpoint for a release?" --yes-no \
+  --ask "What should the new endpoint be called?"
+```
+
+```text title="What the agent reads"
+1. Deploy to staging or production?
+staging
+Note: production after the release notes are merged.
+
+2. Keep the old endpoint for a release?
+yes
+
+3. What should the new endpoint be called?
+Not answered.
+
+Comment: Thanks for asking first.
+```
+
+| Option | Meaning |
+|---|---|
+| `<question>` | The first question, as one line of plain text, up to 300 characters. |
+| `--ask <question>` | Another question. The options after it, up to the next `--ask`, apply to it. Up to 10 questions in all. |
+| `--choice <text>` | An answer the person can pick, given once for each choice, at least twice. A choice can contain spaces and commas. Without it, the person types the answer. |
+| `--multiple` | With `--choice`: the person can pick more than one. |
+| `--yes-no` | A question answered with yes or no. |
+| `--recommend <choice>` | The answer the agent would choose, shown as recommended. |
+| `--context <markdown>` | More detail, shown below the question. `-` reads it from stdin, and `@<file>` from a file. |
+| `--title <text>` | The title in the inbox. Without it, the title is the first question. |
+| `--data <json>` | The questions as JSON, `{"questions": [...]}`, in place of the options above. |
+
+The questions in one command are independent: the person answers them in any order, in the session's thread in the app. They can answer a question with choices in their own words, add a note to an answer, leave a question unanswered, and comment on the questions as a whole. With one question, the command prints only its answer. With `--json`, it prints the whole review: the answers are in `decision.data.answers`, and the comment in `agent_note`.
+
+When a question depends on the answer to another, ask the first, then the next with another `pinrail ask`. For questions that depend on each other, or that need a long explanation each, the `feedback` plugin fits better.
+
+`pinrail ask` always waits, and exits as `submit --wait` does: `5` when the person declines to answer. `pinrail show`, `wait`, `withdraw` and `list` work on questions as they do on reviews.
 
 ## Submitting a review
 

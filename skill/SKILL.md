@@ -1,6 +1,6 @@
 ---
 name: pinrail
-description: Submit a review to the person through Pinrail and wait for their decision, or build a Pinrail plugin. Use when a prompt, a skill or your instructions tell you to ask, check with, or get approval from the person through Pinrail.
+description: Ask the person questions or submit a review to them through Pinrail and wait for their answer, or build a Pinrail plugin. Use when you need an answer only the person can give, or when a prompt, a skill or your instructions tell you to ask, check with, or get approval from the person through Pinrail.
 metadata:
   managed-by: Pinrail
   sha: {sha}
@@ -9,15 +9,43 @@ metadata:
 
 # Pinrail
 
-Pinrail is an app on this computer where a person reviews what an agent
-proposes and decides. You submit a review with the `pinrail` command,
-which waits until the person decides in the app and then prints their
-decision. Ask at the moments your instructions name, not in chat, and do
-not go ahead without the answer.
+Pinrail is an app on this computer where a person answers an agent's
+questions and reviews what it proposes. You ask with `pinrail ask` and
+submit a review with `pinrail submit`. Both wait until the person answers
+in the app, then print the answer. Whenever you need the person to answer
+something, ask through Pinrail, not in chat, and do not go ahead without
+the answer.
 
 If your shell does not find `pinrail`, stop and ask the person to install
 the Pinrail command line from the Pinrail app, in Settings › Data. Do not
 look for it elsewhere or install it yourself.
+
+## Asking questions
+
+When you are blocked on something only the person can answer, such as a
+choice between options, a missing fact or a preference, ask with
+`pinrail ask`:
+
+```sh
+pinrail ask "Deploy to staging or production?" \
+  --choice staging --choice production --recommend staging \
+  --ask "Keep the old endpoint for a release?" --yes-no \
+  --ask "What should the new endpoint be called?"
+```
+
+- Each question takes the options after it, up to the next `--ask`:
+  `--choice` once per answer to pick from, `--multiple` to allow several,
+  `--yes-no`, `--recommend` for the answer you would choose, and
+  `--context` for Markdown that explains it. Without choices, the person
+  answers in words.
+- Ask up to 10 independent questions at once. A question that depends on
+  another's answer goes in a later `pinrail ask`. For questions that
+  depend on each other or need long explanations, use the `feedback`
+  plugin.
+- The command waits, then prints each answer under its question. The
+  person may answer in their own words, add notes, comment on them all,
+  or leave a question unanswered, which is not a decision.
+- The exit codes are those below; `5` means the person declined.
 
 ## Submitting
 
@@ -91,10 +119,9 @@ pinrail submit <plugin> --title "<title>" --data payload.json --attach render.pn
 `--attach PATH` sends a file under its own name, and `--attach PATH=NAME`
 under the name the payload uses.
 
-## Several questions
+## Several reviews
 
-If the plugin takes several questions or items in one review, send them
-together. Otherwise submit each without `--wait`, then run
+If the plugin takes several items in one review, send them together. Otherwise submit each without `--wait`, then run
 `pinrail wait <id>` on each. Every wait exits with its own code.
 
 `pinrail show <id>` prints where a review stands. `pinrail withdraw <id>
@@ -118,7 +145,8 @@ returns the decision you need: a diff view does not make a plugin fit for
 approving a commit if it does not return an approval. Do not bend the task
 to fit a schema, or make up an item just to have something to decide on.
 Most people have `list`, for items to accept or reject one by one, and
-`feedback`, for questions only the person can answer.
+`feedback`, for questions that depend on each other or need more context
+than `pinrail ask` gives.
 
 If no plugin returns the decision you need, build one for the task, as
 [building a plugin](references/building.md) describes. Installing someone
@@ -153,7 +181,8 @@ put the payload's shape in the rule itself.
 
 ## Rules
 
-- Never decide or discard a review you submitted. The person does.
+- Never decide or discard a review you submitted, or answer the questions
+  you asked. The person does.
 - Every command explains itself: `pinrail <command> --help`.
 
 ## More

@@ -17,7 +17,7 @@ flowchart LR
 
 ## Start with the Pinrail skill
 
-In *Settings › Agents*, choose *Connect* next to your agent. Pinrail installs a global skill named `pinrail` that teaches the agent how to use Pinrail: how to submit a review and wait for it, how to read your decision, how to send a new round when you ask for changes, and what to do when you discard a review. See [Settings](/docs/using/settings/#agents).
+In *Settings › Agents*, choose *Connect* next to your agent. Pinrail installs a global skill named `pinrail` that teaches the agent how to use Pinrail: how to ask you questions with `pinrail ask` instead of in the chat, how to submit a review and wait for it, how to read your decision, how to send a new round when you ask for changes, and what to do when you discard a review. See [Settings](/docs/using/settings/#agents).
 
 ![Settings, Agents: the agents Pinrail found on this computer, with the pinrail skill connected to some of them.](screenshot:settings-agents "Claude Code and Cursor are connected, OpenCode uses Claude Code's skill, and Codex is ready to connect.")
 
@@ -142,7 +142,9 @@ The app shows the new round with your previous verdicts beside each item, so you
 
 ## Several questions at once
 
-Questions that belong together go in one review: the `feedback` plugin takes several groups of questions answered in one pass, and `list` groups items under headings. When the questions are independent, or need different plugins, the agent submits each one without `--wait`, then waits on them:
+Short, independent questions go in one `pinrail ask`, up to 10 of them, which you answer in the session's thread in the app. Questions that depend on each other, or need a long explanation each, go in one review with the `feedback` plugin, which takes several groups of questions answered in one pass; `list` groups items under headings. See [Asking questions](/docs/agents/cli/#asking-questions).
+
+When the reviews are independent, or need different plugins, the agent submits each one without `--wait`, then waits on them:
 
 ```sh
 a=$(pinrail submit code-review --title "Dedup tickets on save" --data review.json --json | jq -r .id)
