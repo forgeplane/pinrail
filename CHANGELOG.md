@@ -9,6 +9,26 @@ wait for a release, and takes the version's name when it is tagged.
 
 The `pinrail` command ships inside the app and carries the app's version.
 
+## [Unreleased]
+
+### Added
+
+- `pinrail ask` asks you one or more questions and prints your answers.
+  Each question can offer choices, ask for yes or no, or take an answer
+  in words, and you answer in the app.
+- Questions open in a thread of the agent's session, beside its earlier
+  questions and reviews. Pick a choice or answer in your own words, add a
+  note to an answer, and comment on all the questions at once.
+- A Sessions page lists the agent sessions that asked you questions or
+  sent reviews, those waiting for you first. The sidebar lists the
+  sessions waiting for you.
+- Questions in the inbox are marked apart from reviews.
+
+### Changed
+
+- The `pinrail` skill tells agents to ask their questions through Pinrail
+  with `pinrail ask`, not in the chat.
+
 ## [0.4.1]
 
 ### Added
