@@ -184,6 +184,17 @@ test("the Sessions page lists the sessions, those waiting first, and opens a ses
   await expect(thread(page).getByTestId("answer")).toHaveCount(3);
 });
 
+test("a session's thread opens scrolled to its newest message", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  for (const i of [1, 2, 3, 4]) await send(page.request, asked(session, `Bottom: set ${i}`));
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await expect(thread(page).getByTestId("question")).toHaveCount(12);
+  const items = thread(page).locator(".thread-items");
+  await expect.poll(() => items.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThan(2);
+  expect(await items.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+});
+
 test("a question's thread links to its session's page", async ({ page }) => {
   await openReviewsIn(page.request, "page");
   await clearInbox(page.request);

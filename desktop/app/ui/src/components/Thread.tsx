@@ -94,13 +94,21 @@ export function Thread({ focus, session: given, inPanel = false, onEnded, onClos
   // where the active questions put their chat box, under the timeline
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
 
-  // the questions opened are scrolled to once the thread is there
+  // once the thread is there, the questions opened are scrolled to, or,
+  // for the session alone, its newest message
+  const timeline = useRef<HTMLDivElement>(null);
   const scrolled = useRef(false);
   useEffect(() => {
-    if (scrolled.current || !focus || items.length < 2) return;
-    scrolled.current = true;
-    document.getElementById(`set-${focus.id}`)?.scrollIntoView({ block: "start" });
-  }, [items, focus]);
+    if (scrolled.current) return;
+    if (focus) {
+      if (items.length < 2) return;
+      scrolled.current = true;
+      document.getElementById(`set-${focus.id}`)?.scrollIntoView({ block: "start" });
+    } else if (session && timeline.current) {
+      scrolled.current = true;
+      timeline.current.scrollTop = timeline.current.scrollHeight;
+    }
+  }, [items, focus, session]);
 
   const agent = named?.agent ?? focus?.requested_by ?? null;
   const waiting = items.filter((r) => r.status === "pending");
@@ -180,7 +188,7 @@ export function Thread({ focus, session: given, inPanel = false, onEnded, onClos
       {error ? <p className="notice notice-danger">{error}</p> : null}
       <div className="thread-body">
         <div className="thread-main">
-          <div className="thread-items">
+          <div className="thread-items" ref={timeline}>
             {session ? (
               <div className="thread-divider">
                 <span>Session started {stamp(session.first_at)}</span>
