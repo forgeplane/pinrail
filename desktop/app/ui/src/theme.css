@@ -424,7 +424,8 @@ h1 {
   font-size: 12.5px;
   min-width: 0;
 }
-.sidebar-repo .nav-count {
+.sidebar-repo .nav-count,
+.sidebar-review .nav-count {
   margin-left: auto;
 }
 .sidebar-repo svg.is-faint {
