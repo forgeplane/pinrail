@@ -5,6 +5,7 @@
 
 mod agent;
 mod api;
+mod ask;
 mod attachments;
 mod briefs;
 mod describe;
@@ -114,6 +115,8 @@ struct Cli {
 struct Output {
     pretty: bool,
     markdown: bool,
+    /// Markdown as `pinrail ask` prints it: only the answers
+    answers: bool,
 }
 
 impl Output {
@@ -127,6 +130,13 @@ impl Output {
     }
 
     fn review(&self, client: &Client, review: &serde_json::Value) -> Result<()> {
+        if self.markdown && self.answers {
+            // questions that were not answered say why on stderr
+            if review["status"] == "decided" {
+                print!("{}", out::terminal_safe(&ask::answers(review)));
+            }
+            return Ok(());
+        }
         if self.markdown
             && let Some(id) = review["id"].as_str()
         {
@@ -163,6 +173,27 @@ impl Output {
 
 #[derive(Subcommand)]
 enum Command {
+    /// Ask the person one or more short questions, wait for the answers and
+    /// print them
+    ///
+    /// Each question is followed by its own options, up to the next --ask:
+    ///
+    ///     pinrail ask "Deploy to staging or production?" \
+    ///       --choice staging --choice production --recommend staging \
+    ///       --ask "Keep the old endpoint for a release?" --yes-no \
+    ///       --ask "What should the new endpoint be called?"
+    ///
+    /// The questions are independent: the person answers them in any order,
+    /// and can leave some unanswered. Ask a question that depends on another
+    /// answer with another pinrail ask, once you have that answer. The
+    /// person can also add a note to each answer, or answer a question with
+    /// choices in their own words.
+    ///
+    /// The command prints the answers: with one question, only the answer;
+    /// with several, each under its question. With --json, it prints the
+    /// whole review, with the answers in decision.data.answers.
+    #[command(verbatim_doc_comment)]
+    Ask(ask::AskArgs),
     /// Submit a review, and with --wait, wait for the decision and print it
     ///
     /// The options build the review: the plugin, --title, and the payload
@@ -693,9 +724,14 @@ fn main() -> ExitCode {
         );
         return ExitCode::SUCCESS;
     }
-    let parsed = command()
-        .try_get_matches()
-        .and_then(|matches| Cli::from_arg_matches(&matches));
+    let parsed = command().try_get_matches().and_then(|matches| {
+        let mut cli = Cli::from_arg_matches(&matches)?;
+        // which question each of ask's options follows
+        if let (Command::Ask(args), Some(("ask", sub))) = (&mut cli.command, matches.subcommand()) {
+            args.place(sub);
+        }
+        Ok(cli)
+    });
     let cli = match parsed {
         Ok(cli) => cli,
         // help and version are answers; anything else is bad arguments,
@@ -748,6 +784,7 @@ fn run(cli: Cli) -> Result<u8> {
     let output = Output {
         pretty,
         markdown: !cli.json,
+        answers: false,
     };
 
     if let Command::Serve = cli.command {
@@ -872,6 +909,7 @@ fn run(cli: Cli) -> Result<u8> {
 
     let auto_start = match &cli.command {
         Command::Submit(args) => !args.no_start,
+        Command::Ask(args) => !args.no_start,
         Command::Plugins(args) => {
             matches!(
                 args.command,
@@ -885,6 +923,14 @@ fn run(cli: Cli) -> Result<u8> {
 
     match cli.command {
         Command::Submit(args) => submit(&client, args, output),
+        Command::Ask(args) => ask(
+            &client,
+            args,
+            Output {
+                answers: true,
+                ..output
+            },
+        ),
         Command::Wait(args) => wait(&client, &args.id, &args.opts, false, output),
         Command::Show { id } => {
             output.review(&client, &client.get_review(&id)?)?;
@@ -1462,6 +1508,34 @@ fn requester(given: Option<&str>) -> String {
     }
 }
 
+/// Asks the person the questions, waits for the answers and prints them.
+fn ask(client: &Client, args: ask::AskArgs, output: Output) -> Result<u8> {
+    let questions = args.questions()?;
+    let mut body = json!({
+        "kind": "question",
+        "title": args.title.clone().unwrap_or_else(|| ask::title(&questions)),
+        "payload": { "questions": questions },
+        "requested_by": requester(args.requested_by.as_deref()),
+    });
+    with_session(&mut body);
+    if let Some(origin) = &args.origin {
+        body["origin"] = json!(origin);
+    }
+    origin::drop_unknown(&mut body);
+    origin::fill_from_git(&mut body);
+    let review = client.submit(&body)?;
+    let id = review["id"]
+        .as_str()
+        .context("server returned a review without an id")?
+        .to_string();
+    eprintln!("pinrail: review {id} submitted; waiting for the answers");
+    let opts = WaitOpts {
+        timeout: args.timeout,
+        decision_out: None,
+    };
+    wait(client, &id, &opts, true, output)
+}
+
 /// Says where the new review is, then waits on it or prints it.
 fn submitted(client: &Client, review: Value, args: &SubmitArgs, output: Output) -> Result<u8> {
     let id = review["id"]
@@ -1544,6 +1618,20 @@ fn wait(
                 output.review(client, &review)?;
                 return Ok(match status {
                     "decided" => 0,
+                    "discarded" if review["kind"] == "question" => {
+                        let by = out::terminal_safe(
+                            review["discarded_by"].as_str().unwrap_or("the person"),
+                        );
+                        match review["discarded_reason"].as_str().map(out::terminal_safe) {
+                            Some(reason) => eprintln!(
+                                "pinrail: {by} declined to answer: {reason}. Stop the work the questions were about."
+                            ),
+                            None => eprintln!(
+                                "pinrail: {by} declined to answer. Stop the work the questions were about."
+                            ),
+                        }
+                        EXIT_DISCARDED
+                    }
                     "discarded" => {
                         // the person's "no, and stop": say so, with their reason
                         let by = out::terminal_safe(

@@ -2091,8 +2091,10 @@ fn list_lines_carry_each_reviews_summary() {
                 {"id":"r_2","plugin":"calendar","title":"Week","status":"decided","created_at":"2026-09-11T10:00:00Z",
                  "summary":{"counts":[{"label":"events","count":3,"tone":"neutral"}]},
                  "decision":{"decided_by":"tester","decided_at":"2026-09-11T11:00:00Z","data":{},
-                   "summary":{"verdict":{"label":"approved","tone":"success"},"counts":[{"label":"scheduled","count":3,"tone":"success"}]}}}
-            ],"total":2,"has_more":false}"#
+                   "summary":{"verdict":{"label":"approved","tone":"success"},"counts":[{"label":"scheduled","count":3,"tone":"success"}]}}},
+                {"id":"r_3","kind":"question","plugin":"","title":"Deploy where?","status":"pending","created_at":"2026-09-11T10:00:00Z",
+                 "summary":{"counts":[{"label":"question","count":1,"tone":"neutral"}]}}
+            ],"total":3,"has_more":false}"#
                 .into(),
         )
     }));
@@ -2104,6 +2106,10 @@ fn list_lines_carry_each_reviews_summary() {
     );
     assert!(
         stdout.contains("- r_2 · decided · calendar · Week · approved, 3 scheduled · "),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("- r_3 · pending · questions · Deploy where? · 1 question · "),
         "{stdout}"
     );
 }
@@ -2899,4 +2905,281 @@ fn plugins_check_refuses_a_plugin_whose_view_is_not_built() {
         verdict["problems"],
         serde_json::json!([{ "message": "view/index.html not found" }])
     );
+}
+
+/// Questions as the app sends them back, with `decision` the answers, when
+/// any.
+fn questions(status: &str, questions: serde_json::Value, answers: serde_json::Value) -> String {
+    let decision = match status {
+        "decided" => {
+            serde_json::json!({"decided_by": "tester", "decided_at": "2026-10-29T10:00:00Z", "data": {"answers": answers}})
+        }
+        _ => serde_json::Value::Null,
+    };
+    let mut review = serde_json::json!({
+        "id": "r_1", "kind": "question", "plugin": "", "title": "t", "status": status,
+        "decision": decision, "payload": {"questions": questions}
+    });
+    if status == "discarded" {
+        review["discarded_by"] = serde_json::json!("pnezis");
+        review["discarded_reason"] = serde_json::json!("ask in the PR instead");
+    }
+    review.to_string()
+}
+
+/// A server that takes the questions, keeps what was sent, and ends them
+/// as `ending` gives.
+fn asked(ending: String) -> (MockServer, Arc<Mutex<Vec<serde_json::Value>>>) {
+    let sent = Arc::new(Mutex::new(Vec::new()));
+    let seen = sent.clone();
+    let server = MockServer::start(Box::new(move |method, path, body| match (method, path) {
+        ("POST", "/api/v1/reviews") => {
+            seen.lock()
+                .unwrap()
+                .push(serde_json::from_str(body).unwrap());
+            (
+                201,
+                questions("pending", serde_json::json!([]), serde_json::Value::Null),
+            )
+        }
+        ("GET", p) if p.starts_with("/api/v1/reviews/r_1/wait") => (200, ending.clone()),
+        other => panic!("unexpected {other:?}"),
+    }));
+    (server, sent)
+}
+
+#[test]
+fn ask_sends_each_question_with_the_options_that_follow_it() {
+    let (server, sent) = asked(questions(
+        "decided",
+        serde_json::json!([]),
+        serde_json::json!([]),
+    ));
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "ask",
+            "Deploy to staging or production?",
+            "--choice",
+            "staging",
+            "--choice",
+            "production, after the notes",
+            "--recommend",
+            "staging",
+            "--ask",
+            "Keep the old endpoint?",
+            "--yes-no",
+            "--recommend",
+            "yes",
+            "--context",
+            "It has **3** callers.",
+            "--ask",
+            "Which checks?",
+            "--choice",
+            "lint",
+            "--choice",
+            "tests",
+            "--multiple",
+            "--ask",
+            "What should it be called?",
+            "--ask",
+            "Ship it today?",
+            "--yes-no",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert!(stderr.contains("pinrail: review r_1 submitted"), "{stderr}");
+    let body = sent.lock().unwrap()[0].clone();
+    assert_eq!(body["kind"], "question");
+    assert!(body.get("plugin").is_none(), "{body}");
+    assert_eq!(body["title"], "Deploy to staging or production? and 4 more");
+    assert_eq!(
+        body["payload"],
+        serde_json::json!({"questions": [
+            {"id": "q1", "question": "Deploy to staging or production?", "answer": "choice",
+             "choices": ["staging", "production, after the notes"], "recommended": "staging"},
+            {"id": "q2", "question": "Keep the old endpoint?", "answer": "yes-no",
+             "recommended": "yes", "context": "It has **3** callers."},
+            {"id": "q3", "question": "Which checks?", "answer": "choices", "choices": ["lint", "tests"]},
+            {"id": "q4", "question": "What should it be called?", "answer": "text"},
+            {"id": "q5", "question": "Ship it today?", "answer": "yes-no"}
+        ]})
+    );
+    assert_eq!(body["requested_by"], "pinrail-cli");
+}
+
+#[test]
+fn ask_takes_options_before_the_question_and_a_title_of_its_own() {
+    let (server, sent) = asked(questions(
+        "decided",
+        serde_json::json!([]),
+        serde_json::json!([]),
+    ));
+    let (code, _, stderr) = run(
+        &server,
+        &[
+            "ask",
+            "--choice",
+            "a",
+            "--choice",
+            "b",
+            "Which one?",
+            "--title",
+            "Pick a letter",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let body = sent.lock().unwrap()[0].clone();
+    assert_eq!(body["title"], "Pick a letter");
+    assert_eq!(
+        body["payload"]["questions"][0]["choices"],
+        serde_json::json!(["a", "b"])
+    );
+}
+
+#[test]
+fn ask_takes_the_questions_as_json_and_numbers_those_without_an_id() {
+    let (server, sent) = asked(questions(
+        "decided",
+        serde_json::json!([]),
+        serde_json::json!([]),
+    ));
+    let data = r#"{"questions": [{"question": "Why?", "answer": "text"}, {"id": "mine", "question": "Sure?", "answer": "yes-no"}]}"#;
+    let (code, _, stderr) = run(&server, &["ask", "--data", data]);
+    assert_eq!(code, 0, "{stderr}");
+    let body = sent.lock().unwrap()[0].clone();
+    assert_eq!(body["title"], "Why? and 1 more");
+    assert_eq!(body["payload"]["questions"][0]["id"], "q1");
+    assert_eq!(body["payload"]["questions"][1]["id"], "mine");
+}
+
+#[test]
+fn ask_refuses_an_option_given_twice_for_one_question() {
+    let server = MockServer::start(Box::new(|_, _, _| panic!("nothing is sent")));
+    for (args, problem) in [
+        (
+            vec![
+                "ask",
+                "Which?",
+                "--choice",
+                "a",
+                "--choice",
+                "b",
+                "--recommend",
+                "a",
+                "--recommend",
+                "b",
+            ],
+            "--recommend",
+        ),
+        (
+            vec!["ask", "Why?", "--context", "one", "--context", "two"],
+            "--context",
+        ),
+        (vec!["ask", "Why?", "--yes-no", "--yes-no"], "--yes-no"),
+        (vec!["ask", "--data", "{}", "Why?"], "--data"),
+        (vec!["ask"], "QUESTION"),
+    ] {
+        let (code, _, stderr) = run(&server, &args);
+        assert_eq!(code, 1, "{args:?}: {stderr}");
+        assert!(stderr.contains(problem), "{args:?}: {stderr}");
+    }
+}
+
+#[test]
+fn ask_prints_only_the_answer_to_one_question() {
+    let asked_one = serde_json::json!([{"id": "q1", "question": "Deploy where?", "answer": "choice", "choices": ["staging", "production"]}]);
+    let (server, _) = asked(questions(
+        "decided",
+        asked_one,
+        serde_json::json!([{"id": "q1", "choice": "staging", "note": "production after the notes"}]),
+    ));
+    let (code, stdout, stderr) = run(
+        &server,
+        &[
+            "ask",
+            "Deploy where?",
+            "--choice",
+            "staging",
+            "--choice",
+            "production",
+            "--markdown",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(stdout, "staging\n\nNote: production after the notes\n");
+}
+
+#[test]
+fn ask_prints_each_answer_under_its_question() {
+    let asked_four = serde_json::json!([
+        {"id": "q1", "question": "Deploy where?", "answer": "choice", "choices": ["staging", "production"]},
+        {"id": "q2", "question": "Which checks?", "answer": "choices", "choices": ["lint", "tests"]},
+        {"id": "q3", "question": "Keep it?", "answer": "yes-no"},
+        {"id": "q4", "question": "Name?", "answer": "text"}
+    ]);
+    let answers = serde_json::json!([
+        {"id": "q1", "text": "neither, wait for Monday"},
+        {"id": "q2", "choices": ["lint", "tests"]},
+        {"id": "q3", "yes": false},
+        {"id": "q4", "unanswered": true}
+    ]);
+    let (server, _) = asked(questions("decided", asked_four, answers));
+    let (code, stdout, stderr) = run(
+        &server,
+        &[
+            "ask",
+            "Deploy where?",
+            "--ask",
+            "Which checks?",
+            "--ask",
+            "Keep it?",
+            "--ask",
+            "Name?",
+            "--markdown",
+        ],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        stdout,
+        "1. Deploy where?\nAnswered in their own words:\nneither, wait for Monday\n\n\
+         2. Which checks?\nlint\ntests\n\n\
+         3. Keep it?\nno\n\n\
+         4. Name?\nNot answered.\n"
+    );
+}
+
+#[test]
+fn ask_prints_the_whole_review_as_json() {
+    let ending = questions("decided", serde_json::json!([]), serde_json::json!([]));
+    let (server, _) = asked(ending.clone());
+    let (code, stdout, _) = run(&server, &["ask", "Why?"]);
+    assert_eq!(code, 0);
+    let printed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(
+        printed,
+        serde_json::from_str::<serde_json::Value>(&ending).unwrap()
+    );
+}
+
+#[test]
+fn ask_exits_5_when_the_person_declines_and_3_when_withdrawn() {
+    let (server, _) = asked(questions(
+        "discarded",
+        serde_json::json!([]),
+        serde_json::Value::Null,
+    ));
+    let (code, _, stderr) = run(&server, &["ask", "Why?", "--markdown"]);
+    assert_eq!(code, 5, "{stderr}");
+    assert!(
+        stderr.contains("pnezis declined to answer: ask in the PR instead"),
+        "{stderr}"
+    );
+    let (server, _) = asked(questions(
+        "withdrawn",
+        serde_json::json!([]),
+        serde_json::Value::Null,
+    ));
+    let (code, _, _) = run(&server, &["ask", "Why?", "--markdown"]);
+    assert_eq!(code, 3);
 }

@@ -73,7 +73,10 @@ pub fn reviews(reviews: &Value) -> String {
             "- {} · {} · {} · {}",
             text(&r["id"]),
             text(&r["status"]),
-            text(&r["plugin"]),
+            match r["kind"].as_str() {
+                Some("question") => "questions",
+                _ => text(&r["plugin"]),
+            },
             text(&r["title"])
         );
         let summary = if r["status"] == "pending" {
