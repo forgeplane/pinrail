@@ -459,6 +459,18 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
             }}
             onPick={(value) => picked(index, value, false)}
             onChange={(next) => change(question.id, next)}
+            onNext={() => {
+              // Enter in a question's box goes to the next one's, and from
+              // the last to the comment on them all
+              const set = document.getElementById(`set-${review.id}`);
+              if (index + 1 < questions.length) {
+                setCurrent(index + 1);
+                set?.querySelector<HTMLTextAreaElement>(`[data-reply="${index + 1}"]`)?.focus();
+              } else {
+                document.querySelector<HTMLTextAreaElement>(".thread-composer textarea")?.focus();
+              }
+            }}
+            index={index}
           />
         ))}
         {review.status === "decided" && review.agent_note ? (
@@ -535,6 +547,9 @@ type MessageProps = {
   onFocus: () => void;
   onPick: (value: string) => void;
   onChange: (next: Draft) => void;
+  /** Enter in its box: on to the next question */
+  onNext: () => void;
+  index: number;
 };
 
 /** One question in its bubble, with its choices while it waits, what the
@@ -549,6 +564,8 @@ function QuestionMessage({
   onFocus,
   onPick,
   onChange,
+  onNext,
+  index,
 }: MessageProps) {
   const pending = review.status === "pending";
   const options =
@@ -572,6 +589,7 @@ function QuestionMessage({
           {question.question}
         </p>
         {question.context ? <Context text={question.context} /> : null}
+        {pending && question.answer === "choices" ? <span className="msg-hint">Select all that apply</span> : null}
         {pending && options.length > 0 ? (
           <div
             className="chips"
@@ -592,7 +610,6 @@ function QuestionMessage({
                 ) : null}
                 {question.answer === "yes-no" ? (value === "yes" ? "Yes" : "No") : value}
                 {question.recommended === value ? (
-        {pending && question.answer === "choices" ? <span className="msg-hint">Select all that apply</span> : null}
                   <Star size={11} className="chip-star" aria-label="recommended" />
                 ) : null}
               </button>
@@ -604,7 +621,9 @@ function QuestionMessage({
             ) : null}
           </div>
         ) : null}
-        {pending ? <QuestionReply question={question} draft={draft} onChange={onChange} /> : null}
+        {pending ? (
+          <QuestionReply question={question} draft={draft} onChange={onChange} onNext={onNext} index={index} />
+        ) : null}
       </div>
       {review.status === "decided" ? <AnswerLine question={question} answer={answer} review={review} /> : null}
     </div>
@@ -673,10 +692,14 @@ function QuestionReply({
   question,
   draft,
   onChange,
+  onNext,
+  index,
 }: {
   question: Question;
   draft: Draft | undefined;
   onChange: (next: Draft) => void;
+  onNext: () => void;
+  index: number;
 }) {
   const asNote = hasPick(question, draft);
   const value = (asNote ? draft?.note : draft?.text) ?? "";
@@ -701,7 +724,17 @@ function QuestionReply({
           asNote ? "Add a note…" : question.answer === "text" ? "Type your answer…" : "Or answer in your own words…"
         }
         onChange={(e) => write(e.target.value)}
-        onKeyDown={onKeyDown}
+        onKeyDown={(e) => {
+          // Enter goes on to the next question, Shift+Enter starts a new
+          // line, and ⌘↵ sends, which the set hears
+          if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            onNext();
+            return;
+          }
+          onKeyDown(e);
+        }}
+        data-reply={index}
       />
       {mic}
     </div>

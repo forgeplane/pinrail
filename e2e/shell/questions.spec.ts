@@ -337,3 +337,20 @@ test("a question that takes several choices says so", async ({ page }) => {
   await expect(question(page, "Which checks?")).toContainText("Select all that apply");
   await expect(question(page, "Which one?")).not.toContainText("Select all that apply");
 });
+
+test("Enter in a question's box goes to the next, and Shift+Enter starts a new line", async ({ page }) => {
+  await openReviewsIn(page.request, "page");
+  await clearInbox(page.request);
+  const { id } = await send(page.request, asked(fresh(), "Enter: deploy"));
+  await page.goto(`/#/reviews/${id}`);
+  const own = page.getByRole("textbox", { name: "Answer to Deploy to staging or production? in your own words" });
+  await own.fill("neither");
+  await own.press("Shift+Enter");
+  await own.pressSequentially("wait for Monday");
+  await expect(own).toHaveValue("neither\nwait for Monday");
+  await own.press("Enter");
+  await expect(page.getByRole("textbox", { name: "Answer to Keep the old endpoint? in your own words" })).toBeFocused();
+  await page.getByRole("textbox", { name: "Answer to What should it be called?" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("textbox", { name: "Comment to the agent" })).toBeFocused();
+});
