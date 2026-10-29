@@ -190,8 +190,10 @@ enum Command {
     /// choices in their own words.
     ///
     /// The command prints the answers: with one question, only the answer;
-    /// with several, each under its question. With --json, it prints the
-    /// whole review, with the answers in decision.data.answers.
+    /// with several, each under its question; then the person's comment on
+    /// them all, if they wrote one. With --json, it prints the whole review,
+    /// with the answers in decision.data.answers and the comment in
+    /// agent_note.
     #[command(verbatim_doc_comment)]
     Ask(ask::AskArgs),
     /// Submit a review, and with --wait, wait for the decision and print it

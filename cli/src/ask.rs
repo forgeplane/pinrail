@@ -276,8 +276,20 @@ pub fn title(questions: &[Value]) -> String {
 }
 
 /// The answers as an agent reads them: with one question, only its answer;
-/// with several, each under its question, in the order they were asked.
+/// with several, each under its question, in the order they were asked;
+/// then the person's comment on them all, if they wrote one.
 pub fn answers(review: &Value) -> String {
+    let mut text = each_answer(review);
+    if let Some(comment) = review["agent_note"]
+        .as_str()
+        .filter(|c| !c.trim().is_empty())
+    {
+        text.push_str(&format!("\nComment: {comment}\n"));
+    }
+    text
+}
+
+fn each_answer(review: &Value) -> String {
     let questions = review["payload"]["questions"]
         .as_array()
         .cloned()

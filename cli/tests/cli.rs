@@ -3183,3 +3183,28 @@ fn ask_exits_5_when_the_person_declines_and_3_when_withdrawn() {
     let (code, _, _) = run(&server, &["ask", "Why?", "--markdown"]);
     assert_eq!(code, 3);
 }
+
+#[test]
+fn ask_prints_the_persons_comment_on_the_questions_after_the_answers() {
+    let asked_two = serde_json::json!([
+        {"id": "q1", "question": "Deploy where?", "answer": "choice", "choices": ["staging", "production"]},
+        {"id": "q2", "question": "Keep it?", "answer": "yes-no"}
+    ]);
+    let mut ending: serde_json::Value = serde_json::from_str(&questions(
+        "decided",
+        asked_two,
+        serde_json::json!([{"id": "q1", "choice": "staging"}, {"id": "q2", "yes": true}]),
+    ))
+    .unwrap();
+    ending["agent_note"] = serde_json::json!("ship it after lunch");
+    let (server, _) = asked(ending.to_string());
+    let (code, stdout, stderr) = run(
+        &server,
+        &["ask", "Deploy where?", "--ask", "Keep it?", "--markdown"],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    assert_eq!(
+        stdout,
+        "1. Deploy where?\nstaging\n\n2. Keep it?\nyes\n\nComment: ship it after lunch\n"
+    );
+}
