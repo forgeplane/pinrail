@@ -1,7 +1,11 @@
 // Questions an agent asked with `pinrail ask`, answered in the session's
-// thread: from the inbox's side panel, on a page, and declined.
+// thread: from the inbox's side panel, on a page, declined, and asked with
+// the CLI as an agent does.
 
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
+import { spawn } from "node:child_process";
+import os from "node:os";
+import path from "node:path";
 import { clearInbox, core, openReviewsIn, onePayload } from "./helpers";
 
 const row = (page: Page, title: string) => page.getByTestId("review-row").filter({ hasText: title });
@@ -258,4 +262,57 @@ test("the question picked keeps its keys, and a key pick moves on to the next", 
   await page.keyboard.press("2");
   await expect(first.getByRole("radio", { name: "production" })).toHaveAttribute("aria-checked", "true");
   await expect(second.locator(".chip-key")).toHaveText(["Y", "N"]);
+});
+
+test("an agent asking with pinrail ask gets the answers and the comment written in the app", async ({ page }) => {
+  await openReviewsIn(page.request, "page");
+  await clearInbox(page.request);
+  const exe = process.platform === "win32" ? ".exe" : "";
+  const cli = path.join(__dirname, "..", "..", "cli", "target", "debug", `pinrail${exe}`);
+  const session = fresh();
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PINRAIL_URL: core,
+    CLAUDECODE: "1",
+    CLAUDE_CODE_SESSION_ID: session,
+  };
+  // the markdown an agent reads, not the JSON a script does
+  delete env.PINRAIL_JSON;
+  const agent = spawn(
+    cli,
+    [
+      "ask",
+      "Deploy to staging or production?",
+      "--choice",
+      "staging",
+      "--choice",
+      "production",
+      "--ask",
+      "Keep the old endpoint?",
+      "--yes-no",
+    ],
+    { cwd: os.tmpdir(), env },
+  );
+  let stdout = "";
+  let stderr = "";
+  agent.stdout.on("data", (d) => (stdout += d));
+  agent.stderr.on("data", (d) => (stderr += d));
+  const exited = new Promise<number | null>((resolve) => agent.on("close", resolve));
+
+  await expect.poll(() => stderr.match(/review (r_[0-9A-Z]+) submitted/)?.[1], { message: stderr }).toBeTruthy();
+  // the questions are in the agent's session
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  await question(page, "Deploy to staging").getByRole("radio", { name: "production" }).click();
+  await question(page, "Keep the old endpoint")
+    .getByRole("textbox", { name: "Answer to Keep the old endpoint? in your own words" })
+    .fill("for one release");
+  await page.getByRole("textbox", { name: "Comment to the agent" }).fill("thanks for asking");
+  await page.getByTestId("send-answers").click();
+
+  expect(await exited, stderr).toBe(0);
+  expect(stdout).toBe(
+    "1. Deploy to staging or production?\nproduction\n\n" +
+      "2. Keep the old endpoint?\nAnswered in their own words:\nfor one release\n\n" +
+      "Comment: thanks for asking\n",
+  );
 });
