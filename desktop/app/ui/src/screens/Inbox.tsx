@@ -1,4 +1,4 @@
-import { Ban, Blocks, CheckCheck, FolderGit2, List, Search, SearchX } from "lucide-react";
+import { Ban, Blocks, CheckCheck, FolderGit2, List, MessageCircleQuestion, Search, SearchX } from "lucide-react";
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, type To } from "react-router";
 import type { Review } from "../api/types";
@@ -307,12 +307,17 @@ export function Inbox() {
       key={review.id}
       to={hrefFor(review.id)}
       onClick={(event) => openFromLink(event, review.id)}
-      className={`review-row ${here === focused ? "is-focused" : ""} ${review.id === openId ? "is-open" : ""}`}
+      className={`review-row ${review.kind === "question" ? "is-question" : ""} ${here === focused ? "is-focused" : ""} ${review.id === openId ? "is-open" : ""}`}
       aria-current={review.id === openId ? "true" : undefined}
       onMouseEnter={() => !keyboard.current && setFocused(here)}
       data-testid="review-row"
     >
-      <span className="review-row-marker" aria-label="Pending" />
+      {/* questions an agent asked are marked apart from the reviews it sent */}
+      {review.kind === "question" ? (
+        <MessageCircleQuestion className="review-row-asks" size={15} aria-label="Asks you" />
+      ) : (
+        <span className="review-row-marker" aria-label="Pending" />
+      )}
       <span className="review-row-main">
         <span className="review-row-title">
           {review.title}
@@ -337,10 +342,16 @@ export function Inbox() {
           <FilesCount total={review.attachments_total} />
         </span>
       </span>
-      <span className="review-row-plugin" title={reviewLabel(review)}>
-        <ReviewIcon review={review} size={13} />
-        {reviewLabel(review)}
-      </span>
+      {review.kind === "question" ? (
+        <span className="review-row-plugin">
+          <span className="asks-chip">asks you</span>
+        </span>
+      ) : (
+        <span className="review-row-plugin" title={reviewLabel(review)}>
+          <ReviewIcon review={review} size={13} />
+          {reviewLabel(review)}
+        </span>
+      )}
       <span className="review-row-summary">
         <SummaryCounts summary={review.summary} />
       </span>

@@ -1614,6 +1614,23 @@ body.is-resizing iframe {
   border-radius: 50%;
   background: var(--accent);
 }
+/* questions an agent asked: a question mark in place of the dot, a tint in
+   the colour of what waits on the person, and "asks you" for the plugin */
+.review-row-asks {
+  color: var(--sev-major);
+  margin-left: -4px;
+}
+.review-row.is-question:not(.is-open):not(.is-focused) {
+  background: color-mix(in srgb, var(--sev-major) 6%, transparent);
+}
+.asks-chip {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sev-major) 16%, transparent);
+  color: var(--sev-major);
+  font-size: 11.5px;
+  font-weight: 600;
+}
 .review-row-main {
   min-width: 0;
   display: grid;

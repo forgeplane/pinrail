@@ -35,7 +35,10 @@ import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
+import { AgentIcon } from "./AgentIcon";
 import { ReviewIcon } from "./ReviewIcon";
+import { sessionPath } from "./Thread";
+import type { Session } from "../api/types";
 import { UpdateNotice } from "./UpdateNotice";
 import { FIRST_REVIEW, WelcomeDialog, type WelcomeAt } from "./welcome/WelcomeDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
@@ -245,6 +248,19 @@ export function Layout({ children }: { children: ReactNode }) {
     () => [...live.pending].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)),
     [live.pending],
   );
+  // the sessions with something waiting for the person, refreshed with
+  // what is pending
+  const [sessions, setSessions] = useState<Session[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .sessions({ waiting: "true", limit: String(WAITING_SHOWN + 1) })
+      .then((d) => !cancelled && setSessions(d.sessions))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [live.pending]);
   // how many wait per project, beside the inbox's quick filters
   const perProject = useMemo(() => {
     const counts = new Map<string, number>();
@@ -438,6 +454,29 @@ export function Layout({ children }: { children: ReactNode }) {
                 {waiting.length > WAITING_SHOWN ? (
                   <NavLink to="/" end className="sidebar-review sidebar-more">
                     <span className="sidebar-review-title">{waiting.length - WAITING_SHOWN} more in the inbox</span>
+                  </NavLink>
+                ) : null}
+              </section>
+            ) : null}
+            {sessions.length > 0 ? (
+              <section className="sidebar-waiting" aria-label="Sessions waiting">
+                <h2>Sessions</h2>
+                {sessions.slice(0, WAITING_SHOWN).map((s) => (
+                  <Tooltip
+                    key={`${s.agent}/${s.id}`}
+                    label={[s.repo, s.ref].filter(Boolean).join(" · ") || s.id}
+                    side="top"
+                  >
+                    <NavLink to={sessionPath(s)} className="sidebar-review" data-testid="waiting-session">
+                      <AgentIcon requestedBy={s.agent} size={14} />
+                      <span className="sidebar-review-title">{s.agent}</span>
+                      <span className="nav-count">{s.waiting.questions + s.waiting.reviews}</span>
+                    </NavLink>
+                  </Tooltip>
+                ))}
+                {sessions.length > WAITING_SHOWN ? (
+                  <NavLink to="/sessions" end className="sidebar-review sidebar-more">
+                    <span className="sidebar-review-title">All sessions</span>
                   </NavLink>
                 ) : null}
               </section>

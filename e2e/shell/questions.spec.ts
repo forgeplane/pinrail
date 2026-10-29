@@ -178,3 +178,32 @@ test("a question's thread links to its session's page", async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
   await expect(thread(page).getByTestId("question")).toHaveCount(3);
 });
+
+test("questions stand apart from reviews in the inbox, and their session waits in the sidebar", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await send(page.request, asked(session, "Apart: deploy"));
+  await send(page.request, {
+    plugin: "list",
+    title: "Apart: the schema",
+    origin: { repo: "acme/api" },
+    requested_by: "claude-code",
+    payload: onePayload,
+  });
+  await page.goto("/#/");
+  await expect(row(page, "Apart: deploy")).toHaveClass(/is-question/);
+  await expect(row(page, "Apart: deploy").getByLabel("Asks you")).toBeVisible();
+  await expect(row(page, "Apart: deploy")).toContainText("asks you");
+  await expect(row(page, "Apart: the schema")).not.toHaveClass(/is-question/);
+  await expect(row(page, "Apart: the schema")).toContainText("list");
+
+  const waiting = page.getByRole("region", { name: "Sessions waiting" }).getByTestId("waiting-session");
+  await expect(waiting).toHaveCount(1);
+  await expect(waiting).toContainText("claude-code");
+  await waiting.click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+
+  // once nothing waits in it, the session leaves the sidebar
+  await clearInbox(page.request);
+  await expect(waiting).toHaveCount(0);
+});
