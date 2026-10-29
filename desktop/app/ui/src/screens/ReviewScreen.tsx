@@ -27,6 +27,7 @@ import { OutcomeBadge, PluginBadge, SummaryCounts, outcomeOf } from "../componen
 import { DiscardDialog } from "../components/DiscardDialog";
 import { FindBar } from "../components/FindBar";
 import { SourceBadge } from "../components/SourceBadge";
+import { Thread } from "../components/Thread";
 import { WaitMark } from "../components/WaitMark";
 import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
 import { allowedWithoutAsking, allowing, linkRequest, sourceOf, type LinkRequest } from "../lib/links";
@@ -119,7 +120,8 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
     installed: string | null;
     refused: string | null;
   } | null>(null);
-  const pluginKey = review ? `${review.plugin}@${review.plugin_bundle}` : null;
+  // questions have no plugin: the thread shows them
+  const pluginKey = review && review.kind !== "question" ? `${review.plugin}@${review.plugin_bundle}` : null;
   const current = resolved && resolved.key === pluginKey ? resolved : null;
   const plugin: Plugin | null | undefined = current ? current.plugin : undefined;
   const src = current?.src ?? null;
@@ -668,6 +670,12 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
     );
   }
   if (!review) return <div className="review-page" />;
+  if (review.kind === "question")
+    return (
+      <div className={`review-page ${inPanel ? "in-panel" : ""}`}>
+        <Thread key={review.id} focus={review} inPanel={inPanel} onEnded={onEnded} onClose={onClose} />
+      </div>
+    );
 
   const origin = review.origin;
   const originText = [origin.repo, origin.workflow].filter(Boolean).join(" / ");

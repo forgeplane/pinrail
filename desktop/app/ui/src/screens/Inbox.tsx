@@ -6,6 +6,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { DiscardDialog } from "../components/DiscardDialog";
 import { PluginIcon } from "../components/PluginIcon";
+import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { AgentIcon } from "../components/AgentIcon";
@@ -33,7 +34,7 @@ function matches(review: Review, q: string) {
   if (!q) return true;
   const text = [
     review.title,
-    review.plugin,
+    reviewLabel(review),
     review.requested_by,
     review.origin.repo,
     review.origin.workflow,
@@ -336,9 +337,9 @@ export function Inbox() {
           <FilesCount total={review.attachments_total} />
         </span>
       </span>
-      <span className="review-row-plugin" title={review.plugin}>
-        <PluginIcon icon={live.pluginIcon(review.plugin)} size={13} />
-        {review.plugin}
+      <span className="review-row-plugin" title={reviewLabel(review)}>
+        <ReviewIcon review={review} size={13} />
+        {reviewLabel(review)}
       </span>
       <span className="review-row-summary">
         <SummaryCounts summary={review.summary} />

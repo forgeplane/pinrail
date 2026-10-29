@@ -15,6 +15,9 @@ pub struct Filters {
     pub plugin: Option<String>,
     /// Only questions, or only plugins' reviews.
     pub kind: Option<crate::reviews::Kind>,
+    /// The agent that sent them, and with it, the session they came from.
+    pub agent: Option<String>,
+    pub session: Option<String>,
     pub repo: Option<String>,
     pub workflow: Option<String>,
     pub reference: Option<String>,
@@ -404,6 +407,8 @@ impl Db {
         let repo = if no_project { &None } else { &filters.repo };
         let exact = [
             ("r.plugin", &filters.plugin),
+            ("r.requested_by", &filters.agent),
+            ("r.session", &filters.session),
             ("json_extract(r.origin, '$.repo')", repo),
             ("json_extract(r.origin, '$.workflow')", &filters.workflow),
             ("json_extract(r.origin, '$.ref')", &filters.reference),

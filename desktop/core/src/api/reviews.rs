@@ -17,9 +17,10 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
+use crate::db::{SessionFilters, SessionRow};
 use crate::error::Error;
 use crate::markdown::Head;
-use crate::reviews::{Filters, Kind, Source, Status, Via};
+use crate::reviews::{Filters, Kind, Source, Status, Via, iso};
 
 const DEFAULT_WAIT: u64 = 300;
 const MAX_WAIT: u64 = 600;
@@ -38,6 +39,8 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/viewed", post(viewed))
         .route("/api/v1/reviews/{id}/events", get(events))
         .route("/api/v1/reviews/{id}/attachments/{name}", get(attachment))
+        .route("/api/v1/sessions", get(sessions))
+        .route("/api/v1/sessions/{agent}/{id}", get(session))
 }
 
 async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
@@ -382,6 +385,8 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
         statuses,
         plugin: text("plugin"),
         kind,
+        agent: text("agent"),
+        session: text("session"),
         repo: text("repo"),
         workflow: text("workflow"),
         reference: text("ref"),
@@ -449,4 +454,58 @@ async fn attachment(
         axum::body::Body::from_stream(tokio_util::io::ReaderStream::new(file)),
     )
         .into_response())
+}
+
+/// A session as the API gives it: who, where, when, and what it holds.
+fn session_json(session: &SessionRow) -> Value {
+    json!({
+        "agent": session.agent,
+        "id": session.id,
+        "repo": session.repo,
+        "ref": session.reference,
+        "first_at": iso(session.first_at),
+        "last_at": iso(session.last_at),
+        "total": { "questions": session.questions, "reviews": session.reviews },
+        "waiting": { "questions": session.waiting_questions, "reviews": session.waiting_reviews },
+    })
+}
+
+/// A page of sessions, those waiting for the person first, then the
+/// newest: `sessions` and `total`. Filters: `agent`, `repo`, `q` and
+/// `waiting=true`; pages by `limit` and `offset`.
+async fn sessions(
+    State(state): State<Arc<Pinrail>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, ApiError> {
+    let text = |key: &str| params.get(key).filter(|v| !v.is_empty()).cloned();
+    let number = |key: &str| params.get(key).and_then(|v| v.parse().ok()).unwrap_or(0);
+    let filters = SessionFilters {
+        agent: text("agent"),
+        repo: text("repo"),
+        text: text("q"),
+        waiting: params.get("waiting").is_some_and(|v| v == "true"),
+        limit: number("limit"),
+        offset: number("offset"),
+    };
+    let (sessions, total) = state.reviews().sessions(&filters)?;
+    Ok(Json(json!({
+        "sessions": sessions.iter().map(session_json).collect::<Vec<_>>(),
+        "total": total,
+    })))
+}
+
+/// One session as a thread: the session, and its questions and reviews
+/// oldest first, the questions with their payloads.
+async fn session(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+) -> Result<Json<Value>, ApiError> {
+    let (session, items) = state.reviews().session(&agent, &id)?;
+    Ok(Json(json!({
+        "session": session_json(&session),
+        "items": items
+            .iter()
+            .map(|r| r.to_json(r.kind == Kind::Question))
+            .collect::<Vec<_>>(),
+    })))
 }

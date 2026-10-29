@@ -15,6 +15,8 @@ export function DiscardDialog({
   onClose: () => void;
   onDone: (review: Review) => void;
 }) {
+  // questions are declined, in the words of a person asked something
+  const question = review.kind === "question";
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,13 @@ export function DiscardDialog({
     try {
       onDone(await api.discard(review.id, reason.trim() || undefined));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The review was not discarded.");
+      setError(
+        e instanceof Error
+          ? e.message
+          : question
+            ? "The questions were not declined."
+            : "The review was not discarded.",
+      );
       setBusy(false);
     }
   };
@@ -54,13 +62,15 @@ export function DiscardDialog({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="dialog-head">
-          <h2 id="discard-title">Discard this review?</h2>
+          <h2 id="discard-title">{question ? "Decline to answer?" : "Discard this review?"}</h2>
         </div>
         <p className="dim discard-what" title={review.title}>
           {review.title}
         </p>
         <p className="dim">
-          The agent is told to stop the work it was asking about. Nothing is decided and nothing is posted.
+          {question
+            ? "The agent is told to stop the work it was asking about. None of the questions are answered."
+            : "The agent is told to stop the work it was asking about. Nothing is decided and nothing is posted."}
         </p>
         <textarea
           ref={field}
@@ -83,7 +93,7 @@ export function DiscardDialog({
             Keep it
           </button>
           <button type="button" className="chrome-button button-danger" onClick={confirm} disabled={busy}>
-            {busy ? "Discarding…" : "Discard"}
+            {busy ? (question ? "Declining…" : "Discarding…") : question ? "Decline" : "Discard"}
           </button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import type {
   ReviewEvent,
   ReviewListing,
   ServerSettings,
+  Session,
   Violation,
 } from "./types";
 
@@ -90,6 +91,12 @@ export const api = {
   allowSkill: (plugin: string, allowed: boolean) =>
     request<Plugin>("PATCH", `/api/v1/plugins/${seg(plugin)}/skill`, { allowed }),
   getReview: (id: string) => request<Review>("GET", `/api/v1/reviews/${seg(id)}`),
+  /** the sessions, those waiting for the person first */
+  sessions: (params: Record<string, string | undefined> = {}) =>
+    request<{ sessions: Session[]; total: number }>("GET", `/api/v1/sessions${query(params)}`),
+  /** a session and its questions and reviews, oldest first */
+  session: (agent: string, id: string) =>
+    request<{ session: Session; items: Review[] }>("GET", `/api/v1/sessions/${seg(agent)}/${seg(id)}`),
   rounds: (id: string) => request<Review[]>("GET", `/api/v1/reviews/${seg(id)}/rounds`),
   /** the decision on the version the view showed: a review that moved to another since is a conflict */
   decide: (id: string, data: unknown, agentNote: string, bundle?: string) =>

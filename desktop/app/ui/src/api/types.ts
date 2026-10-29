@@ -35,9 +35,13 @@ export type Summary = {
   verdict?: { label: string; tone: Tone };
 };
 
+/** A plugin's review, or questions an agent asked with `pinrail ask`. */
+export type Kind = "review" | "question";
+
 export type Review = {
   id: string;
-  /** the plugin's name, such as list */
+  kind: Kind;
+  /** the plugin's name, such as list; empty for questions */
   plugin: string;
   /** the exact version it was submitted to, such as 1.2.0 */
   plugin_version: string;
@@ -92,6 +96,40 @@ export type Attachment = {
 
 /** A page of reviews: the total that match, the cursor to the next page, and
  *  with `include=facets` what the filter menus can offer. */
+/** One question of those an agent asked, as its payload holds it. */
+export type Question = {
+  id: string;
+  question: string;
+  answer: "text" | "choice" | "choices" | "yes-no";
+  choices?: string[];
+  recommended?: string;
+  context?: string;
+};
+
+/** The answer to one question, as the decision holds it: one of text,
+ *  choice, choices, yes or unanswered, and a note. */
+export type Answer = {
+  id: string;
+  text?: string;
+  choice?: string;
+  choices?: string[];
+  yes?: boolean;
+  unanswered?: true;
+  note?: string;
+};
+
+/** An agent's session, as the reviews and questions it sent make it. */
+export type Session = {
+  agent: string;
+  id: string;
+  repo: string | null;
+  ref: string | null;
+  first_at: string;
+  last_at: string;
+  total: { questions: number; reviews: number };
+  waiting: { questions: number; reviews: number };
+};
+
 export type ReviewListing = {
   reviews: Review[];
   total: number;

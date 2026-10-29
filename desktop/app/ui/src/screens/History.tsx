@@ -8,6 +8,7 @@ import { FilesCount, OutcomeBadge, SummaryCounts } from "../components/Badges";
 import { EmptyState } from "../components/EmptyState";
 import { Pager, pageOf, pageSizeOf } from "../components/Pager";
 import { PluginIcon } from "../components/PluginIcon";
+import { ReviewIcon, reviewLabel } from "../components/ReviewIcon";
 import { Select } from "../components/Select";
 import { Tooltip } from "../components/Tooltip";
 import { settledAt, stamp } from "../lib/format";
@@ -368,9 +369,9 @@ export function History() {
                           </span>
                         ) : null}
                         {r.requested_by ? " · " : ""}
-                        <span className="history-plugin" title={r.plugin}>
-                          <PluginIcon icon={live.pluginIcon(r.plugin)} size={12} />
-                          {r.plugin}
+                        <span className="history-plugin" title={reviewLabel(r)}>
+                          <ReviewIcon review={r} size={12} />
+                          {reviewLabel(r)}
                         </span>{" "}
                         <FilesCount total={r.attachments_total} />
                       </small>

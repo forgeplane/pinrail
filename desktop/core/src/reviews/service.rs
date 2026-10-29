@@ -15,7 +15,7 @@ use serde_json::{Map, Value};
 use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
 use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
-use crate::db::{Db, Event, Filters, NotStored};
+use crate::db::{Db, Event, Filters, NotStored, SessionFilters, SessionRow};
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
 use crate::plugins::{Plugin, Registry};
@@ -262,6 +262,37 @@ impl Reviews {
             payload,
             attachments,
         })
+    }
+
+    /// The sessions the filters admit, those waiting for the person first,
+    /// and how many there are in all.
+    pub fn sessions(&self, filters: &SessionFilters) -> Result<(Vec<SessionRow>, usize), Error> {
+        Ok(self.db.sessions(filters, Utc::now())?)
+    }
+
+    /// A session and what was sent from it, oldest first: its questions
+    /// with their payloads, which the thread shows, and its reviews without.
+    pub fn session(&self, agent: &str, id: &str) -> Result<(SessionRow, Vec<Review>), Error> {
+        let now = Utc::now();
+        let Some(session) = self.db.session(agent, id, now)? else {
+            return Err(Error::NotFound(format!("session {id} of {agent}")));
+        };
+        let filters = Filters {
+            agent: Some(agent.to_string()),
+            session: Some(id.to_string()),
+            oldest_first: true,
+            ..Filters::default()
+        };
+        let items = self
+            .db
+            .list(&filters, now)?
+            .into_iter()
+            .map(|review| match review.kind {
+                Kind::Question => self.get(&review.id),
+                Kind::Review => Ok(review),
+            })
+            .collect::<Result<_, _>>()?;
+        Ok((session, items))
     }
 
     pub fn get(&self, id: &str) -> Result<Review, Error> {

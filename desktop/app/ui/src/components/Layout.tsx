@@ -34,7 +34,7 @@ import { useSettings } from "../state/settings";
 import { useTopBarContent } from "../state/topbar";
 import { toggleTheme, useTheme } from "../lib/theme";
 import { Tooltip } from "./Tooltip";
-import { PluginIcon } from "./PluginIcon";
+import { ReviewIcon } from "./ReviewIcon";
 import { UpdateNotice } from "./UpdateNotice";
 import { FIRST_REVIEW, WelcomeDialog, type WelcomeAt } from "./welcome/WelcomeDialog";
 import { WhatsNewDialog } from "./WhatsNewDialog";
@@ -418,7 +418,7 @@ export function Layout({ children }: { children: ReactNode }) {
                       aria-current={shown === r.id ? "page" : undefined}
                       data-testid="waiting-review"
                     >
-                      <PluginIcon icon={live.pluginIcon(r.plugin)} size={14} strokeWidth={1.75} />
+                      <ReviewIcon review={r} size={14} strokeWidth={1.75} />
                       <span className="sidebar-review-title">{r.title}</span>
                     </Link>
                   </Tooltip>

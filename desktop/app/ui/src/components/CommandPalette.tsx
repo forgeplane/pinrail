@@ -13,6 +13,7 @@ import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { OutcomeBadge } from "./Badges";
 import { PluginIcon } from "./PluginIcon";
+import { ReviewIcon, reviewLabel } from "./ReviewIcon";
 
 export type PaletteAction = {
   id: string;
@@ -54,7 +55,7 @@ export function CommandPalette({
   onClose: () => void;
   actions: PaletteAction[];
 }) {
-  const { pending: waiting, pluginIcon } = useLive();
+  const { pending: waiting } = useLive();
   const navigate = useNavigate();
   const openIn = useSettings().settings.inbox.open_in;
   const [query, setQuery] = useState("");
@@ -114,11 +115,11 @@ export function CommandPalette({
         out.push({
           key: `inbox:${r.id}`,
           group: "inbox",
-          icon: <PluginIcon icon={pluginIcon(r.plugin)} />,
+          icon: <ReviewIcon review={r} />,
           title: r.title,
           meta: (
             <>
-              <span className="mono">{r.plugin}</span>
+              <span className="mono">{reviewLabel(r)}</span>
               <span>{age(r.created_at)}</span>
             </>
           ),
@@ -131,7 +132,7 @@ export function CommandPalette({
         out.push({
           key: `history:${r.id}`,
           group: "history",
-          icon: <PluginIcon icon={pluginIcon(r.plugin)} />,
+          icon: <ReviewIcon review={r} />,
           title: r.title,
           meta: (
             <>
@@ -182,7 +183,7 @@ export function CommandPalette({
       }
     }
     return out;
-  }, [all, filter, q, waiting, pluginIcon, history, plugins, actions, navigate, openIn]);
+  }, [all, filter, q, waiting, history, plugins, actions, navigate, openIn]);
 
   useEffect(() => setActive(0), [q, filter]);
   useEffect(() => {
