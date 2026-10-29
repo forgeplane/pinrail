@@ -9,6 +9,7 @@ import {
   Inbox,
   Keyboard,
   MessageSquare,
+  MessagesSquare,
   Moon,
   PanelLeft,
   Search,
@@ -50,6 +51,8 @@ const WAITING_SHOWN = 5;
 // Plugins live in the settings: Cmd+Shift+P opens that section.
 const NAV = [
   { key: "inbox", label: "Inbox", to: "/", Icon: Inbox, letter: "i", shift: false, keys: [MOD, "I"] },
+  // no shortcut of its own, which a plugin's view could no longer have
+  { key: "sessions", label: "Sessions", to: "/sessions", Icon: MessagesSquare, letter: "", shift: false, keys: [] },
   {
     key: "history",
     label: "History",
@@ -62,7 +65,16 @@ const NAV = [
 ];
 const PLUGINS_KEYS = [MOD, SHIFT, "P"];
 
-const pageTitle = (path: string) => (path === "/" ? "Inbox" : path.startsWith("/history") ? "History" : "Review");
+const pageTitle = (path: string) =>
+  path === "/"
+    ? "Inbox"
+    : path.startsWith("/history")
+      ? "History"
+      : path.startsWith("/sessions/")
+        ? "Session"
+        : path.startsWith("/sessions")
+          ? "Sessions"
+          : "Review";
 
 function isTyping(target: EventTarget | null) {
   const el = target as HTMLElement | null;
@@ -375,7 +387,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <nav className="app-nav" aria-label="Main">
               {NAV.map(({ key, label, to, Icon, keys }) => (
                 <Fragment key={key}>
-                  <Tooltip label={label} keys={keys} side="bottom">
+                  <Tooltip label={label} keys={keys.length ? keys : undefined} side="bottom">
                     <NavLink to={to} end={to === "/"} className={({ isActive }) => (isActive ? "is-active" : "")}>
                       <span className="nav-label">
                         <Icon size={15} strokeWidth={1.75} />

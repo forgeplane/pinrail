@@ -2806,6 +2806,14 @@ body.is-resizing iframe {
   margin: 0;
   font-size: 12.5px;
 }
+/* the sessions: those with something waiting for the person are marked at
+   their start, as a pending review is in the inbox */
+.sessions-table tr.is-waiting td:first-child {
+  box-shadow: inset 2px 0 0 var(--sev-major);
+}
+.sessions-table .with-icon {
+  gap: 6px;
+}
 
 /* history */
 .pager {

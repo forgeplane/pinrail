@@ -132,3 +132,49 @@ test("declining tells the agent to stop, with the reason", async ({ page }) => {
   await expect.poll(async () => (await decisionOf(page.request, id)).status).toBe("discarded");
   expect((await decisionOf(page.request, id)).discarded_reason).toBe("ask in the PR");
 });
+
+test("the Sessions page lists the sessions, those waiting first, and opens a session's thread", async ({ page }) => {
+  await clearInbox(page.request);
+  const answered = fresh();
+  const waiting = fresh();
+  const { id } = await send(page.request, asked(answered, "Sessions: answered"));
+  const done = await page.request.post(`${core}/api/v1/reviews/${id}/decision`, {
+    data: {
+      data: {
+        answers: [
+          { id: "q1", choice: "staging" },
+          { id: "q2", yes: true },
+          { id: "q3", text: "v2" },
+        ],
+      },
+    },
+  });
+  expect(done.status()).toBe(200);
+  await send(page.request, { ...asked(waiting, "Sessions: waiting"), requested_by: "codex" });
+
+  await page.goto("/#/");
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sessions" }).click();
+  const rows = page.getByTestId("session-row");
+  await expect(rows.first()).toContainText(waiting);
+  await expect(rows.first()).toContainText("1 question");
+  await expect(rows.filter({ hasText: answered })).toContainText("1 question");
+
+  await page.getByRole("searchbox", { name: "Search sessions" }).fill(answered);
+  await expect(rows).toHaveCount(1);
+  await rows.first().click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${answered}$`));
+  await expect(thread(page).getByTestId("answer")).toHaveCount(3);
+});
+
+test("a question's thread links to its session's page", async ({ page }) => {
+  await openReviewsIn(page.request, "page");
+  await clearInbox(page.request);
+  const session = fresh();
+  const { id } = await send(page.request, asked(session, "Link: deploy"));
+  await page.goto(`/#/reviews/${id}`);
+  await thread(page)
+    .getByRole("link", { name: /^session / })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(thread(page).getByTestId("question")).toHaveCount(3);
+});

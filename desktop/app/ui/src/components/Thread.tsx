@@ -33,6 +33,10 @@ type ThreadProps = {
   onClose?: () => void;
 };
 
+/** A session's page. */
+export const sessionPath = (s: { agent: string; id: string }) =>
+  `/sessions/${encodeURIComponent(s.agent)}/${encodeURIComponent(s.id)}`;
+
 /** The session of a review, when the agent that sent it said which. */
 export function sessionOf(review: Review): { agent: string; id: string } | null {
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
@@ -106,9 +110,16 @@ export function Thread({ focus, session: given, inPanel = false, onEnded, onClos
           ) : null}
         </span>
         {named ? (
-          <span className="mono faint thread-session" title={named.id}>
-            session {named.id.length > 12 ? `${named.id.slice(0, 8)}…` : named.id}
-          </span>
+          // from a question, the session's own page; on it, the id alone
+          focus ? (
+            <Link to={sessionPath(named)} className="mono faint thread-session" title={`Open session ${named.id}`}>
+              session {named.id.length > 12 ? `${named.id.slice(0, 8)}…` : named.id}
+            </Link>
+          ) : (
+            <span className="mono faint thread-session" title={named.id}>
+              session {named.id.length > 12 ? `${named.id.slice(0, 8)}…` : named.id}
+            </span>
+          )
         ) : null}
         {session ? (
           <span className="dim" title={stamp(session.last_at)}>
