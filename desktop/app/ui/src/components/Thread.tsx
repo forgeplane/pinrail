@@ -12,11 +12,11 @@ import {
   CornerDownRight,
   Expand,
   GitBranch,
+  GitCommitHorizontal,
   MessageSquarePlus,
   PanelRightClose,
   PanelRightOpen,
   Pencil,
-  Play,
   Star,
   Trash2,
   X,
@@ -668,7 +668,7 @@ function StartedLine({ status }: { status: SessionStatus }) {
   return (
     <div className="thread-divider thread-started" id={`status-${status.id}`} data-testid="started">
       <span>
-        <Play size={12} aria-hidden /> Started: {status.text} ·{" "}
+        <GitCommitHorizontal size={12} aria-hidden /> Started: {status.text} ·{" "}
         <span title={stamp(status.at)}>{age(status.at)} ago</span>
       </span>
     </div>
