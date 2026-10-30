@@ -69,10 +69,15 @@ pub(super) fn insert_event(
     actor: Option<&str>,
     attrs: &Value,
 ) -> rusqlite::Result<i64> {
-    // anything that happens to a review, other than the person opening it,
-    // is activity in its session
+    // anything that happens to a review, other than the person opening it
+    // or starring it, is activity in its session
     if let Some(review_id) = review_id
-        && kind != crate::events::VIEWED
+        && ![
+            crate::events::VIEWED,
+            crate::events::STARRED,
+            crate::events::UNSTARRED,
+        ]
+        .contains(&kind)
     {
         super::sessions::touch_review(conn, review_id)?;
     }

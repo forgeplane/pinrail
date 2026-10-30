@@ -184,6 +184,10 @@ pub struct Review {
     /// How many files the review carries and their bytes: in listings too,
     /// so a row can say so without the list.
     pub attachments_total: (u64, u64),
+    /// When the person starred this round, if they did.
+    pub starred_at: Option<DateTime<Utc>>,
+    /// Whether any round of the review is starred.
+    pub starred: bool,
 }
 
 impl Review {
@@ -242,6 +246,8 @@ impl Review {
             "discarded_via": self.discarded_via.map(Via::as_str),
             "discarded_session": self.discarded_session,
             "attachments_total": { "count": self.attachments_total.0, "bytes": self.attachments_total.1 },
+            "starred_at": self.starred_at.map(iso),
+            "starred": self.starred,
         });
         if with_payload {
             map["payload"] = self.payload.clone().unwrap_or(Value::Null);
@@ -306,6 +312,8 @@ mod tests {
         Review {
             attachments: Vec::new(),
             attachments_total: (0, 0),
+            starred_at: None,
+            starred: false,
             id: "r_1".into(),
             kind: Kind::Review,
             plugin: "list".into(),

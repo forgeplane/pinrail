@@ -24,6 +24,9 @@ pub struct Filters {
     pub run_id: Option<String>,
     pub text: Option<String>,
     pub include_revised: bool,
+    /// Only starred reviews: with `include_revised`, the rounds that are
+    /// starred themselves, and otherwise the reviews with a starred round.
+    pub starred: bool,
     /// Only reviews past this one in the listing's order, for paging.
     pub cursor: Option<String>,
     /// Oldest first, rather than newest first.
@@ -307,6 +310,33 @@ impl Db {
         .optional()
     }
 
+    /// Stars a round at `at`, keeping an earlier star, or removes its star
+    /// with `None`.
+    pub fn set_star(&self, id: &str, at: Option<DateTime<Utc>>) -> rusqlite::Result<()> {
+        let conn = self.conn();
+        match at {
+            Some(at) => conn.execute(
+                "UPDATE reviews SET starred_at = COALESCE(starred_at, ?2) WHERE id = ?1",
+                params![id, crate::reviews::iso(at)],
+            )?,
+            None => conn.execute(
+                "UPDATE reviews SET starred_at = NULL WHERE id = ?1",
+                params![id],
+            )?,
+        };
+        Ok(())
+    }
+
+    /// Whether any round of the review this round belongs to is starred.
+    pub fn is_starred(&self, id: &str) -> rusqlite::Result<bool> {
+        let conn = self.conn();
+        conn.query_row(
+            &format!("SELECT ?1 IN ({STARRED_ROUNDS})"),
+            params![id],
+            |row| row.get(0),
+        )
+    }
+
     pub fn exists(&self, id: &str) -> rusqlite::Result<bool> {
         let conn = self.conn();
         conn.query_row("SELECT 1 FROM reviews WHERE id = ?1", params![id], |_| {
@@ -462,6 +492,13 @@ impl Db {
         if !filters.include_revised {
             sql.push_str(" AND NOT EXISTS (SELECT 1 FROM reviews n WHERE n.revises = r.id)");
         }
+        // listing every round, a round is starred by its own star; listing
+        // each review's newest round, by a star on any of its rounds
+        if filters.starred && filters.include_revised {
+            sql.push_str(" AND r.starred_at IS NOT NULL");
+        } else if filters.starred {
+            sql.push_str(&format!(" AND r.id IN ({STARRED_ROUNDS})"));
+        }
         if !filters.statuses.is_empty() {
             // only pending and expired read the clock; a bound parameter
             // nothing references is an error to SQLite
@@ -596,6 +633,15 @@ impl Db {
     }
 }
 
+/// Every round of the reviews with a starred round: the starred rounds,
+/// and the rounds before and after them, along the `revises` links.
+const STARRED_ROUNDS: &str = "WITH RECURSIVE chain(id) AS (
+      SELECT id FROM reviews WHERE starred_at IS NOT NULL
+      UNION SELECT n.id FROM reviews n JOIN chain ON n.revises = chain.id
+      UNION SELECT p.revises FROM reviews p JOIN chain ON p.id = chain.id WHERE p.revises IS NOT NULL
+    )
+    SELECT id FROM chain";
+
 /// The columns `row_to_review` reads. Only a single review joins its
 /// payload; a listing selects NULL in its place.
 fn select(with_payload: bool) -> String {
@@ -617,7 +663,9 @@ fn select(with_payload: bool) -> String {
     o.summary,
     r.session,
     o.via, o.session,
-    r.kind
+    r.kind,
+    r.starred_at,
+    r.id IN ({STARRED_ROUNDS})
   FROM reviews r
   LEFT JOIN outcomes o ON o.review_id = r.id{join}"
     )
@@ -711,6 +759,10 @@ fn row_to_review(row: &rusqlite::Row<'_>, with_payload: bool) -> rusqlite::Resul
     Ok(Review {
         attachments: Vec::new(),
         attachments_total,
+        starred_at: row
+            .get::<_, Option<String>>(25)?
+            .and_then(|s| parse_datetime(&s)),
+        starred: row.get(26)?,
         id: row.get(0)?,
         kind: Kind::parse(&row.get::<_, String>(24)?).unwrap_or_default(),
         plugin: row.get(1)?,

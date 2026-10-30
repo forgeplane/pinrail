@@ -22,6 +22,9 @@ pub const PLUGINS_RELOADED: &str = "plugins_reloaded";
 pub const SETTINGS_CHANGED: &str = "settings_changed";
 /// An agent reported what it is doing in its session, with `pinrail status`.
 pub const SESSION_STATUS: &str = "session_status";
+/// The person starred a round of a review, or removed its star.
+pub const STARRED: &str = "starred";
+pub const UNSTARRED: &str = "unstarred";
 /// Reviews past the history's keep-days were deleted.
 pub const HISTORY_SWEPT: &str = "history_swept";
 

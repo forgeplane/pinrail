@@ -9,7 +9,7 @@ use axum::body::Bytes;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde_json::{Value, json};
 
@@ -37,6 +37,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/withdraw", post(withdraw))
         .route("/api/v1/reviews/{id}/discard", post(discard))
         .route("/api/v1/reviews/{id}/viewed", post(viewed))
+        .route("/api/v1/reviews/{id}/star", put(star).delete(unstar))
         .route("/api/v1/reviews/{id}/events", get(events))
         .route("/api/v1/reviews/{id}/attachments/{name}", get(attachment))
         .route("/api/v1/sessions", get(sessions))
@@ -338,6 +339,24 @@ fn source(headers: &HeaderMap, body: &Value) -> Source {
     }
 }
 
+/// Stars a round of a review: 204, and 422 for a question.
+async fn star(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    state.reviews().star(&id, true)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Removes the star of a round: 204.
+async fn unstar(
+    State(state): State<Arc<Pinrail>>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, ApiError> {
+    state.reviews().star(&id, false)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 async fn viewed(
     State(state): State<Arc<Pinrail>>,
     Path(id): Path<String>,
@@ -394,6 +413,7 @@ fn filters(params: &HashMap<String, String>) -> Result<Filters, ApiError> {
         run_id: text("run_id"),
         text: text("q"),
         include_revised: params.get("include_revised").is_some_and(|v| v == "true"),
+        starred: params.get("starred").is_some_and(|v| v == "true"),
         cursor: text("cursor"),
         oldest_first: false,
         limit: params

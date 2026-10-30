@@ -176,6 +176,12 @@ impl Reviews {
                 attachments.iter().map(|a| a.size).sum(),
             ),
             attachments,
+            starred_at: None,
+            // a new round of a starred review is starred through its last
+            starred: match attrs.get("revises").and_then(Value::as_str) {
+                Some(last) => self.db.is_starred(last)?,
+                None => false,
+            },
         };
         let event_id = match self.db.insert_review_once(&review, actor) {
             Ok(Ok(event_id)) => event_id,
@@ -685,6 +691,26 @@ impl Reviews {
 
     /// Logs that a person opened the review and announces it, so the
     /// notification that announced the review can close.
+    /// Stars a round of a review, or removes its star. Starring a starred
+    /// round again keeps its first time. Questions cannot be starred.
+    pub fn star(&self, id: &str, starred: bool) -> Result<(), Error> {
+        let review = self.get(id)?;
+        if review.kind == Kind::Question {
+            return Err(Error::invalid("/kind", "a question cannot be starred"));
+        }
+        self.db.set_star(id, starred.then(Utc::now))?;
+        let kind = if starred {
+            events::STARRED
+        } else {
+            events::UNSTARRED
+        };
+        let event_id = self
+            .db
+            .append_event(Some(id), kind, Some(&self.user), &Value::Null)?;
+        self.publish(event_id, kind, &self.get(id)?);
+        Ok(())
+    }
+
     pub fn mark_viewed(&self, id: &str) -> Result<(), Error> {
         if self.db.exists(id)? {
             let event_id =
