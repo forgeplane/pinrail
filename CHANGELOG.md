@@ -23,11 +23,17 @@ The `pinrail` command ships inside the app and carries the app's version.
   sent reviews, those waiting for you first. The sidebar lists the
   sessions waiting for you.
 - Questions in the inbox are marked apart from reviews.
+- `pinrail status` lets an agent say what it is doing. Its statuses show
+  in the session's thread between its questions and reviews, and the
+  newest shows under the session's title and on the Sessions page.
+- The session details show the project, the branch and the folder the
+  agent works in. The CLI now sends the folder with every review.
 
 ### Changed
 
 - The `pinrail` skill tells agents to ask their questions through Pinrail
-  with `pinrail ask`, not in the chat.
+  with `pinrail ask`, not in the chat, and to report their progress with
+  `pinrail status`.
 
 ## [0.4.1]
 

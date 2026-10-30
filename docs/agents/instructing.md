@@ -17,7 +17,7 @@ flowchart LR
 
 ## Start with the Pinrail skill
 
-In *Settings › Agents*, choose *Connect* next to your agent. Pinrail installs a global skill named `pinrail` that teaches the agent how to use Pinrail: how to ask you questions with `pinrail ask` instead of in the chat, how to submit a review and wait for it, how to read your decision, how to send a new round when you ask for changes, and what to do when you discard a review. See [Settings](/docs/using/settings/#agents).
+In *Settings › Agents*, choose *Connect* next to your agent. Pinrail installs a global skill named `pinrail` that teaches the agent how to use Pinrail: how to ask you questions with `pinrail ask` instead of in the chat, how to report its progress with `pinrail status`, how to submit a review and wait for it, how to read your decision, how to send a new round when you ask for changes, and what to do when you discard a review. See [Settings](/docs/using/settings/#agents).
 
 ![Settings, Agents: the agents Pinrail found on this computer, with the pinrail skill connected to some of them.](screenshot:settings-agents "Claude Code and Cursor are connected, OpenCode uses Claude Code's skill, and Codex is ready to connect.")
 

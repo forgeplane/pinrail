@@ -125,6 +125,7 @@ export default defineConfig({
           label: "Using Pinrail",
           items: [
             "docs/using/inbox",
+            "docs/using/sessions",
             "docs/using/installing-plugins",
             "docs/using/settings",
             "docs/using/notifications",

@@ -5,6 +5,8 @@ description: "Where reviews wait for you, how you decide them, the history of ev
 
 The inbox is where your agents' reviews wait. When you open a review, its plugin's view shows the work. You decide in the view and hand the decision over, and the agent continues. Reviews that have ended move to your history.
 
+Questions an agent asks with `pinrail ask` wait in the inbox too, marked with a question icon and *asks you*. They open in the thread of the agent's session. See [Questions and sessions](/docs/using/sessions/).
+
 ![The inbox: eleven pending reviews grouped by project, each with counts of what it asks, and the waiting list and the projects in the sidebar.](screenshot:inbox "Eleven reviews waiting, across eight projects.")
 
 ## The inbox

@@ -47,6 +47,22 @@ pinrail ask "Deploy to staging or production?" \
   or leave a question unanswered, which is not a decision.
 - The exit codes are those below; `5` means the person declined.
 
+## Reporting progress
+
+Say what you are doing with `pinrail status`. The person sees it in your
+session's thread in the app, between your questions and reviews:
+
+```sh
+pinrail status "Running the end-to-end suite"
+pinrail status --done "Opened pull request #214"
+```
+
+- Report when you start a task or a step that takes more than a minute
+  or so, and with `--done` when you have finished. Do not report every
+  command.
+- The text is one line of at most 200 characters.
+- The command does not wait. If it fails, carry on with your work.
+
 ## Submitting
 
 ```sh

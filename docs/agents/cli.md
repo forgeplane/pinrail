@@ -105,11 +105,30 @@ Comment: Thanks for asking first.
 | `--title <text>` | The title in the inbox. Without it, the title is the first question. |
 | `--data <json>` | The questions as JSON, `{"questions": [...]}`, in place of the options above. |
 
-The questions in one command are independent: the person answers them in any order, in the session's thread in the app. They can answer a question with choices in their own words, add a note to an answer, leave a question unanswered, and comment on the questions as a whole. With one question, the command prints only its answer. With `--json`, it prints the whole review: the answers are in `decision.data.answers`, and the comment in `agent_note`.
+![An agent session's thread: three questions waiting, the first answered with a note, and the box for a comment to the agent.](screenshot:ask-thread "The questions of one pinrail ask, waiting in the session's thread.")
+
+The questions in one command are independent: the person answers them in any order, in the session's thread in the app, as [Questions and sessions](/docs/using/sessions/) describes. They can answer a question with choices in their own words, add a note to an answer, leave a question unanswered, and comment on the questions as a whole. With one question, the command prints only its answer. With `--json`, it prints the whole review: the answers are in `decision.data.answers`, and the comment in `agent_note`.
 
 When a question depends on the answer to another, ask the first, then the next with another `pinrail ask`. For questions that depend on each other, or that need a long explanation each, the `feedback` plugin fits better.
 
 `pinrail ask` always waits, and exits as `submit --wait` does: `5` when the person declines to answer. `pinrail show`, `wait`, `withdraw` and `list` work on questions as they do on reviews.
+
+## Reporting progress
+
+`pinrail status` says what the agent is doing, in one line, in its session's thread in the app. It does not wait and prints nothing.
+
+```sh
+pinrail status "Running the end-to-end suite"
+pinrail status --done "Pushed the fix to pinrail-ask"
+```
+
+The text is plain text of at most 200 characters, on one line. `--done` says the agent has finished, and its text is then optional. The app keeps every status, so the thread shows what the agent did between its questions and reviews, and the newest one shows under the session's title and on the Sessions page. A status after `--done` shows the agent working again.
+
+![A session's thread: statuses before and after an answered question, and the agent saying it has finished.](screenshot:session-status "Statuses around a question, up to pinrail status --done.")
+
+Report when you start a task or a step that takes more than a minute or so, and with `--done` when you have finished. A status for every command would bury the questions and reviews that need the person.
+
+The command finds the agent and its session as `submit` does, from the agent's environment, such as `CLAUDE_CODE_SESSION_ID`. With no session found, it exits with `1`. A text the app refuses, such as one with a line break, exits with `2`.
 
 ## Submitting a review
 
@@ -253,6 +272,8 @@ JSON is for a script or a tool that processes the result rather than reads it: t
 
 | Command | What it does |
 |---|---|
+| `pinrail ask <question>` | Ask the person one or more questions, wait for the answers and print them. See [Asking questions](#asking-questions). |
+| `pinrail status <text>` | Say what the agent is doing in its session's thread; `--done` when it has finished. See [Reporting progress](#reporting-progress). |
 | `pinrail submit <plugin>` | Submit a review. |
 | `pinrail wait <id>` | Block until a review leaves pending, then print it. |
 | `pinrail show <id>` | Print a review with its payload and decision. |
