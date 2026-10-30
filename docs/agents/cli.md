@@ -123,7 +123,7 @@ pinrail status "Running the end-to-end suite"
 pinrail status --done "Pushed the fix to pinrail-ask"
 ```
 
-The text is plain text of at most 200 characters, on one line. `--start` says the agent starts a task, and its text names the task: the newest task started is the session's title in the app, in the thread, on the Sessions page and in the sidebar. `--done` says the agent has finished, and its text is then optional. The app keeps every status, so the thread shows what the agent did between its questions and reviews, and the newest one shows under the session's title and on the Sessions page. A status after `--done` shows the agent working again, and a new `--start` gives the session the new task's title.
+The text is plain text of at most 200 characters, on one line. `--start` says the agent starts a task, and its text names the task: the newest task started is the session's title in the app, in the thread, on the Sessions page and in the sidebar. `--done` says the agent has finished, and its text is then optional. The app keeps every status, so the thread shows what the agent did between its questions and reviews, and the newest one shows on the Sessions page. A status after `--done` shows the agent working again, and a new `--start` gives the session the new task's title.
 
 ![A session's thread: statuses before and after an answered question, and the agent saying it has finished.](screenshot:session-status "Statuses around a question, up to pinrail status --done.")
 

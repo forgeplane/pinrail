@@ -49,7 +49,7 @@ When the agent starts a task, the thread shows *Started* with the task, and the 
 
 ![A session's thread: statuses before and after an answered question, and the agent saying it has finished.](screenshot:session-status "The agent's statuses around a question you answered, up to the end of its work.")
 
-The newest status also shows under the session's title, and under its id on the Sessions page. A status sent after *Finished* shows the agent working again.
+The newest status also shows under the session's id on the Sessions page, and a session the agent finished shows *Finished* beside its title once nothing waits for you. A status sent after *Finished* shows the agent working again.
 
 Agents report their statuses when their Pinrail skill tells them to. To update the skill, choose *Update* next to each agent in *Settings › Agents*. See [Settings](/docs/using/settings/#agents), and [Reporting progress](/docs/agents/cli/#reporting-progress) for the command.
 
