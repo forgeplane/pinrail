@@ -3596,31 +3596,51 @@ body.is-resizing iframe {
   margin: 0;
   font-size: 12.5px;
 }
-/* the sessions: those with something waiting for the person are marked at
-   their start, as a pending review is in the inbox */
-.sessions-table tr.is-waiting td:first-child {
-  box-shadow: inset 2px 0 0 var(--sev-major);
+/* the sessions, as rows like the inbox's: the agent's icon, the title with
+   the branch, the agent, project, id and newest status under it, then what
+   waits, what the session holds and its last activity. A session with
+   something waiting is tinted as a question is in the inbox */
+.session-row {
+  grid-template-columns: 16px 1fr auto auto auto;
 }
-.sessions-table .with-icon {
-  gap: 6px;
+.session-row.is-waiting:not(.is-open):not(.is-focused) {
+  background: color-mix(in srgb, var(--sev-major) 6%, transparent);
 }
-/* beside the side panel, the sessions show the session and what waits, the
-   session's id and status on one line each */
-@container (max-width: 640px) {
-  .sessions-col-total {
+/* the id and the status shorten before the rest of the line */
+.review-row-meta > .session-row-id {
+  flex: 0 1 auto;
+  min-width: 4ch;
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+}
+.review-row-meta > .session-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: none;
+}
+/* the parts of the line, with dots between them that are not read out */
+.session-row .review-row-meta > * + *::before {
+  content: "·" / "";
+  margin-right: 6px;
+  color: var(--faint);
+}
+.session-row-total {
+  font-size: 11.5px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.session-row-waiting {
+  white-space: nowrap;
+}
+/* a narrow list, as beside the side panel, leaves out what a session holds */
+@container (max-width: 560px) {
+  .session-row {
+    grid-template-columns: 16px 1fr auto auto;
+  }
+  .session-row-total {
     display: none;
-  }
-  .sessions-table td:first-child {
-    max-width: 0;
-    width: 100%;
-  }
-  .sessions-table td:first-child small {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .sessions-table .thread-waiting {
-    white-space: nowrap;
   }
 }
 

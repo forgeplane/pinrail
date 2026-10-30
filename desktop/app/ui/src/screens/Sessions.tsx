@@ -201,60 +201,55 @@ export function Sessions() {
               : "Each agent session that asks you a question or sends a review appears here, with everything it sent."}
           </EmptyState>
         ) : (
-          <div className="history-table-wrap">
-            <table className="history-table sessions-table">
-              <thead>
-                <tr>
-                  <th>Session</th>
-                  <th>Waiting</th>
-                  <th className="sessions-col-total">In it</th>
-                  <th className="history-col-repo">Project</th>
-                  <th className="history-col-recorded">Last activity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s, i) => {
-                  const waiting = s.waiting.questions + s.waiting.reviews;
-                  return (
-                    <tr
-                      key={`${s.agent}/${s.id}`}
-                      className={`${i === focused ? "is-focused" : ""} ${waiting ? "is-waiting" : ""} ${keyOf(s) === openKey ? "is-open" : ""}`}
-                      data-testid="session-row"
-                      onMouseEnter={() => setFocused(i)}
-                      onClick={(event) => {
-                        if (!(event.target as Element).closest("a")) open(s);
-                      }}
-                    >
-                      <td>
-                        <Link to={hrefFor(s)} className="history-title with-icon" onClick={(e) => openFromLink(e, s)}>
-                          <AgentIcon requestedBy={s.agent} size={13} /> {s.title ?? s.agent}
-                        </Link>
-                        <small className="mono" title={s.id}>
-                          {s.title ? `${s.agent} · ${s.id}` : s.id}
-                        </small>
-                        {s.status && !(s.status.kind === "start" && s.title) ? (
-                          <small
-                            className={`session-status ${s.status.kind === "done" ? "is-done" : ""}`}
+          <>
+            <div className="inbox-list">
+              {sessions.map((s, i) => {
+                const waiting = s.waiting.questions + s.waiting.reviews;
+                // the newest status, unless it is the start that titles the session
+                const status = s.status && !(s.status.kind === "start" && s.title) ? s.status : null;
+                return (
+                  <Link
+                    key={keyOf(s)}
+                    to={hrefFor(s)}
+                    onClick={(event) => openFromLink(event, s)}
+                    className={`review-row session-row ${waiting ? "is-waiting" : ""} ${i === focused ? "is-focused" : ""} ${keyOf(s) === openKey ? "is-open" : ""}`}
+                    aria-current={keyOf(s) === openKey ? "true" : undefined}
+                    onMouseEnter={() => setFocused(i)}
+                    data-testid="session-row"
+                  >
+                    <AgentIcon requestedBy={s.agent} size={15} />
+                    <span className="review-row-main">
+                      <span className="review-row-title">
+                        {s.title ?? s.agent}
+                        {s.ref ? <span className="review-row-ref">{s.ref}</span> : null}
+                      </span>
+                      <span className="review-row-meta">
+                        {s.title ? <span>{s.agent}</span> : null}
+                        {s.repo ? <span className="review-row-project">{s.repo}</span> : null}
+                        <span className="session-row-id mono" title={s.id}>
+                          {s.id}
+                        </span>
+                        {status ? (
+                          <span
+                            className={`session-status ${status.kind === "done" ? "is-done" : ""}`}
                             data-testid="session-status"
                           >
-                            {statusLine(s.status)}
-                          </small>
+                            {statusLine(status)}
+                          </span>
                         ) : null}
-                      </td>
-                      <td>{waiting ? <span className="thread-waiting">{contents(s.waiting)}</span> : null}</td>
-                      <td className="dim sessions-col-total">{contents(s.total)}</td>
-                      <td className="history-col-repo">
-                        {s.repo}
-                        {s.ref ? <small className="mono">{s.ref}</small> : null}
-                      </td>
-                      <td className="history-col-recorded" title={stamp(s.last_at)}>
-                        {age(s.last_at)} ago
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </span>
+                    </span>
+                    <span className="session-row-waiting">
+                      {waiting ? <span className="asks-chip">{contents(s.waiting)} waiting</span> : null}
+                    </span>
+                    <span className="session-row-total">{contents(s.total)}</span>
+                    <time className="review-row-time" dateTime={s.last_at} title={stamp(s.last_at)}>
+                      {age(s.last_at)}
+                    </time>
+                  </Link>
+                );
+              })}
+            </div>
             <Pager
               page={page}
               size={size}
@@ -266,7 +261,7 @@ export function Sessions() {
               }}
               onSize={(n) => setParam("per", String(n))}
             />
-          </div>
+          </>
         )}
       </div>
       {opened ? (

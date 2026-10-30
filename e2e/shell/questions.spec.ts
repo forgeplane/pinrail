@@ -197,7 +197,7 @@ test("the Sessions page lists the sessions, those waiting first, and opens a ses
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Sessions" }).click();
   const rows = page.getByTestId("session-row");
   await expect(rows.first()).toContainText(waiting);
-  await expect(rows.first()).toContainText("1 question");
+  await expect(rows.first()).toContainText("1 question waiting");
   await expect(rows.filter({ hasText: answered })).toContainText("1 question");
 
   await page.getByRole("searchbox", { name: "Search sessions" }).fill(answered);
@@ -474,7 +474,7 @@ test("the statuses an agent reports show in its thread between the questions and
   // the Sessions page shows the newest status
   await page.goto("/#/sessions");
   const row = page.getByTestId("session-row").filter({ hasText: session });
-  await expect(row.getByRole("link", { name: "Add rate limiting" })).toBeVisible();
+  await expect(row.locator(".review-row-title")).toContainText("Add rate limiting");
   await expect(row.getByTestId("session-status")).toHaveText("Finished: Pushed the fix");
   await expect(page.getByRole("region", { name: "Sessions waiting" })).toContainText("Add rate limiting");
 });
@@ -583,7 +583,7 @@ test("a session opens in the side panel beside the Sessions page", async ({ page
   await expect(sessionRow(second)).toHaveClass(/is-open/);
   await expect(page).toHaveURL(/\/sessions\?open=claude-code%2F/);
   // beside the panel, the list hides what the session holds, and keeps its id on one line
-  await expect(page.getByRole("columnheader", { name: "In it" })).toBeHidden();
+  await expect(sessionRow(second).locator(".session-row-total")).toBeHidden();
   const id = sessionRow(second).getByTitle(second);
   const line = await id.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   expect((await id.boundingBox())!.height).toBeLessThan(line * 1.5);
@@ -611,6 +611,6 @@ test("a session opens in the side panel beside the Sessions page", async ({ page
   // with reviews opening on their own page, so do sessions
   await openReviewsIn(page.request, "page");
   await page.reload();
-  await sessionRow(first).getByRole("link").first().click();
+  await sessionRow(first).click();
   await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${first}$`));
 });
