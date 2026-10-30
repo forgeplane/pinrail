@@ -231,3 +231,23 @@ test("a question under its session opens its thread, and the session's row keeps
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => document.contains((window as unknown as { drawn: Element }).drawn))).toBe(true);
 });
+
+test("a long branch in a session's details shortens, and keeps its icon and its start", async ({ page }) => {
+  await clearInbox(page.request);
+  const run = fresh();
+  const repo = `side/${run}`;
+  const session = `branch-${run}`;
+  const ref = "feature/a-branch-name-far-too-long-for-the-sidebar";
+  await report(page.request, "claude-code", session, { text: "Long branch", kind: "start", origin: { repo, ref } });
+  await setChoices(page.request, { show_details: true, details: ["activity", "branch"] });
+  await page.setViewportSize({ width: 1200, height: 700 });
+  await page.goto("/#/");
+  await page.evaluate(() => localStorage.removeItem("pinrail.sidebar.width"));
+  await page.reload();
+  const branch = sessionRow(page, "claude-code", session).locator(".sidebar-session-branch");
+  await expect(branch.locator("svg")).toBeInViewport();
+  // the name keeps its first letters in view, shortened at its end
+  const name = branch.locator(".sidebar-session-branch-name");
+  await expect(name).toHaveText(ref);
+  expect((await name.boundingBox())?.width ?? 0).toBeGreaterThan(30);
+});

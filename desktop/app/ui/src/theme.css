@@ -486,18 +486,35 @@ h1 {
   display: grid;
   min-width: 0;
 }
+/* one line: the short parts stay whole, and the branch and the status
+   shorten at their end */
 .sidebar-session-details {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
   color: var(--faint);
+}
+.sidebar-session-details > * {
+  flex: none;
+}
+.sidebar-session-details > .sidebar-session-branch,
+.sidebar-session-details > .sidebar-session-text-part {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .sidebar-session-branch {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  vertical-align: -1px;
+}
+.sidebar-session-branch-name,
+.sidebar-session-text-part {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sidebar-session-branch svg {
   flex: none;

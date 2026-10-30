@@ -109,20 +109,22 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
     const details: { key: string; part: ReactNode }[] = choices.show_details
       ? choices.details.flatMap((d) => {
           const part =
-            d === "activity"
-              ? `${age(s.last_at, now)} ago`
-              : d === "status"
-                ? s.status?.kind === "step"
-                  ? s.status.text
-                  : null
-                : d === "branch"
-                  ? s.ref && (
-                      <span className="sidebar-session-branch">
-                        <GitBranch size={10} aria-hidden />
-                        {s.ref}
-                      </span>
-                    )
-                  : s.agent;
+            d === "activity" ? (
+              `${age(s.last_at, now)} ago`
+            ) : d === "status" ? (
+              s.status?.kind === "step" ? (
+                <span className="sidebar-session-text-part">{s.status.text}</span>
+              ) : null
+            ) : d === "branch" ? (
+              s.ref && (
+                <span className="sidebar-session-branch">
+                  <GitBranch size={10} aria-hidden />
+                  <span className="sidebar-session-branch-name">{s.ref}</span>
+                </span>
+              )
+            ) : (
+              s.agent
+            );
           return part ? [{ key: d, part }] : [];
         })
       : [];
@@ -153,7 +155,7 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
                 <span className="sidebar-session-details" title={stamp(s.last_at)}>
                   {details.map(({ key, part }, i) => (
                     <Fragment key={key}>
-                      {i > 0 ? " · " : null}
+                      {i > 0 ? <span aria-hidden>·</span> : null}
                       {part}
                     </Fragment>
                   ))}
