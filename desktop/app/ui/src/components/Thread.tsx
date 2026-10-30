@@ -11,6 +11,8 @@ import {
   CornerDownRight,
   GitBranch,
   MessageSquarePlus,
+  PanelRightClose,
+  PanelRightOpen,
   Pencil,
   Play,
   Star,
@@ -23,7 +25,7 @@ import { Link } from "react-router";
 import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session, SessionStatus } from "../api/types";
 import { age, stamp } from "../lib/format";
-import { MOD, hasMod, modalOpen } from "../lib/keys";
+import { MOD, SHIFT, hasMod, modalOpen } from "../lib/keys";
 import { renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
@@ -38,6 +40,30 @@ import { ReviewIcon, reviewLabel } from "./ReviewIcon";
 import { Tooltip } from "./Tooltip";
 
 const DRAFTS = "pinrail:answers:";
+/** Whether the session's details show beside the thread, and their width,
+ *  stored on this machine. */
+const DETAILS_SHOWN = "pinrail.thread.details";
+const DETAILS_WIDTH = "pinrail.thread.detailsWidth";
+const DETAILS_MIN = 220;
+const DETAILS_MAX = 520;
+
+function stored(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function store(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // without storage, the choice lasts until the app restarts
+  }
+}
+
+const clampDetails = (w: number) => Math.round(Math.max(DETAILS_MIN, Math.min(w, DETAILS_MAX)));
 
 type ThreadProps = {
   /** the questions opened, which the thread shows within their session */
@@ -162,6 +188,56 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   const agent = named?.agent ?? focus?.requested_by ?? null;
   const waiting = items.filter((r) => r.status === "pending");
   const started = useMemo(() => tasks(statuses), [statuses]);
+
+  // the session's details beside the thread: shown or hidden with the
+  // button or ⌘⇧B, and as wide as their edge is dragged
+  const [details, setDetails] = useState(() => stored(DETAILS_SHOWN) !== "hidden");
+  const [detailsWidth, setDetailsWidth] = useState(() => {
+    const n = Number(stored(DETAILS_WIDTH));
+    return n >= DETAILS_MIN ? clampDetails(n) : 280;
+  });
+  const toggleDetails = useCallback(() => {
+    setDetails((shown) => {
+      store(DETAILS_SHOWN, shown ? "hidden" : "shown");
+      return !shown;
+    });
+  }, []);
+  useEffect(() => {
+    if (inPanel) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (modalOpen() || !hasMod(event) || !event.shiftKey || event.altKey) return;
+      if (event.key !== "b" && event.key !== "B") return;
+      event.preventDefault();
+      toggleDetails();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [inPanel, toggleDetails]);
+  const keepDetailsWidth = (w: number) => {
+    setDetailsWidth(w);
+    store(DETAILS_WIDTH, String(w));
+  };
+  const resizeDetails = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const right = event.currentTarget.parentElement?.getBoundingClientRect().right ?? window.innerWidth;
+    document.body.classList.add("is-resizing");
+    const onMove = (e: PointerEvent) => setDetailsWidth(clampDetails(right - e.clientX));
+    const onUp = (e: PointerEvent) => {
+      document.body.classList.remove("is-resizing");
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      keepDetailsWidth(clampDetails(right - e.clientX));
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+  const resizeDetailsBy = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const step = event.shiftKey ? 80 : 20;
+    if (event.key === "ArrowLeft") keepDetailsWidth(clampDetails(detailsWidth + step));
+    else if (event.key === "ArrowRight") keepDetailsWidth(clampDetails(detailsWidth - step));
+    else return;
+    event.preventDefault();
+  };
   const questions = items.filter((r) => r.kind === "question").length;
   const reviews = items.length - questions;
   const repo = session?.repo ?? focus?.origin.repo ?? null;
@@ -226,6 +302,19 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                 .join(" · ")}
             </span>
           ) : null}
+          {inPanel ? null : (
+            <Tooltip label={details ? "Hide the details" : "Show the details"} keys={[MOD, SHIFT, "B"]} side="bottom">
+              <button
+                type="button"
+                className="bar-button"
+                aria-label={details ? "Hide the session's details" : "Show the session's details"}
+                aria-pressed={details}
+                onClick={toggleDetails}
+              >
+                {details ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
+              </button>
+            </Tooltip>
+          )}
           {inPanel && onClose ? (
             <Tooltip label="Close" keys={["Esc"]} side="bottom">
               <button type="button" className="bar-button" onClick={onClose} aria-label="Close the panel">
@@ -281,8 +370,22 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
             {active ? null : <IdleComposer />}
           </div>
         </div>
-        {inPanel ? null : (
-          <aside className="thread-aside" aria-label="Session details">
+        {inPanel || !details ? null : (
+          <div
+            className="panel-resizer thread-aside-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the session's details"
+            aria-valuenow={detailsWidth}
+            aria-valuemin={DETAILS_MIN}
+            aria-valuemax={DETAILS_MAX}
+            tabIndex={0}
+            onPointerDown={resizeDetails}
+            onKeyDown={resizeDetailsBy}
+          />
+        )}
+        {inPanel || !details ? null : (
+          <aside className="thread-aside" aria-label="Session details" style={{ width: detailsWidth }}>
             <section>
               <h2>Waiting on you</h2>
               {waiting.length === 0 ? <p className="faint">Nothing is waiting.</p> : null}

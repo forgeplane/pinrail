@@ -25,6 +25,7 @@ export const SHORTCUTS: { what: string; keys: string[][] }[] = [
   { what: "Settings", keys: [[MOD, ","]] },
   { what: "Switch theme", keys: [[MOD, SHIFT, "L"]] },
   { what: "Show or hide the sidebar", keys: [[MOD, "B"]] },
+  { what: "Show or hide a session's details", keys: [[MOD, SHIFT, "B"]] },
   {
     what: "Back / forward",
     keys: [

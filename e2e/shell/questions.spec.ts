@@ -502,3 +502,29 @@ test("a task the agent starts renames its session in the sidebar at once", async
   await report(page.request, session, { text: "Ship the deploy script", kind: "start" });
   await expect(waiting).toHaveText(/Ship the deploy script/);
 });
+
+test("a session's details hide, show and resize, and stay so", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  await send(page.request, asked(session, "Details: deploy"));
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const details = page.getByRole("complementary", { name: "Session details" });
+  await expect(details).toBeVisible();
+
+  // wider with the edge's arrow keys
+  const before = (await details.boundingBox())!.width;
+  await page.getByRole("separator", { name: "Resize the session's details" }).focus();
+  await page.keyboard.press("Shift+ArrowLeft");
+  await expect.poll(async () => (await details.boundingBox())!.width).toBeGreaterThan(before + 60);
+
+  // hidden with the button, and still hidden after a reload
+  await page.getByRole("button", { name: "Hide the session's details" }).click();
+  await expect(details).toHaveCount(0);
+  await page.reload();
+  await expect(thread(page).getByTestId("question")).toHaveCount(3);
+  await expect(details).toHaveCount(0);
+  // shown again with the keys, as wide as it was
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+B" : "Control+Shift+B");
+  await expect(details).toBeVisible();
+  expect((await details.boundingBox())!.width).toBeGreaterThan(before + 60);
+});
