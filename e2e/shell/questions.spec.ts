@@ -457,7 +457,8 @@ test("the statuses an agent reports show in its thread between the questions and
   await groups.last().getByRole("button", { name: "1 earlier" }).click();
   await expect(groups.last().getByTestId("status")).toHaveText([/Running the tests/, /Fixing a flaky test/]);
   await expect(thread(page).getByTestId("finished")).toContainText("Finished: Pushed the fix");
-  await expect(thread(page).getByTestId("head-status")).toContainText("Finished: Pushed the fix");
+  // with its questions waiting, the header says so rather than Finished
+  await expect(thread(page).getByTestId("head-finished")).toHaveCount(0);
   // the task in the panel, which goes to where it started
   const task = page.getByRole("region", { name: "Tasks" }).getByTestId("task");
   await expect(task).toHaveCount(1);
@@ -484,9 +485,13 @@ test("a status the agent reports shows in an open thread at once", async ({ page
   await send(page.request, asked(session, "Live: deploy"));
   await page.goto(`/#/sessions/claude-code/${session}`);
   await expect(thread(page).getByTestId("question")).toHaveCount(3);
-  await expect(thread(page).getByTestId("head-status")).toHaveCount(0);
+  await expect(thread(page).getByTestId("status")).toHaveCount(0);
   await report(page.request, session, { text: "Waiting for the answers" });
-  await expect(thread(page).getByTestId("head-status")).toContainText("Waiting for the answers");
+  await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
+  // once nothing waits, a session the agent finished says so beside its title
+  await report(page.request, session, { kind: "done" });
+  await clearInbox(page.request);
+  await expect(thread(page).getByTestId("head-finished")).toHaveText("Finished");
   await expect(thread(page).getByTestId("status")).toHaveText([/Waiting for the answers/]);
 });
 

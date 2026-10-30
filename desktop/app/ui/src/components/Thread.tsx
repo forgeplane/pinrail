@@ -252,44 +252,41 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
         <div className="thread-title">
           {/* the task the agent works on names the session, with the agent
               and where it works under it; without one, those are the title */}
-          {session?.title ? (
-            <>
-              <h1 className="thread-task">{session.title}</h1>
-              <div className="thread-who">
-                <Where agent={agent} repo={repo} reference={ref} />
-              </div>
-            </>
-          ) : (
-            <h1>
-              <Where agent={agent} repo={repo} reference={ref} />
+          <div className="thread-title-row">
+            <h1 className={session?.title ? "thread-task" : undefined}>
+              {session?.title ?? <Where agent={agent} repo={repo} reference={ref} />}
             </h1>
-          )}
-          <div className="thread-sub">
             {waiting.length > 0 ? (
               <span className="thread-waiting">
                 <span className="thread-waiting-dot" aria-hidden />
                 Waiting for you · {waiting.length}
               </span>
+            ) : session?.status?.kind === "done" ? (
+              <span className="thread-done" data-testid="head-finished">
+                <CheckCircle2 size={12} aria-hidden /> Finished
+              </span>
             ) : null}
+          </div>
+          <div className="thread-meta">
+            {session?.title ? (
+              <span className="thread-meta-where">
+                <Where agent={agent} repo={repo} reference={ref} />
+              </span>
+            ) : null}
+            {session ? <span title={stamp(session.first_at)}>started {age(session.first_at)} ago</span> : null}
             {named ? (
               // from a question, the session's own page; on it, the id alone
               focus ? (
-                <Link to={sessionPath(named)} className="faint thread-session" title={`Open session ${named.id}`}>
+                <Link to={sessionPath(named)} className="thread-session" title={`Open session ${named.id}`}>
                   session {named.id}
                 </Link>
               ) : (
-                <span className="faint thread-session" title={named.id}>
+                <span className="thread-session" title={named.id}>
                   session {named.id}
                 </span>
               )
             ) : null}
-            {session ? (
-              <span className="faint" title={stamp(session.first_at)}>
-                · started {age(session.first_at)} ago
-              </span>
-            ) : null}
           </div>
-          {session?.status ? <HeadStatus status={session.status} /> : null}
         </div>
         <span className="thread-head-end">
           {items.length > 0 ? (
@@ -518,24 +515,6 @@ export function statusLine(status: SessionStatus): string {
   if (status.kind === "start") return "Started";
   if (status.kind === "done") return status.text ? `Finished: ${status.text}` : "Finished";
   return status.text;
-}
-
-/** What the agent last said, under the session's title. */
-function HeadStatus({ status }: { status: SessionStatus }) {
-  const done = status.kind === "done";
-  return (
-    <div className={`thread-status ${done ? "is-done" : ""}`} data-testid="head-status">
-      {done ? (
-        <CheckCircle2 size={13} aria-hidden />
-      ) : (
-        <Activity size={13} className="thread-status-icon" aria-hidden />
-      )}
-      <span className="thread-status-text">{statusLine(status)}</span>
-      <span className="faint" title={stamp(status.at)}>
-        · {age(status.at)} ago
-      </span>
-    </div>
-  );
 }
 
 /** Statuses the agent reported in a row: the newest, and the earlier ones
