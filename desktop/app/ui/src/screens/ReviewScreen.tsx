@@ -7,6 +7,7 @@ import {
   Expand,
   ExternalLink,
   Maximize2,
+  MessagesSquare,
   Mic,
   Minimize2,
   PanelRight,
@@ -27,7 +28,7 @@ import { OutcomeBadge, PluginBadge, SummaryCounts, outcomeOf } from "../componen
 import { DiscardDialog } from "../components/DiscardDialog";
 import { FindBar } from "../components/FindBar";
 import { SourceBadge } from "../components/SourceBadge";
-import { Thread } from "../components/Thread";
+import { Thread, sessionOf, sessionPath } from "../components/Thread";
 import { WaitMark } from "../components/WaitMark";
 import { LinkDialog, type LinkChoice } from "../components/LinkDialog";
 import { allowedWithoutAsking, allowing, linkRequest, sourceOf, type LinkRequest } from "../lib/links";
@@ -560,6 +561,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
               )}
             </button>
           </Tooltip>
+          <SessionLink review={review} />
           {plugin ? (
             <Tooltip label="Maximize the view" keys={[MOD, SHIFT, "M"]} side="bottom">
               <button
@@ -605,7 +607,7 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
         </>
       ) : null,
     // the id too: the screen outlives a change of review, and Copy acts on it
-    [id, review?.status, plugin, copied, inPanel, showInPanel, onClose], // eslint-disable-line react-hooks/exhaustive-deps -- copyMarkdown reads only the id
+    [id, review?.status, review?.requested_by, review?.session, plugin, copied, inPanel, showInPanel, onClose], // eslint-disable-line react-hooks/exhaustive-deps -- copyMarkdown reads only the id
   );
   const forPlugin = useMemo(
     () =>
@@ -1046,5 +1048,19 @@ export function ReviewView({ id, inPanel = false, linkTo = pageOf, onEnded, onCl
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** A link to the thread of the session the review was sent from, if the
+ *  agent said which. */
+function SessionLink({ review }: { review: Review }) {
+  const session = sessionOf(review);
+  if (!session) return null;
+  return (
+    <Tooltip label="Open the session's thread" side="bottom">
+      <Link to={sessionPath(session)} className="bar-button" aria-label="Open the session's thread">
+        <MessagesSquare size={15} />
+      </Link>
+    </Tooltip>
   );
 }

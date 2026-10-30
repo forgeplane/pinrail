@@ -644,3 +644,35 @@ test("the Sessions page filters the sessions by project", async ({ page }) => {
   await expect(rows.filter({ hasText: inApi })).toHaveCount(1);
   await expect(rows.filter({ hasText: inWeb })).toHaveCount(1);
 });
+
+test("a review's header links to the thread of its session", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  const sent = (title: string, from: string | null) =>
+    send(page.request, {
+      plugin: "list",
+      title,
+      origin: { repo: "acme/api" },
+      requested_by: "claude-code",
+      session: from,
+      payload: onePayload,
+    });
+  const { id } = await sent("Header: in a session", session);
+  const { id: alone } = await sent("Header: on its own", null);
+  const link = page.getByRole("link", { name: "Open the session's thread" });
+
+  // on its page, the link in the bar opens the session's thread
+  await page.goto(`/#/reviews/${id}`);
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/sessions/claude-code/${session}$`));
+  await expect(thread(page).getByTestId("thread-review")).toContainText("Header: in a session");
+
+  // in the inbox's side panel, the panel's header has it too
+  await page.goto(`/#/?open=${id}`);
+  await expect(page.getByTestId("panel-head").getByRole("link", { name: "Open the session's thread" })).toBeVisible();
+
+  // a review sent from no session has none
+  await page.goto(`/#/reviews/${alone}`);
+  await expect(page.getByTestId("review-title")).toHaveText("Header: on its own");
+  await expect(link).toHaveCount(0);
+});

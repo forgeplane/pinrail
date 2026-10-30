@@ -130,7 +130,7 @@ export type Session = {
   folder: string | null;
   /** what the agent last said it is doing */
   status: SessionStatus | null;
-  /** the task the agent last said it started, which names the session */
+  /** the stage the agent last said it started, which names the session */
   title: string | null;
   first_at: string;
   last_at: string;
