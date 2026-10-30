@@ -3222,6 +3222,53 @@ body.is-resizing iframe {
 .thread-waiting-item > :first-child svg {
   color: inherit;
 }
+/* a review that ended: its icon and its outcome in the colour of the
+   outcome's badge */
+.thread-waiting-item.is-ended > :first-child,
+.thread-waiting-item.is-ended .thread-outcome {
+  color: var(--tone, var(--faint));
+}
+.tone-decided,
+.tone-success {
+  --tone: var(--ok);
+}
+.tone-warning,
+.tone-discarded {
+  --tone: var(--sev-major);
+}
+.tone-danger,
+.tone-expired {
+  --tone: var(--danger);
+}
+.tone-info {
+  --tone: var(--sev-minor);
+}
+.tone-neutral,
+.tone-withdrawn {
+  --tone: var(--dim);
+}
+/* a section of the details folded behind its heading */
+.thread-aside-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.thread-aside-fold:hover {
+  color: var(--text);
+}
+.thread-aside-fold-icon {
+  transition: transform 0.12s;
+}
+.thread-aside-fold[aria-expanded="true"] .thread-aside-fold-icon {
+  transform: rotate(90deg);
+}
 .thread-waiting-item-text {
   display: flex;
   flex-direction: column;

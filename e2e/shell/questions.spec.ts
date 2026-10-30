@@ -533,3 +533,34 @@ test("a session's details hide, show and resize, and stay so", async ({ page }) 
   await expect(details).toBeVisible();
   expect((await details.boundingBox())!.width).toBeGreaterThan(before + 60);
 });
+
+test("a session's details list its ended reviews, folded until opened", async ({ page }) => {
+  await clearInbox(page.request);
+  const session = fresh();
+  const review = (title: string) => ({
+    plugin: "list",
+    title,
+    origin: { repo: "acme/api" },
+    requested_by: "claude-code",
+    session,
+    payload: onePayload,
+  });
+  const { id } = await send(page.request, review("Handled: the schema"));
+  await send(page.request, review("Handled: still waiting"));
+  await send(page.request, asked(session, "Handled: deploy"));
+  const discarded = await page.request.post(`${core}/api/v1/reviews/${id}/discard`, { data: { reason: "not now" } });
+  expect(discarded.status()).toBe(200);
+
+  await page.goto(`/#/sessions/claude-code/${session}`);
+  const handled = page.getByRole("region", { name: "Reviews", exact: true });
+  const fold = handled.getByRole("button", { name: "Reviews · 1" });
+  await expect(fold).toHaveAttribute("aria-expanded", "false");
+  await expect(handled.getByTestId("handled-review")).toHaveCount(0);
+  await fold.click();
+  // the review that ended, not the one waiting nor the questions
+  await expect(handled.getByTestId("handled-review")).toHaveText([/Handled: the schema/]);
+  await page.reload();
+  await expect(handled.getByTestId("handled-review")).toHaveCount(1);
+  await handled.getByTestId("handled-review").click();
+  await expect(page).toHaveURL(new RegExp(`/reviews/${id}$`));
+});

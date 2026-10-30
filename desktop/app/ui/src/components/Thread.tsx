@@ -8,6 +8,7 @@ import {
   Ban,
   Check,
   CheckCircle2,
+  ChevronRight,
   CornerDownRight,
   GitBranch,
   MessageSquarePlus,
@@ -34,7 +35,7 @@ import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
 import { ComposeField } from "./ComposeField";
-import { OutcomeBadge, SummaryCounts } from "./Badges";
+import { OutcomeBadge, SummaryCounts, outcomeOf } from "./Badges";
 import { DiscardDialog } from "./DiscardDialog";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
 import { Tooltip } from "./Tooltip";
@@ -44,6 +45,9 @@ const DRAFTS = "pinrail:answers:";
  *  stored on this machine. */
 const DETAILS_SHOWN = "pinrail.thread.details";
 const DETAILS_WIDTH = "pinrail.thread.detailsWidth";
+/** Whether the session's details list the reviews that ended, stored on
+ *  this machine; they are folded away until opened. */
+const HANDLED_SHOWN = "pinrail.thread.handled";
 const DETAILS_MIN = 220;
 const DETAILS_MAX = 520;
 
@@ -188,6 +192,14 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   const agent = named?.agent ?? focus?.requested_by ?? null;
   const waiting = items.filter((r) => r.status === "pending");
   const started = useMemo(() => tasks(statuses), [statuses]);
+  // the reviews the session sent that have ended, newest first
+  const handled = items.filter((r) => r.kind === "review" && r.status !== "pending").reverse();
+  const [showHandled, setShowHandled] = useState(() => stored(HANDLED_SHOWN) === "shown");
+  const toggleHandled = () =>
+    setShowHandled((shown) => {
+      store(HANDLED_SHOWN, shown ? "hidden" : "shown");
+      return !shown;
+    });
 
   // the session's details beside the thread: shown or hidden with the
   // button or ⌘⇧B, and as wide as their edge is dragged
@@ -450,6 +462,44 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                     );
                   })}
                 </ol>
+              </section>
+            ) : null}
+            {handled.length > 0 ? (
+              <section aria-label="Reviews">
+                <h2>
+                  <button
+                    type="button"
+                    className="thread-aside-fold"
+                    aria-expanded={showHandled}
+                    onClick={toggleHandled}
+                  >
+                    <ChevronRight size={12} className="thread-aside-fold-icon" aria-hidden />
+                    Reviews · {handled.length}
+                  </button>
+                </h2>
+                {showHandled
+                  ? handled.map((r) => {
+                      // the icon and the outcome in the colour of the outcome's badge
+                      const outcome = outcomeOf(r);
+                      return (
+                        <Link
+                          key={r.id}
+                          to={`/reviews/${r.id}`}
+                          className={`thread-waiting-item is-ended tone-${outcome.tone}`}
+                          data-testid="handled-review"
+                        >
+                          <ReviewIcon review={r} size={14} />
+                          <span className="thread-waiting-item-text">
+                            <span className="text">{r.title}</span>
+                            <span className="faint" title={stamp(r.created_at)}>
+                              <span className="thread-outcome">{outcome.label}</span> · {r.plugin} · {age(r.created_at)}{" "}
+                              ago
+                            </span>
+                          </span>
+                        </Link>
+                      );
+                    })
+                  : null}
               </section>
             ) : null}
             {session ? (
