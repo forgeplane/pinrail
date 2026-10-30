@@ -50,7 +50,13 @@ impl Events {
             .events_after(after, limit)?
             .into_iter()
             .map(|event| Notice {
-                session: (event.kind == super::SESSION_STATUS).then(|| event.attrs.clone()),
+                session: [
+                    super::SESSION_STATUS,
+                    super::SESSION_ARCHIVED,
+                    super::SESSION_UNARCHIVED,
+                ]
+                .contains(&event.kind.as_str())
+                .then(|| event.attrs.clone()),
                 event_id: event.id,
                 kind: event.kind,
                 review: event

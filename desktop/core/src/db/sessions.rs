@@ -27,8 +27,10 @@ pub struct SessionRow {
     pub waiting_reviews: usize,
     /// what the agent last said it is doing
     pub status: Option<StatusRow>,
-    /// the task the agent last said it started, which names the session
+    /// the stage the agent last said it started, which names the session
     pub title: Option<String>,
+    /// when the person archived the session, if they did
+    pub archived_at: Option<DateTime<Utc>>,
 }
 
 /// What a status says: a step of the agent's work, the start of a task,
@@ -123,6 +125,8 @@ pub struct SessionFilters {
     pub text: Option<String>,
     /// only sessions with something waiting for the person
     pub waiting: bool,
+    /// the archived sessions too, which a listing leaves out otherwise
+    pub include_archived: bool,
     pub limit: usize,
     pub offset: usize,
 }
@@ -152,7 +156,8 @@ pub(super) fn touch(
            repo = COALESCE(excluded.repo, repo),
            ref = COALESCE(excluded.ref, ref),
            folder = COALESCE(excluded.folder, folder),
-           last_at = MAX(last_at, excluded.last_at)",
+           last_at = MAX(last_at, excluded.last_at),
+           archived_at = NULL",
         params![
             agent,
             id,
@@ -177,6 +182,36 @@ pub(super) fn touch_review(conn: &Connection, review_id: &str) -> rusqlite::Resu
 }
 
 impl Db {
+    /// Archives the session at `at`, keeping an earlier time, or brings it
+    /// back with `None`, and records the event: its id, or `None` for a
+    /// session that does not exist.
+    pub fn set_archived(
+        &self,
+        agent: &str,
+        id: &str,
+        at: Option<DateTime<Utc>>,
+    ) -> rusqlite::Result<Option<i64>> {
+        let mut conn = self.conn();
+        let tx = conn.transaction()?;
+        let changed = tx.execute(
+            "UPDATE sessions SET archived_at = CASE WHEN ?3 IS NULL THEN NULL
+               ELSE COALESCE(archived_at, ?3) END
+             WHERE agent = ?1 AND id = ?2",
+            params![agent, id, at.map(crate::reviews::iso)],
+        )?;
+        if changed == 0 {
+            return Ok(None);
+        }
+        let kind = if at.is_some() {
+            crate::events::SESSION_ARCHIVED
+        } else {
+            crate::events::SESSION_UNARCHIVED
+        };
+        let event_id = insert_event(&tx, None, kind, None, &json!({ "agent": agent, "id": id }))?;
+        tx.commit()?;
+        Ok(Some(event_id))
+    }
+
     /// The projects of all the sessions, sorted, and whether a session has
     /// none: what the project filter offers, whatever it filters by.
     pub fn session_projects(&self) -> rusqlite::Result<(Vec<String>, bool)> {
@@ -215,6 +250,9 @@ impl Db {
                 wheres.push(format!("s.repo = ?{}", args.len()));
             }
             None => {}
+        }
+        if !filters.include_archived {
+            wheres.push("s.archived_at IS NULL".to_string());
         }
         let mut having = Vec::new();
         if let Some(text) = &filters.text {
@@ -429,7 +467,8 @@ fn select() -> String {
     COALESCE(SUM(r.kind = 'question' AND {pending}), 0) AS waiting_questions,
     COALESCE(SUM(r.kind = 'review' AND {pending}), 0) AS waiting_reviews,
     {id} AS status_id, {text} AS status_text, {kind} AS status_kind, {at} AS status_at,
-    {title} AS title
+    {title} AS title,
+    s.archived_at
   FROM sessions s
   LEFT JOIN reviews r ON r.requested_by = s.agent AND r.session = s.id
   LEFT JOIN outcomes o ON o.review_id = r.id",
@@ -481,5 +520,8 @@ fn row_to_session(row: &rusqlite::Row<'_>) -> rusqlite::Result<SessionRow> {
         waiting_reviews: count(10)?,
         status,
         title: row.get(15)?,
+        archived_at: row
+            .get::<_, Option<String>>(16)?
+            .and_then(|s| parse_datetime(&s)),
     })
 }

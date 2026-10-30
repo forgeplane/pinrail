@@ -358,6 +358,28 @@ impl Reviews {
     }
 
     /// The session's statuses, oldest first.
+    /// Archives a session, or brings it back. Archiving an archived session
+    /// keeps its first time.
+    pub fn archive_session(&self, agent: &str, id: &str, archived: bool) -> Result<(), Error> {
+        let Some(event_id) = self.db.set_archived(agent, id, archived.then(Utc::now))? else {
+            return Err(Error::NotFound(format!("session {id} of {agent}")));
+        };
+        let kind = if archived {
+            events::SESSION_ARCHIVED
+        } else {
+            events::SESSION_UNARCHIVED
+        };
+        self.bus.publish(Notice {
+            event_id,
+            kind: kind.to_string(),
+            review_id: None,
+            review: None,
+            keys: None,
+            session: Some(serde_json::json!({ "agent": agent, "id": id })),
+        });
+        Ok(())
+    }
+
     /// The stages agents started whose names hold every word of `text`,
     /// newest first.
     pub fn stages(&self, text: Option<&str>, limit: usize) -> Result<Vec<StageRow>, Error> {

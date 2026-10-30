@@ -432,3 +432,113 @@ async fn stages_are_searched_by_name_across_sessions() {
     assert_eq!(found["stages"][0]["text"], "Fix the rate of retries");
     assert_eq!(found["stages"].as_array().unwrap().len(), 1);
 }
+
+async fn archive(app: &App, method: &str, agent: &str, session: &str) -> StatusCode {
+    call(
+        app,
+        method,
+        &format!("/api/v1/sessions/{agent}/{session}/archive"),
+        None,
+    )
+    .await
+    .0
+}
+
+async fn listed_ids(app: &App, query: &str) -> Vec<String> {
+    let (_, listed) = call(app, "GET", &format!("/api/v1/sessions{query}"), None).await;
+    let mut ids: Vec<String> = listed["sessions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap().to_string())
+        .collect();
+    ids.sort();
+    ids
+}
+
+#[tokio::test]
+async fn an_archived_session_leaves_the_listing_until_asked_for() {
+    let app = app();
+    send(&app, question("claude-code", Some("s-keep"), "Keep?")).await;
+    send(&app, question("claude-code", Some("s-old"), "Old?")).await;
+    let before = call(&app, "GET", "/api/v1/sessions/claude-code/s-old", None)
+        .await
+        .1["session"]["last_at"]
+        .clone();
+
+    assert_eq!(
+        archive(&app, "PUT", "claude-code", "s-old").await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        archive(&app, "PUT", "claude-code", "s-old").await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(listed_ids(&app, "").await, ["s-keep"]);
+    assert_eq!(
+        listed_ids(&app, "?include_archived=true").await,
+        ["s-keep", "s-old"]
+    );
+    // its thread still opens, and says when it was archived
+    let (_, thread) = call(&app, "GET", "/api/v1/sessions/claude-code/s-old", None).await;
+    assert!(thread["session"]["archived_at"].is_string(), "{thread}");
+    // archiving is not activity
+    assert_eq!(thread["session"]["last_at"], before);
+
+    assert_eq!(
+        archive(&app, "DELETE", "claude-code", "s-old").await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(listed_ids(&app, "").await, ["s-keep", "s-old"]);
+    assert_eq!(
+        archive(&app, "PUT", "claude-code", "s-nope").await,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn a_question_a_review_or_a_status_brings_an_archived_session_back() {
+    let app = app();
+    send(&app, question("claude-code", Some("s-1"), "First?")).await;
+    for (i, step) in ["question", "review", "status"].iter().enumerate() {
+        assert_eq!(
+            archive(&app, "PUT", "claude-code", "s-1").await,
+            StatusCode::NO_CONTENT
+        );
+        assert!(
+            listed_ids(&app, "").await.is_empty(),
+            "archived before the {step}"
+        );
+        match *step {
+            "question" => drop(send(&app, question("claude-code", Some("s-1"), "Again?")).await),
+            "review" => {
+                drop(send(&app, review("claude-code", Some("s-1"), &format!("R{i}"))).await)
+            }
+            _ => {
+                let (code, _) =
+                    status(&app, "claude-code", "s-1", json!({"text": "Working"})).await;
+                assert_eq!(code, StatusCode::NO_CONTENT);
+            }
+        }
+        assert_eq!(listed_ids(&app, "").await, ["s-1"], "back after the {step}");
+    }
+}
+
+#[tokio::test]
+async fn archiving_is_announced_with_its_session() {
+    let app = app();
+    send(&app, question("claude-code", Some("s-1"), "First?")).await;
+    let mut notices = app.state.events().subscribe();
+    assert_eq!(
+        archive(&app, "PUT", "claude-code", "s-1").await,
+        StatusCode::NO_CONTENT
+    );
+    let notice = notices.recv().await.unwrap();
+    assert_eq!(notice.kind, "session_archived");
+    assert_eq!(notice.session.unwrap()["id"], "s-1");
+    assert_eq!(
+        archive(&app, "DELETE", "claude-code", "s-1").await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(notices.recv().await.unwrap().kind, "session_unarchived");
+}

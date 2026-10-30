@@ -44,6 +44,10 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/stages", get(stages))
         .route("/api/v1/sessions/{agent}/{id}", get(session))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
+        .route(
+            "/api/v1/sessions/{agent}/{id}/archive",
+            put(archive).delete(unarchive),
+        )
 }
 
 async fn submit(State(state): State<Arc<Pinrail>>, body: Bytes) -> Result<Response, ApiError> {
@@ -488,6 +492,7 @@ fn session_json(session: &SessionRow) -> Value {
         "folder": session.folder,
         "status": session.status.as_ref().map(|s| s.to_json()),
         "title": session.title,
+        "archived_at": session.archived_at.map(crate::reviews::iso),
         "first_at": iso(session.first_at),
         "last_at": iso(session.last_at),
         "total": { "questions": session.questions, "reviews": session.reviews },
@@ -510,6 +515,7 @@ async fn sessions(
         repo: text("repo"),
         text: text("q"),
         waiting: params.get("waiting").is_some_and(|v| v == "true"),
+        include_archived: params.get("include_archived").is_some_and(|v| v == "true"),
         limit: number("limit"),
         offset: number("offset"),
     };
@@ -520,6 +526,24 @@ async fn sessions(
         "total": total,
         "facets": {"repos": repos, "unassigned": unassigned},
     })))
+}
+
+/// Archives a session: 204, and 404 for an unknown one.
+async fn archive(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+    state.reviews().archive_session(&agent, &id, true)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Brings an archived session back: 204.
+async fn unarchive(
+    State(state): State<Arc<Pinrail>>,
+    Path((agent, id)): Path<(String, String)>,
+) -> Result<StatusCode, ApiError> {
+    state.reviews().archive_session(&agent, &id, false)?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// The stages agents started in any session, newest first: `stages`, each
