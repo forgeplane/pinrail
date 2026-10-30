@@ -2,7 +2,18 @@
 // messages, and the reviews it sent, oldest first. Questions are answered
 // here, each with its chips or a reply box, and sent as a set.
 
-import { ArrowDown, Ban, Check, GitBranch, Mic, Star, X } from "lucide-react";
+import {
+  ArrowDown,
+  Ban,
+  Check,
+  CornerDownRight,
+  GitBranch,
+  MessageSquarePlus,
+  Pencil,
+  Star,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router";
@@ -10,7 +21,6 @@ import { ApiError, api } from "../api/client";
 import type { Answer, Question, Review, Session } from "../api/types";
 import { age, stamp } from "../lib/format";
 import { MOD, hasMod, modalOpen } from "../lib/keys";
-import { canDictate, useDictation } from "../lib/dictation";
 import { renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
@@ -323,16 +333,21 @@ function loadDrafts(id: string): Record<string, Draft> {
   }
 }
 
-/** Whether a draft has a choice picked, so what is written is a note on it. */
-const hasPick = (question: Question, draft: Draft | undefined) =>
-  !draft?.own &&
-  (question.answer === "choice"
-    ? draft?.choice !== undefined
-    : question.answer === "choices"
-      ? !!draft?.choices?.length
-      : question.answer === "yes-no"
-        ? draft?.yes !== undefined
-        : false);
+/** A focus handler that runs `then` when a text box takes the focus. The
+ *  questions are made current on a click, not on the press: the keys they
+ *  then show widen the chips, and a press that moved the chips would lose
+ *  its click. */
+const onTyping = (then: () => void) => (e: React.FocusEvent) => {
+  if ((e.target as HTMLElement).tagName === "TEXTAREA") then();
+};
+
+/** The values a question's chips pick, in their order. */
+const optionsOf = (question: Question) =>
+  question.answer === "yes-no" ? ["yes", "no"] : question.answer === "text" ? [] : (question.choices ?? []);
+
+/** The field open in a question: a note on the answer, or an answer in the
+ *  person's own words. */
+type Editing = { index: number; kind: "note" | "own" };
 
 type SetProps = {
   review: Review;
@@ -432,6 +447,29 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
     [questions, drafts, change],
   );
 
+  // the note or the answer in their own words being written, in its field
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const replyBox = useCallback(
+    (index: number) =>
+      document.getElementById(`set-${review.id}`)?.querySelector<HTMLTextAreaElement>(`[data-reply="${index}"]`) ??
+      null,
+    [review.id],
+  );
+  // N and P, and Enter in a text answer: on to another question, into its
+  // box if it is answered in words
+  const goTo = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= questions.length) return;
+      setCurrent(index);
+      const set = document.getElementById(`set-${review.id}`);
+      const block = set?.querySelectorAll<HTMLElement>("[data-testid=question]")[index];
+      block?.scrollIntoView({ block: "nearest" });
+      if (questions[index].answer === "text") replyBox(index)?.focus();
+      else (document.activeElement as HTMLElement | null)?.blur();
+    },
+    [questions, review.id, replyBox],
+  );
+
   useEffect(() => {
     if (!active || !pending) return;
     const onKey = (event: KeyboardEvent) => {
@@ -451,13 +489,20 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const question = questions[current];
       if (!question) return;
-      if (question.answer === "yes-no" && (event.key === "y" || event.key === "n")) {
+      const key = event.key.toLowerCase();
+      if (key === "n" || key === "p") {
         event.preventDefault();
-        picked(current, event.key === "y" ? "yes" : "no", true);
+        goTo(key === "n" ? current + 1 : current - 1);
+        return;
+      }
+      if (key === "c") {
+        event.preventDefault();
+        if (question.answer === "text") replyBox(current)?.focus();
+        else setEditing({ index: current, kind: "note" });
         return;
       }
       const n = Number(event.key);
-      const choice = question.choices?.[n - 1];
+      const choice = optionsOf(question)[n - 1];
       if (Number.isInteger(n) && n >= 1 && choice !== undefined) {
         event.preventDefault();
         picked(current, choice, true);
@@ -471,7 +516,7 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pinrail:discard", onDiscard);
     };
-  }, [active, pending, current, questions, picked, send]);
+  }, [active, pending, current, questions, picked, send, goTo, replyBox]);
 
   const several = questions.length > 1;
   return (
@@ -480,7 +525,8 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
       className={`question-set msg ${pending ? "is-pending" : ""} ${active ? "is-active" : ""}`}
       aria-label={review.title}
       data-testid="question-set"
-      onMouseDown={pending ? onActivate : undefined}
+      onClick={pending ? onActivate : undefined}
+      onFocus={pending ? onTyping(onActivate) : undefined}
     >
       <span className="msg-avatar">
         <AgentIcon requestedBy={review.requested_by} size={14} />
@@ -507,15 +553,14 @@ function QuestionSet({ review, active, footer, onActivate, onDone }: SetProps) {
             onPick={(value) => picked(index, value, false)}
             onChange={(next) => change(question.id, next)}
             onNext={() => {
-              // Enter in a question's box goes to the next one's, and from
-              // the last to the comment on them all
-              const set = document.getElementById(`set-${review.id}`);
-              if (index + 1 < questions.length) {
-                setCurrent(index + 1);
-                set?.querySelector<HTMLTextAreaElement>(`[data-reply="${index + 1}"]`)?.focus();
-              } else {
-                document.querySelector<HTMLTextAreaElement>(".thread-composer textarea")?.focus();
-              }
+              // from the last question, on to the comment on them all
+              if (index + 1 < questions.length) goTo(index + 1);
+              else document.querySelector<HTMLTextAreaElement>(".thread-composer textarea")?.focus();
+            }}
+            editing={editing?.index === index ? editing.kind : null}
+            onEdit={(kind) => {
+              setCurrent(index);
+              setEditing(kind ? { index, kind } : null);
             }}
             index={index}
           />
@@ -594,8 +639,11 @@ type MessageProps = {
   onFocus: () => void;
   onPick: (value: string) => void;
   onChange: (next: Draft) => void;
-  /** Enter in its box: on to the next question */
+  /** Enter in a text answer: on to the next question */
   onNext: () => void;
+  /** which field is open to write in, if any */
+  editing: Editing["kind"] | null;
+  onEdit: (kind: Editing["kind"] | null) => void;
   index: number;
 };
 
@@ -612,11 +660,12 @@ function QuestionMessage({
   onPick,
   onChange,
   onNext,
+  editing,
+  onEdit,
   index,
 }: MessageProps) {
   const pending = review.status === "pending";
-  const options =
-    question.answer === "yes-no" ? ["yes", "no"] : question.answer === "text" ? [] : (question.choices ?? []);
+  const options = optionsOf(question);
   const isPicked = (value: string) =>
     !draft?.own &&
     (question.answer === "yes-no"
@@ -624,52 +673,131 @@ function QuestionMessage({
       : question.answer === "choices"
         ? !!draft?.choices?.includes(value)
         : draft?.choice === value);
+  const own = !!draft?.own && !!draft.text?.trim();
+  const note = draft?.note?.trim() ?? "";
+  // a field closed with nothing in it leaves nothing behind
+  const close = () => {
+    if (editing === "own" && !draft?.text?.trim()) onChange({ ...draft, text: undefined, own: false });
+    if (editing === "note" && !note) onChange({ ...draft, note: undefined });
+    onEdit(null);
+  };
   return (
     <div
       className={`msg-question-block ${pending ? "is-pending" : ""} ${current ? "is-current" : ""}`}
-      onMouseDown={pending ? onFocus : undefined}
+      onClick={pending ? onFocus : undefined}
+      onFocus={pending ? onTyping(onFocus) : undefined}
       data-testid="question"
     >
       <div className="msg-body">
-        <p className="msg-question">
-          {number ? <span className="msg-number">{number}</span> : null}
-          {question.question}
-        </p>
+        <div className="msg-question-row">
+          <p className="msg-question">
+            {number ? <span className="msg-number">{number}</span> : null}
+            {question.question}
+          </p>
+          {pending && question.answer !== "text" && !note && editing !== "note" ? (
+            <Tooltip label="Add a note to this answer" keys={["C"]} side="top">
+              <button
+                type="button"
+                className="compose-icon msg-note-add"
+                aria-label={`Add a note to ${question.question}`}
+                onClick={() => onEdit("note")}
+              >
+                <MessageSquarePlus size={14} />
+              </button>
+            </Tooltip>
+          ) : null}
+        </div>
         {question.context ? <Context text={question.context} /> : null}
         {pending && question.answer === "choices" ? <span className="msg-hint">Select all that apply</span> : null}
         {pending && options.length > 0 ? (
-          <div
-            className="chips"
-            role={question.answer === "choices" ? "group" : "radiogroup"}
-            aria-label={question.question}
-          >
-            {options.map((value, i) => (
+          <div className="chips">
+            <span
+              className="chips-group"
+              role={question.answer === "choices" ? "group" : "radiogroup"}
+              aria-label={question.question}
+            >
+              {options.map((value, i) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`chip ${isPicked(value) ? "is-picked" : ""}`}
+                  role={question.answer === "choices" ? "checkbox" : "radio"}
+                  aria-checked={isPicked(value)}
+                  onClick={() => onPick(value)}
+                >
+                  {current && i < 9 ? <kbd className="chip-key">{i + 1}</kbd> : null}
+                  {question.answer === "yes-no" ? (value === "yes" ? "Yes" : "No") : value}
+                  {question.recommended === value ? (
+                    <Star size={11} className="chip-star" aria-label="recommended" />
+                  ) : null}
+                </button>
+              ))}
               <button
-                key={value}
                 type="button"
-                className={`chip ${isPicked(value) ? "is-picked" : ""}`}
-                role={question.answer === "choices" ? "checkbox" : "radio"}
-                aria-checked={isPicked(value)}
-                onClick={() => onPick(value)}
+                className={`chip chip-other ${own ? "is-picked" : ""}`}
+                aria-pressed={own}
+                onClick={() => onEdit("own")}
               >
-                {current && i < 9 ? (
-                  <kbd className="chip-key">{question.answer === "yes-no" ? (value === "yes" ? "Y" : "N") : i + 1}</kbd>
-                ) : null}
-                {question.answer === "yes-no" ? (value === "yes" ? "Yes" : "No") : value}
-                {question.recommended === value ? (
-                  <Star size={11} className="chip-star" aria-label="recommended" />
-                ) : null}
+                Other…
               </button>
-            ))}
-            {draft?.own ? (
-              <button type="button" className="chip-clear" onClick={() => onChange({ ...draft, own: false })}>
-                Pick a choice instead
-              </button>
-            ) : null}
+            </span>
           </div>
         ) : null}
-        {pending ? (
-          <QuestionReply question={question} draft={draft} onChange={onChange} onNext={onNext} index={index} />
+        {pending && question.answer === "text" ? (
+          <ComposeField
+            className="msg-field"
+            value={draft?.text ?? ""}
+            onChange={(text) => onChange({ ...draft, text })}
+            label={`Answer to ${question.question}`}
+            placeholder="Type your answer…"
+            onSubmit={onNext}
+            keys="Enter for the next question · Shift+Enter for a new line"
+            boxProps={{ "data-reply": index }}
+          />
+        ) : null}
+        {pending && editing === "own" ? (
+          <ComposeField
+            className="msg-field"
+            value={draft?.text ?? ""}
+            onChange={(text) => onChange({ ...draft, text, own: text.trim() !== "" })}
+            label={`Answer to ${question.question} in your own words`}
+            placeholder="Answer in your own words…"
+            onSubmit={close}
+            onEscape={close}
+            keys="Enter to save · Shift+Enter for a new line"
+            send={{ label: "Save the answer", keys: ["Enter"] }}
+            autoFocus
+          />
+        ) : pending && own ? (
+          <SavedText
+            label="Your answer"
+            text={draft!.text!.trim()}
+            what="answer"
+            onEdit={() => onEdit("own")}
+            onDelete={() => onChange({ ...draft, text: undefined, own: false })}
+          />
+        ) : null}
+        {pending && editing === "note" ? (
+          <ComposeField
+            className="msg-field"
+            value={draft?.note ?? ""}
+            onChange={(text) => onChange({ ...draft, note: text })}
+            label={`Note on ${question.question}`}
+            placeholder="Add a note…"
+            onSubmit={close}
+            onEscape={close}
+            keys="Enter to save · Shift+Enter for a new line"
+            send={{ label: "Save the note", keys: ["Enter"] }}
+            autoFocus
+          />
+        ) : pending && note ? (
+          <SavedText
+            label="Note"
+            text={note}
+            what="note"
+            onEdit={() => onEdit("note")}
+            onDelete={() => onChange({ ...draft, note: undefined })}
+          />
         ) : null}
       </div>
       {review.status === "decided" ? <AnswerLine question={question} answer={answer} review={review} /> : null}
@@ -677,113 +805,42 @@ function QuestionMessage({
   );
 }
 
-/** A text box that grows with its text and takes dictation: Esc stops
- *  the dictation first, then leaves the box, so the keys pick choices again. */
-function useWritingBox(value: string, write: (text: string) => void) {
-  const toast = useToast();
-  const box = useRef<HTMLTextAreaElement>(null);
-  const dictation = useDictation(write, (message) => toast(message, "danger"));
-  const listening = dictation.listening;
-  const stopDictation = dictation.stop;
-  useEffect(() => {
-    if (!listening) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.isComposing || modalOpen()) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      stopDictation();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [listening, stopDictation]);
-  // it grows with the text, and scrolls only past its largest height
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
-    el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
-  }, [value]);
-  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Escape" && !listening) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.currentTarget.blur();
-    }
-  };
-  const toggle = () => {
-    if (listening) dictation.stop();
-    else dictation.start(value);
-    box.current?.focus();
-  };
-  const mic = canDictate ? (
-    <Tooltip label={listening ? "Stop dictating" : "Dictate"} side="top">
-      <button
-        type="button"
-        className={`bar-button composer-dictate ${listening ? "is-listening" : ""}`}
-        aria-label={listening ? "Stop dictating" : "Dictate"}
-        aria-pressed={listening}
-        onClick={toggle}
-      >
-        <Mic size={14} />
-      </button>
-    </Tooltip>
-  ) : null;
-  return { box, onKeyDown, mic };
-}
-
-/** The box in a question's bubble for what the person writes for it: the
- *  answer to a text question; for one with choices, an answer in their own
- *  words while nothing is picked, and a note on the pick once one is. */
-function QuestionReply({
-  question,
-  draft,
-  onChange,
-  onNext,
-  index,
+/** A note or an answer in the person's own words, once saved: a pencil to
+ *  edit it, and a bin, shown on hover, to delete it. */
+function SavedText({
+  label,
+  text,
+  what,
+  onEdit,
+  onDelete,
 }: {
-  question: Question;
-  draft: Draft | undefined;
-  onChange: (next: Draft) => void;
-  onNext: () => void;
-  index: number;
+  label: string;
+  text: string;
+  what: "note" | "answer";
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
-  const asNote = hasPick(question, draft);
-  const value = (asNote ? draft?.note : draft?.text) ?? "";
-  const write = (text: string) => {
-    if (asNote) onChange({ ...draft, note: text });
-    else onChange({ ...draft, text, own: question.answer !== "text" ? text.trim() !== "" : undefined });
-  };
-  const { box, onKeyDown, mic } = useWritingBox(value, write);
-  const label = asNote
-    ? `Note on ${question.question}`
-    : question.answer === "text"
-      ? `Answer to ${question.question}`
-      : `Answer to ${question.question} in your own words`;
   return (
-    <div className={`msg-reply ${value ? "has-text" : ""}`}>
-      <textarea
-        ref={box}
-        rows={1}
-        value={value}
-        aria-label={label}
-        placeholder={
-          asNote ? "Add a note…" : question.answer === "text" ? "Type your answer…" : "Or answer in your own words…"
-        }
-        onChange={(e) => write(e.target.value)}
-        onKeyDown={(e) => {
-          // Enter goes on to the next question, Shift+Enter starts a new
-          // line, and ⌘↵ sends, which the set hears
-          if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            onNext();
-            return;
-          }
-          onKeyDown(e);
-        }}
-        data-reply={index}
-      />
-      {mic}
+    <div className="msg-saved" data-testid={`saved-${what}`}>
+      <span className="msg-saved-label">{label}</span>
+      <span className="msg-saved-text">{text}</span>
+      <span className="msg-saved-actions">
+        <Tooltip label={`Edit the ${what}`} side="top">
+          <button type="button" className="compose-icon" aria-label={`Edit the ${what}`} onClick={onEdit}>
+            <Pencil size={13} />
+          </button>
+        </Tooltip>
+        <Tooltip label={`Delete the ${what}`} side="top">
+          <button
+            type="button"
+            className="compose-icon msg-saved-delete"
+            aria-label={`Delete the ${what}`}
+            onClick={onDelete}
+          >
+            <Trash2 size={13} />
+          </button>
+        </Tooltip>
+      </span>
     </div>
   );
 }
@@ -880,7 +937,12 @@ function AnswerLine({ question, answer, review }: { question: Question; answer?:
       <span className="faint" title={stamp(review.decision?.decided_at)}>
         · {age(review.decision?.decided_at)} ago
       </span>
-      {answer?.note ? <p className="msg-note">{answer.note}</p> : null}
+      {answer?.note ? (
+        <div className="msg-note" data-testid="answer-note">
+          <CornerDownRight size={12} className="msg-note-mark" aria-label="Note" />
+          <span className="msg-note-text">{answer.note}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

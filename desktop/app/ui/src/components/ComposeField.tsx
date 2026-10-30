@@ -40,6 +40,8 @@ type Props = {
   /** Esc, after the dictation is stopped */
   onEscape?: () => void;
   disabled?: boolean;
+  /** focus the text when the field appears */
+  autoFocus?: boolean;
   className?: string;
   boxRef?: RefObject<HTMLTextAreaElement | null>;
   /** attributes for the text box, such as a data- attribute to find it by */
@@ -57,6 +59,7 @@ export function ComposeField({
   send,
   onEscape,
   disabled = false,
+  autoFocus = false,
   className = "",
   boxRef,
   boxProps,
@@ -126,6 +129,7 @@ export function ComposeField({
         aria-label={label}
         placeholder={placeholder}
         disabled={disabled}
+        autoFocus={autoFocus}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
         {...boxProps}

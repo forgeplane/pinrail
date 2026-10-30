@@ -70,13 +70,13 @@ test("questions open in their session's thread in the side panel, and are answer
   await expect(thread(page).getByTestId("thread-review")).toContainText("Thread: the schema");
   await expect(question(page, "Deploy to staging").locator("strong")).toHaveText("PR");
 
-  // a pick moves on: 2 picks production, then y answers the yes-no question
+  // a pick moves on: 2 picks production, then 1 answers yes to the yes-no question
   await page.keyboard.press("2");
   await expect(question(page, "Deploy to staging").getByRole("radio", { name: "production" })).toHaveAttribute(
     "aria-checked",
     "true",
   );
-  await page.keyboard.press("y");
+  await page.keyboard.press("1");
   await expect(question(page, "Keep the old endpoint").getByRole("radio", { name: "Yes" })).toHaveAttribute(
     "aria-checked",
     "true",
@@ -84,14 +84,15 @@ test("questions open in their session's thread in the side panel, and are answer
   // one avatar for the set, and each question numbered
   await expect(thread(page).getByTestId("question-set").locator(".msg-avatar")).toHaveCount(1);
   await expect(question(page, "Deploy to staging")).toContainText("1/3");
-  // each question's box: with a choice made, a note on it
-  const note = question(page, "Deploy to staging").getByRole("textbox", {
-    name: "Note on Deploy to staging or production?",
-  });
+  // a note on an answer, written on demand and saved with Enter
+  await expect(question(page, "Deploy to staging").getByRole("textbox")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add a note to Deploy to staging or production?" }).click();
+  const note = page.getByRole("textbox", { name: "Note on Deploy to staging or production?" });
+  await expect(note).toBeFocused();
   await note.fill("after the notes");
-  // Esc leaves the box, and the keys pick choices again
-  await page.keyboard.press("Escape");
-  await expect(note).not.toBeFocused();
+  await note.press("Enter");
+  await expect(note).toHaveCount(0);
+  await expect(question(page, "Deploy to staging").getByTestId("saved-note")).toContainText("after the notes");
   // the box at the bottom comments on the whole set
   await page.getByRole("textbox", { name: "Comment to the agent" }).fill("good questions");
 
@@ -117,10 +118,12 @@ test("questions from no session open a thread of their own, answered in the pers
   await expect(thread(page).getByTestId("question")).toHaveCount(3);
   await expect(thread(page).getByTestId("thread-review")).toHaveCount(0);
 
-  // with nothing picked, a question's box answers in the person's own words
-  await page
-    .getByRole("textbox", { name: "Answer to Deploy to staging or production? in your own words" })
-    .fill("neither, wait");
+  // Other… answers in the person's own words
+  await question(page, "Deploy to staging").getByRole("button", { name: "Other…" }).click();
+  const own = page.getByRole("textbox", { name: "Answer to Deploy to staging or production? in your own words" });
+  await own.fill("neither, wait");
+  await own.press("Enter");
+  await expect(question(page, "Deploy to staging").getByTestId("saved-answer")).toContainText("neither, wait");
   await page.getByRole("textbox", { name: "Answer to What should it be called?" }).fill("v2");
   await page.keyboard.press(process.platform === "darwin" ? "Meta+Enter" : "Control+Enter");
   await expect.poll(async () => (await decisionOf(page.request, id)).status).toBe("decided");
@@ -289,10 +292,19 @@ test("the question picked keeps its keys, and a key pick moves on to the next", 
   await first.getByRole("radio", { name: "staging" }).click();
   await expect(first.locator(".chip-key")).toHaveText(["1", "2"]);
   await expect(second.locator(".chip-key")).toHaveCount(0);
-  // a key picks and moves on, where a yes-no question shows Y and N
+  // a key picks and moves on, and a yes-no question takes 1 and 2 too
   await page.keyboard.press("2");
   await expect(first.getByRole("radio", { name: "production" })).toHaveAttribute("aria-checked", "true");
-  await expect(second.locator(".chip-key")).toHaveText(["Y", "N"]);
+  await expect(second.locator(".chip-key")).toHaveText(["1", "2"]);
+  // P and N go to the question before and after
+  await page.keyboard.press("p");
+  await expect(first.locator(".chip-key")).toHaveText(["1", "2"]);
+  await page.keyboard.press("n");
+  await expect(second.locator(".chip-key")).toHaveText(["1", "2"]);
+  // C opens a note on the question
+  await page.keyboard.press("c");
+  await expect(page.getByRole("textbox", { name: "Note on Keep the old endpoint?" })).toBeFocused();
+  await page.keyboard.press("Escape");
   // a second click on the pick unpicks it
   await first.getByRole("radio", { name: "production" }).click();
   await expect(first.getByRole("radio", { name: "production" })).toHaveAttribute("aria-checked", "false");
@@ -338,7 +350,8 @@ test("an agent asking with pinrail ask gets the answers and the comment written 
   // the questions are in the agent's session
   await page.goto(`/#/sessions/claude-code/${session}`);
   await question(page, "Deploy to staging").getByRole("radio", { name: "production" }).click();
-  await question(page, "Keep the old endpoint")
+  await question(page, "Keep the old endpoint").getByRole("button", { name: "Other…" }).click();
+  await page
     .getByRole("textbox", { name: "Answer to Keep the old endpoint? in your own words" })
     .fill("for one release");
   await page.getByRole("textbox", { name: "Comment to the agent" }).fill("thanks for asking");
@@ -369,18 +382,28 @@ test("a question that takes several choices says so", async ({ page }) => {
   await expect(question(page, "Which one?")).not.toContainText("Select all that apply");
 });
 
-test("Enter in a question's box goes to the next, and Shift+Enter starts a new line", async ({ page }) => {
+test("Enter saves an answer in the person's own words, and Shift+Enter starts a new line", async ({ page }) => {
   await openReviewsIn(page.request, "page");
   await clearInbox(page.request);
   const { id } = await send(page.request, asked(fresh(), "Enter: deploy"));
   await page.goto(`/#/reviews/${id}`);
+  const first = question(page, "Deploy to staging");
+  await first.getByRole("button", { name: "Other…" }).click();
   const own = page.getByRole("textbox", { name: "Answer to Deploy to staging or production? in your own words" });
   await own.fill("neither");
   await own.press("Shift+Enter");
   await own.pressSequentially("wait for Monday");
   await expect(own).toHaveValue("neither\nwait for Monday");
   await own.press("Enter");
-  await expect(page.getByRole("textbox", { name: "Answer to Keep the old endpoint? in your own words" })).toBeFocused();
+  await expect(first.getByTestId("saved-answer")).toContainText("neither\nwait for Monday");
+  // the pencil edits it, and the bin deletes it
+  await first.getByRole("button", { name: "Edit the answer" }).click();
+  await expect(own).toHaveValue("neither\nwait for Monday");
+  await own.press("Enter");
+  await first.getByTestId("saved-answer").hover();
+  await first.getByRole("button", { name: "Delete the answer" }).click();
+  await expect(first.getByTestId("saved-answer")).toHaveCount(0);
+  // Enter in the last text answer goes on to the comment on them all
   await page.getByRole("textbox", { name: "Answer to What should it be called?" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("textbox", { name: "Comment to the agent" })).toBeFocused();

@@ -217,7 +217,9 @@ export const scenes = [
       await page.goto(`${app.ui}/#/reviews/${reviews["40-ask-commit"]}`);
       await page.getByTestId("question-set").last().waitFor();
       await page.keyboard.press("2");
+      await page.getByRole("button", { name: /^Add a note to CI's rustfmt check/ }).click();
       await page.getByRole("textbox", { name: /^Note on CI's rustfmt check/ }).fill("then run the CLI tests");
+      await page.keyboard.press("Enter");
       await page.locator("body").click({ position: { x: 5, y: 5 } });
       await settle(page, 500);
       await shot("ask-thread");

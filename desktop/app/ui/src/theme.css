@@ -3135,41 +3135,50 @@ body.is-resizing iframe {
   font-weight: 500;
   vertical-align: 1px;
 }
-/* what the person writes for one question, in its bubble: the answer, an
-   answer in their own words, or a note on their pick */
-.msg-reply {
+/* what the person writes for one question, in its bubble: the answer to
+   a text question; and on demand, an answer in their own words or a note */
+.msg-field {
+  margin-top: 2px;
+}
+/* a note or an answer in their own words, once saved */
+.msg-saved {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
+  gap: 8px;
   padding: 4px 4px 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
+  border-left: 2px solid var(--border-strong);
+  font-size: 12.5px;
 }
-.msg-reply:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-}
-.msg-reply textarea {
-  flex: 1;
-  overflow-y: hidden;
-  min-height: 24px;
-  max-height: 160px;
-  padding: 3px 0;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  line-height: 1.45;
-  resize: none;
-}
-.msg-reply textarea:focus {
-  box-shadow: none;
-}
-.msg-reply textarea::placeholder {
+.msg-saved-label {
+  flex: none;
+  padding-top: 3px;
   color: var(--faint);
 }
-.msg-reply .composer-dictate {
-  margin: 0;
+.msg-saved-text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 3px;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg-saved-actions {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+}
+/* the pencil and the bin show while the pointer is over the note or the
+   focus is in it */
+.msg-saved-actions {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.msg-saved:hover .msg-saved-actions,
+.msg-saved:focus-within .msg-saved-actions {
+  opacity: 1;
+}
+.msg-saved-delete:hover:not(:disabled) {
+  color: var(--danger);
 }
 .set-comment {
   margin-top: 2px;
@@ -3178,19 +3187,6 @@ body.is-resizing iframe {
   margin-bottom: -4px;
   color: var(--faint);
   font-size: 12px;
-}
-.chip-clear {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--dim);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.chip-clear:hover {
-  color: var(--text);
-  text-decoration: underline;
 }
 .msg-question {
   margin: 0;
@@ -3232,16 +3228,65 @@ body.is-resizing iframe {
 .msg-own {
   font-style: italic;
 }
+/* the note on a sent answer, on the line under it, hooked to it from
+   under its check mark */
 .msg-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
   flex-basis: 100%;
-  margin: 0;
-  padding-left: 19px;
-  color: var(--dim);
+  margin-top: -3px;
+  padding-left: 1px;
+}
+.msg-note-mark {
+  flex: none;
+  margin-top: 1px;
+  color: var(--faint);
+}
+.msg-note-text {
+  min-width: 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
+}
+.chips-group {
+  display: contents;
+}
+.chip.chip-other {
+  border-style: dashed;
+  color: var(--dim);
+}
+.chip.chip-other.is-picked {
+  border-style: solid;
+  color: var(--text);
+}
+/* the question, and at its right the button that opens a note on the
+   answer, shown while the pointer is over the question or it is current */
+.msg-question-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.msg-question-row .msg-question {
+  flex: 1;
+  min-width: 0;
+}
+.msg-note-add {
+  flex: none;
+  margin: -3px -4px 0 0;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.msg-question-block:hover .msg-note-add,
+.msg-question-block.is-current .msg-note-add,
+.msg-note-add:focus-visible {
+  opacity: 1;
 }
 .chip {
   display: inline-flex;
