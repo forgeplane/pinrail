@@ -77,7 +77,7 @@ To list the rounds you starred, turn on the star filter in the history, beside t
 
 ## Search everything
 
-<kbd>⌘K</kbd> opens a palette that searches every review, pending or decided, and every action in the app, such as going to a screen, opening settings or switching the theme.
+<kbd>⌘K</kbd> opens a palette that searches every review, pending or decided, the stages agents started in their sessions, and every action in the app, such as going to a screen, opening settings or switching the theme. Choose a stage to open its session's thread where the stage started.
 
 ![The command palette: pending reviews, recent decisions and plugins, ready to search.](screenshot:palette "The command palette lists pending reviews, recent decisions and plugins.")
 
