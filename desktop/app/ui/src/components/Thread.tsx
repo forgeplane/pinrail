@@ -384,22 +384,26 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
         {inPanel || !details ? null : (
           <aside className="thread-aside" aria-label="Session details" style={{ width: detailsWidth }}>
             <section>
-              <h2>Waiting on you</h2>
+              <h2>Waiting on you{waiting.length > 0 ? ` · ${waiting.length}` : ""}</h2>
               {waiting.length === 0 ? <p className="faint">Nothing is waiting.</p> : null}
               {waiting.map((r) => (
                 <a
                   key={r.id}
                   href={r.kind === "question" ? `#set-${r.id}` : `#/reviews/${r.id}`}
-                  className="thread-aside-card"
+                  className="thread-waiting-item"
+                  data-testid="waiting-item"
                   onClick={(e) => {
                     if (r.kind !== "question") return;
                     e.preventDefault();
                     document.getElementById(`set-${r.id}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
                   }}
                 >
-                  <span className="text">{r.title}</span>
-                  <span className="faint">
-                    {r.kind === "question" ? "Questions" : reviewLabel(r)} · asked {age(r.created_at)} ago
+                  <ReviewIcon review={r} size={14} />
+                  <span className="thread-waiting-item-text">
+                    <span className="text">{r.title}</span>
+                    <span className="faint" title={stamp(r.created_at)}>
+                      {r.kind === "question" ? "questions" : reviewLabel(r)} · {age(r.created_at)} ago
+                    </span>
                   </span>
                 </a>
               ))}

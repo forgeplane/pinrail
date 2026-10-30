@@ -3118,16 +3118,6 @@ body.is-resizing iframe {
 .thread-aside p {
   margin: 0;
 }
-.thread-aside-card {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--sev-major) 40%, var(--border));
-  border-radius: 8px;
-  color: var(--text);
-  text-decoration: none;
-}
 /* the tasks the agent started, as stops on a rail, oldest first: a check
    for a task finished, the last one filled, and a ring for one left for
    another; each a link to its Started line */
@@ -3201,12 +3191,51 @@ body.is-resizing iframe {
   flex: none;
   font-size: 11.5px;
 }
-.thread-aside-card:hover {
+/* what waits on the person, as compact rows like the tasks: the kind's
+   icon in the waiting colour, the title on up to two lines, and the
+   plugin and its age */
+.thread-waiting-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 -6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+/* rows against each other, past the section's gap */
+.thread-waiting-item + .thread-waiting-item {
+  margin-top: -8px;
+}
+.thread-waiting-item:hover {
   background: var(--bg-hover);
   text-decoration: none;
 }
-.thread-aside-card .text {
-  font-weight: 500;
+.thread-waiting-item > :first-child {
+  flex: none;
+  margin-top: 2px;
+  color: var(--sev-major);
+}
+.thread-waiting-item > :first-child svg {
+  color: inherit;
+}
+.thread-waiting-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.thread-waiting-item-text .text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.thread-waiting-item-text .faint {
+  font-size: 11.5px;
 }
 .thread-facts {
   display: grid;
