@@ -124,6 +124,9 @@ export type Answer = {
   note?: string;
 };
 
+/** A stage an agent started, as the stage search finds it. */
+export type Stage = { id: number; agent: string; session: string; text: string; at: string; repo: string | null };
+
 /** An agent's session, as the reviews and questions it sent make it. */
 export type Session = {
   agent: string;

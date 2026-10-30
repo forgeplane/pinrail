@@ -16,7 +16,8 @@ use super::model::{Decision, Kind, Review, Source, Via, parse_datetime};
 use super::questions;
 use crate::attachments::{Attachments, Presence, ReviewAttachment};
 use crate::db::{
-    Db, Event, Filters, NotStored, SessionFilters, SessionRow, StatusKind, StatusRow, status_notice,
+    Db, Event, Filters, NotStored, SessionFilters, SessionRow, StageRow, StatusKind, StatusRow,
+    status_notice,
 };
 use crate::error::{Error, Violation};
 use crate::events::{self, Bus, Notice};
@@ -357,6 +358,12 @@ impl Reviews {
     }
 
     /// The session's statuses, oldest first.
+    /// The stages agents started whose names hold every word of `text`,
+    /// newest first.
+    pub fn stages(&self, text: Option<&str>, limit: usize) -> Result<Vec<StageRow>, Error> {
+        Ok(self.db.stages(text, limit)?)
+    }
+
     pub fn statuses(&self, agent: &str, session: &str) -> Result<Vec<StatusRow>, Error> {
         Ok(self.db.statuses(agent, session)?)
     }

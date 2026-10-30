@@ -81,6 +81,8 @@ type ThreadProps = {
   onClose?: () => void;
   /** called with the session each time it is loaded */
   onSession?: (session: Session) => void;
+  /** the start of a stage to open the thread at, by its status's id */
+  stage?: number;
 };
 
 /** A session's page. */
@@ -92,7 +94,7 @@ export function sessionOf(review: Review): { agent: string; id: string } | null 
   return review.requested_by && review.session ? { agent: review.requested_by, id: review.session } : null;
 }
 
-export function Thread({ focus, session: given, inPanel = false, onClose, onSession }: ThreadProps) {
+export function Thread({ focus, session: given, inPanel = false, onClose, onSession, stage }: ThreadProps) {
   const live = useLive();
   const named = given ?? (focus ? sessionOf(focus) : null);
   const navigate = useNavigate();
@@ -150,7 +152,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
   const [footer, setFooter] = useState<HTMLDivElement | null>(null);
 
   // once the thread is there, the questions opened are scrolled to, or,
-  // for the session alone, its newest message
+  // for the session alone, the stage asked for or its newest message
   const timeline = useRef<HTMLDivElement>(null);
   const scrolled = useRef(false);
   useEffect(() => {
@@ -161,9 +163,11 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
       document.getElementById(`set-${focus.id}`)?.scrollIntoView({ block: "start" });
     } else if (session && timeline.current) {
       scrolled.current = true;
-      timeline.current.scrollTop = timeline.current.scrollHeight;
+      const started = stage ? document.getElementById(`status-${stage}`) : null;
+      if (started) started.scrollIntoView({ block: "center" });
+      else timeline.current.scrollTop = timeline.current.scrollHeight;
     }
-  }, [items, focus, session]);
+  }, [items, focus, session, stage]);
 
   // the timeline keeps room under its last message for the chat box over it
   useEffect(() => {

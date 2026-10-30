@@ -400,3 +400,35 @@ async fn sessions_are_filtered_by_project_and_list_their_projects() {
     assert_eq!(listed["facets"]["repos"], json!(["acme", "acme/web"]));
     assert_eq!(listed["facets"]["unassigned"], true);
 }
+
+#[tokio::test]
+async fn stages_are_searched_by_name_across_sessions() {
+    let app = app();
+    let start = |text: &str| json!({"text": text, "kind": "start", "origin": {"repo": "acme"}});
+    status(&app, "claude-code", "s-a", start("Add rate limiting")).await;
+    status(
+        &app,
+        "claude-code",
+        "s-a",
+        json!({"text": "Running the tests"}),
+    )
+    .await;
+    status(&app, "claude-code", "s-a", start("Document the limits")).await;
+    status(&app, "codex", "s-b", start("Fix the rate of retries")).await;
+
+    let (status_code, found) = call(&app, "GET", "/api/v1/stages?q=rate", None).await;
+    assert_eq!(status_code, StatusCode::OK, "{found}");
+    let stages = found["stages"].as_array().unwrap();
+    // only the starts whose name matches, newest first, with their session
+    let names: Vec<&str> = stages.iter().map(|s| s["text"].as_str().unwrap()).collect();
+    assert_eq!(names, ["Fix the rate of retries", "Add rate limiting"]);
+    assert_eq!(stages[1]["agent"], "claude-code");
+    assert_eq!(stages[1]["session"], "s-a");
+    assert_eq!(stages[1]["repo"], "acme");
+    assert!(stages[1]["id"].is_i64());
+
+    // no words: the newest stages, as many as asked
+    let (_, found) = call(&app, "GET", "/api/v1/stages?limit=1", None).await;
+    assert_eq!(found["stages"][0]["text"], "Fix the rate of retries");
+    assert_eq!(found["stages"].as_array().unwrap().len(), 1);
+}

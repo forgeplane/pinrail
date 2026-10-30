@@ -1,19 +1,21 @@
-// Search across the app: pending reviews, decided ones, plugins and the
-// shell's actions, from one field. Cmd+K opens it; arrows move, Enter opens,
+// Search across the app: pending reviews, decided ones, the stages agents
+// started, plugins and the shell's actions, from one field. Cmd+K opens it; arrows move, Enter opens,
 // Tab cycles the filter, Escape closes.
 
-import { Search, Zap, type LucideIcon } from "lucide-react";
+import { GitCommitHorizontal, Search, Zap, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../api/client";
-import type { Plugin, Review } from "../api/types";
+import type { Plugin, Review, Stage } from "../api/types";
 import { age, settledAt } from "../lib/format";
 import { reviewPath } from "../lib/url";
+import { AgentIcon } from "./AgentIcon";
 import { useLive } from "../state/live";
 import { useSettings } from "../state/settings";
 import { OutcomeBadge } from "./Badges";
 import { PluginIcon } from "./PluginIcon";
 import { ReviewIcon, reviewLabel } from "./ReviewIcon";
+import { sessionPath } from "./Thread";
 
 export type PaletteAction = {
   id: string;
@@ -23,11 +25,12 @@ export type PaletteAction = {
   run: () => void;
 };
 
-type Filter = "all" | "inbox" | "history" | "plugins" | "actions";
+type Filter = "all" | "inbox" | "history" | "stages" | "plugins" | "actions";
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "inbox", label: "Inbox" },
   { key: "history", label: "History" },
+  { key: "stages", label: "Stages" },
   { key: "plugins", label: "Plugins" },
   { key: "actions", label: "Actions" },
 ];
@@ -37,6 +40,7 @@ type Item = { key: string; group: Filter; title: ReactNode; meta?: ReactNode; ic
 const GROUP_TITLES: Record<Exclude<Filter, "all">, [string, string]> = {
   inbox: ["Pending reviews", "Pending reviews"],
   history: ["Recent decisions", "Decisions"],
+  stages: ["Stages", "Stages"],
   plugins: ["Plugins", "Plugins"],
   actions: ["Actions", "Actions"],
 };
@@ -63,6 +67,7 @@ export function CommandPalette({
   const [active, setActive] = useState(0);
   const [history, setHistory] = useState<Review[]>([]);
   const [plugins, setPlugins] = useState<Plugin[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const q = query.trim().toLowerCase();
@@ -97,6 +102,29 @@ export function CommandPalette({
           })
           .then((listing) => current && setHistory(listing.reviews))
           .catch(() => current && setHistory([]));
+      },
+      q ? 150 : 0,
+    );
+    return () => {
+      current = false;
+      window.clearTimeout(timer);
+    };
+  }, [open, q, filter, all]);
+
+  // the stages agents started, from the server, once something is typed
+  useEffect(() => {
+    if (!open || (filter !== "all" && filter !== "stages")) return;
+    if (!q && all) {
+      setStages([]);
+      return;
+    }
+    let current = true;
+    const timer = window.setTimeout(
+      () => {
+        api
+          .stages({ q: q || undefined, limit: all ? "5" : "20" })
+          .then((found) => current && setStages(found.stages))
+          .catch(() => current && setStages([]));
       },
       q ? 150 : 0,
     );
@@ -145,6 +173,26 @@ export function CommandPalette({
         });
       }
     }
+    if (want("stages")) {
+      for (const s of stages) {
+        out.push({
+          key: `stage:${s.id}`,
+          group: "stages",
+          icon: <GitCommitHorizontal size={15} />,
+          title: s.text,
+          meta: (
+            <>
+              <span className="with-icon">
+                <AgentIcon requestedBy={s.agent} size={12} /> {s.agent}
+              </span>
+              {s.repo ? <span>{s.repo}</span> : null}
+              <span>{age(s.at)}</span>
+            </>
+          ),
+          run: () => navigate(sessionPath({ agent: s.agent, id: s.session }), { state: { stage: s.id } }),
+        });
+      }
+    }
     if (want("plugins")) {
       const found = plugins.filter((p) => matches(q, p.name, p.title));
       for (const p of all ? found.slice(0, q ? 5 : 3) : found) {
@@ -183,7 +231,7 @@ export function CommandPalette({
       }
     }
     return out;
-  }, [all, filter, q, waiting, history, plugins, actions, navigate, openIn]);
+  }, [all, filter, q, waiting, history, stages, plugins, actions, navigate, openIn]);
 
   useEffect(() => setActive(0), [q, filter]);
   useEffect(() => {

@@ -15,6 +15,7 @@ import type {
   ServerSettings,
   Session,
   SessionStatus,
+  Stage,
   Violation,
 } from "./types";
 
@@ -98,6 +99,9 @@ export const api = {
       "GET",
       `/api/v1/sessions${query(params)}`,
     ),
+  /** the stages agents started, newest first, those whose names hold every word of q */
+  stages: (params: { q?: string; limit?: string }) =>
+    request<{ stages: Stage[] }>("GET", `/api/v1/stages${query(params)}`),
   /** a session and its questions and reviews, oldest first */
   session: (agent: string, id: string) =>
     request<{ session: Session; items: Review[]; statuses: SessionStatus[] }>(

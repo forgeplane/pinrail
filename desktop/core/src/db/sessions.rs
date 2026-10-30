@@ -89,6 +89,31 @@ pub fn status_notice(agent: &str, id: &str, status: &StatusRow) -> Value {
     json!({ "agent": agent, "id": id, "status": status.to_json() })
 }
 
+/// A stage an agent started, as a search finds it: the start status and
+/// its session.
+#[derive(Debug, Clone)]
+pub struct StageRow {
+    pub id: i64,
+    pub agent: String,
+    pub session: String,
+    pub text: String,
+    pub at: DateTime<Utc>,
+    pub repo: Option<String>,
+}
+
+impl StageRow {
+    pub fn to_json(&self) -> Value {
+        json!({
+            "id": self.id,
+            "agent": self.agent,
+            "session": self.session,
+            "text": self.text,
+            "at": crate::reviews::iso(self.at),
+            "repo": self.repo,
+        })
+    }
+}
+
 /// Which sessions a listing gives.
 #[derive(Debug, Clone, Default)]
 pub struct SessionFilters {
@@ -294,6 +319,40 @@ impl Db {
         )?;
         tx.commit()?;
         Ok((status, event_id))
+    }
+
+    /// The stages agents started in any session whose names hold every
+    /// word of `text`, newest first, at most `limit` of them.
+    pub fn stages(&self, text: Option<&str>, limit: usize) -> rusqlite::Result<Vec<StageRow>> {
+        let mut args: Vec<String> = Vec::new();
+        let mut sql = String::from(
+            "SELECT st.id, st.agent, st.session, st.text, st.created_at, s.repo
+             FROM session_statuses st
+             JOIN sessions s ON s.agent = st.agent AND s.id = st.session
+             WHERE st.kind = 'start'",
+        );
+        for word in text.unwrap_or_default().split_whitespace() {
+            let escaped = word
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_");
+            args.push(format!("%{escaped}%"));
+            sql.push_str(&format!(" AND st.text LIKE ?{} ESCAPE '\\'", args.len()));
+        }
+        sql.push_str(&format!(" ORDER BY st.id DESC LIMIT {limit}"));
+        let conn = self.conn();
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(params_from_iter(args.iter()), |row| {
+            Ok(StageRow {
+                id: row.get(0)?,
+                agent: row.get(1)?,
+                session: row.get(2)?,
+                text: row.get(3)?,
+                at: crate::reviews::parse_datetime(&row.get::<_, String>(4)?).unwrap_or_default(),
+                repo: row.get(5)?,
+            })
+        })?;
+        rows.collect()
     }
 
     /// The session's statuses, oldest first, each with the review it came

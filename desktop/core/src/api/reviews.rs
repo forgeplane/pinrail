@@ -17,7 +17,7 @@ use super::ApiState;
 use super::error::ApiError;
 use super::parse_body;
 use crate::Pinrail;
-use crate::db::{SessionFilters, SessionRow, StatusKind};
+use crate::db::{SessionFilters, SessionRow, StageRow, StatusKind};
 use crate::error::Error;
 use crate::markdown::Head;
 use crate::reviews::{Filters, Kind, Source, Status, Via, iso};
@@ -41,6 +41,7 @@ pub fn routes() -> Router<ApiState> {
         .route("/api/v1/reviews/{id}/events", get(events))
         .route("/api/v1/reviews/{id}/attachments/{name}", get(attachment))
         .route("/api/v1/sessions", get(sessions))
+        .route("/api/v1/stages", get(stages))
         .route("/api/v1/sessions/{agent}/{id}", get(session))
         .route("/api/v1/sessions/{agent}/{id}/status", post(status))
 }
@@ -518,6 +519,25 @@ async fn sessions(
         "sessions": sessions.iter().map(session_json).collect::<Vec<_>>(),
         "total": total,
         "facets": {"repos": repos, "unassigned": unassigned},
+    })))
+}
+
+/// The stages agents started in any session, newest first: `stages`, each
+/// with its session. `q` keeps those whose names hold every word, and
+/// `limit` (at most 50, 20 by default) caps them.
+async fn stages(
+    State(state): State<Arc<Pinrail>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<Value>, ApiError> {
+    let text = params.get("q").filter(|v| !v.is_empty());
+    let limit = params
+        .get("limit")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(20usize)
+        .clamp(1, 50);
+    let stages = state.reviews().stages(text.map(String::as_str), limit)?;
+    Ok(Json(json!({
+        "stages": stages.iter().map(StageRow::to_json).collect::<Vec<_>>(),
     })))
 }
 

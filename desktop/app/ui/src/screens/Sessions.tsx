@@ -4,7 +4,7 @@
 
 import { FolderGit2, MessagesSquare, Search, SearchX } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { Link, useNavigate, useParams, type To } from "react-router";
+import { Link, useLocation, useNavigate, useParams, type To } from "react-router";
 import { api } from "../api/client";
 import type { Session } from "../api/types";
 import { AgentIcon } from "../components/AgentIcon";
@@ -295,6 +295,8 @@ export function Sessions() {
 /** A session's thread, at /sessions/:agent/:id. */
 export function SessionScreen() {
   const { agent = "", id = "" } = useParams();
+  // the stage the command palette opened the thread at
+  const stage = (useLocation().state as { stage?: number } | null)?.stage;
   // the task the agent works on names the session, once the thread has it
   const [title, setTitle] = useState<string | null>(null);
   const crumb = useMemo(
@@ -312,7 +314,12 @@ export function SessionScreen() {
   useTopBar(useMemo(() => ({ crumb }), [crumb]));
   return (
     <div className="review-page thread-page">
-      <Thread key={`${agent}/${id}`} session={{ agent, id }} onSession={(s) => setTitle(s.title)} />
+      <Thread
+        key={`${agent}/${id}/${stage ?? ""}`}
+        session={{ agent, id }}
+        stage={stage}
+        onSession={(s) => setTitle(s.title)}
+      />
     </div>
   );
 }
