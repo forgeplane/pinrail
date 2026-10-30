@@ -676,3 +676,15 @@ test("a review's header links to the thread of its session", async ({ page }) =>
   await expect(page.getByTestId("review-title")).toHaveText("Header: on its own");
   await expect(link).toHaveCount(0);
 });
+
+test("J on the Sessions page scrolls the focused session into view", async ({ page }) => {
+  await clearInbox(page.request);
+  await page.setViewportSize({ width: 1100, height: 500 });
+  for (let i = 0; i < 14; i++) await send(page.request, asked(fresh(), `Scroll: ${i}`));
+  await page.goto("/#/sessions");
+  const rows = page.getByTestId("session-row");
+  await expect(rows.nth(13)).toBeAttached();
+  for (let i = 0; i < 13; i++) await page.keyboard.press("j");
+  await expect(rows.nth(13)).toHaveClass(/is-focused/);
+  await expect(rows.nth(13)).toBeInViewport();
+});

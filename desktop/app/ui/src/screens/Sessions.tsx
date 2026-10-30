@@ -151,6 +151,12 @@ export function Sessions() {
     return () => window.removeEventListener("keydown", onWalk, true);
   }, [openKey, sessions, openInPanel, closePanel]);
 
+  // the focused row stays in view as J and K move it
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    list.current?.children[focused]?.scrollIntoView({ block: "nearest" });
+  }, [focused]);
+
   // the keys of the other lists: j and k move, Enter opens, / searches
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -219,7 +225,7 @@ export function Sessions() {
           </EmptyState>
         ) : (
           <>
-            <div className="inbox-list">
+            <div className="inbox-list" ref={list}>
               {sessions.map((s, i) => {
                 const waiting = s.waiting.questions + s.waiting.reviews;
                 // the newest status, unless it is the start that titles the session
