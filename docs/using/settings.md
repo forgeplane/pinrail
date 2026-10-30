@@ -13,7 +13,7 @@ Open settings with <kbd>⌘,</kbd>, with the gear at the bottom of the sidebar, 
 
 | Setting | What it does |
 |---|---|
-| **Opening a review** | *Beside the list* opens a review from the inbox or the history in a panel next to the list, which stays in view. *As a page* opens it on a page of its own. |
+| **Opening a review** | *Beside the list* opens a review from the inbox or the history, or a session from the Sessions page, in a panel next to the list, which stays in view. *As a page* opens it on a page of its own. |
 
 ### Startup
 

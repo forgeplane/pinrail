@@ -41,7 +41,7 @@ A question's thread links to its session's page with *session* and the id in its
 
 ![The Sessions page: agent sessions with what waits in each, what each holds, its project and its last activity.](screenshot:sessions "Sessions waiting for you come first.")
 
-The **Sessions** page, in the sidebar, lists every session that asked you something, sent a review or reported a status: those waiting for you first, then the most recently active. Search for an agent, a session id or a title. The sidebar's *Sessions* section lists the sessions waiting for you, with how many questions and reviews wait in each.
+The **Sessions** page, in the sidebar, lists every session that asked you something, sent a review or reported a status: those waiting for you first, then the most recently active. Search for an agent, a session id or a title. Click a session to open its thread in the side panel, beside the list, as the inbox opens a review. Press <kbd>J</kbd> and <kbd>K</kbd> to open the next and previous session, and <kbd>Esc</kbd> to close the panel. The panel hides the session's details at first: show them with the button in its header. *Open as a page* opens the session on its own page. When *Opening a review* is set to *As a page* in [Settings](/docs/using/settings/), sessions open on their own page too. The sidebar's *Sessions* section lists the sessions waiting for you, with how many questions and reviews wait in each.
 
 ## What the agent is doing
 

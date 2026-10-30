@@ -30,6 +30,8 @@ The `pinrail` command ships inside the app and carries the app's version.
   which becomes the session's title.
 - The session details show the project, the branch and the folder the
   agent works in. The CLI now sends the folder with every review.
+- The Sessions page opens a session's thread in the side panel, as the
+  inbox opens a review.
 
 ### Changed
 
