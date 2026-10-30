@@ -132,7 +132,7 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   const theirs = `menu-codex-${run}`;
   await report(page.request, "claude-code", mine, { text: "Draw the menu", kind: "start", origin: { repo } });
   await ask(page.request, "claude-code", mine, repo, `Sidebar: the menu? ${run}`);
-  await report(page.request, "codex", theirs, { text: "Tidy up", kind: "start", origin: { repo } });
+  await report(page.request, "codex", theirs, { text: "Tidy up", kind: "start", origin: { repo, ref: "tidy-up" } });
 
   await page.goto("/#/");
   const heading = region(page)
@@ -163,6 +163,13 @@ test("the heading's menu groups, shows and filters the sessions, and the setting
   // a second line of details
   await menu.getByRole("menuitemcheckbox", { name: "Show details" }).click();
   await expect(sessionRow(page, "codex", theirs).locator(".sidebar-session-details")).toContainText("ago");
+
+  // the branch, with its icon
+  await menu.getByRole("menuitem", { name: /Details/ }).click();
+  await menu.getByRole("menuitemcheckbox", { name: "Branch" }).click();
+  const branch = sessionRow(page, "codex", theirs).locator(".sidebar-session-branch");
+  await expect(branch).toHaveText("tidy-up");
+  await expect(branch.locator("svg")).toBeVisible();
 
   // an agent filter, and Reset
   await menu.getByRole("menuitem", { name: /Agent/ }).click();

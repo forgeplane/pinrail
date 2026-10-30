@@ -4,8 +4,8 @@
 // lib/sidebarSessions; this draws them and keeps the choices in the
 // settings.
 
-import { ChevronDown, ChevronRight, FolderGit2, SlidersHorizontal } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, FolderGit2, GitBranch, SlidersHorizontal } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router";
 import { api } from "../api/client";
 import type { Review, Session } from "../api/types";
@@ -105,9 +105,10 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
 
   const sessionRow = (row: Row) => {
     const s = row.session;
-    const details = choices.show_details
-      ? choices.details
-          .map((d) =>
+    // the chosen details, each a part of the line; the branch with its icon
+    const details: { key: string; part: ReactNode }[] = choices.show_details
+      ? choices.details.flatMap((d) => {
+          const part =
             d === "activity"
               ? `${age(s.last_at, now)} ago`
               : d === "status"
@@ -115,12 +116,16 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
                   ? s.status.text
                   : null
                 : d === "branch"
-                  ? s.ref
-                  : s.agent,
-          )
-          .filter(Boolean)
-          .join(" · ")
-      : "";
+                  ? s.ref && (
+                      <span className="sidebar-session-branch">
+                        <GitBranch size={10} aria-hidden />
+                        {s.ref}
+                      </span>
+                    )
+                  : s.agent;
+          return part ? [{ key: d, part }] : [];
+        })
+      : [];
     const tip = (
       <span className="sidebar-session-tip">
         <span>
@@ -144,9 +149,14 @@ export function SidebarSessions({ shown }: { shown: string | null }) {
             </span>
             <span className="sidebar-session-text">
               <span className="sidebar-review-title">{s.title ?? s.agent}</span>
-              {details ? (
+              {details.length > 0 ? (
                 <span className="sidebar-session-details" title={stamp(s.last_at)}>
-                  {details}
+                  {details.map(({ key, part }, i) => (
+                    <Fragment key={key}>
+                      {i > 0 ? " · " : null}
+                      {part}
+                    </Fragment>
+                  ))}
                 </span>
               ) : null}
             </span>

@@ -482,6 +482,15 @@ h1 {
   font-size: 11px;
   color: var(--faint);
 }
+.sidebar-session-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: -1px;
+}
+.sidebar-session-branch svg {
+  flex: none;
+}
 .sidebar-session-tip,
 .stage-tip {
   display: grid;
