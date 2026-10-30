@@ -458,6 +458,13 @@ test("the statuses an agent reports show in its thread between the questions and
   await expect(groups.last().getByTestId("status")).toHaveText([/Running the tests/, /Fixing a flaky test/]);
   await expect(thread(page).getByTestId("finished")).toContainText("Finished: Pushed the fix");
   await expect(thread(page).getByTestId("head-status")).toContainText("Finished: Pushed the fix");
+  // the task in the panel, which goes to where it started
+  const task = page.getByRole("region", { name: "Tasks" }).getByTestId("task");
+  await expect(task).toHaveCount(1);
+  await expect(task).toContainText("Add rate limiting");
+  await expect(task).toHaveAccessibleName(/^Add rate limiting · Finished in /);
+  await task.click();
+  await expect(thread(page).getByTestId("started")).toBeInViewport();
   // the session's details, with the folder the agent works in
   const details = page.getByRole("complementary", { name: "Session details" });
   await expect(details).toContainText("acme/api");

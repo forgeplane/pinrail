@@ -3096,6 +3096,79 @@ body.is-resizing iframe {
   color: var(--text);
   text-decoration: none;
 }
+/* the tasks the agent started, as stops on a rail, oldest first: a check
+   for a task finished, the last one filled, and a ring for one left for
+   another; each a link to its Started line */
+.thread-rail {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.thread-rail-stop {
+  position: relative;
+}
+/* the rail between this stop and the next */
+.thread-rail-stop:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 17px;
+  bottom: -7px;
+  width: 2px;
+  background: var(--border-strong);
+}
+.thread-rail-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.thread-rail-link:hover {
+  background: var(--bg-hover);
+  text-decoration: none;
+}
+.thread-rail-dot {
+  position: relative;
+  z-index: 1;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--bg);
+  color: #fff;
+}
+.is-done .thread-rail-dot {
+  border-color: var(--ok);
+  background: var(--ok);
+}
+.is-last .thread-rail-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.thread-rail-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.is-last .thread-rail-text {
+  font-weight: 600;
+}
+.thread-rail-when {
+  flex: none;
+  font-size: 11.5px;
+}
 .thread-aside-card:hover {
   background: var(--bg-hover);
   text-decoration: none;

@@ -27,7 +27,7 @@ import { MOD, hasMod, modalOpen } from "../lib/keys";
 import { renderMarkdown } from "../lib/markdown";
 import { openExternal } from "../lib/native";
 import { answersOf, decisionOf, pick, unanswered, type Draft } from "../lib/questions";
-import { timeline as entriesOf } from "../lib/sessions";
+import { timeline as entriesOf, tasks } from "../lib/sessions";
 import { useLive } from "../state/live";
 import { useToast } from "../state/toasts";
 import { AgentIcon } from "./AgentIcon";
@@ -161,6 +161,7 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
 
   const agent = named?.agent ?? focus?.requested_by ?? null;
   const waiting = items.filter((r) => r.status === "pending");
+  const started = useMemo(() => tasks(statuses), [statuses]);
   const questions = items.filter((r) => r.kind === "question").length;
   const reviews = items.length - questions;
   const repo = session?.repo ?? focus?.origin.repo ?? null;
@@ -303,6 +304,50 @@ export function Thread({ focus, session: given, inPanel = false, onClose, onSess
                 </a>
               ))}
             </section>
+            {started.length > 0 ? (
+              <section aria-label="Tasks">
+                <h2>Tasks</h2>
+                <ol className="thread-rail">
+                  {started.map((task, i) => {
+                    const last = i === started.length - 1;
+                    const state = task.done ? "is-done" : last ? "is-last" : "is-left";
+                    const took = task.done ? age(task.start.at, Date.parse(task.done.at)) : null;
+                    const about = [
+                      task.start.text,
+                      task.current ? "In progress" : took ? `Finished in ${took}` : null,
+                      `Started ${stamp(task.start.at)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return (
+                      <li key={task.start.id} className={`thread-rail-stop ${state}`}>
+                        <a
+                          href={`#status-${task.start.id}`}
+                          className="thread-rail-link"
+                          data-testid="task"
+                          title={about}
+                          aria-label={about}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            document
+                              .getElementById(`status-${task.start.id}`)
+                              ?.scrollIntoView({ block: "center", behavior: "smooth" });
+                          }}
+                        >
+                          <span className="thread-rail-dot" aria-hidden>
+                            {task.done ? <Check size={9} strokeWidth={3} /> : null}
+                          </span>
+                          <span className="thread-rail-text">{task.start.text}</span>
+                          <span className="faint thread-rail-when">
+                            {task.current ? "now" : took ? took : `${age(task.start.at)} ago`}
+                          </span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+            ) : null}
             {session ? (
               <section>
                 <h2>Session</h2>
@@ -420,7 +465,7 @@ function StatusGroup({ statuses }: { statuses: SessionStatus[] }) {
 /** The agent saying it starts a task, which it names. */
 function StartedLine({ status }: { status: SessionStatus }) {
   return (
-    <div className="thread-divider thread-started" data-testid="started">
+    <div className="thread-divider thread-started" id={`status-${status.id}`} data-testid="started">
       <span>
         <Play size={12} aria-hidden /> Started: {status.text} ·{" "}
         <span title={stamp(status.at)}>{age(status.at)} ago</span>

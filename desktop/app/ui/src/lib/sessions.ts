@@ -54,3 +54,24 @@ export function timeline(items: Review[], statuses: SessionStatus[]): Entry[] {
   });
   return entries;
 }
+
+/** A task the agent started: its start, how it ended if it said, and
+ *  whether it is the one the agent works on now. */
+export type Task = { start: SessionStatus; done: SessionStatus | null; current: boolean };
+
+/** The tasks the agent started, oldest first. A done ends the task before
+ *  it; a task followed by another start ended without a word. */
+export function tasks(statuses: SessionStatus[]): Task[] {
+  const all: Task[] = [];
+  for (const status of statuses) {
+    const open = all[all.length - 1];
+    if (status.kind === "start") all.push({ start: status, done: null, current: false });
+    else if (status.kind === "done" && open && !open.done) open.done = status;
+  }
+  const last = all[all.length - 1];
+  if (last && !last.done) {
+    const later = statuses.slice(statuses.indexOf(last.start) + 1);
+    last.current = !later.some((s) => s.kind === "done");
+  }
+  return all;
+}
